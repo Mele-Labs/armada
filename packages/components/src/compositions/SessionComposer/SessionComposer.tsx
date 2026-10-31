@@ -1,11 +1,12 @@
 import { useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { Cpu, File, Lightbulb, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
+import { Cpu, File, Lightbulb, Mic, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { readKept, useKept, writeKept } from "../../keep";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
+import { Kbd } from "../../primitives/Kbd/Kbd";
 import { ProseLinks } from "../../primitives/Prose/Prose";
 import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -13,6 +14,8 @@ import { isPressed } from "../../keymap";
 import { modelSaid } from "../SessionFrame/model-said";
 import { useThreadYesWaits } from "../SessionThread/thread-keys";
 import { isLargePaste, snippetOf } from "./large-paste";
+import { QuickBar, quickLines } from "./QuickBar";
+import type { QuickPhrase } from "../ThreadSettings/thread-look";
 import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
 import { addressOf, backspaceInBlock, beforeCaret, caretOffset, caretToEnd, CHIP, decorate, drawnAsText, enterInBlock, readDom, redraw, sentText, tagNode, writeDom } from "./message-dom";
@@ -179,6 +182,14 @@ export type SessionComposerProps = {
    * **A key alone asks once**; `{ key, at }` asks again each time `at` changes, for a box already in view.
    */
   focusFor?: string | { key: string; at: number };
+  /**
+   * Replies one press away, in a row over the box: the agent's question's `asked` answers, then his own `phrases`. A press or
+   * ⌘1 to ⌘9 sends one, ⇧ puts it in the box; `onSave` keeps what the box holds as a saved line. **While the box has the
+   * focus ⌘1 to ⌘9 are the bar's**, not the tabs'. Absent draws no bar.
+   */
+  quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void };
+  /** Talk: a press, or ⌥Space held in the box, listens, and each word heard joins the box. Nothing is sent by it. Absent draws no Talk. */
+  talk?: { listen: (onWord: (word: string) => void) => () => void };
 };
 
 /** The message: its text holds a CHIP where each tag stands, and `tags` lists them in order. */
@@ -214,6 +225,9 @@ export function quoteIntoDraft(draftKey: string, quote: string): void {
   const seeded = seededFrom(before === "" ? quote : `${before}\n\n${quote}`);
   writeKept<Draft>(key, { ...was, text: seeded }, { text: seeded, tags: was.tags });
 }
+
+/** Words put after what the box holds, a space between. */
+const joined = (text: string, words: string): string => (text.trim() === "" ? words : `${text.replace(/\s+$/, "")} ${words}`);
 
 /** The commands a `/` query keeps: names that start with it first, then names that hold it. */
 function matching<T extends { name: string }>(commands: readonly T[], query: string): T[] {
@@ -318,6 +332,8 @@ export function SessionComposer({
   attachOnly = false,
   draftKey,
   focusFor,
+  quick,
+  talk,
 }: SessionComposerProps) {
   // The selected option's own words, once a turn has resolved its model: "Opus 5.5" where the id is of the alias's family.
   const resolvedSaid = resolvedModel === undefined ? undefined : modelSaid(resolvedModel);
@@ -553,6 +569,22 @@ export function SessionComposer({
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // ⌘1 to ⌘9 reach the quick bar's lines while the box has the focus; stopped here, so the tabs do not move too.
+    const digit = quick === undefined || !event.metaKey || event.ctrlKey || event.altKey ? undefined : /^Digit([1-9])$/.exec(event.nativeEvent.code)?.[1];
+    const line = digit === undefined || quick === undefined ? undefined : quickLines(quick.asked, quick.phrases)[Number(digit) - 1];
+    if (line !== undefined) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.shiftKey) dropLine(line);
+      else sendLine(line);
+      return;
+    }
+    // ⌥Space held listens, and its release stops.
+    if (talk !== undefined && event.altKey && !event.metaKey && !event.ctrlKey && event.nativeEvent.code === "Space") {
+      event.preventDefault();
+      if (!event.repeat) startTalk(true);
+      return;
+    }
     const box = editor.current;
     const typing = box !== null && !event.nativeEvent.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey;
     if (typing && event.key === "Backspace" && backspaceInBlock(box)) {
@@ -631,6 +663,46 @@ export function SessionComposer({
     send();
   };
 
+  /** A quick line goes as it is, whatever the box holds, and the box keeps it. */
+  const sendLine = (line: string) => {
+    if (!disabled) void onSend({ text: line, files: [], tags: [] });
+  };
+  /** A quick line put after what the box holds, to finish before sending. */
+  const dropLine = (line: string) => {
+    setDraft((was) => ({ ...was, text: joined(was.text, line) }));
+    const box = editor.current;
+    if (box === null) return;
+    box.focus();
+    caretToEnd(box);
+  };
+
+  // Talk: words join the box as they are heard. Held from ⌥Space, its release stops it; pressed, a second press does.
+  const [listening, setListening] = useState(false);
+  const stopTalk = useRef<(() => void) | undefined>(undefined);
+  const heldTalk = useRef(false);
+  const endTalk = () => {
+    stopTalk.current?.();
+    stopTalk.current = undefined;
+    heldTalk.current = false;
+    setListening(false);
+  };
+  const startTalk = (held: boolean) => {
+    if (talk === undefined || stopTalk.current !== undefined) return;
+    heldTalk.current = held;
+    setListening(true);
+    stopTalk.current = talk.listen((word) => setDraft((was) => ({ ...was, text: joined(was.text, word) })));
+  };
+  useEffect(() => {
+    if (!listening) return;
+    const release = (event: globalThis.KeyboardEvent) => {
+      if (heldTalk.current && (event.code === "Space" || event.key === "Alt")) endTalk();
+    };
+    window.addEventListener("keyup", release);
+    return () => window.removeEventListener("keyup", release);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listening]);
+  useEffect(() => () => stopTalk.current?.(), []);
+
   const chips = (
     <div className="armada-session-composer__chips" role="group" aria-label="Attached">
       {files.map((one) => (
@@ -648,7 +720,7 @@ export function SessionComposer({
     </Button>
   );
   const said = MODES.find((one) => one.id === mode)!.says;
-  return (
+  const box = (
     <form ref={form} className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
         <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Job or a file"} data-numbered={token?.trigger === "#" ? "" : undefined}>
@@ -751,9 +823,23 @@ export function SessionComposer({
           </>
         )}
         {bare || (compact && held) ? null : chips}
+        {talk === undefined ? null : (
+          <Tooltip label={<>Talk <Kbd>⌥Space</Kbd></>}>
+            <Button type="button" variant="ghost" size="sm" aria-label="Talk" aria-pressed={listening} aria-keyshortcuts="Alt+Space" className="armada-session-composer__talk" data-listening={listening || undefined} disabled={disabled} onClick={() => (listening ? endTalk() : startTalk(false))}>
+              <Mic size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        )}
         {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
       </div>
     </form>
+  );
+  if (quick === undefined) return box;
+  return (
+    <div className="armada-session-composer__with-quick">
+      <QuickBar asked={quick.asked} phrases={quick.phrases} onSend={sendLine} onDrop={dropLine} canSave={text.trim() !== ""} onSave={() => quick.onSave(sentText(text, draft.tags).trim())} />
+      {box}
+    </div>
   );
 }
 

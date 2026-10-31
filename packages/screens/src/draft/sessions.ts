@@ -377,7 +377,7 @@ type SessionRowKinds =
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, where it stands, and where Fleet read it failed. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string; blame?: CheckBlame }
   /** A command the person ran from the thread or the band, which the Session was told: its exit (`code` is null where it was stopped) and the last lines it printed, as plain text. */
-  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
+  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string; /** Still running, since `since`. **A mock's field**: Fleet tells the Session of a run only when it ends. */ running?: true; since?: string }
   /**
    * An HTTP request sent from Requests, by him with this Session open or by its agent, and its answer. The request half is whole, to
    * reopen and send again; `status` is null where nothing answered and `error` says why.

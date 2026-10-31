@@ -5,7 +5,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
   min-height: 0;
 }
@@ -433,6 +433,83 @@
   overflow-wrap: anywhere;
 }
 
+/* A run still going: no fold to open yet, its time ticking after the command. */
+.armada-session-fold--ran[data-running] > .armada-session-fold__head {
+  cursor: default;
+}
+
+.armada-session-fold__elapsed {
+  flex: none;
+  margin-inline-start: var(--space-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-subtle);
+}
+
+/* The last lines a run sent, under it while it is folded; opened, the whole tail takes their place. */
+.armada-session-fold__peek {
+  margin: var(--space-1) 0 0 var(--space-4);
+  padding: 0 0 0 var(--space-2);
+  border-left: var(--border-width) solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.armada-session-fold--ran:has(details[open]) > .armada-session-fold__peek {
+  display: none;
+}
+
+/* Ended in front of him: the mark settles and the lines slide down into place, once. */
+.armada-session-fold--ran[data-landed] .armada-terminal-mark {
+  animation: armada-ran-settle var(--duration-sheet) var(--ease);
+}
+
+.armada-session-fold--ran[data-landed] > .armada-session-fold__peek {
+  animation: armada-ran-land var(--duration-travel) var(--ease) both;
+}
+
+@keyframes armada-ran-settle {
+  from { opacity: 0.4; transform: scale(0.7); }
+}
+
+@keyframes armada-ran-land {
+  from { opacity: 0; transform: translateY(calc(var(--space-1) * -1)); clip-path: inset(0 0 100% 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-fold--ran[data-landed] .armada-terminal-mark,
+  .armada-session-fold--ran[data-landed] > .armada-session-fold__peek {
+    animation: none;
+  }
+}
+
+/* The Aa panel's look. Stamps and the agent's name hidden; the body read a size up or down, from the type scale. */
+.armada-session-thread[data-times="hidden"] .armada-helm-thread__rows .armada-stamp {
+  display: none;
+}
+
+.armada-session-thread[data-who="hidden"] .armada-helm-thread__who {
+  display: none;
+}
+
+.armada-session-thread[data-who="hidden"][data-times="hidden"] .armada-helm-thread__head {
+  display: none;
+}
+
+.armada-session-thread[data-text="xs"] { --thread-text: var(--text-xs); --thread-leading: var(--leading-xs); }
+.armada-session-thread[data-text="sm"] { --thread-text: var(--text-sm); --thread-leading: var(--leading-sm); }
+.armada-session-thread[data-text="lg"] { --thread-text: var(--text-lg); --thread-leading: var(--leading-lg); }
+
+.armada-session-thread[data-text] :is(.armada-helm-thread__message, .armada-session-you__body),
+.armada-session-thread[data-text] :is(.armada-helm-thread__message, .armada-session-you__body) .armada-prose {
+  font-size: var(--thread-text);
+  line-height: var(--thread-leading);
+}
+
 .armada-session-fold__at {
   flex: none;
   color: var(--fg-subtle);
@@ -700,29 +777,33 @@
   overflow-wrap: anywhere;
 }
 
-/* The person's own message under a band in --you, and their acts as a line in
-   the inverse neutral: neither reads as the agent's, another Session's or the lease. */
+/* The person's own message: a quiet bubble on the right, tinted off the
+   panel's ground and no wider than three quarters of it, so his words and the
+   agent's are told apart by side, not by an alert colour. Where it stands and
+   when sit under the words, small. His acts stay a line in the inverse neutral. */
 .armada-session-you {
   display: flex;
   flex-direction: column;
-  border: var(--border-width) solid var(--you-edge);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
+  align-self: flex-end;
+  max-width: 75%;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--fg-default) 5%, transparent);
   overflow: hidden;
 }
 
 .armada-session-you__band {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: color-mix(in srgb, var(--you) 14%, var(--bg-raised));
-  color: var(--you);
+  padding: 0 var(--space-3) var(--space-1);
+  color: var(--fg-subtle);
 }
 
-.armada-session-you__who {
-  flex: 1;
-  font-weight: var(--weight-medium);
+.armada-session-you__band:empty {
+  display: none;
 }
 
 .armada-session-you__at {
@@ -786,7 +867,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-1);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
 }

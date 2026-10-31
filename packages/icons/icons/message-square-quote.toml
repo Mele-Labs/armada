@@ -1,0 +1,7 @@
+[icons.message-square-quote]
+  means = "A speech bubble holding a quotation: a line kept to say again"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A quick reply he saved, on its chip over a Job's message box and its line in the thread's settings. Never a quoted message in a thread, which is the reply bar's, and never a request's criterion, which is `quote`."
+  notes = "Proposed 31 Oct 2026 for the walk `livelier-thread`. Tooltip `Saved`. Refused: `pin`, reserved to the canvas rail and never a kept item; `bookmark`, reserved to deferring a Studio node; `star`, a sketched favourite; `save`, a request in a collection."

@@ -11,3 +11,10 @@
   size = "14px"
   status = "Proposed"
   notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. The edge is dashed in the diff's add hue until Approve. Tooltips `Proposed` and `Added by the proposed change`. Refused: `plus`, reserved to the Dispatch segment."
+
+[[icons.list-plus.usage]]
+  means = "Save what the message box holds as a quick reply, at the end of the quick bar"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 31 Oct 2026 for the walk `livelier-thread`. A line added to a list. Tooltip `Save what is typed as a quick reply`. Refused: `plus`, reserved to the Dispatch segment."

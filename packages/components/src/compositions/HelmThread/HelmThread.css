@@ -24,10 +24,12 @@
   text-wrap: pretty;
 }
 
+/* Rows breathe: a quiet row is a step from the next, and a message, his or the
+   agent's, takes a further step of room either side. */
 .armada-helm-thread__rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -37,8 +39,13 @@
 .armada-helm-thread__row {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--space-1) / 2);
+  gap: var(--space-1);
   min-width: 0;
+}
+
+.armada-helm-thread__rows > :is(.armada-helm-thread__row, .armada-session-you) + *,
+.armada-helm-thread__rows > * + :is(.armada-helm-thread__row, .armada-session-you) {
+  margin-top: var(--space-2);
 }
 
 .armada-helm-thread__head {

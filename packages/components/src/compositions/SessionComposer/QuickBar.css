@@ -1,0 +1,79 @@
+/* The quick bar: one row of replies over the message box, scrolling sideways
+   rather than wrapping, so the box never moves when a question brings answers.
+   Each chip is a quiet raised pill: its kind's glyph, the words, its key. */
+
+.armada-quick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  margin-bottom: var(--space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.armada-quick::-webkit-scrollbar {
+  display: none;
+}
+
+.armada-quick__chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--h-control);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
+}
+
+.armada-quick__chip:hover {
+  border-color: var(--border-default);
+  background: var(--bg-hover);
+}
+
+.armada-quick__chip:active {
+  transform: translateY(var(--border-width));
+}
+
+.armada-quick__chip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-quick__kind {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-subtle);
+}
+
+.armada-quick__key {
+  margin-inline-start: var(--space-1);
+  color: var(--fg-subtle);
+}
+
+/* Between the answers to his question and his own lines. */
+.armada-quick__rule {
+  flex: none;
+  align-self: stretch;
+  width: var(--border-width);
+  margin: var(--space-1) var(--space-1);
+  background: var(--border-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-quick__chip {
+    transition: none;
+  }
+  .armada-quick__chip:active {
+    transform: none;
+  }
+}

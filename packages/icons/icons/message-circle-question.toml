@@ -26,3 +26,10 @@
   size = "14px"
   status = "Proposed"
   notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Waiting on you`. The rule's draft is answered in the panel, where its button says Send."
+
+[[icons.message-circle-question.usage]]
+  means = "An answer to the agent's question, on its chip in the quick bar over a Job's message box"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 31 Oct 2026 for the walk `livelier-thread`. The same claim as the reservation, an agent asking the person, on the answers offered for it. Tooltip `Asked`. Shown while the agent's last message ends in its question."

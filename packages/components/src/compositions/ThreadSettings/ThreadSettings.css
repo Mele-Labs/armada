@@ -1,0 +1,143 @@
+/* The thread's look and the quick bar's lines: one column of fields, drawn in
+   the Aa panel and in System › Thread alike. A line's acts show on its hover
+   or its focus, so the list reads as words until he reaches for one. */
+
+.armada-thread-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-thread-settings__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.armada-thread-settings__quick,
+.armada-thread-settings__voice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-thread-settings__head {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+
+.armada-thread-settings__lines {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-thread-settings__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--h-row);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-md);
+}
+
+.armada-thread-settings__line:hover,
+.armada-thread-settings__line:focus-within {
+  background: var(--bg-hover);
+}
+
+.armada-thread-settings__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+}
+
+.armada-thread-settings__acts {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  opacity: 0;
+}
+
+.armada-thread-settings__line:hover .armada-thread-settings__acts,
+.armada-thread-settings__line:focus-within .armada-thread-settings__acts {
+  opacity: 1;
+}
+
+.armada-thread-settings__add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-thread-settings__add > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-thread-settings__model {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--h-row);
+}
+
+.armada-thread-settings__model-name {
+  flex: none;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+}
+
+.armada-thread-settings__installed {
+  margin-inline-start: auto;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+/* Whisper coming down: a hairline track, filled as it arrives. */
+.armada-thread-settings__bar {
+  flex: 1;
+  height: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.armada-thread-settings__fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: inline-size var(--duration-base) var(--ease);
+}
+
+/* In the Aa panel the form sets the popover's width: wide enough for a line and its acts. */
+.armada-thread-settings[data-in="panel"] {
+  width: calc(var(--space-12) * 7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-thread-settings__fill {
+    transition: none;
+  }
+}
+
+/* Aa: two letters set in the body face, as a type control is. */
+.armada-thread-look__button {
+  font-weight: var(--weight-medium);
+  letter-spacing: 0;
+}
