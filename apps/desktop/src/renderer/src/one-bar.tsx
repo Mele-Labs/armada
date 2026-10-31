@@ -69,7 +69,8 @@ function useOpenedToDispatch(live: boolean, open: () => void, openAfter: (() => 
       if (!bare && !chord) return;
       // A row that marks `n` its own, such as a drift's Not a drift on the Workflows page, keeps the key.
       if (bare && event.target instanceof Element && event.target.closest("[data-own-keys~='n']") !== null) return;
-      if ((!chord && holdsText(event.target)) || document.querySelector('[role="dialog"]') !== null) return;
+      const modified = event.metaKey || event.ctrlKey || event.altKey;
+      if ((!modified && holdsText(event.target)) || document.querySelector('[role="dialog"]') !== null) return;
       event.preventDefault();
       event.stopPropagation();
       held.current.open();
