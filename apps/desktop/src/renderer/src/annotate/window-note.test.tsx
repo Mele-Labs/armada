@@ -28,6 +28,9 @@ function capturing(capture: Sink["capture"] = async () => PNG) {
     capture,
     saveShot: async (id, png) => void shots.set(id, png),
     shot: async (id) => shots.get(id) ?? null,
+    saveExample: async () => undefined,
+    example: async () => null,
+    removeExample: async () => undefined,
   };
   return { sink, notes, shots };
 }

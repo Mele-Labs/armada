@@ -40,6 +40,9 @@ function sink(overrides: Partial<Sink> = {}): Sink {
     capture: async () => new Uint8Array([137, 80, 78, 71]).buffer,
     saveShot: async () => undefined,
     shot: async () => null,
+    saveExample: async () => undefined,
+    example: async () => null,
+    removeExample: async () => undefined,
     ...overrides,
   };
 }

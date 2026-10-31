@@ -41,6 +41,9 @@ function sinkOf(notes: Annotation[] = [], shots = new Map<string, ArrayBuffer>()
       shots.set(id, png);
     },
     shot: async (id) => shots.get(id) ?? null,
+    saveExample: async () => undefined,
+    example: async () => null,
+    removeExample: async () => undefined,
   };
 }
 

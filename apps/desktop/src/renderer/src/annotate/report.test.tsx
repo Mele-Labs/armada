@@ -22,6 +22,9 @@ const sink: Sink = {
   capture: async () => null,
   saveShot: async () => undefined,
   shot: async () => null,
+  saveExample: async () => undefined,
+  example: async () => null,
+  removeExample: async () => undefined,
 };
 
 /** A fleet of its own per layer, so a layer's first read of state is the one waited for. */
