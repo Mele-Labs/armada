@@ -37,33 +37,80 @@
   opacity: 0;
 }
 
+/* A picked or hovered element's frame. Each take draws it its own way (the take sections at the
+ * foot); here is only where it is, its four corners and its tag, which every take places. */
 .armada-annotate__outline {
+  --hue: var(--accent);
+  --annotate-ring-off: calc(var(--border-width) * 3);
+  --annotate-corner: var(--space-3);
+  --annotate-stroke: calc(var(--border-width) * 2);
   position: fixed;
   left: var(--annotate-x);
   top: var(--annotate-y);
   width: var(--annotate-w);
   height: var(--annotate-h);
-  outline: calc(var(--border-width) * 2) solid var(--accent);
-  /* Off the element's edge, so it still reads on an accent-filled control. */
-  outline-offset: calc(var(--border-width) * 2);
   pointer-events: none;
 }
 
-.armada-annotate__outline[data-held] {
-  outline-style: dashed;
+.armada-annotate__corner {
+  display: none;
+  position: absolute;
+  width: var(--annotate-corner);
+  height: var(--annotate-corner);
+  border: 0 solid var(--hue);
+}
+
+.armada-annotate__corner[data-corner="tl"] {
+  top: calc(var(--annotate-ring-off) * -1);
+  left: calc(var(--annotate-ring-off) * -1);
+  border-top-width: var(--annotate-stroke);
+  border-left-width: var(--annotate-stroke);
+}
+
+.armada-annotate__corner[data-corner="tr"] {
+  top: calc(var(--annotate-ring-off) * -1);
+  right: calc(var(--annotate-ring-off) * -1);
+  border-top-width: var(--annotate-stroke);
+  border-right-width: var(--annotate-stroke);
+}
+
+.armada-annotate__corner[data-corner="bl"] {
+  bottom: calc(var(--annotate-ring-off) * -1);
+  left: calc(var(--annotate-ring-off) * -1);
+  border-bottom-width: var(--annotate-stroke);
+  border-left-width: var(--annotate-stroke);
+}
+
+.armada-annotate__corner[data-corner="br"] {
+  bottom: calc(var(--annotate-ring-off) * -1);
+  right: calc(var(--annotate-ring-off) * -1);
+  border-bottom-width: var(--annotate-stroke);
+  border-right-width: var(--annotate-stroke);
 }
 
 .armada-annotate__tag {
   position: absolute;
-  bottom: 100%;
-  left: 0;
-  padding: 0 var(--space-1);
+  bottom: calc(100% + var(--annotate-ring-off) + var(--space-1));
+  left: calc(var(--annotate-ring-off) * -1);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-badge);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--hue);
   border-radius: var(--radius-sm);
-  background: var(--accent);
+  background: var(--hue);
   color: var(--text-on-accent);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
   white-space: nowrap;
+}
+
+.armada-annotate__tag-name {
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
 /* The pin sits on the element's top trailing corner, kept inside the window.
@@ -114,15 +161,14 @@
  * a short window is capped to it and scrolls inside itself, rather than being
  * drawn past an edge where its text box cannot be read. */
 .armada-annotate__card {
+  --hue: var(--accent);
   position: fixed;
   left: var(--annotate-card-x);
   top: var(--annotate-card-y);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
   width: var(--w-tooltip);
   max-height: var(--annotate-card-max);
-  padding: var(--space-3);
   overflow-y: auto;
   overscroll-behavior: contain;
   border: var(--border-width) solid var(--border-default);
@@ -136,8 +182,68 @@
 /* A capped card scrolls rather than squashing what is in it: the text box keeps
  * its rows and the buttons keep their height, which is the whole point of the
  * cap. Flex would otherwise shrink both to nothing before overflowing. */
-.armada-annotate__card > * {
+.armada-annotate__card > *,
+.armada-annotate__body > * {
   flex: none;
+}
+
+/* The header band: glyph, the note's name in caps, the file and line in mono at the far end. It stays
+ * at the top while the body scrolls under it. */
+.armada-annotate__band {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--h-control);
+  padding: 0 var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-annotate__band > svg {
+  flex: none;
+}
+
+.armada-annotate__band-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.armada-annotate__band-source {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-body);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.armada-annotate__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+/* The chain and selector, one line cut short; the whole of it is the tooltip. */
+.armada-annotate__path {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  cursor: default;
 }
 
 .armada-annotate__meta {
@@ -171,18 +277,29 @@
   gap: var(--space-2);
 }
 
+/* The tools as a bank of five keys, each a glyph over its name, in equal columns. */
 .armada-annotate__toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-1);
-  padding-top: var(--space-2);
-  border-top: var(--border-width) solid var(--border-subtle);
 }
 
-/* A token row: its label in a column of its own, so Padding's steps and Gap's start in one place. */
+.armada-annotate .armada-annotate__toolbar .armada-button {
+  flex-direction: column;
+  gap: var(--space-1);
+  height: auto;
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+.armada-annotate__tool-label {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* A token row: its label in caps over its chips, so a whole scale fits on one line. */
 .armada-annotate__picker {
   display: grid;
-  grid-template-columns: var(--space-12) minmax(0, 1fr);
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
 }
 
@@ -193,9 +310,38 @@
 }
 
 .armada-annotate__picker-label {
-  align-self: center;
   color: var(--fg-muted);
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+/* A step's chip: filled, its step in mono after a bar drawn at the token's own size. */
+.armada-annotate .armada-annotate__picker .armada-button {
+  gap: var(--space-1);
+  border-color: var(--border-subtle);
+  background: var(--bg-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.armada-annotate__sample {
+  flex: none;
+  background: currentColor;
+}
+
+/* Size: a rising bar, half the type size tall. */
+.armada-annotate__picker[data-sample="size"] .armada-annotate__sample {
+  width: calc(var(--border-width) * 2);
+  height: calc(var(--annotate-sample) * 0.5);
+}
+
+/* Spacing: a widening bar, half the space wide. */
+.armada-annotate__picker[data-sample="space"] .armada-annotate__sample {
+  width: calc(var(--annotate-sample) * 0.5);
+  height: calc(var(--border-width) * 2);
 }
 
 .armada-annotate__swatch {
@@ -203,7 +349,7 @@
   height: var(--h-control-sm);
   padding: 0;
   border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--annotate-swatch);
   cursor: pointer;
 }
@@ -237,14 +383,36 @@
 
 .armada-annotate__change-property {
   color: var(--fg-muted);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
 .armada-annotate__change-values {
   overflow-wrap: anywhere;
 }
 
-.armada-annotate__change-token {
+.armada-annotate__change-before,
+.armada-annotate__change-arrow {
   color: var(--fg-subtle);
+}
+
+.armada-annotate__change-after {
+  color: var(--accent);
+}
+
+/* The token as a filled chip; a change with no token (Text) draws none. */
+.armada-annotate__change-token {
+  justify-self: start;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--accent-muted);
+  color: var(--fg-default);
+}
+
+.armada-annotate__change-token:empty {
+  padding: 0;
+  background: none;
 }
 
 .armada-annotate__examples {
@@ -264,10 +432,11 @@
 
 .armada-annotate__thumb {
   display: block;
-  width: var(--space-12);
+  width: calc(var(--space-12) + var(--space-6));
   height: var(--space-12);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
+  padding: calc(var(--border-width) * 2);
+  border: var(--border-width) solid color-mix(in srgb, var(--accent) 45%, var(--border-default));
+  border-radius: var(--radius-md);
   background: var(--bg-sunken);
   object-fit: cover;
 }
@@ -302,9 +471,18 @@
   white-space: nowrap;
 }
 
+/* The layer's name, lit: a filled chip in caps. */
 .armada-annotate__bar > :first-child {
-  color: var(--accent);
-  font-weight: var(--weight-medium);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
 /* The all-notes panel: docked to the trailing edge above the bar, scrolling inside itself. */
@@ -520,4 +698,249 @@
 .armada-annotate__status:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
+}
+
+/* ==== The takes, `?annotate-take=a|b|c` on the layer's root. Each section is one take whole; the two
+ * not picked are deleted with their selector in `Layer.tsx` (`TAKE`). ===================================== */
+
+/* ---- A, Reticle: corner brackets over a faint frame; a tinted band; lit keys --------------------------- */
+
+.armada-annotate[data-take="a"] .armada-annotate__outline {
+  outline: var(--border-width) solid color-mix(in srgb, var(--hue) 70%, transparent);
+  outline-offset: var(--annotate-ring-off);
+}
+
+/* Hovered: a plain thin frame, its tag an outline in the hue, so the picked one reads heavier. */
+.armada-annotate[data-take="a"] .armada-annotate__outline:not([data-held]) .armada-annotate__tag {
+  background: var(--bg-overlay);
+  color: var(--hue);
+}
+
+.armada-annotate[data-take="a"] .armada-annotate__outline[data-held] {
+  outline-color: color-mix(in srgb, var(--hue) 35%, transparent);
+}
+
+.armada-annotate[data-take="a"] .armada-annotate__outline[data-held] .armada-annotate__corner {
+  display: block;
+}
+
+.armada-annotate[data-take="a"] .armada-annotate__card {
+  border-color: color-mix(in srgb, var(--hue) 45%, var(--border-default));
+}
+
+.armada-annotate[data-take="a"] .armada-annotate__band {
+  border-bottom-color: color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
+  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
+  color: var(--hue);
+}
+
+.armada-annotate[data-take="a"] .armada-annotate__band-source {
+  color: var(--fg-muted);
+}
+
+.armada-annotate[data-take="a"] .armada-annotate__toolbar .armada-button {
+  border-color: var(--border-subtle);
+  background: var(--bg-raised);
+}
+
+.armada-annotate[data-take="a"] .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled) {
+  border-color: var(--hue);
+  background: var(--accent-muted);
+  color: var(--fg-default);
+}
+
+.armada-annotate[data-take="a"] .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled) svg {
+  color: var(--hue);
+}
+
+.armada-annotate[data-take="a"] .armada-annotate__picker .armada-button[aria-pressed="true"]:not(:disabled) {
+  border-color: var(--hue);
+  background: var(--hue);
+  color: var(--text-on-accent);
+}
+
+/* ---- B, Console: a solid frame tagged flush on its edge; a solid band; keys set in a sunken tray ------ */
+
+.armada-annotate[data-take="b"] .armada-annotate__outline {
+  outline: var(--border-width) solid color-mix(in srgb, var(--hue) 60%, transparent);
+  outline-offset: var(--annotate-ring-off);
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__outline:not([data-held]) .armada-annotate__tag {
+  border-color: color-mix(in srgb, var(--hue) 60%, transparent);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__outline[data-held] {
+  outline-width: var(--annotate-stroke);
+  outline-color: var(--hue);
+  outline-offset: calc(var(--annotate-ring-off) - var(--border-width));
+}
+
+/* The picked one's tag is a tab on the frame's top edge, square where it meets it. */
+.armada-annotate[data-take="b"] .armada-annotate__outline[data-held] .armada-annotate__tag {
+  bottom: calc(100% + var(--annotate-ring-off) + var(--border-width));
+  left: calc((var(--annotate-ring-off) + var(--border-width)) * -1);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__card {
+  border-color: var(--hue);
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__band {
+  border-bottom-color: var(--hue);
+  background: var(--hue);
+  color: var(--text-on-accent);
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__toolbar {
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled) {
+  border-color: var(--hue);
+  background: var(--hue);
+  color: var(--text-on-accent);
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__picker .armada-button {
+  border-color: var(--border-default);
+  background: var(--bg-sunken);
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__picker .armada-button[aria-pressed="true"]:not(:disabled) {
+  border-color: var(--hue);
+  background: var(--hue);
+  color: var(--text-on-accent);
+}
+
+/* The changes as a readout in a sunken well. */
+.armada-annotate[data-take="b"] .armada-annotate__changes {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__change-token {
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+
+.armada-annotate[data-take="b"] .armada-annotate__change-token:empty {
+  background: none;
+}
+
+/* ---- C, HUD: brackets alone, a dark readout tag; a dark glass card on a hue rail; a joined strip -- */
+
+.armada-annotate[data-take="c"] .armada-annotate__outline .armada-annotate__corner {
+  display: block;
+  border-color: color-mix(in srgb, var(--hue) 70%, transparent);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__outline[data-held] {
+  --annotate-corner: var(--space-4);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__outline[data-held] .armada-annotate__corner {
+  border-color: var(--hue);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__tag {
+  border-color: color-mix(in srgb, var(--hue) 60%, transparent);
+  background: var(--bg-sunken);
+  color: var(--hue);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__tag-size {
+  color: var(--fg-muted);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__card {
+  border-left: calc(var(--border-width) * 3) solid var(--hue);
+  background: var(--bg-sunken);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__band {
+  border-bottom-color: color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
+  background: var(--bg-sunken);
+  color: var(--hue);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__band-source {
+  color: var(--fg-muted);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__toolbar {
+  gap: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__toolbar .armada-button {
+  border: 0;
+  border-radius: 0;
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__toolbar .armada-button + .armada-button {
+  border-left: var(--border-width) solid var(--border-default);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled) {
+  background: var(--hue);
+  color: var(--text-on-accent);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__picker .armada-button {
+  border-color: color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
+  background: transparent;
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__picker .armada-button[aria-pressed="true"]:not(:disabled) {
+  border-color: var(--hue);
+  background: var(--hue);
+  color: var(--text-on-accent);
+}
+
+/* The changes as stacked readouts, ruled apart: the property and its token, then what it was and is. */
+.armada-annotate[data-take="c"] .armada-annotate__changes {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__change {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  grid-template-areas: "property token undo" "values values undo";
+  align-items: center;
+  gap: 0 var(--space-2);
+  padding: var(--space-1) 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__change-property {
+  grid-area: property;
+  color: var(--hue);
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__change-token {
+  grid-area: token;
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__change-values {
+  grid-area: values;
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__change > :last-child {
+  grid-area: undo;
+}
+
+.armada-annotate[data-take="c"] .armada-annotate__change-after {
+  color: var(--fg-default);
 }

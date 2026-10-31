@@ -14,7 +14,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Crosshair, MapPin } from "lucide-react";
 import { Button, Checkbox, forgetKept, JobCard, KbdChord, SearchField, SplitButton, Tabs, Textarea, Tooltip } from "@armada/components";
 
 
@@ -738,13 +738,9 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const busy = sending !== null || acting;
 
   return (
-    <div ref={layerRef} className="armada-annotate" data-armada-annotate="" onKeyDown={keyed}>
+    <div ref={layerRef} className="armada-annotate" data-armada-annotate="" data-take={TAKE} onKeyDown={keyed}>
       {hoveredBox !== null && hovered !== null && (
-        <div className="armada-annotate__outline" style={place(hoveredBox)}>
-          <span className="armada-annotate__tag">
-            {componentsOf(fiberOf(hovered)).component ?? hovered.tagName.toLowerCase()}
-          </span>
-        </div>
+        <Outline box={hoveredBox} name={componentsOf(fiberOf(hovered)).component ?? hovered.tagName.toLowerCase()} />
       )}
 
       {drawn.map((note) => {
@@ -777,10 +773,9 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
 
       {draft !== null && draftBox !== null && (
         <>
-          <div className="armada-annotate__outline" data-held="" style={place(draftBox)} />
-          <Card box={draftBox} view={view} label="New note" {...takesPictures(null)}>
-            <p className="armada-annotate__meta">{chain(draft.note)}</p>
-            <Source note={draft.note} />
+          <Outline box={draftBox} name={draft.note.component ?? draft.note.element.tag} held />
+          <Card box={draftBox} view={view} label="New note" band={<Band icon={<Crosshair size={14} strokeWidth={2} aria-hidden />} title="New note" note={draft.note} />} {...takesPictures(null)}>
+            <Path note={draft.note} />
             <Textarea
               label="Note"
               autoFocus
@@ -811,9 +806,14 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       )}
 
       {openNote !== null && openBox !== null && (
-        <Card box={openBox} view={view} label="Note" {...takesPictures(openNote)}>
-          <p className="armada-annotate__meta">{chain(openNote)}</p>
-          <Source note={openNote} />
+        <Card
+          box={openBox}
+          view={view}
+          label="Note"
+          band={<Band icon={<MapPin size={14} strokeWidth={2} aria-hidden />} title={numbers.has(openNote.id) ? `Note ${numbers.get(openNote.id)}` : "Done note"} note={openNote} />}
+          {...takesPictures(openNote)}
+        >
+          <Path note={openNote} />
           <p className="armada-annotate__text">{openNote.text}</p>
           {openNote.scope !== "window" && (
             <Tools id={openNote.id} element={locate(openNote)} changes={openNote.changes ?? NONE} onChanges={(next) => changed(openNote, next)} keep={keptAs(openNote.id, "text")} />
@@ -1083,6 +1083,8 @@ type CardProps = {
   box: Box;
   view: Viewport;
   label: string;
+  /** The header band over the card's body, held at its top as the body scrolls. */
+  band: ReactNode;
   children: ReactNode;
   /** Where a paste or a drop on the card goes: a picture becomes one of the note's examples. */
   onPaste?: (event: ClipboardEvent<HTMLDivElement>) => void;
@@ -1090,7 +1092,7 @@ type CardProps = {
   onDrop?: (event: DragEvent<HTMLDivElement>) => void;
 };
 
-function Card({ box, view, label, children, onPaste, onDragOver, onDrop }: CardProps) {
+function Card({ box, view, label, band, children, onPaste, onDragOver, onDrop }: CardProps) {
   const node = useRef<HTMLDivElement | null>(null);
   const [self, setSelf] = useState<{ size: CardSize; metrics: Metrics } | null>(null);
 
@@ -1127,7 +1129,8 @@ function Card({ box, view, label, children, onPaste, onDragOver, onDrop }: CardP
         } as CSSProperties
       }
     >
-      {children}
+      {band}
+      <div className="armada-annotate__body">{children}</div>
     </div>
   );
 }
@@ -1141,11 +1144,59 @@ function groupsOf(shown: readonly Annotation[]): { screen: string | null; list: 
   }));
 }
 
-/** The file and line the element's JSX is on, so it can be seen to have been captured. #1584. */
-function Source({ note }: { note: Annotation }) {
-  if (note.source === undefined) return null;
-  return <p className="armada-annotate__meta">{`${note.source.file}:${note.source.line}`}</p>;
+/** The card's header band: its glyph, its name, and the file and line the element's JSX is on (#1584), the file by its name alone. */
+function Band({ icon, title, note }: { icon: ReactNode; title: string; note: Annotation }) {
+  const source = note.source;
+  return (
+    <header className="armada-annotate__band">
+      {icon}
+      <span className="armada-annotate__band-title">{title}</span>
+      {source !== undefined && <span className="armada-annotate__band-source">{`${source.file.split("/").pop() ?? source.file}:${source.line}`}</span>}
+    </header>
+  );
 }
+
+/** The picked element's chain and selector on one line, cut short; the whole of it, and the file's whole path, behind a hover. */
+function Path({ note }: { note: Annotation }) {
+  const whole = chain(note);
+  const label =
+    note.source === undefined ? (
+      whole
+    ) : (
+      <>
+        {whole}
+        <br />
+        {`${note.source.file}:${note.source.line}`}
+      </>
+    );
+  return (
+    <Tooltip label={label} asChild>
+      <span className="armada-annotate__path">{whole}</span>
+    </Tooltip>
+  );
+}
+
+/** A picked or hovered element's frame, with its component and its size on a tag. */
+function Outline({ box, name, held = false }: { box: Box; name: string; held?: boolean }) {
+  return (
+    <div className="armada-annotate__outline" data-held={held ? "" : undefined} style={place(box)}>
+      <span className="armada-annotate__corner" data-corner="tl" />
+      <span className="armada-annotate__corner" data-corner="tr" />
+      <span className="armada-annotate__corner" data-corner="bl" />
+      <span className="armada-annotate__corner" data-corner="br" />
+      <span className="armada-annotate__tag">
+        <span className="armada-annotate__tag-name">{name}</span>
+        <span className="armada-annotate__tag-size">{`${Math.round(box.width)}×${Math.round(box.height)}`}</span>
+      </span>
+    </div>
+  );
+}
+
+/** Which of the style takes on the layer to draw, `?annotate-take=a|b|c`; A where none is named. Goes when one is picked. */
+const TAKE = ((): string => {
+  const asked = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("annotate-take");
+  return asked === "b" || asked === "c" ? asked : "a";
+})();
 
 /** `SessionRow ← SessionList ← Sessions`, then the selector, for the person checking what was picked. */
 function chain(note: Annotation): string {

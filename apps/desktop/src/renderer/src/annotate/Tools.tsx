@@ -81,22 +81,29 @@ export function Tools({ id, element, changes, onChanges, keep }: { id: string; e
       <div className="armada-annotate__toolbar" role="toolbar" aria-label="Tools" onKeyDown={arrows}>
         {TOOLS.map(({ kind, label, icon }) => {
           const off = element === null || (kind === "text" && !hasWords);
-          return (
-            <Tooltip key={kind} label={off && element !== null ? `${label}: no words on it` : label} asChild>
-              <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={tool === kind} disabled={off} onClick={() => setTool(tool === kind ? null : kind)}>
-                {icon}
-              </Button>
+          const button = (
+            <Button key={kind} variant="ghost" size="sm" aria-label={label} aria-pressed={tool === kind} disabled={off} onClick={() => setTool(tool === kind ? null : kind)}>
+              {icon}
+              <span className="armada-annotate__tool-label">{label}</span>
+            </Button>
+          );
+          // The label is on the key, so a tooltip is left only to say why one is off.
+          return off && element !== null ? (
+            <Tooltip key={kind} label={`${label}: no words on it`} asChild>
+              {button}
             </Tooltip>
+          ) : (
+            button
           );
         })}
       </div>
-      {element !== null && tool === "size" && <Scale label="Size" tokens={SIZES} current={tokenOf("font-size")} element={element} onPick={(token) => pick("size", "font-size", token)} />}
+      {element !== null && tool === "size" && <Scale label="Size" sample="size" tokens={SIZES} current={tokenOf("font-size")} element={element} onPick={(token) => pick("size", "font-size", token)} />}
       {element !== null && tool === "colour" && <Swatches label="Colour" tokens={COLOURS} current={tokenOf("color")} element={element} onPick={(token) => pick("colour", "color", token)} />}
       {element !== null && tool === "fill" && <Swatches label="Fill" tokens={FILLS} current={tokenOf("background-color")} element={element} onPick={(token) => pick("fill", "background-color", token)} />}
       {element !== null && tool === "spacing" && (
         <>
-          <Scale label="Padding" tokens={SPACES} current={tokenOf("padding")} element={element} onPick={(token) => pick("spacing", "padding", token)} />
-          <Scale label="Gap" tokens={SPACES} current={tokenOf("gap")} element={element} onPick={(token) => pick("spacing", "gap", token)} />
+          <Scale label="Padding" sample="space" tokens={SPACES} current={tokenOf("padding")} element={element} onPick={(token) => pick("spacing", "padding", token)} />
+          <Scale label="Gap" sample="space" tokens={SPACES} current={tokenOf("gap")} element={element} onPick={(token) => pick("spacing", "gap", token)} />
         </>
       )}
       {element !== null && tool === "text" && hasWords && <Textarea label="Text" rows={2} keep={keep} value={textNow} onChange={(event) => typed(event.target.value)} />}
@@ -105,15 +112,16 @@ export function Tools({ id, element, changes, onChanges, keep }: { id: string; e
   );
 }
 
-/** A scale's steps as buttons reading the step, each with its token and value as its tooltip. */
-function Scale({ label, tokens, current, element, onPick }: { label: string; tokens: readonly string[]; current: string | undefined; element: Element; onPick: (token: string) => void }) {
+/** A scale's steps as buttons reading the step over a bar drawn at the token's own size, each with its token and value as its tooltip. */
+function Scale({ label, sample, tokens, current, element, onPick }: { label: string; sample: "size" | "space"; tokens: readonly string[]; current: string | undefined; element: Element; onPick: (token: string) => void }) {
   return (
-    <div className="armada-annotate__picker" role="group" aria-label={label} onKeyDown={arrows}>
+    <div className="armada-annotate__picker" role="group" aria-label={label} data-sample={sample} onKeyDown={arrows}>
       <span className="armada-annotate__picker-label">{label}</span>
       <div className="armada-annotate__picker-steps">
         {tokens.map((token) => (
           <Tooltip key={token} label={`${token} ${tokenValue(element, token)}`} asChild>
-            <Button variant="ghost" size="sm" aria-label={token} aria-pressed={current === token} onClick={() => onPick(token)}>
+            <Button variant="ghost" size="sm" aria-label={token} aria-pressed={current === token} onClick={() => onPick(token)} style={{ "--annotate-sample": `var(${token})` } as CSSProperties}>
+              <span className="armada-annotate__sample" aria-hidden />
               {step(token)}
             </Button>
           </Tooltip>
@@ -164,7 +172,9 @@ function Changes({ changes, onChanges }: { changes: readonly StyleChange[]; onCh
               <span className="armada-annotate__change-property">{labelOf(change)}</span>
             </Tooltip>
             <span className="armada-annotate__change-values">
-              {shown(change, change.before)} → {shown(change, change.after)}
+              <span className="armada-annotate__change-before">{shown(change, change.before)}</span>
+              <span className="armada-annotate__change-arrow"> → </span>
+              <span className="armada-annotate__change-after">{shown(change, change.after)}</span>
             </span>
             <span className="armada-annotate__change-token">{change.token ?? ""}</span>
             <Tooltip label="Undo" asChild>
