@@ -574,35 +574,11 @@ bridge_protocol_stale() {
   [[ -f "$main" ]] && ! grep -qF "\"$(tree_protocol)\"" "$main"
 }
 
-# **Bridge runs from a copy of Electron.app that is named Armada.** macOS draws
-# the app menu, Dock and app switcher from `CFBundleName` in the bundle it
-# launched, and an unpackaged `electron-vite preview` launches Electron's own,
-# so they said "Electron" (`apps/desktop/electron-builder.yml` has the
-# measurement). The copy is a clone on APFS, so it costs no disk and well under
-# a second; its plist names Armada; and it is signed ad hoc, which needs no
-# Apple certificate. It sits under `$src/node_modules/`, so `bridge_pattern`
-# below still proves it is this repository's Bridge. Redone only when Electron's
-# version changes. Prints the binary `electron-vite` is told to run.
+# **Bridge runs from a copy of Electron.app that is named Armada**, made by
+# `scripts/armada-electron`, which has the reason. Prints the binary
+# `electron-vite` is told to run.
 armada_electron() {
-  local real version dir stamp
-  real=$(cd "$src/apps/desktop/node_modules/electron/dist" 2>/dev/null && pwd -P)/Electron.app
-  [[ -d "$real" ]] || return 1
-  version=$(cat "$real/../version" 2>/dev/null || echo unknown)
-  dir="$src/node_modules/.cache/armada-bridge"
-  stamp="$dir/.stamp"
-  if [[ "$(cat "$stamp" 2>/dev/null || true)" != "$version" ]]; then
-    $dry_run && { echo "$dir/Electron.app/Contents/MacOS/Electron"; return 0; }
-    rm -rf "$dir"
-    mkdir -p "$dir"
-    cp -cR "$real" "$dir/Electron.app" 2>/dev/null || cp -R "$real" "$dir/Electron.app" || return 1
-    local plist="$dir/Electron.app/Contents/Info.plist" pb=/usr/libexec/PlistBuddy key
-    for key in CFBundleName CFBundleDisplayName; do
-      "$pb" -c "Set :$key Armada" "$plist" 2>/dev/null || "$pb" -c "Add :$key string Armada" "$plist" || return 1
-    done
-    codesign --force -s - "$dir/Electron.app" >/dev/null 2>&1 || return 1
-    echo "$version" >"$stamp"
-  fi
-  echo "$dir/Electron.app/Contents/MacOS/Electron"
+  "$root/scripts/armada-electron" $($dry_run && echo --dry-run) "$src"
 }
 
 if $dry_run; then
