@@ -603,7 +603,7 @@ export type WindowSignIn = { sign_in: string[] };
 export type ShowSketch = { title: string; scene: unknown; session_id?: string };
 
 /**
- * `POST /sessions/sketch/withdraw`, the agent's: take back a sketch it put to the person. Fleet marks the sketch's attachment
+ * `POST /sessions/withdraw_sketch`, the agent's: take back a sketch it put to the person. Fleet marks the sketch's attachment
  * `detail.withdrawn` `"true"` and drops its Needs you item. His own Withdraw press is `POST /sessions/waiting/dismiss` on `sketch:<title>`.
  */
 export type WithdrawSketch = { title: string; session_id?: string };
