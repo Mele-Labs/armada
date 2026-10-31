@@ -186,14 +186,21 @@ where
             .collect()
     }
 
-    /// Whether a process is one the session started, however deep, or runs a file from a
-    /// directory it holds: what it may `kill`. The second covers a dev Fleet its subagent started
-    /// and which left the tree by `setsid`.
+    /// Whether a process is one the session started, however deep, runs a file from a directory
+    /// it holds, or carries the session's id in its environment: what it may `kill`. The second
+    /// covers a dev Fleet its subagent started and which left the tree by `setsid`. **The third
+    /// covers a server whose agent was replaced**: the old agent's children go to launchd, and
+    /// one run by `node` runs no file from the slot (30 Oct). The keeper carries the id too, and
+    /// is never the session's to end.
     pub(super) fn started_by<'a>(&'a self, id: &str, held: &'a [String]) -> impl Fn(u32) -> bool + 'a {
         let roots = self.tree_roots(id);
+        let keeper = self.keeper_of(id);
+        let session = id.to_string();
         move |pid| {
-            started_within(&roots, pid, self.peers().as_ref())
-                || runs_from(pid, held, self.peers().as_ref())
+            Some(pid) != keeper
+                && (started_within(&roots, pid, self.peers().as_ref())
+                    || runs_from(pid, held, self.peers().as_ref())
+                    || self.peers().carries(pid, Holder::SESSION_ENV, &session))
         }
     }
 

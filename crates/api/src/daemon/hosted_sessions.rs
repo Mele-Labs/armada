@@ -280,6 +280,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         skip: ipc::SkipSessionStep,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+    /// `jump_session_step`: the person moved the Session straight to a step to come, skipping the steps
+    /// between. A Session that has run is told once.
+    fn jump_session_step(
+        self: Arc<Self>,
+        jump: ipc::JumpSessionStep,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
     /// `change_session_steps`: a step added, moved, reworded or dropped in the Job's own copy of its
     /// workflow, by the Job through the door or by the person. Applies at once, to that Job only.
     fn change_session_steps(

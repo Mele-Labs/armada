@@ -63,6 +63,7 @@ import { removedSaid } from "./sessions/removed";
 import { onTimePassing } from "./time-passes";
 import type { Scenario } from "./moment";
 import type { FleetHandle } from "./moment";
+import { jumpStep } from "./jump-step";
 import { skipStep } from "./skip-step";
 import { AGENT } from "./slices/onboarding";
 
@@ -406,6 +407,7 @@ export class FakeSessionsFleet {
           },
           setSessionWorkflow: async (sessionId, workflow) => this.change(sessionId, ({ workflow: _was, ...one }) => (workflow === undefined ? one : { ...one, workflow })),
           skipSessionStep: async (sessionId, step, skipped) => this.skipping(sessionId, step, skipped),
+          jumpSessionStep: async (sessionId, step) => this.jumping(sessionId, step),
           readSessionWait: async (sessionId, request) => {
             this.calls.readWaits.push({ sessionId, request });
             return { ok: true, value: this.reading };
@@ -851,6 +853,23 @@ export class FakeSessionsFleet {
       const moved = stands.at !== undefined && stands.at !== one.workflow_step ? { workflow_visits: [...(one.workflow_visits ?? []), { step: stands.at, since: new Date().toISOString() }] } : {};
       return { ...one, ...(stands.skipped.length === 0 ? {} : { skipped_steps: stands.skipped }), ...(stands.at === undefined ? {} : { workflow_step: stands.at }), ...moved };
     });
+  }
+
+  /** `jump_session_step` as Fleet takes it (`jump-step.ts`), against the steps of the workflow the record follows. */
+  private jumping(sessionId: string, step: number): SessionActed {
+    const found = this.records.find((one) => one.id === sessionId);
+    if (found === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const steps = this.fleet?.state().holds.workflows.find((one) => one.id === found.workflow && (found.manifest_id === undefined || one.manifest_id === found.manifest_id))?.steps.length ?? 0;
+    const stands = jumpStep({ at: found.workflow_step, skipped: found.skipped_steps ?? [] }, steps, step);
+    if (stands === undefined) {
+      return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_step_not_ahead", message: `step ${step} is not after the one this Job is on` } } as never };
+    }
+    return this.change(sessionId, ({ skipped_steps: _was, ...one }) => ({
+      ...one,
+      ...(stands.skipped.length === 0 ? {} : { skipped_steps: stands.skipped }),
+      workflow_step: stands.at,
+      workflow_visits: [...(one.workflow_visits ?? []), { step: stands.at, since: new Date().toISOString() }],
+    }));
   }
 
   private change(sessionId: string, how: (one: SessionRecord) => SessionRecord): SessionActed {

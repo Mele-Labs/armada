@@ -278,6 +278,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.skipSessionStep, (_event, sessionId: string, step: number, skipped: boolean) =>
     text(sessionId) && Number.isInteger(step) && step >= 0 && typeof skipped === "boolean" ? (connection()?.sessions.skipStep(sessionId, step, skipped) ?? unsent) : unread,
   );
+  ipc.handle(CHANNELS.jumpSessionStep, (_event, sessionId: string, step: number) =>
+    text(sessionId) && Number.isInteger(step) && step >= 0 ? (connection()?.sessions.jumpStep(sessionId, step) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.releaseSessionHolds, (_event, sessionId: string, toSessionId?: string, rows?: unknown) => {
     if (!text(sessionId)) return unread;
     // Each row a kind and a target, or none sent; anything else is not a choice Fleet could read.
