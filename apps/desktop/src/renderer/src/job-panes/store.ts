@@ -3,7 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 
-import { arrive, build, copyOf, hasKind, type Arrangement, type TabKind } from "./tree";
+import { arrive, build, copyOf, hasKind, moveTabToEdge, moveTabToPane, shortfall, type Arrangement, type Side, type TabKind } from "./tree";
 
 export const DEFAULT_LAYOUT = "Default";
 
@@ -16,7 +16,7 @@ const SEEDED_LABELS = { browser: "localhost:5173", terminal: "zsh" } as const;
 /** **The mock's**: two saved layouts to pick from until layouts are kept for real. */
 const seeded = (): Record<string, Arrangement> => ({
   "QA split": build({ dir: "row", ratio: 0.55, a: { dir: "column", ratio: 0.6, a: ["thread"], b: ["terminal"] }, b: ["browser"] }, undefined, SEEDED_LABELS),
-  Review: build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["diff"] }),
+  Review: build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["changes"] }),
 });
 
 type Entry = {
@@ -99,13 +99,66 @@ function put(jobId: string, change: (entry: Entry) => Entry): void {
 /** The Job's arrangement as it stands now. */
 export const peek = (jobId: string): Arrangement => ensure(jobId).arrangement;
 
-/** A change of arrangement the person made: this Job is edited. */
-export function rearrange(jobId: string, change: (arrangement: Arrangement) => Arrangement): void {
-  put(jobId, (entry) => {
-    const next = change(entry.arrangement);
-    return next === entry.arrangement ? entry : { ...entry, arrangement: next, edited: true, chosen: true };
-  });
+// ---- Where the person has been, for ⌘Z --------------------------------------------------------------------
+
+type History = { past: Entry[]; future: Entry[]; merge?: string; at: number };
+const histories = new Map<string, History>();
+const HISTORY = 50;
+/** A run of one kind of change, a drag along a line, is one step back. */
+const MERGE_MS = 600;
+
+function remember(jobId: string, was: Entry, merge?: string): void {
+  const history = histories.get(jobId) ?? { past: [], future: [], at: 0 };
+  const now = Date.now();
+  const joins = merge !== undefined && history.merge === merge && now - history.at < MERGE_MS;
+  history.at = now;
+  if (merge !== undefined) history.merge = merge;
+  else delete history.merge;
+  if (!joins) history.past = [...history.past.slice(-(HISTORY - 1)), was];
+  history.future = [];
+  histories.set(jobId, history);
 }
+
+/** The area's size in px as drawn, which the panes' minimums are held against. */
+const areas = new Map<string, { w: number; h: number }>();
+export function measured(jobId: string, size: { w: number; h: number }): void {
+  areas.set(jobId, size);
+}
+
+/** Whether a change leaves every pane its minimum, or in an area too small for that, no pane further short than before. */
+function allowed(jobId: string, was: Arrangement, next: Arrangement): boolean {
+  const size = areas.get(jobId);
+  return size === undefined || size.w === 0 || shortfall(next, size) <= shortfall(was, size);
+}
+
+/** A change of arrangement the person made: this Job is edited. One that would squeeze a pane below its minimum is refused, unless it is forced, as a Job opening a tab is. `merge` names a run of changes that is one step for ⌘Z. */
+export function rearrange(jobId: string, change: (arrangement: Arrangement) => Arrangement, merge?: string, force = false): void {
+  const entry = ensure(jobId);
+  const next = change(entry.arrangement);
+  if (next === entry.arrangement || (!force && !allowed(jobId, entry.arrangement, next))) return;
+  remember(jobId, entry, merge);
+  set({ ...state, jobs: { ...state.jobs, [jobId]: { ...entry, arrangement: next, edited: true, chosen: true } } });
+}
+
+/** Where a tab dragged over a pane would land, and whether the pane can take it. */
+export function droppable(jobId: string, tabId: string, paneId: string, zone: Side | "middle"): boolean {
+  const was = ensure(jobId).arrangement;
+  const next = zone === "middle" ? moveTabToPane(was, tabId, paneId) : moveTabToEdge(was, tabId, paneId, zone);
+  return next !== was && allowed(jobId, was, next);
+}
+
+function go(jobId: string, from: "past" | "future"): void {
+  const history = histories.get(jobId);
+  const target = history?.[from].pop();
+  if (history === undefined || target === undefined) return;
+  const entry = ensure(jobId);
+  (from === "past" ? history.future : history.past).push(entry);
+  delete history.merge;
+  set({ ...state, jobs: { ...state.jobs, [jobId]: target } });
+}
+
+export const undo = (jobId: string): void => go(jobId, "past");
+export const redo = (jobId: string): void => go(jobId, "future");
 
 /** Which tab is in front and which pane has the focus: where the person is, not how the area is laid out. */
 export function look(jobId: string, change: (arrangement: Arrangement) => Arrangement): void {
@@ -117,10 +170,12 @@ export function look(jobId: string, change: (arrangement: Arrangement) => Arrang
 
 /** A tab the Job opened itself. One that joins a pane is content and leaves the layout as it was; one that makes a split is arrangement. */
 export function jobOpens(jobId: string, kind: TabKind, label?: string): void {
-  (hasKind(peek(jobId), kind) ? look : rearrange)(jobId, (arrangement) => arrive(arrangement, kind, label));
+  if (hasKind(peek(jobId), kind)) look(jobId, (arrangement) => arrive(arrangement, kind, label));
+  else rearrange(jobId, (arrangement) => arrive(arrangement, kind, label), undefined, true);
 }
 
 export function takeLayout(jobId: string, name: string): void {
+  remember(jobId, ensure(jobId));
   put(jobId, () => ({ arrangement: layoutNamed(name), layout: name, edited: false, chosen: true, version: versionOf(name) }));
 }
 
@@ -150,6 +205,7 @@ export function saveLayoutAs(jobId: string, name: string): void {
 
 export function resetLayout(jobId: string): void {
   const entry = ensure(jobId);
+  remember(jobId, entry);
   put(jobId, () => ({ ...entry, arrangement: layoutNamed(entry.layout), edited: false, version: versionOf(entry.layout) }));
 }
 

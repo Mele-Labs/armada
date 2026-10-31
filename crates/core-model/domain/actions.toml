@@ -185,6 +185,30 @@ destructive = false
 confirms = false
 notes = "Opens the Layout menu in the open Job's header: the layouts to take, and Update, Save as, Reset and Use for all Jobs. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
 
+[actions.pane_undo]
+kind = "Action"
+tier = "Global"
+verb = "Undo arrangement"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘Z"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Takes back the last change to the open Job's panes, tabs and layout, one Job at a time. A text box keeps ⌘Z for its own typing, so it is heard everywhere else. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
+
+[actions.pane_redo]
+kind = "Action"
+tier = "Global"
+verb = "Redo arrangement"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⇧⌘Z"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Puts back the change ⌘Z took back. A text box keeps ⇧⌘Z for its own typing. Added 30 Oct 2026 with the Job's arrangeable panes."
+
 [actions.next_tab]
 kind = "Action"
 tier = "Global"

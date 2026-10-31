@@ -11,7 +11,7 @@ export const KINDS: Readonly<Record<TabKind, { label: string; Glyph: LucideIcon 
   done: { label: "Done", Glyph: CircleCheck },
   now: { label: "Now", Glyph: Activity },
   open: { label: "Open", Glyph: Circle },
-  diff: { label: "Diff", Glyph: Diff },
+  changes: { label: "Changes", Glyph: Diff },
   plan: { label: "Plan", Glyph: ListChecks },
   files: { label: "Files", Glyph: Files },
   request: { label: "Request", Glyph: Send },

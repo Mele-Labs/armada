@@ -21,7 +21,7 @@ import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone, type StoryZone } from "./StoryColumn";
-import { BrowserBody, DiffBody, FilesBody, PlanBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
+import { BrowserBody, ChangesBody, FilesBody, PlanBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
 import { JobPanes } from "../job-panes/JobPanes";
 import type { Tab } from "../job-panes/tree";
 import { OverTheApp } from "./OverTheApp";
@@ -150,8 +150,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
           return <BrowserBody jobId={id} />;
         case "terminal":
           return <TerminalBody jobId={id} />;
-        case "diff":
-          return <DiffBody />;
+        case "changes":
+          return <ChangesBody session={session} />;
         case "plan":
           return <PlanBody session={session} />;
         case "files":

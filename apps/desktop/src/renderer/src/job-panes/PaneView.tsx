@@ -1,13 +1,13 @@
 // One pane: a strip of its tabs with a + that adds one, over the body of the tab in front. A tab is dragged to another pane's strip to move there, or to a pane's edge to split it.
 
-import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronDown, Plus, X } from "lucide-react";
 import { Button, DropdownMenu, Tooltip, boundKeyFor, type DropdownMenuEntry } from "@armada/components";
 
 import { hostOf, peekJobBrowser } from "../job-browser/store";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
-import { look, peek, rearrange } from "./store";
+import { droppable, look, peek, rearrange } from "./store";
 import { TAB_KINDS, activate, addTab, closePane, closeTab, focusPane, hasKind, moveTabToEdge, moveTabToPane, type Pane, type Side, type Tab, type TabKind } from "./tree";
 
 /** The words a tab reads: its own label where it has one, else its kind. */
@@ -29,7 +29,7 @@ function tabEntries(): DropdownMenuEntry[] {
     { kind: "item", id: "right", label: "Split right", shortcut: boundKeyFor("pane_split_right") },
     { kind: "item", id: "down", label: "Split down", shortcut: boundKeyFor("pane_split_down") },
     { kind: "separator", id: "rule" },
-    { kind: "item", id: "close", label: "Close" },
+    { kind: "item", id: "close", label: "Close", danger: true },
   ];
 }
 
@@ -80,6 +80,14 @@ function addEntries(thread: boolean): DropdownMenuEntry[] {
 
 export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, children }: { jobId: string; pane: Pane; focused: boolean; thread: boolean; dragging: string | undefined; onDrag: (tabId: string | undefined) => void; children: ReactNode }) {
   const [over, setOver] = useState<Side | "middle" | undefined>(undefined);
+  // The pane under the pointer while a tab is dragged, lit as a whole.
+  const [hot, setHot] = useState(false);
+  useEffect(() => {
+    if (dragging !== undefined) return;
+    setOver(undefined);
+    setHot(false);
+  }, [dragging]);
+  const lands = dragging !== undefined && over !== undefined && droppable(jobId, dragging, pane.id, over);
   const active = pane.tabs.find((tab) => tab.id === pane.active);
 
   // ← and → walk the strip, Home and End go to its ends; the tab reached comes to the front.
@@ -97,6 +105,7 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
   const dropOnStrip = (event: DragEvent<HTMLDivElement>) => {
     const id = event.dataTransfer.getData("text/plain");
     if (id === "") return;
+    if (!droppable(jobId, id, pane.id, "middle") && !pane.tabs.some((tab) => tab.id === id)) return;
     event.preventDefault();
     const tabs = [...event.currentTarget.querySelectorAll<HTMLElement>(".job-pane__tab")];
     const index = tabs.filter((one) => one.getBoundingClientRect().left + one.getBoundingClientRect().width / 2 < event.clientX).length;
@@ -110,6 +119,7 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
     const id = event.dataTransfer.getData("text/plain");
     event.preventDefault();
     setOver(undefined);
+    setHot(false);
     onDrag(undefined);
     if (id === "") return;
     rearrange(jobId, (arrangement) => (zone === "middle" ? moveTabToPane(arrangement, id, pane.id) : moveTabToEdge(arrangement, id, pane.id, zone)));
@@ -121,9 +131,12 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
       data-frame=""
       data-pane={pane.id}
       data-focused={focused || undefined}
+      data-hot={(hot && dragging !== undefined) || undefined}
       aria-label={active === undefined ? "Empty pane" : `Pane: ${labelOf(active)}`}
       onFocusCapture={() => look(jobId, (arrangement) => focusPane(arrangement, pane.id))}
       onPointerDownCapture={() => look(jobId, (arrangement) => focusPane(arrangement, pane.id))}
+      onDragOver={() => dragging !== undefined && setHot(true)}
+      onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setHot(false)}
     >
       <div className="job-pane__strip" role="tablist" aria-label="Tabs" onKeyDown={walk} onDragOver={(event) => event.preventDefault()} onDrop={dropOnStrip}>
         {pane.tabs.map((tab) => (
@@ -153,8 +166,20 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
         {dragging === undefined ? null : (
           <div className="job-pane__drops" aria-hidden="true">
             {ZONES.map((zone) => (
-              <div key={zone} className="job-pane__drop" data-zone={zone} data-over={over === zone || undefined} onDragOver={(event) => (event.preventDefault(), setOver(zone))} onDragLeave={() => setOver(undefined)} onDrop={(event) => dropOnBody(event, zone)} />
+              <div
+                key={zone}
+                className="job-pane__drop"
+                data-zone={zone}
+                onDragOver={(event) => {
+                  setOver(zone);
+                  if (droppable(jobId, dragging, pane.id, zone)) event.preventDefault();
+                  else event.dataTransfer.dropEffect = "none";
+                }}
+                onDragLeave={() => setOver((now) => (now === zone ? undefined : now))}
+                onDrop={(event) => dropOnBody(event, zone)}
+              />
             ))}
+            {lands ? <div className="job-pane__preview" data-zone={over} /> : null}
           </div>
         )}
       </div>

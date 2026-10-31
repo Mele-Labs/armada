@@ -1,18 +1,18 @@
 // The bodies of the tabs that stand on their own. A tab that needs the Job's thread or its story is drawn by `SessionWorkspace`, which holds both.
 
 import { useEffect, useRef } from "react";
-import { Button, UnifiedDiff, PlanRevisionView, useUnchanged, type LedgerEntry, type PlanRevision, ShellPanelPane } from "@armada/components";
-import type { Session } from "@armada/screens/src/draft/sessions";
+import { Button, Select, UnifiedDiff, PlanRevisionView, useKept, useUnchanged, type LedgerEntry, type PlanRevision, ShellPanelPane } from "@armada/components";
+import { attachmentsOf, linkedOf, type Session } from "@armada/screens/src/draft/sessions";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
 import { JobBrowserPane } from "../job-browser/JobBrowserPane";
 import { useJobBrowser } from "../job-browser/store";
 import { shellsOf, useJobShell } from "../job-shell";
 import { useDeckShell } from "../job-shell-dock";
-import { useSessionsDraft } from "../sessions-draft";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { openRequestsInPanel } from "../shared-panel/store";
 import { historyOf } from "../shared-panel/requests-model";
-import { MOCK_PATCH } from "./mock-diff";
+import { MOCK_PATCH, MOCK_PATCH_LOG, MOCK_PATCH_TOOLTIP } from "./mock-diff";
 import { jobOpens, useJobPanes } from "./store";
 import { hasKind } from "./tree";
 
@@ -42,12 +42,43 @@ export function TerminalBody({ jobId }: { jobId: string }) {
 
 const cutSaid = (drawn: number, total: number) => `The first ${drawn.toLocaleString()} of ${total.toLocaleString()} lines.`;
 
-export function DiffBody() {
-  const drawn = drawnOf(MOCK_PATCH, cutSaid);
+/** Where changes can be read from: the Job's own branch, each pull request it opened, and each Job it started. */
+type Source = { value: string; label: string; patch: string };
+
+function sourcesOf(session: Session, all: readonly Session[]): Source[] {
+  const patches = [MOCK_PATCH_TOOLTIP, MOCK_PATCH_LOG];
+  return [
+    { value: "branch", label: "Branch", patch: MOCK_PATCH },
+    ...attachmentsOf(session, "pull_request").map((one, at): Source => ({ value: `pr:${one.number}`, label: `#${one.number} ${one.title}`, patch: at === 0 ? MOCK_PATCH : patches[0]! })),
+    ...linkedOf(all, session).map(({ session: sub }): Source => {
+      const pull = attachmentsOf(sub, "pull_request")[0];
+      const title = sub.title ?? sub.id;
+      return { value: `job:${sub.id}`, label: pull === undefined ? title : `${title} #${pull.number}`, patch: patches[1]! };
+    }),
+  ];
+}
+
+/** The Job's changes, from the place the picker names. The mock's patches are invented. */
+export function ChangesBody({ session }: { session: Session }) {
+  const sources = sourcesOf(session, useSessions());
+  const [chosen, choose] = useKept(`changes:${session.id}`, "branch");
+  const source = sources.find((one) => one.value === chosen) ?? sources[0]!;
+  const drawn = drawnOf(source.patch, cutSaid);
   return (
-    <div className="job-pane__scroll">
-      <UnifiedDiff files={drawn.files} />
-    </div>
+    <>
+      <div className="job-pane__pick">
+        <Select aria-label="Changes from" value={source.value} onChange={(event) => choose(event.target.value)}>
+          {sources.map((one) => (
+            <option key={one.value} value={one.value}>
+              {one.label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="job-pane__scroll">
+        <UnifiedDiff files={drawn.files} />
+      </div>
+    </>
   );
 }
 

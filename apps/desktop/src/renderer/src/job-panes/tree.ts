@@ -2,7 +2,7 @@
 // of them active. Every operation here is pure: it takes an arrangement and returns the next one, so the store, the keys and the menus share one set of rules.
 // Tab, pane and split ids come from the arrangement's own counter, so two Jobs never need to agree on any.
 
-export const TAB_KINDS = ["thread", "browser", "terminal", "done", "now", "open", "diff", "plan", "files", "request", "system", "bays", "spine"] as const;
+export const TAB_KINDS = ["thread", "browser", "terminal", "done", "now", "open", "changes", "plan", "files", "request", "system", "bays", "spine"] as const;
 export type TabKind = (typeof TAB_KINDS)[number];
 
 /** `label` is what the tab reads where its kind alone would not tell two apart: a browser's page host, a terminal's shell. */
@@ -22,6 +22,24 @@ export type Arrangement = {
 export type Rect = { x: number; y: number; w: number; h: number };
 export type Side = "left" | "right" | "top" | "bottom";
 export type Toward = "left" | "right" | "up" | "down";
+
+/** The least a pane keeps, in px: wide enough for its strip and tall enough for a few lines. */
+export const MIN_PANE_W = 160;
+export const MIN_PANE_H = 120;
+
+/** The least a node needs along an axis: a pane its minimum, two sides along the split the two together, across it the larger. */
+export function minExtent(node: Node, axis: "row" | "column"): number {
+  if (node.type === "pane") return axis === "row" ? MIN_PANE_W : MIN_PANE_H;
+  const [a, b] = [minExtent(node.a, axis), minExtent(node.b, axis)];
+  return node.dir === axis ? a + b : Math.max(a, b);
+}
+
+/** How far the panes fall short of their minimums in an area of this size, in px; 0 when every one keeps its own. */
+export function shortfall(arrangement: Arrangement, size: { w: number; h: number }): number {
+  let total = 0;
+  for (const rect of rectsOf(arrangement.root).panes.values()) total += Math.max(0, MIN_PANE_W - rect.w * size.w - 0.5) + Math.max(0, MIN_PANE_H - rect.h * size.h - 0.5);
+  return total;
+}
 
 /** The least a side of a split keeps, as a share of the split. */
 export const RATIO_MIN = 0.12;
@@ -58,12 +76,12 @@ export function hasKind(arrangement: Arrangement, kind: TabKind): boolean {
 }
 
 /** Each pane's box as shares of the whole, and each split's, for the handle on the line between its two sides. */
-export function rectsOf(root: Node, within: Rect = { x: 0, y: 0, w: 1, h: 1 }): { panes: Map<string, Rect>; splits: { id: string; dir: "row" | "column"; ratio: number; rect: Rect }[] } {
+export function rectsOf(root: Node, within: Rect = { x: 0, y: 0, w: 1, h: 1 }): { panes: Map<string, Rect>; splits: { id: string; dir: "row" | "column"; ratio: number; rect: Rect; a: Node; b: Node }[] } {
   const panes = new Map<string, Rect>();
-  const splits: { id: string; dir: "row" | "column"; ratio: number; rect: Rect }[] = [];
+  const splits: { id: string; dir: "row" | "column"; ratio: number; rect: Rect; a: Node; b: Node }[] = [];
   const walk = (node: Node, rect: Rect) => {
     if (node.type === "pane") return void panes.set(node.id, rect);
-    splits.push({ id: node.id, dir: node.dir, ratio: node.ratio, rect });
+    splits.push({ id: node.id, dir: node.dir, ratio: node.ratio, rect, a: node.a, b: node.b });
     if (node.dir === "row") {
       const first = rect.w * node.ratio;
       walk(node.a, { ...rect, w: first });
@@ -200,10 +218,11 @@ export function closeTab(arrangement: Arrangement, tabId: string): Arrangement {
   return detach(arrangement, tabId);
 }
 
+/** The pane goes with its tabs, empty or not; the last pane of all stays. */
 export function closePane(arrangement: Arrangement, paneId: string): Arrangement {
-  const pane = paneById(arrangement, paneId);
-  if (pane === undefined) return arrangement;
-  return pane.tabs.reduce((at, tab) => detach(at, tab.id), arrangement);
+  if (paneById(arrangement, paneId) === undefined) return arrangement;
+  const root = without(arrangement.root, paneId);
+  return root === undefined ? arrangement : refocus({ ...arrangement, root });
 }
 
 /** The pane splits, and an empty pane takes the new side: to its right, or below it. Focus goes to the new pane. */

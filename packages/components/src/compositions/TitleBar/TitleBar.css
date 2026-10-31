@@ -47,6 +47,7 @@
 .armada-title-bar__helm,
 .armada-title-bar__menu,
 .armada-title-bar__usage,
+.armada-title-bar__job,
 /* Not interactive, but it opts out for the same reason the rest do: a drag
    region swallows the pointer, and a `title` tooltip inside one never opens.
    The dot carries pid, port and protocol nowhere, so being hovered for its
@@ -341,6 +342,15 @@
   justify-self: end;
   min-width: 0;
 }
+
+/* Where an open Job's area puts its Layout control and view icons, from the Job panes. Empty, it takes no room. */
+.armada-title-bar__job {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.armada-title-bar__job:empty { display: none; }
 
 /* The plan's limits as one ring glyph (the owner, 15 Oct 2026): the first limit the outer ring and the second the
  * inner, each arc in its level's tone, the track `--bg-hover` under it. The figures are in the card it opens. */

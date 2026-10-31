@@ -13,6 +13,9 @@ import { disposeShells, shellApi } from "./session-shell";
 const JOBS = ["story-1", "story-2", "story-3", "story-4", "story-5"];
 /** The Job that opens a page by itself. */
 const OPENS = "story-2";
+/** The Job with changes to choose between, and the Job it started. */
+const CHANGES = "story-1";
+const SUB = "story-4";
 const SHOP = ["http://localhost:5173/cart", "http://localhost:5173/checkout"];
 
 export const sJobLayouts: Scenario = {
@@ -28,6 +31,17 @@ export const sJobLayouts: Scenario = {
     ...sJobStory.draft,
     sessions: (board, more) => {
       const store = sJobStory.draft!.sessions!(board, more);
+      // The first Job has changes from three places, so a Changes tab has a choice: its branch, two pull requests of its own, and the Job it started, which has a pull request.
+      store.edit(CHANGES, (one) => ({
+        ...one,
+        attachments: [
+          ...one.attachments,
+          { kind: "branch", name: "armada/retry-lease", slot: 3 },
+          { kind: "pull_request", number: 2390, title: "Retry the slot lease", branch: "armada/retry-lease", address: "https://git.example/armada/pull/2390", checks: { state: "passed" }, state: "open", auto: false },
+          { kind: "pull_request", number: 2391, title: "Name the attempt in the bay tooltip", branch: "armada/retry-lease-tooltip", address: "https://git.example/armada/pull/2391", checks: { state: "pending" }, state: "draft", auto: false },
+          { kind: "started_to", id: SUB },
+        ],
+      }));
       return {
         ...store,
         terminalRuns: true as const,

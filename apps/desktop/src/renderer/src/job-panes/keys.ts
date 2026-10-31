@@ -1,9 +1,10 @@
-// The keys that arrange a Job's area. They are heard while the area is on screen, in a text box too, since each is a chord; a sheet or dialog open over it keeps its own keys.
+// The keys that arrange a Job's area. They are heard while the area is on screen, in a text box too, since each is a chord, but for undo and redo, which a text box keeps; a sheet or dialog open over it keeps its own keys.
 
 import { useEffect } from "react";
 import { isPressed, pressedSlot } from "@armada/components";
+import { holdsText } from "@armada/screens/src/keys";
 
-import { look, peek, rearrange } from "./store";
+import { look, peek, rearrange, redo, undo } from "./store";
 import { cycleTab, focusPane, neighbourOf, paneById, splitPane, type Arrangement, type Toward } from "./tree";
 
 const TOWARD: readonly Toward[] = ["left", "up", "right", "down"];
@@ -35,6 +36,11 @@ export function usePaneKeys(jobId: string, openLayouts: () => void): void {
       if (isPressed("pane_split_right", event)) return take(() => splitFocused(jobId, "right", here(peek(jobId))));
       if (isPressed("pane_split_down", event)) return take(() => splitFocused(jobId, "down", here(peek(jobId))));
       if (isPressed("layout_menu", event)) return take(openLayouts);
+      // A text box keeps ⌘Z for what is typed in it.
+      if (!holdsText(event.target)) {
+        if (isPressed("pane_redo", event)) return take(() => redo(jobId));
+        if (isPressed("pane_undo", event)) return take(() => undo(jobId));
+      }
       const by = isPressed("next_tab", event) ? 1 : isPressed("previous_tab", event) ? -1 : 0;
       if (by !== 0) {
         return take(() => {
