@@ -178,10 +178,12 @@ async fn a_job_learns_a_command_and_the_bucket_holds_it_in_the_kit_layout_withou
 
     rig.stand_in.hears(0, Heard::Ran(ran("t1", "cargo test", "ok")));
     turn_over(&rig, &id).await;
-    eventually(|| async { bucket.object(&places::object_for(places::FOLDER, &rig.root)).is_some() }).await;
+    // Waits for the command itself: a write before it was learned holds no facts, and was read on CI (armada-x1g0).
+    let object = || bucket.object(&places::object_for(places::FOLDER, &rig.root)).map(|bytes| String::from_utf8(bytes).expect("text"));
+    eventually(|| async { object().is_some_and(|text| text.contains("cargo test")) }).await;
 
     assert_eq!(bucket.names(), vec![places::object_for(places::FOLDER, &rig.root)]);
-    let text = String::from_utf8(bucket.object(&places::object_for(places::FOLDER, &rig.root)).expect("an object")).expect("text");
+    let text = object().expect("an object");
     assert!(text.contains("cargo test") && text.contains("kind = \"tests\""), "{text}");
     eventually(|| async { read(&rig).await.workspaces.first().is_some_and(|one| one.runs[0].kept_in == Some(RunPlace::Cloud)) }).await;
 }
