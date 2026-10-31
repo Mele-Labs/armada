@@ -329,17 +329,6 @@ checks:
       - "scripts/test_preview.py"
       - "armada.yml"
 
-  armada_electron_test:
-    # `scripts/armada-electron` against a fake Electron.app: the copy Bridge
-    # runs from is named Armada, and `scripts/dev` hands it over. A failure
-    # means the dock says Electron.
-    run: python3 scripts/test_armada_electron.py
-    when:
-      - "scripts/armada-electron"
-      - "scripts/dev"
-      - "scripts/test_armada_electron.py"
-      - "armada.yml"
-
   sync_mod_test:
     # `scripts/sync-mod` against a scratch `HOME`: the mod copy is made,
     # replaced whole, and a missing source warns without failing.

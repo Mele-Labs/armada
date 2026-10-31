@@ -3,6 +3,8 @@
 # `scripts/armada-electron` against a fake Electron.app in a scratch tree.
 #
 #   python3 scripts/test_armada_electron.py
+#
+# By hand, on a Mac: it needs PlistBuddy and codesign, so CI does not run it.
 
 import os
 import plistlib
