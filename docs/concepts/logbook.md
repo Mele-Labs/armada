@@ -108,6 +108,26 @@ A person can run it now with Tidy now on the Logbook page.
 It runs over every repository in the background: the button answers at once and the page says Tidying until Fleet is done, then how many entries it folded, or that it failed and how many it folded before it stopped.
 A second press while one runs starts nothing, and a page opened mid-run shows Tidying.
 
+### Sort and Organize
+
+**Sort gives each entry one topic**: Git and PRs, Slots and worktrees, Testing and checks, Fleet and Bridge tools, or Mac and shell.
+An entry with none shows as Other, and no `other` is stored.
+Fleet makes one model call per repository over the entries that have no topic, locked and person-edited ones too, since sorting rewrites no text.
+**A bad answer changes nothing**, as Tidy's does.
+It runs at the start of every Organize pass, and after a Distil on that Distil's own task, so noting never waits on it.
+
+**Organize looks, and the person applies.** Three looks propose and change nothing.
+
+| Look | Finds |
+|---|---|
+| Merge duplicates | Tidy's groups, one model call per repository, as a kept entry, the entries it absorbs and the text it would read |
+| Find stale entries | Standing, unlocked entries not confirmed in 45 days and not tripped in that time. No model is asked |
+| Find Armada bugs | One model call per repository: the entries that read as workarounds for a fault in Armada, each with the fault in a line |
+
+Applying a merge folds as Tidy does. Applying stale entries archives them. Applying bugs writes nothing and answers the list back, since Fleet never writes to a forge.
+Apply reads the entries again, so a proposal over one locked, edited, archived or forgotten since is skipped.
+The weekly Tidy still runs on its timer.
+
 ### Recall
 
 Standing entries reach agents three ways.

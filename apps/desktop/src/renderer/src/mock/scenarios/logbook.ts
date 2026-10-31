@@ -9,6 +9,8 @@ import { retroFixtures } from "@armada/screens/src/fixtures/retros";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 
+import { withTopics } from "./logbook-topics";
+
 const ARMADA = repository().root;
 const LEDGER: RepositorySummary = {
   root: "/Users/user/ledger",
@@ -176,7 +178,7 @@ const ENTRIES: LogbookEntry[] = [
 
 export const logbookPage: Scenario = {
   ...holding("logbook", "The Logbook: two repositories, Habits and This Mac, with a tripped entry, a locked one, a candidate and two faded, and the Retros tab", [repository(), LEDGER]),
-  logbook: ENTRIES,
+  logbook: withTopics(ENTRIES),
   retros,
   lessons,
 };
