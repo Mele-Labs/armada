@@ -184,6 +184,8 @@ export type Home = {
   /** Held on their start cards, newest first. */
   drafts: Item[];
   needs: Item[];
+  /** Jobs that said they are done, newest claim first. */
+  done: Item[];
   running: Item[];
   /** Macs that need the owner: not paired any more, or not answering. */
   troubled: Mac[];
@@ -198,7 +200,8 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
     several: macs.length > 1,
     drafts: all((mac) => mac.live.filter((session) => session.held)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
     needs: all((mac) => mac.needs.filter((session) => !session.held)).sort((a, b) => time(a.session.waiting_since ?? a.session.started_at) - time(b.session.waiting_since ?? b.session.started_at)),
-    running: all((mac) => mac.live.filter((session) => !session.waiting && !session.held)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
+    done: all((mac) => mac.live.filter((session) => session.done_since !== undefined && !session.waiting && !session.held)).sort((a, b) => time(b.session.done_since) - time(a.session.done_since)),
+    running: all((mac) => mac.live.filter((session) => !session.waiting && !session.held && session.done_since === undefined)).sort((a, b) => time(b.session.started_at) - time(a.session.started_at)),
     troubled: macs.filter((mac) => !mac.paired || mac.error !== undefined),
   };
 }

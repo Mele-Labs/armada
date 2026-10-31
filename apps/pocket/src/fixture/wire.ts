@@ -92,6 +92,8 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
   const restart = phone({ id: "r1", title: "Move Fleet to the preview", repository: "armada", kind: "hosted", waiting: true, working: false, started_at: ago(now, 26), waiting_since: ago(now, 3), context_tokens: 64_900, context_window: WINDOW });
   const describe = phone({ id: "b3", title: "Open the push payload PR", repository: "store", kind: "hosted", waiting: true, working: false, started_at: ago(now, 30), waiting_since: ago(now, 6), context_tokens: 121_500, context_window: WINDOW });
 
+  const finished = phone({ id: "e1", title: "Trim the Drone pool tests", repository: "armada", kind: "hosted", waiting: false, working: false, started_at: ago(now, 150), done_since: ago(now, 9), done_summary: "The pool tests now cover shrinking to four slots; nothing else changed.", context_tokens: 71_000, context_window: WINDOW });
+
   const d1: SessionThread = {
     session: record(now, "d1", draft.title!, 4, {
       workflow: "build",
@@ -147,6 +149,14 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
       message("r1-1", ago(now, 26), "you", "Put the slot pool fix in front of me."),
       tool("r1-2", ago(now, 8), "Bash scripts/preview"),
       message("r1-3", ago(now, 3), "agent", "The preview is built. Fleet has to restart onto it."),
+    ],
+  };
+
+  const e1: SessionThread = {
+    session: record(now, "e1", finished.title!, 150, { done_since: ago(now, 9), done_summary: finished.done_summary!, usage: { context_tokens: 71_000, context_window: WINDOW } }),
+    rows: [
+      message("e1-1", ago(now, 150), "you", "Cover shrinking the pool in the tests."),
+      message("e1-2", ago(now, 10), "agent", "The pool tests now cover shrinking to four slots."),
     ],
   };
 
@@ -267,8 +277,8 @@ export function fixtureMacs(now: number, origins: { studio: string; laptop: stri
     [origins.studio]: {
       name: "studio",
       needs: [draft, restart, asked],
-      live: [draft, asked, restart, parent, child, showed, idle],
-      threads: { a1, a2, d1, p1, c1, r1 },
+      live: [draft, asked, restart, parent, child, showed, finished, idle],
+      threads: { a1, a2, d1, p1, c1, r1, e1 },
       usage: usageAt(now, 2, 42, 61),
       models: MODELS,
       shown: { a2: { "/Users/owner/armada/docs/concepts/pocket.md": "# Pocket\n\nThe phone app. It shows a Job's whole thread and any file or sketch the Job showed.\n" } },
