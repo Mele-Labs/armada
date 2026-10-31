@@ -127,3 +127,25 @@ describe("tidying the Logbook", () => {
     expect((await new LogbookHost(() => port).tidy()).ok).toBe(false);
   });
 });
+
+describe("organizing the Logbook", () => {
+  it("asks Fleet for an action's proposals over every repository and hands them back with whether any look failed", async () => {
+    const seen: Seen[] = [];
+    const body = { action: "stale", proposals: [{ id: "a", entry_ids: ["a"], text: "T.", note: "60 days" }], failed: true };
+    const port = await fleet(seen, () => ({ status: 200, body }));
+    expect(await new LogbookHost(() => port).organize("stale")).toEqual({ ok: true, ...body });
+    expect(seen.map((one) => [one.method, one.url, one.body])).toEqual([["POST", "/logbook/organize", '{"action":"stale"}']]);
+  });
+
+  it("sends the kept proposals to apply and hands back how many entries changed", async () => {
+    const seen: Seen[] = [];
+    const proposals = [{ id: "a", entry_ids: ["a", "b"], text: "T.", note: "" }];
+    const port = await fleet(seen, () => ({ status: 200, body: { action: "merge", applied: 1, reported: [] } }));
+    expect(await new LogbookHost(() => port).applyOrganize("merge", proposals)).toEqual({ ok: true, action: "merge", applied: 1, reported: [] });
+    expect(seen.map((one) => [one.method, one.url, JSON.parse(one.body)])).toEqual([["POST", "/logbook/organize/apply", { action: "merge", proposals }]]);
+  });
+
+  it("says Fleet is not connected with no port", async () => {
+    expect(await new LogbookHost(() => null).organize("merge")).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+  });
+});

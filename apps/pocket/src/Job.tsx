@@ -41,8 +41,8 @@ const NONE: readonly never[] = [];
 const NOBODY = () => undefined;
 
 /** What a Job is doing, as the one mark in its header. */
-const standing = (waiting: boolean, working: boolean, ended: boolean): { state: SessionState; said: string } =>
-  ended ? { state: "ended", said: "Ended" } : waiting ? { state: "waiting", said: "Needs you" } : working ? { state: "working", said: "Working" } : { state: "idle", said: "Idle" };
+const standing = (waiting: boolean, working: boolean, ended: boolean, done: boolean): { state: SessionState; said: string } =>
+  ended ? { state: "ended", said: "Ended" } : done ? { state: "done", said: "Done" } : waiting ? { state: "waiting", said: "Needs you" } : working ? { state: "working", said: "Working" } : { state: "idle", said: "Idle" };
 
 /** Runs a reply and keeps its refusal to show. */
 function useReply(machine: Machine): [string, (act: () => Promise<void>) => Promise<boolean>] {
@@ -276,6 +276,8 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       void run(() => acts.tune({ session_id: id, ...(model === undefined ? {} : { model }), ...(effort === undefined ? {} : { effort }), mode: session.mode ?? "auto" }));
     }
   };
+  const doneSince = read.thread.session.state === "live" ? read.thread.session.done_since : undefined;
+  const doneSummary = doneSince === undefined ? undefined : read.thread.session.done_summary;
   const planPending = approval !== undefined && !approval.approved && plan?.version !== undefined && approval.groups[0] !== undefined;
   const trailing = (
     <div className="pk-trailing">
@@ -303,6 +305,12 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
           send={(text) => run(() => acts.planChanges({ session_id: id, version: plan!.version!, marks: [{ kind: "note", id: `phone-${Date.now()}`, group: approval!.groups[0]!.id, text }] }))}
         />
       ) : null}
+      {doneSince === undefined ? null : (
+        <div className="pk-done" role="status">
+          {doneSummary === undefined ? null : <p className="pk-done__says">{doneSummary}</p>}
+          <Button variant="secondary" size="sm" onClick={() => void run(() => acts.close({ session_id: id }))}><PowerOff size={14} aria-hidden="true" />End job</Button>
+        </div>
+      )}
       <Trouble says={says} />
     </div>
   );
@@ -310,6 +318,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     asked !== undefined || lapsed !== undefined || planPending || asksOf(session).length > 0 || runs.length > 0 || drafts.length > 0,
     session.turn.state === "working",
     session.dead !== undefined,
+    doneSince !== undefined && session.turn.state !== "working",
   );
   const context = session.context;
   return (

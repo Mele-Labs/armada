@@ -91,7 +91,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The processes the session started and that still run, its agent and Fleet itself left out.
+    /// The processes the session started and that still run, its agent, its keeper and Fleet itself
+    /// left out; the keeper by [`Self::started_by`].
     /// Blocking: it runs `ps` and `lsof`.
     pub(crate) fn processes_of(&self, id: &str, held: &[String]) -> Vec<Process> {
         let Some(table) = printed("ps", &["-axo", "pid=,command="]) else {

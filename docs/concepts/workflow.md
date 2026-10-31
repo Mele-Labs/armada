@@ -66,7 +66,7 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 | `tests` | Writes the test that fails without the fix and passes with it | it is pushed |
 | `deliver` | Delivers the way he chose | it is merged |
 
-`fix` both follows the plan and walks, and its walk is passed over when nothing would be seen.
+`fix` both follows the plan and walks, and its walk is passed over when nothing would be seen: Fix then ends once the plan's tasks are done, and Tests begins.
 A separate walk step after it had him approve one walk twice (30 Oct 2026).
 
 ### `orchestrate`
@@ -125,6 +125,11 @@ The step shows as skipped, and the timeline enters `skipped: <step label>`.
 The agent is sent one message saying the step is not wanted, so it neither does the step nor asks about it, and another when the skip is undone.
 **The agent can skip a step of its own Job too** (`skip_session_step`); it is not sent a message about a skip it made, and the timeline says `by the Job`.
 **The delivering step cannot be skipped**; Fleet refuses it with `fleet.session_step_not_skippable`.
+
+**A person can jump to a step still to come** with Jump here on its header (`jump_session_step`, `POST /sessions/step-jump`).
+Fleet skips every step from the current one up to the one before it, in one write, and the timeline enters `jumped to: <step label>`.
+The agent is sent one message naming the step and the steps passed, and none of the per-step skip messages; the rail then sends the step's own instructions.
+Fleet refuses a step at or before the current one with `fleet.session_step_not_ahead`, and a jump that would pass the delivering step with `fleet.session_step_not_skippable`.
 
 **This is not the skipped-step nudge.** That nudge is Fleet noticing from what it observed that the agent skipped a step on its own.
 A step the person skipped is the person's call and never draws it.

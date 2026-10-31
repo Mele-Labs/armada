@@ -21,7 +21,7 @@ use api::Caller;
 /// A `PeerOf` a test plants, for the cases that are about Fleet rather than
 /// about the kernel. It answers from a list of connections somebody wrote down.
 #[derive(Debug, Default)]
-pub struct Placing(Mutex<Vec<(u32, u16, u16)>>, Mutex<Vec<(u32, u32)>>);
+pub struct Placing(Mutex<Vec<(u32, u16, u16)>>, Mutex<Vec<(u32, u32)>>, Mutex<Vec<(u32, String)>>);
 
 impl Placing {
     /// Nobody holds anything. The default a fixture is assembled with — a fake
@@ -46,6 +46,14 @@ impl Placing {
             .expect("the plant is not held across a panic")
             .push((parent, child));
     }
+
+    /// `pid` was started with `key=value` in its environment.
+    pub fn carrying(&self, pid: u32, key: &str, value: &str) {
+        self.2
+            .lock()
+            .expect("the plant is not held across a panic")
+            .push((pid, format!("{key}={value}")));
+    }
 }
 
 impl PeerOf for Placing {
@@ -65,6 +73,15 @@ impl PeerOf for Placing {
             .filter(|(parent, _)| *parent == pid)
             .map(|(_, child)| *child)
             .collect()
+    }
+
+    fn carries(&self, pid: u32, key: &str, value: &str) -> bool {
+        let entry = format!("{key}={value}");
+        self.2
+            .lock()
+            .expect("the plant is not held across a panic")
+            .iter()
+            .any(|(carrier, one)| *carrier == pid && *one == entry)
     }
 }
 
@@ -242,4 +259,16 @@ fn a_process_running_a_file_from_a_held_directory_is_the_holders() {
     // A pid nothing runs under, and a fake that cannot say, are not anyone's.
     assert!(!crate::peer::runs_from(u32::MAX - 1, &[here.clone()], &Kernel));
     assert!(!crate::peer::runs_from(mine, &[here], &Placing::default()));
+}
+
+// The environment a process was started with is read from the kernel: what this test was started
+// with is there, a value it was not started with is not, and a pid nothing runs under carries nothing.
+#[cfg(target_vendor = "apple")]
+#[test]
+fn the_kernel_reads_the_environment_a_process_was_started_with() {
+    let mine = std::process::id();
+    let path = std::env::var("PATH").expect("a PATH this test was started with");
+    assert!(Kernel.carries(mine, "PATH", &path));
+    assert!(!Kernel.carries(mine, "PATH", "/nowhere"));
+    assert!(!Kernel.carries(u32::MAX - 1, "PATH", &path));
 }

@@ -104,6 +104,58 @@ async fn a_process_the_job_started_is_ended_and_named_in_the_answer() {
     let _ = (theirs.kill(), theirs.wait());
 }
 
+/// The report of 30 Oct: a vite server the Job started before its Claude Code process was
+/// replaced, now launchd's child and running `node`, was refused as not the Job's.
+#[tokio::test]
+async fn a_process_left_by_a_replaced_agent_is_still_the_jobs_to_stop() {
+    let placing = Placing::nothing();
+    let rig = rig(Some(Arc::clone(&placing)));
+    let id = rig.an_agent().await;
+    let (orphan, mut theirs) = (a_sleep(), a_sleep());
+    placing.carrying(orphan.id(), "ARMADA_SESSION", id.as_str());
+    placing.carrying(theirs.id(), "ARMADA_SESSION", "another-job");
+
+    let pid = orphan.id();
+    let stopped = Arc::clone(&rig.fleet).process_stopped(None, stop(&id, Some(pid), None)).await.expect("ended");
+    assert_eq!(stopped.pid, pid);
+    let (code, _) = refused(Arc::clone(&rig.fleet).process_stopped(None, stop(&id, Some(theirs.id()), None)).await);
+    assert_eq!(code, "fleet.process_not_the_jobs", "another Job's id is not this Job's");
+
+    let mut orphan = orphan;
+    let waited = tokio::task::spawn_blocking(move || orphan.wait().expect("reaped")).await.unwrap();
+    assert!(!waited.success(), "TERM ended it: {waited:?}");
+    assert!(theirs.try_wait().unwrap().is_none(), "the other Job's process still runs");
+    let _ = (theirs.kill(), theirs.wait());
+}
+
+/// The keeper serving the Job's socket carries the Job's id as every process under it does, and
+/// is never the Job's to list or end.
+#[tokio::test]
+async fn the_jobs_keeper_is_never_one_of_its_processes() {
+    let placing = Placing::nothing();
+    let rig = rig(Some(Arc::clone(&placing)));
+    let id = rig.an_agent().await;
+    let socket = std::path::Path::new(&rig.fleet.host().keepers_dir).join(format!("{}.sock", id.as_str()));
+    // `read` is the shell's own, so `sh` keeps the keeper's words and starts no child to outlive it.
+    // Never a negative pid to `kill(1)`: procps 4.0.4, Ubuntu's, reads `-12345` as options and
+    // signals `'0' - '1'`, -1, every process the runner's user owns, the runner too (31 Oct).
+    let mut keeper = Command::new("sh")
+        .args(["-c", "read line", "session-keep", &socket.to_string_lossy()])
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .expect("a stand-in keeper");
+    placing.carrying(keeper.id(), "ARMADA_SESSION", id.as_str());
+
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.clone();
+    let listed = tokio::task::spawn_blocking(move || fleet.processes_of(session.as_str(), &[])).await.unwrap();
+    let (code, _) = refused(Arc::clone(&rig.fleet).process_stopped(None, stop(&id, Some(keeper.id()), None)).await);
+    let _ = (keeper.kill(), keeper.wait());
+
+    assert!(listed.is_empty(), "the keeper is not listed: {listed:?}");
+    assert_eq!(code, "fleet.process_not_the_jobs");
+}
+
 #[test]
 fn the_machines_memory_and_volume_are_read_from_what_sysctl_and_df_print() {
     assert_eq!(memory_of("17179869184\n"), Some(17_179_869_184));

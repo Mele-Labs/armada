@@ -46,6 +46,9 @@ export type PhoneSession = {
   from?: { id: string; title: string };
   context_tokens?: number;
   context_window?: number;
+  /** The Job said, through all_done, that nothing is left. Present while the claim stands. */
+  done_since?: string;
+  done_summary?: string;
 };
 
 /** GET /api/sessions: the live Sessions only. The phone takes Needs you from the ones waiting. */

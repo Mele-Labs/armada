@@ -385,7 +385,7 @@ pub use hosted_sessions::{
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
-    SetSessionWorkflow, SkipSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolSubagent, ToolSubagentState,
+    SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolSubagent, ToolSubagentState,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession,
 };
@@ -521,7 +521,8 @@ pub use repositories::{
 pub use requester::Requester;
 pub use logbook::{
     EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
-    LogbookSection, LogbookState, LogbookTidy, LogbookTidyLast, LockLogbookEntry, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
+    LogbookSection, LogbookState, LogbookTidy, LogbookTidyLast, LogbookTopic, LockLogbookEntry, AppliedOrganizeLogbook,
+    ApplyOrganizeLogbook, OrganizeAction, OrganizeLogbook, OrganizedLogbook, OrganizeProposal, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
 };
 pub use teaching::{
     ProposedAddress, ProposedFleet, ProposedRule, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,

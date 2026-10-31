@@ -220,6 +220,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn jump_session_step(self: Arc<Self>, _jump: ipc::JumpSessionStep) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     /// A Job's copy with a rule long enough to show whether a door's answer carries the text of a piece.
     async fn change_session_steps(self: Arc<Self>, change: ipc::ChangeSessionSteps) -> Result<ipc::JobCopy, Refusal> {
         let step = |id: &str| ipc::JobCopyStep { id: id.into(), label: id.into(), about: None, instructions: None, ends_on: Vec::new(), skipped: false };

@@ -4,7 +4,7 @@
 // `GET /logbook` bare answers the habits and this Mac's alone, so each served repository is asked by its root and the
 // answers are joined in the order Fleet lists the repositories. `docs/concepts/logbook.md`.
 
-import type { Logbook, LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied, Outcome, LogbookTidy, TidiedLogbook, RepositoryList } from "@armada/protocol";
+import type { Logbook, LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookRead, LogbookTidied, Outcome, LogbookTidy, TidiedLogbook, LogbookOrganized, LogbookOrganizeApplied, OrganizedLogbook, AppliedOrganizeLogbook, OrganizeAction, OrganizeProposal, RepositoryList } from "@armada/protocol";
 import { ask } from "./request";
 
 const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
@@ -62,6 +62,21 @@ export class LogbookHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", "/logbook/tidy", {});
     return answer.ok === true ? { ok: true, running: (answer.body as TidiedLogbook).running } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** What an action proposes over every repository. Nothing is written; merge and bugs wait on a model call. */
+  async organize(action: OrganizeAction): Promise<LogbookOrganized> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/logbook/organize", { action });
+    return answer.ok === true ? { ok: true, ...(answer.body as OrganizedLogbook) } : { ok: false, outcome: answer.outcome };
+  }
+
+  async applyOrganize(action: OrganizeAction, proposals: OrganizeProposal[]): Promise<LogbookOrganizeApplied> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/logbook/organize/apply", { action, proposals });
+    return answer.ok === true ? { ok: true, ...(answer.body as AppliedOrganizeLogbook) } : { ok: false, outcome: answer.outcome };
   }
 
   private async act(path: string, body: unknown): Promise<LogbookAnswer> {
