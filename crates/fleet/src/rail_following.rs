@@ -86,13 +86,19 @@ where
         let Some(steps) = self.job_rail_steps(&id, manifest.as_str(), workflow).await else {
             return;
         };
-        // The walk the nudge reads is in the thread, so it is read only for a Job that wrote a test.
+        // The walk the nudge reads is in the thread, so it is read only for a Job that wrote a test, or one
+        // that stopped on a walk with nothing waiting on the person.
         let mut facts = Facts::of(&record, Default::default());
-        if facts.test_edited && steps.iter().any(|step| step.walks) {
-            facts = Facts::of(&record, self.rail_extra(&id).await);
+        let stopped_on_walk = record.standing == Some(ipc::SessionStanding::Replied)
+            && record.waiting_for.is_empty()
+            && record.workflow_step.and_then(|at| steps.get(at as usize)).is_some_and(|step| step.walks);
+        let mut extra = Extra::default();
+        if (facts.test_edited || stopped_on_walk) && steps.iter().any(|step| step.walks) {
+            extra = self.rail_extra(&id).await;
+            facts = Facts::of(&record, extra);
         }
         let skips = rail::skipped(&steps, &facts);
-        let stalled = rail::stalled(&steps, &record);
+        let stalled = rail::stalled(&steps, &record, extra);
         // A delivering step gated by a lifecycle is not left when its end comes, so the agent is woken here.
         let lifted = match record.workflow_step.map(|at| at as usize).and_then(|at| steps.get(at).map(|step| (at, step))) {
             Some((at, step)) if step.delivers && step.has_lifecycle_end() => {

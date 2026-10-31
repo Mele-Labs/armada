@@ -18,8 +18,9 @@ A walk he approves before the plan's approval ends such a step and never passes 
 The recording step, when something precedes it, is entered when a plan is recorded and is current until he approves it.
 A `walks` step is current from the plan's approval until he approves a window the Job showed (`show_window`).
 A walk is expected as [Workflow](../workflow.md#walks-and-replies) says.
-It is passed over only when the plan was approved with no walk expected and the Job has pushed.
-Until it pushes, the step stays current, because the mock is still being built.
+It is passed over only when the plan was approved with no walk expected and the step's own work is done: for a `walks` step that also follows the plan, such as the bug workflow's Fix, once the plan's tasks are finished, and for one that does not, at the plan's approval.
+It never waits for the push, which ends the step after it: a bug Job with nothing to show finished its tasks, waited to be moved on to Tests, and Fleet waited for a push (30 Oct 2026).
+The agent on a `walks` step that follows the plan is told that, where nothing would be seen, the step ends when it has marked each of the plan's tasks completed.
 The step after it is entered once it is passed, whatever fact would have entered it: a Job left on the step before the walk is told to show the walk again, and a window shown again voids his approval (30 Oct 2026).
 Fleet reads these from the thread's window rows and his Approve messages, and from the plan; the agent's word is never an input.
 
@@ -93,7 +94,7 @@ A nudge that cannot be delivered because nobody is there is asked again later an
 
 **A Job stopped on a step only it can end is told once** (28 Oct 2026, the owner's decision).
 Fleet reads it off the row, never off the Job's words: the turn ended on a reply that asks nothing (`standing` is `replied`), nothing waits on the owner, and what ends the current step is the Job's own act.
-Those are a plan recorded, an edit, a Check run, a commit, a pull request opened, a push and a walk shown.
+Those are a plan recorded, an edit, a Check run, a commit, a pull request opened, a push and a walk shown, and, on a `walks` step that follows the plan with no walk expected, the plan's tasks finished.
 A step the owner ends, by a reply or an approval, and a delivering step, which ends on the merge, never stall.
 The one message names the step and what ends it, and says to do it or ask the owner what is still open, and to carry on where the Job waits on work it started or he said to wait.
 It is told once for each step in a Job's life (`session_rail.stalled`), and is not kept against the workflow, since it is no drift.

@@ -66,7 +66,7 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 | `tests` | Writes the test that fails without the fix and passes with it | it is pushed |
 | `deliver` | Delivers the way he chose | it is merged |
 
-`fix` both follows the plan and walks, and its walk is passed over when nothing would be seen.
+`fix` both follows the plan and walks, and its walk is passed over when nothing would be seen: Fix then ends once the plan's tasks are done, and Tests begins.
 A separate walk step after it had him approve one walk twice (30 Oct 2026).
 
 ### `orchestrate`
