@@ -82,7 +82,7 @@ export const STORE_ENDS: Readonly<Record<string, { ends: string; endsAny?: reado
 
 // ---- The lifecycles -------------------------------------------------------------------------------------------------------
 
-// The words a state is read as are set at a level: `default`, the Workspace's (`workspace`) or one repository's, by its id. In review is In Review by default, Code Review and In Review for my-store
+// The words a state is read as are set at a level: `default`, a Workspace's (`workspace:<id>`) or one repository's, by its id. In review is In Review by default, Code Review and In Review for my-store
 // and Peer Review in store-api, so each tab reads it differently and the two below the default carry the changed mark.
 const TICKET: LifecycleDef = {
   id: "ticket",
@@ -98,7 +98,7 @@ const TICKET: LifecycleDef = {
       label: "In review",
       reads: [
         { source: "Jira", values: ["In Review"], scope: "default" },
-        { source: "Jira", values: ["Code Review", "In Review"], scope: "workspace" },
+        { source: "Jira", values: ["Code Review", "In Review"], scope: "workspace:my-store" },
         { source: "Jira", values: ["Peer Review"], scope: API },
       ],
     },

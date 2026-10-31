@@ -2,7 +2,7 @@
 // slice answers the reads and takes the saves, so the two halves are tried against each other.
 
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT, ruleAt, ruleBetween, withLifecycleAdded, withLifecycleLabel, withNewRule, withRuleWireAt, withStateAfter, withStateLabelAt, withStepLayer, withoutLifecycle, withoutRule, withoutState, withoutRuleOverride } from "@armada/components";
+import { DEFAULT, workspaceLevel, ruleAt, ruleBetween, withLifecycleAdded, withLifecycleLabel, withNewRule, withRuleWireAt, withStateAfter, withStateLabelAt, withStepLayer, withoutLifecycle, withoutRule, withoutState, withoutRuleOverride } from "@armada/components";
 import type { Workspace } from "@armada/components";
 import type { LifecycleRule } from "@armada/protocol";
 import type { BridgeApi } from "../../../shared/api";
@@ -11,9 +11,11 @@ import { storePieces } from "../mock/pieces-seed";
 import type { Scenario } from "../mock/moment";
 import { readPieces, rootOf, runOps } from "./fleet-pieces";
 import type { PiecesApi, Served } from "./fleet-pieces";
-import { WORKSPACE } from "./levels";
 import { kitPieceAt, opsFrom, withWires } from "./write";
 import { landing, namedOf, withDrawn, withPlaces, workspaceOf } from "./read";
+
+/** The level the Workspace `my-store` is kept at. */
+const WORKSPACE = workspaceLevel("my-store");
 
 const WEB = { id: "01WEB", root: "/Users/user/store-web" };
 const API = { id: "01API", root: "/Users/user/store-api" };
@@ -44,7 +46,7 @@ const rule = (workspace: Workspace, id: string) => workspace.rules.find((one) =>
 
 /** A rule's piece changed on a tab, the way the editor's form changes it, with every field drawn again from the piece as the page does. */
 const edited = (workspace: Workspace, id: string, tab: string, change: (piece: LifecycleRule) => LifecycleRule): Workspace => {
-  const now = ruleAt(rule(workspace, id), tab).wire!;
+  const now = ruleAt(rule(workspace, id), tab, workspace).wire!;
   return withDrawn(withRuleWireAt(workspace, id, tab, change(now)));
 };
 
@@ -53,8 +55,8 @@ describe("what Fleet keeps, read into the editor's model", () => {
     const { workspace } = await opened();
     expect(workspace.id).toBe("my-store");
     expect(workspace.repositories).toEqual([
-      { id: WEB.id, name: "store-web" },
-      { id: API.id, name: "store-api" },
+      { id: WEB.id, name: "store-web", in: ["my-store"] },
+      { id: API.id, name: "store-api", in: ["my-store"] },
     ]);
     expect(workspace.lifecycles.map((one) => one.id)).toEqual(["ticket", "pull_request", "deploy"]);
   });
@@ -103,16 +105,16 @@ describe("what a rule's piece is read as", () => {
   it("is a level's own piece whole where that level keeps one, and the level above's for the rest", async () => {
     const mock = fleet();
     const own = withDrawn(workspaceOf((await readPieces(mock.api, WEB.id, SERVED) as { ok: true; read: never }).read)!);
-    const piece = { ...ruleAt(rule(own, "progress"), DEFAULT).wire!, name: "Begin the ticket", scope: { kind: "within" as const, id: WEB.id } };
+    const piece = { ...ruleAt(rule(own, "progress"), DEFAULT, own).wire!, name: "Begin the ticket", scope: { kind: "within" as const, id: WEB.id } };
     await mock.api.saveLifecyclePiece({ piece: { kind: "rule", rule: piece } });
     const again = await readPieces(mock.api, WEB.id, SERVED);
     if (!again.ok) throw new Error("not read");
     const held = workspaceOf(again.read)!;
-    expect(ruleAt(rule(held, "progress"), WEB.id).label).toBe("Begin the ticket");
-    expect(ruleAt(rule(held, "progress"), WEB.id).wire).toEqual(piece);
+    expect(ruleAt(rule(held, "progress"), WEB.id, held).label).toBe("Begin the ticket");
+    expect(ruleAt(rule(held, "progress"), WEB.id, held).wire).toEqual(piece);
     // The default's tab and the Workspace's still read the default's piece.
-    expect(ruleAt(rule(held, "progress"), DEFAULT).label).toBe("Start the ticket");
-    expect(ruleAt(rule(held, "progress"), WORKSPACE).label).toBe("Start the ticket");
+    expect(ruleAt(rule(held, "progress"), DEFAULT, held).label).toBe("Start the ticket");
+    expect(ruleAt(rule(held, "progress"), WORKSPACE, held).label).toBe("Start the ticket");
   });
 
   it("leaves a state out on a tab whose own piece does not have it", async () => {
@@ -236,7 +238,7 @@ describe("what a change comes to", () => {
   it("saves a new rule from a connector, by the act Fleet runs for where it lands", async () => {
     const { read, workspace } = await opened();
     const made = ruleBetween(workspace, "feature", { lane: "pull_request", item: "ready" }, { lane: "ticket", item: "in_review" }, { from: "Ready", to: "In review", lane: "Ticket" });
-    const next = withDrawn(withWires(workspace, withNewRule(workspace, made), "my-store"));
+    const next = withDrawn(withWires(workspace, withNewRule(workspace, made)));
     const [save] = opsFrom(read, workspace, next);
     expect(save).toMatchObject({
       op: "save",
@@ -256,7 +258,7 @@ describe("what a change comes to", () => {
   it("draws no rule from a connector Fleet has no act for", async () => {
     const { workspace } = await opened();
     const toDeploy = ruleBetween(workspace, "feature", { lane: "pull_request", item: "merged" }, { lane: "deploy", item: "healthy" }, { from: "Merged", to: "Healthy", lane: "Deploy" });
-    expect(withWires(workspace, withNewRule(workspace, toDeploy), "my-store").rules.map((one) => one.id)).not.toContain(toDeploy.id);
+    expect(withWires(workspace, withNewRule(workspace, toDeploy)).rules.map((one) => one.id)).not.toContain(toDeploy.id);
   });
 
   it("deletes the person's own rule and takes a repository's out by a Job of its own", async () => {
