@@ -67,12 +67,12 @@ function Held({ seed, children }: { seed: ThreadLookSeed; children: ReactNode })
   return <ThreadLookContext.Provider value={source}>{children}</ThreadLookContext.Provider>;
 }
 
-/** The agent's last message ends in a question, and nothing has been said since. */
+/** The agent spoke last, so its answers are still open. Which answers fit is the reader's call, not a trailing "?". */
 function asking(session: Session): boolean {
   for (let at = session.rows.length - 1; at >= 0; at -= 1) {
     const row = session.rows[at]!;
     if (row.kind !== "message") continue;
-    return row.from.kind === "agent" && row.text.trim().endsWith("?");
+    return row.from.kind === "agent";
   }
   return false;
 }
