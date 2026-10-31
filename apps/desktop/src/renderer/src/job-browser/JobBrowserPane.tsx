@@ -9,8 +9,8 @@ import type { ThreadCard } from "@armada/components";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { closePanel, usePanel } from "../shared-panel/store";
-import { CHOICES, SITE_PERMISSIONS, type Choice, type SitePermission } from "../../../shared/site-permissions";
-import { answerRequest, browserToWindow, dismissRequest, effectiveChoice, goBack, goForward, jobBrowserApi, hostOf, navigate, openBrowser, pinNote, reload, setChoice, setDefault, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
+import { CHOICES, SITE_PERMISSIONS, effectiveChoice, type Choice, type SitePermission } from "../../../shared/site-permissions";
+import { answerRequest, browserToWindow, dismissRequest, goBack, goForward, jobBrowserApi, hostOf, navigate, openBrowser, pinNote, reload, setChoice, setDefault, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
 import { takesAnnotateChord } from "./chord";
 import "./job-browser.css";
 
@@ -147,7 +147,8 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
   const [picture, setPicture] = useState<string>();
   const [picked, setPicked] = useState<Picked>();
   const [ring, setRing] = useState<Box | null>(null);
-  // The app annotation layer lies over the page's native view, so while it is on the page is hidden and its picture shown, as under Capture.
+  // The app annotation layer, the site-settings popover and the page's ask all lie over the page's native view, which would hide them,
+  // so while one is up the page is hidden and its picture shown, as under Capture.
   const [layerOn, setLayerOn] = useState(false);
   const held = capturing || layerOn;
   const aiming = useRef({ at: null as { x: number; y: number } | null, busy: false });
@@ -155,7 +156,7 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
     let moving = 0;
     let last: Box | undefined;
     const follow = () => {
-      setLayerOn(document.querySelector("[data-armada-annotate]") !== null);
+      setLayerOn(document.querySelector("[data-armada-annotate], .job-browser__site-panel, .job-browser__ask") !== null);
       const box = frame.current?.getBoundingClientRect();
       if (box !== undefined) {
         const now = { x: box.x, y: box.y, width: box.width, height: box.height };
@@ -284,7 +285,7 @@ const VIEWS = [
 ] as const;
 const CHOICE_OPTIONS = CHOICES.map((one) => ({ value: one.choice, label: one.label }));
 
-/** **The mock's** site settings: what the page may use, for this site and as the default for every one. Changing them takes the page over. */
+/** Site settings: what the page may use, for this site and as the default for every one. Changing them takes the page over. */
 function SiteSettingsPanel({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
   const [view, setView] = useState<"site" | "all">("site");
   const host = hostOf(urlOf(browser));
@@ -434,7 +435,7 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
             <RefreshCw size={16} strokeWidth={2} aria-hidden />
           </IconAct>
         </span>
-        {browser.page !== undefined ? <SiteLock sessionId={sessionId} browser={browser} /> : null}
+        {browser.page !== undefined || (api !== undefined && urlOf(browser) !== "") ? <SiteLock sessionId={sessionId} browser={browser} /> : null}
         <Address sessionId={sessionId} browser={browser} />
         <span className="job-browser__acts">
           <Tooltip label={capturing ? "Capturing" : "Capture"} shortcut={CAPTURE}>
