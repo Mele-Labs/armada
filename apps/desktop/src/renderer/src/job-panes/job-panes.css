@@ -18,9 +18,10 @@
 .job-panes__gap { position: absolute; z-index: 5; --hit: calc(var(--space-2) * 2); }
 .job-panes__gap[data-axis="x"] { width: var(--hit); transform: translateX(-50%); }
 .job-panes__gap[data-axis="y"] { height: var(--hit); transform: translateY(-50%); }
-.job-panes__gap-bar { position: absolute; inset: 0; margin: auto; pointer-events: none; opacity: 0; background: color-mix(in srgb, var(--fg-default) 14%, transparent); outline: var(--border-width) solid var(--border-strong); outline-offset: calc(var(--border-width) * -1); }
-.job-panes__gap[data-axis="x"] > .job-panes__gap-bar { width: var(--space-2); }
-.job-panes__gap[data-axis="y"] > .job-panes__gap-bar { height: var(--space-2); }
+/* A solid bar: the pane preview's faint wash vanishes on a strip this thin. */
+.job-panes__gap-bar { position: absolute; inset: 0; margin: auto; pointer-events: none; opacity: 0; background: var(--fg-muted); }
+.job-panes__gap[data-axis="x"] > .job-panes__gap-bar { width: var(--space-1); }
+.job-panes__gap[data-axis="y"] > .job-panes__gap-bar { height: var(--space-1); }
 .job-panes__gap[data-lit] > .job-panes__gap-bar { opacity: 1; }
 
 .job-pane { --edge: var(--border-glass); gap: 0; border-color: var(--edge); background: var(--bg-raised); }
