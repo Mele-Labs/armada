@@ -12,6 +12,7 @@ import { isAbsolute, join } from "node:path";
 import type { AnswerBrowserRequest, BrowserRequest, Outcome, SendSessionNote, StudioCapture } from "@armada/protocol";
 
 import type { JobBrowserState } from "../shared/api/job-browser";
+import type { Answer, Choice, SitePermission } from "../shared/site-permissions";
 import { pngSize, ringOn, type Ring } from "../shared/ring";
 import type { CaptureHeld, CaptureRect } from "../shared/capture-window";
 import { webOrigin } from "./capture/address";
@@ -20,10 +21,12 @@ import { burnRing, type Burn } from "./capture/burn";
 import { PageFinder } from "./capture/finder";
 import { askSource } from "./capture/layer";
 import { sessionNoteBody } from "./capture/pinned-note";
-import { reachesLocalNetwork, whileOwnerDrives } from "./capture/permissions";
+import { decidesPermissions } from "./capture/permissions";
+import { check, decide, downloadOf, hostOf, permissionsOf, type Rules } from "./capture/site-permissions";
 import { pageView } from "./capture/views";
 import { actOn, LOAD_MS, type ActsHost, type JobPage } from "./job-browser-acts";
 import { boundsOf } from "./session-page-bounds";
+import type { SiteSettingsStore } from "./site-permission-store";
 
 /** The window a pane is drawn in. Opaque here: Electron's `BrowserWindow` in the app, a token in a test. */
 export type Host = object;
@@ -31,7 +34,13 @@ export type Host = object;
 type Chord = "capture" | "back" | "forward" | "reload";
 
 /** What a page tells its holder. */
-export type PageTold = { changed: () => void; chord: (chord: Chord) => void; driving: () => boolean };
+export type PageTold = {
+  changed: () => void;
+  chord: (chord: Chord) => void;
+  driving: () => boolean;
+  /** Asks the owner; resolves when he answers, or `dismiss` where one is already waiting. */
+  ask: (permission: SitePermission, host: string) => Promise<Answer>;
+};
 
 /** One Job's page, as `JobBrowsers` moves it. */
 export type BrowserPage = JobPage & {
@@ -50,6 +59,10 @@ export type BrowserPage = JobPage & {
   picture(): Promise<Picture | null>;
   /** The injected layer's ask at a point of the page (`capture/layer.ts`); `take` false answers only the box and its name. */
   ask(x: number, y: number, take?: boolean): Promise<unknown>;
+  /** What this page's repository has decided for each site, without the request waiting. */
+  settings(): { sites: JobBrowserState["site"]["sites"]; defaults: JobBrowserState["site"]["defaults"] };
+  choose(host: string, permission: SitePermission, choice: Choice): void;
+  setDefault(permission: SitePermission, choice: Choice): void;
 };
 
 /** The page as drawn, and where a box in its CSS pixels is on that picture. */
@@ -81,6 +94,8 @@ type Held = {
   /** The picture Capture holds still, and the part of it the owner picked. */
   frozen: Picture | null;
   holding: { capture: StudioCapture; read: PageRead } | null;
+  /** The page's request waiting on the owner. */
+  asking: { permission: SitePermission; host: string; settle(answer: Answer): void } | null;
 };
 
 export class JobBrowsers {
@@ -99,7 +114,15 @@ export class JobBrowsers {
   private stateOf(sessionId: string): JobBrowserState | undefined {
     const one = this.held.get(sessionId);
     if (one === undefined) return undefined;
-    return { sessionId, url: one.page.url(), title: one.page.title(), back: one.page.back(), forward: one.page.forward(), driver: one.driver, windowed: one.window !== null };
+    return {
+      sessionId,
+      url: one.page.url(),
+      title: one.page.title(), back: one.page.back(),
+      forward: one.page.forward(),
+      driver: one.driver,
+      windowed: one.window !== null,
+      site: { ...one.page.settings(), pending: one.asking === null ? null : { permission: one.asking.permission, host: one.asking.host } },
+    };
   }
 
   private told(sessionId: string): void {
@@ -113,6 +136,15 @@ export class JobBrowsers {
     const page = this.make.page(sessionId, {
       changed: () => this.told(sessionId),
       driving: () => this.held.get(sessionId)?.driver === "owner",
+      ask: (permission, host) => {
+        const asked = this.held.get(sessionId);
+        // One question at a time: a second is refused now, as a dismissed one.
+        if (asked === undefined || asked.asking !== null) return Promise.resolve<Answer>("dismiss");
+        return new Promise<Answer>((settle) => {
+          asked.asking = { permission, host, settle };
+          this.told(sessionId);
+        });
+      },
       chord: (chord) => {
         const host = page.hostOf();
         if (chord === "capture") {
@@ -120,7 +152,7 @@ export class JobBrowsers {
         } else if (this.held.get(sessionId)?.driver === "owner") page.go(chord);
       },
     });
-    const one: Held = { page, driver: "agent", window: null, frozen: null, holding: null };
+    const one: Held = { page, driver: "agent", window: null, frozen: null, holding: null, asking: null };
     this.held.set(sessionId, one);
     return one;
   }
@@ -168,6 +200,31 @@ export class JobBrowsers {
     const one = this.held.get(sessionId);
     if (one === undefined) return;
     one.driver = one.driver === "agent" ? "owner" : "agent";
+    this.settle(one, "dismiss");
+    this.told(sessionId);
+  }
+
+  private settle(one: Held, answer: Answer): void {
+    const asking = one.asking;
+    one.asking = null;
+    asking?.settle(answer);
+  }
+
+  /** The owner's answer to the waiting request. */
+  answer(sessionId: string, answer: Answer): void {
+    const one = this.held.get(sessionId);
+    if (one === undefined || one.asking === null) return;
+    this.settle(one, answer);
+    this.told(sessionId);
+  }
+
+  choose(sessionId: string, host: string, permission: SitePermission, choice: Choice): void {
+    this.held.get(sessionId)?.page.choose(host, permission, choice);
+    this.told(sessionId);
+  }
+
+  setDefault(sessionId: string, permission: SitePermission, choice: Choice): void {
+    this.held.get(sessionId)?.page.setDefault(permission, choice);
     this.told(sessionId);
   }
 
@@ -276,11 +333,44 @@ export function evaluateSource(expression: string): string {
  * A Job's page in Electron. **Put away in Bridge's window, hidden**, while no pane shows it, so an act still reaches a page
  * that is laid out at its last size; `parkIn` is that window, or null while none is up.
  */
-export function makeBrowserPage(manifestId: string | null, parkIn: () => BrowserWindow | null, told: PageTold): BrowserPage {
+export function makeBrowserPage(manifestId: string | null, parkIn: () => BrowserWindow | null, told: PageTold, store: SiteSettingsStore): BrowserPage {
   const view: WebContentsView = pageView({ run: "", name: "", origin: "", url: "about:blank", manifestId, through: [] });
   const contents = view.webContents;
-  // The pin names no origin, so `pageView` gave it no local network access: a sign-in app on this machine is reachable only by the owner's hand.
-  reachesLocalNetwork(contents, whileOwnerDrives(told.driving, () => contents.getURL()));
+  const key = manifestId ?? "none";
+  // **Only while the owner drives**, from the choices kept for this repository; a question goes to the owner, and an unparsable host is refused.
+  const rules: Rules = {
+    settings: () => ({ ...store.settingsOf(key), pending: null }),
+    driving: told.driving,
+    ask: told.ask,
+    remember: (host, permission, choice) => {
+      store.choose(key, host, permission, choice);
+      told.changed();
+    },
+  };
+  decidesPermissions(contents, {
+    request: async (permission, requestingUrl, details) => {
+      const wants = permissionsOf(permission, details);
+      const host = hostOf(requestingUrl);
+      return wants !== null && host !== null && decide(wants, host, rules);
+    },
+    check: (permission, requestingOrigin, details) => {
+      const wants = permissionsOf(permission, details);
+      const host = hostOf(requestingOrigin);
+      return wants !== null && host !== null && check(wants, host, rules);
+    },
+    download: (event, url, redownload) => {
+      const host = hostOf(url);
+      const choice = host === null ? "block" : downloadOf(host, rules);
+      if (choice === "allow") return;
+      event.preventDefault();
+      if (choice !== "ask" || host === null) return;
+      void told.ask("downloads", host).then((answer) => {
+        if (answer === "dismiss") return;
+        rules.remember(host, "downloads", answer);
+        if (answer === "allow") redownload();
+      });
+    },
+  });
   // Its acts wait on frames, which a hidden page would otherwise stop drawing.
   contents.setBackgroundThrottling(false);
   // A page that opens another opens it here, and only on the web.
@@ -419,6 +509,9 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
         return null;
       }
     },
+    settings: () => store.settingsOf(key),
+    choose: (host, permission, choice) => store.choose(key, host, permission, choice),
+    setDefault: (permission, choice) => store.setDefault(key, permission, choice),
   };
 }
 

@@ -27,6 +27,29 @@
   --hue: var(--status-handed-in);
 }
 
+/* A wait's dismiss: a cross at the row's end, in the muted ink until hovered. */
+.armada-waiting-band__dismiss {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  align-self: stretch;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-waiting-band__dismiss:hover {
+  color: var(--fg-default);
+}
+
+.armada-waiting-band__dismiss:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
 
 /* The tools band has nothing to press on its band but the cross that puts it away. */
 .armada-needs-panel[data-kind="tools"] .armada-needs-panel__trigger {

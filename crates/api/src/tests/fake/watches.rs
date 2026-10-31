@@ -1,7 +1,7 @@
 //! Watches, as the fake answers them: nothing is run or kept, and a start is echoed as recorded.
 
 use ipc::{
-    DeleteWatch, Instant, LoginShell, ReadWatchLog, SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchReading,
+    DeleteWatch, DismissWait, Instant, LoginShell, ReadWatchLog, SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchReading,
     WatchRecipeList, WatchRecipeListed, WatchRecipeSaved, WatchRecipeSource, WatchStarts, WatchState, WatchSummary,
     WatchLog, WatchTried, WatchTries, WeighWatch,
 };
@@ -60,6 +60,14 @@ impl Watches for FakeDaemon {
 
     async fn weigh_watch(&self, _caller: Option<Caller>, weigh: WeighWatch) -> Result<WatchSummary, Refusal> {
         the_watch(&weigh.watch)
+    }
+
+    async fn dismiss_wait(&self, dismiss: DismissWait) -> Result<ipc::SessionRecord, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised(
+            "fleet.no_such_pull_request_held",
+            format!("No pull request of this Job is #{}.", dismiss.pull_request),
+            super::run_id(),
+        )))
     }
 
     async fn delete_watch(&self, _caller: Option<Caller>, delete: DeleteWatch) -> Result<WatchList, Refusal> {

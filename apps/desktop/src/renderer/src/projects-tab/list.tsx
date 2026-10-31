@@ -2,6 +2,7 @@
 // a project's new name and a new project's.
 
 import { useState } from "react";
+import { Folder } from "lucide-react";
 import { Textarea, forgetKept } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf, repositoryLabel } from "@armada/shell";
@@ -18,28 +19,23 @@ export function bandsIn(picked: RepositorySummary | null, repositories: readonly
   });
 }
 
-/** A project's name, edited in its place in the list. Enter keeps it; Esc leaves it as it was. */
+/** A project's name, edited in its place in the list, drawn as the row is with its words selected. Enter keeps it; Esc leaves it as it was. */
 export function RenameProject({ id, name }: { id: string; name: string }) {
   const store = useProjectsStore()!;
-  const keep = `projects:rename:${id}`;
   const [words, setWords] = useState(name);
   return (
-    <form
-      className="projects-rename"
-      aria-label={`Rename ${name}`}
-      onSubmit={(event) => event.preventDefault()}
-    >
-      <Textarea
-        rows={1}
+    <form className="projects-rename projects-item" aria-label={`Rename ${name}`} onSubmit={(event) => event.preventDefault()}>
+      <Folder size={16} strokeWidth={2} aria-hidden />
+      <input
+        className="projects-rename__input"
         autoFocus
-        keep={keep}
         aria-label="Project name"
         value={words}
+        onFocus={(event) => event.currentTarget.select()}
         onChange={(event) => setWords(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
             event.preventDefault();
-            forgetKept(keep);
             if (words.trim() === "") store.renaming(undefined);
             else store.renameProject(id, words.trim());
             window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(id)}"]`)?.focus());

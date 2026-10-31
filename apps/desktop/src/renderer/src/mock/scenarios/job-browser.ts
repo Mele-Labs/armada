@@ -36,20 +36,20 @@ function fleet(): FakeSessionsFleet {
 }
 
 /** The Job's browser as the agent left it: the agent driving, on the checkout. Flight control's Browser opens it in the side panel. */
-function seed(): void {
+function seed(driver?: "you"): void {
   resetCheckout();
-  seedJobBrowser(JOB, { visited: [CART, CHECKOUT], page: shopPage });
+  seedJobBrowser(JOB, { visited: [CART, CHECKOUT], page: shopPage, ...(driver === undefined ? {} : { driver }) });
 }
 
-function build(): Scenario {
+function build(name: string, says: string, driver?: "you"): Scenario {
   const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
   return {
     ...fleet().scenario(board),
-    name: "job-browser",
-    says: "A Job driving its Job browser, taken over and annotated, moved to a window, and reminded of it when it reaches for Playwright",
+    name,
+    says,
     // A Fleet and a browser of their own for each window, so a walk told twice starts from the same page.
     behaves: (handle) => {
-      seed();
+      seed(driver);
       const served = fleet();
       const own = served.scenario(board).behaves!(handle);
       // After the window's fake has registered its own, which clears the hook of a scenario with no `later`.
@@ -67,4 +67,7 @@ function build(): Scenario {
   };
 }
 
-export const jobBrowser: Scenario = build();
+export const jobBrowser: Scenario = build("job-browser", "A Job driving its Job browser, taken over and annotated, moved to a window, and reminded of it when it reaches for Playwright");
+
+/** The same browser with the person already driving, on the checkout, for the walk `site-permissions`. */
+export const sitePermissions: Scenario = build("site-permissions", "The Job browser's site settings: a page asking for the local network, and the choices kept for it", "you");

@@ -30,7 +30,8 @@ async fn thread_of(fleet: &Arc<Rescued>, id: &str) -> Vec<String> {
         .collect()
 }
 
-/// The pool as read, with one slot held as `held` and `behind` commits behind its base.
+/// The pool as read, with one slot held as `held`, `behind` commits behind its base and one commit
+/// of its own.
 async fn pool_with(
     fleet: &Rescued,
     held: SlotHolding,
@@ -39,6 +40,7 @@ async fn pool_with(
     let mut slot = fleet.worktrees_live().await.unwrap().slots.remove(0);
     slot.held = held;
     slot.behind = behind;
+    slot.ahead = Some(1);
     slot.branch = Some(String::from("armada/x"));
     (WorktreesHeld { slots: vec![slot.clone()] }, slot)
 }
@@ -220,6 +222,24 @@ async fn the_notice_names_the_branch_checked_out_in_the_slot() {
     assert!(said[0].starts_with(&format!("slot-{} (branch fix/moved) is 20", slot.slot)), "{said:?}");
 }
 
+/// **A slot whose branch has no commits of its own is not told**, however far behind: it can push
+/// nothing stale. Once it has one, it is told.
+#[tokio::test]
+async fn a_slot_with_no_commits_of_its_own_is_not_told() {
+    let (_home, fleet, session, _, slot) = behind_with_a_holder().await;
+    for behind in [26, 42, 234] {
+        let level = WorktreeSlot { behind: Some(behind), ahead: Some(0), ..slot.clone() };
+        fleet.behind_bays_told(&WorktreesHeld { slots: vec![level] }).await;
+    }
+    assert_eq!(thread_of(&fleet, &session).await.len(), 0, "nothing of its own to push");
+
+    let committed = WorktreeSlot { behind: Some(234), ahead: Some(1), ..slot.clone() };
+    fleet.behind_bays_told(&WorktreesHeld { slots: vec![committed] }).await;
+    let said = thread_of(&fleet, &session).await;
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert!(said[0].contains("234 commits behind"), "{said:?}");
+}
+
 /// **A reading that cannot say whether the slot caught up forgets nothing**: a lease under way, or
 /// a count git could not make, between two readings still behind is no new notice.
 #[tokio::test]
@@ -229,8 +249,9 @@ async fn a_busy_or_uncounted_reading_is_not_a_new_notice() {
 
     let busy = WorktreeSlot { held: SlotHolding::Busy, ..slot.clone() };
     let uncounted = WorktreeSlot { behind: None, ..slot.clone() };
+    let ahead_uncounted = WorktreeSlot { ahead: None, ..slot.clone() };
     let further = WorktreeSlot { behind: Some(40), ..slot.clone() };
-    for reading in [busy, further.clone(), uncounted, further] {
+    for reading in [busy, further.clone(), uncounted, further.clone(), ahead_uncounted, further] {
         fleet.behind_bays_told(&WorktreesHeld { slots: vec![reading] }).await;
     }
     let said = thread_of(&fleet, &session).await;

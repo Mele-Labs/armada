@@ -45,7 +45,7 @@ const notes = walk("workspaces-lanes", [
   { look: inside(YOURS, button("feature", { exact: true })), say: "The change is kept under Yours" },
   { look: inside(role("toolbar", "Acts"), group("Where it is kept")), say: "The header is icons with tooltips, in three groups: compare and reset, keep, and delete apart" },
   closePanel,
-  { press: tab("All of my-store"), say: "All of my-store carries the changed mark: it differs from Default. Edits here change my-store's repositories that keep my-store's" },
+  { press: tab("my-store"), say: "my-store carries the changed mark: it differs from Default. Edits here change my-store's repositories that keep my-store's" },
   { press: inside(LANES, button("Ticket: In review", { exact: true })), say: "In review for all of my-store" },
   { look: inside(PANEL, statuses()), say: "Jira statuses is a field in the panel, and it saves as it changes" },
   { look: inside(PANEL, text("Changed for my-store")), say: "Marked as changed for my-store, with a way back to the default" },

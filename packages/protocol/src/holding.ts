@@ -33,6 +33,8 @@ export type WorktreeSlot = {
   warm: boolean;
   /** Commits on the base its checkout does not have. Absent where git could not count them. */
   behind?: number;
+  /** Commits on its checkout the base does not have. Absent where git could not count them, and from a Fleet before 30 Oct 2026. */
+  ahead?: number;
   /**
    * A person closed it: no lease takes it until it is reopened, and a holder
    * keeps it until its lease ends. Since 23.17; absent from an older Fleet,

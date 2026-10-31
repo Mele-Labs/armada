@@ -4,6 +4,8 @@
 
 import { Button, Input } from "@armada/components";
 
+import { requestPermission } from "../job-browser/store";
+
 /** What is in the code's field, kept beside the page so the page in a window is the page that was docked. */
 let code = "SPRING10";
 
@@ -11,7 +13,7 @@ export function resetCheckout(): void {
   code = "SPRING10";
 }
 
-export function CheckoutPage() {
+export function CheckoutPage({ sessionId }: { sessionId?: string }) {
   return (
     <article className="armada-mock-checkout" aria-label="Fernwood Supply checkout">
       <h1>Checkout</h1>
@@ -30,6 +32,16 @@ export function CheckoutPage() {
       <p>Discount $8.40</p>
       <p className="armada-mock-checkout__total">Total $84.00</p>
       <Button variant="primary">Place order</Button>
+      {sessionId === undefined ? null : (
+        <div className="armada-mock-checkout__asks">
+          <Button variant="ghost" size="sm" onClick={() => requestPermission(sessionId, "local_network")}>
+            Connect Okta Verify
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => requestPermission(sessionId, "location")}>
+            Use my location
+          </Button>
+        </div>
+      )}
     </article>
   );
 }
@@ -57,7 +69,7 @@ function NotFound({ url }: { url: string }) {
 }
 
 /** The page at an address on the shop's dev server. */
-export function shopPage(url: string) {
+export function shopPage(url: string, sessionId?: string) {
   const path = url.replace(/^https?:\/\/[^/]+/, "");
-  return path === "/checkout" ? <CheckoutPage /> : path === "/cart" ? <CartPage /> : <NotFound url={url} />;
+  return path === "/checkout" ? <CheckoutPage {...(sessionId === undefined ? {} : { sessionId })} /> : path === "/cart" ? <CartPage /> : <NotFound url={url} />;
 }

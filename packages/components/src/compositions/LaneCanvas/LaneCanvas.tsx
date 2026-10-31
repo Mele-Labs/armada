@@ -14,7 +14,7 @@ import {
   type NodeProps,
   type Viewport,
 } from "@xyflow/react";
-import { Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleHelp, Clock, Drone, Eye, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Ticket, Trash2, UserCheck, type LucideIcon } from "lucide-react";
+import { Ban, Check, CircleCheck, CircleDashed, CircleDot, CircleHelp, Clock, Drone, Eye, GitCompare, ListPlus, MapPin, MessageCircleQuestion, MessageSquareText, Split, SquarePen, SquarePlus, Ticket, Trash2, TriangleAlert, UserCheck, type LucideIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -349,6 +349,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
     ...(node.who === undefined ? [] : [`Assigned to ${node.who}`]),
     ...(node.ticket === undefined ? [] : [node.ticket.title === undefined ? `Ticket ${node.ticket.label}` : `Ticket ${node.ticket.label}: ${node.ticket.title}`, ...(node.ticket.state === "" ? [] : [`Ticket state: ${node.ticket.state}`]), `Held by ${lane.title}`]),
     ...(node.differs === undefined ? [] : [differsSaid(node.differs)]),
+    ...(node.clash === undefined ? [] : [node.clash]),
     ...(node.sub === undefined || node.waiting !== undefined ? [] : [node.sub]),
   ];
   // Where the workflow starts and ends are circles with nothing to pick: a name on hover, and the edge that joins them.
@@ -469,6 +470,18 @@ function ItemNode({ data }: NodeProps<Node<ItemData, "item">>) {
           <Split size={14} strokeWidth={2} aria-hidden="true" />
         </span>
       )}
+      {node.clash === undefined ? null : (
+        <span
+          className="armada-lane-item__clash"
+          data-beside={node.changed !== undefined || node.differs !== undefined || undefined}
+          role="img"
+          aria-label={node.clash}
+          onMouseEnter={(event) => hold.tip([node.clash!], event.currentTarget, true)}
+          onMouseLeave={() => hold.tip(undefined)}
+        >
+          <TriangleAlert size={14} strokeWidth={2} aria-hidden="true" />
+        </span>
+      )}
       <Handles node={node} lane={lane} connectable={connectable} part="source" />
       <NodeToolbar isVisible={picked && hold.editing !== undefined} position={lane.id === hold.topLane ? Position.Bottom : Position.Top} offset={10}>
         <Toolbar pick={{ kind: "node", id: node.id }} name={`${lane.kind === "workflow" ? "step" : lane.title} ${node.label}`} rule={false} />
@@ -504,6 +517,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
     ...(rule.meta === undefined ? [] : [rule.meta]),
     ...(rule.changed === undefined ? [] : ["Changed on this Job", rule.changed]),
     ...(rule.differs === undefined ? [] : [differsSaid(rule.differs)]),
+    ...(rule.clash === undefined ? [] : [rule.clash]),
   ];
   const name = `${rule.proposed === true ? "Proposed: " : ""}${rule.label}${rule.quiet === true ? `, ${target}` : ""}`;
   return (
@@ -557,6 +571,7 @@ function RuleEdge(props: EdgeProps<Edge<RuleData, "rule">>) {
           )}
           {rule.changed === undefined ? null : <GitCompare className="armada-lane-chip__changed" size={14} strokeWidth={2} aria-hidden="true" />}
           {rule.differs === undefined ? null : <Split className="armada-lane-chip__differs" size={14} strokeWidth={2} aria-hidden="true" />}
+          {rule.clash === undefined ? null : <TriangleAlert className="armada-lane-chip__clash" size={14} strokeWidth={2} role="img" aria-label={rule.clash} />}
         </button>
         {picked && hold.editing !== undefined && rule.quiet !== true && rule.proposed !== true ? (
           <div className="armada-lane-toolbar-at" style={{ transform: `translate(-50%, -100%) translate(${chip.x}px, ${chip.y - 22}px)` }}>
@@ -682,8 +697,8 @@ function Pans({ pan, content, covered, open }: { pan: Pan | undefined; content: 
 }
 
 /** What a node or a chip is drawn as, so a change to it can be told from one to something beside it. */
-const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.ticket?.label, node.ticket?.stateId, node.ticket?.state, node.changed, node.differs, node.sub].map(String).join("|");
-const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.changed, rule.differs].map(String).join("|");
+const markOfNode = (node: LaneNodeView): string => [node.lit, node.here, node.passed, node.waiting, node.skipped, node.who, node.ticket?.label, node.ticket?.stateId, node.ticket?.state, node.changed, node.differs, node.clash, node.sub].map(String).join("|");
+const markOfRule = (rule: RuleView): string => [rule.status, rule.meta, rule.proposed, rule.autonomy, rule.did, rule.needs, rule.changed, rule.differs, rule.clash].map(String).join("|");
 
 export function LaneCanvas({ label, lanes, rules, picked, onPick, editing, coveredBy, onTeach, onOpen }: LaneCanvasProps) {
   const [current, setCurrent] = useState<string | undefined>();

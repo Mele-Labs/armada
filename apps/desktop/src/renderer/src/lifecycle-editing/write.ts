@@ -7,10 +7,10 @@
 // run (`RuleForm`, `canConnect`), and Fleet's own refusal words come back from the save.
 
 import { DEFAULT, readsAt, stateExistsAt, stateLabelAt } from "@armada/components";
-import type { LifecycleDef, Rule, Workspace } from "@armada/components";
+import type { Held, LifecycleDef, Rule, Workspace } from "@armada/components";
 import type { LifecycleDefinition, LifecyclePiece, LifecyclePieceKind, LifecycleRule, PieceScope, RuleAct, RuleTarget, StateReadFrom } from "@armada/protocol";
 
-import { effective, levelsOfRead, lifecycleLayers, parentOf, ruleLayers, scopeOf } from "./levels";
+import { effective, inherited, levelsOfRead, lifecycleLayers, ruleLayers, scopeOf } from "./levels";
 import type { Layer, Layers, PiecesRead } from "./levels";
 
 /** A piece by what identifies it: its kind, id and scope together. Only these two kinds are drawn on the canvas. */
@@ -42,8 +42,8 @@ function steppedOver(next: LifecycleDef["next"], gone: readonly string[]): (read
   return out;
 }
 
-function viewOf(def: LifecycleDef, level: string): View {
-  const here = def.states.filter((one) => stateExistsAt(one, level));
+function viewOf(def: LifecycleDef, level: string, workspace: Held): View {
+  const here = def.states.filter((one) => stateExistsAt(one, level, workspace));
   const ids = new Set(here.map((one) => one.id));
   const seen = new Set<string>();
   const transitions = steppedOver(
@@ -57,7 +57,7 @@ function viewOf(def: LifecycleDef, level: string): View {
   });
   return {
     name: def.label,
-    states: here.map((one) => ({ id: one.id, label: stateLabelAt(one, level), words: def.kind === "tracker" ? (readsAt(one, def.from, level) ?? []) : undefined, end: one.end === true })),
+    states: here.map((one) => ({ id: one.id, label: stateLabelAt(one, level, workspace), words: def.kind === "tracker" ? (readsAt(one, def.from, level, workspace) ?? []) : undefined, end: one.end === true })),
     transitions,
   };
 }
@@ -77,8 +77,8 @@ const layerOf = (def: LifecycleDef, level: string, only: ReadonlySet<string>) =>
  * The piece a level runs once it is changed: the one it ran (`base`) with the states, names, words and moves the change made. **The moves are the piece's own plus the ones the change added, less the ones it
  * took away**, so a move the piece lacked is not made by an edit elsewhere.
  */
-function pieceOf(def: LifecycleDef, was: LifecycleDef | undefined, level: string, base: LifecycleDefinition | undefined, workspace: string | undefined): LifecycleDefinition | undefined {
-  const view = viewOf(def, level);
+function pieceOf(def: LifecycleDef, was: LifecycleDef | undefined, level: string, base: LifecycleDefinition | undefined, workspace: Held): LifecycleDefinition | undefined {
+  const view = viewOf(def, level, workspace);
   const ids = new Set(view.states.map((one) => one.id));
   const fresh = view.states.find((one) => base !== undefined && !base.states.some((each) => each.id === one.id));
   // A state of a lifecycle another source reads has no words to be read from: none is added.
@@ -96,7 +96,7 @@ function pieceOf(def: LifecycleDef, was: LifecycleDef | undefined, level: string
   return {
     id: def.id,
     name: view.name,
-    scope: scopeOf(level, workspace),
+    scope: scopeOf(level),
     states: view.states.map((one) => {
       const old = base?.states.find((each) => each.id === one.id);
       const read: StateReadFrom = old !== undefined && old.read.source !== "tracker" ? old.read : { source: "tracker", words: [...(one.words ?? [])] };
@@ -117,13 +117,12 @@ function takenAway(id: PieceId, layer: Layer<unknown>): Op[] {
 function lifecycleOps(read: PiecesRead, before: Workspace, after: Workspace): Op[] {
   const layers = lifecycleLayers(read);
   const levels = levelsOfRead(read);
-  const workspace = read.workspace?.id;
   const ops: Op[] = [];
   for (const next of after.lifecycles) {
     const was = before.lifecycles.find((one) => one.id === next.id);
     if (was === undefined) {
       // A lifecycle added on a tab is that tab's own piece.
-      const piece = pieceOf(next, undefined, next.scope ?? DEFAULT, undefined, workspace);
+      const piece = pieceOf(next, undefined, next.scope ?? DEFAULT, undefined, after);
       if (piece !== undefined) ops.push({ op: "save", piece: { kind: "lifecycle", lifecycle: piece }, overwrite: false });
       continue;
     }
@@ -132,21 +131,21 @@ function lifecycleOps(read: PiecesRead, before: Workspace, after: Workspace): Op
     const common = new Set(next.states.filter((one) => was.states.some((each) => each.id === one.id)).map((one) => one.id));
     // **A level is written where its own words changed**, and no other: the default's edit leaves a repository's own piece as it is.
     for (const level of levels.filter((one) => !same(layerOf(was, one, common), layerOf(next, one, common)))) {
-      const id: PieceId = { kind: "lifecycle", id: next.id, scope: scopeOf(level, workspace) };
-      const above = parentOf(level);
+      const id: PieceId = { kind: "lifecycle", id: next.id, scope: scopeOf(level) };
+      const above = level === DEFAULT ? undefined : (inherited(own, level, read).found?.level ?? DEFAULT);
       const held = own.get(level);
       // A level changed back to what the one above says has no business holding a piece.
-      if (above !== undefined && same(viewOf(next, level), viewOf(next, above))) {
+      if (above !== undefined && same(viewOf(next, level, after), viewOf(next, above, after))) {
         if (held !== undefined) ops.push(...takenAway(id, held));
         continue;
       }
-      const base = held?.piece ?? effective(own, level)?.layer.piece ?? [...own.values()][0]!.piece;
-      const piece = pieceOf(next, was, level, base, workspace);
+      const base = held?.piece ?? effective(own, level, read)?.layer.piece ?? [...own.values()][0]!.piece;
+      const piece = pieceOf(next, was, level, base, after);
       if (piece !== undefined) ops.push({ op: "save", piece: { kind: "lifecycle", lifecycle: piece }, overwrite: held?.kept.rank.source === "kit" });
     }
   }
   for (const gone of before.lifecycles.filter((one) => !after.lifecycles.some((each) => each.id === one.id))) {
-    for (const [level, held] of layers.get(gone.id) ?? []) ops.push(...takenAway({ kind: "lifecycle", id: gone.id, scope: scopeOf(level, workspace) }, held));
+    for (const [level, held] of layers.get(gone.id) ?? []) ops.push(...takenAway({ kind: "lifecycle", id: gone.id, scope: scopeOf(level) }, held));
   }
   return ops;
 }
@@ -157,7 +156,7 @@ function lifecycleOps(read: PiecesRead, before: Workspace, after: Workspace): Op
  * The piece a connector between two nodes comes to, or none where Fleet has no act for it. A rule fires on a state entered or a step starting, and lands on a state a ticket is moved to or a pull request is
  * made ready or merged in. The instance the moment is about is the one the rule lands on when it is of that lifecycle; else the ones of it the Job holds.
  */
-export function connectorWire(rule: Rule, after: Workspace, workspace: string | undefined): LifecycleRule | undefined {
+export function connectorWire(rule: Rule, after: Workspace): LifecycleRule | undefined {
   const lane = after.lifecycles.find((one) => one.id === rule.to.lane);
   if (lane === undefined || rule.at === "leaves") return undefined;
   const when: LifecycleRule["when"] =
@@ -172,7 +171,7 @@ export function connectorWire(rule: Rule, after: Workspace, workspace: string | 
   return {
     id: rule.id,
     name: rule.label,
-    scope: scopeOf(rule.scope, workspace),
+    scope: scopeOf(rule.scope),
     when,
     conditions: rule.workflow === undefined ? [] : [{ kind: "workflow", workflow: rule.workflow }],
     does: [{ what, kind, autonomy: rule.autonomy }],
@@ -182,12 +181,12 @@ export function connectorWire(rule: Rule, after: Workspace, workspace: string | 
 }
 
 /** The Workspace with the piece of each rule a connector drew, which is the piece the rule is kept as. A connector that makes no rule Fleet can run draws none. */
-export function withWires(before: Workspace, after: Workspace, workspace: string | undefined): Workspace {
+export function withWires(before: Workspace, after: Workspace): Workspace {
   return {
     ...after,
     rules: after.rules.flatMap((rule): Rule[] => {
       if (rule.wire !== undefined || before.rules.some((one) => one.id === rule.id)) return [rule];
-      const wire = connectorWire(rule, after, workspace);
+      const wire = connectorWire(rule, after);
       return wire === undefined ? [] : [{ ...rule, wire }];
     }),
   };
@@ -198,7 +197,6 @@ const sans = (piece: LifecycleRule) => ({ ...piece, scope: undefined });
 
 function ruleOps(read: PiecesRead, before: Workspace, after: Workspace): Op[] {
   const layers = ruleLayers(read);
-  const workspace = read.workspace?.id;
   const ops: Op[] = [];
   /** The levels a rule has a piece at: where it applies, and each that keeps its own. */
   const levelsOf = (rule: Rule): string[] => [...new Set([rule.scope, ...(rule.overrides ?? []).map((one) => one.scope)])];
@@ -208,15 +206,15 @@ function ruleOps(read: PiecesRead, before: Workspace, after: Workspace): Op[] {
     const was = before.rules.find((one) => one.id === rule.id);
     if (was === undefined) {
       // A rule drawn by a connector has the piece the connector comes to.
-      const made = rule.wire ?? connectorWire(rule, after, workspace);
-      if (made !== undefined) ops.push({ op: "save", piece: { kind: "rule", rule: { ...made, scope: scopeOf(rule.scope, workspace) } }, overwrite: false });
+      const made = rule.wire ?? connectorWire(rule, after);
+      if (made !== undefined) ops.push({ op: "save", piece: { kind: "rule", rule: { ...made, scope: scopeOf(rule.scope) } }, overwrite: false });
       continue;
     }
     const own = layers.get(rule.id);
     if (own === undefined || same(was, rule)) continue;
     // **Each level keeps its own piece whole**: one is written where its piece changed, and a level that keeps none is written by nobody.
     for (const level of new Set([...levelsOf(was), ...levelsOf(rule)])) {
-      const id: PieceId = { kind: "rule", id: rule.id, scope: scopeOf(level, workspace) };
+      const id: PieceId = { kind: "rule", id: rule.id, scope: scopeOf(level) };
       const held = own.get(level);
       const then = wireAt(was, level);
       const now = wireAt(rule, level);
@@ -234,7 +232,7 @@ function ruleOps(read: PiecesRead, before: Workspace, after: Workspace): Op[] {
     if (own === undefined) continue;
     for (const level of levelsOf(gone)) {
       const held = own.get(level);
-      if (held !== undefined) ops.push(...takenAway({ kind: "rule", id: gone.id, scope: scopeOf(level, workspace) }, held));
+      if (held !== undefined) ops.push(...takenAway({ kind: "rule", id: gone.id, scope: scopeOf(level) }, held));
     }
   }
   return ops;
@@ -246,6 +244,6 @@ export const opsFrom = (read: PiecesRead, before: Workspace, after: Workspace): 
 /** The piece of the person's own that a tab runs for `id`, which Commit to repository copies. Absent where the piece it runs is a repository's or Armada's. */
 export function kitPieceAt(read: PiecesRead, kind: PieceId["kind"], id: string, level: string): PieceId | undefined {
   const layers = (kind === "rule" ? ruleLayers(read) : lifecycleLayers(read)).get(id) as Layers<{ scope: PieceScope }> | undefined;
-  const found = layers === undefined ? undefined : effective(layers, level);
+  const found = layers === undefined ? undefined : effective(layers, level, read);
   return found?.layer.kept.rank.source === "kit" ? { kind, id, scope: found.layer.piece.scope } : undefined;
 }

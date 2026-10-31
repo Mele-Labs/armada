@@ -43,9 +43,17 @@ function workspaceUnfit(workspace: { id: string; repositories: readonly string[]
   return same === undefined ? undefined : `its id is also the id of \`${same}\`, a repository it holds, and a scope could not say which it meant`;
 }
 
-/** What a read answers: those that apply, the one that runs for each id and scope with the ones it replaced marked as such. */
-function answered<T extends { id: string; scope: PieceScope }>(all: readonly { piece: T; kept: PieceKept }[], manifestId: string, workspaces: readonly WorkspaceOfRepositories[]): { piece: T; kept: PieceKept }[] {
-  const here = all.filter((one) => applies(one.piece.scope, manifestId, workspaces)).map((one) => ({ ...one, kept: { ...one.kept, rank: { ...one.kept.rank, reach: reachOf(one.piece.scope, manifestId) } } }));
+/**
+ * What a read answers: those that apply, the one that runs for each id and scope with the ones it replaced marked as such. **Two Workspaces that hold the repository and both set one id at one place are
+ * set aside, as Fleet sets them** (`crates/config/src/resolving.rs`): neither is answered, and the repository reads the one above. Autonomy layers are peers and all answered (`setAside` off).
+ */
+function answered<T extends { id: string; scope: PieceScope }>(all: readonly { piece: T; kept: PieceKept }[], manifestId: string, workspaces: readonly WorkspaceOfRepositories[], setAside = true): { piece: T; kept: PieceKept }[] {
+  const applying = all.filter((one) => applies(one.piece.scope, manifestId, workspaces)).map((one) => ({ ...one, kept: { ...one.kept, rank: { ...one.kept.rank, reach: reachOf(one.piece.scope, manifestId) } } }));
+  const tied = (one: (typeof applying)[number]) =>
+    setAside &&
+    one.kept.rank.reach === "workspace" &&
+    applying.some((each) => each !== one && each.piece.id === one.piece.id && each.kept.rank.reach === "workspace" && each.kept.rank.source === one.kept.rank.source && each.kept.rank.home === one.kept.rank.home && !sameScope(each.piece.scope, one.piece.scope));
+  const here = applying.filter((one) => !tied(one));
   return here.map((one) => {
     const best = here
       .filter((each) => each.piece.id === one.piece.id && sameScope(each.piece.scope, one.piece.scope))
@@ -73,7 +81,7 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
       workspaces: structuredClone([...seed.workspaces, ...wired.workspaces]),
       lifecycles: structuredClone([...seed.lifecycles]),
       rules: structuredClone([...seed.rules]),
-      autonomy: structuredClone(wired.autonomy),
+      autonomy: structuredClone([...wired.autonomy, ...(seed.autonomy ?? [])]),
     };
     return {
       listRepositoryWorkspaces: async (manifestId) => ({ ok: true, value: { manifest_id: manifestId, workspaces: kept.workspaces.filter((one) => one.repositories.includes(manifestId)), left_out: [] } }),
@@ -91,7 +99,7 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
         value: {
           manifest_id: manifestId,
           armada: [],
-          layers: answered(kept.autonomy.map((one) => ({ piece: one.layer, kept: one.kept })), manifestId, kept.workspaces)
+          layers: answered(kept.autonomy.map((one) => ({ piece: one.layer, kept: one.kept })), manifestId, kept.workspaces, false)
             .sort((a, b) => (TIERS[a.kept.rank.reach] ?? 0) - (TIERS[b.kept.rank.reach] ?? 0))
             .map(({ piece, kept: at }) => ({ id: piece.id, scope: piece.scope, kept: at, defaults: KINDS.flatMap((kind) => (piece.defaults[kind] === undefined ? [] : [{ kind, autonomy: piece.defaults[kind]! }])) })),
           left_out: [],

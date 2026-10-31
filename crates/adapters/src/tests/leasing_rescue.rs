@@ -137,6 +137,7 @@ fn only_a_stranded_or_a_dirty_session_slot_shows_work() {
         since: None,
         warm: false,
         behind: None,
+        ahead: None,
         closed: false,
         last_session: None,
         work: None,

@@ -6,7 +6,7 @@
 use std::future::Future;
 
 use ipc::{
-    DeleteWatch, ReadWatchLog, SaveWatchRecipe, SessionId, StartWatch, StopWatch, TryWatch, WatchList, WatchLog, WatchRecipeList,
+    DeleteWatch, DismissWait, ReadWatchLog, SaveWatchRecipe, SessionId, SessionRecord, StartWatch, StopWatch, TryWatch, WatchList, WatchLog, WatchRecipeList,
     WatchRecipeSaved, WatchSummary, WatchTried, WeighWatch,
 };
 
@@ -34,6 +34,13 @@ pub trait Watches: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         stop: StopWatch,
     ) -> impl Future<Output = Result<WatchSummary, Refusal>> + Send;
+
+    /// `dismiss_wait` — stop listing one of a Job's own pull requests as holding it open, leaving the
+    /// pull request alone. Bridge only: it answers the Job's row.
+    fn dismiss_wait(
+        &self,
+        dismiss: DismissWait,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `delete_watch` — forget an ended watch and all kept of it, answering the Job's watches
     /// after, live and ended. A placed Job deletes its own; Bridge deletes any.

@@ -1,7 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
+import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, DismissWait, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type {
   AnswerDocument,
   AnswerSessionAsk,
@@ -137,6 +137,7 @@ export type SessionsApi = {
   stopWatch: (stop: StopWatch) => Promise<SessionActed<WatchSummary>>;
   /** The person's delete on one ended watch of a Session. Fleet forgets it and answers the Job's watches after. */
   deleteWatch: (remove: DeleteWatch) => Promise<SessionActed<WatchList>>;
+  dismissWait: (dismiss: DismissWait) => Promise<SessionActed>;
   /** A failed reading's log, read whole. */
   readWatchLog: (read: ReadWatchLog) => Promise<SessionActed<WatchLog>>;
   /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
@@ -377,6 +378,7 @@ export const SESSIONS_CHANNELS = {
   settleLater: "bridge:settle-later",
   stopWatch: "bridge:stop-watch",
   deleteWatch: "bridge:delete-watch",
+  dismissWait: "bridge:dismiss-wait",
   readWatchLog: "bridge:read-watch-log",
   readSessionWait: "bridge:read-session-wait",
   changeWaiting: "bridge:change-waiting",

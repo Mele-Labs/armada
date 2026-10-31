@@ -543,6 +543,13 @@ export function sessionsStore(
         const held = (heldOpenBy ?? []).filter((it) => it.kind !== "watch" || watches.some((live) => live.live && live.name === it.name));
         return { ...rest, watches, ...(held.length === 0 ? {} : { heldOpenBy: held }) };
       }),
+    // As Fleet does: the pull request goes on, and only stops holding the Session open.
+    dismissWait: (id, pullRequest) =>
+      edit(id, (one) => {
+        const { heldOpenBy, ...rest } = one;
+        const held = (heldOpenBy ?? []).filter((it) => it.kind !== "pull_request" || it.number !== pullRequest);
+        return { ...rest, ...(held.length === 0 ? {} : { heldOpenBy: held }) };
+      }),
     // As Fleet does: an ended watch goes, and a live one stays, since Fleet refuses it.
     deleteWatch: (id, watch) => edit(id, (one) => ({ ...one, watches: (one.watches ?? []).filter((it) => it.id !== watch || it.live) })),
     // A watch log is a file under Fleet's state on the real machine; here a scenario names its text.

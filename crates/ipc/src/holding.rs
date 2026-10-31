@@ -37,6 +37,10 @@ pub struct WorktreeSlot {
     /// not count them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub behind: Option<u32>,
+    /// Commits on its checkout the base does not have. Absent where git could
+    /// not count them. Since 30 Oct 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ahead: Option<u32>,
     /// A person closed it: no lease takes it until it is reopened, and a
     /// holder keeps it until its lease ends. Since 23.17.
     #[serde(default)]

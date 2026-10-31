@@ -3,10 +3,14 @@
 import { BrowserWindow, type IpcMain } from "electron";
 
 import { CHANNELS } from "../shared/bridge";
+import { CHOICES, SITE_PERMISSIONS, type Answer } from "../shared/site-permissions";
 import type { JobBrowsers } from "./job-browsers";
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const number = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const permission = (value: unknown) => SITE_PERMISSIONS.find((one) => one.permission === value)?.permission;
+const choice = (value: unknown) => CHOICES.find((one) => one.choice === value)?.choice;
+const ANSWERS: readonly Answer[] = ["allow", "block", "dismiss"];
 const GOES = ["back", "forward", "reload"] as const;
 
 /** `known`: whether Fleet holds a Job by this id, so a window can make a browser only for a Job that is one. */
@@ -50,4 +54,16 @@ export function handleJobBrowsers({ ipc, browsers, known }: { ipc: IpcMain; brow
   ipc.handle(CHANNELS.jobBrowserNote, (_event, sessionId: unknown, said: unknown) =>
     text(sessionId) && typeof said === "string" && said.trim() !== "" ? browsers.note(sessionId, said) : { ok: false, why: "not_understood" },
   );
+  ipc.handle(CHANNELS.jobBrowserChoose, (_event, sessionId: unknown, host: unknown, which: unknown, chosen: unknown) => {
+    const [perm, pick] = [permission(which), choice(chosen)];
+    if (text(sessionId) && text(host) && perm !== undefined && pick !== undefined) browsers.choose(sessionId, host, perm, pick);
+  });
+  ipc.handle(CHANNELS.jobBrowserDefault, (_event, sessionId: unknown, which: unknown, chosen: unknown) => {
+    const [perm, pick] = [permission(which), choice(chosen)];
+    if (text(sessionId) && perm !== undefined && pick !== undefined) browsers.setDefault(sessionId, perm, pick);
+  });
+  ipc.handle(CHANNELS.jobBrowserAnswer, (_event, sessionId: unknown, answer: unknown) => {
+    const said = ANSWERS.find((one) => one === answer);
+    if (text(sessionId) && said !== undefined) browsers.answer(sessionId, said);
+  });
 }

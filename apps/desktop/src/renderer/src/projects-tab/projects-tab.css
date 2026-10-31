@@ -63,6 +63,8 @@
 .projects-item:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 
 .projects-name { padding: 0; }
+.projects-rename { cursor: text; box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); }
+.projects-rename__input { flex: 1 1 0; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; }
 
 /* ---- The project open ----------------------------------------------------------------------------------- */
 
@@ -286,3 +288,10 @@ span.projects-row__act { cursor: default; }
 .projects-head__act:hover { background: var(--bg-hover); color: var(--fg-default); }
 .projects-head__act[data-on] { background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); color: var(--fg-default); }
 .projects-head__act:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+.projects-confirm__hole { position: fixed; z-index: var(--z-menu); border-radius: var(--radius-inset, var(--radius-sm)); box-shadow: 0 0 0 100vmax var(--scrim); pointer-events: none; }
+.projects-confirm__pointer { position: absolute; left: calc(var(--space-1) * -1 - 1px); width: var(--space-2); height: var(--space-2); border-bottom: var(--border-width) solid var(--border-default); border-left: var(--border-width) solid var(--border-default); background: var(--bg-overlay); transform: translateY(-50%) rotate(45deg); }
+.projects-confirm { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; gap: var(--space-2); width: var(--sidebar-default); padding: var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); color: var(--fg-default); }
+.projects-confirm__title { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-heading); line-height: var(--leading-sm); }
+.projects-confirm__body { margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.projects-confirm__acts { display: flex; justify-content: flex-end; gap: var(--space-2); }
