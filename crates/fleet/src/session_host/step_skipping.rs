@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{ChangedBy, SessionRecord, SessionRow, SkipSessionStep, TimelineKind, WithdrawDraft, WithdrawWindow};
+use ipc::{ChangedBy, JumpSessionStep, SessionRecord, SessionRow, SkipSessionStep, TimelineKind, WithdrawDraft, WithdrawWindow};
 use store::KeptCopyMark;
 
 use super::drafting::DRAFT_PREFIX;
@@ -20,6 +20,9 @@ use crate::rail;
 
 /// The delivering step, or an index past the last step. A 422.
 pub(crate) const STEP_NOT_SKIPPABLE: &str = "fleet.session_step_not_skippable";
+
+/// A jump to a step at or before the one the Job is on, or past the last step. A 422.
+pub(crate) const STEP_NOT_AHEAD: &str = "fleet.session_step_not_ahead";
 
 /// What the agent opened on a step and still holds open: walk windows by address, drafts by row id.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -146,6 +149,112 @@ where
             let words = rail::skip_told(&self.workflow_name(&hosting.manifest_id, workflow), step, skip.skipped);
             if let Err(why) = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await {
                 eprintln!("job {id}: the skipped step was not sent to the agent: {why:?}");
+            }
+        }
+        self.published_hosted(&id).await
+    }
+
+    /// `jump_session_step`: skip every step from the one the Job is on up to the one before the target,
+    /// in one write, enter one line on the timeline, take back what the agent opened on the step it was
+    /// on, and tell a Job that has run once. The rail places the Job and sends the target's instructions.
+    pub(crate) async fn step_jumped(self: &Arc<Self>, jump: JumpSessionStep) -> Result<SessionRecord, Refusal> {
+        let (id, by) = self.copy_placed(Some(&jump.session_id))?;
+        if self.terminal_session(&id).await?.is_some() {
+            return Err(self.hosted_refusal(
+                SESSION_COMMAND_REFUSED,
+                &format!("job {id} is a terminal job, and only a hosted one has a workflow"),
+            ));
+        }
+        let (session, hosting) = self.session_and_hosting(&id).await?;
+        if session.state == store::SessionState::Ended {
+            return Err(self.closed(&id));
+        }
+        let Some(workflow) = hosting.workflow.as_deref() else {
+            return Err(self.hosted_refusal(
+                SESSION_COMMAND_REFUSED,
+                &format!("job {id} follows no workflow, so it has no step to move to"),
+            ));
+        };
+        if !self.workflow_on(&hosting.manifest_id, workflow) {
+            return Err(self.hosted_refusal(
+                WORKFLOWS_OFF,
+                "this Job's workflow is switched off in Settings, so it has no step to move to",
+            ));
+        }
+        let Some(steps) = self.job_rail_steps(&id, &hosting.manifest_id, workflow).await else {
+            return Err(self.hosted_refusal(
+                WORKFLOW_NOT_HELD,
+                &format!("this repository no longer holds the workflow `{workflow}`"),
+            ));
+        };
+        let to = jump.step as usize;
+        let Some(target) = steps.get(to).filter(|_| to <= rail::SKIPPABLE) else {
+            return Err(self.hosted_refusal(
+                STEP_NOT_AHEAD,
+                &format!("the workflow has {} steps, and none is numbered {to}", steps.len()),
+            ));
+        };
+        // Read, checked and written under one hold of the store, so the steps passed are the ones the Job
+        // stood before.
+        let (passed, since) = {
+            let mut store = self.store().lock().await;
+            let mut kept = store.session_rail(&id).map_err(|why| self.ledger_fault(why))?;
+            let Some(on) = self.ledger_row(&store, &session)?.workflow_step else {
+                return Err(self.hosted_refusal(STEP_NOT_AHEAD, "the Job is on no step of its workflow yet"));
+            };
+            if jump.step <= on {
+                return Err(self.hosted_refusal(
+                    STEP_NOT_AHEAD,
+                    &format!("the Job is on step {on}, and a jump goes to a step after it, not step {to}"),
+                ));
+            }
+            let passed: Vec<u32> = (on..jump.step).filter(|at| !kept.skipped.contains(at)).collect();
+            if let Some(delivers) = passed.iter().find_map(|at| steps.get(*at as usize).filter(|step| step.delivers)) {
+                return Err(self.hosted_refusal(
+                    STEP_NOT_SKIPPABLE,
+                    &format!("the \"{}\" step delivers the work, and a jump cannot pass it", delivers.label),
+                ));
+            }
+            kept.skipped.extend(&passed);
+            // A step jumped to is wanted, so a skip of it is lifted.
+            kept.skipped.retain(|one| *one != jump.step);
+            kept.skipped.sort_unstable();
+            store.keep_session_rail(&id, &kept).map_err(|why| self.ledger_fault(why))?;
+            let since = kept.visits.iter().rev().find(|(visited, _)| *visited == on).map(|(_, since)| since.clone());
+            (passed, since)
+        };
+        self.copy_noted(&session, TimelineKind::SessionStep, format!("jumped to: {}", target.label), by);
+        {
+            let mut store = self.store().lock().await;
+            let at = self.now().as_str().to_string();
+            for step in passed.iter().filter_map(|at| steps.get(*at as usize)) {
+                let mark = KeptCopyMark {
+                    lane: WORKFLOW_LANE.into(),
+                    item: step.id.clone(),
+                    text: "Skipped by you".into(),
+                    by: who_kept(by).into(),
+                    at: at.clone(),
+                };
+                if let Err(why) = store.keep_job_copy_mark(&id, &mark) {
+                    self.session_warned(&id, "the mark on a skipped step was not kept", why);
+                }
+            }
+            let target_skip_mark = store.job_copy_marks(&id).unwrap_or_default().iter().any(|mark| mark.lane == WORKFLOW_LANE && mark.item == target.id && mark.text.starts_with("Skipped"));
+            if target_skip_mark {
+                if let Err(why) = store.drop_job_copy_mark(&id, WORKFLOW_LANE, &target.id) {
+                    self.session_warned(&id, "the mark on the step jumped to was not dropped", why);
+                }
+            }
+        }
+        if let Some(since) = since {
+            self.step_withdrawn(&id, &since).await;
+        }
+        // A Job that has not run is told with its first turn (`first_step_kept`), which says every skip.
+        if hosting.ran {
+            let passed: Vec<&rail::RailStep> = passed.iter().filter_map(|at| steps.get(*at as usize)).collect();
+            let words = rail::jump_told(&self.workflow_name(&hosting.manifest_id, workflow), target, &passed);
+            if let Err(why) = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await {
+                eprintln!("job {id}: the jump was not sent to the agent: {why:?}");
             }
         }
         self.published_hosted(&id).await
