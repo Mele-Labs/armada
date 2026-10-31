@@ -1,7 +1,7 @@
 // One pane: a strip of its tabs with a + that adds one, over the body of the tab in front. A tab is dragged to another pane's strip to move there, or to a pane's edge to split it.
 
 import { useEffect, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Button, DropdownMenu, Tooltip, boundKeyFor, type DropdownMenuEntry } from "@armada/components";
 
 import { hostOf, peekJobBrowser } from "../job-browser/store";
@@ -63,11 +63,24 @@ function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane
         setPoint({ x: event.clientX, y: event.clientY });
       }}
     >
-      <button type="button" role="tab" className="job-pane__label" aria-selected={active} tabIndex={active ? 0 : -1} onClick={() => look(jobId, (arrangement) => activate(arrangement, tab.id))}>
+      <button
+        type="button"
+        role="tab"
+        className="job-pane__label"
+        aria-selected={active}
+        tabIndex={active ? 0 : -1}
+        onClick={() => look(jobId, (arrangement) => activate(arrangement, tab.id))}
+        onKeyDown={(event) => {
+          // Shift+F10 and the Menu key open the tab's menu, anchored to the tab.
+          if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+          event.preventDefault();
+          const box = event.currentTarget.getBoundingClientRect();
+          setPoint({ x: box.left, y: box.bottom });
+        }}
+      >
         <Glyph size={16} strokeWidth={2} aria-hidden />
         <span>{label}</span>
       </button>
-      {active ? <DropdownMenu triggerLabel="Tab menu" icon={ChevronDown} portal entries={tabEntries()} onSelect={choose} /> : null}
       <DropdownMenu triggerLabel="Tab actions" at={point ?? { x: 0, y: 0 }} open={point !== null} onOpenChange={(open) => !open && setPoint(null)} portal entries={tabEntries()} onSelect={choose} />
     </div>
   );

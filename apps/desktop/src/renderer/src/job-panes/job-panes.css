@@ -14,19 +14,20 @@
 .job-panes__line[data-axis="y"] { height: var(--space-2); }
 .job-panes__line > .armada-dock-handle { position: absolute; inset: 0; width: auto; height: auto; margin: 0; }
 
-.job-pane { gap: 0; background: var(--bg-raised); }
+.job-pane { --edge: var(--border-glass); gap: 0; border-color: var(--edge); background: var(--bg-raised); }
 .job-pane[data-frame] { gap: 0; }
-.job-pane[data-focused] { border-color: var(--border-default); }
+.job-pane[data-focused] { --edge: var(--border-default); }
 /* While a tab is dragged, the pane under the pointer is lit as a whole. */
 .job-pane[data-hot]::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: color-mix(in srgb, var(--fg-default) 6%, transparent); outline: calc(var(--border-width) * 2) solid var(--border-strong); outline-offset: calc(var(--border-width) * -2); }
 
 /* The strip is a tab row: a darker ground with a hairline under it, tabs standing on it. The tab in front is on the pane's own ground and breaks the hairline, so it and its body read as one;
    the others stay on the strip. Text is the only other difference, stronger on the one in front. Blue is the focus ring's. */
-.job-pane__strip { display: flex; flex: none; align-items: stretch; gap: 0; min-width: 0; min-height: var(--h-row-header); padding: 0; background: var(--bg-sunken); box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--border-default); overflow-x: auto; scrollbar-width: none; }
+.job-pane__strip { display: flex; flex: none; align-items: stretch; gap: 0; min-width: 0; min-height: var(--h-row-header); padding: 0; background: var(--bg-sunken); box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--edge); overflow-x: auto; scrollbar-width: none; }
 .job-pane__strip > .armada-button, .job-pane__strip > .armada-dropdown-menu { align-self: center; margin-inline: var(--space-1); }
 .job-pane__tab { display: flex; flex: none; align-items: stretch; box-shadow: inset calc(var(--border-width) * -1) 0 0 var(--border-subtle); }
-.job-pane__tab > .armada-dropdown-menu { align-self: center; }
-.job-pane__tab[data-active] { background: var(--bg-raised); box-shadow: inset var(--border-width) 0 0 var(--border-default), inset calc(var(--border-width) * -1) 0 0 var(--border-default); }
+.job-pane__tab[data-active] { background: var(--bg-raised); box-shadow: inset var(--border-width) 0 0 var(--edge), inset calc(var(--border-width) * -1) 0 0 var(--edge); }
+/* At the strip's start the pane's own border is the tab's left edge: no second line beside it. */
+.job-pane__tab[data-active]:first-child { box-shadow: inset calc(var(--border-width) * -1) 0 0 var(--edge); }
 .job-pane__tab[data-dragging] { opacity: 0.5; }
 .job-pane__label {
   display: inline-flex;
