@@ -75,3 +75,12 @@ fn a_pull_request_carries_its_address_only_when_it_has_one() {
     let without = mention_line(&[tag(TagKind::PullRequest, "5", "Five", None)]).expect("a line");
     assert_eq!(without, r#"The person named: pull request #5 "Five"."#);
 }
+
+#[test]
+fn a_reported_bug_is_named_by_its_title() {
+    let line = mention_line(&[tag(TagKind::Report, "01jreport", "Preview restart drops the lease", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some(r#"The person named: reported bug "Preview restart drops the lease"."#)
+    );
+}

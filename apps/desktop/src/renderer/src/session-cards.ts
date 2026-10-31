@@ -85,6 +85,8 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
       return { title: one.title, facts: [{ label: "Form", value: shownOnly(one) ? FILE_SHOWN : ARTIFACT_SAID[one.form] }, { label: one.form === "file" || one.form === "image" || one.form === "document" ? "Path" : "Address", value: one.id, mono: true }] };
     case "issue":
       return { title: one.title, where: issueLabel(one.number), facts: [{ label: "State", value: one.state === "open" ? "Open" : "Closed" }] };
+    case "report":
+      return { title: one.title, facts: [{ label: "Kind", value: "Reported bug" }] };
     case "studio":
       return { title: one.title, facts: [{ label: "Kind", value: "Studio" }] };
     case "link":

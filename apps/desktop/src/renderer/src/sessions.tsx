@@ -669,8 +669,8 @@ export function entriesOf(
   });
   // A slot a branch row already carries as its chip has no row of its own.
   const carried = new Set(attachmentsOf(session, "branch").map((one) => one.slot));
-  // An issue is drawn in Progress, with its pull requests under it, and has no row here. A link or a sent note is read in the Artifacts layer only.
-  const drawn = session.attachments.filter((one): one is Exclude<SessionAttachment, { kind: "issue" | "link" | "note" }> => one.kind !== "issue" && one.kind !== "link" && one.kind !== "note" && (one.kind !== "slot" || !carried.has(one.slot)));
+  // An issue is drawn in Progress, with its pull requests under it, and has no row here, nor has the report a Job was started on. A link or a sent note is read in the Artifacts layer only.
+  const drawn = session.attachments.filter((one): one is Exclude<SessionAttachment, { kind: "issue" | "report" | "link" | "note" }> => one.kind !== "issue" && one.kind !== "report" && one.kind !== "link" && one.kind !== "note" && (one.kind !== "slot" || !carried.has(one.slot)));
   return [
     ...waiting,
     ...drawn.map((one): LedgerEntry => {

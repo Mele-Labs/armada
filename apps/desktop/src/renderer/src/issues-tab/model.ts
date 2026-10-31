@@ -58,6 +58,8 @@ export type Tracker =
       /** The built-in queries, in the tracker's own language. */
       open: string;
       assigned: string;
+      /** The built-in query for closed issues. A tracker without one is left out of the Closed choice. */
+      closed?: string;
       saved: SavedQuery[];
     }
   /** `named` is the provider the Manifest names, where Fleet says it. */
@@ -84,6 +86,8 @@ export type ReportedBug = {
   logs: string[];
   at: string;
   kept: boolean;
+  /** The pull request of the Job started on it merged: the report is fixed. Absent while it stands open. */
+  fixed?: { at: string; pull_request: number; title: string; url: string };
 };
 
 /** What the tab reads and writes. Fleet answers it (`source.ts`), and the mock does in a walk. */
@@ -113,6 +117,7 @@ export type IssuesSource = {
 /** The built-ins every repository has, and the box a query is described in. */
 export const OPEN = "open";
 export const ASSIGNED = "assigned";
+export const CLOSED = "closed";
 export const DESCRIBE = "describe";
 /** A saved query is chosen by its name, so on All one name reaches each repository that keeps it. */
 export const savedChoice = (name: string): string => `saved:${name}`;
