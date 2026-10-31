@@ -1285,6 +1285,9 @@ where
             let now = self.clock().now().as_str().to_string();
             self.store().lock().await.keep_misread(&id, &item.text, &now).map_err(|why| self.ledger_fault(why))?;
         }
+        if item.source == WaitingSource::Sketch {
+            self.sketch_withdrawn_mark(&id, &item.id).await;
+        }
         self.drop_answered(&id, &item.id, Some(&closed)).await
     }
 

@@ -21,7 +21,7 @@ use api::{Refusal, Sessions};
 use ipc::{
     AnswerSketch, AttachmentReport, SendSessionMessage, SessionFact, SessionId, SessionRecord, SessionReport, SessionRow,
     SessionVoice, ShowSketch, Sketch, SketchHow, WaitingAct, WaitingActKind, WaitingItem, WaitingSource, WireError, SKETCH_ASKED, SKETCH_DRAWN, SKETCH_SETTLED, SKETCH_SETTLED_AT,
-    SKETCH_WORDS,
+    SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 
 use super::documents::{keep, one_name, revisions_in};
@@ -33,6 +33,8 @@ const SKETCH_AGAINST_UNKNOWN: &str = "fleet.sketch_against_unknown";
 const SKETCH_NOT_OPEN: &str = "fleet.sketch_not_open";
 const SKETCH_REDRAWN: &str = "fleet.sketch_redrawn";
 const SKETCH_ANSWER_EMPTY: &str = "fleet.sketch_answer_empty";
+const SKETCH_WITHDRAW_UNNAMED: &str = "fleet.sketch_withdraw_unnamed";
+const SKETCH_WITHDRAW_NOT_SHOWN: &str = "fleet.sketch_withdraw_not_shown";
 const SKETCH_ANSWER_UNNAMED: &str = "fleet.sketch_answer_unnamed";
 
 /// What a sketch's ledger row is keyed by, apart from a file or a page an artifact may be.
@@ -129,6 +131,48 @@ where
             fact: SessionFact::Attached { attachment },
         })
         .await
+    }
+
+    pub(crate) async fn sketch_withdrawn(
+        &self,
+        caller: Option<api::Caller>,
+        withdraw: ipc::WithdrawSketch,
+    ) -> Result<SessionRecord, Refusal> {
+        let title = withdraw.title.trim().to_string();
+        let target = format!("{TARGET_PREFIX}{title}");
+        let id = caller
+            .and_then(|caller| self.session_holding(&caller))
+            .or_else(|| withdraw.session_id.map(|named| named.as_str().trim().to_string()))
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| self.hosted_refusal(SKETCH_WITHDRAW_UNNAMED, "a job to withdraw it for"))?;
+        let (_, held) = self.sketch_held(&id, &target).await?;
+        if held.is_none() {
+            return Err(self.hosted_refusal(
+                SKETCH_WITHDRAW_NOT_SHOWN,
+                &format!("this job showed no sketch titled `{title}`. Name the title you passed to show_sketch"),
+            ));
+        }
+        // The dismissal the person's own Withdraw writes, so both end the same way.
+        self.store().lock().await.dismiss_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
+        self.sketch_withdrawn_mark(&id, &target).await;
+        self.published_hosted(&id).await
+    }
+
+    /// Mark the sketch held as `target` withdrawn. **The one place the mark is written**: the job's
+    /// `withdraw_sketch` and the person's Withdraw both come here. A new drawing of the title replaces the
+    /// attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
+    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str) {
+        let Ok((harness, Some(mut sketch))) = self.sketch_held(id, target).await else { return };
+        sketch.detail.insert(SKETCH_WITHDRAWN.into(), "true".into());
+        let _ = self
+            .report_session(SessionReport {
+                harness,
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Attached {
+                    attachment: AttachmentReport { kind: sketch.kind, target: sketch.target, detail: sketch.detail },
+                },
+            })
+            .await;
     }
 
     /// Keep `sketch`'s scene as the next revision of its title, unless the newest holds it already, and
@@ -297,7 +341,7 @@ pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a 
     attachments
         .iter()
         .filter(|one| one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch"))
-        .filter(|one| one.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && !one.detail.contains_key(SKETCH_SETTLED))
+        .filter(|one| one.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && !one.detail.contains_key(SKETCH_SETTLED) && !one.detail.contains_key(SKETCH_WITHDRAWN))
         .map(move |one| WaitingItem {
             id: one.target.clone(),
             text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string()),
