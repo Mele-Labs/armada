@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { heldOfPicked, sessionsOfPicked } from "./board";
+import { heldOfPicked, heldOfWorkspace, sessionsOfPicked, sessionsOfWorkspace } from "./board";
 
 import type { SessionRecord, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 
@@ -39,5 +39,18 @@ describe("which Sessions and held slots the pick lists", () => {
 
   it("keeps everything on All", () => {
     expect(heldOfPicked(held, null)).toBe(held);
+  });
+
+  const ynap = { manifest: { id: "ynap" } };
+
+  it("lists the Sessions of every repository a Workspace holds, and none of another", () => {
+    const other = session("other", "elsewhere");
+    expect(sessionsOfWorkspace([ours, theirs, other, loose], [armada, ynap])).toEqual([ours, theirs]);
+    expect(sessionsOfWorkspace([ours, theirs], [])).toEqual([]);
+  });
+
+  it("keeps the slots of every repository a Workspace holds", () => {
+    expect(heldOfWorkspace({ slots: [slot("armada", 1), slot("ynap", 2), slot("elsewhere", 3)] }, [armada, ynap])).toEqual({ slots: [slot("armada", 1), slot("ynap", 2)] });
+    expect(heldOfWorkspace({}, [armada])).toEqual({});
   });
 });
