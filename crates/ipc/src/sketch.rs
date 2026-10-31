@@ -82,6 +82,9 @@ pub const SKETCH_ASKED: &str = "asked";
 pub const SKETCH_DRAWN: &str = "drawn";
 pub const SKETCH_SETTLED: &str = "settled";
 pub const SKETCH_SETTLED_AT: &str = "settled_at";
+/// `"true"` where the sketch was taken back, by the job's `withdraw_sketch` or the person's Withdraw: its
+/// card shows no answer and Needs you does not raise it. A new drawing of the title does not carry it.
+pub const SKETCH_WITHDRAWN: &str = "withdrawn";
 /// His note on `sent_back`, or his words with an approval. Absent where he gave none.
 pub const SKETCH_WORDS: &str = "words";
 

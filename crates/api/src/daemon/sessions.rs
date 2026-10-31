@@ -174,6 +174,15 @@ pub trait Sessions: Send + Sync + 'static {
         withdraw: ipc::WithdrawWindow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `withdraw_sketch` — a session takes back a sketch it showed, so he is not asked to answer it. `caller`
+    /// places a hosted session as `show_window`'s does. Answers with the row. [`Refusal::Unacceptable`] for a
+    /// title this session showed no sketch under, or a call that places no session.
+    fn withdraw_sketch(
+        &self,
+        caller: Option<crate::Caller>,
+        withdraw: ipc::WithdrawSketch,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `show_sketch` — a session draws the person a diagram, kept on its ledger. `caller` places a
     /// hosted session as `show_window`'s does. Answers with the row. [`Refusal::Unacceptable`]
     /// with every rule the scene breaks, or for a call that places no session.

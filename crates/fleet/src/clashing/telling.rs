@@ -34,6 +34,22 @@ enum About {
 /// A Session's message: the words are Fleet's, the reach is the other side's.
 fn session_says(about: &About, paths: &[String]) -> String {
     match about {
+        // **A paused Job cannot answer**, so the clash is the branch's, settled when one merges.
+        About::Peer(Peer::Session {
+            address,
+            branch,
+            paused: true,
+            ..
+        }) => {
+            let with = match branch {
+                Some(branch) => format!("branch {branch}. Its Job {address} is paused"),
+                None => format!("Job {address}, which is paused"),
+            };
+            format!(
+                "Your changes to {} conflict with {with}, so resolve the conflict on merge.",
+                listed(paths)
+            )
+        }
         About::Peer(Peer::Session {
             address, branch, ..
         }) => {
@@ -94,7 +110,8 @@ where
     }
 
     /// What `to` is told of one clash, from what Fleet kept of it. Marked told once it was queued
-    /// for a Drone or a Session took the message.
+    /// for a Drone or a Session took the message. **Words sent before are not sent again**: the
+    /// table is memory, and a restart refilled it and told a Job the same clash three times.
     async fn clash_told(self: &Arc<Self>, opposed: &Opposed, to: &Who) {
         let Some(reading) = self.writes().reading(opposed) else {
             return;
@@ -123,10 +140,18 @@ where
             }
         };
         let told = match to {
-            Who::Session(id) => matches!(
-                self.told_by_fleet(id, &session_says(&about, &paths), ipc::Notice::WriteClash).await,
-                Ok(true)
-            ),
+            Who::Session(id) => {
+                let said = session_says(&about, &paths);
+                if matches!(self.store().lock().await.clash_told_before(id, &said), Ok(true)) {
+                    true
+                } else {
+                    let sent = matches!(self.told_by_fleet(id, &said, ipc::Notice::WriteClash).await, Ok(true));
+                    if sent {
+                        let _ = self.store().lock().await.keep_clash_told(id, &said, &self.now());
+                    }
+                    sent
+                }
+            }
         };
         if told {
             self.writes().told(opposed, to);

@@ -158,6 +158,7 @@ function sketchOf(one: Attachment): SessionAttachment {
     drawing: sceneOfWire(detail["scene"]) ?? NO_SCENE,
     ...(earlierTitle === undefined || earlierScene === undefined ? {} : { against: { title: earlierTitle, drawing: earlierScene } }),
     ...(detail["asked"] === "true" ? { asked: true as const } : {}),
+    ...(detail["withdrawn"] === "true" ? { withdrawn: true as const } : {}),
     ...(detail["drawn"] === undefined || detail["drawn"] === "" ? {} : { drawn: detail["drawn"] }),
     ...settledOf(detail),
     ...(revisions.length === 0 ? {} : { revisions }),

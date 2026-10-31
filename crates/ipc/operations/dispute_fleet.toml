@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Say that Fleet's latest notice in this job was wrong, with why: the reason in a sentence. Fleet keeps the dispute and, where dispute reviews are on, starts a review job in Armada that decides who was right. Then carry on with your work"
+description = "Say that Fleet's latest notice in this job was wrong, with why: the reason in a sentence. Fleet keeps the dispute and, where dispute reviews are on, starts a review job in Armada that decides who was right. If the notice would be wrong for any job in that state, not only this one, call report_bug as well. Then carry on with your work"
 notes = """
 `POST /sessions/dispute_fleet`, body `DisputeFleet`: `why`, and an optional `session_id`. Answered with `FleetDisputed`: `dispute_id`, `review_session_id` where a review job was started or joined, and `joined` where it was one already open.
 

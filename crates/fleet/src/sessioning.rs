@@ -696,6 +696,14 @@ where
         self.window_withdrawn(caller, withdraw).await
     }
 
+    async fn withdraw_sketch(
+        &self,
+        caller: Option<api::Caller>,
+        withdraw: ipc::WithdrawSketch,
+    ) -> Result<SessionRecord, Refusal> {
+        self.sketch_withdrawn(caller, withdraw).await
+    }
+
     async fn show_sketch(
         &self,
         caller: Option<api::Caller>,

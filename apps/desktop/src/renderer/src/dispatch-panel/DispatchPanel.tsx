@@ -136,7 +136,7 @@ export type PanelProps = {
   /** The host's keys on the request: Tab's kind and a Session's Enter. */
   onFieldKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   /** Pastes too big to send as words, kept as files for the Session to start with. Absent where the kind takes none. */
-  snippets?: { files: readonly File[]; onPaste: (words: string) => void; onRemove: (file: File) => void };
+  snippets?: { files: readonly File[]; onPaste: (words: string) => void; onFiles: (files: readonly File[]) => void; onRemove: (file: File) => void };
   /** Under the band: an Autopilot's read settings. Absent for a Session. */
   body?: ReactNode;
   fieldRef?: Ref<HTMLTextAreaElement>;
@@ -349,7 +349,15 @@ export function DispatchPanel({
       onKeyDown={keys}
     >
       {kind !== "session" || wait?.chip === undefined ? null : <WaitChip chip={wait.chip} sessions={sessions} disabled={disabled} onLeave={() => field.current?.focus()} />}
-      <div className="armada-dispatch-panel__line">
+      <div
+        className="armada-dispatch-panel__line"
+        onDragOver={(event) => snippets !== undefined && event.preventDefault()}
+        onDrop={(event) => {
+          if (snippets === undefined) return;
+          event.preventDefault();
+          snippets.onFiles([...event.dataTransfer.files]);
+        }}
+      >
         <Tooltip label={KIND_LABEL[kind]}>
           <span className="armada-dispatch-panel__prompt">
             <Mark size={20} aria-hidden />
@@ -380,8 +388,14 @@ export function DispatchPanel({
             onSelect={at.onSelect}
             onBlur={at.onBlur}
             onPaste={(event) => {
+              if (snippets === undefined) return;
+              const picked = [...event.clipboardData.files];
+              if (picked.length > 0) {
+                event.preventDefault();
+                return snippets.onFiles(picked);
+              }
               const pasted = event.clipboardData.getData("text/plain");
-              if (snippets === undefined || !isLargePaste(pasted)) return;
+              if (!isLargePaste(pasted)) return;
               event.preventDefault();
               snippets.onPaste(pasted);
             }}
