@@ -91,7 +91,8 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | Screen | Holds | Route |
 |---|---|---|
 | Needs you | The live Jobs waiting on the owner, oldest wait first | `GET /api/sessions`, the ones waiting |
-| Running | The live Jobs not waiting on the owner, one with a turn running marked working and the rest idle | `GET /api/sessions` |
+| Done | The live Jobs that said, through `all_done`, that nothing is left, with the summary they gave and an End button on each row | `GET /api/sessions`, the ones with `done_since` |
+| Running | The live Jobs not waiting on the owner and not done, one with a turn running marked working and the rest idle | `GET /api/sessions` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
 | A file | A file the Job showed: its text, or a picture | `GET /api/sessions/shown?session_id=&path=` |
 | This Mac | The name its rows are labelled with: the first label of its address, or its host name | `GET /api/machine` |

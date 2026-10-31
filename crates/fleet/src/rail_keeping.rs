@@ -66,7 +66,12 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
             .collect();
         let plan = store.session_plan(&session.id)?;
         let plan_approved_at = plan.as_ref().and_then(|plan| plan.approved_at.as_deref()).map(Instant::carried);
+        let pushed_since_walk = match walk_approved_at(&rows, plan_approved_at.as_ref()) {
+            Some(approved) => store.session_work(&session.id, approved.as_str())?.first_push.is_some(),
+            None => false,
+        };
         Extra {
+            pushed_since_walk,
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),
             checked: store.session_has_run_a_check(&session.id)?,
             plan_expects_walk: plan.is_some_and(|plan| plan.seen || plan.walk.is_some()),
@@ -117,20 +122,37 @@ pub(crate) fn thread_facts(rows: &[SessionRow], plan_approved_at: Option<&Instan
             _ => None,
         })
         .collect();
-    let approvals: Vec<&Instant> = windows.iter().filter_map(|url| walk_approval(rows, url)).collect();
+    let approvals = approvals_of(rows);
     let draft_approved = rows.iter().any(|row| {
         matches!(row, SessionRow::Draft { settled: Some(settled), .. } if matches!(settled.how, DraftHow::Approved | DraftHow::Fixed))
     });
     Extra {
         replied,
         walk_shown: !windows.is_empty(),
-        walk_approved: plan_approved_at.is_some_and(|plan| approvals.iter().any(|at| *at >= plan)),
+        walk_approved: walk_approved_at(rows, plan_approved_at).is_some(),
         any_walk_approved: !approvals.is_empty(),
         sketch_approved: sketch_approved(rows).is_some(),
         draft_approved,
         idea_picked: idea_picked(rows),
         ..Extra::default()
     }
+}
+
+/// When the person approved each window the Job showed, of those he approved.
+fn approvals_of(rows: &[SessionRow]) -> Vec<&Instant> {
+    rows.iter()
+        .filter_map(|row| match row {
+            SessionRow::Window { url, .. } => walk_approval(rows, url),
+            _ => None,
+        })
+        .collect()
+}
+
+/// His first Approve of a window at or after the plan's approval, at `plan_approved_at`: the one that
+/// passes a `walks` step. `None` before the plan is approved.
+fn walk_approved_at<'a>(rows: &'a [SessionRow], plan_approved_at: Option<&Instant>) -> Option<&'a Instant> {
+    let plan = plan_approved_at?;
+    approvals_of(rows).into_iter().filter(|at| *at >= plan).min()
 }
 
 /// Whether the person picked an option the Job's question gave a preview, on its card or later from

@@ -45,14 +45,15 @@ fn a_step_to_come_is_passed_over_when_the_job_reaches_it() {
     assert_eq!(at(&steps, skipping(&[1])), Some(0), "skipping ahead leaves the Job where it is");
     assert_eq!(at(&steps, Facts { skipped: Skipped::of(&[1]), ..approved() }), Some(2), "approval goes past it");
     let walking = [plan_step(), walk(), follows("Refine"), delivers("Deliver")];
-    assert_eq!(at(&walking, approved()), Some(1), "the walk, unskipped");
-    assert_eq!(at(&walking, Facts { skipped: Skipped::of(&[1]), ..approved() }), Some(2), "the walk skipped: refine at once");
+    let named = Facts { plan_expects_walk: true, ..approved() };
+    assert_eq!(at(&walking, named), Some(1), "the walk, unskipped");
+    assert_eq!(at(&walking, Facts { skipped: Skipped::of(&[1]), ..named }), Some(2), "the walk skipped: refine at once");
 }
 
 #[test]
 fn an_undo_puts_the_step_back_where_the_facts_place_it() {
     let walking = [plan_step(), walk(), follows("Refine"), delivers("Deliver")];
-    let past = Facts { skipped: Skipped::of(&[1]), tasks_open: true, ..approved() };
+    let past = Facts { skipped: Skipped::of(&[1]), tasks_open: true, plan_expects_walk: true, ..approved() };
     assert_eq!(at(&walking, past), Some(2));
     assert_eq!(at(&walking, Facts { skipped: Skipped::default(), ..past }), Some(1), "undone, the walk is current again");
 }

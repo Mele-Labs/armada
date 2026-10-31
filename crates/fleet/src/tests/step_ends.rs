@@ -62,7 +62,7 @@ fn only_the_ends_a_step_lists_end_it() {
 fn a_walk_approved_before_the_plan_ends_a_step_before_it_and_never_the_walk_step() {
     let steps = explore();
     let early = Facts { any_walk_approved: true, walk_shown: true, plan_recorded: true, ..approved() };
-    assert!(!early.walk_passed(), "approved before the plan was");
+    assert!(!early.walk_passed(&steps[3]), "approved before the plan was");
     assert_eq!(at(&steps, early), Some(3), "the walk step waits for an approval since the plan's");
     assert_eq!(at(&steps, Facts { walk_approved: true, ..early }), Some(4));
 }

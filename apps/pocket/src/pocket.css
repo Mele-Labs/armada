@@ -99,3 +99,7 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) { font-size: 
 .pk-card__ran { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--space-8); color: var(--status-completed-success); }
 .pk-draft__land { display: inline-flex; align-items: center; gap: var(--space-2); }
 .pk-draft__land [role="img"] { display: inline-flex; color: var(--fg-subtle); }
+
+/* A Job that said it is done: what it said, and the press that ends it. */
+.pk-done { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+.pk-done__says { margin: 0; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }

@@ -153,7 +153,8 @@ describe("Pocket v2 with two Macs", { timeout: 30_000 }, () => {
     });
     await vi.waitFor(() => expect(rows("Running").join()).toContain("Read the push payload"));
     expect(rows("Running").join()).toContain("Redraw the Needs you band");
-    expect(host.querySelector('[aria-label="Done"]')).toBeNull();
+    expect(rows("Done").join()).toContain("Trim the Drone pool tests");
+    expect(rows("Running").join()).not.toContain("Trim the Drone pool tests");
     expect(text()).not.toContain("Fix the merge line");
   });
 
@@ -225,7 +226,15 @@ describe("the phone draws as Bridge does", { timeout: 30_000 }, () => {
     expect(asking.every((row) => row.dataset["tone"] === "ask" && row.dataset["needs"] !== undefined)).toBe(true);
     expect(asking.every((row) => /ago$/.test(row.querySelector(".deck-row__said")?.textContent ?? ""))).toBe(true);
     const headings = Array.from(host.querySelectorAll("h2")).map((one) => one.textContent);
-    expect(headings).toEqual(["Drafts", "Needs you", "Running"]);
+    expect(headings).toEqual(["Drafts", "Needs you", "Done", "Running"]);
+  });
+
+  it("ends a Job that said it is done from its row in Done, without opening it", async () => {
+    await open("/");
+    await vi.waitFor(() => expect(rows("Done")).toHaveLength(1));
+    await press(host.querySelector('[aria-label="Done"] button[aria-label="End job"]'));
+    await vi.waitFor(() => expect(posted[STUDIO]).toEqual([{ path: "/api/sessions/close", body: { session_id: "e1" } }]));
+    await vi.waitFor(() => expect(host.querySelector('[aria-label="Done"]')).toBeNull());
   });
 
   it("opens a Job with Bridge's composer under its thread", async () => {
