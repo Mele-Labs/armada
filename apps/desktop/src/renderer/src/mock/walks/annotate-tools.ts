@@ -33,6 +33,7 @@ const steps: Step[] = [
   { press: inside(card, button("Save note")), say: "Saved with the changes and the picture" },
   { press: inside(dialog("Note"), button("Send to a Job")), say: "The caret lists the live Jobs" },
   { press: role("menuitem", "Fix the flaky store test"), say: "A pick sends the note to that Job" },
+  { key: "Escape", on: dialog("Note"), say: "Close the note" },
   { look: inside(thread, text(/Changes he made on the page/)), say: "The changes go with his words" },
 ];
 

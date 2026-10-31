@@ -26,6 +26,15 @@ const row: Step[] = [
   ...writes("The row should say which step it is on"),
 ];
 
+const places: Step[] = [
+  { context: inside(role("navigation", "Places"), role("tab", "Cockpit")), say: "The Places strip has a menu of its own" },
+  { look: role("menuitem", "Hide Cockpit"), say: "With its own acts" },
+  { look: role("menuitem", "Report"), say: "And Report, as every menu has" },
+  { press: role("menuitem", "Report"), say: "Report opens a note on the tab" },
+  ...writes("The tab names are too small"),
+];
+
 const planned = walk("report-from-right-click", anything);
 const onARow = walk("report-from-right-click", row);
-export { planned as "report-from-right-click", onARow as "report-from-job-row" };
+const onPlaces = walk("report-from-right-click", places);
+export { planned as "report-from-right-click", onARow as "report-from-job-row", onPlaces as "report-from-places" };
