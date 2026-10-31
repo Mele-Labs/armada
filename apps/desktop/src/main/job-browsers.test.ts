@@ -6,7 +6,7 @@ import type { SendSessionNote } from "@armada/protocol";
 import type { JobBrowserState } from "../shared/api/job-browser";
 import { ringOn, type Ring } from "../shared/ring";
 import { NO_SETTINGS } from "../shared/site-permissions";
-import { JobBrowsers, type BrowserPage, type Host, type JobBrowserMake } from "./job-browsers";
+import { JobBrowsers, type BrowserPage, type Host, type JobBrowserMake, type PageTold } from "./job-browsers";
 
 /** A page that records which host holds it; the rest of `JobPage` answers nothing. */
 function fakePage(): BrowserPage & { at: Host | null; moves: (Host | "away")[] } {
@@ -50,11 +50,13 @@ function fakePage(): BrowserPage & { at: Host | null; moves: (Host | "away")[] }
 
 function browsers() {
   const pages: ReturnType<typeof fakePage>[] = [];
+  const tellers: PageTold[] = [];
   const windows: { host: Host; closing: () => void; closed: boolean }[] = [];
   const make: JobBrowserMake = {
-    page: () => {
+    page: (_sessionId, told) => {
       const page = fakePage();
       pages.push(page);
+      tellers.push(told);
       return page;
     },
     window: (_sessionId, told) => {
@@ -79,8 +81,41 @@ function browsers() {
     answer: async () => {},
     note: async () => ({ ok: true }),
   });
-  return { held, pages, windows, shown, states };
+  return { held, pages, tellers, windows, shown, states };
 }
+
+describe("a page asking for a permission", () => {
+  it("waits on the owner's answer, shown in the Job browser's state", async () => {
+    const { held, tellers, states } = browsers();
+    held.show("01JOB");
+    const answer = tellers[0]!.ask("local_network", "login.example.com");
+    expect(states.at(-1)?.site.pending).toEqual({ permission: "local_network", host: "login.example.com" });
+    held.answer("01JOB", "allow");
+    expect(await answer).toBe("allow");
+    expect(states.at(-1)?.site.pending).toBeNull();
+  });
+
+  it("is dismissed when the owner hands the page back, and by a second ask while one waits", async () => {
+    const { held, tellers } = browsers();
+    held.show("01JOB");
+    held.drive("01JOB");
+    const first = tellers[0]!.ask("camera", "login.example.com");
+    expect(await tellers[0]!.ask("microphone", "login.example.com")).toBe("dismiss");
+    held.drive("01JOB");
+    expect(await first).toBe("dismiss");
+  });
+
+  it("passes a choice and a default to the page", () => {
+    const { held, pages } = browsers();
+    held.show("01JOB");
+    const chosen: unknown[] = [];
+    pages[0]!.choose = (...args) => void chosen.push(args);
+    pages[0]!.setDefault = (...args) => void chosen.push(args);
+    held.choose("01JOB", "login.example.com", "camera", "block");
+    held.setDefault("01JOB", "location", "allow");
+    expect(chosen).toEqual([["login.example.com", "camera", "block"], ["location", "allow"]]);
+  });
+});
 
 describe("a Job's browser moving between the side panel and its window", () => {
   it("keeps the one page it has, from the side panel into its window and back", () => {
