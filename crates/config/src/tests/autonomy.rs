@@ -95,6 +95,26 @@ fn the_same_id_is_chosen_between_as_every_piece_is_and_a_file_that_will_not_read
 }
 
 #[test]
+fn a_repository_in_two_workspaces_that_set_a_kind_differently_takes_the_one_that_asks_more() {
+    let workspace = |id: &str, repositories: &str| {
+        let text = format!("version: 1\nworkspace_id: {id}\nname: {id}\nrepositories:\n{repositories}");
+        Written::in_kit(PathBuf::from("kit/workspaces").join(format!("{id}.yml")), text)
+    };
+    let workspaces = Workspaces::of([workspace("platform", "  - api\n  - web\n"), workspace("mobile", "  - api\n  - ios\n")]);
+    // The later id is Platform's, so choosing by id would give Platform's word on every kind.
+    let written = vec![
+        in_kit("mobile.yml", file("mobile_defaults", Some("mobile"), "  forge_write: asks\n  tracker_write: off\n  start_job: off\n")),
+        in_kit("platform.yml", file("platform_defaults", Some("platform"), "  forge_write: acts\n  tracker_write: asks\n  start_job: asks\n  draft: acts\n")),
+        in_repository("api", "repository.yml", file("repository", Some("api"), "  start_job: acts\n")),
+    ];
+    let laid = Autonomies::applying_to(&repository("api"), &workspaces, written).defaults();
+    assert_eq!(laid.get(ActKind::ForgeWrite), Some(Autonomy::Asks), "Asks over Acts");
+    assert_eq!(laid.get(ActKind::TrackerWrite), Some(Autonomy::Off), "Off over Asks");
+    assert_eq!(laid.get(ActKind::Draft), Some(Autonomy::Acts), "a kind one Workspace sets is that Workspace's");
+    assert_eq!(laid.get(ActKind::StartJob), Some(Autonomy::Acts), "the repository's word still wins over both");
+}
+
+#[test]
 fn with_no_file_nothing_is_set() {
     let none = applying("store-web", Vec::new());
     assert!(none.files().is_empty() && none.defaults().iter().next().is_none());

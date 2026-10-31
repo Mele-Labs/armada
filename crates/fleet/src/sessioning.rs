@@ -218,6 +218,17 @@ where
                     let call = attachment.detail.get("call").unwrap_or(&attachment.target).clone();
                     subagent_row = Some(SubagentRow::Started(attachment.target.clone(), call, attachment.detail.clone()));
                 }
+                // The mod reports a pull request again as it acts on it; a dismissal made since is not undone by it.
+                let mut detail = attachment.detail;
+                if attachment.kind == crate::pull_requesting::PR {
+                    if let Some(held) = store
+                        .attachments_of(&holder)
+                        .ok()
+                        .and_then(|rows| rows.into_iter().find(|one| one.kind == attachment.kind && one.target == attachment.target))
+                    {
+                        detail = crate::pull_requesting::dismissal_kept(detail, &held.detail);
+                    }
+                }
                 if backed {
                     changed |= store
                         .attach(
@@ -227,7 +238,7 @@ where
                                 manifest_id: manifest_of(&session),
                                 target: attachment.target,
                                 state: AttachmentState::Standing,
-                                detail: attachment.detail,
+                                detail,
                                 since: now.clone(),
                                 changed_at: now.clone(),
                             },

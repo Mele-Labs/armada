@@ -16,7 +16,8 @@
 //!
 //! **Layers are laid over each other, and are not chosen between.** A rule's own `autonomy` wins
 //! over all of them, a repository's file over its Workspace's, and a file for every repository
-//! under both ([`Autonomies::defaults`]). Two files with one id are chosen between as every piece
+//! under both ([`Autonomies::defaults`]). Two Workspaces that hold one repository and set one kind
+//! differently give it the one that asks more. Two files with one id are chosen between as every piece
 //! is, by [`crate::resolving`]. **Text in, not directories**, so a test drives it with no file.
 
 use std::path::{Path, PathBuf};
@@ -28,7 +29,7 @@ use serde_yaml_ng::Value;
 use crate::error::{Fault, LoadError, Refusal};
 use crate::lifecycle::id_of;
 use crate::piece::{LeftOut, Written};
-use crate::resolving::{resolve, Rank, Resolved, Scoped};
+use crate::resolving::{resolve, Rank, Reach, Resolved, Scoped};
 use crate::rule::acts::KINDS;
 use crate::rule::{AUTONOMY, AUTONOMY_LEGAL};
 use crate::workspace::Workspaces;
@@ -206,14 +207,29 @@ impl Autonomies {
         &self.left_out
     }
 
-    /// What the files that apply set, the repository's laid over its Workspace's and both over a
+    /// What the files that apply set, the repository's laid over its Workspaces' and both over a
     /// file for every repository. **Where two files at one scope set one kind, the later rank
     /// wins** (yours over the repository's), and where the rank is the same too, the later id.
+    /// **Where two Workspaces that hold the repository set one kind differently, the one that asks
+    /// more wins**, as Bridge draws it.
     pub fn defaults(&self) -> AutonomyDefaults {
         let mut applying: Vec<&AutonomyFile> = self.files.iter().filter(|file| file.overridden_by.is_none()).collect();
         applying.sort_by(|a, b| (a.rank, a.piece.id()).cmp(&(b.rank, b.piece.id())));
-        applying
-            .into_iter()
-            .fold(AutonomyDefaults::new(), |wider, file| file.piece.defaults().laid_over(&wider))
+        let at = |reach: Reach| applying.iter().filter(move |file| file.rank.reach == reach);
+        let lay = |wider: AutonomyDefaults, file: &&AutonomyFile| file.piece.defaults().laid_over(&wider);
+
+        let everywhere = at(Reach::Everywhere).fold(AutonomyDefaults::new(), lay);
+        let mut each: Vec<(&LifecycleScope, AutonomyDefaults)> = Vec::new();
+        for file in at(Reach::Workspace) {
+            match each.iter_mut().find(|(scope, _)| *scope == file.piece.scope()) {
+                Some((_, held)) => *held = lay(std::mem::take(held), file),
+                None => each.push((file.piece.scope(), lay(AutonomyDefaults::new(), file))),
+            }
+        }
+        let workspaces = each.iter().flat_map(|(_, one)| one.iter()).fold(AutonomyDefaults::new(), |most, (kind, autonomy)| {
+            let asks_more = most.get(kind).map_or(autonomy, |held| held.max(autonomy));
+            most.setting(kind, asks_more)
+        });
+        at(Reach::Repository).fold(workspaces.laid_over(&everywhere), lay)
     }
 }

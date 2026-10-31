@@ -539,6 +539,15 @@ pub struct DeleteWatch {
     pub watch: String,
 }
 
+/// `dismiss_wait`. `POST /watches/dismiss_wait`. The person's cross on a pull request the Job's row
+/// lists as holding it open: Fleet stops counting that pull request there, and does nothing to it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DismissWait {
+    pub session_id: SessionId,
+    pub pull_request: u64,
+}
+
 /// The line as a command prints it. Unknown fields are ignored, so a script may carry its own.
 #[derive(Deserialize)]
 struct Line {

@@ -1,0 +1,16 @@
+[operations.dismiss_wait]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Stop counting one of a Job's own pull requests as holding the Job open, touching the pull request not at all"
+notes = """
+`POST /watches/dismiss_wait`, body `DismissWait`: `session_id` and `pull_request`. Answers 200 with the Job's `SessionRecord`, and `session.changed` is published, as a watch's Stop does. Bridge's cross on a pull request row of the Waiting band.
+
+**Only the listing ends.** The pull request still merges, auto-merge stays on, and the agent is told when it merges or fails as before. `held_open_by` stops naming it for that Job from then on, whatever the forge reads of it later; a watch on the same Job still holds it open.
+
+**Kept** as `wait_dismissed = "true"` in the `detail` of the Job's `pr` attachment, so it outlives a restart and a later read of the forge or report of the mod.
+
+**What the Job holds.** A pull request the Job holds no `pr` attachment for is a 404 `fleet.no_such_pull_request_held`, "No pull request of this Job is #<number>."; a pull request already dismissed is answered as it stands, so a cross pressed twice is not an error. An unknown Job is a 422 `fleet.no_such_session`.
+
+`agent_access` is `No`: an agent's own pull request is not its to stop waiting on.
+"""

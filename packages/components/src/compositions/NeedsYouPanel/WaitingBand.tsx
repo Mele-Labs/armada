@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import type { KeyboardEvent } from "react";
-import { ChevronUp, CircleDot, GitMerge, Radar, type LucideIcon } from "lucide-react";
+import { ChevronUp, CircleDot, GitMerge, Radar, X, type LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useEscapeFold } from "./useEscapeFold";
@@ -16,7 +16,7 @@ const GLYPH: Record<WaitingLine["kind"], LucideIcon> = { watch: Radar, merge: Gi
  * thing it waits on, named on hover, and pressed it rides up as the header of a panel with a row for each. Esc and a press on the dimmed thread
  * fold it. It shares the panel's styles, so the band and the body move the same way.
  */
-export function WaitingBand({ waits, open, onOpen }: { waits: readonly WaitingLine[]; open: boolean; onOpen: (next: boolean) => void }) {
+export function WaitingBand({ waits, open, onOpen, onDismiss }: { waits: readonly WaitingLine[]; open: boolean; onOpen: (next: boolean) => void; /** Dismisses the wait at that place in `waits`: a watch is stopped, a pull request stops counting. */ onDismiss?: (at: number) => void }) {
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useScrimFold(section, open, () => onOpen(false));
@@ -53,8 +53,9 @@ export function WaitingBand({ waits, open, onOpen }: { waits: readonly WaitingLi
         <div className="armada-needs-panel__shell">
           <div className="armada-needs-panel__body" data-open={open}>
             <ul className="armada-session-ledger__rows" aria-label="Waiting on">
-              {waits.map((one) => {
+              {waits.map((one, at) => {
                 const Glyph = GLYPH[one.kind];
+                const away = one.kind === "watch" ? "Stop the watch" : "Stop waiting on it";
                 return (
                   <li key={one.said} className="armada-session-ledger__row" aria-label={one.said}>
                     <span className="armada-session-ledger__open">
@@ -63,6 +64,13 @@ export function WaitingBand({ waits, open, onOpen }: { waits: readonly WaitingLi
                       </span>
                       <span className="armada-session-ledger__text">{one.said}</span>
                     </span>
+                    {onDismiss === undefined ? null : (
+                      <Tooltip label={away}>
+                        <button type="button" className="armada-waiting-band__dismiss" aria-label={`${away}: ${one.said}`} onClick={() => onDismiss(at)}>
+                          <X size={12} strokeWidth={2} aria-hidden />
+                        </button>
+                      </Tooltip>
+                    )}
                   </li>
                 );
               })}

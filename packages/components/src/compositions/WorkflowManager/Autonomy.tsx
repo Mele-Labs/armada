@@ -6,6 +6,7 @@ import { useId } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { Radio } from "../../primitives/Radio/Radio";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { listed } from "../LaneCanvas/model";
 import type { Autonomy } from "../LaneCanvas/model";
 import { ACTS } from "./RuleForm";
 
@@ -68,9 +69,6 @@ export type AutonomyRow = {
   /** What it falls back to: the level above and its value. */
   above: { name: string; value: Autonomy };
 };
-
-/** Names as a person lists them: `a`, `a and b`, `a, b and c`. */
-const listed = (names: readonly string[]): string => (names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
 
 /** Each kind as the first level reads it: its value, the level that set it, and what pressing reset would leave. */
 export function autonomyRows(layers: AutonomyLayers, tiers: AutonomyTiers): AutonomyRow[] {
