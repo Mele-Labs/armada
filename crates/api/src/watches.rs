@@ -46,6 +46,17 @@ pub(crate) async fn stop_watch<D: Watches>(State(served): State<Served<D>>, body
     }
 }
 
+pub(crate) async fn dismiss_wait<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let dismiss: ipc::DismissWait = match ipc::decode_body("a wait to dismiss", &body) {
+        Ok(dismiss) => dismiss,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().dismiss_wait(dismiss).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn delete_watch<D: Watches>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let delete: ipc::DeleteWatch = match ipc::decode_body("a watch to delete", &body) {
         Ok(delete) => delete,

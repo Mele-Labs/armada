@@ -714,7 +714,7 @@ pub use studio_sketch::{
     SketchPictureDrawn, SketchPoint, SketchStroke,
 };
 pub use watches::{
-    collapsed, read_watch_line, watch_line, DeleteWatch, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
+    collapsed, read_watch_line, watch_line, DeleteWatch, DismissWait, LoginShell, StartWatch, StopWatch, WatchList, WatchPart,
     WatchReading, WatchReadingState, WatchSetAside, WatchStarts, WatchState, WatchSummary,
     ReadWatchLog, WatchEvidence, WatchLog, WatchVerdict, WatchVerdictGiven, WatchVerdictWord, WeighWatch,
 };

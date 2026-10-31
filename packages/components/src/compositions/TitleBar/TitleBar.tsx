@@ -582,7 +582,7 @@ function listed(entries: DropdownMenuEntry[], trailOf: NonNullable<TitleBarProps
     if (entry.kind !== "item") return [entry];
     const act = REPOSITORY_ACTS[entry.id];
     if (act !== undefined) return [{ ...entry, icon: act, act: true }];
-    // A Workspace is a heading over its repositories: it is not chosen, and its gear opens its page.
+    // A Workspace is a heading over its repositories: choosing it scopes the window, and its gear opens its page.
     if (entry.id.startsWith(WORKSPACE)) {
       const id = entry.id.slice(WORKSPACE.length);
       const gear = (
@@ -592,7 +592,7 @@ function listed(entries: DropdownMenuEntry[], trailOf: NonNullable<TitleBarProps
           </span>
         </Tooltip>
       );
-      return [{ ...entry, icon: Layers, disabled: true, ...(onOpenWorkspace === undefined ? {} : { trail: gear, onRight: () => onOpenWorkspace(id) }) }];
+      return [{ ...entry, icon: Layers, ...(onOpenWorkspace === undefined ? {} : { trail: gear, onRight: () => onOpenWorkspace(id) }) }];
     }
     const trail = entry.id === "" ? undefined : trailOf?.(entry.id, entry.label);
     return [{ ...entry, icon: entry.id === "" ? Layers : FolderGit2, ...(loose ? { detail: "Not set up" } : {}), ...(trail === undefined ? {} : { trail: trail.node, onRight: trail.open }) }];

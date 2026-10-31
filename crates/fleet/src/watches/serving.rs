@@ -8,7 +8,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Watches};
 use config::settings as keys;
 use core_model::{NotFilled, NotWeighed, Verdict, WatchState};
-use ipc::{DeleteWatch, ReadWatchLog, SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchSummary, WatchVerdict, WeighWatch, WireError};
+use ipc::{DeleteWatch, DismissWait, ReadWatchLog, SessionId, StartWatch, StopWatch, WatchList, WatchStarts, WatchSummary, WatchVerdict, WeighWatch, WireError};
 use store::{KeptWatch, KeptWatchSetAside, KeptWatchVerdict};
 
 use super::running::Folder;
@@ -390,6 +390,37 @@ where
         self.watches_published(&job).await;
         self.watching_row_published(&job).await;
         whole.map(|whole| self.watch_summary(&whole)).ok_or_else(|| self.no_such_watch(&stop.watch))
+    }
+
+    async fn dismiss_wait(&self, dismiss: DismissWait) -> Result<ipc::SessionRecord, Refusal> {
+        let job = dismiss.session_id.as_str().to_string();
+        let target = dismiss.pull_request.to_string();
+        let now = self.now();
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&job)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.watch_unacceptable(NO_SUCH_SESSION, format!("No Job Fleet holds is named {job}.")))?;
+            let held = store
+                .attachments_of(&store::Holder::session(&job))
+                .map_err(|why| self.ledger_fault(why))?
+                .into_iter()
+                .find(|one| one.kind == crate::pull_requesting::PR && one.target == target && one.state != store::AttachmentState::GivenBack)
+                .ok_or_else(|| {
+                    Refusal::NotFound(WireError::raised(
+                        NO_SUCH_PULL_REQUEST_HELD,
+                        format!("No pull request of this Job is #{target}."),
+                        self.run_id(),
+                    ))
+                })?;
+            let mut detail = held.detail.clone();
+            detail.insert(crate::pull_requesting::WAIT_DISMISSED.to_string(), "true".to_string());
+            store.follow(&held, held.state, &detail, now.as_str()).map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
     }
 
     async fn delete_watch(&self, caller: Option<api::Caller>, delete: DeleteWatch) -> Result<WatchList, Refusal> {

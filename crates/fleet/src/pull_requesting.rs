@@ -56,6 +56,18 @@ pub(crate) const SESSION_UNKNOWN: &str = "fleet.session_unknown";
 /// The ledger's kind for a pull request a Session holds, and the kind its owners are read under.
 pub(crate) const PR: &str = "pr";
 
+/// The `detail` key a Session's `pr` row keeps once the person dismissed that pull request from what holds
+/// the Job open. Every write of the row's detail carries it forward, so a later read of the forge keeps it.
+pub(crate) const WAIT_DISMISSED: &str = "wait_dismissed";
+
+/// `detail` as the forge now says it, with the dismissal `held` already made carried over.
+pub(crate) fn dismissal_kept(mut detail: BTreeMap<String, String>, held: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+    if let Some(dismissed) = held.get(WAIT_DISMISSED) {
+        detail.insert(WAIT_DISMISSED.to_string(), dismissed.clone());
+    }
+    detail
+}
+
 /// What a pull request was named as.
 enum Named {
     Number(u64),
@@ -311,7 +323,7 @@ where
             }) {
                 // **One write for the detail and the state**: a row never reads merged in
                 // one and standing in the other.
-                let mut moved = matches!(store.follow(row, over, &detail, &now), Ok(true));
+                let mut moved = matches!(store.follow(row, over, &dismissal_kept(detail.clone(), &row.detail), &now), Ok(true));
                 // What it closes is what the Session works on, merged or not.
                 for number in &state.closes {
                     let issue = ipc::IssueReference::number(*number);

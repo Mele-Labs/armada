@@ -929,6 +929,8 @@ export type SessionsDraft = {
   confirmLater?: (id: string, later: string) => void;
   /** The person's Stop on one of a Session's watches (`watch` is its id): Fleet ends it `stopped`. */
   stopWatch?: (id: string, watch: string) => void;
+  /** The person's dismiss on a pull request the Session waits on (`pullRequest` is its number): Fleet stops counting it in `heldOpenBy`, and the pull request goes on as it was. */
+  dismissWait?: (id: string, pullRequest: number) => void;
   /** The person's delete on one of a Session's ended watches (`watch` is its id): Fleet forgets it and all kept of it. */
   deleteWatch?: (id: string, watch: string) => void;
   /** A failed reading's log (`log` is the path its reading carries), read whole: its text, or why it could not be read. */

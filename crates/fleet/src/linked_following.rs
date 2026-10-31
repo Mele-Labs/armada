@@ -12,7 +12,9 @@
 //! **Merged is the forge's word**, read as `after_following` reads it: a `pr` row the mod spent while
 //! its detail still says open is not a merge. A `merged` kept off such a row is forgotten at start.
 //!
-//! Every Session with a `started_by` row is followed, whether or not it was handed a plan group.
+//! Every Session with a `started_by` row is followed, whether or not it was handed a plan group. **A
+//! Job handed on for context passes that row to its successor** (`session_host::replacing`), so its
+//! end is told as handed on, and the successor is followed from there.
 
 use std::sync::Arc;
 
@@ -79,7 +81,14 @@ where
         let title = record.title.clone().unwrap_or_else(|| child.clone());
         let said = |what: &str| linked_said(&title, &child, group.as_deref(), what);
         if record.state == ipc::SessionState::Ended && self.linked_once(&child, "done", "").await {
-            self.linked_told(&parent, &child, &title, LinkedEvent::Done, said("ended")).await;
+            // A Job handed on for context ends with its work carried on: the row opens the successor.
+            match record.attachments.iter().find(|one| one.kind == crate::session_host::replacing::REPLACED_BY) {
+                Some(next) => {
+                    let what = format!("was handed on to a new Job ({}) for context", next.target);
+                    self.linked_told(&parent, &next.target, &title, LinkedEvent::Started, said(&what)).await;
+                }
+                None => self.linked_told(&parent, &child, &title, LinkedEvent::Done, said("ended")).await,
+            }
         }
         for pull in record.attachments.iter().filter(|one| one.kind == "pr" && crate::after_following::merged(one)) {
             if self.linked_once(&child, "merged", &pull.target).await {

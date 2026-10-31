@@ -198,7 +198,7 @@ export function draftedRules(read: PiecesRead, drafts: readonly KeepDraft[], wor
     const drawn = drawnRule(found.rule, defs);
     if (drawn === undefined) return [];
     const { workflow, ...fields } = drawn;
-    return [{ id: found.rule.id, ...fields, kept: "repository", scope: levelOf(found.rule.scope, read.workspace?.id), wire: found.rule, ...(workflow === undefined ? {} : { workflow }) }];
+    return [{ id: found.rule.id, ...fields, kept: "repository", scope: levelOf(found.rule.scope, read), wire: found.rule, ...(workflow === undefined ? {} : { workflow }) }];
   });
 }
 

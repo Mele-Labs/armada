@@ -47,6 +47,7 @@ import type {
   SettleLater,
   StopWatch,
   DeleteWatch,
+  DismissWait,
   ReadWatchLog,
   WatchLog,
   WatchesChanged,
@@ -793,6 +794,11 @@ export class SessionsHost {
   /** An ended watch the person deleted. Its Job's watches are published by Fleet, so nothing is folded here. */
   async deleteWatch(remove: DeleteWatch): Promise<SessionActed<WatchList>> {
     return await this.asked("/watches/delete", remove);
+  }
+
+  /** A pull request the person dismissed from what holds a Job open. Fleet publishes the Job's row, so nothing is folded here. */
+  async dismissWait(dismiss: DismissWait): Promise<SessionActed> {
+    return await this.act("POST", "/watches/dismiss_wait", dismiss);
   }
 
   /** The proposer's reading of a brief that tags a Session. Nothing is held from it. */
