@@ -933,6 +933,7 @@ export class WiredStore {
         void this.plain(this.api.setSessionWorkflow(id, workflow ?? undefined));
       },
       skip: (id, step, skipped) => void this.plain(this.api.skipSessionStep(id, step, skipped)),
+      jump: (id, step) => void this.plain(this.api.jumpSessionStep(id, step)),
       unpick: (id, value) => this.unpick(id, value),
       // Answers whether Fleet took it, so a refused Approve reverts the plan drawn as approved (`pressed.ts`).
       approve: (id) => {

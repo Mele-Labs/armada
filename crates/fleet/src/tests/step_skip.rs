@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 use api::{HostedSessions, Refusal, Sessions};
-use ipc::{BeginSession, DeliveryChoice, Instant, SessionId, SessionRecord, SessionRow, ShowWindow, SkipSessionStep};
+use ipc::{BeginSession, DeliveryChoice, Instant, JumpSessionStep, SessionId, SessionRecord, SessionRow, ShowWindow, SkipSessionStep};
 use testkit::FakeJudge;
 
 use super::session_host::{eventually, Rig};
@@ -261,4 +261,47 @@ async fn a_job_that_has_not_run_is_told_its_skips_with_its_first_turn() {
         .await
         .expect("begun");
     eventually(|| async { rig.stand_in.starts().len() == 1 && told(&rig, SKIP_SAID) == 1 }).await;
+}
+
+/// Plan, Implement, Refine and Hand off: Refine has nothing the rail waits on.
+fn four_steps() -> config::ResolvedWorkflow {
+    let text = "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
+        - id: plan\n    label: \"Plan the change\"\n    instructions: \"Record the plan before editing.\"\n    evidence: {submitted: {type: plan}}\n    \
+        mechanical_checks:\n      - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    advance_gate: auto\n  \
+        - id: implement\n    label: \"Implement\"\n    follows_plan: true\n    delivers: false\n    advance_gate: auto\n  \
+        - id: refine\n    label: \"Refine\"\n    delivers: false\n    advance_gate: auto\n  \
+        - id: handoff\n    label: \"Hand off\"\n    delivers: true\n    advance_gate: auto\n";
+    let def = config::WorkflowDef::parse(std::path::Path::new("rail.yml"), text, &config::Roster::offering_nothing())
+        .unwrap_or_else(|refused| panic!("the fixture did not parse: {refused}"));
+    config::ResolvedWorkflow::resolve(&def, &super::daemon::manifest())
+        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
+}
+
+async fn jump(rig: &Rig, id: &SessionId, step: u32) -> Result<SessionRecord, Refusal> {
+    Arc::clone(&rig.fleet).jump_session_step(JumpSessionStep { session_id: id.clone(), step }).await
+}
+
+#[tokio::test]
+async fn a_jump_from_step_one_to_step_three_keeps_the_steps_between_skipped_and_tells_the_job_once() {
+    let rig = ruled_on(Arc::new(FakeJudge::with_no_objection()), four_steps());
+    let id = on_the_rail(&rig).await;
+    approved_plan(&rig, &id).await;
+    eventually(|| async { record(&rig, &id).await.workflow_step == Some(1) }).await;
+
+    let backward = jump(&rig, &id, 1).await;
+    assert!(refused_with(&backward, "fleet.session_step_not_ahead"), "the step it is on: {backward:?}");
+    let before = jump(&rig, &id, 0).await;
+    assert!(refused_with(&before, "fleet.session_step_not_ahead"), "an earlier step: {before:?}");
+    let past = jump(&rig, &id, 9).await;
+    assert!(refused_with(&past, "fleet.session_step_not_ahead"), "past the last step: {past:?}");
+    assert!(record(&rig, &id).await.skipped_steps.is_empty(), "a refusal keeps nothing");
+
+    let jumped = jump(&rig, &id, 3).await.expect("jumped");
+    assert_eq!(jumped.skipped_steps, [1, 2]);
+    eventually(|| async { record(&rig, &id).await.workflow_step == Some(3) }).await;
+    eventually(|| async { told(&rig, r#"moved this Job to the \"Hand off\" step"#) == 1 }).await;
+    eventually(|| async { says_of_steps(&rig).await.contains(&"jumped to: Hand off".to_string()) }).await;
+    assert_eq!(told(&rig, r#"past \"Implement\", \"Refine\"."#), 1, "the steps passed are named");
+    assert_eq!(told(&rig, "the person skipped"), 0, "no per-step skip message");
+    assert_eq!(says_of_steps(&rig).await.iter().filter(|says| says.starts_with("skipped:")).count(), 0);
 }

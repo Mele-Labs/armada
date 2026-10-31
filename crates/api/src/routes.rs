@@ -550,6 +550,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::skip_session_step::<D>),
         )
         .route(
+            "/sessions/step-jump",
+            post(crate::hosted_sessions::jump_session_step::<D>),
+        )
+        .route(
             "/sessions/workflow/steps",
             post(crate::hosted_sessions::change_session_steps::<D>),
         )
