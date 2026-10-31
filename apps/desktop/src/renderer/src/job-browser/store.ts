@@ -6,7 +6,7 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 
 import type { JobBrowserApi, JobBrowserState } from "../../../shared/api/job-browser";
-import type { Choice, SitePermission } from "../../../shared/site-permissions";
+import { effectiveChoice, NO_SETTINGS, type Choice, type SitePermission, type SiteSettings } from "../../../shared/site-permissions";
 import { viewingNow } from "../cockpit/viewed";
 import { openInPanel } from "../shared-panel/store";
 
@@ -15,19 +15,6 @@ export type BrowserDriver = "agent" | "you";
 
 /** A note the person pinned on part of the page, at that part's box within the page. Only the mock draws them. */
 export type BrowserPin = { id: string; url: string; on: string; note: string; box: { top: number; left: number; width: number; height: number } };
-
-/** **The mock's**: the choices made for each host, the defaults beneath them, and the one request waiting on the person. */
-export type SiteSettings = {
-  sites: Readonly<Record<string, Partial<Record<SitePermission, Choice>>>>;
-  defaults: Readonly<Record<SitePermission, Choice>>;
-  pending: { permission: SitePermission; host: string } | null;
-};
-
-const freshSettings = (): SiteSettings => ({
-  sites: {},
-  defaults: { local_network: "ask", camera: "ask", microphone: "ask", notifications: "ask", clipboard: "ask", location: "ask", downloads: "block" },
-  pending: null,
-});
 
 export type JobBrowser = {
   url: string;
@@ -89,7 +76,7 @@ export function wireJobBrowsers(api: Wired): () => void {
         windowed: state.windowed,
         pins: was?.pins ?? [],
         threadHidden: was?.threadHidden ?? false,
-        site: was?.site ?? freshSettings(),
+        site: state.site,
       },
     };
     told();
@@ -124,7 +111,7 @@ export const jobBrowserApi = (): Wired | undefined => wired;
 /** **The mock's**: a Job's browser on its first addresses, the last showing. */
 export function seedJobBrowser(sessionId: string, seed: { visited: string[]; driver?: BrowserDriver; page: (url: string, sessionId: string) => ReactNode }): void {
   visits.set(sessionId, { visited: [...seed.visited], at: seed.visited.length - 1 });
-  held = { ...held, [sessionId]: { url: "", title: "", back: false, forward: false, loads: 0, driver: seed.driver ?? "agent", windowed: false, pins: [], threadHidden: false, site: freshSettings(), page: seed.page } };
+  held = { ...held, [sessionId]: { url: "", title: "", back: false, forward: false, loads: 0, driver: seed.driver ?? "agent", windowed: false, pins: [], threadHidden: false, site: NO_SETTINGS, page: seed.page } };
   moved(sessionId);
 }
 
@@ -157,13 +144,18 @@ export const hostOf = (url: string): string => {
   }
 };
 
-/** **The mock's**: the choice that holds for a host, its own or else the default. */
-export const effectiveChoice = (site: SiteSettings, host: string, permission: SitePermission): Choice => site.sites[host]?.[permission] ?? site.defaults[permission];
-
 export function setChoice(sessionId: string, host: string, permission: SitePermission, choice: Choice): void {
+  if (wired !== undefined) {
+    void wired.choose(sessionId, host, permission, choice);
+    return;
+  }
   edit(sessionId, (one) => ({ ...one, site: { ...one.site, sites: { ...one.site.sites, [host]: { ...one.site.sites[host], [permission]: choice } } } }));
 }
 export function setDefault(sessionId: string, permission: SitePermission, choice: Choice): void {
+  if (wired !== undefined) {
+    void wired.setDefault(sessionId, permission, choice);
+    return;
+  }
   edit(sessionId, (one) => ({ ...one, site: { ...one.site, defaults: { ...one.site.defaults, [permission]: choice } } }));
 }
 /** **The mock's** page asking. While the agent drives it is refused and nothing is kept; a decided site is answered at once; only an undecided one raises the bubble. */
@@ -176,6 +168,10 @@ export function requestPermission(sessionId: string, permission: SitePermission)
   });
 }
 export function answerRequest(sessionId: string, choice: "allow" | "block"): void {
+  if (wired !== undefined) {
+    void wired.answer(sessionId, choice);
+    return;
+  }
   edit(sessionId, (one) => {
     const asked = one.site.pending;
     if (asked === null) return one;
@@ -183,7 +179,13 @@ export function answerRequest(sessionId: string, choice: "allow" | "block"): voi
   });
 }
 /** Esc on the bubble: the site stays undecided. */
-export const dismissRequest = (sessionId: string) => edit(sessionId, (one) => ({ ...one, site: { ...one.site, pending: null } }));
+export function dismissRequest(sessionId: string): void {
+  if (wired !== undefined) {
+    void wired.answer(sessionId, "dismiss");
+    return;
+  }
+  edit(sessionId, (one) => ({ ...one, site: { ...one.site, pending: null } }));
+}
 /** A new address, which drops whatever Forward would have gone to. */
 export function navigate(sessionId: string, url: string): void {
   if (wired !== undefined) void wired.navigate(sessionId, url);
