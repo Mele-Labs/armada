@@ -1,0 +1,16 @@
+[operations.withdraw_sketch]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take back a sketch you showed with show_sketch, when the owner has moved past it: it leaves his Needs you list and its card stops asking him to approve or send it back. Body: title, the title you passed to show_sketch, and session_id. Showing the sketch again makes it wait again. A title you showed no sketch under is refused"
+notes = """
+`POST /sessions/withdraw_sketch`, body `WithdrawSketch`: `title` and an optional `session_id`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id` and `withdrawn`, the title.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `show_sketch`'s is. **Only a sketch the job showed**: the `title` must be that of one of its `sketch` artifacts. Any other title, another job's sketch included, is refused with 422 and nothing written.
+
+**It writes the dismissal the owner's own Withdraw writes**, `sketch:<title>` in the job's dismissed ids, and marks the sketch's attachment `withdrawn` = `"true"`, so its card shows no Approve or Send back and the item is not raised again. A sketch carries no hold on the plan, so none is lifted.
+
+**Showing the title again lifts both**: `show_sketch` removes the dismissal and keeps a new drawing without the mark, so the sketch waits again. That is true of the owner's Withdraw too.
+
+`agent_access` is `Yes`: the job is the one that knows the sketch is no longer the question, and the owner has no way to tell it so.
+"""

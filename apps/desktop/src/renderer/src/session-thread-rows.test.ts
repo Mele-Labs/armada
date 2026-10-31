@@ -42,6 +42,11 @@ describe("a show_sketch call in a Session's thread", () => {
     expect(rows).toEqual([{ id: "t1", at: "14:00:00", kind: "sketch", sketch: "sketch:Flow", title: "Flow", drawing: scene("one") }]);
   });
 
+  it("carries that Fleet marked the sketch withdrawn, so its card stops asking", () => {
+    const rows = threadRowsFrom([call("t1", { title: "Flow", scene: scene("one") })], [{ ...drawn("Flow"), asked: true as const, withdrawn: true as const } as SessionAttachment]);
+    expect(cards(rows)[0]).toMatchObject({ asked: true, withdrawn: true });
+  });
+
   it("keeps the order of the thread around it", () => {
     const rows = threadRowsFrom(
       [

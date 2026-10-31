@@ -48,7 +48,8 @@ Each is told once for each change in what failed, so the same failure read again
 A Job that cannot take one now is offered it again a minute later.
 
 **A Job is told when what it wrote would conflict.** When Fleet finds that the files a Job wrote conflict with another Job's, or with the base after it moved, it sends that Job one message: the files, who the other is and how to reach it.
-The Job is not paused and the message is sent once per set of files.
+Where the other Job is paused, it names that Job's branch and says to resolve the conflict on merge.
+The Job is not paused and the message is sent once per set of files, a restart included.
 `docs/concepts/fleet.md`, *Write clashes*.
 Bridge marks the Job's row and puts a lamp in the corner of its Bays key, and the Bays panel names the other holder and the files, from the standing clashes Fleet lists.
 A file in that list opens as a sheet of the Job's change to it and the other holder's, each from where the two split, with the hunks that collide marked in both; Fleet reads the two patches from git when the file is pressed (`read_clash_file`, `docs/concepts/fleet.md`, *Write clashes*).
@@ -81,6 +82,7 @@ Fleet ties the dispute to the Job's latest message in Fleet's voice, keeps it, a
 A Job Fleet has told nothing, an ended Job and an empty `why` are refused.
 A terminal Job cannot dispute, because Fleet keeps no thread for it to tie the dispute to.
 `crates/ipc/operations/dispute_fleet.toml` has the operation.
+A notice that would be wrong for any Job in that state, not only this one, is a fault in Armada: the Job calls `report_bug` as well, and never skips a notice without one of the two calls.
 A fault in Armada itself, rather than in a notice, is `report_bug`, which a terminal Job may call: `crates/ipc/operations/report_bug.toml`.
 
 **Fleet reads the replies of a Job that did not call.** A notice that asks something is read once the wait has passed with no dispute and the Job has replied.

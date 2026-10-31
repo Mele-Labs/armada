@@ -605,7 +605,7 @@ pub use document_answer::{
 };
 pub use sketch::{
     page_scene_problems, AnswerSketch, RawScene, ShowSketch, Sketch, SketchHow, SKETCH_ASKED, SKETCH_DRAWN,
-    SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WORDS,
+    SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 pub use session_starts::{
     ForkThisSession, HandToSession, SessionHeld, SessionLink, HeldOrRefused, SessionsHeld, StartAnotherSession,
@@ -629,7 +629,7 @@ pub use sessions::{
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WalkTold, WindowClosed, WindowFailed, WithdrawDraft, WithdrawWindow,
+    WalkTold, WindowClosed, WindowFailed, WithdrawDraft, WithdrawSketch, WithdrawWindow,
 };
 pub use terminals::{
     JobTerminal, OpenTerminal, ReadTerminal, StartTerminalRun, TerminalScreen, TerminalTyped, TypeInTerminal,

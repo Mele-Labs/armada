@@ -125,3 +125,30 @@ test("a snippet alone starts a Session, and a removed one is not sent", async ()
   await expect.poll(() => send.mock.calls.length).toBe(1);
   expect(send.mock.calls[0]![1].files).toHaveLength(1);
 });
+
+const PICTURE = () => new File(["png"], "Screenshot.png", { type: "image/png" });
+const field = () => document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Request"]')!;
+
+test("a screenshot pasted into the request waits as a chip and is sent with the Session", async () => {
+  await expect.poll(() => held).toBeDefined();
+  held?.openNew(armada.root);
+  await expect.element(page.getByRole("textbox", { name: "Request" })).toBeVisible();
+  await userEvent.keyboard("The button is hidden");
+  const clipboard = new DataTransfer();
+  clipboard.items.add(PICTURE());
+  field().dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+  await expect.element(page.getByText("Screenshot.png")).toBeVisible();
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => send.mock.calls.length).toBe(1);
+  expect(send.mock.calls[0]![1].files.map((one: { name: string }) => one.name)).toEqual(["Screenshot.png"]);
+});
+
+test("a file dropped on the request waits as a chip", async () => {
+  await expect.poll(() => held).toBeDefined();
+  held?.openNew(armada.root);
+  await expect.element(page.getByRole("textbox", { name: "Request" })).toBeVisible();
+  const transfer = new DataTransfer();
+  transfer.items.add(PICTURE());
+  field().dispatchEvent(new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }));
+  await expect.element(page.getByText("Screenshot.png")).toBeVisible();
+});

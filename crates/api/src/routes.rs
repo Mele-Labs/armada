@@ -313,6 +313,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/withdraw_window",
             post(crate::sessions::withdraw_window::<D>),
         )
+        .route("/sessions/withdraw_sketch", post(crate::sessions::withdraw_sketch::<D>))
         .route("/sessions/sketch", post(crate::sessions::show_sketch::<D>))
         .route("/sessions/sketch/answer", post(crate::sessions::answer_sketch::<D>))
         .route("/sessions/document/answer", post(crate::sessions::answer_document::<D>))

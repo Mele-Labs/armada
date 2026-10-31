@@ -188,6 +188,10 @@ impl<'a> Receipt<'a> {
         Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.url.trim() })
     }
 
+    pub(crate) fn sketch_withdrawn(record: &'a SessionRecord, withdraw: &'a ipc::WithdrawSketch) -> Self {
+        Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.title.trim() })
+    }
+
     pub(crate) fn draft_withdrawn(record: &'a SessionRecord, withdraw: &'a ipc::WithdrawDraft) -> Self {
         Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.draft.trim() })
     }
