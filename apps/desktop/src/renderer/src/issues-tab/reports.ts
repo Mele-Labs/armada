@@ -2,6 +2,7 @@
 // report is about Armada, so it stands over the armada repository's issues, on All and when that repository is picked.
 
 import type { RepositorySummary } from "@armada/protocol";
+import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 import { jobIdOf, repositoryLabel } from "@armada/shell";
 
 import type { ReportedBug } from "./model";
@@ -39,3 +40,6 @@ export function reportOfJob(reports: readonly ReportedBug[], seen: readonly stri
   const own = reports.filter((one) => one.session_id === sessionId);
   return own.find((one) => !seen.includes(one.id)) ?? own[0];
 }
+
+/** The Job started on a report: the one holding a standing report row for it. A Job that ended without merging gave the row back. */
+export const jobOfReport = (sessions: readonly Session[], reportId: string): Session | undefined => sessions.find((one) => attachmentsOf(one, "report").some((row) => row.id === reportId));

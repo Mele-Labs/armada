@@ -125,14 +125,14 @@ export type Hosts = {
   onRescueSlot?: BridgeApi["rescueSlot"] | undefined;
 };
 
-/** Opens the Dispatch sheet on a brief for `root`, as a new Session: the way a failing pull request or red main is handed on. */
+/** Starts a Job on a brief for `root` and opens it in draft: the way a failing pull request or red main is handed on. */
 function StartSession({ brief, root, onDone, children }: { brief: string; root: string; onDone: () => void; children?: ReactNode }) {
   const dispatching = useDispatching();
   return (
     <Button
       variant="primary"
       disabled={dispatching === undefined}
-      onClick={() => (dispatching?.choose("session"), dispatching?.openSheet(brief, root), onDone())}
+      onClick={() => (dispatching?.startDraft(brief, root), onDone())}
     >
       {children ?? "Start a Job"}
     </Button>

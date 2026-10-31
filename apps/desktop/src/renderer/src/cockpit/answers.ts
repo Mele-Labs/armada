@@ -372,7 +372,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       const started =
         start === undefined || dispatching === undefined
           ? []
-          : [oneTap("Start a Job", () => (dispatching.choose("session"), dispatching.openSheet(start.brief, start.root), finish()))];
+          : [oneTap("Start a Job", () => (dispatching.startDraft(start.brief, start.root), finish()))];
       return [...started, oneTap("Attach", () => setAttaching(true))];
     }
     return [];

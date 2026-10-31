@@ -3,6 +3,7 @@
 
 import type { WorktreeSlot } from "@armada/protocol";
 
+import { seedReadings } from "../../session-view/system";
 import { seedSystem } from "../slices/session-system";
 import type { Scenario } from "../moment";
 import { s261OneSessionView as base } from "./one-session-view";
@@ -39,9 +40,10 @@ export const s268Processes: Scenario = {
       seedSystem({
         session_id: LIVE,
         processes: [
-          { pid: 48211, command: "vite --port 5501", port: 5501, state: "running" },
-          { pid: 48390, command: "armada fleet --dev", state: "running" },
+          { pid: 48211, command: "vite --port 5501", port: 5501, cpu_percent: 12, memory_bytes: 310 * KB * KB, io_bytes_per_s: 48 * KB, state: "running" },
+          { pid: 48390, command: "armada fleet --dev", cpu_percent: 21, memory_bytes: 1.2 * GB, io_bytes_per_s: 2.4 * KB * KB, state: "running" },
           { pid: 47802, command: "vitest watch", state: "stopped" },
+          ...[1, 2, 3, 4, 5, 6, 7].map((n) => ({ pid: 47900 + n, command: `node worker-${n}.js`, cpu_percent: n * 2, memory_bytes: (80 + n * 11) * KB * KB, io_bytes_per_s: n * 9 * KB, state: "running" as const })),
         ],
         cpu_percent: 38,
         memory_bytes: 1.8 * GB,
@@ -53,7 +55,9 @@ export const s268Processes: Scenario = {
           { name: "session.log", path: `/mock/keepers/${LIVE}.log`, bytes: 96 * KB },
           { name: `${LIVE}.jsonl`, path: `/mock/transcripts/${LIVE}.jsonl`, bytes: 3.2 * KB * KB },
         ],
-      });
+      }, 2500);
+      const wave = (mid: number, swing: number) => Array.from({ length: 60 }, (_, i) => Math.max(0, mid + Math.sin(i / 3) * swing + Math.sin(i * 1.7) * swing * 0.4));
+      seedReadings(LIVE, wave(38, 22), wave(1.8, 0.3));
       return base.draft!.sessions!(control);
     },
   },

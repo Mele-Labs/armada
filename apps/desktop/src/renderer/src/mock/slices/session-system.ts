@@ -8,10 +8,13 @@ import type { Slice } from "../fake-context";
 import { unanswered } from "../moment";
 
 const held = new Map<string, SessionSystem>();
+const slow = new Map<string, number>();
 
 /** Sets what a Job's system is. */
-export function seedSystem(system: SessionSystem): void {
+/** `firstReadMs` holds the Job's first reading back, as a slow one is, so the panel is seen loading. */
+export function seedSystem(system: SessionSystem, firstReadMs = 0): void {
   held.set(system.session_id, system);
+  if (firstReadMs > 0) slow.set(system.session_id, firstReadMs);
 }
 
 export const sessionSystem: Slice<SessionSystemApi, Record<string, never>> = {
@@ -19,6 +22,11 @@ export const sessionSystem: Slice<SessionSystemApi, Record<string, never>> = {
   state: {},
   api: () => ({
     getSessionSystem: async (sessionId) => {
+      const wait = slow.get(sessionId);
+      if (wait !== undefined) {
+        slow.delete(sessionId);
+        await new Promise((done) => setTimeout(done, wait));
+      }
       const own = held.get(sessionId);
       return own === undefined ? { ok: false, outcome: unanswered(`/sessions/system?session_id=${sessionId}`) } : { ok: true, value: own };
     },

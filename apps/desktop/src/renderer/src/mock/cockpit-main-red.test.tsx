@@ -43,12 +43,14 @@ test("hovering the red light opens the card with the way to hand the red to a Se
   expect(hovered().getByRole("button", { name: "Dispatch a new Job" }).query()).toBeNull();
 });
 
-test("the card's Dispatch a new Job opens the Dispatch panel on a Session, as the Merge line does", async () => {
+test("the card's Dispatch a new Job drafts a Job holding the red and opens it, as the Merge line does", async () => {
   await deck(standingAt(3));
   await light().click();
   await card().getByRole("button", { name: "Dispatch a new Job" }).click();
-  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
-  await expect.element(panel.getByRole("tab", { name: "Session" })).toHaveAttribute("aria-selected", "true");
+  const job = page.getByRole("region", { name: /^Job: / });
+  await expect.element(job).toBeVisible();
+  await expect.element(job).toHaveTextContent("desktop_test fails on main.");
+  expect(page.getByRole("region", { name: "Dispatch", exact: true }).query()).toBeNull();
   expect(card().query()).toBeNull();
 });
 

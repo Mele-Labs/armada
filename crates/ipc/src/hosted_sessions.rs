@@ -108,9 +108,11 @@ pub enum TagKind {
     Branch,
     /// A tracker issue. `id` is its number as a string.
     Issue,
+    /// A reported bug (`report_bug`) the Job is started on. `id` is the report's id, `title` its title.
+    Report,
 }
 
-/// Something a message names: another session, a pull request, an issue or a
+/// Something a message names: another session, a pull request, an issue, a reported bug or a
 /// branch. **Fleet writes the line that tells the agent**; the person's words
 /// are kept as typed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

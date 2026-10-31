@@ -117,6 +117,8 @@ where
         else {
             return;
         };
+        // A reported bug rides the message of the Job started on it, and is held as an issue is.
+        self.reports_named(session, &manifest, tags).await;
         let mut named: BTreeMap<IssueReference, BTreeMap<String, String>> = BTreeMap::new();
         for tag in tags.iter().filter(|tag| tag.kind == TagKind::Issue) {
             let Some(issue) = IssueReference::read(&tag.id) else {
