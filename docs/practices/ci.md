@@ -100,6 +100,9 @@ The other workspaces would repeat the matrix job.
 of every crate the paths name, where an agent's terminal gets only the tests the
 change touched. Every other Check runs whole. A workspace Check runs as `armada check <key>`, whole, in its directory.
 
+**Only `plan` builds `armada`.** `build`, the four `test` jobs and `acceptance` download the binary it uploads, `armada-bin`, and put it ahead on `PATH`.
+Each of those six jobs spent 2.0 minutes building it again, the median of 48 merge queue runs on 30 and 31 Oct 2026.
+
 ## What `ci` and `desktop_test` are
 
 | Name | Passes when | Failed by |

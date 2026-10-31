@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{CiState, FromOutside, PullQueue, RecentlyMerged, FollowedCheck, FollowedPull};
-use api::{HostedSessions, Sessions};
+use api::{HostedSessions, Next, Sessions};
 use ipc::{
     ManifestId, SendSessionMessage, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow, SessionVoice,
     SetWaitingFor, StartSession, TakeHeld, WaitingInput, WaitingSource,
@@ -1172,4 +1172,120 @@ async fn an_ask_read_off_a_reply_naming_the_pull_request_is_taken_off_at_auto_me
     assert!(line.contains("Taken off Needs you: Will you merge #7 once ci is green?"), "{line}");
     let left = Arc::clone(&rig.fleet).get_session(id).await.unwrap().session.waiting_for;
     assert!(left.iter().all(|one| one.source != WaitingSource::Replied), "{left:?}");
+}
+
+/// A report a Job was started on, kept by the Job `reporter`, and the Job `fixer` that holds it.
+async fn a_report_held_by(rig: &Rig, fixer: &str) -> String {
+    let reporter = rig.a_hosted_session_on(900).await;
+    let report = ipc::ReportBug {
+        title: "Refresh drops the lease".into(),
+        what: "The slot was unleased.".into(),
+        steps: Vec::new(),
+        errors: Vec::new(),
+        logs: Vec::new(),
+        session_id: Some(SessionId::carried(&reporter)),
+    };
+    let report_id = rig.fleet.report_bug(None, report).await.expect("reported").report_id;
+    rig.holds(Holder::session(fixer), "report", &report_id, AttachmentState::Standing).await;
+    report_id
+}
+
+fn merged_by(number: u64, author: Option<&str>, at: &str) -> RecentlyMerged {
+    RecentlyMerged {
+        number,
+        title: FromOutside::verbatim("Keep the lease across a refresh"),
+        branch: FromOutside::verbatim(format!("armada/{number}")),
+        url: FromOutside::verbatim(format!("https://forge.invalid/armada/pull/{number}")),
+        author: author.map(FromOutside::verbatim),
+        merged_at: FromOutside::verbatim(at),
+        commit: None,
+    }
+}
+
+async fn merges_seen(rig: &Rig, merged: Vec<RecentlyMerged>) {
+    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.vcs().main_ci.recently_merged_are(Some(merged));
+    let served = rig.fleet.repositories().served().remove(0);
+    rig.fleet.notice_merged(&served).await;
+    rig.reads().await;
+}
+
+async fn reports_now(rig: &Rig) -> Vec<ipc::BugReport> {
+    rig.fleet.list_bug_reports().await.expect("listed").reports
+}
+
+/// The repository has no backlog here, so `issues_merged` returns at once: a report is fixed all the same.
+#[tokio::test]
+async fn a_merged_pull_request_marks_fixed_the_report_its_job_held() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(1).await;
+    let report_id = a_report_held_by(&rig, &session).await;
+    let other = a_report_held_by(&rig, &rig.a_hosted_session_on(2).await).await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    merges_seen(&rig, vec![merged_by(1, None, "2026-10-31T09:00:00.000Z")]).await;
+
+    let reports = reports_now(&rig).await;
+    let fixed = reports.iter().find(|one| one.id == report_id).expect("the report");
+    let fix = fixed.fixed.as_ref().expect("fixed");
+    assert_eq!((fix.pull_request, fix.title.as_str()), (1, "Keep the lease across a refresh"));
+    assert_eq!(fix.url, "https://forge.invalid/armada/pull/1");
+    assert_eq!(fix.at.as_str(), "2026-10-31T09:00:00.000Z");
+    assert_eq!(reports.iter().find(|one| one.id == other).expect("the other").fixed, None, "its Job's pull request has not merged");
+    let told = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match watching.next().await {
+                Some(Next::Send(delivered)) => {
+                    if let ipc::Event::BugReportsChanged(told) = delivered.event {
+                        return told;
+                    }
+                }
+                other => panic!("the stream ended or dropped: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("bug_reports.changed arrives");
+    assert!(told.reports.iter().any(|one| one.id == report_id && one.fixed.is_some()), "{told:?}");
+}
+
+/// A Job that ended before its pull request merged gave its report back, and the merge still fixes it.
+#[tokio::test]
+async fn a_merge_fixes_the_report_of_a_job_that_gave_it_back() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(1).await;
+    let report_id = a_report_held_by(&rig, &session).await;
+    rig.holds(Holder::session(&session), "report", &report_id, AttachmentState::GivenBack).await;
+
+    merges_seen(&rig, vec![merged_by(1, None, "2026-10-31T09:00:00.000Z")]).await;
+
+    assert!(reports_now(&rig).await.iter().find(|one| one.id == report_id).expect("the report").fixed.is_some());
+}
+
+#[tokio::test]
+async fn a_report_keeps_the_first_pull_request_that_fixed_it() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(1).await;
+    let report_id = a_report_held_by(&rig, &session).await;
+    rig.holds(Holder::session(&session), "pr", "2", AttachmentState::Spent).await;
+
+    merges_seen(&rig, vec![merged_by(1, None, "2026-10-31T09:00:00.000Z")]).await;
+    merges_seen(&rig, vec![merged_by(2, None, "2026-10-31T10:00:00.000Z"), merged_by(1, None, "2026-10-31T09:00:00.000Z")]).await;
+
+    let reports = reports_now(&rig).await;
+    let fix = reports.iter().find(|one| one.id == report_id).and_then(|one| one.fixed.as_ref()).expect("fixed");
+    assert_eq!(fix.pull_request, 1);
+}
+
+/// `issues_merged` is for the person's pull requests only, and so is this: one a teammate opened fixes nothing.
+#[tokio::test]
+async fn a_merge_of_another_authors_pull_request_fixes_no_report() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(1).await;
+    a_report_held_by(&rig, &session).await;
+    rig.fleet.vcs().main_ci.login_is(Some("octocat"));
+
+    merges_seen(&rig, vec![merged_by(1, Some("teammate"), "2026-10-31T09:00:00.000Z")]).await;
+
+    assert_eq!(reports_now(&rig).await[0].fixed, None);
 }

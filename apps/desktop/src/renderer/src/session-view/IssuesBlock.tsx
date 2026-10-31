@@ -4,7 +4,7 @@
 // panel. A plan group that names an issue is that issue's place: its pull requests stand in the group, and this block lists only the issues no
 // group names. An issue wears the registry's `ticket` glyph and its state is its frame; a pull request's state is its edge, named by its tooltip.
 
-import { Ticket } from "lucide-react";
+import { Bug, Ticket } from "lucide-react";
 import { PullRequestChip, Tooltip } from "@armada/components";
 import { attachmentsOf, issueLabel, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
@@ -15,6 +15,7 @@ import "./issues-block.css";
 
 export type Issue = Extract<SessionAttachment, { kind: "issue" }>;
 export type PullRequest = Extract<SessionAttachment, { kind: "pull_request" }>;
+export type ReportedBugRow = Extract<SessionAttachment, { kind: "report" }>;
 
 type Rows = { issues: { issue: Issue; prs: PullRequest[] }[]; loose: PullRequest[] };
 
@@ -72,6 +73,20 @@ export function IssueRow({ issue, manifestId }: { issue: Issue; manifestId: stri
   );
 }
 
+/** The bug report the Job was started on, among its issues. Read only: the report is opened from the Issues tab. */
+export function ReportRow({ report }: { report: ReportedBugRow }) {
+  return (
+    <div className="sv-row" data-kind="report" aria-label={`Reported bug ${report.title}`}>
+      <Tooltip label="Reported bug">
+        <span className="sv-row__mark" role="img" aria-label="Reported bug">
+          <Bug size={12} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+      <span className="sv-row__title">{report.title}</span>
+    </div>
+  );
+}
+
 function PrSlot({ pr, manifestId }: { pr: PullRequest; manifestId: string | undefined }) {
   const { on, menu } = usePullRequestMenu(manifestId, pr.number, pr.title, pr.address);
   return (
@@ -96,9 +111,19 @@ export function GroupPullRequests({ prs, issue, manifestId }: { prs: PullRequest
 /** Each issue a single row, its state glyph, number and title, with the pull requests that work it as rows under it and the pull requests that work none after. Reference, so quieter than the plan. */
 export function IssuesBlock({ session, manifestId }: { session: Session; manifestId?: string | undefined }) {
   const { issues, loose } = issuesOutsidePlan(session);
-  if (issues.length === 0 && loose.length === 0) return null;
+  const reports = attachmentsOf(session, "report");
+  if (issues.length === 0 && loose.length === 0 && reports.length === 0) return null;
   return (
     <div className="sv-issues">
+      {reports.length === 0 ? null : (
+        <ul className="sv-rows" aria-label="Reported bugs">
+          {reports.map((report) => (
+            <li key={report.id}>
+              <ReportRow report={report} />
+            </li>
+          ))}
+        </ul>
+      )}
       {issues.length === 0 ? null : (
         <ul className="sv-rows" aria-label="Issues">
           {issues.map(({ issue, prs }) => (

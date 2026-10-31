@@ -148,8 +148,9 @@ jobs:
           jq -r '.queued[] | "in the merge queue: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
           jq -r '.rerun[] | "the merge queue failed it last: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
 
-      # The matrix job runs `armada check <key>` and needs a binary; the plan
-      # has just built one, and the runners are the same image.
+      # Every job that runs `armada check` takes this binary rather than
+      # building its own: 2 minutes a job, measured 31 Oct 2026. The runners
+      # are the same image.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: armada-bin
@@ -174,15 +175,19 @@ jobs:
         with:
           name: plan
           path: plan
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: armada-bin
+          path: bin
       - uses: ./.github/actions/rust-setup
         with:
           key: build
-      - run: cargo build -p armada --locked
       - uses: ./.github/actions/run-check
         with:
           name: build
           cmd: |
-            export PATH="$PWD/target/debug:$PATH"
+            chmod +x bin/armada
+            export PATH="$PWD/bin:$PATH"
             if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check build; else armada check build --changed < plan/changed.txt; fi
 
   # Four runners, each a quarter of the tests nextest would run (`--partition
@@ -206,11 +211,14 @@ jobs:
         with:
           name: plan
           path: plan
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: armada-bin
+          path: bin
       - uses: ./.github/actions/rust-setup
         with:
           key: test
           nextest: "true"
-      - run: cargo build -p armada --locked
       - name: Slice nextest
         env:
           SHARD: ${{ matrix.shard }}
@@ -230,7 +238,8 @@ jobs:
         with:
           name: test
           cmd: |
-            export PATH="$PWD/target/debug:$PATH"
+            chmod +x bin/armada
+            export PATH="$PWD/bin:$PATH"
             if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check test; else armada check test --changed < plan/changed.txt; fi
 
   # The xtask tests read `apps/` and `packages/` (vocabulary, error codes,
@@ -263,16 +272,20 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: armada-bin
+          path: bin
       - uses: ./.github/actions/rust-setup
         with:
           key: acceptance
           nextest: "true"
-      - run: cargo build -p armada --locked
       - uses: ./.github/actions/run-check
         with:
           name: acceptance
           cmd: |
-            export PATH="$PWD/target/debug:$PATH"
+            chmod +x bin/armada
+            export PATH="$PWD/bin:$PATH"
             armada check acceptance
 
   typecheck:
