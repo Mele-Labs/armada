@@ -1,9 +1,10 @@
 // The menu a right press opens where the app has none of its own: Mod, and Report where the annotation layer is mounted.
+// An app menu gets the same two from `point-acts.tsx`; this one lists them itself, so it clears that context.
 // It opens at the pointer, and beside the element on the ContextMenu key or Shift+F10, which send the same event.
 
 import { useEffect, useState } from "react";
 import { Flag, Puzzle } from "lucide-react";
-import { DropdownMenu, type DropdownMenuEntry } from "@armada/components";
+import { DropdownMenu, PointActs, type DropdownMenuEntry } from "@armada/components";
 
 import { inLayer, targetOf } from "./annotate/target";
 import { startModJob } from "./mod-job";
@@ -13,7 +14,7 @@ export function PointMenu() {
   const [at, setAt] = useState<{ x: number; y: number; element: Element } | null>(null);
   useEffect(() => {
     function pressed(event: MouseEvent): void {
-      // A press the app handled has its own menu, which carries Mod itself.
+      // A press the app handled has its own menu, which gets Mod and Report from `PointActs`.
       if (event.defaultPrevented || inLayer(event.target)) return;
       const element = targetOf(event.target);
       if (element === null) return;
@@ -29,6 +30,7 @@ export function PointMenu() {
     ...(canReport() ? [{ kind: "item" as const, id: "report", label: "Report", icon: Flag }] : []),
   ];
   return (
+    <PointActs.Provider value={null}>
     <DropdownMenu
       triggerLabel="Element"
       at={{ x: at.x, y: at.y }}
@@ -42,5 +44,6 @@ export function PointMenu() {
         if (chosen === "report") askToReport(at.element);
       }}
     />
+    </PointActs.Provider>
   );
 }
