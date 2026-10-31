@@ -6,6 +6,8 @@ import type { Outcome } from "@armada/protocol";
 import type { PageBounds } from "@armada/screens/src/draft/sessions";
 import type { CaptureHeld } from "@armada/studios/api";
 
+import type { Answer, Choice, SitePermission, SiteSettings } from "../site-permissions";
+
 /** One Job's browser as main holds it. `windowed`: in a window of its own, beside the Job's thread. */
 export type JobBrowserState = {
   sessionId: string;
@@ -15,6 +17,8 @@ export type JobBrowserState = {
   forward: boolean;
   driver: "agent" | "owner";
   windowed: boolean;
+  /** What this repository has decided for each site, and the request a driven page has waiting. */
+  site: SiteSettings;
 };
 
 export type JobBrowserApi = {
@@ -45,6 +49,12 @@ export type JobBrowserApi = {
     aim: (sessionId: string, x: number, y: number) => Promise<{ x: number; y: number; width: number; height: number } | null>;
     /** The held part's note, sent to the Job as the owner's. */
     note: (sessionId: string, said: string) => Promise<Outcome>;
+    /** A choice for one host, kept for the Job's repository. */
+    choose: (sessionId: string, host: string, permission: SitePermission, choice: Choice) => Promise<void>;
+    /** A default, for a site with no choice of its own. */
+    setDefault: (sessionId: string, permission: SitePermission, choice: Choice) => Promise<void>;
+    /** The person's answer to the waiting request. */
+    answer: (sessionId: string, answer: Answer) => Promise<void>;
   };
 };
 
@@ -65,4 +75,7 @@ export const JOB_BROWSER_CHANNELS = {
   jobBrowserThaw: "bridge:job-browser-thaw",
   jobBrowserHold: "bridge:job-browser-hold",
   jobBrowserNote: "bridge:job-browser-note",
+  jobBrowserChoose: "bridge:job-browser-choose",
+  jobBrowserDefault: "bridge:job-browser-default",
+  jobBrowserAnswer: "bridge:job-browser-answer",
 } as const;
