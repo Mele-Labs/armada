@@ -1166,3 +1166,15 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-runs-layer { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: var(--space-6); background: var(--scrim); }
 .deck-runs-layer .armada-runs-all { position: relative; inset: auto; width: min(var(--w-dialog-wide), 100%); max-height: 100%; border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); }
 .deck-combo__empty { padding: var(--space-2); color: var(--fg-subtle); font-size: var(--text-sm); }
+
+/* The merge line as a status bar: one short row along the window's bottom edge, across the Jobs list and the Field as well as the stage, with a hairline above it. */
+.deck > .deck-queue {
+  flex: none;
+  margin: 0 calc(var(--pad-page) * -1) calc(var(--pad-page) * -1);
+  border-width: var(--border-width) 0 0;
+  border-color: var(--border-default);
+  border-radius: 0;
+  background: var(--bg-sunken);
+}
+.deck > .deck-queue .deck-queue__row { min-height: calc(var(--h-control-sm) + var(--space-1)); padding: 0 var(--pad-page); }
+.deck > .deck-queue .deck-queue__stack { height: calc(var(--h-control-sm) + var(--space-1)); }

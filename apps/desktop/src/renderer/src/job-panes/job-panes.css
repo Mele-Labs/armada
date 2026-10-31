@@ -83,3 +83,11 @@
 .job-layout { position: relative; display: inline-flex; }
 .job-layout__mark { position: absolute; top: var(--space-1); right: var(--space-1); width: calc(var(--space-1) * 1.5); height: calc(var(--space-1) * 1.5); border-radius: 50%; background: var(--fg-default); box-shadow: 0 0 0 var(--border-width) var(--bg-base); pointer-events: none; }
 .job-layout__pin { display: inline-flex; color: var(--fg-muted); }
+
+/* A Job's acts in its Thread head: icons beside the Job's name, a toolbar of ghost buttons. Lit is pressed, told by the ground and the stronger ink; an act that is off keeps its tooltip for the reason. */
+.job-acts { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.job-acts:empty { display: none; }
+.job-acts > .armada-tooltip, .job-acts > button { flex: none; }
+.job-acts [aria-pressed="true"] { background: var(--bg-hover); color: var(--fg-default); }
+.job-acts [aria-disabled="true"] { pointer-events: auto; cursor: default; color: var(--fg-subtle); }
+.job-acts[hidden] { display: none; }
