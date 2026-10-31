@@ -24,6 +24,7 @@
   cursor: pointer;
 }
 .sv-row:hover { background: var(--bg-hover); color: var(--fg-default); }
+.sv-row[data-kind="report"]:hover { background: none; color: inherit; }
 .sv-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
 .sv-row__num { color: var(--accent); font-size: var(--text-2xs); }
 .sv-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

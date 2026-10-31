@@ -14,15 +14,16 @@ import { jobIdOf } from "@armada/shell";
 import { useSessions } from "../sessions-draft";
 import { askedOf, bandsIn, issueHoldings, readable, savedNames, type Asked, type Band } from "./bands";
 import { ISSUES_KEYS, capOf } from "./key-table";
-import { JobMark, KeptMark, UnreadMark, jobTitle, toneOfHolders, useHolders } from "./marks";
-import { ASSIGNED, DESCRIBE, OPEN, savedChoice, savedName } from "./model";
+import { FixedMark, JobMark, KeptMark, UnreadMark, jobTitle, toneOfHolders, useHolders } from "./marks";
+import { ASSIGNED, CLOSED, DESCRIBE, OPEN, savedChoice, savedName } from "./model";
 import type { ReadTracker, ReportedBug, Ticket } from "./model";
-import { reportsShown } from "./reports";
+import { jobOfReport, reportsShown } from "./reports";
 import { useIssues, useIssuesStore } from "./store";
 
 const BUILT_INS = [
   { id: OPEN, label: "Open" },
   { id: ASSIGNED, label: "Assigned to me" },
+  { id: CLOSED, label: "Closed" },
 ];
 
 const DESCRIBE_KEEP = "issues:describe";
@@ -135,13 +136,13 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
               {describing?.phase === "written" ? <SaveWritten key={describing.words} words={describing.words} onSaved={(name) => choose(savedChoice(name))} /> : null}
               {only !== undefined ? (
                 <>
-                  {shown ? <Reported narrow={narrow} alone /> : null}
+                  {shown ? <Reported narrow={narrow} choice={choice} alone /> : null}
                   {asked[0]?.asked === undefined ? null : <QueryHead band={only} asked={asked[0].asked} />}
                   <Rows band={only} asked={asked[0]?.asked} narrow={narrow} />
                 </>
               ) : (
                 <ul className="deck-list__rows issues-list__rows">
-                  {shown ? <Reported narrow={narrow} /> : null}
+                  {shown ? <Reported narrow={narrow} choice={choice} /> : null}
                   {asked.map(({ band, asked: one }) =>
                     band.tracker.state === "read" && one === undefined ? null : (
                       <li key={band.manifestId} className="deck-list__band" aria-label={band.label}>
@@ -176,12 +177,12 @@ const reportMatches = (report: ReportedBug, words: string): boolean => {
   return wanted === "" || [report.title, report.job_title].some((one) => one.toLowerCase().includes(wanted));
 };
 
-/** The bugs agents reported in Armada, in a band over the repositories' issues. With no report, nothing is drawn. */
-function Reported({ narrow, alone = false }: { narrow: string; alone?: boolean }) {
+/** The bugs agents reported in Armada, in a band over the repositories' issues. A fixed report is under Closed and nowhere else. With no report, nothing is drawn. */
+function Reported({ narrow, choice, alone = false }: { narrow: string; choice: string; alone?: boolean }) {
   const store = useIssuesStore()!;
   const snap = useIssues();
   useEffect(() => store.readReports(), [store]);
-  const reports = snap.reports.filter((one) => reportMatches(one, narrow));
+  const reports = snap.reports.filter((one) => (one.fixed !== undefined) === (choice === CLOSED) && reportMatches(one, narrow));
   if (reports.length === 0) return null;
   const band = (
     <li className="deck-list__band" aria-label="Reported bugs">
@@ -198,10 +199,12 @@ function Reported({ narrow, alone = false }: { narrow: string; alone?: boolean }
 
 function ReportRow({ report, unread, open }: { report: ReportedBug; unread: boolean; open: boolean }) {
   const store = useIssuesStore()!;
+  const job = jobOfReport(useSessions(), report.id);
   return (
     <li className="deck-list__item">
       <button type="button" className="issues-row" data-report={report.id} data-selected={open || undefined} aria-current={open || undefined} aria-label={`${report.title}, from ${report.job_title}`} onClick={() => store.openReport(report.id)}>
         <span className="issues-row__title">{report.title}</span>
+        <span className="issues-row__job-mark" data-tone={report.fixed === undefined ? toneOfHolders(job === undefined ? [] : [job]) : undefined}>{report.fixed !== undefined ? <FixedMark pullRequest={report.fixed.pull_request} /> : job === undefined ? null : <JobMark session={job} />}</span>
         <span className="issues-row__mark">{report.kept ? <KeptMark /> : unread ? <UnreadMark /> : null}</span>
         <Readout fixed className="issues-row__at">
           <Stamp still first="age" at={report.at} />

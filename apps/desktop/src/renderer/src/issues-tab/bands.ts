@@ -5,7 +5,7 @@ import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { jobIdOf, repositoryLabel } from "@armada/shell";
 
-import { ASSIGNED, BUILT_IN_FIELDS, OPEN, savedName } from "./model";
+import { ASSIGNED, BUILT_IN_FIELDS, CLOSED, OPEN, savedName } from "./model";
 import type { ReadTracker, SavedQuery, Tracker } from "./model";
 import type { Describing } from "./store";
 
@@ -40,6 +40,7 @@ export function askedOf(band: Band & { tracker: ReadTracker }, choice: string, d
   }
   if (choice === OPEN) return { state: "query", query: band.tracker.open, fields: BUILT_IN_FIELDS };
   if (choice === ASSIGNED) return { state: "query", query: band.tracker.assigned, fields: BUILT_IN_FIELDS };
+  if (choice === CLOSED) return band.tracker.closed === undefined ? undefined : { state: "query", query: band.tracker.closed, fields: BUILT_IN_FIELDS };
   const saved = band.tracker.saved.find((one) => one.name === savedName(choice));
   return saved === undefined ? undefined : { state: "query", query: saved.query, fields: saved.row_fields, saved };
 }
