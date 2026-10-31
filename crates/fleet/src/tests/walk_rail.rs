@@ -79,25 +79,62 @@ fn a_walk_step_is_current_from_the_plans_approval_until_a_walk_is_approved() {
 }
 
 #[test]
-fn a_walk_is_passed_over_only_when_nothing_was_named_or_shown_and_the_work_is_pushed() {
+fn a_walk_of_its_own_is_passed_over_at_the_plans_approval_when_nothing_was_named_or_shown() {
     let steps = [propose(), step("Discuss"), plan_step(), walk(), follows("Refine")];
     let planned = Facts { plan_recorded: true, ..approved() };
-    assert!(!planned.walk_passed());
-    assert_eq!(at(&steps, planned), Some(3), "the mock is being built, so the walk stays current");
-    let busy = Facts { edited: true, checked: true, committed: true, ..planned };
-    assert_eq!(at(&steps, busy), Some(3), "work seen does not pass it over");
+    assert!(planned.walk_passed(&steps[3]));
+    assert_eq!(at(&steps, planned), Some(4), "nothing named or shown: Refine, with no push to wait for");
     let pushed = Facts { pushed: true, ..planned };
-    assert!(pushed.walk_passed());
-    assert_eq!(at(&steps, pushed), Some(4), "pushed with nothing named or shown: nothing was seen");
-    assert!(!Facts { plan_expects_walk: true, ..pushed }.walk_passed(), "a named walk is not passed over");
-    assert!(!Facts { walk_shown: true, ..pushed }.walk_passed(), "nor one that was shown");
-    assert!(!Facts { pushed: true, plan_recorded: true, ..Facts::default() }.walk_passed(), "nothing is passed over before the plan is approved");
+    assert!(!Facts { plan_expects_walk: true, ..pushed }.walk_passed(&steps[3]), "a named walk is not passed over");
+    assert!(!Facts { walk_shown: true, ..pushed }.walk_passed(&steps[3]), "nor one that was shown");
+    assert_eq!(at(&steps, Facts { walk_shown: true, ..planned }), Some(3), "a window shown puts the walk back");
+    assert!(
+        !Facts { pushed: true, plan_recorded: true, ..Facts::default() }.walk_passed(&steps[3]),
+        "nothing is passed over before the plan is approved"
+    );
+}
+
+/// The idle Job of 30 Oct 2026: a bug fix nobody would see finished its tasks and committed, was told Fix
+/// ends on his walk approval, and waited to be moved to Tests while Fleet waited for a push.
+#[test]
+fn a_fix_with_nothing_to_show_moves_on_to_tests_once_its_tasks_are_done_with_no_push() {
+    let steps = bug();
+    let fixing = Facts { plan_recorded: true, edited: true, committed: true, tasks_open: true, ..approved() };
+    assert_eq!(at(&steps, fixing), Some(1), "Fix holds while the plan's tasks are open");
+    assert_eq!(at(&steps, Facts { tasks_open: false, ..fixing }), Some(2), "its tasks done and nothing to show: Tests");
+    assert_eq!(
+        at(&steps, Facts { tasks_open: false, plan_expects_walk: true, ..fixing }),
+        Some(1),
+        "a fix he would see still waits for his approval"
+    );
+}
+
+/// **The agent on Fix is told what ends it with nothing to show, and is nudged if it stops there.** It was
+/// told only "the person approves the walk", which a Job with no walk read as already met.
+#[tokio::test]
+async fn the_agent_on_a_fix_is_told_its_tasks_end_it_with_nothing_to_show_and_is_nudged_when_it_stops() {
+    let mut steps = bug();
+    steps[1].instructions = Some("Make the fix.".into());
+    let said = rail::instructed("bug", &steps, 1).unwrap_or_default();
+    assert!(said.contains("Where nothing would be seen, it ends when you have marked each of the plan's tasks completed"), "{said}");
+    let nudge = rail::stall_nudge("bug", &steps[1], crate::rail_ends::End::TasksDone);
+    assert!(nudge.contains("marked each of the plan's tasks completed with TaskUpdate"), "{nudge}");
+
+    let (rig, id) = walking_rig().await;
+    let mut stopped = record(&rig, &id).await;
+    stopped.workflow_step = Some(1);
+    stopped.standing = Some(ipc::SessionStanding::Replied);
+    stopped.waiting_for.clear();
+    let nothing = rail::Extra::default();
+    assert_eq!(rail::stalled(&steps, &stopped, nothing).map(|(at, _)| at), Some(1), "stopped on Fix, nothing to show");
+    let walking = rail::Extra { plan_expects_walk: true, ..nothing };
+    assert!(rail::stalled(&steps, &stopped, walking).is_none(), "a walk to show is his to approve, not a stall");
 }
 
 #[test]
 fn a_fix_that_walks_is_current_until_he_approves_and_tests_follow_at_once() {
     let steps = bug();
-    let fixing = Facts { plan_recorded: true, edited: true, ..approved() };
+    let fixing = Facts { plan_recorded: true, plan_expects_walk: true, edited: true, ..approved() };
     assert_eq!(at(&steps, fixing), Some(1), "Fix is current from the plan's approval");
     assert_eq!(at(&steps, Facts { walk_shown: true, checked: true, ..fixing }), Some(1), "a Check run does not leave the walk");
     assert_eq!(at(&steps, Facts { walk_shown: true, walk_approved: true, ..fixing }), Some(2), "his approval enters Tests, with no Check run yet");
@@ -299,9 +336,9 @@ async fn step_of(rig: &super::session_host::Rig, id: &SessionId) -> Option<u32> 
 async fn a_window_shown_after_the_plan_is_approved_puts_the_job_on_the_walk_until_he_approves_it() {
     let (rig, id) = walking_rig().await;
     plan_approved(&rig, &id).await;
-    assert_eq!(step_of(&rig, &id).await, Some(2), "approved, nothing shown yet: the mock is being built, so the walk is current");
+    assert_eq!(step_of(&rig, &id).await, Some(3), "approved with no walk named or shown: Refine");
     shown(&rig, &id).await;
-    assert_eq!(step_of(&rig, &id).await, Some(2), "a window shown is the walk");
+    assert_eq!(step_of(&rig, &id).await, Some(2), "a window shown puts the Job on the walk");
     rig.send(&id, &format!("Approved: {PAGE}")).await;
     assert_eq!(step_of(&rig, &id).await, Some(3), "approved: Refine");
 }

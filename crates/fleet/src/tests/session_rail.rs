@@ -446,7 +446,7 @@ async fn a_job_that_pushed_and_stops_with_no_pull_request_is_told_to_deliver_onc
     let build = opened.build.as_mut().expect("a build record");
     build.stops.push(ipc::BuildStop { id: ipc::BuildStopId::Pr, at: Some(ipc::Instant::carried(String::from("2026-10-28T12:00:00.000Z"))) });
     let steps = rail::steps_of(&workflow());
-    assert!(rail::stalled(&steps, &opened).is_none(), "a pull request open is a wait, not a stall");
+    assert!(rail::stalled(&steps, &opened, rail::Extra::default()).is_none(), "a pull request open is a wait, not a stall");
 }
 
 /// **The step before a delivering one says to carry straight on**, so a Job that pushed does not stop
