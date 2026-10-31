@@ -8,6 +8,7 @@ import { Laptop, Plus } from "lucide-react";
 import { Button, SessionMark } from "@armada/components";
 
 import { getJson } from "./client";
+import { actsOn } from "./jobState";
 import { homeOf, useFleet, type Item, type Mac } from "./fleet";
 import type { PlanUsageBody } from "./gateway";
 import { draftPath, go, jobPath, pairPath } from "./router";
@@ -72,9 +73,9 @@ function MacRow({ mac }: { mac: Mac }) {
 
 export function Home() {
   const fleet = useFleet();
-  const { several, drafts, needs, running, troubled } = homeOf(fleet);
+  const { several, drafts, needs, done, running, troubled } = homeOf(fleet);
   const usage = usePlanUsage(fleet.macs, fleet.at);
-  const row = (item: Item, state: "waiting" | "working" | "idle" | "draft", said: string, at: string) => {
+  const row = (item: Item, state: "waiting" | "working" | "idle" | "draft" | "done", said: string, at: string) => {
     const { session } = item;
     const key = `${item.mac.machine.origin} ${session.id}`;
     const open = () => go((session.held ? draftPath : jobPath)(item.mac.machine.origin, session.id));
@@ -85,12 +86,13 @@ export function Home() {
         state={state}
         said={said}
         title={session.title ?? ""}
-        says={session.repository ?? ""}
+        says={state === "done" ? (session.done_summary ?? session.repository ?? "") : (session.repository ?? "")}
         {...(mac === undefined ? {} : { mac })}
         {...(session.from === undefined ? {} : { from: session.from.title })}
         {...(session.context_tokens === undefined ? {} : { context: session.context_tokens })}
         at={at}
         onOpen={open}
+        {...(state === "done" ? { onEnd: () => void actsOn(item.mac.machine, () => undefined).close({ session_id: session.id }).catch(() => undefined) } : {})}
       />
     );
   };
@@ -114,6 +116,7 @@ export function Home() {
         )}
         {drafts.length === 0 ? null : <Section label="Drafts">{drafts.map((item) => row(item, "draft", "Draft", item.session.started_at))}</Section>}
         {needs.length === 0 ? null : <Section label="Needs you">{needs.map((item) => row(item, "waiting", "Needs you", item.session.waiting_since ?? item.session.started_at))}</Section>}
+        {done.length === 0 ? null : <Section label="Done">{done.map((item) => row(item, "done", "Done", item.session.done_since ?? item.session.started_at))}</Section>}
         {running.length === 0 ? null : <Section label="Running">{running.map((item) => (item.session.working ? row(item, "working", "Working", item.session.started_at) : row(item, "idle", "Idle", item.session.started_at)))}</Section>}
       </div>
     </section>
