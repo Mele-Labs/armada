@@ -1,6 +1,6 @@
 //! What a Job costs the machine, and ending one process it started: `get_session_system` and
 //! `stop_process`. **Ownership is [`Fleet::started_by`]'s**, through [`Fleet::processes_of`], so a pid
-//! the Job did not start is never signalled.
+//! the Job did not start is never signalled, and one it started before its agent was replaced still is.
 
 use std::sync::Arc;
 
