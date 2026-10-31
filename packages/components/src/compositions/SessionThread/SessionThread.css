@@ -788,7 +788,7 @@
   max-width: 75%;
   min-width: 0;
   border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: calc(var(--radius-lg) * 1.5);
   background: color-mix(in srgb, var(--fg-default) 5%, transparent);
   overflow: hidden;
 }
@@ -798,7 +798,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
-  padding: 0 var(--space-3) var(--space-1);
+  padding: 0 var(--space-4) var(--space-2);
   color: var(--fg-subtle);
 }
 
@@ -867,7 +867,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3) var(--space-1);
+  padding: var(--space-3) var(--space-4) var(--space-2);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
 }

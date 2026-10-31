@@ -374,8 +374,6 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
 .armada-session-frame .armada-session-frame__centre,
 .armada-session-frame .armada-session-thread,
 .armada-session-frame .armada-session-thread__stage { gap: calc(var(--space-3) / 2); }
-.armada-session-frame .armada-session-you__band { padding: 0 var(--space-2) calc(var(--space-1) / 2); }
-.armada-session-frame .armada-session-you__body { padding: var(--space-1) var(--space-2) calc(var(--space-1) / 2); }
 .armada-session-frame .armada-needs-panel__body,
 .armada-session-frame .armada-question-deck__answer { padding: calc(var(--space-2) / 2) calc(var(--space-3) / 2); }
 .armada-session-frame .armada-question-deck__band { padding: calc(var(--space-2) / 2) calc(var(--space-4) / 2); }
