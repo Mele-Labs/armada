@@ -4,7 +4,7 @@
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 
 /** The head's width under which its acts fold into the ellipsis menu. */
-const NARROW = 480;
+const NARROW = 360;
 
 export type JobAct = { id: string; label: string; /** Why it cannot be pressed, where it cannot. */ off: string | undefined; run: () => void };
 
