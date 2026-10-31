@@ -152,7 +152,7 @@ function StackChip({ parent, onJump }: { parent: number; onJump: ((number: numbe
 }
 
 /** A pull request as a row, in Landing and in the Artifacts layer alike. */
-export function PullRow({ session, pr, lane, rootBase, chip, onJump }: { session: Session; pr: PullRequest; lane?: { first: boolean; last: boolean }; rootBase?: string; chip?: number; onJump?: (number: number) => void }) {
+export function PullRow({ session, pr, from, lane, rootBase, chip, onJump }: { session: Session; pr: PullRequest; /** The Job the pull request came from, where it is not the Job whose list this is. */ from?: string; lane?: { first: boolean; last: boolean }; rootBase?: string; chip?: number; onJump?: (number: number) => void }) {
   const draft = useSessionsDraft();
   const [pending, setPending] = useState<PullRequestAct | undefined>(undefined);
   const { on, menu } = usePullRequestMenu(session.manifestId, pr.number, pr.title, pr.address);
@@ -180,6 +180,7 @@ export function PullRow({ session, pr, lane, rootBase, chip, onJump }: { session
         <>
           {rootBase === undefined ? null : <span className="sv-ledger__word" data-base="">base: {rootBase}</span>}
           {chip === undefined ? null : <StackChip parent={chip} onJump={onJump} />}
+          {from === undefined ? null : <span className="sv-ledger__word">{from}</span>}
           <code className="sv-ledger__sub">{pr.branch}</code>
           <span className="sv-ledger__fact" data-state={checks}>
             <PullRequestChecksMark checks={checks} said={checksSaid(pr.checks)} />

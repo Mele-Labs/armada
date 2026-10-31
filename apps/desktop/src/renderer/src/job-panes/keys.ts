@@ -5,6 +5,7 @@ import { isPressed, pressedSlot } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
 import { look, peek, rearrange, redo, undo } from "./store";
+import { toggleZoom } from "./zoom";
 import { cycleTab, focusPane, neighbourOf, paneById, splitPane, type Arrangement, type Toward } from "./tree";
 
 const TOWARD: readonly Toward[] = ["left", "up", "right", "down"];
@@ -36,6 +37,7 @@ export function usePaneKeys(jobId: string, openLayouts: () => void): void {
       if (isPressed("pane_split_right", event)) return take(() => splitFocused(jobId, "right", here(peek(jobId))));
       if (isPressed("pane_split_down", event)) return take(() => splitFocused(jobId, "down", here(peek(jobId))));
       if (isPressed("layout_menu", event)) return take(openLayouts);
+      if (!holdsText(event.target) && isPressed("pane_zoom", event)) return take(() => toggleZoom(jobId, here(peek(jobId))));
       // A text box keeps ⌘Z for what is typed in it.
       if (!holdsText(event.target)) {
         if (isPressed("pane_redo", event)) return take(() => redo(jobId));

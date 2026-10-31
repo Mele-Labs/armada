@@ -1,7 +1,7 @@
 // A Job's area in panes. Every Job opens on Default: its thread, with Done, Now and Open stacked on its right. ⌘D splits a pane to the right and ⌘⌥D below it, a new pane opens empty,
 // and + adds a tab of any kind to it. The Layout control, an icon in the title bar beside the Job's views, is named "Layout: Default · edited" and wears a mark once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
 // Use for all Jobs makes a layout the one every Job opens on, Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
-// layout as it was. The Job's acts (Auto land, Pause, Judge) are icons in the Thread's head, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A Changes tab picks where its diff comes from. Mock only: nothing is kept. Over the `job-layouts` scenario.
+// layout as it was. The Job's acts (Auto land, Pause, Judge) are icons in the Thread's head, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, and ⇧⌘↵ zooms a pane and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
 
 import { button, deckRow, inside, region, role, tab, walk } from "../walk";
 import type { Step } from "../walk";
@@ -20,6 +20,9 @@ const steps: Step[] = [
   { press: deckRow("Retry the slot lease"), say: "A Job opens on Default: its thread, and Done, Now and Open stacked beside it" },
   { hover: inside(role("toolbar", "Job acts"), button("Auto land")), say: "The Job's acts are icons in the Thread's head, each with its key" },
   { look: region("Merge queue", { exact: true }), say: "The merge line is a strip along the window's bottom edge" },
+  { key: "Meta+Shift+Enter", on: thread, say: "⇧⌘↵ zooms the pane over the Cockpit below the title bar" },
+  { look: inside(pane("Thread"), button("Restore")), say: "The strip's Restore says it is zoomed" },
+  { key: "Meta+Shift+Enter", on: thread, say: "⇧⌘↵ puts it back as it was" },
   { key: "Meta+d", on: thread, say: "⌘D splits the pane to the right" },
   { press: inside(empty, button("Add tab")), say: "+ adds a tab" },
   { press: item("Browser"), say: "Browser, named by its page" },
@@ -47,6 +50,8 @@ const steps: Step[] = [
   { press: inside(empty, button("Add tab")), say: "+" },
   { press: item("Changes"), say: "Changes" },
   { type: "pr:2391", into: role("combobox", "Changes from"), say: "The picker lists the branch, the Job's pull requests and the Job it started. A pull request" },
+  { press: inside(pane("Changes"), button("Add tab")), say: "+" },
+  { press: item("Ledger"), say: "Ledger: everything attached to the Job, by kind" },
   { key: "Meta+l", on: places, say: "⌘L" },
   { look: item("Update Default"), say: "Update Default overwrites Default for every Job on it" },
 ];

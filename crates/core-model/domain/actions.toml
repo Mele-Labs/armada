@@ -173,6 +173,17 @@ destructive = false
 confirms = false
 notes = "Splits the focused pane of the open Job's area, and the new pane opens empty below it. ⇧⌘D is Debug Bridge's, so the split down takes Option. Added 30 Oct 2026 with the Job's arrangeable panes."
 
+[actions.pane_zoom]
+kind = "Action"
+tier = "Global"
+verb = "Zoom pane"
+icon = "maximize-2"
+shortcut = "⇧⌘Enter"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Zooms the focused pane of the open Job's area over the rest of the Cockpit below the title bar, or puts it back. A view only: the arrangement, the layout's edited mark and the undo history are untouched, and a change of Job or the Layout menu ends it. A text box keeps ⇧⌘Enter, which the Dispatch panel's queue key uses. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
+
 [actions.layout_menu]
 kind = "Action"
 tier = "Global"

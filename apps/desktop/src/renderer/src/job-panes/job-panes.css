@@ -95,3 +95,12 @@
 .job-acts [aria-pressed="true"] { background: var(--bg-hover); color: var(--fg-default); }
 .job-acts [aria-disabled="true"] { pointer-events: auto; cursor: default; color: var(--fg-subtle); }
 .job-acts[hidden] { display: none; }
+
+/* A layer, Requests or the file tree drawn as a tab: the tab is its title, so the layer has no head of its own and fills the body. */
+.job-pane__body > .sv-layer[data-in-pane] { position: static; inset: auto; }
+.job-pane__panel { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; overflow: auto; }
+.job-tree, .job-tree ul { margin: 0; padding: 0; list-style: none; }
+.job-tree { padding: var(--space-2) 0; }
+.job-tree__row { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--h-control-sm); padding-inline-end: var(--space-3); border: 0; background: transparent; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); text-align: start; cursor: pointer; }
+.job-tree__row:hover { background: var(--bg-hover); color: var(--fg-default); }
+.job-tree__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }

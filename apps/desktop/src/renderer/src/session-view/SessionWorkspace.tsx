@@ -21,7 +21,7 @@ import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone, type StoryZone } from "./StoryColumn";
-import { BrowserBody, ChangesBody, FilesBody, PlanBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
+import { BrowserBody, ChangesBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
 import { JobPanes } from "../job-panes/JobPanes";
 import type { Tab } from "../job-panes/tree";
 import { OverTheApp } from "./OverTheApp";
@@ -30,7 +30,7 @@ import { lanesOpenFor } from "../shared-panel/store";
 import { placeLanes, toggleLanes, useWideWindow } from "./lanes-width";
 import type { PlanEditing } from "./PlanEdit";
 import type { LiveOpen } from "./TurnAccountBlock";
-import { Layer } from "./SessionLayers";
+import { Layer, LayerInPane } from "./SessionLayers";
 import { bandOf, isArtifactsKey, isLanesKey, isLedgerKey, isWholeKey, pressBand, pressWhole } from "./story";
 import { flipLedgerView } from "./ledger-view";
 import type { SessionBays } from "./slot-trouble";
@@ -154,8 +154,16 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
           return <ChangesBody session={session} />;
         case "plan":
           return <PlanBody session={session} />;
+        case "pulls":
+          return <PullsBody session={session} />;
+        case "issues":
+          return <IssuesBody session={session} />;
+        case "jobs":
+          return <JobsBody session={session} onOpenSession={onOpenSession} />;
+        case "ledger":
+          return <LedgerBody session={session} entries={entries} onOpenSession={onOpenSession} />;
         case "files":
-          return <FilesBody entries={entries} />;
+          return <FilesBody session={session} />;
         case "request":
           return <RequestBody session={session} />;
         case "system":
@@ -166,7 +174,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
     };
     return (
       <>
-        <JobPanes jobId={id} body={bodyOf} bar={views === undefined ? null : <ViewStrip views={views} />} over={layered} />
+        <JobPanes jobId={id} body={(tab) => <LayerInPane.Provider value>{bodyOf(tab)}</LayerInPane.Provider>} bar={views === undefined ? null : <ViewStrip views={views} />} over={layered} />
         <TerminalSync jobId={id} />
         {large}
         {reading}

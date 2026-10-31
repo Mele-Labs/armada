@@ -1,7 +1,8 @@
 // The bodies of the tabs that stand on their own. A tab that needs the Job's thread or its story is drawn by `SessionWorkspace`, which holds both.
 
-import { useEffect, useRef } from "react";
-import { Button, Select, UnifiedDiff, PlanRevisionView, useKept, useUnchanged, type LedgerEntry, type PlanRevision, ShellPanelPane } from "@armada/components";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { File, Folder, FolderOpen } from "lucide-react";
+import { Select, UnifiedDiff, PlanRevisionView, useKept, useUnchanged, type LedgerEntry, type PlanRevision, ShellPanelPane } from "@armada/components";
 import { attachmentsOf, linkedOf, type Session } from "@armada/screens/src/draft/sessions";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
@@ -10,8 +11,13 @@ import { useJobBrowser } from "../job-browser/store";
 import { shellsOf, useJobShell } from "../job-shell";
 import { useDeckShell } from "../job-shell-dock";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { openRequestsInPanel } from "../shared-panel/store";
-import { historyOf } from "../shared-panel/requests-model";
+import { RequestsPanel } from "../shared-panel/requests";
+import { InlinePanel } from "../shared-panel/side";
+import { openInPanel } from "../shared-panel/store";
+import { IssueRow } from "../session-view/IssuesBlock";
+import { PullRow } from "../session-view/LedgerRow";
+import { Groups, Row } from "../session-view/SessionLayers";
+import { artifactsOf, linkedJobsOf } from "../session-view/artifacts";
 import { MOCK_PATCH, MOCK_PATCH_LOG, MOCK_PATCH_TOOLTIP } from "./mock-diff";
 import { jobOpens, useJobPanes } from "./store";
 import { hasKind } from "./tree";
@@ -93,36 +99,117 @@ export function PlanBody({ session }: { session: Session }) {
   );
 }
 
-/** The files the Job has made or shown, from its ledger. */
-export function FilesBody({ entries }: { entries: readonly LedgerEntry[] }) {
-  const files = entries.filter((one) => one.kind === "artifact");
+/** The Job's pull requests, and those of the Jobs it started with the Job each came from. */
+export function PullsBody({ session }: { session: Session }) {
+  const children = linkedOf(useSessions(), session);
   return (
-    <ul className="job-pane__list job-pane__scroll" aria-label="Files">
-      {files.map((one) => (
-        <li key={one.key} className="job-pane__item">
-          {one.name}
+    <ul className="sv-layer__rows job-pane__scroll" aria-label="Pull requests">
+      {attachmentsOf(session, "pull_request").map((pr) => (
+        <PullRow key={`${session.id}:${pr.number}`} session={session} pr={pr} />
+      ))}
+      {children.flatMap(({ session: child }) => attachmentsOf(child, "pull_request").map((pr) => <PullRow key={`${child.id}:${pr.number}`} session={child} pr={pr} from={child.title ?? child.id} />))}
+    </ul>
+  );
+}
+
+/** The issues the Job works on, claimed or cited, and those of the Jobs it started. */
+export function IssuesBody({ session }: { session: Session }) {
+  const children = linkedOf(useSessions(), session);
+  const seen = new Set<string>();
+  const issues = [session, ...children.map((one) => one.session)].flatMap((one) => attachmentsOf(one, "issue").map((issue) => ({ issue, manifestId: one.manifestId }))).filter(({ issue }) => !seen.has(issue.number) && seen.add(issue.number));
+  return (
+    <ul className="sv-rows job-pane__scroll" aria-label="Issues">
+      {issues.map(({ issue, manifestId }) => (
+        <li key={issue.number}>
+          <IssueRow issue={issue} manifestId={manifestId} />
         </li>
       ))}
     </ul>
   );
 }
 
-/** The requests the Job sent, newest first, and the Requests panel to send another. */
-export function RequestBody({ session }: { session: Session }) {
-  const sent = historyOf(session);
+/** The Jobs linked to this one: the ones it started, the one that started it and the one it was forked from. */
+export function JobsBody({ session, onOpenSession }: { session: Session; onOpenSession: (id: string) => void }) {
+  const rows = linkedJobsOf(session, useSessions(), onOpenSession);
+  return (
+    <ul className="sv-layer__rows job-pane__scroll" aria-label="Jobs">
+      {rows.map((row) => (
+        <Row key={row.key} row={row} kind="session" sessionId={session.id} />
+      ))}
+    </ul>
+  );
+}
+
+/** Everything attached to the Job, by kind, newest first, each opening as it does in the Artifacts layer. */
+export function LedgerBody({ session, entries, onOpenSession }: { session: Session; entries: readonly LedgerEntry[]; onOpenSession: (id: string) => void }) {
+  const sessions = useSessions();
+  const groups = useMemo(() => artifactsOf(session, entries, { sessions, open: onOpenSession }), [session, entries, sessions, onOpenSession]);
   return (
     <div className="job-pane__scroll">
-      <ul className="job-pane__list" aria-label="Requests">
-        {sent.map((one) => (
-          <li key={one.id} className="job-pane__item">
-            <span className="job-pane__mono">{one.method}</span> {one.url}
-          </li>
-        ))}
-      </ul>
-      <Button variant="secondary" size="sm" onClick={() => openRequestsInPanel(session.id)}>
-        Open Requests
-      </Button>
+      <Groups groups={groups} session={session} />
     </div>
+  );
+}
+
+/** **The mock's**: a small fixed tree standing for the Job's worktree until Fleet serves one. */
+type Node = { name: string; children?: readonly Node[] };
+const MOCK_TREE: readonly Node[] = [
+  { name: "crates", children: [{ name: "fleet", children: [{ name: "src", children: [{ name: "lease.rs" }, { name: "pool.rs" }] }] }] },
+  { name: "apps", children: [{ name: "desktop", children: [{ name: "src", children: [{ name: "BayRows.tsx" }] }] }] },
+  { name: "README.md" },
+];
+
+function Entry({ node, path, session, depth }: { node: Node; path: string; session: Session; depth: number }) {
+  const [open, setOpen] = useState(depth < 2);
+  const at = `${path}${node.name}`;
+  const row = { paddingInlineStart: `calc(var(--space-3) * ${depth + 1})` };
+  if (node.children === undefined) {
+    return (
+      <li role="treeitem" aria-selected={false}>
+        <button type="button" className="job-tree__row" style={row} aria-label={`Open ${at}`} onClick={() => openInPanel({ kind: "file", path: at, from: "session", sessionId: session.id })}>
+          <File size={16} strokeWidth={2} aria-hidden />
+          <span>{node.name}</span>
+        </button>
+      </li>
+    );
+  }
+  const Glyph = open ? FolderOpen : Folder;
+  return (
+    <li role="treeitem" aria-expanded={open}>
+      <button type="button" className="job-tree__row" style={row} aria-label={node.name} onClick={() => setOpen(!open)}>
+        <Glyph size={16} strokeWidth={2} aria-hidden />
+        <span>{node.name}</span>
+      </button>
+      {open ? (
+        <ul role="group">
+          {node.children.map((one) => (
+            <Entry key={one.name} node={one} path={`${at}/`} session={session} depth={depth + 1} />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+/** The Job's worktree as a read-only tree; a file opens read-only. */
+export function FilesBody({ session }: { session: Session }) {
+  return (
+    <ul role="tree" className="job-tree job-pane__scroll" aria-label="Files">
+      {MOCK_TREE.map((one) => (
+        <Entry key={one.name} node={one} path="" session={session} depth={0} />
+      ))}
+    </ul>
+  );
+}
+
+/** The Requests panel itself, for this Job: its list, its sending and the answer, with no sheet around it. */
+export function RequestBody({ session }: { session: Session }) {
+  return (
+    <InlinePanel.Provider value>
+      <div className="job-pane__panel">
+        <RequestsPanel item={{ kind: "requests", sessionId: session.id }} />
+      </div>
+    </InlinePanel.Provider>
   );
 }
 

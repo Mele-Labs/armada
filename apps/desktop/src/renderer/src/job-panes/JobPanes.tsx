@@ -9,6 +9,7 @@ import { LayoutControl } from "./LayoutControl";
 import { PaneView } from "./PaneView";
 import { usePaneKeys } from "./keys";
 import { measured, rearrange, useJobPanes } from "./store";
+import { endZoom, useZoomBox, usePaneZoomed } from "./zoom";
 import { RATIO_MIN, hasKind, minExtent, panesOf, rectsOf, resizeSplit, type Pane, type Tab } from "./tree";
 import "./job-panes.css";
 
@@ -49,7 +50,12 @@ export function JobPanes({ jobId, body, bar, over }: { jobId: string; body: (tab
   const [naming, setNaming] = useState(false);
   const [dragging, setDragging] = useState<string | undefined>(undefined);
   const [area, size] = useSize();
-  const openMenu = useCallback(() => setMenu(true), []);
+  // The Layout menu ends a zoom, and so does leaving the Job.
+  const openMenu = useCallback(() => (endZoom(), setMenu(true)), []);
+  useEffect(() => endZoom, [jobId]);
+  const zoomedId = usePaneZoomed(jobId);
+  const zoomed = zoomedId !== undefined && panesOf(arrangement.root).some((one) => one.id === zoomedId) ? zoomedId : undefined;
+  const box = useZoomBox(zoomed !== undefined, 0);
   usePaneKeys(jobId, openMenu);
   const slot = useJobSlot();
   useEffect(() => measured(jobId, size), [jobId, size]);
@@ -74,14 +80,19 @@ export function JobPanes({ jobId, body, bar, over }: { jobId: string; body: (tab
             const rect = rects.get(pane.id)!;
             const active = pane.tabs.find((tab) => tab.id === pane.active);
             return (
-              <div key={pane.id} className="job-panes__cell" style={{ left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h) }}>
-                <PaneView jobId={jobId} pane={pane} focused={arrangement.focus === pane.id} thread={thread} dragging={dragging} onDrag={setDragging}>
+              <div
+                key={pane.id}
+                className="job-panes__cell"
+                data-zoomed={pane.id === zoomed || undefined}
+                style={pane.id === zoomed && box !== undefined ? { position: "fixed", left: box.left, top: box.top, width: box.width, height: box.height, zIndex: 20 } : { left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h) }}
+              >
+                <PaneView jobId={jobId} pane={pane} focused={arrangement.focus === pane.id} zoomed={pane.id === zoomed} thread={thread} dragging={dragging} onDrag={setDragging}>
                   {active === undefined ? null : body(active)}
                 </PaneView>
               </div>
             );
           })}
-        {size.w === 0
+        {size.w === 0 || zoomed !== undefined
           ? null
           : splits.map((split) => {
               const across = split.dir === "column";

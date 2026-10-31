@@ -61,6 +61,7 @@ import { FlightEdit } from "./FlightEdit";
 import { isWebAddress, repositoryFileOf, tilesOf, useFlightFile, useRepositoryFlight, type FlightSet } from "./flight-controls";
 import { glyphOf as flightGlyph } from "./flight-glyphs";
 import { SessionTiles } from "./SessionTiles";
+import { usePanelZoom } from "../../job-panes/zoom";
 import { reportRoot, tileCap } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
 import { forgeOf, quietSaid, ReadAgo } from "./forge";
@@ -1115,6 +1116,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   useActivityBeside(grid, layout);
   const builds = useBuilds(props.now);
   const power = usePowerOn();
+  usePanelZoom();
   return (
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}

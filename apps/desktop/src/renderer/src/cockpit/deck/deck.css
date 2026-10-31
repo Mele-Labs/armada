@@ -1178,3 +1178,6 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 }
 .deck > .deck-queue .deck-queue__row { min-height: calc(var(--h-control-sm) + var(--space-1)); padding: 0 var(--pad-page); }
 .deck > .deck-queue .deck-queue__stack { height: calc(var(--h-control-sm) + var(--space-1)); }
+
+/* A panel zoomed by its header's double-click covers the Cockpit's body (set in `job-panes/zoom.ts`), with its own ground. */
+.deck-panel[data-zoomed], .sv-panel[data-zoomed] { background: var(--bg-raised); }

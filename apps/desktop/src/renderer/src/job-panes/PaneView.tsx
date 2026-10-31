@@ -1,7 +1,7 @@
 // One pane: a strip of its tabs with a + that adds one, over the body of the tab in front. A tab is dragged to another pane's strip to move there, or to a pane's edge to split it.
 
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Plus, X } from "lucide-react";
+import { Minimize2, Plus, X } from "lucide-react";
 import { Button, DropdownMenu, Tooltip, boundKeyFor, type DropdownMenuEntry } from "@armada/components";
 
 import { hostOf, peekJobBrowser } from "../job-browser/store";
@@ -9,6 +9,7 @@ import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
 import { droppable, look, peek, rearrange } from "./store";
 import { moveToWindow, whyNotWindow } from "./windows";
+import { toggleZoom } from "./zoom";
 import { TAB_KINDS, activate, addTab, closePane, closeTab, focusPane, hasKind, moveTabToEdge, moveTabToPane, type Pane, type Side, type Tab, type TabKind } from "./tree";
 
 /** The words a tab reads: its own label where it has one, else its kind. */
@@ -24,10 +25,11 @@ function labelFor(jobId: string, kind: TabKind): string | undefined {
 const ZONES: readonly (Side | "middle")[] = ["left", "right", "top", "bottom", "middle"];
 
 /** The tab's own menu. Move to window is there for the kinds that have a window, and says why for the rest. */
-function tabEntries(kind: TabKind): DropdownMenuEntry[] {
+function tabEntries(kind: TabKind, zoomed: boolean): DropdownMenuEntry[] {
   const why = whyNotWindow(kind);
   return [
     { kind: "item", id: "window", label: "Move to window", ...(why === undefined ? {} : { disabled: true, hint: why }) },
+    { kind: "item", id: "zoom", label: zoomed ? "Restore" : "Zoom", shortcut: boundKeyFor("pane_zoom") },
     { kind: "item", id: "right", label: "Split right", shortcut: boundKeyFor("pane_split_right") },
     { kind: "item", id: "down", label: "Split down", shortcut: boundKeyFor("pane_split_down") },
     { kind: "separator", id: "rule" },
@@ -35,7 +37,7 @@ function tabEntries(kind: TabKind): DropdownMenuEntry[] {
   ];
 }
 
-function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane: Pane; tab: Tab; dragging: boolean; onDrag: (tabId: string | undefined) => void }) {
+function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: string; pane: Pane; tab: Tab; zoomed: boolean; dragging: boolean; onDrag: (tabId: string | undefined) => void }) {
   const label = labelOf(tab);
   const { Glyph } = KINDS[tab.kind];
   const active = pane.active === tab.id;
@@ -50,6 +52,7 @@ function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane
   const choose = (id: string) => {
     look(jobId, (arrangement) => focusPane(activate(arrangement, tab.id), pane.id));
     if (id === "window") moveToWindow(jobId, tab);
+    else if (id === "zoom") toggleZoom(jobId, pane.id);
     else if (id === "right" || id === "down") splitFocused(jobId, id);
     else if (id === "close") {
       rearrange(jobId, (arrangement) => closeTab(arrangement, tab.id));
@@ -108,7 +111,7 @@ function TabButton({ jobId, pane, tab, dragging, onDrag }: { jobId: string; pane
           </Button>
         </Tooltip>
       </span>
-      <DropdownMenu triggerLabel="Tab actions" at={point ?? { x: 0, y: 0 }} open={point !== null} onOpenChange={(open) => !open && setPoint(null)} portal entries={tabEntries(tab.kind)} onSelect={choose} />
+      <DropdownMenu triggerLabel="Tab actions" at={point ?? { x: 0, y: 0 }} open={point !== null} onOpenChange={(open) => !open && setPoint(null)} portal entries={tabEntries(tab.kind, zoomed)} onSelect={choose} />
     </div>
   );
 }
@@ -118,7 +121,7 @@ function addEntries(thread: boolean): DropdownMenuEntry[] {
   return TAB_KINDS.filter((kind) => kind !== "thread" || !thread).map((kind): DropdownMenuEntry => ({ kind: "item", id: kind, label: KINDS[kind].label, icon: KINDS[kind].Glyph }));
 }
 
-export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, children }: { jobId: string; pane: Pane; focused: boolean; thread: boolean; dragging: string | undefined; onDrag: (tabId: string | undefined) => void; children: ReactNode }) {
+export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, onDrag, children }: { jobId: string; pane: Pane; focused: boolean; zoomed: boolean; thread: boolean; dragging: string | undefined; onDrag: (tabId: string | undefined) => void; children: ReactNode }) {
   const [over, setOver] = useState<Side | "middle" | undefined>(undefined);
   // The pane under the pointer while a tab is dragged, lit as a whole.
   const [hot, setHot] = useState(false);
@@ -178,9 +181,18 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
       onDragOver={() => dragging !== undefined && setHot(true)}
       onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setHot(false)}
     >
-      <div className="job-pane__strip" role="tablist" aria-label="Tabs" onKeyDown={walk} onDragOver={(event) => event.preventDefault()} onDrop={dropOnStrip}>
+      <div
+        className="job-pane__strip"
+        role="tablist"
+        aria-label="Tabs"
+        onKeyDown={walk}
+        onDoubleClick={(event) => {
+          // A tab or the strip's empty space zooms the pane; the ×, the + and the menus keep their own presses.
+          if ((event.target as Element).closest(".job-pane__close, .armada-dropdown-menu, button:not([role=\"tab\"])") !== null) return;
+          toggleZoom(jobId, pane.id);
+        }} onDragOver={(event) => event.preventDefault()} onDrop={dropOnStrip}>
         {pane.tabs.map((tab) => (
-          <TabButton key={tab.id} jobId={jobId} pane={pane} tab={tab} dragging={dragging === tab.id} onDrag={onDrag} />
+          <TabButton key={tab.id} jobId={jobId} pane={pane} tab={tab} zoomed={zoomed} dragging={dragging === tab.id} onDrag={onDrag} />
         ))}
         <DropdownMenu
           triggerLabel="Add tab"
@@ -193,6 +205,13 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
             focusIn(pane.id);
           }}
         />
+        {!zoomed ? null : (
+          <Tooltip label="Restore" shortcut={boundKeyFor("pane_zoom")}>
+            <Button variant="ghost" size="sm" iconOnly aria-label="Restore" aria-pressed onClick={() => toggleZoom(jobId, pane.id)}>
+              <Minimize2 size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        )}
         {pane.tabs.length > 0 ? null : (
           <Tooltip label="Close pane">
             <Button variant="ghost" size="sm" iconOnly aria-label="Close pane" onClick={() => rearrange(jobId, (arrangement) => closePane(arrangement, pane.id))}>
