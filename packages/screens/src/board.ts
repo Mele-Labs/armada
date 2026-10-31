@@ -25,3 +25,18 @@ export function heldOfPicked(held: WorktreesHeld, picked: { manifest?: { id: str
   if (picked === null) return held;
   return held.slots === undefined ? held : { slots: held.slots.filter((one) => one.manifest_id === (picked.manifest?.id ?? picked.implicit_id)) };
 }
+
+/** The repositories a Workspace holds, as the pages list them. */
+type Member = { root?: string; manifest?: { id: string }; implicit_id?: string };
+
+/** The Sessions of every repository the Workspace holds, placed as `sessionsOfPicked` places one. */
+export function sessionsOfWorkspace(sessions: readonly SessionRecord[], members: readonly Member[]): readonly SessionRecord[] {
+  return sessions.filter((one) => members.some((member) => sessionsOfPicked([one], member).length > 0));
+}
+
+/** What Fleet holds disk for, of every repository the Workspace holds. */
+export function heldOfWorkspace(held: WorktreesHeld, members: readonly Member[]): WorktreesHeld {
+  if (held.slots === undefined) return held;
+  const ids = members.map((one) => one.manifest?.id ?? one.implicit_id);
+  return { slots: held.slots.filter((one) => ids.includes(one.manifest_id)) };
+}

@@ -65,9 +65,11 @@ export function repositoryEntries(
     workspaces?: readonly PickerWorkspace[];
     /** New Workspace, beside Add a repository. */
     newWorkspace?: boolean;
+    /** The Workspace the window is scoped to, shown selected on its heading. */
+    workspaceScope?: string | null;
   },
 ): DropdownMenuEntry[] {
-  const { scope, all, add = false, create = false, onlySetUp = false, recent = [], workspaces = [], newWorkspace = false } = options;
+  const { scope, all, add = false, create = false, onlySetUp = false, recent = [], workspaces = [], newWorkspace = false, workspaceScope = null } = options;
   const setUp = repositories.filter((one) => one.manifest !== undefined);
   const loose = repositories.filter((one) => one.manifest === undefined);
   const item = (repo: RepositorySummary, id = repo.root, member = false): DropdownMenuEntry => ({
@@ -88,7 +90,7 @@ export function repositoryEntries(
     entries.push({ kind: "separator", id: "recent-rule" });
   }
   if (all !== undefined) {
-    entries.push({ kind: "item", id: ALL, label: all, selected: scope === null });
+    entries.push({ kind: "item", id: ALL, label: all, selected: scope === null && workspaceScope === null });
   }
   // A Workspace with none of its repositories served is not listed: a heading over nothing.
   const heldBy = workspaces.map((one) => ({ one, repos: one.repositories.flatMap((root) => repositories.filter((repo) => repo.root === root)) })).filter((held) => held.repos.length > 0);
@@ -96,7 +98,7 @@ export function repositoryEntries(
   if (setUp.length > 0) {
     if (all !== undefined) entries.push({ kind: "separator", id: "all-repositories-rule" });
     for (const { one, repos } of heldBy) {
-      entries.push({ kind: "item", id: `${WORKSPACE}${one.id}`, label: one.name });
+      entries.push({ kind: "item", id: `${WORKSPACE}${one.id}`, label: one.name, selected: workspaceScope === one.id });
       entries.push(...repos.map((repo) => item(repo, `${IN}${one.id}|${repo.root}`, true)));
     }
     entries.push(...inNone.map((repo) => item(repo)));

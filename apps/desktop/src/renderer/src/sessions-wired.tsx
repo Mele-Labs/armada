@@ -30,7 +30,8 @@ function raiseStartRefused(outcome: Parameters<typeof raiseOutcome>[0], act: Ref
 import { taggedIn } from "./dispatch-panel/waits";
 import { hearQueuedIdeas, newIdeaId, readQueuedIdeas, writeQueuedIdeas } from "./queued-ideas";
 import { moveRefusalWords } from "./session-moved";
-import { sessionsOfPicked } from "@armada/screens/src/board";
+import { onWorkspaceScope, workspaceScope } from "./workspace-scope";
+import { sessionsOfPicked, sessionsOfWorkspace } from "@armada/screens/src/board";
 import { SessionMemo, rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import { conditionOfWhen, defaultBase, planPartsOf, whenOfCondition } from "@armada/screens/src/session-waits";
 import { share } from "@armada/screens/src/share";
@@ -146,10 +147,12 @@ export class WiredStore {
     const source = stateOf(this.api);
     void source.state().then((state) => live && this.take(state));
     const off = source.subscribe((state) => this.take(state));
+    const offScope = onWorkspaceScope(() => this.inputs !== undefined && this.recompute());
     // Another window saved or started an idea: this one reads the queue again.
     const heard = hearQueuedIdeas(() => this.keepQueued(readQueuedIdeas()));
     const lifecycles = typeof this.api.onJobLifecyclesChanged === "function" ? this.api.onJobLifecyclesChanged((held) => this.holdLifecycles(held, true)) : undefined;
     return () => {
+      offScope();
       live = false;
       off();
       heard();
@@ -233,11 +236,13 @@ export class WiredStore {
     const read = this.inputs?.sessions;
     // The window holds the picked repository's Sessions,: every list here reads this one.
     const picked = this.inputs?.holds.repositories?.find((one) => one.root === this.inputs?.repository) ?? null;
-    const mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside, undefined, this.memo, this.inputs!.sessionThreadsReading);
+    // A Workspace is picked on All repositories, so it narrows only where no one repository is.
+    const workspace = picked === null ? workspaceScope() : null;
+    const mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(workspace === null ? sessionsOfPicked(read.sessions, picked) : sessionsOfWorkspace(read.sessions, workspace), this.inputs!.sessionThreads, this.beside, undefined, this.memo, this.inputs!.sessionThreadsReading);
     // Nothing drawn changed: the same list, so what reads it does not draw again.
     if (mapped.length !== this.mapped.length || mapped.some((one, at) => one !== this.mapped[at])) this.mapped = mapped;
     // Mapped again only while one repository is picked, and through the memo: a Session that did not change is the same object.
-    const everywhere = picked === null || read === undefined || read.state !== "read" ? this.mapped : sessionsOfRecords(read.sessions, this.inputs!.sessionThreads, this.beside, undefined, this.memo, this.inputs!.sessionThreadsReading);
+    const everywhere = (picked === null && workspace === null) || read === undefined || read.state !== "read" ? this.mapped : sessionsOfRecords(read.sessions, this.inputs!.sessionThreads, this.beside, undefined, this.memo, this.inputs!.sessionThreadsReading);
     if (everywhere === this.mapped || everywhere.length !== this.mappedEverywhere.length || everywhere.some((one, at) => one !== this.mappedEverywhere[at])) this.mappedEverywhere = everywhere;
     // Helm answers for the repository the dock points at, which the rail's pick need not be.
     const aimed = this.inputs?.helm.state === "pointed" ? this.inputs.helm.manifestId : undefined;
