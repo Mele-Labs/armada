@@ -77,8 +77,9 @@ export function PaneView({ jobId, pane, focused, thread, dragging, onDrag, child
     const at = pane.tabs.findIndex((tab) => tab.id === pane.active);
     const to = event.key === "Home" ? 0 : event.key === "End" ? pane.tabs.length - 1 : Math.min(pane.tabs.length - 1, Math.max(0, at + (event.key === "ArrowRight" ? 1 : -1)));
     event.preventDefault();
+    const strip = event.currentTarget;
     look(jobId, (arrangement) => activate(arrangement, pane.tabs[to]!.id));
-    window.requestAnimationFrame(() => event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[to]?.focus());
+    window.requestAnimationFrame(() => strip.querySelectorAll<HTMLElement>('[role="tab"]')[to]?.focus());
   };
 
   const dropOnStrip = (event: DragEvent<HTMLDivElement>) => {
