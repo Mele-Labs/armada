@@ -3,13 +3,14 @@
 // The store says what it holds.
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
-import { AppWindowMac, Bot, ChevronLeft, ChevronRight, Crosshair, PanelLeftClose, PanelLeftOpen, PanelRight, RefreshCw, UserCheck } from "lucide-react";
-import { ACTION, Button, Input, Kbd, Textarea, Tooltip } from "@armada/components";
+import { AppWindowMac, Bell, Bot, ChevronLeft, ChevronRight, ClipboardList, Crosshair, Download, Image, LockKeyhole, MapPin, Network, PanelLeftClose, PanelLeftOpen, PanelRight, Radio, RefreshCw, UserCheck, type LucideIcon } from "lucide-react";
+import { ACTION, Button, Input, Kbd, Popover, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { closePanel, usePanel } from "../shared-panel/store";
-import { browserToWindow, goBack, goForward, jobBrowserApi, navigate, openBrowser, pinNote, reload, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
+import { CHOICES, SITE_PERMISSIONS, type Choice, type SitePermission } from "../../../shared/site-permissions";
+import { answerRequest, browserToWindow, dismissRequest, effectiveChoice, goBack, goForward, jobBrowserApi, hostOf, navigate, openBrowser, pinNote, reload, setChoice, setDefault, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
 import { takesAnnotateChord } from "./chord";
 import "./job-browser.css";
 
@@ -86,7 +87,7 @@ function NoteCard({ keep, picked, onSend, onDone }: { keep: string; picked: Pick
 }
 
 /** **The mock's** page, drawn from fixtures, and the notes pinned on it. While Capture is on, a press on a part of the page picks it instead of pressing it. */
-function FixturePage({ sessionId, browser, draw, annotating, onPicked }: { sessionId: string; browser: JobBrowser; draw: (url: string) => ReactNode; annotating: boolean; onPicked: () => void }) {
+function FixturePage({ sessionId, browser, draw, annotating, onPicked }: { sessionId: string; browser: JobBrowser; draw: (url: string, sessionId: string) => ReactNode; annotating: boolean; onPicked: () => void }) {
   const frame = useRef<HTMLDivElement>(null);
   const draft = useSessionsDraft();
   const [picked, setPicked] = useState<Picked>();
@@ -107,7 +108,7 @@ function FixturePage({ sessionId, browser, draw, annotating, onPicked }: { sessi
   return (
     <div ref={frame} className="job-browser__page" data-annotating={annotating ? "" : undefined} data-driver={browser.driver} onClickCapture={pick}>
       <div key={`${url}:${browser.loads}`} className="job-browser__document">
-        {draw(url)}
+        {draw(url, sessionId)}
       </div>
       {browser.pins.filter((pin) => pin.url === url).map((pin) => (
         <Tooltip key={pin.id} label={pin.note} asChild>
@@ -234,6 +235,135 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
   );
 }
 
+/** The glyph each permission is known by. Camera and Microphone borrow Image and Radio: the registry has no camera or microphone. */
+const PERMISSION_GLYPH: Record<SitePermission, LucideIcon> = {
+  local_network: Network,
+  camera: Image,
+  microphone: Radio,
+  notifications: Bell,
+  clipboard: ClipboardList,
+  location: MapPin,
+  downloads: Download,
+};
+
+/** A row of segments of which one is chosen: arrows move the choice, and Tab stops once. */
+function Segments<T extends string>({ label, value, options, disabled, onChange }: { label: string; value: T; options: readonly { value: T; label: string }[]; disabled?: boolean; onChange: (value: T) => void }) {
+  const move = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    if (step === 0 || disabled === true) return;
+    event.preventDefault();
+    const at = options.findIndex((one) => one.value === value);
+    const next = options[(at + step + options.length) % options.length]!;
+    onChange(next.value);
+    event.currentTarget.querySelector<HTMLElement>(`[data-value="${next.value}"]`)?.focus();
+  };
+  return (
+    <div className="job-browser__segments" role="radiogroup" aria-label={label} onKeyDown={move}>
+      {options.map((one) => (
+        <button
+          key={one.value}
+          type="button"
+          role="radio"
+          className="job-browser__segment"
+          data-value={one.value}
+          aria-checked={one.value === value}
+          tabIndex={one.value === value ? 0 : -1}
+          disabled={disabled === true}
+          onClick={() => onChange(one.value)}
+        >
+          {one.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const VIEWS = [
+  { value: "site", label: "This site" },
+  { value: "all", label: "All sites" },
+] as const;
+const CHOICE_OPTIONS = CHOICES.map((one) => ({ value: one.choice, label: one.label }));
+
+/** **The mock's** site settings: what the page may use, for this site and as the default for every one. Changing them takes the page over. */
+function SiteSettingsPanel({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
+  const [view, setView] = useState<"site" | "all">("site");
+  const host = hostOf(urlOf(browser));
+  const locked = browser.driver !== "you";
+  return (
+    <div className="job-browser__site-panel">
+      <Segments label="Settings for" value={view} options={VIEWS} onChange={setView} />
+      {view === "site" ? <span className="job-browser__site-host">{host}</span> : null}
+      <ul className="job-browser__permissions">
+        {SITE_PERMISSIONS.map(({ permission, label }) => {
+          const Glyph = PERMISSION_GLYPH[permission];
+          return (
+            <li key={permission} className="job-browser__permission">
+              <Glyph size={16} strokeWidth={2} aria-hidden />
+              <span className="job-browser__permission-label">{label}</span>
+              <Segments<Choice>
+                label={label}
+                value={view === "site" ? effectiveChoice(browser.site, host, permission) : browser.site.defaults[permission]}
+                options={CHOICE_OPTIONS}
+                disabled={locked}
+                onChange={(choice) => (view === "site" ? setChoice(sessionId, host, permission, choice) : setDefault(sessionId, permission, choice))}
+              />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** The page's ask, under the lock. Esc leaves the site undecided. */
+function AskBubble({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
+  const asked = browser.site.pending;
+  const open = asked !== null;
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: globalThis.KeyboardEvent) => event.key === "Escape" && dismissRequest(sessionId);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, sessionId]);
+  if (asked === null) return null;
+  const label = SITE_PERMISSIONS.find((one) => one.permission === asked.permission)?.label ?? asked.permission;
+  return (
+    <div className="job-browser__ask" role="alertdialog" aria-label="Site request">
+      <span>{`${asked.host} wants to use ${label}`}</span>
+      <div className="job-browser__ask-acts">
+        <Button variant="ghost" size="sm" onClick={() => answerRequest(sessionId, "block")}>
+          Block
+        </Button>
+        <Button variant="primary" size="sm" onClick={() => answerRequest(sessionId, "allow")}>
+          Allow
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** The lock before the address: site settings in a popover, and the page's ask under it. */
+function SiteLock({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
+  const said = browser.driver === "you" ? "Site settings" : "Take over to change site settings";
+  return (
+    <span className="job-browser__site">
+      <Popover
+        label="Site settings"
+        trigger={
+          <Tooltip label={said}>
+            <Button variant="ghost" size="sm" iconOnly aria-label={said}>
+              <LockKeyhole size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        }
+      >
+        <SiteSettingsPanel sessionId={sessionId} browser={browser} />
+      </Popover>
+      <AskBubble sessionId={sessionId} browser={browser} />
+    </span>
+  );
+}
+
 /** The address: the page's, and while the person drives, one he types, which Enter goes to. */
 function Address({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
   const url = urlOf(browser);
@@ -304,6 +434,7 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
             <RefreshCw size={16} strokeWidth={2} aria-hidden />
           </IconAct>
         </span>
+        {browser.page !== undefined ? <SiteLock sessionId={sessionId} browser={browser} /> : null}
         <Address sessionId={sessionId} browser={browser} />
         <span className="job-browser__acts">
           <Tooltip label={capturing ? "Capturing" : "Capture"} shortcut={CAPTURE}>

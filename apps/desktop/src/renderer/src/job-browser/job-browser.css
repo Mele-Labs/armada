@@ -148,3 +148,53 @@
 }
 .job-browser-window__page { display: flex; min-width: 0; min-height: 0; overflow: hidden; border-radius: var(--radius-sm); }
 .job-browser-window__job { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border-radius: var(--radius-sm); }
+
+/* Site settings: the lock before the address, its popover of seven rows, and the page's ask under it. */
+.job-browser__site { position: relative; display: inline-flex; flex: none; }
+.job-browser__site-panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: calc(var(--space-12) * 7); }
+.job-browser__site-host { color: var(--fg-muted); font-family: var(--font-mono); }
+.job-browser__permissions { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.job-browser__permission { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
+.job-browser__permission-label { flex: 1 1 0; min-width: 0; color: var(--fg-default); }
+
+.job-browser__segments {
+  display: inline-flex;
+  flex: none;
+  padding: var(--border-width);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.job-browser__segment {
+  min-height: var(--h-control-sm);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.job-browser__segment[aria-checked="true"] { background: var(--bg-raised); color: var(--fg-default); }
+.job-browser__segment:focus-visible { outline: calc(var(--border-width) * 2) solid var(--accent); outline-offset: calc(var(--border-width) * -2); }
+.job-browser__segment:disabled { cursor: default; opacity: 0.5; }
+
+.job-browser__ask {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: calc(var(--space-12) * 7);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.job-browser__ask-acts { display: flex; justify-content: flex-end; gap: var(--space-1); }
