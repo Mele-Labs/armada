@@ -18,6 +18,10 @@ const reportLinkedJob = walk("report-linked-job", [
   { press: role("menuitem", "Closed", { exact: true }), say: "Closed" },
   { press: inside(list, button(/^show_sketch refused an icon/)), say: "A report whose Job's pull request merged is fixed. It leaves Open and stands here" },
   { look: inside(reader, text("#3071")), say: "The pull request that fixed it, which opens its link" },
+  { key: "L", on: list, say: "Back to Open" },
+  { press: role("menuitem", "Open", { exact: true }), say: "Open" },
+  { press: inside(list, button(/^waiting_for refused/)), say: "A report with no Job" },
+  { press: inside(reader, button("Start a Job", { exact: true })), say: "Start a Job opens the drafted Job with the report as its brief. Send starts it" },
 ]);
 
 export { reportLinkedJob as "report-linked-job" };
