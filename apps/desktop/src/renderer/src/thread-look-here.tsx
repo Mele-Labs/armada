@@ -67,6 +67,12 @@ function Held({ seed, children }: { seed: ThreadLookSeed; children: ReactNode })
   return <ThreadLookContext.Provider value={source}>{children}</ThreadLookContext.Provider>;
 }
 
+/** The message that answers one line of the agent's: the line quoted, with Yes to or No to above it. The thread reads its marks back from this shape. */
+export function pickedLine(text: string, kind: "pick" | "yes" | "no"): string {
+  const quote = `> ${text}`;
+  return kind === "yes" ? `Yes to:\n${quote}` : kind === "no" ? `No to:\n${quote}` : quote;
+}
+
 /** The agent spoke last, so its answers are still open. Which answers fit is the reader's call, not a trailing "?". */
 function asking(session: Session): boolean {
   for (let at = session.rows.length - 1; at >= 0; at -= 1) {

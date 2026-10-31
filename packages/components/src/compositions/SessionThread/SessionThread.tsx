@@ -1,4 +1,4 @@
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNowWhile } from "../../clock";
 import type { ThreadTextSize } from "../ThreadSettings/thread-look";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
@@ -14,7 +14,8 @@ import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { PathPicker } from "../../primitives/PathPicker/PathPicker";
 import { Skeleton, SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { Switch } from "../../primitives/Switch/Switch";
-import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
+import { Prose, ProseCommand, ProsePick, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
+import type { PickKind } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
 import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
@@ -483,7 +484,35 @@ export type SessionThreadProps = {
   transcript?: "unread" | "refreshing";
   /** How the thread reads, from the Aa panel: stamps and the agent's name hidden, a larger or smaller body. Absent reads as it always has. */
   look?: { showTimes?: boolean; showAgentName?: boolean; textSize?: ThreadTextSize };
+  /**
+   * Answers one line of an agent's message: its plain text and what was said to it. Present, a list item or a paragraph of
+   * an agent's message can be picked, said yes to or said no to; the host sends the quote. Absent, no line is hoverable.
+   */
+  onPickLine?: (text: string, kind: PickKind) => void;
 };
+
+/** Where a thread lets its agent's lines be answered: what answering does, and what was already said to which line. */
+type LinePicks = { pick: (text: string, kind: PickKind) => void; marks: ReadonlyMap<string, PickKind> };
+const ThreadPicks = createContext<LinePicks | null>(null);
+
+/** The line a message of the person's answers, and how: `> line`, or `Yes to:` or `No to:` then `> line`. */
+const ANSWER = /^(?:(Yes|No) to:\n)?> (.+)$/;
+
+/** What was said to each line of each agent message, read back from the person's own messages, so a mark outlives the thread being drawn again. */
+function marksOf(rows: readonly SessionThreadRow[]): ReadonlyMap<string, PickKind> {
+  const marks = new Map<string, PickKind>();
+  let agent: string | undefined;
+  for (const row of rows) {
+    if (row.kind !== "message") continue;
+    if (row.from === "you") {
+      const said = ANSWER.exec(row.text);
+      if (agent !== undefined && said !== null) marks.set(`${agent}\u0000${said[2]}`, said[1] === "Yes" ? "yes" : said[1] === "No" ? "no" : "pick");
+    } else if (row.from !== "session") {
+      agent = row.id;
+    }
+  }
+  return marks;
+}
 
 const TAG_KIND = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue", report: "Reported bug" } as const;
 
@@ -1028,6 +1057,7 @@ function Row({
   // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
   const refs = useContext(ProseRefs);
   const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" || tag.kind === "report" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
+  const picks = useContext(ThreadPicks);
   if (row.kind === "retro") return <SessionRetroRow row={row} {...(onOpenRetro === undefined ? {} : { onOpen: onOpenRetro })} />;
   if (row.kind === "woke") {
     return (
@@ -1216,7 +1246,13 @@ function Row({
         <RowStamp row={row} className="armada-helm-thread__at" />
       </div>
       <div className="armada-helm-thread__message" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
-        {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
+        {placed.parts !== null ? (
+          <p className="armada-session-said">{placed.parts}</p>
+        ) : (
+          <ProsePick.Provider value={picks === null ? null : { pick: picks.pick, marked: (text) => picks.marks.get(`${row.id}\u0000${text}`) }}>
+            <Prose text={row.text} />
+          </ProsePick.Provider>
+        )}
       </div>
       <Sent row={row} tags={placed.loose} />
     </li>
@@ -1820,9 +1856,10 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onWithdrawSketch, onOpenDocument, onAnswerDocument, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline, look }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onWithdrawSketch, onOpenDocument, onAnswerDocument, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline, look, onPickLine }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
+  const picks = useMemo((): LinePicks | null => (onPickLine === undefined ? null : { pick: onPickLine, marks: marksOf(rows) }), [onPickLine, rows]);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -1917,6 +1954,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
       >
         <StampSurface>
         <NotedOpens.Provider value={noted ?? null}>
+        <ThreadPicks.Provider value={picks}>
         <ProseWalk.Provider value={onOpenWindow ?? null}>
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
@@ -1980,6 +2018,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
         </ProseCommand.Provider>
         </ProseRunner.Provider>
         </ProseWalk.Provider>
+        </ThreadPicks.Provider>
         </NotedOpens.Provider>
         </StampSurface>
       </div>

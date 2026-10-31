@@ -9,8 +9,11 @@ import { unified } from "unified";
 import { Tooltip } from "../Tooltip/Tooltip";
 import { commandOf, CopyAct, ProseRunner, RunnableBlock } from "./RunnableBlock";
 import { isSlashCommand, ProseCommand, SlashCommand } from "./SlashCommand";
+import { InPickLine, lineText, PickLine, type LineNode } from "./PickLine";
 import { AttachedImage, AttachedVideo, isForgeAddress, isVideoAddress, ProseAttachments } from "./ProseAttachments";
 export { ProseAttachments } from "./ProseAttachments";
+export { ProsePick } from "./PickLine";
+export type { PickKind, ProsePicker } from "./PickLine";
 export type { AttachmentBytes } from "./ProseAttachments";
 export type { CodePhase, CodeRun, CodeRunEvent, CodeRunner, TerminalSize } from "./RunnableBlock";
 export { CopyAct, ProseRunner, RunnableBlock, RunOutput, useCodeRun } from "./RunnableBlock";
@@ -384,9 +387,12 @@ function said(level: number) {
 }
 
 /** A bare attachment address on a line of its own draws as the video it is, where `ProseAttachments` is provided. */
-function Paragraph({ children }: { children?: ReactNode }) {
+function Paragraph({ node, children }: { node?: LineNode; children?: ReactNode }) {
   const attachments = useContext(ProseAttachments);
-  if (attachments === null) return <p className="armada-prose__paragraph">{children}</p>;
+  const inLine = useContext(InPickLine);
+  // A paragraph in a list item is part of the item's line; one on its own is a line where a thread asks to answer lines.
+  const line = (body: ReactNode) => (inLine ? <p className="armada-prose__paragraph">{body}</p> : <PickLine as="p" className="armada-prose__paragraph" text={lineText(node)}>{body}</PickLine>);
+  if (attachments === null) return line(children);
   const parts = Children.toArray(children);
   const bare = (part: ReactNode): string | null => {
     if (!isValidElement<{ href?: string; children?: ReactNode }>(part)) return null;
@@ -399,7 +405,7 @@ function Paragraph({ children }: { children?: ReactNode }) {
     const alone = (at === 0 || isBreak(parts[at - 1])) && (at === parts.length - 1 || isBreak(parts[at + 1]));
     return address !== null && alone ? <AttachedVideo key={at} address={address} /> : part;
   });
-  return <p className="armada-prose__paragraph">{out}</p>;
+  return line(out);
 }
 
 /** An image: drawn from its bytes where a forge attachment can be fetched; a link otherwise. */
@@ -429,7 +435,11 @@ const DRAWN: Components = {
       {children}
     </ol>
   ),
-  li: ({ children }) => <li className="armada-prose__item">{children}</li>,
+  li: ({ node, children }) => (
+    <PickLine as="li" className="armada-prose__item" text={lineText(node as LineNode | undefined)}>
+      {children}
+    </PickLine>
+  ),
   input: ({ checked }) => (
     <input
       className="armada-prose__task"

@@ -105,7 +105,7 @@ import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { useToolsBand, useToolsFixes } from "./tools-fixes";
 import { attachmentsOf, opensPullRequests, ownerOf, owesOf, planAsked, toolsMissingSaid } from "@armada/screens/src/draft/sessions";
 import { usePausedSend } from "./paused-send";
-import { useThreadLookHere } from "./thread-look-here";
+import { pickedLine, useThreadLookHere } from "./thread-look-here";
 import { liftOnce } from "./arrivals";
 import type { ChipRef, DrawnSketch, Session, SessionRow, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
@@ -1353,6 +1353,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             onAnswer={() => undefined}
             onOpenSession={onOpen}
             {...(lookHere?.thread ?? {})}
+            {...(lookHere === undefined || session.dead !== undefined ? {} : { onPickLine: (text: string, kind: "pick" | "yes" | "no") => void draft.send(session.id, { text: pickedLine(text, kind), files: [], sketches: NO_SKETCHES, tags: [] }) })}
           />
           </SavedOpen.Provider>
           </RequestOpen.Provider>

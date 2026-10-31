@@ -428,3 +428,62 @@
   height: 120px;
   background: var(--bg-sunken);
 }
+
+/* A line of an agent message that can be answered (a thread provides ProsePick). It is hot while the pointer is over it, never over a list inside it. The wash is a shadow, so
+   the text does not move; the acts sit over the line's right end and the mark takes its place when they leave. */
+.armada-prose [data-pick] {
+  position: relative;
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.armada-prose [data-pick]:is([data-hot], :focus-visible) {
+  background: var(--bg-hover);
+  box-shadow: 0 0 0 var(--space-1) var(--bg-hover);
+}
+
+.armada-prose__pick-acts,
+.armada-prose__pick-mark {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+}
+
+.armada-prose__pick-acts {
+  display: flex;
+  gap: var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.armada-prose [data-pick]:is([data-hot], :focus-visible) > .armada-prose__pick-acts,
+.armada-prose__pick-acts:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.armada-prose__pick-mark {
+  display: inline-flex;
+  align-items: center;
+  height: var(--h-control-sm);
+  color: var(--fg-muted);
+}
+
+/* The mark's room, so the line's last words do not run under it. */
+.armada-prose [data-pick][data-marked] {
+  padding-inline-end: var(--space-4);
+}
+
+.armada-prose [data-pick]:is([data-hot], :focus-visible) > .armada-prose__pick-mark {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-prose__pick-acts {
+    transition: none;
+  }
+}
