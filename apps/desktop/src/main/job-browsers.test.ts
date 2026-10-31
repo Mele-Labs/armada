@@ -5,6 +5,7 @@ vi.mock("electron", () => ({ BrowserWindow: class {}, session: {}, app: {}, WebC
 import type { SendSessionNote } from "@armada/protocol";
 import type { JobBrowserState } from "../shared/api/job-browser";
 import { ringOn, type Ring } from "../shared/ring";
+import { NO_SETTINGS } from "../shared/site-permissions";
 import { JobBrowsers, type BrowserPage, type Host, type JobBrowserMake } from "./job-browsers";
 
 /** A page that records which host holds it; the rest of `JobPage` answers nothing. */
@@ -40,6 +41,9 @@ function fakePage(): BrowserPage & { at: Host | null; moves: (Host | "away")[] }
     viewport: () => ({ width: 800, height: 600 }),
     picture: async () => null,
     ask: async () => null,
+    settings: () => ({ sites: {}, defaults: NO_SETTINGS.defaults }),
+    choose: () => {},
+    setDefault: () => {},
   };
   return page;
 }
