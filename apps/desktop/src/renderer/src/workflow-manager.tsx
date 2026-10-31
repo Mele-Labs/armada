@@ -119,7 +119,9 @@ function Held({ current, repository, root, served }: { current: string | null; r
 
   const rows = useMemo((): readonly Listed[] => (listed === null || !listed.ok ? [] : listedOf(listed.workflows, listed.leftOut, current)), [listed, current]);
   const workflowIds = useMemo(() => [...new Set(rows.map((one) => one.id))], [rows]);
-  const fleet = useFleetWorkspace(piecesApi, current, served, workflowIds, seeded === undefined);
+  // On All the lanes are the picked copy's repository's; Armada's and Yours carry the first one they were listed under.
+  const lanesAt = current ?? picked?.manifestId ?? served[0]?.manifestId ?? null;
+  const fleet = useFleetWorkspace(piecesApi, lanesAt, served, workflowIds, seeded === undefined);
   const workspace = seeded ?? fleet?.held;
   const workflows = useMemo(
     (): readonly ManagedWorkflow[] =>
