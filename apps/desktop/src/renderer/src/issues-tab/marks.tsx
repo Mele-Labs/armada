@@ -1,7 +1,7 @@
 // A Job working an issue: as its live state's glyph, the one the Cockpit's list draws, named by a tooltip that says which
 // Job; or as the shared Job card, where there is room for one.
 
-import { Bug, CircleDot, Save } from "lucide-react";
+import { Bug, CircleDot, GitMerge, Save } from "lucide-react";
 import { JobCard, SessionMark, Tooltip, jobToneOf, type JobTone } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -54,6 +54,18 @@ export function KeptMark() {
     <Tooltip label="Kept">
       <span className="issues-mark" role="img" aria-label="Kept">
         <Save size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** A report whose Job's pull request merged. The tooltip names the pull request. */
+export function FixedMark({ pullRequest }: { pullRequest: number }) {
+  const said = `Fixed by #${pullRequest}`;
+  return (
+    <Tooltip label={said}>
+      <span className="issues-mark issues-mark--fixed" role="img" aria-label={said}>
+        <GitMerge size={12} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>
   );

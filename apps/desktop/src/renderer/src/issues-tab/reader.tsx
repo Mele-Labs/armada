@@ -2,14 +2,17 @@
 // **every field the tracker returned** as names and values (Bridge draws them alike, whichever tracker sent them), the
 // description, the pull requests that name it, and the Jobs working it or the one press that starts one.
 
-import { Button, Kbd, Prose, PullRequestChip, RepositoryChip, Stamp, Tooltip } from "@armada/components";
+import { Button, Kbd, Prose, PullRequestChip, RepositoryChip, SessionMark, Stamp, Tooltip } from "@armada/components";
 
 import { PullRequestMenuOn } from "../pull-request-menu";
 import { IssueState, Open } from "../shared-panel/panels";
 import type { Band } from "./bands";
 import { ISSUES_KEYS } from "./key-table";
-import { IssueJobCard, toneOfHolders, useHolders } from "./marks";
+import { IssueJobCard, jobTitle, toneOfHolders, useHolders } from "./marks";
+import { stateOf } from "../session-state";
+import { useSessions } from "../sessions-draft";
 import type { ReportedBug, TicketRead } from "./model";
+import { jobOfReport } from "./reports";
 import { useIssues, useIssuesStore } from "./store";
 
 type Hosts = {
@@ -133,8 +136,10 @@ function Reader({ band, ticket, onOpenLink, onOpenSession, onStart }: Hosts & { 
 }
 
 /** One reported bug whole. Keep sets it aside; once kept, Start a Job puts it in a sheet as the brief. Drop removes it. */
-function ReportReader({ report, armada, onOpenSession, onStartReport }: Hosts & { report: ReportedBug }) {
+function ReportReader({ report, armada, onOpenLink, onOpenSession, onStartReport }: Hosts & { report: ReportedBug }) {
   const store = useIssuesStore()!;
+  const job = jobOfReport(useSessions(), report.id);
+  const { state, said } = job === undefined ? { state: undefined, said: "" } : stateOf(job);
   return (
     <section className="deck-pane issues-reader" aria-label="Reported bug" tabIndex={-1}>
       <header className="deck-band deck-pane__head">
@@ -144,7 +149,12 @@ function ReportReader({ report, armada, onOpenSession, onStartReport }: Hosts & 
           <Tooltip label="Go to the report" shortcut={ISSUES_KEYS.reader}>
             <Kbd>{ISSUES_KEYS.reader}</Kbd>
           </Tooltip>
-          {report.kept ? (
+          {job !== undefined && state !== undefined ? (
+            <Button variant="secondary" size="sm" data-job aria-label={`Open the Job, ${jobTitle(job)}`} onClick={() => onOpenSession(job.id)}>
+              <SessionMark state={state} said={`${jobTitle(job)}: ${said}`} />
+              {jobTitle(job)}
+            </Button>
+          ) : report.fixed !== undefined ? null : report.kept ? (
             armada === undefined ? null : (
               <Tooltip label="Start a Job" shortcut={ISSUES_KEYS.start}>
                 <Button variant="secondary" size="sm" data-start onClick={() => onStartReport(armada.root, report)}>
@@ -178,6 +188,9 @@ function ReportReader({ report, armada, onOpenSession, onStartReport }: Hosts & 
         <span className="issues-reader__who">
           <Stamp at={report.at} />
         </span>
+        {report.fixed === undefined ? null : (
+          <PullRequestChip framed number={report.fixed.pull_request} title={report.fixed.title} state="merged" onOpen={() => onOpenLink(report.fixed!.url)} />
+        )}
       </div>
       <div className="issues-reader__body">
         <section className="issues-reader__part issues-report__part" aria-label="What went wrong">

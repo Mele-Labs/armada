@@ -504,6 +504,15 @@ where
             // Marks the issues of the Jobs that held it, however long ago it merged and whether or
             // not they still stand: this waits on no `bd`, and the backlog's next look closes them.
             self.issues_merged(served, one.pull.number, one.pull.url.as_written()).await;
+            // And the reports they were started on, in any repository, whether or not it has a backlog.
+            self.reports_fixed_by_merge(
+                served,
+                one.pull.number,
+                one.pull.title.as_written(),
+                one.pull.url.as_written(),
+                one.pull.merged_at.as_written(),
+            )
+            .await;
             // The same merge asks whether the project tasks the Job held are done.
             self.tasks_asked_by_merge(served, one.pull.number).await;
             if elapsed(&at, &now) > MERGE_IS_NEWS {

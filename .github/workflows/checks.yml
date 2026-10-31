@@ -45,6 +45,7 @@ jobs:
       checks: ${{ steps.covers.outputs.checks }}
       matrix: ${{ steps.covers.outputs.matrix }}
       has_matrix: ${{ steps.covers.outputs.has_matrix }}
+      compile: ${{ steps.covers.outputs.compile }}
       whole: ${{ steps.paths.outputs.whole }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -142,14 +143,17 @@ jobs:
           echo "checks=$checks" >> "$GITHUB_OUTPUT"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "has_matrix=$(jq '.matrix.include | length > 0' plan/plan.json)" >> "$GITHUB_OUTPUT"
+          echo "compile=$(jq -c .compile plan/plan.json)" >> "$GITHUB_OUTPUT"
           echo "CHECKS $checks"
           echo "### plan: $checks" >> "$GITHUB_STEP_SUMMARY"
           jq -r '.excluded[] | "excluded: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
           jq -r '.queued[] | "in the merge queue: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
           jq -r '.rerun[] | "the merge queue failed it last: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.compile[] | "its test code compiled here, run in the merge queue: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
 
-      # The matrix job runs `armada check <key>` and needs a binary; the plan
-      # has just built one, and the runners are the same image.
+      # Every job that runs `armada check` takes this binary rather than
+      # building its own: 2 minutes a job, measured 31 Oct 2026. The runners
+      # are the same image.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: armada-bin
@@ -174,15 +178,19 @@ jobs:
         with:
           name: plan
           path: plan
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: armada-bin
+          path: bin
       - uses: ./.github/actions/rust-setup
         with:
           key: build
-      - run: cargo build -p armada --locked
       - uses: ./.github/actions/run-check
         with:
           name: build
           cmd: |
-            export PATH="$PWD/target/debug:$PATH"
+            chmod +x bin/armada
+            export PATH="$PWD/bin:$PATH"
             if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check build; else armada check build --changed < plan/changed.txt; fi
 
   # Four runners, each a quarter of the tests nextest would run (`--partition
@@ -206,11 +214,14 @@ jobs:
         with:
           name: plan
           path: plan
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: armada-bin
+          path: bin
       - uses: ./.github/actions/rust-setup
         with:
           key: test
           nextest: "true"
-      - run: cargo build -p armada --locked
       - name: Slice nextest
         env:
           SHARD: ${{ matrix.shard }}
@@ -230,8 +241,63 @@ jobs:
         with:
           name: test
           cmd: |
-            export PATH="$PWD/target/debug:$PATH"
+            chmod +x bin/armada
+            export PATH="$PWD/bin:$PATH"
             if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check test; else armada check test --changed < plan/changed.txt; fi
+
+  # A pull request's run only: compiles the test code of the Rust Checks it
+  # leaves to the merge queue, and runs no test. `cargo build` compiles no test
+  # target, so a change that broke a test's code passed its pull request and
+  # failed in the queue, with the entries behind it: 4 of 16 failed queue runs
+  # on 30 and 31 Oct 2026. A `cargo` ahead on PATH adds `--no-run` to `nextest
+  # run`, so the crates compiled are the ones the queue's run narrows to.
+  test_compile:
+    name: test_compile
+    needs: plan
+    if: needs.plan.outputs.compile != '' && needs.plan.outputs.compile != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: plan
+          path: plan
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: armada-bin
+          path: bin
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: test
+          nextest: "true"
+      - name: No-run nextest
+        run: |
+          mkdir -p "$RUNNER_TEMP/norun"
+          cat > "$RUNNER_TEMP/norun/cargo" <<EOF
+          #!/bin/sh
+          if [ "\$1" = nextest ] && [ "\$2" = run ]; then
+            shift 2
+            exec "$(command -v cargo)" nextest run --no-run "\$@"
+          fi
+          exec "$(command -v cargo)" "\$@"
+          EOF
+          chmod +x "$RUNNER_TEMP/norun/cargo"
+          echo "$RUNNER_TEMP/norun" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/run-check
+        env:
+          COMPILE: ${{ needs.plan.outputs.compile }}
+        with:
+          name: test_compile
+          cmd: |
+            chmod +x bin/armada
+            export PATH="$PWD/bin:$PATH"
+            code=0
+            for key in $(echo "$COMPILE" | jq -r '.[]'); do
+              echo "COMPILE $key"
+              if [ "$key" = test ]; then armada check test --changed < plan/changed.txt || code=1; else armada check "$key" || code=1; fi
+            done
+            exit $code
 
   # The xtask tests read `apps/` and `packages/` (vocabulary, error codes,
   # design rules). Nextest directly, as `apps/desktop/armada.yml` runs it: the
@@ -263,16 +329,20 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: armada-bin
+          path: bin
       - uses: ./.github/actions/rust-setup
         with:
           key: acceptance
           nextest: "true"
-      - run: cargo build -p armada --locked
       - uses: ./.github/actions/run-check
         with:
           name: acceptance
           cmd: |
-            export PATH="$PWD/target/debug:$PATH"
+            chmod +x bin/armada
+            export PATH="$PWD/bin:$PATH"
             armada check acceptance
 
   typecheck:
@@ -570,6 +640,7 @@ jobs:
       - preview_test
       - sync_mod_test
       - xtask_test
+      - test_compile
       - foundations
     runs-on: ubuntu-latest
     timeout-minutes: 45

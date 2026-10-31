@@ -1,5 +1,5 @@
-// The band's ways to a Session: a new Session opens the Dispatch panel holding the brief, Send back
-// messages the Session chosen, and Take over asks once before it opens the panel.
+// The band's ways to a Session: a new Job is drafted holding the brief and opened, Send back
+// messages the Session chosen, and Take over asks once before it drafts the Job.
 
 import type { SendSessionMessage } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -25,14 +25,23 @@ function standingAt(moment: number): Scenario {
 
 const band = () => page.getByRole("region", { name: "Merge line" }).getByRole("status", { name: "Main is red" });
 
-test("Dispatch a new Job opens the Dispatch panel on a Session, holding the brief", async () => {
+/** The Job drafted for the red is open with the brief as its first message, and the sheet never came up. */
+async function expectRedDrafted() {
+  const job = page.getByRole("region", { name: /^Job: / });
+  await expect.element(job).toBeVisible();
+  await expect.element(job).toHaveTextContent("components_test fails on main.");
+  await expect.element(job).toHaveTextContent("Test: Theme tokens > the dark ground keeps its contrast");
+  await expect.element(job).toHaveTextContent("Merged in #1815 (nick/theme-tokens).");
+  expect(page.getByRole("region", { name: "Dispatch", exact: true }).query()).toBeNull();
+}
+
+test("Dispatch a new Job drafts a Job holding the brief and opens it, with no Dispatch panel", async () => {
   mount(standingAt(5));
   await onScreen();
   await toPageByName("Merge line");
 
   await band().getByRole("button", { name: "Dispatch a new Job" }).click();
-  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
-  await expect.element(panel.getByRole("textbox", { name: "Request" })).toHaveValue("components_test fails on main.\nTest: Theme tokens > the dark ground keeps its contrast\nMerged in #1815 (nick/theme-tokens).");
+  await expectRedDrafted();
 });
 
 test("Send back to a Session posts its message to /sessions/message", async () => {
@@ -72,7 +81,7 @@ function claimedAt(moment: number): Scenario {
   };
 }
 
-test("Take over asks once, then opens the Dispatch panel on a Session holding the brief", async () => {
+test("Take over asks once, then drafts a Job holding the brief and opens it, with no Dispatch panel", async () => {
   mount(claimedAt(1));
   await onScreen();
   await page.getByRole("button", { name: "Merge line", exact: true }).click();
@@ -82,6 +91,5 @@ test("Take over asks once, then opens the Dispatch panel on a Session holding th
   await expect.element(ask.getByRole("group", { name: "Claimed, stale" })).toHaveTextContent("3h ago");
   await ask.getByRole("button", { name: "Take over", exact: true }).click();
 
-  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
-  await expect.element(panel.getByRole("textbox", { name: "Request" })).toHaveValue("components_test fails on main.\nTest: Theme tokens > the dark ground keeps its contrast\nMerged in #1815 (nick/theme-tokens).");
+  await expectRedDrafted();
 });

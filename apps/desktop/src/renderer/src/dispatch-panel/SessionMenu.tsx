@@ -4,7 +4,7 @@
 // under the sentence when its Session is changed.
 
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type SyntheticEvent } from "react";
-import { File, GitPullRequest, SquareTerminal, Ticket, type LucideIcon } from "lucide-react";
+import { Bug, File, GitPullRequest, SquareTerminal, Ticket, type LucideIcon } from "lucide-react";
 import type { ComposerNumbered, ComposerTag, NumberedHit } from "@armada/components";
 
 export type Offered = { id: string; title: string };
@@ -24,7 +24,7 @@ export type Tagging = {
 /** The Sessions whose title holds what was typed after the `@`. */
 export const matching = (sessions: readonly Offered[], query: string): Offered[] => sessions.filter((one) => one.title.toLowerCase().includes(query.trim().toLowerCase()));
 
-const GLYPH: Record<Row["glyph"], LucideIcon> = { session: SquareTerminal, file: File, pull_request: GitPullRequest, issue: Ticket, branch: SquareTerminal };
+const GLYPH: Record<Row["glyph"], LucideIcon> = { session: SquareTerminal, file: File, pull_request: GitPullRequest, issue: Ticket, branch: SquareTerminal, report: Bug };
 
 /** How many file and numbered rows are offered at once, and how long a typed query rests before it is asked. */
 const FILE_ROWS = 5;
