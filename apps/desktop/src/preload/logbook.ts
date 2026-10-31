@@ -12,4 +12,6 @@ export const logbookPreload: LogbookApi = {
   lockLogbookEntry: (id, locked) => ipcRenderer.invoke(CHANNELS.lockLogbookEntry, id, locked),
   forgetLogbookEntry: (id) => ipcRenderer.invoke(CHANNELS.forgetLogbookEntry, id),
   tidyLogbook: () => ipcRenderer.invoke(CHANNELS.tidyLogbook),
+  organizeLogbook: (action) => ipcRenderer.invoke(CHANNELS.organizeLogbook, action),
+  applyOrganizeLogbook: (action, proposals) => ipcRenderer.invoke(CHANNELS.applyOrganizeLogbook, action, proposals),
 };
