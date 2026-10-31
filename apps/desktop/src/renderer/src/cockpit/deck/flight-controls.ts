@@ -63,7 +63,7 @@ const JOB_GLYPH: Record<SessionTileId, string> = {
   judge: "scale",
   release: "unplug",
   artifacts: "files",
-  subagents: "split",
+  subagents: "drone",
   checks: "shield-check",
   slot: "rows-3",
   system: "cpu",

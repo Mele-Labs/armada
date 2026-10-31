@@ -1178,6 +1178,7 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
   border-radius: 0;
   box-shadow: none;
   background: var(--bg-sunken);
+  padding-bottom: var(--space-1);
 }
 .deck-statusbar > .deck-queue .deck-queue__row { box-sizing: border-box; min-height: calc(var(--h-control-sm) + var(--space-1)); padding: 0 var(--pad-page); }
 .deck-statusbar > .deck-queue .deck-queue__stack { height: calc(var(--h-control-sm) + var(--space-1)); }
