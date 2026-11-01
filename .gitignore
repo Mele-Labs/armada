@@ -126,3 +126,8 @@ packages/tokens/themes/more/
 
 # Browser-check screenshots and logs an agent saves while looking at a page.
 .playwright-mcp/
+
+# The impeccable design hook's local state: a config with ignores and a cache of
+# its last read. Written into whatever folder a session works in, read by nothing
+# else, and not shared between worktrees.
+.impeccable/
