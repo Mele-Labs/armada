@@ -1268,3 +1268,237 @@ test("the layer reads its notes again each time Fleet says a note file changed, 
   await pressToggle();
   expect(listeners.size).toBe(0);
 });
+
+// The note card's tools: changes shown on the element while the card is up, kept on the note, and pictures added to it.
+
+/** A sink that also keeps example pictures, and says which it was asked to write and remove. */
+function pictured(notes: Annotation[] = []) {
+  const files = new Map<string, ArrayBuffer>();
+  const asked = { saved: [] as string[], removed: [] as string[], read: [] as string[] };
+  const sink: Sink = {
+    ...sinkOf(notes),
+    saveExample: async (_id, name, png) => {
+      files.set(name, png);
+      asked.saved.push(name);
+    },
+    example: async (_id, name) => {
+      asked.read.push(name);
+      return files.get(name) ?? null;
+    },
+    removeExample: async (_id, name) => {
+      files.delete(name);
+      asked.removed.push(name);
+    },
+  };
+  return { sink, files, asked };
+}
+
+/** An element to note, with an id so the selector the layer takes of it finds it again and no other. */
+function identified(name: string, top: number): string {
+  const selector = noted(name, top);
+  document.querySelector(selector)!.id = `${name}-element`;
+  return `#${name}-element`;
+}
+
+const draftCard = () => page.getByRole("dialog", { name: "New note" });
+const savedCard = () => page.getByRole("dialog", { name: "Note", exact: true });
+const sizeOf = (selector: string): string => getComputedStyle(document.querySelector(selector)!).fontSize;
+/** What `--text-lg` is in this window, which is the Size the tests pick. */
+const LARGE = (): string => getComputedStyle(document.documentElement).getPropertyValue("--text-lg").trim();
+
+async function pickSize(card: ReturnType<typeof draftCard>): Promise<void> {
+  await card.getByRole("button", { name: "Size", exact: true }).click();
+  await card.getByRole("button", { name: "--text-lg" }).click();
+}
+
+const escape = (): boolean => document.querySelector(".armada-annotate")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+test("a note saved after a Size pick keeps the change on the note, and the element shows it only while the card is up", async () => {
+  const held = sinkOf();
+  await annotating(held);
+  const target = identified("target", 20);
+  const before = sizeOf(target);
+  expect(before).not.toBe(LARGE());
+
+  document.querySelector<HTMLElement>(target)!.click();
+  await expect.element(draftCard()).toBeVisible();
+  await pickSize(draftCard());
+  // At once, in the draft's own card.
+  expect(sizeOf(target)).toBe(LARGE());
+  await draftCard().getByRole("textbox", { name: "Note" }).fill("Make me larger");
+  await draftCard().getByRole("button", { name: "Save note" }).click();
+  await expect.element(draftCard()).not.toBeInTheDocument();
+
+  const [saved] = await held.list();
+  expect(saved?.changes).toEqual([{ kind: "size", property: "font-size", before, after: LARGE(), token: "--text-lg" }]);
+  // The saved note stays up in its card, with the change still on the page.
+  await expect.element(savedCard()).toBeVisible();
+  expect(sizeOf(target)).toBe(LARGE());
+
+  // The card goes and the app is as it was.
+  escape();
+  await expect.element(savedCard()).not.toBeInTheDocument();
+  expect(sizeOf(target)).toBe(before);
+
+  // Opening the note again puts its change back on, and lists it.
+  await page.getByRole("button", { name: /^Note 1, open/ }).click();
+  await expect.element(savedCard().getByRole("list", { name: "Changes" })).toHaveTextContent(`${before} → ${LARGE()}`);
+  expect(sizeOf(target)).toBe(LARGE());
+});
+
+test("a note written with no change keeps no field for one", async () => {
+  const held = sinkOf();
+  await annotating(held);
+  await writeOn(identified("target", 20), "Only words");
+  const [saved] = await held.list();
+  expect(saved).not.toHaveProperty("changes");
+  expect(saved).not.toHaveProperty("examples");
+});
+
+test("a card cancelled gives the element back, and nothing is written", async () => {
+  const held = sinkOf();
+  await annotating(held);
+  const target = identified("target", 20);
+  const before = sizeOf(target);
+  document.querySelector<HTMLElement>(target)!.click();
+  await expect.element(draftCard()).toBeVisible();
+  await pickSize(draftCard());
+  expect(sizeOf(target)).toBe(LARGE());
+  await draftCard().getByRole("button", { name: "Cancel" }).click();
+  expect(sizeOf(target)).toBe(before);
+  expect(await held.list()).toEqual([]);
+});
+
+test("a draft holding only a change is not thrown away by a click on something else", async () => {
+  await annotating(sinkOf());
+  const first = identified("first", 20);
+  const second = identified("second", 40);
+  document.querySelector<HTMLElement>(first)!.click();
+  await expect.element(draftCard()).toBeVisible();
+  await pickSize(draftCard());
+  document.querySelector<HTMLElement>(second)!.click();
+  await new Promise((settled) => requestAnimationFrame(() => requestAnimationFrame(settled)));
+  await expect.element(draftCard().getByRole("list", { name: "Changes" })).toBeVisible();
+  expect(sizeOf(first)).toBe(LARGE());
+});
+
+test("a change made on a saved note is written a beat after, and undoing the last one takes the field off the note", async () => {
+  const name = "kept";
+  const element = noted(name, 20);
+  const before = sizeOf(element);
+  const open: Annotation = { ...note(name, "open", "5", 20), changes: [{ kind: "size", property: "font-size", before, after: LARGE(), token: "--text-lg" }] };
+  const held = sinkOf([open]);
+  await annotating(held);
+  await page.getByRole("button", { name: /^Note 1, open/ }).click();
+  expect(sizeOf(element)).toBe(LARGE());
+
+  await savedCard().getByRole("button", { name: "Undo Size" }).click();
+  expect(sizeOf(element)).toBe(before);
+  await vi.waitFor(async () => expect((await held.list())[0]).not.toHaveProperty("changes"));
+});
+
+test("a picture pasted on a draft's card is shown, and is kept beside the note when it is saved", async () => {
+  const { sink, files, asked } = pictured();
+  await annotating(sink);
+  document.querySelector<HTMLElement>(identified("target", 20))!.click();
+  await expect.element(draftCard()).toBeVisible();
+  await pasteOn(draftCard(), [new File([PNG], "shot.png", { type: "image/png" })]);
+
+  await expect.element(draftCard().getByRole("list", { name: "Pictures" })).toBeVisible();
+  // Held, not written, until the note is.
+  expect(asked.saved).toEqual([]);
+  await draftCard().getByRole("textbox", { name: "Note" }).fill("Like this");
+  await draftCard().getByRole("button", { name: "Save note" }).click();
+  await expect.element(draftCard()).not.toBeInTheDocument();
+
+  const [saved] = await sink.list();
+  expect(saved?.examples).toEqual([`${saved?.id}-example-1.png`]);
+  expect(asked.saved).toEqual(saved!.examples);
+  expect(new Uint8Array(files.get(saved!.examples![0]!)!)).toEqual(new Uint8Array(PNG));
+});
+
+test("a picture removed from the draft before it is saved is never written", async () => {
+  const { sink, asked } = pictured();
+  await annotating(sink);
+  document.querySelector<HTMLElement>(identified("target", 20))!.click();
+  await expect.element(draftCard()).toBeVisible();
+  await pasteOn(draftCard(), [new File([PNG], "shot.png", { type: "image/png" })]);
+  await draftCard().getByRole("button", { name: /^Remove .*-example-1\.png$/ }).click();
+  await expect.element(draftCard().getByRole("list", { name: "Pictures" })).not.toBeInTheDocument();
+  await draftCard().getByRole("textbox", { name: "Note" }).fill("No picture after all");
+  await draftCard().getByRole("button", { name: "Save note" }).click();
+  await expect.element(draftCard()).not.toBeInTheDocument();
+  const [saved] = await sink.list();
+  expect(saved).not.toHaveProperty("examples");
+  expect(asked.saved).toEqual([]);
+});
+
+test("a picture dropped on a saved note's card is written beside it at once, numbered after the last, and taken off by its press", async () => {
+  const name = "kept";
+  noted(name, 20);
+  const { sink, asked } = pictured([note(name, "open", "5", 20)]);
+  await annotating(sink);
+  await page.getByRole("button", { name: /^Note 1, open/ }).click();
+  const id = (await sink.list())[0]!.id;
+
+  await dropOn(savedCard(), [new File([PNG], "one.png", { type: "image/png" })]);
+  await vi.waitFor(async () => expect((await sink.list())[0]?.examples).toEqual([`${id}-example-1.png`]));
+  await dropOn(savedCard(), [new File([PNG], "two.png", { type: "image/png" })]);
+  await vi.waitFor(async () => expect((await sink.list())[0]?.examples).toEqual([`${id}-example-1.png`, `${id}-example-2.png`]));
+  expect(asked.saved).toEqual([`${id}-example-1.png`, `${id}-example-2.png`]);
+
+  await savedCard().getByRole("button", { name: `Remove ${id}-example-1.png` }).click();
+  await vi.waitFor(async () => expect((await sink.list())[0]?.examples).toEqual([`${id}-example-2.png`]));
+  expect(asked.removed).toEqual([`${id}-example-1.png`]);
+  // The next is numbered after the highest, so no name is used twice.
+  await dropOn(savedCard(), [new File([PNG], "three.png", { type: "image/png" })]);
+  await vi.waitFor(async () => expect((await sink.list())[0]?.examples).toEqual([`${id}-example-2.png`, `${id}-example-3.png`]));
+});
+
+test("a note's pictures are read back from beside it when it is opened", async () => {
+  const name = "kept";
+  noted(name, 20);
+  const { sink, files, asked } = pictured();
+  const withPicture: Annotation = { ...note(name, "open", "5", 20), examples: [`${note(name, "open", "5", 20).id}-example-1.png`] };
+  await sink.save(withPicture);
+  files.set(withPicture.examples![0]!, PNG);
+  await annotating(sink);
+  await page.getByRole("button", { name: /^Note 1, open/ }).click();
+  await expect.element(savedCard().getByRole("img", { name: withPicture.examples![0]! })).toBeVisible();
+  expect(asked.read).toEqual(withPicture.examples);
+});
+
+test("what is pasted that is not a picture goes on as a paste, and a file that says image and is not one is told", async () => {
+  const tell = vi.fn();
+  const { sink, asked } = pictured();
+  await annotating(sink, undefined, undefined, tell);
+  document.querySelector<HTMLElement>(identified("target", 20))!.click();
+  await expect.element(draftCard()).toBeVisible();
+  const plain = await pasteOn(draftCard(), [new File(["words"], "a.txt", { type: "text/plain" })]);
+  expect(plain.defaultPrevented).toBe(false);
+  await expect.element(draftCard().getByRole("list", { name: "Pictures" })).not.toBeInTheDocument();
+
+  const broken = await pasteOn(draftCard(), [new File(["not a picture"], "bad.png", { type: "image/png" })]);
+  expect(broken.defaultPrevented).toBe(true);
+  await vi.waitFor(() => expect(tell).toHaveBeenCalledWith("Picture not added: bad.png is not an image"));
+  await expect.element(draftCard().getByRole("list", { name: "Pictures" })).not.toBeInTheDocument();
+  expect(asked.saved).toEqual([]);
+});
+
+/** A paste of `files` on the card's note box, as the browser dispatches one. */
+async function pasteOn(card: ReturnType<typeof draftCard>, files: File[]): Promise<ClipboardEvent> {
+  const data = new DataTransfer();
+  for (const file of files) data.items.add(file);
+  const event = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true });
+  (card.element() as HTMLElement).querySelector("textarea")!.dispatchEvent(event);
+  await new Promise((settled) => setTimeout(settled, 0));
+  return event;
+}
+
+/** A drop of `files` on the card. */
+async function dropOn(card: ReturnType<typeof draftCard>, files: File[]): Promise<void> {
+  const data = new DataTransfer();
+  for (const file of files) data.items.add(file);
+  (card.element() as HTMLElement).dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
+  await new Promise((settled) => setTimeout(settled, 0));
+}
