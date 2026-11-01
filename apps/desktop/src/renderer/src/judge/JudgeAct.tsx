@@ -1,6 +1,6 @@
 // The Judge act: a balance on an artifact's row, in the Thread's head for the whole Job, and on the plan card. A press opens a small popover that asks what
 // to verify; nothing is read until Judge is pressed in it. The icon then reads the state of the last reading: a pulsing mark while it reads, a dot while its
-// notes are unread, a check after a clean one. No count is drawn.
+// notes are unread, a check after a clean one. A reading that failed says why in the tooltip and leaves the balance as it was. No count is drawn.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -96,7 +96,7 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut }
     setOpen(false);
     button()?.focus();
   };
-  const said = reading ? "Judge reading" : unread ? "Notes to read" : clean ? "Nothing missed" : "Send a judge to read it";
+  const said = reading ? "Judge reading" : unread ? "Notes to read" : clean ? "Nothing missed" : record?.state === "failed" && record.failed !== undefined ? record.failed : "Send a judge to read it";
   const anchor = open ? button() : null;
   return (
     <span ref={wrap} className="judge-act">
@@ -123,7 +123,7 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut }
           anchor={anchor}
           onClose={close}
           onRun={(prompt) => {
-            void api.ask({ job, artifact, prompt });
+            api.ask({ job, artifact, prompt });
             close();
           }}
         />

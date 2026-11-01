@@ -749,6 +749,8 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(ended || (record.held_open_by?.length ?? 0) === 0 ? {} : { heldOpenBy: record.held_open_by }),
     ...(record.started === undefined ? {} : { started: startedOfWire(record.started) }),
     ...(beside.watches === undefined || beside.watches.length === 0 ? {} : { watches: beside.watches }),
+    // Kept after the Job ends, as its artifacts are: a reading is the Judge's answer about one of them.
+    ...((record.judge_readings?.length ?? 0) === 0 ? {} : { judgeReadings: record.judge_readings }),
     ...(work === undefined ? {} : { work }),
     ...(lanes === undefined ? {} : { lanes }),
   };

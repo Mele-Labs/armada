@@ -1,28 +1,21 @@
-// What a judge found, drawn inside the artifact on the part it names. A note is the adversarial review's finding presentation (`FindingNotes`): the heading
-// `You should know`, the claim, where it is, and Send to Job or Dismiss. A note settled folds to one muted line. Nothing here counts notes.
+// What a judge found, drawn inside the artifact on the part it names. A note is drawn by `FindingNotes`: the heading `You should know`, the claim, where it is,
+// and Send to Job or Dismiss. A note settled folds to one muted line. Nothing here counts notes.
 
 import { useEffect, useMemo, type ReactNode } from "react";
-import { FindingNotes, useFindingKeys, type AdversarialReviewState, type DiffFile, type Finding } from "@armada/components";
+import { FindingNotes, useFindingKeys, type DiffFile, type Finding } from "@armada/components";
 
-import { useJudgeApi, useJudgeRecord, useJudgeRecords, type JudgeArtifact, type JudgeNote, type JudgeRecord } from "./store";
+import { useJudgeApi, useJudgeRecord, useJudgeRecords, type JudgeArtifact, type JudgeNote } from "./store";
 
 const NONE: readonly JudgeNote[] = [];
 
 /** A note as the finding row draws it. */
 export const findingOf = (note: JudgeNote): Finding => ({
   id: note.id,
-  note: true,
   consequence: note.claim,
   ...(note.where === undefined ? {} : { cites: [note.where] }),
   ...(note.about === undefined ? {} : { about: note.about }),
   ...(note.settled === undefined ? {} : { settled: note.settled }),
 });
-
-/** A reading as the plan card draws a review: running while it reads, then its notes pinned to the groups and tasks they name. */
-export function reviewOf(record: JudgeRecord | undefined): AdversarialReviewState {
-  if (record === undefined) return { state: "idle" };
-  return record.state === "reading" ? { state: "running" } : { state: "done", findings: record.notes.map(findingOf) };
-}
 
 /** The reading of one artifact, with the acts on its notes. The notes are read once something draws them: `markRead` is the caller's to call. */
 export function useJudgeNotes(job: string, artifact: Pick<JudgeArtifact, "kind" | "id">) {
@@ -55,7 +48,7 @@ export function JudgeNotes({ job, artifact, label, only, draws = true }: { job: 
   const { notes, send, dismiss } = useJudgeNotes(job, artifact);
   const here = notes.filter((one) => only?.(one) ?? true);
   const findings = here.map(findingOf);
-  const keys = useFindingKeys({ state: "done", findings }, { onSend: send, onDismiss: dismiss });
+  const keys = useFindingKeys(findings, { onSend: send, onDismiss: dismiss });
   useNotesRead(job, artifact, draws && here.length > 0);
   if (here.length === 0) return null;
   return (

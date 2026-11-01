@@ -925,9 +925,13 @@ export class WiredStore {
         if (version === undefined) return;
         void this.plain(this.api.sendPlanChanges({ session_id: id, version, marks: wireMarksOf(marks), ...(approving === true ? { approve: true } : {}) }));
       },
-      // Concerns and the plan's review are the Judge's notes now, which the renderer asks through `askJudge` and its kin.
-      sendConcern: () => undefined,
-      dismissConcern: () => undefined,
+    },
+    // A reading lands on the Job's `judge_readings` by `session.changed`, so an act answers only whether Fleet took it.
+    judge: {
+      ask: (id, artifact, prompt) => void this.plain(this.api.askJudge({ session_id: id, artifact, prompt })),
+      send: (id, reading, note) => void this.plain(this.api.sendJudgeNote({ session_id: id, reading, note })),
+      dismiss: (id, reading, note) => void this.plain(this.api.dismissJudgeNote({ session_id: id, reading, note })),
+      markRead: (id, reading) => void this.plain(this.api.markJudgeRead({ session_id: id, reading })),
     },
     // The Job's lanes re-read by Fleet's `job_lifecycles.changed` and the record's `workflow_copy`, so an act answers only whether it was taken.
     copy: {

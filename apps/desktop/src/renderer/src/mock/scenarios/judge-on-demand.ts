@@ -1,7 +1,7 @@
 // A judge on demand. One Job, Switch sign-in to session tokens, holding a plan waiting on him (v2), a pull request with three files, two commits, a
 // document, a walk page, a sketch, a command and a subagent: every row of its Ledger tab has a Judge, and so has the Thread's head and the plan card. Pressing one
 // asks what to verify and reads for two seconds. The pull request, the plan and the document come back with notes, a commit with none, and the walk page, the
-// sketch and the command with one note on the whole of them. Mock only: the answers are `../judge-fleet.ts`. The walk `judgeOnDemand` plays it.
+// sketch and the command with one note on the whole of them. Mock only: the answers are `../judge-fleet.ts`, over the real routes. The walk `judgeOnDemand` plays it.
 
 import type { PullRequestPage } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow, WorkGroup } from "@armada/screens/src/draft/sessions";
@@ -183,17 +183,22 @@ function reads(): PanelReads {
   };
 }
 
+/** The Judge's routes and acts, over the Job the draft's store holds: made with the store, answered through `behaves`. */
+let judge: ReturnType<typeof mockJudge> | undefined;
+
 function sessions() {
   const store = sessionsStore([job], [], new Map(), []);
-  const judge = mockJudge(store);
+  const mine = mockJudge(store);
+  judge = mine;
   // The Job opens with a Ledger tab beside its thread, which lists what it made with a Judge on each row.
   jobOpens(JOB, "ledger");
   return {
     ...store,
+    judge: mine.acts,
     readArtifact: async (id: string, path: string) =>
       path === DOC_PATH ? { ok: true as const, bytes: new TextEncoder().encode(DOC), type: "text/html" } : (store.readArtifact?.(id, path) ?? { ok: false as const, why: "unreadable" as const }),
     dispose: () => {
-      judge.dispose();
+      mine.dispose();
       store.dispose();
     },
   };
@@ -205,4 +210,11 @@ export const judgeOnDemandScenario: Scenario = {
   ...base,
   state: { ...base.state, repository: null },
   draft: { sessions, areas: () => mockAreas("/armada"), sharedPanel: reads },
+  // The window's own api answers the Judge's four routes, as a real Fleet's does.
+  behaves: () => ({
+    askJudge: (ask) => judge!.routes.askJudge(ask),
+    sendJudgeNote: (send) => judge!.routes.sendJudgeNote(send),
+    dismissJudgeNote: (dismiss) => judge!.routes.dismissJudgeNote(dismiss),
+    markJudgeRead: (read) => judge!.routes.markJudgeRead(read),
+  }),
 };

@@ -1,68 +1,76 @@
-// A judge on demand: Fleet reads one artifact of a Job, once, when the person presses Judge on it, and answers with notes. **Provisional**: the
-// request and the record below are the shape Bridge wants from Fleet, held here until the wire carries them; the mock Fleet (`mock/judge-fleet.ts`)
-// answers through `provideJudge`. A record arrives whole and replaces the one before it for the same artifact.
+// A judge on demand: Fleet reads one artifact of a Job, once, when the person presses Judge on it, and answers with notes. A Job's readings are
+// `SessionRecord.judge_readings` (`packages/protocol/src/judge.ts`), carried by every `session.changed`; the window's Sessions hand them here
+// (`putReadings`), and the components read them as records. A reading arrives whole and replaces the one before it for the same artifact.
 
 import { useSyncExternalStore } from "react";
+import type { JudgeArtifact, JudgeKind, JudgeNote as WireNote, JudgeReading } from "@armada/protocol";
+import type { SessionJudgeActs } from "@armada/screens/src/draft/sessions";
 
-export type JudgeKind = "job" | "plan" | "pull_request" | "commit" | "file" | "page" | "doc" | "sketch" | "command" | "subagent" | "issue" | "note";
-
-/** What is read. `id` is the kind's own: a pull request's number, a commit's row, a path, a page's address, the plan's version. `title` names it in a line. */
-export type JudgeArtifact = { kind: JudgeKind; id: string; title: string };
+export type { JudgeArtifact, JudgeKind };
 
 /** The press: an empty prompt asks what was missed. */
 export type JudgeRequest = { job: string; artifact: JudgeArtifact; prompt: string };
 
-export type JudgeNote = {
-  id: string;
-  /** The part it is about: a plan group or task id, `path:line` of a diff, a document's paragraph number. Absent, the artifact as a whole. */
-  about?: string;
-  claim: string;
-  /** Where it is, as a person reads it: `auth/middleware.rs:88`. */
-  where?: string;
-  settled?: "sent" | "dismissed";
-};
+/** A note as the components read it: `settled` is how the person settled it, and absent while it waits. */
+export type JudgeNote = Omit<WireNote, "settled"> & { settled?: "sent" | "dismissed" };
 
-export type JudgeRecord = {
-  id: string;
-  job: string;
-  artifact: JudgeArtifact;
-  prompt: string;
-  state: "reading" | "done";
-  asked_at: string;
-  finished_at?: string;
-  notes: readonly JudgeNote[];
-  /** The notes were opened. Fleet keeps it with the record. */
-  read: boolean;
-  /** The id of the thread row it follows, where the thread line stands. */
-  after?: string;
-};
+/** A reading as the components read it, with the Job it belongs to. */
+export type JudgeRecord = Omit<JudgeReading, "notes"> & { job: string; notes: readonly JudgeNote[] };
 
-/** What the renderer asks of Fleet. */
+/** What the components ask: `record` is a reading's id, and the Job it belongs to is looked up from the readings held. */
 export type JudgeApi = {
-  ask: (request: JudgeRequest) => Promise<void>;
-  send: (record: string, note: string) => Promise<void>;
-  dismiss: (record: string, note: string) => Promise<void>;
-  markRead: (record: string) => Promise<void>;
+  ask: (request: JudgeRequest) => void;
+  send: (record: string, note: string) => void;
+  dismiss: (record: string, note: string) => void;
+  markRead: (record: string) => void;
 };
 
 export const keyOf = (artifact: Pick<JudgeArtifact, "kind" | "id">): string => `${artifact.kind}:${artifact.id}`;
 
+/** What `judge_readings` of one Job are to the components. */
+export const recordsOf = (job: string, readings: readonly JudgeReading[] | undefined): readonly JudgeRecord[] =>
+  (readings ?? []).map((one) => ({ ...one, job, notes: one.notes.map(({ settled, ...note }) => (settled === undefined ? note : { ...note, settled: settled.how })) }));
+
 let api: JudgeApi | undefined;
 let records: readonly JudgeRecord[] = [];
+/** The `judge_readings` each Job was last handed, so a Session that did not change is not read again. */
+const handed = new Map<string, readonly JudgeReading[] | undefined>();
 const listeners = new Set<() => void>();
 const told = () => listeners.forEach((one) => one());
 const subscribe = (hear: () => void) => (listeners.add(hear), () => void listeners.delete(hear));
 
-/** Fleet's side, for the mock: the api the renderer asks through, and nothing once it is torn down. */
+/** The Job a reading belongs to, from the readings held. */
+const jobOf = (reading: string): string | undefined => records.find((one) => one.id === reading)?.job;
+
+/** The acts of the window's Sessions as the components ask them. Fleet needs the Job with each; a reading no longer held is no act. */
+export function judgeApiOver(acts: SessionJudgeActs): JudgeApi {
+  const on = (reading: string, act: (job: string) => void) => {
+    const job = jobOf(reading);
+    if (job !== undefined) act(job);
+  };
+  return {
+    ask: ({ job, artifact, prompt }) => acts.ask(job, artifact, prompt),
+    send: (reading, note) => on(reading, (job) => acts.send(job, reading, note)),
+    dismiss: (reading, note) => on(reading, (job) => acts.dismiss(job, reading, note)),
+    markRead: (reading) => on(reading, (job) => acts.markRead(job, reading)),
+  };
+}
+
+/** The window's Sessions serve a Judge, or none (nothing is drawn, and the readings are let go). */
 export function provideJudge(next: JudgeApi | undefined): void {
   api = next;
-  if (next === undefined) records = [];
+  if (next === undefined) {
+    records = [];
+    handed.clear();
+  }
   told();
 }
 
-/** A record arrived: it replaces the one for the same Job and artifact. */
-export function putRecord(record: JudgeRecord): void {
-  records = [...records.filter((one) => one.id !== record.id && !(one.job === record.job && keyOf(one.artifact) === keyOf(record.artifact))), record];
+/** A Job's readings as its record carries them now: they replace the Job's before. */
+export function putReadings(job: string, readings: readonly JudgeReading[] | undefined): void {
+  if (handed.has(job) && handed.get(job) === readings) return;
+  handed.set(job, readings);
+  records = [...records.filter((one) => one.job !== job), ...recordsOf(job, readings)];
   told();
 }
 
