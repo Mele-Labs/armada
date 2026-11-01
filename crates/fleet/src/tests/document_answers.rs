@@ -22,7 +22,7 @@ fn page(body: &str) -> String {
 }
 
 /// A page written by the Job's Write call, which the tool answered.
-async fn written(rig: &Rig, file: &std::path::Path, body: &str, call: &str) {
+pub(super) async fn written(rig: &Rig, file: &std::path::Path, body: &str, call: &str) {
     std::fs::write(file, page(body)).unwrap();
     rig.stand_in.says(
         0,
@@ -33,27 +33,27 @@ async fn written(rig: &Rig, file: &std::path::Path, body: &str, call: &str) {
     );
 }
 
-async fn record_of(rig: &Rig, id: &SessionId) -> SessionRecord {
+pub(super) async fn record_of(rig: &Rig, id: &SessionId) -> SessionRecord {
     let listed = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions;
     listed.into_iter().find(|one| &one.id == id).expect("listed")
 }
 
-fn the_document<'a>(record: &'a SessionRecord, path: &str) -> Option<&'a Attachment> {
+pub(super) fn the_document<'a>(record: &'a SessionRecord, path: &str) -> Option<&'a Attachment> {
     record.attachments.iter().find(|one| one.kind == "artifact" && one.target == path)
 }
 
-async fn revision_kept(rig: &Rig, id: &SessionId, path: &str, revision: &str) {
+pub(super) async fn revision_kept(rig: &Rig, id: &SessionId, path: &str, revision: &str) {
     eventually(|| async {
         the_document(&record_of(rig, id).await, path).and_then(|one| one.detail.get("revision")).map(String::as_str) == Some(revision)
     })
     .await;
 }
 
-fn waits(record: &SessionRecord) -> Vec<(&str, &str, WaitingSource)> {
+pub(super) fn waits(record: &SessionRecord) -> Vec<(&str, &str, WaitingSource)> {
     record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str(), one.source)).collect()
 }
 
-fn sent(rows: &[SessionRow]) -> Vec<String> {
+pub(super) fn sent(rows: &[SessionRow]) -> Vec<String> {
     rows.iter()
         .filter_map(|row| match row {
             SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text.clone()),
@@ -62,7 +62,7 @@ fn sent(rows: &[SessionRow]) -> Vec<String> {
         .collect()
 }
 
-fn answer(id: &SessionId, path: &str, revision: &str, how: DocumentHow, words: Option<&str>) -> AnswerDocument {
+pub(super) fn answer(id: &SessionId, path: &str, revision: &str, how: DocumentHow, words: Option<&str>) -> AnswerDocument {
     AnswerDocument {
         session_id: id.clone(),
         document: format!("document:{path}"),
@@ -73,7 +73,7 @@ fn answer(id: &SessionId, path: &str, revision: &str, how: DocumentHow, words: O
 }
 
 /// A Job that wrote one page, kept as its first revision, and the page's file and path.
-async fn one_page(rig: &Rig) -> (SessionId, TempDir, std::path::PathBuf, String) {
+pub(super) async fn one_page(rig: &Rig) -> (SessionId, TempDir, std::path::PathBuf, String) {
     let id = rig.start().await;
     rig.send(&id, "write it up").await;
     rig.stand_in.init(0);
@@ -260,11 +260,11 @@ fn the_rail_reads_an_approval_only_on_the_newest_revision_kept() {
     assert!(!approved_on_newest(&detail(&[("form", "sketch"), ("asked", "true"), ("revisions", two), ("revision", "2"), ("settled", "approved")])));
 }
 
-async fn plan_of(rig: &Rig, id: &SessionId) -> ipc::SessionPlan {
+pub(super) async fn plan_of(rig: &Rig, id: &SessionId) -> ipc::SessionPlan {
     Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.plan.expect("a plan")
 }
 
-async fn plan_recorded(rig: &Rig, id: &SessionId) {
+pub(super) async fn plan_recorded(rig: &Rig, id: &SessionId) {
     let plan = ipc::RecordPlan {
         summary: "You get a plan.".into(),
         groups: vec![ipc::PlanGroupInput {
