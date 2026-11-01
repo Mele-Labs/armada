@@ -17,7 +17,7 @@ const walk = walkOver("real-thread-header-sizes", [
   { press: role("menuitem", "Edit", { exact: true }), say: "Edit opens the grid, the emoji field and the name" },
   { press: inside(editor, button("Fire", { exact: true })), say: "Any common reaction is one press, and the field takes any emoji typed or pasted" },
   { press: inside(editor, button("Save", { exact: true })), say: "Save puts it in the bar" },
-  { look: inside(barOf("B: 15px"), button("No to this")), say: "The bar shows 🔥 where 👎 was" },
+  { hover: inside(thread, text(/B: 15px/)), say: "The bar shows 🔥 where 👎 was" },
   { hover: inside(thread, text(/A: 14px/)), say: "Hover the first option" },
   { press: inside(barOf("A: 14px"), button("Ask about this")), say: "❓ sends nothing: the quote waits in the message box, ready to type or talk" },
 ]);

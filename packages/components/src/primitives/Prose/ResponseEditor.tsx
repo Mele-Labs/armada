@@ -32,6 +32,8 @@ export function ResponseEditor({ response, keep, onSave, onRemove, onClose }: Re
   const [name, setName, clearName] = useKept<string>(`${base}:name`, response?.name ?? "");
   const field = useRef<HTMLInputElement>(null);
   const grid = useRef<HTMLDivElement>(null);
+  // A name he typed here stays; otherwise the name follows the reaction picked, so 🔥 is not left called "No to this".
+  const typed = useRef(false);
   useEffect(() => {
     field.current?.focus();
     field.current?.select();
@@ -78,7 +80,7 @@ export function ResponseEditor({ response, keep, onSave, onRemove, onClose }: Re
               tabIndex={at === (current < 0 ? 0 : current) ? 0 : -1}
               onClick={() => {
                 setEmoji(one.emoji);
-                if (name.trim() === "") setName(one.name);
+                if (!typed.current || name.trim() === "") setName(one.name);
               }}
             >
               <span className="armada-response-editor__emoji" aria-hidden>{one.emoji}</span>
@@ -95,7 +97,10 @@ export function ResponseEditor({ response, keep, onSave, onRemove, onClose }: Re
           invalid={emoji !== "" && !isEmoji(emoji)}
           onChange={(event) => setEmoji(firstOne(event.currentTarget.value))}
         />
-        <Input label="Name" autoComplete="off" value={name} onChange={(event) => setName(event.currentTarget.value)} />
+        <Input label="Name" autoComplete="off" value={name} onChange={(event) => {
+            typed.current = true;
+            setName(event.currentTarget.value);
+          }} />
       </div>
       <div className="armada-response-editor__acts">
         {onRemove === undefined ? null : (
