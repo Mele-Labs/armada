@@ -60,8 +60,8 @@ function waitingRead(session: Session): WaitingItem[] {
 }
 
 /**
- * What holds a turn open on the owner: an agent mid-turn on one of these is waiting, not at work. A recorded plan and a
- * judge's concern call too while the turn goes on: the plan is the agent's to start from, and a judge never blocks.
+ * What holds a turn open on the owner: an agent mid-turn on one of these is waiting, not at work. A recorded plan calls too
+ * while the turn goes on: the plan is the agent's to start from.
  * A full pool (`slot_choice`) holds the agent's first write until he answers, and the delivery question (`delivery`)
  * holds the agent at its start. A `fleet_call` is a notice a taught rule made a call: it holds nothing, and it calls while the
  * turn goes on because calling him is all it is for. A `draft`, a `sketch` and a `document` wait on his OK however the turn goes, as a question does. The done
@@ -69,7 +69,7 @@ function waitingRead(session: Session): WaitingItem[] {
  * and the tasks it holds are waiting on him either way. A `rule_act` is an act a lifecycle rule would do that he has not said yes to: it waits on his
  * word as a draft does, however the turn goes.
  */
-const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "judge", "slot_choice", "delivery", "fleet_call", "draft", "sketch", "document", "task_done", "rule_act"]);
+const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "slot_choice", "delivery", "fleet_call", "draft", "sketch", "document", "task_done", "rule_act"]);
 
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
 export function lastOwnerMessageAt(session: Session): number {

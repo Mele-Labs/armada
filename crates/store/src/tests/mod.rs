@@ -57,7 +57,7 @@ mod lifecycle_instances;
 mod job_copy_edits;
 mod job_rules;
 mod plan_beads;
-mod adversarial_reviews;
+mod judge_readings;
 mod fleet_calls;
 mod preview_offers;
 mod issue_queries;

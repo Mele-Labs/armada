@@ -51,8 +51,6 @@ const work = {
   unpick: () => {},
   approve: () => {},
   suggest: () => {},
-  sendConcern: () => {},
-  dismissConcern: () => {},
 } satisfies SessionWorkActs;
 
 function build(): Scenario {

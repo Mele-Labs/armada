@@ -37,8 +37,8 @@ function trackerStanding(mod: TaughtMod, tracker: ModTracker): "used" | "waiting
   return tracker.tried.state === "passed" ? "used" : "waiting";
 }
 
-const ROW_KIND: Record<TaughtKind, ModKind> = { words: "words", fleet: "fleet", tweak: "tweak", tracker: "tracker" };
-const KIND_ORDER: readonly ModKind[] = ["theme", "tweak", "layout", "words", "fleet", "tracker"];
+const ROW_KIND: Record<TaughtKind, ModKind> = { words: "words", fleet: "fleet", tweak: "tweak", tracker: "tracker", tab: "tab" };
+const KIND_ORDER: readonly ModKind[] = ["theme", "tweak", "layout", "words", "fleet", "tracker", "tab"];
 
 /** The frame a row in a list that holds a tracker is drawn in, so every row there takes the same padding: refused, off or in use. */
 const standingOf = (mod: { enabled: boolean; problem?: string }): "used" | "refused" | "off" => (mod.problem !== undefined ? "refused" : mod.enabled ? "used" : "off");

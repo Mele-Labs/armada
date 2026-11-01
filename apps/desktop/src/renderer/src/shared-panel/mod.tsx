@@ -23,10 +23,10 @@ type Item = Extract<PanelItem, { kind: "mod" }>;
 const MODS_FOLDER = "~/Library/Application Support/Armada/mods";
 
 /** What a Mod Job aims at to change a mod of this kind: a tweak is laid over a theme, so it is changed as one. */
-const AIM = { theme: "theme", tweak: "theme", layout: "layout", words: "words", fleet: "fleet", tracker: "tracker", commands: "commands" } as const;
+const AIM = { theme: "theme", tweak: "theme", layout: "layout", words: "words", fleet: "fleet", tracker: "tracker", commands: "commands", tab: "source" } as const;
 
 /** The kind as it reads in the words the box opens on. */
-const WORD = { theme: "theme", tweak: "theme", layout: "layout", words: "words", fleet: "Fleet rule", tracker: "tracker", commands: "Commands" } as const satisfies Record<ModKind, string>;
+const WORD = { theme: "theme", tweak: "theme", layout: "layout", words: "words", fleet: "Fleet rule", tracker: "tracker", commands: "Commands", tab: "tab" } as const satisfies Record<ModKind, string>;
 
 /** The words an empty Mod Job's box opens on to change this mod, the caret after the colon. */
 export const changeWords = (title: string, kind: ModKind): string => `Change the ${title} ${WORD[kind]}: `;

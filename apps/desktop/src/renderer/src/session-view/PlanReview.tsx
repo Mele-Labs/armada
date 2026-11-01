@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { BadgeCheck } from "lucide-react";
-import { Button, FindingNotes, JobCard, LandsInChip, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, landingsOf, useFindingKeys, useUnchanged, type AdversarialReviewState, type JobCardIssue, type PlanRevision, type SessionState } from "@armada/components";
+import { Button, FindingNotes, JobCard, LandsInChip, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, landingsOf, useFindingKeys, useUnchanged, type Finding, type JobCardIssue, type PlanRevision, type SessionState } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
@@ -13,7 +13,7 @@ import { AddGroup, GroupEditor, SendChanges, type FindingPins, type PlanEditing 
 import { OverTheApp } from "./OverTheApp";
 import { viewOf } from "./plan-marks";
 
-export function PlanReview({ open, plan, revision, ed, findings, pullRequests, jobOf, issueOf, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** The Job opens pull requests: the groups stand under the chip of the one each lands in, and a chip's press opens its pull request. */ pullRequests?: { onOpen: (number: number) => void }; /** The Job a group was handed to, which heads the group that goes to a Job of its own in place of the placeholder. */ jobOf?: (group: string) => { title: string; state: SessionState; said: string; at?: string | number; onOpen: () => void } | undefined; /** The issue a group works, the chip on its Job's card. */ issueOf?: (group: string) => JobCardIssue | undefined; /** An adversarial review of the plan, its findings pinned under the group or task each names, with the acts the card offers. */ findings?: { review: AdversarialReviewState; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
+export function PlanReview({ open, plan, revision, ed, findings, pullRequests, jobOf, issueOf, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** The Job opens pull requests: the groups stand under the chip of the one each lands in, and a chip's press opens its pull request. */ pullRequests?: { onOpen: (number: number) => void }; /** The Job a group was handed to, which heads the group that goes to a Job of its own in place of the placeholder. */ jobOf?: (group: string) => { title: string; state: SessionState; said: string; at?: string | number; onOpen: () => void } | undefined; /** The issue a group works, the chip on its Job's card. */ issueOf?: (group: string) => JobCardIssue | undefined; /** A Judge's notes on the plan, pinned under the group or task each names, with the acts the card offers. */ findings?: { findings: readonly Finding[]; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
   const floor = useAtFloor();
   const [editing, setEditing] = useState(false);
   const unchanged = useUnchanged(revision);
@@ -45,8 +45,8 @@ export function PlanReview({ open, plan, revision, ed, findings, pullRequests, j
     </div>
   );
   const groups = viewOf(plan, ed.marks);
-  const keys = useFindingKeys(findings?.review, { onSend: (id) => findings?.onSend(id), onDismiss: (id) => findings?.onDismiss(id) });
-  const pins: FindingPins | undefined = findings === undefined ? undefined : { anchors: anchorsOf(findings.review, groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])), onSend: keys.send, onDismiss: keys.dismiss };
+  const keys = useFindingKeys(findings?.findings, { onSend: (id) => findings?.onSend(id), onDismiss: (id) => findings?.onDismiss(id) });
+  const pins: FindingPins | undefined = findings === undefined ? undefined : { anchors: anchorsOf(findings.findings, groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])), onSend: keys.send, onDismiss: keys.dismiss };
   return (
     <OverTheApp open={open}>
     <Sheet kind="plan-review" open={open} floating floor={floor} size="widest" title="Plan" controls={settled} footer={marked || !plan.approved ? foot : undefined} closeLabel="Close" closeBinding="Esc" onClose={onClose}>

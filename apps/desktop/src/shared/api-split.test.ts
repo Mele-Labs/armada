@@ -9,7 +9,7 @@ import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/sett
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import type { PanelGo, PanelHeldNote } from "@armada/studios/api";
-import type { AdversarialReview, DismissFinding, SendFinding, StartAdversarialReview } from "@armada/protocol";
+import type { AskJudge, DismissJudgeNote, JudgeReading, MarkJudgeRead, SendJudgeNote } from "@armada/protocol";
 import type {
   ChangeWaiting,
   SessionWait,
@@ -144,7 +144,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { ModSessionStarted, StartModSession, AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissConcern, DismissWaiting, ReopenWaiting, IssueClaimed, JudgeSession, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendConcern, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, DismissWait, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissWaiting, ReopenWaiting, IssueClaimed, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, DismissWait, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -403,12 +403,10 @@ type OldBridgeApi = {
     answerDocument: (answer: AnswerDocument) => Promise<SessionActed>;
     approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
     sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
-    judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
-    sendConcern: (send: SendConcern) => Promise<SessionActed>;
-    dismissConcern: (dismiss: DismissConcern) => Promise<SessionActed>;
-    startAdversarialReview: (start: StartAdversarialReview) => Promise<SessionActed<AdversarialReview>>;
-    sendFinding: (send: SendFinding) => Promise<SessionActed<AdversarialReview>>;
-    dismissFinding: (dismiss: DismissFinding) => Promise<SessionActed<AdversarialReview>>;
+    askJudge: (ask: AskJudge) => Promise<SessionActed<JudgeReading>>;
+    sendJudgeNote: (send: SendJudgeNote) => Promise<SessionActed<JudgeReading>>;
+    dismissJudgeNote: (dismiss: DismissJudgeNote) => Promise<SessionActed<JudgeReading>>;
+    markJudgeRead: (read: MarkJudgeRead) => Promise<SessionActed<JudgeReading>>;
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
@@ -741,12 +739,10 @@ const OLD_CHANNELS = {
     answerDocument: "bridge:answer-document",
     approvePlan: "bridge:approve-plan",
     sendPlanChanges: "bridge:send-plan-changes",
-    judgeSession: "bridge:judge-session",
-    sendConcern: "bridge:send-concern",
-    dismissConcern: "bridge:dismiss-concern",
-    startAdversarialReview: "bridge:start-adversarial-review",
-    sendFinding: "bridge:send-finding",
-    dismissFinding: "bridge:dismiss-finding",
+    askJudge: "bridge:ask-judge",
+    sendJudgeNote: "bridge:send-judge-note",
+    dismissJudgeNote: "bridge:dismiss-judge-note",
+    markJudgeRead: "bridge:mark-judge-read",
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
