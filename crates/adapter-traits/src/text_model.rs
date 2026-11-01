@@ -20,6 +20,8 @@ pub enum TextReading {
     SentenceFollowsUp,
     /// Whether an agent's waiting item is clear to the person alone: a verb aimed at him and the thing it names.
     ItemClear,
+    /// Whether the person's reply to a Job approves what the Job just put to him (a design page, a plan, a walk) and tells it to go on.
+    ReplyApproves,
 }
 
 /// A text model: texts in, one unit-length vector or one probability each out, in order. Blocking

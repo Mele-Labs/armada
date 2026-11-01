@@ -84,14 +84,17 @@ url = \"https://example.com/docs\"
 # chain = [\"nav:projects\", \"act:add_task\"]
 ";
 
-/// The starter tab: a component that draws one line, so it validates and loads until it is edited. `host` is what Bridge hands the tab.
+/// The starter tab: placeholder shapes, as any panel draws while it loads, so it validates and the
+/// tab reads as being built until it is edited. `host` is what Bridge hands the tab.
 const STARTER_TAB: &str = "\
 // A tab Bridge loads as part of itself. `host.React` is React, `host.armada` is the whole Fleet API,
 // `host.ui` is Bridge's components, `host.glyphs` its icons by registry name and `host.job.id` the Job the tab is in.
 // There is no `import`: everything the tab uses comes through `host`. Check it with validate_mod.
 export default function Tab({ host }) {
   const { createElement: h } = host.React;
-  return h(\"p\", null, \"New tab\");
+  const { Skeleton } = host.ui;
+  const bars = [\"40%\", \"90%\", \"75%\", \"85%\", \"60%\"].map((width, at) => h(Skeleton, { key: at, width }));
+  return h(\"div\", { style: { display: \"grid\", gap: \"var(--space-3)\", padding: \"var(--space-4)\" } }, bars);
 }
 ";
 

@@ -88,6 +88,15 @@ where
         if let Some(answer) = in_the_background(&gate, mode_of(&hosting.mode)) {
             return answer;
         }
+        // A Mod Job writes its mods without asking him: the mods folder is outside its directory,
+        // so Claude Code would otherwise ask about every file of a mod he asked for.
+        if let (true, Touch::File(path)) = (hosting.mod_job, touch(&gate)) {
+            let mods = normalised(&self.mods_dir().to_string_lossy());
+            if absolute(&gate, &path).starts_with(&format!("{}/", mods.trim_end_matches('/'))) {
+                let asks = mode_of(&hosting.mode) == SessionMode::Ask;
+                return GateAnswer::rewrite(gate.tool_input.clone(), asks, "a Mod Job writes in the mods folder");
+            }
+        }
         let served = match self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
             Ok(served) => served,
             // A Mod Job in the mods folder has no repository, so there is no slot to keep it to.

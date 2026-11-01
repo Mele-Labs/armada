@@ -46,6 +46,8 @@ pub(crate) fn shape(reading: TextReading) -> (&'static str, usize, encoding::Kee
         TextReading::SentenceFollowsUp => ("sentence_follows_up", 64, encoding::Keep::Start),
         // An item is a line or two, read from its start.
         TextReading::ItemClear => ("item_clear", 64, encoding::Keep::Start),
+        // A reply says whether it goes on in its first words; the rest is what to do next.
+        TextReading::ReplyApproves => ("approves", 128, encoding::Keep::Start),
     }
 }
 

@@ -197,13 +197,13 @@ function distinct(arrangement: Arrangement, label: string | undefined): string |
   return at === 1 ? label : `${label} ${at}`;
 }
 
-const tabOf = (id: string, kind: TabKind, label: string | undefined, page?: string): Tab => ({ id, kind, ...(label === undefined ? {} : { label }), ...(page === undefined ? {} : { page }) });
+const tabOf = (id: string, kind: TabKind, label: string | undefined, page?: string, mod?: string): Tab => ({ id, kind, ...(label === undefined ? {} : { label }), ...(page === undefined ? {} : { page }), ...(mod === undefined ? {} : { mod }) });
 
 /** A new tab at the end of a pane, in front. */
-export function addTab(arrangement: Arrangement, paneId: string, kind: TabKind, label?: string, page?: string): Arrangement {
+export function addTab(arrangement: Arrangement, paneId: string, kind: TabKind, label?: string, page?: string, mod?: string): Arrangement {
   if (paneById(arrangement, paneId) === undefined) return arrangement;
   const [id, next] = mint(arrangement, "t");
-  const made = tabOf(id, kind, distinct(arrangement, label), page);
+  const made = tabOf(id, kind, distinct(arrangement, label), page, mod);
   return { ...next, focus: paneId, root: mapPane(next.root, paneId, (one) => ({ ...(one as Pane), tabs: [...(one as Pane).tabs, made], active: id })) };
 }
 
@@ -343,13 +343,13 @@ export function cycleTab(arrangement: Arrangement, paneId: string, by: 1 | -1): 
 }
 
 /** A tab a Job opens itself joins the pane that holds that kind; with none, it opens as a split on the right of everything. */
-export function arrive(arrangement: Arrangement, kind: TabKind, label?: string, page?: string): Arrangement {
+export function arrive(arrangement: Arrangement, kind: TabKind, label?: string, page?: string, mod?: string): Arrangement {
   const holder = holderOf(arrangement, kind);
-  if (holder !== undefined) return addTab(arrangement, holder.id, kind, label, page);
+  if (holder !== undefined) return addTab(arrangement, holder.id, kind, label, page, mod);
   const [splitId, afterSplit] = mint(arrangement, "s");
   const [fresh, afterPane] = mint(afterSplit, "p");
   const [tabId, next] = mint(afterPane, "t");
-  const made: Pane = { type: "pane", id: fresh, tabs: [tabOf(tabId, kind, distinct(arrangement, label), page)], active: tabId };
+  const made: Pane = { type: "pane", id: fresh, tabs: [tabOf(tabId, kind, distinct(arrangement, label), page, mod)], active: tabId };
   return { ...next, root: { type: "split", id: splitId, dir: "row", ratio: 0.62, a: arrangement.root, b: made } };
 }
 

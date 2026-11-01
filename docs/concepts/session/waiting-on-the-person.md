@@ -71,6 +71,7 @@ A job moved into a slot keeps the same id, so its sketches and their items stay.
 **Every revision Fleet keeps of a page a job wrote under `.armada/documents/` waits until the person answers it.** One item per page, `document:<path>`, source `document`, its text the page's title and its act `message` on the job, while the newest revision's `detail.asked` is `true` and `detail.settled` is unset.
 It is read off the page Fleet kept, never off the tool call ([Document](../document.md)).
 His Approve or Send back (`answer_document`) settles that revision, and so does `dismiss_waiting`, which tells the job `Owner dismissed "<title>"`.
+So does a reply of his in the thread that a model call reads as approving the page ([Document](../document.md)).
 `answer_waiting` on it is refused.
 A new revision asks again and lifts the dismissal; the same bytes written again ask nothing.
 
