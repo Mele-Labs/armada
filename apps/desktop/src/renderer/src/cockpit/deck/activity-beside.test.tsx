@@ -1,4 +1,4 @@
-// Activity rests at the height of the merge queue's top to the flight controls' foot bottom, set once on the grid.
+// Activity rests at the height of the flight controls' foot beside it, set once on the grid. The merge queue is the window's status bar now and plays no part.
 
 import { act, useRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -25,16 +25,15 @@ function Grid() {
   );
 }
 
-test("the grid carries the height from the merge queue's top to the foot's bottom", async () => {
+test("the grid carries the foot's height, whatever the merge queue under it stands at", async () => {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(<Grid />));
   const grid = host.querySelector<HTMLElement>(".deck-grid")!;
-  const queue = host.querySelector<HTMLElement>(".deck-queue")!;
   const foot = host.querySelector<HTMLElement>(".deck-foot")!;
-  const wanted = Math.round(foot.getBoundingClientRect().bottom - queue.getBoundingClientRect().top);
-  expect(wanted).toBe(100);
+  const wanted = Math.round(foot.getBoundingClientRect().height);
+  expect(wanted).toBe(60);
   await vi.waitFor(() => expect(grid.style.getPropertyValue("--deck-activity")).toBe(`${wanted}px`));
   act(() => root.unmount());
   host.remove();
