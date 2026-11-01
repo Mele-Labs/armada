@@ -57,10 +57,11 @@ const steps: Step[] = [
   { key: "Meta+l", on: places, say: "⌘L" },
   { look: inside(item(/^Triage/), text("new Jobs")), say: "Its row carries the tag" },
   { press: item("Default"), say: "Default" },
+  { press: deckRow("Retry the slot lease"), say: "The first Job, which has pull requests" },
   { key: "Meta+d", on: thread, say: "⌘D" },
   { press: inside(empty, button("Add tab")), say: "+" },
   { press: item("Changes"), say: "Changes" },
-  { type: "pr:2391", into: role("combobox", "Changes from"), say: "The picker lists the branch, the Job's pull requests and the Job it started. A pull request" },
+  { type: "pr:2391", into: role("combobox", "Changes from"), say: "The picker lists the Job's pull requests and those of the Jobs it started, each read from the forge. A pull request" },
   { press: inside(pane("Changes"), button("Add tab")), say: "+" },
   { press: item("Ledger"), say: "Ledger: everything attached to the Job, by kind" },
   { press: inside(pane("Ledger"), button("Add tab")), say: "+" },
@@ -90,7 +91,7 @@ const steps: Step[] = [
   { look: item("Review queue"), say: "The tab is in the menu by name, above Custom" },
   { key: "Escape", on: item("Review queue"), say: "Esc" },
   { key: "Meta+l", on: places, say: "⌘L" },
-  { look: item("Update Default"), say: "Update Default overwrites Default for every Job on it" },
+  { look: item(/^Update /), say: "Update overwrites the layout the Job is on, for every Job on it" },
 ];
 
 const layouts = walk("job-layouts", steps);

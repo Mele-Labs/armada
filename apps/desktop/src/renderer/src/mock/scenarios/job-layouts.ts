@@ -11,8 +11,10 @@ import { setRevision } from "../../job-panes/custom";
 import { forgetPanes, jobOpens, seedLayouts } from "../../job-panes/store";
 import { build } from "../../job-panes/tree";
 import { resetCheckout, shopPage } from "../job-browser-page";
+import { MOCK_PATCH, MOCK_PATCH_LOG, MOCK_PATCH_TOOLTIP, patchesOf } from "../job-layouts-patches";
 import { unanswered, type Scenario } from "../moment";
 import type { SessionsStore } from "../sessions/script";
+import { sharedPanelReads } from "../shared-panel-reads";
 import { sJobStory } from "./job-story";
 import { jobAt } from "../workspaces-lanes-data";
 import { throughWire } from "../workspaces-lanes-wire";
@@ -226,6 +228,12 @@ export const sJobLayouts: Scenario = {
   },
   draft: {
     ...sJobStory.draft,
+    // The Changes tab reads each pull request's patches from the forge: these are what it answers for the Jobs' pull requests.
+    sharedPanel: () => {
+      const base = sharedPanelReads({ lines: [] });
+      const patches: Record<number, string> = { 2390: MOCK_PATCH, 2391: MOCK_PATCH_TOOLTIP, 2366: MOCK_PATCH_LOG };
+      return { ...base, pullRequestPatches: async (item) => (patches[item.number] === undefined ? (base.pullRequestPatches?.(item) ?? { ok: false, said: "The forge could not find this pull request." }) : patchesOf(item.manifestId ?? "", item.number, patches[item.number]!)) };
+    },
     sessions: (board, more) => {
       seedSystem({
         session_id: CHANGES,

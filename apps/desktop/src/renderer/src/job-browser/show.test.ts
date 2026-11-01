@@ -1,18 +1,21 @@
-// Which agent-driven opens draw the side panel: the person's press, or a Job he has open. Any other waits behind its Browser tile.
+// Which agent-driven opens draw a Browser tab: a Job he has open gets one, or has its first brought to the front. Any other waits for the tab he opens.
 
 import { beforeEach, expect, test, vi } from "vitest";
 
-import { openInPanel } from "../shared-panel/store";
+import { jobOpens, look, peek } from "../job-panes/store";
+import { build } from "../job-panes/tree";
 import { viewingNow } from "../cockpit/viewed";
-import { openBrowser, wireJobBrowsers } from "./store";
+import { wireJobBrowsers } from "./store";
 
-vi.mock("../shared-panel/store", () => ({ openInPanel: vi.fn(() => true) }));
+vi.mock("../job-panes/store", () => ({ jobOpens: vi.fn(), look: vi.fn(), peek: vi.fn() }));
 vi.mock("../cockpit/viewed", () => ({ viewingNow: vi.fn(() => false) }));
 
 let show: (sessionId: string) => void;
 
 beforeEach(() => {
-  vi.mocked(openInPanel).mockClear();
+  vi.mocked(jobOpens).mockClear();
+  vi.mocked(look).mockClear();
+  vi.mocked(peek).mockReturnValue(build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["done"] }));
   vi.mocked(viewingNow).mockReturnValue(false);
   const api = {
     list: async () => [],
@@ -21,26 +24,26 @@ beforeEach(() => {
       show = listener;
       return () => undefined;
     },
-    show: async (sessionId: string) => show(sessionId),
   };
   wireJobBrowsers(api as unknown as Parameters<typeof wireJobBrowsers>[0]);
 });
 
-test("an agent's open for a Job that is not on screen draws no panel", () => {
+test("an agent's open for a Job that is not on screen opens no tab", () => {
   show("far");
-  expect(openInPanel).not.toHaveBeenCalled();
+  expect(jobOpens).not.toHaveBeenCalled();
+  expect(look).not.toHaveBeenCalled();
 });
 
-test("an agent's open for a Job on screen draws the panel", () => {
+test("an agent's open for a Job on screen with no Browser tab opens one", () => {
   vi.mocked(viewingNow).mockImplementation((id) => id === "near");
   show("near");
-  expect(openInPanel).toHaveBeenCalledWith({ kind: "browser", sessionId: "near" });
+  expect(jobOpens).toHaveBeenCalledWith("near", "browser");
 });
 
-test("a press on the Browser tile draws the panel whatever is on screen, once", async () => {
-  openBrowser("far");
-  await Promise.resolve();
-  expect(openInPanel).toHaveBeenCalledTimes(1);
-  show("far");
-  expect(openInPanel).toHaveBeenCalledTimes(1);
+test("an agent's open for a Job on screen with a Browser tab brings the first to the front, and opens no second", () => {
+  vi.mocked(viewingNow).mockReturnValue(true);
+  vi.mocked(peek).mockReturnValue(build({ dir: "row", ratio: 0.5, a: ["thread", "browser"], b: ["browser"] }));
+  show("near");
+  expect(jobOpens).not.toHaveBeenCalled();
+  expect(look).toHaveBeenCalledTimes(1);
 });

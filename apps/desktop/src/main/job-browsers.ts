@@ -1,7 +1,9 @@
-// Each Job's browser: one page per Job, which its agent drives through `browser.request` and the owner may take over.
-// **One view for the Job's life in Bridge**, moved between the side panel and a window of its own, so the page keeps its
-// history, its sign-in and what was typed. The page is a `pageView` (`capture/views.ts`): no preload, sandboxed, every
-// permission refused bar local network access while the owner drives, in its repository's session. Main places it over the rect the pane reports, as `SessionPages` does.
+// Each Job's browser: one page per Browser tab of the Job's panes, keyed by the Job and the tab. The Job's agent drives the Job's page
+// (`jobsPage`) through `browser.request` and the owner may take any over.
+// **One view for the tab's life**, put over its pane and moved to a window of its own and back, hidden and not destroyed while another tab is in
+// front of it, so the page keeps its history, its sign-in and what was typed; it is destroyed with its tab, or with its Job. The page is a
+// `pageView` (`capture/views.ts`): no preload, sandboxed, every permission refused bar local network access while the owner drives, in its
+// repository's session. Main places it over the rect the pane reports, as `SessionPages` does.
 //
 // `docs/practices/protocol/the-job-browser.md` is the wire. What may cross back from the page is the bounded answers there.
 
@@ -42,13 +44,15 @@ export type PageTold = {
   ask: (permission: SitePermission, host: string) => Promise<Answer>;
 };
 
-/** One Job's page, as `JobBrowsers` moves it. */
+/** One tab's page, as `JobBrowsers` moves it. */
 export type BrowserPage = JobPage & {
   /** Into `host`'s content at `bounds`, as the renderer reported them, held to the window, out of wherever it was. */
   placeIn(host: Host, bounds: unknown): void;
   /** Put away, where it is in `host`: hidden, and kept. */
   leave(host: Host): void;
   hostOf(): Host | null;
+  /** Taken out of its window and closed, for good: its tab is gone. */
+  destroy(): void;
   /** Hidden under Capture, which draws a picture of it instead. */
   hide(hidden: boolean): void;
   go(to: "back" | "forward" | "reload"): void;
@@ -68,26 +72,28 @@ export type BrowserPage = JobPage & {
 /** The page as drawn, and where a box in its CSS pixels is on that picture. */
 export type Picture = { png: Uint8Array; ring(box: CaptureRect): Ring | null };
 
-/** One Job's window, beside its thread. */
+/** One tab's window, beside its Job's thread. */
 export type BrowserWindowHeld = { host: Host; focus(): void; close(): void };
 
 export type JobBrowserMake = {
   page(sessionId: string, told: PageTold): BrowserPage;
   /** `closing`: before the window goes, so its page can be moved out of it. */
-  window(sessionId: string, told: { closing: () => void }): BrowserWindowHeld;
+  window(sessionId: string, tabId: string, told: { closing: () => void }): BrowserWindowHeld;
 };
 
 export type JobBrowserTell = {
   changed(state: JobBrowserState): void;
-  /** Bridge's window is asked to show the Job's browser in its side panel. */
+  /** Bridge's window is asked to open a Browser tab for the Job, since its agent opened a page where it has none. */
   show(sessionId: string): void;
   /** ⌥⌘C reached the page: the document drawing its pane is told. */
-  capture(sessionId: string, host: Host): void;
+  capture(sessionId: string, tabId: string, host: Host): void;
   answer(body: AnswerBrowserRequest): Promise<unknown>;
   note(body: SendSessionNote): Promise<Outcome>;
 };
 
 type Held = {
+  /** The tab this page belongs to. `UNATTACHED` until the first Browser tab is there to take the page an agent opened. */
+  tabId: string;
   page: BrowserPage;
   driver: "agent" | "owner";
   window: BrowserWindowHeld | null;
@@ -98,8 +104,24 @@ type Held = {
   asking: { permission: SitePermission; host: string; settle(answer: Answer): void } | null;
 };
 
+/** The tab id of the page an agent opened for a Job that had no Browser tab. The first tab the renderer reports takes it over. */
+const UNATTACHED = "";
+
+/**
+ * **The Job's page**, the one its agent's acts reach: the first Browser tab in pane order that is shown, else the one shown last, else the first.
+ * `tabs` is in pane order. The agent follows what the owner is looking at, and keeps a page of its own while he looks at none.
+ */
+export function jobsPage(tabs: readonly { id: string; shown: boolean }[], lastShown: string | undefined): string | undefined {
+  return (tabs.find((one) => one.shown) ?? tabs.find((one) => one.id === lastShown) ?? tabs[0])?.id;
+}
+
 export class JobBrowsers {
-  private readonly held = new Map<string, Held>();
+  /** Each Job's pages by tab. */
+  private readonly held = new Map<string, Map<string, Held>>();
+  /** The Browser tabs of each Job in pane order, as the renderer last reported them. */
+  private readonly order = new Map<string, readonly string[]>();
+  /** The tab of each Job that was shown last. */
+  private readonly lastShown = new Map<string, string>();
 
   constructor(
     private readonly make: JobBrowserMake,
@@ -108,14 +130,19 @@ export class JobBrowsers {
   ) {}
 
   list(): JobBrowserState[] {
-    return [...this.held.keys()].map((id) => this.stateOf(id)!);
+    return [...this.held.entries()].flatMap(([sessionId, tabs]) => [...tabs.keys()].map((tabId) => this.stateOf(sessionId, tabId)!));
   }
 
-  private stateOf(sessionId: string): JobBrowserState | undefined {
-    const one = this.held.get(sessionId);
+  private one(sessionId: string, tabId: string): Held | undefined {
+    return this.held.get(sessionId)?.get(tabId);
+  }
+
+  private stateOf(sessionId: string, tabId: string): JobBrowserState | undefined {
+    const one = this.one(sessionId, tabId);
     if (one === undefined) return undefined;
     return {
       sessionId,
+      tabId,
       url: one.page.url(),
       title: one.page.title(), back: one.page.back(),
       forward: one.page.forward(),
@@ -125,83 +152,136 @@ export class JobBrowsers {
     };
   }
 
-  private told(sessionId: string): void {
-    const state = this.stateOf(sessionId);
+  private told(sessionId: string, tabId: string): void {
+    const state = this.stateOf(sessionId, tabId);
     if (state !== undefined) this.tell.changed(state);
   }
 
-  private ensure(sessionId: string): Held {
-    const standing = this.held.get(sessionId);
+  private ensure(sessionId: string, tabId: string): Held {
+    const standing = this.one(sessionId, tabId);
     if (standing !== undefined) return standing;
+    // The tab is read off `one` and not closed over, since the first tab takes over the page an agent opened (`tabs`).
     const page = this.make.page(sessionId, {
-      changed: () => this.told(sessionId),
-      driving: () => this.held.get(sessionId)?.driver === "owner",
+      changed: () => this.told(sessionId, one.tabId),
+      driving: () => one.driver === "owner",
       ask: (permission, host) => {
-        const asked = this.held.get(sessionId);
         // One question at a time: a second is refused now, as a dismissed one.
-        if (asked === undefined || asked.asking !== null) return Promise.resolve<Answer>("dismiss");
+        if (this.one(sessionId, one.tabId) !== one || one.asking !== null) return Promise.resolve<Answer>("dismiss");
         return new Promise<Answer>((settle) => {
-          asked.asking = { permission, host, settle };
-          this.told(sessionId);
+          one.asking = { permission, host, settle };
+          this.told(sessionId, one.tabId);
         });
       },
       chord: (chord) => {
         const host = page.hostOf();
         if (chord === "capture") {
-          if (host !== null) this.tell.capture(sessionId, host);
-        } else if (this.held.get(sessionId)?.driver === "owner") page.go(chord);
+          if (host !== null) this.tell.capture(sessionId, one.tabId, host);
+        } else if (one.driver === "owner") page.go(chord);
       },
     });
-    const one: Held = { page, driver: "agent", window: null, frozen: null, holding: null, asking: null };
-    this.held.set(sessionId, one);
+    const one: Held = { tabId, page, driver: "agent", window: null, frozen: null, holding: null, asking: null };
+    this.held.set(sessionId, (this.held.get(sessionId) ?? new Map()).set(tabId, one));
     return one;
   }
 
-  /** In Bridge's side panel: made where the Job has none, and moved out of its window where it is in one. */
-  show(sessionId: string): void {
-    const one = this.ensure(sessionId);
+  /** The tab's page is gone: its window closed, its question dismissed, its view destroyed. */
+  private drop(sessionId: string, tabId: string): void {
+    const one = this.one(sessionId, tabId);
+    if (one === undefined) return;
+    this.held.get(sessionId)!.delete(tabId);
+    this.settle(one, "dismiss");
     const window = one.window;
     one.window = null;
     window?.close();
-    this.told(sessionId);
-    this.tell.show(sessionId);
+    one.page.destroy();
+    if (this.lastShown.get(sessionId) === tabId) this.lastShown.delete(sessionId);
   }
 
-  /** In a window of its own beside the Job's thread. The side panel it left closes itself. */
-  toWindow(sessionId: string): void {
-    const one = this.held.get(sessionId);
+  /**
+   * The Browser tabs a Job has, in pane order, as its panes say them: each has a page, and a page whose tab is not among them is destroyed.
+   * The renderer says them as the panes change, since a tab closed while another is in front draws nothing to say so.
+   */
+  tabs(sessionId: string, tabIds: readonly string[]): void {
+    this.order.set(sessionId, tabIds);
+    for (const tabId of [...(this.held.get(sessionId)?.keys() ?? [])]) if (tabId !== UNATTACHED && !tabIds.includes(tabId)) this.drop(sessionId, tabId);
+    const mine = this.held.get(sessionId);
+    const opened = mine?.get(UNATTACHED);
+    const first = tabIds.find((id) => mine?.has(id) !== true);
+    if (mine !== undefined && opened !== undefined && first !== undefined) {
+      mine.delete(UNATTACHED);
+      opened.tabId = first;
+      mine.set(first, opened);
+      this.told(sessionId, first);
+    }
+    for (const tabId of tabIds) {
+      if (this.one(sessionId, tabId) !== undefined) continue;
+      this.ensure(sessionId, tabId);
+      // Its pane has nothing to draw until it hears the page is there.
+      this.told(sessionId, tabId);
+    }
+  }
+
+  /** A Job is gone: every page it had is destroyed. */
+  forget(sessionId: string): void {
+    for (const tabId of [...(this.held.get(sessionId)?.keys() ?? [])]) this.drop(sessionId, tabId);
+    this.held.delete(sessionId);
+    this.order.delete(sessionId);
+    this.lastShown.delete(sessionId);
+  }
+
+  /** Only these Jobs are alive: the pages of any other are destroyed. */
+  keep(alive: ReadonlySet<string>): void {
+    for (const sessionId of [...this.held.keys()]) if (!alive.has(sessionId)) this.forget(sessionId);
+  }
+
+  /** Back in its pane: out of the window it was in, which closes. The pane places the page again. */
+  show(sessionId: string, tabId: string): void {
+    const one = this.one(sessionId, tabId);
+    if (one === undefined) return;
+    const window = one.window;
+    one.window = null;
+    window?.close();
+    this.told(sessionId, tabId);
+  }
+
+  /** In a window of its own beside the Job's thread. The pane it left draws nothing of the page. */
+  toWindow(sessionId: string, tabId: string): void {
+    const one = this.one(sessionId, tabId);
     if (one === undefined) return;
     if (one.window !== null) {
       one.window.focus();
       return;
     }
-    const window = this.make.window(sessionId, {
+    const window = this.make.window(sessionId, tabId, {
       closing: () => {
         one.page.leave(window.host);
         if (one.window !== window) return;
         one.window = null;
-        this.told(sessionId);
+        this.told(sessionId, one.tabId);
       },
     });
     one.window = window;
-    this.told(sessionId);
+    this.told(sessionId, tabId);
   }
 
-  place(host: Host, sessionId: string, bounds: unknown): void {
-    this.held.get(sessionId)?.page.placeIn(host, bounds);
+  place(host: Host, sessionId: string, tabId: string, bounds: unknown): void {
+    const one = this.one(sessionId, tabId);
+    if (one === undefined) return;
+    if (one.page.hostOf() === null) this.lastShown.set(sessionId, tabId);
+    one.page.placeIn(host, bounds);
   }
 
-  unplace(host: Host, sessionId: string): void {
-    this.held.get(sessionId)?.page.leave(host);
+  unplace(host: Host, sessionId: string, tabId: string): void {
+    this.one(sessionId, tabId)?.page.leave(host);
   }
 
   /** Take over, or hand back to the agent. */
-  drive(sessionId: string): void {
-    const one = this.held.get(sessionId);
+  drive(sessionId: string, tabId: string): void {
+    const one = this.one(sessionId, tabId);
     if (one === undefined) return;
     one.driver = one.driver === "agent" ? "owner" : "agent";
     this.settle(one, "dismiss");
-    this.told(sessionId);
+    this.told(sessionId, tabId);
   }
 
   private settle(one: Held, answer: Answer): void {
@@ -211,30 +291,30 @@ export class JobBrowsers {
   }
 
   /** The owner's answer to the waiting request. */
-  answer(sessionId: string, answer: Answer): void {
-    const one = this.held.get(sessionId);
+  answer(sessionId: string, tabId: string, answer: Answer): void {
+    const one = this.one(sessionId, tabId);
     if (one === undefined || one.asking === null) return;
     this.settle(one, answer);
-    this.told(sessionId);
+    this.told(sessionId, tabId);
   }
 
-  choose(sessionId: string, host: string, permission: SitePermission, choice: Choice): void {
-    this.held.get(sessionId)?.page.choose(host, permission, choice);
-    this.told(sessionId);
+  choose(sessionId: string, tabId: string, host: string, permission: SitePermission, choice: Choice): void {
+    this.one(sessionId, tabId)?.page.choose(host, permission, choice);
+    this.told(sessionId, tabId);
   }
 
-  setDefault(sessionId: string, permission: SitePermission, choice: Choice): void {
-    this.held.get(sessionId)?.page.setDefault(permission, choice);
-    this.told(sessionId);
+  setDefault(sessionId: string, tabId: string, permission: SitePermission, choice: Choice): void {
+    this.one(sessionId, tabId)?.page.setDefault(permission, choice);
+    this.told(sessionId, tabId);
   }
 
-  go(sessionId: string, to: "back" | "forward" | "reload"): void {
-    this.held.get(sessionId)?.page.go(to);
+  go(sessionId: string, tabId: string, to: "back" | "forward" | "reload"): void {
+    this.one(sessionId, tabId)?.page.go(to);
   }
 
   /** An address the owner typed. Only while he drives, as the pane offers it, and only the web. */
-  navigate(sessionId: string, url: string): void {
-    const one = this.held.get(sessionId);
+  navigate(sessionId: string, tabId: string, url: string): void {
+    const one = this.one(sessionId, tabId);
     if (one === undefined || one.driver !== "owner" || webOrigin(url) === null) return;
     void one.page.load(url, LOAD_MS);
   }
@@ -244,19 +324,33 @@ export class JobBrowsers {
     return actOn(this.acts, request);
   }
 
+  /** The Job's page: the tab `jobsPage` names. */
+  private jobsHeld(sessionId: string): Held | undefined {
+    const mine = this.held.get(sessionId);
+    if (mine === undefined) return undefined;
+    const tabs = [...(this.order.get(sessionId) ?? []), UNATTACHED].filter((id) => mine.has(id));
+    const id = jobsPage(
+      tabs.map((one) => ({ id: one, shown: mine.get(one)!.page.hostOf() !== null })),
+      this.lastShown.get(sessionId),
+    );
+    return id === undefined ? undefined : mine.get(id);
+  }
+
   private readonly acts: ActsHost = {
-    page: (sessionId) => this.held.get(sessionId)?.page ?? null,
-    ownerDriving: (sessionId) => this.held.get(sessionId)?.driver === "owner",
-    openClosedInPanel: (sessionId) => {
-      this.show(sessionId);
-      return this.held.get(sessionId)!.page;
+    page: (sessionId) => this.jobsHeld(sessionId)?.page ?? null,
+    ownerDriving: (sessionId) => this.jobsHeld(sessionId)?.driver === "owner",
+    openClosed: (sessionId) => {
+      const one = this.ensure(sessionId, UNATTACHED);
+      this.told(sessionId, UNATTACHED);
+      this.tell.show(sessionId);
+      return one.page;
     },
     answer: (body) => this.tell.answer(body),
   };
 
   /** Capture holds the page still: its picture, which the pane draws in its place, and the page hidden under it. */
-  async freeze(sessionId: string): Promise<Uint8Array | null> {
-    const one = this.held.get(sessionId);
+  async freeze(sessionId: string, tabId: string): Promise<Uint8Array | null> {
+    const one = this.one(sessionId, tabId);
     if (one === undefined) return null;
     const picture = await one.page.picture();
     if (picture === null) return null;
@@ -266,8 +360,8 @@ export class JobBrowsers {
     return picture.png;
   }
 
-  thaw(sessionId: string): void {
-    const one = this.held.get(sessionId);
+  thaw(sessionId: string, tabId: string): void {
+    const one = this.one(sessionId, tabId);
     if (one === undefined) return;
     one.frozen = null;
     one.holding = null;
@@ -275,8 +369,8 @@ export class JobBrowsers {
   }
 
   /** The part of the page at a point of its picture, as the walk window's layer reads it. The pane gets the box and one line. */
-  async hold(sessionId: string, x: number, y: number): Promise<CaptureHeld | null> {
-    const one = this.held.get(sessionId);
+  async hold(sessionId: string, tabId: string, x: number, y: number): Promise<CaptureHeld | null> {
+    const one = this.one(sessionId, tabId);
     if (one === undefined || one.frozen === null) return null;
     const viewport = one.page.viewport();
     const answer = await one.page.ask(x, y);
@@ -287,8 +381,8 @@ export class JobBrowsers {
   }
 
   /** The box of the part at a point of the picture, in the picture's own pixels (the page's CSS pixels): the pane's hover ring. */
-  async aim(sessionId: string, x: number, y: number): Promise<CaptureRect | null> {
-    const one = this.held.get(sessionId);
+  async aim(sessionId: string, tabId: string, x: number, y: number): Promise<CaptureRect | null> {
+    const one = this.one(sessionId, tabId);
     if (one === undefined || one.frozen === null) return null;
     return aimed(await one.page.ask(x, y, false), one.page.viewport())?.box ?? null;
   }
@@ -297,8 +391,8 @@ export class JobBrowsers {
    * The held part's note, sent to the Job as the owner's: `send_session_note`. Its picture is the whole frozen page with the
    * part ringed, tagged 1, since it goes as a turn of its own.
    */
-  async note(sessionId: string, said: string): Promise<Outcome> {
-    const one = this.held.get(sessionId);
+  async note(sessionId: string, tabId: string, said: string): Promise<Outcome> {
+    const one = this.one(sessionId, tabId);
     const holding = one?.holding;
     if (one === undefined || holding === null || holding === undefined) return { ok: false, why: "nothing_held" };
     const frozen = one.frozen;
@@ -306,7 +400,7 @@ export class JobBrowsers {
     const crop = frozen === null || ring === null ? null : Buffer.from(this.burn(frozen.png, ring, 1)).toString("base64");
     const body = sessionNoteBody({ sessionId, said, capture: holding.capture, read: holding.read, address: one.page.url(), walk: null, crop });
     const outcome = await this.tell.note(body);
-    if (outcome.ok) this.thaw(sessionId);
+    if (outcome.ok) this.thaw(sessionId, tabId);
     return outcome;
   }
 }
@@ -330,7 +424,7 @@ export function evaluateSource(expression: string): string {
 }
 
 /**
- * A Job's page in Electron. **Put away in Bridge's window, hidden**, while no pane shows it, so an act still reaches a page
+ * A Browser tab's page in Electron. **Put away in Bridge's window, hidden**, while no pane shows it, so an act still reaches a page
  * that is laid out at its last size; `parkIn` is that window, or null while none is up.
  */
 export function makeBrowserPage(manifestId: string | null, parkIn: () => BrowserWindow | null, told: PageTold, store: SiteSettingsStore): BrowserPage {
@@ -478,6 +572,11 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
       into(park !== null && !park.isDestroyed() ? park : null);
     },
     hostOf: () => (shown ? parent : null),
+    destroy: () => {
+      shown = false;
+      into(null);
+      if (!contents.isDestroyed()) contents.close();
+    },
     hide: (on) => {
       hidden = on;
       view.setVisible(shown && !on);
@@ -515,8 +614,8 @@ export function makeBrowserPage(manifestId: string | null, parkIn: () => Browser
   };
 }
 
-/** A Job's browser in a window of its own: a Bridge document with Bridge's preload, which goes nowhere, as the terminal's window is. */
-export function makeBrowserWindow(sessionId: string, over: { x: number; y: number; width: number; height: number } | null, told: { closing: () => void }): BrowserWindowHeld {
+/** A Browser tab's page in a window of its own: a Bridge document with Bridge's preload, which goes nowhere, as the terminal's window is. */
+export function makeBrowserWindow(sessionId: string, tabId: string, over: { x: number; y: number; width: number; height: number } | null, told: { closing: () => void }): BrowserWindowHeld {
   const size = { width: 1280, height: 820 };
   const window = new BrowserWindow({
     ...size,
@@ -530,7 +629,7 @@ export function makeBrowserWindow(sessionId: string, over: { x: number; y: numbe
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.on("ready-to-show", () => window.show());
   window.on("close", told.closing);
-  void window.loadFile(join(__dirname, "../renderer/browser-window.html"), { query: { session: sessionId } });
+  void window.loadFile(join(__dirname, "../renderer/browser-window.html"), { query: { session: sessionId, tab: tabId } });
   return {
     host: window,
     focus: () => {

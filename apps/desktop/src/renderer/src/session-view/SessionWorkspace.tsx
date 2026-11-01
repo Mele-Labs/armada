@@ -21,7 +21,7 @@ import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone, type StoryZone } from "./StoryColumn";
-import { BrowserBody, ChangesBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
+import { BrowserBody, BrowserTabsSync, ChangesBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
 import { CustomBody } from "../job-panes/custom-body";
 import { JobPanes } from "../job-panes/JobPanes";
 import type { Tab } from "../job-panes/tree";
@@ -148,7 +148,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
         case "spine":
           return zone();
         case "browser":
-          return <BrowserBody jobId={id} />;
+          return <BrowserBody jobId={id} tab={tab} />;
         case "terminal":
           return <TerminalBody jobId={id} />;
         case "changes":
@@ -187,6 +187,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
         {/* The title bar holds only the Layout control while a Job is in panes. The views with a key stay drawn out of sight, so their keys still press them; Subagents and Checks are acts in the Thread head. */}
         {views === undefined ? null : <div hidden><ViewStrip views={views.filter((one) => one.id === "artifacts" || one.id === "system" || one.id === "slot")} /></div>}
         <TerminalSync jobId={id} />
+        <BrowserTabsSync jobId={id} />
         {large}
         {reading}
       </>

@@ -75,6 +75,7 @@
 
 .job-pane__pick { flex: none; padding: var(--space-2) var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); }
 .job-pane__scroll { overflow: auto; padding: var(--space-3); }
+.job-pane__said { margin: 0; color: var(--fg-muted); font-size: var(--text-sm); }
 .job-pane__list { margin: 0; list-style: none; }
 .job-pane__item { padding: var(--space-1) 0; color: var(--fg-muted); font-size: var(--text-sm); }
 .job-pane__mono { font-family: var(--font-mono); font-size: var(--text-xs); }
