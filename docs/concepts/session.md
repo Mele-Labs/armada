@@ -32,7 +32,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [The plan](session/the-plan.md) |
 | [The rail](session/the-rail.md) |
 | [The delivery question](session/the-delivery-question.md) |
-| [The judges](session/the-judges.md) |
+| [The Judge](session/the-judge.md) |
 | [What fills the context window](session/what-fills-the-context-window.md) |
 | [Where the tokens went](session/where-the-tokens-went.md) |
 | [A job that hit the plan's limit](session/a-job-that-hit-the-plans-limit.md) |

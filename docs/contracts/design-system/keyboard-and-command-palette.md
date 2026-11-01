@@ -181,8 +181,8 @@ field and while a dialog is up.
 
 **A plan waiting on its card has a scope of its own, `plan`.**
 Its keys answer wherever focus is on the plan card or in the plan in full.
-`r` runs an adversarial review of the plan, or runs it again where one failed or read an older version.
-`j`, `k` and the arrows move between the findings not yet acted on, in the order the plan draws them; `Enter` sends the one in focus to the agent and `d` or Backspace dismisses it.
+`r` opens the Judge's box on the plan, to read it again where a reading failed or read an older version.
+`j`, `k` and the arrows move between the notes not yet acted on, in the order the plan draws them; `Enter` sends the one in focus to the Job and `d` or Backspace dismisses it.
 They stand down in a text field.
 
 **System, Projects, Reviews and Issues share one search bar,** `SearchField` in `packages/components`: "Search" with the key drawn inside it, Esc clearing the words and a second Esc leaving it.
