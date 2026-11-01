@@ -194,7 +194,7 @@ shortcut = "⌘L"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Opens the Layout menu in the open Job's header: the layouts to take, and Update, Save as, Reset and Use for all Jobs. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
+notes = "Opens the Layout menu in the open Job's header: the layouts to take, and Update, Save as, Reset and New Jobs open on, which opens a submenu of the layouts. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
 
 [actions.pane_undo]
 kind = "Action"

@@ -698,6 +698,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(hosted === undefined ? { terminal: true as const } : {}),
     ...(record.helm === true ? { helm: true as const } : {}),
     ...(record.mod === true ? { mod: true as const } : {}),
+    ...(record.from_job === undefined || record.from_tab === undefined ? {} : { modFor: { job: record.from_job, tab: record.from_tab } }),
     ...(dead === undefined ? {} : { dead }),
     ...(handoff === undefined ? {} : { handoff }),
     ...(handoff !== "failed" || handoffReason === undefined ? {} : { handoffReason }),

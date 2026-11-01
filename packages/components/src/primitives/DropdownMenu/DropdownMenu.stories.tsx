@@ -145,6 +145,55 @@ export const Counted: Story = {
 };
 
 /**
+ * A row that opens a submenu, as the Layout menu's New Jobs open on does: it
+ * trails the chosen value and a › chevron. → opens the submenu onto the chosen
+ * choice, ↓ moves, ↵ picks and reports the choice's id, and ← or Esc goes back
+ * to the row, Esc leaving the menu only from the row.
+ */
+export const WithASubmenu: Story = {
+  args: {
+    defaultOpen: true,
+    triggerLabel: "Layout",
+    entries: [
+      { kind: "item", id: "reset", label: "Reset", act: true },
+      { kind: "separator", id: "rule" },
+      {
+        kind: "item",
+        id: "new",
+        label: "New Jobs open on",
+        detail: "Default",
+        submenu: [
+          { id: "new:Default", label: "Default", selected: true },
+          { id: "new:Review", label: "Review" },
+        ],
+      },
+    ],
+    onSelect: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
+    const row = canvas.getByRole("menuitem", { name: /^New Jobs open on/ });
+    await expect(row).toHaveTextContent("Default");
+    row.focus();
+
+    await userEvent.keyboard("{ArrowRight}");
+    await expect(canvas.getByRole("menuitemradio", { name: "Default" })).toHaveFocus();
+    await expect(canvas.getByRole("menuitemradio", { name: "Default" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.keyboard("{ArrowLeft}");
+    await expect(row).toHaveFocus();
+    await expect(canvas.queryByRole("menuitemradio", { name: "Default" })).toBeNull();
+
+    await userEvent.keyboard("{ArrowRight}");
+    await userEvent.keyboard("{Escape}");
+    await expect(row).toHaveFocus();
+    await expect(canvas.getByRole("menu")).toBeVisible();
+
+    await userEvent.keyboard("{ArrowRight}{ArrowDown}{Enter}");
+    await expect(args.onSelect).toHaveBeenCalledWith("new:Review");
+  },
+};
+
+/**
  * Each item says what it is doing, trailing in mono, and the trigger reads the
  * chosen one the same way: the drones over a Job's Field (the owner, 22 Oct
  * 2026). A finished one is muted and still choosable. In a narrow frame the

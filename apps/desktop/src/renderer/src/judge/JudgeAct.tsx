@@ -101,7 +101,7 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut }
   return (
     <span ref={wrap} className="judge-act">
       <Tooltip label={said} {...(shortcut === undefined ? {} : { shortcut })} asChild>
-        <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-busy={reading || undefined} data-judge={artifact.kind} onClick={() => setOpen(!open)}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-busy={reading || undefined} data-running={reading || undefined} data-judge={artifact.kind} onClick={() => setOpen(!open)}>
           {reading ? (
             <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
               <CircleDot size={size} strokeWidth={2} aria-hidden="true" />

@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { LoaderCircle, Minimize2, Plus, X } from "lucide-react";
-import { Button, DropdownMenu, Tooltip, boundKeyFor, type DropdownMenuEntry } from "@armada/components";
+import { Button, DropdownMenu, SessionMark, Tooltip, boundKeyFor, type DropdownMenuEntry } from "@armada/components";
 
 import { hostOf, peekJobBrowser } from "../job-browser/store";
 import { useModList } from "../mod-list";
+import { stateOf } from "../session-state";
 import { useSessions } from "../sessions-draft";
 import { select } from "../cockpit/deck/store";
 import { ModJobCard } from "./custom-card";
@@ -60,6 +61,8 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
   const building = tab.kind === "custom" && custom.stage === "building";
   const modJob = useSessions().find((one) => one.id === custom.job);
   // The tab's glyph turns while its Job works, on the first build and on each change after it.
+  // The Mod Job is held on a question to him: the tab wears the mark a Job's row wears when it needs him.
+  const asking = tab.kind === "custom" && modJob !== undefined && stateOf(modJob).state === "waiting";
   const working = building || (tab.kind === "custom" && custom.stage === "built" && modJob?.turn.state === "working");
   /** The tab's menu asked for its Job's card, with the caret in its composer. */
   const [summon, setSummon] = useState(false);
@@ -127,7 +130,11 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
             setPoint({ x: box.left, y: box.bottom });
           }}
         >
-          {working ? (
+          {asking ? (
+            <span className="job-pane__asks">
+              <SessionMark state="waiting" said="Waiting on you" />
+            </span>
+          ) : working ? (
             <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
               <span className="job-pane__working" role="img" aria-label={modJob?.title ?? "Mod Job"}>
                 <LoaderCircle size={16} strokeWidth={2} aria-hidden />

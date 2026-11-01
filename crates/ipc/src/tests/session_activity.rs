@@ -34,6 +34,8 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         loadout_summary: None,
         helm: false,
         r#mod: false,
+        from_job: None,
+        from_tab: None,
         auto_land: false,
         standing: None,
         activity,

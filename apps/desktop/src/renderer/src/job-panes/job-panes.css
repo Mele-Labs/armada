@@ -97,7 +97,6 @@
 
 .job-layout { position: relative; display: inline-flex; }
 .job-layout__mark { position: absolute; top: var(--space-1); right: var(--space-1); width: calc(var(--space-1) * 1.5); height: calc(var(--space-1) * 1.5); border-radius: 50%; background: var(--fg-default); box-shadow: 0 0 0 var(--border-width) var(--bg-base); pointer-events: none; }
-.job-layout__new { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-muted); }
 
 /* A Job's acts in its Thread head: icons beside the Job's name, a toolbar of ghost buttons. Lit is pressed, told by the ground and the stronger ink; an act that is off keeps its tooltip for the reason. */
 .job-acts { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
@@ -106,7 +105,10 @@
 .job-acts [aria-pressed="true"] { background: var(--bg-hover); color: var(--fg-default); }
 .job-acts [aria-disabled="true"] { pointer-events: auto; cursor: default; color: var(--fg-subtle); }
 .job-acts[hidden] { display: none; }
-.job-acts button[data-running] > svg { color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+/* A switch that is on draws its glyph in --accent; a thing that is running does too, and pulses (`--duration-pulse`, as a running mark does). The window's still and idle states hold it (`styles/index.css`). */
+.job-acts button[data-on] > svg, .job-acts button[data-running] svg { color: var(--accent); }
+.job-acts button[data-running] > svg { animation: job-act-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+@keyframes job-act-pulse { 50% { opacity: 0.35; } }
 @media (prefers-reduced-motion: reduce) { .job-acts button[data-running] > svg { animation: none; } }
 
 /* A layer, Requests or the file tree drawn as a tab: the tab is its title, so the layer has no head of its own and fills the body. */
@@ -138,10 +140,15 @@
 .job-card__title { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .job-card__state { display: inline-flex; flex: none; color: var(--fg-muted); }
 .job-card__state[data-working] { color: var(--status-running); }
+.job-card__state[data-asking] { color: var(--status-awaiting-review); }
 .job-card__state[data-working] svg { animation: job-pane-spin 1s linear infinite; }
 .job-card__thread { box-sizing: border-box; max-height: calc(var(--space-12) * 4); overflow: auto; }
 @media (prefers-reduced-motion: reduce) { .job-card__state[data-working] svg { animation: none; } }
 .job-pane__working svg { animation: job-pane-spin 1s linear infinite; }
+/* The tab's glyph while its Mod Job waits on him: the needs-you mark of a Job's row, pulsing on opacity alone. */
+.job-pane__asks { display: inline-flex; animation: job-pane-asks var(--duration-pulse) ease-in-out infinite; }
+@keyframes job-pane-asks { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .job-pane__asks { animation: none; } }
 @keyframes job-pane-spin { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { .job-pane__working svg { animation: none; } }
 

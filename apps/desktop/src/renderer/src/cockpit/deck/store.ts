@@ -387,7 +387,9 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
  * **Active is the live ones in the order he placed them, the new ones last, without the paused; Paused is the ones he parked; Quiet and Ended are the Sessions that are not, newest first**, an ended one last seen
  * before the week only where a search is. All is both. The Session open on the stage is in the list wherever it came from.
  */
-export function listOf(ship: Ship, deck: Pick<DeckState, "needs" | "checks" | "held"> & { order?: readonly string[]; scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
+export function listOf(whole: Ship, deck: Pick<DeckState, "needs" | "checks" | "held"> & { order?: readonly string[]; scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
+  // A Mod Job that builds a Custom tab is never a row, not even while it is open on the stage.
+  const ship: Ship = { ...whole, subjects: whole.subjects.filter((one) => one.tab !== true) };
   const scope = deck.scope ?? "active";
   const past = ship.subjects.filter((one) => one.past !== undefined).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
   const held = past.filter((one) => (scope === "all" || scope === one.past) && (one.older !== true || deck.found !== undefined) && one.behind !== true);

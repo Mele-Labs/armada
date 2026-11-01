@@ -4,9 +4,10 @@
 
 import { useEffect, useRef, type ReactElement } from "react";
 import { CircleCheck, ExternalLink, LoaderCircle, PanelTop } from "lucide-react";
-import { Button, Inspect, InspectCard, SessionComposer, SessionThread, Tooltip } from "@armada/components";
-import type { Session } from "@armada/screens/src/draft/sessions";
+import { AskCards, Button, Inspect, InspectCard, SessionComposer, SessionThread, Tooltip, sessionGlyphOf } from "@armada/components";
+import type { Session, SessionAnswer } from "@armada/screens/src/draft/sessions";
 
+import { askedOf } from "../asked-of";
 import { select } from "../cockpit/deck/store";
 import { plain } from "../cockpit/deck/session-tiles";
 import { searchFiles } from "../commands";
@@ -33,6 +34,14 @@ function Tail({ job }: { job: Session }) {
       <SessionThread sessionId={job.id} rows={rows} working={job.turn.state === "working"} onAnswer={NOBODY} onOpenSession={NOBODY} />
     </div>
   );
+}
+
+/** What the Job is held on, answered here as it is in its Thread. */
+function Ask({ job }: { job: Session }) {
+  const draft = useSessionsDraft();
+  const asked = askedOf(job);
+  if (asked === undefined) return null;
+  return <AskCards asked={asked} keep={`${job.id}:${job.asked?.call ?? asked.command}`} onAnswer={(answer, answers, folder, kind) => draft?.answer(job.id, answer as SessionAnswer | undefined, answers, folder, kind)} />;
 }
 
 function Message({ job, tabId }: { job: Session; tabId: string }) {
@@ -74,15 +83,17 @@ function Message({ job, tabId }: { job: Session; tabId: string }) {
 export function ModJobCard({ tabId, job, building, summon, onSummoned, children }: { tabId: string; job: Session | undefined; building: boolean; summon: boolean; onSummoned: () => void; children: ReactElement }) {
   if (job === undefined || building) return children;
   const working = job.turn.state === "working";
+  const asking = job.asked !== undefined;
   const title = job.title ?? "Mod Job";
-  const Glyph = working ? LoaderCircle : CircleCheck;
+  const Glyph = asking ? sessionGlyphOf("waiting") : working ? LoaderCircle : CircleCheck;
+  const said = asking ? "Waiting on you" : working ? "Working" : "Done";
   return (
     <Inspect
       name={title}
       side="beside"
       around=".job-pane"
       pin={false}
-      held={working}
+      held={working || asking}
       summoned={summon}
       onSummoned={onSummoned}
       to='[role="textbox"]'
@@ -92,8 +103,8 @@ export function ModJobCard({ tabId, job, building, summon, onSummoned, children 
           width="wide"
           title={
             <span className="job-card__title">
-              <Tooltip label={working ? "Working" : "Done"} asChild>
-                <span className="job-card__state" role="img" aria-label={working ? "Working" : "Done"} data-working={working || undefined}>
+              <Tooltip label={said} asChild>
+                <span className="job-card__state" role="img" aria-label={said} data-working={(working && !asking) || undefined} data-asking={asking || undefined}>
                   <Glyph size={16} strokeWidth={2} aria-hidden />
                 </span>
               </Tooltip>
@@ -101,6 +112,7 @@ export function ModJobCard({ tabId, job, building, summon, onSummoned, children 
             </span>
           }
         >
+          <Ask job={job} />
           <Tail job={job} />
           <Message job={job} tabId={tabId} />
           <Button variant="secondary" size="sm" onClick={() => select({ kind: "session", key: `session:${job.id}` })}>
