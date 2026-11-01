@@ -524,6 +524,35 @@ fn calls(unclear: &[bool], ys: &[bool]) -> String {
     format!("P {p:.3} R {r:.3} (tp{tp} fp{fp} fn{fn_})")
 }
 
+/// The labelled replies of `reply-approves/<part>.tsv` (`train` or `fresh`): the reply text, read as the person typed it.
+fn approves_examples(training: &Path, part: &str) -> Vec<Example> {
+    std::fs::read_to_string(training.join("reply-approves").join(format!("{part}.tsv")))
+        .unwrap()
+        .lines()
+        .skip(1)
+        .map(|line| {
+            let f: Vec<&str> = line.splitn(7, '\t').collect();
+            Example { id: f[0].to_string(), text: f[6].replace("\\n", "\n"), y: f[4] == "approves", weight: 1.0, new: true, kind: f[5].to_string() }
+        })
+        .collect()
+}
+
+/// Whether every tensor of `new` but the head named `head` is, bit for bit, the tensor `old` holds, and the other way round.
+fn same_but_head(old: &[u8], new: &[u8], head: &str) -> (usize, bool) {
+    let old = candle_core::safetensors::load_buffer(old, &Device::Cpu).unwrap();
+    let new = candle_core::safetensors::load_buffer(new, &Device::Cpu).unwrap();
+    let mine = [format!("head.{head}.weight"), format!("head.{head}.bias")];
+    let mut same = old.keys().all(|name| new.contains_key(name)) && new.keys().all(|name| old.contains_key(name) || mine.contains(name));
+    let mut compared = 0;
+    for (name, tensor) in &old {
+        let Some(other) = new.get(name) else { continue };
+        let (a, b) = (tensor.flatten_all().unwrap().to_vec1::<f32>().unwrap(), other.flatten_all().unwrap().to_vec1::<f32>().unwrap());
+        same &= tensor.dims() == other.dims() && a.iter().map(|x| x.to_bits()).eq(b.iter().map(|x| x.to_bits()));
+        compared += 1;
+    }
+    (compared, same)
+}
+
 fn save(params: &Params, heads: &[(&str, &Params)], path: &Path) {
     let mut tensors: HashMap<String, Tensor> = HashMap::new();
     for (n, [qa, qb, va, vb]) in params.adapters.iter().enumerate() {
@@ -869,6 +898,80 @@ fn main() {
             let (ah, al, ak) = shape(TextReading::ReplyAsks);
             let text = "Both fixes are pushed. Want me to land them?";
             println!("asks head unchanged: {:.6} vs {:.6}", enc.read(&tuned, ah, &[text], al, ak).unwrap()[0], enc.read(&both, ah, &[text], al, ak).unwrap()[0]);
+        }
+        "approves-cv" => {
+            // approves-cv <unread> <epochs> <lr> <unread> <pos_weight> <folds>: a head on the frozen
+            // committed adapter, scored out of fold on the training part. Writes `approves-oof.tsv`.
+            let pos_weight: f32 = args.get(6).map_or(5.0, |a| a.parse().unwrap());
+            let k: usize = args.get(7).map_or(4, |a| a.parse().unwrap());
+            let ex = approves_examples(&training, "train");
+            let tuned = Tuned::from_bytes(adapters_src::language_model::TUNED).unwrap();
+            let texts: Vec<&str> = ex.iter().map(|e| e.text.as_str()).collect();
+            let cached = cache_adapted(&enc, &tuned, &texts, TextReading::ReplyApproves);
+            let cfg = Train { epochs, lr, adapter: false, pos_weight };
+            eprintln!("{} replies, {} approve", ex.len(), ex.iter().filter(|e| e.y).count());
+            let oof = cross(&enc, LAYERS, &cached, &ex, &cfg, k);
+            let ys: Vec<bool> = ex.iter().map(|e| e.y).collect();
+            for (epoch, scores) in oof.iter().enumerate() {
+                println!("approves oof epoch {} {}", epoch + 1, figures(scores, &ys));
+            }
+            let last = &oof[oof.len() - 1];
+            let lines: Vec<String> = ex.iter().zip(last).map(|(e, s)| format!("{}\t{}\t{s:.4}\t{}", e.id, e.y, e.text.replace('\n', "\\n"))).collect();
+            std::fs::write(runs.join("approves-oof.tsv"), lines.join("\n")).unwrap();
+        }
+        "approves-final" => {
+            // approves-final <unread> <epochs> <lr> <unread> <pos_weight>: the head on every training reply,
+            // written beside the committed heads into `tuned-approves.safetensors`, with the proof that
+            // nothing else in the file moved and the trainer's probabilities against the reader's.
+            let pos_weight: f32 = args.get(6).map_or(5.0, |a| a.parse().unwrap());
+            let ex = approves_examples(&training, "train");
+            let committed = adapters_src::language_model::TUNED;
+            let tuned = Tuned::from_bytes(committed).unwrap();
+            let texts: Vec<&str> = ex.iter().map(|e| e.text.as_str()).collect();
+            let cached = cache_adapted(&enc, &tuned, &texts, TextReading::ReplyApproves);
+            let cfg = Train { epochs, lr, adapter: false, pos_weight };
+            let all: Vec<usize> = (0..ex.len()).collect();
+            let params = train(&enc, LAYERS, &cached, &ex, &all, &cfg, 4, |_, _| {});
+            let (head, longest, keep) = shape(TextReading::ReplyApproves);
+            let mut tensors = candle_core::safetensors::load_buffer(committed, &Device::Cpu).unwrap();
+            tensors.insert(format!("head.{head}.weight"), params.weight.as_tensor().clone());
+            tensors.insert(format!("head.{head}.bias"), params.bias.as_tensor().clone());
+            let out = runs.join("tuned-approves.safetensors");
+            candle_core::safetensors::save(&tensors, &out).unwrap();
+            let written = std::fs::read(&out).unwrap();
+            let (compared, same) = same_but_head(committed, &written, head);
+            println!("tensors compared {compared}, all bit-identical to the committed file: {same}");
+            let both = Tuned::from_bytes(&written).unwrap();
+            let probe: Vec<usize> = (0..ex.len()).step_by(7).chain((0..ex.len()).filter(|&i| ex[i].y)).collect();
+            let mine = predict(&enc, &params, LAYERS, &cached, &probe);
+            let mut worst = 0.0f32;
+            for (&i, p) in probe.iter().zip(mine) {
+                let read = enc.read(&both, head, &[ex[i].text.as_str()], longest, keep).unwrap()[0];
+                worst = worst.max((read - p).abs());
+                println!("probe {} y {} trainer {p:.6} reader {read:.6}", ex[i].id, ex[i].y);
+            }
+            println!("largest difference between trainer and reader: {worst:.7}");
+            for reading in [TextReading::ReplyAsks, TextReading::TellRefused, TextReading::SentenceAsks, TextReading::SentenceFollowsUp, TextReading::ItemClear] {
+                let (h, l, kp) = shape(reading);
+                let text = "Both fixes are pushed. Want me to land them?";
+                println!("{h} head unchanged: {:.6} vs {:.6}", enc.read(&tuned, h, &[text], l, kp).unwrap()[0], enc.read(&both, h, &[text], l, kp).unwrap()[0]);
+            }
+        }
+        "approves-fresh" => {
+            // approves-fresh <unread> <unread> <unread> <unread> <tuned file> <threshold>: the fresh part, scored once.
+            let tuned = Tuned::from_bytes(&std::fs::read(&args[6]).unwrap()).unwrap();
+            let at: f32 = args[7].parse().unwrap();
+            let ex = approves_examples(&training, "fresh");
+            let (head, longest, keep) = shape(TextReading::ReplyApproves);
+            let scores: Vec<f32> = ex.iter().map(|e| enc.read(&tuned, head, &[e.text.as_str()], longest, keep).unwrap()[0]).collect();
+            let ys: Vec<bool> = ex.iter().map(|e| e.y).collect();
+            let (p, r, tp, fp, fn_) = pr(&scores, &ys, at);
+            println!("fresh {} replies, {} approve: auc {:.3} | at {at}: P {p:.3} R {r:.3} (tp{tp} fp{fp} fn{fn_})", ex.len(), ys.iter().filter(|y| **y).count(), auc(&scores, &ys));
+            let mut order: Vec<usize> = (0..ex.len()).collect();
+            order.sort_by(|&a, &b| scores[b].partial_cmp(&scores[a]).unwrap());
+            for &i in order.iter().take(8) {
+                println!("{:.4}\t{}\t{}", scores[i], ex[i].y, ex[i].text.replace('\n', " ").chars().take(100).collect::<String>());
+            }
         }
         "sentences-train" => {
             // sentences-train <adapted, unread> <epochs> <lr>: the two sentence heads on the frozen
