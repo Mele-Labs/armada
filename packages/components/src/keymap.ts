@@ -341,8 +341,16 @@ export function pressesChord(chord: Chord, press: Press): boolean {
   return pressed !== null && same(chord, pressed);
 }
 
+let recording = false;
+
+/** Held while a key is being recorded for a binding, so the press that is recorded is not also acted on. */
+export function holdKeys(on: boolean): void {
+  recording = on;
+}
+
 /** Which slot of an act a press is, or `-1` for none. */
 export function pressedSlot(id: string, press: Press): number {
+  if (recording) return -1;
   const chord = chordOf(press);
   if (chord === null) return -1;
   return slotsOf(id).findIndex((slot) => slot.kind === "chord" && slot.chord !== null && same(slot.chord, chord));

@@ -17,7 +17,7 @@ repository. The owner, as admin, bypasses the ruleset.
 |---|---|---|
 | `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build`; the test code of `test` and `acceptance`, compiled and not run; and those the merge queue last failed it on |
 | `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group, every one |
-| `push` to `main` | Seeing a red `main` | Every Check in CI, and `test_map`, which is not one of them (*The test map's laps*) |
+| `push` to `main` | Seeing a red `main` | Every Check in CI, and once a day `test_map`, which is not one of them (*The test map's laps*) |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
 
 **The suite runs once, in the merge queue.** A pull request's run keeps the Checks in `QUICK` in `.github/ci/plan.py` and names the rest in its job summary as left to the queue; `ci` passes on those.
@@ -59,18 +59,22 @@ to `main` are keyed by their own commit and never cancelled.
 
 ## The test map's laps
 
-**`test_map` runs on a push to `main` and nowhere else, and gates nothing.** It builds the workspace again with coverage on, runs every test of the Check `test`, and uploads which files each test reached as the artifact `test-map-<sha>`, kept three days (`armada test-map record`, `docs/practices/rust.md`).
+**`test_map` runs on a push to `main` and nowhere else, at most once a day, and gates nothing.** It builds the workspace again with coverage on, runs every test of the Check `test`, and uploads which files each test reached as the artifact `test-map-<sha>`, kept three days (`armada test-map record`, `docs/practices/rust.md`).
 Fleet downloads it for the commit `main` moved to and keeps the laps as edges of that commit (`docs/concepts/test-map.md`, *How it stays current*).
+The job's first step lists the pushes to `main` of the last day and records only when none of their `test_map` jobs recorded or is still recording, read from its step *Record the laps*.
+A push in between skips every other step, uploads nothing, and Fleet carries on with the last laps it had.
+Decided by the owner, 31 Oct 2026 (armada-r1tz): run on every push, it was cancelled at its 180-minute limit on 59 of 60 pushes from 30 Oct 05:26 UTC, so no laps were uploaded, every run read as a red `main`, and each push held a runner for three hours that the merge queue needed.
 A pull request and a merge group never run it: it is a cold instrumented build of every member, and the map's own rule puts that on the forge's runner after a merge, never on a shared machine.
 
 | | |
 |---|---|
 | Not in `ci`'s `needs` | A slow or red `test_map` never holds a merge, and `ci` never waits for it |
 | `continue-on-error` | A failure there does not turn the run red, so `main` is not read as broken for it. The job's own log says what failed |
-| No concurrency group | Every push to `main` records its own commit. A group that cancelled the older run would mark the whole run cancelled, which reads as a red `main` |
+| No concurrency group | A group that cancelled the older run would mark the whole run cancelled, which reads as a red `main`. The first step's reading keeps two recordings from overlapping instead |
+| `actions: read` | To list the earlier pushes' runs |
 | Needs `llvm-tools-preview` and `cargo-nextest` | The job installs both; the cache key is its own, `test_map` |
 
-The first run took 1 h 54 min (`docs/spikes/test-map-seed.md`), so its `timeout-minutes` is 180.
+The first run took 1 h 54 min (`docs/spikes/test-map-seed.md`) and the one that finished on 31 Oct 2026 took 175 minutes, so its `timeout-minutes` is 360, a hosted job's limit.
 
 ## How a Check is chosen
 

@@ -41,15 +41,53 @@ describe("placeCard", () => {
   });
 
   // The defect: the Job settings sheet is the height of the window, so neither
-  // side has room and the card used to be drawn off the top edge.
-  it("keeps the card on screen for an element as tall as the window", () => {
-    const at = placeCard(box(432, 60, 480, 862), CARD, OWNER, M);
+  // side has room and the card used to be drawn off the top edge. Now the card
+  // goes beside it, so the tools that restyle the element never hide the change.
+  it("puts the card beside an element as tall as the window, trailing side first, clear of its pin", () => {
+    const element = box(432, 60, 480, 862);
+    const at = placeCard(element, CARD, OWNER, M);
+    expect(at.side).toBe("beside");
+    // Past the element's trailing edge and the pin centred on its trailing corner, not over either.
+    expect(at.x).toBe(432 + 480 + M.pinSize / 2 + M.gap);
+    expect(at.y).toBe(60);
+    expect(at.x).toBeGreaterThanOrEqual(element.x + element.width + M.pinSize / 2);
+    inside(at, CARD, OWNER);
+  });
+
+  it("puts it on the leading side when the trailing side has no room", () => {
+    const at = placeCard(box(900, 60, 380, 862), CARD, OWNER, M);
+    expect(at.side).toBe("beside");
+    expect(at.x).toBe(900 - M.gap - CARD.width);
+    expect(at.x + CARD.width).toBeLessThanOrEqual(900);
+    inside(at, CARD, OWNER);
+  });
+
+  it("keeps a card beside the element above the status bar, level with the element's top where it can be", () => {
+    const short: Viewport = { width: 1324, height: 500, floor: 458 };
+    const level = placeCard(box(432, 8, 480, 460), CARD, short, M);
+    expect(level.side).toBe("beside");
+    expect(level.y).toBe(8);
+    // Lower than the card can stand, it is lifted to end at the floor, not drawn under the bar.
+    const low = placeCard(box(432, 150, 480, 340), CARD, short, M);
+    expect(low.side).toBe("beside");
+    expect(low.y + CARD.height).toBe(short.floor - M.gap);
+    inside(low, CARD, short);
+  });
+
+  it("still prefers below, then above, to beside", () => {
+    expect(placeCard(box(200, 100, 480, 120), CARD, OWNER, M).side).toBe("below");
+    expect(placeCard(box(200, 500, 480, 340), CARD, OWNER, M).side).toBe("above");
+  });
+
+  // Over is the last resort now: an element with no room beside it either, which is a sheet across the window.
+  it("keeps the card on screen for an element as wide and as tall as the window, over it", () => {
+    const at = placeCard(box(8, 60, 1308, 862), CARD, OWNER, M);
     expect(at.side).toBe("over");
     inside(at, CARD, OWNER);
   });
 
   it("clears the element's own pin when it has to cover the element", () => {
-    const at = placeCard(box(432, 60, 480, 862), CARD, OWNER, M);
+    const at = placeCard(box(8, 60, 1308, 862), CARD, OWNER, M);
     // The pin is centred on the element's top trailing corner: y 60, 20 tall.
     expect(at.y).toBeGreaterThanOrEqual(70 + M.gap);
   });
@@ -61,7 +99,7 @@ describe("placeCard", () => {
 
   it("caps a card taller than the window, which then scrolls inside itself", () => {
     const short: Viewport = { width: 1324, height: 320, floor: 278 };
-    const at = placeCard(box(432, 60, 480, 260), CARD, short, M);
+    const at = placeCard(box(8, 60, 1308, 260), CARD, short, M);
     expect(at.side).toBe("over");
     expect(at.maxHeight).toBeLessThan(CARD.height);
     inside(at, CARD, short);
