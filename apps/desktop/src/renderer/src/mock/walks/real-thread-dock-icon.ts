@@ -1,6 +1,6 @@
 // A real Job's thread, the dock icon fix, in the new look. Over the `real-thread-dock-icon` scenario.
 
-import { realThreadWalk } from "../real-threads/real-thread";
+import { realThreadWalk } from "../real-threads/real-thread-walk";
 
 const walk = realThreadWalk("real-thread-dock-icon", "Dock Icon Electron", /Ran /);
 

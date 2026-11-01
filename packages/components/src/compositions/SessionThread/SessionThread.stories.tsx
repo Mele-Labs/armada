@@ -89,7 +89,7 @@ export const CommandAndCompaction: Story = {
   args: { rows: WORKED },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("/reload-plugins")).toBeVisible();
-    await expect(canvas.getAllByText("You")).toHaveLength(1);
+    await expect(canvas.getAllByRole("region", { name: "Your message" })).toHaveLength(1);
     await userEvent.click(canvas.getByText("Conversation compacted"));
     await expect(canvas.getByText(/continued from a previous conversation/)).toBeVisible();
   },
@@ -136,14 +136,13 @@ const YOURS: SessionThreadRow[] = [
 ];
 
 /**
- * What the person said and did are not the agent's row. A message is a card under a band with their
+ * What the person said and did are not the agent's row. A message is a bubble on the right, with no
  * name; an Approve and an answer are one line each, the target as a chip, and the raw text is gone.
  */
 export const YourWordsAndActs: Story = {
   args: { rows: YOURS },
   play: async ({ canvas }) => {
     const message = canvas.getByRole("region", { name: "Your message" });
-    await expect(within(message).getByText("You")).toBeVisible();
     await expect(within(message).getByText("Keep the pin in the test module.")).toBeVisible();
 
     const approved = canvas.getByRole("region", { name: "You approved" });
