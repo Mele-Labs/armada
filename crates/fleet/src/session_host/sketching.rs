@@ -77,10 +77,7 @@ where
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| self.hosted_refusal(SKETCH_UNNAMED, "a job Fleet knows"))?;
-            let held = match against {
-                Some(_) => self.ledger_row(&store, &session)?.attachments,
-                None => Vec::new(),
-            };
+            let held = self.ledger_row(&store, &session)?.attachments;
             (session.harness, held)
         };
         let sketch = match against {
@@ -124,6 +121,12 @@ where
         }
         // A sketch he dismissed waits again once the job draws it again, as a walk shown again does.
         let target = attachment.target.clone();
+        // Only the newest sketch is answered, so one still waiting under another title is taken back, as its Withdraw would.
+        let waiting = sketch_items(&held, &id).map(|one| one.id).filter(|one| *one != target).collect::<Vec<_>>();
+        for earlier in waiting {
+            self.store().lock().await.dismiss_waiting(&id, &earlier).map_err(|why| self.ledger_fault(why))?;
+            self.sketch_withdrawn_mark(&id, &earlier).await;
+        }
         self.store().lock().await.restore_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
         self.report_session(SessionReport {
             harness,

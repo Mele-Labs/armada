@@ -3,11 +3,12 @@
 // opened as read, and the brief a kept report makes. Nothing here touches `window.armada`.
 
 import type { BugReport, BugReports } from "@armada/protocol";
+import type { Session } from "@armada/screens/src/draft/sessions";
 import { expect, test, vi } from "vitest";
 
 import type { BugReportsApi } from "../../../shared/api/bug-reports";
 import type { IssuesSource, ReportedBug } from "./model";
-import { briefOf, reportOfJob, reportsShown } from "./reports";
+import { briefOf, jobOfReport, reportOfJob, reportsShown } from "./reports";
 import { issuesSourceOf, reportedBugOf } from "./source";
 import { createIssuesStore } from "./store";
 
@@ -197,4 +198,20 @@ test("the band is drawn under All and under the armada repository, and under no 
   expect(reportsShown(armada, [armada, storefront])).toBe(true);
   expect(reportsShown(storefront, [armada, storefront])).toBe(false);
   expect(reportsShown(null, [storefront])).toBe(false);
+});
+
+const job = (id: string, attachments: Session["attachments"]) => ({ id, attachments }) as unknown as Session;
+
+test("a report is fixed when Fleet's report carries the merge that fixed it, and open when it does not", () => {
+  const fixed = { at: "2026-10-30T10:00:00Z", pull_request: 3071, title: "Read one icon table", url: "https://github.com/acme/armada/pull/3071" };
+  expect(reportedBugOf(wire(report("a", { fixed }))).fixed).toEqual(fixed);
+  expect(reportedBugOf(wire(report("b"))).fixed).toBeUndefined();
+});
+
+test("the Job started on a report is the one holding its report row, and a Job that gave the row back is no one's", () => {
+  const holding = job("holding", [{ kind: "report", id: "a", title: "Report a" }]);
+  const other = job("other", [{ kind: "report", id: "b", title: "Report b" }]);
+  const gaveBack = job("gave-back", []);
+  expect(jobOfReport([gaveBack, other, holding], "a")?.id).toBe("holding");
+  expect(jobOfReport([gaveBack, other], "a")).toBeUndefined();
 });

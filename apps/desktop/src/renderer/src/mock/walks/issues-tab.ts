@@ -2,7 +2,7 @@
 // describe a query and save it, edit its text, start a Job on an issue, and teach Armada a tracker it cannot read.
 // Over the `issues-tab` scenario.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, place, region, role, text, walk } from "../walk";
 
 const places = role("navigation", "Places");
 const list = region("Issues", { exact: true });
@@ -21,9 +21,9 @@ const issuesTab = walk("issues-tab", [
   { press: inside(role("listitem", "storefront"), button("Edit the query")), say: "A saved query's text can be edited by hand" },
   { type: 'is:open label:bug milestone:"v0.9"\n', into: role("textbox", "Query"), say: "Run again as written, with no model call. #2810 now matches too" },
   { press: inside(list, button(/^#2799 /)), say: "#2799 has no Job working it" },
-  { key: "s", on: region(/^Issue #2799/), say: "s opens the dispatch sheet holding #2799 as a tag" },
-  { key: "Escape", on: role("textbox", "Request"), say: "Esc puts the sheet away" },
-  { press: button("Teach Armada this tracker"), say: "mobile names Linear, which Armada cannot read. Teach opens a brief for a tracker mod" },
+  { key: "s", on: region(/^Issue #2799/), say: "s opens a drafted Job holding #2799 as a tag" },
+  { press: place("Issues"), say: "Issues again" },
+  { press: button("Teach Armada this tracker"), say: "mobile names Linear, which Armada cannot read. Teach opens a drafted Job that writes a tracker mod" },
 ]);
 
 export { issuesTab as "issues-tab" };

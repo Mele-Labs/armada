@@ -20,9 +20,21 @@ pub struct KeptBugReport {
     pub at: String,
     /// When the owner kept it.
     pub kept: Option<String>,
+    /// The pull request that fixed it, once one of its Jobs' merged. Absent while it stands open.
+    pub fixed: Option<KeptBugFix>,
 }
 
-const COLUMNS: &str = "id, session_id, job_title, title, what, steps, errors, logs, at, kept";
+/// The merge that fixed a report.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptBugFix {
+    /// When the pull request merged.
+    pub at: String,
+    pub pull_request: u64,
+    pub title: String,
+    pub url: String,
+}
+
+const COLUMNS: &str = "id, session_id, job_title, title, what, steps, errors, logs, at, kept, fixed_at, fixed_pull_request, fixed_title, fixed_url";
 
 fn failed(doing: &'static str) -> impl Fn(rusqlite::Error) -> WriteError {
     move |why| WriteError::Database(fault(doing)(why))
@@ -31,6 +43,17 @@ fn failed(doing: &'static str) -> impl Fn(rusqlite::Error) -> WriteError {
 /// The lines a column holds. A column that will not read as lines is read as none, not as a fault.
 fn lines(raw: String) -> Vec<String> {
     serde_json::from_str(&raw).unwrap_or_default()
+}
+
+/// The fix a row names, whole or not at all.
+fn fixed(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<KeptBugFix>> {
+    let at: Option<String> = row.get(10)?;
+    let pull_request: Option<u64> = row.get(11)?;
+    let (title, url): (Option<String>, Option<String>) = (row.get(12)?, row.get(13)?);
+    Ok(match (at, pull_request) {
+        (Some(at), Some(pull_request)) => Some(KeptBugFix { at, pull_request, title: title.unwrap_or_default(), url: url.unwrap_or_default() }),
+        _ => None,
+    })
 }
 
 fn kept_report(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptBugReport> {
@@ -45,6 +68,7 @@ fn kept_report(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptBugReport> {
         logs: lines(row.get(7)?),
         at: row.get(8)?,
         kept: row.get(9)?,
+        fixed: fixed(row)?,
     })
 }
 
@@ -53,7 +77,7 @@ impl Store {
         let lines = |lines: &[String]| serde_json::to_string(lines).unwrap_or_else(|_| String::from("[]"));
         self.conn
             .execute(
-                &format!("INSERT INTO bug_reports ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"),
+                &format!("INSERT INTO bug_reports ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"),
                 params![
                     report.id,
                     report.session_id,
@@ -64,7 +88,11 @@ impl Store {
                     lines(&report.errors),
                     lines(&report.logs),
                     report.at,
-                    report.kept
+                    report.kept,
+                    report.fixed.as_ref().map(|fix| &fix.at),
+                    report.fixed.as_ref().map(|fix| fix.pull_request),
+                    report.fixed.as_ref().map(|fix| &fix.title),
+                    report.fixed.as_ref().map(|fix| &fix.url)
                 ],
             )
             .map(|_| ())
@@ -92,6 +120,27 @@ impl Store {
             .query_row(&format!("SELECT {COLUMNS} FROM bug_reports WHERE id = ?1"), [id], kept_report)
             .optional()
             .map_err(failed(doing))
+    }
+
+    /// Report `id`, if it is kept.
+    pub fn bug_report(&self, id: &str) -> Result<Option<KeptBugReport>, WriteError> {
+        self.conn
+            .query_row(&format!("SELECT {COLUMNS} FROM bug_reports WHERE id = ?1"), [id], kept_report)
+            .optional()
+            .map_err(failed("reading a bug report"))
+    }
+
+    /// Mark report `id` fixed by `fix`. **Set once**: a report already fixed keeps its first merge. True where this
+    /// call fixed it, false where it was fixed already or `id` names none.
+    pub fn mark_bug_report_fixed(&mut self, id: &str, fix: &KeptBugFix) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE bug_reports SET fixed_at = ?2, fixed_pull_request = ?3, fixed_title = ?4, fixed_url = ?5
+                 WHERE id = ?1 AND fixed_at IS NULL",
+                params![id, fix.at, fix.pull_request, fix.title, fix.url],
+            )
+            .map(|changed| changed > 0)
+            .map_err(failed("marking a bug report fixed"))
     }
 
     /// Delete report `id`. False where it names none.
