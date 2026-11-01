@@ -171,6 +171,27 @@ function changeTurn(store: SessionsStore, id: string): void {
   changeTimers.add(window.setTimeout(finish, 5400));
 }
 
+/** A message asking the tab to `import` something: the Job writes a static import, and Fleet's check refuses the mod. Fix starts a Mod Job whose build makes it valid again. */
+function breakTurn(store: SessionsStore, id: string): void {
+  if (turns.has(id)) return;
+  const now = () => new Date().toISOString();
+  const finish = () => {
+    if (!turns.delete(id)) return;
+    changeTimers.forEach((one) => window.clearTimeout(one));
+    changeTimers.clear();
+    store.edit(id, (one) => ({
+      ...one,
+      rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: now(), kind: "tool", text: `Write ${MOD_DIR}/tab.js: import the forge client` } satisfies SessionRow],
+      turn: { state: "idle" },
+      lastTurnAt: now(),
+    }));
+    mods = mods.map((one) => (one.name === MOD_NAME ? { ...one, valid: false, reason: "tab.js line 1: an `import` cannot be resolved, the tab is handed `host` instead", changed_at: now() } : one));
+    handle?.publish({ mods: { mods } });
+  };
+  turns.set(id, finish);
+  changeTimers.add(window.setTimeout(finish, 1200));
+}
+
 export const sJobLayouts: Scenario = {
   ...sJobStory,
   name: "job-layouts",
@@ -314,7 +335,8 @@ export const sJobLayouts: Scenario = {
         send: (id: string, sent: Parameters<typeof store.send>[1]) => {
           if (!modJobs.has(id)) return store.send(id, sent);
           store.edit(id, (one) => ({ ...one, rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: sent.text } satisfies SessionRow], turn: { state: "working" } }));
-          changeTurn(store, id);
+          if (/\bimport\b/i.test(sent.text)) breakTurn(store, id);
+          else changeTurn(store, id);
           return Promise.resolve(true);
         },
         later: () => {
