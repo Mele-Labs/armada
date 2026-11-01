@@ -178,11 +178,11 @@ kind = "Action"
 tier = "Global"
 verb = "Zoom pane"
 icon = "maximize-2"
-shortcut = "⇧⌘Enter"
+shortcut = "⌥⌘Enter"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Zooms the focused pane of the open Job's area over the rest of the Cockpit below the title bar, or puts it back. A view only: the arrangement, the layout's edited mark and the undo history are untouched, and a change of Job or the Layout menu ends it. A text box keeps ⇧⌘Enter, which the Dispatch panel's queue key uses. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
+notes = "Zooms the focused pane of the open Job's area over the rest of the Cockpit below the title bar, or puts it back. A view only: the arrangement, the layout's edited mark and the undo history are untouched, and a change of Job or the Layout menu ends it. A text box keeps the key, and ⇧⌘Enter is the Dispatch panel's queue key, so zoom took Option instead. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
 
 [actions.layout_menu]
 kind = "Action"
