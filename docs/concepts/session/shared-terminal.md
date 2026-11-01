@@ -3,33 +3,23 @@
 **Part of:** [Job](../session.md).
 
 A Job has one shell that the person and the Job's agent both type into.
-Terminal in the Job's Flight control opens it ([Cockpit](../cockpit.md), *The Job's flight controls*), docked, and it stays open until it is ended, the Job ends, or the shell exits.
-**In the Cockpit, docked is a panel of its own between the Job and the merge queue**, full width, its height dragged like the deck's other panels and kept with them.
-The thread keeps the Job's whole pane, since nothing docks under it.
-Where no merge queue is drawn, the panel is the last under the Job.
-Elsewhere, beside a page in the walk panel and in a call card, docked is under the thread, where a block's run docks.
-The tile is lit while the shell shows, and pressed again it puts the pane away with the shell still running, except in its window, where it brings the window to the front.
-Beside a page in the walk panel, where no Flight control is drawn, Terminal is in the Job's header.
-Hide puts the pane away and the shell keeps running; End shell stops it.
-Once it has ended the pane says *Shell ended* and offers New shell, which opens another, and Close.
-A block's run docks in the Job view in either place.
-In the Cockpit the run and the shell are two panes, the run in the Job and the shell in its panel.
-Elsewhere, with both open, the two are tabs in one dock, *Terminal* beside the run's command, and each keeps its own screen.
+**In the Cockpit it is a Terminal tab**, in a pane like any other.
+`+` on a pane's tab row offers Terminal, and the tab opens the shell at the pane's size, or shows the one already open.
+`⌥⇧0` brings the Job's Terminal tab forward where it has one, and opens one where it has none, as a tab the Job opens itself does: in the pane that already holds a Terminal, else in a new pane on the right.
+The shell stays open until it is ended, the Job ends, or the shell exits.
+Closing the last Terminal tab puts the shell away and it keeps running; a Terminal tab opened again shows everything it printed.
+A shell the agent opens draws a Terminal tab in the Job on screen, or in the window it already has.
+Elsewhere, in a Job with no panes and in a call card, the shell is docked under the thread, where a block's run docks, and Terminal in the Job's Flight control opens it, lit while it shows.
+There the tile pressed again puts the pane away with the shell still running, except in its window, where it brings the window to the front.
+**End shell** stops the shell, and once it has ended the pane says *Shell ended* and offers New shell, which opens another in the same tab.
+A block's run docks in the Job view, and with a Terminal tab open the run and the shell are two panes, the run in the Job and the shell in its tab.
+Where a Job has no panes and both are open, the two are tabs in one dock, *Terminal* beside the run's command, and each keeps its own screen.
+While the shell has focus, Esc goes to the shell, so a program that reads it still works.
 
-**Where it opens is the setting `terminal.openJobTerminalIn`**: `docked`, as above and as shipped, `side panel`, or `window`.
-Each pane's head offers the two other places, each a glyph that pictures where the shell goes: Dock, Move to the side panel and Open in a window.
-Pressing one moves the open shell there and saves the setting.
-The shell shows in one place at a time, so when it moves to its window it leaves the dock or the side panel, and only one screen sizes it.
-In the side panel it opens where a pull request or an issue does, headed *Terminal* with the Job's title, and the thread keeps its whole height.
-Close puts the panel away and the shell keeps running; Terminal brings it back with everything it printed.
-While the shell has focus, Esc goes to the shell, so a program that reads it still works, and Close is the way out.
-A change of the setting takes effect at the next Terminal, and a block's run stays docked either way.
-A call card keeps its shell docked, and beside a page in the walk panel Terminal follows the setting.
-
-**At `window` the shell has a window of its own**, one per Job, titled *Terminal* with the Job's title.
-Closing the window puts the shell away and it keeps running; Terminal opens the window again with everything it printed.
-A Terminal press while the window is open brings it to the front, and does not put the shell away.
-Dock and Move to the side panel on the window's head bring the shell back into Bridge.
+**Move to window gives the shell a window of its own**, one per Job, titled *Terminal* with the Job's title, from the Terminal tab's menu or the pane's head.
+The shell shows in one place at a time, so the tab says where it is and offers Move to the pane, and only the window sizes the shell.
+Closing the window puts the shell back in its tab and it keeps running, with everything it printed.
+Move to the pane in the tab, or Dock on the window's head, brings the shell back and closes the window.
 Esc goes to the shell here too, and the window's own close is the way out.
 The window has End shell, and New shell once the shell has ended.
 A window opened after the shell started shows what it printed so far, since Bridge keeps the last 256 KiB a shell printed until the Job's next shell opens.
@@ -52,7 +42,7 @@ It answers what printed after the text once the shell has been quiet for 1.5 sec
 Ctrl-C is the one character U+0003 with Enter off.
 The agent uses the shell for what the person should see or join, a dev server for one; its own shell tool stays for ordinary work.
 
-**Bridge hears when it opens or ends.** `terminal.opened` follows the agent's first command into a shell the person had not opened, and Bridge shows the pane, or opens the panel, then.
+**Bridge hears when it opens or ends.** `terminal.opened` follows the agent's first command into a shell the person had not opened, and Bridge draws the Terminal tab, or shows the pane, then.
 `terminal.exited` follows its end, whoever caused it.
 
 **Running a block is unchanged**, and stays the person's own act: one pane, one run at a time, in [Running a block](running-a-block.md).
