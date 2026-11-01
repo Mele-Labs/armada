@@ -41,12 +41,25 @@ export const ANNOTATION_CHANNELS = {
   capture: "annotations:capture",
   saveShot: "annotations:save-shot",
   shot: "annotations:shot",
+  saveExample: "annotations:save-example",
+  example: "annotations:example",
+  removeExample: "annotations:remove-example",
   /** Main to the window: Fleet rewrote a note file, so the layer reads them again. */
   changed: "annotations:changed",
 } as const;
 
 /** A note's picture is `<id>.png`, beside its `<id>.json`. */
 export const shotName = (id: string): string => `${id}.png`;
+
+/** A picture the person added to a note to show what he means: `<id>-example-<n>.png`, beside its `<id>.json`. */
+export const exampleName = (id: string, n: number): string => `${id}-example-${n}.png`;
+
+/** Whether `name` is one of note `id`'s example pictures, and so a file name that cannot leave the directory. */
+export function isExampleOf(id: unknown, name: unknown): name is string {
+  if (!isAnnotationId(id) || typeof name !== "string") return false;
+  const prefix = `${id}-example-`;
+  return name.startsWith(prefix) && /^[0-9]{1,3}\.png$/.test(name.slice(prefix.length));
+}
 
 /** Larger than a whole Retina window's PNG; a body past it is not a capture. */
 export const SHOT_LIMIT = 32 * 1024 * 1024;
@@ -80,6 +93,18 @@ export type AppContext = {
 
 /** Where an element's JSX is: a path from the repository root, and a line. #1584. */
 export type Source = { file: string; line: number };
+
+/** Which of the note card's tools made a change. */
+export type ChangeKind = "size" | "colour" | "fill" | "spacing" | "text";
+
+export const CHANGE_KINDS: readonly ChangeKind[] = ["size", "colour", "fill", "spacing", "text"];
+
+/**
+ * One edit the person made to the element on the page, to show what he wants. `property` is the CSS
+ * property, or `text` for its words. `before` is what the page drew before it, as computed; `after` what
+ * he picked, as computed; `token` the design token he picked it as, where he picked one.
+ */
+export type StyleChange = { kind: ChangeKind; property: string; before: string; after: string; token?: string };
 
 /**
  * One note. Written for the agent that reads it, so each field is something a
@@ -145,6 +170,10 @@ export type Annotation = {
    * whole-window note, and on one whose picture was of the element alone, from before pictures were of the window.
    */
   ring?: Ring;
+  /** What the person changed on the element with the card's tools, one per property, in the order first made. Absent where none. */
+  changes?: StyleChange[];
+  /** Pictures he added to show what he means, each `exampleName(id, n)` beside this file. Absent where none. */
+  examples?: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -162,6 +191,11 @@ export type AnnotationsDevApi = {
   saveShot: (id: string, png: ArrayBuffer) => Promise<void>;
   /** The note's picture, or null where it has none. */
   shot: (id: string) => Promise<ArrayBuffer | null>;
+  /** Keeps a PNG as one of the note's example pictures, `name` being `exampleName(id, n)`. */
+  saveExample: (id: string, name: string, png: ArrayBuffer) => Promise<void>;
+  /** One of the note's example pictures, or null where it is gone. */
+  example: (id: string, name: string) => Promise<ArrayBuffer | null>;
+  removeExample: (id: string, name: string) => Promise<void>;
   /**
    * Calls `listener` each time Fleet rewrites a note file: an agent marked one done, or a Job's close
    * marked its notes done or let them go. Returns its remover. Absent in a browser, where nothing tells.
@@ -214,6 +248,17 @@ function isBox(v: unknown): v is Box {
   return isRecord(v) && isNumber(v["x"]) && isNumber(v["y"]) && isNumber(v["width"]) && isNumber(v["height"]);
 }
 
+function isStyleChange(v: unknown): v is StyleChange {
+  return (
+    isRecord(v) &&
+    CHANGE_KINDS.includes(v["kind"] as ChangeKind) &&
+    isString(v["property"]) &&
+    isString(v["before"]) &&
+    isString(v["after"]) &&
+    (v["token"] === undefined || isString(v["token"]))
+  );
+}
+
 /**
  * Whether a value read off the wire or the disk is a note. Main and the vite
  * plugin both refuse anything else, so a malformed body writes nothing.
@@ -251,6 +296,8 @@ export function isAnnotation(value: unknown): value is Annotation {
     isNumber(window["height"]) &&
     (value["screenshot"] === undefined || value["screenshot"] === shotName(value["id"] as string)) &&
     (value["ring"] === undefined || isRing(value["ring"])) &&
+    (value["changes"] === undefined || (Array.isArray(value["changes"]) && value["changes"].every(isStyleChange))) &&
+    (value["examples"] === undefined || (Array.isArray(value["examples"]) && value["examples"].every((name) => isExampleOf(value["id"], name)))) &&
     isString(value["createdAt"]) &&
     isString(value["updatedAt"])
   );
@@ -284,6 +331,8 @@ export function serializeAnnotation(note: Annotation): string {
     window: note.window,
     ...(note.screenshot === undefined ? {} : { screenshot: note.screenshot }),
     ...(note.ring === undefined ? {} : { ring: note.ring }),
+    ...(note.changes === undefined ? {} : { changes: note.changes }),
+    ...(note.examples === undefined ? {} : { examples: note.examples }),
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
   };
@@ -316,7 +365,24 @@ export function requestOf(note: Annotation): string {
   if (note.layer !== null) lines.push(`- Inside: ${note.layer}`);
   if (note.scenario !== null) lines.push(`- Mock scenario: ${note.scenario}`);
   lines.push(`- Window: ${note.window.width}×${note.window.height}`, `- Note file: .armada/annotations/${note.id}.json`);
+  const changed = changeLines(note);
+  if (changed.length > 0) lines.push("", ...changed);
   return lines.join("\n");
+}
+
+const quoted = (change: StyleChange, value: string): string => (change.kind === "text" ? JSON.stringify(value) : value === "" ? "none" : value);
+
+/**
+ * What the person changed on the element with the card's tools, to show what he wants: a heading naming
+ * the selector, then a line per property, before → after and the token he picked. None where he changed nothing.
+ */
+export function changeLines(note: Pick<Annotation, "selector" | "changes">): string[] {
+  const changes = note.changes ?? [];
+  if (changes.length === 0) return [];
+  return [
+    `Changes he made on the page to show what he wants, on ${note.selector}:`,
+    ...changes.map((change) => `- ${change.property}: ${quoted(change, change.before)} → ${quoted(change, change.after)}${change.token === undefined ? "" : ` (${change.token})`}`),
+  ];
 }
 
 /** What a whole-window note records of the window. A failure sent to a Session records the same, so both write it with `windowLines`. */

@@ -5,7 +5,7 @@ import type { SessionNote } from "@armada/protocol";
 import type { RingedNotes } from "../../../shared/api/sessions";
 import { isAnnotation, requestOf, serializeAnnotation, type Annotation } from "../../../shared/annotations";
 import { annotationNote } from "../../../shared/pinned-note";
-import { sendToSession, unsendable } from "./send";
+import { examplesOf, sendToSession, unsendable } from "./send";
 import type { Sink } from "./sink";
 
 function note(overrides: Partial<Annotation> = {}): Annotation {
@@ -40,6 +40,9 @@ function sink(overrides: Partial<Sink> = {}): Sink {
     capture: async () => new Uint8Array([137, 80, 78, 71]).buffer,
     saveShot: async () => undefined,
     shot: async () => null,
+    saveExample: async () => undefined,
+    example: async () => null,
+    removeExample: async () => undefined,
     ...overrides,
   };
 }
@@ -203,6 +206,86 @@ describe("a note sent to a Session", () => {
     const message = (fleet.sendSessionMessage.mock.calls[0] as unknown as [{ session_id: string; text: string; attachments: { data: string }[] }])[0];
     expect(message).toMatchObject({ session_id: "01T", text: requestOf(whole), attachments: [{ name: "annotation-20260917-140200-wide.png", media_type: "image/png" }] });
     expect(message).not.toHaveProperty("ring");
+  });
+
+  describe("with changes and pictures he added", () => {
+    const ID = "20260917-135315-tsfq";
+    const first = `${ID}-example-1.png`;
+    const second = `${ID}-example-2.png`;
+    const BIGGER = { kind: "size", property: "font-size", before: "13px", after: "18px", token: "--text-lg" } as const;
+    /** A sink holding these example files, by name. */
+    const holding = (files: Record<string, number[]>, overrides: Partial<Sink> = {}) =>
+      sink({ capture: async () => null, example: async (_id, name) => (files[name] === undefined ? null : new Uint8Array(files[name]).buffer), ...overrides });
+    const pictured = note({ examples: [first, second], changes: [BIGGER] });
+    const messages = (fleet: ReturnType<typeof sessions>) =>
+      (fleet.sendSessionMessage.mock.calls as unknown as [{ session_id: string; text: string; attachments?: { name: string; media_type: string; data: string }[] }][]).map(([sent]) => sent);
+
+    it("reads each example as an attachment named for it, and leaves out one whose file is gone or will not read", async () => {
+      const files = { [first]: [137, 80, 78, 71], [second]: [137, 80, 78, 71, 9] };
+      expect(await examplesOf(pictured, holding(files))).toEqual([
+        { name: `annotation-${first}`, media_type: "image/png", data: "iVBORw==" },
+        { name: `annotation-${second}`, media_type: "image/png", data: "iVBORwk=" },
+      ]);
+      expect((await examplesOf(pictured, holding({ [second]: files[second]! }))).map((one) => one.name)).toEqual([`annotation-${second}`]);
+      expect(await examplesOf(pictured, holding(files, { example: async () => Promise.reject(new Error("gone")) }))).toEqual([]);
+      expect(await examplesOf(note(), holding(files))).toEqual([]);
+    });
+
+    it("puts the changes in the pinned note's words, and sends no message of pictures where there are none", async () => {
+      const fleet = sessions();
+      await sendToSession([{ note: note({ changes: [BIGGER] }), box: null }], { id: "01T", title: "t" }, holding({}), fleet, PAGE, AT);
+      expect(notesSent(fleet)[0]?.said).toBe(`Can we add an illustration here?\n\nChanges he made on the page to show what he wants, on #root div.armada-board-empty:\n- font-size: 13px → 18px (--text-lg)`);
+      expect(fleet.sendSessionMessage).not.toHaveBeenCalled();
+    });
+
+    it("sends the pictures after the turn, in a message of their own that names each note's and attaches them all", async () => {
+      const fleet = sessions();
+      const plain = note({ id: "20260917-140300-next", text: "No pictures on me" });
+      const answer = await sendToSession(
+        [{ note: pictured, box: null }, { note: plain, box: null }],
+        { id: "01T", title: "t" },
+        holding({ [first]: [137, 80, 78, 71], [second]: [137, 80, 78, 71, 9] }),
+        fleet,
+        PAGE,
+        AT,
+      );
+      expect(answer.ok).toBe(true);
+      expect(fleet.sendSessionNotes).toHaveBeenCalledTimes(1);
+      expect(fleet.sendSessionMessage).toHaveBeenCalledTimes(1);
+      expect(fleet.sendSessionNotes.mock.invocationCallOrder[0]!).toBeLessThan(fleet.sendSessionMessage.mock.invocationCallOrder[0]!);
+      const [pictures] = messages(fleet);
+      expect(pictures?.session_id).toBe("01T");
+      expect(pictures?.text).toBe(`Pictures he added to show what he means, for the notes in the last message:\n- "Can we add an illustration here?" on #root div.armada-board-empty: annotation-${first}, annotation-${second}`);
+      expect(pictures?.attachments?.map((one) => one.name)).toEqual([`annotation-${first}`, `annotation-${second}`]);
+    });
+
+    it("sends a whole-window note's pictures with its own message, after its window", async () => {
+      const fleet = sessions();
+      const whole = note({ id: ID, scope: "window", text: "The whole window lags", examples: [first], changes: [BIGGER] });
+      await sendToSession([{ note: whole, box: whole.box }], { id: "01T", title: "t" }, holding({ [first]: [137, 80, 78, 71, 9] }, { capture: async () => pngOf(WINDOW.width, WINDOW.height) }), fleet, PAGE, AT);
+      expect(fleet.sendSessionNotes).not.toHaveBeenCalled();
+      const [only] = messages(fleet);
+      expect(messages(fleet)).toHaveLength(1);
+      expect(only?.text).toBe(requestOf(whole));
+      expect(only?.attachments?.map((one) => one.name)).toEqual([`annotation-${ID}.png`, `annotation-${first}`]);
+    });
+
+    it("says the pictures were not sent when Fleet refuses them, and still marks the turn's notes sent", async () => {
+      const fleet = { ...sessions(), sendSessionMessage: vi.fn(async () => refused as never) };
+      const answer = await sendToSession([{ note: pictured, box: null }], { id: "01T", title: "t" }, holding({ [first]: [137, 80, 78, 71] }), fleet, PAGE, AT);
+      expect(answer).toEqual({
+        ok: false,
+        saying: 'Pictures not sent to "t": Fleet is not connected. Nothing was sent.',
+        sent: { sessionId: "01T", title: "t", at: AT.toISOString() },
+        sentIds: [ID],
+      });
+    });
+
+    it("sends no pictures where every file is gone", async () => {
+      const fleet = sessions();
+      await sendToSession([{ note: pictured, box: null }], { id: "01T", title: "t" }, holding({}), fleet, PAGE, AT);
+      expect(fleet.sendSessionMessage).not.toHaveBeenCalled();
+    });
   });
 
   it("says what Fleet said when it refuses, and marks nothing", async () => {
