@@ -117,8 +117,15 @@ export type WhisperModel = { state: "absent" } | { state: "installing"; progress
 export type ThreadLookSource = {
   look: ThreadLook;
   setLook: (change: (was: ThreadLook) => ThreadLook) => void;
-  /** Answers to the agent's question, for a Job whose last message asks one. */
-  askedFor: (sessionId: string) => readonly string[];
+  /** Answers to the agent's last message, for a Job whose last message is the agent's. `lastMessage` is the one the Job is drawn with: answers written for another are not offered. */
+  askedFor: (sessionId: string, lastMessage?: string) => readonly string[];
+  /** Lines he sends often across every Job, for a Job's bar. Absent where nothing reads them from what he sent. */
+  learntFor?: (sessionId: string) => readonly string[];
+  /**
+   * Says which message of a Job is its last, so `askedFor` and `learntFor` are read again when it changes or when `settled`, what
+   * the look leaves lines out by, does. Called from an effect, and only while the Job's bar is drawn. Absent where `askedFor` is fixed.
+   */
+  wantQuick?: (sessionId: string, lastMessage: string, settled: string) => void;
   /** Hears words, one at a time, until the returned stop is called. Absent where nothing hears: Talk is not drawn. */
   listen?: (onWord: (word: string) => void) => () => void;
   /** Absent where nothing installs it: the voice list reads Whisper as not here. */

@@ -327,6 +327,7 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
     return text(sessionId) && asked !== undefined ? (connection()?.sessions.loadoutItem(sessionId, asked) ?? unsent) : unread;
   });
   ipc.handle(CHANNELS.readSessionMcp, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.mcp(sessionId) ?? unsent) : unread));
+  ipc.handle(CHANNELS.readSessionQuick, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.quick(sessionId) ?? unsent) : unread));
   ipc.handle(CHANNELS.actOnSessionMcp, (_event, sessionId: string, server: string, act: McpServerAct) =>
     text(sessionId) && text(server) && MCP_ACTS.includes(act) ? (connection()?.sessions.actOnMcp(sessionId, server, act) ?? unsent) : unread,
   );

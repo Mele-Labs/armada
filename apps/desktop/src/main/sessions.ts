@@ -95,6 +95,7 @@ import type {
   McpServerAct,
   SessionMcp,
   SessionMcpActed,
+  SessionQuick,
   SessionThread,
   SessionWait,
   StartSession,
@@ -131,6 +132,12 @@ const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 
 /** A Bridge offline a few minutes still opens the page shown meanwhile, and a walk from before a restart stays closed. */
 export const REOPEN_WITHIN_MS = 15 * 60 * 1000;
+
+/**
+ * What a read of a Job's quick replies waits: Fleet gives its model twenty seconds (`ASK_WITHIN` in
+ * `crates/fleet/src/session_host/quick.rs`) and answers in words after, so this is that and a margin.
+ */
+export const QUICK_MS = 30_000;
 
 /**
  * What an act on a Job's MCP server waits: Fleet's longest bound on one, ninety seconds for a reconnect or a
@@ -1075,6 +1082,14 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "GET", `/sessions/mcp?session_id=${encodeURIComponent(sessionId)}`);
     return answer.ok === true ? { ok: true, value: answer.body as SessionMcp } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** The answers to a Job's last message and the lines he sends often. Fleet keeps what it computed, so nothing is held here. */
+  async quick(sessionId: string): Promise<SessionActed<SessionQuick>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/quick?session_id=${encodeURIComponent(sessionId)}`, undefined, QUICK_MS);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionQuick } : { ok: false, outcome: answer.outcome };
   }
 
   /** One act on one server, answered once it settles with the servers after it and, for a sign-in, the page. */

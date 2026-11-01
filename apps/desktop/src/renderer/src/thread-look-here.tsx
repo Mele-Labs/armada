@@ -2,10 +2,10 @@
 // The window always holds a look, from one copy Fleet keeps under `thread.look` (`ThreadLookSaved`). A mock scenario may hand a
 // seed (`threadLook` on its draft), which holds in place of the saved copy. Talk hears a script there and this Mac's voice in the live app.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_LOOK, ThreadLookButton, ThreadLookContext, actOnQuick, actOnResponses, quickShownIn, responseMessage, useThreadLook } from "@armada/components";
-import type { QuickResponse, SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, WhisperModel } from "@armada/components";
-import type { SettingValue } from "@armada/protocol";
+import type { QuickPhrase, QuickResponse, SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, WhisperModel } from "@armada/components";
+import type { SessionQuick, SettingValue } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { saveSetting, useSetting } from "./use-setting";
@@ -56,6 +56,20 @@ export function ThreadLookSaved({ children }: { children: ReactNode }) {
     void voice.whisper().then(setWhisper);
     return voice.onWhisper(setWhisper);
   }, [voice]);
+  // What Fleet reads for each Job's bar (`GET /sessions/quick`), and the last message it was asked for.
+  const [quick, setQuick] = useState<Readonly<Record<string, { message: string; read: SessionQuick }>>>({});
+  const asked = useRef(new Map<string, string>());
+  const wantQuick = useCallback((sessionId: string, message: string, settled: string) => {
+    const key = `${message}|${settled}`;
+    if (asked.current.get(sessionId) === key) return;
+    asked.current.set(sessionId, key);
+    void window.armada.readSessionQuick(sessionId).then((read) => {
+      if (asked.current.get(sessionId) !== key) return;
+      // A read that failed is asked again the next time the Job's last message or the look moves.
+      if (!read.ok) return void asked.current.delete(sessionId);
+      setQuick((was) => ({ ...was, [sessionId]: { message, read: read.value } }));
+    });
+  }, []);
   const kept = useMemo(() => lookFrom(saved), [saved]);
   const [look, hold] = useState(kept);
   const latest = useRef(look);
@@ -88,7 +102,10 @@ export function ThreadLookSaved({ children }: { children: ReactNode }) {
           });
         }, SAVE_MS);
       },
-      askedFor: () => [],
+      // The answers belong to the message they were written for, so a newer one is not drawn over with the last one's.
+      askedFor: (id, lastMessage) => (lastMessage === undefined || quick[id]?.message === lastMessage ? (quick[id]?.read.asked ?? []) : []),
+      learntFor: (id) => quick[id]?.read.learnt ?? [],
+      wantQuick,
       ...(voice === undefined
         ? {}
         : {
@@ -97,7 +114,7 @@ export function ThreadLookSaved({ children }: { children: ReactNode }) {
             installWhisper: () => void voice.installWhisper(),
           }),
     }),
-    [look, kept, voice, whisper],
+    [look, kept, voice, whisper, quick, wantQuick],
   );
   return <ThreadLookContext.Provider value={source}>{children}</ThreadLookContext.Provider>;
 }
@@ -159,15 +176,44 @@ function asking(session: Session): boolean {
   return false;
 }
 
+/** The Job's last message, by its row: who said it and which. Fleet's lists move when it does. */
+function lastMessage(session: Session): string {
+  for (let at = session.rows.length - 1; at >= 0; at -= 1) {
+    const row = session.rows[at]!;
+    if (row.kind === "message") return `${row.from.kind}:${row.stableKey ?? row.id}`;
+  }
+  return "";
+}
+
+/** Lines are alike as Fleet reads them (`alike` in `crates/fleet/src/session_quick.rs`): case, spacing and trailing punctuation set aside. */
+function alike(line: string): string {
+  return line.split(/\s+/).filter((one) => one !== "").join(" ").toLowerCase().replace(/[\s!-\/:-@\[-`{-~…]+$/u, "");
+}
+
 /**
  * What a Job's view hands its thread, its box and its head, where the window holds a look. Undefined where it holds none, and
  * the view passes nothing new.
  */
 export function useThreadLookHere(session: Session): { thread: Pick<SessionThreadProps, "look" | "agentName" | "responses" | "onResponses">; composer: Pick<SessionComposerProps, "quick" | "talk">; head: ReactNode } | undefined {
   const source = useThreadLook();
+  // Fleet is asked again when the Job's last message moves, or the look moves a thing Fleet leaves lines out by.
+  const shown = source !== null && quickShownIn(source.look, session.id);
+  const learning = source?.look.learn === true;
+  const left = (source?.look.quick.length ?? 0) + (source?.look.forgotten.length ?? 0);
+  const last = lastMessage(session);
+  const want = source?.wantQuick;
+  useEffect(() => {
+    if (shown) want?.(session.id, last, `${learning}|${left}`);
+  }, [shown, want, session.id, last, learning, left]);
   if (source === null) return undefined;
   const { look } = source;
   const name = look.agentName.trim();
+  const mine = look.learn ? look.quick : look.quick.filter((one) => one.kind === "saved");
+  // Fleet's learnt lines come after his own, less the ones he has since kept, deleted or reworded.
+  const held = new Set([...look.quick.map((one) => one.text), ...look.forgotten].map(alike));
+  const learnt: QuickPhrase[] = !look.learn
+    ? []
+    : (source.learntFor?.(session.id) ?? []).filter((text) => !held.has(alike(text))).map((text) => ({ id: `learnt:${text}`, text, kind: "learnt" }));
   return {
     thread: {
       look: { showTimes: look.showTimes, showAgentName: look.showAgentName, textSize: look.textSize, spacing: look.spacing },
@@ -177,10 +223,11 @@ export function useThreadLookHere(session: Session): { thread: Pick<SessionThrea
     },
     composer: {
       ...(!quickShownIn(look, session.id) ? {} : { quick: {
-        asked: asking(session) ? source.askedFor(session.id) : [],
+        asked: asking(session) ? source.askedFor(session.id, last) : [],
         // Learnt lines go while he has learning off; the saved ones are his.
-        phrases: look.learn ? look.quick : look.quick.filter((one) => one.kind === "saved"),
-        onAct: (act) => source.setLook((was) => actOnQuick(was, act)),
+        phrases: [...mine, ...learnt],
+        // A line Fleet learnt is not in the look until he acts on it: keeping it is how a press on it takes hold.
+        onAct: (act) => source.setLook((was) => actOnQuick(act.act === "save" || was.quick.some((one) => one.id === act.id) ? was : keptLearnt(was, learnt, act.id), act)),
         onSave: (text) => source.setLook((was) => (text === "" || was.quick.some((one) => one.text === text) ? was : { ...was, quick: [...was.quick, { id: `saved:${Date.now()}`, text, kind: "saved" }] })),
         onHide: (scope: "job" | "all") => source.setLook((was) => (scope === "all" ? { ...was, quickOff: true } : was.quickOffFor.includes(session.id) ? was : { ...was, quickOffFor: [...was.quickOffFor, session.id] })),
       } }),
@@ -188,4 +235,10 @@ export function useThreadLookHere(session: Session): { thread: Pick<SessionThrea
     },
     head: <ThreadLookButton jobId={session.id} />,
   };
+}
+
+/** The look with the learnt line `id` among its quick lines, so an act on it finds it. Unchanged where no such line is learnt. */
+function keptLearnt(look: ThreadLook, learnt: readonly QuickPhrase[], id: string): ThreadLook {
+  const line = learnt.find((one) => one.id === id);
+  return line === undefined ? look : { ...look, quick: [...look.quick, line] };
 }
