@@ -7,14 +7,17 @@
 //   DELETE /__armada/annotations/<id>          the note and its picture
 //   GET    /__armada/annotations/<id>.png      its picture, or 404
 //   PUT    /__armada/annotations/<id>.png      its picture, as PNG bytes
+//   GET    /__armada/annotations/<id>/examples/<name>   one of its example pictures, or 404
+//   PUT    /__armada/annotations/<id>/examples/<name>   one, as PNG bytes
+//   DELETE /__armada/annotations/<id>/examples/<name>   one
 //
 // Under `src/main` because it is Node, and the renderer's tsconfig has none.
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 
-import { ANNOTATIONS_PATH, isAnnotation, isAnnotationId, isPng } from "../shared/annotations";
-import { annotationsDir, listAnnotations, readShot, removeAnnotation, repositoryRoot, saveAnnotation, saveShot } from "./annotations";
+import { ANNOTATIONS_PATH, isAnnotation, isAnnotationId, isExampleOf, isPng } from "../shared/annotations";
+import { annotationsDir, listAnnotations, readExample, readShot, removeAnnotation, removeExample, repositoryRoot, saveAnnotation, saveExample, saveShot } from "./annotations";
 
 export type AnnotationsServerOptions = {
   /** Where to look for the repository from. Defaults to the dev server's root. */
@@ -46,6 +49,8 @@ export async function answer(dir: string, req: IncomingMessage, res: ServerRespo
     if (req.method === "GET" && id === "") {
       return send(res, 200, await listAnnotations(dir));
     }
+    const example = /^([^/]+)\/examples\/([^/]+)$/.exec(id);
+    if (example !== null && isExampleOf(example[1], example[2])) return await answerExample(dir, example[1]!, example[2]!, req, res);
     const shotOf = id.endsWith(".png") ? id.slice(0, -".png".length) : null;
     if (shotOf !== null && isAnnotationId(shotOf)) return await answerShot(dir, shotOf, req, res);
     if (!isAnnotationId(id)) return send(res, 404, { error: "no such route" });
@@ -78,6 +83,28 @@ async function answerShot(dir: string, id: string, req: IncomingMessage, res: Se
     const body = await read(req);
     if (!isPng(body)) return send(res, 400, { error: "not a PNG" });
     await saveShot(dir, id, body);
+    return send(res, 204);
+  }
+  return send(res, 405, { error: "method not allowed" });
+}
+
+async function answerExample(dir: string, id: string, name: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (req.method === "GET") {
+    const png = await readExample(dir, id, name);
+    if (png === null) return send(res, 404, { error: "no picture" });
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "image/png");
+    res.end(Buffer.from(png));
+    return;
+  }
+  if (req.method === "PUT") {
+    const body = await read(req);
+    if (!isPng(body)) return send(res, 400, { error: "not a PNG" });
+    await saveExample(dir, id, name, body);
+    return send(res, 204);
+  }
+  if (req.method === "DELETE") {
+    await removeExample(dir, id, name);
     return send(res, 204);
   }
   return send(res, 405, { error: "method not allowed" });

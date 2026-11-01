@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, waitFor } from "storybook/test";
-import { DropdownMenu, type DropdownMenuEntry } from "./DropdownMenu";
+import { expect, fn, waitFor, within } from "storybook/test";
+import { DropdownMenu, PointActs, type DropdownMenuEntry } from "./DropdownMenu";
 
 const meta: Meta<typeof DropdownMenu> = {
   title: "Primitives/DropdownMenu",
@@ -449,5 +449,98 @@ export const SearchClearsHeldByTheCaller: Story = {
     await expect(field).toHaveValue("");
     await expect(field).toHaveFocus();
     await expect(canvas.queryByRole("button", { name: "Clear search" })).toBeNull();
+  },
+};
+
+const ownChosen = fn();
+const pointChosen = fn();
+const pointActs = {
+  entries: [
+    { kind: "item" as const, id: "point-mod", label: "Mod" },
+    { kind: "item" as const, id: "point-report", label: "Report" },
+  ],
+  onSelect: pointChosen,
+};
+
+/** What a context menu draws at a point, in the window's own layer: it is not inside the story's canvas. */
+const screen = () => within(document.body);
+
+/**
+ * **A context menu gets the app's acts after its own.** An app provides `PointActs`, such as Mod and
+ * Report, and every menu opened with `at` lists them last, below a rule. A press on one of them goes
+ * to the app's handler and never to the menu's own, and a press on the menu's own goes to the menu.
+ */
+export const AtAPointWithTheAppsActs: Story = {
+  render: () => (
+    <PointActs.Provider value={pointActs}>
+      <DropdownMenu
+        open
+        at={{ x: 40, y: 40 }}
+        triggerLabel="Job"
+        entries={[
+          { kind: "item", id: "pause", label: "Pause" },
+          { kind: "item", id: "close", label: "Close" },
+        ]}
+        onSelect={ownChosen}
+      />
+    </PointActs.Provider>
+  ),
+  play: async ({ userEvent }) => {
+    ownChosen.mockClear();
+    pointChosen.mockClear();
+    await waitFor(() => expect(screen().getByRole("menu")).toBeVisible());
+    // The menu's own, then one rule, then the app's.
+    await expect(screen().getAllByRole("menuitem").map((one) => one.textContent?.trim())).toEqual(["Pause", "Close", "Mod", "Report"]);
+    await expect(screen().getAllByRole("separator")).toHaveLength(1);
+
+    await userEvent.click(screen().getByRole("menuitem", { name: "Report" }));
+    await expect(pointChosen).toHaveBeenCalledWith("point-report");
+    await expect(ownChosen).not.toHaveBeenCalled();
+
+    await userEvent.click(screen().getByRole("menuitem", { name: "Pause" }));
+    await expect(ownChosen).toHaveBeenCalledWith("pause");
+    await expect(pointChosen).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** A menu with nothing of its own is the app's acts alone, with no rule above them. */
+export const AtAPointWithNothingButTheAppsActs: Story = {
+  render: () => (
+    <PointActs.Provider value={pointActs}>
+      <DropdownMenu open at={{ x: 40, y: 40 }} triggerLabel="Element" entries={[]} onSelect={ownChosen} />
+    </PointActs.Provider>
+  ),
+  play: async () => {
+    await waitFor(() => expect(screen().getByRole("menu")).toBeVisible());
+    await expect(screen().getAllByRole("menuitem").map((one) => one.textContent?.trim())).toEqual(["Mod", "Report"]);
+    await expect(screen().queryByRole("separator")).toBeNull();
+  },
+};
+
+/** A menu opened from its trigger is not a context menu: the app's acts are not in it, and its own presses go to it. */
+export const FromATriggerWithoutTheAppsActs: Story = {
+  render: () => (
+    <PointActs.Provider value={pointActs}>
+      <DropdownMenu defaultOpen triggerLabel="More" entries={[{ kind: "item", id: "pause", label: "Pause" }]} onSelect={ownChosen} />
+    </PointActs.Provider>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    ownChosen.mockClear();
+    pointChosen.mockClear();
+    await waitFor(() => expect(canvas.getByRole("menu")).toBeVisible());
+    await expect(canvas.getAllByRole("menuitem")).toHaveLength(1);
+    await userEvent.click(canvas.getByRole("menuitem", { name: "Pause" }));
+    await expect(ownChosen).toHaveBeenCalledWith("pause");
+    await expect(pointChosen).not.toHaveBeenCalled();
+  },
+};
+
+/** An app that provides none, as a menu outside it, draws the menu's own entries and nothing more. */
+export const AtAPointWithNoAppActs: Story = {
+  render: () => <DropdownMenu open at={{ x: 40, y: 40 }} triggerLabel="Job" entries={[{ kind: "item", id: "pause", label: "Pause" }]} onSelect={ownChosen} />,
+  play: async () => {
+    await waitFor(() => expect(screen().getByRole("menu")).toBeVisible());
+    await expect(screen().getAllByRole("menuitem")).toHaveLength(1);
+    await expect(screen().queryByRole("separator")).toBeNull();
   },
 };

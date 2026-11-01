@@ -10,8 +10,8 @@
 
 import type { Box } from "../../../shared/annotations";
 
-/** Which way the card sits from its element. `over` is the fallback: neither side had room. */
-export type CardSide = "below" | "above" | "over";
+/** Which way the card sits from its element. `over` is the fallback: no side had room. */
+export type CardSide = "below" | "above" | "beside" | "over";
 
 /** How big the card wants to be, uncapped — what it would draw given the whole window. */
 export type CardSize = { width: number; height: number };
@@ -72,7 +72,15 @@ export function placeCard(box: Box, card: CardSize, view: Viewport, m: Metrics):
   if (fits(below)) return { x, y: below, maxHeight: full, side: "below" };
   if (fits(above)) return { x, y: above, maxHeight: full, side: "above" };
 
-  // Neither side has room — the element is most of the window, which is what a
+  // Beside it next, so a card whose tools restyle the element never hides the change: trailing
+  // first, clearing the pin on the element's trailing corner, then leading.
+  const top = clamp(m.gap, box.y, view.floor - m.gap - card.height);
+  const trailing = box.x + box.width + m.pinSize / 2 + m.gap;
+  if (trailing + card.width <= view.width - m.gap) return { x: trailing, y: top, maxHeight: full, side: "beside" };
+  const leading = box.x - m.gap - card.width;
+  if (leading >= m.gap) return { x: leading, y: top, maxHeight: full, side: "beside" };
+
+  // No side has room — the element is most of the window, which is what a
   // full-height sheet is. Covering it is then unavoidable, so the card takes
   // the taller of the two bands its own pin leaves free, from that band's top,
   // and caps itself to it rather than running past an edge.
