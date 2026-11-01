@@ -1,3 +1,4 @@
+import { WorkingMark } from "../WorkingMark/WorkingMark";
 import type { HTMLAttributes } from "react";
 
 /**
@@ -58,6 +59,7 @@ export function SkeletonText({
       aria-busy
       {...rest}
     >
+      <WorkingMark className="armada-skeleton-text__mark" />
       {widths.map((w, i) => (
         <Skeleton key={`${w}-${i}`} width={w} />
       ))}

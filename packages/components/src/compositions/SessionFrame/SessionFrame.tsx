@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { WorkingMark } from "../../primitives/WorkingMark/WorkingMark";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { BatteryLow, LoaderCircle, Check, CircleDashed, CircleDot, CirclePause, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug, WandSparkles, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -78,7 +79,7 @@ export function SessionMark({ state, said }: { state: SessionState; said: string
   return (
     <Tooltip label={said}>
       <span className="armada-session-mark" role="img" aria-label={said} data-bucket={bucketOf(state)} data-pulsing={state === "working" || undefined}>
-        <Glyph size={16} strokeWidth={2} aria-hidden />
+        {state === "working" ? <WorkingMark size={16} /> : <Glyph size={16} strokeWidth={2} aria-hidden />}
       </span>
     </Tooltip>
   );

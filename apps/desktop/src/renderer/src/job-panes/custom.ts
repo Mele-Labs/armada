@@ -41,6 +41,8 @@ export const startBuilding = (id: string, job: string) => put(id, { ...peekCusto
 /** A tab added by the name of a mod that is built already. */
 export const seedBuilt = (id: string, mod: string) => put(id, { stage: "built", mod });
 const finished = (id: string, mod: string) => put(id, { ...peekCustom(id), stage: "built", mod });
+/** A built tab another Mod Job is now changing: its label and hover card follow that Job. */
+export const followJob = (id: string, job: string) => put(id, { ...peekCustom(id), job });
 
 /** Re-renders on any change of a Custom tab, for what reads a label or a glyph. */
 export const useCustomTick = (): void => void useSyncExternalStore(subscribe, () => version);

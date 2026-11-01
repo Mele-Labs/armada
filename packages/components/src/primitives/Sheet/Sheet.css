@@ -123,6 +123,40 @@
   animation: armada-sheet-in-left var(--duration-sheet) var(--ease);
 }
 
+/* The exit: the same travel in reverse, quicker, and the scrim lets go with
+ * it. `forwards` holds the last frame until `Sheet` unmounts it. Untouched
+ * clicks pass through meanwhile. */
+.armada-sheet-scrim[data-leaving] {
+  pointer-events: none;
+  animation: armada-sheet-scrim-out var(--duration-exit) var(--ease-in) forwards;
+}
+
+.armada-sheet-scrim[data-leaving] > .armada-sheet[data-side="right"] {
+  animation: armada-sheet-out-right var(--duration-exit) var(--ease-in) forwards;
+}
+
+.armada-sheet-scrim[data-leaving] > .armada-sheet[data-side="left"] {
+  animation: armada-sheet-out-left var(--duration-exit) var(--ease-in) forwards;
+}
+
+@keyframes armada-sheet-scrim-out {
+  to {
+    background-color: transparent;
+  }
+}
+
+@keyframes armada-sheet-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes armada-sheet-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
 @keyframes armada-sheet-in-right {
   from {
     transform: translateX(100%);
