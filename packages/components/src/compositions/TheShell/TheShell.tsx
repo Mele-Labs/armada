@@ -116,6 +116,13 @@ export function TheShell({
   dock,
   fleet,
 }: TheShellProps) {
+  // The field behind the glass holds still while the window is hidden: `screens.css` pauses on this mark.
+  useEffect(() => {
+    const mark = () => document.documentElement.toggleAttribute("data-hidden", document.hidden);
+    mark();
+    document.addEventListener("visibilitychange", mark);
+    return () => document.removeEventListener("visibilitychange", mark);
+  }, []);
   return (
     <ShortcutRevealProvider>
       <div className="armada-shell">

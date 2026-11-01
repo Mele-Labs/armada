@@ -1109,3 +1109,18 @@
 @media (prefers-reduced-motion: reduce) {
   .armada-session-thread__loading > svg { animation: none; }
 }
+
+/* A message or turn arriving in a Job's thread: a short rise and fade, once.
+   `SessionThread` marks only rows that appear after the thread has first drawn,
+   so opening a Job never replays its history. Opacity and --space-2 of travel;
+   the row's own box is already laid out, so nothing around it moves. */
+.armada-helm-thread__rows > [data-arrived] {
+  animation: armada-thread-arrive var(--duration-enter) var(--ease-out) backwards;
+}
+
+@keyframes armada-thread-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2));
+  }
+}
