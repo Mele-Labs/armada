@@ -52,9 +52,15 @@ export function lineText(node: LineNode | undefined): string {
 
 /** How far past the line and its acts the pointer may stray before they go: leaving has to be clear, not a slip. */
 const STRAY = 24;
+/** How long the pointer must rest on another line before it takes the acts: crossing one on the way to the acts is not choosing it. */
+const SETTLE_MS = 250;
+/** How long the acts outlast the pointer leaving, so a quick overshoot does not lose them. */
+const LINGER_MS = 300;
 
-/** One line is hot at a time: a line the pointer reaches cools the one before. */
+/** The one hot line: how to cool it. A line the pointer settles on cools the one before. */
 let coolHot: (() => void) | null = null;
+/** A line waiting to take the acts once the pointer has settled on it; reaching the hot line's acts calls it off. */
+let settling: ReturnType<typeof setTimeout> | undefined;
 
 /** Arrow keys walk the lines of the message the focus is in. */
 function move(from: HTMLElement, by: 1 | -1): void {
@@ -70,26 +76,38 @@ function move(from: HTMLElement, by: 1 | -1): void {
  */
 export function PickLine({ as: Tag, className, text, children, ...rest }: { as: "li" | "p"; className: string; text: string; children?: ReactNode; [data: `data-${string}`]: unknown }) {
   const picker = useContext(ProsePick);
-  // Where the pointer reached this line, kept while it is hot: the acts sit beside that point. Null when cool. Read from the
-  // pointer's own events, so the nearest line wins over a list inside it.
-  const [hot, setHot] = useState<{ x: number; y: number } | null>(null);
+  // Whether this line holds the acts. Read from the pointer's own events, so the nearest line wins over a list inside it.
+  const [hot, setHot] = useState(false);
   const line = useRef<HTMLElement | null>(null);
   const acts = useRef<HTMLSpanElement | null>(null);
-  // While hot, the acts stay until the pointer is clearly away from the line and from them.
+  // Whether the pointer is over this line now, for a line still settling.
+  const over = useRef(false);
+  // While hot, the acts stay until the pointer is clearly away from the line and from them, and a moment after.
   useEffect(() => {
-    if (hot === null) return;
-    const cool = () => setHot(null);
+    if (!hot) return;
+    let leaving: ReturnType<typeof setTimeout> | undefined;
+    const cool = () => {
+      clearTimeout(leaving);
+      setHot(false);
+    };
     coolHot = cool;
+    const within = (one: Element | null, by: number, event: PointerEvent) => {
+      if (one === null) return false;
+      const box = one.getBoundingClientRect();
+      return event.clientX >= box.left - by && event.clientX <= box.right + by && event.clientY >= box.top - by && event.clientY <= box.bottom + by;
+    };
     const onMove = (event: PointerEvent) => {
-      const near = [line.current, acts.current].some((one) => {
-        if (one === null) return false;
-        const box = one.getBoundingClientRect();
-        return event.clientX >= box.left - STRAY && event.clientX <= box.right + STRAY && event.clientY >= box.top - STRAY && event.clientY <= box.bottom + STRAY;
-      });
-      if (!near) cool();
+      if (within(acts.current, STRAY, event)) clearTimeout(settling);
+      if (within(line.current, STRAY, event) || within(acts.current, STRAY, event)) {
+        clearTimeout(leaving);
+        leaving = undefined;
+      } else if (leaving === undefined) {
+        leaving = setTimeout(cool, LINGER_MS);
+      }
     };
     document.addEventListener("pointermove", onMove);
     return () => {
+      clearTimeout(leaving);
       document.removeEventListener("pointermove", onMove);
       if (coolHot === cool) coolHot = null;
     };
@@ -110,13 +128,22 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
   };
   const Mark = marked === undefined ? null : MARKS[marked];
   return (
-    <Tag ref={(node: HTMLElement | null) => { line.current = node; }} className={className} {...rest} data-pick="" data-hot={hot === null ? undefined : true} data-marked={marked} tabIndex={0}
+    <Tag ref={(node: HTMLElement | null) => { line.current = node; }} className={className} {...rest} data-pick="" data-hot={hot || undefined} data-marked={marked} tabIndex={0}
       onPointerOver={(event) => {
-        if (hot !== null || (event.target as Element).closest("[data-pick]") !== event.currentTarget) return;
-        if (acts.current?.contains(event.target as Node)) return;
-        coolHot?.();
-        const box = event.currentTarget.getBoundingClientRect();
-        setHot({ x: event.clientX - box.left, y: event.clientY - box.top });
+        const mine = (event.target as Element).closest("[data-pick]") === event.currentTarget;
+        over.current = mine;
+        if (hot || !mine || acts.current?.contains(event.target as Node)) return;
+        const take = () => {
+          coolHot?.();
+          setHot(true);
+        };
+        clearTimeout(settling);
+        // Nothing hot: take the acts at once. Another line hot: only once the pointer rests here.
+        if (coolHot === null) take();
+        else settling = setTimeout(() => over.current && take(), SETTLE_MS);
+      }}
+      onPointerOut={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) over.current = false;
       }} aria-keyshortcuts="Enter Y N" onKeyDown={onKeyDown}>
       <InPickLine.Provider value>{children}</InPickLine.Provider>
       {Mark === null ? null : (
@@ -129,9 +156,11 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
       <span ref={acts} className="armada-prose__pick-acts" role="group" aria-label={`Answer: ${text}`}>
         {ACTS.map(({ kind, label, Glyph }) => (
           <Tooltip key={kind} label={label}>
-            <Button variant="ghost" size="sm" iconOnly aria-label={label} tabIndex={-1} onClick={() => {
+            <Button variant="ghost" size="sm" iconOnly aria-label={label} tabIndex={-1} onClick={(event) => {
               picker.pick(text, kind);
-              setHot(null);
+              setHot(false);
+              // A press leaves focus on the button, which would hold the acts up after the pointer has gone.
+              event.currentTarget.blur();
             }}>
               <Glyph size={16} strokeWidth={2} aria-hidden />
             </Button>

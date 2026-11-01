@@ -498,17 +498,25 @@ const ThreadPicks = createContext<LinePicks | null>(null);
 /** The line a message of the person's answers, and how: `> line`, or `Yes to:` or `No to:` then `> line`. */
 const ANSWER = /^(?:(Yes|No) to:\n)?> (.+)$/;
 
-/** What was said to each line of each agent message, read back from the person's own messages, so a mark outlives the thread being drawn again. */
+/** A message's words with markdown's marks dropped, near enough to find a line's plain text in. */
+const plainOf = (text: string): string => text.replace(/[`*_~]/g, "").replace(/\s+/g, " ");
+
+/**
+ * What was said to each line of each agent message, read back from the person's own messages, so a mark outlives the thread
+ * being drawn again. A line is credited to the latest agent message before the answer that holds it: he may answer an older one.
+ */
 function marksOf(rows: readonly SessionThreadRow[]): ReadonlyMap<string, PickKind> {
   const marks = new Map<string, PickKind>();
-  let agent: string | undefined;
+  const agents: { id: string; plain: string }[] = [];
   for (const row of rows) {
     if (row.kind !== "message") continue;
     if (row.from === "you") {
       const said = ANSWER.exec(row.text);
-      if (agent !== undefined && said !== null) marks.set(`${agent}\u0000${said[2]}`, said[1] === "Yes" ? "yes" : said[1] === "No" ? "no" : "pick");
+      if (said === null || agents.length === 0) continue;
+      const holder = [...agents].reverse().find((one) => one.plain.includes(said[2]!)) ?? agents[agents.length - 1]!;
+      marks.set(`${holder.id}\u0000${said[2]}`, said[1] === "Yes" ? "yes" : said[1] === "No" ? "no" : "pick");
     } else if (row.from !== "session") {
-      agent = row.id;
+      agents.push({ id: row.id, plain: plainOf(row.text) });
     }
   }
   return marks;
