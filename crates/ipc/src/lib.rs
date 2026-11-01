@@ -522,7 +522,7 @@ pub use requester::Requester;
 pub use logbook::{
     EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
     LogbookSection, LogbookState, LogbookTidy, LogbookTidyLast, LogbookTopic, LockLogbookEntry, AppliedOrganizeLogbook,
-    ApplyOrganizeLogbook, OrganizeAction, OrganizeLogbook, OrganizedLogbook, OrganizeProposal, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
+    ApplyOrganizeLogbook, OrganizeAction, OrganizeLogbook, OrganizedLogbook, OrganizingLogbook, DismissedOrganizeLogbook, LogbookOrganize, OrganizeProposal, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
 };
 pub use teaching::{
     ProposedAddress, ProposedFleet, ProposedRule, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
