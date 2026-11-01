@@ -1,0 +1,10 @@
+[operations.mark_judge_read]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Mark a Judge reading's notes as opened"
+notes = """
+`POST /sessions/judge/read`, body `MarkJudgeRead`: `session_id` and `reading`. Since 31 Oct 2026. Answers the `JudgeReading` with `read` true, and `SessionChanged` is published only where it was not already. **The agent is told nothing**, and a reading still `reading` can be marked: `read` is the person's, not the Judge's.
+
+The same 404 `fleet.no_such_session` and `fleet.no_such_judge_reading` as `send_judge_note`.
+"""
