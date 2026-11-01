@@ -23,22 +23,25 @@ import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone, type StoryZone } from "./StoryColumn";
 import { BrowserBody, BrowserTabsSync, ChangesBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
 import { CustomBody } from "../job-panes/custom-body";
+import { focusKind, focusLayer } from "../job-panes/focus";
 import { JobPanes } from "../job-panes/JobPanes";
-import type { Tab } from "../job-panes/tree";
+import type { Tab, TabKind } from "../job-panes/tree";
 import { OverTheApp } from "./OverTheApp";
-import { closeLayer, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
+import { closeLayer, drawLayersAsTabs, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
 import { lanesOpenFor } from "../shared-panel/store";
 import { placeLanes, toggleLanes, useWideWindow } from "./lanes-width";
 import type { PlanEditing } from "./PlanEdit";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer, LayerInPane } from "./SessionLayers";
-import { bandOf, isArtifactsKey, isLanesKey, isLedgerKey, isWholeKey, pressBand, pressWhole } from "./story";
+import { bandOf, isArtifactsKey, isLanesKey, isLedgerKey, isWholeKey, pressBand, pressWhole, type Area } from "./story";
 import { flipLedgerView } from "./ledger-view";
 import type { SessionBays } from "./slot-trouble";
 import "./session-view.css";
 
 /** The deck's own place for a Session's panels, as an element: `null` before the deck has drawn it. */
 export type Hosts = { side: HTMLElement | null };
+
+const BAND_TAB: Partial<Record<Area | "workflow", TabKind>> = { done: "done", now: "now", next: "open", workflow: "workflow" };
 
 export function SessionWorkspace({ session, entries, repositories, hosts, ed, bays, onOpenSketch, onOpenSession, onOpenCheck, live, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; bays: SessionBays | undefined; onOpenSketch: (sketch: string, at?: string) => void; onOpenSession: (id: string) => void; onOpenCheck: (run: number) => void; live?: LiveOpen; children: ReactNode }) {
   const draft = useSessionsDraft();
@@ -56,6 +59,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   // A Job with a story in the Cockpit has its area in panes, thread and story among them, and no column of its own for the story.
   const paned = hosts !== undefined && work !== undefined && draft !== undefined;
   const story = work !== undefined && draft !== undefined && side !== null;
+  // The views a Job's keys open over it are tabs here: Artifacts is the Ledger, Bays and Workflow their own, and none opens a layer.
+  useEffect(() => (paned ? drawLayersAsTabs(id, (one) => focusLayer(id, one)) : undefined), [paned, id]);
   // With a story, every layer opens in the spine under the view strip; without one it covers the stage.
   const aside = story && layer !== undefined;
   const views = useJobViews(session, bays);
@@ -114,6 +119,9 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
       const band = bandOf(event);
       if (band === undefined) return;
       event.preventDefault();
+      // A Job in panes has each band as a tab: its key brings the tab forward, or opens it.
+      const tab = paned ? BAND_TAB[band.area] : undefined;
+      if (tab !== undefined) return focusKind(id, tab);
       if (layer === "artifacts") closeLayer();
       if (band.area === "workflow") return document.querySelector<HTMLElement>(".sv-side [data-workflow-pick]")?.focus();
       pressBand(session, band.area);

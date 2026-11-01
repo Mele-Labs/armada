@@ -208,6 +208,11 @@ Browser has no tile and no key: it is a tab kind ([The Job browser](session/job-
 Each opens a layer over the thread, or over the right column for Artifacts, and is a press on its icon in the Job's head.
 Checks pulses while any of the Job's Checks runs, and is the one place that shows it: the thread's header carries no checks mark.
 Subagents pulses while any runs and carries the number running in its tooltip, so no count is drawn beside the glyph.
+**A Job in panes draws each view as a tab, and opens no layer.**
+Its key, its icon and a call in the thread bring that kind's tab forward, or open one where the Job has none: in the pane that holds that kind, else in a new pane on the right.
+Artifacts is the Ledger tab, Bays and Workflow are tabs of their own, and a second press brings the tab forward and does not close it, since a tab closes by its ×, and Esc closes none.
+`⌥1`, `⌥2` and `⌥3` bring the Done, Now and Open tabs forward in the same way, and `⌥W` the Workflow tab.
+The Field and the Job's document still float over the whole Job.
 
 | View | Opens | Through |
 |---|---|---|
