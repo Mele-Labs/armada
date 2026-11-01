@@ -44,6 +44,10 @@ pub(crate) struct Distils {
     tried: Mutex<BTreeMap<String, u64>>,
     /// What the last tidy that ended folded, when (epoch millis), and whether a call failed. Lost on a restart.
     tidy_last: Mutex<Option<(u32, u64, bool)>>,
+    /// Whether an Organize look is running, and what the last one that finished found, held until
+    /// it is applied or dismissed. Lost on a restart.
+    organizing: AtomicBool,
+    organize_last: Mutex<Option<ipc::OrganizedLogbook>>,
 }
 
 impl Distils {

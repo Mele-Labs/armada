@@ -1,0 +1,8 @@
+[operations.dismiss_organize_logbook]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Dismiss the result a finished Organize look holds"
+notes = """
+`POST /logbook/organize/dismiss`, no body. Answers `{}`. The proposals `get_logbook` holds in `organize.last` are dropped; nothing is written to the Logbook. Dismissing when none is held answers the same. A look still running is not stopped, and its result is held when it finishes.
+"""

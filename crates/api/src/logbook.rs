@@ -91,14 +91,22 @@ pub(crate) async fn tidy_logbook<D: Logbook>(State(served): State<Served<D>>, bo
     }
 }
 
-/// Look for what to organize; changes nothing.
+/// Start looking for what to organize; answers at once that a look is running. Changes nothing.
 pub(crate) async fn organize_logbook<D: Logbook>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let organize: ipc::OrganizeLogbook = match ipc::decode_body("what to organize", &body) {
         Ok(organize) => organize,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().organize_logbook(organize).await {
+    match served.shared().organize_logbook(organize).await {
         Ok(organized) => answer(StatusCode::OK, &organized, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Drop the result a finished look holds.
+pub(crate) async fn dismiss_organize_logbook<D: Logbook>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().dismiss_organize_logbook().await {
+        Ok(dismissed) => answer(StatusCode::OK, &dismissed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
