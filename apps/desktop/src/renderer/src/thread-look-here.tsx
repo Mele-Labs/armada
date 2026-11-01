@@ -1,6 +1,6 @@
 // The thread's look, the quick bar and Talk for a Job: what the Aa panel and System › Thread set, read where a Job is drawn.
 // The window always holds a look, from one copy Fleet keeps under `thread.look` (`ThreadLookSaved`). A mock scenario may hand a
-// seed (`threadLook` on its draft), which holds in place of the saved copy. Talk hears a script there and nothing in the live app.
+// seed (`threadLook` on its draft), which holds in place of the saved copy. Talk hears a script there and this Mac's voice in the live app.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_LOOK, ThreadLookButton, ThreadLookContext, actOnQuick, actOnResponses, quickShownIn, responseMessage, useThreadLook } from "@armada/components";
@@ -44,10 +44,18 @@ export function lookFrom(saved: SettingValue | undefined): ThreadLook {
 
 /**
  * The look from `thread.look` in settings.json: drawn the moment it changes and saved a beat later, and a save Fleet refuses puts
- * back what Fleet has. Talk and the Whisper model are not here, so Talk is not drawn.
+ * back what Fleet has. Talk hears through this Mac's voice engines (`main/voice.ts`) where the preload offers them, and is not
+ * drawn where it does not.
  */
 export function ThreadLookSaved({ children }: { children: ReactNode }) {
   const saved = useSetting(KEY);
+  const voice = window.armada.voice;
+  const [whisper, setWhisper] = useState<WhisperModel>({ state: "absent" });
+  useEffect(() => {
+    if (voice === undefined) return undefined;
+    void voice.whisper().then(setWhisper);
+    return voice.onWhisper(setWhisper);
+  }, [voice]);
   const kept = useMemo(() => lookFrom(saved), [saved]);
   const [look, hold] = useState(kept);
   const latest = useRef(look);
@@ -81,8 +89,15 @@ export function ThreadLookSaved({ children }: { children: ReactNode }) {
         }, SAVE_MS);
       },
       askedFor: () => [],
+      ...(voice === undefined
+        ? {}
+        : {
+            listen: (onWord: (word: string) => void) => voice.listen(latest.current.voice, onWord),
+            whisper,
+            installWhisper: () => void voice.installWhisper(),
+          }),
     }),
-    [look, kept],
+    [look, kept, voice, whisper],
   );
   return <ThreadLookContext.Provider value={source}>{children}</ThreadLookContext.Provider>;
 }

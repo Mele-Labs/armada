@@ -6,6 +6,7 @@ import { DEFAULT_LOOK } from "@armada/components";
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { s235SessionHead } from "./scenarios/session-head";
 import { mount, onScreen, toSession, toSystemPage, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -59,4 +60,22 @@ test("System › Thread reads and writes the same copy", async () => {
   await userEvent.type(name, "Odile");
   await expect.poll(() => save.mock.calls.length).toBe(1);
   expect(save).toHaveBeenCalledWith({ [KEY]: { ...DEFAULT_LOOK, agentName: "Odile" } });
+});
+
+test("Talk hears through this Mac's voice with the engine the look names, into the box it hands focus to", async () => {
+  const listen = vi.fn((_engine: string, onWord: (word: string) => void) => {
+    onWord("ship");
+    onWord("it");
+    return () => undefined;
+  });
+  const voice = { listen, whisper: async () => ({ state: "absent" as const }), onWhisper: () => () => undefined, installWhisper: async () => ({ ok: true as const }) };
+  const app = mount({ ...s235SessionHead, behaves: (handle) => ({ ...s235SessionHead.behaves!(handle), voice }) });
+  await onScreen();
+  await app.api.saveSettings({ [KEY]: { voice: "dictation" } });
+  const view = await toSession(/How does armada interface/);
+  await userEvent.click(view.getByRole("button", { name: "Talk" }));
+  expect(listen).toHaveBeenCalledWith("dictation", expect.any(Function));
+  const box = view.getByRole("textbox", { name: "Message" });
+  await expect.element(box).toHaveFocus();
+  await expect.element(box).toHaveTextContent("ship it");
 });

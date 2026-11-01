@@ -690,6 +690,12 @@ export function SessionComposer({
     if (talk === undefined || stopTalk.current !== undefined) return;
     heldTalk.current = held;
     setListening(true);
+    // The box takes focus first: a press on Talk leaves it on the button, and macOS Dictation types into whatever holds it.
+    const box = editor.current;
+    if (box !== null) {
+      box.focus();
+      caretToEnd(box);
+    }
     stopTalk.current = talk.listen((word) => setDraft((was) => ({ ...was, text: joined(was.text, word) })));
   };
   useEffect(() => {
