@@ -1,0 +1,7 @@
+[icons.mic]
+  means = "A microphone on its stand: words spoken rather than typed"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Talk on a Job's message box: listening while held or pressed, its words joining the box. Never a recording kept, a call or a meeting, and never a sound setting."
+  notes = "Proposed 31 Oct 2026 for the walk `livelier-thread`. Tooltip `Talk ⌥Space`. While it listens the glyph breathes on the hover ground, the pulse a running mark has. No glyph in the registry depicted speech: `radio` is the replay bar's Live, `megaphone` an announcement."

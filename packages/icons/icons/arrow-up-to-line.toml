@@ -11,3 +11,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 11 Oct 2026 with the Commander's act rows. The cap is a hard line and the raise lifts it, which is the drawing the loop-cap reason already uses. Tooltip `Raised cap`."
+
+  [[icons.arrow-up-to-line.usage]]
+    means = "A quick reply he pinned, on its chip over a Job's message box and its line in the thread's settings: it sits first"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 31 Oct 2026 for the walk `livelier-thread`. A pinned line is the one that rises to the front and stops at the top, which is the drawing the raised cap already uses. Tooltip `Pinned`. Refused: `pin`, reserved to the canvas rail and never a pinned row; `bookmark`, reserved to deferring a Studio node; `star`, a sketched favourite and never a pinned row. If the owner rules `pin` may mean this, it replaces this entry."

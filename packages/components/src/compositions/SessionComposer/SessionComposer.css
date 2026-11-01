@@ -351,3 +351,35 @@ a.armada-inline-tag--link > svg {
 
 /* A value the proposer picked, until the person changes it. */
 .armada-session-composer__proposed { display: inline-flex; flex: none; align-self: center; margin-left: var(--space-1); color: var(--accent); }
+
+/* The quick bar is the box's top row, inside its border, so a band over the box frames both. */
+.armada-session-composer > .armada-quick {
+  margin: 0;
+  padding: var(--space-2) var(--space-2) 0;
+}
+
+/* Talk while it listens: the glyph breathes on the hover ground, the same pulse a running mark has. */
+.armada-session-composer__talk[data-listening] {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-session-composer__talk[data-listening] > svg {
+  animation: armada-session-composer-listen var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-session-composer-listen {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-composer__talk[data-listening] > svg {
+    animation: none;
+  }
+}

@@ -19,6 +19,7 @@ import type {
   McpSignIn,
   SessionMcpActed,
   SessionMcpServer,
+  SessionQuick,
   SessionRunMessage,
   AttachmentState,
   HelmCallInFlight,
@@ -257,6 +258,8 @@ export class FakeSessionsFleet {
   mcpRefuses: Record<string, string> = {};
   /** Every act on an MCP server, in order. */
   mcpActs: { session: string; server: string; act: McpServerAct }[] = [];
+  /** What each Session's bar is offered, by Session id, as `get_session_quick` answers. A Session not here is offered nothing. */
+  quick: Record<string, SessionQuick> = {};
   /** Hears each message the person sends, to script what the agent does with it. */
   onSend: ((send: SendSessionMessage) => void) | undefined;
   /** Hears each answer to an ask once it has settled, to script the agent's next call. */
@@ -607,6 +610,7 @@ export class FakeSessionsFleet {
             const servers = this.mcpServers[sessionId];
             return servers === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: { servers } };
           },
+          readSessionQuick: async (sessionId) => ({ ok: true, value: this.quick[sessionId] ?? { asked: [], learnt: [] } }),
           actOnSessionMcp: async (sessionId, server, act) => this.actingOnMcp(sessionId, server, act),
           mendSessionTools: async (sessionId) => this.mending(sessionId),
           startSessionRun: async (sessionId, command) => this.startingRun(sessionId, command),

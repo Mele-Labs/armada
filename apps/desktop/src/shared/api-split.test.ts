@@ -144,7 +144,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { ModSessionStarted, StartModSession, AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissWaiting, ReopenWaiting, IssueClaimed, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, DismissWait, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissWaiting, ReopenWaiting, IssueClaimed, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionQuick, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, DismissWait, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -175,6 +175,7 @@ import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
 import { JOB_BROWSER_CHANNELS, type JobBrowserApi } from "./api/job-browser";
+import { VOICE_CHANNELS, type VoiceApi } from "./api/voice";
 import { PROJECTS_CHANNELS, type ProjectsApi } from "./api/projects";
 import { BUG_REPORTS_CHANNELS, type BugReportsApi } from "./api/bug-reports";
 import { LIFECYCLES_CHANNELS, type LifecyclesApi } from "./api/lifecycles";
@@ -487,6 +488,7 @@ type OldBridgeApi = {
     readAttachmentHistory: (sessionId: string) => Promise<SessionActed<AttachmentHistory>>;
     readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
     readSessionMcp: (sessionId: string) => Promise<SessionActed<SessionMcp>>;
+    readSessionQuick: (sessionId: string) => Promise<SessionActed<SessionQuick>>;
     actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
     mendSessionTools: (sessionId: string) => Promise<SessionActed<void>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
@@ -523,7 +525,7 @@ type OldBridgeApi = {
     readTerminalSoFar: (runId: string) => Promise<string | null>;
     moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]) => Promise<void>;
     onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => () => void;
-} & AutopilotApi & SketchShareApi & FilesApi & AttachmentsApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & JobBrowserApi & ProjectsApi & BugReportsApi & LifecyclesApi & PullRequestNotesApi;
+} & AutopilotApi & SketchShareApi & FilesApi & AttachmentsApi & ReviewsApi & FlightControlsApi & OnboardingApi & RequestsApi & SharingApi & LogbookApi & TeachingApi & JobBrowserApi & VoiceApi & ProjectsApi & BugReportsApi & LifecyclesApi & PullRequestNotesApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -821,6 +823,7 @@ const OLD_CHANNELS = {
     readAttachmentHistory: "bridge:read-attachment-history",
     readLoadoutItem: "bridge:read-loadout-item",
     readSessionMcp: "bridge:read-session-mcp",
+    readSessionQuick: "bridge:read-session-quick",
     actOnSessionMcp: "bridge:act-on-session-mcp",
     mendSessionTools: "bridge:mend-session-tools",
     openSessionFile: "bridge:open-session-file",
@@ -869,6 +872,7 @@ const OLD_CHANNELS = {
     ...LOGBOOK_CHANNELS,
     ...TEACHING_CHANNELS,
     ...JOB_BROWSER_CHANNELS,
+    ...VOICE_CHANNELS,
     ...PROJECTS_CHANNELS,
     ...BUG_REPORTS_CHANNELS,
     ...LIFECYCLES_CHANNELS,

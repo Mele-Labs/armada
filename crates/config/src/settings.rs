@@ -65,6 +65,8 @@ pub enum Section {
     Store,
     /// How much room Bridge draws around rows, panels and controls.
     Spacing,
+    /// How a Job's thread reads and what its quick bar offers: the Aa panel and System › Thread.
+    Thread,
     Bridge,
 }
 
@@ -109,7 +111,7 @@ impl Section {
             | Section::Store => Group::Fleet,
             Section::Features | Section::Workflows => Group::Features,
             Section::Editor | Section::Terminal | Section::Links => Group::Tools,
-            Section::Spacing | Section::Bridge => Group::Appearance,
+            Section::Spacing | Section::Thread | Section::Bridge => Group::Appearance,
         }
     }
 
@@ -133,6 +135,7 @@ impl Section {
             Section::Account => "Account",
             Section::Store => "Store",
             Section::Spacing => "Spacing",
+            Section::Thread => "Thread",
             Section::Bridge => "Bridge",
         }
     }

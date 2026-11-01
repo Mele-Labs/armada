@@ -9,7 +9,7 @@ type Extra = Partial<Pick<Setting, "saved" | "applies" | "pending_restart" | "ov
 /** Each section's group, as `config::settings` names it. */
 const GROUP: Record<string, string> = {
   Limits: "Fleet", Timeouts: "Fleet", Retention: "Fleet", Machine: "Fleet", Account: "Fleet", Store: "Fleet", Harness: "Agents", Model: "Agents", Effort: "Agents", Plan: "Agents", Prompts: "Prompts",
-  Features: "Features", Workflows: "Features", Editor: "Tools", Terminal: "Tools", Links: "Tools", Spacing: "Appearance", Bridge: "Appearance",
+  Features: "Features", Workflows: "Features", Editor: "Tools", Terminal: "Tools", Links: "Tools", Spacing: "Appearance", Thread: "Appearance", Bridge: "Appearance",
 };
 
 function row(section: string, key: string, title: string, description: string, kind: SettingKind, shipped: SettingValue, extra: Extra = {}): Setting {
@@ -97,6 +97,7 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Terminal", "terminal.command", "Custom terminal command", "Run when Terminal is Custom. {dir} is filled in with the worktree.", TEXT, ""),
     row("Links", "links.openPullRequestsIn", "Open pull requests in", "Where every pull request link in Bridge opens.", { kind: "choice", options: ["armada", "browser"] }, "armada"),
     row("Spacing", "spacing.density", "Spacing", "Room around rows, panels and controls.", { kind: "choice", options: ["compact", "default", "roomy"] }, "default"),
+    row("Thread", "thread.look", "Thread look", "The Aa panel and Settings, Thread write this.", { kind: "json" }, {}),
     row("Bridge", "bridge.rowView", "Row view", "The Cockpit row menu's View group writes this.", { kind: "json" }, {}),
     row("Bridge", "bridge.layout", "Layout", "Settings → Layout writes this.", { kind: "json" }, {}),
   ],

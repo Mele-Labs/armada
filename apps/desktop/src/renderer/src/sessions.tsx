@@ -52,7 +52,7 @@ import {
   useTerminalDock,
   FILE_SHOWN,
 } from "@armada/components";
-import type { DebugPayload, DraftAnswer, RunsPlace, SketchAnswer, TeachPick } from "@armada/components";
+import type { DebugPayload, DraftAnswer, QuickResponse, RunsPlace, SketchAnswer, TeachPick } from "@armada/components";
 import { PROTOCOL_ID, spoken } from "@armada/protocol";
 import type {
   ProseTerminalValue,
@@ -107,6 +107,8 @@ import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { useToolsBand, useToolsFixes } from "./tools-fixes";
 import { attachmentsOf, opensPullRequests, ownerOf, owesOf, planAsked, toolsMissingSaid } from "@armada/screens/src/draft/sessions";
 import { usePausedSend } from "./paused-send";
+import { askedLine, pickedLine, useThreadLookHere } from "./thread-look-here";
+import { liftOnce } from "./arrivals";
 import type { ChipRef, DrawnSketch, Session, SessionRow, SessionAnswer, SessionAttachment, SessionMode, PlanMark, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
@@ -949,6 +951,19 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A run drawn as a terminal: a block's run is drawn under the block, and one typed in the box is docked above it.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const docked = useJobDock(session.id, "page", useTerminalDock(useCodeRun(runner, dockRunKey(session.id, "page")), dockRunKey(session.id, "page")), draft?.terminalRuns !== undefined, deck?.shell === true);
+  // The thread's look, the quick bar and Talk, where the window holds a look (`thread-look-here.tsx`).
+  const lookHere = useThreadLookHere(session);
+  // A Job dispatched while the window is open lifts off the first time its card is drawn (`arrivals.ts`).
+  useEffect(() => {
+    const card = centre.current?.closest<HTMLElement>(".armada-session-frame");
+    if (card == null || !liftOnce(`session:${session.id}`)) return;
+    card.removeAttribute("data-lifting");
+    void card.offsetWidth;
+    card.setAttribute("data-lifting", "");
+    const done = () => card.removeAttribute("data-lifting");
+    card.addEventListener("animationend", done, { once: true });
+    return () => card.removeEventListener("animationend", done);
+  }, [session.id]);
   if (draft === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
@@ -1134,6 +1149,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   };
   const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, ...(one.landsIn === undefined ? {} : { landsIn: one.landsIn }), ...(one.ownJob === true ? { ownJob: true as const, ...cardIssueOf(issueOfGroup(session, one.issue)?.issue, session.manifestId), ...jobOf(one.id) } : {}), tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), ...(opensPrs ? { opensPullRequests: true as const, onOpenPullRequest: (number: number) => read({ kind: "pull_request", number }) } : {}), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(planJudge === undefined ? {} : { judged: planJudge }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || notOurs.length > 0;
+  // While Needs you is up the band holds his answers, so the quick bar is not drawn over the box until it goes.
+  const composerHere = lookHere === undefined ? undefined : waits ? { talk: lookHere.composer.talk } : lookHere.composer;
   // Open only for what the panel lists: a restart is the band's own key unless it is Fleet's offer, and a band with nothing in it is not drawn open.
   const listed = needs.some((one) => one.restart === undefined || one.onDismiss !== undefined) || question !== undefined || notOurs.length > 0;
   // The delivery question opens the card before he has touched it; once he has closed or opened it, his choice holds.
@@ -1265,6 +1282,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
                       Terminal
                     </Button>
                   )}
+                  {lookHere?.head}
                   {marked}
                   {deck?.flight === true ? <JobActsSlot /> : null}
                 </>
@@ -1339,6 +1357,14 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             onAnswer={() => undefined}
             onOpenSession={onOpen}
+            {...(lookHere?.thread ?? {})}
+            {...(lookHere === undefined || session.dead !== undefined ? {} : { onPickLine: (text: string, response: QuickResponse) => {
+              // Asking sends nothing: the quote waits in the box, and the caret is on the blank line under it.
+              if (response.kind === "ask") {
+                quoteIntoDraft(session.id, askedLine(text));
+                setFocusFor({ key: session.id, at: Date.now() });
+              } else void draft.send(session.id, { text: pickedLine(text, response), files: [], sketches: NO_SKETCHES, tags: [] });
+            } })}
           />
           </SavedOpen.Provider>
           </RequestOpen.Provider>
@@ -1393,6 +1419,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
+              {...(composerHere ?? {})}
               onSend={(sent) => {
                 // A held Job's first send begins it: the box is the first message.
                 if (starting !== undefined) return starting.begin(sent.text);

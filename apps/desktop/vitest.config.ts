@@ -7,7 +7,7 @@
 // it loads reach a surface's code at runtime: every test under `mock/` (the
 // mock Fleet composes every surface through `fake.ts`, and `App` mounts them),
 // `annotate/Layer.test.tsx` (`openJobIn` from Jobs) and `left-column.test.ts`
-// (Overview's readings). The rest load `src/main`, `src/shared`, the
+// (Overview's readings). The rest load `src/main`, `src/preload`, `src/shared`, the
 // renderer's own modules and the shared packages, and the surfaces only as
 // types, which a bundler drops.
 //
@@ -53,7 +53,7 @@ export default defineConfig({
         test: {
           name: "desktop",
           environment: "node",
-          include: ["src/main/**/*.test.ts", "src/shared/**/*.test.ts", "src/renderer/**/*.test.ts"],
+          include: ["src/main/**/*.test.ts", "src/preload/**/*.test.ts", "src/shared/**/*.test.ts", "src/renderer/**/*.test.ts"],
           exclude: smokeNode,
         },
       },
