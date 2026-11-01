@@ -1375,7 +1375,8 @@ The protocol ID moves with `crates/ipc/src`, the operation files, the route tabl
 | Where | Side | Carries |
 | --- | --- | --- |
 | `LogbookEntry.topic` | Fleet writes | `git`, `slots`, `testing`, `tools` or `mac`; absent until the sorter places the entry, and then Other |
-| `organize_logbook` (`POST /logbook/organize`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `OrganizeLogbook` `{ action, repository? }`, `action` one of `merge`, `stale`, `bugs`; answers `OrganizedLogbook` `{ action, proposals, failed }`. Writes nothing. Waits for the model calls of `merge` and `bugs` |
+| `organize_logbook` (`POST /logbook/organize`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `OrganizeLogbook` `{ action, repository? }`, `action` one of `merge`, `stale`, `bugs`; answers `OrganizingLogbook` `{ running }` at once; the look runs on a task of its own and its `OrganizedLogbook` `{ action, proposals, failed }` is `Logbook.organize.last` (`organize.running` while it goes), held until applied or dismissed. Writes nothing |
+| `dismiss_organize_logbook` (`POST /logbook/organize/dismiss`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | No body; answers `{}`; drops `organize.last` |
 | `OrganizeProposal` | Fleet writes | `{ id, entry_ids, text, note }`: a merge lists the kept entry first in `entry_ids` and carries the text it would read; `stale` and `bugs` name one entry, `note` saying how long or the fault |
 | `apply_organize_logbook` (`POST /logbook/organize/apply`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ApplyOrganizeLogbook` `{ action, proposals }`; answers `AppliedOrganizeLogbook` `{ action, applied, reported }`. `bugs` writes nothing and answers the proposals as `reported` |
 

@@ -123,6 +123,18 @@ pub struct LogbookEntry {
 pub struct Logbook {
     pub entries: Vec<LogbookEntry>,
     pub tidy: LogbookTidy,
+    #[serde(default)]
+    pub organize: LogbookOrganize,
+}
+
+/// Whether an Organize look is running, and the proposals the last one that finished left. Kept in
+/// memory: a restart forgets `last`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LogbookOrganize {
+    pub running: bool,
+    /// What the last look found, held until it is applied or dismissed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last: Option<OrganizedLogbook>,
 }
 
 /// Whether a Tidy pass is running, and what the last one did. Kept in memory: a restart forgets `last`.
@@ -211,7 +223,18 @@ pub struct OrganizeProposal {
     pub note: String,
 }
 
-/// `organize_logbook`' answer.
+/// `organize_logbook`' answer, given at once: a look is running, whether this call started it or one was
+/// already going. What it found is in `get_logbook`'s `organize`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrganizingLogbook {
+    pub running: bool,
+}
+
+/// `dismiss_organize_logbook`' answer: the held result is gone.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DismissedOrganizeLogbook {}
+
+/// What a finished Organize look found.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrganizedLogbook {
     pub action: OrganizeAction,

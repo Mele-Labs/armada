@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Carry out the Organize proposals a person kept: fold a merge group, archive stale entries, or report bugs"
 notes = """
-`POST /logbook/organize/apply`, body `{action, proposals}`, the proposals as `organize_logbook` answered them. Answers `{action, applied, reported}`.
+`POST /logbook/organize/apply`, body `{action, proposals}`, the proposals as `organize_logbook` answered them. Answers `{action, applied, reported}`, and takes the applied proposals out of the result `get_logbook` holds in `organize.last`, dropping it when none are left.
 
 `merge` folds each proposal's absorbed entries into the first of its `entry_ids`: the kept entry takes their evidence and paths, its text becomes the proposal's `text` with the old one in its history as `merged`, and the absorbed entries are archived. `stale` archives each entry in `entry_ids`. `bugs` writes nothing and answers the proposals back as `reported`; nothing is posted to any forge. `applied` counts the entries folded or archived.
 

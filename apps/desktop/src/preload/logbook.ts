@@ -13,5 +13,6 @@ export const logbookPreload: LogbookApi = {
   forgetLogbookEntry: (id) => ipcRenderer.invoke(CHANNELS.forgetLogbookEntry, id),
   tidyLogbook: () => ipcRenderer.invoke(CHANNELS.tidyLogbook),
   organizeLogbook: (action) => ipcRenderer.invoke(CHANNELS.organizeLogbook, action),
+  dismissOrganizeLogbook: () => ipcRenderer.invoke(CHANNELS.dismissOrganizeLogbook),
   applyOrganizeLogbook: (action, proposals) => ipcRenderer.invoke(CHANNELS.applyOrganizeLogbook, action, proposals),
 };

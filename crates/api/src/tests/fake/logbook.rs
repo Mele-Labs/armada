@@ -3,7 +3,7 @@
 use ipc::{
     EditLogbookEntry, Instant, Logbook as LogbookRead, LogbookEntry, ForgottenLogbookEntry, LogbookKind, LogbookSection,
     LogbookState, LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook, AppliedOrganizeLogbook,
-    ApplyOrganizeLogbook, OrganizeLogbook, OrganizedLogbook,
+    ApplyOrganizeLogbook, OrganizeLogbook, OrganizingLogbook, DismissedOrganizeLogbook,
 };
 
 use super::FakeDaemon;
@@ -39,7 +39,7 @@ impl Logbook for FakeDaemon {
         _section: Option<LogbookSection>,
         _state: Option<LogbookState>,
     ) -> Result<LogbookRead, Refusal> {
-        Ok(LogbookRead { entries: Vec::new(), tidy: Default::default() })
+        Ok(LogbookRead { entries: Vec::new(), tidy: Default::default(), organize: Default::default() })
     }
 
     async fn edit_logbook_entry(&self, entry_id: String, edit: EditLogbookEntry) -> Result<LogbookEntry, Refusal> {
@@ -58,8 +58,12 @@ impl Logbook for FakeDaemon {
         Ok(TidiedLogbook { running: tidy.repository.is_some() })
     }
 
-    async fn organize_logbook(&self, organize: OrganizeLogbook) -> Result<OrganizedLogbook, Refusal> {
-        Ok(OrganizedLogbook { action: organize.action, proposals: Vec::new(), failed: false })
+    async fn organize_logbook(self: std::sync::Arc<Self>, _organize: OrganizeLogbook) -> Result<OrganizingLogbook, Refusal> {
+        Ok(OrganizingLogbook { running: true })
+    }
+
+    async fn dismiss_organize_logbook(&self) -> Result<DismissedOrganizeLogbook, Refusal> {
+        Ok(DismissedOrganizeLogbook {})
     }
 
     async fn apply_organize_logbook(&self, apply: ApplyOrganizeLogbook) -> Result<AppliedOrganizeLogbook, Refusal> {
