@@ -48,6 +48,10 @@ function held(sessions: SessionRecord[] = [record()], settings: unknown = null) 
     approvePlan: vi.fn(async () => ok),
     sendPlanChanges: vi.fn(async () => ok),
     setSessionWorkflow: vi.fn(async () => ok),
+    askJudge: vi.fn(async () => ok),
+    sendJudgeNote: vi.fn(async () => ok),
+    dismissJudgeNote: vi.fn(async () => ok),
+    markJudgeRead: vi.fn(async () => ok),
   };
   const state = {
     ...NOTHING_YET,
@@ -93,6 +97,35 @@ describe("a Session's plan, over Fleet", () => {
     store.draft.work!.suggest("s1", []);
     expect(api.approvePlan).not.toHaveBeenCalled();
     expect(api.sendPlanChanges).not.toHaveBeenCalled();
+    stop();
+  });
+});
+
+describe("a Judge, over Fleet", () => {
+  const artifact = { kind: "plan" as const, id: "3", title: "Plan v3" };
+
+  it("asks for a reading of an artifact of the Job, with what to verify", async () => {
+    const { api, store, stop } = await ready();
+    store.draft.judge!.ask("s1", artifact, "tokens survive");
+    expect(api.askJudge).toHaveBeenCalledWith({ session_id: "s1", artifact, prompt: "tokens survive" });
+    stop();
+  });
+
+  it("sends, dismisses and marks read a reading's notes by the Job, the reading and the note", async () => {
+    const { api, store, stop } = await ready();
+    store.draft.judge!.send("s1", "r1", "n1");
+    store.draft.judge!.dismiss("s1", "r1", "n2");
+    store.draft.judge!.markRead("s1", "r1");
+    expect(api.sendJudgeNote).toHaveBeenCalledWith({ session_id: "s1", reading: "r1", note: "n1" });
+    expect(api.dismissJudgeNote).toHaveBeenCalledWith({ session_id: "s1", reading: "r1", note: "n2" });
+    expect(api.markJudgeRead).toHaveBeenCalledWith({ session_id: "s1", reading: "r1" });
+    stop();
+  });
+
+  it("draws a Job's readings from its record", async () => {
+    const reading = { id: "r1", artifact, prompt: "", state: "done" as const, asked_at: "2026-10-26T13:00:00Z", read: false, notes: [] };
+    const { store, stop } = await ready([record({ judge_readings: [reading] })]);
+    expect(store.draft.get()[0]!.judgeReadings).toEqual([reading]);
     stop();
   });
 });
