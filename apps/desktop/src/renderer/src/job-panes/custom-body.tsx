@@ -1,5 +1,5 @@
 // The body of a Custom tab. Empty it is the composer the thread uses, where the tab is described; sent, it is the Mod Job's own thread while it builds the tab as a mod of
-// kind `tab`; built, it is that mod's view. A built tab is edited from its hover card (`custom-card.tsx`).
+// kind `tab`; built, it is that mod's module, run in place (`tab-host.tsx`). A built tab is edited from its hover card (`custom-card.tsx`).
 
 import { PanelTop } from "lucide-react";
 import { SessionComposer, SessionThread, type SentFromComposer } from "@armada/components";
@@ -10,7 +10,7 @@ import { useNumbered } from "../numbered";
 import { threadRowsOf } from "../session-thread-rows";
 import { useSessions } from "../sessions-draft";
 import { askToTell } from "../tell";
-import { VIEWS } from "./custom-views";
+import { TabMod } from "./tab-host";
 import { startBuilding, useCustom } from "./custom";
 
 const NONE: readonly never[] = [];
@@ -28,7 +28,7 @@ function Describe({ tabId, manifestId }: { tabId: string; manifestId: string | u
   const numbered = useNumbered(manifestId);
   const keep = `custom:${tabId}`;
   const send = async (sent: SentFromComposer): Promise<boolean> => {
-    const started = await window.armada.startModSession({ title: `Mod ${titleOf(sent.text)}`, said: sent.text });
+    const started = await window.armada.startModSession({ title: `Mod ${titleOf(sent.text)}`, said: sent.text, aim: "tab" });
     if (!started.ok) {
       askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
       return false;
@@ -64,7 +64,7 @@ function Describe({ tabId, manifestId }: { tabId: string; manifestId: string | u
   );
 }
 
-export function CustomBody({ tabId, manifestId, onOpenSession }: { tabId: string; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
+export function CustomBody({ tabId, jobId, manifestId, onOpenSession }: { tabId: string; /** The Job the tab is open in. */ jobId: string; manifestId: string | undefined; onOpenSession: (id: string) => void }) {
   const custom = useCustom(tabId, true);
   const job = useSessions().find((one) => one.id === custom.job);
   if (custom.stage === "building") {
@@ -88,10 +88,9 @@ export function CustomBody({ tabId, manifestId, onOpenSession }: { tabId: string
       </div>
     );
   }
-  const View = custom.mod === undefined ? undefined : VIEWS[custom.mod];
   return (
     <div className="job-custom" data-stage="built">
-      {View === undefined ? null : <View />}
+      {custom.mod === undefined ? null : <TabMod mod={custom.mod} jobId={jobId} tabId={tabId} />}
     </div>
   );
 }

@@ -3,9 +3,9 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-import { useModsMade } from "../mods-made";
+import { useModList } from "../mod-list";
 
-export type CustomTab = { stage: "compose" | "building" | "built"; /** The Mod Job that is building it, or built it last. */ job?: string; /** The mod it draws, by its folder's name. */ mod?: string; };
+export type CustomTab = { stage: "compose" | "building" | "built"; /** The Mod Job that is building it, or built it last. A tab added by its mod's name has its mod's `made_by`. */ job?: string; /** The mod it draws, by its folder's name. */ mod?: string; /** The mod's glyph, by its name in the icon registry. */ glyph?: string; };
 
 const held = new Map<string, CustomTab>();
 const listeners = new Set<() => void>();
@@ -49,25 +49,12 @@ export const useCustomTick = (): void => void useSyncExternalStore(subscribe, ()
 export function useCustom(id: string, custom: boolean): CustomTab {
   useCustomTick();
   const now = peekCustom(id);
-  const { mods } = useModsMade(custom && now.stage === "building" ? (now.job ?? "") : "");
-  const made = mods.find((one) => one.kind === "tab")?.name;
+  const listed = useModList();
+  const made = custom && now.stage === "building" ? listed.find((one) => one.kind === "tab" && one.made_by === now.job)?.name : undefined;
   useEffect(() => {
     if (made !== undefined) finished(id, made);
   }, [id, made]);
-  return now;
+  const row = now.mod === undefined ? undefined : listed.find((one) => one.name === now.mod);
+  const job = now.job ?? row?.made_by;
+  return { ...now, ...(job === undefined ? {} : { job }), ...(row?.glyph === undefined ? {} : { glyph: row.glyph }) };
 }
-
-// **The mock's**: how far the Mod Job has got in changing a mod's view, which the view reads as it is rebuilt step by step. A real tab mod is rewritten and reloaded.
-const revisions = new Map<string, number>();
-const revisionListeners = new Set<() => void>();
-
-export function setRevision(mod: string, step: number): void {
-  revisions.set(mod, step);
-  revisionListeners.forEach((on) => on());
-}
-
-export const useRevision = (mod: string): number =>
-  useSyncExternalStore(
-    (on) => (revisionListeners.add(on), () => void revisionListeners.delete(on)),
-    () => revisions.get(mod) ?? 0,
-  );
