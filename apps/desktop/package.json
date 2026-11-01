@@ -12,7 +12,7 @@
     "codegen": "node codegen/vocabulary.mjs",
     "tones": "node sounds/tones.mjs",
     "dev": "electron-vite build && electron-vite preview",
-    "build": "electron-vite build",
+    "build": "node native/voice/build.mjs && electron-vite build",
     "package": "electron-vite build && electron-builder",
     "start": "electron-vite preview",
     "mock": "vite --config vite.mock.config.ts --open",
