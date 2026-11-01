@@ -1,4 +1,4 @@
-// Take "Band replaces the bar" for a question in Needs you: the quick bar is not drawn while the band is up. Over `band-replaces-bar`.
+// A question in Needs you: the quick bar is not drawn while the band is up. Over `band-replaces-bar`.
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";

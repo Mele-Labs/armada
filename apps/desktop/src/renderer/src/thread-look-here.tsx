@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ThreadLookButton, ThreadLookContext, actOnQuick, actOnResponses, quickShownIn, responseMessage, useThreadLook } from "@armada/components";
-import type { QuickResponse, SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, ThreadSpacing, WhisperModel, WithBand } from "@armada/components";
+import type { QuickResponse, SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, ThreadSpacing, WhisperModel } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { saveSetting, useSetting } from "./use-setting";
@@ -16,8 +16,6 @@ export type ThreadLookSeed = {
   asked: Readonly<Record<string, readonly string[]>>;
   /** What Talk hears, a word at a time. */
   heard: string;
-  /** Mock only, a comparison of two takes: how the Needs you band and the quick bar share a question. Absent, today's. */
-  withBand?: WithBand;
 };
 
 /** How long Talk takes between words, and how long Whisper's model takes to come down. */
@@ -40,7 +38,6 @@ function Held({ seed, children }: { seed: ThreadLookSeed; children: ReactNode })
       look,
       setLook,
       askedFor: (id) => seed.asked[id] ?? [],
-      ...(seed.withBand === undefined ? {} : { withBand: seed.withBand }),
       listen: (onWord) => {
         const words = seed.heard.split(/\s+/).filter((one) => one !== "");
         let at = 0;
@@ -92,7 +89,7 @@ function asking(session: Session): boolean {
  * What a Job's view hands its thread, its box and its head, where the window holds a look. Undefined where it holds none, and
  * the view passes nothing new.
  */
-export function useThreadLookHere(session: Session): { thread: Pick<SessionThreadProps, "look" | "agentName" | "responses" | "onResponses">; composer: Pick<SessionComposerProps, "quick" | "talk">; head: ReactNode; withBand?: WithBand } | undefined {
+export function useThreadLookHere(session: Session): { thread: Pick<SessionThreadProps, "look" | "agentName" | "responses" | "onResponses">; composer: Pick<SessionComposerProps, "quick" | "talk">; head: ReactNode } | undefined {
   const source = useThreadLook();
   const density = useSetting("spacing.density");
   if (source === null) return undefined;
@@ -118,6 +115,5 @@ export function useThreadLookHere(session: Session): { thread: Pick<SessionThrea
       talk: { listen: source.listen },
     },
     head: <ThreadLookButton jobId={session.id} spacing={spacing} onSpacing={(next) => void saveSetting("spacing.density", next)} />,
-    ...(source.withBand === undefined ? {} : { withBand: source.withBand }),
   };
 }

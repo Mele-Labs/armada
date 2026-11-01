@@ -24,8 +24,6 @@ type RealThread = {
   asked: readonly string[];
   /** A question the agent is held on, put in the Needs you band. */
   ask?: Session["asked"];
-  /** Mock only, a comparison: how the band and the quick bar share that question. */
-  withBand?: "one-bar" | "replace";
 };
 
 export function realThreadScenario(one: RealThread): Scenario {
@@ -65,7 +63,6 @@ export function realThreadScenario(one: RealThread): Scenario {
         },
         asked: { [one.id]: one.asked },
         heard: "Go ahead",
-        ...(one.withBand === undefined ? {} : { withBand: one.withBand }),
       },
     },
   };

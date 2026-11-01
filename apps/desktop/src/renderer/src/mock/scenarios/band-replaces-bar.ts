@@ -15,7 +15,6 @@ export const s342BandReplacesBar: Scenario = realThreadScenario({
   slot: 3,
   rows: HEADER_SIZES_ROWS,
   asked: [],
-  withBand: "replace",
   ask: {
     command: QUESTION,
     call: "band-replaces-bar-q1",

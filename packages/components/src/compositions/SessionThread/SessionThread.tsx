@@ -1760,7 +1760,7 @@ export function askText({ asked, lapsed }: Pick<SessionThreadProps, "asked" | "l
 }
 
 /** What the agent is held on, or asked and was not answered: the permission or question card, then the lapsed deck when no call holds it. Answered in place, wherever it is drawn. */
-export function AskCards({ asked, askRef, onAnswer, lapsed, flat, bare, keep }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed"> & { /** Inside a panel that frames it: the question deck without its own card, band or fold. */ flat?: true; /** The deck leaves its options to the quick bar. */ bare?: true; /** What the ask is about: its answers are kept under it until it is answered. */ keep?: string }) {
+export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<SessionThreadProps, "asked" | "askRef" | "onAnswer" | "lapsed"> & { /** Inside a panel that frames it: the question deck without its own card, band or fold. */ flat?: true; /** What the ask is about: its answers are kept under it until it is answered. */ keep?: string }) {
   // A permission is one of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Allow once, `⌥X` its refuse. A question's deck registers itself.
   const permission = asked !== undefined && (asked.questions?.length ?? 0) === 0 ? asked : undefined;
   const refuse = permission?.offers?.find((offer) => offer.id === REFUSE);
@@ -1813,7 +1813,6 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, bare, keep }: 
             <QuestionDeck
               key={asked.command}
               {...(flat === undefined ? {} : { flat })}
-              {...(bare === undefined ? {} : { bare })}
               {...(keep === undefined ? {} : { keep })}
               questions={asked.questions}
               onAnswer={onAnswer}
