@@ -9,11 +9,24 @@
 --duration-sheet   220ms    a sheet from the trailing edge
 --duration-travel  300ms    a row re-sorting to its new place
 --duration-pulse   1600ms   a loop that says still working
+--duration-exit    140ms    a layer leaving, faster than it arrived
+--duration-enter   180ms    a screen fading up (= --duration-base)
+--duration-drift   90s      the field behind the glass, one tile
 --duration-answer  1600ms   how long a control shows Fleet's answer
 --duration-hold    900ms    holding a destructive control to commit
 --duration-decay   45s      a changed row's mark fading
 --ease             cubic-bezier(0.2, 0, 0, 1)
+--ease-in          cubic-bezier(0.4, 0, 1, 1)      exits
+--ease-out         cubic-bezier(0.16, 1, 0.3, 1)   a screen arriving
 ```
+
+**The app is not rigid.** A screen mounted into the shell fades up
+(opacity only; it never runs when the same screen's data moves), a sheet
+eases out as it eased in, every pressable thing eases colour and edge at
+`--duration-fast`, and behind the glass a faint tilted grid and a few marks
+drift: transform-only, one tile per `--duration-drift`, paused while the
+window is hidden and still under reduced motion. A loading place draws the
+running mark's pulse above its bars; the bars themselves stay still.
 
 **Three clocks, for three audiences.** A *transition* (press to travel,
 under 300ms) is for a person watching. A *loop* (pulse) says something
