@@ -56,6 +56,7 @@ export function QuestionDeck({
   onAnswer,
   canSkip,
   flat,
+  bare,
   keep,
 }: {
   questions: readonly AskedQuestion[];
@@ -64,6 +65,8 @@ export function QuestionDeck({
   canSkip: boolean;
   /** Inside a panel that already frames it: no card, no band, the question and its answers alone. */
   flat?: boolean;
+  /** The options are not drawn, the quick bar holds them: the question, Other and the acts remain. */
+  bare?: boolean;
   /** What these questions are about: the picks and the question in front are kept under it, as a message not yet sent is, and go when it is answered or skipped. */
   keep?: string;
 }) {
@@ -224,7 +227,7 @@ export function QuestionDeck({
           <div className="armada-question-deck__body" hidden={flat ? false : !open}>
             <p className="armada-question-deck__ask"><RefText text={one.question} /></p>
             <div className="armada-question-deck__answers" role={one.multi_select ? "group" : "radiogroup"} aria-label="Options">
-              {one.options.map((option, index) => {
+              {(bare ? [] : one.options).map((option, index) => {
                 const on = (picked[front] ?? []).includes(option.label);
                 return (
                   <button

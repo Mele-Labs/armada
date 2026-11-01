@@ -89,6 +89,9 @@ export const VOICE_ENGINES: readonly { id: VoiceEngine; said: string }[] = [
 
 export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", quick: [], learn: true, forgotten: [], voice: "apple" };
 
+/** `one-bar`: a question's options are the quick bar's first chips and the band keeps its words. `replace`: the bar is not drawn while a band is up. */
+export type WithBand = "one-bar" | "replace";
+
 /** Whisper's model on this Mac: not here, coming down (`progress` 0 to 1), or here. */
 export type WhisperModel = { state: "absent" } | { state: "installing"; progress: number } | { state: "installed" };
 
@@ -101,6 +104,8 @@ export type ThreadLookSource = {
   setLook: (change: (was: ThreadLook) => ThreadLook) => void;
   /** Answers to the agent's question, for a Job whose last message asks one. */
   askedFor: (sessionId: string) => readonly string[];
+  /** Mock only, a comparison: how the Needs you band and the quick bar share a question. Absent, both are drawn as they were. */
+  withBand?: WithBand;
   /** Hears words, one at a time, until the returned stop is called. */
   listen: (onWord: (word: string) => void) => () => void;
   whisper: WhisperModel;

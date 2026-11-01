@@ -21,6 +21,10 @@ type RealThread = {
   rows: readonly SessionRow[];
   /** Short replies to the agent's last message. */
   asked: readonly string[];
+  /** A question the agent is held on, put in the Needs you band. */
+  ask?: Session["asked"];
+  /** Mock only, a comparison: how the band and the quick bar share that question. */
+  withBand?: "one-bar" | "replace";
 };
 
 export function realThreadScenario(one: RealThread): Scenario {
@@ -32,6 +36,7 @@ export function realThreadScenario(one: RealThread): Scenario {
     lastTurnAt: last,
     rows: [...one.rows],
     attachments: [{ kind: "slot", slot: one.slot }, { kind: "branch", name: one.branch, slot: one.slot }],
+    ...(one.ask === undefined ? {} : { asked: one.ask }),
   });
   return {
     ...s200Sessions,
@@ -56,6 +61,7 @@ export function realThreadScenario(one: RealThread): Scenario {
         },
         asked: { [one.id]: one.asked },
         heard: "Go ahead",
+        ...(one.withBand === undefined ? {} : { withBand: one.withBand }),
       },
     },
   };

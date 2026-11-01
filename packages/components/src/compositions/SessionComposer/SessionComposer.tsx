@@ -187,7 +187,7 @@ export type SessionComposerProps = {
    * ⌘1 to ⌘9 sends one, ⇧ puts it in the box; `onSave` keeps what the box holds as a saved line. **While the box has the
    * focus ⌘1 to ⌘9 are the bar's**, not the tabs'. Absent draws no bar.
    */
-  quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void; onAct?: (act: QuickAct) => void };
+  quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void; onAct?: (act: QuickAct) => void; /** Where a press on one of `asked` goes, instead of being sent as a message: it answers the question the band holds. */ onAnswer?: (line: string) => void };
   /** Talk: a press, or ⌥Space held in the box, listens, and each word heard joins the box. Nothing is sent by it. Absent draws no Talk. */
   talk?: { listen: (onWord: (word: string) => void) => () => void };
 };
@@ -665,6 +665,7 @@ export function SessionComposer({
 
   /** A quick line goes as it is, whatever the box holds, and the box keeps it. */
   const sendLine = (line: string) => {
+    if (quick?.onAnswer !== undefined && quick.asked.includes(line)) return quick.onAnswer(line);
     if (!disabled) void onSend({ text: line, files: [], tags: [] });
   };
   /** A quick line put after what the box holds, to finish before sending. */
