@@ -99,6 +99,6 @@ A step the owner ends, by a reply or an approval, and a delivering step, which e
 The one message names the step and what ends it, and says to do it or ask the owner what is still open, and to carry on where the Job waits on work it started or he said to wait.
 It is told once for each step in a Job's life (`session_rail.stalled`), and is not kept against the workflow, since it is no drift.
 
-**With `features.workflows` off, or a Job's workflow in `workflows.off`** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no boundary judge, even for a Job that already has a workflow, and the first turn does not tell the agent the steps.
+**With `features.workflows` off, or a Job's workflow in `workflows.off`** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no step judge, even for a Job that already has a workflow, and the first turn does not tell the agent the steps.
 The Job keeps the workflow it has.
 The proposer is shown none and never picks one, and `set_session_workflow` refuses to set one (`fleet.session_workflows_off`) but still clears one.

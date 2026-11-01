@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 16 Oct 2026. `docs/concepts/session.md`, *The rail* and *The judges*.
+Since 16 Oct 2026. `docs/concepts/session.md`, *The rail*, and `docs/concepts/session/the-judge.md`.
 **Additive only**: three operations, four fields on a record, two on a waiting item, one source and one timeline kind.
 The protocol ID is derived from the wire files and needs no bump.
 

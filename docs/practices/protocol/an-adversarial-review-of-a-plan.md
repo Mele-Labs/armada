@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 25 Oct 2026. `docs/concepts/adversarial-review.md`.
+Since 25 Oct 2026. `docs/concepts/judge.md`.
 **Additive only**: three operations, one field on a record, and the types they carry.
 The protocol ID is derived from the wire files and needs no bump.
 
