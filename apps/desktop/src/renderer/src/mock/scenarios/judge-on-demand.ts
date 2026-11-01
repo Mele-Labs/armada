@@ -152,7 +152,7 @@ function pulled(): PullRequestRead {
     manifest_id: OWNER,
     number: PULL,
     base: "main",
-    author: "claude",
+    author: "nick",
     created_at: ago(30),
     additions: 12,
     deletions: 3,
@@ -164,8 +164,8 @@ function pulled(): PullRequestRead {
     checks: [{ name: "build", state: "running", address: `${ADDRESS}/checks?check_run_id=1` }],
     files: files.map((path) => ({ path, status: "modified" as const, additions: path === MIDDLEWARE ? 6 : 2, deletions: 1 })),
     commits: [
-      { sha: "a41c9e2", headline: "Issue a session token at sign-in", author: "claude", at: ago(25) },
-      { sha: "b7d02f1", headline: "Check the token on every request", author: "claude", at: ago(17) },
+      { sha: "a41c9e2", headline: "Issue a session token at sign-in", author: "nick", at: ago(25) },
+      { sha: "b7d02f1", headline: "Check the token on every request", author: "nick", at: ago(17) },
     ],
   };
   return { repository: "mele-labs/armada", root: ROOT, facts: { kind: "pull_request", number: PULL, title: PULL_TITLE, branch: BRANCH, address: ADDRESS, checks: { state: "pending" }, state: "open", auto: false, body: page.body ?? "" }, page };
