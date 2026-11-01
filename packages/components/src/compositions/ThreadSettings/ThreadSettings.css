@@ -15,6 +15,7 @@
   gap: var(--space-3);
 }
 
+.armada-thread-settings__responses,
 .armada-thread-settings__quick,
 .armada-thread-settings__voice {
   display: flex;
@@ -30,6 +31,20 @@
   line-height: var(--leading-xs);
   font-weight: var(--weight-medium);
   color: var(--fg-muted);
+}
+
+.armada-thread-settings__emojis {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* The editor under the row, a block and not a layer: the Aa panel is a layer already. */
+.armada-thread-settings__editor {
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
 }
 
 .armada-thread-settings__lines {

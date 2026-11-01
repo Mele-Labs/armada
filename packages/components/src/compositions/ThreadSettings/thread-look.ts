@@ -1,5 +1,8 @@
 import { createContext, useContext } from "react";
 
+import { DEFAULT_RESPONSES } from "../../primitives/Prose/responses";
+import type { QuickResponse } from "../../primitives/Prose/responses";
+
 /** How a Job's thread reads: the agent's name, the stamps, the text size, and the replies a press sends. */
 export type ThreadLook = {
   /** What the agent's rows are labelled. Empty reads `Agent`. */
@@ -18,6 +21,8 @@ export type ThreadLook = {
   quickOff: boolean;
   /** The quick bar is not drawn in these Jobs, by id. */
   quickOffFor: readonly string[];
+  /** The quick responses on a line of an agent's message, in the order the bar draws them. */
+  responses: readonly QuickResponse[];
 };
 
 /** A line the quick bar offers: one he saved, or one Bridge learnt from what he sends. */
@@ -96,7 +101,7 @@ export const VOICE_ENGINES: readonly { id: VoiceEngine; said: string }[] = [
   { id: "dictation", said: "macOS Dictation" },
 ];
 
-export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", quick: [], learn: true, forgotten: [], voice: "apple", quickOff: false, quickOffFor: [] };
+export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", quick: [], learn: true, forgotten: [], voice: "apple", quickOff: false, quickOffFor: [], responses: DEFAULT_RESPONSES };
 
 /** `one-bar`: a question's options are drawn in the band as quick bar chips and the bar over the box draws nothing. `replace`: the bar is not drawn while a band is up. */
 export type WithBand = "one-bar" | "replace";

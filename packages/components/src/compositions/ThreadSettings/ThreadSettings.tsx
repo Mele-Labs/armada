@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import type { KeyboardEvent } from "react";
 
 import { useKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Popover } from "../../primitives/Popover/Popover";
+import { ResponseEditor } from "../../primitives/Prose/ResponseEditor";
+import { MAX_RESPONSES, actOnResponses } from "../../primitives/Prose/responses";
+import type { ResponseAct } from "../../primitives/Prose/responses";
 import { Select } from "../../primitives/Select/Select";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -61,6 +65,17 @@ export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, auto
   const [adding, setAdding, clearAdding] = useKept<string>(keep, "");
   const [editing, setEditing] = useState<string | undefined>(undefined);
   const act = (what: QuickAct) => onChange((was) => actOnQuick(was, what));
+  // The response being edited: its id, or `new` for the blank editor. Under its button, as a block, since the Aa panel is a layer already.
+  const [editingResponse, setEditingResponse] = useState<string | undefined>(undefined);
+  const row = useRef<HTMLDivElement>(null);
+  const refocus = useRef<string | undefined>(undefined);
+  const actOnResponse = (what: ResponseAct) => onChange((was) => ({ ...was, responses: actOnResponses(was.responses, what) }));
+  // Moving a response moves its button in the document, which drops the focus; put it back where the key left it.
+  useEffect(() => {
+    if (refocus.current === undefined) return;
+    row.current?.querySelector<HTMLElement>(`[data-response="${refocus.current}"]`)?.focus();
+    refocus.current = undefined;
+  }, [look.responses]);
   const set = <K extends keyof ThreadLook>(key: K, value: ThreadLook[K]) => onChange((was) => ({ ...was, [key]: value }));
   const add = () => {
     const text = adding.trim();
@@ -99,6 +114,53 @@ export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, auto
           ))}
         </Select>
       </div>
+      <section className="armada-thread-settings__responses" aria-label="Quick responses">
+        <h3 className="armada-thread-settings__head">Quick responses</h3>
+        <div ref={row} className="armada-thread-settings__emojis">
+          {look.responses.map((one) => (
+            <Tooltip key={one.id} label={one.name}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={`Edit ${one.name}`}
+                aria-expanded={editingResponse === one.id}
+                aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
+                data-response={one.id}
+                onClick={() => setEditingResponse(editingResponse === one.id ? undefined : one.id)}
+                onKeyDown={(event) => {
+                  if (!event.altKey || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+                  event.preventDefault();
+                  refocus.current = one.id;
+                  actOnResponse({ act: "move", id: one.id, by: event.key === "ArrowLeft" ? -1 : 1 });
+                }}
+              >
+                <span className="armada-prose__pick-emoji" aria-hidden>{one.emoji}</span>
+              </Button>
+            </Tooltip>
+          ))}
+          <Tooltip label="Add response">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Add response" disabled={look.responses.length >= MAX_RESPONSES} aria-expanded={editingResponse === "new"} onClick={() => setEditingResponse(editingResponse === "new" ? undefined : "new")}>
+              <Plus size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        </div>
+        {editingResponse === undefined ? null : (
+          <div className="armada-thread-settings__editor">
+            <ResponseEditor
+              key={editingResponse}
+              keep={`${keep}:response`}
+              {...(editingResponse === "new" ? {} : { response: look.responses.find((one) => one.id === editingResponse)! })}
+              onSave={(emoji, name) => {
+                actOnResponse(editingResponse === "new" ? { act: "add", emoji, name } : { act: "edit", id: editingResponse, emoji, name });
+                setEditingResponse(undefined);
+              }}
+              {...(editingResponse === "new" || look.responses.length <= 1 ? {} : { onRemove: () => { actOnResponse({ act: "remove", id: editingResponse }); setEditingResponse(undefined); } })}
+              onClose={() => setEditingResponse(undefined)}
+            />
+          </div>
+        )}
+      </section>
       <section className="armada-thread-settings__quick" aria-label="Quick replies">
         <h3 className="armada-thread-settings__head">Quick replies</h3>
         {jobId === undefined ? null : (

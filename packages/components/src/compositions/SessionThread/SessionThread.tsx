@@ -14,8 +14,8 @@ import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { PathPicker } from "../../primitives/PathPicker/PathPicker";
 import { Skeleton, SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { Switch } from "../../primitives/Switch/Switch";
-import { Prose, ProseCommand, ProsePick, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
-import type { PickKind } from "../../primitives/Prose/Prose";
+import { Prose, ProseCommand, ProsePick, ProseRefs, ProseRunner, ProseWalk, readResponse } from "../../primitives/Prose/Prose";
+import type { QuickResponse, ResponseAct } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
 import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
@@ -485,18 +485,19 @@ export type SessionThreadProps = {
   /** How the thread reads, from the Aa panel: stamps and the agent's name hidden, a larger or smaller body. Absent reads as it always has. */
   look?: { showTimes?: boolean; showAgentName?: boolean; textSize?: ThreadTextSize };
   /**
-   * Answers one line of an agent's message: its plain text and what was said to it. Present, a list item or a paragraph of
-   * an agent's message can be picked, said yes to or said no to; the host sends the quote. Absent, no line is hoverable.
+   * Answers one line of an agent's message: its plain text and the quick response pressed. Present, a list item or a paragraph of
+   * an agent's message can be answered; the host sends the quote with the emoji, or puts the quote in the box for an `ask`. Absent, no line is hoverable.
    */
-  onPickLine?: (text: string, kind: PickKind) => void;
+  onPickLine?: (text: string, response: QuickResponse) => void;
+  /** The quick responses a line offers, in order. */
+  responses?: readonly QuickResponse[];
+  /** What he does to the responses from a line's menu. Absent, a response has no menu. */
+  onResponses?: (act: ResponseAct) => void;
 };
 
 /** Where a thread lets its agent's lines be answered: what answering does, and what was already said to which line. */
-type LinePicks = { pick: (text: string, kind: PickKind) => void; marks: ReadonlyMap<string, PickKind> };
+type LinePicks = { responses: readonly QuickResponse[]; pick: (text: string, response: QuickResponse) => void; onAct?: (act: ResponseAct) => void; marks: ReadonlyMap<string, string> };
 const ThreadPicks = createContext<LinePicks | null>(null);
-
-/** The line a message of the person's answers, and how: `> line`, or `Yes to:` or `No to:` then `> line`. */
-const ANSWER = /^(?:(Yes|No) to:\n)?> (.+)$/;
 
 /** A message's words with markdown's marks dropped, near enough to find a line's plain text in. */
 const plainOf = (text: string): string => text.replace(/[`*_~]/g, "").replace(/\s+/g, " ");
@@ -505,16 +506,16 @@ const plainOf = (text: string): string => text.replace(/[`*_~]/g, "").replace(/\
  * What was said to each line of each agent message, read back from the person's own messages, so a mark outlives the thread
  * being drawn again. A line is credited to the latest agent message before the answer that holds it: he may answer an older one.
  */
-function marksOf(rows: readonly SessionThreadRow[]): ReadonlyMap<string, PickKind> {
-  const marks = new Map<string, PickKind>();
+function marksOf(rows: readonly SessionThreadRow[]): ReadonlyMap<string, string> {
+  const marks = new Map<string, string>();
   const agents: { id: string; plain: string }[] = [];
   for (const row of rows) {
     if (row.kind !== "message") continue;
     if (row.from === "you") {
-      const said = ANSWER.exec(row.text);
+      const said = readResponse(row.text);
       if (said === null || agents.length === 0) continue;
-      const holder = [...agents].reverse().find((one) => one.plain.includes(said[2]!)) ?? agents[agents.length - 1]!;
-      marks.set(`${holder.id}\u0000${said[2]}`, said[1] === "Yes" ? "yes" : said[1] === "No" ? "no" : "pick");
+      const holder = [...agents].reverse().find((one) => one.plain.includes(said.line)) ?? agents[agents.length - 1]!;
+      marks.set(`${holder.id}\u0000${said.line}`, said.emoji);
     } else if (row.from !== "session") {
       agents.push({ id: row.id, plain: plainOf(row.text) });
     }
@@ -1257,7 +1258,7 @@ function Row({
         {placed.parts !== null ? (
           <p className="armada-session-said">{placed.parts}</p>
         ) : (
-          <ProsePick.Provider value={picks === null ? null : { pick: picks.pick, marked: (text) => picks.marks.get(`${row.id}\u0000${text}`) }}>
+          <ProsePick.Provider value={picks === null ? null : { responses: picks.responses, pick: picks.pick, ...(picks.onAct === undefined ? {} : { onAct: picks.onAct }), marked: (text) => picks.marks.get(`${row.id}\u0000${text}`) }}>
             <Prose text={row.text} />
           </ProsePick.Provider>
         )}
@@ -1865,10 +1866,10 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, bare, keep }: 
   );
 }
 
-export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onWithdrawSketch, onOpenDocument, onAnswerDocument, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline, look, onPickLine }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onWithdrawSketch, onOpenDocument, onAnswerDocument, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline, look, onPickLine, responses, onResponses }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
-  const picks = useMemo((): LinePicks | null => (onPickLine === undefined ? null : { pick: onPickLine, marks: marksOf(rows) }), [onPickLine, rows]);
+  const picks = useMemo((): LinePicks | null => (onPickLine === undefined || responses === undefined ? null : { responses, pick: onPickLine, ...(onResponses === undefined ? {} : { onAct: onResponses }), marks: marksOf(rows) }), [onPickLine, responses, onResponses, rows]);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);

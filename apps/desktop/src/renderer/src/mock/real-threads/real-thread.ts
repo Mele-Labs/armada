@@ -1,6 +1,7 @@
 // A real Job's thread, drawn in the new thread look: the scenario and the walk both come from one place, so the three
 // `real-thread-*` mocks differ only in the Job they hold. The look, the quick bar and the Aa panel are `livelier-thread`'s.
 
+import { DEFAULT_RESPONSES } from "@armada/components";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
@@ -60,6 +61,7 @@ export function realThreadScenario(one: RealThread): Scenario {
           voice: "apple",
           quickOff: false,
           quickOffFor: [],
+          responses: DEFAULT_RESPONSES,
         },
         asked: { [one.id]: one.asked },
         heard: "Go ahead",

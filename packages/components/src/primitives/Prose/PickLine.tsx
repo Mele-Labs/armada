@@ -1,36 +1,28 @@
-import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Check, ThumbsDown, ThumbsUp } from "lucide-react";
+import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 
 import { Button } from "../Button/Button";
+import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
+import type { DropdownMenuEntry } from "../DropdownMenu/DropdownMenu";
 import { Tooltip } from "../Tooltip/Tooltip";
-
-/** What a press on a line says: this one, yes to it, no to it. */
-export type PickKind = "pick" | "yes" | "no";
+import { ResponseEditorLayer } from "./ResponseEditor";
+import { MAX_RESPONSES } from "./responses";
+import type { QuickResponse, ResponseAct } from "./responses";
 
 /**
  * Where a line of an agent's words can be answered. Provided by a thread around an agent's message; without one
- * no line is hoverable and `Prose` draws as it always has. `marked` is what the person already said to a line.
+ * no line is hoverable and `Prose` draws as it always has. `marked` is the emoji the person already sent to a line.
  */
 export type ProsePicker = {
-  pick: (text: string, kind: PickKind) => void;
-  marked: (text: string) => PickKind | undefined;
+  responses: readonly QuickResponse[];
+  pick: (text: string, response: QuickResponse) => void;
+  marked: (text: string) => string | undefined;
+  /** A right press on a response offers Edit, Remove and Add response. Absent, a response has no menu. */
+  onAct?: (act: ResponseAct) => void;
 };
 export const ProsePick = createContext<ProsePicker | null>(null);
 
 /** Set inside a pickable list item, whose paragraphs are part of its line and not lines of their own. */
 export const InPickLine = createContext(false);
-
-const ACTS: readonly { kind: PickKind; label: string; Glyph: typeof Check }[] = [
-  { kind: "pick", label: "Pick this", Glyph: Check },
-  { kind: "yes", label: "Yes to this", Glyph: ThumbsUp },
-  { kind: "no", label: "No to this", Glyph: ThumbsDown },
-];
-
-const MARKS: Record<PickKind, { label: string; Glyph: typeof Check }> = {
-  pick: { label: "Picked", Glyph: Check },
-  yes: { label: "Yes", Glyph: ThumbsUp },
-  no: { label: "No", Glyph: ThumbsDown },
-};
 
 /** The hast node `react-markdown` hands a component, as far as the line's words are read from it. */
 export type LineNode = { type: string; value?: string; tagName?: string; children?: LineNode[] };
@@ -71,8 +63,9 @@ function move(from: HTMLElement, by: 1 | -1): void {
 }
 
 /**
- * A list item or a paragraph of an agent's message that can be answered: a wash on hover or focus, and Pick, Yes and No
- * over its right end. Enter picks, Y says yes, N says no, the arrows move between lines. What was answered keeps a quiet mark.
+ * A list item or a paragraph of an agent's message that can be answered: a wash on hover or focus, and the quick responses
+ * over its right end. Enter sends the first, 1 to 6 send the nth, the arrows move between lines. What was sent keeps a quiet mark.
+ * **A right press on a response offers Edit, Remove and Add response**, and the bar stays up while its menu or editor is open.
  */
 export function PickLine({ as: Tag, className, text, children, ...rest }: { as: "li" | "p"; className: string; text: string; children?: ReactNode; [data: `data-${string}`]: unknown }) {
   const picker = useContext(ProsePick);
@@ -82,6 +75,11 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
   const acts = useRef<HTMLSpanElement | null>(null);
   // Whether the pointer is over this line now, for a line still settling.
   const over = useRef(false);
+  // The menu or the editor a right press opened: the acts are not put away while either is up.
+  const [menu, setMenu] = useState<{ x: number; y: number; id: string } | undefined>(undefined);
+  const [editing, setEditing] = useState<{ id: string | undefined } | undefined>(undefined);
+  const holding = useRef(false);
+  holding.current = menu !== undefined || editing !== undefined;
   // While hot, the acts stay until the pointer is clearly away from the line and from them, and a moment after.
   useEffect(() => {
     if (!hot) return;
@@ -102,7 +100,10 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
         clearTimeout(leaving);
         leaving = undefined;
       } else if (leaving === undefined) {
-        leaving = setTimeout(cool, LINGER_MS);
+        leaving = setTimeout(() => {
+          leaving = undefined;
+          if (!holding.current) cool();
+        }, LINGER_MS);
       }
     };
     document.addEventListener("pointermove", onMove);
@@ -117,16 +118,38 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
   const marked = picker.marked(text);
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.target !== event.currentTarget || event.metaKey || event.ctrlKey || event.altKey) return;
-    const kind = event.key === "Enter" ? "pick" : event.key === "y" ? "yes" : event.key === "n" ? "no" : undefined;
-    if (kind !== undefined) {
+    const response = event.key === "Enter" ? picker.responses[0] : /^[1-9]$/.test(event.key) ? picker.responses[Number(event.key) - 1] : undefined;
+    if (response !== undefined) {
       event.preventDefault();
-      picker.pick(text, kind);
+      picker.pick(text, response);
     } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       move(event.currentTarget, event.key === "ArrowDown" ? 1 : -1);
     }
   };
-  const Mark = marked === undefined ? null : MARKS[marked];
+  const markName = marked === undefined ? undefined : (picker.responses.find((one) => one.emoji === marked)?.name ?? "Sent");
+  const edited = editing === undefined ? undefined : picker.responses.find((one) => one.id === editing.id);
+  const full = picker.responses.length >= MAX_RESPONSES;
+  const alone = picker.responses.length <= 1;
+  const entries: DropdownMenuEntry[] = [
+    { kind: "item", id: "edit", label: "Edit" },
+    { kind: "item", id: "add", label: "Add response", disabled: full, ...(full ? { hint: "Six at most" } : {}) },
+    { kind: "separator", id: "rule" },
+    { kind: "item", id: "remove", label: "Remove", danger: true, disabled: alone, ...(alone ? { hint: "One stays" } : {}) },
+  ];
+  const openMenu = picker.onAct === undefined ? undefined : (response: QuickResponse) => ({
+    onContextMenu: (event: MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      setMenu({ x: event.clientX, y: event.clientY, id: response.id });
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+      event.preventDefault();
+      const box = event.currentTarget.getBoundingClientRect();
+      setMenu({ x: box.left + box.width / 2, y: box.bottom, id: response.id });
+    },
+  });
+  const menuFor = menu === undefined ? undefined : picker.responses.find((one) => one.id === menu.id);
   return (
     <Tag ref={(node: HTMLElement | null) => { line.current = node; }} className={className} {...rest} data-pick="" data-hot={hot || undefined} data-marked={marked} tabIndex={0}
       onPointerOver={(event) => {
@@ -144,29 +167,59 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
       }}
       onPointerOut={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) over.current = false;
-      }} aria-keyshortcuts="Enter Y N" onKeyDown={onKeyDown}>
+      }} aria-keyshortcuts={["Enter", ...picker.responses.map((_, at) => String(at + 1))].join(" ")} onKeyDown={onKeyDown}>
       <InPickLine.Provider value>{children}</InPickLine.Provider>
-      {Mark === null ? null : (
-        <Tooltip label={Mark.label}>
-          <span className="armada-prose__pick-mark" role="img" aria-label={Mark.label}>
-            <Mark.Glyph size={12} strokeWidth={2} aria-hidden />
+      {marked === undefined ? null : (
+        <Tooltip label={markName!}>
+          <span className="armada-prose__pick-mark" role="img" aria-label={markName!}>
+            {marked}
           </span>
         </Tooltip>
       )}
-      <span ref={acts} className="armada-prose__pick-acts" role="group" aria-label={`Answer: ${text}`}>
-        {ACTS.map(({ kind, label, Glyph }) => (
-          <Tooltip key={kind} label={label}>
-            <Button variant="ghost" size="sm" iconOnly aria-label={label} tabIndex={-1} onClick={(event) => {
-              picker.pick(text, kind);
+      <span ref={acts} className="armada-prose__pick-acts" role="group" aria-label={`Quick responses: ${text}`}>
+        {picker.responses.map((response) => (
+          <Tooltip key={response.id} label={response.name}>
+            <Button variant="ghost" size="sm" iconOnly aria-label={response.name} tabIndex={-1} aria-haspopup={picker.onAct === undefined ? undefined : "menu"} {...(openMenu?.(response) ?? {})} onClick={(event) => {
+              picker.pick(text, response);
               setHot(false);
               // A press leaves focus on the button, which would hold the acts up after the pointer has gone.
               event.currentTarget.blur();
             }}>
-              <Glyph size={16} strokeWidth={2} aria-hidden />
+              <span className="armada-prose__pick-emoji" aria-hidden>{response.emoji}</span>
             </Button>
           </Tooltip>
         ))}
       </span>
+      {menu === undefined || menuFor === undefined || picker.onAct === undefined ? null : (
+        <DropdownMenu
+          triggerLabel={`Quick response ${menuFor.name}`}
+          at={menu}
+          open
+          entries={entries}
+          onOpenChange={(open) => open || setMenu(undefined)}
+          onSelect={(chosen) => {
+            setMenu(undefined);
+            if (chosen === "edit") setEditing({ id: menuFor.id });
+            else if (chosen === "add") setEditing({ id: undefined });
+            else if (chosen === "remove") picker.onAct?.({ act: "remove", id: menuFor.id });
+          }}
+        />
+      )}
+      {editing === undefined || picker.onAct === undefined ? null : (
+        <ResponseEditorLayer
+          bar={acts}
+          line={line}
+          label={edited === undefined ? "Add response" : `Edit ${edited.name}`}
+          keep="quick-response"
+          {...(edited === undefined ? {} : { response: edited })}
+          onSave={(emoji, name) => {
+            picker.onAct?.(edited === undefined ? { act: "add", emoji, name } : { act: "edit", id: edited.id, emoji, name });
+            setEditing(undefined);
+          }}
+          {...(edited === undefined || alone ? {} : { onRemove: () => { picker.onAct?.({ act: "remove", id: edited.id }); setEditing(undefined); } })}
+          onClose={() => setEditing(undefined)}
+        />
+      )}
     </Tag>
   );
 }

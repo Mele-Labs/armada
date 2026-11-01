@@ -3,6 +3,7 @@
 // offers its answers. The window holds a thread look (`thread-look-here.tsx`), so the Aa panel, the quick bar and Talk are drawn.
 // A walk's first `later` ends the running run; its second brings a Job just dispatched into the Cockpit's list. Over `sessions`.
 
+import { DEFAULT_RESPONSES } from "@armada/components";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
@@ -122,6 +123,7 @@ export const s341LivelierThread: Scenario = {
         voice: "apple",
         quickOff: false,
         quickOffFor: [],
+        responses: DEFAULT_RESPONSES,
       },
       asked: { [JOB]: ["Restart it", "Not yet"] },
       heard: "Hold the restart until the suite is green, then show me the walk",

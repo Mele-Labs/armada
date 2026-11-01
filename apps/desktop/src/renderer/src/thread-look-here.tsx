@@ -3,8 +3,8 @@
 // look, and a Job draws as it always has: no Aa, no quick bar, no Talk. Fleet keeps none of it yet, and Talk hears a script.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ThreadLookButton, ThreadLookContext, actOnQuick, quickShownIn, useThreadLook } from "@armada/components";
-import type { SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, ThreadSpacing, WhisperModel, WithBand } from "@armada/components";
+import { ThreadLookButton, ThreadLookContext, actOnQuick, actOnResponses, quickShownIn, responseMessage, useThreadLook } from "@armada/components";
+import type { QuickResponse, SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, ThreadSpacing, WhisperModel, WithBand } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { saveSetting, useSetting } from "./use-setting";
@@ -70,11 +70,13 @@ function Held({ seed, children }: { seed: ThreadLookSeed; children: ReactNode })
   return <ThreadLookContext.Provider value={source}>{children}</ThreadLookContext.Provider>;
 }
 
-/** The message that answers one line of the agent's: the line quoted, with Yes to or No to above it. The thread reads its marks back from this shape. */
-export function pickedLine(text: string, kind: "pick" | "yes" | "no"): string {
-  const quote = `> ${text}`;
-  return kind === "yes" ? `Yes to:\n${quote}` : kind === "no" ? `No to:\n${quote}` : quote;
+/** The message that answers one line of the agent's: the line quoted, a blank line, then the response's emoji. The thread reads its marks back from this shape. */
+export function pickedLine(text: string, response: QuickResponse): string {
+  return responseMessage(text, response.emoji);
 }
+
+/** What an `ask` response puts in the message box instead of sending: the line quoted and a blank line to type on. */
+export const askedLine = (text: string): string => `> ${text}\n\n`;
 
 /** The agent spoke last, so its answers are still open. Which answers fit is the reader's call, not a trailing "?". */
 function asking(session: Session): boolean {
@@ -90,7 +92,7 @@ function asking(session: Session): boolean {
  * What a Job's view hands its thread, its box and its head, where the window holds a look. Undefined where it holds none, and
  * the view passes nothing new.
  */
-export function useThreadLookHere(session: Session): { thread: Pick<SessionThreadProps, "look" | "agentName">; composer: Pick<SessionComposerProps, "quick" | "talk">; head: ReactNode; withBand?: WithBand } | undefined {
+export function useThreadLookHere(session: Session): { thread: Pick<SessionThreadProps, "look" | "agentName" | "responses" | "onResponses">; composer: Pick<SessionComposerProps, "quick" | "talk">; head: ReactNode; withBand?: WithBand } | undefined {
   const source = useThreadLook();
   const density = useSetting("spacing.density");
   if (source === null) return undefined;
@@ -101,6 +103,8 @@ export function useThreadLookHere(session: Session): { thread: Pick<SessionThrea
     thread: {
       look: { showTimes: look.showTimes, showAgentName: look.showAgentName, textSize: look.textSize },
       ...(name === "" ? {} : { agentName: name }),
+      responses: look.responses,
+      onResponses: (act) => source.setLook((was) => ({ ...was, responses: actOnResponses(was.responses, act) })),
     },
     composer: {
       ...(!quickShownIn(look, session.id) ? {} : { quick: {

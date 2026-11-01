@@ -443,7 +443,7 @@
 }
 
 .armada-prose__pick-acts,
-.armada-prose__pick-mark {
+.armada-prose [data-pick] > .armada-tooltip {
   position: absolute;
   top: 0;
   right: 0;
@@ -477,8 +477,15 @@
 .armada-prose__pick-mark {
   display: inline-flex;
   align-items: center;
-  height: var(--h-control-sm);
-  color: var(--fg-muted);
+  height: 1lh;
+  font-size: var(--text-sm);
+  line-height: 1;
+}
+
+/* A response is its emoji, drawn large enough to read in a button 28px square. */
+.armada-prose__pick-emoji {
+  font-size: var(--text-lg);
+  line-height: 1;
 }
 
 /* The mark's room, so the line's last words do not run under it. */
@@ -486,7 +493,7 @@
   padding-inline-end: var(--space-4);
 }
 
-.armada-prose [data-pick]:is([data-hot], :focus-visible) > .armada-prose__pick-mark {
+.armada-prose [data-pick]:is([data-hot], :focus-visible) > .armada-tooltip {
   visibility: hidden;
 }
 
@@ -494,4 +501,51 @@
   .armada-prose__pick-acts {
     transition: none;
   }
+}
+
+/* A response's editor: a grid of reactions, then the emoji and the name, then its acts. It is the popover's panel when floating
+   over the hover bar, and a plain block when it sits in the settings row. */
+.armada-response-editor-layer {
+  position: fixed;
+  z-index: var(--z-menu);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+}
+
+.armada-response-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-response-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(8, max-content);
+  gap: var(--space-1);
+}
+
+.armada-response-editor__emoji {
+  font-size: var(--text-base);
+  line-height: 1;
+}
+
+.armada-response-editor__fields {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) * 2) 1fr;
+  gap: var(--space-2);
+}
+
+.armada-response-editor__acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-response-editor__gap {
+  flex: 1;
 }
