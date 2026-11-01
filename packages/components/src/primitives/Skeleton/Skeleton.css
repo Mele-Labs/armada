@@ -1,8 +1,8 @@
 /* Skeleton — a bar in --bg-hover, the same step a row takes under the cursor,
    which is what makes it read as surface rather than as content.
 
-   No animation. The motion contract allows exactly one continuous animation on
-   a data surface and it is the running mark; a shimmering placeholder is what
+   The bars do not animate. The one continuous animation a loading place may
+   draw is the working mark above them (`WorkingMark`); a shimmering placeholder is what
    the first sentence of that section forbids outright.
 
    The bar height is --space-2. The sheet draws it at ten, which is off the
@@ -20,4 +20,11 @@
   flex-direction: column;
   gap: var(--space-2);
   width: 100%;
+}
+
+/* The working mark above the bars: the bars stay still, and the dot is what
+   says the data is on its way. */
+.armada-skeleton-text__mark {
+  display: inline-flex;
+  color: var(--fg-subtle);
 }

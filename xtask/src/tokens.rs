@@ -136,6 +136,14 @@ pub const THEME: &[(&str, Slot)] = &[
     ("--shadow-card", Slot::Literal),
     ("--shadow-primary", Slot::Literal),
     ("--tracking-caps", Slot::Literal),
+    (
+        "--ease-in",
+        Slot::CssOnly("an exit curve read in CSS keyframes; v4 has no second ease slot"),
+    ),
+    (
+        "--ease-out",
+        Slot::CssOnly("an enter curve read in CSS keyframes; v4 has no second ease slot"),
+    ),
     ("--ease", Slot::Named("ease", "base")),
     ("--leading-", Slot::Leading),
     // The semantic text colours. `--text-*` is overloaded in the source: a
