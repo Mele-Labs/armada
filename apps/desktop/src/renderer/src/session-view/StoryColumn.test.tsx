@@ -75,6 +75,12 @@ test("with no turn running nothing is detected, and Now leads with the agent", (
   expect(beats(mount(session("idle")))[0]).toBe("Agent");
 });
 
+test("with no calls to read, an agent held on a question for him is named for what it waits on", () => {
+  const held = { ...session("idle"), asked: { questions: [{ question: "Keep the rotation at midnight?" }] } } as unknown as Session;
+  expect(beats(mount(held))).toContain("Waiting on you");
+  expect(beats(mount(held))).not.toContain("Agent");
+});
+
 test("Whole plan opens every group where it stands, and keeps a finished one out of Now", () => {
   const three = {
     scope: [],
