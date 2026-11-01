@@ -173,6 +173,8 @@ mod session_limit;
 mod session_proposer;
 /// What the account writer is asked of a Session at work and how its answer reads.
 mod session_account;
+/// What the quick bar is offered beyond his saved lines: what the small model is asked, and how his sent lines rank.
+mod session_quick;
 pub mod peer;
 /// A form's edit sent as a pull request, pending until the checkout has it.
 mod pending_edit;

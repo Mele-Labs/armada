@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, nativeImage, Notification } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, net, Notification } from "electron";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -55,6 +56,9 @@ import { DEEP_LINK_SCHEME, type PullLink } from "../shared/pull-link";
 import { handleTimeline } from "./timeline-channels";
 import { handleClashes } from "./clashes-channels";
 import { handleTeaching } from "./teaching-channels";
+import { helperPath } from "./voice";
+import { handleVoice } from "./voice-channels";
+import { WhisperInstall, whisperDisk } from "./whisper-install";
 import { handleReviews } from "./reviews-channels";
 import { handleTerritory } from "./territory-channels";
 import { handleBayHistory } from "./bay-history-channels";
@@ -819,6 +823,24 @@ void app.whenReady().then(() => {
   handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
   handleTeaching({ ipc: ipcMain, connection: () => connection });
+  // Talk, heard on this Mac and never by Fleet: Armada Voice for Apple's recogniser and Whisper, macOS's own Dictation.
+  const voiceHelper = helperPath(app.isPackaged, app.getAppPath(), process.resourcesPath);
+  const whisperDir = join(app.getPath("userData"), "whisper");
+  handleVoice({
+    ipc: ipcMain,
+    install: new WhisperInstall(whisperDir, whisperDisk(whisperDir, (url) => net.fetch(url)), (state) => everyWindow(CHANNELS.voiceWhisperChanged, state)),
+    voice: {
+      helper: process.platform === "darwin" && existsSync(voiceHelper) ? voiceHelper : null,
+      spawn: (file, args) => spawn(file, args, { stdio: ["pipe", "pipe", "ignore"] }),
+      dictate: (action) => {
+        if (process.platform === "darwin") Menu.sendActionToFirstResponder(action);
+      },
+      after: (ms, run) => {
+        const timer = setTimeout(run, ms);
+        return () => clearTimeout(timer);
+      },
+    },
+  });
   handleReviews({ ipc: ipcMain, connection: () => connection, walks: { show: (shown) => captureWindows.openForReview(shown) } });
   handleTerritory({ ipc: ipcMain, connection: () => connection });
   handleBayHistory({ ipc: ipcMain, connection: () => connection });

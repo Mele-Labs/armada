@@ -446,6 +446,20 @@ pub(crate) async fn get_session_mcp<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn get_session_quick<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<Which>,
+) -> Response {
+    match served
+        .daemon()
+        .get_session_quick(ipc::SessionId::carried(which.session_id))
+        .await
+    {
+        Ok(quick) => answer(StatusCode::OK, &quick, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

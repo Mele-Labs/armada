@@ -1,0 +1,6 @@
+[icons.eye-off]
+  means = "An eye with a slash through it"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 31 Oct 2026 for the walk `livelier-thread`. Hides the quick bar, for this Job or for all Jobs. Tooltip `Hide quick replies`. Drawn at 16px, stroke 2. Refused: `eye`, reserved to Review."

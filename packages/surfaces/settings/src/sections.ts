@@ -63,6 +63,7 @@ const PANES: readonly SettingsSection[] = [
   { id: "words", label: "Words", palette: "Words mods", settings: [["Words", "mods", "teach", "taught", "jira", "links", "keys", "switch"]] },
   { id: "trackers", label: "Tracker", palette: "Tracker mods", settings: [["Tracker", "mods", "issue tracker", "tried", "valid", "stale", "try", "switch", "promote"]] },
   { id: "fleet-mods", label: "Fleet", palette: "Fleet mods", settings: [["Fleet", "mods", "teach", "taught", "notices", "batch", "quiet", "switch"]] },
+  { id: "thread", label: "Thread", palette: "Thread look", settings: [["Thread", "agent name", "times", "text size", "spacing", "quick replies", "learn", "voice", "talk", "whisper", "dictation"]] },
   { id: "time", label: "Time", palette: "Time", settings: [["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"]] },
   // The keyboard's own matches are the acts, counted by `KeyboardSettings`; these find the category.
   { id: "keyboard", label: "Keyboard shortcuts", palette: "Keyboard shortcuts", settings: [["Keyboard shortcuts", "keys", "key bindings", "hotkeys", "keymap", "rebind", "controls"]] },
@@ -119,7 +120,7 @@ const SHIPPED_GROUPS: readonly { id: string; label: string; sections: readonly s
   { id: "fleet", label: "Fleet", sections: ["limits", "timeouts", "retention", "machine", "account", "store"] },
   { id: "features", label: "Features", sections: ["features"] },
   { id: "tools", label: "Tools", sections: ["editor", "terminal", "links"] },
-  { id: "appearance", label: "Appearance", sections: ["theme", "spacing", "layout", "time", "keyboard", "palette"] },
+  { id: "appearance", label: "Appearance", sections: ["theme", "spacing", "layout", "thread", "time", "keyboard", "palette"] },
   { id: "phone", label: "Phone", sections: ["phone"] },
   { id: "guides", label: "Guides", sections: ["guides"] },
 ];

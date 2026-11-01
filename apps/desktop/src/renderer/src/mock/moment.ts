@@ -66,6 +66,8 @@ export type MockDraft = {
   reportedBugs?: readonly import("../issues-tab/model").ReportedBug[];
   /** Each repository's projects as Fleet lists them, which the mock Fleet answers the Projects routes from. A window with none has no Projects tab. */
   projectsTab?: ProjectsSeed;
+  /** How a Job's thread reads, its quick replies and what Talk hears: the Aa panel and System › Thread start from it. Mock only: Fleet keeps none of it yet, and without it neither is drawn. */
+  threadLook?: import("../thread-look-here").ThreadLookSeed;
   /** The pull requests, issues, tasks and commands the palette lists, and what it starts with pinned and opened. Mock only: Fleet serves the palette none of them yet. */
   palette?: import("../palette-fixtures").PaletteFixtures;
   /** Each repository's pull requests, by Manifest id, which the Projects tab's link search offers. */
