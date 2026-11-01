@@ -46,7 +46,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
 ⇧⌘Enter  Queue for later: save a Session's request as an idea, not started
-⌘N       dispatch from a field, where n would type
+⌘N       dispatch, from every surface and from a field
 ⌥1–⌥9    choose a repository to dispatch to
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
 ⌥M       message the Job: put the caret in the open Job's message box
@@ -97,7 +97,6 @@ j / k / ↓ / ↑  move focus          (list only)
 Enter          open the focused job. Acts on nothing   (list only)
 o              open. The same act, named so the palette can display it   (list only)
 c              copy debug info
-n              dispatch
 N              add a note           (open studio only)
 V              add a link           (open studio only)
 S              add a sketch         (open studio only)
@@ -276,8 +275,7 @@ an object.** Every other contextual scope names what the act acts on —
 the focused row, the open job, the dispatch card. These act on the board
 a person is looking at, and the node they make lands where they are
 looking rather than at the origin. They are shifted because the letters
-the design drew are all spoken for: `n` is dispatch and its scope is
-`anywhere`, `v` is observe, `s` is restart step and `r` is review and the
+the design drew are all spoken for: `v` is observe, `s` is restart step and `r` is review and the
 run sheet, so an unshifted key would answer twice on one press. `R` opens
 the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../../concepts/studio.md).
@@ -422,8 +420,8 @@ you type is a target you misclick.
 **What is typed can be dispatched as well as searched.** Once there is a
 query, a row offers it as a Job, as a Session where Sessions are served, or as
 an Autopilot where it is, and Tab steps through them. That row leads when nothing else matches or when the words are a link; otherwise it waits at the foot, so ↵ still opens
-the match — a Job is searched by its title, and a title is a sentence. `n` and `⌘N` do not open the palette: they open
-the Dispatch sheet directly (the owner, 15 Oct 2026). `⌘↵` dispatches the words whichever row is picked, by opening that
+the match — a Job is searched by its title, and a title is a sentence. `⌘N` does not open the palette: it opens
+the Dispatch sheet directly (the owner, 15 Oct 2026; it was a bare `n` until 31 Oct 2026). `⌘↵` dispatches the words whichever row is picked, by opening that
 sheet holding them. The sheet reads the repository from them and asks in its own frame when there is none. The full composer for a file or a sketch is opened from a Studio's Sketch.
 
 **What is typed can also be added to Projects.**

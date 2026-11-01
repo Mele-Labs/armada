@@ -76,6 +76,7 @@ import { makeTerminalWindow, TerminalWindows } from "./terminal-windows";
 import { JobBrowsers, makeBrowserPage, makeBrowserWindow } from "./job-browsers";
 import { SiteSettingsStore } from "./site-permission-store";
 import { handleJobBrowsers } from "./job-browser-channels";
+import { isDevBuild } from "./dev-build";
 
 // Bridge's window, and the one connection under it.
 //
@@ -98,6 +99,8 @@ import { handleJobBrowsers } from "./job-browser-channels";
  * `AppIcon.icns` for a fortnight and the tile stayed Electron's the whole time.
  */
 const APP_ICON = join(__dirname, "AppIcon.png");
+/** What only a dev build turns on; `dev-build.ts` says why `app.isPackaged` alone is not it. */
+const DEV_BUILD = isDevBuild(app.isPackaged, process.defaultApp);
 
 /**
  * Wear the mark. **Runtime, not packaging** — `BrowserWindow`'s `icon` option
@@ -237,7 +240,7 @@ function createWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       // The dev-only annotation layer, #1226: the preload exposes it on this flag alone.
-      additionalArguments: app.isPackaged ? [] : [ANNOTATE_FLAG],
+      additionalArguments: DEV_BUILD ? [ANNOTATE_FLAG] : [],
     },
   });
 
@@ -508,7 +511,7 @@ void app.whenReady().then(() => {
     signalled = true;
     app.quit();
   });
-  if (!app.isPackaged) {
+  if (DEV_BUILD) {
     // A note's screenshot, #1250: the layer asks for the whole window, and its note's box is ringed on it as it is sent.
     handleAnnotations(ipcMain, app.getAppPath(), async (event, box) => {
       const image = await (event as Electron.IpcMainInvokeEvent).sender.capturePage({
@@ -546,7 +549,7 @@ void app.whenReady().then(() => {
   };
   // Every Session list after it changes: a Job that started waiting is told when no window is looking.
   // A note file Fleet rewrote, read off the Session list: the annotation layer reads its notes again. Dev only, as the layer is.
-  const notesWatch = app.isPackaged ? null : new NotesWatch();
+  const notesWatch = DEV_BUILD ? new NotesWatch() : null;
   connection.sessions.onRead((sessions, readAt) => {
     sessionAttention.read(sessions, readAt);
     if (notesWatch?.read(sessions) === true) everyWindow(ANNOTATION_CHANNELS.changed);
@@ -613,7 +616,7 @@ void app.whenReady().then(() => {
   connection.reviews.onWalk((walk) => everyWindow(CHANNELS.reviewWalkChanged, walk));
   connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
-  if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
+  if (DEV_BUILD) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
 
   // The renderer initiates exactly these things and no others. There is no
   // arbitrary-channel invoke, which is what keeps the surface readable.
