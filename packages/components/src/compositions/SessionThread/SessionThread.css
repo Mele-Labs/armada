@@ -187,7 +187,6 @@
 .armada-session-thread__plan[data-jobs] { max-height: none; }
 /* A plan with findings on it grows to hold them; the findings scroll inside their own region and the answers stay in view. */
 .armada-session-thread__plan[data-findings] { max-height: 70vh; }
-.armada-session-thread__plan-review { flex: 0 1 auto; min-height: 0; max-height: calc(var(--space-12) * 8); overflow: auto; }
 .armada-session-thread__answers > .armada-adversarial__press { margin-inline-start: auto; }
 .armada-session-thread__plan-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .armada-session-thread__plan-band { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: transparent; color: var(--fg-muted); font: inherit; text-align: start; cursor: pointer; }
@@ -957,11 +956,6 @@
 .armada-session-thread__changes [data-kind="removed"] > span[role="img"] { color: var(--step-failed); }
 .armada-session-thread__changes s { color: var(--fg-muted); }
 
-/* A judge's concern, waiting on him: the question card's own frame, with what it cites. */
-.armada-session-thread__concern { border-color: var(--status-piloted); box-shadow: inset 0 0 0 var(--border-width) var(--status-piloted); }
-.armada-session-thread__concern-band { display: flex; align-items: center; gap: var(--space-2); padding-bottom: var(--space-2); border-bottom: var(--border-width) solid color-mix(in srgb, var(--status-piloted) 45%, transparent); color: var(--status-piloted); }
-.armada-session-thread__concern-judge { display: inline-flex; }
-.armada-session-thread__concern-from { margin-inline-start: auto; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
 /* A concern as a claim: the consequence as its headline, then Expected, Found and Cites as labelled rows on one shared pair of
    columns (each row a subgrid), so every value starts on the same line whatever its label's width. Prose, never mono. */
 .armada-session-thread__claim { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-2); min-width: 0; font-family: var(--font-sans); }
@@ -979,19 +973,6 @@
 .armada-session-thread__cites li { min-width: 0; max-width: 100%; }
 /* A path is never broken inside its name: one that does not fit its column ends in an ellipsis, whole on hover. */
 .armada-session-thread__cites code { display: block; max-width: 100%; padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--bg-sunken); font-size: var(--text-2xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
-
-/* A dismissed concern, folded to one line. */
-.armada-session-concern-settled {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  color: var(--fg-subtle);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-.armada-session-concern-settled__mark { display: inline-flex; }
-.armada-session-concern-settled__text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .armada-session-thread__rows:focus-visible {
   outline: var(--border-width) solid var(--accent);

@@ -32,11 +32,9 @@ import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelect
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
-import { ConcernClaim } from "./ConcernClaim";
-import { AdversarialReviewPress, ReviewFailed, findingsOf } from "../AdversarialReview/AdversarialReview";
 import { FindingNotes, GivesRow, GroupFindings, anchorsOf, useFindingKeys } from "../AdversarialReview/AnchoredFindings";
 import { isPressed } from "../../keymap";
-import type { AdversarialReviewProps } from "../AdversarialReview/AdversarialReview";
+import type { JudgedPlanProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
 import { StartFailedRow } from "./StartFailedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
@@ -186,8 +184,6 @@ type SessionThreadKinds =
   | { id: string; at: string; kind: "release"; slot: number; branch: string }
   /** A value the person changed through a panel, which the agent was told of: an event row in his colour. */
   | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
-  /** A judge's concern the person dismissed: a settled line, the agent told nothing. */
-  | { id: string; at: string; kind: "concern"; step: string; text: string }
   /** The changes and notes the person sent on the plan, his message: a line for each, against its group or task. */
   | { id: string; at: string; kind: "suggest"; lines: readonly { verb: "Renamed" | "Removed" | "Added" | "Moved" | "Subagent" | "Note"; where: string; text?: string; from?: string }[] }
   /** An `armada check` the agent ran: its key and where it stands. A press opens that run on the Checks page. `target` is what the run was narrowed to; absent, it ran whole. */
@@ -313,11 +309,10 @@ export type PlanApproval = {
   /** A later version drawn with what changed marked in place and the groups nothing touched closed to a line. Absent, the card draws the plan whole. */
   revision?: PlanRevision;
   /**
-   * An adversarial review of this plan. The press stands in the answers row, and the findings are pinned to the plan: a finding about the
-   * whole plan under the summary, a group's under its line, a task's under the task, inside the group that holds it. A failed review's
-   * words stand between the plan and its answers.
+   * A Judge's notes on this plan. The press stands in the answers row, and the notes are pinned to the plan: one about the
+   * whole plan under the summary, a group's under its line, a task's under the task, inside the group that holds it.
    */
-  adversarial?: AdversarialReviewProps;
+  judged?: JudgedPlanProps;
   /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
   sketch?: { id: string; title: string; scene: Scene };
   onApprove: () => void;
@@ -325,20 +320,6 @@ export type PlanApproval = {
   onSetAside?: () => void;
   /** Opens the plan to read in full: a press on the card anywhere but Approve, and on its sketch. Absent leaves the card plain. */
   onReview?: () => void;
-};
-
-/** A concern a judge raised at a step, waiting on the person: drawn as a card the way a question is. */
-export type ThreadConcern = {
-  id: string;
-  step?: string;
-  judge?: string;
-  /** The refusal as one string, which is what the agent is sent. Drawn on its lines where the parts below are absent. */
-  text: string;
-  /** The refusal in its parts: what should be seen, what was seen instead, and what the difference does. */
-  expected?: string;
-  produced?: string;
-  consequence?: string;
-  cites?: readonly string[];
 };
 
 /** Something the host draws in the line of the thread, where it happened: a mod a Job made, as its card. Without an `at` it comes after the newest row. */
@@ -1063,20 +1044,6 @@ function Row({
       </li>
     );
   }
-  if (row.kind === "concern") {
-    return (
-      <li className="armada-session-concern-settled" role="region" aria-label="Concern dismissed">
-        <Tooltip label="Judge concern, dismissed">
-          <span role="img" aria-label="Judge concern, dismissed" className="armada-session-concern-settled__mark">
-            <Scale size={12} strokeWidth={2} aria-hidden />
-          </span>
-        </Tooltip>
-        <code>{row.step}</code>
-        <span className="armada-session-concern-settled__text">{row.text}</span>
-        <RowStamp row={row} className="armada-session-lease__at" />
-      </li>
-    );
-  }
   if (row.kind === "suggest") {
     const glyphs = { Renamed: Pencil, Removed: Trash2, Added: Plus, Moved: MoveRight, Subagent: Bot, Note: MessageSquare } as const;
     return (
@@ -1377,22 +1344,22 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   const stateSaid = approval.going === true ? "Sending" : approved ? "Plan approved" : aside ? "Plan set aside" : "Plan waiting for approval";
   const StateGlyph = approval.going === true ? LoaderCircle : approved ? BadgeCheck : BellRing;
   const review = onReview === undefined || folded ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
-  const adversarial = approved ? undefined : approval.adversarial;
-  const findingsHere = adversarial !== undefined && findingsOf(adversarial.review).length > 0;
-  // Pinned to the plan: which finding is about what, and the keys that run down them wherever they stand.
-  const pinned = adversarial !== undefined && !folded;
-  const anchors = pinned && adversarial !== undefined ? anchorsOf(adversarial.review, approval.groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])) : undefined;
-  const keys = useFindingKeys(adversarial?.review, { onSend: (id) => adversarial?.onSend(id), onDismiss: (id) => adversarial?.onDismiss(id) });
+  const judged = approved ? undefined : approval.judged;
+  const findingsHere = judged !== undefined && judged.findings.length > 0;
+  // Pinned to the plan: which note is about what, and the keys that run down them wherever they stand.
+  const pinned = judged !== undefined && !folded;
+  const anchors = pinned && judged !== undefined ? anchorsOf(judged.findings, approval.groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])) : undefined;
+  const keys = useFindingKeys(judged?.findings, { onSend: (id) => judged?.onSend(id), onDismiss: (id) => judged?.onDismiss(id) });
   const acts = { onSend: keys.send, onDismiss: keys.dismiss };
-  // U opens the unchanged groups of a revision, or closes them all; the registry's `plan_adversarial_review` runs an adversarial review (or runs it again); wherever focus is on the card.
+  // U opens the unchanged groups of a revision, or closes them all; the registry's `plan_judge` opens the Judge's box; wherever focus is on the card.
   const onKeys = (event: KeyboardEvent<HTMLElement>) => {
     const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
     if (!folded && revising && event.key === "u" && plain) {
       event.preventDefault();
       unchanged.toggleAll();
-    } else if (!folded && adversarial !== undefined && isPressed("plan_adversarial_review", event) && (adversarial.review.state === "idle" || adversarial.review.state === "failed" || adversarial.review.state === "stale")) {
+    } else if (!folded && judged !== undefined && isPressed("plan_judge", event)) {
       event.preventDefault();
-      adversarial.onRun();
+      judged.onRun();
     } else review?.onKeyDown(event);
   };
   // While it waits, one of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Approve, `⌥E` the plan in full to suggest in, `⌥R` Not yet.
@@ -1468,7 +1435,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
   ));
   const technical = revising ? <PlanRevisionView revision={approval.revision!} unchanged={unchanged} /> : groups;
   return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} data-jobs={runs.some((run) => run.own !== undefined) || undefined} {...bind} {...review} {...(revising || adversarial !== undefined ? { onKeyDown: onKeys } : {})}>
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : aside ? "Plan set aside" : "Plan to approve"} data-approved={approved || undefined} data-aside={aside || undefined} data-folded={folded || undefined} data-findings={findingsHere || undefined} data-jobs={runs.some((run) => run.own !== undefined) || undefined} {...bind} {...review} {...(revising || judged !== undefined ? { onKeyDown: onKeys } : {})}>
       <div className="armada-session-thread__plan-head">
         <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label={aside ? "Plan set aside" : "Plan"} onClick={() => setFolded(!folded)}>
           <ListChecks size={12} strokeWidth={2} aria-hidden />
@@ -1536,11 +1503,6 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
           </ul>
         )}
       </div>
-      {adversarial?.review.state !== "failed" ? null : (
-        <div className="armada-session-thread__plan-review" onClick={(event) => event.stopPropagation()}>
-          <ReviewFailed said={adversarial.review.said} />
-        </div>
-      )}
       {approved ? null : (
         <div className="armada-session-thread__answers" role="group" aria-label="Answers">
           <Button size="sm" variant="primary" onClick={approval.onApprove}>
@@ -1560,7 +1522,7 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
               <ThreadKbd act="sendBack" on={target} />
             </Button>
           )}
-          {adversarial === undefined ? null : adversarial.press ?? <AdversarialReviewPress review={adversarial.review} onRun={adversarial.onRun} {...(adversarial.shortcut === undefined ? {} : { shortcut: adversarial.shortcut })} />}
+          {judged === undefined ? null : judged.press}
         </div>
       )}
         </>
@@ -1621,45 +1583,6 @@ export function DoneBody({ done }: { done: ThreadDone }) {
             </Button>
           </div>
     </>
-  );
-}
-
-/** A judge's concern as a card: where it came from, the claim, what it cites, and the two ways on. `bare` leaves the band off, for a panel that already says what it is. */
-export function ConcernCard({ concern: one, onSend, onDismiss, bare }: { concern: ThreadConcern; onSend?: () => void; onDismiss?: () => void; bare?: true }) {
-  // One of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Send to job, `⌥X` Dismiss.
-  const { target, bind } = useThreadCard({
-    id: `concern:${one.id}`,
-    kind: "Judge",
-    title: one.text,
-    acts: { ...(onSend === undefined ? {} : { yes: { verb: "Send to job", run: onSend } }), ...(onDismiss === undefined ? {} : { no: { verb: "Dismiss", run: onDismiss } }) },
-  });
-  return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`} {...bind}>
-      {bare === undefined ? (
-        <div className="armada-session-thread__concern-band">
-          <Tooltip label="Judge">
-            <span role="img" aria-label="Judge" className="armada-session-thread__concern-judge">
-              <Scale size={16} strokeWidth={2} aria-hidden />
-            </span>
-          </Tooltip>
-          <span className="armada-session-thread__eyebrow">Judge</span>
-          <span className="armada-session-thread__concern-from">{one.step ?? "Judge tile"}</span>
-        </div>
-      ) : null}
-      <ConcernClaim concern={one} />
-      <div className="armada-session-thread__answers" role="group" aria-label="Answers">
-        <Tooltip label="Goes to the agent as your message">
-          <Button size="sm" variant="secondary" onClick={onSend}>
-            Send to job
-            <ThreadKbd act="yes" on={target} />
-          </Button>
-        </Tooltip>
-        <Button size="sm" variant="ghost" onClick={onDismiss}>
-          Dismiss
-          <ThreadKbd act="no" on={target} />
-        </Button>
-      </div>
-    </Card>
   );
 }
 

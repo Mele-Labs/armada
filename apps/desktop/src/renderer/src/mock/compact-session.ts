@@ -7,7 +7,7 @@
 
 import type { TimelineEvent, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
-import type { Session, SessionAttachment, SessionRow, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionAttachment, SessionRow, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState } from "@armada/screens/src/draft/sessions";
 
 import { mockAreas } from "./cockpit-areas";
 import { holding } from "./holding";
@@ -109,8 +109,6 @@ function fieldAt(at: number): { field: WorkDrone[]; files: WorkFile[] } {
   const files: WorkFile[] = [...EXISTING, ...made].map((path) => (acts.has(path) ? { path, act: acts.get(path)! } : { path }));
   return { field, files };
 }
-
-const CONCERN: WorkConcern = { id: "c1", step: "Build", judge: "Judge", text: "The retry reads the pool without holding the lease lock, so two Sessions can still take one bay.", cites: ["crates/fleet/src/lease.rs"] };
 
 const FLOW = { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] } as const;
 
@@ -224,7 +222,6 @@ const main: Session = {
     workflow: { ...FLOW, steps: [...FLOW.steps], at: 1 },
     plan: { version: 1, scope: ["crates/fleet", "crates/ipc", "packages/protocol", "apps/desktop"], approved: true, after: "m-7", sketch: { id: SKETCH_PLAN_ID, title: "Lease retry", scene: SKETCH_PLAN }, groups: groups(0) },
     ...fieldAt(0),
-    concerns: [CONCERN],
   },
 };
 
@@ -296,7 +293,7 @@ function sessions(control: BayControl): SessionsStore {
       }
       return only;
     },
-    // A judge's concern, sent or dismissed, is gone from the Session's work; the rest of the acts are the store's.
+    // The rest of the acts are the store's.
     work: {
       workflows: [],
       choose: () => undefined,
@@ -304,8 +301,6 @@ function sessions(control: BayControl): SessionsStore {
       approve: () => undefined,
       suggest: () => undefined,
       ...base.work,
-      sendConcern: (id, concern) => base.edit(id, (one) => (one.work === undefined ? one : { ...one, work: { ...one.work, concerns: (one.work.concerns ?? []).filter((it) => it.id !== concern) } })),
-      dismissConcern: (id, concern) => base.edit(id, (one) => (one.work === undefined ? one : { ...one, work: { ...one.work, concerns: (one.work.concerns ?? []).filter((it) => it.id !== concern) } })),
     },
     // Time passes: the drones move to the next files, a task ticks, and the bay is left stranded with work in it.
     later() {

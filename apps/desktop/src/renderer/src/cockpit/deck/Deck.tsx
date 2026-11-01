@@ -221,7 +221,7 @@ const linkedSaid = (linked: { group?: string; from?: { title: string; repo: stri
   `Linked Job${linked.from === undefined ? "" : `, started by ${linked.from.title} in ${linked.from.repo}`}${linked.group === undefined ? "" : `, handed from ${linked.group}`}`;
 
 /** What each thing a Session waits on is called, by the item's source. */
-const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", judge: "Judge concern", slot_choice: "Slot", delivery: "Delivery", walk: "Walk", done: "Done", task_done: "Done?", draft: "Draft", sketch: "Sketch", document: "Document" };
+const CALL_WORD: Record<string, string> = { ask_card: "Question", window_ask: "Question", permission: "Permission", plan: "Plan", slot_choice: "Slot", delivery: "Delivery", walk: "Walk", done: "Done", task_done: "Done?", draft: "Draft", sketch: "Sketch", document: "Document" };
 
 /** What a call says, as the tooltip on its row: what it is, then its words. */
 const callLabel = (call: Item): string => {
