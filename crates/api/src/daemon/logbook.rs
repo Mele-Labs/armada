@@ -8,7 +8,7 @@ use std::future::Future;
 use ipc::{
     EditLogbookEntry, Logbook as LogbookRead, LogbookEntry, ForgottenLogbookEntry, LogbookSection, LogbookState,
     LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook, AppliedOrganizeLogbook, ApplyOrganizeLogbook,
-    OrganizeLogbook, OrganizedLogbook,
+    OrganizeLogbook, OrganizingLogbook, DismissedOrganizeLogbook,
 };
 
 use crate::daemon::Refusal;
@@ -49,9 +49,13 @@ pub trait Logbook: Send + Sync + 'static {
     /// together on this machine.
     fn tidy_logbook(self: std::sync::Arc<Self>, tidy: TidyLogbook) -> impl Future<Output = Result<TidiedLogbook, Refusal>> + Send;
 
-    /// `organize_logbook` — propose merges, stale entries or Armada faults; writes nothing. Waits
-    /// for the model calls. [`Refusal::Fault`] where a call cannot be put together on this machine.
-    fn organize_logbook(&self, organize: OrganizeLogbook) -> impl Future<Output = Result<OrganizedLogbook, Refusal>> + Send;
+    /// `organize_logbook` — start looking for merges, stale entries or Armada faults on a task of
+    /// its own, and answer at once; writes nothing. The result is in `get_logbook`'s `organize`.
+    /// [`Refusal::Fault`] where a call cannot be put together on this machine.
+    fn organize_logbook(self: std::sync::Arc<Self>, organize: OrganizeLogbook) -> impl Future<Output = Result<OrganizingLogbook, Refusal>> + Send;
+
+    /// `dismiss_organize_logbook` — drop the result a finished look holds.
+    fn dismiss_organize_logbook(&self) -> impl Future<Output = Result<DismissedOrganizeLogbook, Refusal>> + Send;
 
     /// `apply_organize_logbook` — carry out proposals as `organize_logbook` gave them.
     fn apply_organize_logbook(

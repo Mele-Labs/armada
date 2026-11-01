@@ -793,6 +793,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/logbook/tidy", post(crate::logbook::tidy_logbook::<D>))
         .route("/logbook/organize", post(crate::logbook::organize_logbook::<D>))
         .route("/logbook/organize/apply", post(crate::logbook::apply_organize_logbook::<D>))
+        .route("/logbook/organize/dismiss", post(crate::logbook::dismiss_organize_logbook::<D>))
         .route("/teachings", post(crate::teaching::save_teaching::<D>))
         .route("/teachings/read", post(crate::teaching::read_teaching::<D>))
         .route("/teachings/words", get(crate::teaching::list_word_rules::<D>))
