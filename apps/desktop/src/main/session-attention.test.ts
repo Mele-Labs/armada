@@ -95,7 +95,7 @@ describe("SessionAttention", () => {
     expect(show.mock.calls[0]![0].tone).toBe("blocked");
   });
 
-  it.each(["agent", "walk", "first_message", "replied", "done", "judge"] as const)("sounds waiting for a %s item", (source) => {
+  it.each(["agent", "walk", "first_message", "replied", "done"] as const)("sounds waiting for a %s item", (source) => {
     const { attention: a, show } = attention();
     a.read([session("a")], 1);
     a.read([session("a", [item("1", source)])], 2);

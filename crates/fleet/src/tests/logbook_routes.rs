@@ -5,7 +5,7 @@
 use api::{Logbook, Refusal};
 use ipc::{
     EditLogbookEntry, LogbookEntry, LogbookKind, LogbookReplacedBy, LogbookSection, LogbookState, LockLogbookEntry,
-    TeachLogbookEntry, TidyLogbook,
+    OrganizeAction, OrganizeLogbook, TeachLogbookEntry, TidyLogbook,
 };
 use store::{LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState};
 
@@ -313,6 +313,135 @@ async fn tidy_answers_at_once_while_the_pass_runs_and_a_second_call_starts_no_se
     let tidy = settled(&rig).await;
     assert_eq!(calls.load(Ordering::SeqCst), 1, "a second pass was started");
     assert_eq!(tidy.last.map(|last| last.merged), Some(1));
+}
+
+/// Wait until no Organize look is running, and say what the Logbook then reports of it.
+async fn organized(rig: &Rig) -> ipc::LogbookOrganize {
+    for _ in 0..200 {
+        let organize = rig.fleet.get_logbook(None, None, None).await.expect("read").organize;
+        if !organize.running {
+            return organize;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    panic!("the organize look never finished");
+}
+
+fn merging(rig: &Rig) -> OrganizeLogbook {
+    OrganizeLogbook { action: OrganizeAction::Merge, repository: Some(rig.root.clone()) }
+}
+
+const MERGE_SAID: &str = r#"{"groups":[{"keep":1,"text":"Run the focused test command, logging to a file.","absorb":[2]}]}"#;
+
+#[tokio::test]
+async fn organize_answers_at_once_while_the_look_runs_and_a_second_call_starts_no_second_look() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use tokio::sync::{Notify, Semaphore};
+    let rig = rig_fitted(|_| {});
+    seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    let (gate, asked, calls) = (Arc::new(Semaphore::new(0)), Arc::new(Notify::new()), Arc::new(AtomicUsize::new(0)));
+    let holding = {
+        let (gate, asked, calls) = (Arc::clone(&gate), Arc::clone(&asked), Arc::clone(&calls));
+        move |_question: String| {
+            let (gate, asked, calls) = (Arc::clone(&gate), Arc::clone(&asked), Arc::clone(&calls));
+            async move {
+                calls.fetch_add(1, Ordering::SeqCst);
+                asked.notify_one();
+                gate.acquire().await.expect("open").forget();
+                Ok(MERGE_SAID.to_string())
+            }
+        }
+    };
+    let wait = std::time::Duration::from_secs(5);
+
+    rig.fleet.logbook_organize_started_with(merging(&rig), false, holding.clone()).expect("started");
+    tokio::time::timeout(wait, asked.notified()).await.expect("the look asked");
+    let going = rig.fleet.get_logbook(None, None, None).await.expect("read").organize;
+    assert!(going.running && going.last.is_none());
+
+    rig.fleet.logbook_organize_started_with(merging(&rig), false, holding).expect("a second call is quiet");
+    gate.add_permits(1);
+    let done = organized(&rig).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "a second look was started");
+    assert_eq!(done.last.map(|last| last.proposals.len()), Some(1));
+}
+
+#[tokio::test]
+async fn an_organize_result_shows_in_the_logbook_and_stays_until_it_is_dismissed() {
+    let rig = rig_fitted(|_| {});
+    seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    rig.fleet.logbook_organize_started_with(merging(&rig), false, |_question: String| async { Ok(MERGE_SAID.to_string()) }).expect("started");
+    let held = organized(&rig).await.last.expect("the result is held");
+    assert_eq!((held.action, held.failed, held.proposals.len()), (OrganizeAction::Merge, false, 1));
+
+    // Reading does not take it, and nothing was written.
+    assert!(rig.fleet.get_logbook(None, None, None).await.expect("read").organize.last.is_some());
+    assert_eq!(read(&rig, true, Some(LogbookSection::Repo), Some(LogbookState::Standing)).await.len(), 2);
+
+    rig.fleet.dismiss_organize_logbook().await.expect("dismissed");
+    assert!(rig.fleet.get_logbook(None, None, None).await.expect("read").organize.last.is_none());
+}
+
+#[tokio::test]
+async fn applying_an_organize_result_drops_it() {
+    let rig = rig_fitted(|_| {});
+    seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    rig.fleet.logbook_organize_started_with(merging(&rig), false, |_question: String| async { Ok(MERGE_SAID.to_string()) }).expect("started");
+    let held = organized(&rig).await.last.expect("the result is held");
+
+    let applied = rig
+        .fleet
+        .apply_organize_logbook(ipc::ApplyOrganizeLogbook { action: held.action, proposals: held.proposals })
+        .await
+        .expect("applied");
+    assert_eq!(applied.applied, 1);
+    assert!(rig.fleet.get_logbook(None, None, None).await.expect("read").organize.last.is_none());
+}
+
+#[tokio::test]
+async fn applying_no_proposals_leaves_the_held_organize_result() {
+    let rig = rig_fitted(|_| {});
+    seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    rig.fleet.logbook_organize_started_with(merging(&rig), false, |_question: String| async { Ok(MERGE_SAID.to_string()) }).expect("started");
+    let held = organized(&rig).await.last.expect("the result is held");
+
+    rig.fleet.apply_organize_logbook(ipc::ApplyOrganizeLogbook { action: held.action, proposals: Vec::new() }).await.expect("applied");
+    assert_eq!(organized(&rig).await.last.map(|last| last.proposals.len()), Some(1));
+}
+
+#[tokio::test]
+async fn a_new_organize_look_replaces_a_held_result_only_when_it_finishes() {
+    use std::sync::Arc;
+    use tokio::sync::{Notify, Semaphore};
+    let rig = rig_fitted(|_| {});
+    seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    rig.fleet.logbook_organize_started_with(merging(&rig), false, |_question: String| async { Ok(MERGE_SAID.to_string()) }).expect("started");
+    assert_eq!(organized(&rig).await.last.map(|last| last.proposals.len()), Some(1));
+
+    let (gate, asked) = (Arc::new(Semaphore::new(0)), Arc::new(Notify::new()));
+    let (held_gate, held_asked) = (Arc::clone(&gate), Arc::clone(&asked));
+    rig.fleet
+        .logbook_organize_started_with(merging(&rig), false, move |_question: String| {
+            let (gate, asked) = (Arc::clone(&held_gate), Arc::clone(&held_asked));
+            async move {
+                asked.notify_one();
+                gate.acquire().await.expect("open").forget();
+                Ok(r#"{"groups":[]}"#.to_string())
+            }
+        })
+        .expect("started");
+    tokio::time::timeout(std::time::Duration::from_secs(5), asked.notified()).await.expect("the look asked");
+    let going = rig.fleet.get_logbook(None, None, None).await.expect("read").organize;
+    assert_eq!((going.running, going.last.map(|last| last.proposals.len())), (true, Some(1)));
+
+    gate.add_permits(1);
+    assert_eq!(organized(&rig).await.last.map(|last| last.proposals.len()), Some(0));
 }
 
 #[tokio::test]

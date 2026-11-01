@@ -148,6 +148,8 @@ pub struct FakeWorkProduct {
     /// The index state a repair Drone clears: these paths read as unmerged
     /// for as long as the flag file exists.
     unmerged: Mutex<Option<(std::path::PathBuf, Vec<String>)>>,
+    /// The commits the repository holds, by hash, and what each changed.
+    commits: Mutex<std::collections::BTreeMap<String, String>>,
 }
 
 impl FakeWorkProduct {
@@ -244,6 +246,16 @@ impl FakeWorkProduct {
     /// reads is the thing under test rather than git's rendering of it.
     pub fn showing(self, patch: &str) -> FakeWorkProduct {
         *self.patch.lock().expect("not poisoned") = patch.to_string();
+        self
+    }
+
+    /// The repository holds the commit `sha`, which changed what `patch` says.
+    /// A hash not named here is a commit the repository lacks.
+    pub fn holding_commit(self, sha: &str, patch: &str) -> FakeWorkProduct {
+        self.commits
+            .lock()
+            .expect("not poisoned")
+            .insert(sha.to_string(), patch.to_string());
         self
     }
 
@@ -408,6 +420,20 @@ impl WorkProduct for FakeWorkProduct {
     fn patch(&self, worktree: &Worktree) -> Result<Patch, Self::Error> {
         self.read(worktree)?;
         Ok(Patch::of(self.patch.lock().expect("not poisoned").clone()))
+    }
+
+    /// The patch scripted for the commit, or a refusal for a hash the fake was
+    /// not told of.
+    fn commit_work(&self, _repository: &str, sha: &str) -> Result<BranchWork, Self::Error> {
+        match self.commits.lock().expect("not poisoned").get(sha.trim()) {
+            Some(patch) => Ok(BranchWork {
+                changed: Changed::of(Vec::new()),
+                patch: Patch::of(patch.clone()),
+            }),
+            None => Err(FakeDiffRefused {
+                standing_in_for: "a commit the repository lacks",
+            }),
+        }
     }
 
     /// The scripted files and patch, whichever branches are named.

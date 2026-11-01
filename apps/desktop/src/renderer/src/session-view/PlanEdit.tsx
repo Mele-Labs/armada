@@ -19,7 +19,7 @@ export type PlanEditing = { id: string; plan: WorkPlan; marks: readonly PlanMark
 /** The subagent types a group can be handed to. */
 const AGENTS = ["rust-engineer", "bridge-engineer", "protocol-engineer", "fixture-author", "judge", "general-purpose"];
 
-/** An adversarial review's findings by what they are about, and their acts. Drawn under the group or task each names. */
+/** A Judge's notes by what they are about, and their acts. Drawn under the group or task each names. */
 export type FindingPins = { anchors: Anchors } & FindingActs;
 
 const key = (ed: PlanEditing, what: string) => `plan-note:${ed.id}:${what}`;

@@ -1,6 +1,6 @@
 // A draft card in a Session's thread, acted on from words selected in it: a right press on the words offers Edit and Add note.
 // Add note opens the note box with the words quoted; Edit opens the draft's box with the words selected, or plain when the
-// words are not in the source. The walk `draft-card` shows it.
+// words are not in the source. A right press on the card away from its words offers Teach. The walk `draft-card` shows it.
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
@@ -22,9 +22,10 @@ const WORDS = "resumes from the last part the server confirmed";
 
 const thread = (): Record<string, SessionRow[]> => ({ [LIVE]: [{ kind: "draft", id: "d-1", at: AT, title: "Description for #412", text: TEXT }] });
 
-async function open() {
+async function open(name?: string) {
   const fleet = new FakeSessionsFleet([hosted(LIVE, { title: "A live hosted one" })], thread());
-  mount(fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root })));
+  const scenario = fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root }));
+  mount(name === undefined ? scenario : { ...scenario, name });
   await onScreen();
   await toSession("A live hosted one");
 }
@@ -77,4 +78,11 @@ test("Edit opens the box plain when the selected words are not in the source", a
   const box = page.getByRole("textbox", { name: "Draft text" }).element() as HTMLTextAreaElement;
   expect(box.value).toBe(TEXT);
   expect(box.selectionStart).toBe(box.selectionEnd);
+});
+
+test("A right press on a draft card, away from its words, offers Teach", async () => {
+  // The mock offers Teach in the scenarios that play it, which `draft-card` is.
+  await open("draft-card");
+  card().element().querySelector(".armada-session-draft__title")!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, view: window, clientX: 40, clientY: 40, button: 2 }));
+  await expect.element(page.getByRole("menuitem", { name: "Teach" })).toBeVisible();
 });

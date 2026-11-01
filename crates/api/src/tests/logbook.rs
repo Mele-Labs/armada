@@ -86,3 +86,17 @@ async fn tidy_logbook_is_served_and_answers_that_a_pass_is_running() {
 
     assert_eq!(call(&app, "POST", "/logbook/tidy", "").await.0, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn organize_logbook_answers_that_a_look_is_running_and_dismiss_is_served() {
+    let app = wired();
+
+    let (status, body) = call(&app, "POST", "/logbook/organize", r#"{"action":"stale"}"#).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(ipc::decode::<ipc::OrganizingLogbook>("an organize", &body).expect("decodes").running);
+    assert_eq!(call(&app, "POST", "/logbook/organize", "").await.0, StatusCode::BAD_REQUEST);
+
+    let (status, body) = call(&app, "POST", "/logbook/organize/dismiss", "").await;
+    assert_eq!(status, StatusCode::OK);
+    ipc::decode::<ipc::DismissedOrganizeLogbook>("a dismissal", &body).expect("decodes");
+}

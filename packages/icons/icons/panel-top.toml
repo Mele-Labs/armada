@@ -1,0 +1,7 @@
+[icons.panel-top]
+  means = "A window with a header strip over one pane: a tab"
+  group = "Mods"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A mod of kind tab, and a Job pane's Custom tab and the tabs built from it. Never the Layout control, which is `panels-top-left`."
+  notes = "Tooltip `Tab`. Proposed in the Custom tab mock for the owner to walk."
