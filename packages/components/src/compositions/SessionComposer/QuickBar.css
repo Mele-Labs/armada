@@ -8,11 +8,20 @@
   gap: var(--space-1);
   min-width: 0;
   margin-bottom: var(--space-2);
+}
+
+/* Only the chips scroll: Save and Hide stay put at the right end, so reaching them never slides ⌘1 out of sight. */
+.armada-quick__chips {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.armada-quick::-webkit-scrollbar {
+.armada-quick__chips::-webkit-scrollbar {
   display: none;
 }
 
@@ -61,7 +70,7 @@
   min-width: 0;
 }
 
-.armada-quick > .armada-quick__edit {
+.armada-quick__chips > .armada-quick__edit {
   flex: none;
   inline-size: var(--w-menu);
 }
@@ -75,7 +84,6 @@
 .armada-quick__hide {
   display: inline-flex;
   flex: none;
-  margin-inline-start: auto;
 }
 
 /* Between the answers to his question and his own lines. */

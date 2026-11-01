@@ -131,10 +131,12 @@ export function QuickBar({ asked, phrases, onSend, onDrop, onSave, canSave, onAc
             }
       }
     >
-      {chips.flatMap((one, at) => [
-        at === asked.length && at > 0 ? <span key="rule" className="armada-quick__rule" aria-hidden /> : null,
-        <QuickChip key={one.key} chip={one} at={at} kept={kept.has(one.text)} onSend={onSend} onDrop={onDrop} onAct={onAct} />,
-      ])}
+      <div className="armada-quick__chips">
+        {chips.flatMap((one, at) => [
+          at === asked.length && at > 0 ? <span key="rule" className="armada-quick__rule" aria-hidden /> : null,
+          <QuickChip key={one.key} chip={one} at={at} kept={kept.has(one.text)} onSend={onSend} onDrop={onDrop} onAct={onAct} />,
+        ])}
+      </div>
       <Tooltip label="Save what is typed as a quick reply">
         <Button type="button" variant="ghost" size="sm" aria-label="Save as quick reply" disabled={!canSave} onClick={onSave}>
           <ListPlus size={16} strokeWidth={2} aria-hidden />
