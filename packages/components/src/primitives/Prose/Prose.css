@@ -428,3 +428,135 @@
   height: 120px;
   background: var(--bg-sunken);
 }
+
+/* A line of an agent message that can be answered (a thread provides ProsePick). It is hot while the pointer is over it, never over a list inside it. The wash is a shadow, so
+   the text does not move; the acts sit over the line's right end and the mark takes its place when they leave. */
+.armada-prose [data-pick] {
+  position: relative;
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.armada-prose [data-pick]:is([data-hot], :focus-visible) {
+  background: var(--bg-hover);
+  box-shadow: 0 0 0 var(--space-1) var(--bg-hover);
+}
+
+.armada-prose__pick-acts,
+.armada-prose [data-pick] > .armada-tooltip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+}
+
+/* As a chat app's hover bar: a small floating bar on the line's top right corner, lifted above it so the words stay clear. */
+.armada-prose__pick-acts {
+  z-index: var(--z-menu);
+  top: auto;
+  bottom: calc(100% - var(--space-1));
+  right: var(--space-2);
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.armada-prose [data-pick]:is([data-hot], :focus-visible) > .armada-prose__pick-acts,
+.armada-prose__pick-acts:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.armada-prose__pick-mark {
+  display: inline-flex;
+  align-items: center;
+  height: 1lh;
+  font-size: var(--text-sm);
+  line-height: 1;
+}
+
+/* A small bar, as a chat app's reaction bar is: 24px buttons, close together, each emoji at body size. */
+.armada-prose__pick-acts {
+  gap: 0;
+  padding: calc(var(--space-1) / 2);
+}
+
+.armada-prose__pick-acts .armada-button {
+  width: var(--h-control-sm);
+  height: var(--h-control-sm);
+  padding: 0;
+}
+
+.armada-prose__pick-emoji {
+  font-size: var(--text-sm);
+  line-height: 1;
+}
+
+/* The mark's room, so the line's last words do not run under it. */
+.armada-prose [data-pick][data-marked] {
+  padding-inline-end: var(--space-4);
+}
+
+.armada-prose [data-pick]:is([data-hot], :focus-visible) > .armada-tooltip {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-prose__pick-acts {
+    transition: none;
+  }
+}
+
+/* A response's editor: a grid of reactions, then the emoji and the name, then its acts. It is the popover's panel when floating
+   over the hover bar, and a plain block when it sits in the settings row. */
+.armada-response-editor-layer {
+  position: fixed;
+  z-index: var(--z-menu);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+}
+
+.armada-response-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-response-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(8, max-content);
+  gap: var(--space-1);
+}
+
+.armada-response-editor__emoji {
+  font-size: var(--text-base);
+  line-height: 1;
+}
+
+.armada-response-editor__fields {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) * 2) 1fr;
+  gap: var(--space-2);
+}
+
+.armada-response-editor__acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-response-editor__gap {
+  flex: 1;
+}

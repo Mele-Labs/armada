@@ -202,6 +202,8 @@ mod session_checks;
 mod session_notes;
 /// A hosted job's MCP servers, read and acted on. `get_session_mcp`, `act_on_session_mcp`.
 mod session_mcp;
+/// The replies a Job's quick bar offers that no setting holds. `get_session_quick`.
+mod session_quick;
 mod slot_asking;
 mod session_retro_row;
 mod session_starts;
@@ -391,6 +393,7 @@ pub use session_mcp::{
     ActOnSessionMcp, McpServerAct, McpServerState, McpSignIn, SessionMcp, SessionMcpActed,
     SessionMcpServer,
 };
+pub use session_quick::SessionQuick;
 pub use session_notes::{
     Candidate, NoteCrop, NoteElement, NotePlace, NoteSent, NoteState, NoteTake, NoteWalk,
     NotesSent, SendSessionNote, SendSessionNotes, SessionNote,

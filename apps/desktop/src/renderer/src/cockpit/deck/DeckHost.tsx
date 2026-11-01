@@ -67,7 +67,8 @@ export function DeckPlaces({ state, picked, showing, away, hidden, onGoTo, onBac
   const go = (surface: string) => {
     if (surface === SURFACE.overview && away) return onBack();
     // Cockpit pressed with a Job open puts the Job away: the home view shows, and the Job's panes are kept for when it opens again.
-    if (surface === SURFACE.overview && open !== undefined) return select(undefined);
+    // From another place it goes back to the Cockpit with the Job still open.
+    if (surface === SURFACE.overview && open !== undefined && showing === SURFACE.overview) return select(undefined);
     if (away) onReplaceNext();
     // The System tab opens the page last used there.
     onGoTo(opensFor(surface, off));

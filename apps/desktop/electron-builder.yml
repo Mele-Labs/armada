@@ -35,6 +35,15 @@ extraResources:
     filter:
       - "*.wav"
 
+# Armada Voice, the helper Talk hears through (`native/voice/`). `beforePack` builds it and refuses to pack without
+# it, so the release job needs no step of its own. In `Contents/Helpers`, where codesign looks for nested code, rather
+# than in Resources. An app of its own so macOS asks for the microphone and speech recognition in its name:
+# `native/voice/build.mjs` says why.
+beforePack: native/voice/before-pack.cjs
+extraFiles:
+  - from: native/voice/build/Armada Voice.app
+    to: Helpers/Armada Voice.app
+
 # `armada://pull/<owner>/<name>/<n>` opens Bridge on that pull request. Declared in `Info.plist` so macOS can hand the link over;
 # `features.deepLinks` is what claims the scheme from the OS, or gives it back (`src/main/deep-link.ts`).
 protocols:

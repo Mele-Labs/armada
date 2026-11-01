@@ -1,4 +1,6 @@
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useNowWhile } from "../../clock";
+import type { ThreadSpacing, ThreadTextSize } from "../ThreadSettings/thread-look";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
 import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, Clock, File, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -12,7 +14,8 @@ import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { PathPicker } from "../../primitives/PathPicker/PathPicker";
 import { Skeleton, SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { Switch } from "../../primitives/Switch/Switch";
-import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
+import { Prose, ProseCommand, ProsePick, ProseRefs, ProseRunner, ProseWalk, readResponse } from "../../primitives/Prose/Prose";
+import type { QuickResponse, ResponseAct } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
 import { Stamp, StampSurface } from "../../primitives/Stamp/Stamp";
@@ -189,7 +192,7 @@ type SessionThreadKinds =
   /** An `armada check` the agent ran: its key and where it stands. A press opens that run on the Checks page. `target` is what the run was narrowed to; absent, it ran whole. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
   /** A command the person ran, which the Session was told: the mark of how it ended, the command, and a fold with the lines the Session was sent. `code` is null where it was stopped. */
-  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
+  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string; /** Still running, since `since`: the glyph moves and the time ticks, and no lines have come back yet. */ running?: true; since?: string }
   /**
    * An HTTP request sent through Fleet, by the person from Requests or by the agent: who, the mark of how it was answered, the
    * method, the address and the time, and a fold with the answer's body as plain text. The request is whole, to open again.
@@ -462,7 +465,46 @@ export type SessionThreadProps = {
   inline?: readonly ThreadCard[];
   /** `unread`: no rows held yet, and a transcript's shape stands in for them. `refreshing`: the rows held are being read again. */
   transcript?: "unread" | "refreshing";
+  /** How the thread reads, from the Aa panel: stamps and the agent's name hidden, a larger or smaller body. Absent reads as it always has. */
+  look?: { showTimes?: boolean; showAgentName?: boolean; textSize?: ThreadTextSize; spacing?: ThreadSpacing };
+  /**
+   * Answers one line of an agent's message: its plain text and the quick response pressed. Present, a list item or a paragraph of
+   * an agent's message can be answered; the host sends the quote with the emoji, or puts the quote in the box for an `ask`. Absent, no line is hoverable.
+   */
+  onPickLine?: (text: string, response: QuickResponse) => void;
+  /** The quick responses a line offers, in order. */
+  responses?: readonly QuickResponse[];
+  /** What he does to the responses from a line's menu. Absent, a response has no menu. */
+  onResponses?: (act: ResponseAct) => void;
 };
+
+/** Where a thread lets its agent's lines be answered: what answering does, and what was already said to which line. */
+type LinePicks = { responses: readonly QuickResponse[]; pick: (text: string, response: QuickResponse) => void; onAct?: (act: ResponseAct) => void; marks: ReadonlyMap<string, string> };
+const ThreadPicks = createContext<LinePicks | null>(null);
+
+/** A message's words with markdown's marks dropped, near enough to find a line's plain text in. */
+const plainOf = (text: string): string => text.replace(/[`*_~]/g, "").replace(/\s+/g, " ");
+
+/**
+ * What was said to each line of each agent message, read back from the person's own messages, so a mark outlives the thread
+ * being drawn again. A line is credited to the latest agent message before the answer that holds it: he may answer an older one.
+ */
+function marksOf(rows: readonly SessionThreadRow[]): ReadonlyMap<string, string> {
+  const marks = new Map<string, string>();
+  const agents: { id: string; plain: string }[] = [];
+  for (const row of rows) {
+    if (row.kind !== "message") continue;
+    if (row.from === "you") {
+      const said = readResponse(row.text);
+      if (said === null || agents.length === 0) continue;
+      const holder = [...agents].reverse().find((one) => one.plain.includes(said.line)) ?? agents[agents.length - 1]!;
+      marks.set(`${holder.id}\u0000${said.line}`, said.emoji);
+    } else if (row.from !== "session") {
+      agents.push({ id: row.id, plain: plainOf(row.text) });
+    }
+  }
+  return marks;
+}
 
 const TAG_KIND = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue", report: "Reported bug" } as const;
 
@@ -756,6 +798,71 @@ function Queued() {
   );
 }
 
+/** A run's time so far, `0:42` or `1:03:09`. */
+function elapsedOf(ms: number): string {
+  const all = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(all / 3600);
+  const minutes = Math.floor((all % 3600) / 60);
+  const seconds = String(all % 60).padStart(2, "0");
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${seconds}` : `${minutes}:${seconds}`;
+}
+
+/** The last lines a run sent, the ones drawn under it while it is folded. */
+const PEEK_LINES = 3;
+
+/**
+ * A command the person ran, which the Session was told. **While it runs** its glyph moves and its time ticks; nothing has come
+ * back yet, since Fleet is sent the lines when it ends. **When it ends** the glyph settles to how it ended and its last lines slide
+ * in under it; pressed, it opens to every line.
+ */
+function RanRow({ row }: { row: Extract<SessionThreadRow, { kind: "ran" }> }) {
+  const running = row.running === true;
+  // Ended while it was drawn: its lines arrive in front of him, and only then do they move.
+  const seenRunning = useRef(running);
+  if (running) seenRunning.current = true;
+  const landed = seenRunning.current && !running;
+  const now = useNowWhile(running);
+  const since = row.since === undefined ? Number.NaN : Date.parse(row.since);
+  const first = row.command.split("\n")[0] ?? "";
+  const peek = row.tail.replace(/\s+$/, "").split("\n").slice(-PEEK_LINES).join("\n");
+  if (running) {
+    return (
+      <li className="armada-session-fold armada-session-fold--ran" data-running="">
+        <div className="armada-session-fold__head" aria-label={`Running: ${first}`}>
+          <TerminalMark phase={{ state: "running" }} />
+          <code className="armada-session-fold__target">{first}</code>
+          {Number.isNaN(since) ? null : (
+            <Tooltip label="Running for">
+              <span className="armada-session-fold__elapsed" role="timer">
+                {elapsedOf(now - since)}
+              </span>
+            </Tooltip>
+          )}
+        </div>
+      </li>
+    );
+  }
+  return (
+    <li className="armada-session-fold armada-session-fold--ran" data-landed={landed || undefined}>
+      <details>
+        <summary className="armada-session-fold__head" aria-label={`${row.code === null ? "Stopped" : `Exit ${row.code}`}: ${first}`}>
+          <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
+          <TerminalMark phase={{ state: "ended", code: row.code }} />
+          <code className="armada-session-fold__target">{first}</code>
+        </summary>
+        <pre className="armada-session-fold__tail" role="log" aria-label="Sent to the Job">
+          {row.tail}
+        </pre>
+      </details>
+      {peek === "" ? null : (
+        <pre className="armada-session-fold__peek">
+          {peek}
+        </pre>
+      )}
+    </li>
+  );
+}
+
 /** What a message of the person's draws from. */
 type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "agent" }>, "id" | "at" | "text" | "files" | "sketches" | "tags" | "delivery" | "queued">;
 
@@ -774,12 +881,6 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
   const noted = opens === null || placed.parts !== null ? undefined : notedOf(said);
   return (
     <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
-      <div className="armada-session-you__band">
-        <span className="armada-session-you__who">You</span>
-        <Delivery row={row} />
-        {row.queued === true ? <Queued /> : null}
-        <RowStamp row={row} className="armada-session-you__at" />
-      </div>
       <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
         {placed.parts !== null ? (
           <p className="armada-session-said">{placed.parts}</p>
@@ -812,6 +913,12 @@ export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; 
             </Button>
           </div>
         ) : null}
+      </div>
+      {/* Under the words, quiet: where the message stands, and when. The bubble's side says whose it is. */}
+      <div className="armada-session-you__band">
+        <Delivery row={row} />
+        {row.queued === true ? <Queued /> : null}
+        <RowStamp row={row} className="armada-session-you__at" />
       </div>
     </li>
   );
@@ -942,6 +1049,7 @@ function Row({
   // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
   const refs = useContext(ProseRefs);
   const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" || tag.kind === "report" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
+  const picks = useContext(ThreadPicks);
   if (row.kind === "retro") return <SessionRetroRow row={row} {...(onOpenRetro === undefined ? {} : { onOpen: onOpenRetro })} />;
   if (row.kind === "woke") {
     return (
@@ -991,24 +1099,7 @@ function Row({
       </li>
     );
   }
-  if (row.kind === "ran") {
-    const phase = { state: "ended", code: row.code } as const;
-    const first = row.command.split("\n")[0] ?? "";
-    return (
-      <li className="armada-session-fold armada-session-fold--ran">
-        <details>
-          <summary className="armada-session-fold__head" aria-label={`${row.code === null ? "Stopped" : `Exit ${row.code}`}: ${first}`}>
-            <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
-            <TerminalMark phase={phase} />
-            <code className="armada-session-fold__target">{first}</code>
-          </summary>
-          <pre className="armada-session-fold__tail" role="log" aria-label="Sent to the Job">
-            {row.tail}
-          </pre>
-        </details>
-      </li>
-    );
-  }
+  if (row.kind === "ran") return <RanRow row={row} />;
   if (row.kind === "draft") return <DraftRow row={row} keep={sessionId === undefined ? `draft:${row.id}` : `draft:${sessionId}:${row.id}`} {...(onDraft === undefined ? {} : { onAnswer: onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdraw: onWithdrawDraft })} {...(onTeach === undefined ? {} : { onTeach })} />;
   if (row.kind === "requested") return <RequestedRow row={row} agentName={agentName} />;
   if (row.kind === "saved") return <SavedRow row={row} />;
@@ -1117,14 +1208,13 @@ function Row({
     const placed = placeTags(row.text, row.tags ?? [], openTag);
     return (
       <li className="armada-session-you" role="region" aria-label="Your message">
-        <div className="armada-session-you__band">
-          <span className="armada-session-you__who">You</span>
-          <RowStamp row={row} className="armada-session-you__at" />
-        </div>
         <div className="armada-session-you__body">
           {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
           <Sent row={row} tags={placed.loose} />
           <SentTo target={row.target} onOpen={() => onOpenSent?.({ kind: row.target.kind, id: row.target.id })} />
+        </div>
+        <div className="armada-session-you__band">
+          <RowStamp row={row} className="armada-session-you__at" />
         </div>
       </li>
     );
@@ -1145,7 +1235,13 @@ function Row({
         <RowStamp row={row} className="armada-helm-thread__at" />
       </div>
       <div className="armada-helm-thread__message" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
-        {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
+        {placed.parts !== null ? (
+          <p className="armada-session-said">{placed.parts}</p>
+        ) : (
+          <ProsePick.Provider value={picks === null ? null : { responses: picks.responses, pick: picks.pick, ...(picks.onAct === undefined ? {} : { onAct: picks.onAct }), marked: (text) => picks.marks.get(`${row.id}\u0000${text}`) }}>
+            <Prose text={row.text} />
+          </ProsePick.Provider>
+        )}
       </div>
       <Sent row={row} tags={placed.loose} />
     </li>
@@ -1705,7 +1801,7 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
   );
 }
 
-export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onWithdrawSketch, onOpenDocument, onAnswerDocument, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onWithdrawSketch, onOpenDocument, onAnswerDocument, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline, look, onPickLine, responses, onResponses }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   // A few rows arriving after the thread first drew rise in; the first draw, and a long run (Show earlier), do not.
@@ -1720,6 +1816,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
     for (const one of fresh) known.current.add(one);
     if (fresh.length <= 4) for (const one of fresh) one.setAttribute("data-arrived", "");
   });
+  const picks = useMemo((): LinePicks | null => (onPickLine === undefined || responses === undefined ? null : { responses, pick: onPickLine, ...(onResponses === undefined ? {} : { onAct: onResponses }), marks: marksOf(rows) }), [onPickLine, responses, onResponses, rows]);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -1789,7 +1886,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
     </>
   );
   return (
-    <div className="armada-session-thread" ref={whole}>
+    <div className="armada-session-thread" ref={whole} data-times={look?.showTimes === false ? "hidden" : undefined} data-who={look?.showAgentName === false ? "hidden" : undefined} data-text={look?.textSize === undefined || look.textSize === "base" ? undefined : look.textSize} data-spacing={look?.spacing === undefined || look.spacing === "default" ? undefined : look.spacing}>
       {onForkAt === undefined && onReplyAt === undefined && onTeachAt === undefined ? null : <ForkFromSelection scope={whole} {...(onForkAt === undefined ? {} : { onFork: onForkAt })} {...(onReplyAt === undefined ? {} : { onReply: onReplyAt })} {...(onTeachAt === undefined ? {} : { onTeach: onTeachAt })} />}
       <div className="armada-session-thread__stage">
       <div
@@ -1814,6 +1911,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
       >
         <StampSurface>
         <NotedOpens.Provider value={noted ?? null}>
+        <ThreadPicks.Provider value={picks}>
         <ProseWalk.Provider value={onOpenWindow ?? null}>
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
@@ -1877,6 +1975,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
         </ProseCommand.Provider>
         </ProseRunner.Provider>
         </ProseWalk.Provider>
+        </ThreadPicks.Provider>
         </NotedOpens.Provider>
         </StampSurface>
       </div>
