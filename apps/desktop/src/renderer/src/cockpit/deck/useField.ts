@@ -77,7 +77,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const repoNameOf = (manifest: string) => manifestLabel(manifest, repositories);
 
   const holder = useMemo(() => holdersOf(slots), [slots]);
-  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined && (only === undefined || one.root === only)), [ship.subjects, only]);
+  const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && one.past === undefined && one.tab !== true && (only === undefined || one.root === only)), [ship.subjects, only]);
   const mains = useMemo(() => ship.mains.filter((one) => only === undefined || one.root === only), [ship.mains, only]);
   const shipPrs = useMemo(() => ship.prs.filter((one) => only === undefined || one.root === only), [ship.prs, only]);
   const ownerOf = (number: number) => {
@@ -175,7 +175,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const keptTrails = (trails: ReadonlyMap<string, number>) => (only === undefined ? trails : new Map([...trails].filter(([key]) => all.some((one) => one.key === key))));
   const trails = useMemo(() => keptTrails(trailsOf(events, clock, ownerOf)), [events, clock, ship.prs, only, all]);
   // Arrivals are read off every repository's drones, so showing another repository does not stand its drones as newly arrived.
-  const everyone = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr").map((one) => one.key), [ship.subjects]);
+  const everyone = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr" && one.tab !== true).map((one) => one.key), [ship.subjects]);
   const everyLanded = useMemo(() => new Map(ship.prs.filter((pr) => pr.stage === "landed").map((pr) => [pr.number, pr.root] as const)), [ship.prs]);
   const arrived = usePlays(candidates, everyone, everyLanded);
   const plays = useMemo(() => arrived.filter(here), [arrived, here]);

@@ -158,6 +158,28 @@ function put(jobId: string, change: (entry: Entry) => Entry): void {
   set({ ...state, jobs: { ...state.jobs, [jobId]: change(entry) } });
 }
 
+/** Changes whenever any Job's panes do, for what is read from them without opening the Job. */
+export function usePanesVersion(): unknown {
+  return useSyncExternalStore(
+    (hear) => {
+      listeners.add(hear);
+      return () => listeners.delete(hear);
+    },
+    () => state,
+  );
+}
+
+/** The Jobs whose panes hold a Custom tab of this mod, open in this window or kept from an earlier one. */
+export function jobsHoldingMod(mod: string): string[] {
+  const kept = Object.keys(window.localStorage)
+    .filter((key) => key.startsWith(`armada:kept:${JOB}`))
+    .map((key) => key.slice(`armada:kept:${JOB}`.length));
+  return [...new Set([...Object.keys(state.jobs), ...kept])].filter((id) => {
+    const entry = state.jobs[id] ?? keptEntry(id);
+    return entry !== undefined && panesOf(entry.arrangement.root).some((pane) => pane.tabs.some((tab) => tab.kind === "custom" && tab.mod === mod));
+  });
+}
+
 /** The Job's arrangement as it stands now. */
 export const peek = (jobId: string): Arrangement => ensure(jobId).arrangement;
 

@@ -135,7 +135,7 @@ pub(crate) struct Sent {
     pub after_question: bool,
 }
 
-/// What a thread holds of lines he sent that a chip could carry. **His words only**: a note of Fleet's, a row
+/// What a thread holds of lines he sent that a chip could carry. **His words only**: a note of Fleet's, a line with a link, a row
 /// carrying a file or a tag, and a line that is more than a line are not.
 pub(crate) fn sent_in(rows: &[SessionRow]) -> Vec<Sent> {
     let mut sent = Vec::new();
@@ -148,6 +148,9 @@ pub(crate) fn sent_in(rows: &[SessionRow]) -> Vec<Sent> {
             continue;
         }
         let (Some(text), Some(at_ms)) = (one_line(text), at.to_domain().epoch_millis()) else { continue };
+        if text.contains("://") {
+            continue;
+        }
         sent.push(Sent { text, at_ms, after_question });
     }
     sent

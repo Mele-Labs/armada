@@ -1171,6 +1171,11 @@ pub struct SessionRecord {
     /// A Mod Job, started from Mod for modding Armada itself. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub r#mod: bool,
+    /// The Job whose panes hold the Custom tab this Mod Job builds, and the tab's id there, as the start carried them. Absent on every other session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_job: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_tab: Option<String>,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

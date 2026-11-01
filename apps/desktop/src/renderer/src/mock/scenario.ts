@@ -32,9 +32,16 @@ const ROW_FILES = (
   }
 ).glob("./scenarios/*.ts", { eager: true });
 
-const LISTED: Scenario[] = Object.entries(Object.assign({}, ...Object.values(ROW_FILES)) as Record<string, Scenario>)
-  // A file may also export plain values (`job-notes.ts` does): only an object is a scenario row.
-  .filter(([, scenario]) => typeof scenario === "object")
+/**
+ * Whether a value a `scenarios/` file exports is a row. A file may also export plain values, words, helpers and lists
+ * (`job-notes.ts`, `workspaces-and-autonomy.ts`): only an object with a name and a state is one.
+ */
+export function isRow(value: unknown): value is Scenario {
+  return typeof value === "object" && value !== null && typeof (value as Partial<Scenario>).name === "string" && (value as Partial<Scenario>).state !== undefined;
+}
+
+const LISTED: Scenario[] = Object.entries(Object.assign({}, ...Object.values(ROW_FILES)) as Record<string, unknown>)
+  .filter((entry): entry is [string, Scenario] => isRow(entry[1]))
   .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   .map(([, scenario]) => scenario);
 

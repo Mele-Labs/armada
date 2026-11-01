@@ -303,6 +303,29 @@
   padding-inline-start: calc(var(--space-2) + var(--space-6));
 }
 
+/* A row that opens a submenu, and the submenu beside the menu: on the side the menu has room, which is the side away from the trigger's edge it is flush with. */
+.armada-dropdown-menu__sub {
+  position: relative;
+}
+
+.armada-dropdown-menu__flyout {
+  position: absolute;
+  top: calc((var(--space-1) + var(--border-width)) * -1);
+  left: 100%;
+  z-index: var(--z-menu);
+  min-width: var(--w-menu);
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  border: var(--border-width) solid var(--border-default);
+  box-shadow: var(--shadow-overlay);
+}
+
+.armada-dropdown-menu__panel[data-aligns="end"] .armada-dropdown-menu__flyout {
+  left: auto;
+  right: 100%;
+}
+
 .armada-dropdown-menu__label {
   display: flex;
   align-items: center;

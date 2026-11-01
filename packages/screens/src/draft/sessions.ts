@@ -574,6 +574,8 @@ export type Session = {
   helm?: true;
   /** A Mod Job: started from Mod, for modding Armada itself. */
   mod?: true;
+  /** A Mod Job that builds a Custom tab: the Job whose panes hold the tab, and the tab's id. It has no row of its own; the tab and its card are where it lives. */
+  modFor?: { job: string; tab: string };
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */

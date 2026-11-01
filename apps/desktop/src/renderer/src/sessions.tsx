@@ -102,7 +102,7 @@ import { useBrowserReminders } from "./job-browser/JobBrowserPane";
 import { OverTheApp } from "./session-view/OverTheApp";
 import { baysOf } from "./session-view/slot-trouble";
 import { ClashFileSheet } from "./session-view/ClashFileSheet";
-import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
+import { askedOf } from "./asked-of";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { useToolsBand, useToolsFixes } from "./tools-fixes";
 import { attachmentsOf, opensPullRequests, ownerOf, owesOf, planAsked, toolsMissingSaid } from "@armada/screens/src/draft/sessions";
@@ -1073,19 +1073,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const needs = entries.filter((one) => one.kind === "waiting" && (doneShown || !carded.has(one.key)));
   const ledger = entries.filter((one) => one.kind !== "waiting");
   // What the agent is held on, or asked and was not answered, is the first thing in the Needs you panel on the composer, not the thread's last card.
-  const asked: ComponentProps<typeof AskCards>["asked"] =
-    session.asked === undefined
-      ? undefined
-      : {
-          command: session.asked.command,
-          ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
-          ...(session.asked.offers === undefined
-            ? {}
-            : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
-          ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
-          ...(session.asked.reachesTo === undefined ? {} : { reachesTo: session.asked.reachesTo }),
-          ...(session.asked.kind === undefined ? {} : { kind: session.asked.kind }),
-        };
+  const asked = askedOf(session);
   const lapsed: ComponentProps<typeof AskCards>["lapsed"] =
     session.lapsed === undefined || session.lapsed.id === answeredLapse
       ? undefined

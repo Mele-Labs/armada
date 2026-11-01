@@ -50,10 +50,10 @@ export function useTabModule(name: string): Loaded {
 }
 
 /** Start a Mod Job on the tab, told why it is broken, and have the tab follow it. A refusal is told as a toast. */
-async function fix(mod: string, tabId: string, problems: readonly string[]): Promise<void> {
+async function fix(mod: string, jobId: string, tabId: string, problems: readonly string[]): Promise<void> {
   const title = tabTitle(mod);
   const said = `Fix the ${title} tab: change the tab mod \`${mod}\` in place, without scaffolding another.\n\n${problems.join("\n")}`;
-  const started = await window.armada.startModSession({ title: `Mod Fix ${title}`, said, aim: "tab" });
+  const started = await window.armada.startModSession({ title: `Mod Fix ${title}`, said, aim: "tab", from_job: jobId, from_tab: tabId });
   if (!started.ok) return askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
   followJob(tabId, started.value.session_id);
 }
@@ -89,7 +89,7 @@ class Contained extends React.Component<{ children: React.ReactNode; fault: (why
 export function TabMod({ mod, jobId, tabId }: { mod: string; jobId: string; tabId: string }) {
   const { Component, load, problems, off } = useTabModule(mod);
   const host = React.useMemo<TabHost>(() => ({ React, armada: window.armada, ui: TAB_UI, glyphs: TAB_GLYPHS, job: { id: jobId }, tab: { id: tabId } }), [jobId, tabId]);
-  const fixing = (said: readonly string[]) => () => fix(mod, tabId, said);
+  const fixing = (said: readonly string[]) => () => fix(mod, jobId, tabId, said);
   if (Component === undefined) {
     return problems.length === 0 ? null : <Faults problems={problems} {...(off ? {} : { fixing: fixing(problems) })} />;
   }

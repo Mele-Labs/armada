@@ -3,6 +3,7 @@
 import { expect, test } from "vitest";
 import type { ModSummary } from "@armada/protocol";
 
+import { startBuilding } from "./custom";
 import { openBuiltTabs } from "./mod-tabs";
 import { jobOpens, peek } from "./store";
 import { panesOf } from "./tree";
@@ -38,4 +39,20 @@ test("a mod of another kind or another Job opens nothing", () => {
   const JOB = "quiet-job";
   openBuiltTabs(JOB, [mod("dark", JOB, "theme"), mod("elsewhere", "other-job")]);
   expect(customs(JOB)).toHaveLength(0);
+});
+
+test("a tab mod a Mod Job built for a tab opens in the panes of the Job it was started from, and in none of its own", () => {
+  const sessions = [{ id: "mod-job", modFor: { job: "holder-job", tab: "t1" } }];
+  openBuiltTabs("mod-job", [mod("pull-queue", "mod-job")], sessions);
+  expect(customs("mod-job")).toHaveLength(0);
+  openBuiltTabs("holder-job", [mod("pull-queue", "mod-job")], sessions);
+  expect(customs("holder-job")).toEqual([expect.objectContaining({ kind: "custom", mod: "pull-queue" })]);
+});
+
+test("a tab the composer is building for the mod's Job gets no second copy beside it", () => {
+  jobOpens("composing-holder", "custom");
+  const tab = customs("composing-holder")[0]!;
+  startBuilding(tab.id, "builder-mod");
+  openBuiltTabs("composing-holder", [mod("fresh-queue", "builder-mod")], [{ id: "builder-mod", modFor: { job: "composing-holder", tab: tab.id } }]);
+  expect(customs("composing-holder")).toHaveLength(1);
 });

@@ -3,10 +3,18 @@
 
 import { expect, test } from "vitest";
 
-import { SCENARIOS, scenarioNamed } from "./scenario";
+import { SCENARIOS, isRow, scenarioNamed } from "./scenario";
 import { WALKS } from "./walks";
 
 const ROW_FILES = import.meta.glob<Record<string, unknown>>("./scenarios/*.ts", { eager: true });
+
+// A list a scenarios/ file exports beside its rows came in as a row with no name and no state, a blank line in the finder.
+test("every scenario the list holds has a name and a state", () => {
+  for (const one of SCENARIOS) {
+    expect(typeof one.name, JSON.stringify(one).slice(0, 80)).toBe("string");
+    expect(one.state, one.name).toBeDefined();
+  }
+});
 
 test("every scenario has its own name", () => {
   const names = SCENARIOS.map((one) => one.name);
@@ -59,12 +67,12 @@ test("no scenario names a shape", () => {
 });
 
 // A name two files both export would overwrite one with the other, which would drop a walk's row
-// without saying so.
+// without saying so. A file may export plain values beside its rows since 5f6e272ac2, and those are no rows.
 test("every row exported from scenarios/ has a name of its own, and reaches the list", () => {
   const exported = Object.values(ROW_FILES).flatMap((one) => Object.keys(one));
   expect(new Set(exported).size).toBe(exported.length);
   const names = SCENARIOS.map((one) => one.name);
   for (const file of Object.values(ROW_FILES)) {
-    for (const row of Object.values(file)) expect(names).toContain((row as { name: string }).name);
+    for (const row of Object.values(file).filter(isRow)) expect(names).toContain(row.name);
   }
 });
