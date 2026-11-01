@@ -36,7 +36,7 @@ function host(page: JobPage | null, driving: "agent" | "owner" = "agent") {
   const acts: ActsHost = {
     page: () => page,
     ownerDriving: () => driving === "owner",
-    openClosedInPanel: (_sessionId, url) => {
+    openClosed: (_sessionId, url) => {
       opened.push(url);
       return fresh;
     },
@@ -75,7 +75,7 @@ describe("an act on a held request", () => {
     expect(answered.map((one) => one.error)).toEqual([{ kind: "owner_driving" }, { kind: "owner_driving" }]);
   });
 
-  it("opens a closed Job browser in the side panel on the agent's open, and answers its page", async () => {
+  it("opens a page for a Job with no Browser tab on the agent's open, and answers its page", async () => {
     const { acts, answered, opened, fresh } = host(null);
     await actOn(acts, asked({ kind: "open", url: "http://localhost:5173/cart" }));
     expect(opened).toEqual(["http://localhost:5173/cart"]);

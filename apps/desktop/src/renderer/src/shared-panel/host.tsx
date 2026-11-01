@@ -16,8 +16,6 @@ import { RulePanel } from "./rule";
 import { FileSide, useOpenFileKey } from "./file";
 import { PullRequestSide } from "./pull-request";
 import { RequestsPanel } from "./requests";
-import { TerminalPanel } from "./terminal";
-import { BrowserSide } from "../job-browser/BrowserSide";
 import { RunPanel } from "./run";
 import { TeachSide } from "./teach";
 import { AttachmentsProvided } from "../attachments-provided";
@@ -60,10 +58,6 @@ export function SharedPanelHost() {
         <WatchPanel key={`watch:${open.sessionId}/${open.id}`} item={open} />
       ) : open.kind === "mod" ? (
         <ModPanel key={`mod:${open.name}`} item={open} />
-      ) : open.kind === "terminal" ? (
-        <TerminalPanel key={`terminal:${open.sessionId}`} item={open} />
-      ) : open.kind === "browser" ? (
-        <BrowserSide key={`browser:${open.sessionId}`} item={open} />
       ) : open.kind === "run" ? (
         <RunPanel key={`run:${open.at}`} item={open} />
       ) : open.kind === "requests" ? (

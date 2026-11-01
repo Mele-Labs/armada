@@ -2,15 +2,19 @@
 // already, QA split and Review, beside Default. Each time the walk lets time pass, the second Job opens a browser page itself, which joins the pane that holds a browser, or opens
 // as a split on the right. Over `job-story`. The walk `jobLayouts` plays it. Mock only: nothing is kept.
 
-import type { ModSummary, PullReviewLists, PullReviewRow, WorktreeSlot } from "@armada/protocol";
+import type { ModChecked, ModSummary, PullReviewLists, PullReviewRow, WorktreeSlot } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { seedJobBrowser } from "../../job-browser/store";
-import { jobOpens } from "../../job-panes/store";
+import { forgetPanes, jobOpens, seedLayouts } from "../../job-panes/store";
+import { build } from "../../job-panes/tree";
 import { resetCheckout, shopPage } from "../job-browser-page";
+import { MOCK_PATCH, MOCK_PATCH_LOG, MOCK_PATCH_TOOLTIP, patchesOf } from "../job-layouts-patches";
 import { unanswered, type Scenario } from "../moment";
 import type { SessionsStore } from "../sessions/script";
+import { sharedPanelReads } from "../shared-panel-reads";
+import { reviewQueueModule } from "./job-layouts-tab";
 import { sJobStory } from "./job-story";
 import { jobAt } from "../workspaces-lanes-data";
 import { throughWire } from "../workspaces-lanes-wire";
@@ -92,8 +96,13 @@ const LINKED: Session[] = [
 let handle: { publish: (change: { mods: { mods: ModSummary[] } }) => void } | undefined;
 let modStore: SessionsStore | undefined;
 let mods: ModSummary[] = [];
+/** How far the Mod Job has got in rewriting the tab's module, which `validate_mod` answers. */
+let revision = 0;
 const turns = new Map<string, () => void>();
 const timers = new Set<number>();
+const changeTimers = new Set<number>();
+/** The Jobs a Custom tab started, which a message to builds the tab again. */
+const modJobs = new Set<string>();
 let rowSeq = 0;
 
 /** The Mod Job's turn: rows as it reads and writes, then the mod in Fleet's list. Idempotent, so a walk's time passing may end it early. */
@@ -104,7 +113,7 @@ function modTurn(store: SessionsStore, id: string, said: string): void {
     [700, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", "Read packages/protocol/src/pull-reviews.ts")] }))],
     [1500, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", "Read apps/desktop/src/renderer/src/pr-review/marks.tsx")] }))],
     [2300, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", `Write ${MOD_DIR}/mod.toml`)] }))],
-    [3100, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", `Write ${MOD_DIR}/tab.tsx`)] }))],
+    [3100, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", `Write ${MOD_DIR}/tab.js`)] }))],
   ];
   const finish = () => {
     if (!turns.delete(id)) return;
@@ -116,13 +125,50 @@ function modTurn(store: SessionsStore, id: string, said: string): void {
       turn: { state: "idle" },
       lastTurnAt: now(),
     }));
-    const row_: ModSummary = { name: MOD_NAME, kind: "tab", enabled: true, valid: true, made_by: id, changed_at: now(), description: said === "" ? "" : "Pull requests waiting on your review, across repositories" };
+    const row_: ModSummary = { name: MOD_NAME, kind: "tab", glyph: "git-pull-request", enabled: true, valid: true, made_by: id, changed_at: now(), description: said === "" ? "" : "Pull requests waiting on your review, across repositories" };
     mods = [...mods.filter((one) => one.name !== MOD_NAME), row_];
     handle?.publish({ mods: { mods } });
   };
   turns.set(id, finish);
   for (const [at, run] of steps) timers.add(window.setTimeout(run, at));
   timers.add(window.setTimeout(finish, 4000));
+}
+
+/** The Job writes the module again: the mod's files change, so its row's `changed_at` moves and Bridge loads the module again. */
+function rewrite(step: number): void {
+  revision = step;
+  mods = mods.map((one) => (one.name === MOD_NAME ? { ...one, changed_at: new Date().toISOString() } : one));
+  handle?.publish({ mods: { mods } });
+}
+
+/** A message to the Mod Job that built the tab: it reads the tab, then rewrites its view a step at a time, and the tab beside its card changes with each. Idempotent as the first build is. */
+function changeTurn(store: SessionsStore, id: string): void {
+  if (turns.has(id)) return;
+  const now = () => new Date().toISOString();
+  const tool = (text: string): SessionRow => ({ id: `mod-${(rowSeq += 1)}`, at: now(), kind: "tool", text });
+  const add = (more: SessionRow) => store.edit(id, (one) => ({ ...one, rows: [...one.rows, more] }));
+  rewrite(0);
+  const steps: [number, () => void][] = [
+    [600, () => add(tool(`Read ${MOD_DIR}/tab.js`))],
+    [1400, () => (add(tool(`Write ${MOD_DIR}/tab.js: the oldest lead`)), rewrite(1))],
+    [2800, () => (add(tool(`Write ${MOD_DIR}/tab.js: how long each has waited`)), rewrite(2))],
+    [4200, () => (add(tool(`Write ${MOD_DIR}/tab.js: the heading`)), rewrite(3))],
+  ];
+  const finish = () => {
+    if (!turns.delete(id)) return;
+    changeTimers.forEach((one) => window.clearTimeout(one));
+    changeTimers.clear();
+    rewrite(3);
+    store.edit(id, (one) => ({
+      ...one,
+      rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: now(), kind: "message", from: { kind: "agent" }, text: "Review queue lists the oldest first, with how long each has waited." } satisfies SessionRow],
+      turn: { state: "idle" },
+      lastTurnAt: now(),
+    }));
+  };
+  turns.set(id, finish);
+  for (const [at, run] of steps) changeTimers.add(window.setTimeout(run, at));
+  changeTimers.add(window.setTimeout(finish, 5400));
 }
 
 export const sJobLayouts: Scenario = {
@@ -134,6 +180,12 @@ export const sJobLayouts: Scenario = {
     for (const id of JOBS) seedJobBrowser(id, { visited: [...SHOP], page: shopPage });
     handle = fleet;
     mods = [];
+    // Layouts are kept across restarts for real, so the mock starts from none a person made and offers two of its own.
+    forgetPanes();
+    seedLayouts({
+      "QA split": build({ dir: "row", ratio: 0.55, a: { dir: "column", ratio: 0.6, a: ["thread"], b: ["terminal"] }, b: ["browser"] }, undefined, { browser: "localhost:5173", terminal: "zsh" }),
+      Review: build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["changes"] }),
+    });
     return {
       ...sJobStory.behaves?.(fleet),
       ...shellApi(),
@@ -151,6 +203,7 @@ export const sJobLayouts: Scenario = {
           rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: said }],
           turn: { state: "working" },
         } satisfies Session));
+        modJobs.add(id);
         modTurn(store, id, said);
         return { ok: true, value: { session_id: id, title } };
       },
@@ -159,6 +212,8 @@ export const sJobLayouts: Scenario = {
         handle?.publish({ mods: { mods } });
         return { ok: true };
       },
+      validateMod: async (name): Promise<ModChecked | null> =>
+        name === MOD_NAME ? { name, valid: true, problems: [], tab: { glyph: "git-pull-request", code: reviewQueueModule(revision) } } : null,
       getReviewLists: async () => {
         const value: PullReviewLists = { me: "you", fetched_at: new Date().toISOString(), requested: WAITING, team: [], assigned: [], mine: [] };
         return { ok: true, value };
@@ -184,6 +239,12 @@ export const sJobLayouts: Scenario = {
   },
   draft: {
     ...sJobStory.draft,
+    // The Changes tab reads each pull request's patches from the forge: these are what it answers for the Jobs' pull requests.
+    sharedPanel: () => {
+      const base = sharedPanelReads({ lines: [] });
+      const patches: Record<number, string> = { 2390: MOCK_PATCH, 2391: MOCK_PATCH_TOOLTIP, 2366: MOCK_PATCH_LOG };
+      return { ...base, pullRequestPatches: async (item) => (patches[item.number] === undefined ? (base.pullRequestPatches?.(item) ?? { ok: false, said: "The forge could not find this pull request." }) : patchesOf(item.manifestId ?? "", item.number, patches[item.number]!)) };
+    },
     sessions: (board, more) => {
       seedSystem({
         session_id: CHANGES,
@@ -249,6 +310,13 @@ export const sJobLayouts: Scenario = {
           return merged;
         },
         terminalRuns: true as const,
+        // A message to a Mod Job is the person's row and its next turn, and not the canned reply the store plays for any other Job.
+        send: (id: string, sent: Parameters<typeof store.send>[1]) => {
+          if (!modJobs.has(id)) return store.send(id, sent);
+          store.edit(id, (one) => ({ ...one, rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: sent.text } satisfies SessionRow], turn: { state: "working" } }));
+          changeTurn(store, id);
+          return Promise.resolve(true);
+        },
         later: () => {
           store.later();
           for (const finish of [...turns.values()]) finish();
@@ -258,6 +326,10 @@ export const sJobLayouts: Scenario = {
         dispose: () => {
           timers.forEach((one) => window.clearTimeout(one));
           timers.clear();
+          changeTimers.forEach((one) => window.clearTimeout(one));
+          changeTimers.clear();
+          modJobs.clear();
+          revision = 0;
           turns.clear();
           disposeShells();
           store.dispose();

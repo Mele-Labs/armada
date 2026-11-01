@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 28 Oct 2026. A Job's agent drives a page in Bridge, the one the owner sees in the side panel and may take over.
+Since 28 Oct 2026. A Job's agent drives a page in Bridge, the Job's page, in a Browser tab the owner sees and may take over.
 Eight operations, eight routes, one event kind, one report kind and one row kind.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/sessions.ts`, written by hand, field for field; the row is in `hosted-sessions.ts` and the event in `events.ts`.
