@@ -142,7 +142,7 @@ test("on a match, N moves to the new stage and sends nothing", async () => {
   await say();
   await expect.element(sendCard()).toBeVisible();
 
-  await userEvent.keyboard("{Meta>}n{/Meta}");
+  await userEvent.keyboard("n");
   await expect.element(newCard()).toBeVisible();
   expect(sendCard().query()).toBeNull();
   expect(send).not.toHaveBeenCalled();
