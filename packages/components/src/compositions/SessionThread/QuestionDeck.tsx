@@ -9,7 +9,6 @@ import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
-import { Kbd } from "../../primitives/Kbd/Kbd";
 import { RefText } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useKept } from "../../keep";
@@ -66,7 +65,7 @@ export function QuestionDeck({
   canSkip: boolean;
   /** Inside a panel that already frames it: no card, no band, the question and its answers alone. */
   flat?: boolean;
-  /** A lone single choice's options as quick bar chips, ⌘1 on, each sending as it is pressed; Other and the acts stay as they are. */
+  /** The options are not drawn, the quick bar holds them: the question, Other and the acts remain. */
   bare?: boolean;
   /** What these questions are about: the picks and the question in front are kept under it, as a message not yet sent is, and go when it is answered or skipped. */
   keep?: string;
@@ -123,15 +122,6 @@ export function QuestionDeck({
     setSending(true);
     void sent.then(letGo, () => undefined).finally(() => setSending(false));
   };
-  // A chip is the answer: it goes as it is pressed, as the quick bar's line would.
-  const send = (label: string) => {
-    if (sending) return;
-    const sent = onAnswer("allow_once", [{ question: one.question, chosen: [label] }]);
-    if (sent === undefined) return letGo();
-    setSending(true);
-    void sent.then(letGo, () => undefined).finally(() => setSending(false));
-  };
-  const pick = bare ? send : choose;
   const skip = () => {
     letGo();
     void onAnswer("refuse");
@@ -164,12 +154,10 @@ export function QuestionDeck({
     if (!open || event.target instanceof HTMLInputElement) return;
     const n = Number(event.key);
     if (!Number.isInteger(n) || n < 1) return;
-    if (n <= one.options.length) pick(one.options[n - 1]!.label);
+    if (n <= one.options.length) choose(one.options[n - 1]!.label);
     else if (n === one.options.length + 1) other();
     else return;
     event.preventDefault();
-    // A chip's ⌘ key stops here, so the tabs do not move too.
-    if (bare && event.metaKey) event.stopPropagation();
   };
 
   // Flat, in the panel there is no band to hold the pips: a node per question beside the buttons, the answered ones checked and named, the one in front ringed.
@@ -238,40 +226,8 @@ export function QuestionDeck({
           </header>
           <div className="armada-question-deck__body" hidden={flat ? false : !open}>
             <p className="armada-question-deck__ask"><RefText text={one.question} /></p>
-            {bare ? (
-              // The quick bar's own chips, wrapping rather than scrolling, so the band grows to hold them.
-              <div className="armada-question-deck__chips" role="group" aria-label="Options">
-                {one.options.map((option, index) => {
-                  const chip = (
-                    <button
-                      key={option.label}
-                      type="button"
-                      className="armada-quick__chip"
-                      data-kind="asked"
-                      aria-label={option.label}
-                      aria-description={option.description === "" ? undefined : option.description}
-                      {...(index < 9 ? { "aria-keyshortcuts": `Meta+${index + 1}` } : {})}
-                      disabled={sending}
-                      onClick={() => send(option.label)}
-                      onMouseEnter={(event) => look(option, event)}
-                      onFocus={(event) => look(option, event)}
-                      onMouseLeave={() => setLooking(null)}
-                      onBlur={() => setLooking(null)}
-                    >
-                      <span className="armada-quick__text">{option.label}</span>
-                      {index < 9 ? <Kbd className="armada-quick__key">⌘{index + 1}</Kbd> : null}
-                    </button>
-                  );
-                  return option.description === "" ? chip : <Tooltip key={option.label} label={option.description}>{chip}</Tooltip>;
-                })}
-                <button type="button" className="armada-quick__chip" aria-label="Other" aria-pressed={using[front] === true} data-on={using[front] === true || undefined} onClick={other}>
-                  <span className="armada-quick__text">Other</span>
-                  <ThreadKbd act="change" on={target} />
-                </button>
-              </div>
-            ) : (
             <div className="armada-question-deck__answers" role={one.multi_select ? "group" : "radiogroup"} aria-label="Options">
-              {one.options.map((option, index) => {
+              {(bare ? [] : one.options).map((option, index) => {
                 const on = (picked[front] ?? []).includes(option.label);
                 return (
                   <button
@@ -313,7 +269,6 @@ export function QuestionDeck({
                 <ThreadKbd act="change" on={target} />
               </button>
             </div>
-            )}
             {previewed?.preview === undefined || looking === null ? null : <PreviewCard text={previewed.preview} row={looking.row} frame={looking.frame} />}
             {using[front] === true ? (
               <Input aria-label="Other" autoFocus value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
