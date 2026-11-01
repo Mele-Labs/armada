@@ -32,6 +32,8 @@ export function Popover({ trigger, children, align = "start", defaultOpen = fals
     if (!open) return;
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      // A field inside the panel that ends its own edit on Esc keeps the panel open.
+      if ((event.target as HTMLElement).closest?.("[data-escape-own]") != null) return;
       event.preventDefault();
       event.stopPropagation();
       setOpen(false);

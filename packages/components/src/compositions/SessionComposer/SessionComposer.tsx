@@ -15,7 +15,7 @@ import { modelSaid } from "../SessionFrame/model-said";
 import { useThreadYesWaits } from "../SessionThread/thread-keys";
 import { isLargePaste, snippetOf } from "./large-paste";
 import { QuickBar, quickLines } from "./QuickBar";
-import type { QuickPhrase } from "../ThreadSettings/thread-look";
+import type { QuickAct, QuickPhrase } from "../ThreadSettings/thread-look";
 import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
 import { addressOf, backspaceInBlock, beforeCaret, caretOffset, caretToEnd, CHIP, decorate, drawnAsText, enterInBlock, readDom, redraw, sentText, tagNode, writeDom } from "./message-dom";
@@ -187,7 +187,7 @@ export type SessionComposerProps = {
    * ⌘1 to ⌘9 sends one, ⇧ puts it in the box; `onSave` keeps what the box holds as a saved line. **While the box has the
    * focus ⌘1 to ⌘9 are the bar's**, not the tabs'. Absent draws no bar.
    */
-  quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void };
+  quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void; onAct?: (act: QuickAct) => void };
   /** Talk: a press, or ⌥Space held in the box, listens, and each word heard joins the box. Nothing is sent by it. Absent draws no Talk. */
   talk?: { listen: (onWord: (word: string) => void) => () => void };
 };
@@ -837,7 +837,7 @@ export function SessionComposer({
   if (quick === undefined) return box;
   return (
     <div className="armada-session-composer__with-quick">
-      <QuickBar asked={quick.asked} phrases={quick.phrases} onSend={sendLine} onDrop={dropLine} canSave={text.trim() !== ""} onSave={() => quick.onSave(sentText(text, draft.tags).trim())} />
+      <QuickBar asked={quick.asked} phrases={quick.phrases} onSend={sendLine} onDrop={dropLine} canSave={text.trim() !== ""} onSave={() => quick.onSave(sentText(text, draft.tags).trim())} {...(quick.onAct === undefined ? {} : { onAct: quick.onAct })} />
       {box}
     </div>
   );

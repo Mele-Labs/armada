@@ -7,6 +7,7 @@ import { toSessions } from "../sessions/walk-kit";
 
 const thread = region("Thread");
 const message = role("textbox", "Message");
+const quick = role("group", "Quick replies");
 
 const livelier = walk("livelier-thread", [
   toSessions,
@@ -15,6 +16,9 @@ const livelier = walk("livelier-thread", [
   { later: inside(thread, role("timer")), say: "A run still going: its glyph moves and its time ticks" },
   { look: inside(thread, text(/212 passed/)), say: "It ended: the glyph settles and its last lines slide in" },
   { key: "Meta+1", on: message, say: "The quick bar answers the question. ⌘1 sends Restart it" },
+  { context: inside(quick, button("Land it")), say: "A right press on a quick reply: Edit, Pin and Delete" },
+  { press: role("menuitem", "Pin"), say: "Pinned lines sit first in the bar, marked" },
+  { look: inside(quick, role("img", "Pinned")), say: "The pinned mark" },
   { press: button("Talk", { exact: true }), say: "Talk, or hold ⌥Space in the box: the words fill it, and nothing sends" },
   { press: button("Thread look"), say: "Aa: how this thread reads" },
   { type: "Xavier", into: inside(dialog("Thread look"), role("textbox", "Agent name")), say: "The agent's name, live in the thread" },

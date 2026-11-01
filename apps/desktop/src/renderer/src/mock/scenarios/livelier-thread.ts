@@ -118,6 +118,7 @@ export const s341LivelierThread: Scenario = {
           { id: "saved:land", text: "Land it", kind: "saved" },
         ],
         learn: true,
+        forgotten: [],
         voice: "apple",
       },
       asked: { [JOB]: ["Restart it", "Not yet"] },

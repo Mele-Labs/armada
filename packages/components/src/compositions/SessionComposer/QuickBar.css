@@ -55,6 +55,17 @@
   color: var(--fg-subtle);
 }
 
+/* A line's words as a field: the width of a menu in the bar, the rest of the row in the settings list. */
+.armada-quick__edit {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-quick > .armada-quick__edit {
+  flex: none;
+  inline-size: var(--w-menu);
+}
+
 .armada-quick__key {
   margin-inline-start: var(--space-1);
   color: var(--fg-subtle);

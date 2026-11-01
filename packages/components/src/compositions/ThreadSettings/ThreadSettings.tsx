@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 import { useKept } from "../../keep";
@@ -8,8 +8,9 @@ import { Popover } from "../../primitives/Popover/Popover";
 import { Select } from "../../primitives/Select/Select";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { QuickKindMark } from "../SessionComposer/QuickBar";
-import { THREAD_TEXT_SIZES, VOICE_ENGINES, useThreadLook } from "./thread-look";
+import { QuickEdit, QuickKindMark, QuickPinnedMark } from "../SessionComposer/QuickBar";
+import { THREAD_TEXT_SIZES, VOICE_ENGINES, actOnQuick, pinnedFirst, useThreadLook } from "./thread-look";
+import type { QuickAct } from "./thread-look";
 import type { QuickPhrase, ThreadLook, ThreadTextSize, VoiceEngine, WhisperModel } from "./thread-look";
 
 export type ThreadSpacing = "compact" | "default" | "roomy";
@@ -56,6 +57,8 @@ export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, auto
     if (autoFocus) first.current?.focus();
   }, [autoFocus]);
   const [adding, setAdding, clearAdding] = useKept<string>(keep, "");
+  const [editing, setEditing] = useState<string | undefined>(undefined);
+  const act = (what: QuickAct) => onChange((was) => actOnQuick(was, what));
   const set = <K extends keyof ThreadLook>(key: K, value: ThreadLook[K]) => onChange((was) => ({ ...was, [key]: value }));
   const add = () => {
     const text = adding.trim();
@@ -67,7 +70,7 @@ export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, auto
   const onRowKey = (at: number) => (event: KeyboardEvent) => {
     if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
     event.preventDefault();
-    onChange((was) => ({ ...was, quick: moved(was.quick, at, event.key === "ArrowUp" ? -1 : 1) }));
+    onChange((was) => ({ ...was, quick: pinnedFirst(moved(was.quick, at, event.key === "ArrowUp" ? -1 : 1)) }));
   };
   return (
     <div className="armada-thread-settings" data-in={inPanel ? "panel" : undefined}>
@@ -100,23 +103,43 @@ export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, auto
           {look.quick.map((one, at) => (
             <li key={one.id} className="armada-thread-settings__line" onKeyDown={onRowKey(at)}>
               <QuickKindMark kind={one.kind} />
-              <span className="armada-thread-settings__text">{one.text}</span>
-              <span className="armada-thread-settings__acts">
-                {one.kind === "learnt" ? (
-                  <Button size="sm" variant="ghost" aria-label={`Save ${one.text}`} onClick={() => onChange((was) => ({ ...was, quick: was.quick.map((it) => (it.id === one.id ? { ...it, kind: "saved" } : it)) }))}>
-                    Save
-                  </Button>
-                ) : null}
-                <Button size="sm" variant="ghost" aria-label={`Move ${one.text} up`} aria-keyshortcuts="Alt+ArrowUp" disabled={at === 0} onClick={() => onChange((was) => ({ ...was, quick: moved(was.quick, at, -1) }))}>
-                  Up
-                </Button>
-                <Button size="sm" variant="ghost" aria-label={`Move ${one.text} down`} aria-keyshortcuts="Alt+ArrowDown" disabled={at === look.quick.length - 1} onClick={() => onChange((was) => ({ ...was, quick: moved(was.quick, at, 1) }))}>
-                  Down
-                </Button>
-                <Button size="sm" variant="ghost" aria-label={`Remove ${one.text}`} onClick={() => onChange((was) => ({ ...was, quick: was.quick.filter((it) => it.id !== one.id) }))}>
-                  Remove
-                </Button>
-              </span>
+              {one.pinned === true ? <QuickPinnedMark /> : null}
+              {editing === one.id ? (
+                <QuickEdit
+                  text={one.text}
+                  label={`Edit ${one.text}`}
+                  onDone={(text) => {
+                    setEditing(undefined);
+                    if (text !== undefined) act({ act: "edit", id: one.id, text });
+                  }}
+                />
+              ) : (
+                <>
+                  <span className="armada-thread-settings__text">{one.text}</span>
+                  <span className="armada-thread-settings__acts">
+                    {one.kind === "learnt" ? (
+                      <Button size="sm" variant="ghost" aria-label={`Save ${one.text}`} onClick={() => onChange((was) => ({ ...was, quick: was.quick.map((it) => (it.id === one.id ? { ...it, kind: "saved" } : it)) }))}>
+                        Save
+                      </Button>
+                    ) : null}
+                    <Button size="sm" variant="ghost" aria-label={`Edit ${one.text}`} onClick={() => setEditing(one.id)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" aria-label={`${one.pinned === true ? "Unpin" : "Pin"} ${one.text}`} onClick={() => act({ act: one.pinned === true ? "unpin" : "pin", id: one.id })}>
+                      {one.pinned === true ? "Unpin" : "Pin"}
+                    </Button>
+                    <Button size="sm" variant="ghost" aria-label={`Move ${one.text} up`} aria-keyshortcuts="Alt+ArrowUp" disabled={at === 0} onClick={() => onChange((was) => ({ ...was, quick: pinnedFirst(moved(was.quick, at, -1)) }))}>
+                      Up
+                    </Button>
+                    <Button size="sm" variant="ghost" aria-label={`Move ${one.text} down`} aria-keyshortcuts="Alt+ArrowDown" disabled={at === look.quick.length - 1} onClick={() => onChange((was) => ({ ...was, quick: pinnedFirst(moved(was.quick, at, 1)) }))}>
+                      Down
+                    </Button>
+                    <Button size="sm" variant="ghost" aria-label={`Delete ${one.text}`} onClick={() => act({ act: "delete", id: one.id })}>
+                      Delete
+                    </Button>
+                  </span>
+                </>
+              )}
             </li>
           ))}
         </ol>

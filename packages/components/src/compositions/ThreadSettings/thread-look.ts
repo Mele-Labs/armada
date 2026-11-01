@@ -11,11 +11,62 @@ export type ThreadLook = {
   quick: readonly QuickPhrase[];
   /** Lines he sends often join the quick bar as learnt. */
   learn: boolean;
+  /** Learnt lines he deleted or reworded, so Bridge does not learn them again. */
+  forgotten: readonly string[];
   voice: VoiceEngine;
 };
 
 /** A line the quick bar offers: one he saved, or one Bridge learnt from what he sends. */
-export type QuickPhrase = { id: string; text: string; kind: "saved" | "learnt" };
+export type QuickPhrase = { id: string; text: string; kind: "saved" | "learnt"; /** Sits first in the bar, after the answers to the agent's question. Only a saved line is pinned. */ pinned?: boolean };
+
+/** What he does to a quick reply, from its menu or from the settings list. */
+export type QuickAct =
+  | { act: "edit"; id: string; text: string }
+  | { act: "delete"; id: string }
+  | { act: "pin"; id: string }
+  | { act: "unpin"; id: string }
+  /** An answer to the agent's question, kept as a saved line. */
+  | { act: "save"; text: string };
+
+/** The lines as the bar draws them: pinned first, each group in the order it is kept. */
+export function pinnedFirst<T extends { pinned?: boolean }>(lines: readonly T[]): T[] {
+  return [...lines.filter((one) => one.pinned === true), ...lines.filter((one) => one.pinned !== true)];
+}
+
+/**
+ * The look after one act on a quick reply. **A learnt line that is edited, pinned or deleted leaves the learnt set**: edited
+ * and pinned ones become saved, and the old words of an edited or deleted one are forgotten, so they are not learnt again.
+ * Pinning puts the line last among the pinned, which is the order they were pinned in.
+ */
+export function actOnQuick(look: ThreadLook, act: QuickAct): ThreadLook {
+  if (act.act === "save") {
+    const text = act.text.trim();
+    if (text === "" || look.quick.some((one) => one.text === text)) return look;
+    return { ...look, quick: [...look.quick, { id: `saved:${Date.now()}`, text, kind: "saved" }] };
+  }
+  const was = look.quick.find((one) => one.id === act.id);
+  if (was === undefined) return look;
+  const forget = was.kind === "learnt" && !look.forgotten.includes(was.text) ? [...look.forgotten, was.text] : look.forgotten;
+  switch (act.act) {
+    case "edit": {
+      const text = act.text.trim();
+      if (text === "" || text === was.text) return look;
+      return { ...look, forgotten: forget, quick: look.quick.map((one) => (one.id === was.id ? { ...one, text, kind: "saved" } : one)) };
+    }
+    case "delete":
+      return { ...look, forgotten: forget, quick: look.quick.filter((one) => one.id !== was.id) };
+    case "pin": {
+      if (was.pinned === true) return look;
+      const rest = look.quick.filter((one) => one.id !== was.id);
+      const at = rest.filter((one) => one.pinned === true).length;
+      return { ...look, quick: [...rest.slice(0, at), { ...was, kind: "saved", pinned: true }, ...rest.slice(at)] };
+    }
+    case "unpin": {
+      const { pinned: _, ...unpinned } = was;
+      return { ...look, quick: look.quick.map((one) => (one.id === was.id ? unpinned : one)) };
+    }
+  }
+}
 
 /** The body sizes a thread can be read at, each a type token's (`typography.css`). `base` is what a message is drawn at today. */
 export const THREAD_TEXT_SIZES = [
@@ -36,7 +87,7 @@ export const VOICE_ENGINES: readonly { id: VoiceEngine; said: string }[] = [
   { id: "dictation", said: "macOS Dictation" },
 ];
 
-export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", quick: [], learn: true, voice: "apple" };
+export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", quick: [], learn: true, forgotten: [], voice: "apple" };
 
 /** Whisper's model on this Mac: not here, coming down (`progress` 0 to 1), or here. */
 export type WhisperModel = { state: "absent" } | { state: "installing"; progress: number } | { state: "installed" };

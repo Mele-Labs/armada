@@ -3,7 +3,7 @@
 // look, and a Job draws as it always has: no Aa, no quick bar, no Talk. Fleet keeps none of it yet, and Talk hears a script.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ThreadLookButton, ThreadLookContext, useThreadLook } from "@armada/components";
+import { ThreadLookButton, ThreadLookContext, actOnQuick, useThreadLook } from "@armada/components";
 import type { SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, ThreadSpacing, WhisperModel } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -104,6 +104,7 @@ export function useThreadLookHere(session: Session): { thread: Pick<SessionThrea
         asked: asking(session) ? source.askedFor(session.id) : [],
         // Learnt lines go while he has learning off; the saved ones are his.
         phrases: look.learn ? look.quick : look.quick.filter((one) => one.kind === "saved"),
+        onAct: (act) => source.setLook((was) => actOnQuick(was, act)),
         onSave: (text) => source.setLook((was) => (text === "" || was.quick.some((one) => one.text === text) ? was : { ...was, quick: [...was.quick, { id: `saved:${Date.now()}`, text, kind: "saved" }] })),
       },
       talk: { listen: source.listen },
