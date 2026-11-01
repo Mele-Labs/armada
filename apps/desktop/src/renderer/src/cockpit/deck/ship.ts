@@ -12,6 +12,7 @@ import type { HubPullRequest, MergeLine, RepositorySummary, WorktreeSlot } from 
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { useItems, type Hosts, type Item } from "../../Dashboard";
+import { customLabel } from "../../job-panes/custom";
 import { accountNowOf } from "../../session-activity";
 import { stateOf } from "../../session-state";
 import { useSessions } from "../../sessions-draft";
@@ -227,8 +228,10 @@ export function shipOf(input: Inputs): Ship {
   const callOf = (find: (item: Item) => boolean) => calls.find(find)?.key;
 
   const subjects: Subject[] = [];
+  // A Mod Job that builds a Custom tab lives in the tab and its card, with no row of its own. While it waits on him, the Job whose panes hold the tab wears the needs-you mark.
+  const tabAsks = sessions.filter((one) => one.modFor !== undefined && one.dead === undefined && stateOf(one).state === "waiting");
   for (const session of sessions) {
-    if (session.helm === true) continue;
+    if (session.helm === true || session.modFor !== undefined) continue;
     if (session.dead !== undefined) {
       const root = rootOf(session.manifestId);
       const at = session.lastTurnAt === undefined ? undefined : Date.parse(session.lastTurnAt);
@@ -256,7 +259,12 @@ export function shipOf(input: Inputs): Ship {
       });
       continue;
     }
-    const mark = sessionMark(session);
+    const ownMark = sessionMark(session);
+    const asking = tabAsks.find((one) => one.modFor?.job === session.id);
+    const mark: Mark =
+      asking === undefined || ownMark.tone === "ask"
+        ? ownMark
+        : { Glyph: sessionGlyphOf("waiting"), said: `${customLabel(asking.modFor!.tab) ?? "Custom tab"} waits on you`, tone: "ask", bucket: "needs" };
     const lastTurn = session.lastTurnAt === undefined ? undefined : Date.parse(session.lastTurnAt);
     const own = attachmentsOf(session, "pull_request").find((one) => one.state !== "merged") ?? attachmentsOf(session, "pull_request")[0];
     const pr = prOf({ id: session.id }) ?? (own === undefined ? undefined : synth(own, rootOf(session.manifestId)));

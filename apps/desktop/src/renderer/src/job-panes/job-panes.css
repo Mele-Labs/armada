@@ -138,10 +138,15 @@
 .job-card__title { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .job-card__state { display: inline-flex; flex: none; color: var(--fg-muted); }
 .job-card__state[data-working] { color: var(--status-running); }
+.job-card__state[data-asking] { color: var(--status-awaiting-review); }
 .job-card__state[data-working] svg { animation: job-pane-spin 1s linear infinite; }
 .job-card__thread { box-sizing: border-box; max-height: calc(var(--space-12) * 4); overflow: auto; }
 @media (prefers-reduced-motion: reduce) { .job-card__state[data-working] svg { animation: none; } }
 .job-pane__working svg { animation: job-pane-spin 1s linear infinite; }
+/* The tab's glyph while its Mod Job waits on him: the needs-you mark of a Job's row, pulsing on opacity alone. */
+.job-pane__asks { display: inline-flex; animation: job-pane-asks var(--duration-pulse) ease-in-out infinite; }
+@keyframes job-pane-asks { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .job-pane__asks { animation: none; } }
 @keyframes job-pane-spin { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { .job-pane__working svg { animation: none; } }
 

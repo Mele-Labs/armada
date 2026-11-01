@@ -7,8 +7,9 @@ import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { seedJobBrowser } from "../../job-browser/store";
-import { forgetPanes, jobOpens, seedLayouts } from "../../job-panes/store";
-import { build } from "../../job-panes/tree";
+import { seedBuilt } from "../../job-panes/custom";
+import { forgetPanes, jobOpens, look, peek, seedLayouts } from "../../job-panes/store";
+import { arrive, build, panesOf } from "../../job-panes/tree";
 import { resetCheckout, shopPage } from "../job-browser-page";
 import { MOCK_PATCH, MOCK_PATCH_LOG, MOCK_PATCH_TOOLTIP, patchesOf } from "../job-layouts-patches";
 import { unanswered, type Scenario } from "../moment";
@@ -92,6 +93,34 @@ const LINKED: Session[] = [
     waits: { on: { id: "lay-run", title: "Retry the lease when the pool is contended" }, when: "lands", base: "main", needs: "the retry to land", brief: "Write up the retry settings once the retry lands.", by: "you" },
   }),
 ];
+
+// ---- A Mod Job held on a question --------------------------------------------------------------------------------------------------------------------
+// The fifth Job's panes hold a Review queue tab, and the Mod Job changing it has asked to write the tab's file. It has no row in the Jobs list: the tab wears the needs-you
+// mark, its card holds the ask, and the fifth Job's row wears the mark too. Allow once lets it go on with the change. On a real Fleet, the Mod Job's start would carry the
+// Job id and the tab id, which `modFor` stands in for here.
+const HOLDS = "story-5";
+const ASK_JOB = "mod-ask";
+const askJobOf = (tab: string): Session =>
+  started(ASK_JOB, "List the oldest first", {
+    mod: true,
+    modFor: { job: HOLDS, tab },
+    turn: { state: "working" },
+    standing: "working",
+    lastTurnAt: ago(0),
+    rows: [
+      { id: "ask-1", at: "13:40:00", kind: "message", from: { kind: "you" }, text: "List the oldest first, and show how long each has waited" },
+      { id: "ask-2", at: "13:40:03", kind: "tool", text: `Read ${MOD_DIR}/tab.js` },
+    ],
+    asked: { command: `Write ${MOD_DIR}/tab.js` },
+  });
+let askTab = "";
+let askJob: Session | undefined;
+const askListeners = new Set<() => void>();
+const editAsk = (change: (one: Session) => Session) => {
+  if (askJob === undefined) return;
+  askJob = change(askJob);
+  askListeners.forEach((on) => on());
+};
 
 let handle: { publish: (change: { mods: { mods: ModSummary[] } }) => void } | undefined;
 let modStore: SessionsStore | undefined;
@@ -186,6 +215,12 @@ export const sJobLayouts: Scenario = {
       "QA split": build({ dir: "row", ratio: 0.55, a: { dir: "column", ratio: 0.6, a: ["thread"], b: ["terminal"] }, b: ["browser"] }, undefined, { browser: "localhost:5173", terminal: "zsh" }),
       Review: build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["changes"] }),
     });
+    // The fifth Job opens with a Review queue tab in its own pane, built by a Mod Job that is held on a question.
+    look(HOLDS, (arrangement) => arrive(arrangement, "custom", "Review queue"));
+    askTab = panesOf(peek(HOLDS).root).flatMap((one) => one.tabs).find((one) => one.kind === "custom")!.id;
+    seedBuilt(askTab, MOD_NAME);
+    mods = [{ name: MOD_NAME, kind: "tab", glyph: "git-pull-request", enabled: true, valid: true, made_by: ASK_JOB, changed_at: new Date().toISOString(), description: "Pull requests waiting on your review, across repositories" }];
+    handle.publish({ mods: { mods } });
     return {
       ...sJobStory.behaves?.(fleet),
       ...shellApi(),
@@ -262,6 +297,10 @@ export const sJobLayouts: Scenario = {
       });
       const store = sJobStory.draft!.sessions!(board, more);
       modStore = store;
+      askJob = askJobOf(askTab);
+      modJobs.add(ASK_JOB);
+      // The store as the held Mod Job sees it: its edits land on its own Session, which the store does not hold.
+      const asking: SessionsStore = { ...store, edit: (id, change) => (id === ASK_JOB ? editAsk(change) : store.edit(id, change)) };
       // The first Job has changes from three places, so a Changes tab has a choice: its branch, two pull requests of its own, and the Job it started, which has a pull request.
       store.edit(CHANGES, (one) => ({
         ...one,
@@ -298,23 +337,40 @@ export const sJobLayouts: Scenario = {
       }));
       // The Jobs it started stand beside the story's own; the merged list keeps one identity until the store changes, as a store's does.
       let base: readonly Session[] | undefined;
+      let held: Session | undefined;
       let merged: readonly Session[] = [];
       return {
         ...store,
         get: () => {
           const now = store.get();
-          if (now !== base) {
+          if (now !== base || askJob !== held) {
             base = now;
-            merged = [...now, ...LINKED];
+            held = askJob;
+            merged = [...now, ...LINKED, ...(askJob === undefined ? [] : [askJob])];
           }
           return merged;
+        },
+        subscribe: (on: () => void) => {
+          askListeners.add(on);
+          const off = store.subscribe(on);
+          return () => {
+            askListeners.delete(on);
+            off();
+          };
+        },
+        // Allow once settles the ask, and the Job goes on with its change.
+        answer: (id: string, ...more_: Parameters<typeof store.answer> extends [string, ...infer R] ? R : never) => {
+          if (id !== ASK_JOB) return store.answer(id, ...more_);
+          editAsk(({ asked, ...rest }) => (void asked, rest));
+          modJobs.add(id);
+          changeTurn(asking, id);
         },
         terminalRuns: true as const,
         // A message to a Mod Job is the person's row and its next turn, and not the canned reply the store plays for any other Job.
         send: (id: string, sent: Parameters<typeof store.send>[1]) => {
           if (!modJobs.has(id)) return store.send(id, sent);
-          store.edit(id, (one) => ({ ...one, rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: sent.text } satisfies SessionRow], turn: { state: "working" } }));
-          changeTurn(store, id);
+          asking.edit(id, (one) => ({ ...one, rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: sent.text } satisfies SessionRow], turn: { state: "working" } }));
+          changeTurn(asking, id);
           return Promise.resolve(true);
         },
         later: () => {
@@ -329,6 +385,8 @@ export const sJobLayouts: Scenario = {
           changeTimers.forEach((one) => window.clearTimeout(one));
           changeTimers.clear();
           modJobs.clear();
+          askJob = undefined;
+          askListeners.clear();
           revision = 0;
           turns.clear();
           disposeShells();
