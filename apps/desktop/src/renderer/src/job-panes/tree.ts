@@ -6,7 +6,11 @@ export const TAB_KINDS = ["thread", "browser", "terminal", "done", "now", "open"
 export type TabKind = (typeof TAB_KINDS)[number];
 
 /** `label` is what the tab reads where its kind alone would not tell two apart: a terminal's shell. `page` names the page a browser tab shows where the tab's own id does not (a page the Job opened itself). */
-export type Tab = { id: string; kind: TabKind; label?: string; page?: string };
+/**
+ * `mod` is a Custom tab's mod by its folder name, kept with the tab so it comes back bound to that mod, and through it to the Mod Job that made it, after a restart.
+ * Nothing in this file reads it: the tab's view and its Job are `custom.ts`'s.
+ */
+export type Tab = { id: string; kind: TabKind; label?: string; page?: string; mod?: string };
 export type Pane = { type: "pane"; id: string; tabs: readonly Tab[]; active: string | undefined };
 export type Split = { type: "split"; id: string; dir: "row" | "column"; ratio: number; a: Node; b: Node };
 export type Node = Pane | Split;
