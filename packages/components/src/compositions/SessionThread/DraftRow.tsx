@@ -12,7 +12,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { forgetKept, readKept } from "../../keep";
 import { isPressed } from "../../keymap";
 import { quoteOf } from "../ForkFromSelection/ForkFromSelection";
-import type { SessionThreadRow } from "./SessionThread";
+import { useTeachMenu } from "../TeachPanel/TeachMenu";
+import type { SessionThreadRow, TeachPick } from "./SessionThread";
 import { ThreadKbd, useThreadCard } from "./thread-keys";
 
 export type DraftThreadRow = Extract<SessionThreadRow, { kind: "draft" }>;
@@ -64,7 +65,8 @@ function Text({ text, onContextMenu }: { text: string; onContextMenu?: (event: M
  * the box with those words selected, where they stand in the source, and Add note opens the note with them quoted. While it waits it is one
  * of the Job's waiting cards (`thread-keys.tsx`): `⌥↵` Approve, `⌥E` Edit, `⌥R` Note and `⌥X` Withdraw, and `⌘Enter` in a box sends it.
  */
-export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThreadRow; keep: string; onAnswer?: (rowId: string, answer: DraftAnswer) => void; onWithdraw?: (rowId: string, reason?: string) => void }) {
+export function DraftRow({ row, keep, onAnswer, onWithdraw, onTeach }: { row: DraftThreadRow; keep: string; onAnswer?: (rowId: string, answer: DraftAnswer) => void; onWithdraw?: (rowId: string, reason?: string) => void; onTeach?: (pick: TeachPick) => void }) {
+  const teaching = useTeachMenu("Draft", onTeach === undefined ? undefined : () => onTeach({ kind: "words", text: row.text, at: row.at }));
   const fixedKey = `${keep}:fixed`;
   const noteKey = `${keep}:note`;
   // Text he was typing comes back with its box open.
@@ -157,7 +159,7 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
   };
   return (
     <li ref={home} className="armada-session-draft-row">
-      <Card flat className="armada-session-draft" role="article" aria-label={`${rule !== undefined ? "Rule" : proposed === undefined ? "Draft" : "Workflow"}: ${row.title}`} data-settled={settled?.how} {...bind}>
+      <Card flat className="armada-session-draft" role="article" aria-label={`${rule !== undefined ? "Rule" : proposed === undefined ? "Draft" : "Workflow"}: ${row.title}`} data-settled={settled?.how} {...bind} {...teaching.on}>
         <div className="armada-session-draft__head">
           <span className="armada-session-thread__eyebrow armada-session-draft__eyebrow">{rule !== undefined ? "Rule" : proposed === undefined ? "Draft" : "Workflow"}</span>
           <Stamp at={row.at} className="armada-session-draft__at" />
@@ -260,6 +262,7 @@ export function DraftRow({ row, keep, onAnswer, onWithdraw }: { row: DraftThread
           </CardFooter>
         )}
       </Card>
+      {teaching.menu}
       {menu === undefined ? null : (
         <DropdownMenu
           triggerLabel="Selection"
