@@ -39,6 +39,19 @@ export async function pictureOf(note: Annotation, box: Box | null, sink: Sink, s
   return { png, ring: size === null ? null : ringOn(box, shown.width, size.width) };
 }
 
+/** A picture sent with a message, as Fleet's seam takes one. */
+type Attachment = { name: string; media_type: string; data: string };
+
+/** The example pictures kept beside the note, each as an attachment; one whose file is gone is left out. */
+export async function examplesOf(note: Annotation, sink: Sink): Promise<Attachment[]> {
+  const kept: Attachment[] = [];
+  for (const name of note.examples ?? []) {
+    const png = await sink.example(note.id, name).catch(() => null);
+    if (png !== null) kept.push({ name: `annotation-${name}`, media_type: "image/png", data: base64(png) });
+  }
+  return kept;
+}
+
 /** Why Send is not offered here, or null where it is. */
 export function unsendable(sink: Sink): string | null {
   return sink.via === "main" ? null : "Sending needs Bridge and its Fleet; in the mock the note stays a file";
@@ -89,6 +102,8 @@ export async function sendToSession(
 ): Promise<SendAnswer> {
   const pictures: (Picture | null)[] = [];
   for (const { note, box } of notes) pictures.push(await pictureOf(note, box, sink, page.window));
+  const examples: Attachment[][] = [];
+  for (const { note } of notes) examples.push(await examplesOf(note, sink));
 
   let into = target;
   if (into === null) {
@@ -107,11 +122,13 @@ export async function sendToSession(
   const sentIds: string[] = [];
   // Background for the first thing sent alone: the Job is one fact about all of them.
   const job = open !== undefined && open.id !== into.id ? open.facts : [];
-  const onElements = notes.flatMap(({ note }, index) => (note.scope === "window" ? [] : [{ note, picture: pictures[index] ?? null }]));
+  const onElements = notes.flatMap(({ note }, index) => (note.scope === "window" ? [] : [{ note, picture: pictures[index] ?? null, examples: examples[index] ?? [] }]));
   const firstOnElement = notes.findIndex(({ note }) => note.scope !== "window");
   // What goes, in the notes' order: each whole-window note, and the turn where its first note stands.
-  type Send = "turn" | { note: Annotation; picture: Picture | null };
-  const sends = notes.flatMap(({ note }, index): Send[] => (note.scope === "window" ? [{ note, picture: pictures[index] ?? null }] : index === firstOnElement ? ["turn"] : []));
+  type Send = "turn" | { note: Annotation; picture: Picture | null; examples: Attachment[] };
+  const sends = notes.flatMap(({ note }, index): Send[] =>
+    note.scope === "window" ? [{ note, picture: pictures[index] ?? null, examples: examples[index] ?? [] }] : index === firstOnElement ? ["turn"] : [],
+  );
   for (const [index, one] of sends.entries()) {
     const facts = index === 0 ? job : [];
     const answer =
@@ -126,13 +143,27 @@ export async function sendToSession(
         : await fleet.sendSessionMessage({
             session_id: into.id,
             text: facts.length > 0 ? [requestOf(one.note), "", BACKGROUND_LEAD, ...facts].join("\n") : requestOf(one.note),
-            ...(one.picture === null ? {} : { attachments: [{ name: `annotation-${one.note.id}.png`, media_type: "image/png", data: base64(one.picture.png) }] }),
+            ...(one.picture === null && one.examples.length === 0
+              ? {}
+              : { attachments: [...(one.picture === null ? [] : [{ name: `annotation-${one.note.id}.png`, media_type: "image/png", data: base64(one.picture.png) }]), ...one.examples] }),
           });
     if (!answer.ok) {
       const saying = `Notes not sent to "${into.title}": ${refusal(answer.outcome)}`;
       return sentIds.length === 0 ? { ok: false, saying } : { ok: false, saying, sent, sentIds };
     }
     sentIds.push(...(one === "turn" ? onElements.map(({ note }) => note.id) : [one.note.id]));
+    // A pinned note carries one picture, so the pictures he added go just after the turn, in a message of their own:
+    // after, so a Job whose first message names it is named by his words.
+    const shown = one === "turn" ? onElements.filter((on) => on.examples.length > 0) : [];
+    if (shown.length > 0) {
+      const lead = shown.map(({ note, examples: kept }) => `- "${note.text.split("\n")[0]?.trim() ?? ""}" on ${note.selector}: ${kept.map((file) => file.name).join(", ")}`);
+      const pictured = await fleet.sendSessionMessage({
+        session_id: into.id,
+        text: ["Pictures he added to show what he means, for the notes in the last message:", ...lead].join("\n"),
+        attachments: shown.flatMap((on) => on.examples),
+      });
+      if (!pictured.ok) return { ok: false, saying: `Pictures not sent to "${into.title}": ${refusal(pictured.outcome)}`, sent, sentIds };
+    }
   }
   return { ok: true, sent };
 }

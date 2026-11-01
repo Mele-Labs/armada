@@ -16,6 +16,9 @@
  */
 export function holdsText(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
+  // A listener on the window sees a field inside a shadow root as its host, as the file editor's is; the focused one is under it.
+  const inside = target.shadowRoot?.activeElement;
+  if (inside !== null && inside !== undefined) return holdsText(inside);
   if (target.isContentEditable) return true;
   const tag = target.tagName;
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
