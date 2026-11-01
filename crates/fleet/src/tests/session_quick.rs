@@ -140,6 +140,16 @@ fn only_one_line_of_sixty_characters_or_fewer_is_a_line_he_sent() {
 }
 
 #[test]
+fn a_line_with_a_link_is_not_a_line_he_sent() {
+    let rows = [
+        you("Approved: http://localhost:40011/?walk=agentRowRefine", "2026-10-30T12:00:01Z"),
+        you("Looks good", "2026-10-30T12:00:02Z"),
+    ];
+    let texts: Vec<String> = sent_in(&rows).into_iter().map(|one| one.text).collect();
+    assert_eq!(texts, ["Looks good".to_string()]);
+}
+
+#[test]
 fn a_line_is_marked_where_it_came_right_after_a_question_of_the_agents() {
     let rows = [
         said(SessionVoice::Agent, "Shall I carry on with the refactor?", "2026-10-30T12:00:01Z"),

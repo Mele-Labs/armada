@@ -20,7 +20,7 @@ A false approval settles a page he never approved, and a miss leaves the page as
 
 The first thing the person typed after an assistant turn that put something to him: a `show_window`, a `record_plan`, a `show_sketch`, a `show_file` of a `.armada/documents/*.html` page, or a write of one.
 The source is the owner's local Claude Code transcripts (1,001 of 18,144 files carry a put).
-The text and labels stay outside the repository, under `.armada/training/reply-approves/` of the slot that ran this, which is ignored.
+The text and labels stay outside the repository, under `~/Library/Application Support/Armada/training/reply-approves/`, beside the other sets, which the trainer reads through `ARMADA_TRAINING`.
 
 | Step | Rows |
 |---|---|

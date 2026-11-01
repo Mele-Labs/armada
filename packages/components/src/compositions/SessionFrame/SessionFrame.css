@@ -43,6 +43,32 @@
   color: var(--fg-muted);
 }
 
+/* The mock's second take of a head with too little room (`headTake="rows"`): the state, the name and the way out on a row of their own,
+   and the repository, the acts and the figures on a quieter row under it. Nothing here matches in the app. */
+.armada-session-frame__head[data-take="rows"] {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.armada-session-frame__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-session-frame__row[data-row="tools"] {
+  min-height: var(--h-control-sm);
+  padding-block-end: var(--space-1);
+  color: var(--fg-subtle);
+}
+
+/* The figures and the menu keep the row's far end. */
+.armada-session-frame__row[data-row="tools"] .armada-session-frame__context-host {
+  margin-inline-start: auto;
+}
+
 /* The terminal glyph carries the address in its tooltip. */
 .armada-session-frame__glyph {
   display: inline-flex;

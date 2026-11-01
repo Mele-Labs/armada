@@ -301,6 +301,10 @@ approximations.
   — whether the person's typed reply to a walk, plan or sketch approves it and tells the Job to go on,
   read by a new `approves` head on the committed adapter: 179 replies from his transcripts, only 5 of
   them approvals, so the head is trained and measured and not in force.
+- [`spikes/reply-approves-nli.md`](spikes/reply-approves-nli.md)
+  — whether a free local zero-shot NLI model (three of them, three wordings) can read that approval in
+  place of the Claude call: no, the two real approvals rank first and second only at thresholds chosen
+  on the same replies, and the short ones ("Yes", "C", "Looks good") are not found.
 - [`spikes/reply-asks-classifier.md`](spikes/reply-asks-classifier.md)
   — whether a reply asks the person for something, read from its close: the rules on 457 labelled
   replies, the local language model chosen and fine-tuned beside them, and all three readers on two sets

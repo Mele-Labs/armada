@@ -185,6 +185,27 @@
   margin-left: var(--space-1);
 }
 
+/* An act that is on draws its glyph in --accent; one that is running does too, and pulses on the clock a running mark does (`still.ts` and the idle rule hold it). */
+.armada-dropdown-menu__item[data-state] > .armada-dropdown-menu__icon {
+  color: var(--accent);
+}
+
+.armada-dropdown-menu__item[data-state="running"] > .armada-dropdown-menu__icon {
+  animation: armada-act-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite;
+}
+
+@keyframes armada-act-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-dropdown-menu__item[data-state="running"] > .armada-dropdown-menu__icon {
+    animation: none;
+  }
+}
+
 /* Finished and still choosable: the whole row in --fg-subtle, never an opacity. */
 .armada-dropdown-menu__item[data-muted],
 .armada-dropdown-menu__item[data-muted] > .armada-dropdown-menu__detail {
@@ -280,6 +301,29 @@
 /* A row under a heading item, as a repository is under its Workspace: one icon's width in. */
 .armada-dropdown-menu__item[data-member] {
   padding-inline-start: calc(var(--space-2) + var(--space-6));
+}
+
+/* A row that opens a submenu, and the submenu beside the menu: on the side the menu has room, which is the side away from the trigger's edge it is flush with. */
+.armada-dropdown-menu__sub {
+  position: relative;
+}
+
+.armada-dropdown-menu__flyout {
+  position: absolute;
+  top: calc((var(--space-1) + var(--border-width)) * -1);
+  left: 100%;
+  z-index: var(--z-menu);
+  min-width: var(--w-menu);
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  border: var(--border-width) solid var(--border-default);
+  box-shadow: var(--shadow-overlay);
+}
+
+.armada-dropdown-menu__panel[data-aligns="end"] .armada-dropdown-menu__flyout {
+  left: auto;
+  right: 100%;
 }
 
 .armada-dropdown-menu__label {

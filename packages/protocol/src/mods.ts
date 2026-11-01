@@ -92,6 +92,9 @@ export type StartModSession = {
   note?: SessionNote;
   /** His words, where Mod was pressed on nothing: the Job's first message after the brief. */
   said?: string;
+  /** The Job whose panes hold the Custom tab this Job builds, and the tab's id there. Fleet keeps them on the Job's record; Bridge gives such a Job no row of its own. Absent on a Mod Job started anywhere else. */
+  from_job?: string;
+  from_tab?: string;
 };
 
 /** What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only. */

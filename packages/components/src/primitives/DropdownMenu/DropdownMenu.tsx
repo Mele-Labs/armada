@@ -1,4 +1,4 @@
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -52,12 +52,19 @@ export type DropdownMenuEntry =
       detail?: string;
       /** Finished, and still choosable: `--fg-subtle`, as a finished drone on a Job's Field. */
       muted?: boolean;
+      /** The act's state, on its glyph: `on` is a switch that is on, `running` is a thing that is running, which pulses. `data-state`. */
+      state?: "on" | "running";
       /** An act the menu offers beside its choices, not one of them: `data-act`, for a menu that styles its footer apart. */
       act?: boolean;
       /** A node at the row's trailing end, before its check: a mark the menu's caller draws. */
       trail?: ReactNode;
       /** Run by → on the focused row, which then puts the menu away. */
       onRight?: () => void;
+      /**
+       * A submenu the row opens beside the menu: its choices, the chosen one checked. The row trails its `detail` and a › chevron.
+       * → or a press opens it onto the chosen choice, ↑ ↓ move, ↵ picks, ← or Esc goes back to the row. A pick reports the choice's id to `onSelect`, like any row's.
+       */
+      submenu?: { id: string; label: string; selected?: boolean }[];
       /** A row under the item above it, as a repository is under its Workspace: indented, and kept by a filter with the heading it sits under. */
       member?: boolean;
     }
@@ -232,13 +239,27 @@ export function DropdownMenu({
   const query = field?.value ?? typed;
   const search = useRef<HTMLInputElement>(null);
   const visible = searchLabel === undefined || field !== undefined ? entries : filterEntries(entries, query);
-  const choosable = visible.flatMap((entry) => (entry.kind === "item" && entry.disabled !== true ? [entry] : []));
+  const choosable = visible.flatMap((entry) => (entry.kind === "item" && entry.disabled !== true && entry.submenu === undefined ? [entry] : []));
+  // The row whose submenu is open, and the same fact for the Esc listener below, which is added once per opening.
+  const [sub, setSub] = useState<string | null>(null);
+  const subOpen = useRef(sub);
+  subOpen.current = sub;
 
   // A reopened menu starts unfiltered: the last query is not what its next
   // opening is for.
   useEffect(() => {
-    if (!shown) setQuery("");
+    if (!shown) {
+      setQuery("");
+      setSub(null);
+    }
   }, [shown]);
+
+  // A submenu opens onto its chosen choice, or its first.
+  useEffect(() => {
+    if (sub === null) return;
+    const choices = [...(panel.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])];
+    (choices.find((choice) => choice.getAttribute("aria-checked") === "true") ?? choices[0])?.focus();
+  }, [sub]);
 
   // Which side the menu resolved to, read before the first paint so its
   // entrance rises from that side. Anchor positioning chooses a fallback in
@@ -280,6 +301,30 @@ export function DropdownMenu({
     layer.style.left = `${left}px`;
     layer.style.top = `${below + own.height > window.innerHeight ? Math.max(gap, from.top - gap - own.height) : below}px`;
   }, [shown, portal, at]);
+
+  // Puts a submenu away and hands focus back to the row that opened it.
+  const closeSub = () => {
+    const row = itemsOf(panel.current).find((one) => one.dataset.submenu === subOpen.current);
+    setSub(null);
+    row?.focus();
+  };
+
+  // ↑ ↓ step through a submenu's choices and wrap, ← goes back to its row. They are the submenu's own, so the menu's arrows do not also hear them.
+  const stepChoices = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeSub();
+      return;
+    }
+    const choices = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+    const at = choices.indexOf(document.activeElement as HTMLElement);
+    const to = event.key === "ArrowDown" ? (at + 1) % choices.length : event.key === "ArrowUp" ? (at <= 0 ? choices.length : at) - 1 : event.key === "Home" ? 0 : event.key === "End" ? choices.length - 1 : null;
+    if (to === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    choices[to]?.focus();
+  };
 
   // A pick hands focus back to the trigger, as Esc does, so a keyboard that chose an item is where it started.
   const choose = (id: string) => {
@@ -340,6 +385,11 @@ export function DropdownMenu({
     if (!open) return;
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      // Esc leaves a submenu before it leaves the menu.
+      if (subOpen.current !== null) {
+        closeSub();
+        return;
+      }
       if (panel.current?.contains(document.activeElement) === true) trigger.current?.focus();
       close.current(false);
     }
@@ -447,8 +497,12 @@ export function DropdownMenu({
                 aria-current={entry.selected || undefined}
                 aria-disabled={entry.disabled || undefined}
                 data-muted={entry.muted || undefined}
+                data-state={entry.state}
                 data-act={entry.act || undefined}
                 data-member={entry.member || undefined}
+                data-submenu={entry.submenu === undefined ? undefined : entry.id}
+                aria-haspopup={entry.submenu === undefined ? undefined : "menu"}
+                aria-expanded={entry.submenu === undefined ? undefined : sub === entry.id}
                 className={
                   entry.danger
                     ? "armada-dropdown-menu__item armada-dropdown-menu__item--danger"
@@ -462,9 +516,18 @@ export function DropdownMenu({
                     return;
                   }
                   if (entry.disabled === true) return;
+                  if (entry.submenu !== undefined) {
+                    setSub(sub === entry.id ? null : entry.id);
+                    return;
+                  }
                   choose(entry.id);
                 }}
                 onKeyDown={(event) => {
+                  if (event.key === "ArrowRight" && entry.submenu !== undefined && entry.disabled !== true) {
+                    event.preventDefault();
+                    setSub(entry.id);
+                    return;
+                  }
                   if (event.key !== "ArrowRight" || entry.onRight === undefined) return;
                   event.preventDefault();
                   setOpen(false);
@@ -478,19 +541,45 @@ export function DropdownMenu({
                 </span>
                 {entry.detail === undefined ? null : <span className="armada-dropdown-menu__detail">{entry.detail}</span>}
                 {entry.trail === undefined ? null : <span className="armada-dropdown-menu__trail">{entry.trail}</span>}
-                {entry.selected ? (
+                {entry.submenu !== undefined ? (
+                  <ChevronRight className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
+                ) : entry.selected ? (
                   <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden />
                 ) : entry.shortcut ? (
                   <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>
                 ) : null}
               </button>
             );
-            return entry.hint !== undefined ? (
-              <Tooltip key={entry.id} label={entry.hint} asChild>
-                {item}
-              </Tooltip>
-            ) : (
-              item
+            const row =
+              entry.hint !== undefined ? (
+                <Tooltip key={entry.id} label={entry.hint} asChild>
+                  {item}
+                </Tooltip>
+              ) : (
+                item
+              );
+            if (entry.submenu === undefined) return row;
+            return (
+              <div key={entry.id} className="armada-dropdown-menu__sub">
+                {row}
+                {sub !== entry.id ? null : (
+                  <div className="armada-dropdown-menu__flyout" role="menu" aria-label={entry.label} onKeyDown={stepChoices}>
+                    {entry.submenu.map((choice) => (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={choice.selected === true}
+                        className="armada-dropdown-menu__item"
+                        onClick={() => choose(choice.id)}
+                      >
+                        <span className="armada-dropdown-menu__text">{choice.label}</span>
+                        {choice.selected ? <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden /> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

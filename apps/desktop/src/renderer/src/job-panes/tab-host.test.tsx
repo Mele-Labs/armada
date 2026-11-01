@@ -84,8 +84,10 @@ test("a tab Fleet refuses shows the reason and Fix, which starts a Mod Job on th
   await expect.element(drawn()).not.toBeInTheDocument();
   await fix().click();
   await vi.waitFor(() => expect(startModSession).toHaveBeenCalledOnce());
-  const [start] = startModSession.mock.calls[0] as unknown as [{ aim: string; said: string }];
+  const [start] = startModSession.mock.calls[0] as unknown as [{ aim: string; said: string; from_job: string; from_tab: string }];
   expect(start.aim).toBe("tab");
+  // The Job it builds for is the one whose panes hold the tab, so it gets no row of its own.
+  expect([start.from_job, start.from_tab]).toEqual(["job", TAB]);
   expect(start.said).toContain(`\`${MOD}\``);
   expect(start.said).toContain(reason);
   await vi.waitFor(() => expect(peekCustom(TAB).job).toBe("fixer"));
