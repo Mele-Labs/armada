@@ -360,7 +360,7 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
     onBlur: (event: ReactFocusEvent<HTMLElement>) => {
       own.onBlur?.(event);
       dismissed.current = false;
-      if (inside(event.relatedTarget)) return;
+      if (inside(event.relatedTarget) || (event.relatedTarget === null && !document.hasFocus())) return;
       hide("focus");
       if (event.relatedTarget !== null) setPinned(false);
     },
@@ -411,7 +411,8 @@ export function Inspect({ card, name, children, side = "below", pin = true, arou
               onMouseLeave={() => hide("hover")}
               onFocus={() => setFocus(true)}
               onBlur={(event) => {
-                if (inside(event.relatedTarget)) return;
+                // The window losing focus is not the reader leaving the card: the focus comes back to it.
+                if (inside(event.relatedTarget) || (event.relatedTarget === null && !document.hasFocus())) return;
                 setFocus(false);
                 if (event.relatedTarget !== null) setPinned(false);
               }}
