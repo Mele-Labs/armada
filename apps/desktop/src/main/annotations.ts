@@ -5,7 +5,7 @@
 // server, and a module that pulled in `electron` would not load there. What
 // main needs from Electron it passes in.
 //
-// Main registers these handlers only when `app.isPackaged` is false, and the
+// Main registers these handlers only in a dev build (`dev-build.ts`), and the
 // preload exposes `window.armadaDev` only when main passed `ANNOTATE_FLAG`. A
 // packaged Bridge has neither end of the channel.
 
