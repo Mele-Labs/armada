@@ -61,8 +61,8 @@ test("Esc closes the sheet and focus goes back to the button that opened it", as
   act(() => open.click());
   await act(async () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-    await new Promise((done) => window.setTimeout(done, 10));
   });
-  expect(document.querySelector(".armada-sheet")).toBeNull();
-  expect(document.activeElement).toBe(open);
+  // The sheet eases out for its exit before it leaves the page.
+  await expect.poll(() => document.querySelector(".armada-sheet"), { timeout: 2000 }).toBeNull();
+  await expect.poll(() => document.activeElement).toBe(open);
 });
