@@ -747,6 +747,10 @@ export function SessionComposer({
               })}
         </div>
       )}
+      {/* Inside the box's own border, so a band over the box frames the bar and the box as one. */}
+      {quick === undefined ? null : (
+        <QuickBar asked={quick.asked} phrases={quick.phrases} onSend={sendLine} onDrop={dropLine} canSave={text.trim() !== ""} onSave={() => quick.onSave(sentText(text, draft.tags).trim())} {...(quick.onAct === undefined ? {} : { onAct: quick.onAct })} {...(quick.onHide === undefined ? {} : { onHide: quick.onHide })} />
+      )}
       <div className="armada-session-composer__field">
         <div
           ref={editor}
@@ -840,13 +844,7 @@ export function SessionComposer({
       </div>
     </form>
   );
-  if (quick === undefined) return box;
-  return (
-    <div className="armada-session-composer__with-quick">
-      <QuickBar asked={quick.asked} phrases={quick.phrases} onSend={sendLine} onDrop={dropLine} canSave={text.trim() !== ""} onSave={() => quick.onSave(sentText(text, draft.tags).trim())} {...(quick.onAct === undefined ? {} : { onAct: quick.onAct })} {...(quick.onHide === undefined ? {} : { onHide: quick.onHide })} />
-      {box}
-    </div>
-  );
+  return box;
 }
 
 /** One row of a typeahead. A tag's row leads with its kind's glyph. */

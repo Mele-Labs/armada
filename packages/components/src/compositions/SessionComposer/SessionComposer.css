@@ -352,11 +352,10 @@ a.armada-inline-tag--link > svg {
 /* A value the proposer picked, until the person changes it. */
 .armada-session-composer__proposed { display: inline-flex; flex: none; align-self: center; margin-left: var(--space-1); color: var(--accent); }
 
-/* The quick bar sits over the box, outside its border, so the box keeps its own edge. */
-.armada-session-composer__with-quick {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+/* The quick bar is the box's top row, inside its border, so a band over the box frames both. */
+.armada-session-composer > .armada-quick {
+  margin: 0;
+  padding: var(--space-2) var(--space-2) 0;
 }
 
 /* Talk while it listens: the glyph breathes on the hover ground, the same pulse a running mark has. */
