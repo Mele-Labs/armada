@@ -1,7 +1,7 @@
 // A draft the agent put to him is a card in the thread, approved where it stands: Approve, Edit, Note and Withdraw, and once settled how it ended.
 // Words selected in the draft offer Edit and Add note from a right press. Over the `draft-card` scenario.
 
-import { button, deckRow, inside, role, text, walk } from "../walk";
+import { button, deckRow, dialog, inside, role, text, walk } from "../walk";
 
 const card = role("article", "Draft: Description for #412", { exact: true });
 const WORDS = "A retry resumes from the last part the server confirmed, not from the start";
@@ -35,4 +35,14 @@ const draftCard = walk("draft-card", [
   { look: inside(release, text(REASON)), say: "The reason is quoted under it" },
 ]);
 
-export { draftCard as "draft-card" };
+// A right press on the card, off its words, offers Teach beside Mod and Report.
+const teach = walk("draft-card", [
+  { press: deckRow("Retry dropped uploads"), say: "A Job with a drafted description" },
+  { context: inside(card, role("group", "Answers")), say: "A right press on the card, away from its words" },
+  { look: role("menuitem", "Teach"), say: "Teach is in the menu" },
+  { look: role("menuitem", "Mod"), say: "With Mod and Report after it" },
+  { press: role("menuitem", "Teach"), say: "Teach opens on the draft" },
+  { look: dialog("Teach"), say: "The Teach panel" },
+]);
+
+export { draftCard as "draft-card", teach as "draft-teach" };
