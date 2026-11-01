@@ -20,12 +20,14 @@ export function useTabModule(name: string): Loaded {
     if (row === undefined) return;
     let live = true;
     const fail = (problems: readonly string[]) => live && setLoaded((was) => ({ ...was, problems }));
+    // Off or invalid is Fleet's word on the mod, so the module it last ran goes too; a load that failed keeps it.
+    const refuse = (problems: readonly string[]) => live && setLoaded((was) => ({ Component: undefined, load: was.load, problems }));
     void (async () => {
-      if (!row.enabled) return fail(["Switched off"]);
-      if (!row.valid) return fail([row.reason ?? `${name} is not valid`]);
+      if (!row.enabled) return refuse(["Switched off"]);
+      if (!row.valid) return refuse([row.reason ?? `${name} is not valid`]);
       const checked = await window.armada.validateMod(name);
       if (checked === null) return fail(["Fleet did not answer"]);
-      if (!checked.valid || checked.tab === undefined) return fail(checked.problems.length === 0 ? [`${name} is not valid`] : checked.problems);
+      if (!checked.valid || checked.tab === undefined) return refuse(checked.problems.length === 0 ? [`${name} is not valid`] : checked.problems);
       try {
         const Component = await loadTabModule(checked.tab.code);
         if (live) setLoaded((was) => ({ Component, load: was.load + 1, problems: [] }));
