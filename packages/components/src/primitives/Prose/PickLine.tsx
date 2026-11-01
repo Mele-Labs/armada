@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { Check, ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { Button } from "../Button/Button";
@@ -50,6 +50,12 @@ export function lineText(node: LineNode | undefined): string {
   return out.join("").replace(/\s+/g, " ").trim();
 }
 
+/** How far past the line and its acts the pointer may stray before they go: leaving has to be clear, not a slip. */
+const STRAY = 24;
+
+/** One line is hot at a time: a line the pointer reaches cools the one before. */
+let coolHot: (() => void) | null = null;
+
 /** Arrow keys walk the lines of the message the focus is in. */
 function move(from: HTMLElement, by: 1 | -1): void {
   const message = from.closest(".armada-prose");
@@ -64,8 +70,30 @@ function move(from: HTMLElement, by: 1 | -1): void {
  */
 export function PickLine({ as: Tag, className, text, children, ...rest }: { as: "li" | "p"; className: string; text: string; children?: ReactNode; [data: `data-${string}`]: unknown }) {
   const picker = useContext(ProsePick);
-  // Whether the pointer is over this line and not over a list inside it: read from the pointer's own events, so the nearest line wins.
-  const [hot, setHot] = useState(false);
+  // Where the pointer reached this line, kept while it is hot: the acts sit beside that point. Null when cool. Read from the
+  // pointer's own events, so the nearest line wins over a list inside it.
+  const [hot, setHot] = useState<{ x: number; y: number } | null>(null);
+  const line = useRef<HTMLElement | null>(null);
+  const acts = useRef<HTMLSpanElement | null>(null);
+  // While hot, the acts stay until the pointer is clearly away from the line and from them.
+  useEffect(() => {
+    if (hot === null) return;
+    const cool = () => setHot(null);
+    coolHot = cool;
+    const onMove = (event: PointerEvent) => {
+      const near = [line.current, acts.current].some((one) => {
+        if (one === null) return false;
+        const box = one.getBoundingClientRect();
+        return event.clientX >= box.left - STRAY && event.clientX <= box.right + STRAY && event.clientY >= box.top - STRAY && event.clientY <= box.bottom + STRAY;
+      });
+      if (!near) cool();
+    };
+    document.addEventListener("pointermove", onMove);
+    return () => {
+      document.removeEventListener("pointermove", onMove);
+      if (coolHot === cool) coolHot = null;
+    };
+  }, [hot]);
   // `rest` is the `data-line` a source view puts on a block.
   if (picker === null || text === "") return <Tag className={className} {...rest}>{children}</Tag>;
   const marked = picker.marked(text);
@@ -82,10 +110,13 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
   };
   const Mark = marked === undefined ? null : MARKS[marked];
   return (
-    <Tag className={className} {...rest} data-pick="" data-hot={hot || undefined} data-marked={marked} tabIndex={0}
-      onPointerOver={(event) => setHot((event.target as Element).closest("[data-pick]") === event.currentTarget)}
-      onPointerOut={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHot(false);
+    <Tag ref={(node: HTMLElement | null) => { line.current = node; }} className={className} {...rest} data-pick="" data-hot={hot === null ? undefined : true} data-marked={marked} tabIndex={0}
+      onPointerOver={(event) => {
+        if (hot !== null || (event.target as Element).closest("[data-pick]") !== event.currentTarget) return;
+        if (acts.current?.contains(event.target as Node)) return;
+        coolHot?.();
+        const box = event.currentTarget.getBoundingClientRect();
+        setHot({ x: event.clientX - box.left, y: event.clientY - box.top });
       }} aria-keyshortcuts="Enter Y N" onKeyDown={onKeyDown}>
       <InPickLine.Provider value>{children}</InPickLine.Provider>
       {Mark === null ? null : (
@@ -95,10 +126,14 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
           </span>
         </Tooltip>
       )}
-      <span className="armada-prose__pick-acts" role="group" aria-label={`Answer: ${text}`}>
+      <span ref={acts} className="armada-prose__pick-acts" role="group" aria-label={`Answer: ${text}`}
+        style={hot === null ? undefined : { "--pick-x": `${hot.x}px`, "--pick-y": `${hot.y}px` } as CSSProperties}>
         {ACTS.map(({ kind, label, Glyph }) => (
           <Tooltip key={kind} label={label}>
-            <Button variant="ghost" size="sm" iconOnly aria-label={label} tabIndex={-1} onClick={() => picker.pick(text, kind)}>
+            <Button variant="ghost" size="sm" iconOnly aria-label={label} tabIndex={-1} onClick={() => {
+              picker.pick(text, kind);
+              setHot(null);
+            }}>
               <Glyph size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>

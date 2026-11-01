@@ -10,9 +10,8 @@ const acts = inside(thread, role("group", /^Answer: C: 18px/));
 const walk = walkOver("real-thread-header-sizes", [
   toSessions,
   { press: deckRow("Header Font Sizes"), say: "A Job's thread, with the agent's options in a list" },
-  { hover: inside(thread, text(/C: 18px/)), say: "Hover an option and Pick, Yes and No appear at its end" },
-  { press: inside(acts, button("Pick this")), say: "Pick sends the line back to the agent as a quote" },
-  { look: inside(thread, role("img", "Picked")), say: "Your quote is in the thread and the line keeps its mark" },
+  { hover: inside(thread, text(/C: 18px/)), say: "Hover an option and Pick, Yes and No appear beside the pointer" },
+  { press: inside(acts, button("Pick this")), say: "Pick sends the line back as a quote, and the line keeps a tick" },
 ]);
 
 export { walk as "real-thread-pick-a-line" };

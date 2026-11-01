@@ -450,11 +450,20 @@
   margin: 0;
 }
 
+/* The acts float beside the point the pointer reached the line, kept inside the line's width, so the hand barely moves to them. */
 .armada-prose__pick-acts {
+  --pick-acts-w: calc(var(--h-control-sm) * 3 + var(--space-1) * 4);
+  z-index: var(--z-menu);
+  top: calc(var(--pick-y, 0px) - var(--h-control-sm) / 2 - var(--space-1));
+  right: auto;
+  left: clamp(0px, calc(var(--pick-x, 100%) + var(--space-3)), calc(100% - var(--pick-acts-w)));
   display: flex;
   gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-md);
-  background: var(--bg-hover);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--duration-fast) var(--ease);
