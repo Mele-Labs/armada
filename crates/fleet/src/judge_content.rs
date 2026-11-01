@@ -9,6 +9,7 @@
 //! | `job` | the plan, and the Job's diff against its base |
 //! | `plan` | the plan's words, when its version is still the current one |
 //! | `pull_request` | the pull request's branch against the base, from the checkout |
+//! | `commit` | the commit against its first parent, from the checkout; the id is its hash |
 //! | `file` | the file as it stands, and its part of the Job's diff |
 //! | `page` | the address and the walk's steps the ledger keeps |
 //! | `doc` | the newest revision of the page, as text |
@@ -17,8 +18,6 @@
 //! | `subagent` | the thread's row of the subagent and what it last said |
 //! | `issue` | the title and body the ledger keeps |
 //! | `note` | the note's words |
-//!
-//! A `commit` is not read: Fleet keeps no diff of a single commit.
 
 use std::path::Path;
 
@@ -200,7 +199,18 @@ where
                 }
                 Ok(named(diff))
             }
-            JudgeKind::Commit => Err("Fleet keeps no diff of a single commit; judge the pull request or the Job's work, which hold it".into()),
+            JudgeKind::Commit => {
+                let sha = artifact.id.trim();
+                let diff = self
+                    .work()
+                    .commit_work(served.root(), sha)
+                    .map(|work| cut(work.patch.as_str()))
+                    .map_err(|why| format!("the commit {sha} would not read: {why}"))?;
+                if diff.trim().is_empty() {
+                    return Err(format!("the commit {sha} changes nothing"));
+                }
+                Ok(named(diff))
+            }
             JudgeKind::File => {
                 let path = artifact.id.trim();
                 let absolute = if Path::new(path).is_absolute() { path.to_string() } else { format!("{}/{path}", session.cwd.trim_end_matches('/')) };

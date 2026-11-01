@@ -258,13 +258,39 @@ async fn each_kind_is_read_from_where_fleet_holds_it() {
 }
 
 #[tokio::test]
+async fn a_commit_is_read_as_its_diff_from_the_checkout_and_one_the_checkout_lacks_fails() {
+    let patch = "diff --git a/crates/store/src/keys.rs b/crates/store/src/keys.rs\n--- a/crates/store/src/keys.rs\n+++ b/crates/store/src/keys.rs\n@@ -1,2 +1,3 @@\n impl Keys {\n+    pub fn rotate_at_midnight(&mut self) {}\n }\n";
+    let judge = Arc::new(FakeJudge::answering(&[(ASKED, r#"{"notes": []}"#)]));
+    let held = Arc::clone(&judge);
+    let rig = rig_fitted(|fittings| {
+        fittings.judge = held;
+        fittings.work = testkit::FakeWorkProduct::changed(&[]).holding_commit("a1b2c3d", patch);
+    });
+    let id = a_job_with_a_plan(&rig).await;
+
+    ask(&rig, &id, artifact(JudgeKind::Commit, "a1b2c3d", "Rotate at midnight"), "").await.expect("started");
+    let reading = ended(&rig, &id, JudgeKind::Commit).await;
+    assert_eq!(reading.state, JudgeState::Done, "{:?}", reading.failed);
+    let asked = asked_of(&judge);
+    assert_eq!(asked.len(), 1);
+    assert!(asked[0].0.contains("pub fn rotate_at_midnight(&mut self) {}"), "the diff is in the brief:\n{}", asked[0].0);
+    assert!(asked[0].0.contains(REQUEST) && !asked[0].0.contains(AGENT_SAID));
+
+    ask(&rig, &id, artifact(JudgeKind::Commit, "deadbeef", "A commit nobody has"), "").await.expect("answered at once");
+    eventually(|| async { readings(&rig, &id).await.iter().any(|one| one.artifact.id == "deadbeef" && one.state == JudgeState::Failed) }).await;
+    let failed = readings(&rig, &id).await.into_iter().find(|one| one.artifact.id == "deadbeef").expect("a reading");
+    assert!(failed.failed.expect("Fleet's words").contains("the commit deadbeef would not read"));
+    assert_eq!(asked_of(&judge).len(), 1, "no call for a commit that could not be shown");
+}
+
+#[tokio::test]
 async fn what_fleet_holds_nothing_readable_of_fails_the_reading_with_its_reason() {
     let (rig, judge) = answered_with(NOTES);
     let id = a_job_with_a_plan(&rig).await;
     holds(&rig, &id, "issue", "41", &[]).await;
 
     let cases = [
-        (artifact(JudgeKind::Commit, "abc123", "Rotate"), "no diff of a single commit"),
+        (artifact(JudgeKind::Commit, "abc123", "Rotate"), "the commit abc123 would not read"),
         (artifact(JudgeKind::Note, "note:gone", "A note"), "Fleet holds no note named note:gone"),
         (artifact(JudgeKind::PullRequest, "9", "Rotate"), "Fleet holds no pull request named 9"),
         (artifact(JudgeKind::Issue, "41", "An issue"), "only the number of issue 41"),

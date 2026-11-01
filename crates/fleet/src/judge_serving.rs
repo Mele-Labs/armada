@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Reading, Vcs, WorkProduct};
 use api::{JudgeReadings, Refusal};
+use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{
     AskJudge, DismissJudgeNote, JudgeNoteHow, JudgeReading, ManifestId, MarkJudgeRead, SendJudgeNote, SendSessionMessage,
     SessionId, SessionRow, SessionVoice, WireError,
@@ -215,7 +216,11 @@ where
         let (answered, micros) = asked_and_costed(&reviewing, &ask).await;
         let answer = answered.map_err(|why| {
             // The full output is Fleet's to keep, and the card gets one line of it.
-            eprintln!("judge of job {id}, {} {}: the agent did not answer: {why}", reading.kind, reading.artifact_id);
+            let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a Judge's call did not answer")
+                .with_field("job", FieldValue::Str(id.to_string()))
+                .with_field("artifact", FieldValue::Str(format!("{} {}", reading.kind, reading.artifact_id)))
+                .with_field("why", FieldValue::Str(why.to_string()));
+            crate::transcript::note_aloud(&envelope);
             (why.in_a_line("judge"), micros)
         })?;
         let root = served.root().to_string();
