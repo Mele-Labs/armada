@@ -3,8 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <!--
-      `default-src 'self'` and one addition. An image is drawn from a `blob:` this
-      window made itself, out of bytes that came over the preload from main.
+      `default-src 'self'` and `blob:` for images, media and scripts. An image is drawn from a `blob:` this
+      window made itself, out of bytes that came over the preload from main. A tab
+      mod's module is run from a `blob:` the window made out of the text Fleet's
+      `validate_mod` passed (`job-panes/tab-module.ts`).
 
       Neither `http://127.0.0.1:*` nor `data:` is admitted. The first is refused
       on purpose: it would let the renderer fetch from Fleet directly and make the
@@ -13,7 +15,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' blob:; media-src 'self' blob:"
+      content="default-src 'self'; script-src 'self' blob:; img-src 'self' blob:; media-src 'self' blob:"
     />
     <title>Armada</title>
   </head>

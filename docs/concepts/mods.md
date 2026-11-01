@@ -1,6 +1,6 @@
 # Mod
 
-**What it is:** A folder on this machine that changes how Bridge looks, how it is arranged, what it links, what Fleet tells a Session or which rows the command palette offers, or teaches Fleet a tracker it was not built for, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
+**What it is:** A folder on this machine that changes how Bridge looks, how it is arranged, what it links, what Fleet tells a Session which rows the command palette offers, which tabs a Job's panes can hold, or teaches Fleet a tracker it was not built for, written by a person or by a job, which Fleet reads and checks and which can never stop Fleet from starting or from listing.
 
 ---
 
@@ -37,6 +37,7 @@ A month later you promote it, and a Job of its own opens a pull request that put
 | `fleet.toml` | What Fleet does with a notice, by Job, repository or everywhere, in a Fleet mod |
 | `tweak.css` | Token values layered over whichever theme is chosen, in a tweak mod |
 | `commands.toml` | Rows added to the command palette, each starting a Job, opening an address, running a line or chaining other rows, in a Commands mod |
+| `tab.js` | An ES module whose default export is a React component Bridge draws as a tab in a Job's panes, in a tab mod. *tab.js* below |
 | `tracker.toml` | How to list, search and read a tracker's issues, and optionally to move, assign and close them, in a tracker mod. *Tracker mods* below |
 | `.tried.toml` | A tracker mod's last try, written by Fleet and never promoted |
 | `.git/` | The mod's own history, one commit at scaffold |
@@ -50,9 +51,10 @@ A flat file of `key = "value"` lines and `#` comments, read by hand: a table, an
 | field | type | required | default | meaning |
 |---|---|---|---|---|
 | `name` | string | yes | | The folder's name |
-| `kind` | string | yes | | `theme`, `layout`, `words`, `fleet`, `tweak`, `tracker` or `commands` |
+| `kind` | string | yes | | `theme`, `layout`, `words`, `fleet`, `tweak`, `tracker`, `commands` or `tab` |
 | `version` | string | yes | | Up to 32 letters, digits, `.`, `+`, `-` |
 | `description` | string | no | none | Up to 200 characters |
+| `glyph` | string | no | none | A tab mod's glyph, by its name in the icon registry (`packages/icons/icons/`): 1 to 40 lowercase letters, digits and `-`. Any other kind that writes one is invalid |
 | `taught_on` | string | no | none | What Teach was pressed on, up to 120 characters. The mod's row lists it |
 | `entry` | string | no | none | The Logbook entry a teaching from a Job made. Forgetting that entry removes the mod |
 | `made_by` | string | no | none | The Job whose `scaffold_mod` made the mod. The mod's row lists it |
@@ -62,7 +64,7 @@ A Job that passes its own `session_id` to `scaffold_mod` is recorded as `made_by
 
 Any other key is a problem.
 A `kind` this build does not have makes the mod invalid, so a valid mod's kind is always one Bridge can act on.
-A theme mod holds `theme.css`, a layout mod `layout.json`, a Words mod `words.toml`, a Fleet mod `fleet.toml`, a tweak mod `tweak.css`, a tracker mod `tracker.toml` and a Commands mod `commands.toml`, and the kind says which file is read.
+A theme mod holds `theme.css`, a layout mod `layout.json`, a Words mod `words.toml`, a Fleet mod `fleet.toml`, a tweak mod `tweak.css`, a tracker mod `tracker.toml`, a Commands mod `commands.toml` and a tab mod `tab.js`, and the kind says which file is read.
 
 ## theme.css
 
@@ -228,6 +230,54 @@ A chain names rows and takes no blanks.
 Each of these is a problem that names the row and the line its `[[command]]` opens on: a row with no name or with none of the four keys, a row with more than one, an empty prompt, address, line or chain, a blank spelled `{Pr}` or a `{` with no `}`, an address that is not `http` or `https` or whose host holds a blank, a name or an alias that another row already has, and a hotkey that is not a chord.
 At least one `[[command]]` and at most 16 KiB. Bridge draws the rows from `commands` in `validate_mod`'s answer; nothing here runs a row.
 
+## tab.js
+
+> **Rule.** A tab mod is code Bridge runs as part of itself, and nothing limits what it may do that Armada's own code may not.
+> Why: a tab that could only draw what it was handed would be a theme, and the point of one is to read Fleet and show it: pull requests waiting on a person, a repository's checks, a number that matters to one team.
+> A sandbox would have to hand it the same API by proxy, so the boundary is the mod switch, the check below and the pane's error frame, not a wall.
+
+A tab mod is a folder with `mod.toml` (`kind = "tab"`, and a `glyph` if it has one) and one file, `tab.js`.
+It is a plain ES module and its default export is a React component, which Bridge draws in the body of a tab.
+It has no build step and no `import`: a module loaded from text has no path to import from, so everything it uses comes in as its one prop, `host`.
+
+| `host` holds | Is |
+|---|---|
+| `React` | The React Bridge runs, so `host.React.createElement` and its hooks |
+| `armada` | The whole Fleet API, as Bridge's own code has it |
+| `ui` | Bridge's primitives by name: `Button`, `Tooltip`, `Table`, `Tabs` and the rest of the list in `job-panes/tab-ui.ts` |
+| `glyphs` | Bridge's icons by registry name |
+| `job`, `tab` | The ids of the Job the tab is open in and of the tab |
+
+```js
+export default function Tab({ host }) {
+  const { createElement: h, useEffect, useState } = host.React;
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    host.armada.getReviewLists().then((read) => setRows(read.ok ? read.value.requested : []));
+  }, []);
+  return h("ul", null, rows.map((pr) => h("li", { key: pr.number }, pr.title)));
+}
+```
+
+`validate_mod` refuses a `tab.js` that is empty, larger than 256 KiB, without an `export default`, or that holds a static `import` or an `export ... from` line, each naming its line.
+**This is a check for mistakes and not a sandbox.** `import(` and `import.meta` are expressions and pass.
+A `glyph` is held to the registry's spelling, and Bridge draws the Custom glyph for a name it has no drawing of.
+The starter `tab.js` draws one line and passes, with `glyph = "panel-top"`.
+
+Bridge runs the `tab` text that `validate_mod` returned, from a `blob:` it makes in the window, and no other read of the folder.
+It loads that text again whenever the mod's row says its files changed (`changed_at`, found by Fleet's two second rescan), so a Mod Job that rewrites `tab.js` replaces the code on screen as it works.
+The last module that loaded stays until the next one does; a mod that is off or invalid, or a first load that fails, shows the reason in the tab's body.
+A module that throws as it draws is caught at the tab and told there, so it cannot take the pane down.
+
+> **Rule.** A tab mod is run in Bridge's own renderer, not in an isolated view.
+> Why: the Fleet API and the components are in this window already, and an isolated view would need each reached through a bridge of messages.
+> The window's script policy admits `blob:` for this one purpose (`docs/practices/bridge.md`, *Security posture*), and still admits no address off the machine.
+
+A built tab is offered by its name in the + menu of every pane, under the rule above Custom, with its glyph.
+Custom there opens a composer; what he writes starts a Mod Job aimed at a tab, and the tab becomes the mod that Job scaffolds (the mod whose `made_by` is that Job).
+The tab's hover card is that Job: its thread, a composer that messages it, and Open Job.
+A tab added by the mod's name finds the same Job through `made_by`.
+
 ## Tracker mods
 
 A tracker mod teaches Fleet a tracker this build has no adapter for, over the tracker's command line, its HTTP API or an MCP server.
@@ -356,7 +406,7 @@ Its row carries `mod`.
 
 | Piece | Is |
 |---|---|
-| Entry points | Mod in the right-click menu over anything in Bridge or a Job row; Create mod in the palette and on System › Mods, which opens an empty Mod Job, where he writes in the composer himself |
+| Entry points | Mod in the right-click menu over anything in Bridge or a Job row; Create mod in the palette and on System › Mods, which opens an empty Mod Job, where he writes in the composer himself; + then Custom in a Job's panes, which starts one aimed at a tab |
 | The menu | Mod in every build; Report beside it in dev builds only |
 | Title | `Mod <name>`: the row's title, else the label, words or place pointed at |
 | In the Jobs list | A **Mods** group after the repository groups and before Other, whichever repository is picked |
@@ -368,6 +418,7 @@ A mod it makes applies live once `validate_mod` passes, and the switch in *Mods 
 Where the ask needs more than a mod can say, the Job says so and changes Armada's source on its own branch, then asks for `scripts/preview --restart` as a `waiting_for` run item.
 An empty Mod Job's thread lists six aims to pick from, Colours, Panels, Words, Notices, Issue trackers and Anything else, and he can pick what he is aiming for before he writes, a theme, layout, words, Fleet rule, tracker or a change to Armada's source, and his first message carries one line naming it after the brief.
 The pick is kept per Job until his first message, which is the only one that carries it.
+Custom in a Job's panes starts the Job with `aim` set to `tab` on `start_mod_session`, so the same line rides after the brief; the Job is then not empty, and its thread is the tab's body until it scaffolds the mod.
 A mod the Job made is also drawn in its thread as the card System › Mods draws, where it was made.
 On either card only the switch turns the mod on or off; a press on the rest of the row, or on its name, opens the mod in the side panel with its facts, the switch, Promote and **Change it**, which starts an empty Mod Job aimed at the mod's kind with the box open on `Change the <Name> <kind>: `.
 
@@ -381,11 +432,11 @@ It stands at the agent door a Job with no Manifest stands at, which offers `list
 |---|---|---|---|
 | `list_mods` | query | yes | Every mod, local and built in: `origin`, kind, version, description, `taught_on`, `entry` (the Logbook entry that made it), `made_by` (the Job that scaffolded it), `enabled`, `valid`, `reason`, `changed_at`, a tracker's `tried` or `stale`, and the `pull_request` a promote holds open for it |
 | `scaffold_mod` | command | yes | Makes the folder, a starter file for its `kind` that changes nothing (a tracker's validates and fails its try), `git init` and one commit, recording the calling Job as `made_by` where it passes `session_id` |
-| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod, `fleet` for a Fleet mod and `commands` for a Commands mod, each the file as typed data |
+| `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme or a tweak, `layout` for a layout, `words` for a Words mod, `fleet` for a Fleet mod, `commands` for a Commands mod, each the file as typed data, and `tab` for a tab mod, its `glyph` and `code` |
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Puts the mod into a repository by a Job of its own, which opens the pull request and sees it merged |
-| `start_mod_session` | command | no | Starts a Mod Job on what the person pointed at. *A Mod Job* above |
+| `start_mod_session` | command | no | Starts a Mod Job on what the person pointed at, or on his words, and `aim` where he knows the kind. *A Mod Job* above |
 
 `mods.changed` carries the whole list.
 Fleet rescans every two seconds and publishes it when the list differs from the last, and `scaffold_mod` and `set_mod_enabled` publish at once, so a file a job wrote reaches an open Bridge without a restart.
@@ -413,7 +464,7 @@ A mod nobody switched is on. A switch only says whether the owner allows the mod
 
 1. `promote_mod` refuses, before any Job is made, a mod whose earlier promote's pull request is still open, a mod that is invalid, a built-in mod, a repository with no `packages/` directory and a repository that holds the mod exactly as it is.
 2. Fleet starts a Job titled `Add the <name> <kind> mod`, with a slot from the repository's pool and a branch of its own.
-3. It writes the two checked files, `mod.toml` and `theme.css`, `layout.json` or `tracker.toml`, to `packages/mods/<name>/` in the Job's tree, never the mod's `.git` or its `.tried.toml`, and commits exactly those paths.
+3. It writes the two checked files, `mod.toml` and `theme.css`, `layout.json`, `tracker.toml` or `tab.js`, to `packages/mods/<name>/` in the Job's tree, never the mod's `.git` or its `.tried.toml`, and commits exactly those paths.
 4. It pushes the branch, opens a pull request into the base and attaches it to the Job's row, beside a `mod` row naming the mod.
 5. It tells the Job, in Fleet's words, to fix a red ci or a conflict with the base and to finish when the pull request merges.
 6. It answers with the Job, its title, its branch, the commit and the pull request's address, and publishes the list.

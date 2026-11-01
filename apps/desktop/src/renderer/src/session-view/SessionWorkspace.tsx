@@ -168,7 +168,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
         case "request":
           return <RequestBody session={session} />;
         case "custom":
-          return <CustomBody tabId={tab.id} manifestId={session.manifestId} onOpenSession={onOpenSession} />;
+          return <CustomBody tabId={tab.id} jobId={session.id} manifestId={session.manifestId} onOpenSession={onOpenSession} />;
         case "subagents":
           return <Layer id="subagents" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
         case "checks":

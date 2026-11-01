@@ -2,12 +2,11 @@
 // already, QA split and Review, beside Default. Each time the walk lets time pass, the second Job opens a browser page itself, which joins the pane that holds a browser, or opens
 // as a split on the right. Over `job-story`. The walk `jobLayouts` plays it. Mock only: nothing is kept.
 
-import type { ModSummary, PullReviewLists, PullReviewRow, WorktreeSlot } from "@armada/protocol";
+import type { ModChecked, ModSummary, PullReviewLists, PullReviewRow, WorktreeSlot } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { seedJobBrowser } from "../../job-browser/store";
-import { setRevision } from "../../job-panes/custom";
 import { forgetPanes, jobOpens, seedLayouts } from "../../job-panes/store";
 import { build } from "../../job-panes/tree";
 import { resetCheckout, shopPage } from "../job-browser-page";
@@ -15,6 +14,7 @@ import { MOCK_PATCH, MOCK_PATCH_LOG, MOCK_PATCH_TOOLTIP, patchesOf } from "../jo
 import { unanswered, type Scenario } from "../moment";
 import type { SessionsStore } from "../sessions/script";
 import { sharedPanelReads } from "../shared-panel-reads";
+import { reviewQueueModule } from "./job-layouts-tab";
 import { sJobStory } from "./job-story";
 import { jobAt } from "../workspaces-lanes-data";
 import { throughWire } from "../workspaces-lanes-wire";
@@ -96,6 +96,8 @@ const LINKED: Session[] = [
 let handle: { publish: (change: { mods: { mods: ModSummary[] } }) => void } | undefined;
 let modStore: SessionsStore | undefined;
 let mods: ModSummary[] = [];
+/** How far the Mod Job has got in rewriting the tab's module, which `validate_mod` answers. */
+let revision = 0;
 const turns = new Map<string, () => void>();
 const timers = new Set<number>();
 const changeTimers = new Set<number>();
@@ -111,7 +113,7 @@ function modTurn(store: SessionsStore, id: string, said: string): void {
     [700, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", "Read packages/protocol/src/pull-reviews.ts")] }))],
     [1500, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", "Read apps/desktop/src/renderer/src/pr-review/marks.tsx")] }))],
     [2300, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", `Write ${MOD_DIR}/mod.toml`)] }))],
-    [3100, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", `Write ${MOD_DIR}/tab.tsx`)] }))],
+    [3100, () => store.edit(id, (one) => ({ ...one, rows: [...one.rows, row("tool", `Write ${MOD_DIR}/tab.js`)] }))],
   ];
   const finish = () => {
     if (!turns.delete(id)) return;
@@ -123,7 +125,7 @@ function modTurn(store: SessionsStore, id: string, said: string): void {
       turn: { state: "idle" },
       lastTurnAt: now(),
     }));
-    const row_: ModSummary = { name: MOD_NAME, kind: "tab", enabled: true, valid: true, made_by: id, changed_at: now(), description: said === "" ? "" : "Pull requests waiting on your review, across repositories" };
+    const row_: ModSummary = { name: MOD_NAME, kind: "tab", glyph: "git-pull-request", enabled: true, valid: true, made_by: id, changed_at: now(), description: said === "" ? "" : "Pull requests waiting on your review, across repositories" };
     mods = [...mods.filter((one) => one.name !== MOD_NAME), row_];
     handle?.publish({ mods: { mods } });
   };
@@ -132,24 +134,31 @@ function modTurn(store: SessionsStore, id: string, said: string): void {
   timers.add(window.setTimeout(finish, 4000));
 }
 
+/** The Job writes the module again: the mod's files change, so its row's `changed_at` moves and Bridge loads the module again. */
+function rewrite(step: number): void {
+  revision = step;
+  mods = mods.map((one) => (one.name === MOD_NAME ? { ...one, changed_at: new Date().toISOString() } : one));
+  handle?.publish({ mods: { mods } });
+}
+
 /** A message to the Mod Job that built the tab: it reads the tab, then rewrites its view a step at a time, and the tab beside its card changes with each. Idempotent as the first build is. */
 function changeTurn(store: SessionsStore, id: string): void {
   if (turns.has(id)) return;
   const now = () => new Date().toISOString();
   const tool = (text: string): SessionRow => ({ id: `mod-${(rowSeq += 1)}`, at: now(), kind: "tool", text });
   const add = (more: SessionRow) => store.edit(id, (one) => ({ ...one, rows: [...one.rows, more] }));
-  setRevision(MOD_NAME, 0);
+  rewrite(0);
   const steps: [number, () => void][] = [
-    [600, () => add(tool(`Read ${MOD_DIR}/tab.tsx`))],
-    [1400, () => (add(tool(`Write ${MOD_DIR}/tab.tsx: the oldest lead`)), setRevision(MOD_NAME, 1))],
-    [2800, () => (add(tool(`Write ${MOD_DIR}/tab.tsx: how long each has waited`)), setRevision(MOD_NAME, 2))],
-    [4200, () => (add(tool(`Write ${MOD_DIR}/tab.tsx: the heading`)), setRevision(MOD_NAME, 3))],
+    [600, () => add(tool(`Read ${MOD_DIR}/tab.js`))],
+    [1400, () => (add(tool(`Write ${MOD_DIR}/tab.js: the oldest lead`)), rewrite(1))],
+    [2800, () => (add(tool(`Write ${MOD_DIR}/tab.js: how long each has waited`)), rewrite(2))],
+    [4200, () => (add(tool(`Write ${MOD_DIR}/tab.js: the heading`)), rewrite(3))],
   ];
   const finish = () => {
     if (!turns.delete(id)) return;
     changeTimers.forEach((one) => window.clearTimeout(one));
     changeTimers.clear();
-    setRevision(MOD_NAME, 3);
+    rewrite(3);
     store.edit(id, (one) => ({
       ...one,
       rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: now(), kind: "message", from: { kind: "agent" }, text: "Review queue lists the oldest first, with how long each has waited." } satisfies SessionRow],
@@ -203,6 +212,8 @@ export const sJobLayouts: Scenario = {
         handle?.publish({ mods: { mods } });
         return { ok: true };
       },
+      validateMod: async (name): Promise<ModChecked | null> =>
+        name === MOD_NAME ? { name, valid: true, problems: [], tab: { glyph: "git-pull-request", code: reviewQueueModule(revision) } } : null,
       getReviewLists: async () => {
         const value: PullReviewLists = { me: "you", fetched_at: new Date().toISOString(), requested: WAITING, team: [], assigned: [], mine: [] };
         return { ok: true, value };
@@ -318,7 +329,7 @@ export const sJobLayouts: Scenario = {
           changeTimers.forEach((one) => window.clearTimeout(one));
           changeTimers.clear();
           modJobs.clear();
-          setRevision(MOD_NAME, 0);
+          revision = 0;
           turns.clear();
           disposeShells();
           store.dispose();

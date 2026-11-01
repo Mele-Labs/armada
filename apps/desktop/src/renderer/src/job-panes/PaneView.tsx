@@ -10,6 +10,7 @@ import { useSessions } from "../sessions-draft";
 import { select } from "../cockpit/deck/store";
 import { ModJobCard } from "./custom-card";
 import { customLabel, seedBuilt, tabTitle, useCustom, useCustomTick } from "./custom";
+import { tabGlyph } from "./tab-glyph";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
 import { droppable, look, peek, rearrange } from "./store";
@@ -46,9 +47,10 @@ function tabEntries(kind: TabKind, zoomed: boolean, editable: boolean): Dropdown
 
 function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: string; pane: Pane; tab: Tab; zoomed: boolean; dragging: boolean; onDrag: (tabId: string | undefined) => void }) {
   const label = labelOf(tab);
-  const { Glyph } = KINDS[tab.kind];
   const active = pane.active === tab.id;
   const custom = useCustom(tab.id, tab.kind === "custom");
+  // A built Custom tab wears its mod's glyph.
+  const Glyph = tab.kind === "custom" && custom.stage === "built" ? tabGlyph(custom.glyph) : KINDS[tab.kind].Glyph;
   const building = tab.kind === "custom" && custom.stage === "building";
   const modJob = useSessions().find((one) => one.id === custom.job);
   // The tab's glyph turns while its Job works, on the first build and on each change after it.
@@ -144,18 +146,18 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
 }
 
 /** The kinds the + offers. A Job has one thread, so it is offered only when none is open. */
-function addEntries(thread: boolean, built: readonly string[]): DropdownMenuEntry[] {
+function addEntries(thread: boolean, built: readonly { name: string; glyph?: string | undefined }[]): DropdownMenuEntry[] {
   const kinds = TAB_KINDS.filter((kind) => kind !== "custom" && (kind !== "thread" || !thread)).map((kind): DropdownMenuEntry => ({ kind: "item", id: kind, label: KINDS[kind].label, icon: KINDS[kind].Glyph }));
   // Under the rule, the tabs a Mod Job built by name, then Custom, which builds another.
   const { Glyph } = KINDS.custom;
-  return [...kinds, { kind: "separator", id: "custom-rule" }, ...built.map((name): DropdownMenuEntry => ({ kind: "item", id: `mod:${name}`, label: tabTitle(name), icon: Glyph })), { kind: "item", id: "custom", label: KINDS.custom.label, icon: Glyph }];
+  return [...kinds, { kind: "separator", id: "custom-rule" }, ...built.map((one): DropdownMenuEntry => ({ kind: "item", id: `mod:${one.name}`, label: tabTitle(one.name), icon: tabGlyph(one.glyph) })), { kind: "item", id: "custom", label: KINDS.custom.label, icon: Glyph }];
 }
 
 export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, gapLit, onDrag, children }: { jobId: string; pane: Pane; focused: boolean; zoomed: boolean; thread: boolean; dragging: string | undefined; /** A gap between panes is lit, so no pane is. */ gapLit: boolean; onDrag: (tabId: string | undefined) => void; children: ReactNode }) {
   const [over, setOver] = useState<Side | "middle" | undefined>(undefined);
   // A Custom tab turning over changes the words and glyph of its tab.
   useCustomTick();
-  const built = useModList().filter((one) => one.kind === "tab" && one.valid && one.enabled).map((one) => one.name);
+  const built = useModList().filter((one) => one.kind === "tab" && one.valid && one.enabled).map((one) => ({ name: one.name, glyph: one.glyph }));
   // The pane under the pointer while a tab is dragged, lit as a whole.
   const [hot, setHot] = useState(false);
   useEffect(() => {
