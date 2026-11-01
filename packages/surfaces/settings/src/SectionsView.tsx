@@ -57,7 +57,7 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
     words: (title) => <ModList kind="words" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
     trackers: (title) => <ModList kind="tracker" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
     "fleet-mods": (title) => <ModList kind="fleet" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
-    thread: (title) => card(title, <ThreadPane settings={settings} onSave={onSaveSettings} />),
+    thread: (title) => card(title, <ThreadPane />),
     time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query="" />),
     palette: (title) => (palette === undefined ? null : card(title, <PaletteSettings {...palette} />)),

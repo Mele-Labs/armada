@@ -49,6 +49,7 @@ export function realThreadScenario(one: RealThread): Scenario {
           showTimes: true,
           showAgentName: true,
           textSize: "base",
+          spacing: "default",
           quick: [
             { id: "learnt:done", text: "Just get it done", kind: "learnt" },
             { id: "learnt:walk", text: "Walk me through it", kind: "learnt" },

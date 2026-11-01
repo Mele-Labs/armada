@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNowWhile } from "../../clock";
-import type { ThreadTextSize } from "../ThreadSettings/thread-look";
+import type { ThreadSpacing, ThreadTextSize } from "../ThreadSettings/thread-look";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
 import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Check, ChevronDown, ChevronRight, ChevronUp, Clock, File, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -483,7 +483,7 @@ export type SessionThreadProps = {
   /** `unread`: no rows held yet, and a transcript's shape stands in for them. `refreshing`: the rows held are being read again. */
   transcript?: "unread" | "refreshing";
   /** How the thread reads, from the Aa panel: stamps and the agent's name hidden, a larger or smaller body. Absent reads as it always has. */
-  look?: { showTimes?: boolean; showAgentName?: boolean; textSize?: ThreadTextSize };
+  look?: { showTimes?: boolean; showAgentName?: boolean; textSize?: ThreadTextSize; spacing?: ThreadSpacing };
   /**
    * Answers one line of an agent's message: its plain text and the quick response pressed. Present, a list item or a paragraph of
    * an agent's message can be answered; the host sends the quote with the emoji, or puts the quote in the box for an `ask`. Absent, no line is hoverable.
@@ -1938,7 +1938,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
     </>
   );
   return (
-    <div className="armada-session-thread" ref={whole} data-times={look?.showTimes === false ? "hidden" : undefined} data-who={look?.showAgentName === false ? "hidden" : undefined} data-text={look?.textSize === undefined || look.textSize === "base" ? undefined : look.textSize}>
+    <div className="armada-session-thread" ref={whole} data-times={look?.showTimes === false ? "hidden" : undefined} data-who={look?.showAgentName === false ? "hidden" : undefined} data-text={look?.textSize === undefined || look.textSize === "base" ? undefined : look.textSize} data-spacing={look?.spacing === undefined || look.spacing === "default" ? undefined : look.spacing}>
       {onForkAt === undefined && onReplyAt === undefined && onTeachAt === undefined ? null : <ForkFromSelection scope={whole} {...(onForkAt === undefined ? {} : { onFork: onForkAt })} {...(onReplyAt === undefined ? {} : { onReply: onReplyAt })} {...(onTeachAt === undefined ? {} : { onTeach: onTeachAt })} />}
       <div className="armada-session-thread__stage">
       <div

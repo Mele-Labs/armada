@@ -4,10 +4,9 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ThreadLookButton, ThreadLookContext, actOnQuick, actOnResponses, quickShownIn, responseMessage, useThreadLook } from "@armada/components";
-import type { QuickResponse, SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, ThreadSpacing, WhisperModel } from "@armada/components";
+import type { QuickResponse, SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, WhisperModel } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { saveSetting, useSetting } from "./use-setting";
 
 /** What a scenario starts the look with, the answers each Job's question offers, and the words Talk hears. */
 export type ThreadLookSeed = {
@@ -91,14 +90,12 @@ function asking(session: Session): boolean {
  */
 export function useThreadLookHere(session: Session): { thread: Pick<SessionThreadProps, "look" | "agentName" | "responses" | "onResponses">; composer: Pick<SessionComposerProps, "quick" | "talk">; head: ReactNode } | undefined {
   const source = useThreadLook();
-  const density = useSetting("spacing.density");
   if (source === null) return undefined;
   const { look } = source;
-  const spacing: ThreadSpacing = density === "compact" || density === "roomy" ? density : "default";
   const name = look.agentName.trim();
   return {
     thread: {
-      look: { showTimes: look.showTimes, showAgentName: look.showAgentName, textSize: look.textSize },
+      look: { showTimes: look.showTimes, showAgentName: look.showAgentName, textSize: look.textSize, spacing: look.spacing },
       ...(name === "" ? {} : { agentName: name }),
       responses: look.responses,
       onResponses: (act) => source.setLook((was) => ({ ...was, responses: actOnResponses(was.responses, act) })),
@@ -114,6 +111,6 @@ export function useThreadLookHere(session: Session): { thread: Pick<SessionThrea
       } }),
       talk: { listen: source.listen },
     },
-    head: <ThreadLookButton jobId={session.id} spacing={spacing} onSpacing={(next) => void saveSetting("spacing.density", next)} />,
+    head: <ThreadLookButton jobId={session.id} />,
   };
 }

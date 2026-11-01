@@ -504,6 +504,10 @@
 .armada-session-thread[data-text="sm"] { --thread-text: var(--text-sm); --thread-leading: var(--leading-sm); }
 .armada-session-thread[data-text="lg"] { --thread-text: var(--text-lg); --thread-leading: var(--leading-lg); }
 
+/* The thread's own Spacing: the room between rows and around messages, here and nowhere else in Bridge (HelmThread.css reads it). */
+.armada-session-thread[data-spacing="compact"] { --thread-gap: var(--space-2); --thread-message-room: var(--space-1); }
+.armada-session-thread[data-spacing="roomy"] { --thread-gap: var(--space-4); --thread-message-room: var(--space-4); }
+
 .armada-session-thread[data-text] :is(.armada-helm-thread__message, .armada-session-you__body),
 .armada-session-thread[data-text] :is(.armada-helm-thread__message, .armada-session-you__body) .armada-prose {
   font-size: var(--thread-text);

@@ -15,9 +15,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { QuickEdit, QuickKindMark, QuickPinnedMark } from "../SessionComposer/QuickBar";
 import { THREAD_TEXT_SIZES, VOICE_ENGINES, actOnQuick, pinnedFirst, useThreadLook } from "./thread-look";
 import type { QuickAct } from "./thread-look";
-import type { QuickPhrase, ThreadLook, ThreadTextSize, VoiceEngine, WhisperModel } from "./thread-look";
-
-export type ThreadSpacing = "compact" | "default" | "roomy";
+import type { QuickPhrase, ThreadLook, ThreadSpacing, ThreadTextSize, VoiceEngine, WhisperModel } from "./thread-look";
 
 const SPACINGS: readonly { id: ThreadSpacing; said: string }[] = [
   { id: "compact", said: "Compact" },
@@ -28,9 +26,6 @@ const SPACINGS: readonly { id: ThreadSpacing; said: string }[] = [
 export type ThreadSettingsProps = {
   look: ThreadLook;
   onChange: (change: (was: ThreadLook) => ThreadLook) => void;
-  /** Bridge's spacing, `spacing.density`: the same setting System › Spacing sets. */
-  spacing: ThreadSpacing;
-  onSpacing: (spacing: ThreadSpacing) => void;
   /** Where Talk hears from, and Whisper's model. Absent draws no Voice: the Aa panel leaves it to System. */
   voice?: { whisper: WhisperModel; onInstall: () => void };
   /** The first field takes the focus as the panel opens. */
@@ -57,7 +52,7 @@ function moved(list: readonly QuickPhrase[], from: number, by: number): QuickPhr
  * How a Job's thread reads, and the quick bar's lines. **One form for the Aa panel and System › Thread**, so the two never
  * differ; System adds Voice.
  */
-export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, autoFocus = false, keep, inPanel = false, jobId }: ThreadSettingsProps) {
+export function ThreadSettings({ look, onChange, voice, autoFocus = false, keep, inPanel = false, jobId }: ThreadSettingsProps) {
   const first = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (autoFocus) first.current?.focus();
@@ -106,7 +101,7 @@ export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, auto
             </option>
           ))}
         </Select>
-        <Select label="Spacing" value={spacing} onChange={(event) => onSpacing(event.currentTarget.value as ThreadSpacing)}>
+        <Select label="Spacing" value={look.spacing} onChange={(event) => set("spacing", event.currentTarget.value as ThreadSpacing)}>
           {SPACINGS.map((one) => (
             <option key={one.id} value={one.id}>
               {one.said}
@@ -277,7 +272,7 @@ export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, auto
  * Aa, in a Job's head: the thread's look in a panel, changed live. Esc or a press outside puts it away. Draws nothing where the
  * window holds no look (`ThreadLookContext`).
  */
-export function ThreadLookButton({ spacing, onSpacing, jobId }: { spacing: ThreadSpacing; onSpacing: (spacing: ThreadSpacing) => void; jobId?: string }) {
+export function ThreadLookButton({ jobId }: { jobId?: string }) {
   const source = useThreadLook();
   if (source === null) return null;
   return (
@@ -292,7 +287,7 @@ export function ThreadLookButton({ spacing, onSpacing, jobId }: { spacing: Threa
         </Tooltip>
       }
     >
-      <ThreadSettings look={source.look} onChange={source.setLook} spacing={spacing} onSpacing={onSpacing} autoFocus keep="thread-look:new-line" inPanel {...(jobId === undefined ? {} : { jobId })} />
+      <ThreadSettings look={source.look} onChange={source.setLook} autoFocus keep="thread-look:new-line" inPanel {...(jobId === undefined ? {} : { jobId })} />
     </Popover>
   );
 }

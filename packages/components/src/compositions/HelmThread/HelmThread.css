@@ -29,7 +29,7 @@
 .armada-helm-thread__rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--thread-gap, var(--space-4));
   margin: 0;
   padding: 0;
   list-style: none;
@@ -45,7 +45,7 @@
 
 .armada-helm-thread__rows > :is(.armada-helm-thread__row, .armada-session-you) + *,
 .armada-helm-thread__rows > * + :is(.armada-helm-thread__row, .armada-session-you) {
-  margin-top: var(--space-2);
+  margin-top: var(--thread-message-room, var(--space-2));
 }
 
 .armada-helm-thread__head {

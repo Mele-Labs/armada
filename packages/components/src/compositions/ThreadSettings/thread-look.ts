@@ -3,6 +3,8 @@ import { createContext, useContext } from "react";
 import { DEFAULT_RESPONSES } from "../../primitives/Prose/responses";
 import type { QuickResponse } from "../../primitives/Prose/responses";
 
+export type ThreadSpacing = "compact" | "default" | "roomy";
+
 /** How a Job's thread reads: the agent's name, the stamps, the text size, and the replies a press sends. */
 export type ThreadLook = {
   /** What the agent's rows are labelled. Empty reads `Agent`. */
@@ -10,6 +12,8 @@ export type ThreadLook = {
   showTimes: boolean;
   showAgentName: boolean;
   textSize: ThreadTextSize;
+  /** Room between messages, in Job threads only: the rest of Bridge keeps `spacing.density`. */
+  spacing: ThreadSpacing;
   /** The quick bar's own lines, in the order it draws them. */
   quick: readonly QuickPhrase[];
   /** Lines he sends often join the quick bar as learnt. */
@@ -101,7 +105,7 @@ export const VOICE_ENGINES: readonly { id: VoiceEngine; said: string }[] = [
   { id: "dictation", said: "macOS Dictation" },
 ];
 
-export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", quick: [], learn: true, forgotten: [], voice: "apple", quickOff: false, quickOffFor: [], responses: DEFAULT_RESPONSES };
+export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", spacing: "default", quick: [], learn: true, forgotten: [], voice: "apple", quickOff: false, quickOffFor: [], responses: DEFAULT_RESPONSES };
 
 /** Whisper's model on this Mac: not here, coming down (`progress` 0 to 1), or here. */
 export type WhisperModel = { state: "absent" } | { state: "installing"; progress: number } | { state: "installed" };
