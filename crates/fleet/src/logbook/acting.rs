@@ -13,7 +13,8 @@ use api::{Logbook, Refusal};
 use ipc::{
     EditLogbookEntry, Instant, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind,
     LogbookReplacedBy, LogbookSection, LogbookState, LogbookTopic, LockLogbookEntry, TeachLogbookEntry, TidiedLogbook, TidyLogbook, WireError,
-    AppliedOrganizeLogbook, ApplyOrganizeLogbook, OrganizeAction, OrganizeLogbook, OrganizedLogbook,
+    AppliedOrganizeLogbook, ApplyOrganizeLogbook, DismissedOrganizeLogbook, OrganizeAction, OrganizeLogbook, OrganizedLogbook,
+    OrganizingLogbook,
 };
 use store::{logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogKind, LogRewrite, LogSection, LogState, LogTopic};
 
@@ -304,6 +305,76 @@ where
             last: last.map(|(merged, at, failed)| ipc::LogbookTidyLast { merged, at: instant(at), failed }),
         }
     }
+
+    /// Whether an Organize look is running, and what the last one that finished found.
+    fn logbook_organize_state(&self) -> ipc::LogbookOrganize {
+        let distils = self.logbook_distils();
+        ipc::LogbookOrganize {
+            running: distils.organizing.load(std::sync::atomic::Ordering::Acquire),
+            last: distils.organize_last.lock().expect("the organize result is not held across a panic").clone(),
+        }
+    }
+
+    /// Start an Organize look on a task of its own, and return at once. Where one is already going
+    /// nothing starts. `sorts` places topics first, which needs the model. The result replaces a
+    /// held one only when the look finishes.
+    pub(crate) fn logbook_organize_started_with<F, Fut>(
+        self: &Arc<Self>,
+        organize: OrganizeLogbook,
+        sorts: bool,
+        ask: F,
+    ) -> Result<(), Refusal>
+    where
+        F: Fn(String) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<String, String>> + Send,
+    {
+        let roots: Vec<String> = match &organize.repository {
+            Some(root) => vec![self.logbook_repository(root)?],
+            None => self.repositories().served().iter().map(|served| served.root().to_string()).collect(),
+        };
+        if self.logbook_distils().organizing.swap(true, std::sync::atomic::Ordering::AcqRel) {
+            return Ok(());
+        }
+        let fleet = Arc::clone(self);
+        tokio::spawn(async move {
+            let found = fleet.logbook_organized(organize.action, &roots, sorts, &ask).await;
+            let distils = fleet.logbook_distils();
+            // A look that could not read the store changes nothing and leaves the held result as it was.
+            if let Ok(found) = found {
+                *distils.organize_last.lock().expect("the organize result is not held across a panic") = Some(found);
+            }
+            distils.organizing.store(false, std::sync::atomic::Ordering::Release);
+        });
+        Ok(())
+    }
+
+    async fn logbook_organized<F, Fut>(&self, action: OrganizeAction, roots: &[String], sorts: bool, ask: &F) -> Result<OrganizedLogbook, Refusal>
+    where
+        F: Fn(String) -> Fut,
+        Fut: std::future::Future<Output = Result<String, String>>,
+    {
+        let now = self.logbook_now();
+        let (mut proposals, mut failed) = (Vec::new(), false);
+        for (at, root) in roots.iter().enumerate() {
+            let (key, shared) = (key_of(root), at == 0);
+            // Topics first, so the page can group what comes back. Quiet: a failed sort changes nothing.
+            if sorts {
+                let _ = sorting::pass(self.store(), &key, shared, ask).await;
+            }
+            let held = self.store().lock().await.logbook_of(&key).map_err(|why| self.logbook_fault(why))?;
+            let held = organizing::in_scope(held, shared);
+            let found = match action {
+                OrganizeAction::Stale => Ok(organizing::stale(&held, now)),
+                OrganizeAction::Merge => organizing::merges(&held, ask).await,
+                OrganizeAction::Bugs => organizing::bugs(&held, ask).await,
+            };
+            match found {
+                Ok(more) => proposals.extend(more),
+                Err(_) => failed = true,
+            }
+        }
+        Ok(OrganizedLogbook { action, proposals, failed })
+    }
 }
 
 impl<H, V, W> Logbook for Fleet<H, V, W>
@@ -328,7 +399,7 @@ where
         all.retain(|one| state.is_none_or(|asked| state_of(one.entry.state) == asked));
         let learnt: Vec<LogEntry> = all.iter().filter(|one| one.from == Source::Learnt).map(|one| one.entry.clone()).collect();
         let titles = self.logbook_titles(&learnt).await;
-        Ok(ipc::Logbook { entries: all.iter().map(|one| wired(one, root.as_deref(), &titles)).collect(), tidy: self.logbook_tidy_state() })
+        Ok(ipc::Logbook { entries: all.iter().map(|one| wired(one, root.as_deref(), &titles)).collect(), tidy: self.logbook_tidy_state(), organize: self.logbook_organize_state() })
     }
 
     async fn edit_logbook_entry(&self, entry_id: String, edit: EditLogbookEntry) -> Result<LogbookEntry, Refusal> {
@@ -385,55 +456,47 @@ where
         Ok(TidiedLogbook { running: true })
     }
 
-    async fn organize_logbook(&self, organize: OrganizeLogbook) -> Result<OrganizedLogbook, Refusal> {
-        let roots: Vec<String> = match &organize.repository {
-            Some(root) => vec![self.logbook_repository(root)?],
-            None => self.repositories().served().iter().map(|served| served.root().to_string()).collect(),
-        };
+    async fn organize_logbook(self: Arc<Self>, organize: OrganizeLogbook) -> Result<OrganizingLogbook, Refusal> {
         // Stale asks no model, so a machine that cannot put the call together still finds it.
-        let explaining = self.writing_retros().ok();
+        let explaining = self.writing_retros().ok().map(Arc::new);
         if explaining.is_none() && organize.action != OrganizeAction::Stale {
             return Err(self.logbook_fault("the call could not be put together on this machine"));
         }
-        let ask = |question: String| {
-            let explaining = &explaining;
+        let sorts = explaining.is_some();
+        self.logbook_organize_started_with(organize, sorts, move |question: String| {
+            let explaining = explaining.clone();
             async move {
                 match explaining {
-                    Some(explaining) => ask_model(explaining, &question).await,
+                    Some(explaining) => ask_model(&explaining, &question).await,
                     None => Err("the call could not be put together on this machine".to_string()),
                 }
             }
-        };
-        let now = self.logbook_now();
-        let (mut proposals, mut failed) = (Vec::new(), false);
-        for (at, root) in roots.iter().enumerate() {
-            let (key, shared) = (key_of(root), at == 0);
-            // Topics first, so the page can group what comes back. Quiet: a failed sort changes nothing.
-            if explaining.is_some() {
-                let _ = sorting::pass(self.store(), &key, shared, &ask).await;
-            }
-            let held = self.store().lock().await.logbook_of(&key).map_err(|why| self.logbook_fault(why))?;
-            let held = organizing::in_scope(held, shared);
-            let found = match organize.action {
-                OrganizeAction::Stale => Ok(organizing::stale(&held, now)),
-                OrganizeAction::Merge => organizing::merges(&held, &ask).await,
-                OrganizeAction::Bugs => organizing::bugs(&held, &ask).await,
-            };
-            match found {
-                Ok(more) => proposals.extend(more),
-                Err(_) => failed = true,
-            }
-        }
-        Ok(OrganizedLogbook { action: organize.action, proposals, failed })
+        })?;
+        Ok(OrganizingLogbook { running: true })
+    }
+
+    async fn dismiss_organize_logbook(&self) -> Result<DismissedOrganizeLogbook, Refusal> {
+        *self.logbook_distils().organize_last.lock().expect("the organize result is not held across a panic") = None;
+        Ok(DismissedOrganizeLogbook {})
     }
 
     async fn apply_organize_logbook(&self, apply: ApplyOrganizeLogbook) -> Result<AppliedOrganizeLogbook, Refusal> {
+        let taken: Vec<String> = apply.proposals.iter().map(|one| one.id.clone()).collect();
         let (applied, keys) = organizing::apply(self.store(), apply.action, apply.proposals, self.logbook_now())
             .await
             .map_err(|why| self.logbook_fault(why))?;
         for key in keys {
             self.logbook_mirrored(&key).await;
         }
+        // Only what was carried out leaves the held result; the cards not pressed stay for later.
+        let mut held = self.logbook_distils().organize_last.lock().expect("the organize result is not held across a panic");
+        if let Some(last) = held.as_mut() {
+            last.proposals.retain(|one| !taken.contains(&one.id));
+            if last.proposals.is_empty() {
+                *held = None;
+            }
+        }
+        drop(held);
         Ok(applied)
     }
 

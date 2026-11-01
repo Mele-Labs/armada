@@ -837,8 +837,9 @@
   column-gap: var(--space-3);
 }
 /* The band names the columns, in the band's own hand. */
-.armada-wm-auto__band {
-  padding-inline-end: var(--space-3);
+.armada-wm-auto__band.armada-wm-auto__row {
+  display: grid;
+  padding-inline: var(--space-4) var(--space-3);
 }
 .armada-wm-auto__center {
   justify-self: center;

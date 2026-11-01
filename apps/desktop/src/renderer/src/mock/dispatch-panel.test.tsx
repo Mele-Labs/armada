@@ -34,7 +34,7 @@ const names = () => [...row().element().querySelectorAll("[role='radio'] .armada
 async function sheet() {
   const app = mount(SCENARIO);
   await onScreen();
-  await userEvent.keyboard("n");
+  await userEvent.keyboard("{Meta>}n{/Meta}");
   await expect.element(request()).toBeVisible();
   return app;
 }
@@ -44,7 +44,7 @@ test("N opens the sheet directly from the Cockpit, the caret in the request and 
   await onScreen();
   expect(request().query()).toBeNull();
 
-  await userEvent.keyboard("n");
+  await userEvent.keyboard("{Meta>}n{/Meta}");
   await expect.element(request()).toBeVisible();
   await expect.element(request()).toHaveFocus();
   expect(palette().query()).toBeNull();
@@ -213,7 +213,7 @@ test("Escape lets the strip go, and typing starts a new draft over it", async ()
   await userEvent.keyboard("{Escape}");
   expect(strip().query()).toBeNull();
 
-  await userEvent.keyboard("n");
+  await userEvent.keyboard("{Meta>}n{/Meta}");
   await sendAutopilot();
   await userEvent.keyboard("x");
   expect(strip().query()).toBeNull();
@@ -229,14 +229,14 @@ test("Escape puts the sheet away and N brings the draft back, and a send clears 
   expect(request().query()).toBeNull();
 
   // The words were kept: the key opens the sheet holding them, not an empty one.
-  await userEvent.keyboard("n");
+  await userEvent.keyboard("{Meta>}n{/Meta}");
   await expect.element(request()).toHaveValue(NAMING_NOTHING);
   expect(palette().query()).toBeNull();
   await userEvent.keyboard("{Escape}");
   expect(frame().query()).toBeNull();
 
   // Typing over them and sending leaves nothing behind.
-  await userEvent.keyboard("n");
+  await userEvent.keyboard("{Meta>}n{/Meta}");
   await expect.element(request()).toHaveValue(NAMING_NOTHING);
 
   await request().fill(NAMING_BRIDGE);
@@ -244,6 +244,6 @@ test("Escape puts the sheet away and N brings the draft back, and a send clears 
   await act("Start").click();
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   await userEvent.keyboard("{Escape}");
-  await userEvent.keyboard("n");
+  await userEvent.keyboard("{Meta>}n{/Meta}");
   await expect.element(request()).toHaveValue("");
 });
