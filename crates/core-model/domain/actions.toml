@@ -237,11 +237,11 @@ kind = "Action"
 tier = "Contextual"
 verb = "Dispatch"
 icon = "plus"
-shortcut = "n"
+shortcut = "⌘N"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons/` for this row. From 15 Oct 2026 `n`, and `⌘N` from inside a field, open the Dispatch panel directly from every surface, a centred sheet over the window with the caret in the request, where a Job, a Session or an Autopilot is chosen; the palette is search only. The Cockpit's Dispatch tile and every New job entry open the same sheet. The Cockpit's own dispatch bar was removed on 13 Oct 2026."
+notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons/` for this row. From 15 Oct 2026 this key opens the Dispatch panel directly from every surface, a centred sheet over the window with the caret in the request, where a Job, a Session or an Autopilot is chosen; the palette is search only. The Cockpit's Dispatch tile and every New job entry open the same sheet. The Cockpit's own dispatch bar was removed on 13 Oct 2026. The key was a bare `n` until 31 Oct 2026, when it became `⌘N` because a bare letter fired while typing; `dispatch_from_field` was folded into it."
 
 [actions.add_note]
 kind = "Action"
@@ -953,17 +953,6 @@ scope = "anywhere"
 destructive = false
 confirms = false
 notes = "Asks for any file on this machine in a dialog main opens, and shows it in the side panel's code editor. Works from inside a field, as `⌘N` does. Added 19 Oct 2026 with the file panel."
-
-[actions.dispatch_from_field]
-kind = "Action"
-tier = "Global"
-verb = "Dispatch from a field"
-icon = "plus"
-shortcut = "⌘N"
-scope = "anywhere"
-destructive = false
-confirms = false
-notes = "The same act as `n`, from inside a field where `n` would type: it opens the Dispatch panel. A modifier means this tier, so `n` alone stays suppressed in a field."
 
 [actions.dispatch_repository]
 kind = "Action"
