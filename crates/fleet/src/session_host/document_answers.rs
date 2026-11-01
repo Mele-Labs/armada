@@ -132,10 +132,24 @@ where
         Arc::clone(&self).send_known(terminal, message).await?;
         // Read again after the send: a revision the Job kept meanwhile is not the one he answered.
         let (_, now) = self.document_held(&id, &path).await?;
-        let Some(mut document) = now.filter(|one| one.detail.get(DOCUMENT_REVISION) == Some(&revision)) else {
+        let Some(document) = now.filter(|one| one.detail.get(DOCUMENT_REVISION) == Some(&revision)) else {
             return self.published_hosted(&id).await;
         };
-        document.detail.insert(DOCUMENT_SETTLED.into(), said.how.word().into());
+        self.page_settled(said.session_id, harness, document, said.how, words).await
+    }
+
+    /// Keep how the page's newest revision ended, and on an approval approve the plan held behind it.
+    /// The Job was told already: by the message his card sent, or by his own reply.
+    pub(crate) async fn page_settled(
+        self: Arc<Self>,
+        session_id: SessionId,
+        harness: String,
+        mut document: ipc::Attachment,
+        how: DocumentHow,
+        words: Option<&str>,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = session_id.as_str().trim().to_string();
+        document.detail.insert(DOCUMENT_SETTLED.into(), how.word().into());
         document.detail.insert(DOCUMENT_SETTLED_AT.into(), self.instant().as_str().to_string());
         if let Some(words) = words {
             document.detail.insert(DOCUMENT_WORDS.into(), words.to_string());
@@ -149,7 +163,7 @@ where
                 },
             })
             .await?;
-        if said.how != DocumentHow::Approved {
+        if how != DocumentHow::Approved {
             return Ok(record);
         }
         // The page is the plan's evidence, so his approval of it is the plan's: the plan held behind the page (`plan_holds`)
@@ -159,13 +173,13 @@ where
             store.session_plan(&id).map_err(|why| self.ledger_fault(why))?.filter(|plan| plan.approved_at.is_none() && plan.set_aside_at.is_none())
         };
         match pending {
-            Some(plan) => self.plan_approved(ipc::ApprovePlan { session_id: said.session_id, version: plan.version }).await,
+            Some(plan) => self.plan_approved(ipc::ApprovePlan { session_id, version: plan.version }).await,
             None => Ok(record),
         }
     }
 
     /// The Job's harness, and the document it holds at `path`.
-    async fn document_held(&self, id: &str, path: &str) -> Result<(String, Option<ipc::Attachment>), Refusal> {
+    pub(super) async fn document_held(&self, id: &str, path: &str) -> Result<(String, Option<ipc::Attachment>), Refusal> {
         let store = self.store().lock().await;
         let session = store
             .session(id)
