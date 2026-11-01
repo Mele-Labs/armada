@@ -6,7 +6,7 @@
 // so the pairing and the reading happen here, once, where a test can hold them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
 import { isNotice } from "@armada/protocol";
-import type { AppliedRule, Attachment, AttachmentHistory, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobLifecycles, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WatchSummary, WorkflowSummary } from "@armada/protocol";
+import type { AppliedRule, Attachment, AttachmentHistory, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobLifecycles, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WatchSummary, WorkflowSummary } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
@@ -14,8 +14,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import { retroRowOf } from "./retro-row";
 import { waitOfWire } from "./session-waits";
 import { lanesOfJob } from "./session-lanes";
-import { changeOfEvent, linesOfWire, settledRowsOf, stepsWithIds, workOf } from "./session-work";
-import type { ReviewRefused } from "./session-work";
+import { changeOfEvent, linesOfWire, stepsWithIds, workOf } from "./session-work";
 import { share } from "./share";
 import type {
   Session,
@@ -55,8 +54,6 @@ export type Beside = {
   unpicked?: ReadonlySet<ProposedField>;
   /** `features.workflows` is off, so the workflow picker, the steps and the proposer's mark for a workflow are not drawn. */
   workflowsOff?: boolean;
-  /** Fleet's refusal of the last press of the plan's adversarial review, for the version it was pressed on. */
-  reviewRefused?: ReviewRefused;
   /** Moves when something `picture` answers has changed without its identity doing so. */
   epoch?: number;
 };
@@ -673,11 +670,11 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const handoff = ended ? undefined : standing("handoff_failed") ? ("failed" as const) : standing("handoff_starting") ? ("starting" as const) : undefined;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
-  const thread = rows === undefined ? [] : withChanges(rowsOfThread(record.id, rows, beside.picture, beside.repository), rows, record.id, beside.events, record.settled);
+  const thread = rows === undefined ? [] : withChanges(rowsOfThread(record.id, rows, beside.picture, beside.repository), rows, record.id, beside.events);
   const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   const activity = activityOf(record.activity);
   const account = accountOf(record.activity);
-  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true, ...(beside.reviewRefused === undefined ? {} : { reviewRefused: beside.reviewRefused }) });
+  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true });
   const flow = work?.workflow;
   const lanes =
     ended || beside.lifecycles === undefined
@@ -757,9 +754,9 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   };
 }
 
-/** The values the person changed through a panel, which the agent was told of, and the concerns he settled, as rows of the thread where they happened. */
-function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: string, events: readonly TimelineEvent[] | undefined, settled: readonly WaitingItem[] | undefined): SessionRow[] {
-  const changes = [...settledRowsOf(settled, thread)];
+/** The values the person changed through a panel, which the agent was told of, as rows of the thread where they happened. */
+function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: string, events: readonly TimelineEvent[] | undefined): SessionRow[] {
+  const changes: { at: string; row: SessionRow }[] = [];
   for (const event of events ?? []) {
     if (event.subject.kind !== "session" || event.subject.id !== sessionId) continue;
     const change = changeOfEvent(event.kind, event.says);
@@ -872,4 +869,4 @@ export class SessionMemo {
 const sameStarted = (a: Beside["started"], b: Beside["started"]): boolean => a === b || (a !== undefined && b !== undefined && a.size === b.size && [...a].every(([id, one]) => b.get(id)?.held === one.held && b.get(id)?.record === one.record));
 
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && sameStarted(a.started, b.started) && a.lifecycleRules === b.lifecycleRules && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff && a.reviewRefused === b.reviewRefused;
+  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && sameStarted(a.started, b.started) && a.lifecycleRules === b.lifecycleRules && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;

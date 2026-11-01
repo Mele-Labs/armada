@@ -601,8 +601,8 @@ export function entriesOf(
   begin?: BeginChild,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  // A recorded plan, a judge's concern, a draft, and a sketch or a document put to him are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge" && one.source !== "sketch" && one.source !== "document" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
+  // A recorded plan, a draft, and a sketch or a document put to him are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "sketch" && one.source !== "document" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
