@@ -98,7 +98,7 @@ export const VOICE_ENGINES: readonly { id: VoiceEngine; said: string }[] = [
 
 export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", quick: [], learn: true, forgotten: [], voice: "apple", quickOff: false, quickOffFor: [] };
 
-/** `one-bar`: a question's options are the quick bar's first chips and the band keeps its words. `replace`: the bar is not drawn while a band is up. */
+/** `one-bar`: a question's options are drawn in the band as quick bar chips and the bar over the box draws nothing. `replace`: the bar is not drawn while a band is up. */
 export type WithBand = "one-bar" | "replace";
 
 /** Whisper's model on this Mac: not here, coming down (`progress` 0 to 1), or here. */

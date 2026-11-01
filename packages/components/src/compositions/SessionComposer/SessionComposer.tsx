@@ -187,7 +187,7 @@ export type SessionComposerProps = {
    * ⌘1 to ⌘9 sends one, ⇧ puts it in the box; `onSave` keeps what the box holds as a saved line. **While the box has the
    * focus ⌘1 to ⌘9 are the bar's**, not the tabs'. Absent draws no bar.
    */
-  quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void; onAct?: (act: QuickAct) => void; /** Puts the bar away, for this Job or for all Jobs. Absent, the bar has no hide act. */ onHide?: (scope: "job" | "all") => void; /** Where a press on one of `asked` goes, instead of being sent as a message: it answers the question the band holds. */ onAnswer?: (line: string) => void };
+  quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void; onAct?: (act: QuickAct) => void; /** Puts the bar away, for this Job or for all Jobs. Absent, the bar has no hide act. */ onHide?: (scope: "job" | "all") => void; /** Where a press on one of `asked` goes, instead of being sent as a message: it answers the question the band holds. */ onAnswer?: (line: string) => void; /** The bar is not drawn, the band holds `asked` as chips: ⌘1 to ⌘9 still reach them from the box. */ hidden?: true };
   /** Talk: a press, or ⌥Space held in the box, listens, and each word heard joins the box. Nothing is sent by it. Absent draws no Talk. */
   talk?: { listen: (onWord: (word: string) => void) => () => void };
 };
@@ -835,7 +835,7 @@ export function SessionComposer({
       </div>
     </form>
   );
-  if (quick === undefined) return box;
+  if (quick === undefined || quick.hidden === true) return box;
   return (
     <div className="armada-session-composer__with-quick">
       <QuickBar asked={quick.asked} phrases={quick.phrases} onSend={sendLine} onDrop={dropLine} canSave={text.trim() !== ""} onSave={() => quick.onSave(sentText(text, draft.tags).trim())} {...(quick.onAct === undefined ? {} : { onAct: quick.onAct })} {...(quick.onHide === undefined ? {} : { onHide: quick.onHide })} />

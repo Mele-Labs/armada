@@ -1092,7 +1092,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           },
           onSkip: () => setAnsweredLapse(session.lapsed!.id),
         };
-  // Mock only, a comparison: with `one-bar` a lone single-choice question's options are the quick bar's first chips, and the band's deck leaves them out.
+  // Mock only, a comparison: with `one-bar` a lone single-choice question's options are drawn in the band as quick bar chips, and the bar over the box draws nothing.
   const onlyAsk = session.asked?.questions?.length === 1 && session.asked.questions[0]!.multi_select !== true && session.asked.questions[0]!.options.length > 0 ? session.asked.questions[0] : undefined;
   const oneBar = lookHere?.withBand === "one-bar" && onlyAsk !== undefined ? onlyAsk : undefined;
   const question =
@@ -1155,12 +1155,14 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   };
   const approval: PlanApproval | undefined = session.work?.plan === undefined || !planDrawn ? undefined : { ...(session.work.plan.version === undefined ? {} : { version: session.work.plan.version }), ...(session.work.plan.summary === undefined ? {} : { summary: session.work.plan.summary }), groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, ...(one.gives === undefined ? {} : { gives: one.gives }), paths: one.paths, ...(one.landsIn === undefined ? {} : { landsIn: one.landsIn }), ...(one.ownJob === true ? { ownJob: true as const, ...cardIssueOf(issueOfGroup(session, one.issue)?.issue, session.manifestId), ...jobOf(one.id) } : {}), tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), ...(opensPrs ? { opensPullRequests: true as const, onOpenPullRequest: (number: number) => read({ kind: "pull_request", number }) } : {}), approved: session.work.plan.approved, ...(session.work.plan.setAside === true ? { setAside: true as const } : {}), ...(session.pressed?.includes("plan") === true ? { going: true as const } : {}), changes: changeLines(session.work.plan), ...planRevision(session.work.plan), ...(session.work.plan.sketch === undefined ? {} : { sketch: { id: session.work.plan.sketch.id, title: session.work.plan.sketch.title, scene: session.work.plan.sketch.scene } }), ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), ...(adversarial === undefined || adversary === undefined ? {} : { adversarial: { review: adversarial, onRun: () => adversary.run(session.id), onSend: (finding: string) => adversary.send(session.id, finding), onDismiss: (finding: string) => adversary.dismiss(session.id, finding), shortcut: keyFor("plan_adversarial_review") } }), onApprove: approvePlan, ...(setAside === undefined ? {} : { onSetAside: setAside }), onReview: () => setReviewing(true) };
   const waits = needs.length > 0 || question !== undefined || judges.length > 0 || notOurs.length > 0;
-  // Mock only, the two takes: `replace` draws no quick bar while a band is up; `one-bar` answers the band's question from a chip.
-  const composerHere = lookHere === undefined ? undefined : lookHere.withBand === "replace" && waits ? { talk: lookHere.composer.talk } : oneBar === undefined || lookHere.composer.quick === undefined ? lookHere.composer : {
+  // Mock only, the two takes: `replace` draws no quick bar while a band is up; `one-bar` hides the bar while the band's chips answer, and ⌘1 on still reach them from the box.
+  const composerHere = lookHere === undefined ? undefined : lookHere.withBand === "replace" && waits ? { talk: lookHere.composer.talk } : oneBar === undefined ? lookHere.composer : {
     ...lookHere.composer,
     quick: {
-      ...lookHere.composer.quick,
       asked: oneBar.options.map((one) => one.label),
+      phrases: [],
+      onSave: () => undefined,
+      hidden: true as const,
       onAnswer: (line: string) => void draft.answer(session.id, "allow_once", [{ question: oneBar.question, chosen: [line] }]),
     },
   };

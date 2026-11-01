@@ -685,6 +685,12 @@
 .armada-question-deck__answer:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-question-deck__answer > kbd { flex: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
 
+/* Bare, the options are quick bar chips that wrap onto a second row rather than scroll, so the band grows to hold them. */
+.armada-question-deck__chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.armada-question-deck__chips > .armada-quick__chip { max-inline-size: 100%; }
+.armada-question-deck__chips .armada-quick__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.armada-question-deck__chips > .armada-quick__chip[data-on] { border-color: var(--border-strong); background: var(--bg-hover); }
+
 .armada-question-deck__option { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: var(--space-3); min-width: 0; }
 .armada-question-deck__description { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); color: var(--fg-muted); }
 
