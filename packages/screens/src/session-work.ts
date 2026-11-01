@@ -1,12 +1,11 @@
 // What a Session works to, read off its record: the proposer's picks, the workflow it follows, the plan it recorded, the files it
-// and its subagents touched, and the concerns a judge raised. One direction and no state: the record and what the window holds
+// and its subagents touched. One direction and no state: the record and what the window holds
 // beside it go in, a `SessionWork` comes out (`draft/sessions.ts`). Fleet's word is used as it comes: a step is lit only where
 // Fleet names one, and a task's state is the one Fleet kept.
 
-import type { AdversarialReviewState, Finding } from "@armada/components/src/compositions/AdversarialReview/review-state";
-import type { AdversarialFinding, BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
+import type { BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WorkflowSummary } from "@armada/protocol";
 
-import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkLanding, WorkPlan } from "./draft/sessions";
+import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkDrone, WorkFile, WorkflowChoice, WorkLanding, WorkPlan } from "./draft/sessions";
 
 /** What the window holds beside a record that the work is read with. */
 export type WorkBeside = {
@@ -22,39 +21,7 @@ export type WorkBeside = {
   unpicked: ReadonlySet<ProposedField>;
   /** The owner's setting `features.workflows` is off: no workflow, no steps and no proposer's mark for one are drawn. */
   workflowsOff?: boolean;
-  /** Fleet refused the last press of the adversarial review on this plan version, in its words. */
-  reviewRefused?: ReviewRefused;
 };
-
-/** Fleet's refusal of a press of the adversarial review, for the plan version it was pressed on. */
-export type ReviewRefused = { version: number; said: string };
-
-const findingOf = (one: AdversarialFinding): Finding => ({
-  id: one.id,
-  consequence: one.consequence,
-  expected: one.expected,
-  found: one.found,
-  ...(one.impact === undefined ? {} : { impact: one.impact }),
-  ...(one.cites === undefined ? {} : { cites: one.cites }),
-  ...(one.about.kind === "plan" ? {} : { about: one.about.id }),
-  ...(one.settled === undefined ? {} : { settled: one.settled.how }),
-});
-
-/**
- * The plan's adversarial review as the card draws it. Absent where none was run and nothing was refused, which draws the press.
- * **A review of another version is stale whatever its state**, its findings kept where their parts still stand, so Run again reads
- * the plan as it is now. A refusal of a press on this version is drawn as a failure, in Fleet's words.
- */
-export function adversarialOf(plan: Pick<SessionPlan, "version" | "adversarial">, refused?: ReviewRefused): AdversarialReviewState | undefined {
-  if (refused !== undefined && refused.version === plan.version) return { state: "failed", said: refused.said };
-  const review = plan.adversarial;
-  if (review === undefined) return undefined;
-  const findings = review.findings.map(findingOf);
-  if (review.subject.version !== plan.version) return { state: "stale", read: review.subject.version, findings };
-  if (review.state === "running") return { state: "running" };
-  if (review.state === "failed") return { state: "failed", said: review.failed ?? "The review failed" };
-  return { state: "done", findings };
-}
 
 /** The workflows a Session may be given, as the picker lists them. */
 export const choicesOf = (workflows: readonly WorkflowSummary[]): WorkflowChoice[] =>
@@ -168,21 +135,6 @@ export function fieldOf(touches: readonly FileTouch[]): { field: WorkDrone[]; fi
   return { field, files: [...files.values()] };
 }
 
-/** The concerns waiting on the person, as the thread draws them. */
-export function concernsOf(items: readonly WaitingItem[] | undefined): WorkConcern[] {
-  return (items ?? [])
-    .filter((one) => one.source === "judge")
-    .map((one) => ({
-      id: one.id,
-      text: one.text,
-      ...(one.concern?.from.kind === "step" ? { step: one.concern.from.label } : {}),
-      ...(one.concern?.expected === undefined ? {} : { expected: one.concern.expected }),
-      ...(one.concern?.produced === undefined ? {} : { produced: one.concern.produced }),
-      ...(one.concern?.consequence === undefined ? {} : { consequence: one.concern.consequence }),
-      ...(one.cites === undefined || one.cites.length === 0 ? {} : { cites: one.cites.map((cite) => (cite.line === undefined ? cite.path : `${cite.path}:${cite.line}`)) }),
-    }));
-}
-
 /** The agent's own task list, from the build record's pieces, in the order made: a finished piece is done, one the tool has in progress is working, the rest are open. */
 export function tasksOf(pieces: readonly BuildPiece[]): AgentTask[] {
   return pieces.map((one): AgentTask => ({ id: one.id, subject: one.text, state: one.piece === "solid" || one.piece === "hollow" ? "done" : one.working === true ? "working" : "open" }));
@@ -200,43 +152,18 @@ export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork |
   const workflow = off ? undefined : workflowOf(record, beside.workflows);
   const landing = landsOf(record, beside.workflows);
   const { field, files } = fieldOf(record.touches ?? []);
-  const concerns = record.state === "ended" ? [] : concernsOf(record.waiting_for);
   const tasks = record.plan !== undefined || record.state === "ended" ? [] : tasksOf(record.build?.pieces ?? []);
-  const adversarial = record.plan === undefined ? undefined : adversarialOf(record.plan, beside.reviewRefused);
   return {
     ...(hosted
       ? { proposal: { workflow: record.workflow ?? null, ...(record.proposal?.reading === true ? { reading: true as const } : {}), ...(picked.length === 0 ? {} : { picked }) } }
       : {}),
     ...(workflow === undefined ? {} : { workflow }),
     ...(record.plan === undefined ? {} : { plan: planOf(record.plan, beside) }),
-    ...(adversarial === undefined ? {} : { adversarial }),
     ...(tasks.length === 0 ? {} : { tasks }),
     ...(field.length === 0 ? {} : { field, files }),
-    ...(concerns.length === 0 ? {} : { concerns }),
-    ...(record.judging === true && record.state !== "ended" ? { judging: true as const } : {}),
-    ...(record.judge === undefined ? {} : { judged: { at: record.judge.at, concerns: record.judge.concerns } }),
     ...(off ? { railOff: true as const } : {}),
     ...(landing === undefined ? {} : { landing }),
   };
-}
-
-/**
- * The concerns the person settled, each a line of the thread at the time it was settled. A sent one is his message to the agent,
- * left out where the thread already carries it; a dismissed one is the folded line and the agent was told nothing.
- */
-export function settledRowsOf(items: readonly WaitingItem[] | undefined, thread: readonly SessionRow[]): { at: string; row: SessionRow }[] {
-  const said = thread.flatMap((one) => (one.kind === "message" && one.from.kind === "you" ? [one.text] : []));
-  return (items ?? []).flatMap((one): { at: string; row: SessionRow }[] => {
-    const settled = one.concern?.settled;
-    if (one.source !== "judge" || settled === undefined) return [];
-    const at = settled.at;
-    if (settled.how === "dismissed") {
-      const step = one.concern?.from.kind === "step" ? one.concern.from.label : "Judge";
-      return [{ at: settled.at, row: { id: `settled:${one.id}`, at, kind: "concern" as const, step, text: one.text } }];
-    }
-    if (said.some((text) => text.includes(one.text))) return [];
-    return [{ at: settled.at, row: { id: `settled:${one.id}`, at, kind: "message" as const, from: { kind: "you" as const }, text: one.text } }];
-  });
 }
 
 /** His marks as Fleet takes them: an added task and an added group are two marks, and the rest keep their names. */

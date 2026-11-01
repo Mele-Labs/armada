@@ -52,8 +52,6 @@ pub(crate) fn slot_choice_item(since: Instant) -> WaitingItem {
         options: vec![option("Wait for a slot"), option("Add a slot")],
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }

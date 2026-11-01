@@ -37,8 +37,6 @@ pub(crate) fn not_ours_item(kept: &KeptWatchWhole) -> Option<WaitingItem> {
         options: vec![option("Ignore"), option("Fix it")],
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     })
 }

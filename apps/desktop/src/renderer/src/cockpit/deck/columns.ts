@@ -13,14 +13,12 @@ const KEY = "armada.bridge.deck-columns";
 
 /** Resting widths, as `deck.css` draws the grid before anything is dragged, in `--space-12`. */
 const REST: Record<Side, number> = { left: 6, right: 5.75 };
-/** A Session open gives its right column to its story (the Workflow, Blueprint, Field and Landing), so it rests wider. */
-const REST_BY_LAYOUT: Partial<Record<string, Partial<Record<Side, number>>>> = { session: { right: 8.5 } };
 /** The narrowest each column goes before its rows clip: the left's row is a kind, a title, a few words and a mark. */
 const FLOOR: Record<Side, number> = { left: 4.5, right: 4.75 };
 /** The least the stage keeps: a Session's thread. */
 const CENTRE_FLOOR = 10;
 /** Layouts drawn with no right column, so the left may take what the right would have held. `bare` is the Cockpit a layout emptied the right column of. */
-const NO_RIGHT: ReadonlySet<string> = new Set(["issues", "projects", "reviews", "bare"]);
+const NO_RIGHT: ReadonlySet<string> = new Set(["issues", "projects", "reviews", "bare", "session"]);
 
 export type Columns = {
   left: number;
@@ -34,7 +32,7 @@ export function settle(kept: Kept, room: number, unit: number, layout = "", left
   // A view open in the right column that needs room (a Job's Lanes) lifts its floor for as long as it is open, over a width dragged to, and gives it back when it shuts.
   const floor = { left: FLOOR.left * unit, right: Math.max(FLOOR.right * unit, rightMin) };
   const centre = CENTRE_FLOOR * unit;
-  const wanted = (side: Side) => kept[side] ?? (REST_BY_LAYOUT[layout]?.[side] ?? REST[side]) * unit + (side === "left" ? leftBonus : 0);
+  const wanted = (side: Side) => kept[side] ?? REST[side] * unit + (side === "left" ? leftBonus : 0);
   const rightMax = Math.max(floor.right, room - floor.left - centre);
   const right = NO_RIGHT.has(layout) ? 0 : clampToRange(wanted("right"), { min: floor.right, max: rightMax });
   const leftMax = Math.max(floor.left, room - right - centre);

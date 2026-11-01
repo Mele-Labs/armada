@@ -2,7 +2,7 @@
 // its Bridge API is a spy, so what is read is what Fleet would have sent and what is asserted is the request that would be made.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SessionRecord, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
+import type { SessionRecord, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
 import { NOTHING_YET } from "../../../shared/bridge";
@@ -48,9 +48,10 @@ function held(sessions: SessionRecord[] = [record()], settings: unknown = null) 
     approvePlan: vi.fn(async () => ok),
     sendPlanChanges: vi.fn(async () => ok),
     setSessionWorkflow: vi.fn(async () => ok),
-    sendConcern: vi.fn(async () => ok),
-    dismissConcern: vi.fn(async () => ok),
-    judgeSession: vi.fn(async () => ok),
+    askJudge: vi.fn(async () => ok),
+    sendJudgeNote: vi.fn(async () => ok),
+    dismissJudgeNote: vi.fn(async () => ok),
+    markJudgeRead: vi.fn(async () => ok),
   };
   const state = {
     ...NOTHING_YET,
@@ -100,6 +101,35 @@ describe("a Session's plan, over Fleet", () => {
   });
 });
 
+describe("a Judge, over Fleet", () => {
+  const artifact = { kind: "plan" as const, id: "3", title: "Plan v3" };
+
+  it("asks for a reading of an artifact of the Job, with what to verify", async () => {
+    const { api, store, stop } = await ready();
+    store.draft.judge!.ask("s1", artifact, "tokens survive");
+    expect(api.askJudge).toHaveBeenCalledWith({ session_id: "s1", artifact, prompt: "tokens survive" });
+    stop();
+  });
+
+  it("sends, dismisses and marks read a reading's notes by the Job, the reading and the note", async () => {
+    const { api, store, stop } = await ready();
+    store.draft.judge!.send("s1", "r1", "n1");
+    store.draft.judge!.dismiss("s1", "r1", "n2");
+    store.draft.judge!.markRead("s1", "r1");
+    expect(api.sendJudgeNote).toHaveBeenCalledWith({ session_id: "s1", reading: "r1", note: "n1" });
+    expect(api.dismissJudgeNote).toHaveBeenCalledWith({ session_id: "s1", reading: "r1", note: "n2" });
+    expect(api.markJudgeRead).toHaveBeenCalledWith({ session_id: "s1", reading: "r1" });
+    stop();
+  });
+
+  it("draws a Job's readings from its record", async () => {
+    const reading = { id: "r1", artifact, prompt: "", state: "done" as const, asked_at: "2026-10-26T13:00:00Z", read: false, notes: [] };
+    const { store, stop } = await ready([record({ judge_readings: [reading] })]);
+    expect(store.draft.get()[0]!.judgeReadings).toEqual([reading]);
+    stop();
+  });
+});
+
 describe("the workflow and the proposer's picks, over Fleet", () => {
   it("lists Fleet's workflows by id, the same array until Fleet's list changes", async () => {
     const { store, stop } = await ready();
@@ -141,41 +171,6 @@ describe("the workflow and the proposer's picks, over Fleet", () => {
     store.setEvents([change]);
     expect(heard).toBe(1);
     off();
-    stop();
-  });
-});
-
-describe("a judge, over Fleet", () => {
-  const concern = (id: string): WaitingItem => ({ id, text: "No ceiling", since: AT, source: "judge", concern: { from: { kind: "step", index: 1, label: "Build" } }, cites: [{ path: "a/b.rs", line: 4 }] });
-
-  it("reads concerns off the record, and sends or dismisses one by its item", async () => {
-    const { api, store, stop } = await ready([record({ waiting_for: [concern("judge:1")] })]);
-    expect(store.draft.get()[0]?.work?.concerns).toEqual([{ id: "judge:1", step: "Build", text: "No ceiling", cites: ["a/b.rs:4"] }]);
-    store.draft.work!.sendConcern("s1", "judge:1");
-    expect(api.sendConcern).toHaveBeenLastCalledWith({ session_id: "s1", item_id: "judge:1" });
-    store.draft.work!.dismissConcern("s1", "judge:1");
-    expect(api.dismissConcern).toHaveBeenLastCalledWith({ session_id: "s1", item_id: "judge:1" });
-    stop();
-  });
-
-  it("asks for a reading and leaves its outcome to the record", async () => {
-    const { api, store, stop } = await ready();
-    await store.draft.work!.judge!("s1");
-    expect(api.judgeSession).toHaveBeenCalledWith({ session_id: "s1" });
-    expect(store.draft.get()[0]?.work?.judging).toBeUndefined();
-    stop();
-  });
-
-  it("carries a reading in progress and the last one off the record", async () => {
-    const { store, stop } = await ready([record({ judging: true, judge: { at: "2026-10-16T09:05:00Z", concerns: 0 } })]);
-    expect(store.draft.get()[0]?.work).toMatchObject({ judging: true, judged: { at: "2026-10-16T09:05:00Z", concerns: 0 } });
-    stop();
-  });
-
-  it("does not list a settled concern as waiting", async () => {
-    const settled: WaitingItem = { id: "judge:2", text: "Late", since: AT, source: "judge", concern: { from: { kind: "tile" }, settled: { how: "dismissed", at: AT } } };
-    const { store, stop } = await ready([record({ settled: [settled] })]);
-    expect(store.draft.get()[0]?.work?.concerns).toBeUndefined();
     stop();
   });
 });

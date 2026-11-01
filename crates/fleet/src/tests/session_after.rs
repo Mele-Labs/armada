@@ -316,7 +316,6 @@ async fn record_with_plan(states: &[ipc::PlanTaskState]) -> SessionRecord {
         changes: None,
         sketch: None,
         held_by: Vec::new(),
-        adversarial: None,
     });
     record
 }

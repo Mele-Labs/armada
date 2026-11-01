@@ -35,8 +35,6 @@ pub(crate) fn delivery_item(since: Instant) -> WaitingItem {
             .collect(),
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }

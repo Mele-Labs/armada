@@ -6,8 +6,8 @@ import { SLOT_NAMES, isPressed, pressedSlot } from "../../keymap";
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { TaskMark } from "../TaskMark/TaskMark";
-import { FindingRow, SettledRow, findingsOf } from "./AdversarialReview";
-import type { AdversarialReviewState, Finding } from "./AdversarialReview";
+import { FindingRow, SettledRow } from "./AdversarialReview";
+import type { Finding } from "./AdversarialReview";
 
 /**
  * Findings pinned to the plan they are about, where the host draws the plan itself. A finding's `about` names a task or a group; one
@@ -17,9 +17,8 @@ import type { AdversarialReviewState, Finding } from "./AdversarialReview";
  */
 export type Anchors = { whole: readonly Finding[]; at: (id: string) => readonly Finding[] };
 
-/** `review`'s findings by what they are about. `known` is every group and task id of the plan drawn. */
-export function anchorsOf(review: AdversarialReviewState, known: readonly string[]): Anchors {
-  const found = findingsOf(review);
+/** `found` by what they are about. `known` is every group and task id of the plan drawn. */
+export function anchorsOf(found: readonly Finding[], known: readonly string[]): Anchors {
   const held = new Set(known);
   return {
     whole: found.filter((one) => one.about === undefined || !held.has(one.about)),
@@ -30,11 +29,11 @@ export function anchorsOf(review: AdversarialReviewState, known: readonly string
 export type FindingActs = { onSend: (id: string) => void; onDismiss: (id: string) => void };
 
 /**
- * The keys of findings drawn in several places under one element, as the registry binds them (`finding_move`, `finding_send`,
- * `finding_dismiss`): one moves between those not yet acted on, in the order on screen; one sends the one in focus, one dismisses it,
+ * The keys of findings drawn in several places under one element, as the registry binds them (`finding_move`, `judge_note_send`,
+ * `judge_note_dismiss`): one moves between those not yet acted on, in the order on screen; one sends the one in focus, one dismisses it,
  * and focus passes to the next. `bind` goes on the element that holds them all. A press on one of a finding's buttons keeps its own key.
  */
-export function useFindingKeys(review: AdversarialReviewState | undefined, acts: FindingActs) {
+export function useFindingKeys(findings: readonly Finding[] | undefined, acts: FindingActs) {
   const scope = useRef<HTMLElement | null>(null);
   const after = useRef<string | undefined>(undefined);
   const live = () => [...(scope.current?.querySelectorAll<HTMLElement>("[data-finding]") ?? [])];
@@ -42,7 +41,7 @@ export function useFindingKeys(review: AdversarialReviewState | undefined, acts:
     const id = after.current;
     after.current = undefined;
     if (id !== undefined) live().find((one) => one.dataset.finding === id)?.focus();
-  }, [review]);
+  }, [findings]);
   const act = (id: string, run: (id: string) => void) => {
     const all = live();
     const at = all.findIndex((one) => one.dataset.finding === id);
@@ -60,11 +59,11 @@ export function useFindingKeys(review: AdversarialReviewState | undefined, acts:
       event.stopPropagation();
       const down = SLOT_NAMES.finding_move?.[moved] === "Down";
       all[Math.min(all.length - 1, Math.max(0, at + (down ? 1 : -1)))]?.focus();
-    } else if (isPressed("finding_send", event)) {
+    } else if (isPressed("judge_note_send", event)) {
       event.preventDefault();
       event.stopPropagation();
       act(target.dataset.finding!, acts.onSend);
-    } else if (isPressed("finding_dismiss", event)) {
+    } else if (isPressed("judge_note_dismiss", event)) {
       event.preventDefault();
       event.stopPropagation();
       act(target.dataset.finding!, acts.onDismiss);
@@ -137,7 +136,7 @@ export function GivesRow({ text, group, anchors, ...acts }: { text: string; grou
       <div className="armada-adversarial__given-row">
         <span>{text}</span>
         {live ? (
-          <Tooltip label="Adversarial findings">
+          <Tooltip label="Notes from the judge">
             <Button size="sm" variant="ghost" iconOnly aria-label={`Findings on ${text}`} aria-expanded={open} aria-controls={region} onClick={() => setOpen(!open)}>
               <ScanSearch size={16} strokeWidth={2} aria-hidden />
             </Button>

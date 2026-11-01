@@ -1,14 +1,10 @@
-//! Where the rail and the judges meet the store: what a row needs is read back under the lock the
-//! caller already holds, and a kept concern is drawn as the waiting item the wire carries.
-//! `docs/concepts/session.md`, *The rail*, *The judges*. The rules are `rail`'s.
+//! Where the rail meets the store: what a row needs is read back under the lock the caller already
+//! holds. `docs/concepts/session.md`, *The rail*. The rules are `rail`'s.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{Ulid, WorkflowId};
-use ipc::{
-    AskedQuestion, ConcernFrom, ConcernHow, ConcernSettled, DraftHow, Instant, JudgeConcern, JudgeReading, QuestionAnswer,
-    SessionRow, SessionVoice, WaitingAct, WaitingActKind, WaitingCite, WaitingItem, WaitingSource,
-};
-use store::{Holder, KeptConcern, KeptReading, KeptSession, KeptWorkflowNudge, Store, WriteError};
+use ipc::{AskedQuestion, DraftHow, Instant, QuestionAnswer, SessionRow, SessionVoice, WaitingSource};
+use store::{Holder, KeptSession, KeptWorkflowNudge, Store, WriteError};
 
 use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep};
@@ -20,17 +16,13 @@ use crate::session_host::handoff_answers::{answered_later, ANSWERED_LATER};
 use crate::session_host::sketching::sketch_approved;
 use crate::session_host::walking::walk_approval;
 
-/// The prefix of a concern's item id: `judge:<n>`.
-pub(crate) const CONCERN_PREFIX: &str = "judge:";
-
 /// How many nudges a step's list holds.
 const RECENT_NUDGES: u32 = 20;
 
-/// What a row's step and judge reading are derived from.
+/// What a row's step is derived from.
 #[derive(Default)]
 pub(crate) struct RailReads {
     pub extra: Extra,
-    pub reading: Option<KeptReading>,
     /// When each step began, as the rail kept it.
     pub visits: Vec<(u32, String)>,
     /// The steps the person skipped.
@@ -87,7 +79,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
     };
     let titles = crate::lifecycles::waking::titles_of(store, &held);
     let own = if follows { store.job_workflow_copy(&session.id)? } else { None };
-    Ok(RailReads { extra, reading: store.session_judge_reading(&session.id)?, visits: rail.visits, skipped: rail.skipped, held, titles, lifecycles, own })
+    Ok(RailReads { extra, visits: rail.visits, skipped: rail.skipped, held, titles, lifecycles, own })
 }
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
@@ -192,48 +184,6 @@ fn fleet_asked(asked: &AskedQuestion) -> bool {
     asked.question == ipc::HANDOFF_REMIND_QUESTION || asked.options.iter().any(|option| option.label == ipc::HANDOFF_YES)
 }
 
-pub(crate) fn reading_wire(kept: &KeptReading) -> JudgeReading {
-    JudgeReading { at: Instant::carried(&kept.at), concerns: kept.concerns }
-}
-
-/// A concern as the Session's waiting item. Waiting, or settled when the person has settled it.
-pub(crate) fn concern_item(session: &str, kept: &KeptConcern) -> WaitingItem {
-    WaitingItem {
-        id: format!("{CONCERN_PREFIX}{}", kept.n),
-        text: kept.text.clone(),
-        since: Instant::carried(&kept.since),
-        source: WaitingSource::Judge,
-        act: Some(WaitingAct { kind: WaitingActKind::Message, target: session.to_string() }),
-        options: Vec::new(),
-        steps: Vec::new(),
-        place: None,
-        cites: kept
-            .cites
-            .iter()
-            .filter_map(|one| one.path.as_ref().map(|path| WaitingCite { path: path.clone(), line: Some(one.from_line) }))
-            .collect(),
-        concern: Some(JudgeConcern {
-            from: match &kept.from_step {
-                Some((index, label)) => ConcernFrom::Step { index: *index, label: label.clone() },
-                None => ConcernFrom::Tile,
-            },
-            settled: kept.settled.as_ref().map(|(how, at)| ConcernSettled {
-                how: if how == "sent" { ConcernHow::Sent } else { ConcernHow::Dismissed },
-                at: Instant::carried(at),
-            }),
-            expected: kept.expected.clone(),
-            produced: kept.produced.clone(),
-            consequence: kept.consequence.clone(),
-        }),
-        confirmed: false,
-    }
-}
-
-/// The number in a concern's item id, if it is one.
-pub(crate) fn concern_number(item_id: &str) -> Option<u32> {
-    item_id.strip_prefix(CONCERN_PREFIX)?.parse().ok()
-}
-
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -290,8 +240,7 @@ where
         self.store().lock().await.dismiss_workflow_nudge(id, &at).unwrap_or(false)
     }
 
-    /// Draw what the rail and the judges add to a hosted Session's row: the step it is on, whether a
-    /// judge is reading, and the last reading. **A Session that ended has no step.** A step that ends
+    /// Draw what the rail adds to a hosted Session's row: the step it is on. **A Session that ended has no step.** A step that ends
     /// on his reply waits on him from `reply_owed_since`, the turn's end, where nothing else does.
     pub(crate) fn rail_drawn(
         &self,
@@ -303,7 +252,6 @@ where
         if record.hosted.is_none() {
             return;
         }
-        record.judge = reads.reading.as_ref().map(reading_wire);
         record.workflow_visits =
             reads.visits.iter().map(|(step, since)| ipc::StepVisit { step: *step, since: Instant::carried(since) }).collect();
         record.skipped_steps = reads.skipped.clone();
@@ -320,7 +268,6 @@ where
         if session.state != store::SessionState::Live {
             return;
         }
-        record.judging = self.hosts().of(&session.id).state().judging > 0;
         let (Some(manifest), Some(workflow)) = (session.manifest_id.as_deref(), record.workflow.as_deref()) else {
             return;
         };

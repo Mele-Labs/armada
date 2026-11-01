@@ -1,0 +1,7 @@
+[icons.minimize-2]
+  means = "Two arrows pointing inward toward the middle — a zoomed pane put back"
+  group = "View"
+  size = "16px"
+  status = "Specified"
+  reserved = "A Job's pane, or a Cockpit panel, while it is zoomed over the rest of the window: its strip's state, and the press that restores it. Never closing a panel or leaving full screen, and the partner of `maximize-2`."
+  notes = "Added with pane zoom. Its tooltip is Restore with the key."

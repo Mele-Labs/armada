@@ -15,11 +15,6 @@ on purpose and makes the gate name what was waiting.
 
 - **[workflowdef-schema-gaps]** Five keys appear in the workflow samples with no row in the field catalogue: `workflow_id`, `version`, `order`, `required`, `manifest_rule_overrides`. What decides it: the samples are the working shape and the catalogue is the schema, so either the catalogue is incomplete or the samples carry keys nothing reads. Only one can be true, and the answer decides what a parser accepts.
 
-## docs/concepts/adversarial-review.md
-
-- **[adversarial-review-cost-cap]** Does an adversarial review get a cost cap, and what shape is it? There is none: the call runs on the strongest model, and what bounds spend is a person's press. It is the same question as `judge-cost-cap-per-check` in `judge.md`, which owns what decides it, and is answered with it.
-- **[adversarial-review-pull-request-runs]** Do the Reviews tab's agent runs on pull requests join this engine? Both are read-only calls on `models.review` whose answers are JSON checked against what the call was shown, so the engine could serve them. They differ in what is kept: a run is keyed by repository, pull request, head commit and kind, and a review by subject and version.
-
 ## docs/concepts/bridge.md
 
 - **[bridge-reconnect-trust]** What does Bridge show while it cannot reach Fleet, and what does it trust on reconnect? Closing Bridge does not stop Fleet, and reopening it reconnects rather than respawning, but the reconnect behavior itself is not yet designed.
@@ -37,8 +32,9 @@ on purpose and makes the gate name what was waiting.
 
 ## docs/concepts/judge.md
 
-- **[judge-cost-cap-per-check]** Does a Judge call get a cost readout, and is a per-check dollar cap the right shape for the sub-limit? Reviewed 28 Aug 2026 alongside the model default and deliberately left open: nothing can read what a Judge call cost, because the call is rendered as one-shot text and emits no result envelope, so the figure a cap would compare against never reaches Armada. A number written into the row today would be enforced by nothing while reading as a limit that was set, which is worse than an absent cap because only the absent one is visible as missing.
+- **[judge-cost-cap-per-check]** Does a Judge call get a cost readout, and is a per-check dollar cap the right shape for the sub-limit? Reviewed 28 Aug 2026 alongside the model default and deliberately left open: nothing can read what a step judge call cost, because the call is rendered as one-shot text and emits no result envelope, so the figure a cap would compare against never reaches Armada. A number written into the row today would be enforced by nothing while reading as a limit that was set, which is worse than an absent cap because only the absent one is visible as missing. The Judge on the owner's press has no cap either: it runs on the strongest model, and what bounds spend is a person's press. The same answer decides both.
 - **[judge-confidence-threshold-disposal]** Is the Judge confidence threshold config row deleted or repurposed? It is superseded and currently awaiting disposal.
+- **[judge-pull-request-runs]** Do the Reviews tab's agent runs on pull requests join the Judge? Both are read-only calls on `models.review` whose answers are checked against what the call was shown, so one engine could serve them. They differ in what is kept: a run is keyed by repository, pull request, head commit and kind the reader chose, and a reading by artifact. [Pull review](pull-review.md), *Agent runs*, owns the runs as they are.
 
 ## docs/concepts/kit.md
 
