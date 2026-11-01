@@ -30,6 +30,7 @@ mod serving;
 pub(crate) mod stylesheet;
 pub(crate) mod words;
 pub(crate) mod commands;
+pub(crate) mod tab;
 pub(crate) mod tracker;
 
 pub use built_in::{BuiltIn, BuiltIns};
@@ -53,6 +54,7 @@ const FLEET: &str = "fleet.toml";
 const TWEAK: &str = "tweak.css";
 const TRACKER: &str = "tracker.toml";
 const COMMANDS: &str = "commands.toml";
+const TAB: &str = "tab.js";
 
 /// Why `name` cannot be a mod's name, or `None`. **The only gate on a path
 /// segment**: a name that passes holds no `/`, no `.` and no way to climb.
@@ -120,6 +122,7 @@ pub(crate) enum Payload {
     Tweak(String),
     Tracker(String),
     Commands(String),
+    Tab(String),
 }
 
 impl Payload {
@@ -133,6 +136,7 @@ impl Payload {
             Payload::Tweak(_) => TWEAK,
             Payload::Tracker(_) => TRACKER,
             Payload::Commands(_) => COMMANDS,
+            Payload::Tab(_) => TAB,
         }
     }
 
@@ -143,6 +147,7 @@ impl Payload {
             | Payload::Tracker(text)
             | Payload::Words(text)
             | Payload::Commands(text)
+            | Payload::Tab(text)
             | Payload::Fleet(text)
             | Payload::Tweak(text) => text,
         }
@@ -161,6 +166,7 @@ impl Examined {
             kind: self.manifest.kind,
             version: self.manifest.version.clone(),
             description: self.manifest.description.clone(),
+            glyph: self.manifest.glyph.clone(),
             taught_on: self.manifest.taught_on.clone(),
             entry: self.manifest.entry.clone(),
             made_by: self.manifest.made_by.clone().map(ipc::SessionId::carried),
@@ -261,6 +267,9 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
         tracker::examined(source, found, stamps, texts.0);
         return;
     }
+    if found.manifest.glyph.is_some() && found.manifest.kind.is_some_and(|kind| kind != ModKind::Tab) {
+        found.problems.push("mod.toml `glyph` is for a tab mod, which this is not".to_string());
+    }
     // A manifest that names no kind this build has is read as a theme, as it always was, so what
     // is said about a broken mod's stylesheet does not change.
     let kind = found.manifest.kind;
@@ -269,6 +278,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
         Some(ModKind::Words) => (WORDS, words::MOST_BYTES),
         Some(ModKind::Fleet) => (FLEET, fleet_rules::MOST_BYTES),
         Some(ModKind::Commands) => (COMMANDS, commands::MOST_BYTES),
+        Some(ModKind::Tab) => (TAB, tab::MOST_BYTES),
         Some(ModKind::Tweak) => (TWEAK, stylesheet::MOST_BYTES),
         Some(ModKind::Theme | ModKind::Tracker) | None => (THEME, stylesheet::MOST_BYTES),
     };
@@ -280,6 +290,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
                 Some(ModKind::Words) => words::problems(&text),
                 Some(ModKind::Fleet) => fleet_rules::problems(&text),
                 Some(ModKind::Commands) => commands::problems(&text, name),
+                Some(ModKind::Tab) => tab::problems(&text),
                 Some(ModKind::Tweak) => stylesheet::problems_in(&text, TWEAK),
                 Some(ModKind::Theme | ModKind::Tracker) | None => stylesheet::problems(&text),
             });
@@ -294,6 +305,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
             Some(ModKind::Words) => Payload::Words(text),
             Some(ModKind::Fleet) => Payload::Fleet(text),
             Some(ModKind::Commands) => Payload::Commands(text),
+            Some(ModKind::Tab) => Payload::Tab(text),
             Some(ModKind::Tweak) => Payload::Tweak(text),
             Some(ModKind::Theme | ModKind::Tracker) | None => Payload::Css(text),
         };

@@ -3,9 +3,9 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-import { useModsMade } from "../mods-made";
+import { useModList } from "../mod-list";
 
-export type CustomTab = { stage: "compose" | "building" | "built"; /** The Mod Job that is building it, or built it last. */ job?: string; /** The mod it draws, by its folder's name. */ mod?: string; /** The composer is open over the built view, for a change. */ editing?: boolean };
+export type CustomTab = { stage: "compose" | "building" | "built"; /** The Mod Job that is building it, or built it last. A tab added by its mod's name has its mod's `made_by`. */ job?: string; /** The mod it draws, by its folder's name. */ mod?: string; /** The mod's glyph, by its name in the icon registry. */ glyph?: string; };
 
 const held = new Map<string, CustomTab>();
 const listeners = new Set<() => void>();
@@ -37,11 +37,10 @@ export const customLabel = (id: string): string | undefined => {
 };
 
 /** The description went to a Mod Job: the tab is its building state. */
-export const startBuilding = (id: string, job: string) => put(id, { ...peekCustom(id), stage: "building", job, editing: false });
+export const startBuilding = (id: string, job: string) => put(id, { ...peekCustom(id), stage: "building", job });
 /** A tab added by the name of a mod that is built already. */
 export const seedBuilt = (id: string, mod: string) => put(id, { stage: "built", mod });
-export const setEditing = (id: string, editing: boolean) => put(id, { ...peekCustom(id), editing });
-const finished = (id: string, mod: string) => put(id, { ...peekCustom(id), stage: "built", mod, editing: false });
+const finished = (id: string, mod: string) => put(id, { ...peekCustom(id), stage: "built", mod });
 
 /** Re-renders on any change of a Custom tab, for what reads a label or a glyph. */
 export const useCustomTick = (): void => void useSyncExternalStore(subscribe, () => version);
@@ -50,10 +49,12 @@ export const useCustomTick = (): void => void useSyncExternalStore(subscribe, ()
 export function useCustom(id: string, custom: boolean): CustomTab {
   useCustomTick();
   const now = peekCustom(id);
-  const { mods } = useModsMade(custom && now.stage === "building" ? (now.job ?? "") : "");
-  const made = mods.find((one) => one.kind === "tab")?.name;
+  const listed = useModList();
+  const made = custom && now.stage === "building" ? listed.find((one) => one.kind === "tab" && one.made_by === now.job)?.name : undefined;
   useEffect(() => {
     if (made !== undefined) finished(id, made);
   }, [id, made]);
-  return now;
+  const row = now.mod === undefined ? undefined : listed.find((one) => one.name === now.mod);
+  const job = now.job ?? row?.made_by;
+  return { ...now, ...(job === undefined ? {} : { job }), ...(row?.glyph === undefined ? {} : { glyph: row.glyph }) };
 }

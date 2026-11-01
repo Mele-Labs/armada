@@ -8,9 +8,9 @@ import { DockHandle } from "@armada/components";
 import { LayoutControl } from "./LayoutControl";
 import { PaneView } from "./PaneView";
 import { usePaneKeys } from "./keys";
-import { droppableGap, measured, rearrange, useJobPanes } from "./store";
+import { droppableEdge, droppableGap, measured, rearrange, useJobPanes } from "./store";
 import { endZoom, useZoomBox, usePaneZoomed } from "./zoom";
-import { RATIO_MIN, hasKind, minExtent, moveTabToGap, panesOf, rectsOf, resizeSplit, type Pane, type Tab } from "./tree";
+import { RATIO_MIN, hasKind, minExtent, moveTabToEnd, moveTabToGap, panesOf, rectsOf, resizeSplit, type Pane, type Side, type Tab } from "./tree";
 import "./job-panes.css";
 
 const byCreation = (a: Pane, b: Pane) => Number(a.id.slice(1)) - Number(b.id.slice(1));
@@ -31,6 +31,14 @@ function useSize() {
   }, []);
   return [ref, size] as const;
 }
+
+/** The outer edges of the area, each as where its drop target stands. */
+const EDGES: readonly { side: Side; axis: "x" | "y"; place: { left: string | number; top: string | number; width?: string; height?: string } }[] = [
+  { side: "left", axis: "x", place: { left: 0, top: 0, height: "100%" } },
+  { side: "right", axis: "x", place: { left: "100%", top: 0, height: "100%" } },
+  { side: "top", axis: "y", place: { left: 0, top: 0, width: "100%" } },
+  { side: "bottom", axis: "y", place: { left: 0, top: "100%", width: "100%" } },
+];
 
 const pct = (share: number) => `${share * 100}%`;
 
@@ -152,6 +160,35 @@ export function JobPanes({ jobId, body, bar, over }: { jobId: string; body: (tab
                 </Fragment>
               );
             })}
+        {dragging === undefined || zoomed !== undefined
+          ? null
+          : EDGES.map(({ side, axis, place }) => (
+              <div
+                key={side}
+                className="job-panes__gap"
+                data-axis={axis}
+                data-edge={side}
+                data-lit={lit === `edge:${side}` || undefined}
+                style={place}
+                aria-hidden="true"
+                onDragOver={(event) => {
+                  if (droppableEdge(jobId, dragging, side)) {
+                    event.preventDefault();
+                    setLit(`edge:${side}`);
+                  } else event.dataTransfer.dropEffect = "none";
+                }}
+                onDragLeave={() => setLit((now) => (now === `edge:${side}` ? undefined : now))}
+                onDrop={(event) => {
+                  const id = event.dataTransfer.getData("text/plain");
+                  event.preventDefault();
+                  setLit(undefined);
+                  setDragging(undefined);
+                  if (id !== "") rearrange(jobId, (now) => moveTabToEnd(now, id, side));
+                }}
+              >
+                <div className="job-panes__gap-bar" />
+              </div>
+            ))}
         {over === undefined || over === null ? null : <div className="job-panes__over">{over}</div>}
       </div>
     </div>

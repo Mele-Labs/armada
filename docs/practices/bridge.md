@@ -87,6 +87,10 @@ a specific hole:
   from. **Bridge talks to Fleet and nothing else; the CSP is that promise
   enforced by the browser engine, not just stated in a doc.**
 
+**A tab mod is the one script that is not in the bundle.** Its `tab.js` is run from a `blob:` the window makes out of the text Fleet's `validate_mod` passed, so the policy reads `script-src 'self' blob:` and still no address off the machine.
+The module is not sandboxed: it is handed the Fleet API through `host` and may do what Bridge's own code does, which is the contract of the kind (`docs/concepts/mods.md`, *tab.js*).
+The mod switch, `bridge --no-mods` and `validate_mod` are what stand between a bad tab and the window.
+
 A page a Job published is the one place a web page is shown inside the app, and
 the renderer is still not what loads it: main owns a `WebContentsView` in a
 partition of its own, no preload and every permission refused, placed over the

@@ -26,7 +26,7 @@ type Hosts = {
   terminals: { windows: Pick<TerminalWindows, "show" | "close" | "sessionIds">; movedBack: (move: TerminalMovedBack) => void };
 };
 
-const BACK_TO: readonly TerminalMovedBack["to"][] = ["docked", "side panel"];
+const BACK_TO: readonly TerminalMovedBack["to"][] = ["docked"];
 
 const PRESSES: readonly PullRequestPress[] = ["read", "ready", "merge", "auto_merge"];
 const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "request_changes"];

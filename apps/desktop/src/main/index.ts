@@ -552,6 +552,8 @@ void app.whenReady().then(() => {
   const notesWatch = DEV_BUILD ? new NotesWatch() : null;
   connection.sessions.onRead((sessions, readAt) => {
     sessionAttention.read(sessions, readAt);
+    // A Job gone from Fleet's list takes its browser pages with it. An empty list is not read as every Job gone: it may be a read that failed.
+    if (sessions.length > 0) jobBrowsers.keep(new Set(sessions.map((one) => one.id)));
     if (notesWatch?.read(sessions) === true) everyWindow(ANNOTATION_CHANNELS.changed);
   });
   // What a shell block run from a Session prints, to every window: only the one that started it holds the id.
@@ -579,12 +581,12 @@ void app.whenReady().then(() => {
   const jobBrowsers = new JobBrowsers(
     {
       page: (sessionId, told) => makeBrowserPage(connection?.sessions.recordOf(sessionId)?.manifest_id ?? null, bridgeWindow, told, siteSettings),
-      window: (sessionId, told) => makeBrowserWindow(sessionId, bridgeWindow()?.getBounds() ?? null, told),
+      window: (sessionId, tabId, told) => makeBrowserWindow(sessionId, tabId, bridgeWindow()?.getBounds() ?? null, told),
     },
     {
       changed: (state) => everyWindow(CHANNELS.jobBrowserChanged, state),
       show: (sessionId) => bridgeWindow()?.webContents.send(CHANNELS.jobBrowserShown, sessionId),
-      capture: (sessionId, host) => (host as BrowserWindow).webContents.send(CHANNELS.jobBrowserCapture, sessionId),
+      capture: (sessionId, tabId, host) => (host as BrowserWindow).webContents.send(CHANNELS.jobBrowserCapture, sessionId, tabId),
       answer: async (body) => connection?.sessions.answerBrowser(body),
       note: async (body) => {
         const sent = await connection?.sessions.sendNote(body);

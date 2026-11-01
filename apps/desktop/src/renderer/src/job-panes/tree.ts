@@ -6,7 +6,11 @@ export const TAB_KINDS = ["thread", "browser", "terminal", "done", "now", "open"
 export type TabKind = (typeof TAB_KINDS)[number];
 
 /** `label` is what the tab reads where its kind alone would not tell two apart: a terminal's shell. `page` names the page a browser tab shows where the tab's own id does not (a page the Job opened itself). */
-export type Tab = { id: string; kind: TabKind; label?: string; page?: string };
+/**
+ * `mod` is a Custom tab's mod by its folder name, kept with the tab so it comes back bound to that mod, and through it to the Mod Job that made it, after a restart.
+ * Nothing in this file reads it: the tab's view and its Job are `custom.ts`'s.
+ */
+export type Tab = { id: string; kind: TabKind; label?: string; page?: string; mod?: string };
 export type Pane = { type: "pane"; id: string; tabs: readonly Tab[]; active: string | undefined };
 export type Split = { type: "split"; id: string; dir: "row" | "column"; ratio: number; a: Node; b: Node };
 export type Node = Pane | Split;
@@ -177,6 +181,13 @@ export function activate(arrangement: Arrangement, tabId: string): Arrangement {
   return { ...arrangement, focus: pane.id, root: mapPane(arrangement.root, pane.id, (one) => ({ ...(one as Pane), active: tabId })) };
 }
 
+/** A Custom tab's mod, kept on the tab so it comes back bound to its mod after a restart. */
+export function markTabMod(arrangement: Arrangement, tabId: string, mod: string): Arrangement {
+  const pane = paneOfTab(arrangement, tabId);
+  if (pane === undefined || tabById(arrangement, tabId)?.mod === mod) return arrangement;
+  return { ...arrangement, root: mapPane(arrangement.root, pane.id, (one) => ({ ...(one as Pane), tabs: (one as Pane).tabs.map((tab) => (tab.id === tabId ? { ...tab, mod } : tab)) })) };
+}
+
 /** A label no other tab has: the same host or shell a second time is numbered. */
 function distinct(arrangement: Arrangement, label: string | undefined): string | undefined {
   if (label === undefined) return undefined;
@@ -290,6 +301,32 @@ export function moveTabToGap(arrangement: Arrangement, tabId: string, splitId: s
     return { ...node, ratio: 1 / 3, b: { type: "split", id: innerId, dir: node.dir, ratio: 0.5, a: made, b: node.b } };
   };
   return { ...next, root: put(next.root), focus: fresh };
+}
+
+/** The panes in reading order with each split flattened into its own axis, so two layouts that read the same compare equal whatever their ids and shares. */
+function shapeOf(node: Node): string {
+  if (node.type === "pane") return `[${node.tabs.map((tab) => tab.id).join(",")}]`;
+  const parts = (one: Node): string[] => (one.type === "split" && one.dir === node.dir ? [...parts(one.a), ...parts(one.b)] : [shapeOf(one)]);
+  return `${node.dir}(${parts(node).join(" ")})`;
+}
+
+/**
+ * The tab goes to a new pane along one edge of the whole arrangement, a new root split that gives it a third. The pane it leaves closes if it was the only tab, so a lone tab can be carried to the far
+ * edge; a drop that leaves the panes as they were is nothing.
+ */
+export function moveTabToEnd(arrangement: Arrangement, tabId: string, side: Side): Arrangement {
+  const tab = tabById(arrangement, tabId);
+  if (tab === undefined) return arrangement;
+  const left = detach(arrangement, tabId);
+  // The only tab of the only pane has nowhere to go.
+  if (left.root.type === "pane" && left.root.tabs.length === 0) return arrangement;
+  const [splitId, afterSplit] = mint(left, "s");
+  const [fresh, next] = mint(afterSplit, "p");
+  const made: Pane = { type: "pane", id: fresh, tabs: [tab], active: tab.id };
+  const first = side === "left" || side === "top";
+  const dir = side === "left" || side === "right" ? "row" : "column";
+  const root: Node = { type: "split", id: splitId, dir, ratio: first ? 1 / 3 : 2 / 3, a: first ? made : left.root, b: first ? left.root : made };
+  return shapeOf(root) === shapeOf(arrangement.root) ? arrangement : { ...next, root, focus: fresh };
 }
 
 export function resizeSplit(arrangement: Arrangement, splitId: string, ratio: number): Arrangement {

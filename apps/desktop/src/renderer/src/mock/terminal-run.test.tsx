@@ -14,7 +14,7 @@ unmountAfterEach();
 const COMMAND = /wrangler deploy/;
 const pane = () => page.getByRole("group", { name: "Terminal", exact: true });
 const needsYou = () => page.getByRole("region", { name: "Needs you" });
-const thread = () => page.getByRole("region", { name: "Thread" });
+const thread = () => page.getByRole("region", { name: "Pane: Thread", exact: true });
 
 async function open() {
   mount(s256SessionRunInTerminal);
