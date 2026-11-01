@@ -96,6 +96,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/mcp",
     },
     Route {
+        operation: "get_session_quick",
+        method: "GET",
+        path: "/sessions/quick",
+    },
+    Route {
         operation: "act_on_session_mcp",
         method: "POST",
         path: "/sessions/mcp/act",

@@ -75,3 +75,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Replaces the Send to Job button once pressed. Tooltip `Sent to the Job`."
+
+[[icons.check.usage]]
+  means = "Pick on a line of the agent's message, and the mark a picked line keeps"
+  group = "Job thread"
+  size = "16px for the act, 12px for the mark"
+  status = "Proposed"
+  notes = "Proposed 31 Oct 2026 for the walk `real-thread-pick-a-line`, the owner's ask to select one of the agent's options in place. Tooltip `Pick this` on the act, `Picked` on the muted mark. Check means yes, and a pick is a yes to one of several."

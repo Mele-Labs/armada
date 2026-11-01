@@ -420,3 +420,22 @@ async fn the_phone_switch_is_read_and_set_over_the_router() {
     let (status, _) = call(&app, "POST", "/phone", r#"{"on":true,"port":1}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+/// A Job's quick replies read on the query string: both lists, whole, and a refusal Fleet's own words.
+#[tokio::test]
+async fn a_jobs_quick_replies_are_read_on_the_query_string() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/sessions/quick?session_id=s1", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let read: ipc::SessionQuick = ipc::decode("a job's quick replies", &body).expect("the replies");
+    assert_eq!(read.asked, ["Yes, go on", "Not yet"]);
+    assert_eq!(read.learnt, ["Just get it done"]);
+
+    let (status, _) = call(&app, "GET", "/sessions/quick", "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a read with no job is the transport's 400");
+
+    let (status, body) = call(&app, "GET", "/sessions/quick?session_id=closed", "").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(String::from_utf8_lossy(&body).contains("fleet.no_such_session"));
+}

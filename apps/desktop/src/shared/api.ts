@@ -52,6 +52,7 @@ import type { SharingApi } from "./api/sharing";
 import type { LogbookApi } from "./api/logbook";
 import type { TeachingApi } from "./api/teaching";
 import type { JobBrowserApi } from "./api/job-browser";
+import type { VoiceApi } from "./api/voice";
 import type { BridgeState } from "./bridge";
 
 /** The whole preload surface, and therefore everything the renderer can reach. */
@@ -96,4 +97,5 @@ export type BridgeApi = CoreApi<BridgeState> &
   LogbookApi &
   TeachingApi &
   JobBrowserApi &
+  VoiceApi &
   PullRequestNotesApi;
