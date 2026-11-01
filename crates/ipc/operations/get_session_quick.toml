@@ -1,0 +1,18 @@
+[operations.get_session_quick]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The replies a Job's quick bar offers beyond his saved lines: answers to the agent's last message, and lines he sends often"
+notes = """
+`GET /sessions/quick?session_id=`. `SessionQuick`: `asked` and `learnt`, each a list of lines, each possibly empty.
+
+**`asked`**: up to three short replies a small model wrote to the agent's last message, on `models.proposer`. Asked once for each agent message, on the first read after it, and kept until Fleet restarts. Empty while the last message of the thread is not the agent's, and where the call failed or took longer than twenty seconds.
+
+**`learnt`**: up to six lines he sent in two or more messages, across every Job, ranked by how recently and how often (a 14-day half-life). A line he sent before right after an agent message that asked something ranks higher while the agent's last message asks something. Lines in `thread.look`'s `forgotten` or `quick` are left out. Read off the Jobs' threads at most once a minute.
+
+**Both are empty** where `thread.look` has `quickOff`, or lists the Job in `quickOffFor`. `learnt` is empty where `learn` is false, and no thread is read for it.
+
+Nothing on the event stream says to read this again: Bridge reads it when the Job's last row changes.
+
+Refused: 422 `fleet.no_such_session`, no job Fleet hosts has that id.
+"""

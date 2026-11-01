@@ -19,6 +19,7 @@ id: armada-desktop-unit
 depends_on:
   - ".github/**"
   - "apps/desktop/src/main/**"
+  - "apps/desktop/src/preload/**"
   - "apps/desktop/src/shared/**"
   - "apps/desktop/src/renderer/src/*.ts"
   - "apps/desktop/src/renderer/src/*.tsx"

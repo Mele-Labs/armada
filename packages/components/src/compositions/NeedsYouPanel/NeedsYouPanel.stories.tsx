@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { BellRing } from "lucide-react";
 import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
@@ -8,8 +9,8 @@ import type { AskedQuestion } from "../SessionThread/SessionThread";
 import { NeedsYouPanel } from "./NeedsYouPanel";
 
 /**
- * Everything the agent needs from the person, in one panel joined to the composer. It opens as a list, the question first, then a judge's
- * concerns, then the rest, a row each and no act on a row; a press on a row opens that one, and Back returns to the list.
+ * Everything the agent needs from the person, in one panel joined to the composer. It opens as a list, the question first, then Fleet's own
+ * cards, then the rest, a row each and no act on a row; a press on a row opens that one, and Back returns to the list.
  */
 const meta: Meta<typeof NeedsYouPanel> = {
   title: "Compositions/Needs you panel",
@@ -26,10 +27,10 @@ const ROWS: LedgerEntry[] = [
   { key: "w2", kind: "waiting", act: "approve_pr", name: "Approve #1843", text: "Approve #1843", onOpen: fn() },
 ];
 const QUESTION = { id: "q1", label: "Question", text: "Which clock?", children: <p>Fake or frozen?</p> };
-const JUDGES = [{ id: "j1", text: "The queue has no ceiling.", children: <p>A concern with no ceiling.</p> }];
+const CARDS = [{ id: "j1", text: "The queue has no ceiling.", Glyph: BellRing, said: "Fleet", children: <p>A card with no ceiling.</p> }];
 
 /** The thread's stage is the dimmed part; the box beneath it is what the panel is attached to. Both carry the classes the Session view gives them. */
-function Frame({ question, judges, rows, startOpen = false, onOpen, threadH }: { question?: typeof QUESTION; judges?: typeof JUDGES; rows: LedgerEntry[]; startOpen?: boolean; onOpen?: (next: boolean) => void; /** The thread's height in px, which the Session view sets as `--thread-h` for the panel to bound itself by. */ threadH?: number }) {
+function Frame({ question, cards, rows, startOpen = false, onOpen, threadH }: { question?: typeof QUESTION; cards?: typeof CARDS; rows: LedgerEntry[]; startOpen?: boolean; onOpen?: (next: boolean) => void; /** The thread's height in px, which the Session view sets as `--thread-h` for the panel to bound itself by. */ threadH?: number }) {
   const [open, setOpen] = useState(startOpen);
   const [ask, setAsk] = useState(question);
   const [items, setItems] = useState(rows);
@@ -47,7 +48,7 @@ function Frame({ question, judges, rows, startOpen = false, onOpen, threadH }: {
             onOpen?.(next);
           }}
           {...(ask === undefined ? {} : { question: ask })}
-          {...(judges === undefined ? {} : { judges })}
+          {...(cards === undefined ? {} : { cards })}
         />
         <textarea aria-label="Message" />
       </div>
@@ -67,9 +68,9 @@ function Frame({ question, judges, rows, startOpen = false, onOpen, threadH }: {
 type Canvas = Parameters<NonNullable<Story["play"]>>[0]["canvas"];
 const rowNames = (canvas: Canvas) => canvas.getAllByRole("button", { name: /^Open / }).map((one) => one.getAttribute("aria-label"));
 
-/** Opened, it is a list: the question first, then the judge, then the rest, and not one of them carries an act of its own. */
+/** Opened, it is a list: the question first, then the card, then the rest, and not one of them carries an act of its own. */
 export const OpensToAListQuestionFirst: Story = {
-  render: () => <Frame question={QUESTION} judges={JUDGES} rows={ROWS} startOpen />,
+  render: () => <Frame question={QUESTION} cards={CARDS} rows={ROWS} startOpen />,
   play: async ({ canvas }) => {
     await expect(rowNames(canvas)).toEqual(["Open Which clock?", "Open The queue has no ceiling.", "Open Look at the findings page", "Open Approve #1843"]);
     await expect(canvas.queryByRole("article", { name: "Waiting on you" })).toBeNull();
@@ -109,7 +110,7 @@ export const TheTriggerIsNamedNeedsYou: Story = {
 
 /** A press on a row opens that one in the panel's place, with Back, and the list is not drawn under it. */
 export const ARowOpensItsDetail: Story = {
-  render: () => <Frame question={QUESTION} judges={JUDGES} rows={ROWS} startOpen />,
+  render: () => <Frame question={QUESTION} cards={CARDS} rows={ROWS} startOpen />,
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Open Which clock?" }));
     await expect(canvas.getByText("Fake or frozen?")).toBeVisible();
@@ -120,7 +121,7 @@ export const ARowOpensItsDetail: Story = {
 
 /** Back, Esc and Backspace each return to the list, and focus is on the row that was left. */
 export const BackEscAndBackspaceReturnToTheRowLeft: Story = {
-  render: () => <Frame question={QUESTION} judges={JUDGES} rows={ROWS} startOpen />,
+  render: () => <Frame question={QUESTION} cards={CARDS} rows={ROWS} startOpen />,
   play: async ({ canvas }) => {
     const leave = async (go: () => Promise<unknown>) => {
       await userEvent.click(canvas.getByRole("button", { name: "Open The queue has no ceiling." }));
@@ -152,7 +153,7 @@ export const EscOnTheListFolds: Story = {
 
 /** The arrows move between rows, and Enter opens the one under focus. */
 export const ArrowsAndEnter: Story = {
-  render: () => <Frame question={QUESTION} judges={JUDGES} rows={ROWS} startOpen />,
+  render: () => <Frame question={QUESTION} cards={CARDS} rows={ROWS} startOpen />,
   play: async ({ canvas }) => {
     // Arriving, the question puts focus on the first row itself.
     await waitFor(() => expect(canvas.getByRole("button", { name: "Open Which clock?" })).toHaveFocus());

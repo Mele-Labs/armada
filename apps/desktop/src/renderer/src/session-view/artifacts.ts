@@ -71,6 +71,13 @@ export const linkTitle = (url: string): string => {
   }
 };
 
+/** The Jobs linked to this one as the Jobs themselves: those it started, the one that started it, and the one it was forked from. */
+export function linkedSessionsOf(session: Session, sessions: readonly Session[]): Session[] {
+  const forked = session.attachments.flatMap((one) => (one.kind === "forked_from" ? sessions.filter((other) => other.id === one.id) : []));
+  const starters = sessions.filter((one) => attachmentsOf(one, "started_to").some((to) => to.id === session.id));
+  return [...childrenOf(sessions, session).map((one) => one.session), ...starters, ...forked];
+}
+
 /** The other Sessions in the window, for the ones this Session started, and how to open one. */
 export type Beside = { sessions: readonly Session[]; open: (id: string) => void };
 

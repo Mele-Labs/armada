@@ -13,6 +13,8 @@ pub const WHERE_THINGS_ARE_OPEN: Flag = Flag("bridge.whereThingsAreOpen");
 pub const OPEN_GROUP: Flag = Flag("bridge.openGroup");
 /// Compact, Default or Roomy: which set of space tokens Bridge draws with (`packages/tokens/src/spacing-sets.css`).
 pub const SPACING: Words = Words("spacing.density");
+/// The thread's look: agent name, times, text size, spacing, quick replies, voice and quick responses, as one JSON value.
+pub const THREAD_LOOK: Json = Json("thread.look");
 pub const SPACINGS: &[&str] = &["compact", "default", "roomy"];
 
 /// The theme nobody has chosen away from.
@@ -26,6 +28,19 @@ pub(super) const BRIDGE: &[Entry] = &[
         description: "Room around rows, panels and controls.",
         kind: Kind::Choice(Options::Fixed(SPACINGS)),
         shipped: Shipped::Text("default"),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    // One value Bridge owns, for the Aa panel in a Job's head and System › Thread to read and write alike. Fleet reads four fields of it for the quick bar (`session_quick.rs`): `learn`, `quickOff`, `quickOffFor`, and the lines of `quick` and `forgotten`.
+    Entry {
+        key: THREAD_LOOK.0,
+        section: Section::Thread,
+        title: "Thread look",
+        description: "How a Job's thread reads and what its quick bar offers, as JSON the Aa panel and System, Thread wrote.",
+        kind: Kind::Json,
+        shipped: Shipped::Nothing,
         applies: Applies::Live,
         row: None,
         env: None,

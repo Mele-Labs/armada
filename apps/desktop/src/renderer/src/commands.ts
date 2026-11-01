@@ -125,6 +125,7 @@ export const editLogbookEntry = (id: string, text: string) => window.armada.edit
 export const lockLogbookEntry = (id: string, locked: boolean) => window.armada.lockLogbookEntry(id, locked);
 export const forgetLogbookEntry = (id: string) => window.armada.forgetLogbookEntry(id);
 export const organizeLogbook = (action: OrganizeAction) => window.armada.organizeLogbook(action);
+export const dismissOrganizeLogbook = () => window.armada.dismissOrganizeLogbook();
 export const applyOrganizeLogbook = (action: OrganizeAction, proposals: OrganizeProposal[]) => window.armada.applyOrganizeLogbook(action, proposals);
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);

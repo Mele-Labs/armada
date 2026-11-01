@@ -74,6 +74,7 @@ import { ProjectsFrom, createProjectsStore } from "../projects-tab/store";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
 import { PaletteFixturesFrom } from "../palette-fixtures";
+import { ThreadLookFrom } from "../thread-look-here";
 import { seedPaletteMemory } from "../palette-memory";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
@@ -153,7 +154,7 @@ export function mountApp(
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.
   if (shared === undefined) {
-    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods" || chosen.name === "teach-rule" || chosen.name === "question-ticket-links");
+    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods" || chosen.name === "teach-rule" || chosen.name === "draft-card" || chosen.name === "question-ticket-links");
   }
   // `teach-mods` starts with the Jira key and the notice already taught.
   if (shared === undefined && chosen.name === "teach-mods") seedTaught(repository().root);
@@ -227,6 +228,7 @@ export function mountApp(
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                   <AreasFrom source={chosen.draft?.areas}>
                                   <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
+                                  <ThreadLookFrom seed={chosen.draft?.threadLook}>
                                     <AccountFrom account={chosen.draft?.account}>
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
@@ -257,6 +259,7 @@ export function mountApp(
                                         </PrOwnersFrom>
                                       </SharedHomeFrom>
                                     </AccountFrom>
+                                  </ThreadLookFrom>
                                   </PaletteFixturesFrom>
                                   </AreasFrom>
                               </ClashesFrom>

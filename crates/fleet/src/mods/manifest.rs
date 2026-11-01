@@ -14,6 +14,7 @@ const MOST_VERSION: usize = 32;
 pub(crate) const MOST_DESCRIPTION: usize = 200;
 pub(crate) const MOST_TAUGHT_ON: usize = 120;
 const MOST_ENTRY: usize = 80;
+const MOST_GLYPH: usize = 40;
 
 /// What was read, field by field. A field that was wrong is `None` and has a
 /// problem beside it, so a list can still show the ones that were right.
@@ -22,6 +23,8 @@ pub(crate) struct Manifest {
     pub(crate) kind: Option<ModKind>,
     pub(crate) version: Option<String>,
     pub(crate) description: Option<String>,
+    /// A tab mod's glyph, by its name in the icon registry.
+    pub(crate) glyph: Option<String>,
     /// What Teach was pressed on, where a person taught the mod.
     pub(crate) taught_on: Option<String>,
     /// The Logbook entry a teaching from a Job made, which forgetting removes the mod with.
@@ -37,6 +40,7 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
     let mut kind = None;
     let mut version = None;
     let mut description = None;
+    let mut glyph = None;
     let mut taught_on = None;
     let mut entry = None;
     let mut made_by = None;
@@ -63,6 +67,7 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
             "kind" => &mut kind,
             "version" => &mut version,
             "description" => &mut description,
+            "glyph" => &mut glyph,
             "taught_on" => &mut taught_on,
             "entry" => &mut entry,
             "made_by" => &mut made_by,
@@ -94,6 +99,7 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
         Some("tweak") => manifest.kind = Some(ModKind::Tweak),
         Some("tracker") => manifest.kind = Some(ModKind::Tracker),
         Some("commands") => manifest.kind = Some(ModKind::Commands),
+        Some("tab") => manifest.kind = Some(ModKind::Tab),
         Some(other) => problems.push(format!("mod.toml `kind` is `{other}`, which is not a kind of mod this build has")),
     }
     match version {
@@ -108,6 +114,12 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
             "mod.toml `description` is longer than {MOST_DESCRIPTION} characters"
         )),
         other => manifest.description = other,
+    }
+    match glyph {
+        Some(name) if !glyph_is_plain(&name) => problems.push(format!(
+            "mod.toml `glyph` must be 1 to {MOST_GLYPH} lowercase letters, digits and `-`, as the icon registry names one"
+        )),
+        other => manifest.glyph = other,
     }
     match taught_on {
         Some(text) if text.chars().count() > MOST_TAUGHT_ON => problems.push(format!(
@@ -128,6 +140,13 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
         other => manifest.made_by = other,
     }
     (manifest, problems)
+}
+
+fn glyph_is_plain(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= MOST_GLYPH
+        && name.starts_with(|c: char| c.is_ascii_lowercase())
+        && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 fn entry_is_plain(id: &str) -> bool {

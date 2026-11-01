@@ -1,7 +1,7 @@
 // A Job driving its Job browser: the agent opened the shop's checkout in it, typed a discount code and applied it, and its
 // thread shows each act. Once time passes the agent reaches for Playwright's own browser instead, and the thread says it has
 // one of its own, in the `browser_reminder` row Fleet writes. The browser is the store's (`../../job-browser/store.ts`), which the mock plays itself. Mock data only.
-// The walk `job-browser` plays it.
+// The walk `jobs-list-filter-chip` plays it; the Browser tab itself is walked over `job-layouts`.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -35,13 +35,13 @@ function fleet(): FakeSessionsFleet {
   return new FakeSessionsFleet(records, thread);
 }
 
-/** The Job's browser as the agent left it: the agent driving, on the checkout. Flight control's Browser opens it in the side panel. */
-function seed(driver?: "you"): void {
+/** The Job's browser as the agent left it: the agent driving, on the checkout. */
+function seed(): void {
   resetCheckout();
-  seedJobBrowser(JOB, { visited: [CART, CHECKOUT], page: shopPage, ...(driver === undefined ? {} : { driver }) });
+  seedJobBrowser(JOB, { visited: [CART, CHECKOUT], page: shopPage });
 }
 
-function build(name: string, says: string, driver?: "you"): Scenario {
+function build(name: string, says: string): Scenario {
   const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
   return {
     ...fleet().scenario(board),
@@ -49,7 +49,7 @@ function build(name: string, says: string, driver?: "you"): Scenario {
     says,
     // A Fleet and a browser of their own for each window, so a walk told twice starts from the same page.
     behaves: (handle) => {
-      seed(driver);
+      seed();
       const served = fleet();
       const own = served.scenario(board).behaves!(handle);
       // After the window's fake has registered its own, which clears the hook of a scenario with no `later`.
@@ -67,7 +67,4 @@ function build(name: string, says: string, driver?: "you"): Scenario {
   };
 }
 
-export const jobBrowser: Scenario = build("job-browser", "A Job driving its Job browser, taken over and annotated, moved to a window, and reminded of it when it reaches for Playwright");
-
-/** The same browser with the person already driving, on the checkout, for the walk `site-permissions`. */
-export const sitePermissions: Scenario = build("site-permissions", "The Job browser's site settings: a page asking for the local network, and the choices kept for it", "you");
+export const jobBrowser: Scenario = build("job-browser", "A Job that has driven its Job browser, and reminded of it when it reaches for Playwright");

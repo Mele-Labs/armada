@@ -23,6 +23,7 @@ const logbook = {
   forget: async (id: string) => (called.push(`forget ${id}`), { ok: true }),
   organize: async (action: string) => (called.push(`organize ${action}`), { ok: true }),
   applyOrganize: async (action: string, proposals: unknown[]) => (called.push(`apply ${action} ${proposals.length}`), { ok: true }),
+  dismissOrganize: async () => (called.push("dismiss"), { ok: true }),
   tidy: async () => (called.push("tidy"), { ok: true, merged: 3 }),
 };
 const connected = { logbook } as unknown as FleetConnection;
@@ -55,10 +56,11 @@ describe("the Logbook channels", () => {
     const one = { id: "a", entry_ids: ["a"], text: "T.", note: "" };
     await handlers.get(CHANNELS.organizeLogbook)?.({}, "bugs");
     await handlers.get(CHANNELS.applyOrganizeLogbook)?.({}, "stale", [one]);
+    await handlers.get(CHANNELS.dismissOrganizeLogbook)?.({});
     const unread = { ok: false, outcome: { ok: false, why: "not_understood" } };
     expect(await handlers.get(CHANNELS.organizeLogbook)?.({}, "tidy")).toEqual(unread);
     expect(await handlers.get(CHANNELS.applyOrganizeLogbook)?.({}, "stale", [{ id: "a" }])).toEqual(unread);
-    expect(called).toEqual(["organize bugs", "apply stale 1"]);
+    expect(called).toEqual(["organize bugs", "apply stale 1", "dismiss"]);
   });
 
   it("say Fleet is not connected when there is no connection", async () => {

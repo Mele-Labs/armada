@@ -1,16 +1,14 @@
-// The Job browser's pane: the page the Job's agent drives with Armada's tools, which the person can take over and annotate. In the
-// side panel with the Job's thread floating beside it (`BrowserSide.tsx`), or in a window of its own with the thread beside the page.
-// The store says what it holds.
+// The Job browser's pane: a Browser tab's page, which the Job's agent drives with Armada's tools and the person can take over and annotate. In its
+// pane of the Job's panes (`job-panes/bodies.tsx`), or in a window of its own with the thread beside the page. The store says what it holds.
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
-import { AppWindowMac, Bell, Bot, ChevronLeft, ChevronRight, ClipboardList, Crosshair, Download, Image, LockKeyhole, MapPin, Network, PanelLeftClose, PanelLeftOpen, PanelRight, Radio, RefreshCw, UserCheck, type LucideIcon } from "lucide-react";
+import { Bell, Bot, ChevronLeft, ChevronRight, ClipboardList, Crosshair, Download, Image, LockKeyhole, MapPin, Network, PanelRight, Radio, RefreshCw, UserCheck, type LucideIcon } from "lucide-react";
 import { ACTION, Button, Input, Kbd, Popover, Textarea, Tooltip } from "@armada/components";
 import type { ThreadCard } from "@armada/components";
 
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { closePanel, usePanel } from "../shared-panel/store";
 import { CHOICES, SITE_PERMISSIONS, effectiveChoice, type Choice, type SitePermission } from "../../../shared/site-permissions";
-import { answerRequest, browserToWindow, dismissRequest, goBack, goForward, jobBrowserApi, hostOf, navigate, openBrowser, pinNote, reload, setChoice, setDefault, showThread, toggleDriver, urlOf, useJobBrowser, type BrowserPin, type JobBrowser } from "./store";
+import { answerRequest, browserToPane, dismissRequest, goBack, goForward, jobBrowserApi, hostOf, navigate, openBrowserTab, pinNote, reload, setChoice, setDefault, toggleDriver, urlOf, type BrowserPin, type JobBrowser } from "./store";
 import { takesAnnotateChord } from "./chord";
 import "./job-browser.css";
 
@@ -139,16 +137,16 @@ const sameBox = (a: Box | undefined, b: Box): boolean => a !== undefined && a.x 
 
 /**
  * The page main holds, a view it lies over this frame. **The frame is reported on every frame it moves**, as `PageFrame`'s is, since
- * the side panel travels in and no resize event says so. Under Capture the view is hidden and its picture drawn here instead, so a
+ * a pane resized, zoomed or swept in by a layout moves it and no resize event of the frame's says so. Under Capture the view is hidden and its picture drawn here instead, so a
  * press picks a part of it: the walk window's own layer reads that part in the page, and the note goes to the Job as the person's.
  */
-function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string; api: NonNullable<ReturnType<typeof jobBrowserApi>>; capturing: boolean; onCaptured: () => void }) {
+function LivePage({ sessionId, tabId, api, capturing, onCaptured }: { sessionId: string; tabId: string; api: NonNullable<ReturnType<typeof jobBrowserApi>>; capturing: boolean; onCaptured: () => void }) {
   const frame = useRef<HTMLDivElement>(null);
   const [picture, setPicture] = useState<string>();
   const [picked, setPicked] = useState<Picked>();
   const [ring, setRing] = useState<Box | null>(null);
-  // The app annotation layer, the site-settings popover and the page's ask all lie over the page's native view, which would hide them,
-  // so while one is up the page is hidden and its picture shown, as under Capture.
+  // The app annotation layer, the site-settings popover, the page's ask, a tab's menu and the drop zones of a tab being dragged all lie over the
+  // page's native view, which would hide them, so while one is up the page is hidden and its picture shown, as under Capture.
   const [layerOn, setLayerOn] = useState(false);
   const held = capturing || layerOn;
   const aiming = useRef({ at: null as { x: number; y: number } | null, busy: false });
@@ -156,11 +154,11 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
     let moving = 0;
     let last: Box | undefined;
     const follow = () => {
-      setLayerOn(document.querySelector("[data-armada-annotate], .job-browser__site-panel, .job-browser__ask") !== null);
+      setLayerOn(document.querySelector("[data-armada-annotate], .job-browser__site-panel, .job-browser__ask, .armada-dropdown-menu__panel, .job-pane__drops") !== null);
       const box = frame.current?.getBoundingClientRect();
       if (box !== undefined) {
         const now = { x: box.x, y: box.y, width: box.width, height: box.height };
-        if (!sameBox(last, now)) void api.place(sessionId, now);
+        if (!sameBox(last, now)) void api.place(sessionId, tabId, now);
         last = now;
       }
       moving = requestAnimationFrame(follow);
@@ -168,14 +166,14 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
     moving = requestAnimationFrame(follow);
     return () => {
       cancelAnimationFrame(moving);
-      void api.unplace(sessionId);
+      void api.unplace(sessionId, tabId);
     };
-  }, [api, sessionId]);
+  }, [api, sessionId, tabId]);
   useEffect(() => {
     if (!held) return;
     let shown: string | undefined;
     let live = true;
-    void api.freeze(sessionId).then((png) => {
+    void api.freeze(sessionId, tabId).then((png) => {
       if (!live || png === null) return;
       shown = URL.createObjectURL(new Blob([png as Uint8Array<ArrayBuffer>], { type: "image/png" }));
       setPicture(shown);
@@ -186,13 +184,13 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
       setPicked(undefined);
       setRing(null);
       if (shown !== undefined) URL.revokeObjectURL(shown);
-      void api.thaw(sessionId);
+      void api.thaw(sessionId, tabId);
     };
-  }, [api, sessionId, held]);
+  }, [api, sessionId, tabId, held]);
   const pick = (event: MouseEvent<HTMLDivElement>) => {
     const at = frame.current?.getBoundingClientRect();
     if (!capturing || picture === undefined || picked !== undefined || at === undefined) return;
-    void api.hold(sessionId, event.clientX - at.left, event.clientY - at.top).then((held) => {
+    void api.hold(sessionId, tabId, event.clientX - at.left, event.clientY - at.top).then((held) => {
       if (held !== null) setPicked({ on: held.chain, box: { top: held.box.y, left: held.box.x, width: held.box.width, height: held.box.height } });
     });
   };
@@ -210,7 +208,7 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
         return;
       }
       void api
-        .aim(sessionId, to.x, to.y)
+        .aim(sessionId, tabId, to.x, to.y)
         .then(setRing)
         .finally(() => {
           aiming.current.busy = false;
@@ -225,9 +223,9 @@ function LivePage({ sessionId, api, capturing, onCaptured }: { sessionId: string
         <>
           <span className="job-browser__pin" data-writing="" aria-hidden style={{ top: picked.box.top, left: picked.box.left, width: picked.box.width, height: picked.box.height }} />
           <NoteCard
-            keep={`job-browser:${sessionId}:${picked.on}`}
+            keep={`job-browser:${sessionId}:${tabId}:${picked.on}`}
             picked={picked}
-            onSend={(note) => void api.note(sessionId, note).then((outcome) => outcome.ok && onCaptured())}
+            onSend={(note) => void api.note(sessionId, tabId, note).then((outcome) => outcome.ok && onCaptured())}
             onDone={() => setPicked(undefined)}
           />
         </>
@@ -286,7 +284,7 @@ const VIEWS = [
 const CHOICE_OPTIONS = CHOICES.map((one) => ({ value: one.choice, label: one.label }));
 
 /** Site settings: what the page may use, for this site and as the default for every one. Changing them takes the page over. */
-function SiteSettingsPanel({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
+function SiteSettingsPanel({ sessionId, tabId, browser }: { sessionId: string; tabId: string; browser: JobBrowser }) {
   const [view, setView] = useState<"site" | "all">("site");
   const host = hostOf(urlOf(browser));
   const locked = browser.driver !== "you";
@@ -306,7 +304,7 @@ function SiteSettingsPanel({ sessionId, browser }: { sessionId: string; browser:
                 value={view === "site" ? effectiveChoice(browser.site, host, permission) : browser.site.defaults[permission]}
                 options={CHOICE_OPTIONS}
                 disabled={locked}
-                onChange={(choice) => (view === "site" ? setChoice(sessionId, host, permission, choice) : setDefault(sessionId, permission, choice))}
+                onChange={(choice) => (view === "site" ? setChoice(sessionId, tabId, host, permission, choice) : setDefault(sessionId, tabId, permission, choice))}
               />
             </li>
           );
@@ -317,25 +315,25 @@ function SiteSettingsPanel({ sessionId, browser }: { sessionId: string; browser:
 }
 
 /** The page's ask, under the lock. Esc leaves the site undecided. */
-function AskBubble({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
+function AskBubble({ sessionId, tabId, browser }: { sessionId: string; tabId: string; browser: JobBrowser }) {
   const asked = browser.site.pending;
   const open = asked !== null;
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: globalThis.KeyboardEvent) => event.key === "Escape" && dismissRequest(sessionId);
+    const onKey = (event: globalThis.KeyboardEvent) => event.key === "Escape" && dismissRequest(sessionId, tabId);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, sessionId]);
+  }, [open, sessionId, tabId]);
   if (asked === null) return null;
   const label = SITE_PERMISSIONS.find((one) => one.permission === asked.permission)?.label ?? asked.permission;
   return (
     <div className="job-browser__ask" role="alertdialog" aria-label="Site request">
       <span>{`${asked.host} wants to use ${label}`}</span>
       <div className="job-browser__ask-acts">
-        <Button variant="ghost" size="sm" onClick={() => answerRequest(sessionId, "block")}>
+        <Button variant="ghost" size="sm" onClick={() => answerRequest(sessionId, tabId, "block")}>
           Block
         </Button>
-        <Button variant="primary" size="sm" onClick={() => answerRequest(sessionId, "allow")}>
+        <Button variant="primary" size="sm" onClick={() => answerRequest(sessionId, tabId, "allow")}>
           Allow
         </Button>
       </div>
@@ -344,7 +342,7 @@ function AskBubble({ sessionId, browser }: { sessionId: string; browser: JobBrow
 }
 
 /** The lock before the address: site settings in a popover, and the page's ask under it. */
-function SiteLock({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
+function SiteLock({ sessionId, tabId, browser }: { sessionId: string; tabId: string; browser: JobBrowser }) {
   const said = browser.driver === "you" ? "Site settings" : "Take over to change site settings";
   return (
     <span className="job-browser__site">
@@ -358,15 +356,15 @@ function SiteLock({ sessionId, browser }: { sessionId: string; browser: JobBrows
           </Tooltip>
         }
       >
-        <SiteSettingsPanel sessionId={sessionId} browser={browser} />
+        <SiteSettingsPanel sessionId={sessionId} tabId={tabId} browser={browser} />
       </Popover>
-      <AskBubble sessionId={sessionId} browser={browser} />
+      <AskBubble sessionId={sessionId} tabId={tabId} browser={browser} />
     </span>
   );
 }
 
 /** The address: the page's, and while the person drives, one he types, which Enter goes to. */
-function Address({ sessionId, browser }: { sessionId: string; browser: JobBrowser }) {
+function Address({ sessionId, tabId, browser }: { sessionId: string; tabId: string; browser: JobBrowser }) {
   const url = urlOf(browser);
   const [typed, setTyped] = useState(url);
   useEffect(() => setTyped(url), [url]);
@@ -382,29 +380,30 @@ function Address({ sessionId, browser }: { sessionId: string; browser: JobBrowse
         if (event.key !== "Enter" || !driving) return;
         event.preventDefault();
         const to = typed.trim();
-        if (to !== "" && to !== url) navigate(sessionId, to);
+        if (to !== "" && to !== url) navigate(sessionId, tabId, to);
       }}
     />
   );
 }
 
 /**
- * The pane: in the side panel, the toggle for the Job's thread; who is driving, which a press on its mark changes; Back, Forward and Reload; the address; Capture, the walk window's
- * note control; and its move. In the side panel it moves to a window; in its window it moves back to the side panel.
+ * The pane: who is driving, which a press on its mark changes; Back, Forward and Reload; the address; Capture, the walk window's
+ * note control. A page in a window of its own is moved back to its pane from the window, or from the pane it left, which draws none of it.
  */
-export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: string; browser: JobBrowser; placed: "panel" | "window" }) {
+export function JobBrowserPane({ sessionId, tabId, browser, placed }: { sessionId: string; tabId: string; browser: JobBrowser; placed: "window" | "pane" }) {
   const [capturing, setCapturing] = useState(false);
   const api = jobBrowserApi();
   // ⌥⌘C pressed in the page, which holds the keyboard where this pane cannot hear it.
-  useEffect(() => api?.onCapture((id) => id === sessionId && setCapturing((was) => !was)), [api, sessionId]);
+  useEffect(() => api?.onCapture((id, tab) => id === sessionId && tab === tabId && setCapturing((was) => !was)), [api, sessionId, tabId]);
   useEffect(() => takesAnnotateChord(() => setCapturing((was) => !was)), []);
   const driver = DRIVER[browser.driver];
-  const threadShown = !browser.threadHidden;
+  // The page is in the window the pane gave way to, and only one of the two places it.
+  const away = placed === "pane" && browser.windowed;
   const keys = (event: KeyboardEvent<HTMLElement>) => {
     // The letter from its key's place, since ⌥ changes the character a key types.
     const key = event.code.startsWith("Key") ? event.code.slice(3) : event.key.length === 1 ? event.key.toUpperCase() : event.key;
     const chord = `${event.altKey ? "⌥" : ""}${event.metaKey ? "⌘" : ""}${key}`;
-    const act = chord === CAPTURE ? () => setCapturing((was) => !was) : chord === KEYS.reload ? () => reload(sessionId) : chord === KEYS.back ? () => goBack(sessionId) : chord === KEYS.forward ? () => goForward(sessionId) : undefined;
+    const act = chord === CAPTURE ? () => setCapturing((was) => !was) : chord === KEYS.reload ? () => reload(sessionId, tabId) : chord === KEYS.back ? () => goBack(sessionId, tabId) : chord === KEYS.forward ? () => goForward(sessionId, tabId) : undefined;
     if (act === undefined) return;
     event.preventDefault();
     act();
@@ -412,71 +411,44 @@ export function JobBrowserPane({ sessionId, browser, placed }: { sessionId: stri
   return (
     <section className="job-browser" role="group" aria-label="Job browser" data-placed={placed} onKeyDown={keys}>
       <header className="job-browser__head">
-        {placed === "panel" ? (
-          <Tooltip label={threadShown ? "Hide Job" : "Show Job"}>
-            <Button variant="ghost" size="sm" iconOnly aria-label={threadShown ? "Hide Job" : "Show Job"} aria-pressed={threadShown} onClick={() => showThread(sessionId, !threadShown)}>
-              {threadShown ? <PanelLeftClose size={16} strokeWidth={2} aria-hidden /> : <PanelLeftOpen size={16} strokeWidth={2} aria-hidden />}
-            </Button>
-          </Tooltip>
-        ) : null}
         <Tooltip label={driver.said}>
-          <Button variant="ghost" size="sm" iconOnly data-driver={browser.driver} aria-label={driver.said} onClick={() => toggleDriver(sessionId)}>
+          <Button variant="ghost" size="sm" iconOnly data-driver={browser.driver} aria-label={driver.said} onClick={() => toggleDriver(sessionId, tabId)}>
             {driver.glyph}
           </Button>
         </Tooltip>
         <span className="job-browser__acts">
-          <IconAct label="Back" shortcut={KEYS.back} disabled={!browser.back} onClick={() => goBack(sessionId)}>
+          <IconAct label="Back" shortcut={KEYS.back} disabled={!browser.back} onClick={() => goBack(sessionId, tabId)}>
             <ChevronLeft size={16} strokeWidth={2} aria-hidden />
           </IconAct>
-          <IconAct label="Forward" shortcut={KEYS.forward} disabled={!browser.forward} onClick={() => goForward(sessionId)}>
+          <IconAct label="Forward" shortcut={KEYS.forward} disabled={!browser.forward} onClick={() => goForward(sessionId, tabId)}>
             <ChevronRight size={16} strokeWidth={2} aria-hidden />
           </IconAct>
-          <IconAct label="Reload" shortcut={KEYS.reload} onClick={() => reload(sessionId)}>
+          <IconAct label="Reload" shortcut={KEYS.reload} onClick={() => reload(sessionId, tabId)}>
             <RefreshCw size={16} strokeWidth={2} aria-hidden />
           </IconAct>
         </span>
-        {browser.page !== undefined || (api !== undefined && urlOf(browser) !== "") ? <SiteLock sessionId={sessionId} browser={browser} /> : null}
-        <Address sessionId={sessionId} browser={browser} />
+        {browser.page !== undefined || (api !== undefined && urlOf(browser) !== "") ? <SiteLock sessionId={sessionId} tabId={tabId} browser={browser} /> : null}
+        <Address sessionId={sessionId} tabId={tabId} browser={browser} />
         <span className="job-browser__acts">
           <Tooltip label={capturing ? "Capturing" : "Capture"} shortcut={CAPTURE}>
-            <Button variant={capturing ? "primary" : "ghost"} size="sm" iconOnly aria-label="Capture" aria-pressed={capturing} onClick={() => setCapturing((was) => !was)}>
+            <Button variant={capturing ? "primary" : "ghost"} size="sm" iconOnly aria-label="Capture" aria-pressed={capturing} disabled={away} onClick={() => setCapturing((was) => !was)}>
               <Crosshair size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
-          {placed === "panel" ? (
-            <IconAct
-              label="Open in a window"
-              onClick={() => {
-                closePanel();
-                browserToWindow(sessionId);
-              }}
-            >
-              <AppWindowMac size={16} strokeWidth={2} aria-hidden />
-            </IconAct>
-          ) : (
-            <IconAct label="Move to the side panel" onClick={() => openBrowser(sessionId)}>
+          {placed === "window" || away ? (
+            <IconAct label="Move to the pane" onClick={() => browserToPane(sessionId, tabId)}>
               <PanelRight size={16} strokeWidth={2} aria-hidden />
             </IconAct>
-          )}
+          ) : null}
         </span>
       </header>
-      {browser.page !== undefined ? (
+      {away ? null : browser.page !== undefined ? (
         <FixturePage sessionId={sessionId} browser={browser} draw={browser.page} annotating={capturing} onPicked={() => setCapturing(false)} />
       ) : api !== undefined ? (
-        <LivePage sessionId={sessionId} api={api} capturing={capturing} onCaptured={() => setCapturing(false)} />
+        <LivePage sessionId={sessionId} tabId={tabId} api={api} capturing={capturing} onCaptured={() => setCapturing(false)} />
       ) : null}
     </section>
   );
-}
-
-/** Flight control's Browser tile: lit while the Job browser shows. A press where the Job has none makes an empty one. */
-export type JobBrowserTile = { shown: boolean; press: () => void };
-
-export function useJobBrowserTile(sessionId: string): JobBrowserTile {
-  const browser = useJobBrowser(sessionId);
-  const open = usePanel().open;
-  const shown = browser !== undefined && (browser.windowed || (open?.kind === "browser" && open.sessionId === sessionId));
-  return { shown, press: () => openBrowser(sessionId) };
 }
 
 /** What the press on a reminder tells the Job, as the person's message. */
@@ -513,7 +485,7 @@ export function useBrowserReminders(sessionId: string): readonly ThreadCard[] {
                   if (sending.current.has(one.id)) return;
                   sending.current.add(one.id);
                   setPressed(new Set(sending.current));
-                  openBrowser(sessionId);
+                  openBrowserTab(sessionId);
                   void draft?.send(sessionId, { text: said, files: [], sketches: [], tags: [] });
                 }}
               >

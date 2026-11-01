@@ -5,4 +5,4 @@
   status = "Proposed"
   paired_with = "panel-right"
   reserved = "Moving a Job's shell from the side panel back to where it docks, the toggle in the panel's pane. Never hiding the docked pane, which is `panel-bottom-close`."
-  notes = "Proposed 23 Oct 2026 for the walk `job-shell`, the other half of `panel-right`'s toggle. Tooltip and aria-label `Dock`, renamed from `Dock under the thread` 23 Oct 2026 when the Cockpit docked the shell in a panel of its own. Pressing it saves `terminal.openJobTerminalIn`."
+  notes = "Proposed 23 Oct 2026 for the walk `job-shell`, the other half of `panel-right`'s toggle. Tooltip and aria-label `Dock`, renamed from `Dock under the thread` 23 Oct 2026 when the Cockpit docked the shell in a panel of its own. The Terminal window's head offers it to bring the shell back; the setting it once saved was retired 31 Oct 2026."

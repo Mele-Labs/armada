@@ -317,3 +317,44 @@ fn a_branch_is_read_against_the_one_it_was_cut_from_with_no_worktree() {
         "a branch that is not there is not an empty fix"
     );
 }
+
+/// One commit is read against its own parent and nothing else, by the hash it
+/// is named with, whole or cut short, and the root commit against nothing.
+#[test]
+fn a_commit_is_read_against_its_first_parent_by_its_hash_and_no_other_name() {
+    let repo = TempRepo::with_a_commit();
+    let worktree = worktree_for(&repo);
+    std::fs::write(format!("{}/first.txt", worktree.path()), "the first\n").expect("the file");
+    commit_in(worktree.path(), "first");
+    std::fs::write(format!("{}/second.txt", worktree.path()), "the second\n").expect("the file");
+    commit_in(worktree.path(), "second");
+    let sha = git2::Repository::open(worktree.path())
+        .expect("the repository")
+        .head()
+        .and_then(|head| head.peel_to_commit())
+        .expect("a commit")
+        .id()
+        .to_string();
+
+    let read = GitVcs::new().commit_work(&repo.root_str(), &sha).expect("a reading");
+    assert_eq!(read.changed.paths(), ["second.txt"]);
+    assert!(read.patch.as_str().contains("+the second"));
+    assert!(!read.patch.as_str().contains("the first"), "only the one commit");
+
+    let short = GitVcs::new().commit_work(&repo.root_str(), &sha[..8]).expect("a cut hash");
+    assert_eq!(short.changed.paths(), ["second.txt"]);
+
+    let root = git2::Repository::open(worktree.path()).expect("the repository");
+    let mut oldest = root.head().and_then(|head| head.peel_to_commit()).expect("a commit");
+    while let Ok(parent) = oldest.parent(0) {
+        oldest = parent;
+    }
+    let first = GitVcs::new().commit_work(&repo.root_str(), &oldest.id().to_string()).expect("the root commit has no parent to compare with");
+    assert!(!first.changed.paths().iter().any(|path| path == "second.txt"), "and shows none of what came after it");
+
+    for not_a_hash in ["HEAD", "main", "HEAD~1", "", "abc"] {
+        assert!(GitVcs::new().commit_work(&repo.root_str(), not_a_hash).is_err(), "{not_a_hash:?} names no commit");
+    }
+    let absent = "0123456789abcdef0123456789abcdef01234567";
+    assert!(GitVcs::new().commit_work(&repo.root_str(), absent).is_err(), "a hash the repository lacks is not an empty commit");
+}

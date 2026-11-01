@@ -24,6 +24,7 @@ import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shel
 import { HapticsProvider, watchClippedText } from "@armada/components";
 import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
+import { ThreadLookSaved } from "./thread-look-here";
 import { SleepSourceProvider } from "./sleep";
 import { createFleetSleep } from "./fleet-sleep";
 import { createFleetPlanUsage } from "./fleet-plan-usage";
@@ -153,10 +154,12 @@ function Root() {
                                 <ReviewsFrom store={REVIEWS}>
                                   <IssuesFrom store={ISSUES}>
                                     <ProjectsFrom store={PROJECTS}>
-                                      <WiredSharedPanel>
-                                        <App />
-                                        <TweaksApplied />
-                                      </WiredSharedPanel>
+                                      <ThreadLookSaved>
+                                        <WiredSharedPanel>
+                                          <App />
+                                          <TweaksApplied />
+                                        </WiredSharedPanel>
+                                      </ThreadLookSaved>
                                     </ProjectsFrom>
                                   </IssuesFrom>
                                 </ReviewsFrom>

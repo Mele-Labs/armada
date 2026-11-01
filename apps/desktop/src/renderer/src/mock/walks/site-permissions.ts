@@ -1,27 +1,32 @@
 // Site settings in the Job browser: the lock before the address opens what the page may use, for this site and as the default for
 // every site, and a page that asks raises a bubble under the lock. While the agent drives the choices are fixed and a page's ask is
-// refused unseen. Mock only: nothing is wired. Over the `site-permissions` scenario, with the person already driving.
+// refused unseen. Mock only: nothing is wired. Over the `job-layouts` scenario, with the person taking the page over first.
 
-import { button, deckRow, dialog, inside, region, role, walk } from "../walk";
+import { button, deckRow, dialog, inside, region, role, tab, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const tile = inside(region("Flight controls"), button("Browser", { exact: true }));
-const panel = dialog("Job browser");
-const pane = inside(panel, role("group", "Job browser", { exact: true }));
-const page = inside(pane, role("article", "Fernwood Supply checkout"));
-const lock = inside(pane, button("Site settings", { exact: true }));
-const settings = inside(pane, dialog("Site settings"));
+const pane = (name: string) => region(`Pane: ${name}`, { exact: true });
+const empty = region("Empty pane", { exact: true });
+const item = (name: string | RegExp) => role("menuitem", name);
+const thread = inside(pane("Thread"), tab("Thread", { exact: true }));
+const browser = inside(pane("localhost:5173"), role("group", "Job browser", { exact: true }));
+const page = inside(browser, role("article", "Fernwood Supply checkout"));
+const lock = inside(browser, button("Site settings", { exact: true }));
+const settings = inside(browser, dialog("Site settings"));
 const choose = (permission: string, choice: string) => inside(inside(settings, role("radiogroup", permission, { exact: true })), role("radio", choice, { exact: true }));
 const view = (name: string) => inside(inside(settings, role("radiogroup", "Settings for", { exact: true })), role("radio", name, { exact: true }));
 const okta = inside(page, button("Connect Okta Verify"));
-const bubble = inside(pane, role("alertdialog", "Site request"));
+const bubble = inside(browser, role("alertdialog", "Site request"));
 
 const steps: Step[] = [
   toSessions,
-  { press: deckRow("Fix the checkout total"), say: "A Job fixing the checkout total" },
-  { press: tile, say: "Browser" },
-  { look: pane, say: "The Job browser, with you driving" },
+  { press: deckRow("Retry the slot lease"), say: "A Job with a Browser tab to open" },
+  { key: "Meta+d", on: thread, say: "⌘D" },
+  { press: inside(empty, button("Add tab")), say: "+" },
+  { press: item("Browser"), say: "Browser" },
+  { press: inside(browser, button(/^Agent driving/)), say: "Take the page over" },
+  { look: browser, say: "The Job browser, with you driving" },
   { press: lock, say: "The lock before the address opens Site settings" },
   { look: inside(settings, role("radiogroup", "Local network", { exact: true })), say: "Seven permissions, each Ask, Allow or Block" },
   { press: choose("Notifications", "Block"), say: "Notifications, Block, for this site" },
@@ -34,12 +39,12 @@ const steps: Step[] = [
   { press: lock, say: "Reopen Site settings" },
   { look: choose("Local network", "Allow"), say: "Local network now shows Allow for this site" },
   { press: lock, say: "Close" },
-  { press: inside(pane, button(/^You're driving/)), say: "Hand back to the agent" },
-  { look: inside(pane, button("Take over to change site settings")), say: "The lock says why the choices are fixed" },
+  { press: inside(browser, button(/^You're driving/)), say: "Hand back to the agent" },
+  { look: inside(browser, button("Take over to change site settings")), say: "The lock says why the choices are fixed" },
   { press: okta, say: "The page asks again" },
-  { look: inside(pane, role("article", "Fernwood Supply checkout")), say: "No bubble appears while the agent drives" },
+  { look: page, say: "No bubble appears while the agent drives" },
 ];
 
-const sitePermissionsWalk = walk("site-permissions", steps);
+const sitePermissionsWalk = walk("job-layouts", steps);
 
 export { sitePermissionsWalk as "site-permissions" };

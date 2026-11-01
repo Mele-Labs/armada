@@ -217,7 +217,6 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::EDITOR_COMMAND,
         s::TERMINAL_APP,
         s::TERMINAL_COMMAND,
-        s::OPEN_JOB_TERMINAL_IN,
         s::OPEN_PULL_REQUESTS_IN,
         s::MACHINE_NAME,
         s::ACCOUNT_CLIENT_ID,
@@ -239,6 +238,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::KEY_BINDINGS,
         s::TIME_FORMAT,
         s::ROW_VIEW,
+        s::THREAD_LOOK,
         s::REACH_FOLDERS,
         s::WORKFLOWS_OFF,
     ] {
@@ -251,7 +251,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 13 + 15 + 28 + 2 + 6 + s::prompt_keys().count();
+    let handles = 21 + 13 + 15 + 27 + 2 + 7 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
@@ -274,6 +274,37 @@ fn a_document_of_known_keys_in_range_is_taken_whole() {
     ];
     let saved = checked(&document(&pairs), &supplied(), &Env::none()).expect("taken");
     assert_eq!(saved.document(), &document(&pairs));
+}
+
+/// One value Bridge owns: Fleet keeps it whole and does not look inside, so a field the thread's look gains later survives.
+#[test]
+fn the_threads_look_is_one_json_value_that_is_kept_whole() {
+    let found = entry("thread.look").expect("thread.look is a setting");
+    assert_eq!(found.kind, Kind::Json);
+    assert_eq!(found.shipped, Shipped::Nothing);
+    assert_eq!(found.section.title(), "Thread");
+    assert_eq!(found.section.group(), crate::settings::Group::Appearance);
+
+    let look = SettingValue::from_json_text(
+        r#"{"agentName":"Xavier","showTimes":true,"quick":[{"id":"saved:1","text":"Go on","kind":"saved"}],"futureField":[1,2]}"#,
+    )
+    .expect("JSON");
+    let saved = checked(
+        &document(&[("thread.look", look.clone())]),
+        &supplied(),
+        &Env::none(),
+    )
+    .expect("taken");
+    assert_eq!(saved.document(), &document(&[("thread.look", look.clone())]));
+    let resolved = Resolved::new(saved, supplied(), Env::none());
+    assert_eq!(resolved.get(s::THREAD_LOOK), Some(look));
+
+    let nothing = Resolved::new(
+        checked(&document(&[]), &supplied(), &Env::none()).expect("taken"),
+        supplied(),
+        Env::none(),
+    );
+    assert_eq!(nothing.get(s::THREAD_LOOK), None, "nothing saved is Bridge's default");
 }
 
 #[test]
@@ -320,30 +351,6 @@ fn a_value_out_of_range_or_of_another_kind_is_refused_by_its_key() {
             .1
             .contains("at least one item")
     );
-}
-
-/// A Job's terminal opens docked under its thread unless the side panel or a window of its own
-/// is chosen, and Bridge reads a change on the next open.
-#[test]
-fn a_jobs_terminal_opens_docked_unless_the_side_panel_or_a_window_is_chosen() {
-    let found = entry(s::OPEN_JOB_TERMINAL_IN.name()).expect("an entry");
-    assert_eq!(found.section, s::Section::Terminal);
-    assert_eq!(
-        found.kind,
-        Kind::Choice(s::Options::Fixed(&["docked", "side panel", "window"]))
-    );
-    assert_eq!(found.shipped, Shipped::Text("docked"));
-    assert_eq!(found.applies, s::Applies::Live);
-    for place in ["side panel", "window"] {
-        let pairs = [("terminal.openJobTerminalIn", SettingValue::Text(place.into()))];
-        assert!(checked(&document(&pairs), &supplied(), &Env::none()).is_ok(), "{place}");
-    }
-    let (refused, reason) = refusal(&[(
-        "terminal.openJobTerminalIn",
-        SettingValue::Text("tab".into()),
-    )]);
-    assert_eq!(refused.as_deref(), Some("terminal.openJobTerminalIn"));
-    assert!(reason.contains("must be one of docked, side panel, window"), "{reason}");
 }
 
 /// The effort settings take every level the agent CLI does, and nothing else.

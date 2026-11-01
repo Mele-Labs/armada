@@ -1,4 +1,4 @@
-// The Job's right column answers its keys: ⇧⌘A opens Artifacts over the column, where the story is, and Esc gives the story back. Browser: the workspace is
+// The Job's area answers its keys. Browser: the workspace is
 // mounted over a host standing for the deck's right column, and a rendering is what is read.
 
 import { act } from "react";
@@ -69,54 +69,6 @@ function mount() {
 
 const press = (init: KeyboardEventInit) => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })));
 const layer = (side: HTMLElement) => side.querySelector('section.sv-layer[aria-label="Artifacts"]');
-const panels = (side: HTMLElement) => [...side.querySelectorAll("section.sv-panel")].map((one) => one.getAttribute("data-area"));
-
-test("the story is the right column's Done, Now and Open in order on one timeline, with no layer over it", () => {
-  const { side } = mount();
-  expect(panels(side)).toEqual(["done", "now", "next"]);
-  expect(side.querySelector(".sv-spine")).not.toBeNull();
-  expect(layer(side)).toBeNull();
-});
-
-test("⇧⌘A opens Artifacts over the right column, and Esc gives the story back", () => {
-  const { side, thread } = mount();
-  press({ metaKey: true, shiftKey: true, code: "KeyA" });
-  const open = layer(side);
-  expect(open).not.toBeNull();
-  // It covers the column, not the thread: the thread's host holds no layer.
-  expect(thread.querySelector("section.sv-layer")).toBeNull();
-  expect(open!.textContent).toContain("Lease notes");
-  press({ key: "Escape" });
-  expect(layer(side)).toBeNull();
-  expect(panels(side)).toEqual(["done", "now", "next"]);
-});
-
-test("⇧⌘A again closes Artifacts", () => {
-  const { side } = mount();
-  press({ metaKey: true, shiftKey: true, code: "KeyA" });
-  expect(layer(side)).not.toBeNull();
-  press({ metaKey: true, shiftKey: true, code: "KeyA" });
-  expect(layer(side)).toBeNull();
-});
-
-test("a band's key while Artifacts is open closes it and folds the zone by hand", () => {
-  const { side } = mount();
-  const next = () => side.querySelector('section[data-area="next"]')!;
-  expect(next().hasAttribute("data-collapsed")).toBe(false);
-  press({ metaKey: true, shiftKey: true, code: "KeyA" });
-  press({ altKey: true, code: "Digit3" });
-  expect(layer(side)).toBeNull();
-  expect(next().hasAttribute("data-collapsed")).toBe(true);
-});
-
-test("a zone folded by hand is still folded when the Job is left and entered again", () => {
-  const first = mount();
-  press({ altKey: true, code: "Digit3" });
-  expect(first.side.querySelector('section[data-area="next"]')!.hasAttribute("data-collapsed")).toBe(true);
-  first.unmount();
-  const again = mount();
-  expect(again.side.querySelector('section[data-area="next"]')!.hasAttribute("data-collapsed")).toBe(true);
-});
 
 test("⌥M puts the caret in the open Job's Message box", () => {
   const { thread } = mount();
@@ -139,22 +91,4 @@ test("the keys other than ⇧⌘A open nothing: ⌘A alone and ⇧A alone leave 
   press({ metaKey: true, code: "KeyA" });
   press({ shiftKey: true, code: "KeyA" });
   expect(layer(side)).toBeNull();
-});
-
-test("the five views are a strip above the story, and a press opens a view in the spine under it, and a view with nothing in it stays off", () => {
-  const { side, thread } = mount();
-  const strip = side.querySelector('[role="toolbar"][aria-label="Views"]');
-  expect(strip).not.toBeNull();
-  expect([...strip!.querySelectorAll("button[data-view]")].map((one) => one.getAttribute("data-view"))).toEqual(["artifacts", "system", "checks", "subagents", "slot"]);
-  // This Job has run no Checks, so its button is in its place and off.
-  expect(strip!.querySelector<HTMLButtonElement>('button[data-view="checks"]')!.disabled).toBe(true);
-  act(() => strip!.querySelector<HTMLButtonElement>('button[data-view="artifacts"]')!.click());
-  const open = side.querySelector('section.sv-layer[aria-label="Artifacts"]');
-  expect(open).not.toBeNull();
-  // In the spine's body, beside the story, with the strip outside it; the thread's host holds no layer.
-  expect(open!.closest(".sv-story-body")).not.toBeNull();
-  expect(strip!.closest(".sv-story-body")).toBeNull();
-  expect(thread.querySelector("section.sv-layer")).toBeNull();
-  act(() => strip!.querySelector<HTMLButtonElement>('button[data-view="artifacts"]')!.click());
-  expect(side.querySelector("section.sv-layer")).toBeNull();
 });

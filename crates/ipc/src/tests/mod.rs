@@ -37,7 +37,7 @@ mod shape;
 mod thought;
 /// A Job's timeline, in the three shapes a row can be.
 mod limits;
-mod adversarial_review;
+mod judge;
 mod review_runs;
 mod layout;
 mod key_bindings;

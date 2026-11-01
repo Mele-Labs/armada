@@ -27,7 +27,7 @@ test("the sidebar lists Kit, Fleet, Mods and Bridge entries in order, and an ent
   await expect.poll(labels("Fleet")).toEqual(["Limits", "Timeouts", "Retention", "Plan", "Machine", "Account", "Store", "Features"]);
   // Mods lists Words and Fleet only once a teaching has made a mod of that kind.
   await expect.poll(labels("Mods")).toEqual(["All", "Theme", "Layout"]);
-  await expect.poll(labels("Bridge")).toEqual(["Spacing", "Keyboard shortcuts", "Command palette", "Time", "Editor", "Terminal", "Links", "Phone", "Guides"]);
+  await expect.poll(labels("Bridge")).toEqual(["Spacing", "Keyboard shortcuts", "Command palette", "Thread", "Time", "Editor", "Terminal", "Links", "Phone", "Guides"]);
   // Each Fleet entry draws its one section under its own heading.
   for (const name of ["Limits", "Timeouts", "Retention", "Plan", "Machine", "Account", "Store", "Features"]) {
     await toSystemPage(name);
@@ -204,17 +204,6 @@ test("Settings > Keyboard rebinds a key, and the new key is the one that acts", 
   // Reset puts the registry's key back.
   await helm.getByRole("button", { name: "Reset Helm" }).click();
   await expect.element(helm.getByRole("button", { name: /^Helm: ⌘J$/ })).toBeVisible();
-});
-
-test("Terminal lists where a Job's terminal opens, docked by default, the side panel or a window, and saves the choice by key", async () => {
-  const app = mount(onBoard(), { slices: ["core", "settings"] });
-  const save = vi.spyOn(app.api, "saveSettings");
-  await toSystemPage("Terminal");
-  const place = page.getByRole("combobox", { name: "Open a Job's terminal in", exact: true });
-  await expect.element(place).toHaveValue("docked");
-  expect([...(place.element() as HTMLSelectElement).options].map((one) => one.text)).toEqual(["docked", "side panel", "window"]);
-  await place.selectOptions("window");
-  expect(save).toHaveBeenCalledWith({ "terminal.openJobTerminalIn": "window" });
 });
 
 test("Large context sits under Plan with no sentence, names Context limit in its tooltip, and saves its choice by key", async () => {

@@ -94,20 +94,14 @@ test("the Cockpit tab returns from a page opened from the deck exactly", async (
   await expect.poll(label).toContain("Pin the store clock");
   const was = label();
 
-  // The reports open over the Cockpit, which stays mounted under them.
+  // Studios is a place of its own: the Cockpit under it keeps the Job that was open.
   await userEvent.keyboard("{Meta>}k{/Meta}");
-  await page.getByRole("option", { name: "Reported" }).click();
-  await expect.element(page.getByRole("button", { name: "Back to the list" })).toBeVisible();
+  await page.getByRole("option", { name: "Studios" }).click();
   await expect.poll(() => document.querySelector(".deck-list")).toBeNull();
 
   await places().getByRole("tab", { name: "Cockpit" }).click();
   await expect.poll(label).toBe(was);
   expect(document.querySelector('.deck-row[data-selected]')?.getAttribute("aria-label")).toBe("Pin the store clock");
-
-  // Exactly, to history too: the tab went back to the deck and did not open it a second time, so Back does not find the page again.
-  await userEvent.keyboard("{Meta>}[[{/Meta}");
-  await new Promise((done) => window.setTimeout(done, 200));
-  expect(document.querySelector(".deck-list")).not.toBeNull();
 });
 
 test("Checks filters list, Activity and Stage to subjects running a Check", async () => {
@@ -145,15 +139,17 @@ test("in the deck's lists, o opens the item under the cursor as Enter does", asy
   await expect.poll(() => document.querySelector('.deck-autopilot [role="switch"]')).not.toBeNull();
   // What the stage is labelled while nothing is picked.
   const AT_REST = "Flight map";
+  // A Job opens on the stage; a bay, a pull request and a Check open in the side panel over it.
+  const shown = () => document.querySelector(".armada-sheet")?.getAttribute("aria-label") ?? stage()?.getAttribute("aria-label") ?? "";
   const opened = async (selector: string, key: string) => {
     const item = document.querySelector<HTMLElement>(selector);
     expect(item, selector).not.toBeNull();
     item!.focus();
     await userEvent.keyboard(key);
-    await expect.poll(() => stage()?.getAttribute("aria-label") ?? "", { message: `${key} on ${selector}` }).toMatch(new RegExp(`^(?!${AT_REST}$).+`));
-    const label = stage()!.getAttribute("aria-label");
+    await expect.poll(shown, { message: `${key} on ${selector}` }).toMatch(new RegExp(`^(?!${AT_REST}$).+`));
+    const label = shown();
     await leave();
-    await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").not.toBe(label);
+    await expect.poll(shown).not.toBe(label);
     return label;
   };
   for (const selector of [".deck-list .deck-row", ".deck-bays .deck-bay", ".deck-queue button.deck-chip"]) {

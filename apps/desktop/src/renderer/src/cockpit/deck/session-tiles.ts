@@ -43,9 +43,9 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "system", label: "System", text: "System" },
   // Opens Requests in the side panel for this Job. Past the tenth, so no key.
   { id: "requests", label: "Requests", text: "Requests" },
-  // The Job's shell, docked or in the side panel as `terminal.openJobTerminalIn` says (`job-shell-dock.tsx`). Moved here from the Job's header on the owner's ask of 23 Oct 2026.
+  // The Job's shell, docked or in its window (`job-shell-dock.tsx`). A Job in panes has it as a tab, and this tile is drawn only where it has none. Moved here from the Job's header on the owner's ask of 23 Oct 2026.
   { id: "terminal", label: "Terminal", text: "Terminal" },
-  // The Job browser, in the side panel (`job-browser/`). Drawn for every Job, as every tile keeps its seat; a press where the Job has none makes one.
+  // The Job browser, a tab of a Job in panes (`job-browser/`). Never drawn as a tile; its key brings the Browser tab forward or opens one.
   { id: "browser", label: "Browser", text: "Browser" },
   // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is p, not a digit.
   { id: "pause", label: "Pause", text: "Pause" },
@@ -136,8 +136,8 @@ export function offeredOf(session: Session, draft: SessionsDraft, root: string |
   if (attachmentsOf(session, "subagent").length === 0) off.subagents = "The Job has no subagents";
   if (!session.rows.some((one) => one.kind === "check")) off.checks = "The Job has run no Checks";
   if (!holdsBays) off.slot = "The Job holds no bay";
-  // A judge reads the work against its plan, so it needs a plan to read and a way to be sent.
-  if (draft.work?.judge === undefined || session.work?.plan === undefined) off.judge = "No plan to judge against";
+  // A judge reads any artifact of the Job, the whole Job included, so it needs only a Fleet that serves one.
+  if (draft.judge === undefined) off.judge = "Fleet does not offer this";
   if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";
   else if (heldOf(session).length === 0) off.release = "The Job holds nothing";
   if (draft.pause === undefined) off.pause = "Fleet does not offer this";

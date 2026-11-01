@@ -170,8 +170,8 @@ mod repositories;
 mod requester;
 /// Requests: an HTTP request the owner or an agent sends, its collections and environments.
 mod requests;
-/// An adversarial review: a read-only call that tries to break what a person is about to approve.
-mod adversarial_review;
+/// A Judge on demand: a read-only call on one artifact of a Job, answered with notes.
+mod judge;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// Natural Search, and where a change runs for the Walk tool.
@@ -202,6 +202,8 @@ mod session_checks;
 mod session_notes;
 /// A hosted job's MCP servers, read and acted on. `get_session_mcp`, `act_on_session_mcp`.
 mod session_mcp;
+/// The replies a Job's quick bar offers that no setting holds. `get_session_quick`.
+mod session_quick;
 mod slot_asking;
 mod session_retro_row;
 mod session_starts;
@@ -255,8 +257,6 @@ mod session_build;
 mod session_plan;
 /// How a Job's work is to be delivered, and the one thing that is asked about it.
 mod session_delivery;
-/// A Session's workflow rail and its judges: the step it is on, and the concerns a judge raises.
-mod session_rail;
 /// What crossed the stream since a cursor, counted rather than carried.
 /// **An agent's substitute for the socket it cannot hold.**
 mod since;
@@ -393,6 +393,7 @@ pub use session_mcp::{
     ActOnSessionMcp, McpServerAct, McpServerState, McpSignIn, SessionMcp, SessionMcpActed,
     SessionMcpServer,
 };
+pub use session_quick::SessionQuick;
 pub use session_notes::{
     Candidate, NoteCrop, NoteElement, NotePlace, NoteSent, NoteState, NoteTake, NoteWalk,
     NotesSent, SendSessionNote, SendSessionNotes, SessionNote,
@@ -458,7 +459,7 @@ pub use merge_line::{
     MergeLineCheck, MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use mods::{
-    ModAim, ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSessionStarted, ModSummary,
+    ModAim, ModChecked, ModKind, ModList, ModOrigin, ModPromoted, ModPullRequest, ModScaffolded, ModSessionStarted, ModSummary, TabModule,
     PromoteMod, ScaffoldMod, SetModEnabled, StartModSession, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{
@@ -522,7 +523,7 @@ pub use requester::Requester;
 pub use logbook::{
     EditLogbookEntry, Logbook, LogbookEarlier, LogbookEntry, LogbookEvidence, ForgottenLogbookEntry, LogbookKind, LogbookReplacedBy,
     LogbookSection, LogbookState, LogbookTidy, LogbookTidyLast, LogbookTopic, LockLogbookEntry, AppliedOrganizeLogbook,
-    ApplyOrganizeLogbook, OrganizeAction, OrganizeLogbook, OrganizedLogbook, OrganizeProposal, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
+    ApplyOrganizeLogbook, OrganizeAction, OrganizeLogbook, OrganizedLogbook, OrganizingLogbook, DismissedOrganizeLogbook, LogbookOrganize, OrganizeProposal, TeachLogbookEntry, TeachSource, TidiedLogbook, TidyLogbook,
 };
 pub use teaching::{
     ProposedAddress, ProposedFleet, ProposedRule, ReadTeaching, SaveTeaching, SavedTeaching, TeachingLayout, TeachingNote, TeachingProposal, TeachingReach,
@@ -537,9 +538,9 @@ pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
     RunFactKind,
 };
-pub use adversarial_review::{
-    AdversarialFinding, AdversarialReview, AdversarialReviewState, DismissFinding, FindingAnchor, FindingHow,
-    FindingSettled, ReviewSubject, SendFinding, StartAdversarialReview,
+pub use judge::{
+    AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
+    JudgeState, MarkJudgeRead, SendJudgeNote,
 };
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
@@ -664,10 +665,6 @@ pub use session_plan::{
     PlanHold, PlanHoldWhy, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
     TaskStale, TouchAct, TouchBy, FIRST_PULL_REQUEST, MOST_LANDS_IN_CHARS, MOST_MARKS, TASK_LIST_IS_THE_PLAN,
-};
-pub use session_rail::{
-    ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading,
-    JudgeSession, WaitingCite, SendConcern,
 };
 pub use session_build::{
     BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, ReportedTask,

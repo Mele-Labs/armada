@@ -133,7 +133,6 @@ WebSocket event stream, read this first.
 | [A Job's build record](protocol/a-jobs-build-record.md) |
 | [A Job's plan and its file touches](protocol/a-jobs-plan-and-its-file-touches.md) |
 | [Protocol 23.91: a Job's request is read, and its workflow is on the record](protocol/protocol-23-91-a-jobs-request-is-read-and-its-workflow-is-on-the-record.md) |
-| [A Job's rail and its judges](protocol/a-jobs-rail-and-its-judges.md) |
 | [A terminal's permission prompt is a call](protocol/a-terminals-permission-prompt-is-a-call.md) |
 | [Helm is a Job](protocol/helm-is-a-job.md) |
 | [A waiting item's steps](protocol/a-waiting-items-steps.md) |
@@ -171,11 +170,12 @@ WebSocket event stream, read this first.
 | [A walk's notes, sent as one turn: `send_session_notes`](protocol/a-walks-notes-sent-as-one-turn.md) |
 | [The owner's notes on a pull request's lines: `list_pull_request_notes` and four more](protocol/the-owners-notes-on-a-pull-requests-lines.md) |
 | [A Job's MCP servers: `get_session_mcp`, `act_on_session_mcp`](protocol/a-jobs-mcp-servers.md) |
+| [A Job's quick replies: `get_session_quick`](protocol/a-jobs-quick-replies.md) |
 | [A background act's failure: `act.failed`](protocol/a-background-acts-failure-act-failed.md) |
 | [Kit's Add and Remove: a plugin or a skill](protocol/kit-add-and-remove-a-plugin-or-a-skill.md) |
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |
 | [A Mod Job: `start_mod_session`, `mod` and `made_by`](protocol/a-mod-job.md) |
-| [An adversarial review of a plan: `start_adversarial_review`, `send_finding`, `dismiss_finding`](protocol/an-adversarial-review-of-a-plan.md) |
+| [A Job is judged on demand: `ask_judge`, `send_judge_note`, `dismiss_judge_note`, `mark_judge_read`](protocol/a-job-is-judged-on-demand.md) |
 | [The agents' account signed out: `agent_sign_in.changed`, `get_agent_sign_in`, `start_agent_sign_in`](protocol/the-agents-account-signed-out.md) |
 | [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
@@ -1375,7 +1375,8 @@ The protocol ID moves with `crates/ipc/src`, the operation files, the route tabl
 | Where | Side | Carries |
 | --- | --- | --- |
 | `LogbookEntry.topic` | Fleet writes | `git`, `slots`, `testing`, `tools` or `mac`; absent until the sorter places the entry, and then Other |
-| `organize_logbook` (`POST /logbook/organize`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `OrganizeLogbook` `{ action, repository? }`, `action` one of `merge`, `stale`, `bugs`; answers `OrganizedLogbook` `{ action, proposals, failed }`. Writes nothing. Waits for the model calls of `merge` and `bugs` |
+| `organize_logbook` (`POST /logbook/organize`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `OrganizeLogbook` `{ action, repository? }`, `action` one of `merge`, `stale`, `bugs`; answers `OrganizingLogbook` `{ running }` at once; the look runs on a task of its own and its `OrganizedLogbook` `{ action, proposals, failed }` is `Logbook.organize.last` (`organize.running` while it goes), held until applied or dismissed. Writes nothing |
+| `dismiss_organize_logbook` (`POST /logbook/organize/dismiss`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | No body; answers `{}`; drops `organize.last` |
 | `OrganizeProposal` | Fleet writes | `{ id, entry_ids, text, note }`: a merge lists the kept entry first in `entry_ids` and carries the text it would read; `stale` and `bugs` name one entry, `note` saying how long or the fault |
 | `apply_organize_logbook` (`POST /logbook/organize/apply`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ApplyOrganizeLogbook` `{ action, proposals }`; answers `AppliedOrganizeLogbook` `{ action, applied, reported }`. `bugs` writes nothing and answers the proposals as `reported` |
 
