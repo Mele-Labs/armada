@@ -244,7 +244,7 @@ It has no build step and no `import`: a module loaded from text has no path to i
 |---|---|
 | `React` | The React Bridge runs, so `host.React.createElement` and its hooks |
 | `armada` | The whole Fleet API, as Bridge's own code has it |
-| `ui` | Bridge's components |
+| `ui` | Bridge's primitives by name: `Button`, `Tooltip`, `Table`, `Tabs` and the rest of the list in `job-panes/tab-ui.ts` |
 | `glyphs` | Bridge's icons by registry name |
 | `job`, `tab` | The ids of the Job the tab is open in and of the tab |
 

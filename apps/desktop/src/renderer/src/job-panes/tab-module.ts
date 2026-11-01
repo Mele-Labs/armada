@@ -5,15 +5,16 @@
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
 import type * as React from "react";
-import type * as ui from "@armada/components";
+
+import type { TabUi } from "./tab-ui";
 
 /** What a tab is handed, in place of an `import`. */
 export type TabHost = {
   React: typeof React;
   /** The whole Fleet API, as Bridge's own code has it. */
   armada: Window["armada"];
-  /** Bridge's components. */
-  ui: typeof ui;
+  /** Bridge's primitives, by name (`tab-ui.ts`). */
+  ui: TabUi;
   /** Bridge's icons, by their name in the registry. */
   glyphs: Readonly<Record<string, LucideIcon>>;
   /** The Job the tab is open in, and the tab. */

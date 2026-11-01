@@ -2,12 +2,12 @@
 // the code on screen, and the last module that loaded stays until the next one does. A module that throws as it draws is told in the body and does not take the pane with it.
 
 import * as React from "react";
-import * as ui from "@armada/components";
 
 import { useModList } from "../mod-list";
 import "./tab-host.css";
 import { loadTabModule, type TabComponent, type TabHost } from "./tab-module";
 import { TAB_GLYPHS } from "./tab-glyph";
+import { TAB_UI } from "./tab-ui";
 
 type Loaded = { Component: TabComponent | undefined; /** Which load it came from. */ load: number; problems: readonly string[] };
 
@@ -54,7 +54,7 @@ class Contained extends React.Component<{ children: React.ReactNode }, { failed:
 
 export function TabMod({ mod, jobId, tabId }: { mod: string; jobId: string; tabId: string }) {
   const { Component, load, problems } = useTabModule(mod);
-  const host = React.useMemo<TabHost>(() => ({ React, armada: window.armada, ui, glyphs: TAB_GLYPHS, job: { id: jobId }, tab: { id: tabId } }), [jobId, tabId]);
+  const host = React.useMemo<TabHost>(() => ({ React, armada: window.armada, ui: TAB_UI, glyphs: TAB_GLYPHS, job: { id: jobId }, tab: { id: tabId } }), [jobId, tabId]);
   if (Component === undefined) {
     return problems.length === 0 ? null : (
       <ul className="job-custom__faults" role="alert">
