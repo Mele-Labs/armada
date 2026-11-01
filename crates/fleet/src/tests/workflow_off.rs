@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use api::{Autopilots, HostedSessions, Refusal, Sessions};
 use ipc::{
-    AutopilotSettings, BeginSession, DeliveryChoice, JudgeSession, SaveSettings, SessionFact, SessionReport, SetSessionWorkflow,
+    AutopilotSettings, BeginSession, DeliveryChoice, SaveSettings, SessionFact, SessionReport, SetSessionWorkflow,
     SettingValue, SettingsList,
 };
 use testkit::{FakeBeads, FakeBeadsRemote, FakeJudge, FakeTrackers};
@@ -191,8 +191,6 @@ async fn a_job_on_an_off_workflow_has_no_step_nudge_or_boundary_judge_and_switch
     assert_eq!(read.workflow_step, None, "no current step");
     assert_eq!(told(&rig, "edited files before"), 0, "no nudge");
     assert_eq!(judge.asked().len(), asked_before, "no boundary judge: {:?}", judge.asked());
-    let tile = Arc::clone(&rig.fleet).judge_session(JudgeSession { session_id: id.clone() }).await.expect("asked");
-    assert!(tile.judging, "the tile still reads");
 
     saved(&rig, back_on()).await;
     let resumed = record(&rig, &id).await;

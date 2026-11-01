@@ -1,10 +1,10 @@
 // One view of a Session, on the Cockpit and on the Sessions page: its thread and composer in the middle, its plan and workflow in the Status
-// area, its drones on a Field, a judge's concerns as cards, and a proposal to start from. One Session goes from its dispatched words to a
+// area, its drones on a Field, and a proposal to start from. One Session goes from its dispatched words to a
 // pull request ready, a step each time the walk lets time pass or he presses an act. The Session's `work` is draft data
 // (`packages/screens/src/draft/sessions.ts`); nothing here reaches Fleet. The walk `oneSessionView` plays it, in two takes.
 
 import type { TimelineEvent, WriteClash, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
-import type { PlanChanges, Session, SessionRow, SessionWork, WorkConcern, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
+import type { PlanChanges, Session, SessionRow, SessionWork, WorkDrone, WorkFile, WorkGroup, WorkTask, WorkTaskState, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { linesOf } from "../../session-view/plan-marks";
@@ -340,11 +340,6 @@ function fieldAt(beat: Beat, made: ReadonlySet<string>, gone: ReadonlySet<string
   return { field, files };
 }
 
-const CONCERNS: WorkConcern[] = [
-  { id: "c1", step: "Build", judge: "Judge", text: "The retry reads the pool without holding the lease lock, so two Sessions can still take one bay.", cites: ["crates/fleet/src/lease.rs"] },
-  { id: "c2", step: "Build", judge: "Judge", text: "The back off has no ceiling.", cites: ["crates/fleet/src/backoff.rs"] },
-];
-
 /** The sketch the agent draws with its plan: the change wired together, in the format `show_sketch` takes. */
 const PLAN_SKETCH_ID = "sketch:Plan";
 const PLAN_SKETCH = scene(
@@ -355,15 +350,6 @@ const PLAN_SKETCH = scene(
   ],
   [arrow("fleet", "wire", "attempts", undefined, 2), arrow("wire", "bridge", "lease reply", undefined, 3)],
 );
-
-/** What a judge sent by hand finds the first time: one concern on the build so far. A second read finds nothing. */
-const SENT_CONCERN: WorkConcern = { id: "j1", judge: "Judge", text: "The lease is renewed after the retry, so a slow attempt can outlive it.", cites: ["crates/fleet/src/lease.rs"] };
-const READ_MS = 2200;
-
-const REPLIES: Record<string, string> = {
-  c1: "The read now happens under the lease lock.",
-  c2: "The back off stops at two seconds.",
-};
 
 const QUESTIONS = [
   {
@@ -389,8 +375,6 @@ function sessions(): SessionsStore {
   let only: readonly Session[] = [];
   let stage = 0;
   let rowId = 0;
-  /** How many times a judge has been sent by hand. */
-  let judged = 0;
   let clock = 2 * 60 + 2;
   const timers = new Set<number>();
   const stamp = () => {
@@ -587,32 +571,6 @@ function sessions(): SessionsStore {
           });
         }
       },
-      sendConcern: (_id, concern) => {
-        const one = mine()?.work?.concerns?.find((it) => it.id === concern);
-        if (one === undefined) return;
-        works((work) => ({ ...work, concerns: (work.concerns ?? []).filter((it) => it.id !== concern) }));
-        push([asked(`${one.step ?? "Judge tile"}: ${one.text}`)], working());
-        after(700, () => push([tool("Edit crates/fleet/src/lease.rs"), said(REPLIES[concern] ?? "Noted.")], idle()));
-      },
-      judge: async () => {
-        works((work) => ({ ...work, judging: true }));
-        after(READ_MS, () => {
-          const found = judged === 0;
-          judged += 1;
-          works((work) => {
-            const { judging: was, ...rest } = work;
-            void was;
-            return { ...rest, judged: { at: new Date().toISOString(), concerns: found ? 1 : 0 }, ...(found ? { concerns: [...(work.concerns ?? []), SENT_CONCERN] } : {}) };
-          });
-        });
-      },
-      dismissConcern: (_id, concern) => {
-        const one = mine()?.work?.concerns?.find((it) => it.id === concern);
-        if (one === undefined) return;
-        // Folded to a settled line in the thread. The agent is told nothing.
-        works((work) => ({ ...work, concerns: (work.concerns ?? []).filter((it) => it.id !== concern) }));
-        push([next((id, at): SessionRow => ({ id, at, kind: "concern", step: one.step ?? "Judge", text: one.text }))]);
-      },
     },
     // The question the agent asked is answered, and it goes on to record the plan.
     answer: (_id, answer, answers) => {
@@ -658,9 +616,7 @@ function sessions(): SessionsStore {
         push([tool("Edit crates/ipc/src/lease.rs"), tool("Edit apps/desktop/src/renderer/src/cockpit/deck/BayRows.tsx")], working());
       } else if (stage === 2) {
         building(3);
-        // A judge reads the Build step and raises two concerns. Neither blocks: the agent goes on.
-        works((work) => ({ ...work, concerns: CONCERNS }));
-        // At the same moment another Session asks for something: its call is the Cockpit's, and the concerns above are not.
+        // Another Session asks for something: its call is the Cockpit's.
         base.edit(QUIET, (one) => ({ ...one, asked: { command: "git push -u origin fix/migration-names", call: "v-q2", offers: ["allow_once", "refuse"] } }));
       } else if (stage === 3) {
         building(4);
@@ -736,7 +692,7 @@ const CLASHES: readonly WriteClash[] = [
 ];
 
 function build(): Scenario {
-  const base = holding("one-session-view", "One view of a Session on the Cockpit and the Sessions page: plan and workflow, field, concerns, proposal");
+  const base = holding("one-session-view", "One view of a Session on the Cockpit and the Sessions page: plan and workflow, field, proposal");
   return {
     ...base,
     state: { ...base.state, repository: null },

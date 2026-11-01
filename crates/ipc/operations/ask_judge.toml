@@ -1,0 +1,14 @@
+[operations.ask_judge]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Ask a Judge to read one artifact of a Job, once, and answer with notes"
+notes = """
+`POST /sessions/judge`, body `AskJudge`: `session_id`, `artifact` (`{kind, id, title}`) and `prompt`, empty to ask what was missed. Since 31 Oct 2026. `docs/practices/protocol/a-job-is-judged-on-demand.md`. **Answers at once** with a `JudgeReading`, `reading`; the finished one is carried by the Job's `judge_readings` on `session.changed`, so no event of its own.
+
+`kind` is one of `job`, `plan`, `pull_request`, `commit`, `file`, `page`, `doc`, `sketch`, `command`, `subagent`, `issue` and `note`; `id` is the kind's own (a pull request's number, a commit's row, a path, a page's address, the plan's version) and `title` names it in a line.
+
+**Only a press starts one.** The Job keeps one reading per `(kind, id)`, and a new one replaces the one before it with a fresh `id`. A reading already `reading` for the same artifact is answered, not started twice. The Judge replaces the old Session judge and the plan's adversarial review.
+
+404 `fleet.no_such_session` where no Job has that id. 409 `fleet.session_closed` for a Job that ended.
+"""

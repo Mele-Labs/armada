@@ -6,8 +6,8 @@ import { holdsText } from "@armada/screens/src/keys";
 import { keyPressed } from "./flight-controls";
 import { PAUSE_KEY } from "./session-tiles";
 
-// The tiles, and the buttons of the views in the Job's head (`JobViews.tsx`).
-const DRAWN = ".deck-controls .deck-tile[data-key], button[data-view][data-key]";
+// The tiles, the acts a Job in panes draws in its Thread head, and the buttons of the views in the Job's head (`JobViews.tsx`).
+const DRAWN = ".deck-controls .deck-tile[data-key], .job-acts [data-key], button[data-view][data-key]";
 
 /** The drawn tile whose key, a letter or a chord, this press is. */
 export const flightTileFor = (event: KeyboardEvent): HTMLElement | null => [...document.querySelectorAll<HTMLElement>(DRAWN)].find((one) => keyPressed(one.dataset.key ?? "", event)) ?? null;
@@ -32,6 +32,6 @@ export const showTile = (tile: HTMLElement) => tile.scrollIntoView({ block: "nea
 /** What P presses: the list row's Pause, else the open Job's Pause tile while it wears P. With another key on it, P is left to whichever tile was given P. */
 export function pauseForP(row: HTMLElement | null): HTMLElement | null {
   if (row !== null) return row;
-  const tile = document.querySelector<HTMLElement>('.deck-controls__block[data-subject="session"] [data-act="pause"]');
+  const tile = document.querySelector<HTMLElement>('.deck-controls__block[data-subject="session"] [data-act="pause"], .job-acts [data-act="pause"]');
   return tile?.dataset.key === PAUSE_KEY ? tile : null;
 }

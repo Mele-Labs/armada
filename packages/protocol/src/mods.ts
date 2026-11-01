@@ -11,9 +11,9 @@ import type { FleetRule } from "./teaching";
 /**
  * What a mod changes. A `mod.toml` naming another kind makes the mod invalid, so a valid row's is one of these.
  * `words` is a pattern Bridge links, `fleet` what Fleet does with a notice, `tweak` token values layered over the theme,
- * `commands` rows added to the command palette.
+ * `commands` rows added to the command palette, `tab` a tab Bridge loads as part of itself, drawn with the whole Fleet API.
  */
-export type ModKind = "theme" | "layout" | "words" | "fleet" | "tweak" | "tracker" | "commands";
+export type ModKind = "theme" | "layout" | "words" | "fleet" | "tweak" | "tracker" | "commands" | "tab";
 
 /** Where a mod comes from: this machine's mods folder, or `packages/mods/` in the build Fleet runs. */
 export type ModOrigin = "local" | "built_in";

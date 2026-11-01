@@ -495,6 +495,17 @@ pub trait WorkProduct {
         branch: &str,
     ) -> Result<BranchWork, Self::Error>;
 
+    /// What the one commit `sha` changes against its first parent, or against
+    /// nothing where it has none. **Read from the repository at `repository`,
+    /// with no worktree checked out**, like [`branch_work`](WorkProduct::branch_work).
+    ///
+    /// `sha` is a commit's hash, whole or abbreviated, and nothing else: a
+    /// branch name or a revision expression is an error, so a caller cannot be
+    /// handed a reading of something other than the commit it named. A commit
+    /// the repository lacks is an error and never an empty answer, for
+    /// [`changed_files`](WorkProduct::changed_files)'s reason.
+    fn commit_work(&self, repository: &str, sha: &str) -> Result<BranchWork, Self::Error>;
+
     /// The paths the index holds as unmerged: a merge or rebase left stages 1,
     /// 2 and 3 for them and nothing has said which side won.
     ///

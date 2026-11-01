@@ -1,0 +1,10 @@
+[operations.dismiss_judge_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Dismiss a Judge's note, telling the Job's agent nothing"
+notes = """
+`POST /sessions/judge/dismiss`, body `DismissJudgeNote`: `session_id`, `reading` and `note`. Since 31 Oct 2026. Answers the `JudgeReading` with the note settled `{how: "dismissed", at}`, and `SessionChanged` is published. **The agent is told nothing.** A note already settled is answered as it stands.
+
+The same 404 `fleet.no_such_session`, `fleet.no_such_judge_reading` and `fleet.no_such_judge_note` as `send_judge_note`.
+"""

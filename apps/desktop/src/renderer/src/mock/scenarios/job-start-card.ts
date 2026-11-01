@@ -139,8 +139,6 @@ export const s323JobStartCard: Scenario = {
           },
           approve: () => undefined,
           suggest: () => undefined,
-          sendConcern: () => undefined,
-          dismissConcern: () => undefined,
         },
       };
     },

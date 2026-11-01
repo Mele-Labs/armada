@@ -3,8 +3,8 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { HandoffBand } from "../NeedsYouPanel/HandoffBand";
 import { SessionComposer } from "../SessionComposer/SessionComposer";
-import { ConcernCard, DoneBody, SessionThread, type SessionThreadProps, type SessionThreadRow } from "./SessionThread";
-import { ThreadKeys } from "./thread-keys";
+import { DoneBody, SessionThread, type SessionThreadProps, type SessionThreadRow } from "./SessionThread";
+import { ThreadKeys, useThreadCard } from "./thread-keys";
 
 /**
  * The four keys on a Job's waiting cards: `⌥↵` yes, `⌥E` change, `⌥R` send back, `⌥X` no. The target is the card holding focus, else the
@@ -209,12 +209,18 @@ export const ConfirmListsOnlyTheCardsThatHaveTheAct: Story = {
   },
 };
 
+/** A card that takes a yes and no no, in the Job's waiting cards. */
+function YesOnlyCard() {
+  const { bind } = useThreadCard({ id: "yes-only", kind: "Plan", title: "The queue has no ceiling.", acts: { yes: { verb: "Send to job", run: fn() } } });
+  return <div {...bind}>The queue has no ceiling.</div>;
+}
+
 /** A card with no no sits above the drafts: with focus in the first draft, `⌥X` lists the two drafts and picks the one holding focus. */
 export const ConfirmPicksTheTargetAmongTheCardsThatHaveTheAct: Story = {
   args: { rows: [DRAFTS[0]!, DRAFTS[1]!], onDraft: fn(), onWithdrawDraft: fn() },
   render: (args) => (
     <>
-      <ConcernCard concern={{ id: "c1", text: "The queue has no ceiling." }} onSend={fn()} />
+      <YesOnlyCard />
       <JobThread {...args} />
     </>
   ),
@@ -425,26 +431,6 @@ export const DoneBandTakesYesAndNo: Story = {
 };
 const DONE = { onEnd: fn(), onKeep: fn() };
 
-/** A judge's concern: `⌥↵` Send to job and `⌥X` Dismiss. */
-export const ConcernTakesYesAndNo: Story = {
-  render: () => <ConcernCard concern={{ id: "c1", text: "The queue has no ceiling." }} onSend={concern.onSend} onDismiss={concern.onDismiss} />,
-  decorators: flat,
-  play: async ({ canvas }) => {
-    concern.onSend.mockClear();
-    concern.onDismiss.mockClear();
-    await waitFor(() => expect(isTarget(canvas.getByRole("group", { name: "Judge: The queue has no ceiling." }))).toBe(true));
-    await alt("{Enter}");
-    await body.findByRole("dialog", { name: "Send to job which?" });
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(concern.onSend).toHaveBeenCalledTimes(1));
-    await alt("x");
-    await body.findByRole("dialog", { name: "Dismiss which?" });
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(concern.onDismiss).toHaveBeenCalledTimes(1));
-    await expect(concern.onSend).toHaveBeenCalledTimes(1);
-  },
-};
-const concern = { onSend: fn(), onDismiss: fn() };
 
 /** A permission the agent is held on: `⌥↵` allows once and `⌥X` takes the refuse the ask offers. */
 export const PermissionTakesAllowOnceAndRefuse: Story = {

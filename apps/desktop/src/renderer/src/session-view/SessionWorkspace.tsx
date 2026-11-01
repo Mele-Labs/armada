@@ -20,14 +20,18 @@ import { useSessionsDraft } from "../sessions-draft";
 import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
-import { StoryColumn, placeZone } from "./StoryColumn";
+import { StoryColumn, placeZone, type StoryZone } from "./StoryColumn";
+import { BrowserBody, ChangesBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
+import { CustomBody } from "../job-panes/custom-body";
+import { JobPanes } from "../job-panes/JobPanes";
+import type { Tab } from "../job-panes/tree";
 import { OverTheApp } from "./OverTheApp";
 import { closeLayer, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
 import { lanesOpenFor } from "../shared-panel/store";
 import { placeLanes, toggleLanes, useWideWindow } from "./lanes-width";
 import type { PlanEditing } from "./PlanEdit";
 import type { LiveOpen } from "./TurnAccountBlock";
-import { Layer } from "./SessionLayers";
+import { Layer, LayerInPane } from "./SessionLayers";
 import { bandOf, isArtifactsKey, isLanesKey, isLedgerKey, isWholeKey, pressBand, pressWhole } from "./story";
 import { flipLedgerView } from "./ledger-view";
 import type { SessionBays } from "./slot-trouble";
@@ -49,6 +53,8 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   useEffect(() => () => dropLayer(id), [id]);
   const work = session.work;
   const side = hosts?.side ?? null;
+  // A Job with a story in the Cockpit has its area in panes, thread and story among them, and no column of its own for the story.
+  const paned = hosts !== undefined && work !== undefined && draft !== undefined;
   const story = work !== undefined && draft !== undefined && side !== null;
   // With a story, every layer opens in the spine under the view strip; without one it covers the stage.
   const aside = story && layer !== undefined;
@@ -78,7 +84,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   }, [hasLanes, id]);
   // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
   useEffect(() => {
-    if (!story) return;
+    if (!story && !paned) return;
     const listen = (event: KeyboardEvent) => {
       if (event.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
       // `message_job`: the caret goes to the Job's message box. Option changes the character M types, so the registry's reader takes the key by its place.
@@ -122,7 +128,70 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
     };
     window.addEventListener("keydown", listen);
     return () => window.removeEventListener("keydown", listen);
-  }, [story, id, layer, session]);
+  }, [story, paned, id, layer, session]);
+  if (paned) {
+    const zone = (only?: StoryZone) => (
+      <div className="sv-story-body">
+        <StoryColumn session={session} entries={entries} work={work} id={id} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} only={only} />
+      </div>
+    );
+    const bodyOf = (tab: Tab) => {
+      switch (tab.kind) {
+        case "thread":
+          return children;
+        case "done":
+          return zone("done");
+        case "now":
+          return zone("now");
+        case "open":
+          return zone("next");
+        case "spine":
+          return zone();
+        case "browser":
+          return <BrowserBody jobId={id} />;
+        case "terminal":
+          return <TerminalBody jobId={id} />;
+        case "changes":
+          return <ChangesBody session={session} />;
+        case "plan":
+          return <PlanBody session={session} />;
+        case "pulls":
+          return <PullsBody session={session} />;
+        case "issues":
+          return <IssuesBody session={session} />;
+        case "jobs":
+          return <JobsBody session={session} onOpenSession={onOpenSession} />;
+        case "ledger":
+          return <LedgerBody session={session} entries={entries} onOpenSession={onOpenSession} />;
+        case "files":
+          return <FilesBody session={session} />;
+        case "request":
+          return <RequestBody session={session} />;
+        case "custom":
+          return <CustomBody tabId={tab.id} manifestId={session.manifestId} onOpenSession={onOpenSession} />;
+        case "subagents":
+          return <Layer id="subagents" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+        case "checks":
+          return <Layer id="checks" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+        case "workflow":
+          return <Layer id="lanes" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+        case "system":
+          return <Layer id="system" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+        case "bays":
+          return <Layer id="slot" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+      }
+    };
+    return (
+      <>
+        <JobPanes jobId={id} body={(tab) => <LayerInPane.Provider value>{bodyOf(tab)}</LayerInPane.Provider>} over={layered} />
+        {/* The title bar holds only the Layout control while a Job is in panes. The views with a key stay drawn out of sight, so their keys still press them; Subagents and Checks are acts in the Thread head. */}
+        {views === undefined ? null : <div hidden><ViewStrip views={views.filter((one) => one.id === "artifacts" || one.id === "system" || one.id === "slot")} /></div>}
+        <TerminalSync jobId={id} />
+        {large}
+        {reading}
+      </>
+    );
+  }
   // A Job with no story still has its views: the strip stands in the column, and a view opens under it.
   if (!story) {
     if (views === undefined || side === null) return <>{children}{layered}{large}</>;
