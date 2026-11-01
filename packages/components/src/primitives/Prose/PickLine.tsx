@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Check, ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { Button } from "../Button/Button";
@@ -126,8 +126,7 @@ export function PickLine({ as: Tag, className, text, children, ...rest }: { as: 
           </span>
         </Tooltip>
       )}
-      <span ref={acts} className="armada-prose__pick-acts" role="group" aria-label={`Answer: ${text}`}
-        style={hot === null ? undefined : { "--pick-x": `${hot.x}px`, "--pick-y": `${hot.y}px` } as CSSProperties}>
+      <span ref={acts} className="armada-prose__pick-acts" role="group" aria-label={`Answer: ${text}`}>
         {ACTS.map(({ kind, label, Glyph }) => (
           <Tooltip key={kind} label={label}>
             <Button variant="ghost" size="sm" iconOnly aria-label={label} tabIndex={-1} onClick={() => {

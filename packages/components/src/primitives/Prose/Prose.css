@@ -450,13 +450,12 @@
   margin: 0;
 }
 
-/* The acts float beside the point the pointer reached the line, kept inside the line's width, so the hand barely moves to them. */
+/* As a chat app's hover bar: a small floating bar on the line's top right corner, lifted above it so the words stay clear. */
 .armada-prose__pick-acts {
-  --pick-acts-w: calc(var(--h-control-sm) * 3 + var(--space-1) * 4);
   z-index: var(--z-menu);
-  top: calc(var(--pick-y, 0px) - var(--h-control-sm) / 2 - var(--space-1));
-  right: auto;
-  left: clamp(0px, calc(var(--pick-x, 100%) + var(--space-3)), calc(100% - var(--pick-acts-w)));
+  top: auto;
+  bottom: calc(100% - var(--space-1));
+  right: var(--space-2);
   display: flex;
   gap: var(--space-1);
   padding: var(--space-1);
