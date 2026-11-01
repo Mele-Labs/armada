@@ -137,6 +137,7 @@ mod subagent_rows;
 mod task_marks;
 mod session_provenance;
 mod session_proposal;
+mod session_quick;
 mod delivery_gate;
 mod start_card;
 mod session_rail;

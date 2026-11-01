@@ -171,6 +171,7 @@ WebSocket event stream, read this first.
 | [A walk's notes, sent as one turn: `send_session_notes`](protocol/a-walks-notes-sent-as-one-turn.md) |
 | [The owner's notes on a pull request's lines: `list_pull_request_notes` and four more](protocol/the-owners-notes-on-a-pull-requests-lines.md) |
 | [A Job's MCP servers: `get_session_mcp`, `act_on_session_mcp`](protocol/a-jobs-mcp-servers.md) |
+| [A Job's quick replies: `get_session_quick`](protocol/a-jobs-quick-replies.md) |
 | [A background act's failure: `act.failed`](protocol/a-background-acts-failure-act-failed.md) |
 | [Kit's Add and Remove: a plugin or a skill](protocol/kit-add-and-remove-a-plugin-or-a-skill.md) |
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |

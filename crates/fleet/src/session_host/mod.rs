@@ -58,6 +58,7 @@ mod noting;
 mod modding;
 mod auto_landing;
 mod pausing;
+pub(crate) mod quick;
 mod reach_folders;
 pub(crate) mod delivering;
 pub(crate) mod start_card;
@@ -155,6 +156,8 @@ pub struct Hosts {
     account_every: AtomicU64,
     /// Waiting items, by session and item, whose answer or removal is being delivered now.
     settling: Arc<Mutex<std::collections::HashSet<(String, String)>>>,
+    /// The quick bar's answers to each Job's last message, and the lines he sends often.
+    pub(crate) quick: quick::Kept,
 }
 
 /// One waiting item claimed while its answer or removal is delivered, let go when dropped. **Why
@@ -190,6 +193,7 @@ impl Hosts {
             activity_every: AtomicU64::new(activity::PUBLISH_EVERY.as_millis() as u64),
             account_every: AtomicU64::new(account::WRITE_EVERY.as_millis() as u64),
             settling: Arc::default(),
+            quick: quick::Kept::default(),
         }
     }
 

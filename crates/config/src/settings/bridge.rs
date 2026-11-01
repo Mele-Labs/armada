@@ -33,7 +33,7 @@ pub(super) const BRIDGE: &[Entry] = &[
         env: None,
         tip: None,
     },
-    // One value Bridge owns, for the Aa panel in a Job's head and System › Thread to read and write alike. Fleet does not look inside it.
+    // One value Bridge owns, for the Aa panel in a Job's head and System › Thread to read and write alike. Fleet reads four fields of it for the quick bar (`session_quick.rs`): `learn`, `quickOff`, `quickOffFor`, and the lines of `quick` and `forgotten`.
     Entry {
         key: THREAD_LOOK.0,
         section: Section::Thread,

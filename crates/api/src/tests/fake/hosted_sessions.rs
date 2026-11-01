@@ -174,6 +174,14 @@ impl HostedSessions for FakeDaemon {
         Ok(ipc::SessionMcp { servers: two_servers() })
     }
 
+    /// Two answers and one learnt line; the job named `closed` is refused as Fleet refuses one nobody hosts.
+    async fn get_session_quick(&self, id: SessionId) -> Result<ipc::SessionQuick, Refusal> {
+        if id.as_str() == "closed" {
+            return Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.no_such_session", "no job Fleet hosts is named closed", run_id())));
+        }
+        Ok(ipc::SessionQuick { asked: vec!["Yes, go on".to_string(), "Not yet".to_string()], learnt: vec!["Just get it done".to_string()] })
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let sign_in = (asked.act == ipc::McpServerAct::SignIn).then(|| ipc::McpSignIn {
             url: format!("https://{}.example/authorize", asked.server),
