@@ -52,6 +52,8 @@ export type DropdownMenuEntry =
       detail?: string;
       /** Finished, and still choosable: `--fg-subtle`, as a finished drone on a Job's Field. */
       muted?: boolean;
+      /** The act's state, on its glyph: `on` is a switch that is on, `running` is a thing that is running, which pulses. `data-state`. */
+      state?: "on" | "running";
       /** An act the menu offers beside its choices, not one of them: `data-act`, for a menu that styles its footer apart. */
       act?: boolean;
       /** A node at the row's trailing end, before its check: a mark the menu's caller draws. */
@@ -447,6 +449,7 @@ export function DropdownMenu({
                 aria-current={entry.selected || undefined}
                 aria-disabled={entry.disabled || undefined}
                 data-muted={entry.muted || undefined}
+                data-state={entry.state}
                 data-act={entry.act || undefined}
                 data-member={entry.member || undefined}
                 className={

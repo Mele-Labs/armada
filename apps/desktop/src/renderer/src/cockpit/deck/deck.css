@@ -412,6 +412,9 @@
 .deck-pane[data-frame] { gap: var(--space-2); }
 /* The Job's head: its name and state, then the views, the context figure, the menu and the way out at the far end. */
 .deck .deck-pane[data-frame] .armada-session-frame__head { justify-content: flex-end; }
+/* A head in the mock's `rows` take: its first row is the band every head is, and the row under it is as tall as its icons. */
+:root[data-look="new"] .deck .deck-pane[data-frame] .armada-session-frame__head[data-take="rows"] { justify-content: flex-start; min-height: 0; padding-block: 0; }
+:root[data-look="new"] .deck .deck-pane[data-frame] .armada-session-frame__head[data-take="rows"] > .armada-session-frame__row:first-child { min-height: var(--head-min, var(--h-row-header)); }
 /* The Job's panels: the title as tracked caps over a hairline, the body close under it. */
 .deck .sv-panel__band {
   gap: var(--space-2);

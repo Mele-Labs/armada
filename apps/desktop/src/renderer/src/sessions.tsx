@@ -3,7 +3,7 @@
 // What is drawn is `@armada/components`'; this reads the draft
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
-import { JobActsSlot, useActs, useActsPlace } from "./job-panes/acts";
+import { JobActsSlot, actEntries, headTake, runActEntry, useActs, useActsPlace } from "./job-panes/acts";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -1202,9 +1202,10 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   const inlineCards = [...useModCards(session.id), ...useBrowserReminders(session.id)];
   const marked = unread || where === undefined || cardLead ? undefined : <RunsPlaceControl {...where} />;
   const compactAct = useCompactAct(session, draft);
-  // A Job in panes keeps its acts as icons in the Thread head; where the head is narrow they are in the ellipsis menu.
+  // A Job in panes keeps its acts as icons in the Thread head, and in the ellipsis menu where the head has no room for them.
   const jobActs = useActs();
-  const actsNarrow = useActsPlace().narrow;
+  // The acts the head has no room for are in the ellipsis menu.
+  const menuActs = actEntries(jobActs, useActsPlace().away);
   const toolsFixing = useToolsFixes(session, terminal?.dock);
   const toolsAway = useToolsBand(session);
   const toolsBand = toolsFixing !== undefined && toolsAway.shown;
@@ -1238,6 +1239,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         {...(session.toolsMissing === undefined ? {} : { toolsMissing: toolsMissingSaid(session.toolsMissing) })}
         {...(toolsFixing === undefined ? {} : { toolsFixes: toolsFixing })}
         {...(toolsBand ? {} : { toolsApparent: true })}
+        {...(deck?.flight === true ? { headTake: headTake() } : {})}
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
@@ -1245,14 +1247,14 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         menu={{
           entries: [
             ...(deck?.acts ?? []).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, icon: one.icon })),
-            ...(actsNarrow && jobActs.length > 0 ? [...jobActs.map((one): DropdownMenuEntry => ({ kind: "item", id: `act:${one.id}`, label: one.label, disabled: one.off !== undefined, ...(one.off === undefined ? {} : { hint: one.off }) })), { kind: "separator", id: "acts-rule" } as const] : []),
+            ...(menuActs.length > 0 ? [...menuActs, { kind: "separator", id: "acts-rule" } as const] : []),
             ...(draft.fork === undefined || session.dead === undefined ? [] : [{ kind: "item", id: "fork", label: "Fork", icon: GitFork } as const]),
             ...(retro.press === undefined ? [] : [{ kind: "item", id: "retro", label: retro.writing.has(session.id) ? "Writing the retro" : "Retro", icon: Rewind, disabled: retro.writing.has(session.id) } as const]),
             ...(draft.close === undefined || session.dead !== undefined ? [] : [{ kind: "separator", id: "end-rule" } as const, { kind: "item", id: "end", label: "End job", icon: PowerOff, danger: true } as const]),
           ],
           onSelect: (id) => {
-            if (id.startsWith("act:")) jobActs.find((one) => `act:${one.id}` === id)?.run();
-            else if (id === "fork") opening(draft.fork!(session.id), onOpen);
+            if (runActEntry(jobActs, id)) return;
+            if (id === "fork") opening(draft.fork!(session.id), onOpen);
             else if (id === "retro") retro.press?.(session, true);
             else if (id === "end") end();
             else deck?.acts.find((one) => one.id === id)?.run();

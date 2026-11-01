@@ -106,7 +106,10 @@
 .job-acts [aria-pressed="true"] { background: var(--bg-hover); color: var(--fg-default); }
 .job-acts [aria-disabled="true"] { pointer-events: auto; cursor: default; color: var(--fg-subtle); }
 .job-acts[hidden] { display: none; }
-.job-acts button[data-running] > svg { color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+/* A switch that is on draws its glyph in --accent; a thing that is running does too, and pulses (`--duration-pulse`, as a running mark does). The window's still and idle states hold it (`styles/index.css`). */
+.job-acts button[data-on] > svg, .job-acts button[data-running] svg { color: var(--accent); }
+.job-acts button[data-running] > svg { animation: job-act-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+@keyframes job-act-pulse { 50% { opacity: 0.35; } }
 @media (prefers-reduced-motion: reduce) { .job-acts button[data-running] > svg { animation: none; } }
 
 /* A layer, Requests or the file tree drawn as a tab: the tab is its title, so the layer has no head of its own and fills the body. */
