@@ -57,4 +57,23 @@ describe("a ⌥⌘A note, whole", () => {
     expect(body.place).not.toHaveProperty("component");
     expect(body).not.toHaveProperty("crop");
   });
+
+  it("carries the changes he made on the page in his words, after them, since the thread keeps only what he said", () => {
+    const changes: Annotation["changes"] = [
+      { kind: "size", property: "font-size", before: "13px", after: "18px", token: "--text-lg" },
+      { kind: "text", property: "text", before: "Session 3 waits on a walk", after: "Session 3 waits" },
+    ];
+    const said = annotationNote({ ...note, changes }, "app://bridge", null).said;
+    expect(said.split("\n")).toEqual([
+      "Too quiet",
+      "",
+      `Changes he made on the page to show what he wants, on ${note.selector}:`,
+      "- font-size: 13px → 18px (--text-lg)",
+      '- text: "Session 3 waits on a walk" → "Session 3 waits"',
+    ]);
+  });
+
+  it("says only what he said where he changed nothing", () => {
+    expect(annotationNote({ ...note, changes: [] }, "app://bridge", null).said).toBe("Too quiet");
+  });
 });

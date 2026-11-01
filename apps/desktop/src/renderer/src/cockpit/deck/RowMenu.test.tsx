@@ -1,4 +1,4 @@
-// A Session row's context menu carries Report, so the row can be reported like anything else, and Name it for me, and holds Close with the Job's acts above the View group.
+// A Session row's context menu gets Mod and Report from the app (`PointActs`), so the row can be reported like anything else, and carries Name it for me, and holds Close with the Job's acts above the View group.
 
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
@@ -6,6 +6,8 @@ import { page } from "vitest/browser";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import "../../styles/index.css";
+import type { AnnotationsDevApi } from "../../../../shared/annotations";
+import { PointActsProvided } from "../../point-acts";
 import { SessionsFrom } from "../../sessions-draft";
 import { RowMenu } from "./RowMenu";
 
@@ -17,18 +19,32 @@ afterEach(() => {
     one.host.remove();
   }
   mounted = [];
+  window.armadaDev = undefined;
   document.querySelectorAll("[data-noted]").forEach((one) => one.remove());
 });
 
-test("the menu lists Report, and choosing it asks to report the row", async () => {
-  const row = document.createElement("button");
-  row.setAttribute("data-noted", "");
-  document.body.append(row);
+/** The row menu opened by a right press on `row`, inside the app's own acts, as `App` mounts it. */
+function pressedOn(row: HTMLElement): void {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted.push({ root, host });
-  root.render(<RowMenu at={{ id: "s-1", root: "/repo", title: "Job", x: 20, y: 20, row }} onClose={() => undefined} onAutopilot={() => undefined} />);
+  root.render(
+    <PointActsProvided>
+      <RowMenu at={{ id: "s-1", root: "/repo", title: "Job", x: 20, y: 20, row }} onClose={() => undefined} onAutopilot={() => undefined} />
+    </PointActsProvided>,
+  );
+  // Noted in the capture phase, ahead of the menu, as the right press that opens it is.
+  row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 20, clientY: 20 }));
+}
+
+test("the menu lists Report, and choosing it asks to report the row", async () => {
+  window.armadaDev = {} as AnnotationsDevApi;
+  const row = document.createElement("button");
+  row.setAttribute("data-noted", "");
+  document.body.append(row);
+  await new Promise((done) => setTimeout(done, 0));
+  pressedOn(row);
 
   const asked = vi.fn();
   window.addEventListener("armada:report", asked);
@@ -37,6 +53,30 @@ test("the menu lists Report, and choosing it asks to report the row", async () =
 
   expect(asked).toHaveBeenCalledTimes(1);
   expect((asked.mock.calls[0]?.[0] as CustomEvent<Element>).detail).toBe(row);
+});
+
+test("Mod and Report come last, after the Job's acts and the View group, and the row menu has none of its own", async () => {
+  window.armadaDev = {} as AnnotationsDevApi;
+  const row = document.createElement("button");
+  row.setAttribute("data-noted", "");
+  document.body.append(row);
+  await new Promise((done) => setTimeout(done, 0));
+  pressedOn(row);
+
+  await expect.element(page.getByRole("menuitem", { name: "Report" })).toBeVisible();
+  const shown = labels();
+  expect(shown.slice(-2)).toEqual(["Mod", "Report"]);
+  expect(shown.filter((one) => one === "Mod" || one === "Report")).toHaveLength(2);
+  expect(shown.indexOf("Auto Pilot")).toBeLessThan(shown.indexOf("Mod"));
+  expect(shown.indexOf("Active PRs")).toBeLessThan(shown.indexOf("Mod"));
+});
+
+test("without the app's acts around it the row menu has no Mod or Report", async () => {
+  window.armadaDev = {} as AnnotationsDevApi;
+  openOn(serving({}));
+  await expect.element(page.getByRole("menuitem", { name: "Auto Pilot" })).toBeVisible();
+  expect(labels()).not.toContain("Mod");
+  expect(labels()).not.toContain("Report");
 });
 
 /** A draft that serves only what the menu reads: the list (one stable array, as a store reads), and the acts a test hands it. */
