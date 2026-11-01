@@ -71,6 +71,13 @@
   color: var(--fg-subtle);
 }
 
+/* At the bar's right end, after the save button. */
+.armada-quick__hide {
+  display: inline-flex;
+  flex: none;
+  margin-inline-start: auto;
+}
+
 /* Between the answers to his question and his own lines. */
 .armada-quick__rule {
   flex: none;

@@ -35,6 +35,8 @@ export type ThreadSettingsProps = {
   keep: string;
   /** Drawn in the Aa panel, which takes its width from the form. */
   inPanel?: boolean;
+  /** The Job the form is for. Absent, as in System, the quick bar has the one switch, for all Jobs. */
+  jobId?: string;
 };
 
 /** Moves the line at `from` by `by`, within the list. */
@@ -51,7 +53,7 @@ function moved(list: readonly QuickPhrase[], from: number, by: number): QuickPhr
  * How a Job's thread reads, and the quick bar's lines. **One form for the Aa panel and System › Thread**, so the two never
  * differ; System adds Voice.
  */
-export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, autoFocus = false, keep, inPanel = false }: ThreadSettingsProps) {
+export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, autoFocus = false, keep, inPanel = false, jobId }: ThreadSettingsProps) {
   const first = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (autoFocus) first.current?.focus();
@@ -99,6 +101,21 @@ export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, auto
       </div>
       <section className="armada-thread-settings__quick" aria-label="Quick replies">
         <h3 className="armada-thread-settings__head">Quick replies</h3>
+        {jobId === undefined ? null : (
+          <Switch
+            checked={!look.quickOff && !look.quickOffFor.includes(jobId)}
+            disabled={look.quickOff}
+            onChange={(event) => {
+              const on = event.currentTarget.checked;
+              onChange((was) => ({ ...was, quickOffFor: on ? was.quickOffFor.filter((one) => one !== jobId) : [...was.quickOffFor.filter((one) => one !== jobId), jobId] }));
+            }}
+          >
+            In this Job
+          </Switch>
+        )}
+        <Switch checked={!look.quickOff} onChange={(event) => set("quickOff", !event.currentTarget.checked)}>
+          In all Jobs
+        </Switch>
         <ol className="armada-thread-settings__lines">
           {look.quick.map((one, at) => (
             <li key={one.id} className="armada-thread-settings__line" onKeyDown={onRowKey(at)}>
@@ -198,7 +215,7 @@ export function ThreadSettings({ look, onChange, spacing, onSpacing, voice, auto
  * Aa, in a Job's head: the thread's look in a panel, changed live. Esc or a press outside puts it away. Draws nothing where the
  * window holds no look (`ThreadLookContext`).
  */
-export function ThreadLookButton({ spacing, onSpacing }: { spacing: ThreadSpacing; onSpacing: (spacing: ThreadSpacing) => void }) {
+export function ThreadLookButton({ spacing, onSpacing, jobId }: { spacing: ThreadSpacing; onSpacing: (spacing: ThreadSpacing) => void; jobId?: string }) {
   const source = useThreadLook();
   if (source === null) return null;
   return (
@@ -213,7 +230,7 @@ export function ThreadLookButton({ spacing, onSpacing }: { spacing: ThreadSpacin
         </Tooltip>
       }
     >
-      <ThreadSettings look={source.look} onChange={source.setLook} spacing={spacing} onSpacing={onSpacing} autoFocus keep="thread-look:new-line" inPanel />
+      <ThreadSettings look={source.look} onChange={source.setLook} spacing={spacing} onSpacing={onSpacing} autoFocus keep="thread-look:new-line" inPanel {...(jobId === undefined ? {} : { jobId })} />
     </Popover>
   );
 }

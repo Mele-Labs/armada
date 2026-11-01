@@ -27,6 +27,9 @@ const livelier = walk("livelier-thread", [
   { later: role("combobox", "Voice"), say: "Voice. Whisper shows its Install here" },
   { press: place("Cockpit"), say: "A Job just dispatched lifts off into the list" },
   { press: deckRow("Quiet the slot logs"), say: "Its card lifts off as it opens" },
+  { press: inside(quick, button("Hide quick replies")), say: "The bar's right end: hide it" },
+  { press: role("menuitem", "Hide for this Job"), say: "Hide for this Job, or for all Jobs" },
+  { look: message, say: "The box without the bar" },
 ]);
 
 export { livelier as "livelier-thread" };

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
-import { ArrowUpToLine, ListPlus, MessageCircleQuestion, MessageSquareQuote, Repeat } from "lucide-react";
+import { ArrowUpToLine, EyeOff, ListPlus, MessageCircleQuestion, MessageSquareQuote, Repeat } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
+import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -92,6 +93,8 @@ export type QuickBarProps = {
   canSave: boolean;
   /** A right press on a chip offers Edit, Pin and Delete, and Save on an answer. Absent, a chip has no menu. */
   onAct?: (act: QuickAct) => void;
+  /** Puts the bar away, for this Job or for all Jobs. Absent, the bar has no hide button and no menu on its empty space. */
+  onHide?: (scope: "job" | "all") => void;
 };
 
 /** The lines the bar offers, in the order ⌘1 to ⌘9 reach them. */
@@ -106,14 +109,28 @@ type Chip = { key: string; kind: "asked" | QuickPhrase["kind"]; text: string; id
  * **Each chip shows the key that sends it**; a ⇧ press puts it in the box to finish instead. **A right press, the Menu key or
  * ⇧F10 on a chip opens its menu**: Edit, Pin and Delete for his own lines, Save for an answer.
  */
-export function QuickBar({ asked, phrases, onSend, onDrop, onSave, canSave, onAct }: QuickBarProps) {
+export function QuickBar({ asked, phrases, onSend, onDrop, onSave, canSave, onAct, onHide }: QuickBarProps) {
+  const [hideAt, setHideAt] = useState<{ x: number; y: number } | undefined>(undefined);
   const chips: Chip[] = [
     ...asked.map((text) => ({ key: `asked:${text}`, kind: "asked" as const, text, pinned: false })),
     ...pinnedFirst(phrases).map((one) => ({ key: one.id, kind: one.kind, text: one.text, id: one.id, pinned: one.pinned === true })),
   ];
   const kept = new Set(phrases.map((one) => one.text));
   return (
-    <div className="armada-quick" role="group" aria-label="Quick replies">
+    <div
+      className="armada-quick"
+      role="group"
+      aria-label="Quick replies"
+      onContextMenu={
+        onHide === undefined
+          ? undefined
+          : (event) => {
+              if ((event.target as Element).closest("button, input") !== null) return;
+              event.preventDefault();
+              setHideAt({ x: event.clientX, y: event.clientY });
+            }
+      }
+    >
       {chips.flatMap((one, at) => [
         at === asked.length && at > 0 ? <span key="rule" className="armada-quick__rule" aria-hidden /> : null,
         <QuickChip key={one.key} chip={one} at={at} kept={kept.has(one.text)} onSend={onSend} onDrop={onDrop} onAct={onAct} />,
@@ -123,9 +140,33 @@ export function QuickBar({ asked, phrases, onSend, onDrop, onSave, canSave, onAc
           <ListPlus size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
+      {onHide === undefined ? null : (
+        <>
+          <span className="armada-quick__hide">
+            <Tooltip label="Hide quick replies">
+              <DropdownMenu triggerLabel="Hide quick replies" icon={EyeOff} portal entries={HIDE_ENTRIES} onSelect={(chosen) => onHide(chosen === "all" ? "all" : "job")} />
+            </Tooltip>
+          </span>
+          {hideAt === undefined ? null : (
+            <DropdownMenu
+              triggerLabel="Hide quick replies"
+              at={hideAt}
+              open
+              entries={HIDE_ENTRIES}
+              onOpenChange={(open) => open || setHideAt(undefined)}
+              onSelect={(chosen) => onHide(chosen === "all" ? "all" : "job")}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }
+
+const HIDE_ENTRIES: DropdownMenuEntry[] = [
+  { kind: "item", id: "job", label: "Hide for this Job" },
+  { kind: "item", id: "all", label: "Hide for all Jobs" },
+];
 
 function QuickChip({ chip, at, kept, onSend, onDrop, onAct }: { chip: Chip; at: number; kept: boolean; onSend: (text: string) => void; onDrop: (text: string) => void; onAct: ((act: QuickAct) => void) | undefined }) {
   const button = useRef<HTMLButtonElement>(null);

@@ -14,6 +14,10 @@ export type ThreadLook = {
   /** Learnt lines he deleted or reworded, so Bridge does not learn them again. */
   forgotten: readonly string[];
   voice: VoiceEngine;
+  /** The quick bar is not drawn in any Job. */
+  quickOff: boolean;
+  /** The quick bar is not drawn in these Jobs, by id. */
+  quickOffFor: readonly string[];
 };
 
 /** A line the quick bar offers: one he saved, or one Bridge learnt from what he sends. */
@@ -27,6 +31,11 @@ export type QuickAct =
   | { act: "unpin"; id: string }
   /** An answer to the agent's question, kept as a saved line. */
   | { act: "save"; text: string };
+
+/** Whether the bar is drawn in a Job: not while it is off for all Jobs, nor for this one. */
+export function quickShownIn(look: ThreadLook, jobId: string | undefined): boolean {
+  return !look.quickOff && (jobId === undefined || !look.quickOffFor.includes(jobId));
+}
 
 /** The lines as the bar draws them: pinned first, each group in the order it is kept. */
 export function pinnedFirst<T extends { pinned?: boolean }>(lines: readonly T[]): T[] {
@@ -87,7 +96,7 @@ export const VOICE_ENGINES: readonly { id: VoiceEngine; said: string }[] = [
   { id: "dictation", said: "macOS Dictation" },
 ];
 
-export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", quick: [], learn: true, forgotten: [], voice: "apple" };
+export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", quick: [], learn: true, forgotten: [], voice: "apple", quickOff: false, quickOffFor: [] };
 
 /** `one-bar`: a question's options are the quick bar's first chips and the band keeps its words. `replace`: the bar is not drawn while a band is up. */
 export type WithBand = "one-bar" | "replace";

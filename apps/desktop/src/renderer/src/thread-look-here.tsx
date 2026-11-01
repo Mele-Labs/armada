@@ -3,7 +3,7 @@
 // look, and a Job draws as it always has: no Aa, no quick bar, no Talk. Fleet keeps none of it yet, and Talk hears a script.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ThreadLookButton, ThreadLookContext, actOnQuick, useThreadLook } from "@armada/components";
+import { ThreadLookButton, ThreadLookContext, actOnQuick, quickShownIn, useThreadLook } from "@armada/components";
 import type { SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, ThreadSpacing, WhisperModel, WithBand } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -103,16 +103,17 @@ export function useThreadLookHere(session: Session): { thread: Pick<SessionThrea
       ...(name === "" ? {} : { agentName: name }),
     },
     composer: {
-      quick: {
+      ...(!quickShownIn(look, session.id) ? {} : { quick: {
         asked: asking(session) ? source.askedFor(session.id) : [],
         // Learnt lines go while he has learning off; the saved ones are his.
         phrases: look.learn ? look.quick : look.quick.filter((one) => one.kind === "saved"),
         onAct: (act) => source.setLook((was) => actOnQuick(was, act)),
         onSave: (text) => source.setLook((was) => (text === "" || was.quick.some((one) => one.text === text) ? was : { ...was, quick: [...was.quick, { id: `saved:${Date.now()}`, text, kind: "saved" }] })),
-      },
+        onHide: (scope: "job" | "all") => source.setLook((was) => (scope === "all" ? { ...was, quickOff: true } : was.quickOffFor.includes(session.id) ? was : { ...was, quickOffFor: [...was.quickOffFor, session.id] })),
+      } }),
       talk: { listen: source.listen },
     },
-    head: <ThreadLookButton spacing={spacing} onSpacing={(next) => void saveSetting("spacing.density", next)} />,
+    head: <ThreadLookButton jobId={session.id} spacing={spacing} onSpacing={(next) => void saveSetting("spacing.density", next)} />,
     ...(source.withBand === undefined ? {} : { withBand: source.withBand }),
   };
 }

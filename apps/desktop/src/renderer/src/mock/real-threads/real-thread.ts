@@ -58,6 +58,8 @@ export function realThreadScenario(one: RealThread): Scenario {
           learn: true,
           forgotten: [],
           voice: "apple",
+          quickOff: false,
+          quickOffFor: [],
         },
         asked: { [one.id]: one.asked },
         heard: "Go ahead",

@@ -120,6 +120,8 @@ export const s341LivelierThread: Scenario = {
         learn: true,
         forgotten: [],
         voice: "apple",
+        quickOff: false,
+        quickOffFor: [],
       },
       asked: { [JOB]: ["Restart it", "Not yet"] },
       heard: "Hold the restart until the suite is green, then show me the walk",
