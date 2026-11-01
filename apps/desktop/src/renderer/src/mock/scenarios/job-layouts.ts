@@ -8,7 +8,8 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { seedJobBrowser } from "../../job-browser/store";
 import { setRevision } from "../../job-panes/custom";
-import { jobOpens } from "../../job-panes/store";
+import { forgetPanes, jobOpens, seedLayouts } from "../../job-panes/store";
+import { build } from "../../job-panes/tree";
 import { resetCheckout, shopPage } from "../job-browser-page";
 import { unanswered, type Scenario } from "../moment";
 import type { SessionsStore } from "../sessions/script";
@@ -168,6 +169,12 @@ export const sJobLayouts: Scenario = {
     for (const id of JOBS) seedJobBrowser(id, { visited: [...SHOP], page: shopPage });
     handle = fleet;
     mods = [];
+    // Layouts are kept across restarts for real, so the mock starts from none a person made and offers two of its own.
+    forgetPanes();
+    seedLayouts({
+      "QA split": build({ dir: "row", ratio: 0.55, a: { dir: "column", ratio: 0.6, a: ["thread"], b: ["terminal"] }, b: ["browser"] }, undefined, { browser: "localhost:5173", terminal: "zsh" }),
+      Review: build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["changes"] }),
+    });
     return {
       ...sJobStory.behaves?.(fleet),
       ...shellApi(),
