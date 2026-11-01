@@ -1003,6 +1003,9 @@ if (process.argv.includes(ANNOTATE_FLAG)) {
     capture: (box: Box): Promise<ArrayBuffer | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.capture, box),
     saveShot: (id: string, png: ArrayBuffer): Promise<void> => ipcRenderer.invoke(ANNOTATION_CHANNELS.saveShot, id, png),
     shot: (id: string): Promise<ArrayBuffer | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.shot, id),
+    saveExample: (id: string, name: string, png: ArrayBuffer): Promise<void> => ipcRenderer.invoke(ANNOTATION_CHANNELS.saveExample, id, name, png),
+    example: (id: string, name: string): Promise<ArrayBuffer | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.example, id, name),
+    removeExample: (id: string, name: string): Promise<void> => ipcRenderer.invoke(ANNOTATION_CHANNELS.removeExample, id, name),
     // `onSummoned`'s shape: a listener and its remover. Nothing arrives but the word to read again.
     onChanged: (listener: () => void): (() => void) => {
       const handler = (): void => listener();

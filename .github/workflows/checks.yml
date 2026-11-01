@@ -359,11 +359,13 @@ jobs:
           name: typecheck
           cmd: pnpm typecheck
 
-  # Every workspace Check on Linux: one job per key `armada covers` named, run
-  # as `armada check <key>` in that workspace's directory. The key is the
-  # display name.
+  # Every workspace Check on Linux, in a few grouped jobs (`plan.py`, GROUPS):
+  # each runs its keys one after another as `armada check <key>` in that
+  # workspace's directory, goes on after one fails, and fails if any did. A
+  # group with no key in the plan has no entry. A failed job's name is the group,
+  # which `plan.py --rerun` turns back into the group's keys.
   workspace_check:
-    name: ${{ matrix.key || 'workspace_check' }}
+    name: ${{ matrix.group || 'workspace_check' }}
     needs: plan
     if: needs.plan.outputs.has_matrix == 'true'
     runs-on: ubuntu-latest
@@ -380,14 +382,40 @@ jobs:
       - uses: ./.github/actions/node-setup
         with:
           browsers: ${{ matrix.browsers }}
-      - uses: ./.github/actions/run-check
+      # `run-check` for each key: the same MACHINE and RESULT lines, and a
+      # summary line per key, with the tail of a failed key's log.
+      - name: Run ${{ matrix.group }}
+        shell: bash
         env:
-          KEY: ${{ matrix.key }}
-        with:
-          name: ${{ matrix.key }}
-          cmd: |
-            chmod +x bin/armada
-            PATH="$PWD/bin:$PATH" armada check "$KEY"
+          GROUP: ${{ matrix.group }}
+          KEYS: ${{ matrix.keys }}
+        run: |
+          chmod +x bin/armada
+          export PATH="$PWD/bin:$PATH"
+          WIDTH=$(getconf _NPROCESSORS_ONLN)
+          export WIDTH ARMADA_CHECK_WIDTH=$WIDTH ARMADA_SOLE_TENANT=1
+          echo "MACHINE $GROUP cores=$WIDTH $(grep MemTotal /proc/meminfo)"
+          set +e
+          failed=0
+          for key in $KEYS; do
+            echo "::group::$key"
+            start=$(date +%s)
+            armada check "$key" 2>&1 | tee check.log
+            code=${PIPESTATUS[0]}
+            secs=$(( $(date +%s) - start ))
+            echo "::endgroup::"
+            echo "RESULT $key exit=$code seconds=$secs"
+            {
+              echo "### $key: exit $code, ${secs}s in the Check step"
+              if [ "$code" != 0 ]; then
+                echo '```'
+                tail -n 40 check.log
+                echo '```'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+            [ "$code" = 0 ] || failed=1
+          done
+          exit "$failed"
 
   hooks_test:
     name: hooks_test
@@ -583,40 +611,88 @@ jobs:
           echo "::error::generated files are stale: run cargo xtask verify-docs --write and cargo xtask verify-tokens --write, then commit"
           exit 1
 
-  # After a merge to main only: measures which tests reach which files, with
-  # coverage on, and uploads the laps as `test-map-<sha>` for Fleet to fetch
+  # After a merge to main, once a day: measures which tests reach which files,
+  # with coverage on, and uploads the laps as `test-map-<sha>` for Fleet to fetch
   # (docs/concepts/test-map.md, *How it stays current*). A cold instrumented
   # build of the whole workspace, so never on a pull request or in the queue.
   #
+  # **Once a day, on the first push after the last recording is a day old.**
+  # Run on every push it took about three hours, was cancelled at 180 minutes on
+  # 59 of 60 pushes to main up to 31 Oct 2026, and held a runner the merge queue
+  # needed. The owner chose a daily map, 31 Oct 2026 (armada-r1tz). A push in
+  # between skips the recording, so Fleet reads that commit as having no laps and
+  # carries on with the last ones.
+  #
   # **It gates nothing.** `ci` does not need it, and `continue-on-error` keeps a
-  # failure here from turning the run, and so main, red: Fleet reads a missing
-  # artifact as no laps for that commit and carries on with the last ones.
+  # failure here from turning the run, and so main, red.
   test_map:
     name: test_map
     needs: plan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    # The one recording that finished took 175 minutes. A hosted job's limit
+    # is 360.
+    timeout-minutes: 360
+    # `actions: read` lists the earlier pushes' runs, to find the last recording.
+    permissions:
+      contents: read
+      actions: read
     steps:
+      # Newest first, the pushes to main of the last day before this one. A
+      # test_map job whose recording step passed, or has not finished, is a
+      # recording of the last day, so this push skips. A read that fails warns
+      # and records: a map a day late is worse than a second run.
+      - name: Recorded in the last day
+        id: due
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          if ! runs=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow checks --branch main --event push \
+              --created ">=$since" --limit 100 --json databaseId --jq '.[].databaseId'); then
+            echo "::warning::could not list the pushes to main, so this one records"
+            echo "record=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          for run in $runs; do
+            [ "$run" -lt "$GITHUB_RUN_ID" ] || continue
+            step=$(gh run view "$run" --repo "$GITHUB_REPOSITORY" --json jobs \
+              --jq '.jobs[] | select(.name == "test_map") | .steps[] | select(.name == "Record the laps") | "\(.status) \(.conclusion)"') || continue
+            case "$step" in
+              "completed success"|queued*|pending*|in_progress*|waiting*)
+                echo "SKIP run $run recorded or is recording: $step"
+                echo "record=false" >> "$GITHUB_OUTPUT"
+                exit 0 ;;
+            esac
+          done
+          echo "RECORD no recording since $since"
+          echo "record=true" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        if: steps.due.outputs.record == 'true'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: steps.due.outputs.record == 'true'
         with:
           name: armada-bin
           path: bin
       - uses: ./.github/actions/rust-setup
+        if: steps.due.outputs.record == 'true'
         with:
           key: test_map
           nextest: "true"
       # The collector reads each profile with the compiler's own LLVM.
-      - run: rustup component add llvm-tools-preview
-      - uses: ./.github/actions/run-check
+      - if: steps.due.outputs.record == 'true'
+        run: rustup component add llvm-tools-preview
+      - name: Record the laps
+        if: steps.due.outputs.record == 'true'
+        uses: ./.github/actions/run-check
         with:
           name: test_map
           cmd: |
             chmod +x bin/armada
             PATH="$PWD/bin:$PATH" armada test-map record --check test --out test-map/laps.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: steps.due.outputs.record == 'true'
         with:
           name: test-map-${{ github.sha }}
           path: test-map/laps.json
