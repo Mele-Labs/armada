@@ -481,13 +481,22 @@ where
     }
 
     async fn apply_organize_logbook(&self, apply: ApplyOrganizeLogbook) -> Result<AppliedOrganizeLogbook, Refusal> {
+        let taken: Vec<String> = apply.proposals.iter().map(|one| one.id.clone()).collect();
         let (applied, keys) = organizing::apply(self.store(), apply.action, apply.proposals, self.logbook_now())
             .await
             .map_err(|why| self.logbook_fault(why))?;
         for key in keys {
             self.logbook_mirrored(&key).await;
         }
-        *self.logbook_distils().organize_last.lock().expect("the organize result is not held across a panic") = None;
+        // Only what was carried out leaves the held result; the cards not pressed stay for later.
+        let mut held = self.logbook_distils().organize_last.lock().expect("the organize result is not held across a panic");
+        if let Some(last) = held.as_mut() {
+            last.proposals.retain(|one| !taken.contains(&one.id));
+            if last.proposals.is_empty() {
+                *held = None;
+            }
+        }
+        drop(held);
         Ok(applied)
     }
 

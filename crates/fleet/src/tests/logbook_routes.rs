@@ -403,6 +403,18 @@ async fn applying_an_organize_result_drops_it() {
 }
 
 #[tokio::test]
+async fn applying_no_proposals_leaves_the_held_organize_result() {
+    let rig = rig_fitted(|_| {});
+    seeded(&rig, LogSection::Repo, "Run the focused test command.", LogState::Standing).await;
+    seeded(&rig, LogSection::Repo, "Run the focused test command with a log.", LogState::Standing).await;
+    rig.fleet.logbook_organize_started_with(merging(&rig), false, |_question: String| async { Ok(MERGE_SAID.to_string()) }).expect("started");
+    let held = organized(&rig).await.last.expect("the result is held");
+
+    rig.fleet.apply_organize_logbook(ipc::ApplyOrganizeLogbook { action: held.action, proposals: Vec::new() }).await.expect("applied");
+    assert_eq!(organized(&rig).await.last.map(|last| last.proposals.len()), Some(1));
+}
+
+#[tokio::test]
 async fn a_new_organize_look_replaces_a_held_result_only_when_it_finishes() {
     use std::sync::Arc;
     use tokio::sync::{Notify, Semaphore};
