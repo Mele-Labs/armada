@@ -28,3 +28,8 @@ All three are optional and left out when absent, so an older peer reads the rest
 **Since 23 Oct 2026, a tracker mod's edit after its try**, `ModSummary.stale` is true where a try is kept of a `tracker.toml` that has changed, and `tried` is absent then.
 `TryTrackerMod.manifest_id` is optional, and absent is the first served repository whose Manifest names the mod as its tracker, else the first served, so Bridge's Try names none.
 Both are additive and left out when absent; the IDs differ and the lifeboat serves.
+
+**Since 31 Oct 2026, a tab mod**, `ModKind` has `tab`, whose file is `tab.js`.
+`ModSummary.glyph` is a tab mod's glyph by registry name, `ModChecked.tab` (`TabModule`: `glyph?` and `code`) is the module as it was checked, `ModAim` has `tab`, and `StartModSession.aim` names the kind a Mod Job is aimed at from its first message.
+All three fields are optional and left out when absent, and `tab` is a new spelling of two closed sets, so a peer that predates it fails to decode a row of that kind; the IDs differ and the lifeboat serves.
+The event stream gets no new queue, and the unbounded-sink risk above is untouched: a rewritten `tab.js` moves `changed_at` and rides the one `mods.changed` the rescan already publishes.

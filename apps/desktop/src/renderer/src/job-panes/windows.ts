@@ -1,5 +1,7 @@
 // Moving a tab out into a window of its own. Each kind that can leave has a window main already draws: the Job browser's and the Job's shell's.
 
+import { browserToWindow } from "../job-browser/store";
+import { shellsOf } from "../job-shell";
 import { KINDS } from "./kinds";
 import type { Tab, TabKind } from "./tree";
 
@@ -15,14 +17,17 @@ export function whyNotWindow(kind: TabKind): string | undefined {
 }
 
 /** The tab's page or shell opens in its own window. */
-export function moveToWindow(_jobId: string, tab: Tab): void {
+export function moveToWindow(jobId: string, tab: Tab): void {
   switch (tab.kind) {
     case "browser":
-      // Filled by the Job browser's per-tab pages.
+      browserToWindow(jobId, tab.id);
       return;
-    case "terminal":
-      // Filled by the shell's window path.
+    case "terminal": {
+      // One place at a time: the pane puts its screen away, so the window's is the one that sizes the shell.
+      const shells = shellsOf(window.armada);
+      if (shells?.toWindow(jobId)) shells.show("page", jobId, false);
       return;
+    }
     default:
       return;
   }

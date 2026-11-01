@@ -118,8 +118,8 @@ export type SessionNotice =
   | "lifecycles_clear";
 export type NoticeChoice = "job" | "repo" | "hour";
 
-/** What Teach was pressed on in a row: a tool call, a Fleet notice, or a Check. `at` is when the row was written. */
-export type TeachPick = { kind: "command" | "notice" | "check"; text: string; at?: string; /** A notice's word, which Fleet reads the rule for. */ ids?: string[] };
+/** What Teach was pressed on in a row: a tool call, a Fleet notice, a Check, or a draft's words. `at` is when the row was written. */
+export type TeachPick = { kind: "words" | "command" | "notice" | "check"; text: string; at?: string; /** A notice's word, which Fleet reads the rule for. */ ids?: string[] };
 
 type SessionThreadKinds =
   | {
@@ -1009,7 +1009,7 @@ function Row({
       </li>
     );
   }
-  if (row.kind === "draft") return <DraftRow row={row} keep={sessionId === undefined ? `draft:${row.id}` : `draft:${sessionId}:${row.id}`} {...(onDraft === undefined ? {} : { onAnswer: onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdraw: onWithdrawDraft })} />;
+  if (row.kind === "draft") return <DraftRow row={row} keep={sessionId === undefined ? `draft:${row.id}` : `draft:${sessionId}:${row.id}`} {...(onDraft === undefined ? {} : { onAnswer: onDraft })} {...(onWithdrawDraft === undefined ? {} : { onWithdraw: onWithdrawDraft })} {...(onTeach === undefined ? {} : { onTeach })} />;
   if (row.kind === "requested") return <RequestedRow row={row} agentName={agentName} />;
   if (row.kind === "saved") return <SavedRow row={row} />;
   if (row.kind === "sketch") return <SketchRow row={row} keep={sessionId === undefined ? `sketch:${row.id}` : `sketch:${sessionId}:${row.id}`} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} {...(onAnswerSketch === undefined ? {} : { onAnswer: onAnswerSketch })} {...(onWithdrawSketch === undefined ? {} : { onWithdraw: onWithdrawSketch })} />;

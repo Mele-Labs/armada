@@ -1,4 +1,4 @@
-// The Job browser: one page per Job that its agent drives and the owner may take over, held in main
+// The Job browser: one page per Browser tab of a Job, held in main
 // (`main/job-browsers.ts`). A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 // `docs/practices/protocol/the-job-browser.md` is the wire it answers.
 
@@ -8,9 +8,10 @@ import type { CaptureHeld } from "@armada/studios/api";
 
 import type { Answer, Choice, SitePermission, SiteSettings } from "../site-permissions";
 
-/** One Job's browser as main holds it. `windowed`: in a window of its own, beside the Job's thread. */
+/** One Browser tab's page as main holds it. `windowed`: in a window of its own, beside the Job's thread. `tabId` is empty for the page an agent opened before the Job had a tab. */
 export type JobBrowserState = {
   sessionId: string;
+  tabId: string;
   url: string;
   title: string;
   back: boolean;
@@ -23,43 +24,46 @@ export type JobBrowserState = {
 
 export type JobBrowserApi = {
   /**
-   * **Absent in the mock**, whose store plays the browser itself. The renderer names a Job and never an address it
+   * **Absent in the mock**, whose store plays the browser itself. The renderer names a Job and its tab and never an address it
    * did not type, and the page is a view main places over the rect the pane reports.
    */
   jobBrowser?: {
     list: () => Promise<readonly JobBrowserState[]>;
     onChanged: (listener: (state: JobBrowserState) => void) => () => void;
-    /** Main asks this window to show the Job's browser in its side panel. */
+    /** Main asks this window to open a Browser tab for the Job, since its agent opened a page where it has none. */
     onShow: (listener: (sessionId: string) => void) => () => void;
     /** ⌥⌘C pressed while the page held the keyboard. */
-    onCapture: (listener: (sessionId: string) => void) => () => void;
-    /** Shows the Job's browser in Bridge's side panel, made empty where it has none, and out of any window it was in. */
-    show: (sessionId: string) => Promise<void>;
-    place: (sessionId: string, bounds: PageBounds) => Promise<void>;
-    unplace: (sessionId: string) => Promise<void>;
-    drive: (sessionId: string) => Promise<void>;
-    go: (sessionId: string, to: "back" | "forward" | "reload") => Promise<void>;
-    navigate: (sessionId: string, url: string) => Promise<void>;
-    toWindow: (sessionId: string) => Promise<void>;
+    onCapture: (listener: (sessionId: string, tabId: string) => void) => () => void;
+    /** The Job's Browser tabs in pane order, each given a page and any other destroyed. Said as the panes change. */
+    tabs: (sessionId: string, tabIds: readonly string[]) => Promise<void>;
+    /** Back in its pane: the tab's page is taken out of the window it was in. */
+    show: (sessionId: string, tabId: string) => Promise<void>;
+    place: (sessionId: string, tabId: string, bounds: PageBounds) => Promise<void>;
+    unplace: (sessionId: string, tabId: string) => Promise<void>;
+    drive: (sessionId: string, tabId: string) => Promise<void>;
+    go: (sessionId: string, tabId: string, to: "back" | "forward" | "reload") => Promise<void>;
+    navigate: (sessionId: string, tabId: string, url: string) => Promise<void>;
+    toWindow: (sessionId: string, tabId: string) => Promise<void>;
     /** The page as it stands, as a PNG, held still under Capture: the view is hidden until `thaw`. */
-    freeze: (sessionId: string) => Promise<Uint8Array | null>;
-    thaw: (sessionId: string) => Promise<void>;
-    hold: (sessionId: string, x: number, y: number) => Promise<CaptureHeld | null>;
+    freeze: (sessionId: string, tabId: string) => Promise<Uint8Array | null>;
+    thaw: (sessionId: string, tabId: string) => Promise<void>;
+    hold: (sessionId: string, tabId: string, x: number, y: number) => Promise<CaptureHeld | null>;
     /** The box of the part at a point of the held picture, for the ring that follows the pointer; null where nothing is held or found. */
-    aim: (sessionId: string, x: number, y: number) => Promise<{ x: number; y: number; width: number; height: number } | null>;
+    aim: (sessionId: string, tabId: string, x: number, y: number) => Promise<{ x: number; y: number; width: number; height: number } | null>;
     /** The held part's note, sent to the Job as the owner's. */
-    note: (sessionId: string, said: string) => Promise<Outcome>;
+    note: (sessionId: string, tabId: string, said: string) => Promise<Outcome>;
     /** A choice for one host, kept for the Job's repository. */
-    choose: (sessionId: string, host: string, permission: SitePermission, choice: Choice) => Promise<void>;
+    choose: (sessionId: string, tabId: string, host: string, permission: SitePermission, choice: Choice) => Promise<void>;
     /** A default, for a site with no choice of its own. */
-    setDefault: (sessionId: string, permission: SitePermission, choice: Choice) => Promise<void>;
+    setDefault: (sessionId: string, tabId: string, permission: SitePermission, choice: Choice) => Promise<void>;
     /** The person's answer to the waiting request. */
-    answer: (sessionId: string, answer: Answer) => Promise<void>;
+    answer: (sessionId: string, tabId: string, answer: Answer) => Promise<void>;
   };
 };
 
 export const JOB_BROWSER_CHANNELS = {
   jobBrowserList: "bridge:job-browser-list",
+  jobBrowserTabs: "bridge:job-browser-tabs",
   jobBrowserChanged: "bridge:job-browser-changed",
   jobBrowserShow: "bridge:job-browser-show",
   jobBrowserShown: "bridge:job-browser-shown",

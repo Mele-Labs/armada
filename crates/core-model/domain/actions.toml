@@ -178,11 +178,11 @@ kind = "Action"
 tier = "Global"
 verb = "Zoom pane"
 icon = "maximize-2"
-shortcut = "⇧⌘Enter"
+shortcut = "⌥⌘Enter"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Zooms the focused pane of the open Job's area over the rest of the Cockpit below the title bar, or puts it back. A view only: the arrangement, the layout's edited mark and the undo history are untouched, and a change of Job or the Layout menu ends it. A text box keeps ⇧⌘Enter, which the Dispatch panel's queue key uses. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
+notes = "Zooms the focused pane of the open Job's area over the rest of the Cockpit below the title bar, or puts it back. A view only: the arrangement, the layout's edited mark and the undo history are untouched, and a change of Job or the Layout menu ends it. A text box keeps the key, and ⇧⌘Enter is the Dispatch panel's queue key, so zoom took Option instead. With no Job open it does nothing. Added 30 Oct 2026 with the Job's arrangeable panes."
 
 [actions.layout_menu]
 kind = "Action"
@@ -556,7 +556,7 @@ shortcut = "⌥⇧0–⌥⇧9"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Presses the flight control tile that wears the key, from anywhere on the deck. Option and Shift with a digit, never a bare one: a question's numbers (`call_pick`) are the bare digits, and the owner's note of 23 Oct 2026 was that the tiles pressed when he meant an answer. With no Job open the tiles are Checks, Calls, Map and Timeline, ⌥⇧1 to ⌥⇧4 until the owner rearranges them. While a Job is open on the stage the same keys press its tiles, ⌥⇧1 to ⌥⇧9 and ⌥⇧0: Ask for update, Auto land, Compact, Report, Map, Judge, Release, Artifacts, Subagents and Checks. Bays has no digit: it is lit only when a bay is wrong, and the call in the thread opens it. Pause answers `P`, which is no row of the registry since `p` is Pilot's there. Edit in the flight control band gives a tile another key, and hiding or moving a tile moves the keys after it, so these are Armada's own. A letter given to a tile is never one the registry binds on the deck. They are not rows of their own because each is a press on a tile and the key is the only way."
+notes = "Presses the flight control tile that wears the key, from anywhere on the deck. Option and Shift with a digit, never a bare one: a question's numbers (`call_pick`) are the bare digits, and the owner's note of 23 Oct 2026 was that the tiles pressed when he meant an answer. With no Job open the tiles are Checks, Calls, Map and Timeline, ⌥⇧1 to ⌥⇧4 until the owner rearranges them. While a Job is open on the stage the same keys press its tiles, ⌥⇧1 to ⌥⇧9 and ⌥⇧0: Ask for update, Auto land, Compact, Report, Map, Judge, Release, Artifacts, Subagents and Checks. Bays has no digit: it is lit only when a bay is wrong, and the call in the thread opens it. Pause answers `P`, which is no row of the registry since `p` is Pilot's there. Edit in the flight control band gives a tile another key, and hiding or moving a tile moves the keys after it, so these are Armada's own. A letter given to a tile is never one the registry binds on the deck. They are not rows of their own because each is a press on a tile and the key is the only way. Terminal and Browser are tabs and no longer tiles, so their keys press nothing drawn: a Job in panes brings that kind's tab to the front and focuses its pane, or opens one where it has none (Terminal answers ⌥⇧0; Browser has no key until the owner gives it one), as of 31 Oct 2026."
 
 [actions.deck_timeline]
 kind = "Action"

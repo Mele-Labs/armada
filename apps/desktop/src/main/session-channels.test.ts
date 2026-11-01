@@ -131,12 +131,14 @@ describe("a Job's terminal window", () => {
 
   it("moves a shell back into Bridge, closing its window and telling every window where it went and which shell it is", async () => {
     const { call, windows, movedBack } = terminalWired();
+    // The side panel is gone, and a window is where a shell moves from.
     await call(CHANNELS.moveTerminalBack, "a", "side panel");
     await call(CHANNELS.moveTerminalBack, "a", "window");
     await call(CHANNELS.moveTerminalBack, "", "docked");
+    await call(CHANNELS.moveTerminalBack, "a", "docked");
     await call(CHANNELS.moveTerminalBack, "b", "docked");
     expect(windows.close.mock.calls).toEqual([["a"], ["b"]]);
-    expect(movedBack.mock.calls).toEqual([[{ sessionId: "a", to: "side panel", shell: { runId: "r1", ended: true } }], [{ sessionId: "b", to: "docked" }]]);
+    expect(movedBack.mock.calls).toEqual([[{ sessionId: "a", to: "docked", shell: { runId: "r1", ended: true } }], [{ sessionId: "b", to: "docked" }]]);
   });
 
   it("reads what a shell has printed so far by its run id", async () => {

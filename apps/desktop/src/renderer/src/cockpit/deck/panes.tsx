@@ -14,7 +14,8 @@ import { useViewing } from "../viewed";
 import { CallCard, type CardKeys } from "../CallCard";
 import type { CockpitProps } from "./props";
 import { SessionView } from "../../sessions";
-import { useDeckShell } from "../../job-shell-dock";
+import { shellsOf } from "../../job-shell";
+import { useDeckShell, useShellArrivals } from "../../job-shell-dock";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import { OPEN_SESSION_ATTRIBUTE } from "../../open-session";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
@@ -107,10 +108,13 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
   );
 }
 
-/** The Job's docked shell: a panel of its own between the Job and the merge line, so the thread keeps the Job's whole pane. */
+/** The docked shell of a Job with no panes: a panel of its own between the Job and the merge line, so the thread keeps the Job's whole pane. */
 export function ShellPanel({ sessionId }: { sessionId: string }) {
   const draft = useSessionsDraft();
-  const shell = useDeckShell(sessionId, draft?.terminalRuns !== undefined);
+  const served = draft?.terminalRuns !== undefined;
+  // A shell the agent opens shows here, as it shows in a Terminal tab where the Job has panes (`TerminalSync`).
+  useShellArrivals(served ? shellsOf(window.armada) : null, "page", sessionId);
+  const shell = useDeckShell(sessionId, served);
   if (shell === null) return null;
   return (
     <section className="deck-panel deck-terminal" aria-label="Terminal">

@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from "react";
 
 import { closePanel, lanesOpenFor, openInPanel, useLanesOpen } from "../shared-panel/store";
-import { closeLayer, layerOver, showLayer, toggleLayer, useLayer } from "./layers";
+import { closeLayer, layerOver, shownAsTab, showLayer, toggleLayer, useLayer } from "./layers";
 
 /** The width from which Lanes are a view in the spine. The one number: nothing else in the app reads the window at this width. */
 export const WIDE_WINDOW_PX = 1800;
@@ -48,6 +48,8 @@ export function lanesOpen(sessionId: string): boolean {
 
 /** Opens the Job's Lanes where the window's width puts them, or shuts them where they are open. */
 export function toggleLanes(sessionId: string): void {
+  // A Job in panes has Workflow as a tab.
+  if (shownAsTab(sessionId, "lanes")) return;
   if (lanesOpen(sessionId)) {
     if (layerOver(sessionId) === "lanes") closeLayer();
     if (lanesOpenFor(sessionId)) closePanel();
