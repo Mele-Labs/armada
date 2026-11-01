@@ -176,13 +176,16 @@ read plausibly under a different job has failed.
   environment.
 - **Manifest** per-project config. Never the config, the yaml.
   A screen a person reads calls it **Armada configuration**.
-- **Judge** the semantic verification layer. Never the auditor, the
-  reviewer, AI review.
-- **Adversarial review** the owner's press on a plan waiting for approval,
-  which asks the strongest model to break it and returns findings pinned to
-  the plan part each is about. Never the Judge, the audit, AI review — the
-  Judge is the veto on work done, and an adversarial review vetoes nothing.
-  [Adversarial review](../../concepts/adversarial-review.md) owns the rest.
+- **Judge** the one reading a person asks for on an artifact of a Job, or on
+  the Job as a whole, which looks for what the person or the agent missed.
+  It runs only when pressed and gates nothing. Never the auditor, the
+  reviewer, AI review, adversarial review. Fleet's own step judges are a
+  different thing and keep the name. [Judge](../../concepts/judge.md) owns
+  the rest.
+- **Note** what the Judge leaves inside an artifact, on the part it names,
+  headed **You should know**, with **Send to Job** and **Dismiss**. Never
+  concern, flag. A person's own notes on a walk or a page are
+  his and are not this.
 - **Evidence** the structured completion report. Never the report,
   output, proof.
 - **Doctor** the health check. Never diagnostics, system status.
@@ -229,6 +232,8 @@ page.
 | Ground Zero | **M0 — Foundations** | Archived with the phase plan |
 | Phase 0 through Phase 6, and numbered implementation steps | **Milestones** and their **Steps** | The nine-phase plan and its ~110 Steps live under "Archive — v2 phase plan" and are reference only. Milestone Steps are disposable and discarded when the milestone is met |
 | Session | **Job** | Renamed on 17 Oct 2026, by the owner: *"I would love to actually rename Sessions to Jobs everywhere."* The old Job went in the 15 Oct 2026 decision, so the word was free. Prose, tool descriptions and prompts say Job. Code identifiers, wire field names, store columns, route paths, error codes and file names keep `session`, and `session_id` is still the parameter an agent passes |
+| Adversarial review | **Judge** | The plan's review button and the Judge folded into one press on any artifact of a Job. A page still describing a critic of plans only, or a veto-only reading on a cheap model that raises calls, is describing something that no longer exists. Fleet's step judges are not it |
+| Concern, as a Judge's call in Needs you | **Note**, headed **You should know** | A concern was a row in the Needs you panel with its own card. A note sits inside the artifact on the part it names, and a finished Judge raises no call |
 | Convoy, Train, Atomic | *Nothing.* Say what the Job does | Names for kinds of Job. A Job is a Job: a screen says "three pull requests, landing in order" and never names a shape. Where a page meant the rules for a Job gated by several Manifests, they are on [Manifest](../../concepts/manifest.md); where it meant members in order, [Landing](../../concepts/landing.md) |
 
 **Casing.** Docs capitalise throughout. UI capitalises the singular

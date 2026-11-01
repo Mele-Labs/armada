@@ -53,12 +53,15 @@ async function fleet(seen: Seen[], answer: (method: string, url: string) => { st
 
 const repositories = { repositories: [{ root: "/Users/user/widgets", records_root: "/r/w" }, { root: "/Users/user/store front", records_root: "/r/s" }] };
 
+/** The Organize result Fleet holds, as the first Logbook answer carries it. */
+const HELD = { running: false, last: { action: "stale", proposals: [{ id: "a", entry_ids: ["a"], text: "T.", note: "60 days" }], failed: false } };
+
 describe("reading the Logbook", () => {
   it("asks for the habits and this Mac's, then each served repository by its root, and joins the answers", async () => {
     const seen: Seen[] = [];
     const port = await fleet(seen, (_method, url) => {
       if (url === "/repositories") return { status: 200, body: repositories };
-      if (url === "/logbook") return { status: 200, body: { entries: [entry("h1", "habits"), entry("machine-ab", "machine")], tidy: { running: true, last: { merged: 3, at: "2026-10-23T10:00:00Z", failed: true } } } };
+      if (url === "/logbook") return { status: 200, body: { entries: [entry("h1", "habits"), entry("machine-ab", "machine")], tidy: { running: true, last: { merged: 3, at: "2026-10-23T10:00:00Z", failed: true } }, organize: HELD } };
       if (url.includes("widgets")) return { status: 200, body: { entries: [entry("w1", "repo", "/Users/user/widgets")] } };
       return { status: 200, body: { entries: [entry("s1", "repo", "/Users/user/store front")] } };
     });
@@ -73,6 +76,7 @@ describe("reading the Logbook", () => {
       ok: true,
       entries: [entry("h1", "habits"), entry("machine-ab", "machine"), entry("w1", "repo", "/Users/user/widgets"), entry("s1", "repo", "/Users/user/store front")],
       tidy: { running: true, last: { merged: 3, at: "2026-10-23T10:00:00Z", failed: true } },
+      organize: HELD,
     });
   });
 
@@ -129,12 +133,19 @@ describe("tidying the Logbook", () => {
 });
 
 describe("organizing the Logbook", () => {
-  it("asks Fleet for an action's proposals over every repository and hands them back with whether any look failed", async () => {
+  it("starts a look and answers at once with whether it is running, leaving the proposals to the Logbook read", async () => {
     const seen: Seen[] = [];
-    const body = { action: "stale", proposals: [{ id: "a", entry_ids: ["a"], text: "T.", note: "60 days" }], failed: true };
-    const port = await fleet(seen, () => ({ status: 200, body }));
-    expect(await new LogbookHost(() => port).organize("stale")).toEqual({ ok: true, ...body });
+    const port = await fleet(seen, () => ({ status: 200, body: { running: true } }));
+    expect(await new LogbookHost(() => port).organize("stale")).toEqual({ ok: true, running: true });
     expect(seen.map((one) => [one.method, one.url, one.body])).toEqual([["POST", "/logbook/organize", '{"action":"stale"}']]);
+  });
+
+  it("dismisses the held result at its own route", async () => {
+    const seen: Seen[] = [];
+    const port = await fleet(seen, () => ({ status: 200, body: {} }));
+    expect(await new LogbookHost(() => port).dismissOrganize()).toEqual({ ok: true });
+    expect(seen.map((one) => [one.method, one.url, one.body])).toEqual([["POST", "/logbook/organize/dismiss", "{}"]]);
+    expect(await new LogbookHost(() => null).dismissOrganize()).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
   });
 
   it("sends the kept proposals to apply and hands back how many entries changed", async () => {

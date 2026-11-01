@@ -511,6 +511,13 @@ describe("a session", () => {
     expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).mod).toBeUndefined();
   });
 
+  it("carries the Judge's readings from the record, and none where none were asked", () => {
+    const reading = { id: "r1", artifact: { kind: "pull_request" as const, id: "2418", title: "#2418" }, prompt: "", state: "done" as const, asked_at: AT, read: false, notes: [{ id: "n1", claim: "No ceiling" }] };
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { judge_readings: [reading] }), undefined, beside()).judgeReadings).toEqual([reading]);
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).judgeReadings).toBeUndefined();
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ03", { judge_readings: [] }), undefined, beside()).judgeReadings).toBeUndefined();
+  });
+
   it("carries its turn, ask, tuning and address", () => {
     const session = sessionOfRecord(
       record("01ABCDEFGHJKMNPQRSTVWXYZ00", {

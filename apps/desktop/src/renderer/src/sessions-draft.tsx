@@ -5,11 +5,12 @@
 // Fleet's are `sessions-wired.tsx`, built over what main publishes. Where nothing serves them,
 // `useSessionsDraft` is `undefined`, the rail row is left off and no chip is owned.
 
-import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import { createContext, useContext, useLayoutEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { QueuedIdea, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { announceEnd } from "./cockpit/deck/exit";
+import { judgeApiOver, provideJudge, putReadings } from "./judge/store";
 import { EndsInFlight } from "./end-job";
 import { withOutgoing } from "./outgoing";
 import { withPressed } from "./pressed";
@@ -32,6 +33,20 @@ const withLeaving = (draft: SessionsDraft): SessionsDraft => {
   return close === undefined ? draft : Object.assign(Object.create(draft) as SessionsDraft, { close: (id: string) => (announceEnd(id), close.call(draft, id)) });
 };
 
+/** The Judge's half of the Sessions: its acts, where they are served, and each Job's readings as its record carries them (`judge/store.ts`). */
+function JudgeFeed({ draft }: { draft: SessionsDraft | undefined }) {
+  const sessions = useSyncExternalStore(draft?.subscribe ?? NEVER.subscribe, draft?.everywhere ?? draft?.get ?? NEVER.get);
+  const acts = draft?.judge;
+  useLayoutEffect(() => {
+    provideJudge(acts === undefined ? undefined : judgeApiOver(acts));
+    return () => provideJudge(undefined);
+  }, [acts]);
+  useLayoutEffect(() => {
+    if (acts !== undefined) for (const one of sessions) putReadings(one.id, one.judgeReadings);
+  }, [acts, sessions]);
+  return null;
+}
+
 /** Hand a moment's Sessions to the window. The mock's own mount is the one caller. */
 export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | undefined; acts?: RepositoryActs; children: ReactNode }) {
   // What the person sent is in the thread at once, and Pause, Auto land and Approve read as pressed at the press, over whichever serves it (`outgoing.ts`, `pressed.ts`).
@@ -41,6 +56,7 @@ export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | u
       <Held.Provider value={sending}>
         <ViewerNotesOver draft={sending}>{children}</ViewerNotesOver>
         <EndsInFlight draft={sending} />
+        <JudgeFeed draft={sending} />
       </Held.Provider>
     </Acts.Provider>
   );

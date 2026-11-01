@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
-import type { EntryTriage, FilesReach, PullRequestComposerProps, ReachTest } from "@armada/components";
+import type { DiffFile, EntryTriage, FilesReach, PullRequestComposerProps, ReachTest } from "@armada/components";
 import { placeOf, whyNotOpenedLink } from "@armada/screens";
 import { useAtFloor } from "@armada/shell";
 import type { PullRequestEntry, PullReviewRow, PullRequestPage } from "@armada/protocol";
@@ -12,6 +12,7 @@ import type { PullRequestAct, SessionAttachment } from "@armada/screens/src/draf
 
 import { openLink } from "../commands";
 import { PrOwnersOnTheWire } from "../pr-owners-wire";
+import { useDiffUnder } from "../judge/notes";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "../sessions-draft";
 import { failingOf, promptsOut, useSendBack } from "../session-pull-request";
 import { useBack } from "./panels";
@@ -180,9 +181,13 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
   }, [tab, noteHandle]);
   const unsent = lineNotes.notes.filter((one) => !one.sent);
   const resolved = lineNotes.notes.filter((one) => one.done).length;
+  // What a judge noted on a line of the diff stands under it, beside his own notes.
+  const judged = useDiffUnder(owner?.id ?? "", { kind: "pull_request", id: String(item.number) });
+  const noted = lineNotes.lines;
+  const lines = useMemo(() => (judged === undefined ? noted : { ...noted, under: (file: DiffFile, index: number) => <>{noted?.under?.(file, index)}{judged(file, index)}</> }), [noted, judged]);
   const shownPatches = useMemo(
-    () => (readPatches === undefined ? undefined : patchesOf(patches === undefined || patches.answer === "reading" ? undefined : patches.answer, lineNotes.lines)),
-    [readPatches, patches, lineNotes.lines],
+    () => (readPatches === undefined ? undefined : patchesOf(patches === undefined || patches.answer === "reading" ? undefined : patches.answer, lines)),
+    [readPatches, patches, lines],
   );
   const marks = reach === undefined || reach.answer === "reading" ? undefined : reach.answer;
 

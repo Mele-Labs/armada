@@ -76,8 +76,6 @@ pub(crate) mod releasing;
 mod rows;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
-/// A judge reading a Session's work, and sending or dismissing what it raised.
-pub(crate) mod session_judging;
 pub(crate) mod signed_out;
 mod serving;
 pub(crate) use serving::NoticeBatches;
@@ -500,8 +498,6 @@ pub(crate) struct State {
     pub spawns: crate::file_touching::Spawns,
     /// The agent's own subagent calls, whose rows carry their subagent, and the person's rows held behind one. In memory.
     pub call_rows: call_rows::CallRows,
-    /// How many judges are reading the Session's work now. In memory: a Fleet that restarts reads none.
-    pub judging: u32,
     /// The shell and watch calls of the stream, to pair with the task each starts. In memory.
     pub background: backgrounding::Calls,
     /// The commands the session ran and what came back, for `crate::run_memory`. In memory.
@@ -587,7 +583,6 @@ impl State {
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),
             call_rows: call_rows::CallRows::default(),
-            judging: 0,
             background: backgrounding::Calls::default(),
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),

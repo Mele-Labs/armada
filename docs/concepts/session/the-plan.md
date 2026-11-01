@@ -97,9 +97,9 @@ The calls are counted per plan and kept with it: a hosted Job's from its process
 A hosted Job hears it at its next tool call; a terminal Job's mod is handed it.
 A merge's tasks go in the merge's own message instead.
 
-**An adversarial review rides on the plan as `adversarial`.** The owner presses it on a plan waiting for approval, and it comes back as findings pinned to the group or task each is about, with the plan's own task matcher doing the pinning.
+**A Judge's reading of the plan rides with it.** The owner presses the Judge on a plan waiting for approval, and it comes back as notes pinned to the group or task each is about, with the plan's own task matcher doing the pinning.
 It advises and gates nothing, and recording the plan again marks it out of date rather than dropping it.
-[Adversarial review](../adversarial-review.md) owns the rest.
+[Judge](../judge.md) owns the rest.
 
 **In a repository whose tracker is beads, an approved plan is also mirrored into the Job's issue.** Each group is filed as a child of the issue it holds, each task as a child of its group, and each group blocks the next in plan order ([tracker](../tracker.md), *Beads*).
 The plan in Fleet stays the source: nothing is read back from the backlog, and a task's bead follows `state_of`, not a word the agent said.

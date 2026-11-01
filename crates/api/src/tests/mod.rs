@@ -28,7 +28,7 @@ mod bug_reports;
 mod lifecycle_routes;
 mod door_receipts;
 mod accounts;
-mod adversarial_review;
+mod judge;
 mod building;
 mod flight_controls;
 mod sharing;

@@ -124,6 +124,54 @@ impl<F> WorkProduct for GitVcs<F> {
             patch: printed(&diff, repository)?,
         })
     }
+
+    fn commit_work(&self, repository: &str, sha: &str) -> Result<BranchWork, Self::Error> {
+        let repo = Repository::open(repository).map_err(|cause| {
+            ReadWorkProductError::RepositoryUnreadable {
+                worktree: repository.to_string(),
+                cause,
+            }
+        })?;
+        let diff = commit_diff_of(&repo, repository, sha)?;
+        Ok(BranchWork {
+            changed: Changed::of(files(&diff)),
+            patch: printed(&diff, repository)?,
+        })
+    }
+}
+
+/// One commit as a diff from its first parent, or from the empty tree where it
+/// has none. Only a hash names it: `HEAD`, a branch or `abc^` would read some
+/// other commit than the one asked for.
+fn commit_diff_of<'r>(
+    repo: &'r Repository,
+    repository: &str,
+    sha: &str,
+) -> Result<Diff<'r>, ReadWorkProductError> {
+    let missing = |cause| ReadWorkProductError::BranchUnreadable {
+        worktree: repository.to_string(),
+        branch: sha.to_string(),
+        cause,
+    };
+    let sha = sha.trim();
+    if sha.len() < 4 || !sha.chars().all(|letter| letter.is_ascii_hexdigit()) {
+        return Err(missing(git2::Error::from_str("not a commit hash")));
+    }
+    let commit = repo
+        .revparse_single(sha)
+        .and_then(|object| object.peel_to_commit())
+        .map_err(missing)?;
+    let failed = |cause| ReadWorkProductError::DiffFailed {
+        worktree: repository.to_string(),
+        cause,
+    };
+    let new = commit.tree().map_err(failed)?;
+    let old = match commit.parent(0) {
+        Ok(parent) => Some(parent.tree().map_err(failed)?),
+        Err(_) => None,
+    };
+    repo.diff_tree_to_tree(old.as_ref(), Some(&new), None)
+        .map_err(failed)
 }
 
 /// Two branches of the repository at `repository`, as a diff from where the

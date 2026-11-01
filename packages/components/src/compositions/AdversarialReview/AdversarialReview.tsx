@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ArrowRight, Ban, CircleCheck, ClockAlert, LoaderCircle, ScanSearch, X } from "lucide-react";
+import { ArrowRight, Ban } from "lucide-react";
 
 import { keyFor } from "../../actions";
 import { useKeyBindings } from "../../keymap";
@@ -7,86 +7,26 @@ import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ConcernClaim } from "../SessionThread/ConcernClaim";
 
-import type { AdversarialReviewState, Finding } from "./review-state";
+import type { Finding } from "./review-state";
 
-export type { AdversarialReviewState, Finding } from "./review-state";
+export type { Finding } from "./review-state";
 
-export type AdversarialReviewProps = {
-  review: AdversarialReviewState;
+/** A Judge's notes on a plan waiting on its card. The host draws the press (`press`, a Judge act), and `onRun` is the key that opens it. */
+export type JudgedPlanProps = {
+  findings: readonly Finding[];
   onRun: () => void;
   onSend: (id: string) => void;
   onDismiss: (id: string) => void;
-  /** The key that runs it, shown in the tooltip. The host listens for it. */
-  shortcut?: string;
+  press: ReactNode;
 };
 
-const RUNNING = "Adversarial review running";
-
-/** The findings a state carries, none where the state has none. */
-export function findingsOf(review: AdversarialReviewState): readonly Finding[] {
-  return review.state === "done" || review.state === "stale" ? (review.findings ?? []) : [];
-}
-
-function Mark({ said, children, turning }: { said: string; children: ReactNode; turning?: true }) {
+function Mark({ said, children }: { said: string; children: ReactNode }) {
   return (
     <Tooltip label={said}>
-      <span className="armada-adversarial__mark" role="img" aria-label={said} data-turning={turning}>
+      <span className="armada-adversarial__mark" role="img" aria-label={said}>
         {children}
       </span>
     </Tooltip>
-  );
-}
-
-/**
- * The press, and what stands in its place: an idle review is a button; running, done, failed and stale are one mark
- * with a tooltip, and a failed or stale one offers Run again beside it.
- */
-export function AdversarialReviewPress({ review, onRun, shortcut }: Pick<AdversarialReviewProps, "review" | "onRun" | "shortcut">) {
-  const again = (
-    <Tooltip label="Reads it again" {...(shortcut === undefined ? {} : { shortcut })}>
-      <Button size="sm" variant="ghost" onClick={onRun}>
-        Run again
-      </Button>
-    </Tooltip>
-  );
-  return (
-    <span className="armada-adversarial__press" role="group" aria-label="Adversarial review">
-      {review.state === "idle" ? (
-        <Tooltip label="An adversary reads it for ways it breaks" {...(shortcut === undefined ? {} : { shortcut })}>
-          <Button size="sm" variant="secondary" onClick={onRun}>
-            Adversarial review
-          </Button>
-        </Tooltip>
-      ) : review.state === "running" ? (
-        <Mark said={RUNNING} turning>
-          <LoaderCircle size={16} strokeWidth={2} aria-hidden />
-        </Mark>
-      ) : review.state === "done" ? (
-        review.findings.length === 0 ? (
-          <Mark said="No findings">
-            <CircleCheck size={16} strokeWidth={2} aria-hidden />
-          </Mark>
-        ) : (
-          <Mark said="Adversarial review done">
-            <ScanSearch size={16} strokeWidth={2} aria-hidden />
-          </Mark>
-        )
-      ) : review.state === "failed" ? (
-        <>
-          <Mark said={review.said}>
-            <X size={16} strokeWidth={2} aria-hidden />
-          </Mark>
-          {again}
-        </>
-      ) : (
-        <>
-          <Mark said={`Read v${review.read}`}>
-            <ClockAlert size={16} strokeWidth={2} aria-hidden />
-          </Mark>
-          {again}
-        </>
-      )}
-    </span>
   );
 }
 
@@ -96,15 +36,16 @@ export function FindingRow({ finding, onSend, onDismiss }: { finding: Finding; o
   return (
     <li onClick={(event) => event.stopPropagation()} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
       <div className="armada-adversarial__claim">
-        <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, expected: finding.expected, produced: finding.found, ...(finding.impact === undefined ? {} : { impact: finding.impact }), ...(finding.cites === undefined ? {} : { cites: finding.cites }) }} />
+        <h4 className="armada-adversarial__heading">You should know</h4>
+        <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, ...(finding.expected === undefined ? {} : { expected: finding.expected }), ...(finding.found === undefined ? {} : { produced: finding.found }), ...(finding.impact === undefined ? {} : { impact: finding.impact }), ...(finding.cites === undefined ? {} : { cites: finding.cites, citesLabel: "Where" }) }} />
       </div>
       <div className="armada-adversarial__acts" role="group" aria-label="Answers">
-        <Tooltip label="Goes to the agent as your message" shortcut={keyFor("finding_send")}>
+        <Tooltip label="Goes to the Job as your message" shortcut={keyFor("judge_note_send")}>
           <Button size="sm" variant="secondary" onClick={onSend}>
-            Send to agent
+            Send to Job
           </Button>
         </Tooltip>
-        <Tooltip label="Leaves it unsent" shortcut={keyFor("finding_dismiss")}>
+        <Tooltip label="Leaves it unsent" shortcut={keyFor("judge_note_dismiss")}>
           <Button size="sm" variant="ghost" onClick={onDismiss}>
             Dismiss
           </Button>
@@ -123,14 +64,5 @@ export function SettledRow({ finding }: { finding: Finding }) {
       <Mark said={said}>{sent ? <ArrowRight size={12} strokeWidth={2} aria-hidden /> : <Ban size={12} strokeWidth={2} aria-hidden />}</Mark>
       <span className="armada-adversarial__settled-text">{finding.consequence}</span>
     </li>
-  );
-}
-
-/** A failed review's words, in one line where its findings would stand. */
-export function ReviewFailed({ said }: { said: string }) {
-  return (
-    <p className="armada-adversarial__failed" role="status">
-      {said}
-    </p>
   );
 }

@@ -67,16 +67,12 @@ pub(crate) struct RailStep {
     pub walks: bool,
     /// What the person does that ends the step, any one of them. Empty for a step that lists none.
     pub ends_on: Vec<StepEnd>,
-    /// What a boundary judge asks after the step. Empty is a step nobody judges.
+    /// What the step's `judge_checks` ask. Empty is a step nobody judges.
     pub criteria: Vec<JudgeCriterion>,
     pub fit: Option<Fit>,
 }
 
 impl RailStep {
-    pub(crate) fn judges(&self) -> bool {
-        !self.criteria.is_empty()
-    }
-
     /// The lifecycle states that end the step. A step that lists one waits on the world, and is
     /// placed by what it holds rather than by a fact that fits it.
     pub(crate) fn lifecycle_ends(&self) -> impl Iterator<Item = &LifecycleEnd> {
@@ -640,23 +636,6 @@ pub(crate) fn instructed(workflow: &str, steps: &[RailStep], at: usize) -> Optio
         said.push_str(&format!(" {gate}"));
     }
     Some(said)
-}
-
-/// The step a boundary judge reads: the one the Session just left, if it asks the Judge anything and
-/// has not been read. Moving back, or staying, leaves nothing behind.
-pub(crate) fn left_behind(
-    steps: &[RailStep],
-    from: Option<usize>,
-    to: Option<usize>,
-    landed: bool,
-    judged: &[u32],
-) -> Option<usize> {
-    let from = from?;
-    let left = match to {
-        Some(to) => to > from,
-        None => landed,
-    };
-    (left && steps.get(from)?.judges() && !judged.contains(&(from as u32))).then_some(from)
 }
 
 /// How a step reads in the timeline's `says`: its label, `start` before the first and `done` past the

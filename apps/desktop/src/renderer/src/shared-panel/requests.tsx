@@ -4,7 +4,7 @@
 // named with Fleet's why, and nothing is saved over the person's own while it will not. The environment picked and each open
 // request's edits and answer are the panel's, so a tab switch keeps them and Save can sit on the heading's line.
 
-import { useState } from "react";
+import { useContext, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { ChevronDown, ChevronRight, FolderGit2, SquareAsterisk, Trash2, TriangleAlert } from "lucide-react";
 import {
@@ -36,7 +36,7 @@ import type { RequestsAnswer, RequestsApi } from "../../../shared/api/requests";
 import { useSessions } from "../sessions-draft";
 import { HolderLink, useBack } from "./panels";
 import { useReading, usePanelReads } from "./reads";
-import { SidePanel } from "./side";
+import { InlinePanel, SidePanel } from "./side";
 import { closePanel } from "./store";
 import type { PanelItem, RequestStart } from "./store";
 import { METHODS, bodyShown, filledOf, historyOf, repositoryToRead, startOf, unreadFileOf, yoursUnread } from "./requests-model";
@@ -97,7 +97,9 @@ export function RequestsPanel({ item }: { item: Item }) {
   const api = reads?.requests;
   const back = useBack();
   const session = useSessions().find((one) => one.id === item.sessionId);
-  const floor = useAtFloor();
+  const inline = useContext(InlinePanel);
+  const atFloor = useAtFloor();
+  const floor = atFloor || inline;
   const [tab, setTab] = useState("request");
   const [recent, remember] = useRecentRepositories();
   // With no Job open, the repository is picked here, starting where the Cockpit is narrowed to, as it stood at the open.

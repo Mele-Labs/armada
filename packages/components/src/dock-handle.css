@@ -60,3 +60,27 @@
 .armada-dock-handle[data-quiet][data-dragging="true"]::before {
   background: var(--border-default);
 }
+
+/* A handle across a split whose sides are one over the other: it lies along the line and drags up and down. */
+.armada-dock-handle[data-axis="y"] {
+  width: auto;
+  height: var(--space-2);
+  margin-inline: 0;
+  margin-block: var(--space-1);
+  align-self: auto;
+  cursor: row-resize;
+}
+.armada-dock-handle[data-axis="y"]::before {
+  top: 50%;
+  left: 50%;
+  width: var(--space-8);
+  height: calc(var(--border-width) * 2);
+  transform: translateX(-50%);
+}
+.armada-dock-handle[data-axis="y"][data-quiet]::before {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: calc(var(--border-width) * 2);
+  transform: translateY(-50%);
+}
