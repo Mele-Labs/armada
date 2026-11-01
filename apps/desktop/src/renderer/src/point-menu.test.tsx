@@ -4,6 +4,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
+import { PointActs } from "@armada/components";
 
 import "./styles/index.css";
 import type { AnnotationsDevApi } from "../../shared/annotations";
@@ -29,11 +30,11 @@ afterEach(() => {
 });
 
 /** Mounted, with its listener on: a press before the effect runs finds nobody listening. */
-async function mount(): Promise<void> {
+async function mount(inApp: { entries: never[]; onSelect: () => void } | null = null): Promise<void> {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  flushSync(() => root.render(<PointMenu />));
+  flushSync(() => root.render(inApp === null ? <PointMenu /> : <PointActs.Provider value={inApp}><PointMenu /></PointActs.Provider>));
   mounted.push({ root, host });
   await new Promise((done) => setTimeout(done, 0));
 }
@@ -66,4 +67,28 @@ test("a right press the app handled itself opens no menu", async () => {
   await mount();
   press((one) => one.addEventListener("contextmenu", (event) => event.preventDefault()));
   expect(page.getByRole("menuitem", { name: "Mod" }).query()).toBeNull();
+});
+
+test("inside the app's acts it lists Mod and Report once, its own and not the app's too", async () => {
+  window.armadaDev = {} as AnnotationsDevApi;
+  const app = {
+    entries: [
+      { kind: "item", id: "point-mod", label: "Mod" },
+      { kind: "item", id: "point-report", label: "Report" },
+    ] as never[],
+    onSelect: vi.fn(),
+  };
+  await mount(app);
+  press();
+  await expect.element(page.getByRole("menuitem", { name: "Mod" })).toBeVisible();
+  expect(page.getByRole("menuitem", { name: "Mod" }).elements()).toHaveLength(1);
+  expect(page.getByRole("menuitem", { name: "Report" }).elements()).toHaveLength(1);
+  expect(document.querySelectorAll('[role="separator"]')).toHaveLength(0);
+  // Its own press is its own: the app's handler is never asked.
+  const asked = vi.fn();
+  window.addEventListener("armada:report", asked);
+  await page.getByRole("menuitem", { name: "Report" }).click();
+  window.removeEventListener("armada:report", asked);
+  expect(asked).toHaveBeenCalledTimes(1);
+  expect(app.onSelect).not.toHaveBeenCalled();
 });
