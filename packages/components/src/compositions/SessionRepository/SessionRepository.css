@@ -29,6 +29,17 @@ button.armada-session-repository:focus-visible {
   outline-offset: var(--focus-ring-offset);
 }
 
+/* A head with no room for the name draws the glyph alone, in the width and height of the head's other icons. */
+.armada-session-repository[data-icon] {
+  justify-content: center;
+  width: var(--h-control-sm);
+  height: var(--h-control-sm);
+}
+
+.armada-session-repository[data-icon] > :not(svg:first-child) {
+  display: none;
+}
+
 .armada-session-repository > svg,
 .armada-session-repository__item > svg {
   flex: none;
