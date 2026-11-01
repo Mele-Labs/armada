@@ -126,6 +126,7 @@ Training took a minute per run here, since the encoder layers are cached once an
 ## Not in force
 
 Do not settle a page on this head.
+Fleet reads his reply to a page with a `models.dispute` call instead (`crates/fleet/src/session_host/page_replies.rs`), the owner's choice of 1 Nov 2026.
 Nothing reached the bar (precision 0.90 or more with at least one approval caught) on the fresh part.
 More approvals are needed before it can be measured; here 5 of the 179 typed replies approve.
 The ways to get them are not built: reading later messages in the same window and not only the first, and keeping Fleet's own record of the reply and what the owner then did, going forward.
