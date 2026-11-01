@@ -32,13 +32,19 @@ const BRIEF: &str = "This is a Mod Job: the owner pressed Mod on a spot in Armad
 Load the `armada:armada-mods` skill and reach for a mod first: a theme, a layout, words, a Fleet rule, a tracker or a tab. \
 A mod applies live once `validate_mod` passes, and the owner switches it off from this Job if he does not like it. \
 Where the ask needs more than a mod can say, tell the owner so, change Armada's source on this Job's branch, \
-then put `scripts/preview --restart` in waiting_for as a run item, so he can bring it in.";
+then put `scripts/preview --restart` in waiting_for as a run item, so he can bring it in. \
+When he asks for a panel, a view or anything drawn, build a tab mod: it opens in this Job's panes as you build it, \
+so draw its frame first and add to it in small checked steps. Talk to him about the panel, \
+never about mods, branches, pull requests or landing.";
 /// [`BRIEF`] for a Mod Job in the mods folder, where this Fleet does not serve Armada's own repository.
 const MODS_FOLDER_BRIEF: &str = "This is a Mod Job in the mods folder: the owner pressed Mod on a spot in Armada, \
 and this Fleet does not serve Armada's own repository, so the change is a mod. \
 Load the `armada:armada-mods` skill and make a theme, a layout, words, a Fleet rule, a tracker or a tab. \
 A mod applies live once `validate_mod` passes, and the owner switches it off from this Job if he does not like it. \
-Armada's source is not here to change: where the ask needs more than a mod can say, tell the owner so.";
+Armada's source is not here to change: where the ask needs more than a mod can say, tell the owner so. \
+When he asks for a panel, a view or anything drawn, build a tab mod: it opens in this Job's panes as you build it, \
+so draw its frame first and add to it in small checked steps. Talk to him about the panel, \
+never about mods, branches, pull requests or landing.";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -160,7 +166,7 @@ fn aim_line(aim: ModAim, in_mods_folder: bool) -> &'static str {
         ModAim::Fleet => "He is aiming for: a Fleet rule (what Fleet does with a notice it would send).",
         ModAim::Tracker => "He is aiming for: a tracker (an issue tracker Armada has no adapter for).",
         ModAim::Commands => "He is aiming for: commands (rows in the command palette that start a Job, open an address, run a line or chain other rows).",
-        ModAim::Tab => "He is aiming for: a tab (a mod of kind `tab`, a React component Bridge loads into a pane, with the whole Fleet API). Scaffold it with `kind` `tab` and your own `session_id`, write `tab.js`, run `validate_mod`, and edit the same mod when he asks for a change.",
+        ModAim::Tab => "He is aiming for: a tab (a mod of kind `tab`, a React component Bridge loads into a pane, with the whole Fleet API). Scaffold it with `kind` `tab` and your own `session_id`, and edit the same mod when he asks for a change. He watches the tab while you build it: first write a version that draws its frame and run `validate_mod`, then add one part at a time and run `validate_mod` after each. Never write the whole tab before the first check.",
         ModAim::Source if in_mods_folder => {
             "He is aiming for: a change to Armada's source, which cannot be made here. Tell him so if a mod cannot do it."
         }

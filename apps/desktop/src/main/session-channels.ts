@@ -15,7 +15,7 @@ import { ringed } from "./held-notes-channels";
 import type { FleetConnection } from "./connection";
 import type { SessionPages } from "./session-page";
 import type { TerminalWindows } from "./terminal-windows";
-import type { LoadoutKind, LoadoutSource, McpServerAct } from "@armada/protocol";
+import type { LoadoutKind, LoadoutSource, McpServerAct, ModAim } from "@armada/protocol";
 
 type Hosts = {
   ipc: IpcMain;
@@ -36,6 +36,7 @@ const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
 const MODES = ["ask", "auto", "accept_edits", "plan"];
 const DELIVERIES = ["auto_land", "open_pr", "keep_local"];
 const JUDGE_KINDS: readonly JudgeKind[] = ["job", "plan", "pull_request", "commit", "file", "page", "doc", "sketch", "command", "subagent", "issue", "note"];
+const MOD_AIMS: readonly ModAim[] = ["theme", "layout", "words", "fleet", "tracker", "commands", "tab", "source"];
 const MCP_ACTS: readonly McpServerAct[] = ["reconnect", "turn_on", "turn_off", "sign_in"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
@@ -116,7 +117,8 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
       if (typeof note.state !== "object" || note.state === null) return unread;
     }
     for (const field of [start.title, start.model, start.effort, start.said, start.from_job, start.from_tab]) if (field !== undefined && typeof field !== "string") return unread;
-    return connection()?.sessions.startMod({ ...(note === undefined ? {} : { note }), ...(start.said === undefined ? {} : { said: start.said }), ...(text(start.from_job) ? { from_job: start.from_job } : {}), ...(text(start.from_tab) ? { from_tab: start.from_tab } : {}), ...(text(start.title) ? { title: start.title } : {}), ...(text(start.model) ? { model: start.model } : {}), ...(text(start.effort) ? { effort: start.effort } : {}) }) ?? unsent;
+    if (start.aim !== undefined && !MOD_AIMS.includes(start.aim)) return unread;
+    return connection()?.sessions.startMod({ ...(start.aim === undefined ? {} : { aim: start.aim }), ...(note === undefined ? {} : { note }), ...(start.said === undefined ? {} : { said: start.said }), ...(text(start.from_job) ? { from_job: start.from_job } : {}), ...(text(start.from_tab) ? { from_tab: start.from_tab } : {}), ...(text(start.title) ? { title: start.title } : {}), ...(text(start.model) ? { model: start.model } : {}), ...(text(start.effort) ? { effort: start.effort } : {}) }) ?? unsent;
   });
   ipc.handle(CHANNELS.answerSessionAsk,(_event, answer: AnswerSessionAsk) => {
     if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unread;

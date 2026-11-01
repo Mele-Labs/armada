@@ -267,9 +267,9 @@ export function look(jobId: string, change: (arrangement: Arrangement) => Arrang
 }
 
 /** A tab the Job opened itself. One that joins a pane is content and leaves the layout as it was; one that makes a split is arrangement. */
-export function jobOpens(jobId: string, kind: TabKind, label?: string, page?: string): void {
-  if (hasKind(peek(jobId), kind)) look(jobId, (arrangement) => arrive(arrangement, kind, label, page));
-  else rearrange(jobId, (arrangement) => arrive(arrangement, kind, label, page), undefined, true);
+export function jobOpens(jobId: string, kind: TabKind, label?: string, page?: string, mod?: string): void {
+  if (hasKind(peek(jobId), kind)) look(jobId, (arrangement) => arrive(arrangement, kind, label, page, mod));
+  else rearrange(jobId, (arrangement) => arrive(arrangement, kind, label, page, mod), undefined, true);
 }
 
 export function takeLayout(jobId: string, name: string): void {

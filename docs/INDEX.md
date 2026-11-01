@@ -297,6 +297,10 @@ approximations.
   — whether two items on a Job's Needs you list are one ask, by the cosine of the base model's
   vectors: 300 labelled pairs, a threshold of 0.845 that merged no two different asks on the
   development half and folded 6 of 44 repeats on the held-out half; in force since 22 Oct 2026.
+- [`spikes/reply-approves-reader.md`](spikes/reply-approves-reader.md)
+  — whether the person's typed reply to a walk, plan or sketch approves it and tells the Job to go on,
+  read by a new `approves` head on the committed adapter: 179 replies from his transcripts, only 5 of
+  them approvals, so the head is trained and measured and not in force.
 - [`spikes/reply-asks-classifier.md`](spikes/reply-asks-classifier.md)
   — whether a reply asks the person for something, read from its close: the rules on 457 labelled
   replies, the local language model chosen and fine-tuned beside them, and all three readers on two sets

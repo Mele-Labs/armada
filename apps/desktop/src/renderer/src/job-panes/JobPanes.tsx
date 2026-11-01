@@ -7,6 +7,7 @@ import { DockHandle } from "@armada/components";
 
 import { LayoutControl } from "./LayoutControl";
 import { PaneView } from "./PaneView";
+import { useBuiltTabs } from "./mod-tabs";
 import { usePaneKeys } from "./keys";
 import { droppableEdge, droppableGap, measured, rearrange, useJobPanes } from "./store";
 import { endZoom, useZoomBox, usePaneZoomed } from "./zoom";
@@ -70,6 +71,7 @@ export function JobPanes({ jobId, body, bar, over }: { jobId: string; body: (tab
   const zoomed = zoomedId !== undefined && panesOf(arrangement.root).some((one) => one.id === zoomedId) ? zoomedId : undefined;
   const box = useZoomBox(zoomed !== undefined, 0, area);
   usePaneKeys(jobId, openMenu);
+  useBuiltTabs(jobId);
   const slot = useJobSlot();
   useEffect(() => measured(jobId, size), [jobId, size]);
 

@@ -42,6 +42,7 @@ where
         let mut followed = tokio::time::Instant::now();
         let mut measured = tokio::time::Instant::now();
         let mut disputes_read = tokio::time::Instant::now();
+        let mut pages_read = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
             // A subagent its parent sent more work, read as running again from its own transcript.
@@ -58,6 +59,11 @@ where
             if disputes_read.elapsed() >= crate::session_host::dispute_reading::EVERY {
                 disputes_read = tokio::time::Instant::now();
                 fleet.notices_read().await;
+            }
+            // A page put to him that he answered in the thread rather than on its card.
+            if pages_read.elapsed() >= crate::session_host::page_replies::EVERY {
+                pages_read = tokio::time::Instant::now();
+                fleet.pages_read().await;
             }
             // Sleep mode's pass rides this tick, but looks only every `sleeping::EVERY`.
             if slept.elapsed() >= crate::sleeping::EVERY {
