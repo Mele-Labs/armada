@@ -125,7 +125,9 @@ function modTurn(store: SessionsStore, id: string, said: string): void {
       turn: { state: "idle" },
       lastTurnAt: now(),
     }));
-    const row_: ModSummary = { name: MOD_NAME, kind: "tab", glyph: "git-pull-request", enabled: true, valid: true, made_by: id, changed_at: now(), description: said === "" ? "" : "Pull requests waiting on your review, across repositories" };
+    // A Job that fixes the tab changes the mod in place, so it stays the first Job's.
+    const maker = mods.find((one) => one.name === MOD_NAME)?.made_by ?? id;
+    const row_: ModSummary = { name: MOD_NAME, kind: "tab", glyph: "git-pull-request", enabled: true, valid: true, made_by: maker, changed_at: now(), description: said === "" ? "" : "Pull requests waiting on your review, across repositories" };
     mods = [...mods.filter((one) => one.name !== MOD_NAME), row_];
     handle?.publish({ mods: { mods } });
   };
@@ -189,7 +191,7 @@ function breakTurn(store: SessionsStore, id: string): void {
     handle?.publish({ mods: { mods } });
   };
   turns.set(id, finish);
-  changeTimers.add(window.setTimeout(finish, 1200));
+  changeTimers.add(window.setTimeout(finish, 400));
 }
 
 export const sJobLayouts: Scenario = {
