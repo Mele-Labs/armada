@@ -1,23 +1,17 @@
-// What each open Job's area looks like, and the named layouts it can take. Held in memory for now; keeping them is the next piece. A Job's arrangement is its own: rearranging
-// one never moves another. A Job that has not been arranged or given a layout follows the layout marked for all Jobs.
+// What each open Job's area looks like, and the named layouts it can take. A Job's arrangement is its own: rearranging one never moves another. A Job that has not been arranged or
+// given a layout follows the layout new Jobs open on. **Kept across restarts on this machine** through the kept values every text box uses (`keep.ts`): the saved layouts and the one
+// new Jobs open on under one key, and each Job's own arrangement under a key of its own. What ⌘Z can take back is this window's and is not kept.
 
 import { useSyncExternalStore } from "react";
 
-import { arrive, build, copyOf, hasKind, moveTabToEdge, moveTabToGap, moveTabToPane, shortfall, type Arrangement, type Side, type TabKind } from "./tree";
+import { forgetKept, readKept, writeKept } from "@armada/components";
+
+import { TAB_KINDS, arrive, build, copyOf, hasKind, moveTabToEdge, moveTabToEnd, moveTabToGap, moveTabToPane, panesOf, shortfall, type Arrangement, type Node, type Side, type TabKind } from "./tree";
 
 export const DEFAULT_LAYOUT = "Default";
 
 /** Today's arrangement: the Job's thread, and Done, Now and Open stacked to its right, all in view. */
 const defaultArrangement = (): Arrangement => build({ dir: "row", ratio: 0.62, a: ["thread"], b: { dir: "column", ratio: 0.18, a: ["done"], b: { dir: "column", ratio: 0.65, a: ["now"], b: ["open"] } } });
-
-/** What the mock's browser and terminal tabs read until the tab says its own. */
-const SEEDED_LABELS = { browser: "localhost:5173", terminal: "zsh" } as const;
-
-/** **The mock's**: two saved layouts to pick from until layouts are kept for real. */
-const seeded = (): Record<string, Arrangement> => ({
-  "QA split": build({ dir: "row", ratio: 0.55, a: { dir: "column", ratio: 0.6, a: ["thread"], b: ["terminal"] }, b: ["browser"] }, undefined, SEEDED_LABELS),
-  Review: build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["changes"] }),
-});
 
 type Entry = {
   arrangement: Arrangement;
@@ -42,13 +36,78 @@ type State = {
   base: Arrangement | undefined;
 };
 
-let state: State = { jobs: {}, saved: seeded(), forAll: DEFAULT_LAYOUT, versions: {}, base: undefined };
+// ---- Kept ------------------------------------------------------------------------------------------------
+
+const SHARED = "job-panes:shared";
+const JOB = "job-panes:job:";
+
+const isNode = (one: unknown): boolean => {
+  const node = one as Node | undefined;
+  if (node === undefined || node === null || typeof node !== "object") return false;
+  if (node.type === "pane") return typeof node.id === "string" && Array.isArray(node.tabs) && node.tabs.every((tab) => typeof tab?.id === "string" && (TAB_KINDS as readonly string[]).includes(tab.kind));
+  return node.type === "split" && typeof node.id === "string" && (node.dir === "row" || node.dir === "column") && typeof node.ratio === "number" && isNode(node.a) && isNode(node.b);
+};
+/** A kept arrangement that is not one any more, from another version, is not used. */
+const isArrangement = (one: unknown): one is Arrangement => {
+  const arrangement = one as Arrangement | undefined;
+  return arrangement !== undefined && arrangement !== null && typeof arrangement === "object" && typeof arrangement.focus === "string" && typeof arrangement.next === "number" && isNode(arrangement.root) && panesOf(arrangement.root).some((pane) => pane.id === arrangement.focus);
+};
+
+const reviveEntry = (stored: unknown): Entry => {
+  const one = stored as Entry;
+  if (!isArrangement(one?.arrangement) || typeof one.layout !== "string") throw new Error("not a Job's panes");
+  return { arrangement: one.arrangement, layout: one.layout, edited: one.edited === true, chosen: one.chosen === true, version: typeof one.version === "number" ? one.version : 0 };
+};
+
+type Shared = Pick<State, "saved" | "forAll" | "versions" | "base">;
+
+const reviveShared = (stored: unknown): Shared => {
+  const one = stored as Partial<Shared> | undefined;
+  const saved = Object.fromEntries(Object.entries(one?.saved ?? {}).filter(([, arrangement]) => isArrangement(arrangement)));
+  return { saved, forAll: typeof one?.forAll === "string" ? one.forAll : DEFAULT_LAYOUT, versions: one?.versions ?? {}, base: isArrangement(one?.base) ? one.base : undefined };
+};
+
+const initial = (): State => ({ jobs: {}, ...(readKept(SHARED, reviveShared) ?? { saved: {}, forAll: DEFAULT_LAYOUT, versions: {}, base: undefined }) });
+
+/** A Job's own panes as they were kept, where there are any. */
+const keptEntry = (jobId: string): Entry | undefined => {
+  try {
+    return readKept<Entry>(JOB + jobId, reviveEntry);
+  } catch {
+    return undefined;
+  }
+};
+
+/** What changed between two states is written: the shared part once, and each Job whose entry is not the one it was. */
+function keep(was: State, next: State): void {
+  if (next.saved !== was.saved || next.forAll !== was.forAll || next.versions !== was.versions || next.base !== was.base) writeKept(SHARED, { saved: next.saved, forAll: next.forAll, versions: next.versions, base: next.base });
+  for (const [id, entry] of Object.entries(next.jobs)) if (was.jobs[id] !== entry) writeKept(JOB + id, entry);
+}
+
+/** Everything kept of the panes, gone, and the window as it opens with none: a test or a mock starts from here. */
+export function forgetPanes(): void {
+  forgetKept(SHARED);
+  for (const key of Object.keys(window.localStorage)) if (key.startsWith(`armada:kept:${JOB}`)) forgetKept(key.slice("armada:kept:".length));
+  histories.clear();
+  areas.clear();
+  state = { jobs: {}, saved: {}, forAll: DEFAULT_LAYOUT, versions: {}, base: undefined };
+  told();
+}
+
+/** Saved layouts a mock offers beside Default, in place of any a person made. */
+export function seedLayouts(saved: Record<string, Arrangement>): void {
+  set({ ...state, saved });
+}
+
+let state: State = initial();
 const listeners = new Set<() => void>();
 
 const told = () => listeners.forEach((hear) => hear());
 
 function set(next: State): void {
+  const was = state;
   state = next;
+  keep(was, next);
   told();
 }
 
@@ -58,11 +117,14 @@ const layoutNamed = (name: string): Arrangement => copyOf((name === DEFAULT_LAYO
 
 /** The Job's entry, made on first sight from the layout for all Jobs. It is brought to that layout while the person has not chosen otherwise, and to a layout's update while the Job is not edited. No notice: the same answer every time. */
 function ensure(jobId: string): Entry {
-  const held = state.jobs[jobId];
+  const held = state.jobs[jobId] ?? keptEntry(jobId);
   if (held !== undefined) {
     const following = !held.chosen && held.layout !== state.forAll;
     const stale = !held.edited && held.version !== versionOf(held.layout);
-    if (!following && !stale) return held;
+    if (!following && !stale) {
+      if (state.jobs[jobId] === undefined) state = { ...state, jobs: { ...state.jobs, [jobId]: held } };
+      return held;
+    }
   }
   const layout = held?.chosen === true ? held.layout : state.forAll;
   const made: Entry = { arrangement: layoutNamed(layout), layout, edited: false, chosen: held?.chosen ?? false, version: versionOf(layout) };
@@ -154,6 +216,13 @@ export function droppableGap(jobId: string, tabId: string, splitId: string): boo
   return next !== was && allowed(jobId, was, next);
 }
 
+/** Whether a tab dragged over an outer edge of the area can be dropped there: a new pane along the whole edge that changes the layout and leaves every pane its minimum. */
+export function droppableEdge(jobId: string, tabId: string, side: Side): boolean {
+  const was = ensure(jobId).arrangement;
+  const next = moveTabToEnd(was, tabId, side);
+  return next !== was && allowed(jobId, was, next);
+}
+
 function go(jobId: string, from: "past" | "future"): void {
   const history = histories.get(jobId);
   const target = history?.[from].pop();
@@ -216,7 +285,7 @@ export function resetLayout(jobId: string): void {
   put(jobId, () => ({ ...entry, arrangement: layoutNamed(entry.layout), edited: false, version: versionOf(entry.layout) }));
 }
 
-/** The named layout is the one every Job takes from now on, and so is every Job that has not been given another. */
+/** The named layout is the one new Jobs open on from now on, and so is every Job that has not been given another. */
 export function setLayoutForAll(layout: string): void {
   set({ ...state, forAll: layout });
 }

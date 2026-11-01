@@ -1,4 +1,6 @@
-// **The mock's** diffs: what a Changes tab draws until Fleet serves a Job's own, one patch for each place the changes can be read from. A patch as git writes it.
+// The patches the `job-layouts` scenario's pull requests answer with, as git writes them. `patchesOf` cuts one into the files the forge's read serves.
+
+import type { PatchesRead } from "../shared-panel/reads";
 
 export const MOCK_PATCH = `diff --git a/crates/fleet/src/lease.rs b/crates/fleet/src/lease.rs
 index 4be1c3a..9d02f7e 100644
@@ -60,3 +62,15 @@ index 0b7e4d1..a41c9f3 100644
      }
  }
 `;
+
+/** A git patch as the forge serves it: one entry per file, each patch starting at its first hunk. */
+export function patchesOf(manifestId: string, number: number, patch: string): PatchesRead {
+  const files = patch
+    .split(/^diff --git /m)
+    .filter((one) => one !== "")
+    .map((one) => {
+      const path = /^a\/(\S+) b\//.exec(one)?.[1] ?? "";
+      return { manifest_id: manifestId, number, path, patch: one.slice(one.indexOf("@@")).trimEnd() };
+    });
+  return { ok: true, files };
+}

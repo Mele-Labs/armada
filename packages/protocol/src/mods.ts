@@ -28,6 +28,8 @@ export type ModSummary = {
   kind?: ModKind;
   version?: string;
   description?: string;
+  /** A tab mod's glyph, by its name in the icon registry. Absent where `mod.toml` names none. */
+  glyph?: string;
   /** What Teach was pressed on, where a person taught this mod. Absent for a mod written by hand. */
   taught_on?: string;
   /** The Logbook entry a teaching from a Job made this mod with. Absent for a mod written by hand or taught where no entry was made. */
@@ -84,6 +86,8 @@ export type StartModSession = {
   title?: string;
   model?: string;
   effort?: string;
+  /** The kind of mod he is aiming for, which the brief names ahead of his first message. Absent names none. */
+  aim?: ModAim;
   /** What he pointed at. Exactly one of `note` and `said`. Neither: an empty Mod Job, whose brief rides ahead of his first message. */
   note?: SessionNote;
   /** His words, where Mod was pressed on nothing: the Job's first message after the brief. */
@@ -91,7 +95,7 @@ export type StartModSession = {
 };
 
 /** What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only. */
-export type ModAim = "theme" | "layout" | "words" | "fleet" | "tracker" | "commands" | "source";
+export type ModAim = "theme" | "layout" | "words" | "fleet" | "tracker" | "commands" | "tab" | "source";
 
 /** A Mod Job started. `send_failed` is why its first message was not sent, where it was refused; open the Job and send by hand. */
 export type ModSessionStarted = { session_id: string; title: string; send_failed?: string };
@@ -117,6 +121,16 @@ export type ModChecked = {
   fleet?: FleetFile;
   /** A Commands mod's `commands.toml` as it was checked, present only where it passed. */
   commands?: CommandsFile;
+  /** A tab mod's glyph and `tab.js` as they were checked, present only where it passed. Bridge loads this text and no other. */
+  tab?: TabModule;
+};
+
+/** A tab mod as it was checked: what Bridge draws on the tab, and the module it runs in the tab's body. */
+export type TabModule = {
+  /** A name in the icon registry. Absent where `mod.toml` names none, and Bridge draws the Custom glyph. */
+  glyph?: string;
+  /** The text of `tab.js`, an ES module whose default export is a React component. */
+  code: string;
 };
 
 /** Where a pattern opens in one repository. */

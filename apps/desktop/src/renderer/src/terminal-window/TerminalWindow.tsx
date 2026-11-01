@@ -6,7 +6,6 @@ import { ShellWindowPane, XtermScreen } from "@armada/components";
 import type { SessionsRead } from "../../../shared/api/sessions";
 
 import { shellsOf, useShellOf } from "../job-shell";
-import { saveJobTerminalPlace } from "../job-terminal-place";
 import { stateOf, type StateSource } from "../state-feed";
 
 type WindowApi = Parameters<typeof shellsOf>[0] & Parameters<typeof stateOf>[0];
@@ -58,17 +57,7 @@ export function TerminalWindow({ api, sessionId }: { api: WindowApi; sessionId: 
       moves={[
         {
           to: "docked",
-          onMove: () => {
-            saveJobTerminalPlace("docked");
-            shells.moveBack(sessionId, "docked");
-          },
-        },
-        {
-          to: "side panel",
-          onMove: () => {
-            saveJobTerminalPlace("side panel");
-            shells.moveBack(sessionId, "side panel");
-          },
+          onMove: () => shells.moveBack(sessionId, "docked"),
         },
       ]}
     >

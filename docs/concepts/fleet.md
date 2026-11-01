@@ -411,6 +411,7 @@ Hung again, it is told like any failure.
 
 **Each notice is told once, and a restart does not repeat it.** The store keeps (pull request, commit, cause, recipient) and the merge queue's last reading.
 A new commit that fails is news; the same one read again is not.
+**A rerun's failure is news too (31 Oct 2026).** Checks no longer failed, running again or passed, clear what was told of the last failure, so a rerun that fails at the same commit is told.
 **A drop is news each time it happens (#2649, 20 Oct 2026).** A pull request queued again clears what was told of its last drop, so a second drop at the same commit is told.
 The queue tests a commit of its own, and a pull request's run can skip what the queue runs, so its own checks read green while the queue fails it.
 The drop names the queue run's failed checks and the end of a log, read from the newest queue run for that pull request.

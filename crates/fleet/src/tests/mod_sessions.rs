@@ -13,7 +13,7 @@ use super::session_notes::{a_repository, note, turn_of, PATH, SAID};
 
 fn pointed(title: Option<&str>) -> StartModSession {
     let at = note(&SessionId::carried("unused"), "Other commands, 16.1% of the burn", None).note;
-    StartModSession { title: title.map(str::to_string), model: None, effort: None, note: Some(at), said: None }
+    StartModSession { title: title.map(str::to_string), model: None, effort: None, aim: None, note: Some(at), said: None }
 }
 
 fn spoken(title: Option<&str>, said: Option<&str>) -> StartModSession {
@@ -21,10 +21,13 @@ fn spoken(title: Option<&str>, said: Option<&str>) -> StartModSession {
         title: title.map(str::to_string),
         model: None,
         effort: None,
+        aim: None,
         note: None,
         said: said.map(str::to_string),
     }
 }
+
+const TAB_AIM: &str = "He is aiming for: a tab (a mod of kind `tab`, a React component Bridge loads into a pane, with the whole Fleet API). Scaffold it with `kind` `tab` and your own `session_id`, write `tab.js`, run `validate_mod`, and edit the same mod when he asks for a change.";
 
 fn said_by_him(id: &SessionId, text: &str) -> SendSessionMessage {
     SendSessionMessage { session_id: id.clone(), text: text.to_string(), attachments: Vec::new(), mentions: Vec::new() }
@@ -244,6 +247,7 @@ async fn an_empty_mod_jobs_first_message_names_what_he_is_aiming_for_between_the
         (ModAim::Fleet, "He is aiming for: a Fleet rule (what Fleet does with a notice it would send)."),
         (ModAim::Tracker, "He is aiming for: a tracker (an issue tracker Armada has no adapter for)."),
         (ModAim::Commands, "He is aiming for: commands (rows in the command palette that start a Job, open an address, run a line or chain other rows)."),
+        (ModAim::Tab, TAB_AIM),
         (ModAim::Source, "He is aiming for: a change to Armada's source."),
     ];
     for (aim, line) in aims {
@@ -326,4 +330,25 @@ async fn a_mod_a_job_scaffolds_lists_that_job_as_made_by() {
     assert_eq!(made_by("calmer"), Some(job));
     assert_eq!(made_by("by-hand"), None, "a call that names no Job records none");
     assert!(list.iter().all(|one| one.name != "stray"), "an unknown Job makes nothing");
+}
+
+#[tokio::test]
+async fn a_mod_job_started_with_a_tab_aim_is_briefed_on_the_tab_between_the_brief_and_his_words() {
+    for served in ["armada", "elsewhere"] {
+        let rig = serving(served).await;
+        let start = StartModSession { aim: Some(ModAim::Tab), ..spoken(None, Some("a list of pull requests waiting on me")) };
+
+        let started = Arc::clone(&rig.fleet).start_mod_session(start).await.expect("started");
+
+        assert_eq!(started.send_failed, None, "{served}");
+        let turn = turn_of(&rig).await;
+        let at = |wanted: &str| turn.find(wanted).unwrap_or_else(|| panic!("{served}: the turn carries {wanted}: {turn}"));
+        let order = [at("This is a Mod Job"), at(TAB_AIM), at("a list of pull requests waiting on me")];
+        assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "{served}: the brief, the aim, his words: {turn}");
+        let rows = rig.rows(&started.session_id).await;
+        assert!(
+            matches!(&rows[..], [SessionRow::Message { text, .. }] if text == "a list of pull requests waiting on me"),
+            "{served}: the thread keeps his words alone: {rows:#?}"
+        );
+    }
 }

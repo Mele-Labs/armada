@@ -1,15 +1,15 @@
 ---
 name: armada-mods
-description: How a job makes a mod end to end — a theme (colours), a layout (which tabs, panels and places are drawn, and in what order), or a tracker (an issue tracker Armada was not built for). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, to move, hide or reorder something in Bridge, or to use an issue tracker Armada does not support.
+description: How a job makes a mod end to end — a theme (colours), a layout (which tabs, panels and places are drawn, and in what order), a tracker (an issue tracker Armada was not built for), or a tab (a React component drawn in a pane of a Job). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, to move, hide or reorder something in Bridge, or to use an issue tracker Armada does not support, or for a tab that shows something in a Job's panes.
 ---
 
 # Making a mod
 
-**Three kinds.** A theme changes colours, in `theme.css`; a layout changes what
+**Four kinds here.** A theme changes colours, in `theme.css`; a layout changes what
 Bridge arranges, in `layout.json`; a tracker teaches Fleet an issue tracker, in
-`tracker.toml`. Colours are the first section below, layouts the second and
-trackers the last. Pick the kind from the ask: "warmer", "darker" and "higher
-contrast" are themes; "move", "hide", "put first" and "reorder" are layouts.
+`tracker.toml`; a tab draws a view in a Job's panes, in `tab.js`. Colours are the first section below, layouts the second, trackers the third and
+tabs the last. Pick the kind from the ask: "warmer", "darker" and "higher
+contrast" are themes; "move", "hide", "put first" and "reorder" are layouts; "a tab that shows" is a tab.
 
 # In a Mod Job
 
@@ -346,3 +346,57 @@ map = """
 {reference: .key, title, url: .link, closed: (.state == "closed"), body: .description}
 """
 ```
+
+# Making a tab mod
+
+**A tab is code Bridge runs as part of itself.** It reaches the whole Fleet API
+and Bridge's components, and draws in the body of a tab in a Job's panes. There
+is no sandbox, so what it can do is what Armada's own code can do.
+`docs/concepts/mods.md`, *tab.js*, is the whole contract.
+
+## The steps
+
+| # | Do | Tool |
+|---|---|---|
+| 1 | See what exists, so the name is new | `list_mods` |
+| 2 | Make the folder | `scaffold_mod` with `name`, `description`, your `session_id` and `kind` set to `tab` |
+| 3 | Write `tab.js` in that path | Your editor |
+| 4 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
+| 5 | Change it again when he asks; the tab on his screen reloads as each write is seen | Your editor, then `validate_mod` |
+
+**The scaffold already passes**, so the tab exists, drawing one line, the moment
+it is made. He is watching it change from then on, so write `tab.js` in steps
+that each pass `validate_mod`, and do not leave it broken between writes: a module that
+fails to load leaves the last good one on screen. Name the tab by what it shows
+(`review-queue`), since the name is its title. **Pass your `session_id`**: the
+tab finds you by it, and its hover card is this Job.
+
+## The file
+
+A plain ES module, no build step. Its default export is a React component with one prop, `host`.
+
+| Use | For |
+|---|---|
+| `host.React` | React. Write `const { createElement: h, useState, useEffect } = host.React;` and call `h(...)`, since there is no JSX |
+| `host.armada` | Any Fleet call Bridge makes, such as `getReviewLists()` or `listJobs()`. Read `apps/desktop/src/shared/api/` for the names |
+| `host.ui` | Bridge's primitives by name: `Button`, `Tooltip`, `Table` and the rest of the list in `apps/desktop/src/renderer/src/job-panes/tab-ui.ts` |
+| `host.glyphs` | Icons by registry name, `host.glyphs["git-pull-request"]` |
+| `host.job.id`, `host.tab.id` | The Job the tab is open in, and the tab |
+
+Set `glyph` in `mod.toml` to a name in `packages/icons/icons/` that
+`apps/desktop/src/renderer/src/job-panes/tab-glyph.ts` draws; any other name draws the Custom glyph.
+
+## What you must not do
+
+| Never | Because |
+|---|---|
+| Write an `import` or `export ... from` | A module loaded from text has no path to resolve, and `validate_mod` refuses it |
+| Write words that narrate or explain on the screen | A tab shows facts: names, numbers, states |
+| Show a state as text where a glyph with a tooltip fits | Bridge shows a state as a glyph |
+| Use a dash in a string the person reads | Armada's voice has none |
+| Edit `mod.toml` beyond `description`, `version` and `glyph` | `name` must equal the folder, and `kind` is `tab` |
+| Add a second file | Only `mod.toml` and `tab.js` are read |
+
+**What he sees.** The tab is in the + menu of every pane under the rule above
+Custom, and in the pane it was built in. Switching the mod off in Mods removes
+its body. **Promotion is his act**, as for the other kinds.

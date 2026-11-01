@@ -29,14 +29,14 @@ const UNTITLED: &str = "Mod";
 
 /// What a Mod Job is told ahead of the note. **Sent as it stands**, so it is short and plain.
 const BRIEF: &str = "This is a Mod Job: the owner pressed Mod on a spot in Armada, and the change is to Armada itself. \
-Load the `armada:armada-mods` skill and reach for a mod first: a theme, a layout, words, a Fleet rule or a tracker. \
+Load the `armada:armada-mods` skill and reach for a mod first: a theme, a layout, words, a Fleet rule, a tracker or a tab. \
 A mod applies live once `validate_mod` passes, and the owner switches it off from this Job if he does not like it. \
 Where the ask needs more than a mod can say, tell the owner so, change Armada's source on this Job's branch, \
 then put `scripts/preview --restart` in waiting_for as a run item, so he can bring it in.";
 /// [`BRIEF`] for a Mod Job in the mods folder, where this Fleet does not serve Armada's own repository.
 const MODS_FOLDER_BRIEF: &str = "This is a Mod Job in the mods folder: the owner pressed Mod on a spot in Armada, \
 and this Fleet does not serve Armada's own repository, so the change is a mod. \
-Load the `armada:armada-mods` skill and make a theme, a layout, words, a Fleet rule or a tracker. \
+Load the `armada:armada-mods` skill and make a theme, a layout, words, a Fleet rule, a tracker or a tab. \
 A mod applies live once `validate_mod` passes, and the owner switches it off from this Job if he does not like it. \
 Armada's source is not here to change: where the ask needs more than a mod can say, tell the owner so.";
 
@@ -52,7 +52,7 @@ where
 {
     /// Start a Mod Job and send it the brief and the note.
     pub(crate) async fn mod_job_started(self: Arc<Self>, start: StartModSession) -> Result<ModSessionStarted, Refusal> {
-        let StartModSession { title, model, effort, note, said } = start;
+        let StartModSession { title, model, effort, aim, note, said } = start;
         let said = said.map(|words| words.trim().to_string());
         let first = match (note, said) {
             (Some(note), None) => First::Note(note),
@@ -74,6 +74,10 @@ where
                 // Not read: a Job in the mods folder names no Manifest.
                 (ManifestId::carried(""), Marked::ModsFolder, MODS_FOLDER_BRIEF)
             }
+        };
+        let brief = match aim {
+            Some(aim) => format!("{brief}\n\n{}", aim_line(aim, marked == Marked::ModsFolder)),
+            None => brief.to_string(),
         };
         let title = title
             .map(|title| title.trim().to_string())
@@ -99,10 +103,10 @@ where
         let sent = match first {
             First::Nothing => Ok(()),
             First::Note(note) => Arc::clone(&self)
-                .note_sent_after(SendSessionNote { session_id: session_id.clone(), note }, Some(brief))
+                .note_sent_after(SendSessionNote { session_id: session_id.clone(), note }, Some(&brief))
                 .await
                 .map(|_| ()),
-            First::Words(words) => Arc::clone(&self).words_sent_after(session_id.clone(), words, brief).await,
+            First::Words(words) => Arc::clone(&self).words_sent_after(session_id.clone(), words, &brief).await,
         };
         let send_failed = sent.err().map(|refused| refused.error().message.clone());
         Ok(ModSessionStarted { session_id, title, send_failed })
@@ -142,6 +146,7 @@ fn aim_line(aim: ModAim, in_mods_folder: bool) -> &'static str {
         ModAim::Fleet => "He is aiming for: a Fleet rule (what Fleet does with a notice it would send).",
         ModAim::Tracker => "He is aiming for: a tracker (an issue tracker Armada has no adapter for).",
         ModAim::Commands => "He is aiming for: commands (rows in the command palette that start a Job, open an address, run a line or chain other rows).",
+        ModAim::Tab => "He is aiming for: a tab (a mod of kind `tab`, a React component Bridge loads into a pane, with the whole Fleet API). Scaffold it with `kind` `tab` and your own `session_id`, write `tab.js`, run `validate_mod`, and edit the same mod when he asks for a change.",
         ModAim::Source if in_mods_folder => {
             "He is aiming for: a change to Armada's source, which cannot be made here. Tell him so if a mod cannot do it."
         }

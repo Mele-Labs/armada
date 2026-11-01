@@ -32,8 +32,6 @@ pub const WORKFLOWS_OFF: Json = Json("workflows.off");
 pub const EDITOR_COMMAND: Words = Words("editor.command");
 pub const TERMINAL_APP: Words = Words("terminal.app");
 pub const TERMINAL_COMMAND: Words = Words("terminal.command");
-/// Read by Bridge alone: where Terminal in a Job's header opens the Job's own shell.
-pub const OPEN_JOB_TERMINAL_IN: Words = Words("terminal.openJobTerminalIn");
 
 pub const OPEN_PULL_REQUESTS_IN: Words = Words("links.openPullRequestsIn");
 
@@ -46,9 +44,6 @@ pub const STORE_URL: Words = Words("store.url");
 /// The terminal programs Bridge knows how to open a folder in, and the one
 /// that runs `terminal.command` instead.
 pub const TERMINALS: &[&str] = &["Terminal", "iTerm", "Ghostty", "Warp", "WezTerm", "Custom"];
-
-/// Where a Job's own shell opens: under its thread, in the side panel pull requests open in, or in a window of its own.
-pub const JOB_TERMINAL_PLACES: &[&str] = &["docked", "side panel", "window"];
 
 /// Where a pull request link opens: Bridge's own panel, or the default browser.
 pub const PULL_REQUEST_PLACES: &[&str] = &["armada", "browser"];
@@ -277,19 +272,6 @@ pub(super) const TERMINAL: &[Entry] = &[
             "The command Bridge runs to open a folder when the terminal is Custom, {dir} filled in.",
         kind: Kind::Text,
         shipped: Shipped::Text(""),
-        applies: Applies::Live,
-        row: None,
-        env: None,
-        tip: None,
-    },
-    // Read on each open, so a change moves a shell already showing the next time it opens.
-    Entry {
-        key: OPEN_JOB_TERMINAL_IN.0,
-        section: Section::Terminal,
-        title: "Open a Job's terminal in",
-        description: "Where a Job's terminal opens: docked, in its own panel under the Job in the Cockpit and under the thread elsewhere, in the side panel, or in a window of its own.",
-        kind: Kind::Choice(Options::Fixed(JOB_TERMINAL_PLACES)),
-        shipped: Shipped::Text("docked"),
         applies: Applies::Live,
         row: None,
         env: None,

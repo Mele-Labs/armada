@@ -3,39 +3,39 @@
 **Part of:** [Job](../session.md).
 
 **A Job has one web page that its agent drives and the person watches, and may take over.**
-It shows in Bridge's side panel with the Job's own thread floating on its left, so the page and the Job are read and answered together.
+It is a Browser tab in a pane of the Job, beside the thread or any other tab, so the page and the Job are read and answered together.
+`+` on a pane's tab row offers Browser, and each Browser tab has a page of its own, named by its address.
 It is the page the Job's browser tools act on, so it is how a Job opens its own work and looks at it without a second browser the person cannot see.
 It is not the walk window: [Showing a window](showing-a-window.md) shows the person a page to walk and approve, and this is the page the agent works in.
 
-**The page is one view for the Job's life in Bridge**, kept when the panel is put away and when it moves to a window, so it holds its history, its sign-in and what was typed.
-It exists for a Job Fleet holds, once the Job's browser is first shown or its agent opens a page, and goes when Bridge quits.
+**Each tab's page is one view for the tab's life in Bridge**, kept while another tab is in front of it and when it moves to a window, so it holds its history, its sign-in and what was typed.
+It exists for a Job Fleet holds, once the tab opens or the agent opens a page, and goes when the tab is closed, the Job ends or Bridge quits.
+**The page the agent drives is the Job's page**: the first Browser tab in pane order that is showing, else the one shown last, else the first.
+An agent's open on the Job on screen, with no Browser tab, makes one, in the pane that holds a Browser, else in a new pane on the right; for a Job not on screen no tab opens until the Job is.
 It runs in its repository's own session as the walk window's page does, with no preload and every permission refused (`docs/practices/capture-window.md`, *What the page can reach back into*).
 Its code is `apps/desktop/src/main/job-browsers.ts`, `apps/desktop/src/main/job-browser-acts.ts` and `apps/desktop/src/renderer/src/job-browser/`.
 
-## In the side panel
+## In the tab
 
-**The Job's thread and composer float on the left of the panel**, the Cockpit's own view of the Job, so a note to it is typed without leaving the page.
-The toolbar's first button folds the thread: **Hide Job** while it shows, **Show Job** once it is folded.
-The toolbar is, left to right:
+**The toolbar is, left to right:**
 
 | Control | Does |
 |---|---|
-| Hide Job / Show Job | Folds the Job's thread away from the page, and brings it back. In the side panel only |
 | Driver glyph | Says who drives, and a press changes it (*Who drives*) |
 | Back, Forward, Reload | Move along the page's history and load it again. `⌘[`, `⌘]` and `⌘R` do the same with the pane focused |
 | Address | The page's address, which the person edits only while he drives |
+| Site settings | The lock before the address: what the page may use, for this site and for every site |
 | Capture | Pick a part of the page and send the Job a note on it (*Capture*). `⌥⌘C` |
-| Open in a window | Moves the page to a window of its own |
 
-Esc closes the panel, and the page is put away hidden with everything it held.
+The page sizes to its pane, and a tab behind another hides its page with everything it held.
+Closing the tab destroys the page.
 
 ## In a window
 
-**Open in a window moves the page to a window of its own, with the Job's thread beside it**, as the walk window draws its Job.
-The side panel closes as it opens, and the page is the same one, so nothing it held is lost.
-The window has one pane of the page and one of the Job, and the toolbar without Hide Job, since the thread is always beside the page there.
-**Move to the side panel**, in the toolbar where Open in a window was, closes the window and shows the page in the side panel again.
-Closing the window puts the page away hidden and keeps it; the Browser tile or the reminder's Open Job browser shows it in the side panel.
+**Move to window, on the tab's menu, moves the page to a window of its own, with the Job's thread beside it**, as the walk window draws its Job.
+The page is the same one, so nothing it held is lost, and the tab stays in its pane and says where the page is.
+**Move to the pane**, on the tab or in the window's toolbar, closes the window and shows the page in the tab again.
+Closing the window puts the page back in its tab.
 
 ## Who drives
 
@@ -69,14 +69,14 @@ Fleet holds the call until Bridge does the act and answers it, so Bridge must be
 | `browser_evaluate` | Runs an expression in the page and answers its value as JSON |
 
 A target is found as a walk's steps find theirs, by role and accessible name, so a page needs nothing of Armada's in it.
-**`browser_open` on a Job whose browser is not open opens it in the side panel**, on the address.
+**`browser_open` on the Job on screen with no Browser tab opens one**, on the address.
 Any other act on one is refused with *The Job browser is closed. Call browser_open first.*
 
 ## Where it is in the Cockpit
 
-**The Browser tile in Flight control** opens the Job browser in the side panel, an empty one where the Job has none, and is lit while it shows there or in its window ([Cockpit](../cockpit.md), *The Job's flight controls*).
-It is drawn only where the Job has a browser.
-Pressed while the window is open, it moves the page back to the side panel.
+**Browser is a tab kind**, offered by `+` on any pane's tab row.
+A Job on screen that has none opens one when its agent opens a page, or when the person presses `+` and Browser, and the tab is named by its page's address.
+Flight control has no Browser tile.
 
 ## When a Job reaches for another browser
 
@@ -87,13 +87,13 @@ The call is allowed and runs, and **the first one in a session** carries a remin
 The mod reports the reach to Fleet once a session.
 
 **The thread draws a row where it happened**: *Opened a browser outside Bridge with cmux. This job has a Job browser.*, with the tool Playwright or cmux.
-Its **Open Job browser** shows the page in the side panel and sends the Job a message from the person, "Use the Job browser for this. You were on `<address>`.", once.
+Its **Open Job browser** brings the Browser tab forward, or opens one, and sends the Job a message from the person, "Use the Job browser for this. You were on `<address>`.", once.
 The address is left off where the call named none, and the row reads *Sent to the job* from the person's message on, so it cannot go twice.
 The row keeps the address without its query, fragment or sign-in (`docs/practices/protocol/the-job-browser.md`, *The reminder row*).
 
 ## What it does not do
 
-- **It lives until Bridge quits.** The page, its history and its sign-in are not written down, and the Job browser is empty the next time Bridge opens.
+- **It lives until its tab closes or Bridge quits.** The page, its history and its sign-in are not written down, and the tab opens empty the next time Bridge opens.
 - **It does not stop the person's presses while the agent drives.** The toggle decides whether the agent's acts are refused.
 - **It draws no ring over the real page.** A note is a picture and a named part sent to the Job; only the mock's fixture page draws pins.
 - **It grants the page nothing.** Downloads and every permission are refused, a popup opens in the page itself, and only `http` and `https` load.
