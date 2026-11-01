@@ -319,7 +319,21 @@ export function Sheet({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [open, under, onClose]);
 
-  if (!open) return null;
+  // A closed sheet stays drawn for --duration-exit, leaving, so it eases away instead of vanishing.
+  const [wasOpen, setWasOpen] = useState(open);
+  const [leaving, setLeaving] = useState(false);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    setLeaving(!open);
+  }
+  useEffect(() => {
+    if (!leaving) return;
+    const ms = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--duration-exit"), 10);
+    const timer = window.setTimeout(() => setLeaving(false), Number.isNaN(ms) ? 140 : ms);
+    return () => window.clearTimeout(timer);
+  }, [leaving]);
+
+  if (!open && !leaving) return null;
 
   const labelled = closeLabel !== undefined && !floor;
   const handle = (
@@ -369,6 +383,7 @@ export function Sheet({
       data-floating={floating || undefined}
       data-beside={(floating && beside !== undefined) || undefined}
       data-through={through || undefined}
+      data-leaving={!open || undefined}
     >
       {aside === undefined || floor || side !== "right" ? null : <div className="armada-sheet__aside">{aside}</div>}
       {resizes && side === "right" ? handle : null}

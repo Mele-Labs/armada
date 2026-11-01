@@ -21,6 +21,7 @@
 @import "./primitives/Kbd/Kbd.css";
 @import "./primitives/ScrollArea/ScrollArea.css";
 @import "./primitives/Separator/Separator.css";
+@import "./primitives/WorkingMark/WorkingMark.css";
 @import "./primitives/Skeleton/Skeleton.css";
 @import "./primitives/Table/Table.css";
 @import "./primitives/Alert/Alert.css";

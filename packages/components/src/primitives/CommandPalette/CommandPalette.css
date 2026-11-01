@@ -37,6 +37,20 @@
   align-items: flex-start;
   padding-top: 20vh;
   background: var(--scrim);
+  animation: armada-palette-scrim-in var(--duration-base) var(--ease);
+}
+
+@keyframes armada-palette-scrim-in {
+  from {
+    background-color: transparent;
+  }
+}
+
+@keyframes armada-palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--space-2))) scale(0.98);
+  }
 }
 
 .armada-palette {
@@ -51,6 +65,7 @@
   border: var(--border-width) solid var(--border-default);
   box-shadow: var(--shadow-overlay);
   overflow: hidden;
+  animation: armada-palette-in var(--duration-base) var(--ease-out);
 }
 
 /* The field's row: the input, and while a command asks for something, the command's name before it. */

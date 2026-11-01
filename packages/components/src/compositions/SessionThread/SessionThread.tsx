@@ -1804,6 +1804,18 @@ export function AskCards({ asked, askRef, onAnswer, lapsed, flat, keep }: Pick<S
 export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval, sketching, asked, askRef, onAnswer, lapsed, waitingOnYou, onOpenSession, onOpenWindow, onOpenSketch, onOpenFile, onDraft, onWithdrawDraft, onAnswerSketch, onWithdrawSketch, onOpenDocument, onAnswerDocument, onOpenCheck, onOpenSubagent, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt, onReplyAt, onTeachAt, onTeachRow, onMuteNotice, lead, trailing, transcript, noted, inline, look, onPickLine, responses, onResponses }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
+  // A few rows arriving after the thread first drew rise in; the first draw, and a long run (Show earlier), do not.
+  const rowList = useRef<HTMLOListElement>(null);
+  const known = useRef<WeakSet<Element> | null>(null);
+  useLayoutEffect(() => {
+    const list = rowList.current;
+    if (list === null || transcript === "unread") return void (known.current = null);
+    const now = [...list.children];
+    if (known.current === null) return void (known.current = new WeakSet(now));
+    const fresh = now.filter((one) => !known.current!.has(one));
+    for (const one of fresh) known.current.add(one);
+    if (fresh.length <= 4) for (const one of fresh) one.setAttribute("data-arrived", "");
+  });
   const picks = useMemo((): LinePicks | null => (onPickLine === undefined || responses === undefined ? null : { responses, pick: onPickLine, ...(onResponses === undefined ? {} : { onAct: onResponses }), marks: marksOf(rows) }), [onPickLine, responses, onResponses, rows]);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -1903,7 +1915,7 @@ export function SessionThread({ rows, onRetry, onStartAgain, onReport, approval,
         <ProseWalk.Provider value={onOpenWindow ?? null}>
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
-        <ol className="armada-helm-thread__rows" {...(transcript === "unread" ? { "aria-busy": true } : {})}>
+        <ol ref={rowList} className="armada-helm-thread__rows" {...(transcript === "unread" ? { "aria-busy": true } : {})}>
           {lead === undefined ? null : <li className="armada-session-thread__lead">{lead}</li>}
           {transcript === "unread" ? <TranscriptSkeleton /> : null}
           {hidden === 0 ? null : (

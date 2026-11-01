@@ -17,6 +17,7 @@
 }
 
 .armada-popover__panel {
+  animation: armada-popover-in var(--duration-base) var(--ease-out);
   position: absolute;
   top: calc(100% + var(--space-1));
   z-index: var(--z-menu);
@@ -119,4 +120,14 @@
 
 .armada-popover-frame--bottom {
   align-items: flex-end;
+}
+
+/* A panel opening: a hair of rise and a fade, transform and opacity only, so
+   the box it lands in is the box it was measured as. No fill mode, so at the
+   zero duration reduced motion gives it the panel is simply its own style. */
+@keyframes armada-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--space-1))) scale(0.98);
+  }
 }
