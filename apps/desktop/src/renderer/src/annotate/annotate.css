@@ -37,8 +37,8 @@
   opacity: 0;
 }
 
-/* A picked or hovered element's frame. Each take draws it its own way (the take sections at the
- * foot); here is only where it is, its four corners and its tag, which every take places. */
+/* A picked or hovered element's frame: where it is, its four corners and its tag. How each is drawn is
+ * at the foot, with the card's look. */
 .armada-annotate__outline {
   --hue: var(--accent);
   --annotate-ring-off: calc(var(--border-width) * 3);
@@ -321,8 +321,8 @@
 /* A step's chip: filled, its step in mono after a bar drawn at the token's own size. */
 .armada-annotate .armada-annotate__picker .armada-button {
   gap: var(--space-1);
-  border-color: var(--border-subtle);
-  background: var(--bg-raised);
+  border-color: var(--border-default);
+  background: var(--bg-sunken);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
 }
@@ -406,8 +406,8 @@
   justify-self: start;
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
-  background: var(--accent-muted);
-  color: var(--fg-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
 }
 
 .armada-annotate__change-token:empty {
@@ -700,247 +700,58 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-/* ==== The takes, `?annotate-take=a|b|c` on the layer's root. Each section is one take whole; the two
- * not picked are deleted with their selector in `Layer.tsx` (`TAKE`). ===================================== */
+/* ---- The look: a reticle on the picked element, a console card ------------------------------------- */
 
-/* ---- A, Reticle: corner brackets over a faint frame; a tinted band; lit keys --------------------------- */
-
-.armada-annotate[data-take="a"] .armada-annotate__outline {
+/* Hovered: a plain thin frame, its tag an outline in the hue, so the picked one reads heavier. */
+.armada-annotate__outline {
   outline: var(--border-width) solid color-mix(in srgb, var(--hue) 70%, transparent);
   outline-offset: var(--annotate-ring-off);
 }
 
-/* Hovered: a plain thin frame, its tag an outline in the hue, so the picked one reads heavier. */
-.armada-annotate[data-take="a"] .armada-annotate__outline:not([data-held]) .armada-annotate__tag {
+.armada-annotate__outline:not([data-held]) .armada-annotate__tag {
   background: var(--bg-overlay);
   color: var(--hue);
 }
 
-.armada-annotate[data-take="a"] .armada-annotate__outline[data-held] {
+/* Picked: corner brackets over a faint frame, its tag filled. */
+.armada-annotate__outline[data-held] {
   outline-color: color-mix(in srgb, var(--hue) 35%, transparent);
 }
 
-.armada-annotate[data-take="a"] .armada-annotate__outline[data-held] .armada-annotate__corner {
+.armada-annotate__outline[data-held] .armada-annotate__corner {
   display: block;
 }
 
-.armada-annotate[data-take="a"] .armada-annotate__card {
-  border-color: color-mix(in srgb, var(--hue) 45%, var(--border-default));
-}
-
-.armada-annotate[data-take="a"] .armada-annotate__band {
-  border-bottom-color: color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
-  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
-  color: var(--hue);
-}
-
-.armada-annotate[data-take="a"] .armada-annotate__band-source {
-  color: var(--fg-muted);
-}
-
-.armada-annotate[data-take="a"] .armada-annotate__toolbar .armada-button {
-  border-color: var(--border-subtle);
-  background: var(--bg-raised);
-}
-
-.armada-annotate[data-take="a"] .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled) {
-  border-color: var(--hue);
-  background: var(--accent-muted);
-  color: var(--fg-default);
-}
-
-.armada-annotate[data-take="a"] .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled) svg {
-  color: var(--hue);
-}
-
-.armada-annotate[data-take="a"] .armada-annotate__picker .armada-button[aria-pressed="true"]:not(:disabled) {
-  border-color: var(--hue);
-  background: var(--hue);
-  color: var(--text-on-accent);
-}
-
-/* ---- B, Console: a solid frame tagged flush on its edge; a solid band; keys set in a sunken tray ------ */
-
-.armada-annotate[data-take="b"] .armada-annotate__outline {
-  outline: var(--border-width) solid color-mix(in srgb, var(--hue) 60%, transparent);
-  outline-offset: var(--annotate-ring-off);
-}
-
-.armada-annotate[data-take="b"] .armada-annotate__outline:not([data-held]) .armada-annotate__tag {
-  border-color: color-mix(in srgb, var(--hue) 60%, transparent);
-  background: var(--bg-sunken);
-  color: var(--fg-default);
-}
-
-.armada-annotate[data-take="b"] .armada-annotate__outline[data-held] {
-  outline-width: var(--annotate-stroke);
-  outline-color: var(--hue);
-  outline-offset: calc(var(--annotate-ring-off) - var(--border-width));
-}
-
-/* The picked one's tag is a tab on the frame's top edge, square where it meets it. */
-.armada-annotate[data-take="b"] .armada-annotate__outline[data-held] .armada-annotate__tag {
-  bottom: calc(100% + var(--annotate-ring-off) + var(--border-width));
-  left: calc((var(--annotate-ring-off) + var(--border-width)) * -1);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-}
-
-.armada-annotate[data-take="b"] .armada-annotate__card {
+/* The card: framed in the hue under a solid band. */
+.armada-annotate__card {
   border-color: var(--hue);
 }
 
-.armada-annotate[data-take="b"] .armada-annotate__band {
+.armada-annotate__band {
   border-bottom-color: var(--hue);
   background: var(--hue);
   color: var(--text-on-accent);
 }
 
-.armada-annotate[data-take="b"] .armada-annotate__toolbar {
+/* The keys set in a sunken tray; the picked one, and a picked token, filled solid. */
+.armada-annotate__toolbar {
   padding: var(--space-1);
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
 }
 
-.armada-annotate[data-take="b"] .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled) {
-  border-color: var(--hue);
-  background: var(--hue);
-  color: var(--text-on-accent);
-}
-
-.armada-annotate[data-take="b"] .armada-annotate__picker .armada-button {
-  border-color: var(--border-default);
-  background: var(--bg-sunken);
-}
-
-.armada-annotate[data-take="b"] .armada-annotate__picker .armada-button[aria-pressed="true"]:not(:disabled) {
+.armada-annotate .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled),
+.armada-annotate .armada-annotate__picker .armada-button[aria-pressed="true"]:not(:disabled) {
   border-color: var(--hue);
   background: var(--hue);
   color: var(--text-on-accent);
 }
 
 /* The changes as a readout in a sunken well. */
-.armada-annotate[data-take="b"] .armada-annotate__changes {
+.armada-annotate__changes {
   padding: var(--space-1) var(--space-2);
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
-}
-
-.armada-annotate[data-take="b"] .armada-annotate__change-token {
-  background: var(--bg-raised);
-  color: var(--fg-muted);
-}
-
-.armada-annotate[data-take="b"] .armada-annotate__change-token:empty {
-  background: none;
-}
-
-/* ---- C, HUD: brackets alone, a dark readout tag; a dark glass card on a hue rail; a joined strip -- */
-
-.armada-annotate[data-take="c"] .armada-annotate__outline .armada-annotate__corner {
-  display: block;
-  border-color: color-mix(in srgb, var(--hue) 70%, transparent);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__outline[data-held] {
-  --annotate-corner: var(--space-4);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__outline[data-held] .armada-annotate__corner {
-  border-color: var(--hue);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__tag {
-  border-color: color-mix(in srgb, var(--hue) 60%, transparent);
-  background: var(--bg-sunken);
-  color: var(--hue);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__tag-size {
-  color: var(--fg-muted);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__card {
-  border-left: calc(var(--border-width) * 3) solid var(--hue);
-  background: var(--bg-sunken);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__band {
-  border-bottom-color: color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
-  background: var(--bg-sunken);
-  color: var(--hue);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__band-source {
-  color: var(--fg-muted);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__toolbar {
-  gap: 0;
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__toolbar .armada-button {
-  border: 0;
-  border-radius: 0;
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__toolbar .armada-button + .armada-button {
-  border-left: var(--border-width) solid var(--border-default);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled) {
-  background: var(--hue);
-  color: var(--text-on-accent);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__picker .armada-button {
-  border-color: color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
-  background: transparent;
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__picker .armada-button[aria-pressed="true"]:not(:disabled) {
-  border-color: var(--hue);
-  background: var(--hue);
-  color: var(--text-on-accent);
-}
-
-/* The changes as stacked readouts, ruled apart: the property and its token, then what it was and is. */
-.armada-annotate[data-take="c"] .armada-annotate__changes {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__change {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
-  grid-template-areas: "property token undo" "values values undo";
-  align-items: center;
-  gap: 0 var(--space-2);
-  padding: var(--space-1) 0;
-  border-top: var(--border-width) solid var(--border-subtle);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__change-property {
-  grid-area: property;
-  color: var(--hue);
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__change-token {
-  grid-area: token;
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__change-values {
-  grid-area: values;
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__change > :last-child {
-  grid-area: undo;
-}
-
-.armada-annotate[data-take="c"] .armada-annotate__change-after {
-  color: var(--fg-default);
 }

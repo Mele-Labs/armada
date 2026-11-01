@@ -186,7 +186,7 @@ function Changes({ changes, onChanges }: { changes: readonly StyleChange[]; onCh
         ))}
       </ul>
       <div className="armada-annotate__actions">
-        <Button variant="ghost" size="sm" onClick={() => onChanges([])}>
+        <Button variant="secondary" size="sm" onClick={() => onChanges([])}>
           Undo all
         </Button>
       </div>

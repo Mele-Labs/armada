@@ -738,7 +738,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const busy = sending !== null || acting;
 
   return (
-    <div ref={layerRef} className="armada-annotate" data-armada-annotate="" data-take={TAKE} onKeyDown={keyed}>
+    <div ref={layerRef} className="armada-annotate" data-armada-annotate="" onKeyDown={keyed}>
       {hoveredBox !== null && hovered !== null && (
         <Outline box={hoveredBox} name={componentsOf(fiberOf(hovered)).component ?? hovered.tagName.toLowerCase()} />
       )}
@@ -794,7 +794,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
             )}
             <Examples pictures={(draft.examples ?? []).map((name) => ({ name, png: pictures[name] }))} onRemove={(name) => void removeExample(null, name)} />
             <div className="armada-annotate__actions">
-              <Button variant="ghost" size="sm" onClick={cancelDraft}>
+              <Button variant="secondary" size="sm" onClick={cancelDraft}>
                 Cancel
               </Button>
               <Button variant="primary" size="sm" disabled={draft.text.trim() === ""} onClick={() => void save()}>
@@ -832,6 +832,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                 {cannotSend === null && (
                   <SplitButton
                     size="sm"
+                    variant="primary"
                     menuLabel="Send to a Job"
                     disabled={sending !== null}
                     onAction={() => void sendToSessionAs(openNote.id, [openNote], null)}
@@ -842,11 +843,11 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                 )}
               </>
             )}
-            <Button variant="ghost" size="sm" onClick={() => void setStatus(openNote, openNote.status === "open" ? "done" : "open")}>
+            <Button variant="secondary" size="sm" onClick={() => void setStatus(openNote, openNote.status === "open" ? "done" : "open")}>
               {openNote.status === "open" ? "Mark done" : "Reopen"}
             </Button>
             <Button
-              variant="ghost"
+              variant="destructive"
               size="sm"
               onClick={() => (deleting ? void remove(openNote) : setDeleting(true))}
             >
@@ -1191,12 +1192,6 @@ function Outline({ box, name, held = false }: { box: Box; name: string; held?: b
     </div>
   );
 }
-
-/** Which of the style takes on the layer to draw, `?annotate-take=a|b|c`; A where none is named. Goes when one is picked. */
-const TAKE = ((): string => {
-  const asked = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("annotate-take");
-  return asked === "b" || asked === "c" ? asked : "a";
-})();
 
 /** `SessionRow ← SessionList ← Sessions`, then the selector, for the person checking what was picked. */
 function chain(note: Annotation): string {
