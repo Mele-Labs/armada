@@ -125,7 +125,9 @@ function modTurn(store: SessionsStore, id: string, said: string): void {
       turn: { state: "idle" },
       lastTurnAt: now(),
     }));
-    const row_: ModSummary = { name: MOD_NAME, kind: "tab", glyph: "git-pull-request", enabled: true, valid: true, made_by: id, changed_at: now(), description: said === "" ? "" : "Pull requests waiting on your review, across repositories" };
+    // A Job that fixes the tab changes the mod in place, so it stays the first Job's.
+    const maker = mods.find((one) => one.name === MOD_NAME)?.made_by ?? id;
+    const row_: ModSummary = { name: MOD_NAME, kind: "tab", glyph: "git-pull-request", enabled: true, valid: true, made_by: maker, changed_at: now(), description: said === "" ? "" : "Pull requests waiting on your review, across repositories" };
     mods = [...mods.filter((one) => one.name !== MOD_NAME), row_];
     handle?.publish({ mods: { mods } });
   };
@@ -169,6 +171,27 @@ function changeTurn(store: SessionsStore, id: string): void {
   turns.set(id, finish);
   for (const [at, run] of steps) changeTimers.add(window.setTimeout(run, at));
   changeTimers.add(window.setTimeout(finish, 5400));
+}
+
+/** A message asking the tab to `import` something: the Job writes a static import, and Fleet's check refuses the mod. Fix starts a Mod Job whose build makes it valid again. */
+function breakTurn(store: SessionsStore, id: string): void {
+  if (turns.has(id)) return;
+  const now = () => new Date().toISOString();
+  const finish = () => {
+    if (!turns.delete(id)) return;
+    changeTimers.forEach((one) => window.clearTimeout(one));
+    changeTimers.clear();
+    store.edit(id, (one) => ({
+      ...one,
+      rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: now(), kind: "tool", text: `Write ${MOD_DIR}/tab.js: import the forge client` } satisfies SessionRow],
+      turn: { state: "idle" },
+      lastTurnAt: now(),
+    }));
+    mods = mods.map((one) => (one.name === MOD_NAME ? { ...one, valid: false, reason: "tab.js line 1: an `import` cannot be resolved, the tab is handed `host` instead", changed_at: now() } : one));
+    handle?.publish({ mods: { mods } });
+  };
+  turns.set(id, finish);
+  changeTimers.add(window.setTimeout(finish, 400));
 }
 
 export const sJobLayouts: Scenario = {
@@ -314,7 +337,8 @@ export const sJobLayouts: Scenario = {
         send: (id: string, sent: Parameters<typeof store.send>[1]) => {
           if (!modJobs.has(id)) return store.send(id, sent);
           store.edit(id, (one) => ({ ...one, rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: sent.text } satisfies SessionRow], turn: { state: "working" } }));
-          changeTurn(store, id);
+          if (/\bimport\b/i.test(sent.text)) breakTurn(store, id);
+          else changeTurn(store, id);
           return Promise.resolve(true);
         },
         later: () => {
