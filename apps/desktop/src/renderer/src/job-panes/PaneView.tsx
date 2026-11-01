@@ -22,7 +22,7 @@ import { TAB_KINDS, activate, addTab, closePane, closeTab, focusPane, hasKind, m
 export const labelOf = (tab: Tab): string => (tab.kind === "custom" ? customLabel(tab.id) : undefined) ?? tab.label ?? KINDS[tab.kind].label;
 
 /** What a new tab of a kind is called: a browser by its page's host, a terminal by its shell. The kinds there is one of keep their names. The mock's shell is zsh. */
-function labelFor(jobId: string, kind: TabKind): string | undefined {
+export function labelFor(jobId: string, kind: TabKind): string | undefined {
   if (kind === "terminal") return "zsh";
   const url = kind === "browser" ? peekJobBrowser(jobId)?.url : undefined;
   return url === undefined || url === "" ? undefined : hostOf(url);
@@ -239,7 +239,8 @@ export function PaneView({ jobId, pane, focused, zoomed, thread, dragging, gapLi
             // The tab is the pane's front tab now; a built mod's is drawn as built.
             const front = panesOf(peek(jobId).root).find((one) => one.id === pane.id)?.active;
             if (mod !== undefined && front !== undefined) seedBuilt(front, mod);
-            focusIn(pane.id);
+            // A Terminal takes the keyboard as its screen opens, which the tab would take back.
+            if (kind !== "terminal") focusIn(pane.id);
           }}
         />
         {!zoomed ? null : (

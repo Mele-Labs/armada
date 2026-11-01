@@ -41,7 +41,7 @@ import { COMPACT, handTargets, heldOf, mute, nameOfHeldRow, offeredOf, plain, ti
 import { ShellBox, type ShellRun } from "./ShellBox";
 import { select, setView } from "./store";
 import { openRequestsInPanel } from "../../shared-panel/store";
-import { useJobBrowserTile } from "../../job-browser/JobBrowserPane";
+import { focusKind } from "../../job-panes/focus";
 import { toggleLayer, useLayer } from "../../session-view/layers";
 import type { SessionBays } from "../../session-view/slot-trouble";
 
@@ -59,7 +59,6 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const { slot, narrow } = useActsPlace();
   const layer = useLayer(session.id);
   const terminal = useJobTerminal(session.id, draft.terminalRuns !== undefined);
-  const browser = useJobBrowserTile(session.id);
   const flight = useRepositoryFlight(repository?.root, session.id);
   const tiles = tilesOf("job", useFlightFile(), repositoryFileOf(flight), committedFileOf(flight));
   /** The committed tile asking before its first run here, and what Fleet said to the last Run, if anything. */
@@ -152,8 +151,9 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     slot: () => toggleLayer(session.id, "slot"),
     system: () => toggleLayer(session.id, "system"),
     requests: () => void openRequestsInPanel(session.id),
-    terminal: () => terminal?.press(),
-    browser: () => browser?.press(),
+    // A Job in panes has Terminal and Browser as tabs, so their keys bring that kind's tab forward or open one; a Session without panes keeps the Terminal tile.
+    terminal: () => (head ? focusKind(session.id, "terminal") : terminal?.press()),
+    browser: () => focusKind(session.id, "browser"),
     pause: () => void run("pause", async () => void (await (session.paused === true ? draft.resume : draft.pause)?.(session.id))),
   };
   const job: JobFacts = {
@@ -263,7 +263,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     requests: "Send a request with your cookie for its host",
     // A press while it is in its window brings the window forward and leaves the shell showing.
     terminal: terminal?.windowed === true ? "Bring the Job's terminal window to the front" : terminal?.shown === true ? "Hide the Job's terminal" : "Open the Job's terminal",
-    browser: "Open the Job browser in the side panel",
+    browser: "Open the Job browser",
     pause: session.paused === true ? "Resume" : "Pause",
   };
   const tipCustom = (tile: Tile): string => {
@@ -366,7 +366,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
           aria-label={name}
           data-key={key}
           data-act={id === "pause" ? "pause" : undefined}
-          aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true) || (id === "browser" && browser?.shown === true)}
+          aria-pressed={id === undefined ? undefined : id === "map" || id === "release" || id === "pause" ? false : pending === tile.id || (id === "land" && on) || (id === "terminal" && terminal?.shown === true)}
           data-on={paused || undefined}
           data-running={(id === "terminal" && terminal?.running === true) || undefined}
           aria-busy={pending === tile.id || undefined}
@@ -454,9 +454,16 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   };
   if (head) {
     const row = <>{icons.map(drawIcon)}</>;
+    // Terminal and Browser are tabs here, not acts: their keys stay on buttons out of sight.
+    const kinds = (["terminal", "browser"] as const).map(tileById);
     return (
       <>
         {dialog}
+        <div hidden className="job-acts">
+          {kinds.map((tile) => (
+            <button key={tile.id} type="button" tabIndex={-1} aria-label={tile.label} data-key={flightKey(tile)} aria-disabled={whyOf(tile) !== undefined || undefined} onClick={() => whyOf(tile) === undefined && press[tile.id as "terminal" | "browser"]()} />
+          ))}
+        </div>
         {slot !== null && !narrow ? createPortal(row, slot) : <div hidden className="job-acts">{row}</div>}
       </>
     );

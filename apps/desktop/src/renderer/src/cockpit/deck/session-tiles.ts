@@ -43,9 +43,9 @@ export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: s
   { id: "system", label: "System", text: "System" },
   // Opens Requests in the side panel for this Job. Past the tenth, so no key.
   { id: "requests", label: "Requests", text: "Requests" },
-  // The Job's shell, docked or in the side panel as `terminal.openJobTerminalIn` says (`job-shell-dock.tsx`). Moved here from the Job's header on the owner's ask of 23 Oct 2026.
+  // The Job's shell, docked or in its window (`job-shell-dock.tsx`). A Job in panes has it as a tab, and this tile is drawn only where it has none. Moved here from the Job's header on the owner's ask of 23 Oct 2026.
   { id: "terminal", label: "Terminal", text: "Terminal" },
-  // The Job browser, in the side panel (`job-browser/`). Drawn for every Job, as every tile keeps its seat; a press where the Job has none makes one.
+  // The Job browser, a tab of a Job in panes (`job-browser/`). Never drawn as a tile; its key brings the Browser tab forward or opens one.
   { id: "browser", label: "Browser", text: "Browser" },
   // Pause reads Resume while the Session is paused (`SessionTiles.tsx`). Its key is p, not a digit.
   { id: "pause", label: "Pause", text: "Pause" },
