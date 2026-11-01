@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CircleDot } from "lucide-react";
+import { WorkingMark } from "../../primitives/WorkingMark/WorkingMark";
 import { Prose } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ACTOR_NAMED, type ActivityActor } from "../ActivityLog/ActivityLog";
@@ -282,7 +283,7 @@ function QuietRun({ turns, working }: QuietRunProps) {
       {/* Pointer only: the word is beside it for a screen reader, so no tab stop. */}
       <Tooltip asChild decorative label={said}>
         <span className="armada-turns__mark" data-working={working || undefined} aria-hidden>
-          <CircleDot size={MARK} strokeWidth={MARK_STROKE} />
+          {working ? <WorkingMark size={MARK} /> : <CircleDot size={MARK} strokeWidth={MARK_STROKE} />}
         </span>
       </Tooltip>
       <span className="armada-turns__quiet-body">

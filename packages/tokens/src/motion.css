@@ -23,6 +23,18 @@
      InfoVis 2007). */
   --duration-travel: 300ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
+  /* A layer leaving. Quicker than it arrived and accelerating away, so a
+     closed sheet is gone before the eye waits on it. */
+  --duration-exit: 140ms;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  /* One view giving way to the next: the incoming one fades up from a
+     hair of travel, over --duration-base. Layout never moves; opacity and
+     translate only. */
+  --duration-enter: var(--duration-base);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* The backdrop behind the glass: a drift too slow to watch, only to notice
+     it has moved. */
+  --duration-drift: 90s;
   --tooltip-delay: 400ms;
   /* How long a tooltip group stays warm after one closes. Inside it the next
      tooltip opens instantly, so crossing a row of eight annotated chips is one
@@ -30,6 +42,7 @@
      has been elsewhere for a third of a second is not still reading. */
   --tooltip-grace: 300ms;
   --duration-pulse: 1600ms; /* a loop that says still working */
+  --duration-spin: 1100ms;  /* the working mark's turn */
   /* The third clock. A transition is for a person watching; a decay is for a
      person returning. A changed row carries a mark that fades to nothing
      across this span, so somebody who looked away for a minute still sees
@@ -44,7 +57,7 @@
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-press: 0ms; --duration-fast: 0ms; --duration-base: 0ms;
-    --duration-sheet: 0ms; --duration-travel: 0ms;
+    --duration-sheet: 0ms; --duration-travel: 0ms; --duration-exit: 0ms;
   }
   /* --duration-decay and --duration-hold are not zeroed. A decay is a colour
      fading over tens of seconds, not movement, and a hold's time is the
