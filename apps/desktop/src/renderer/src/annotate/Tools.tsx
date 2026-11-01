@@ -57,6 +57,11 @@ export function Tools({ id, element, changes, onChanges, keep }: { id: string; e
   function pick(kind: ChangeKind, property: string, token: string): void {
     if (element === null) return;
     const was = changes.find((one) => one.property === property);
+    // The token already picked, pressed again, undoes that change.
+    if (was?.token === token) {
+      onChanges(changes.filter((one) => one.property !== property));
+      return;
+    }
     // Colours are read as the page computes them, and written as the tokens are.
     const read = kind === "colour" || kind === "fill" ? asHex : (value: string) => value;
     const before = was?.before ?? read(computed(element, property));
