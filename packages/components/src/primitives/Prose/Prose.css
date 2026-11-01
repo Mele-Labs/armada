@@ -482,9 +482,20 @@
   line-height: 1;
 }
 
-/* A response is its emoji, drawn large enough to read in a button 28px square. */
+/* A small bar, as a chat app's reaction bar is: 24px buttons, close together, each emoji at body size. */
+.armada-prose__pick-acts {
+  gap: 0;
+  padding: calc(var(--space-1) / 2);
+}
+
+.armada-prose__pick-acts .armada-button {
+  width: var(--h-control-sm);
+  height: var(--h-control-sm);
+  padding: 0;
+}
+
 .armada-prose__pick-emoji {
-  font-size: var(--text-lg);
+  font-size: var(--text-sm);
   line-height: 1;
 }
 
