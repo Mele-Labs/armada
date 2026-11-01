@@ -144,7 +144,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { ModSessionStarted, StartModSession, AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissWaiting, ReopenWaiting, IssueClaimed, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, DismissWait, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
+import type { ModSessionStarted, StartModSession, AnswerDocument, AnswerSessionAsk, AnswerSketch, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimIssue, ClaimPullRequest, ConfirmLater, ConfirmWaiting, DismissWaiting, ReopenWaiting, IssueClaimed, LaterSettled, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, NameSession, RenameSession, SendPlanChanges, NotesSent, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionLoadout, AttachmentHistory, McpServerAct, SessionMcp, SessionMcpActed, SessionQuick, SessionSubagent, SettleLater, StopWatch, TuneSession, BeginSession, WatchSummary, DeleteWatch, DismissWait, ReadWatchLog, WatchList, WatchLog } from "@armada/protocol";
 import type { RequestRepositoryRead } from "./api/dispatch";
 import type { JobTerminalChange, PullRequestPress, PullRequestWrite, RingedNotes, SessionActed, SessionsRead, TerminalMovedBack } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
@@ -488,6 +488,7 @@ type OldBridgeApi = {
     readAttachmentHistory: (sessionId: string) => Promise<SessionActed<AttachmentHistory>>;
     readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
     readSessionMcp: (sessionId: string) => Promise<SessionActed<SessionMcp>>;
+    readSessionQuick: (sessionId: string) => Promise<SessionActed<SessionQuick>>;
     actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
     mendSessionTools: (sessionId: string) => Promise<SessionActed<void>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
@@ -822,6 +823,7 @@ const OLD_CHANNELS = {
     readAttachmentHistory: "bridge:read-attachment-history",
     readLoadoutItem: "bridge:read-loadout-item",
     readSessionMcp: "bridge:read-session-mcp",
+    readSessionQuick: "bridge:read-session-quick",
     actOnSessionMcp: "bridge:act-on-session-mcp",
     mendSessionTools: "bridge:mend-session-tools",
     openSessionFile: "bridge:open-session-file",

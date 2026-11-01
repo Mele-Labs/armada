@@ -241,6 +241,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         id: SessionId,
     ) -> impl Future<Output = Result<ipc::SessionMcp, Refusal>> + Send;
 
+    /// `get_session_quick`: the replies a Job's quick bar offers that no setting holds.
+    fn get_session_quick(
+        &self,
+        id: SessionId,
+    ) -> impl Future<Output = Result<ipc::SessionQuick, Refusal>> + Send;
+
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.
     fn act_on_session_mcp(

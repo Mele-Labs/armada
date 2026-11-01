@@ -52,6 +52,7 @@ import type {
   McpServerAct,
   SessionMcp,
   SessionMcpActed,
+  SessionQuick,
   TuneSession,
   BeginSession,
   WritePullRequest,
@@ -232,6 +233,8 @@ export type SessionsApi = {
   readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
   /** A hosted Session's MCP servers, asked of its process now: `get_session_mcp`. No event says to read again. */
   readSessionMcp: (sessionId: string) => Promise<SessionActed<SessionMcp>>;
+  /** The answers to a Job's last message and the lines he sends often, for its quick bar: `get_session_quick`. Read again when the Job's last row changes. */
+  readSessionQuick: (sessionId: string) => Promise<SessionActed<SessionQuick>>;
   /**
    * Reconnects, turns on or off, or signs in to one server, and answers the servers after: `act_on_session_mcp`.
    * Waits for the server to settle, up to a minute and a half. A `sign_in` in the answer is a page for `openLink`.
@@ -416,6 +419,7 @@ export const SESSIONS_CHANNELS = {
   readAttachmentHistory: "bridge:read-attachment-history",
   readLoadoutItem: "bridge:read-loadout-item",
   readSessionMcp: "bridge:read-session-mcp",
+  readSessionQuick: "bridge:read-session-quick",
   actOnSessionMcp: "bridge:act-on-session-mcp",
   mendSessionTools: "bridge:mend-session-tools",
   openSessionFile: "bridge:open-session-file",
