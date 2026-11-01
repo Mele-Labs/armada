@@ -73,10 +73,10 @@ export type RingedNotes = { session_id: string; notes: { note: SessionNote; ring
 export type JobTerminalChange = JobTerminal & { change: "opened" | "exited" };
 
 /**
- * A shell moved from its own window back into Bridge, docked or in the side panel. `shell` is the Job's last shell main followed,
+ * A shell moved from its own window back into Bridge, docked. `shell` is the Job's last shell main followed,
  * so one that ended in its window is shown ended rather than opened again; absent where main followed none.
  */
-export type TerminalMovedBack = { sessionId: string; to: "docked" | "side panel"; shell?: { runId: string; ended: boolean } };
+export type TerminalMovedBack = { sessionId: string; to: "docked"; shell?: { runId: string; ended: boolean } };
 
 export type PullRequestPress = "read" | "ready" | "merge" | "auto_merge";
 

@@ -33,7 +33,6 @@ function fakeApi() {
       onSessionRunMessage: (on: typeof ran) => ((ran = on), () => undefined),
       onSessionTerminal: () => () => undefined,
       moveTerminalBack: vi.fn(async () => undefined),
-      saveSettings: vi.fn(async () => ({ ok: true })),
     },
   };
 }
@@ -82,14 +81,11 @@ test("leaves Esc to the shell: it is typed, and nothing in the window closes", a
   expect(fake.api.moveTerminalBack).not.toHaveBeenCalled();
 });
 
-test("its head moves the shell back into Bridge, docked or in the side panel, and saves where it opens; the window's own close stands for Hide and Close", async () => {
+test("its head moves the shell back into Bridge, docked and only there; the window's own close stands for Hide and Close", async () => {
   await opened();
   expect(pane().getByRole("button", { name: "Hide" }).query()).toBeNull();
   expect(pane().getByRole("button", { name: "Open in a window" }).query()).toBeNull();
+  expect(pane().getByRole("button", { name: "Move to the side panel" }).query()).toBeNull();
   await pane().getByRole("button", { name: "Dock" }).click();
   expect(fake.api.moveTerminalBack).toHaveBeenLastCalledWith(SESSION, "docked");
-  expect(fake.api.saveSettings).toHaveBeenLastCalledWith({ "terminal.openJobTerminalIn": "docked" });
-  await pane().getByRole("button", { name: "Move to the side panel" }).click();
-  expect(fake.api.moveTerminalBack).toHaveBeenLastCalledWith(SESSION, "side panel");
-  expect(fake.api.saveSettings).toHaveBeenLastCalledWith({ "terminal.openJobTerminalIn": "side panel" });
 });

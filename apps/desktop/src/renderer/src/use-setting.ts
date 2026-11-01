@@ -1,4 +1,4 @@
-// One setting's value in force, followed from the window's state, and saved back by key. `job-terminal-place.ts`' reading, for a key a component asks for by name.
+// One setting's value in force, followed from the window's state, and saved back by key, for a key a component asks for by name.
 
 import { useEffect, useState } from "react";
 import type { Outcome, SettingValue } from "@armada/protocol";
