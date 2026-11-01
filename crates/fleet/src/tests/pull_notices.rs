@@ -281,6 +281,25 @@ async fn a_failed_required_check_wakes_the_hosted_session_that_holds_the_pull_re
     );
 }
 
+/// #3102: the failed jobs were run again at the same commit, failed again, and the Job was told
+/// nothing, so it sat on a red pull request with auto-merge on.
+#[tokio::test]
+async fn a_rerun_that_fails_at_the_same_commit_is_told_again() {
+    let rig = a_rig();
+    rig.a_hosted_session_on(7).await;
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.followed_are(Some(vec![failing(7)]));
+    rig.reads().await;
+    forge.followed_are(Some(vec![pull(7, vec![check("ci", CiState::Pending, true)])]));
+    rig.reads().await;
+    forge.followed_are(Some(vec![failing(7)]));
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    let told = sent.iter().filter(|line| line.contains("#7 failed its checks")).count();
+    assert_eq!(told, 2, "{sent:?}");
+}
+
 #[tokio::test]
 async fn a_check_that_is_not_required_does_not_fail_the_pull_request() {
     let rig = a_rig();
