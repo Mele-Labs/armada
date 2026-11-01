@@ -80,14 +80,16 @@ async function annotating(sink: Sink, fleet?: LayerFleet, openSession?: (id: str
 
 /**
  * A Job settings sheet, near enough: fixed, and as tall as the window less a
- * hair. This is the element the owner picked, and the one no side has room beside.
+ * hair. This is the element the owner picked, and the one no side has room
+ * above or below. Narrow, the card goes beside it; `wide`, across the window,
+ * there is no room beside either and the card has to cover it.
  */
-function tallSheet(): HTMLElement {
+function tallSheet(wide = false): HTMLElement {
   const sheet = document.createElement("div");
   sheet.setAttribute("data-tall", "");
   sheet.setAttribute("role", "dialog");
   sheet.setAttribute("aria-label", "Job settings");
-  sheet.style.cssText = "position:fixed;top:2%;bottom:2%;left:30%;width:30%";
+  sheet.style.cssText = `position:fixed;top:2%;bottom:2%;${wide ? "left:1%;width:98%" : "left:30%;width:30%"}`;
   document.body.append(sheet);
   return sheet;
 }
@@ -104,10 +106,10 @@ function insideTheWindow(what: string, rect: DOMRect): void {
   expect(rect.height, `${what}: drawn at all`).toBeGreaterThan(0);
 }
 
-async function cardOnTheTallSheet(size: { width: number; height: number }) {
+async function cardOnTheTallSheet(size: { width: number; height: number }, wide = false) {
   await page.viewport(size.width, size.height);
   await annotating(sink);
-  tallSheet().click();
+  tallSheet(wide).click();
   const card = page.getByRole("dialog", { name: "New note" });
   await expect.element(card).toBeVisible();
   // The layer re-places the card off a measurement it takes each frame.
@@ -115,9 +117,9 @@ async function cardOnTheTallSheet(size: { width: number; height: number }) {
   return card;
 }
 
-for (const size of [OWNER, SHORT]) {
-  test(`a note on an element as tall as a ${size.width}×${size.height} window is drawn whole inside it`, async () => {
-    const card = await cardOnTheTallSheet(size);
+for (const [size, wide] of [[OWNER, false], [SHORT, false], [OWNER, true], [SHORT, true]] as const) {
+  test(`a note on an element as tall as a ${size.width}×${size.height} window${wide ? " and as wide" : ""} is drawn whole inside it`, async () => {
+    const card = await cardOnTheTallSheet(size, wide);
     const rect = rectOf(card);
     insideTheWindow("card", rect);
 
@@ -139,6 +141,21 @@ for (const size of [OWNER, SHORT]) {
     expect(rect.bottom).toBeLessThanOrEqual(rectOf(page.getByRole("status")).top);
   });
 }
+
+test("a note on a tall sheet with room at its side goes beside it, clear of the sheet, and covers it only where there is none", async () => {
+  const beside = await cardOnTheTallSheet(OWNER);
+  await expect.element(beside).toHaveAttribute("data-side", "beside");
+  const sheet = document.querySelector("[data-tall]")!.getBoundingClientRect();
+  const card = rectOf(beside);
+  // Not a pixel of the sheet is under the card, so a change made on the sheet is all in view.
+  expect(card.left >= sheet.right || card.right <= sheet.left).toBe(true);
+  expect(card.top).toBeLessThan(sheet.bottom);
+});
+
+test("a note on a sheet across the whole window has no side to go to, and covers it", async () => {
+  const card = await cardOnTheTallSheet(OWNER, true);
+  await expect.element(card).toHaveAttribute("data-side", "over");
+});
 
 test("a window too short for the card gives it its own scroll rather than an edge to fall off", async () => {
   const card = await cardOnTheTallSheet({ width: 1324, height: 260 });

@@ -112,7 +112,8 @@ test("Screenshot window on the bar takes the whole window and opens a note on it
   onScreen("Sessions");
   await annotating(sink);
   await page.getByRole("status").getByRole("button", { name: "Screenshot window" }).click();
-  await expect.element(page.getByRole("dialog", { name: "New note" }).getByText("Whole window · Sessions")).toBeVisible();
+  // The path is one line cut short with the whole of it as a tooltip, so the words are read off the card, not found as text of their own.
+  await expect.element(page.getByRole("dialog", { name: "New note" })).toHaveTextContent("Whole window · Sessions");
   await say("Everything here is stale");
 
   const [saved] = [...notes.values()];
