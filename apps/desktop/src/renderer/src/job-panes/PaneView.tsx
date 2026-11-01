@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { LoaderCircle, Minimize2, Plus, X } from "lucide-react";
-import { Button, DropdownMenu, Tooltip, boundKeyFor, seedDraft, type DropdownMenuEntry } from "@armada/components";
+import { Button, DropdownMenu, Tooltip, boundKeyFor, type DropdownMenuEntry } from "@armada/components";
 
 import { hostOf, peekJobBrowser } from "../job-browser/store";
 import { useModList } from "../mod-list";
 import { useSessions } from "../sessions-draft";
-import { changeWords } from "../shared-panel/mod";
-import { customLabel, seedBuilt, setEditing, tabTitle, useCustom, useCustomTick } from "./custom";
+import { select } from "../cockpit/deck/store";
+import { ModJobCard } from "./custom-card";
+import { customLabel, seedBuilt, tabTitle, useCustom, useCustomTick } from "./custom";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
 import { droppable, look, peek, rearrange } from "./store";
@@ -37,7 +38,7 @@ function tabEntries(kind: TabKind, zoomed: boolean, editable: boolean): Dropdown
     { kind: "item", id: "zoom", label: zoomed ? "Restore" : "Zoom", shortcut: boundKeyFor("pane_zoom") },
     { kind: "item", id: "right", label: "Split right", shortcut: boundKeyFor("pane_split_right") },
     { kind: "item", id: "down", label: "Split down", shortcut: boundKeyFor("pane_split_down") },
-    ...(editable ? [{ kind: "item", id: "edit", label: "Edit with a Job" } as const] : []),
+    ...(editable ? [{ kind: "item", id: "edit", label: "Edit with its Job" } as const, { kind: "item", id: "job", label: "Open the Job that built it" } as const] : []),
     { kind: "separator", id: "rule" },
     { kind: "item", id: "close", label: "Close", danger: true },
   ];
@@ -50,6 +51,10 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
   const custom = useCustom(tab.id, tab.kind === "custom");
   const building = tab.kind === "custom" && custom.stage === "building";
   const modJob = useSessions().find((one) => one.id === custom.job);
+  // The tab's glyph turns while its Job works, on the first build and on each change after it.
+  const working = building || (tab.kind === "custom" && custom.stage === "built" && modJob?.turn.state === "working");
+  /** The tab's menu asked for its Job's card, with the caret in its composer. */
+  const [summon, setSummon] = useState(false);
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null);
   /** Closed by its own ×, or a middle click: the tab does not come to the front first. */
   const close = () => {
@@ -62,10 +67,9 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
     look(jobId, (arrangement) => focusPane(activate(arrangement, tab.id), pane.id));
     if (id === "window") moveToWindow(jobId, tab);
     else if (id === "zoom") toggleZoom(jobId, pane.id);
-    else if (id === "edit") {
-      seedDraft(`custom:${tab.id}`, changeWords(label, "tab"));
-      setEditing(tab.id, true);
-    }
+    // A beat after the menu has shut, which gives focus back to the tab and would take it from the card.
+    else if (id === "edit") window.setTimeout(() => setSummon(true), 60);
+    else if (id === "job") custom.job !== undefined && select({ kind: "session", key: `session:${custom.job}` });
     else if (id === "right" || id === "down") splitFocused(jobId, id);
     else if (id === "close") {
       rearrange(jobId, (arrangement) => closeTab(arrangement, tab.id));
@@ -99,32 +103,34 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
         setPoint({ x: event.clientX, y: event.clientY });
       }}
     >
-      <button
-        type="button"
-        role="tab"
-        className="job-pane__label"
-        aria-selected={active}
-        tabIndex={active ? 0 : -1}
-        onClick={() => look(jobId, (arrangement) => activate(arrangement, tab.id))}
-        onKeyDown={(event) => {
-          // Shift+F10 and the Menu key open the tab's menu, anchored to the tab.
-          if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
-          event.preventDefault();
-          const box = event.currentTarget.getBoundingClientRect();
-          setPoint({ x: box.left, y: box.bottom });
-        }}
-      >
-        {building ? (
-          <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
-            <span className="job-pane__working" role="img" aria-label={modJob?.title ?? "Mod Job"}>
-              <LoaderCircle size={16} strokeWidth={2} aria-hidden />
-            </span>
-          </Tooltip>
-        ) : (
-          <Glyph size={16} strokeWidth={2} aria-hidden />
-        )}
-        <span>{label}</span>
-      </button>
+      <ModJobCard tabId={tab.id} job={modJob} building={building} summon={summon} onSummoned={() => setSummon(false)}>
+        <button
+          type="button"
+          role="tab"
+          className="job-pane__label"
+          aria-selected={active}
+          tabIndex={active ? 0 : -1}
+          onClick={() => look(jobId, (arrangement) => activate(arrangement, tab.id))}
+          onKeyDown={(event) => {
+            // Shift+F10 and the Menu key open the tab's menu, anchored to the tab.
+            if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+            event.preventDefault();
+            const box = event.currentTarget.getBoundingClientRect();
+            setPoint({ x: box.left, y: box.bottom });
+          }}
+        >
+          {working ? (
+            <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
+              <span className="job-pane__working" role="img" aria-label={modJob?.title ?? "Mod Job"}>
+                <LoaderCircle size={16} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          ) : (
+            <Glyph size={16} strokeWidth={2} aria-hidden />
+          )}
+          <span>{label}</span>
+        </button>
+      </ModJobCard>
       <span className="job-pane__close">
         <Tooltip label="Close">
           <Button variant="ghost" size="sm" iconOnly aria-label={`Close ${label}`} draggable={false} onClick={close}>

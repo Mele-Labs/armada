@@ -10,9 +10,18 @@ import { openLink } from "../commands";
 import { ChecksMark, ReviewMark } from "../pr-review/marks";
 import { LedgerRow, Glyphed } from "../session-view/LedgerRow";
 import { openAddressInPanel } from "../shared-panel/store";
+import { useRevision } from "./custom";
+
+/** How long ago a time was, in its largest unit. */
+function waited(at: string): string {
+  const minutes = Math.max(1, Math.round((Date.now() - Date.parse(at)) / 60_000));
+  return minutes < 60 ? `${minutes}m` : minutes < 1440 ? `${Math.round(minutes / 60)}h` : `${Math.round(minutes / 1440)}d`;
+}
 
 /** Pull requests across the repositories that wait on a review of his, the newest change first, under the repository each is in. */
 function ReviewQueue() {
+  // The Mod Job's changes land one at a time: first the oldest lead, then how long each has waited, then the heading says so.
+  const step = useRevision("review-queue");
   const [rows, setRows] = useState<readonly PullReviewRow[]>([]);
   useEffect(() => {
     let live = true;
@@ -26,11 +35,11 @@ function ReviewQueue() {
     <div className="job-pane__scroll">
       {repositories.map((repository) => (
         <section key={repository} className="sv-layer__group" aria-label={repository}>
-          <h4 className="sv-layer__group-label">{repository}</h4>
+          <h4 className="sv-layer__group-label">{step >= 3 ? `${repository} · oldest first` : repository}</h4>
           <ul className="sv-layer__rows">
             {rows
               .filter((one) => one.repository === repository)
-              .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+              .sort((a, b) => (step >= 1 ? a.updated_at.localeCompare(b.updated_at) : b.updated_at.localeCompare(a.updated_at)))
               .map((pr) => (
                 <LedgerRow
                   key={`${pr.manifest_id}:${pr.number}`}
@@ -58,6 +67,7 @@ function ReviewQueue() {
                     <>
                       <code className="sv-ledger__sub">{pr.branch}</code>
                       <span className="sv-ledger__word">{pr.author}</span>
+                      {step >= 2 ? <span className="sv-ledger__word">{waited(pr.updated_at)}</span> : null}
                       <ReviewMark review={pr.review} />
                       <ChecksMark checks={pr.checks} />
                     </>

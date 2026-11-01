@@ -7,6 +7,7 @@ import type { Session, SessionAttachment, SessionRow } from "@armada/screens/src
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { seedJobBrowser } from "../../job-browser/store";
+import { setRevision } from "../../job-panes/custom";
 import { jobOpens } from "../../job-panes/store";
 import { resetCheckout, shopPage } from "../job-browser-page";
 import { unanswered, type Scenario } from "../moment";
@@ -94,6 +95,9 @@ let modStore: SessionsStore | undefined;
 let mods: ModSummary[] = [];
 const turns = new Map<string, () => void>();
 const timers = new Set<number>();
+const changeTimers = new Set<number>();
+/** The Jobs a Custom tab started, which a message to builds the tab again. */
+const modJobs = new Set<string>();
 let rowSeq = 0;
 
 /** The Mod Job's turn: rows as it reads and writes, then the mod in Fleet's list. Idempotent, so a walk's time passing may end it early. */
@@ -125,6 +129,36 @@ function modTurn(store: SessionsStore, id: string, said: string): void {
   timers.add(window.setTimeout(finish, 4000));
 }
 
+/** A message to the Mod Job that built the tab: it reads the tab, then rewrites its view a step at a time, and the tab beside its card changes with each. Idempotent as the first build is. */
+function changeTurn(store: SessionsStore, id: string): void {
+  if (turns.has(id)) return;
+  const now = () => new Date().toISOString();
+  const tool = (text: string): SessionRow => ({ id: `mod-${(rowSeq += 1)}`, at: now(), kind: "tool", text });
+  const add = (more: SessionRow) => store.edit(id, (one) => ({ ...one, rows: [...one.rows, more] }));
+  setRevision(MOD_NAME, 0);
+  const steps: [number, () => void][] = [
+    [600, () => add(tool(`Read ${MOD_DIR}/tab.tsx`))],
+    [1400, () => (add(tool(`Write ${MOD_DIR}/tab.tsx: the oldest lead`)), setRevision(MOD_NAME, 1))],
+    [2800, () => (add(tool(`Write ${MOD_DIR}/tab.tsx: how long each has waited`)), setRevision(MOD_NAME, 2))],
+    [4200, () => (add(tool(`Write ${MOD_DIR}/tab.tsx: the heading`)), setRevision(MOD_NAME, 3))],
+  ];
+  const finish = () => {
+    if (!turns.delete(id)) return;
+    changeTimers.forEach((one) => window.clearTimeout(one));
+    changeTimers.clear();
+    setRevision(MOD_NAME, 3);
+    store.edit(id, (one) => ({
+      ...one,
+      rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: now(), kind: "message", from: { kind: "agent" }, text: "Review queue lists the oldest first, with how long each has waited." } satisfies SessionRow],
+      turn: { state: "idle" },
+      lastTurnAt: now(),
+    }));
+  };
+  turns.set(id, finish);
+  for (const [at, run] of steps) changeTimers.add(window.setTimeout(run, at));
+  changeTimers.add(window.setTimeout(finish, 5400));
+}
+
 export const sJobLayouts: Scenario = {
   ...sJobStory,
   name: "job-layouts",
@@ -151,6 +185,7 @@ export const sJobLayouts: Scenario = {
           rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: said }],
           turn: { state: "working" },
         } satisfies Session));
+        modJobs.add(id);
         modTurn(store, id, said);
         return { ok: true, value: { session_id: id, title } };
       },
@@ -249,6 +284,13 @@ export const sJobLayouts: Scenario = {
           return merged;
         },
         terminalRuns: true as const,
+        // A message to a Mod Job is the person's row and its next turn, and not the canned reply the store plays for any other Job.
+        send: (id: string, sent: Parameters<typeof store.send>[1]) => {
+          if (!modJobs.has(id)) return store.send(id, sent);
+          store.edit(id, (one) => ({ ...one, rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: sent.text } satisfies SessionRow], turn: { state: "working" } }));
+          changeTurn(store, id);
+          return Promise.resolve(true);
+        },
         later: () => {
           store.later();
           for (const finish of [...turns.values()]) finish();
@@ -258,6 +300,10 @@ export const sJobLayouts: Scenario = {
         dispose: () => {
           timers.forEach((one) => window.clearTimeout(one));
           timers.clear();
+          changeTimers.forEach((one) => window.clearTimeout(one));
+          changeTimers.clear();
+          modJobs.clear();
+          setRevision(MOD_NAME, 0);
           turns.clear();
           disposeShells();
           store.dispose();

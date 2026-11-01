@@ -1,9 +1,9 @@
 // A Job's area in panes. Every Job opens on Default: its thread, with Done, Now and Open stacked on its right. ⌘D splits a pane to the right and ⌘⌥D below it, a new pane opens empty,
 // and + adds a tab of any kind to it. While a Job is open the title bar's right side holds only the Layout control, named "Layout: Default · edited" and wears a mark once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
-// every layout row has a pin that makes it the one every Job opens on (filled on the one that is), Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
-// layout as it was. The Job's acts (Auto land, Pause, Judge, Checks, Subagents) are icons in the Thread's head beside the context meter, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A tab dragged onto the gap between two panes lights the gap and drops into a new pane there, and so does one dragged onto an outer edge of the area. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Subagents, Checks and Workflow tabs draw those views, Custom builds a tab of its own from a description, and ⇧⌘↵ zooms a pane over the Job's own area, to the right of the Jobs list, and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
+// the layout new Jobs open on carries a quiet new Jobs tag and Open new Jobs on makes the Job's layout that one, Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
+// layout as it was. The Job's acts (Auto land, Pause, Judge, Checks, Subagents) are icons in the Thread's head beside the context meter, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A tab dragged onto the gap between two panes lights the gap and drops into a new pane there, and so does one dragged onto an outer edge of the area. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Subagents, Checks and Workflow tabs draw those views, Custom builds a tab of its own from a description, and a built tab's hover card is the Mod Job that built it, to message while the tab changes, and ⇧⌘↵ zooms a pane over the Job's own area, to the right of the Jobs list, and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
 
-import { button, deckRow, inside, region, role, tab, walk } from "../walk";
+import { button, deckRow, inside, region, role, tab, text, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
@@ -50,12 +50,12 @@ const steps: Step[] = [
   { key: "Meta+l", on: places, say: "⌘L" },
   { press: item("Triage"), say: "Triage" },
   { key: "Meta+l", on: places, say: "⌘L" },
-  { press: inside(item(/^Triage/), role("img", "Use for all Jobs")), say: "The pin on a row makes that layout the one every Job opens on" },
+  { press: item("Open new Jobs on Triage"), say: "New Jobs open on the layout this Job is on" },
   { later: inside(pane(host), tab(host, { exact: true })), say: "The Job opens a page itself" },
   { look: inside(pane("localhost:5174"), tab("localhost:5174", { exact: true })), say: "It joins the pane that holds a browser" },
   { look: layout(/^Layout: Triage$/), say: "The layout is not marked edited" },
   { key: "Meta+l", on: places, say: "⌘L" },
-  { look: inside(item(/^Triage/), role("img", "Used for all Jobs")), say: "A filled pin marks the layout all Jobs use" },
+  { look: inside(item(/^Triage/), text("new Jobs")), say: "Its row carries the tag" },
   { press: item("Default"), say: "Default" },
   { key: "Meta+d", on: thread, say: "⌘D" },
   { press: inside(empty, button("Add tab")), say: "+" },
@@ -76,6 +76,16 @@ const steps: Step[] = [
   { look: inside(pane("Custom"), role("img", /^Mod Pull requests/)), say: "A Mod Job is building it: its thread shows, and its glyph turns" },
   { later: inside(pane("Review queue"), tab("Review queue", { exact: true })), say: "The Job finishes, and the tab takes the mod's name" },
   { look: inside(pane("Review queue"), button(/^Pull request #812/)), say: "Pull requests waiting on him, across repositories" },
+  { hover: inside(pane("Review queue"), tab("Review queue", { exact: true })), say: "Hover the tab: the Job that built it opens as a card beside the pane" },
+  { press: role("textbox", "Message the Mod Job"), say: "Its box messages that Job" },
+  { type: "List the oldest first, and show how long each has waited", into: role("textbox", "Message the Mod Job"), say: "A change, in words" },
+  { press: inside(role("tooltip"), button("Send")), say: "Send. The tab's glyph turns while the Job works" },
+  { look: inside(pane("Review queue"), role("heading", /oldest first/)), say: "The tab changes a step at a time, with the card still open" },
+  { key: "Escape", on: role("textbox", "Message the Mod Job"), say: "Esc puts the card away" },
+  { context: inside(pane("Review queue"), tab("Review queue", { exact: true })), say: "The tab's menu" },
+  { press: item("Edit with its Job"), say: "Edit with its Job opens the card with the caret in its box" },
+  { look: role("textbox", "Message the Mod Job"), say: "The card, ready to be written to" },
+  { key: "Escape", on: role("textbox", "Message the Mod Job"), say: "Esc" },
   { press: inside(pane("Review queue"), button("Add tab")), say: "+" },
   { look: item("Review queue"), say: "The tab is in the menu by name, above Custom" },
   { key: "Escape", on: item("Review queue"), say: "Esc" },

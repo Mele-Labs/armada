@@ -1,8 +1,8 @@
 // The body of a Custom tab. Empty it is the composer the thread uses, where the tab is described; sent, it is the Mod Job's own thread while it builds the tab as a mod of
-// kind `tab`; built, it is that mod's view. "Edit with a Job" opens the composer again above the view.
+// kind `tab`; built, it is that mod's view. A built tab is edited from its hover card (`custom-card.tsx`).
 
-import { PanelTop, X } from "lucide-react";
-import { Button, SessionComposer, SessionThread, Tooltip, type SentFromComposer } from "@armada/components";
+import { PanelTop } from "lucide-react";
+import { SessionComposer, SessionThread, type SentFromComposer } from "@armada/components";
 
 import { searchFiles } from "../commands";
 import { refusal } from "../annotate/send";
@@ -11,7 +11,7 @@ import { threadRowsOf } from "../session-thread-rows";
 import { useSessions } from "../sessions-draft";
 import { askToTell } from "../tell";
 import { VIEWS } from "./custom-views";
-import { setEditing, startBuilding, tabTitle, useCustom } from "./custom";
+import { startBuilding, useCustom } from "./custom";
 
 const NONE: readonly never[] = [];
 const NOBODY = () => undefined;
@@ -91,16 +91,6 @@ export function CustomBody({ tabId, manifestId, onOpenSession }: { tabId: string
   const View = custom.mod === undefined ? undefined : VIEWS[custom.mod];
   return (
     <div className="job-custom" data-stage="built">
-      {!custom.editing ? null : (
-        <div className="job-custom__edit">
-          <Describe tabId={tabId} manifestId={manifestId} />
-          <Tooltip label="Close">
-            <Button variant="ghost" size="sm" iconOnly aria-label={`Close the change to ${tabTitle(custom.mod ?? "")}`} onClick={() => setEditing(tabId, false)}>
-              <X size={16} strokeWidth={2} aria-hidden />
-            </Button>
-          </Tooltip>
-        </div>
-      )}
       {View === undefined ? null : <View />}
     </div>
   );
