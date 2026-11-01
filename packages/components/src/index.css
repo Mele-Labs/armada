@@ -433,3 +433,5 @@
 @import "./compositions/SessionThread/SubagentRow.css";
 @import "./compositions/TaskChip/TaskChip.css";
 @import "./compositions/WorkspacesPage/WorkspacesPage.css";
+@import "./compositions/SessionComposer/QuickBar.css";
+@import "./compositions/ThreadSettings/ThreadSettings.css";

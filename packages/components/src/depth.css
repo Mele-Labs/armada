@@ -392,8 +392,10 @@
 :root[data-look="new"] .deck-pane .sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); }
 :root[data-look="new"] .deck-pane .sv-dock[data-end] .armada-session-composer,
 :root[data-look="new"] .deck-pane .sv-dock[data-end] .armada-session-composer:focus-within { border-color: var(--step-advanced); }
-:root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end]) .armada-session-composer,
-:root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end]) .armada-session-composer:focus-within { border-block-start-width: 0; }
+:root[data-look="new"] .deck-pane .sv-dock[data-wait-open] .armada-session-composer,
+:root[data-look="new"] .deck-pane .sv-dock[data-wait-open] .armada-session-composer:focus-within { border-color: var(--status-handed-in); }
+:root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end], [data-wait-open]) .armada-session-composer,
+:root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end], [data-wait-open]) .armada-session-composer:focus-within { border-block-start-width: 0; }
 /* The repository picker and its button over Jobs are sheets of the same glass, not fields on the canvas. */
 :root[data-look="new"] .deck-scope :is(.deck-combo__input, .armada-button) {
   border-color: var(--glass-edge);

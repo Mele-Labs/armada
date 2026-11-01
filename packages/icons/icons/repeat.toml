@@ -12,3 +12,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 23 Oct 2026 for the walk `job-start-card`. A usual is a habit, which is what this glyph already says in the Logbook. Tooltip `Your usual for features in armada`. Shown beside Lands only while the choice in use is the usual one."
+
+[[icons.repeat.usage]]
+  means = "A quick reply Bridge learnt from lines he sends often, on its chip over a Job's message box and its line in the thread's settings"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 31 Oct 2026 for the walk `livelier-thread`. A line he sends again and again is a habit, which is what this glyph says in the Logbook and on the start card's usual. Tooltip `Learnt`. Its Save act makes it a saved line, `message-square-quote`."

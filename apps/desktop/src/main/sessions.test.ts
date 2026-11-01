@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 
-import type { RetroRow, SessionRecord, SessionRow, SessionRunMessage, WatchSummary } from "@armada/protocol";
+import type { RetroRow, SessionQuick, SessionRecord, SessionRow, SessionRunMessage, WatchSummary } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import { REOPEN_WITHIN_MS, SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
@@ -84,6 +84,11 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
       if (url.pathname === "/sessions/notes") return answer(202, { session: { ...sessions[0], title: "Noted twice" }, candidates: [[{ file: "src/Rows.tsx", line: 171, why: "the label is on this line", text: "<li>" }], []] });
       if (url.pathname === "/sessions/note") return answer(202, { session: { ...sessions[0], title: "Noted" }, candidates: [{ file: "src/Rows.tsx", line: 171, why: "the label is on this line", text: "<li>" }] });
       if (url.pathname === "/mods/session") return answer(200, { session_id: "mod-1", title: "Usage meter" });
+      if (url.pathname === "/sessions/quick") {
+        const id = url.searchParams.get("session_id") ?? "";
+        const wire: SessionQuick = { asked: [`Yes, go on (${id})`, "Not yet"], learnt: ["Just get it done"] };
+        return id === "nobody" ? answer(422, { code: "fleet.no_such_session", message: "no job Fleet hosts is named nobody" }) : answer(200, wire);
+      }
       if (url.pathname === "/sessions/mcp") return answer(200, { servers: [{ name: "linear", state: "needs_sign_in", tools: 0 }] });
       if (url.pathname === "/sessions/mcp/act") return answer(200, { servers: [{ name: "linear", state: "connecting", tools: 0 }], sign_in: { url: "https://linear.example/authorize", callback_expected: true } });
       if (url.pathname.startsWith("/sessions/")) return answer(200, sessions[0]);
@@ -461,6 +466,18 @@ it("reads a Job's MCP servers on the query string and acts on one on its own rou
   expect(published).toEqual([]);
   expect(await host(null).sessions.mcp("a")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
   expect(await host(null).sessions.actOnMcp("a", "linear", "reconnect")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
+});
+
+it("reads a Job's quick replies on the query string, folding nothing and keeping nothing", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a b")]);
+  const { sessions, published } = host(port);
+  const read = await sessions.quick("a b");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["GET /sessions/quick?session_id=a%20b"]);
+  expect(read).toEqual({ ok: true, value: { asked: ["Yes, go on (a b)", "Not yet"], learnt: ["Just get it done"] } });
+  expect(await sessions.quick("nobody")).toMatchObject({ ok: false, outcome: { why: "refused", error: { code: "fleet.no_such_session" } } });
+  expect(published).toEqual([]);
+  expect(await host(null).sessions.quick("a")).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
 });
 
 it("restarts a Job's agent on its own route, naming the session", async () => {

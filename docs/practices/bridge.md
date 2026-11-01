@@ -102,6 +102,11 @@ sends the renderer the PNG bytes, which become a `blob:` (`session-snapshot.ts`)
 A file the panel reads is held to the same rule and to a size cap (`session-file.ts`).
 A Job's document is saved through one preload member, `saveDocument`, which carries a kind (`html` or `pdf`), a file name and the page the renderer built: main asks where in the save dialog, and a PDF is that page printed in a window that is never shown, with scripts off and every request but its own file refused (`document-save.ts`).
 
+Talk hears through Armada Voice, a helper app main runs (`native/voice/`, `main/voice.ts`), and the renderer reaches it
+through `voice`'s four members, which name an engine and never a path or a command. Whisper's install is the one place
+Bridge downloads code: a whisper.cpp library and its model, into `userData`, each kept only with the SHA-256 it was
+pinned to (`main/whisper-install.ts`), and loaded by the helper, never by Bridge.
+
 A theme's CSS, a mod's or the catalogue's, reaches the window as a constructable
 stylesheet (`adoptedStyleSheets`) and never as a `<style>` element, because the
 CSP refuses an inline one and widening it for themes is the review above
@@ -316,7 +321,7 @@ whole state again with `syncState`.
 | Project | Holds | Check |
 |---|---|---|
 | `smoke`, `smoke (browser)` | Every test under `mock/` (they mount `App` on the mock Fleet, which composes every surface), `annotate/Layer.test.tsx` and `left-column.test.ts` (Overview's readings) | none: run by hand, `vitest run --project 'smoke*'` |
-| `desktop`, `desktop (browser)` | The rest: `src/main`, `src/shared`, the renderer's own modules and five browser tests of them | `desktop_test` of `apps/desktop/unit` |
+| `desktop`, `desktop (browser)` | The rest: `src/main`, `src/preload`, `src/shared`, the renderer's own modules and five browser tests of them | `desktop_test` of `apps/desktop/unit` |
 
 **The line is what a test's imports reach, not what it is named for.** Bundling each file with esbuild on 6 Oct 2026 showed every `mock/` test reaching all eight surfaces, and the `desktop` project reaching a surface only as the types in each `api.ts`, which a bundler drops.
 **A new test goes to `desktop` unless it is under `mock/`**, so a test elsewhere that loads a surface runs on a surface change only if it is added to the `smoke` lists in `vitest.config.ts`.
