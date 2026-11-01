@@ -75,8 +75,8 @@ mod job_copies;
 mod job_copy_edits;
 mod rule_acts;
 mod plan_beads;
-/// A Job's adversarial reviews of its plan, one a version.
-mod adversarial_reviews;
+/// A Job's Judge readings, one an artifact, with their notes.
+mod judge_readings;
 mod fleet_calls;
 /// The refreshes of the preview Fleet offered a Job, one a moved tip for the build.
 mod preview_offers;
@@ -182,7 +182,7 @@ pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
-pub use session_rail::{KeptCite, KeptConcern, KeptRail, KeptReading, KeptStarted, SETTLED_KEPT};
+pub use session_rail::{KeptRail, KeptStarted};
 pub use session_tells::KeptTell;
 pub use workflow_nudges::KeptWorkflowNudge;
 pub use workflow_changes::{
@@ -202,7 +202,7 @@ pub use job_copies::{KeptCopy, KeptPiece, PieceKind};
 pub use job_copy_edits::{KeptCopyMark, KeptWorkflowCopy};
 pub use rule_acts::{standing as rule_act_standing, KeptRuleAct, KeptSeen, NewRuleAct};
 pub use plan_beads::KeptBead;
-pub use adversarial_reviews::{KeptAdversarialFinding, KeptAdversarialReview};
+pub use judge_readings::{KeptJudgeNote, KeptJudgeReading};
 pub use fleet_calls::KeptCall;
 pub use preview_offers::KeptPreviewOffer;
 pub use issue_queries::KeptIssueQuery;
