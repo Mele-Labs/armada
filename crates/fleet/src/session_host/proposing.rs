@@ -251,7 +251,7 @@ where
 
     /// A Session's first message, read where the Session was not started with a request: an annotation's
     /// notes, a brief an agent wrote, a lesson, a plan group. **Once**, and only for a Session that has not
-    /// run, is not a fork, is not Helm or Setup's and holds no proposal; what it already carries is the
+    /// run, is not a fork, is not Helm, Setup's or a Mod Job's (which follows no workflow) and holds no proposal; what it already carries is the
     /// person's (or the agent's) and stands over the answer. `true` where a reading began, and the turn is
     /// held behind it as a dispatch's is. A missing proposer reads nothing and the Session starts as it is.
     pub(crate) fn reading_begun(
@@ -266,6 +266,7 @@ where
             && hosting.fork_of.is_none()
             && !hosting.helm
             && !hosting.setup
+            && !hosting.mod_job
             && hosting.proposed.is_empty();
         if !readable {
             return false;

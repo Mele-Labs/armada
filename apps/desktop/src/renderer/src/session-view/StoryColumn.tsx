@@ -24,6 +24,7 @@ import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { remindLater } from "../cockpit/deck/acts";
 import { accountGroupOf, accountNowOf } from "../session-activity";
 import { useModsMade } from "../mods-made";
+import { stateOf as jobStateOf } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { openInPanel } from "../shared-panel/store";
 import { showLayer } from "./layers";
@@ -108,6 +109,9 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   // What Fleet sees the Job doing leads Now. Without calls to read it from, the account's line stands under the task being worked as before.
   const detected = detectedOf(session);
   const now = detected === undefined ? accountNowOf(session) : undefined;
+  // With no calls to read, the agent row names what the Job waits on rather than the bare word.
+  const idleState = jobStateOf(session);
+  const waitingOn = detected === undefined && ["waiting", "held", "limited", "stuck", "failing", "after"].includes(idleState.state) ? idleState.said : undefined;
   const groups = planned ? viewOf(plan, ed.marks) : [];
   const steps = stepsOf(groups, approved, workingGroup, inHandOf(sessions, session));
   // A Job started outside the plan is work in hand in Now until it finishes, then something made in Done.
@@ -248,7 +252,7 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         {walks.map((one) => (one.kind === "window" ? <WalkBeat key={one.id} title={one.title} takes={one.takes} onOpen={() => draft?.openWindow?.(id, one.url)} /> : null))}
         <WorkBeat
           mark={<TaskMark state={working_ ? "working" : "open"} />}
-          name={detected ?? "Agent"}
+          name={detected ?? waitingOn ?? "Agent"}
           working={detected !== undefined}
           line={working.length === 0 ? now : undefined}
         />
