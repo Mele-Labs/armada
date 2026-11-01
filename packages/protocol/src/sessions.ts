@@ -15,7 +15,7 @@ import type { ProtocolId } from "./connection";
 import type { PlanWindow } from "./plan-usage";
 import type { WorkflowSummary } from "./setup";
 import type { FileTouch, SessionPlan } from "./session-plan";
-import type { JudgeConcern, JudgeReading, WaitingCite } from "./session-rail";
+import type { JudgeReading } from "./judge";
 import type { SessionWait, StartAfter } from "./session-waits";
 import type { WireError } from "./protocol";
 
@@ -172,15 +172,11 @@ export type SessionRecord = {
    * after it, and while `features.workflows` is off. Since 16 Oct 2026.
    */
   workflow_step?: number;
-  /** A judge is reading the work now. Held in memory in Fleet. Absent when none is. Since 16 Oct 2026. */
-  judging?: boolean;
-  /** The last reading's outcome. Absent until a judge has read. `concerns` 0 is "No concerns". Since 16 Oct 2026. */
-  judge?: JudgeReading;
   /**
-   * Concerns the person has settled, oldest first, a bounded window: each a `judge` item with
-   * `concern.settled` set, for the thread to draw as one line. They are not in `waiting_for`. Since 16 Oct 2026.
+   * The Judge's readings of this Job's artifacts, one per artifact with the latest replacing the one before, oldest asked
+   * first. Absent until a Judge was asked. Since 31 Oct 2026.
    */
-  settled?: WaitingItem[];
+  judge_readings?: JudgeReading[];
   /**
    * The items the person closed from `waiting_for`, newest first, a bounded window: each kept whole at the moment he closed it.
    * `reopen_waiting` lets one wait again. Absent when none. Since 29 Oct 2026.
@@ -292,8 +288,7 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * has no reply and its `act` is a `message` on the Session, so a press opens it. Fleet also derives
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
  * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
- * person has not approved; it is approved, or sent changes, from its own card. `judge` (id `judge:<n>`) is a
- * concern a judge raised, with `concern` and `cites`; it is sent to the agent or dismissed from its own card.
+ * person has not approved; it is approved, or sent changes, from its own card.
  * `slot_choice` (id `slot-choice`, text `Every slot is in use`, act `answer`) is Fleet asking what to do for a
  * Session that found every worktree slot held: its two options are `Wait for a slot` (choice 0) and `Add a slot`
  * (choice 1), answered with `answer_waiting` and a `choice`. No message goes to the agent. `delivery` (id `delivery`, text
@@ -331,7 +326,7 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
  * `detail.settled`. Its press opens the document. `answer_document` answers it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "judge" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "rule_act" | "sketch" | "document";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "rule_act" | "sketch" | "document";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -397,10 +392,6 @@ export type WaitingItem = {
   /** The procedure the person follows, in order; its press opens them as steps. Absent when the item has none. */
   steps?: string[];
   place?: WindowPlace;
-  /** Present only on a `judge` item: what produced it, and how it was settled once it is. */
-  concern?: JudgeConcern;
-  /** Where a `judge` item points: the files its quotation lands in. Absent when it lands in none. */
-  cites?: WaitingCite[];
   /** A `replied` item whose sentence he said is a question (`confirm_waiting`). Absent where he has not. */
   confirmed?: boolean;
 };

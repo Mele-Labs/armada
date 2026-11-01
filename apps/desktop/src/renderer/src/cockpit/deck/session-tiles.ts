@@ -136,8 +136,8 @@ export function offeredOf(session: Session, draft: SessionsDraft, root: string |
   if (attachmentsOf(session, "subagent").length === 0) off.subagents = "The Job has no subagents";
   if (!session.rows.some((one) => one.kind === "check")) off.checks = "The Job has run no Checks";
   if (!holdsBays) off.slot = "The Job holds no bay";
-  // A judge reads the work against its plan, so it needs a plan to read and a way to be sent.
-  if (draft.work?.judge === undefined || session.work?.plan === undefined) off.judge = "No plan to judge against";
+  // A judge reads any artifact of the Job, the whole Job included, so it needs only a Fleet that serves one.
+  if (draft.judge === undefined) off.judge = "Fleet does not offer this";
   if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";
   else if (heldOf(session).length === 0) off.release = "The Job holds nothing";
   if (draft.pause === undefined) off.pause = "Fleet does not offer this";

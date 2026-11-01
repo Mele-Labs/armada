@@ -54,9 +54,7 @@ impl Sessions for FakeDaemon {
             plan: None,
             touches: Vec::new(),
             workflow_step: None,
-            judging: false,
-            judge: None,
-            settled: Vec::new(),
+            judge_readings: Vec::new(),
             closed: Vec::new(),
             waits: None,
             later: Vec::new(),
@@ -405,33 +403,6 @@ impl Sessions for FakeDaemon {
         self.report_session(SessionReport {
             harness: String::new(),
             session_id: approve.session_id,
-            fact: ipc::SessionFact::TurnCompleted { said: None },
-        })
-        .await
-    }
-
-    async fn judge_session(self: std::sync::Arc<Self>, judge: ipc::JudgeSession) -> Result<SessionRecord, Refusal> {
-        self.report_session(SessionReport {
-            harness: String::new(),
-            session_id: judge.session_id,
-            fact: ipc::SessionFact::TurnCompleted { said: None },
-        })
-        .await
-    }
-
-    async fn send_concern(self: std::sync::Arc<Self>, send: ipc::SendConcern) -> Result<SessionRecord, Refusal> {
-        self.report_session(SessionReport {
-            harness: String::new(),
-            session_id: send.session_id,
-            fact: ipc::SessionFact::TurnCompleted { said: None },
-        })
-        .await
-    }
-
-    async fn dismiss_concern(self: std::sync::Arc<Self>, dismiss: ipc::DismissConcern) -> Result<SessionRecord, Refusal> {
-        self.report_session(SessionReport {
-            harness: String::new(),
-            session_id: dismiss.session_id,
             fact: ipc::SessionFact::TurnCompleted { said: None },
         })
         .await

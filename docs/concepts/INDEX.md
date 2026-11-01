@@ -15,7 +15,6 @@ assuming it is restated here.
 | Concept | What it is |
 |---|---|
 | [account.md](account.md) | The GitHub account a machine signs in to, the profiles it joins, and what each profile syncs |
-| [adversarial-review.md](adversarial-review.md) | An advisory critique of a plan on the owner's press, by the strongest model, whose findings sit in the plan part they are about |
 | [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
 | [cockpit.md](cockpit.md) | Bridge's first tab: the flight deck, with every Job, the calls waiting on a person, the worktree slots and the merge queue on one screen |
 | [document.md](document.md) | The HTML page a Job designs to hand a person what it found: where it is written, how it is sealed and read, noted in place and revised by the Job's reply |
@@ -25,7 +24,7 @@ assuming it is restated here.
 | [fleet.md](fleet.md) | The Rust daemon that hosts Jobs, leases worktree slots, keeps the merge line and reads the forge |
 | [helm.md](helm.md) | The conversational orchestrator agent that reasons across a Fleet |
 | [job-proposer.md](job-proposer.md) | The Proposer: the model call that reads a Job's request and proposes its title, workflow or none, model and effort |
-| [judge.md](judge.md) | The semantic, veto-only tier of verification, run on the owner's press |
+| [judge.md](judge.md) | The one Judge: a read-only reading of any artifact of a Job on the owner's press, whose notes sit in the artifact, and Fleet's own step judges |
 | [key-bindings.md](key-bindings.md) | The keys each act answers as this person has them: the registry's, with Settings → Keyboard shortcuts laid over them and kept by Fleet |
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
 | [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Cockpit panels and places, by id |

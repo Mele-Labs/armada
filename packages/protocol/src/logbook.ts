@@ -61,7 +61,10 @@ export type LogbookEntry = {
 };
 
 /** `get_logbook` (`GET /logbook`): the entries asked for, forgotten ones left out. */
-export type Logbook = { entries: LogbookEntry[]; tidy: LogbookTidy };
+export type Logbook = { entries: LogbookEntry[]; tidy: LogbookTidy; organize: LogbookOrganize };
+
+/** Whether an Organize look is running, and the proposals the last one that finished left. `last` is held until it is applied or dismissed, and a Fleet restart forgets it. */
+export type LogbookOrganize = { running: boolean; last?: OrganizedLogbook };
 
 /** Whether a Tidy pass is running, and what the last one did. `last` is kept in memory, so a Fleet restart forgets it; a failed pass is kept with `failed: true`. */
 export type LogbookTidy = { running: boolean; last?: LogbookTidyLast };
@@ -121,7 +124,13 @@ export type OrganizeLogbook = { action: OrganizeAction; repository?: string };
  */
 export type OrganizeProposal = { id: string; entry_ids: string[]; text: string; note: string };
 
-/** What `organize_logbook` answers once the look is done. `failed`: a repository's model call failed or answered wrongly, so its proposals are missing. */
+/** What `organize_logbook` answers at once: a look is running. What it found shows in `Logbook.organize` once it finishes. */
+export type OrganizingLogbook = { running: boolean };
+
+/** What `dismiss_organize_logbook` (`POST /logbook/organize/dismiss`) answers: the held result is gone. */
+export type DismissedOrganizeLogbook = Record<string, never>;
+
+/** What a finished Organize look found, as `Logbook.organize.last` holds it. `failed`: a repository's model call failed or answered wrongly, so its proposals are missing. */
 export type OrganizedLogbook = { action: OrganizeAction; proposals: OrganizeProposal[]; failed: boolean };
 
 /** The body of `apply_organize_logbook` (`POST /logbook/organize/apply`): the proposals a person kept, as `organize_logbook` answered them. */
@@ -134,7 +143,7 @@ export type ApplyOrganizeLogbook = { action: OrganizeAction; proposals: Organize
 export type AppliedOrganizeLogbook = { action: OrganizeAction; applied: number; reported: OrganizeProposal[] };
 
 /** Bridge's envelope over `Logbook`: the entries, or why they could not be read. */
-export type LogbookRead = { ok: true; entries: LogbookEntry[]; tidy: LogbookTidy } | { ok: false; outcome: Outcome };
+export type LogbookRead = { ok: true; entries: LogbookEntry[]; tidy: LogbookTidy; organize: LogbookOrganize } | { ok: false; outcome: Outcome };
 
 /** What an edit or a lock came back as: the entry as it now stands, or the refusal. */
 export type LogbookAnswer = { ok: true; entry: LogbookEntry } | { ok: false; outcome: Outcome };
@@ -144,6 +153,12 @@ export type LogbookForgotten = { ok: true } | { ok: false; outcome: Outcome };
 
 /** What pressing Tidy came back as: a pass is running, or the refusal. */
 export type LogbookTidied = { ok: true; running: boolean } | { ok: false; outcome: Outcome };
+
+/** What pressing Organize came back as: a look is running, or the refusal. */
+export type LogbookOrganizing = { ok: true; running: boolean } | { ok: false; outcome: Outcome };
+
+/** What dismissing the held Organize result came back as. */
+export type LogbookOrganizeDismissed = { ok: true } | { ok: false; outcome: Outcome };
 
 /** Bridge's envelope over `OrganizedLogbook`: what Organize proposes, or why it could not look. */
 export type LogbookOrganized = ({ ok: true } & OrganizedLogbook) | { ok: false; outcome: Outcome };

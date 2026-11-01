@@ -28,15 +28,15 @@ test("without Armada's repository a report starts in the reported Session's own"
 
 const planned = { attachments: [], rows: [], work: { plan: { groups: [] } } } as unknown as Session;
 const bare = { attachments: [], rows: [] } as unknown as Session;
-const draftWith = (judge: boolean) => ({ commands: [], work: judge ? { judge: async () => false } : {} }) as unknown as SessionsDraft;
+const draftWith = (judge: boolean) => ({ commands: [], ...(judge ? { judge: { ask: () => undefined, send: () => undefined, dismiss: () => undefined, markRead: () => undefined } } : {}) }) as unknown as SessionsDraft;
 
-test("the Judge tile is offered for a Session with a plan, when Fleet can read one", () => {
+test("the Judge tile is offered for any Job, with or without a plan, when Fleet serves a Judge", () => {
   expect(offeredOf(planned, draftWith(true), "/code/shop").off.judge).toBeUndefined();
+  expect(offeredOf(bare, draftWith(true), "/code/shop").off.judge).toBeUndefined();
 });
 
-test("the Judge tile is off with no plan to judge against, or with no way to ask for a reading", () => {
-  expect(offeredOf(bare, draftWith(true), "/code/shop").off.judge).toBe("No plan to judge against");
-  expect(offeredOf(planned, draftWith(false), "/code/shop").off.judge).toBe("No plan to judge against");
+test("the Judge tile is off where Fleet serves no Judge", () => {
+  expect(offeredOf(planned, draftWith(false), "/code/shop").off.judge).toBe("Fleet does not offer this");
 });
 
 test("the Judge tile is off with the reason a Session cannot be spoken to", () => {

@@ -22,7 +22,7 @@ function fleet() {
     said: () => words,
     pause: ask,
     autoLand: ask,
-    work: { workflows: [], choose: () => undefined, unpick: () => undefined, approve: ask, suggest: () => undefined, sendConcern: () => undefined, dismissConcern: () => undefined },
+    work: { workflows: [], choose: () => undefined, unpick: () => undefined, approve: ask, suggest: () => undefined },
   } as unknown as SessionsDraft;
   return {
     draft,
