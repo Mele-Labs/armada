@@ -238,9 +238,9 @@ where
                         self.leave(row("walk", id, who.clone(), item.text.clone())).await?;
                     }
                     // Nothing to decide: sending it is his, and it stays on the list for the morning.
-                    // A plan is his to approve, and a concern his to send or dismiss, so they wait the same way.
+                    // A plan is his to approve, so it waits the same way.
                     // A draft is text he puts his name to, and a sketch or a document something he approves, so they wait too. A restart Fleet offers is his to press. An act a rule would do is his to say yes to.
-                    WaitingSource::FirstMessage | WaitingSource::Replied | WaitingSource::Done | WaitingSource::Plan | WaitingSource::Draft | WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Judge | WaitingSource::SlotChoice | WaitingSource::Delivery | WaitingSource::WordsAddress | WaitingSource::FleetCall | WaitingSource::TaskDone | WaitingSource::WatchNotOurs | WaitingSource::HeldChild | WaitingSource::PreviewOffer | WaitingSource::RuleAct => {
+                    WaitingSource::FirstMessage | WaitingSource::Replied | WaitingSource::Done | WaitingSource::Plan | WaitingSource::Draft | WaitingSource::Sketch | WaitingSource::Document | WaitingSource::SlotChoice | WaitingSource::Delivery | WaitingSource::WordsAddress | WaitingSource::FleetCall | WaitingSource::TaskDone | WaitingSource::WatchNotOurs | WaitingSource::HeldChild | WaitingSource::PreviewOffer | WaitingSource::RuleAct => {
                         continue
                     }
                     WaitingSource::Permission => {
