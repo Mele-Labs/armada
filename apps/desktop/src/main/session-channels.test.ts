@@ -96,6 +96,23 @@ describe("starting a Mod Job", () => {
   });
 });
 
+describe("a Mod Job's aim", () => {
+  it("passes the aim Bridge named to Fleet, and refuses a word that is no aim, sending nothing", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const start = handlers.get(CHANNELS.startModSession);
+    await start?.({}, { said: "a track view", aim: "tab" });
+    expect(startMod).toHaveBeenCalledWith({ said: "a track view", aim: "tab" });
+    startMod.mockClear();
+    const notUnderstood = { ok: false, outcome: { ok: false, why: "not_understood" } };
+    expect(await start?.({}, { said: "x", aim: "panel" })).toEqual(notUnderstood);
+    expect(await start?.({}, { said: "x", aim: 3 })).toEqual(notUnderstood);
+    expect(startMod).not.toHaveBeenCalled();
+  });
+});
+
 describe("sending a session message", () => {
   it("passes the aim of an empty Mod Job's first message to Fleet unchanged", async () => {
     const handlers = new Map<string, Handler>();

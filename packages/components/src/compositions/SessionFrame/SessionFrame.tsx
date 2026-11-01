@@ -302,6 +302,12 @@ export type SessionFrameProps = {
   aside?: ReactNode;
   /** Icon buttons for the Session's views, in the head's row before `actions`, with a rule after them. */
   headViews?: ReactNode;
+  /**
+   * A head with too little room, in one of two takes. `overflow` keeps one row; `rows` puts the state and name on a row with the way out,
+   * and everything else on a quieter row beneath. Which acts have gone into the menu is the host's: it measures the row marked `data-room`.
+   * Absent, the head is one row.
+   */
+  headTake?: "overflow" | "rows";
   children: ReactNode;
 };
 
@@ -393,29 +399,46 @@ function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRena
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, toolsMissing, toolsFixes, toolsApparent, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, toolsMissing, toolsFixes, toolsApparent, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, headTake, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
   const docked = useMarking(DOCKED);
+  const lead = (
+    <>
+      <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
+      <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} {...(onNameForMe === undefined ? {} : { onNameForMe })} />
+    </>
+  );
+  const tools = (
+    <>
+      {repository}
+      {headViews}
+      {actions}
+      {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
+      {context === undefined ? null : <ContextFigure fill={context} {...(compact === undefined ? {} : { compact })} />}
+      {loadout === undefined ? null : <LoadoutMark {...loadout} />}
+      <span className="armada-session-frame__marks">
+        {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
+        {toolsMissing === undefined ? null : <ToolsMark said={toolsMissing} {...(toolsFixes === undefined ? {} : toolsFixes)} {...(toolsApparent === true ? { apparent: true } : {})} />}
+      </span>
+      {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
+    </>
+  );
   return (
     <div ref={aside === undefined || aside === null ? undefined : docked} className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
-      <header className="armada-session-frame__head">
-        <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
-        <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} {...(onNameForMe === undefined ? {} : { onNameForMe })} />
-        {repository}
-        {headViews}
-        {actions}
-        {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
-        {context === undefined ? null : <ContextFigure fill={context} {...(compact === undefined ? {} : { compact })} />}
-        {loadout === undefined ? null : <LoadoutMark {...loadout} />}
-        <span className="armada-session-frame__marks">
-          {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
-          {toolsMissing === undefined ? null : <ToolsMark said={toolsMissing} {...(toolsFixes === undefined ? {} : toolsFixes)} {...(toolsApparent === true ? { apparent: true } : {})} />}
-        </span>
-        {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
-        {back}
+      <header className="armada-session-frame__head" {...(headTake === undefined ? {} : { "data-take": headTake })} {...(headTake === "overflow" ? { "data-room": "" } : {})}>
+        {headTake === "rows" ? (
+          <div className="armada-session-frame__row">
+            {lead}
+            {back}
+          </div>
+        ) : (
+          lead
+        )}
+        {headTake === "rows" ? <div className="armada-session-frame__row" data-row="tools" data-room="">{tools}</div> : tools}
+        {headTake === "rows" ? null : back}
       </header>
       <div className="armada-session-frame__body">{children}</div>
     </Card>

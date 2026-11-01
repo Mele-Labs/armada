@@ -26,7 +26,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { provideJobFacts } from "../../job-facts";
 import { clearActs, publishActs, useActsPlace } from "../../job-panes/acts";
 import { JudgeAct } from "../../judge/JudgeAct";
-import { openJudge } from "../../judge/store";
+import { openJudge, useJudgeRecord } from "../../judge/store";
 import { useJobTerminal } from "../../job-shell-dock";
 import { useSessionsSaid } from "../../sessions-draft";
 import { useFleetEvents } from "../fleet-events";
@@ -55,7 +55,7 @@ export type ReportRepository = { root: string; name?: string };
  * row holds more than it shows, and nothing while something else stands in its place.
  */
 export function SessionTiles({ session, draft, repository, startIn, bays, onOpenLink, expanded = false, onOverflow, head = false }: { head?: boolean; session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string; bays?: SessionBays | undefined; onOpenLink?: (address: string) => void; expanded?: boolean; onOverflow?: (overflows: boolean | undefined) => void }) {
-  const { slot, narrow } = useActsPlace();
+  const { slot, away } = useActsPlace();
   const layer = useLayer(session.id);
   const terminal = useJobTerminal(session.id, draft.terminalRuns !== undefined);
   const flight = useRepositoryFlight(repository?.root, session.id);
@@ -227,25 +227,26 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const wrongs = [...(bays?.bays ?? []).flatMap((one) => (one.said === undefined ? [] : [one.said])), ...(clashSaid === undefined ? [] : [clashSaid])];
   const filledBy = session.context === undefined || session.context.window <= 0 ? undefined : Math.min(100, Math.round((session.context.tokens / session.context.window) * 100));
   const subagentsRunning = attachmentsOf(session, "subagent").filter((one) => one.state === "running").length;
+  const judging = useJudgeRecord(session.id, { kind: "job", id: session.id })?.state === "reading";
   const checksRunning = session.rows.some((one) => one.kind === "check" && one.state === "running");
   const tip: Record<SessionTileId, string> = {
     ask: "Ask the Job for an update",
-    land: on ? "Turn auto land off" : "Turn auto land on",
+    land: on ? "Auto land on" : "Auto land off",
     compact: filledBy === undefined ? "Compact the Job's context" : `Context ${filledBy}% full. Compact it`,
     report: "Report an issue with the Job",
     map: "Map",
     judge: "Send a judge to read the work",
     release: "Release or hand over everything the Job holds",
     artifacts: "Everything the Job made or used",
-    subagents: subagentsRunning === 0 ? "Every subagent" : `Every subagent, ${subagentsRunning} running`,
-    checks: checksRunning ? "A Check the agent ran is still out. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
+    subagents: subagentsRunning === 0 ? "Every subagent" : "Subagents running",
+    checks: checksRunning ? "Checks running. The agent gets its result when it ends" : "The Checks the agent ran. Each result went back to it as the run ended",
     slot: wrongs.length === 0 ? "Every bay the Job holds" : wrongs.join(", "),
     system: "What the Job runs and costs the machine",
     requests: "Send a request with your cookie for its host",
     // A press while it is in its window brings the window forward and leaves the shell showing.
     terminal: terminal?.windowed === true ? "Bring the Job's terminal window to the front" : terminal?.shown === true ? "Hide the Job's terminal" : "Open the Job's terminal",
     browser: "Open the Job browser",
-    pause: session.paused === true ? "Resume" : "Pause",
+    pause: session.paused === true ? "Paused" : "Pause",
   };
   const tipCustom = (tile: Tile): string => {
     const words = (tile.words ?? "").trim();
@@ -296,9 +297,16 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
   const views = ["checks", "subagents"].flatMap((id) => tiles.filter((one) => one.builtIn !== undefined && one.id === id));
   const icons = customAt < 0 ? [...acts, ...views] : [...acts.slice(0, customAt), ...views, ...acts.slice(customAt)];
   const labelOfIcon = (tile: Tile) => (idOf(tile) === "pause" && session.paused === true ? "Resume" : tile.label);
+  /** What an act in the head says of itself on its glyph: a switch that is on, or a thing that is running. */
+  const stateOf = (tile: Tile): { state?: "on" | "running" } => {
+    const id = idOf(tile);
+    if ((id === "land" && on) || (id === "pause" && session.paused === true)) return { state: "on" };
+    if ((id === "checks" && checksRunning) || (id === "subagents" && subagentsRunning > 0) || (id === "judge" && judging)) return { state: "running" };
+    return {};
+  };
   useEffect(() => {
     if (!head) return;
-    publishActs(icons.map((tile) => ({ id: tile.id, label: labelOfIcon(tile), off: whyOf(tile), run: () => (idOf(tile) === undefined ? pressCustom(tile) : press[idOf(tile)!]()) })));
+    publishActs(icons.map((tile) => ({ id: tile.id, label: labelOfIcon(tile), icon: idOf(tile) === "pause" && session.paused === true ? Play : glyphOf(tile.glyph, "zap"), ...stateOf(tile), off: whyOf(tile), run: () => (idOf(tile) === undefined ? pressCustom(tile) : press[idOf(tile)!]()) })));
   });
   useEffect(() => (head ? clearActs : undefined), [head]);
   // Over the whole window, never in the panel: the panel's glass is the containing block of anything fixed inside it, and clipped them.
@@ -400,6 +408,7 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
           data-key={key}
           data-act={id === "pause" ? "pause" : undefined}
           aria-pressed={lit}
+          data-on={stateOf(tile).state === "on" || undefined}
           data-running={running || undefined}
           aria-busy={pending === tile.id || undefined}
           aria-disabled={why !== undefined || undefined}
@@ -411,7 +420,10 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
     );
   };
   if (head) {
-    const row = <>{icons.map(drawIcon)}</>;
+    // The acts a head has no room for are in the ellipsis menu, and drawn out of sight so their keys still press them.
+    const kept = icons.filter((one) => !away.includes(one.id));
+    const row = <>{kept.map(drawIcon)}</>;
+    const gone = icons.filter((one) => away.includes(one.id));
     // Terminal and Browser are tabs here, not acts: their keys stay on buttons out of sight.
     const kinds = (["terminal", "browser"] as const).map(tileById);
     return (
@@ -422,7 +434,8 @@ export function SessionTiles({ session, draft, repository, startIn, bays, onOpen
             <button key={tile.id} type="button" tabIndex={-1} aria-label={tile.label} data-key={flightKey(tile)} aria-disabled={whyOf(tile) !== undefined || undefined} onClick={() => whyOf(tile) === undefined && press[tile.id as "terminal" | "browser"]()} />
           ))}
         </div>
-        {slot !== null && !narrow ? createPortal(row, slot) : <div hidden className="job-acts">{row}</div>}
+        {slot !== null ? createPortal(row, slot) : <div hidden className="job-acts">{row}</div>}
+        {gone.length === 0 ? null : <div hidden className="job-acts">{gone.map(drawIcon)}</div>}
       </>
     );
   }

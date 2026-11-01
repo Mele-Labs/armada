@@ -87,13 +87,20 @@ Cockpit and System are always shown, so their items are drawn disabled.
 The menu writes the owner's own layout for the places, the same switches System → Layout shows. [Layout mods](layout-mods.md).
 
 The Job's head keeps its title: the state glyph, then the name, which a click renames, and the glyph pulses while the Job works.
+**In a Job's panes the Thread's head is two rows.**
+The first holds the state, the name and close, and the name gets all the room that is left.
+The second holds the rest, in order, and runs out from the right: the repository goes to its icon alone (its tooltip names the repository), and then the acts leave one at a time for the `⋯` menu, each a row with its glyph and its name, which Enter runs.
+They leave in this order: Requests, Release, Report, Subagents, Judge, Checks, Auto land, Pause, and an act of the owner's own before all of them.
+The width read is the row's own, not the window's.
+**An act that is a switch and is on, Auto land and Pause, draws its glyph in `--accent`. An act whose thing is running, Subagents, Checks and Judge, draws it in `--accent` and pulses it until nothing runs.**
+Its row in `⋯` does the same, and its tooltip says the state: `Auto land on`, `Subagents running`.
 After the title it holds, in order:
 
 | Part | Is |
 |---|---|
 | Artifacts | The `library` glyph. Opens everything the Job made or used |
-| Checks | The shield, pulsing in the running hue (blue) while any of the Job's Checks runs |
-| Subagents | The `drone` glyph, pulsing while any runs. The number running is in its tooltip, not beside the glyph |
+| Checks | The shield, pulsing in `--accent` while any of the Job's Checks runs |
+| Subagents | The `drone` glyph, pulsing while any runs. Its tooltip says `Subagents running`; no number is drawn |
 | Bays | Opens the Job's bays and write clashes |
 | Workflow | The `waypoints` glyph, on a Job whose Workspace gives it lifecycles. Opens the Job's workflow drawn as lanes |
 | The context figure | How full the context window is. Its popover holds Compact, which runs the Job's `/compact`: a hosted Job is sent it as a message, as picking it from `/` does, and a terminal Job is typed it through `draft.command`. Compact is off, with its reason, unless the agent or the terminal listed `compact` |
@@ -207,7 +214,7 @@ Browser has no tile and no key: it is a tab kind ([The Job browser](session/job-
 **The views.**
 Each opens a layer over the thread, or over the right column for Artifacts, and is a press on its icon in the Job's head.
 Checks pulses while any of the Job's Checks runs, and is the one place that shows it: the thread's header carries no checks mark.
-Subagents pulses while any runs and carries the number running in its tooltip, so no count is drawn beside the glyph.
+Subagents pulses while any runs, and its tooltip says `Subagents running`, so no count is drawn.
 **A Job in panes draws each view as a tab, and opens no layer.**
 Its key, its icon and a call in the thread bring that kind's tab forward, or open one where the Job has none: in the pane that holds that kind, else in a new pane on the right.
 Artifacts is the Ledger tab, Bays and Workflow are tabs of their own, and a second press brings the tab forward and does not close it, since a tab closes by its ×, and Esc closes none.
