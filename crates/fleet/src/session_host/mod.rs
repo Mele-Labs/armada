@@ -90,6 +90,7 @@ pub(crate) mod tell_refusal;
 pub(crate) mod reply_claims;
 pub(crate) mod unanswered;
 pub(crate) mod plan_asks;
+pub(crate) mod page_replies;
 pub(crate) mod standing;
 pub(crate) mod workflow_pick;
 mod standing_tick;
@@ -155,6 +156,8 @@ pub struct Hosts {
     account_every: AtomicU64,
     /// Waiting items, by session and item, whose answer or removal is being delivered now.
     settling: Arc<Mutex<std::collections::HashSet<(String, String)>>>,
+    /// His replies to each page already read for whether they approve it. Memory only.
+    page_reads: page_replies::Reads,
 }
 
 /// One waiting item claimed while its answer or removal is delivered, let go when dropped. **Why
@@ -190,7 +193,12 @@ impl Hosts {
             activity_every: AtomicU64::new(activity::PUBLISH_EVERY.as_millis() as u64),
             account_every: AtomicU64::new(account::WRITE_EVERY.as_millis() as u64),
             settling: Arc::default(),
+            page_reads: page_replies::Reads::default(),
         }
+    }
+
+    pub(crate) fn page_reads(&self) -> &page_replies::Reads {
+        &self.page_reads
     }
 
     /// Claim a waiting item for one answer or removal. `None` where another is being delivered.
