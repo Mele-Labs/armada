@@ -24,11 +24,11 @@ function titleOf(said: string): string {
   return (cut.includes(" ") ? cut.slice(0, cut.lastIndexOf(" ")) : cut).trimEnd();
 }
 
-function Describe({ tabId, manifestId }: { tabId: string; manifestId: string | undefined }) {
+function Describe({ tabId, jobId, manifestId }: { tabId: string; jobId: string; manifestId: string | undefined }) {
   const numbered = useNumbered(manifestId);
   const keep = `custom:${tabId}`;
   const send = async (sent: SentFromComposer): Promise<boolean> => {
-    const started = await window.armada.startModSession({ title: `Mod ${titleOf(sent.text)}`, said: sent.text, aim: "tab" });
+    const started = await window.armada.startModSession({ title: `Mod ${titleOf(sent.text)}`, said: sent.text, aim: "tab", from_job: jobId, from_tab: tabId });
     if (!started.ok) {
       askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
       return false;
@@ -82,7 +82,7 @@ export function CustomBody({ tabId, jobId, manifestId, onOpenSession }: { tabId:
           <h3 className="job-custom__title">New tab</h3>
           <p className="job-custom__line">Builds a tab mod you can add to any pane</p>
           <div className="job-custom__box">
-            <Describe tabId={tabId} manifestId={manifestId} />
+            <Describe tabId={tabId} jobId={jobId} manifestId={manifestId} />
           </div>
         </section>
       </div>

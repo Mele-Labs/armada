@@ -46,6 +46,8 @@ impl Sessions for FakeDaemon {
             loadout_summary: None,
             helm: false,
             r#mod: false,
+            from_job: None,
+            from_tab: None,
             auto_land: false,
             activity: None,
             build: None,

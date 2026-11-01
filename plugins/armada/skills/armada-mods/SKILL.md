@@ -370,7 +370,9 @@ that each pass `validate_mod`, and do not leave it broken between writes: a modu
 fails to load leaves the last good one on screen. Name the tab by what it shows
 (`review-queue`), since the name is its title. **Pass your `session_id`**: the
 tab finds you by it, and its hover card is this Job. A tab you scaffold with your own
-`session_id` opens in this Job's panes by itself, so he sees it appear.
+`session_id` opens in this Job's panes by itself, so he sees it appear. A question you put
+to him, a permission or an ask, is answered in that card and marks the tab, so he does
+not look for you in the Jobs list: this Job has no row there.
 
 ## The file
 

@@ -169,6 +169,12 @@ pub struct StartModSession {
     /// His words, where Mod was pressed on nothing: the Job's first message after the brief.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub said: Option<String>,
+    /// The Job whose panes hold the Custom tab this Job builds, and the tab's id there. Bridge sends them from a Custom tab; Fleet keeps them on the Job's record and Bridge
+    /// gives such a Job no row of its own, marking the tab and the Job that holds it where it waits on him. Absent on a Mod Job started anywhere else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_job: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_tab: Option<String>,
 }
 
 /// What he picked in an empty Mod Job: the kind of mod he is aiming for, `source` for a change to Armada's code. Read with his first message only.
