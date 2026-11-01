@@ -1,11 +1,14 @@
 // The thread's look, the quick bar and Talk for a Job: what the Aa panel and System › Thread set, read where a Job is drawn.
-// **Mock only for now.** A scenario hands a seed (`threadLook` on its draft) and the window holds it; a window with none holds no
-// look, and a Job draws as it always has: no Aa, no quick bar, no Talk. Fleet keeps none of it yet, and Talk hears a script.
+// The window always holds a look, from one copy Fleet keeps under `thread.look` (`ThreadLookSaved`). A mock scenario may hand a
+// seed (`threadLook` on its draft), which holds in place of the saved copy. Talk hears a script there and nothing in the live app.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ThreadLookButton, ThreadLookContext, actOnQuick, actOnResponses, quickShownIn, responseMessage, useThreadLook } from "@armada/components";
+import { DEFAULT_LOOK, ThreadLookButton, ThreadLookContext, actOnQuick, actOnResponses, quickShownIn, responseMessage, useThreadLook } from "@armada/components";
 import type { QuickResponse, SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, WhisperModel } from "@armada/components";
+import type { SettingValue } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
+
+import { saveSetting, useSetting } from "./use-setting";
 
 
 /** What a scenario starts the look with, the answers each Job's question offers, and the words Talk hears. */
@@ -22,9 +25,66 @@ const WORD_MS = 240;
 const INSTALL_MS = 3200;
 const INSTALL_STEP_MS = 160;
 
-/** Holds a scenario's look for the window. Without a seed nothing is held. */
+/** Holds a scenario's look for the window. Without a seed it is the saved copy, as in the live app. */
 export function ThreadLookFrom({ seed, children }: { seed: ThreadLookSeed | undefined; children: ReactNode }) {
-  return seed === undefined ? <>{children}</> : <Held seed={seed}>{children}</Held>;
+  return seed === undefined ? <ThreadLookSaved>{children}</ThreadLookSaved> : <Held seed={seed}>{children}</Held>;
+}
+
+const KEY = "thread.look";
+/** How long a change waits for the next before it is saved, so typing a name is one write. */
+const SAVE_MS = 400;
+
+/** The saved copy laid over the defaults: a field it lacks, or holds as another kind, is the default's. */
+export function lookFrom(saved: SettingValue | undefined): ThreadLook {
+  if (typeof saved !== "object" || saved === null || Array.isArray(saved)) return DEFAULT_LOOK;
+  const got = saved as Record<string, unknown>;
+  const fits = (key: keyof ThreadLook) => typeof got[key] === typeof DEFAULT_LOOK[key] && Array.isArray(got[key]) === Array.isArray(DEFAULT_LOOK[key]) && got[key] !== null;
+  return Object.fromEntries(Object.entries(DEFAULT_LOOK).map(([key, was]) => [key, fits(key as keyof ThreadLook) ? got[key] : was])) as ThreadLook;
+}
+
+/**
+ * The look from `thread.look` in settings.json: drawn the moment it changes and saved a beat later, and a save Fleet refuses puts
+ * back what Fleet has. Talk and the Whisper model are not here, so Talk is not drawn.
+ */
+export function ThreadLookSaved({ children }: { children: ReactNode }) {
+  const saved = useSetting(KEY);
+  const kept = useMemo(() => lookFrom(saved), [saved]);
+  const [look, hold] = useState(kept);
+  const latest = useRef(look);
+  const pending = useRef<number | undefined>(undefined);
+  // Saves sent and not answered: Fleet's copy is older than the window's while any is out, so it is not taken back.
+  const out = useRef(0);
+  useEffect(() => {
+    if (out.current > 0 || pending.current !== undefined || JSON.stringify(kept) === JSON.stringify(latest.current)) return;
+    latest.current = kept;
+    hold(kept);
+  }, [kept]);
+  useEffect(() => () => window.clearTimeout(pending.current), []);
+  const source = useMemo(
+    (): ThreadLookSource => ({
+      look,
+      setLook: (change) => {
+        const next = change(latest.current);
+        if (next === latest.current) return;
+        latest.current = next;
+        hold(next);
+        window.clearTimeout(pending.current);
+        pending.current = window.setTimeout(() => {
+          pending.current = undefined;
+          out.current += 1;
+          void saveSetting(KEY, next as unknown as SettingValue).then((outcome) => {
+            out.current -= 1;
+            if (outcome.ok || out.current > 0 || pending.current !== undefined) return;
+            latest.current = kept;
+            hold(kept);
+          });
+        }, SAVE_MS);
+      },
+      askedFor: () => [],
+    }),
+    [look, kept],
+  );
+  return <ThreadLookContext.Provider value={source}>{children}</ThreadLookContext.Provider>;
 }
 
 function Held({ seed, children }: { seed: ThreadLookSeed; children: ReactNode }) {
@@ -109,7 +169,7 @@ export function useThreadLookHere(session: Session): { thread: Pick<SessionThrea
         onSave: (text) => source.setLook((was) => (text === "" || was.quick.some((one) => one.text === text) ? was : { ...was, quick: [...was.quick, { id: `saved:${Date.now()}`, text, kind: "saved" }] })),
         onHide: (scope: "job" | "all") => source.setLook((was) => (scope === "all" ? { ...was, quickOff: true } : was.quickOffFor.includes(session.id) ? was : { ...was, quickOffFor: [...was.quickOffFor, session.id] })),
       } }),
-      talk: { listen: source.listen },
+      ...(source.listen === undefined ? {} : { talk: { listen: source.listen } }),
     },
     head: <ThreadLookButton jobId={session.id} />,
   };

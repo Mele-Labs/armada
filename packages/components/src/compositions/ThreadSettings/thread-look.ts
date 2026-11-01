@@ -119,10 +119,11 @@ export type ThreadLookSource = {
   setLook: (change: (was: ThreadLook) => ThreadLook) => void;
   /** Answers to the agent's question, for a Job whose last message asks one. */
   askedFor: (sessionId: string) => readonly string[];
-  /** Hears words, one at a time, until the returned stop is called. */
-  listen: (onWord: (word: string) => void) => () => void;
-  whisper: WhisperModel;
-  installWhisper: () => void;
+  /** Hears words, one at a time, until the returned stop is called. Absent where nothing hears: Talk is not drawn. */
+  listen?: (onWord: (word: string) => void) => () => void;
+  /** Absent where nothing installs it: the voice list reads Whisper as not here. */
+  whisper?: WhisperModel;
+  installWhisper?: () => void;
 };
 
 export const ThreadLookContext = createContext<ThreadLookSource | null>(null);
