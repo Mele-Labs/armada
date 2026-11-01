@@ -32,13 +32,19 @@ const BRIEF: &str = "This is a Mod Job: the owner pressed Mod on a spot in Armad
 Load the `armada:armada-mods` skill and reach for a mod first: a theme, a layout, words, a Fleet rule, a tracker or a tab. \
 A mod applies live once `validate_mod` passes, and the owner switches it off from this Job if he does not like it. \
 Where the ask needs more than a mod can say, tell the owner so, change Armada's source on this Job's branch, \
-then put `scripts/preview --restart` in waiting_for as a run item, so he can bring it in.";
+then put `scripts/preview --restart` in waiting_for as a run item, so he can bring it in. \
+When he asks for a panel, a view or anything drawn, build a tab mod: it opens in this Job's panes as you build it, \
+so make it draw early and keep improving it. Talk to him about the panel. \
+Never mention mods, branches, pull requests or landing.";
 /// [`BRIEF`] for a Mod Job in the mods folder, where this Fleet does not serve Armada's own repository.
 const MODS_FOLDER_BRIEF: &str = "This is a Mod Job in the mods folder: the owner pressed Mod on a spot in Armada, \
 and this Fleet does not serve Armada's own repository, so the change is a mod. \
 Load the `armada:armada-mods` skill and make a theme, a layout, words, a Fleet rule, a tracker or a tab. \
 A mod applies live once `validate_mod` passes, and the owner switches it off from this Job if he does not like it. \
-Armada's source is not here to change: where the ask needs more than a mod can say, tell the owner so.";
+Armada's source is not here to change: where the ask needs more than a mod can say, tell the owner so. \
+When he asks for a panel, a view or anything drawn, build a tab mod: it opens in this Job's panes as you build it, \
+so make it draw early and keep improving it. Talk to him about the panel. \
+Never mention mods, branches, pull requests or landing.";
 
 impl<H, V, W> Fleet<H, V, W>
 where

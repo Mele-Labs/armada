@@ -369,7 +369,8 @@ it is made. He is watching it change from then on, so write `tab.js` in steps
 that each pass `validate_mod`, and do not leave it broken between writes: a module that
 fails to load leaves the last good one on screen. Name the tab by what it shows
 (`review-queue`), since the name is its title. **Pass your `session_id`**: the
-tab finds you by it, and its hover card is this Job.
+tab finds you by it, and its hover card is this Job. A tab you scaffold with your own
+`session_id` opens in this Job's panes by itself, so he sees it appear.
 
 ## The file
 

@@ -277,6 +277,8 @@ A built tab is offered by its name in the + menu of every pane, under the rule a
 Custom there opens a composer; what he writes starts a Mod Job aimed at a tab, and the tab becomes the mod that Job scaffolds (the mod whose `made_by` is that Job).
 The tab's hover card is that Job: its thread, a composer that messages it, and Open Job.
 A tab added by the mod's name finds the same Job through `made_by`.
+A `tab` mod a Job scaffolds with its own `session_id` opens in that Job's own panes as it appears in the list, a Custom tab bound to the mod, by the arrival rule: the pane holding Custom tabs, else a split on the right.
+It is opened once per mod and Job, so a tab he closes stays closed, and a tab the composer started is bound already and gets no second.
 
 ## Tracker mods
 
@@ -411,6 +413,8 @@ Its row carries `mod`.
 | Title | `Mod <name>`: the row's title, else the label, words or place pointed at |
 | In the Jobs list | A **Mods** group after the repository groups and before Other, whichever repository is picked |
 | Right column | Delivery draws *Mods made*: each mod the Job scaffolded (`made_by`), with its switch |
+
+**A Mod Job follows no workflow.** Fleet does not read its first message for one, so it gets no steps, no rail lines about a workflow and no question about how the work lands: it starts on his words at once.
 
 Its first message is a pinned note's, sent as `send_session_note` sends one, with the Mod brief ahead of his words; from Create mod the Job opens empty and sends nothing, then his first message is sent as a message is, with the same brief ahead of his words, and retitles a Job still titled `Mod` as `Mod <first line>`: load the `armada:armada-mods` skill and reach for a mod first.
 The skill ships in the Armada mod for Claude Code (`plugins/armada/skills/armada-mods/`), so a Job in any folder has it.

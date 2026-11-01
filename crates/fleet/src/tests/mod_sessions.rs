@@ -7,7 +7,7 @@ use std::sync::Arc;
 use api::{HostedSessions, Mods, Refusal, Sessions};
 use ipc::{ModAim, ModKind, ScaffoldMod, SendSessionMessage, SessionId, SessionRow, StartModSession};
 
-use super::session_dispute::serving;
+use super::session_dispute::{serving, serving_fitted};
 use super::session_host::{denied, eventually, Rig};
 use super::session_notes::{a_repository, note, turn_of, PATH, SAID};
 
@@ -351,4 +351,26 @@ async fn a_mod_job_started_with_a_tab_aim_is_briefed_on_the_tab_between_the_brie
             "{served}: the thread keeps his words alone: {rows:#?}"
         );
     }
+}
+
+#[tokio::test]
+async fn a_mod_job_has_no_workflow_and_is_not_asked_how_its_work_lands() {
+    let rig = serving_fitted("armada", |fittings| {
+        fittings.judge = Arc::new(testkit::FakeJudge::saying("workflow: feature\ntitle: Track view"));
+    })
+    .await;
+    let id = Arc::clone(&rig.fleet).start_mod_session(spoken(None, None)).await.expect("started").session_id;
+
+    Arc::clone(&rig.fleet)
+        .send_session_message(said_by_him(&id, "I want a track view of a job's events that plays as notes"))
+        .await
+        .expect("sent");
+
+    let turn = turn_of(&rig).await;
+    assert!(turn.contains("This is a Mod Job") && turn.contains("a track view"), "it starts on his words at once: {turn}");
+    assert!(!turn.contains("Stop now") && !turn.contains("follows the"), "no hold and no workflow lines: {turn}");
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).expect("read").expect("hosted");
+    assert_eq!(hosting.workflow, None, "no workflow: {hosting:#?}");
+    let rows = rig.rows(&id).await;
+    assert!(!rows.iter().any(|row| matches!(row, SessionRow::Delivery { .. })), "no delivery question: {rows:#?}");
 }
