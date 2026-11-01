@@ -146,7 +146,7 @@ test("the Dispatch sheet's second kind is Autopilot: Tab steps to it, and the sh
   await cockpit();
   // The switch just pressed holds focus, and a bare key does nothing while a control does.
   (document.activeElement as HTMLElement).blur();
-  await userEvent.keyboard("n");
+  await userEvent.keyboard("{Meta>}n{/Meta}");
   const panel = page.getByRole("region", { name: "Dispatch", exact: true });
   const field = panel.getByRole("textbox", { name: "Request" });
   await expect.element(field).toHaveFocus();
@@ -167,7 +167,7 @@ test("in a short window the Dispatch sheet stays inside it and its Autopilot for
   await page.viewport(1100, 460);
   await cockpit();
   (document.activeElement as HTMLElement).blur();
-  await userEvent.keyboard("n");
+  await userEvent.keyboard("{Meta>}n{/Meta}");
   const panel = page.getByRole("region", { name: "Dispatch", exact: true });
   await userEvent.keyboard("Work the open bugs until 7am");
   for (let tries = 0; tries < 3; tries += 1) {
