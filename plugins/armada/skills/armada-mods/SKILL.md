@@ -378,7 +378,7 @@ A plain ES module, no build step. Its default export is a React component with o
 | Use | For |
 |---|---|
 | `host.React` | React. Write `const { createElement: h, useState, useEffect } = host.React;` and call `h(...)`, since there is no JSX |
-| `host.armada` | Any Fleet call Bridge makes, such as `getReviewLists()` or `listJobs()`. Read `apps/desktop/src/shared/api/` for the names |
+| `host.armada` | Any Fleet call Bridge makes, such as `getReviewLists()` or `state()`. Read `apps/desktop/src/shared/api/` for the names |
 | `host.ui` | Bridge's primitives by name: `Button`, `Tooltip`, `Table` and the rest of the list in `apps/desktop/src/renderer/src/job-panes/tab-ui.ts` |
 | `host.glyphs` | Icons by registry name, `host.glyphs["git-pull-request"]` |
 | `host.job.id`, `host.tab.id` | The Job the tab is open in, and the tab |
