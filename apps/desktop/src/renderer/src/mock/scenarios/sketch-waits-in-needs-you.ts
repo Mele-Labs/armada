@@ -49,15 +49,12 @@ const SESSION: Session = {
     { id: "k1l", at: "09:13:16", kind: "tool", text: `show_sketch ${JSON.stringify({ title: EARLIER_TITLE, scene: DRAWING })}` },
     { id: "k2", at: "09:13:20", kind: "tool", text: `show_sketch ${JSON.stringify({ title: TITLE, scene: DRAWING })}` },
   ],
-  // Fleet sends the ledger newest first: the sketch drawn last is the first, and an earlier one he has not answered follows it.
+  // Fleet sends the ledger newest first: the sketch drawn last is the first. Drawing it took back the earlier one under another title.
   attachments: [
     { kind: "sketch", id: SKETCH, title: TITLE, by: "agent", drawing: DRAWING, asked: true, drawn: "drawn-2" },
-    { kind: "sketch", id: EARLIER_SKETCH, title: EARLIER_TITLE, by: "agent", drawing: DRAWING, asked: true, drawn: "drawn-1" },
+    { kind: "sketch", id: EARLIER_SKETCH, title: EARLIER_TITLE, by: "agent", drawing: DRAWING, asked: true, withdrawn: true, drawn: "drawn-1" },
   ],
-  waitingFor: [
-    { id: SKETCH, text: TITLE, since: ago(1), source: "sketch", act: { kind: "message", target: "s47" } },
-    { id: EARLIER_SKETCH, text: EARLIER_TITLE, since: ago(5), source: "sketch", act: { kind: "message", target: "s47" } },
-  ],
+  waitingFor: [{ id: SKETCH, text: TITLE, since: ago(1), source: "sketch", act: { kind: "message", target: "s47" } }],
 };
 
 function build(): Scenario {

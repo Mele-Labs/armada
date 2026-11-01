@@ -4,5 +4,5 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "The bug reports agents made of Armada changed, and this is all of them now"
 notes = """
-Carries `BugReports` itself, the answer to `list_bug_reports`, so a client replaces what it holds. Published after `report_bug` kept a report, `keep_bug_report` kept one and `drop_bug_report` deleted one. Reports are made rarely and the owner drops them, so the list stays short. A Bridge that missed one reads `list_bug_reports` on the resync that follows a `Missed`.
+Carries `BugReports` itself, the answer to `list_bug_reports`, so a client replaces what it holds. Published after `report_bug` kept a report, `keep_bug_report` kept one, `drop_bug_report` deleted one and a merged pull request fixed one (`fixed` set). Reports are made rarely and the owner drops them, so the list stays short. A Bridge that missed one reads `list_bug_reports` on the resync that follows a `Missed`.
 """

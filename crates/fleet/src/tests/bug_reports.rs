@@ -3,10 +3,13 @@
 
 use std::time::Duration;
 
-use api::{Next, Sessions};
-use ipc::{BugReports, Event, ReportBug, SessionId};
+use std::sync::Arc;
+
+use api::{HostedSessions, Next, Sessions};
+use ipc::{AttachmentState, BugReports, CloseSession, Event, ReportBug, SessionId, SessionTag, TagKind};
 
 use super::session_host::{rig_placing, Rig};
+use super::session_issues::said;
 
 fn reporting(id: Option<&SessionId>, title: &str, what: &str) -> ReportBug {
     ReportBug {
@@ -182,4 +185,59 @@ async fn keep_and_drop_refuse_a_missing_id_as_no_such_bug_report() {
         tokio::time::timeout(Duration::from_millis(200), changed(&mut watching)).await.is_err(),
         "a refusal publishes nothing"
     );
+}
+
+fn tagging(report_id: &str, title: &str) -> SessionTag {
+    SessionTag { kind: TagKind::Report, id: report_id.into(), title: title.into(), url: None }
+}
+
+/// The `report` rows the Job holds, as the wire carries them.
+async fn report_rows(rig: &Rig, id: &SessionId) -> Vec<ipc::Attachment> {
+    let listed = rig.fleet.list_sessions(None, Some(id.as_str().into()), None).await.expect("listed");
+    let job = listed.sessions.into_iter().find(|one| one.id == *id).expect("the job");
+    job.attachments.into_iter().filter(|one| one.kind == "report").collect()
+}
+
+/// A report is the person naming a fault to the Job started on it, and it is held as an issue is: by the
+/// store's own title, not the tag's, and once however often it is named.
+#[tokio::test]
+async fn a_reported_bug_the_person_tags_is_held_by_the_job_under_the_reports_own_title() {
+    let rig = rig_placing(None);
+    let reporter = rig.start().await;
+    let report_id = reported(&rig, &reporter, "Refresh drops the lease").await;
+    let id = rig.start().await;
+
+    said(&rig, &id, "Fix this", vec![tagging(&report_id, "a stale title")]).await;
+    said(&rig, &id, "Fix this", vec![tagging(&report_id, "a stale title")]).await;
+
+    let rows = report_rows(&rig, &id).await;
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    assert_eq!((rows[0].target.as_str(), rows[0].state), (report_id.as_str(), AttachmentState::Standing));
+    assert_eq!(rows[0].detail.get("title").map(String::as_str), Some("Refresh drops the lease"));
+}
+
+#[tokio::test]
+async fn a_tag_for_a_report_the_store_does_not_have_holds_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+
+    said(&rig, &id, "Fix this", vec![tagging("gone", "Dropped since")]).await;
+
+    assert!(report_rows(&rig, &id).await.is_empty());
+}
+
+/// Ending a Job gives back what it holds, so a Job that ends without merging is no longer the report's.
+#[tokio::test]
+async fn a_job_that_ends_gives_its_report_back() {
+    let rig = rig_placing(None);
+    let reporter = rig.start().await;
+    let report_id = reported(&rig, &reporter, "Refresh drops the lease").await;
+    let id = rig.start().await;
+    said(&rig, &id, "Fix this", vec![tagging(&report_id, "Refresh drops the lease")]).await;
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.expect("ended");
+
+    let rows = report_rows(&rig, &id).await;
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    assert_eq!(rows[0].state, AttachmentState::GivenBack);
 }

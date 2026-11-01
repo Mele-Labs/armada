@@ -1,11 +1,13 @@
 // Reported bugs on the mock Fleet, through `App`: the band under All and under armada and under no other repository, the ring
 // going when a report is opened, Keep and Drop written through Fleet and heard back as `bug_reports.changed`, Start a Job
 // opening the sheet in armada with the report as its brief, `K` and `D` acting only where a report holds focus, and the mark
-// on the Cockpit row of a Job that reported one. The look is the walk's (`reported-bugs`); this holds what it decided.
+// on the Cockpit row of a Job that reported one, and (over `report-linked-job`) the Job started on a report shown on its row and in
+// its reader, a fixed report under Closed with its pull request, and the Job listing its report. The look is the walk's (`reported-bugs`); this holds what it decided.
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { reportLinkedJob } from "./scenarios/report-linked-job";
 import { reportedBugs } from "./scenarios/reported-bugs";
 import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
@@ -98,20 +100,20 @@ test("a report dropped elsewhere leaves the band on bug_reports.changed, with no
   expect(reread).not.toHaveBeenCalled();
 });
 
-test("Start a Job opens the sheet in armada with the report as the brief", async () => {
+test("Start a Job drafts the Job in armada and opens it holding the report as the brief, with no sheet", async () => {
   await open();
   await userEvent.click(row(WATCH));
   await userEvent.click(reader().getByRole("button", { name: "Keep", exact: true }));
   await userEvent.click(reader().getByRole("button", { name: "Start a Job", exact: true }));
 
-  const request = page.getByRole("textbox", { name: "Request" });
-  await expect.element(request).toBeVisible();
-  const text = () => (request.element() as HTMLTextAreaElement).value;
-  await expect.poll(text).toContain("A watch stayed live after its pull request merged");
-  expect(text()).toContain("Steps\n1. Start a watch on a deploy with start_watch.");
-  expect(text()).toContain("Errors\nfleet.watch_live: a live watch holds this Job open");
-  expect(text()).toContain("Logs\n");
-  await expect.element(page.getByRole("radio", { name: "Repository armada" })).toBeChecked();
+  const job = page.getByRole("region", { name: /^Job: / });
+  await expect.element(job).toBeVisible();
+  await expect.element(job).toHaveTextContent("A watch stayed live after its pull request merged");
+  await expect.element(job).toHaveTextContent("Steps");
+  await expect.element(job).toHaveTextContent("Start a watch on a deploy with start_watch.");
+  await expect.element(job).toHaveTextContent("fleet.watch_live: a live watch holds this Job open");
+  expect(page.getByRole("region", { name: "Dispatch", exact: true }).query()).toBeNull();
+  expect(page.getByRole("textbox", { name: "Request" }).query()).toBeNull();
 });
 
 test("K keeps the report in the reader, and does nothing on a report already kept", async () => {
@@ -171,4 +173,71 @@ test("a Job with no report wears no mark", async () => {
   await toPlace("Cockpit");
   await expect.element(page.getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
   expect(page.getByRole("button", { name: "Reported a bug", exact: true }).query()).toBeNull();
+});
+
+const LINKED_WATCH = /^A watch stayed live/;
+const LINKED_ICON = /^show_sketch refused an icon/;
+const JOB_FIXING = "Stop a watch once its pull request merges";
+
+async function openLinked() {
+  mount({ ...reportLinkedJob, state: { ...reportLinkedJob.state, repository: null } });
+  await onScreen();
+  await toPlace("Issues" as never);
+  await expect.element(issues()).toBeVisible();
+}
+
+test("Start a Job sends the report as a tag of its own kind, held in the words of its brief", async () => {
+  await open();
+  await userEvent.click(row(WATCH));
+  await userEvent.click(reader().getByRole("button", { name: "Keep", exact: true }));
+  await userEvent.click(reader().getByRole("button", { name: "Start a Job", exact: true }));
+
+  const job = page.getByRole("region", { name: /^Job: / });
+  await expect.element(job).toBeVisible();
+  await expect.poll(() => job.element().querySelector(".armada-session-sent")?.textContent).toMatch(/Reported bug.*A watch stayed live after its pull request merged/);
+});
+
+test("a report whose Job holds its report row shows the Job on its row and in its reader", async () => {
+  await openLinked();
+  await expect.element(issues().getByRole("img", { name: new RegExp(`^${JOB_FIXING}:`) })).toBeVisible();
+
+  await userEvent.click(row(LINKED_WATCH));
+  await expect.element(reader().getByRole("button", { name: new RegExp(`^Open the Job, ${JOB_FIXING}`) })).toBeVisible();
+  expect(reader().getByRole("button", { name: "Start a Job", exact: true }).query()).toBeNull();
+});
+
+test("a report no Job holds, as when its Job ended without merging, shows no Job and offers Start a Job", async () => {
+  await openLinked();
+  const mark = row(VERB).element().querySelector(".issues-row__job-mark");
+  expect(mark?.childElementCount).toBe(0);
+
+  await userEvent.click(row(VERB));
+  await expect.element(reader().getByRole("button", { name: "Start a Job", exact: true })).toBeVisible();
+  expect(reader().getByRole("button", { name: /^Open the Job,/ }).query()).toBeNull();
+});
+
+test("a fixed report is hidden under Open, and shown under Closed with the pull request that fixed it", async () => {
+  await openLinked();
+  await expect.element(row(LINKED_WATCH)).toBeVisible();
+  expect(row(LINKED_ICON).query()).toBeNull();
+
+  row(LINKED_WATCH).element().focus();
+  await userEvent.keyboard("L");
+  await userEvent.click(page.getByRole("menuitem", { name: "Closed", exact: true }));
+
+  await expect.element(row(LINKED_ICON)).toBeVisible();
+  expect(row(LINKED_WATCH).query()).toBeNull();
+  await expect.element(issues().getByRole("img", { name: "Fixed by #3071" })).toBeVisible();
+  await userEvent.click(row(LINKED_ICON));
+  await expect.element(reader().getByText("#3071")).toBeVisible();
+});
+
+test("the Job started on a report lists the report among its issues", async () => {
+  await openLinked();
+  await userEvent.click(row(LINKED_WATCH));
+  await userEvent.click(reader().getByRole("button", { name: new RegExp(`^Open the Job, ${JOB_FIXING}`) }));
+
+  await userEvent.click(page.getByRole("region", { name: "Done", exact: true }).getByRole("button", { name: /^Done/ }));
+  await expect.element(page.getByRole("img", { name: "Reported bug", exact: true })).toBeVisible();
+  await expect.element(page.getByText("A watch stayed live after its pull request merged")).toBeVisible();
 });
