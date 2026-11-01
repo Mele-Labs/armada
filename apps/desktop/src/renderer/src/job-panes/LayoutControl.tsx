@@ -1,4 +1,5 @@
-// The Layout control in the title bar: an icon with the layout the Job is on in its tooltip and a mark on it once rearranged, and a menu to take another, to update the one it is on, to save it under a name, to reset it, or to make the layout the one new Jobs open on. That layout's row carries a quiet tag.
+// The Layout control in the title bar: an icon with the layout the Job is on in its tooltip and a mark on it once rearranged, and a menu to take another, to update the one it is on, to save it under a name, to reset it, or to pick the layout new Jobs open on.
+// The layout rows are this Job's own choice and carry no tag: the one it is on is checked. The last row, New Jobs open on, trails the layout new Jobs open on and opens a submenu of every layout to change it.
 // Save as turns the menu into a name field in place: ↵ saves, Esc leaves it.
 
 import { PanelsTopLeft } from "lucide-react";
@@ -22,14 +23,14 @@ export function LayoutControl({ jobId, layout, edited, layouts, forAll, open, on
             id: `take:${one}`,
             label: one,
             selected: one === layout,
-            ...(one === forAll ? { trail: <span className="job-layout__new">new Jobs</span> } : {}),
           }),
         ),
         { kind: "separator", id: "rule" },
         { kind: "item", id: "update", label: `Update ${layout}`, act: true, disabled: !edited },
         { kind: "item", id: "save", label: "Save as…", act: true },
         { kind: "item", id: "reset", label: "Reset", act: true, disabled: !edited },
-        { kind: "item", id: "new", label: `Open new Jobs on ${layout}`, act: true, disabled: layout === forAll, ...(layout === forAll ? { hint: `New Jobs already open on ${layout}` } : {}) },
+        { kind: "separator", id: "rule-new" },
+        { kind: "item", id: "new", label: "New Jobs open on", detail: forAll, submenu: layouts.map((one) => ({ id: `new:${one}`, label: one, selected: one === forAll })) },
       ];
 
   const choose = (id: string) => {
@@ -40,7 +41,7 @@ export function LayoutControl({ jobId, layout, edited, layouts, forAll, open, on
       onNaming(true);
       window.setTimeout(() => onOpen(true), 0);
     } else if (id === "reset") resetLayout(jobId);
-    else if (id === "new") setLayoutForAll(layout);
+    else if (id.startsWith("new:")) setLayoutForAll(id.slice("new:".length));
   };
 
   // Leaving the menu any way but ↵ leaves the field; the name typed is kept.
