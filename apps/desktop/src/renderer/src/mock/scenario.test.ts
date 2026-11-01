@@ -8,6 +8,14 @@ import { WALKS } from "./walks";
 
 const ROW_FILES = import.meta.glob<Record<string, unknown>>("./scenarios/*.ts", { eager: true });
 
+// A list a scenarios/ file exports beside its rows came in as a row with no name and no state, a blank line in the finder.
+test("every scenario the list holds has a name and a state", () => {
+  for (const one of SCENARIOS) {
+    expect(typeof one.name, JSON.stringify(one).slice(0, 80)).toBe("string");
+    expect(one.state, one.name).toBeDefined();
+  }
+});
+
 test("every scenario has its own name", () => {
   const names = SCENARIOS.map((one) => one.name);
   expect(new Set(names).size).toBe(names.length);
