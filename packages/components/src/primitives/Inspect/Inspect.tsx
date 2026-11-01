@@ -188,17 +188,26 @@ export type InspectProps = {
    * selects — because pinning would take the press from the thing the reader pressed.
    */
   pin?: boolean;
+  /** The ancestor of the trigger, by selector, that the card is placed against in place of the trigger itself: a card that must not cover what the trigger sits in. */
+  around?: string;
+  /** The card stays open while this holds, as a Job at work in it does, until Esc lets it go. */
+  held?: boolean;
   /** A call asked for the card to open: it is pinned and focus goes to the part `to` names; `onSummoned` lets go of the ask. */
   summoned?: boolean;
   to?: string;
   onSummoned?: () => void;
 };
 
-export function Inspect({ card, name, children, side = "below", pin = true, summoned = false, to, onSummoned }: InspectProps) {
+export function Inspect({ card, name, children, side = "below", pin = true, around, held = false, summoned = false, to, onSummoned }: InspectProps) {
   const [hover, setHover] = useState(false);
   const [focus, setFocus] = useState(false);
   const [pinned, setPinned] = useState(false);
-  const open = hover || focus || pinned;
+  /** Esc let go of a card that was held open. */
+  const [released, setReleased] = useState(false);
+  useEffect(() => {
+    if (!held) setReleased(false);
+  }, [held]);
+  const open = hover || focus || pinned || (held && !released);
   const id = useId();
   const anchor = `--inspect-${id.replace(/\W/g, "")}`;
   const trigger = useRef<HTMLElement | null>(null);
@@ -257,7 +266,7 @@ export function Inspect({ card, name, children, side = "below", pin = true, summ
     } catch {
       // Already showing, or no popover in this renderer: the stylesheet's fixed layer stands.
     }
-    const from = trigger.current?.getBoundingClientRect();
+    const from = (around === undefined ? trigger.current : trigger.current?.closest(around))?.getBoundingClientRect();
     if (ANCHORS || from === undefined) return;
     const gap = 8;
     const own = el.getBoundingClientRect();
@@ -268,6 +277,15 @@ export function Inspect({ card, name, children, side = "below", pin = true, summ
     el.style.left = `${left}px`;
     el.style.top = `${top}px`;
   });
+
+  // The element a card is placed against in place of its trigger takes the anchor for as long as the card is open.
+  useLayoutEffect(() => {
+    if (!open || around === undefined) return;
+    const host = trigger.current?.closest<HTMLElement>(around);
+    if (host === null || host === undefined) return;
+    host.style.setProperty("anchor-name", anchor);
+    return () => void host.style.removeProperty("anchor-name");
+  }, [open, around, anchor]);
 
   useEffect(() => {
     if (!open) return;
@@ -281,9 +299,12 @@ export function Inspect({ card, name, children, side = "below", pin = true, summ
       }
       if (within) trigger.current?.focus({ preventScroll: true });
       dismissed.current = true;
+      setReleased(true);
       away();
     };
     const onDown = (event: PointerEvent) => {
+      // A walk's own card is not the page: pressing its Next leaves the card a step opened as it was.
+      if (event.target instanceof Element && event.target.closest("[data-walk-ui]") !== null) return;
       if (!inside(event.target)) away();
     };
     window.addEventListener("keydown", onKey, true);
@@ -320,7 +341,7 @@ export function Inspect({ card, name, children, side = "below", pin = true, summ
 
   const trigged = cloneElement(child, {
     className: [own.className, "armada-inspect-on"].filter(Boolean).join(" "),
-    style: { ...own.style, anchorName: anchor } as CSSProperties,
+    style: { ...own.style, ...(around === undefined ? { anchorName: anchor } : {}) } as CSSProperties,
     "aria-describedby": described,
     onMouseEnter: (event: ReactMouseEvent<HTMLElement>) => {
       own.onMouseEnter?.(event);
@@ -339,7 +360,7 @@ export function Inspect({ card, name, children, side = "below", pin = true, summ
     onBlur: (event: ReactFocusEvent<HTMLElement>) => {
       own.onBlur?.(event);
       dismissed.current = false;
-      if (inside(event.relatedTarget)) return;
+      if (inside(event.relatedTarget) || (event.relatedTarget === null && !document.hasFocus())) return;
       hide("focus");
       if (event.relatedTarget !== null) setPinned(false);
     },
@@ -390,7 +411,8 @@ export function Inspect({ card, name, children, side = "below", pin = true, summ
               onMouseLeave={() => hide("hover")}
               onFocus={() => setFocus(true)}
               onBlur={(event) => {
-                if (inside(event.relatedTarget)) return;
+                // The window losing focus is not the reader leaving the card: the focus comes back to it.
+                if (inside(event.relatedTarget) || (event.relatedTarget === null && !document.hasFocus())) return;
                 setFocus(false);
                 if (event.relatedTarget !== null) setPinned(false);
               }}

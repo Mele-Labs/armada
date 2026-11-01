@@ -90,18 +90,25 @@ export type DockHandleProps = {
    * between two panels. The caller places it, with `className`.
    */
   quiet?: boolean;
+  /**
+   * The line it drags along. `y` is the handle of a split whose sides are one over the other: it lies across, drags up and down, and `width` is the
+   * height of the side it grows. `grows` then reads `left` as up and `right` as down.
+   */
+  axis?: "x" | "y";
   className?: string;
 };
 
-export function DockHandle({ width, min, max, label, grows = "left", onResize, onReset, quiet, className }: DockHandleProps) {
+export function DockHandle({ width, min, max, label, grows = "left", onResize, onReset, quiet, axis = "x", className }: DockHandleProps) {
   const handled = useMarking(HANDLED);
-  const drag = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
+  const drag = useRef<{ pointerId: number; startAt: number; startWidth: number } | null>(null);
   // Only for the line's own intensified colour while dragging — `:hover` drops
   // the moment the cursor leaves the 8px hit area, which a fast drag does
   // almost at once, and the grip going dim mid-drag would read as let go.
   const [dragging, setDragging] = useState(false);
   const range = { min, max };
   const sign = grows === "left" ? 1 : -1;
+  const across = axis === "y";
+  const at = (event: PointerEvent<HTMLDivElement>) => (across ? event.clientY : event.clientX);
 
   function pointerDown(event: PointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) return;
@@ -110,9 +117,9 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize, o
     } catch {
       // A pointer sent by a script has nothing to capture; its moves are sent to the handle as well.
     }
-    drag.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: width };
+    drag.current = { pointerId: event.pointerId, startAt: at(event), startWidth: width };
     setDragging(true);
-    document.body.style.cursor = "col-resize";
+    document.body.style.cursor = across ? "row-resize" : "col-resize";
     document.body.style.userSelect = "none";
     // Suppressing the drag's own text selection also suppresses the focus a
     // click would otherwise grant — put back by hand, so the keyboard still
@@ -123,7 +130,7 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize, o
 
   function pointerMove(event: PointerEvent<HTMLDivElement>): void {
     if (drag.current === null || drag.current.pointerId !== event.pointerId) return;
-    const delta = sign * (drag.current.startX - event.clientX);
+    const delta = sign * (drag.current.startAt - at(event));
     onResize(clampToRange(drag.current.startWidth + delta, range));
   }
 
@@ -136,8 +143,8 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize, o
   }
 
   function keyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    if (event.key === "ArrowLeft") onResize(clampToRange(width + sign * DOCK_WIDTH_STEP, range));
-    else if (event.key === "ArrowRight") onResize(clampToRange(width - sign * DOCK_WIDTH_STEP, range));
+    if (event.key === (across ? "ArrowUp" : "ArrowLeft")) onResize(clampToRange(width + sign * DOCK_WIDTH_STEP, range));
+    else if (event.key === (across ? "ArrowDown" : "ArrowRight")) onResize(clampToRange(width - sign * DOCK_WIDTH_STEP, range));
     else if (event.key === "Home" && onReset !== undefined) onReset();
     else if (event.key === "Home") onResize(sign > 0 ? max : min);
     else if (event.key === "End") onResize(sign > 0 ? min : max);
@@ -150,13 +157,14 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize, o
       ref={handled}
       className={className === undefined ? "armada-dock-handle" : `armada-dock-handle ${className}`}
       role="separator"
-      aria-orientation="vertical"
+      aria-orientation={across ? "horizontal" : "vertical"}
       aria-label={`Resize ${label}`}
       aria-valuenow={Math.round(width)}
       aria-valuemin={Math.round(min)}
       aria-valuemax={Math.round(max)}
       data-dragging={dragging || undefined}
       data-quiet={quiet || undefined}
+      data-axis={across ? "y" : undefined}
       tabIndex={0}
       onDoubleClick={onReset}
       onPointerDown={pointerDown}

@@ -28,11 +28,13 @@ function iconOf(tab: DeckTab): LucideIcon | undefined {
   return tab.id === "system" ? SlidersHorizontal : SURFACES.find((one) => one.id === tab.surface)?.icon;
 }
 
-export function TabBar({ showing, onGoTo, waiting = false, away = false, hidden = [] }: {
+export function TabBar({ showing, onGoTo, waiting = false, away = false, opened = false, hidden = [] }: {
   /** The surface that is up. */
   showing: string;
   /** A page opened from the Cockpit stands over it: pressing Cockpit then is the way back to it, not a press on the place it is already in. */
   away?: boolean;
+  /** A Job is open on the Cockpit: pressing Cockpit puts it away. */
+  opened?: boolean;
   /** Surfaces nothing serves yet: not drawn, and not offered under View. What a layout hides is read here, and System is never hidden. */
   hidden?: readonly string[];
   /** Opens a surface. */
@@ -104,7 +106,7 @@ export function TabBar({ showing, onGoTo, waiting = false, away = false, hidden 
         onChange={(id) => {
           const tab = DECK_TABS.find((one) => one.id === id);
           // Pressing the place a person is in goes up to its list (an open Session closes), except the Cockpit, which is already the deck.
-          if (tab !== undefined && (tab.id !== "cockpit" || tab.id !== place || away)) onGoTo(tab.surface);
+          if (tab !== undefined && (tab.id !== "cockpit" || tab.id !== place || away || opened)) onGoTo(tab.surface);
         }}
       />
       {menu === undefined ? null : (

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { Bell, Box, ChevronDown, ChevronRight, CircleDashed, ClockAlert, Command, Eclipse, FlaskConical, GitPullRequestArrow, Link, Package, Palette, PanelsTopLeft, ShieldCheck, ShieldX, Ticket } from "lucide-react";
+import { Bell, Box, ChevronDown, ChevronRight, CircleDashed, ClockAlert, Command, Eclipse, FlaskConical, GitPullRequestArrow, Link, Package, Palette, PanelTop, PanelsTopLeft, ShieldCheck, ShieldX, Ticket } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { SwitchControl } from "../../primitives/Switch/Switch";
@@ -81,10 +81,10 @@ export type ModRowProps = {
 };
 
 /** What a mod changes: how Bridge looks, how it is arranged, how it shows words, what Fleet does with a notice, which rows the command palette offers. */
-export type ModKind = "theme" | "tweak" | "layout" | "words" | "fleet" | "tracker" | "commands";
+export type ModKind = "theme" | "tweak" | "layout" | "words" | "fleet" | "tracker" | "commands" | "tab";
 
-export const MOD_KIND_SAID = { theme: "Theme", tweak: "Theme tweak", layout: "Layout", words: "Words", fleet: "Fleet", tracker: "Tracker", commands: "Commands" } as const;
-const GLYPH = { theme: Palette, tweak: Eclipse, layout: PanelsTopLeft, words: Link, fleet: Bell, tracker: Ticket, commands: Command } as const;
+export const MOD_KIND_SAID = { theme: "Theme", tweak: "Theme tweak", layout: "Layout", words: "Words", fleet: "Fleet", tracker: "Tracker", commands: "Commands", tab: "Tab" } as const;
+const GLYPH = { theme: Palette, tweak: Eclipse, layout: PanelsTopLeft, words: Link, fleet: Bell, tracker: Ticket, commands: Command, tab: PanelTop } as const;
 
 /** The kind's glyph, with its name on hover. Kit's Mods list draws the same one. */
 export function ModKindMark({ kind = "theme" }: { kind?: ModKind }) {
