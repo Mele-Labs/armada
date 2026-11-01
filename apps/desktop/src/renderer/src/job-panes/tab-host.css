@@ -1,3 +1,4 @@
 .job-custom[data-stage="built"] { overflow: auto; }
-.job-custom__faults { margin: 0; padding: var(--space-3); list-style: none; color: var(--fg-muted); font-size: var(--text-sm); }
-.job-custom__fault { margin: 0; padding: var(--space-3); color: var(--fg-muted); font-size: var(--text-sm); }
+.job-custom__faults { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); color: var(--fg-muted); font-size: var(--text-sm); }
+.job-custom__faults[data-over] { border-bottom: 1px solid var(--border-subtle); background: var(--bg-sunken); }
+.job-custom__fault-list { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; overflow-wrap: anywhere; }
