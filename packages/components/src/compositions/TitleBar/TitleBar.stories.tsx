@@ -242,7 +242,7 @@ export const InASlimWindow: Story = {
     await expect(within(panel).queryByRole("button", { expanded: false })).toBeNull();
     await expect(within(panel).getByRole("button", { name: "All repositories", pressed: true })).toBeVisible();
     const dispatch = within(panel).getByRole("button", { name: "Dispatch" });
-    await expect(dispatch.querySelector("kbd")).toHaveTextContent(/^n$/);
+    await expect(dispatch.querySelector("kbd")).toHaveTextContent(/^⌘N$/);
     await userEvent.click(canvas.getByRole("button", { name: /^Helm/ }));
     await expect(args.helm!.onOpen).toHaveBeenCalledTimes(1);
     await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();

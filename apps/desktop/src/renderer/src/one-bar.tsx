@@ -44,8 +44,8 @@ export function useOneBar({ live, dispatching, open, picked, repositories }: {
 }
 
 /**
- * `n` and ⌘N open the dispatch sheet, from every surface; ⌥A opens it on a Session with an `@` typed. Read in the capture phase, so the surface under it never
- * hears the key. `n` leaves a field alone; ⌘N does not. Neither acts over an open dialog, which owns the keyboard.
+ * ⌘N opens the dispatch sheet, from every surface; ⌥A opens it on a Session with an `@` typed. Read in the capture phase, so the surface under it never
+ * hears the key. A key with no modifier, such as a bare `n` someone binds, leaves a field alone; ⌘N does not. Neither acts over an open dialog, which owns the keyboard.
  * Where a sheet was put away holding words, they are the draft and the sheet comes back holding them.
  */
 function useOpenedToDispatch(live: boolean, open: () => void, openAfter: (() => void) | undefined): void {
@@ -62,14 +62,12 @@ function useOpenedToDispatch(live: boolean, open: () => void, openAfter: (() => 
         held.current.openAfter();
         return;
       }
-      // `new_job` and `dispatch_from_field`, as this person has them. A capital N is a Studio's Note,
-      // and the keymap reads shift exactly, so a bare press is the lowercase n.
-      const bare = isPressed("new_job", event);
-      const chord = !bare && isPressed("dispatch_from_field", event);
-      if (!bare && !chord) return;
-      // A row that marks `n` its own, such as a drift's Not a drift on the Workflows page, keeps the key.
-      if (bare && event.target instanceof Element && event.target.closest("[data-own-keys~='n']") !== null) return;
-      if ((!chord && holdsText(event.target)) || document.querySelector('[role="dialog"]') !== null) return;
+      // `new_job`, as this person has it. A capital N is a Studio's Note, and the keymap reads shift exactly, so a bare press is the lowercase n.
+      if (!isPressed("new_job", event)) return;
+      const modified = event.metaKey || event.ctrlKey || event.altKey;
+      // A row that marks `n` its own, such as a drift's Not a drift on the Workflows page, keeps a bare key.
+      if (!modified && event.target instanceof Element && event.target.closest("[data-own-keys~='n']") !== null) return;
+      if ((!modified && holdsText(event.target)) || document.querySelector('[role="dialog"]') !== null) return;
       event.preventDefault();
       event.stopPropagation();
       held.current.open();

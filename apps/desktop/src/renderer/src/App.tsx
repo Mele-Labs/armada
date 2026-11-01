@@ -38,6 +38,7 @@ import { entryForSurface, entryOfSettingsRow } from "./system-entries";
 import { openSystemEntry, systemEntryNow } from "./system-entry";
 import { useOpenModAsked } from "./open-mod";
 import { PointMenu } from "./point-menu";
+import { PointActsProvided } from "./point-acts";
 import { useTeachBridge } from "./teach";
 import { useLandings, usePullLinks, useSummoned, useUiSounds } from "./app-effects";
 import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
@@ -506,6 +507,7 @@ export function App() {
        has been met, and the card it opens is a framed layer, so it belongs
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
+      <PointActsProvided>
       <AttachmentsProvided>
       <RefsHost.Provider value={refsHost}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
@@ -834,6 +836,7 @@ export function App() {
       </GuidanceProvider>
       </RefsHost.Provider>
       </AttachmentsProvided>
+      </PointActsProvided>
     </ProseLinks.Provider>
   );
 }

@@ -18,6 +18,9 @@ export function mainSink(api: AnnotationsDevApi): Sink {
     capture: (box) => api.capture(box),
     saveShot: (id, png) => api.saveShot(id, png),
     shot: (id) => api.shot(id),
+    saveExample: (id, name, png) => api.saveExample(id, name, png),
+    example: (id, name) => api.example(id, name),
+    removeExample: (id, name) => api.removeExample(id, name),
   };
 }
 
@@ -37,6 +40,7 @@ export function devServerSink(fetcher: Fetch = (url, init) => fetch(url, init)):
     );
   }
   const one = (id: string): string => `${ANNOTATIONS_PATH}/${encodeURIComponent(id)}`;
+  const exampleAt = (id: string, name: string): string => `${one(id)}/examples/${encodeURIComponent(name)}`;
   return {
     via: "dev server",
     list: async () => (await (await ok(await fetcher(ANNOTATIONS_PATH))).json()) as Annotation[],
@@ -62,6 +66,16 @@ export function devServerSink(fetcher: Fetch = (url, init) => fetch(url, init)):
     shot: async (id) => {
       const response = await fetcher(one(`${id}.png`));
       return response.status === 404 ? null : (await ok(response)).arrayBuffer();
+    },
+    saveExample: async (id, name, png) => {
+      await ok(await fetcher(exampleAt(id, name), { method: "PUT", headers: { "Content-Type": "image/png" }, body: png }));
+    },
+    example: async (id, name) => {
+      const response = await fetcher(exampleAt(id, name));
+      return response.status === 404 ? null : (await ok(response)).arrayBuffer();
+    },
+    removeExample: async (id, name) => {
+      await ok(await fetcher(exampleAt(id, name), { method: "DELETE" }));
     },
   };
 }

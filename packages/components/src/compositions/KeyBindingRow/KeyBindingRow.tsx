@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { LucideIcon } from "lucide-react";
 
-import { chordOf, formatChord, formatSlot, type Slot } from "../../keymap";
+import { chordOf, formatChord, formatSlot, holdKeys, type Slot } from "../../keymap";
 import { Button } from "../../primitives/Button/Button";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 
@@ -60,8 +60,13 @@ export function KeyBindingRow({ verb, icon: Icon, slots, listening, onListen, on
       onBind(listening, spelled);
       onListen(null);
     };
+    // Every other handler reads the keymap, and the Dispatch one is bound before this, so it would hear the key first.
+    holdKeys(true);
     window.addEventListener("keydown", pressed, true);
-    return () => window.removeEventListener("keydown", pressed, true);
+    return () => {
+      holdKeys(false);
+      window.removeEventListener("keydown", pressed, true);
+    };
   }, [listening, slots, onBind, onListen]);
 
   const conflicted = slots.flatMap((one) => one.conflicts ?? []);
