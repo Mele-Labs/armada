@@ -95,10 +95,12 @@ const LINKED: Session[] = [
 ];
 
 // ---- A Mod Job held on a question --------------------------------------------------------------------------------------------------------------------
-// The fifth Job's panes hold a Review queue tab, and the Mod Job changing it has asked to write the tab's file. It has no row in the Jobs list: the tab wears the needs-you
+// The fifth Job's panes hold a Pull queue tab, and the Mod Job changing it has asked to write the tab's file. It has no row in the Jobs list: the tab wears the needs-you
 // mark, its card holds the ask, and the fifth Job's row wears the mark too. Allow once lets it go on with the change. On a real Fleet, the Mod Job's start would carry the
 // Job id and the tab id, which `modFor` stands in for here.
 const HOLDS = "story-5";
+/** The tab the fifth Job holds is a mod of its own, so the Custom tab a walk builds beside it is the only one that reads `review-queue`. */
+const ASK_MOD = "pull-queue";
 const ASK_JOB = "mod-ask";
 const askJobOf = (tab: string): Session =>
   started(ASK_JOB, "List the oldest first", {
@@ -238,11 +240,12 @@ export const sJobLayouts: Scenario = {
       "QA split": build({ dir: "row", ratio: 0.55, a: { dir: "column", ratio: 0.6, a: ["thread"], b: ["terminal"] }, b: ["browser"] }, undefined, { browser: "localhost:5173", terminal: "zsh" }),
       Review: build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["changes"] }),
     });
-    // The fifth Job opens with a Review queue tab in its own pane, built by a Mod Job that is held on a question.
-    look(HOLDS, (arrangement) => arrive(arrangement, "custom", "Review queue"));
+    // The fifth Job opens with a Pull queue tab in its own pane, built by a Mod Job that is held on a question.
+    // A Custom tab is known by its id alone, across Jobs, so this one is minted far from the ids other Jobs mint.
+    look(HOLDS, (arrangement) => arrive({ ...arrangement, next: 900 }, "custom", "Pull queue"));
     askTab = panesOf(peek(HOLDS).root).flatMap((one) => one.tabs).find((one) => one.kind === "custom")!.id;
-    seedBuilt(askTab, MOD_NAME);
-    mods = [{ name: MOD_NAME, kind: "tab", glyph: "git-pull-request", enabled: true, valid: true, made_by: ASK_JOB, changed_at: new Date().toISOString(), description: "Pull requests waiting on your review, across repositories" }];
+    seedBuilt(askTab, ASK_MOD);
+    mods = [{ name: ASK_MOD, kind: "tab", glyph: "git-pull-request", enabled: true, valid: true, made_by: ASK_JOB, changed_at: new Date().toISOString(), description: "Pull requests waiting on your review, across repositories" }];
     handle.publish({ mods: { mods } });
     return {
       ...sJobStory.behaves?.(fleet),
@@ -272,7 +275,7 @@ export const sJobLayouts: Scenario = {
         return { ok: true };
       },
       validateMod: async (name): Promise<ModChecked | null> =>
-        name === MOD_NAME ? { name, valid: true, problems: [], tab: { glyph: "git-pull-request", code: reviewQueueModule(revision) } } : null,
+        name === MOD_NAME || name === ASK_MOD ? { name, valid: true, problems: [], tab: { glyph: "git-pull-request", code: reviewQueueModule(revision) } } : null,
       getReviewLists: async () => {
         const value: PullReviewLists = { me: "you", fetched_at: new Date().toISOString(), requested: WAITING, team: [], assigned: [], mine: [] };
         return { ok: true, value };

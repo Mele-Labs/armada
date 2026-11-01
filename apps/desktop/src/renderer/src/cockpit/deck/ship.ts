@@ -63,6 +63,8 @@ export type Subject = {
   manifest?: string;
   /** A Mod Job: the list draws it under Mods, not under its repository. */
   mod?: true;
+  /** A Mod Job that builds a Custom tab: it has no row and no drone, and stays a subject only so the stage can open it from the tab's card. */
+  tab?: true;
   mark: Mark;
   phase: Phase;
   /** He is owed something: a question, a reply, a done, a review, a failed Check. */
@@ -248,7 +250,7 @@ export function shipOf(input: Inputs): Ship {
   });
   const subjects: Subject[] = [];
   for (const session of sessions) {
-    if (session.helm === true || tabOf(session) !== undefined) continue;
+    if (session.helm === true) continue;
     if (session.dead !== undefined) {
       const root = rootOf(session.manifestId);
       const at = session.lastTurnAt === undefined ? undefined : Date.parse(session.lastTurnAt);
@@ -261,6 +263,7 @@ export function shipOf(input: Inputs): Ship {
         repo: nameOfRoot(root),
         ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
         ...(session.mod === true ? { mod: true as const } : {}),
+        ...(tabOf(session) === undefined ? {} : { tab: true as const }),
         mark: sessionMark(session),
         phase: "done",
         needs: false,
@@ -306,6 +309,7 @@ export function shipOf(input: Inputs): Ship {
       repo: nameOfRoot(root),
       ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
       ...(session.mod === true ? { mod: true as const } : {}),
+      ...(tabOf(session) === undefined ? {} : { tab: true as const }),
       mark,
       phase: needs || (alarm && !stuck) ? "needs" : stuck || paused || session.waits !== undefined ? "held" : stateOf(session).state === "working" ? "working" : "done",
       needs,

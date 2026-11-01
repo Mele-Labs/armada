@@ -7,6 +7,7 @@ import { expect, test } from "vitest";
 import { callsFromWaiting } from "../waiting";
 import { groupOf } from "./order";
 import { shipOf } from "./ship";
+import { listOf } from "./store";
 
 const SINCE = "2026-10-18T09:00:00.000Z";
 
@@ -129,7 +130,9 @@ const NOW = Date.parse(SINCE) + 60_000;
 const holder = reply("holder", { standing: "idle" });
 const modJob = (id: string, extra: Partial<Session> = {}): Session => reply(id, { mod: true, standing: "idle", ...extra });
 const tabMod = (made_by: string) => ({ name: "review-queue", kind: "tab" as const, enabled: true, valid: true, made_by, changed_at: SINCE });
-const ids = (ship: ReturnType<typeof shipOf>) => ship.subjects.map((one) => one.id);
+/** What the Jobs list draws: the Mod Job of a tab stays a subject so the stage can open it, and is never a row, even while it is the one open. */
+const ids = (ship: ReturnType<typeof shipOf>, open?: string) =>
+  listOf(ship, { needs: false, checks: false, held: new Map(), scope: "all", ...(open === undefined ? {} : { open: `session:${open}` }) }).map((one) => one.id);
 
 test("a Mod Job started from a tab gets no row in any state, and a Mod Job started anywhere else keeps its row", () => {
   const from = { job: "holder", tab: "t1" };
@@ -140,7 +143,9 @@ test("a Mod Job started from a tab gets no row in any state, and a Mod Job start
     modJob("ended", { modFor: from, dead: "ended" }),
   ];
   const ship = shipOf({ sessions: [holder, ...states, modJob("plain")], lines: [], slots: [], repositories: [], calls: [], now: NOW });
-  expect(ids(ship)).toEqual(["holder", "plain"]);
+  expect(ids(ship).sort()).toEqual(["holder", "plain"]);
+  expect(ids(ship, "waiting").sort()).toEqual(["holder", "plain"]);
+  expect(ship.subjects.filter((one) => one.tab === true).map((one) => one.id)).toEqual(["working", "waiting", "done", "ended"]);
 });
 
 test("a Mod Job waiting on him marks the Job that holds its tab, naming the tab, and a Job already asking keeps its own mark", () => {
@@ -161,12 +166,12 @@ test("a Mod Job that made a tab, started before the start named its Job, has no 
   const other = reply("other", { standing: "idle" });
   const input = { sessions: [holder, other, old], lines: [], slots: [], repositories: [], calls: [], now: NOW, mods: [tabMod("old")], holders: (mod: string) => (mod === "review-queue" ? ["holder"] : []) };
   const ship = shipOf(input);
-  expect(ids(ship)).toEqual(["holder", "other"]);
+  expect(ids(ship).sort()).toEqual(["holder", "other"]);
   expect(ship.subjects.find((one) => one.id === "holder")).toMatchObject({ needs: true, mark: { said: "Review queue waits on you" } });
   expect(ship.subjects.find((one) => one.id === "other")!.needs).toBe(false);
   // The same Job done, or ended, is still the tab's and has no row.
   expect(ids(shipOf({ ...input, sessions: [holder, modJob("old", { standing: "done" })] }))).toEqual(["holder"]);
-  expect(ids(shipOf({ ...input, sessions: [holder, modJob("old", { dead: "ended" })] }))).toEqual(["holder"]);
+  expect(ids(shipOf({ ...input, sessions: [holder, modJob("old", { dead: "ended" })] }), "old")).toEqual(["holder"]);
   // A Mod Job whose mod is not a tab is an ordinary Mod Job.
-  expect(ids(shipOf({ ...input, mods: [{ ...tabMod("old"), kind: "theme" }] }))).toEqual(["holder", "other", "old"]);
+  expect(ids(shipOf({ ...input, mods: [{ ...tabMod("old"), kind: "theme" }] })).sort()).toEqual(["holder", "old", "other"]);
 });

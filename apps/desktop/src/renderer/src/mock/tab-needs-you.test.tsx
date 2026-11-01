@@ -1,5 +1,5 @@
 // A Custom tab's Mod Job held on a question. It has no row in the Jobs list; the Job whose panes hold the tab wears the needs-you mark and so does the tab; the tab's card holds the
-// ask, and Allow once there clears it everywhere. Through `App` on `job-layouts`, whose fifth Job holds a Review queue tab. The walk `tabNeedsYou` plays it.
+// ask, and Allow once there clears it everywhere. Through `App` on `job-layouts`, whose fifth Job holds a Pull queue tab. The walk `tabNeedsYou` plays it.
 
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -12,7 +12,7 @@ beforeEach(() => forgetPanes());
 
 const HOLDER = "Design how a watch ends";
 const jobs = () => page.getByRole("region", { name: "Jobs", exact: true });
-const tabPane = () => page.getByRole("region", { name: "Pane: Review queue", exact: true });
+const tabPane = () => page.getByRole("region", { name: "Pane: Pull queue", exact: true });
 
 async function open() {
   mount("job-layouts");
@@ -24,7 +24,7 @@ test("the Mod Job has no row, the Job holding its tab wears the mark, and so doe
   await open();
   await expect.element(tabPane().getByRole("img", { name: "Waiting on you" })).toBeVisible();
   expect(jobs().getByRole("button", { name: "List the oldest first" }).query()).toBeNull();
-  await expect.element(jobs().getByRole("button", { name: HOLDER }).getByRole("img", { name: "Review queue waits on you" })).toBeVisible();
+  await expect.element(jobs().getByRole("button", { name: HOLDER }).getByRole("img", { name: "Pull queue waits on you" })).toBeVisible();
 });
 
 test("the card holds the ask with its keys, and Allow once clears it from the card, the tab and the Job's row", async () => {
@@ -42,6 +42,6 @@ test("the card holds the ask with its keys, and Allow once clears it from the ca
   await expect.poll(() => page.getByRole("article", { name: "Waiting on you" }).query()).toBeNull();
   await expect.element(tabPane().getByRole("img", { name: "List the oldest first" })).toBeVisible();
   expect(tabPane().getByRole("img", { name: "Waiting on you" }).query()).toBeNull();
-  expect(jobs().getByRole("button", { name: HOLDER }).getByRole("img", { name: "Review queue waits on you" }).query()).toBeNull();
+  expect(jobs().getByRole("button", { name: HOLDER }).getByRole("img", { name: "Pull queue waits on you" }).query()).toBeNull();
   expect(jobs().getByRole("button", { name: "List the oldest first" }).query()).toBeNull();
 });
