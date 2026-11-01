@@ -1,7 +1,7 @@
 // A Job's area in panes. Every Job opens on Default: its thread, with Done, Now and Open stacked on its right. ⌘D splits a pane to the right and ⌘⌥D below it, a new pane opens empty,
 // and + adds a tab of any kind to it. While a Job is open the title bar's right side holds only the Layout control, named "Layout: Default · edited" and wears a mark once the area is rearranged. ⌘L opens its menu: Save as turns it into a name field,
 // the layout new Jobs open on carries a quiet new Jobs tag and Open new Jobs on makes the Job's layout that one, Update overwrites the layout the Job is on. A page the Job opens by itself joins the pane that holds a browser and leaves the
-// layout as it was. The Job's acts (Auto land, Pause, Judge, Checks, Subagents) are icons in the Thread's head beside the context meter, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A tab dragged onto the gap between two panes lights the gap and drops into a new pane there, and so does one dragged onto an outer edge of the area. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Subagents, Checks and Workflow tabs draw those views, Custom builds a tab of its own from a description, and a built tab's hover card is the Mod Job that built it, to message while the tab changes, and ⇧⌘↵ zooms a pane over the Job's own area, to the right of the Jobs list, and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
+// layout as it was. The Job's acts (Auto land, Pause, Judge, Checks, Subagents) are icons in the Thread's head beside the context meter, and the merge line a strip along the window's bottom edge. ⌘Z takes back the last change and ⇧⌘Z puts it back. A tab dragged onto the gap between two panes lights the gap and drops into a new pane there, and so does one dragged onto an outer edge of the area. A Changes tab picks where its diff comes from, a Ledger tab lists what is attached, Subagents, Checks and Workflow tabs draw those views, Custom builds a tab of its own from a description, and a built tab's hover card is the Mod Job that built it, to message while the tab changes, and ⌥⌘↵ zooms a pane over the Job's own area, to the right of the Jobs list, and puts it back. Mock only: nothing is kept. Over the `job-layouts` scenario.
 
 import { button, deckRow, inside, region, role, tab, text, walk } from "../walk";
 import type { Step } from "../walk";
@@ -23,10 +23,10 @@ const steps: Step[] = [
   { hover: inside(role("toolbar", "Job acts"), button("Checks")), say: "Checks and Subagents are acts too" },
   { look: layout("Default"), say: "The title bar holds only the Layout control" },
   { look: region("Merge queue", { exact: true }), say: "The merge line is a strip along the window's bottom edge" },
-  { key: "Meta+Shift+Enter", on: thread, say: "⇧⌘↵ zooms the pane over the Job's own area" },
+  { key: "Meta+Alt+Enter", on: thread, say: "⌥⌘↵ zooms the pane over the Job's own area" },
   { look: deckRow("Retry the slot lease"), say: "The Jobs list stays where it was" },
   { look: inside(pane("Thread"), button("Restore")), say: "The strip's Restore says it is zoomed" },
-  { key: "Meta+Shift+Enter", on: thread, say: "⇧⌘↵ puts it back as it was" },
+  { key: "Meta+Alt+Enter", on: thread, say: "⌥⌘↵ puts it back as it was" },
   { key: "Meta+d", on: thread, say: "⌘D splits the pane to the right" },
   { press: inside(empty, button("Add tab")), say: "+ adds a tab" },
   { press: item("Browser"), say: "Browser, named by its page" },

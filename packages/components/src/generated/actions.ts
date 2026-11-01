@@ -219,7 +219,7 @@ export const ACTIONS: readonly Action[] = [
     verb: "Zoom pane",
     icon: Maximize2,
     iconAbsent: null,
-    shortcut: "⇧⌘Enter",
+    shortcut: "⌥⌘Enter",
     scope: "anywhere",
     destructive: false,
     confirms: false,
