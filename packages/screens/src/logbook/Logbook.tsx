@@ -3,10 +3,10 @@
 // **Nothing in the entries waits on the owner.** He reads an entry and its evidence, and can edit, lock or forget it.
 // Each act goes to Fleet and the entry is drawn as it came back. The retro items are the host's (`fixes`).
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { LogbookView, type LogbookShown, type OrganizeAction, type OrganizeProposal, type OrganizeRow } from "@armada/components";
-import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookOrganizeApplied, LogbookOrganized, LogbookRead, LogbookTidy, LogbookTidyLast, LogbookTopic, OrganizeProposal as Proposed, Outcome } from "@armada/protocol";
+import type { LogbookAnswer, LogbookEntry, LogbookForgotten, LogbookOrganize, LogbookOrganizeApplied, LogbookOrganizeDismissed, LogbookOrganizing, LogbookRead, LogbookTidy, LogbookTidyLast, LogbookTopic, OrganizeProposal as Proposed, Outcome } from "@armada/protocol";
 
 import { refusalWords } from "../refusal-words";
 import { groupsOf, orderOf, topicsOf } from "./groups";
@@ -18,8 +18,10 @@ export type LogbookProps = {
   /** Lock or unlock an entry; the wire's word for it is still pin. */
   onLock: (id: string, locked: boolean) => Promise<LogbookAnswer>;
   onForget: (id: string) => Promise<LogbookForgotten>;
-  /** Organize: what an action proposes. Nothing changes until the proposals are applied. */
-  onOrganize: (action: OrganizeAction) => Promise<LogbookOrganized>;
+  /** Organize: starts a look and answers once it runs. Fleet holds the proposals, read with the Logbook; nothing changes until they are applied. */
+  onOrganize: (action: OrganizeAction) => Promise<LogbookOrganizing>;
+  /** Clears the proposals Fleet holds without applying them. */
+  onDismissOrganize: () => Promise<LogbookOrganizeDismissed>;
   /** Carries out the proposals left in a card list, as Organize answered them. */
   onApplyOrganize: (action: OrganizeAction, proposals: Proposed[]) => Promise<LogbookOrganizeApplied>;
   onOpenJob?: (jobId: string) => void;
@@ -34,7 +36,7 @@ export type LogbookProps = {
 /** What the page holds: the entries once read, or that the read failed. */
 type Held = { state: "reading" } | { state: "read"; entries: LogbookEntry[] } | { state: "unread" };
 
-/** How often the page asks again while a Tidy pass runs. */
+/** How often the page asks again while a Tidy pass or an Organize look runs. */
 const TIDY_POLL_MS = 3_000;
 
 const entriesOf = (count: number) => `${count} ${count === 1 ? "entry" : "entries"}`;
@@ -76,7 +78,7 @@ function proposalOf(action: OrganizeAction, proposals: readonly Proposed[], entr
 /** Fleet's refusal of the last act, and the entry it was on. */
 type Refused = { id: string; title: string; said: string };
 
-export function Logbook({ onRead, onEdit, onLock, onForget, onOrganize, onApplyOrganize, onOpenJob, also, fixes, toFixes }: LogbookProps) {
+export function Logbook({ onRead, onEdit, onLock, onForget, onOrganize, onDismissOrganize, onApplyOrganize, onOpenJob, also, fixes, toFixes }: LogbookProps) {
   const [held, setHeld] = useState<Held>({ state: "reading" });
   const [chosen, setChosen] = useState<LogbookTopic>();
   const [shown, setShown] = useState<LogbookShown>(toFixes === undefined || toFixes === 0 ? "standing" : "retros");
@@ -89,8 +91,14 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOrganize, onApplyO
   const [refused, setRefused] = useState<Refused>();
   const [tidy, setTidy] = useState<LogbookTidy>({ running: false });
   const [tidied, setTidied] = useState<string>();
-  const [organizing, setOrganizing] = useState<OrganizeAction>();
+  const [organize, setOrganize] = useState<LogbookOrganize>({ running: false });
+  // The action pressed in this window, for the status line; Fleet does not say which look is running.
+  const [pressed, setPressed] = useState<OrganizeAction>();
   const [found, setFound] = useState<{ action: OrganizeAction; proposals: Proposed[] }>();
+  // Whether the result Fleet holds is already on the page, so a later read does not bring back cards dismissed from it.
+  const adopted = useRef(false);
+  // Whether this window saw the look run, so an empty result held from before is not announced.
+  const watched = useRef(false);
   const read = useCallback(
     (live: () => boolean) =>
       onRead()
@@ -99,6 +107,17 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOrganize, onApplyO
           if (!answer.ok) return setHeld({ state: "unread" });
           setHeld({ state: "read", entries: answer.entries });
           setTidy(answer.tidy);
+          setOrganize(answer.organize);
+          if (answer.organize.running) watched.current = true;
+          const last = answer.organize.last;
+          if (last === undefined) adopted.current = false;
+          else if (!adopted.current) {
+            adopted.current = true;
+            if (last.proposals.length > 0) setFound({ action: last.action, proposals: last.proposals });
+            else void onDismissOrganize().catch(() => undefined);
+            if (last.failed) setTidied("Failed");
+            else if (last.proposals.length === 0 && watched.current) setTidied("Nothing found");
+          }
           const watching = tidyWatch();
           if (answer.tidy.running) {
             if (watching === undefined) watchTidy({ ...(answer.tidy.last === undefined ? {} : { last: answer.tidy.last.at }) });
@@ -109,7 +128,7 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOrganize, onApplyO
           }
         })
         .catch(() => live() && setHeld({ state: "unread" })),
-    [onRead],
+    [onRead, onDismissOrganize],
   );
 
   useEffect(() => {
@@ -121,38 +140,40 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOrganize, onApplyO
   }, [read]);
 
   useEffect(() => {
-    if (!tidy.running) return;
+    if (!tidy.running && !organize.running) return;
     let live = true;
     const poll = setInterval(() => void read(() => live), TIDY_POLL_MS);
     return () => {
       live = false;
       clearInterval(poll);
     };
-  }, [tidy.running, read]);
+  }, [tidy.running, organize.running, read]);
 
   const LOOKING: Record<OrganizeAction, string> = { merge: "Finding duplicates", stale: "Finding stale entries", bugs: "Finding Armada bugs" };
-  const organize = (action: OrganizeAction) => {
-    if (organizing !== undefined) return;
-    setOrganizing(action);
+  const startOrganize = (action: OrganizeAction) => {
+    if (organize.running) return;
     setFound(undefined);
     setTidied(undefined);
+    adopted.current = false;
+    watched.current = true;
     onOrganize(action)
       .then((answer) => {
-        setOrganizing(undefined);
         if (!answer.ok) return setTidied(refusalWords(answer.outcome));
-        if (answer.proposals.length > 0) setFound({ action, proposals: answer.proposals });
-        // Some repository failed; the others' proposals, if any, are drawn above.
-        setTidied(answer.failed ? "Failed" : answer.proposals.length === 0 ? "Nothing found" : undefined);
+        setPressed(action);
+        setOrganize((was) => ({ ...was, running: answer.running }));
       })
-      .catch(() => {
-        setOrganizing(undefined);
-        setTidied(refusalWords({ ok: false, why: "not_connected" }));
-      });
+      .catch(() => setTidied(refusalWords({ ok: false, why: "not_connected" })));
+  };
+  /** Clears what Fleet holds and the cards with it. */
+  const dismissProposals = () => {
+    setFound(undefined);
+    void onDismissOrganize().catch(() => undefined);
   };
   const applyProposals = (only?: string) => {
     if (found === undefined) return;
     const { action } = found;
     const sent = only === undefined ? found.proposals : found.proposals.filter((one) => one.id === only);
+    // Fleet clears what it holds on success; the cards left stay for this window's page.
     setFound(only === undefined ? undefined : { action, proposals: found.proposals.filter((one) => one.id !== only) });
     void onApplyOrganize(action, sent)
       .then(async (answer) => {
@@ -193,14 +214,19 @@ export function Logbook({ onRead, onEdit, onLock, onForget, onOrganize, onApplyO
       topics={topics}
       {...(topic === undefined ? {} : { topic })}
       onTopic={setChosen}
-      onOrganize={organize}
-      organizing={organizing !== undefined}
+      onOrganize={startOrganize}
+      organizing={organize.running}
       {...(proposal === undefined ? {} : { proposal })}
       onApplyAll={() => applyProposals()}
       onApplyRow={applyProposals}
-      onDismissRow={(id) => setFound((was) => (was === undefined ? was : { ...was, proposals: was.proposals.filter((one) => one.id !== id) }))}
-      onCloseProposal={() => setFound(undefined)}
-      {...(organizing !== undefined ? { tidied: LOOKING[organizing] } : tidy.running ? { tidied: "Tidying" } : tidied === undefined ? {} : { tidied })}
+      onDismissRow={(id) => {
+        if (found === undefined) return;
+        const left = found.proposals.filter((one) => one.id !== id);
+        if (left.length === 0) dismissProposals();
+        else setFound({ ...found, proposals: left });
+      }}
+      onCloseProposal={dismissProposals}
+      {...(organize.running ? { tidied: pressed === undefined ? "Organizing" : LOOKING[pressed] } : tidy.running ? { tidied: "Tidying" } : tidied === undefined ? {} : { tidied })}
       {...(held.state === "unread" ? { unread: true } : {})}
       {...(fixes === undefined ? {} : { fixes })}
       {...(toFixes === undefined ? {} : { toFixes })}

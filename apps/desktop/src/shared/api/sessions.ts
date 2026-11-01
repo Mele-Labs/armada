@@ -1,7 +1,7 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { AdversarialReview, DismissFinding, ModSessionStarted, ProjectRowRef, SendFinding, StartAdversarialReview, StartModSession, DeleteWatch, DismissWait, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
+import type { AskJudge, DismissJudgeNote, JudgeReading, MarkJudgeRead, ModSessionStarted, ProjectRowRef, SendJudgeNote, StartModSession, DeleteWatch, DismissWait, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
 import type {
   AnswerDocument,
   AnswerSessionAsk,
@@ -17,7 +17,6 @@ import type {
   ConfirmLater,
   SettleLater,
   ClaimPullRequest,
-  DismissConcern,
   ConfirmWaiting,
   DismissWaiting,
   ReopenWaiting,
@@ -29,10 +28,8 @@ import type {
   PullRequestFilePatch,
   PullRequestPage,
   PullRequestState,
-  JudgeSession,
   NameSession,
   RenameSession,
-  SendConcern,
   SendPlanChanges,
   SendSessionMessage,
   NotesSent,
@@ -157,18 +154,14 @@ export type SessionsApi = {
   approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
   /** Sends the marks he made on a plan to the agent as one message. The plan stays until the agent records it again. */
   sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
-  /** Runs a judge now on the work so far against the plan. Answers at once with `judging` set; `judge` lands on the record. */
-  judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
-  /** Sends a judge's concern (`judge:<n>`) to the agent as his message, and settles it. */
-  sendConcern: (send: SendConcern) => Promise<SessionActed>;
-  /** Settles a judge's concern. The agent is told nothing. */
-  dismissConcern: (dismiss: DismissConcern) => Promise<SessionActed>;
-  /** Starts an adversarial review of a plan, or answers the one kept for it where `again` is not set. Fleet answers the review, not the record: it lands on `plan.adversarial` by `session.changed`. */
-  startAdversarialReview: (start: StartAdversarialReview) => Promise<SessionActed<AdversarialReview>>;
-  /** Sends a finding to the agent as his message, and settles it. Answers the review. */
-  sendFinding: (send: SendFinding) => Promise<SessionActed<AdversarialReview>>;
-  /** Settles a finding. The agent is told nothing. Answers the review. */
-  dismissFinding: (dismiss: DismissFinding) => Promise<SessionActed<AdversarialReview>>;
+  /** Asks a Judge to read one artifact of a Job. Fleet answers the reading, `reading`, not the record: it lands on `judge_readings` by `session.changed`. An empty prompt asks what was missed. */
+  askJudge: (ask: AskJudge) => Promise<SessionActed<JudgeReading>>;
+  /** Sends a note to the agent as his message, and settles it. Answers the reading. */
+  sendJudgeNote: (send: SendJudgeNote) => Promise<SessionActed<JudgeReading>>;
+  /** Settles a note. The agent is told nothing. Answers the reading. */
+  dismissJudgeNote: (dismiss: DismissJudgeNote) => Promise<SessionActed<JudgeReading>>;
+  /** The reading's notes were opened. Answers the reading. */
+  markJudgeRead: (read: MarkJudgeRead) => Promise<SessionActed<JudgeReading>>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A slash command written in a terminal Session's thread, run in its terminal as typed. Nothing comes back. */
@@ -396,12 +389,10 @@ export const SESSIONS_CHANNELS = {
   answerDocument: "bridge:answer-document",
   approvePlan: "bridge:approve-plan",
   sendPlanChanges: "bridge:send-plan-changes",
-  judgeSession: "bridge:judge-session",
-  sendConcern: "bridge:send-concern",
-  dismissConcern: "bridge:dismiss-concern",
-  startAdversarialReview: "bridge:start-adversarial-review",
-  sendFinding: "bridge:send-finding",
-  dismissFinding: "bridge:dismiss-finding",
+  askJudge: "bridge:ask-judge",
+  sendJudgeNote: "bridge:send-judge-note",
+  dismissJudgeNote: "bridge:dismiss-judge-note",
+  markJudgeRead: "bridge:mark-judge-read",
   tuneSession: "bridge:tune-session",
   runSessionCommand: "bridge:run-session-command",
   renameSession: "bridge:rename-session",

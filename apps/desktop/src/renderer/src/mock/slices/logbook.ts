@@ -1,7 +1,7 @@
 // The Logbook: the scenario's entries, as edits, pins and forgets leave them for the next read. A forgotten entry is
 // gone from every read, as the deny list keeps it out. Mock of Fleet's routes, which main reaches in `main/logbook.ts`.
 
-import type { LogbookEntry, LogbookTidy, OrganizeAction, OrganizeProposal } from "@armada/protocol";
+import type { LogbookEntry, LogbookOrganize, LogbookTidy, OrganizeAction, OrganizeProposal } from "@armada/protocol";
 
 import type { LogbookApi } from "../../../../shared/api/logbook";
 import type { Slice } from "../fake-context";
@@ -89,7 +89,9 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
   api: (scenario, fleet) => {
     let held: LogbookEntry[] | undefined = scenario.logbook;
     let tidy: LogbookTidy = { running: false };
+    let organize: LogbookOrganize = { running: false };
     let ending: ReturnType<typeof setTimeout> | undefined;
+    let looking: ReturnType<typeof setTimeout> | undefined;
     const changed = (id: string, change: (entry: LogbookEntry) => LogbookEntry) => {
       const entry = held?.find((one) => one.id === id);
       if (held === undefined || entry === undefined) return fleet.refused(`/logbook/${id}`);
@@ -98,7 +100,7 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
       return { ok: true as const, entry: now };
     };
     return {
-      readLogbook: async () => (held === undefined ? fleet.refused("/logbook") : { ok: true, entries: held, tidy }),
+      readLogbook: async () => (held === undefined ? fleet.refused("/logbook") : { ok: true, entries: held, tidy, organize }),
       editLogbookEntry: async (id, text) =>
         changed(id, (entry) => ({
           ...entry,
@@ -124,11 +126,26 @@ export const logbook: Slice<LogbookApi, Record<string, never>> = {
       },
       organizeLogbook: async (action) => {
         if (held === undefined) return fleet.refused("/logbook/organize");
-        await new Promise((done) => setTimeout(done, LOOK_MS));
-        return { ok: true, action, proposals: found(action, held), failed: false };
+        if (organize.running) return { ok: true, running: true };
+        // Fleet answers at once and looks in the background; the proposals are held until applied or dismissed.
+        const finish = () => {
+          clearTimeout(looking);
+          if (!organize.running || held === undefined) return;
+          organize = { running: false, last: { action, proposals: found(action, held), failed: false } };
+        };
+        organize = { running: true };
+        looking = setTimeout(finish, LOOK_MS);
+        alsoOnTimePassing(finish);
+        return { ok: true, running: true };
+      },
+      dismissOrganizeLogbook: async () => {
+        if (held === undefined) return fleet.refused("/logbook/organize/dismiss");
+        organize = { running: false };
+        return { ok: true };
       },
       applyOrganizeLogbook: async (action, proposals) => {
         if (held === undefined) return fleet.refused("/logbook/organize/apply");
+        organize = { running: false };
         if (action === "merge") {
           const folded = new Map(proposals.flatMap((one) => one.entry_ids.slice(1).map((gone): [string, string] => [gone, one.entry_ids[0]!])));
           held = folding(held, folded);

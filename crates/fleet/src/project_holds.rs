@@ -52,8 +52,6 @@ pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
         options: vec![option("Mark done"), option("Keep open")],
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }

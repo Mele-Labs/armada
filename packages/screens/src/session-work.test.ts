@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { BuildPiece, FileTouch, SessionPlan, SessionRecord, SessionRow as WireRow, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
+import type { BuildPiece, FileTouch, SessionPlan, SessionRecord, SessionRow as WireRow, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import type { PlanMark, SessionAttachment } from "./draft/sessions";
 import { sessionOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
-import { adversarialOf, changeOfEvent, choicesOf, concernsOf, fieldOf, linesOfWire, planOf, tasksOf, workOf, wireMarksOf } from "./session-work";
-import type { AdversarialReview } from "@armada/protocol";
+import { changeOfEvent, choicesOf, fieldOf, linesOfWire, planOf, tasksOf, workOf, wireMarksOf } from "./session-work";
 
 const AT = "2026-10-16T09:00:00Z";
 
@@ -234,80 +233,6 @@ describe("the Field", () => {
   });
 });
 
-describe("a judge's concerns", () => {
-  const item = (id: string, source: WaitingItem["source"], more: Partial<WaitingItem> = {}): WaitingItem => ({ id, text: id, since: AT, source, ...more });
-
-  it("are the waiting items with source judge, citing a file and a line", () => {
-    const items = [item("a", "agent"), item("c1", "judge", { text: "No ceiling", cites: [{ path: "crates/fleet/src/backoff.rs", line: 12 }, { path: "crates/fleet/src/lease.rs" }] }), item("plan:1", "plan")];
-    expect(concernsOf(items)).toEqual([{ id: "c1", text: "No ceiling", cites: ["crates/fleet/src/backoff.rs:12", "crates/fleet/src/lease.rs"] }]);
-  });
-
-  it("are none once the Session has ended", () => {
-    expect(workOf(record({ state: "ended", waiting_for: [item("c1", "judge")] }), beside())?.concerns).toBeUndefined();
-  });
-
-  it("name the step they were raised after, and the tile's carry none", () => {
-    const from = (concern: WaitingItem["concern"]) => concernsOf([item("c1", "judge", { concern })])[0];
-    expect(from({ from: { kind: "step", index: 1, label: "Build" } })?.step).toBe("Build");
-    expect(from({ from: { kind: "tile" } })?.step).toBeUndefined();
-  });
-
-  it("carry the refusal's parts where the record has them, and none where it was kept as text alone", () => {
-    const parts = { from: { kind: "tile" } as const, expected: "A diff touching dispatch-panel", produced: "No file has changed yet", consequence: "Nothing reflects the feature" };
-    expect(concernsOf([item("c1", "judge", { concern: parts })])[0]).toMatchObject({ expected: "A diff touching dispatch-panel", produced: "No file has changed yet", consequence: "Nothing reflects the feature" });
-    const old = concernsOf([item("c2", "judge", { concern: { from: { kind: "tile" } } })])[0]!;
-    expect(["expected", "produced", "consequence"].filter((key) => key in old)).toEqual([]);
-  });
-
-  it("show the tile working while Fleet says a judge is reading", () => {
-    expect(workOf(record({ judging: true }), beside())?.judging).toBe(true);
-    expect(workOf(record(), beside())?.judging).toBeUndefined();
-    expect(workOf(record({ state: "ended", judging: true }), beside())?.judging).toBeUndefined();
-  });
-
-  it("carry the last reading, and zero concerns is the reading the tile calls No concerns", () => {
-    expect(workOf(record({ judge: { at: "2026-10-16T09:05:00Z", concerns: 0 } }), beside())?.judged).toEqual({ at: "2026-10-16T09:05:00Z", concerns: 0 });
-    expect(workOf(record(), beside())?.judged).toBeUndefined();
-  });
-});
-
-describe("the concerns he settled", () => {
-  const settledItem = (id: string, how: "sent" | "dismissed", from: NonNullable<WaitingItem["concern"]>["from"] = { kind: "tile" }): WaitingItem => ({
-    id,
-    text: `${id} text`,
-    since: AT,
-    source: "judge",
-    concern: { from, settled: { how, at: "2026-10-16T09:03:30Z" } },
-  });
-  const rows = [
-    { kind: "message", id: "m1", at: "2026-10-16T09:00:00Z", from: { kind: "you" }, text: "go" },
-    { kind: "message", id: "m2", at: "2026-10-16T09:04:00Z", from: { kind: "agent" }, text: "ok" },
-  ] as WireRow[];
-  const around = { picture: () => undefined, sketches: [], pending: [] } as Beside;
-
-  it("draw a dismissed one as the folded line, at the step it came from", () => {
-    const session = sessionOfRecord(record({ settled: [settledItem("j1", "dismissed", { kind: "step", index: 1, label: "Build" })] }), rows, around);
-    expect(session.rows.map((one) => one.kind)).toEqual(["message", "concern", "message"]);
-    expect(session.rows[1]).toMatchObject({ id: "settled:j1", step: "Build", text: "j1 text" });
-  });
-
-  it("draw a sent one as his message, in the thread where it was settled", () => {
-    const session = sessionOfRecord(record({ settled: [settledItem("j2", "sent")] }), rows, around);
-    expect(session.rows.map((one) => one.kind)).toEqual(["message", "message", "message"]);
-    expect(session.rows[1]).toMatchObject({ id: "settled:j2", from: { kind: "you" }, text: "j2 text" });
-  });
-
-  it("draw a sent one once, where the thread already carries his message", () => {
-    const carried = [...rows, { kind: "message", id: "m3", at: "2026-10-16T09:03:31Z", from: { kind: "you" }, text: "From the judge: j2 text" }] as WireRow[];
-    const session = sessionOfRecord(record({ settled: [settledItem("j2", "sent")] }), carried, around);
-    expect(session.rows.filter((one) => one.kind === "message" && one.text.includes("j2 text"))).toHaveLength(1);
-  });
-
-  it("are not waiting concerns", () => {
-    expect(workOf(record({ settled: [settledItem("j1", "sent")] }), beside())?.concerns).toBeUndefined();
-  });
-});
-
 describe("what he marked on the plan, as Fleet takes it", () => {
   it("renames the added task and group, the move and the subagent, and keeps the rest", () => {
     const marks: PlanMark[] = [
@@ -400,40 +325,3 @@ describe("the agent's own tasks", () => {
   });
 });
 
-describe("a plan's adversarial review, as the card draws it", () => {
-  const review = (change: Partial<AdversarialReview> = {}): AdversarialReview => ({
-    subject: { kind: "plan", session_id: "s1", version: 2 },
-    state: "done",
-    started_at: AT,
-    findings: [
-      { id: "f1", about: { kind: "task", id: "t1" }, consequence: "Breaks", expected: "One", found: "Two", settled: { how: "sent", at: AT } },
-      { id: "f2", about: { kind: "plan" }, consequence: "Also breaks", expected: "Three", found: "Four", cites: ["a.rs:1"] },
-    ],
-    ...change,
-  });
-
-  it("draws nothing where none was run, so the press stands", () => {
-    expect(adversarialOf({ version: 2 })).toBeUndefined();
-  });
-
-  it("pins each finding by its part's id, the whole plan by none, and folds a settled one", () => {
-    expect(adversarialOf({ version: 2, adversarial: review() })).toEqual({
-      state: "done",
-      findings: [
-        { id: "f1", about: "t1", consequence: "Breaks", expected: "One", found: "Two", settled: "sent" },
-        { id: "f2", consequence: "Also breaks", expected: "Three", found: "Four", cites: ["a.rs:1"] },
-      ],
-    });
-  });
-
-  it("is stale when it read another version, whatever state it was left in, and keeps its findings", () => {
-    expect(adversarialOf({ version: 3, adversarial: review({ state: "running", findings: [] }) })).toEqual({ state: "stale", read: 2, findings: [] });
-    expect(adversarialOf({ version: 3, adversarial: review() })).toMatchObject({ state: "stale", read: 2, findings: [{ id: "f1" }, { id: "f2" }] });
-  });
-
-  it("says a failure in Fleet's words, and a refused press only on the version it was pressed on", () => {
-    expect(adversarialOf({ version: 2, adversarial: review({ state: "failed", failed: "The adversary stopped" }) })).toEqual({ state: "failed", said: "The adversary stopped" });
-    expect(adversarialOf({ version: 2, adversarial: review() }, { version: 2, said: "No such Job" })).toEqual({ state: "failed", said: "No such Job" });
-    expect(adversarialOf({ version: 3, adversarial: review() }, { version: 2, said: "No such Job" })).toMatchObject({ state: "stale" });
-  });
-});

@@ -3,7 +3,7 @@
 // search field in Artifacts, the first row elsewhere; the arrows walk the rows. A layer is drawn from what the ledger and the thread already
 // hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own, but the Artifacts graph's history, read while the graph is open.
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDown, Check, CircleDot, CircleX, GitMerge, GitPullRequest, List, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, Waypoints, X, type LucideIcon } from "lucide-react";
 import { ArtifactGraph, Button, ClashPaths, Enlargeable, Input, PullRequestChecksMark, ReopenAct, Stamp, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
 import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
@@ -18,6 +18,9 @@ import { artifactsOf, matching, type ArtifactRow } from "./artifacts";
 import { graphOf } from "./artifact-graph";
 import { closeLayer, type LayerId } from "./layers";
 import { SystemSections } from "./SystemLayer";
+import { artifactOfRow } from "../judge/artifacts";
+import { JudgeAct } from "../judge/JudgeAct";
+import { useJudgeApi } from "../judge/store";
 import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
 import { LanesBody } from "../shared-panel/lanes";
@@ -50,10 +53,15 @@ function Mark({ tone, said }: { tone: SessionLedgerTone; said: string }) {
 const ROW = "[data-layer-row]";
 
 /** The frame every layer shares: its name and Back in the head, a row of tools under it where there are any, and a body that scrolls. */
+/** A layer drawn as a tab of a pane: the tab is its title and its × closes it, so it has no head and no Esc of its own. */
+export const LayerInPane = createContext(false);
+
 function Shell({ label, tools, keys, owns, children }: { label: string; tools?: ReactNode; /** A key the layer owns, heard before the arrows walk the rows. */ keys?: (event: KeyboardEvent<HTMLElement>) => void; /** The letters `keys` answers to, which the deck does not take while focus is in the layer. */ owns?: string; children: ReactNode }) {
   const root = useRef<HTMLElement>(null);
+  const pane = useContext(LayerInPane);
   // Esc is Back, wherever focus is, unless a sheet or a menu is open over the layer: that one's Esc is its own.
   useEffect(() => {
+    if (pane) return;
     const listen = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null || popupIsOpen()) return;
       event.preventDefault();
@@ -78,15 +86,15 @@ function Shell({ label, tools, keys, owns, children }: { label: string; tools?: 
     to.focus();
   };
   return (
-    <section ref={root} className="sv-layer" aria-label={label} data-keeps-escape="" {...(owns === undefined ? {} : { "data-owns-keys": owns })} onKeyDown={walk}>
-      <header className="sv-layer__head">
+    <section ref={root} className="sv-layer" aria-label={label} data-in-pane={pane || undefined} data-keeps-escape="" {...(owns === undefined ? {} : { "data-owns-keys": owns })} onKeyDown={walk}>
+      {pane ? null : <header className="sv-layer__head">
         <h3 className="sv-layer__title">{label}</h3>
         <Tooltip label="Back" shortcut="Esc">
           <Button variant="ghost" size="sm" iconOnly aria-label="Back" onClick={closeLayer}>
             <X size={16} aria-hidden="true" />
           </Button>
         </Tooltip>
-      </header>
+      </header>}
       {tools === undefined ? null : <div className="sv-layer__tools">{tools}</div>}
       <div className="sv-layer__body">{children}</div>
     </section>
@@ -113,8 +121,12 @@ function Thumb({ sessionId, path, name }: { sessionId: string; path: string; nam
 }
 
 /** One row, as every list of the Job draws it (`LedgerRow.tsx`): its kind's glyph and title, then the address or path, the kind and its states. A row with somewhere to go is a button; one without is read. */
-function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; sessionId: string }) {
+export function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; sessionId: string }) {
   const { Glyph } = row;
+  // With a judge to ask, every row keeps its act column: the Judge where the row has something to read, the column empty where it has not.
+  const judged = useJudgeApi() !== undefined;
+  const artifact = judged ? artifactOfRow(row, kind) : undefined;
+  const judge = !judged ? undefined : artifact === undefined ? null : <JudgeAct job={sessionId} artifact={artifact} label={`Judge ${artifact.title}`} />;
   const Tone = row.mark === undefined ? undefined : TONE[row.mark.glyph];
   return (
     <LedgerRow
@@ -123,6 +135,7 @@ function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; session
       title={row.title}
       label={row.title}
       onOpen={row.open}
+      {...(judge === undefined ? {} : { act: judge })}
       {...(row.picture === undefined ? {} : { act: <Thumb sessionId={sessionId} path={row.picture} name={`Picture of ${row.title}`} /> })}
       {...(row.closed === undefined ? {} : { act: <ReopenAct name={row.title} onPress={row.closed.onReopen} /> })}
       meta={
@@ -176,7 +189,7 @@ function Group({ group, session }: { group: { id: string; label: string; rows: r
   );
 }
 
-function Groups({ groups, session }: { groups: readonly { id: string; label: string; rows: readonly ArtifactRow[] }[]; session: Session }) {
+export function Groups({ groups, session }: { groups: readonly { id: string; label: string; rows: readonly ArtifactRow[] }[]; session: Session }) {
   return (
     <>
       {groups.map((group) => (

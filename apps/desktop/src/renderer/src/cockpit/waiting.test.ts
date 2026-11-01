@@ -185,19 +185,18 @@ describe("a call is raised only if he has not been in the Session since it began
   });
 });
 
-describe("a plan and a judge's concern", () => {
+describe("a plan", () => {
   const AT = "2026-10-16T09:00:00.000Z";
   const working = (extra: Record<string, unknown>) => session("w", { turn: { state: "working" }, ...extra });
 
-  test("call the person while the turn goes on, since neither holds the turn", () => {
+  test("calls the person while the turn goes on, since it does not hold the turn", () => {
     const one = working({
       waitingFor: [
         { id: "plan:2", text: "Plan", since: AT, source: "plan" },
-        { id: "c1", text: "No ceiling", since: AT, source: "judge" },
         { id: "q", text: "A line the agent stated", since: AT, source: "agent" },
       ],
     });
-    expect(callsFromWaiting([one]).map((call) => call.item.id)).toEqual(["c1", "plan:2"]);
+    expect(callsFromWaiting([one]).map((call) => call.item.id)).toEqual(["plan:2"]);
   });
 });
 

@@ -322,12 +322,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
         .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
         .route("/sessions/plan/changes", post(crate::sessions::send_plan_changes::<D>))
-        .route("/sessions/judge", post(crate::sessions::judge_session::<D>))
-        .route("/sessions/judge/send", post(crate::sessions::send_concern::<D>))
-        .route("/sessions/judge/dismiss", post(crate::sessions::dismiss_concern::<D>))
-        .route("/adversarial_review", post(crate::adversarial_review::start_adversarial_review::<D>))
-        .route("/adversarial_review/send", post(crate::adversarial_review::send_finding::<D>))
-        .route("/adversarial_review/dismiss", post(crate::adversarial_review::dismiss_finding::<D>))
+        .route("/sessions/judge", post(crate::judge::ask_judge::<D>))
+        .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
+        .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
+        .route("/sessions/judge/read", post(crate::judge::mark_judge_read::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
@@ -797,6 +795,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/logbook/tidy", post(crate::logbook::tidy_logbook::<D>))
         .route("/logbook/organize", post(crate::logbook::organize_logbook::<D>))
         .route("/logbook/organize/apply", post(crate::logbook::apply_organize_logbook::<D>))
+        .route("/logbook/organize/dismiss", post(crate::logbook::dismiss_organize_logbook::<D>))
         .route("/teachings", post(crate::teaching::save_teaching::<D>))
         .route("/teachings/read", post(crate::teaching::read_teaching::<D>))
         .route("/teachings/words", get(crate::teaching::list_word_rules::<D>))

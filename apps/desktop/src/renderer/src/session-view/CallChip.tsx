@@ -5,7 +5,7 @@ import { useEffect, useState, type RefObject } from "react";
 import { ArrowDown } from "lucide-react";
 import { planAsked, type Session } from "@armada/screens/src/draft/sessions";
 
-/** The word for what the thread's last card holds: a plan waiting for approval. A question, a permission, a judge's concern and what Needs you are in the panel on the composer. */
+/** The word for what the thread's last card holds: a plan waiting for approval. A question, a permission and what Needs you are in the panel on the composer. */
 export function callWord(session: Session): string | undefined {
   const plan = session.work?.plan;
   return plan !== undefined && !plan.approved && planAsked(session) ? "Plan" : undefined;

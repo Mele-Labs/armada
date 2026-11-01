@@ -32,6 +32,7 @@ export function handleLogbook({ ipc, connection }: Hosts): void {
   );
   ipc.handle(CHANNELS.tidyLogbook, () => connection()?.logbook.tidy() ?? unsent);
   ipc.handle(CHANNELS.organizeLogbook, (_event, which: unknown) => (!action(which) ? unread : (connection()?.logbook.organize(which) ?? unsent)));
+  ipc.handle(CHANNELS.dismissOrganizeLogbook, () => connection()?.logbook.dismissOrganize() ?? unsent);
   ipc.handle(CHANNELS.applyOrganizeLogbook, (_event, which: unknown, proposals: unknown) =>
     !action(which) || !Array.isArray(proposals) || !proposals.every(proposal) ? unread : (connection()?.logbook.applyOrganize(which, proposals) ?? unsent),
   );

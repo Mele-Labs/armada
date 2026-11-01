@@ -44,8 +44,6 @@ fn rule_act_item(act: &KeptRuleAct) -> Option<WaitingItem> {
         options: vec![option(first), option("Skip")],
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     })
 }

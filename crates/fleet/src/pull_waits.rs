@@ -3,7 +3,7 @@
 //! request, or its words do, by `#number`, "pull request N", "PR N", its link, its branch or its title.
 //!
 //! Only the agent's own items and the asks Fleet reads off a reply. A question card, a permission, a
-//! walk or a judge's concern is answered by its own press, never by a merge.
+//! walk is answered by its own press, never by a merge.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::{WaitingActKind, WaitingItem, WaitingSource};
@@ -121,8 +121,6 @@ mod tests {
             options: Vec::new(),
             steps: Vec::new(),
             place: None,
-            concern: None,
-            cites: Vec::new(),
             confirmed: false,
         }
     }
@@ -188,8 +186,8 @@ mod tests {
     }
 
     #[test]
-    fn a_question_card_or_a_judge_is_never_settled_by_a_merge() {
-        for source in [WaitingSource::AskCard, WaitingSource::Permission, WaitingSource::Walk, WaitingSource::Judge] {
+    fn a_question_card_is_never_settled_by_a_merge() {
+        for source in [WaitingSource::AskCard, WaitingSource::Permission, WaitingSource::Walk] {
             assert!(!waits_on(&item(source, "Merge #2589?", None), &PULL));
         }
     }

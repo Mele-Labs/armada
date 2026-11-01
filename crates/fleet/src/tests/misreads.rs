@@ -22,8 +22,6 @@ fn item(id: &str, text: &str, source: WaitingSource) -> WaitingItem {
         options: Vec::new(),
         steps: Vec::new(),
         place: None,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }

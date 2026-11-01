@@ -55,7 +55,6 @@ import type {
   WatchList,
   WatchSummary,
   ClaimPullRequest,
-  DismissConcern,
   ConfirmWaiting,
   DismissWaiting,
   ReopenWaiting,
@@ -69,12 +68,10 @@ import type {
   PullRequestPage,
   PullRequestState,
   ReadSessionWait,
-  JudgeSession,
   NameSession,
   RenameSession,
   RunSessionCommand,
  
-  SendConcern,
   SendPlanChanges,
   SendSessionMessage,
   SendSessionNote,
@@ -109,10 +106,11 @@ import type {
   WindowClosed,
   WalkTold,
   WindowFailed,
-  AdversarialReview,
-  StartAdversarialReview,
-  SendFinding,
-  DismissFinding,
+  AskJudge,
+  DismissJudgeNote,
+  JudgeReading,
+  MarkJudgeRead,
+  SendJudgeNote,
   WalkStep,
   WindowSignIn,
   WindowTake,
@@ -867,41 +865,31 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/plan/changes", changes);
   }
 
-  /** The person asked for a judge to read the work now. Fleet answers the record with `judging` set; the reading lands on it. */
-  async judgeSession(judge: JudgeSession): Promise<SessionActed> {
-    return await this.act("POST", "/sessions/judge", judge);
+  /** A Judge asked to read one artifact of a Job. Fleet answers the reading, not the record, so nothing is folded: the reading arrives on `session.changed`. */
+  async askJudge(ask: AskJudge): Promise<SessionActed<JudgeReading>> {
+    return await this.readingOf("/sessions/judge", ask);
   }
 
-  /** A judge's concern, sent to the agent as the person's message and settled. */
-  async sendConcern(send: SendConcern): Promise<SessionActed> {
-    return await this.act("POST", "/sessions/judge/send", send);
+  /** A Judge's note sent to the agent as the person's message, and settled. */
+  async sendJudgeNote(send: SendJudgeNote): Promise<SessionActed<JudgeReading>> {
+    return await this.readingOf("/sessions/judge/send", send);
   }
 
-  /** A judge's concern, settled with the agent told nothing. */
-  async dismissConcern(dismiss: DismissConcern): Promise<SessionActed> {
-    return await this.act("POST", "/sessions/judge/dismiss", dismiss);
+  /** A Judge's note settled with the agent told nothing. */
+  async dismissJudgeNote(dismiss: DismissJudgeNote): Promise<SessionActed<JudgeReading>> {
+    return await this.readingOf("/sessions/judge/dismiss", dismiss);
   }
 
-  /** An adversarial review started, or the one kept for the plan. Fleet answers the review, not the record, so nothing is folded: the review arrives on `session.changed`. */
-  async startAdversarialReview(start: StartAdversarialReview): Promise<SessionActed<AdversarialReview>> {
-    return await this.review("/adversarial_review", start);
+  /** A reading's notes opened. */
+  async markJudgeRead(read: MarkJudgeRead): Promise<SessionActed<JudgeReading>> {
+    return await this.readingOf("/sessions/judge/read", read);
   }
 
-  /** A finding sent to the agent as the person's message, and settled. */
-  async sendFinding(send: SendFinding): Promise<SessionActed<AdversarialReview>> {
-    return await this.review("/adversarial_review/send", send);
-  }
-
-  /** A finding settled with the agent told nothing. */
-  async dismissFinding(dismiss: DismissFinding): Promise<SessionActed<AdversarialReview>> {
-    return await this.review("/adversarial_review/dismiss", dismiss);
-  }
-
-  private async review(path: string, body: StartAdversarialReview | SendFinding | DismissFinding): Promise<SessionActed<AdversarialReview>> {
+  private async readingOf(path: string, body: AskJudge | SendJudgeNote | DismissJudgeNote | MarkJudgeRead): Promise<SessionActed<JudgeReading>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", path, body);
-    return answer.ok === true ? { ok: true, value: answer.body as AdversarialReview } : { ok: false, outcome: answer.outcome };
+    return answer.ok === true ? { ok: true, value: answer.body as JudgeReading } : { ok: false, outcome: answer.outcome };
   }
 
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */

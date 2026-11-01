@@ -37,8 +37,6 @@ fn waiting(id: &str, text: &str, source: WaitingSource, place: Option<WindowPlac
         options: Vec::new(),
         steps: Vec::new(),
         place,
-        concern: None,
-        cites: Vec::new(),
         confirmed: false,
     }
 }
@@ -120,9 +118,7 @@ fn long_lived() -> SessionRecord {
         plan: None,
         touches: Vec::new(),
         workflow_step: None,
-        judging: false,
-        judge: None,
-        settled: Vec::new(),
+        judge_readings: Vec::new(),
         closed: Vec::new(),
         waits: None,
         later: Vec::new(),
@@ -291,7 +287,6 @@ fn pending_plan() -> ipc::SessionPlan {
         changes: None,
         sketch: None,
         held_by: Vec::new(),
-        adversarial: None,
     }
 }
 

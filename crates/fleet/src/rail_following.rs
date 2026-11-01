@@ -1,10 +1,9 @@
 //! What Fleet does when a Session's step moves or shows a step skipped. `docs/concepts/session.md`,
 //! *The rail*. The rules are `rail`'s; this is the part that acts on them.
 //!
-//! **Three things, none of which blocks.** The move is entered on the timeline as `session.step`; a
+//! **Two things, neither of which blocks.** The move is entered on the timeline as `session.step`; and a
 //! step skipped draws one short message to the agent, once for each step, and so does a step the Job
-//! stopped on that only its own act ends; and a step left behind that
-//! asks the Judge something is read in the background. The step itself is derived while the row is
+//! stopped on that only its own act ends. The step itself is derived while the row is
 //! drawn (`Fleet::rail_drawn`), so this loop only reacts to a published row and never decides one.
 
 use std::collections::HashMap;
@@ -20,12 +19,6 @@ use crate::daemon::Fleet;
 use crate::rail::{self, Extra, Facts, RailStep, Skip};
 use crate::rail_keeping::rail_read;
 use crate::session_host::delivering::{card_choice, chosen_words, delivery_asked, ASKED};
-use crate::session_host::session_judging::{Question, Reading};
-
-/// Whether a step left behind is read by a judge. **Off since 16 Oct 2026**, the owner's decision:
-/// most concerns were useless or too technical, and how a judge reads the work is to be reworked first.
-/// The Judge tile still reads on his press.
-const BOUNDARY_JUDGES: bool = false;
 
 /// What the loop last acted on for a Session, so a row that moved nothing costs no read.
 #[derive(Clone, PartialEq, Eq)]
@@ -154,8 +147,7 @@ where
         }
     }
 
-    /// Enter the move on the timeline, keep where the rail stands, and start the boundary judge for a
-    /// step left behind. Answers the rail as kept, and whether the Job has run: **one that has not is
+    /// Enter the move on the timeline and keep where the rail stands. Answers the rail as kept, and whether the Job has run: **one that has not is
     /// told nothing**, since its first turn carries the step (`first_step_kept`) and a word sent now
     /// would start it ahead of the message it waits for.
     async fn rail_acted_on(
@@ -164,28 +156,22 @@ where
         steps: &[RailStep],
         record: &SessionRecord,
     ) -> Option<(KeptRail, bool)> {
-        let (session, mut kept, extra, ran) = {
+        let (session, mut kept, ran) = {
             let store = self.store().lock().await;
             let session = store.session(id).ok().flatten()?;
             let kept = store.session_rail(id).ok()?;
-            let extra = rail_read(&store, &session, true).ok()?.extra;
             let ran = store.hosting(id).ok().flatten().is_some_and(|hosting| hosting.ran);
-            (session, kept, extra, ran)
+            (session, kept, ran)
         };
         if record.workflow_step == kept.step {
             return Some((kept, ran));
         }
-        let facts = Facts::of(record, extra);
         let from = kept.step.map(|at| at as usize);
         let to = record.workflow_step.map(|at| at as usize);
         self.step_noted(&session, steps, from, to);
-        let left = if BOUNDARY_JUDGES { rail::left_behind(steps, from, to, facts.landed, &kept.judged) } else { None };
         kept.step = record.workflow_step;
         if let Some(to) = record.workflow_step {
             kept.visits.push((to, self.now().as_str().to_string()));
-        }
-        if let Some(left) = left {
-            kept.judged.push(left as u32);
         }
         let keeping = {
             let mut store = self.store().lock().await;
@@ -198,24 +184,6 @@ where
         if let Err(why) = keeping {
             self.session_warned(id, "the rail was not kept", why);
             return None;
-        }
-        if let Some(left) = left {
-            let step = &steps[left];
-            let question = Question {
-                from: Some((left as u32, step.label.clone())),
-                label: step.label.clone(),
-                criteria: step.criteria.clone(),
-            };
-            let runtime = self.hosts().of(id);
-            let reading = Reading::begin(runtime);
-            let _ = self.published_hosted(id).await;
-            let fleet = Arc::clone(self);
-            let id = id.to_string();
-            tokio::spawn(async move {
-                fleet.judged(&id, question).await;
-                drop(reading);
-                let _ = fleet.published_hosted(&id).await;
-            });
         }
         if !ran {
             return Some((kept, ran));
