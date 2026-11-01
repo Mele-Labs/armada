@@ -181,6 +181,13 @@ export function activate(arrangement: Arrangement, tabId: string): Arrangement {
   return { ...arrangement, focus: pane.id, root: mapPane(arrangement.root, pane.id, (one) => ({ ...(one as Pane), active: tabId })) };
 }
 
+/** A Custom tab's mod, kept on the tab so it comes back bound to its mod after a restart. */
+export function markTabMod(arrangement: Arrangement, tabId: string, mod: string): Arrangement {
+  const pane = paneOfTab(arrangement, tabId);
+  if (pane === undefined || tabById(arrangement, tabId)?.mod === mod) return arrangement;
+  return { ...arrangement, root: mapPane(arrangement.root, pane.id, (one) => ({ ...(one as Pane), tabs: (one as Pane).tabs.map((tab) => (tab.id === tabId ? { ...tab, mod } : tab)) })) };
+}
+
 /** A label no other tab has: the same host or shell a second time is numbered. */
 function distinct(arrangement: Arrangement, label: string | undefined): string | undefined {
   if (label === undefined) return undefined;

@@ -9,14 +9,14 @@ import { useModList } from "../mod-list";
 import { useSessions } from "../sessions-draft";
 import { select } from "../cockpit/deck/store";
 import { ModJobCard } from "./custom-card";
-import { customLabel, seedBuilt, tabTitle, useCustom, useCustomTick } from "./custom";
+import { customLabel, peekCustom, seedBuilt, tabTitle, useCustom, useCustomTick } from "./custom";
 import { tabGlyph } from "./tab-glyph";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
 import { droppable, look, peek, rearrange } from "./store";
 import { moveToWindow, whyNotWindow } from "./windows";
 import { toggleZoom } from "./zoom";
-import { TAB_KINDS, activate, addTab, closePane, closeTab, focusPane, hasKind, moveTabToEdge, moveTabToPane, panesOf, type Pane, type Side, type Tab, type TabKind } from "./tree";
+import { TAB_KINDS, activate, addTab, closePane, closeTab, focusPane, hasKind, markTabMod, moveTabToEdge, moveTabToPane, panesOf, type Pane, type Side, type Tab, type TabKind } from "./tree";
 
 /** The words a tab reads: its own label where it has one, else its kind. */
 /** A Custom tab reads the name of the mod it built, once it has one. */
@@ -49,6 +49,12 @@ function TabButton({ jobId, pane, tab, zoomed, dragging, onDrag }: { jobId: stri
   const label = labelOf(tab);
   const active = pane.active === tab.id;
   const custom = useCustom(tab.id, tab.kind === "custom");
+  // The tab keeps its mod's name, so after a restart it is drawn as the mod it was, not a fresh composer.
+  useEffect(() => {
+    if (tab.kind !== "custom") return;
+    if (tab.mod !== undefined && peekCustom(tab.id).stage === "compose") seedBuilt(tab.id, tab.mod);
+    else if (custom.stage === "built" && custom.mod !== undefined && custom.mod !== tab.mod) look(jobId, (arrangement) => markTabMod(arrangement, tab.id, custom.mod!));
+  }, [jobId, tab.id, tab.kind, tab.mod, custom.stage, custom.mod]);
   // A built Custom tab wears its mod's glyph.
   const Glyph = tab.kind === "custom" && custom.stage === "built" ? tabGlyph(custom.glyph) : KINDS[tab.kind].Glyph;
   const building = tab.kind === "custom" && custom.stage === "building";

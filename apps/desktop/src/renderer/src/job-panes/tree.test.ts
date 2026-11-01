@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import { MIN_PANE_H, MIN_PANE_W, addTab, arrive, build, closePane, closeTab, holderOf, moveTabToEdge, moveTabToEnd, moveTabToGap, moveTabToPane, panesOf, rectsOf, resizeSplit, shortfall, splitPane, type Arrangement, type Node } from "./tree";
+import { MIN_PANE_H, MIN_PANE_W, addTab, arrive, build, closePane, closeTab, holderOf, markTabMod, moveTabToEdge, moveTabToEnd, moveTabToGap, moveTabToPane, panesOf, rectsOf, resizeSplit, shortfall, splitPane, type Arrangement, type Node } from "./tree";
 
 const kindsOf = (arrangement: Arrangement): string[][] => panesOf(arrangement.root).map((pane) => pane.tabs.map((tab) => tab.kind));
 const tabOfKind = (arrangement: Arrangement, kind: string) => panesOf(arrangement.root).flatMap((pane) => pane.tabs).find((tab) => tab.kind === kind)!;
@@ -155,5 +155,16 @@ describe("arriving", () => {
     const once = arrive(build(["thread"]), "terminal", "zsh");
     const twice = addTab(once, holderOf(once, "terminal")!.id, "terminal", "zsh");
     expect(holderOf(twice, "terminal")!.tabs.map((tab) => tab.label)).toEqual(["zsh", "zsh 2"]);
+  });
+});
+
+describe("a Custom tab's mod", () => {
+  test("is kept on the tab, and marking it again changes nothing", () => {
+    const arrangement = build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["custom"] });
+    const tab = tabOfKind(arrangement, "custom");
+    const marked = markTabMod(arrangement, tab.id, "review-queue");
+    expect(tabOfKind(marked, "custom").mod).toBe("review-queue");
+    expect(markTabMod(marked, tab.id, "review-queue")).toBe(marked);
+    expect(markTabMod(arrangement, "nope", "review-queue")).toBe(arrangement);
   });
 });
