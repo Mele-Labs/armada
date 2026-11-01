@@ -13,7 +13,7 @@ use super::session_notes::{a_repository, note, turn_of, PATH, SAID};
 
 fn pointed(title: Option<&str>) -> StartModSession {
     let at = note(&SessionId::carried("unused"), "Other commands, 16.1% of the burn", None).note;
-    StartModSession { title: title.map(str::to_string), model: None, effort: None, aim: None, note: Some(at), said: None }
+    StartModSession { title: title.map(str::to_string), model: None, effort: None, aim: None, note: Some(at), said: None, from_job: None, from_tab: None }
 }
 
 fn spoken(title: Option<&str>, said: Option<&str>) -> StartModSession {
@@ -24,6 +24,8 @@ fn spoken(title: Option<&str>, said: Option<&str>) -> StartModSession {
         aim: None,
         note: None,
         said: said.map(str::to_string),
+        from_job: None,
+        from_tab: None,
     }
 }
 
@@ -351,4 +353,31 @@ async fn a_mod_job_started_with_a_tab_aim_is_briefed_on_the_tab_between_the_brie
             "{served}: the thread keeps his words alone: {rows:#?}"
         );
     }
+}
+
+#[tokio::test]
+async fn a_mod_job_started_from_a_custom_tab_keeps_the_job_and_tab_it_came_from() {
+    let rig = serving("armada").await;
+    let start = StartModSession {
+        from_job: Some("job-9".to_string()),
+        from_tab: Some("t4".to_string()),
+        ..spoken(None, Some("a list of pull requests waiting on me"))
+    };
+
+    let started = Arc::clone(&rig.fleet).start_mod_session(start).await.expect("started");
+
+    let record = Arc::clone(&rig.fleet).get_session(started.session_id.clone()).await.expect("kept").session;
+    assert_eq!((record.from_job.as_deref(), record.from_tab.as_deref()), (Some("job-9"), Some("t4")), "{record:#?}");
+    let hosting = rig.fleet.store().lock().await.hosting(started.session_id.as_str()).expect("read").expect("hosted");
+    assert_eq!((hosting.from_job.as_deref(), hosting.from_tab.as_deref()), (Some("job-9"), Some("t4")), "kept on the hosting record");
+}
+
+#[tokio::test]
+async fn a_mod_job_started_anywhere_else_names_no_job_or_tab() {
+    let rig = serving("armada").await;
+
+    let started = started(&rig, None).await;
+
+    let record = Arc::clone(&rig.fleet).get_session(started.session_id).await.expect("kept").session;
+    assert_eq!((record.from_job, record.from_tab), (None, None));
 }

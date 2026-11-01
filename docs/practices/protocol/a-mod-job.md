@@ -3,7 +3,7 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 23 Oct 2026. `docs/concepts/mods.md`, *A Mod Job*.
-**Additive**: one operation, one route, the two types they carry, and four optional fields on existing types; no event kind.
+**Additive**: one operation, one route, the two types they carry, and six optional fields on existing types; no event kind.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/mods.ts` and `sessions.ts`, written by hand, field for field.
 
@@ -11,6 +11,8 @@ Bridge's half is `packages/protocol/src/mods.ts` and `sessions.ts`, written by h
 | --- | --- | --- |
 | `start_mod_session` (`POST /mods/session`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `StartModSession` `{ title?, model?, effort?, note?, said? }`, `note`, a `SessionNote` as `send_session_note` takes it, or `said`, his words where Mod was pressed on nothing, **not both**, or neither for an empty Mod Job; answered with `ModSessionStarted` `{ session_id, title, send_failed? }` |
 | `SessionRecord.mod` | Fleet answers | `true` on a Mod Job, left out on every other |
+| `StartModSession.from_job`, `from_tab` | Bridge sends | The Job whose panes hold the Custom tab the Job builds, and the tab's id, sent by Custom |
+| `SessionRecord.from_job`, `from_tab` | Fleet answers | The same two, kept on the hosting record, left out on every other session. Bridge draws no row for a Job that has them, and marks the tab and the Job that holds it where it waits on him |
 | `ScaffoldMod.session_id` | an agent sends | The Job calling. Left out records nothing |
 | `ModSummary.made_by` | Fleet answers | The Job whose `scaffold_mod` made the mod, from its `mod.toml`. Left out where none was recorded |
 

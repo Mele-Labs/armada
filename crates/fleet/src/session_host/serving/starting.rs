@@ -121,6 +121,8 @@ where
                     mod_job: matches!(marked, Marked::Mod | Marked::ModsFolder),
                     start_held: held,
                     workflow_chosen: false,
+                    from_job: None,
+                    from_tab: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             if holds_lifecycles {

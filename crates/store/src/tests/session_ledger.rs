@@ -416,6 +416,8 @@ pub(super) fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::Ke
         mod_job: false,
         start_held: false,
         workflow_chosen: false,
+        from_job: None,
+        from_tab: None,
     }
 }
 

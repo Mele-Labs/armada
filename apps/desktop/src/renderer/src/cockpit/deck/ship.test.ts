@@ -122,3 +122,51 @@ test("each Job's mark wears one of five buckets: stuck and red Checks with the a
   expect(groupOf(of("stuck"))).toBe("needs");
   expect(groupOf(of("red"))).toBe("needs");
 });
+
+// ---- A Mod Job that builds a Custom tab has no row, and marks the Jobs that hold the tab when it waits on him -------------------------------------------------
+
+const NOW = Date.parse(SINCE) + 60_000;
+const holder = reply("holder", { standing: "idle" });
+const modJob = (id: string, extra: Partial<Session> = {}): Session => reply(id, { mod: true, standing: "idle", ...extra });
+const tabMod = (made_by: string) => ({ name: "review-queue", kind: "tab" as const, enabled: true, valid: true, made_by, changed_at: SINCE });
+const ids = (ship: ReturnType<typeof shipOf>) => ship.subjects.map((one) => one.id);
+
+test("a Mod Job started from a tab gets no row in any state, and a Mod Job started anywhere else keeps its row", () => {
+  const from = { job: "holder", tab: "t1" };
+  const states = [
+    modJob("working", { modFor: from, turn: { state: "working" }, standing: "working" }),
+    modJob("waiting", { modFor: from, turn: { state: "working" }, asked: { command: "Write tab.js" } }),
+    modJob("done", { modFor: from, standing: "done" }),
+    modJob("ended", { modFor: from, dead: "ended" }),
+  ];
+  const ship = shipOf({ sessions: [holder, ...states, modJob("plain")], lines: [], slots: [], repositories: [], calls: [], now: NOW });
+  expect(ids(ship)).toEqual(["holder", "plain"]);
+});
+
+test("a Mod Job waiting on him marks the Job that holds its tab, naming the tab, and a Job already asking keeps its own mark", () => {
+  const asking = modJob("m", { modFor: { job: "holder", tab: "t1" }, turn: { state: "working" }, asked: { command: "Write tab.js" } });
+  const marked = shipOf({ sessions: [holder, asking], lines: [], slots: [], repositories: [], calls: [], now: NOW }).subjects.find((one) => one.id === "holder")!;
+  expect(marked).toMatchObject({ needs: true, phase: "needs", mark: { tone: "ask", bucket: "needs", said: "Custom tab waits on you" } });
+
+  const calm = shipOf({ sessions: [holder, modJob("m", { modFor: { job: "holder", tab: "t1" }, standing: "done" })], lines: [], slots: [], repositories: [], calls: [], now: NOW }).subjects.find((one) => one.id === "holder")!;
+  expect(calm.needs).toBe(false);
+
+  const own = reply("own", { waitingFor: [{ id: `replied:${SINCE}`, text: "Five or ten?", since: SINCE, source: "replied" }] });
+  const kept = shipOf({ sessions: [own, modJob("m", { modFor: { job: "own", tab: "t1" }, turn: { state: "working" }, asked: { command: "Write tab.js" } })], lines: [], slots: [], repositories: [], calls: [], now: NOW }).subjects.find((one) => one.id === "own")!;
+  expect(kept.mark.said).not.toContain("waits on you");
+});
+
+test("a Mod Job that made a tab, started before the start named its Job, has no row and marks wherever the tab is bound", () => {
+  const old = modJob("old", { turn: { state: "working" }, asked: { command: "Write tab.js" } });
+  const other = reply("other", { standing: "idle" });
+  const input = { sessions: [holder, other, old], lines: [], slots: [], repositories: [], calls: [], now: NOW, mods: [tabMod("old")], holders: (mod: string) => (mod === "review-queue" ? ["holder"] : []) };
+  const ship = shipOf(input);
+  expect(ids(ship)).toEqual(["holder", "other"]);
+  expect(ship.subjects.find((one) => one.id === "holder")).toMatchObject({ needs: true, mark: { said: "Review queue waits on you" } });
+  expect(ship.subjects.find((one) => one.id === "other")!.needs).toBe(false);
+  // The same Job done, or ended, is still the tab's and has no row.
+  expect(ids(shipOf({ ...input, sessions: [holder, modJob("old", { standing: "done" })] }))).toEqual(["holder"]);
+  expect(ids(shipOf({ ...input, sessions: [holder, modJob("old", { dead: "ended" })] }))).toEqual(["holder"]);
+  // A Mod Job whose mod is not a tab is an ordinary Mod Job.
+  expect(ids(shipOf({ ...input, mods: [{ ...tabMod("old"), kind: "theme" }] }))).toEqual(["holder", "other", "old"]);
+});

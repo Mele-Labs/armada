@@ -79,6 +79,21 @@ describe("starting a Mod Job", () => {
     expect(startMod).toHaveBeenCalledWith({});
   });
 
+  it("passes the Job and tab a Custom tab started it from, and refuses either that is not a string", async () => {
+    const handlers = new Map<string, Handler>();
+    const startMod = vi.fn(async () => ({ ok: true }));
+    const ipc = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) };
+    handleSessions({ ipc, connection: () => ({ sessions: { startMod } }), windowIdOf: () => undefined, pages: {} } as unknown as Parameters<typeof handleSessions>[0]);
+    const start = handlers.get(CHANNELS.startModSession);
+    await start?.({}, { said: "a list", from_job: "job-9", from_tab: "t4" });
+    expect(startMod).toHaveBeenCalledWith({ said: "a list", from_job: "job-9", from_tab: "t4" });
+    startMod.mockClear();
+    const notUnderstood = { ok: false, outcome: { ok: false, why: "not_understood" } };
+    expect(await start?.({}, { said: "a list", from_job: 9, from_tab: "t4" })).toEqual(notUnderstood);
+    expect(await start?.({}, { said: "a list", from_job: "job-9", from_tab: {} })).toEqual(notUnderstood);
+    expect(startMod).not.toHaveBeenCalled();
+  });
+
   it("passes his words as said, and answers not understood to a malformed note or words, sending nothing", async () => {
     const handlers = new Map<string, Handler>();
     const startMod = vi.fn(async () => ({ ok: true }));

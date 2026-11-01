@@ -275,8 +275,14 @@ A module that throws as it draws is caught at the tab and told there, so it cann
 
 A built tab is offered by its name in the + menu of every pane, under the rule above Custom, with its glyph.
 Custom there opens a composer; what he writes starts a Mod Job aimed at a tab, and the tab becomes the mod that Job scaffolds (the mod whose `made_by` is that Job).
-The tab's hover card is that Job: its thread, a composer that messages it, and Open Job.
+The tab's hover card is that Job: where it waits on him, the open ask first, with its answers and keys as the Thread's Needs you card has them, then its thread, a composer that messages it, and Open Job.
 A tab added by the mod's name finds the same Job through `made_by`.
+While that Job waits on him, the tab's glyph is the mark a Job's row wears when it needs him, and its tooltip says so.
+
+**A Mod Job that builds a tab has no row in the Jobs list**, working, waiting, done or ended: it lives in the tab and its card.
+Custom sends `from_job`, the Job whose panes hold the tab, and `from_tab`, the tab's id, on `start_mod_session`, and Fleet keeps both on the Job's record.
+A Mod Job started before they existed is the same where it is the `made_by` of a mod of kind `tab`.
+While it waits on him, the row of each Job whose panes hold the tab wears the needs-you mark, its tooltip naming the tab.
 
 ## Tracker mods
 
@@ -409,7 +415,7 @@ Its row carries `mod`.
 | Entry points | Mod in the right-click menu over anything in Bridge or a Job row; Create mod in the palette and on System › Mods, which opens an empty Mod Job, where he writes in the composer himself; + then Custom in a Job's panes, which starts one aimed at a tab |
 | The menu | Mod in every build; Report beside it in dev builds only |
 | Title | `Mod <name>`: the row's title, else the label, words or place pointed at |
-| In the Jobs list | A **Mods** group after the repository groups and before Other, whichever repository is picked |
+| In the Jobs list | A **Mods** group after the repository groups and before Other, whichever repository is picked, holding the Mod Jobs that build no tab; a Mod Job that builds a tab has no row (*Custom tabs*, above), and the group is not drawn where it has none |
 | Right column | Delivery draws *Mods made*: each mod the Job scaffolded (`made_by`), with its switch |
 
 Its first message is a pinned note's, sent as `send_session_note` sends one, with the Mod brief ahead of his words; from Create mod the Job opens empty and sends nothing, then his first message is sent as a message is, with the same brief ahead of his words, and retitles a Job still titled `Mod` as `Mod <first line>`: load the `armada:armada-mods` skill and reach for a mod first.
@@ -418,7 +424,7 @@ A mod it makes applies live once `validate_mod` passes, and the switch in *Mods 
 Where the ask needs more than a mod can say, the Job says so and changes Armada's source on its own branch, then asks for `scripts/preview --restart` as a `waiting_for` run item.
 An empty Mod Job's thread lists six aims to pick from, Colours, Panels, Words, Notices, Issue trackers and Anything else, and he can pick what he is aiming for before he writes, a theme, layout, words, Fleet rule, tracker or a change to Armada's source, and his first message carries one line naming it after the brief.
 The pick is kept per Job until his first message, which is the only one that carries it.
-Custom in a Job's panes starts the Job with `aim` set to `tab` on `start_mod_session`, so the same line rides after the brief; the Job is then not empty, and its thread is the tab's body until it scaffolds the mod.
+Custom in a Job's panes starts the Job with `aim` set to `tab`, and `from_job` and `from_tab` naming the tab's Job and the tab, on `start_mod_session`, so the same line rides after the brief; the Job is then not empty, and its thread is the tab's body until it scaffolds the mod.
 A mod the Job made is also drawn in its thread as the card System › Mods draws, where it was made.
 On either card only the switch turns the mod on or off; a press on the rest of the row, or on its name, opens the mod in the side panel with its facts, the switch, Promote and **Change it**, which starts an empty Mod Job aimed at the mod's kind with the box open on `Change the <Name> <kind>: `.
 
@@ -436,7 +442,7 @@ It stands at the agent door a Job with no Manifest stands at, which offers `list
 | `try_tracker_mod` | command | yes | Runs a tracker mod against a repository and keeps how it went |
 | `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Puts the mod into a repository by a Job of its own, which opens the pull request and sees it merged |
-| `start_mod_session` | command | no | Starts a Mod Job on what the person pointed at, or on his words, and `aim` where he knows the kind. *A Mod Job* above |
+| `start_mod_session` | command | no | Starts a Mod Job on what the person pointed at, or on his words, and `aim` where he knows the kind, and `from_job` and `from_tab` where a Custom tab starts it. *A Mod Job* above |
 
 `mods.changed` carries the whole list.
 Fleet rescans every two seconds and publishes it when the list differs from the last, and `scaffold_mod` and `set_mod_enabled` publish at once, so a file a job wrote reaches an open Bridge without a restart.

@@ -8,13 +8,15 @@
 import { useEffect, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
 import { bucketOf, sessionGlyphOf, type JobBucket } from "@armada/components";
-import type { HubPullRequest, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
+import type { HubPullRequest, MergeLine, ModSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import { useItems, type Hosts, type Item } from "../../Dashboard";
-import { customLabel } from "../../job-panes/custom";
+import { customLabel, tabTitle } from "../../job-panes/custom";
+import { jobsHoldingMod, usePanesVersion } from "../../job-panes/store";
 import { accountNowOf } from "../../session-activity";
 import { stateOf } from "../../session-state";
+import { useModList } from "../../mod-list";
 import { useSessions } from "../../sessions-draft";
 import { useViewedVersion } from "../viewed";
 import type { CockpitProps } from "./props";
@@ -184,11 +186,15 @@ type Inputs = {
   repositories: readonly RepositorySummary[];
   calls: readonly Item[];
   now: number;
+  /** Fleet's mods, which say what a Mod Job made: a Job that made a tab is that tab's, and has no row. */
+  mods?: readonly ModSummary[];
+  /** The Jobs whose panes hold a Custom tab of a mod. */
+  holders?: (mod: string) => readonly string[];
 };
 
 /** Pure: the ship from what the window holds. */
 export function shipOf(input: Inputs): Ship {
-  const { sessions, lines, slots, repositories, calls, now } = input;
+  const { sessions, lines, slots, repositories, calls, now, mods = [], holders = () => [] } = input;
   const rootOf = (manifest: string | undefined) => repositories.find((one) => jobIdOf(one) === manifest)?.root ?? repositories[0]?.root ?? "";
   const nameOfRoot = (root: string) => repositories.find((one) => one.root === root)?.manifest?.repository ?? root;
   const repos = lines.map((line) => ({ root: line.root, name: nameOfRoot(line.root) }));
@@ -227,11 +233,22 @@ export function shipOf(input: Inputs): Ship {
   const prOf = (owner: { id: string }) => prs.find((one) => one.owner?.id === owner.id && one.stage !== "landed") ?? prs.find((one) => one.owner?.id === owner.id);
   const callOf = (find: (item: Item) => boolean) => calls.find(find)?.key;
 
+  // A Mod Job that builds a Custom tab lives in the tab and its card, whatever state it is in, and has no row of its own. It is one when its start carried the Job and tab it came from,
+  // or when it made a mod of kind `tab`, as a Job started before the start carried them did; that tab is then wherever the person bound it. While it waits on him, the Jobs whose
+  // panes hold the tab wear the needs-you mark.
+  const madeTab = new Map(mods.filter((one) => one.kind === "tab" && one.made_by !== undefined).map((one) => [one.made_by!, one.name]));
+  const tabOf = (session: Session): { jobs: readonly string[]; label: string } | undefined => {
+    const mod = madeTab.get(session.id);
+    if (session.modFor !== undefined) return { jobs: [session.modFor.job], label: customLabel(session.modFor.tab) ?? (mod === undefined ? "Custom tab" : tabTitle(mod)) };
+    return mod === undefined ? undefined : { jobs: holders(mod), label: tabTitle(mod) };
+  };
+  const tabAsks = sessions.flatMap((one) => {
+    const tab = one.dead === undefined && stateOf(one).state === "waiting" ? tabOf(one) : undefined;
+    return tab === undefined ? [] : [tab];
+  });
   const subjects: Subject[] = [];
-  // A Mod Job that builds a Custom tab lives in the tab and its card, with no row of its own. While it waits on him, the Job whose panes hold the tab wears the needs-you mark.
-  const tabAsks = sessions.filter((one) => one.modFor !== undefined && one.dead === undefined && stateOf(one).state === "waiting");
   for (const session of sessions) {
-    if (session.helm === true || session.modFor !== undefined) continue;
+    if (session.helm === true || tabOf(session) !== undefined) continue;
     if (session.dead !== undefined) {
       const root = rootOf(session.manifestId);
       const at = session.lastTurnAt === undefined ? undefined : Date.parse(session.lastTurnAt);
@@ -260,11 +277,11 @@ export function shipOf(input: Inputs): Ship {
       continue;
     }
     const ownMark = sessionMark(session);
-    const asking = tabAsks.find((one) => one.modFor?.job === session.id);
+    const asking = tabAsks.find((one) => one.jobs.includes(session.id));
     const mark: Mark =
       asking === undefined || ownMark.tone === "ask"
         ? ownMark
-        : { Glyph: sessionGlyphOf("waiting"), said: `${customLabel(asking.modFor!.tab) ?? "Custom tab"} waits on you`, tone: "ask", bucket: "needs" };
+        : { Glyph: sessionGlyphOf("waiting"), said: `${asking.label} waits on you`, tone: "ask", bucket: "needs" };
     const lastTurn = session.lastTurnAt === undefined ? undefined : Date.parse(session.lastTurnAt);
     const own = attachmentsOf(session, "pull_request").find((one) => one.state !== "merged") ?? attachmentsOf(session, "pull_request")[0];
     const pr = prOf({ id: session.id }) ?? (own === undefined ? undefined : synth(own, rootOf(session.manifestId)));
@@ -445,6 +462,8 @@ export function useShip(props: ShipProps, hold = true): Ship {
   const calls = useItems("command-central", state, picked, hosts, NONE);
   // A Session read is one that no longer needs him: build again when any Session's time does.
   const viewed = useViewedVersion();
+  const panes = usePanesVersion();
+  const mods = useModList();
   return useMemo(
     () =>
       shipOf({
@@ -454,7 +473,9 @@ export function useShip(props: ShipProps, hold = true): Ship {
         repositories: state.holds.repositories ?? [],
         calls,
         now,
+        mods,
+        holders: jobsHoldingMod,
       }),
-    [state, sessions, picked, calls, now, viewed],
+    [state, sessions, picked, calls, now, viewed, mods, panes],
   );
 }

@@ -235,6 +235,7 @@ export const sJobLayouts: Scenario = {
           ...one,
           title,
           mod: true as const,
+          ...(start.from_job === undefined || start.from_tab === undefined ? {} : { modFor: { job: start.from_job, tab: start.from_tab } }),
           rows: [...one.rows, { id: `mod-${(rowSeq += 1)}`, at: new Date().toISOString(), kind: "message", from: { kind: "you" }, text: said }],
           turn: { state: "working" },
         } satisfies Session));

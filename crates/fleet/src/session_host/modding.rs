@@ -52,7 +52,7 @@ where
 {
     /// Start a Mod Job and send it the brief and the note.
     pub(crate) async fn mod_job_started(self: Arc<Self>, start: StartModSession) -> Result<ModSessionStarted, Refusal> {
-        let StartModSession { title, model, effort, aim, note, said } = start;
+        let StartModSession { title, model, effort, aim, note, said, from_job, from_tab } = start;
         let said = said.map(|words| words.trim().to_string());
         let first = match (note, said) {
             (Some(note), None) => First::Note(note),
@@ -98,6 +98,20 @@ where
             project_rows: Vec::new(),
         };
         let session_id = self.started_hosted(begun, marked).await?.id;
+        // The Custom tab it builds: kept on the hosting record, and published again so Bridge draws no row for it.
+        let from_job = from_job.filter(|job| !job.is_empty());
+        let from_tab = from_tab.filter(|tab| !tab.is_empty());
+        if from_job.is_some() || from_tab.is_some() {
+            {
+                let mut store = self.store().lock().await;
+                if let Some(mut hosting) = store.hosting(session_id.as_str()).map_err(|why| self.ledger_fault(why))? {
+                    hosting.from_job = from_job;
+                    hosting.from_tab = from_tab;
+                    store.keep_hosting(&hosting).map_err(|why| self.ledger_fault(why))?;
+                }
+            }
+            self.published_hosted(session_id.as_str()).await?;
+        }
         // **Not an error**: the Job exists, so the answer is 200 and `send_failed` says why
         // nothing was sent.
         let sent = match first {
