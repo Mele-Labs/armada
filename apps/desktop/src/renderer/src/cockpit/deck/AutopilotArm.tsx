@@ -2,17 +2,13 @@
 // The switch is two acts: the guard flips up, then the red switch flips. Closing the guard on a live switch pushes it off, as the hardware does.
 
 import { useEffect, useRef, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
-import { Lock, Plane } from "lucide-react";
-import { Checkbox, Input, Textarea, Tooltip, useTimeFormat, type AutopilotFields } from "@armada/components";
+import { Lock } from "lucide-react";
+import { Button, Checkbox, Input, Textarea, Tooltip, useTimeFormat, type AutopilotFields } from "@armada/components";
 
 import { settingsFrom } from "../autopilot";
 import { ConsoleHud, type Box } from "./ConsoleHud";
 import { deckNow, select } from "./store";
 import "./autopilot-arm.css";
-
-/** Where the switch stands, one per take of the walk: on the Map's lip, in a bay, or on the setup itself. */
-export type ArmSeat = "lip" | "bay" | "setup";
-export const ARM_SEAT: ArmSeat = ((seat) => (seat === "bay" || seat === "setup" ? seat : "lip"))(new URLSearchParams(window.location.search).get("take"));
 
 type Arm = { open: boolean; lifted: boolean; on: boolean; repositories: ReadonlySet<string>; work: ReadonlySet<string>; decisions: ReadonlySet<string>; instruction: string; fields: AutopilotFields };
 
@@ -91,8 +87,8 @@ function stop() {
 }
 
 const ready = (one: Arm) => one.repositories.size > 0;
-/** What the HUD's beam comes up from: the switch on the console, or the console's key where the switch stands in the HUD. */
-const facetEl = () => document.querySelector<HTMLElement>(ARM_SEAT === "setup" ? ".gs-key" : ".console-bay > .gs");
+/** What the HUD's beam comes up from. */
+const facetEl = () => document.querySelector<HTMLElement>(".console-bay > .gs");
 
 /** The console only stands over the field, so a Job open on the stage gives way to it. */
 export function openSetup() {
@@ -106,18 +102,18 @@ export function openSetup() {
 function closeSetup() {
   if (!arm.open) return;
   move({ open: false, lifted: arm.on });
-  document.querySelector<HTMLElement>(ARM_SEAT === "setup" ? ".gs-key" : ".console-bay > .gs .gs__guard")?.focus();
+  document.querySelector<HTMLElement>(".console-bay > .gs .gs__guard")?.focus();
 }
 
 /** The hardware. */
-export function GuardSwitch({ seat }: { seat: ArmSeat }) {
+export function GuardSwitch() {
   const held = useArm();
   const plate = useRef<HTMLElement>(null);
   const focusOn = (part: string) => plate.current?.querySelector<HTMLElement>(part)?.focus();
   const lift = () => {
     if (held.lifted) {
       if (held.on) stop();
-      return move({ lifted: false, on: false, open: seat === "setup" });
+      return move({ lifted: false, on: false, open: false });
     }
     move({ lifted: true, open: true });
     window.requestAnimationFrame(() => focusOn(".gs__bat"));
@@ -136,25 +132,12 @@ export function GuardSwitch({ seat }: { seat: ArmSeat }) {
     move({ on: true });
   };
   return (
-    <section ref={plate} className="gs deck-autopilot" aria-label={seat === "setup" ? "Setup switch" : "Autopilot switch"} data-seat={seat} data-lifted={held.lifted || undefined} data-on={held.on || undefined}>
-      <span className="gs__screw" data-at="tl" />
-      <span className="gs__screw" data-at="tr" />
-      <span className="gs__screw" data-at="bl" />
-      <span className="gs__screw" data-at="br" />
-      <span className="gs__stencil" aria-hidden="true">
-        Autopilot
-      </span>
+    <section ref={plate} className="gs deck-autopilot" aria-label="Autopilot switch" data-lifted={held.lifted || undefined} data-on={held.on || undefined}>
       <span className="gs__lamps" aria-hidden="true">
         <span className="gs__lamp" data-lamp="arm" />
         <span className="gs__lamp" data-lamp="on" />
       </span>
       <div className="gs__well">
-        <span className="gs__mark" data-mark="on" aria-hidden="true">
-          On
-        </span>
-        <span className="gs__mark" data-mark="off" aria-hidden="true">
-          Off
-        </span>
         <span className="gs__collar" aria-hidden="true" />
         <Tooltip label={!held.lifted ? "Lift the guard first" : held.on ? "Autopilot on" : ready(held) ? "Flip to start" : "No repository checked"} asChild>
           <button
@@ -182,25 +165,12 @@ export function GuardSwitch({ seat }: { seat: ArmSeat }) {
   );
 }
 
-/** The console's key that opens the setup, where the switch stands on the setup itself. */
-export function ArmKey() {
-  const held = useArm();
-  return (
-    <Tooltip label="Autopilot" asChild>
-      <button type="button" className="gs-key" aria-label="Autopilot" data-on={held.on || undefined} onClick={openSetup}>
-        <Plane size={16} aria-hidden="true" />
-      </button>
-    </Tooltip>
-  );
-}
-
-/** Up and Down go between the boxes, Space checks, Enter goes to the guard. */
+/** Up and Down go between the boxes, Space checks, Enter goes to Start. */
 function keys(event: KeyboardEvent<HTMLElement>) {
   const target = event.target as HTMLElement;
   if (event.key === "Enter" && target.matches("input")) {
     event.preventDefault();
-    const hardware = document.querySelector<HTMLElement>(".ap-hud .gs");
-    return (hardware?.hasAttribute("data-lifted") ? hardware.querySelector<HTMLElement>(".gs__bat") : hardware?.querySelector<HTMLElement>(".gs__guard"))?.focus();
+    return document.querySelector<HTMLElement>(".ap-hud__go button")?.focus();
   }
   if ((event.key !== "ArrowDown" && event.key !== "ArrowUp") || !target.matches('input[type="checkbox"]')) return;
   const boxes = [...event.currentTarget.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:not(:disabled)')];
@@ -266,7 +236,7 @@ function DecisionRow({ one, checked }: { one: Decision; checked: boolean }) {
   );
 }
 
-/** The setup, a HUD over the field, with a switch of its own that moves with the console's: which repositories, what goes on autopilot, its limits, and for each kind of decision who takes it. */
+/** The setup, a HUD over the field, with a plain button that moves the console's switch with it: which repositories, what goes on autopilot, its limits, and for each kind of decision who takes it. */
 export function ArmSetup({ repositories, sidings }: { repositories: readonly { id: string; name: string }[]; sidings: ReactNode }) {
   const held = useArm();
   const { hour12 } = useTimeFormat();
@@ -279,6 +249,21 @@ export function ArmSetup({ repositories, sidings }: { repositories: readonly { i
   // The arm is kept outside this component, and the next Cockpit drawn must not open on it.
   useEffect(() => () => closeSetup(), []);
   if (!held.open || facet.current === null) return null;
+  // One press and no guard: the guard is the switch's, and the switch moves to match.
+  const go = () => {
+    if (held.on) {
+      stop();
+      move({ on: false, lifted: false });
+    } else if (ready(held)) {
+      start();
+      move({ on: true, lifted: true });
+    }
+  };
+  const press = (
+    <Button variant={held.on ? "secondary" : "primary"} disabled={!held.on && !ready(held)} onClick={go}>
+      {held.on ? "Stop Autopilot" : "Start Autopilot"}
+    </Button>
+  );
   const field = (key: keyof AutopilotFields, label: string, extra?: { unit?: string; placeholder?: string }) => <Input label={label} mono value={held.fields[key]} {...extra} onChange={(event) => move({ fields: { ...held.fields, [key]: event.currentTarget.value } })} />;
   return (
     <ConsoleHud label="Autopilot setup" name="Autopilot" facet={facet} onClose={closeSetup} place={placeOf} head={HEAD} landsItself kind="autopilot" role="region" art={(w, h) => <Parts w={w} h={h} />}>
@@ -301,8 +286,8 @@ export function ArmSetup({ repositories, sidings }: { repositories: readonly { i
                   </Checkbox>
                 ))}
               </Group>
-              <div className="ap-hud__hardware">
-                <GuardSwitch seat="setup" />
+              <div className="ap-hud__go">
+                {held.on || ready(held) ? press : <Tooltip label="No repository checked">{press}</Tooltip>}
               </div>
             </div>
             <div className="ap-hud__column">

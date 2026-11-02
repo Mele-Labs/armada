@@ -1,7 +1,7 @@
 /* Autopilot's guarded switch, and its setup on the stage. The switch is console hardware, so its lamps and its lit red are the console's exception to the no-glows rule (`docs/contracts/design-system/tokens.md`). Every length is a share of `--gs`, the plate's width. */
 
 .gs.gs {
-  --gs: 96px;
+  --gs: 54px;
   --u: calc(var(--gs) / 100);
   --gs-red: color-mix(in srgb, var(--status-completed-failed) 22%, #d4161a);
   --gs-red-lo: color-mix(in srgb, var(--gs-red) 58%, var(--bg-base));
@@ -11,28 +11,15 @@
   position: relative;
   flex: none;
   width: var(--gs);
-  height: calc(var(--u) * 122);
+  height: calc(var(--u) * 106);
   border: calc(var(--u) * 1.5) solid var(--border-strong);
   background: var(--gs-steel);
   box-shadow: inset 0 0 0 calc(var(--u) * 1.5) var(--bg-sunken), inset 0 0 0 calc(var(--u) * 2.5) var(--border-default), 0 calc(var(--u) * 3) 0 var(--deck-key-lo);
   perspective: calc(var(--u) * 320);
   perspective-origin: 50% 10%;
-
-  &[data-seat="lip"] { --gs: 54px; height: calc(var(--u) * 106); }
-  &[data-seat="bay"] { --gs: 82px; }
-  &[data-seat="setup"] { --gs: 136px; }
-  &[data-seat="lip"] :is(.gs__stencil, .gs__mark, .gs__screw) { display: none; }
-  &[data-seat="lip"] .gs__lamps { bottom: calc(var(--u) * 3); }
 }
 
-.gs__screw { position: absolute; width: calc(var(--u) * 5); height: calc(var(--u) * 5); background: var(--fg-subtle); mask: var(--cb-screw) center / contain no-repeat; }
-.gs__screw[data-at="tl"] { top: calc(var(--u) * 4); left: calc(var(--u) * 4); }
-.gs__screw[data-at="tr"] { top: calc(var(--u) * 4); right: calc(var(--u) * 4); }
-.gs__screw[data-at="bl"] { bottom: calc(var(--u) * 4); left: calc(var(--u) * 4); }
-.gs__screw[data-at="br"] { bottom: calc(var(--u) * 4); right: calc(var(--u) * 4); }
-
-.gs__stencil { position: absolute; bottom: calc(var(--u) * 5); inset-inline: 0; font-family: var(--font-mono); font-size: calc(var(--u) * 7); line-height: 1; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; color: var(--fg-muted); }
-.gs__lamps { position: absolute; bottom: calc(var(--u) * 15); inset-inline: 0; display: flex; justify-content: center; gap: calc(var(--u) * 6); }
+.gs__lamps { position: absolute; bottom: calc(var(--u) * 3); inset-inline: 0; display: flex; justify-content: center; gap: calc(var(--u) * 6); }
 .gs__lamp { width: calc(var(--u) * 7); height: calc(var(--u) * 4); border: calc(var(--u) * 0.6) solid var(--border-strong); background: var(--bg-sunken); }
 .gs[data-lifted] .gs__lamp[data-lamp="arm"] { background: var(--cb-amber); box-shadow: 0 0 calc(var(--u) * 6) var(--cb-amber); animation: cb-blink calc(var(--duration-pulse) * 0.75) steps(2) infinite; }
 .gs[data-on] .gs__lamp[data-lamp="arm"] { animation: none; }
@@ -40,11 +27,7 @@
 
 /* The well the switch stands in. */
 .gs__well { position: absolute; top: calc(var(--u) * 12); left: calc(var(--u) * 16); width: calc(var(--u) * 68); height: calc(var(--u) * 76); border: calc(var(--u) * 1) solid var(--border-strong); background: var(--bg-sunken); box-shadow: inset 0 calc(var(--u) * 3) 0 var(--deck-key-seat); }
-.gs__mark { position: absolute; left: calc(var(--u) * 4); font-family: var(--font-mono); font-size: calc(var(--u) * 6); line-height: 1; text-transform: uppercase; color: var(--fg-subtle); }
-.gs__mark[data-mark="on"] { top: calc(var(--u) * 6); }
-.gs__mark[data-mark="off"] { bottom: calc(var(--u) * 6); }
-.gs[data-on] .gs__mark[data-mark="on"] { color: var(--status-completed-success); }
-.gs__collar { position: absolute; top: 50%; left: 50%; width: calc(var(--u) * 26); height: calc(var(--u) * 26); translate: -50% -50%; clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); background: var(--border-strong); }
+.gs[data-on] .gs__collar { position: absolute; top: 50%; left: 50%; width: calc(var(--u) * 26); height: calc(var(--u) * 26); translate: -50% -50%; clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); background: var(--border-strong); }
 .gs__collar::after { content: ""; position: absolute; inset: calc(var(--u) * 6); border-radius: 50%; background: var(--bg-base); }
 
 /* The red switch: a lever flipping through its collar, its tip passing over the nut. */
@@ -71,13 +54,8 @@
   .gs.gs, .gs.gs * , .gs.gs *::before, .gs.gs *::after { transition: none; animation: none; }
 }
 
-/* Where it stands. The lip's: over the right-hand vents, the guard rising over the Map. */
-.console-bay > .gs[data-seat="lip"] { position: absolute; top: 50%; right: var(--space-3); translate: 0 -50%; pointer-events: auto; }
-.console-bay > .gs[data-seat="bay"] { place-self: center; }
-.gs-key { position: absolute; top: 50%; right: var(--space-4); display: grid; place-items: center; width: var(--space-8); height: var(--space-8); translate: 0 -50%; pointer-events: auto; padding: 0; border: var(--border-width) solid var(--border-strong); background: var(--deck-key-face); color: var(--fg-muted); cursor: pointer; }
-.gs-key:hover { color: var(--fg-default); }
-.gs-key:focus-visible { outline: var(--focus-ring); }
-.gs-key[data-on] { color: var(--status-completed-success); border-color: var(--status-completed-success); }
+/* It stands on the Map's lip, over the right-hand vents, the guard rising over the Map. */
+.console-bay > .gs { position: absolute; top: 50%; right: var(--space-3); translate: 0 -50%; pointer-events: auto; }
 
 /* The setup: a HUD over the field, hard-edged and lit as the console is. Its glass is thicker than Activity's, for the words to read over the Map. */
 :root:root {
@@ -112,5 +90,8 @@
   & .ap-hud__limits { display: grid; gap: var(--space-2); }
   & .ap-hud__limits .armada-input-field { display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--space-12) + var(--space-8)); align-items: center; gap: var(--space-2); }
   & .ap-hud__sidings { flex: 1 1 0; min-height: 0; overflow-y: auto; }
-  & .ap-hud__hardware { display: grid; place-items: center; margin-block-start: auto; }
+  & .ap-hud__go { display: grid; margin-block-start: auto; }
+  & .ap-hud__go .armada-tooltip { display: grid; }
+  & .ap-hud__go .armada-button { border-radius: 0; }
+  & .ap-hud__go .armada-button:disabled { pointer-events: none; }
 }

@@ -25,7 +25,7 @@ import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useSetting } from "../../use-setting";
 import { arrivedHere, noteArrivals } from "../../arrivals";
 import { useAutopilotLane } from "../AutopilotLane";
-import { ARM_SEAT, ArmKey, ArmSetup, GuardSwitch, openSetup } from "./AutopilotArm";
+import { ArmSetup, GuardSwitch, openSetup } from "./AutopilotArm";
 import { useColumns } from "./columns";
 import { useSplits } from "./splits";
 import { dotsOf, MERGE_BY_HAND } from "../horizon";
@@ -897,7 +897,7 @@ function FlightControl({ ship, props, listed, unified = false, withActivity = tr
               folded: folded.collapsed,
               ...(withActivity ? { scope: { small: <ActivityBody props={props} listed={listed} ship={ship} />, large: <ActivityBody props={props} listed={listed} ship={ship} dot={12} /> } } : {}),
               ...(withDispatch && session === undefined ? { dispatch: <DispatchKey /> } : {}),
-              ...(ARM_SEAT === "lip" ? { onLip: <GuardSwitch seat="lip" /> } : ARM_SEAT === "setup" ? { onLip: <ArmKey /> } : { inBay: <GuardSwitch seat="bay" /> }),
+              onLip: <GuardSwitch />,
             }}
           />
         </div>

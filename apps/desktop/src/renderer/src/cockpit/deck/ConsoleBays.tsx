@@ -100,8 +100,6 @@ export type Wiring = {
   folded: boolean;
   /** MOCK: Autopilot's piece on the Map's lip, beside Dispatch. */
   onLip?: ReactNode;
-  /** MOCK: Autopilot's switch in the last bay, in place of what is seated there. */
-  inBay?: ReactNode;
 };
 
 // ---- The bays ------------------------------------------------------------------------------------------
@@ -209,7 +207,7 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
   const dispatch = wiring.dispatch === undefined ? null : "dispatch";
   // A bay holding a Page tile since deleted is an empty socket.
   const shown = (id: Seat | null) => (id === "scope" && wiring.scope === undefined ? null : id !== null && id.startsWith(PAGE) && pageOf(id, wiring.tiles) === undefined ? null : id);
-  const items: (Seat | "dispatch" | null)[] = [shown(seated[0]!), shown(seated[1]!), "radar", shown(seated[2]!), wiring.inBay === undefined ? shown(seated[3]!) : null, dispatch];
+  const items: (Seat | "dispatch" | null)[] = [shown(seated[0]!), shown(seated[1]!), "radar", shown(seated[2]!), shown(seated[3]!), dispatch];
   const dots = useRef<{ at: number; list: Dot[] }>({ at: 0, list: [] });
   useLayoutEffect(() => {
     const canvas = host.current!;
@@ -295,7 +293,7 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
             data-empty={id === null || undefined}
             style={room === undefined ? { display: "none" } : { left: room.x, top: room.y, width: room.w, height: room.h }}
           >
-            {id === null ? (at === 4 ? wiring.inBay : null) : id === "dispatch" ? wiring.dispatch : <Seated id={id} wiring={wiring} />}
+            {id === null ? null : id === "dispatch" ? wiring.dispatch : <Seated id={id} wiring={wiring} />}
             {id === null || room === undefined || label === undefined ? null : (
               // The word is a straight piece of the page, standing on the lip; the bay's button runs under it and takes the press.
               <span
