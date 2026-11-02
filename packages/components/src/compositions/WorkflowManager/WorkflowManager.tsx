@@ -29,6 +29,7 @@ import type {
   Suggestions,
   WorkflowActAnswer,
   WorkflowRef,
+  SwitchedIn,
   WorkflowSource,
   WorkflowSwitches,
 } from "./types";
@@ -112,16 +113,15 @@ function replacesOf(one: ManagedWorkflow, all: readonly ManagedWorkflow[]): stri
   return undefined;
 }
 
-/** A row's switch: the machine's on All, the repository's with one picked, and a badge in its place where the machine has the workflow off. */
-function RowSwitch({ id, switches }: { id: string; switches: WorkflowSwitches }) {
-  const { repository } = switches;
+/** A row's switch: the machine's where `at` is null, else that repository's, and a badge in its place where the machine has the workflow off. */
+function RowSwitch({ id, at, switches }: { id: string; at: SwitchedIn | null; switches: WorkflowSwitches }) {
   const offOnMachine = switches.machine.includes(id);
-  if (repository !== null && offOnMachine) return <span className="armada-wm__off-machine">Off on this machine</span>;
-  const on = repository === null ? !offOnMachine : !repository.off.includes(id);
-  const label = `${on ? "On" : "Off"} ${repository === null ? "on this machine" : `in ${repository.name}`}`;
+  if (at !== null && offOnMachine) return <span className="armada-wm__off-machine">Off on this machine</span>;
+  const on = at === null ? !offOnMachine : !(switches.repositories[at.manifestId] ?? []).includes(id);
+  const label = `${on ? "On" : "Off"} ${at === null ? "on this machine" : `in ${at.name}`}`;
   return (
     <Tooltip label={label}>
-      <SwitchControl size="sm" label={label} checked={on} onChange={(event) => switches.onSwitch(id, event.target.checked)} />
+      <SwitchControl size="sm" label={label} checked={on} onChange={(event) => switches.onSwitch(id, event.target.checked, at?.manifestId ?? null)} />
     </Tooltip>
   );
 }
@@ -137,6 +137,8 @@ export function WorkflowManager(props: WorkflowManagerProps) {
   const search = useRef<HTMLInputElement>(null);
   // Words typed and not saved, kept across leaving a workflow.
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
+  // The repository picked, which Armada's and Yours switch in; null on All, where they switch the machine.
+  const pickedIn = props.switches?.repository ?? null;
 
   const groups = useMemo(() => {
     const wanted = query.trim().toLowerCase();
@@ -145,14 +147,17 @@ export function WorkflowManager(props: WorkflowManagerProps) {
     const inRepository = (one: ManagedWorkflow) => one.source === "repository" || one.runsIn !== undefined;
     const fromRepositories = [...new Set(found.filter(inRepository).map((one) => one.manifestId ?? ""))].map((from) => {
       const rows = found.filter((one) => inRepository(one) && (one.manifestId ?? "") === from);
-      return { key: `repository@${from}`, label: `${rows[0]?.repository ?? repository} repository`, rows };
+      const name = rows[0]?.repository ?? repository;
+      // A repository's own group switches its rows there, on All too.
+      const at: SwitchedIn | null = from === "" ? pickedIn : { manifestId: from, name };
+      return { key: `repository@${from}`, label: `${name} repository`, rows, at };
     });
     return [
-      { key: "armada", label: "Armada", rows: found.filter((one) => one.source === "armada" && one.runsIn === undefined) },
+      { key: "armada", label: "Armada", rows: found.filter((one) => one.source === "armada" && one.runsIn === undefined), at: pickedIn },
       ...fromRepositories,
-      { key: "yours", label: "Yours", rows: found.filter((one) => one.source === "yours" && one.runsIn === undefined) },
+      { key: "yours", label: "Yours", rows: found.filter((one) => one.source === "yours" && one.runsIn === undefined), at: pickedIn },
     ].filter((group) => group.rows.length > 0);
-  }, [workflows, query, repository]);
+  }, [workflows, query, repository, pickedIn]);
 
   const shown = groups.flatMap((group) => group.rows);
   const pickedHere = picked !== null && shown.some((one) => keyOf(one) === keyOf(picked));
@@ -263,7 +268,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
                           </Tooltip>
                         )}
                       </span>
-                      <span className="armada-wm__switch">{out !== undefined || props.switches === undefined ? null : <RowSwitch id={one.id} switches={props.switches} />}</span>
+                      <span className="armada-wm__switch">{out !== undefined || props.switches === undefined ? null : <RowSwitch id={one.id} at={group.at} switches={props.switches} />}</span>
                     </li>
                   );
                 })}

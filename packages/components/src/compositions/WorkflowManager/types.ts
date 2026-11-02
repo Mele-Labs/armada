@@ -139,12 +139,18 @@ export type Suggestions = Readonly<Record<string, Readonly<Record<string, Sugges
 
 /**
  * Which workflows Jobs may take. `forJobs` is the setting that turns the workflow system on or off. `machine` is the ids off on this
- * machine. `repository` is the repository picked and the ids off in it, and is null on All, where a switch is the machine's.
+ * machine, and `repositories` the ids off in each repository by its Manifest id. `repository` is the repository picked, and is null
+ * on All. A row in a repository's group switches it in that repository; in Armada's and Yours, in the picked one, or on the machine
+ * on All. `onSwitch` names the Manifest, or null for the machine.
  */
 export type WorkflowSwitches = {
   forJobs: boolean;
   onForJobs: (on: boolean) => void;
   machine: readonly string[];
-  repository: { name: string; off: readonly string[] } | null;
-  onSwitch: (workflowId: string, on: boolean) => void;
+  repositories: Readonly<Record<string, readonly string[]>>;
+  repository: SwitchedIn | null;
+  onSwitch: (workflowId: string, on: boolean, manifestId: string | null) => void;
 };
+
+/** A repository a row's switch acts in: its Manifest, and its name for the tooltip. */
+export type SwitchedIn = { manifestId: string; name: string };

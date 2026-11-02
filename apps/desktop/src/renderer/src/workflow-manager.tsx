@@ -289,8 +289,9 @@ function Held({ current, repository, root, served }: { current: string | null; r
         forJobs,
         onForJobs: (on) => void saveSetting("features.workflows", on),
         machine: off.machine,
-        repository: current === null ? null : { name: repository, off: off.repositories[current] ?? [] },
-        onSwitch: (workflowId, on) => void saveSetting(WORKFLOWS_OFF_KEY, switched(off, workflowId, on, current)),
+        repositories: off.repositories,
+        repository: current === null ? null : { manifestId: current, name: repository },
+        onSwitch: (workflowId, on, manifestId) => void saveSetting(WORKFLOWS_OFF_KEY, switched(off, workflowId, on, manifestId)),
       }}
       workflows={workflows}
       notice={notice ?? fleet?.notice}
