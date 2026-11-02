@@ -142,21 +142,29 @@ export function listedOf(workflows: readonly WorkflowSummary[], leftOut: readonl
 }
 
 /**
- * The rows of each repository in `manifestIds` that keeps no copy of its own: the workflows that run there, Armada's
- * or Yours, each marked `runsIn` so it draws in that repository's group. Fleet lists each Manifest's running
- * workflows under its own `manifest_id`, Armada's and Kit's included.
+ * The rows of each repository in `manifestIds` for what runs there and it keeps no copy of: Armada's, or Yours, each
+ * marked `runsIn` so it draws in that repository's group beside the copies it keeps. Fleet lists each Manifest's
+ * running workflows under its own `manifest_id`, Armada's and Kit's included.
  */
 export function runningIn(workflows: readonly WorkflowSummary[], rows: readonly Listed[], manifestIds: readonly string[]): Listed[] {
-  const keeps = new Set(rows.filter((one) => one.source === "repository").map((one) => one.manifestId));
-  return manifestIds
-    .filter((manifestId) => !keeps.has(manifestId))
-    .flatMap((manifestId) =>
-      workflows.flatMap((one): Listed[] => {
-        const source = placeOf(one.source ?? "");
-        if (one.manifest_id !== manifestId || source === undefined || source === "repository") return [];
-        return [{ id: one.id, source, manifestId, runsIn: manifestId, ...(one.for_requests === undefined ? {} : { forRequests: one.for_requests }) }];
-      }),
-    );
+  const keeps = new Set(rows.filter((one) => one.source === "repository" && one.leftOut === undefined).map((one) => `${one.manifestId}/${one.id}`));
+  return manifestIds.flatMap((manifestId) =>
+    workflows.flatMap((one): Listed[] => {
+      const source = placeOf(one.source ?? "");
+      if (one.manifest_id !== manifestId || source === undefined || source === "repository" || keeps.has(`${manifestId}/${one.id}`)) return [];
+      return [{ id: one.id, source, manifestId, runsIn: manifestId, ...(one.for_requests === undefined ? {} : { forRequests: one.for_requests }) }];
+    }),
+  );
+}
+
+/** Where each workflow id stands in the order Fleet lists what runs under a Manifest, by `manifest/id`. */
+export function runOrderOf(workflows: readonly WorkflowSummary[]): ReadonlyMap<string, number> {
+  const order = new Map<string, number>();
+  workflows.forEach((one, at) => {
+    const key = `${one.manifest_id}/${one.id}`;
+    if (!order.has(key)) order.set(key, at);
+  });
+  return order;
 }
 
 /** Armada's row of this id, if it carries one. */

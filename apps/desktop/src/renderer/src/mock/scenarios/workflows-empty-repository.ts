@@ -1,5 +1,5 @@
-// Workflows on All with two repositories, for the walk `workflows-empty-repository`: harbor keeps its own workflow copies and lighthouse keeps none, so
-// lighthouse's group holds the workflows that run there, Armada's or Yours, each with a switch that is lighthouse's. A mock, no Fleet behind it.
+// Workflows on All with two repositories, for the walk `workflows-empty-repository`: harbor keeps its own workflow copies and lighthouse keeps none. Each
+// group holds everything that runs in its repository, Armada's or Yours where it keeps no copy, each with a switch that is that repository's. A mock, no Fleet behind it.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";

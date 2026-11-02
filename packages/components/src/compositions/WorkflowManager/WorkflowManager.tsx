@@ -145,7 +145,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
   const groups = useMemo(() => {
     const wanted = query.trim().toLowerCase();
     const found = workflows.filter((one) => one.id.toLowerCase().includes(wanted));
-    // A repository's copies sit in a group of its own, in the order the repositories were listed; one that keeps none holds what runs there.
+    // Each repository has a group of its own, in the order the repositories were listed: the copies it keeps and what else runs there.
     const inRepository = (one: ManagedWorkflow) => one.source === "repository" || one.runsIn !== undefined;
     const fromRepositories = [...new Set(found.filter(inRepository).map((one) => one.manifestId ?? ""))].map((from) => {
       const rows = found.filter((one) => inRepository(one) && (one.manifestId ?? "") === from);

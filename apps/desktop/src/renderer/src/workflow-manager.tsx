@@ -41,7 +41,7 @@ import { PieceActs } from "./sharing/PieceActs";
 import { saveSetting, useSetting } from "./use-setting";
 import { WORKFLOWS_OFF_KEY, switched, workflowsOffOf } from "./workflows-off";
 import { useWorkspaceHeld } from "./workspace-draft";
-import { WIRE_OF, agentOf, armadaOf, askedChange, changeAt, driftOf, listedOf, runningIn, stepOf, suggestionsOf } from "./workflow-manager-wire";
+import { WIRE_OF, agentOf, armadaOf, askedChange, changeAt, driftOf, listedOf, runOrderOf, runningIn, stepOf, suggestionsOf } from "./workflow-manager-wire";
 import type { Listed } from "./workflow-manager-wire";
 
 type Surfaced = Pick<BridgeState, "holds" | "repository">;
@@ -123,9 +123,15 @@ function Held({ current, repository, root, served }: { current: string | null; r
     if (listed === null || !listed.ok) return [];
     const kept = listedOf(listed.workflows, listed.leftOut, current);
     const all = [...kept, ...runningIn(listed.workflows, kept, current === null ? served.map((one) => one.manifestId) : [current])];
-    // Each repository's group stands where its repository is listed, whether it keeps copies or not.
-    const at = (one: Listed) => (one.source === "repository" || one.runsIn !== undefined ? served.findIndex((each) => each.manifestId === one.manifestId) : -1);
-    return all.map((one, index) => ({ one, index })).sort((a, b) => at(a.one) - at(b.one) || a.index - b.index).map(({ one }) => one);
+    // Each repository's group stands where its repository is listed, and holds its copies and what else runs there in the order Fleet lists them under it.
+    const order = runOrderOf(listed.workflows);
+    const inRepository = (one: Listed) => one.source === "repository" || one.runsIn !== undefined;
+    const at = (one: Listed) => (inRepository(one) ? served.findIndex((each) => each.manifestId === one.manifestId) : -1);
+    const ran = (one: Listed) => (inRepository(one) ? (order.get(`${one.manifestId}/${one.id}`) ?? Number.MAX_SAFE_INTEGER) : 0);
+    return all
+      .map((one, index) => ({ one, index }))
+      .sort((a, b) => at(a.one) - at(b.one) || ran(a.one) - ran(b.one) || a.index - b.index)
+      .map(({ one }) => one);
   }, [listed, current, served]);
   const workflowIds = useMemo(() => [...new Set(rows.map((one) => one.id))], [rows]);
   // On All the lanes are the picked copy's repository's; Armada's and Yours carry the first one they were listed under.
