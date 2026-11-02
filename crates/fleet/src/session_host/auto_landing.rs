@@ -82,7 +82,7 @@ where
     }
 
     /// The numbers of the pull requests a Session holds standing, in one repository.
-    async fn open_pulls_of(&self, session: &str, manifest: &str) -> Vec<u64> {
+    pub(crate) async fn open_pulls_of(&self, session: &str, manifest: &str) -> Vec<u64> {
         let store = self.store().lock().await;
         let rows = store.attachments_of(&Holder::session(session)).unwrap_or_default();
         rows.iter()
@@ -97,7 +97,7 @@ where
     /// while the pull request clashes with one ahead of it in the merge queue**, which is then the
     /// `Ok(Some(_))`; the pull reading tells the Job and asks again once the clash is gone.
     /// `head` is the commit where the caller has read it, else the forge is asked.
-    async fn auto_merge_asked_for(&self, manifest: &ManifestId, number: u64, head: Option<&str>) -> Result<Option<Blocker>, Refusal> {
+    pub(crate) async fn auto_merge_asked_for(&self, manifest: &ManifestId, number: u64, head: Option<&str>) -> Result<Option<Blocker>, Refusal> {
         let served = self.served_named(Some(manifest))?;
         let before = self.pull_request_read(manifest, served.root(), number)?;
         if matches!(before.state, PullRequestStanding::Merged | PullRequestStanding::Closed) {
@@ -158,7 +158,7 @@ where
             .map_err(|refusal| refusal.error().message.clone())
     }
 
-    async fn auto_land_on(&self, session: &str) -> bool {
+    pub(crate) async fn auto_land_on(&self, session: &str) -> bool {
         self.store().lock().await.hosting(session).ok().flatten().is_some_and(|it| it.auto_land)
     }
 

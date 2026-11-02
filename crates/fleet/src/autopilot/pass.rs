@@ -109,6 +109,11 @@ where
             self.autopilot_told(&manifest_id).await;
             return Ok(0);
         }
+        // The backlog is not on Autopilot: nothing is picked, and what it already holds carries on.
+        if !gathered.kept.on_backlog {
+            self.told_if_moved(&gathered);
+            return Ok(0);
+        }
         let mut room = gathered.room();
         if room == 0 {
             self.told_if_moved(&gathered);

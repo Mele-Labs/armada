@@ -14,8 +14,8 @@ use testkit::FakeJudge;
 use super::planted::Held;
 use super::session_host::{eventually, rig_fitted, Rig};
 
-const OLD: &str = "2000-01-01T00:00:00.000Z";
-const EVERY_BOX: [AutopilotDecision; 10] = [
+pub(super) const OLD: &str = "2000-01-01T00:00:00.000Z";
+pub(super) const EVERY_BOX: [AutopilotDecision; 10] = [
     AutopilotDecision::Recommended,
     AutopilotDecision::Open,
     AutopilotDecision::Plan,
@@ -27,9 +27,9 @@ const EVERY_BOX: [AutopilotDecision; 10] = [
     AutopilotDecision::Reads,
     AutopilotDecision::Writes,
 ];
-const SURE_OF_THE_FIRST: &str = "choice: 1\nsure: yes\nbecause: it is the one the agent marked";
+pub(super) const SURE_OF_THE_FIRST: &str = "choice: 1\nsure: yes\nbecause: it is the one the agent marked";
 
-fn item(id: &str, text: &str, options: &[&str]) -> KeptWaiting {
+pub(super) fn item(id: &str, text: &str, options: &[&str]) -> KeptWaiting {
     KeptWaiting {
         item_id: id.into(),
         text: text.into(),
@@ -41,14 +41,14 @@ fn item(id: &str, text: &str, options: &[&str]) -> KeptWaiting {
 }
 
 /// A rig whose call answers `answer`, and the call itself, so a test can say what it was asked.
-fn rig_calling(answer: &str) -> (Rig, Arc<FakeJudge>) {
+pub(super) fn rig_calling(answer: &str) -> (Rig, Arc<FakeJudge>) {
     let (rig, judge, _) = rig_calling_late(answer);
     (rig, judge)
 }
 
 /// As [`rig_calling`], with the clock a test can move on, for an item that is stamped when it is
 /// raised and so has not waited out the grace.
-fn rig_calling_late(answer: &str) -> (Rig, Arc<FakeJudge>, Arc<Held>) {
+pub(super) fn rig_calling_late(answer: &str) -> (Rig, Arc<FakeJudge>, Arc<Held>) {
     let judge = Arc::new(FakeJudge::saying(answer));
     let (held, clock) = (Arc::clone(&judge), Arc::new(Held::started()));
     let ticking = Arc::clone(&clock);
@@ -59,7 +59,7 @@ fn rig_calling_late(answer: &str) -> (Rig, Arc<FakeJudge>, Arc<Held>) {
     (rig, judge, clock)
 }
 
-async fn started(rig: &Rig, decisions: &[AutopilotDecision]) {
+pub(super) async fn started(rig: &Rig, decisions: &[AutopilotDecision]) {
     let settings = AutopilotSettings {
         instruction: "Fix what is open".into(),
         at_once: 1,
@@ -72,16 +72,16 @@ async fn started(rig: &Rig, decisions: &[AutopilotDecision]) {
     rig.fleet.start_autopilot(rig.manifest.clone(), settings).await.expect("started");
 }
 
-async fn keep(rig: &Rig, id: &ipc::SessionId, items: &[KeptWaiting]) {
+pub(super) async fn keep(rig: &Rig, id: &ipc::SessionId, items: &[KeptWaiting]) {
     rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), items).unwrap();
 }
 
-async fn waiting(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
+pub(super) async fn waiting(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
     let read = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
     read.session.waiting_for.into_iter().map(|one| one.id).collect()
 }
 
-async fn told(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
+pub(super) async fn told(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
     rig.rows(id)
         .await
         .into_iter()

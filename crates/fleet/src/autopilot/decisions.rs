@@ -44,10 +44,10 @@ pub(super) struct Helping {
 }
 
 /// One Job's waiting items, with its name.
-struct Job {
-    id: String,
-    who: String,
-    items: Vec<WaitingItem>,
+pub(super) struct Job {
+    pub id: String,
+    pub who: String,
+    pub items: Vec<WaitingItem>,
 }
 
 /// Decide for every running Autopilot, every `tick`.
@@ -107,14 +107,18 @@ where
                 .autopilot_decisions_of(&kept.manifest_id, EARLIER)
                 .map_err(Adrift::Writing)?;
             let mut helping = Helping { kept, kinds, asking, earlier, calls: CALLS_PER_PASS };
-            answered += self.items_answered(&mut helping).await;
+            let jobs = self.jobs_in_scope(&helping.kept).await;
+            answered += self.items_answered(&mut helping, &jobs).await;
+            answered += self.pulls_landed(&mut helping, &jobs).await;
+            answered += self.set_asides_started(&mut helping).await;
+            answered += self.red_fixed(&helping).await;
         }
         Ok(answered)
     }
 
     /// The Jobs whose items this Autopilot answers: every live Job of the repository where it works
     /// what is running, and otherwise only the ones it started.
-    async fn jobs_in_scope(&self, kept: &KeptAutopilot) -> Vec<Job> {
+    pub(super) async fn jobs_in_scope(&self, kept: &KeptAutopilot) -> Vec<Job> {
         let store = self.store().lock().await;
         let Ok(found) = store.find_sessions(&store::SessionSearch {
             manifest_id: Some(&kept.manifest_id),
@@ -144,9 +148,9 @@ where
             .collect()
     }
 
-    async fn items_answered(self: &Arc<Self>, helping: &mut Helping) -> usize {
+    async fn items_answered(self: &Arc<Self>, helping: &mut Helping, jobs: &[Job]) -> usize {
         let mut answered = 0;
-        for job in self.jobs_in_scope(&helping.kept).await {
+        for job in jobs {
             // Only a Job Fleet hosts can be answered: a terminal's own prompt is answered in the terminal.
             if !matches!(self.terminal_session(&job.id).await, Ok(None)) {
                 continue;
@@ -173,7 +177,8 @@ where
                     continue;
                 }
                 let asked = item.text.clone();
-                self.decision_kept_as(helping, &id, Some(&job), kind, asked, &deciding.ways[way], because).await;
+                let chose = &deciding.ways[way];
+                self.decision_kept_as(helping, &id, Some(&job.id), &job.who, kind, asked, chose, because).await;
                 answered += 1;
             }
         }
@@ -264,14 +269,14 @@ where
         }
     }
 
-    async fn still_deciding(&self, kept: &KeptAutopilot) -> bool {
+    pub(super) async fn still_deciding(&self, kept: &KeptAutopilot) -> bool {
         let now = self.store().lock().await.autopilot(&kept.manifest_id);
         now.ok().flatten().is_some_and(|now| {
             now.run_id == kept.run_id && State::from_stored(&now.state) == Some(State::Running)
         })
     }
 
-    async fn decision_kept(&self, id: &str) -> bool {
+    pub(super) async fn decision_kept(&self, id: &str) -> bool {
         self.store().lock().await.autopilot_decision(id).ok().flatten().is_some()
     }
 
@@ -280,7 +285,8 @@ where
         &self,
         helping: &Helping,
         id: &str,
-        job: Option<&Job>,
+        session: Option<&str>,
+        who: &str,
         kind: AutopilotDecision,
         asked: String,
         chose: &str,
@@ -289,8 +295,8 @@ where
         let one = KeptDecision {
             id: id.to_string(),
             manifest_id: helping.kept.manifest_id.clone(),
-            session_id: job.map(|job| job.id.clone()),
-            who: job.map(|job| job.who.clone()).unwrap_or_default(),
+            session_id: session.map(str::to_string),
+            who: who.to_string(),
             kind: decision_word(kind).to_string(),
             asked,
             chose: chose.to_string(),
