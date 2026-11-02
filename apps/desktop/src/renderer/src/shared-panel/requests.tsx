@@ -115,6 +115,16 @@ export function RequestsPanel({ item }: { item: Item }) {
   // The read is out and nothing has landed: a read that came back refused or with nothing is not pending.
   const pending = latest === undefined && read.out;
   const [open, setOpen] = useState<Open | undefined>(() => openOf(item));
+  // A Job's tab shown another saved request opens on it: the item changes while the panel stays drawn.
+  const wanted = item.saved === undefined ? undefined : `${item.saved.collection}\n${item.saved.request}`;
+  const seen = useRef(wanted);
+  useEffect(() => {
+    if (seen.current === wanted) return;
+    seen.current = wanted;
+    setOpen(openOf(item));
+    setTab("request");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `wanted` is the item's saved request.
+  }, [wanted]);
   const [environment, setEnvironment] = useState(item.start?.environment ?? "");
   const [drafts, setDrafts] = useState<Readonly<Record<string, Draft>>>({});
   const [shared, setShared] = useState<Readonly<Record<string, HeaderRow[]>>>({});

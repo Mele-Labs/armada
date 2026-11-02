@@ -24,8 +24,10 @@ test("Start Job on an Armada item goes to the Cockpit and writes nothing in a me
   await onScreen();
   await toRetros();
 
-  const item = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Start Job" }) }).first();
-  await expect.element(item).toBeVisible();
+  // The open item's acts are in its head, beside its title.
+  await page.getByRole("grid", { name: "Retros" }).getByRole("row", { name: /A reset waited 40 minutes for an answer/ }).click();
+  const item = page.getByRole("region", { name: "Retro item" });
+  await expect.element(item.getByRole("button", { name: "Start Job" })).toBeVisible();
   await userEvent.click(item.getByRole("button", { name: "Start Job" }));
 
   await expect.element(page.getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
@@ -38,7 +40,7 @@ test("a Kit item offers no Start Job", async () => {
   await toRetros();
 
   await page.getByRole("grid", { name: "Retros" }).getByRole("row", { name: /Walks opened in your browser/ }).click();
-  const kit = page.getByRole("region", { name: "Retro item" }).getByRole("listitem", { name: "Walks opened in your browser" });
-  await expect.element(kit).toBeVisible();
+  const kit = page.getByRole("region", { name: "Retro item" });
+  await expect.element(kit.getByRole("heading", { name: "Walks opened in your browser" })).toBeVisible();
   expect(kit.getByRole("button", { name: "Start Job" }).elements()).toHaveLength(0);
 });

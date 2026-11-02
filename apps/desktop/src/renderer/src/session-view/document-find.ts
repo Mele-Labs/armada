@@ -75,7 +75,8 @@ export function pointedAt(page: HTMLElement, target: EventTarget | null, title: 
   return rowAt(page, target, title, revision);
 }
 
-function rowAt(page: HTMLElement, target: EventTarget | null, title: string, revision: number): Pointed | undefined {
+/** The table row `target` is in, as a note names it, and where it stands. */
+export function rowAt(page: HTMLElement, target: EventTarget | null, title: string, revision: number): Pointed | undefined {
   const row = target instanceof Element ? target.closest<HTMLElement>("tbody tr") : null;
   if (row === null || !page.contains(row)) return undefined;
   const place = { page: title, revision, section: sectionOf(page, row, title) };

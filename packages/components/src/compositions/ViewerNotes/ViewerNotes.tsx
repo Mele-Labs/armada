@@ -58,6 +58,8 @@ export type ViewerNotes = {
   marks: readonly NoteMark[];
   /** A right press, or the menu key: the menu at `at`, about what is pointed at there, which stands at `anchor`. */
   menu: (at: Point, about: NoteAbout | undefined, anchor?: NoteAnchor) => void;
+  /** A note held at once, with no box: a reaction to what is pointed at. */
+  react: (about: NoteAbout, text: string) => void;
   /** Counts each hold and each send, so a viewer lets go of what it had drawn for the note. */
   settled: number;
   /** ⌘Enter on the viewer: every held note goes. */
@@ -228,6 +230,11 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
       if (about === undefined && held.length === 0) return;
       setBox(undefined);
       setMenuAt({ at, about, anchor });
+    },
+    react: (about, reaction) => {
+      if (!on || reaction.trim() === "") return;
+      setHeldOn(scope.key, (was) => ({ ...was, notes: [...was.notes, { about, text: reaction.trim() }] }));
+      setSettled((was) => was + 1);
     },
     settled,
     send: () => void send(),
