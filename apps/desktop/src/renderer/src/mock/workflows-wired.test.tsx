@@ -19,7 +19,7 @@ async function workflows(): Promise<ReturnType<typeof mount>> {
 }
 
 const group = (name: string) => page.getByRole("group", { name, exact: true });
-const ARMADA = group("Armada");
+const ARMADA = group("Shipped with Armada");
 const REPOSITORY = group("armada repository");
 const YOURS = group("Yours");
 const stepCard = (name: string) => group(name);

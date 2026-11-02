@@ -155,7 +155,7 @@ export function WorkflowManager(props: WorkflowManagerProps) {
       return { key: `repository@${from}`, label: `${name} repository`, rows, at };
     });
     return [
-      { key: "armada", label: "Armada", rows: found.filter((one) => one.source === "armada" && one.runsIn === undefined), at: pickedIn },
+      { key: "armada", label: "Shipped with Armada", rows: found.filter((one) => one.source === "armada" && one.runsIn === undefined), at: pickedIn },
       ...fromRepositories,
       { key: "yours", label: "Yours", rows: found.filter((one) => one.source === "yours" && one.runsIn === undefined), at: pickedIn },
     ].filter((group) => group.rows.length > 0);

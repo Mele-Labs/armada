@@ -11,7 +11,7 @@
 import { button, inside, region, role, row, text, toSystemPage, walk } from "../walk";
 
 const group = (name: string) => role("group", name, { exact: true });
-const ARMADA = group("Armada");
+const ARMADA = group("Shipped with Armada");
 const REPOSITORY = group("armada repository");
 const YOURS = group("Yours");
 const step = (name: string) => group(name);
