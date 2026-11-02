@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
+import { ContextFigure } from "../SessionFrame/ContextFigure";
 import { SessionComposer, seedDraft } from "./SessionComposer";
 
 /**
@@ -100,6 +101,34 @@ export const Blank: Story = {
         name: "Permission mode",
       }),
     ).toHaveValue("auto");
+  },
+};
+
+/** The context ring sits left of Talk, so the voice button and Send stay together at the right. */
+export const RingBeforeTalk: Story = {
+  args: {
+    talk: {
+      listen: () => () => {},
+    },
+    beforeSend: (
+      <ContextFigure
+        fill={{
+          tokens: 32,
+          window: 100,
+        }}
+      />
+    ),
+  },
+  play: async ({ canvas }) => {
+    const ring = canvas.getByRole("img", {
+      name: "Context 32%",
+    });
+    const talk = canvas.getByRole("button", {
+      name: "Talk",
+    });
+    await expect(
+      ring.compareDocumentPosition(talk) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   },
 };
 

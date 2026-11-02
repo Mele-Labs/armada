@@ -87,8 +87,8 @@ import "./progress-takes.css";
 import "./story.css";
 import "./story-zones.css";
 
-/** The one zone a pane draws on its own, as the Job's panes can: Done, Now or Open. Absent, all three stand on the spine. */
-export type StoryZone = "done" | "now" | "next";
+/** The one zone a pane draws on its own, as the Job's panes can: Done, Now, Open or Deferred. Absent, all three stand on the spine. */
+export type StoryZone = "done" | "now" | "next" | "deferred";
 const ZONE_AREAS: Record<StoryZone, readonly string[]> = {
   done: [
     "done",
@@ -101,6 +101,9 @@ const ZONE_AREAS: Record<StoryZone, readonly string[]> = {
   next: [
     "next",
     "step-next",
+  ],
+  deferred: [
+    "deferred",
   ],
 };
 const areaOf = (zone: ReactNode): string | undefined =>
@@ -155,6 +158,8 @@ export function StoryColumn({
   const doneFold = useFold(session, "done", true);
   const nowFold = useFold(session, "now");
   const nextFold = useFold(session, "next");
+  const deferredFold = useFold(session, "deferred");
+  const alone = only !== undefined;
   // A finished step opened or shut by itself; ⌥1 sets them all and clears these.
   const [own, setOwn] = useState<Record<number, boolean>>({});
   useEffect(
@@ -351,6 +356,7 @@ export function StoryColumn({
       acts={switcher}
       fold={doneFold}
       keycap={bandKeyFor("done")}
+      bare={alone}
     >
       {!hasDone ? undefined : (
         <div className="sv-nav" onKeyDown={arrowsIn}>
@@ -574,15 +580,22 @@ export function StoryColumn({
       acts={nowActs}
       fold={nowFold}
       keycap={bandKeyFor("now")}
+      bare={alone}
     >
       {nowBody}
     </SvPanel>
   );
 
-  const hasNext =
-    upcoming.length > 0 || workflowNext.length > 0 || ahead.length > 0 || kept.length > 0;
+  const hasNext = upcoming.length > 0 || workflowNext.length > 0 || ahead.length > 0;
   const next = (
-    <SvPanel label="Open" area="next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
+    <SvPanel
+      label="Open"
+      area="next"
+      place="side"
+      fold={nextFold}
+      keycap={bandKeyFor("next")}
+      bare={alone}
+    >
       {!hasNext ? undefined : (
         <div className="sv-nav" onKeyDown={arrowsIn}>
           {upcoming.length === 0 ? null : (
@@ -615,16 +628,6 @@ export function StoryColumn({
                 <RouteBeat key={step.key} step={step} />
               ))}
             </ol>
-          )}
-          {kept.length === 0 ? null : (
-            <LaterBlock
-              later={kept}
-              issues={[]}
-              manifestId={manifestId}
-              onRemind={(sentence) => void remindLater(draft, id, sentence)}
-              onConfirm={(one) => draft?.confirmLater?.(id, one.id)}
-              onDrop={(one) => draft?.dropLater?.(id, one.id, true)}
-            />
           )}
         </div>
       )}
@@ -691,17 +694,30 @@ export function StoryColumn({
   const openMade = made.filter(
     (one) => stillOpen(one) && !(one.group !== undefined && drawnByGroup.has(one.group)),
   );
-  const keptBlock =
-    kept.length === 0 ? null : (
-      <LaterBlock
-        later={kept}
-        issues={[]}
-        manifestId={manifestId}
-        onRemind={(sentence) => void remindLater(draft, id, sentence)}
-        onConfirm={(one) => draft?.confirmLater?.(id, one.id)}
-        onDrop={(one) => draft?.dropLater?.(id, one.id, true)}
-      />
-    );
+  // The follow-ups kept for later stand in their own zone, so Open lists only what is open.
+  const deferredPanel = (
+    <SvPanel
+      label="Deferred"
+      area="deferred"
+      place="side"
+      fold={deferredFold}
+      keycap={bandKeyFor("deferred")}
+      bare={alone}
+    >
+      {kept.length === 0 ? undefined : (
+        <div className="sv-nav" onKeyDown={arrowsIn}>
+          <LaterBlock
+            later={kept}
+            issues={[]}
+            manifestId={manifestId}
+            onRemind={(sentence) => void remindLater(draft, id, sentence)}
+            onConfirm={(one) => draft?.confirmLater?.(id, one.id)}
+            onDrop={(one) => draft?.dropLater?.(id, one.id, true)}
+          />
+        </div>
+      )}
+    </SvPanel>
+  );
   type Done =
     | {
         time: string | undefined;
@@ -776,29 +792,15 @@ export function StoryColumn({
     );
   };
 
-  // What Open held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step. The follow-ups stand here only
-  // while the pinned Open group, which lists them, is hidden.
-  const keptHere = openShown ? [] : kept;
+  // What Open held about landing: the route's outputs still to be made. It stands under the last step.
   const landing =
-    ahead.length === 0 && keptHere.length === 0 ? undefined : (
+    ahead.length === 0 ? undefined : (
       <div className="sv-nav" onKeyDown={arrowsIn}>
-        {ahead.length === 0 ? null : (
-          <ol className="sv-beats" aria-label="Ahead">
-            {ahead.map((step) => (
-              <RouteBeat key={step.key} step={step} />
-            ))}
-          </ol>
-        )}
-        {keptHere.length === 0 ? null : (
-          <LaterBlock
-            later={keptHere}
-            issues={[]}
-            manifestId={manifestId}
-            onRemind={(sentence) => void remindLater(draft, id, sentence)}
-            onConfirm={(one) => draft?.confirmLater?.(id, one.id)}
-            onDrop={(one) => draft?.dropLater?.(id, one.id, true)}
-          />
-        )}
+        <ol className="sv-beats" aria-label="Ahead">
+          {ahead.map((step) => (
+            <RouteBeat key={step.key} step={step} />
+          ))}
+        </ol>
       </div>
     );
 
@@ -927,7 +929,7 @@ export function StoryColumn({
                     </ol>
                   </div>
                 )}
-                {last ? landing : openShown ? null : keptBlock}
+                {last ? landing : null}
               </>
             </SvPanel>
           );
@@ -964,7 +966,7 @@ export function StoryColumn({
       });
   // Open work in one place after the last step, so a folded step never hides it (`OpenGroup.tsx`). Hidden, the current step lists it instead.
   const pinned =
-    !stepped || !openShown || (openMade.length === 0 && kept.length === 0) ? null : (
+    !stepped || !openShown || openMade.length === 0 ? null : (
       <OpenGroupMenu>
         <SvPanel
           label="Open"
@@ -976,10 +978,10 @@ export function StoryColumn({
             current: false,
           }}
           keycap={bandKeyFor("next")}
+          bare={alone}
         >
           <div className="sv-nav" onKeyDown={arrowsIn}>
             <MadeList session={session} list={openMade} newest="last" />
-            {keptBlock}
           </div>
         </SvPanel>
       </OpenGroupMenu>
@@ -987,9 +989,13 @@ export function StoryColumn({
   if (only !== undefined) {
     const areas = ZONE_AREAS[only];
     return (
-      <Spine session={session}>
+      <Spine session={session} single>
         {only === "now" && head !== null ? <div className="sv-story__head">{head}</div> : null}
-        {stepped ? stepZones.filter((zone) => areas.includes(areaOf(zone) ?? "")) : zones[only]}
+        {only === "deferred"
+          ? deferredPanel
+          : stepped
+            ? stepZones.filter((zone) => areas.includes(areaOf(zone) ?? ""))
+            : zones[only]}
         {only === "next" ? pinned : null}
       </Spine>
     );
@@ -1008,6 +1014,7 @@ export function StoryColumn({
       )}
       {stepped ? stepZones : drawn}
       {pinned}
+      {kept.length === 0 ? null : deferredPanel}
     </Spine>
   );
 }
@@ -1024,18 +1031,29 @@ export function placeZone(zone: HTMLElement, behavior: ScrollBehavior = "auto"):
 }
 
 /** The one timeline: a line down the column with the zones on it. The column is the only thing that scrolls, and each zone's header holds at its top while the zone passes under it. It opens with Now's header near the top: Done is above, to scroll back to, and Open below. */
-function Spine({ session, children }: { session: Session; children: ReactNode }) {
+function Spine({
+  session,
+  single,
+  children,
+}: {
+  session: Session;
+  single?: boolean;
+  children: ReactNode;
+}) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // A pane's one zone stands without the line, and opens at its top.
+    if (single === true) return;
     const now = box.current?.querySelector<HTMLElement>(
       '[data-area="now"], [data-area="step-now"]',
     );
     if (now !== null && now !== undefined) placeZone(now);
   }, [
     session.id,
+    single,
   ]);
   return (
-    <div ref={box} className="sv-spine">
+    <div ref={box} className="sv-spine" data-single={single || undefined}>
       {children}
     </div>
   );

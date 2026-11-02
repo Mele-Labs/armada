@@ -9,7 +9,7 @@ import { attachmentsOf, type Session, type WorkLanding } from "@armada/screens/s
 
 export type Stage = "blueprint" | "field" | "landing";
 /** The three zones the right column tells a Job in: what it made (drawn as Done), what it is doing, what comes (`StoryColumn.tsx`). */
-export type Zone = "done" | "now" | "next";
+export type Zone = "done" | "now" | "next" | "deferred";
 export type Area = Stage | Zone;
 export type Fold = {
   open: boolean;
@@ -64,6 +64,7 @@ const STAGES: readonly Area[] = [
   "done",
   "now",
   "next",
+  "deferred",
 ];
 const loaded = new Set<string>();
 
@@ -226,6 +227,11 @@ export const BAND_KEYS: readonly {
     area: "next",
     code: "Digit3",
     cap: "⌥3",
+  },
+  {
+    area: "deferred",
+    code: "Digit4",
+    cap: "⌥4",
   },
   {
     area: "field",

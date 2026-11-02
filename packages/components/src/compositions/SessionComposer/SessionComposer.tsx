@@ -1370,6 +1370,9 @@ export function SessionComposer({
           </>
         )}
         {bare || (compact && held) ? null : chips}
+        {beforeSend === undefined ? null : (
+          <span className="armada-session-composer__figure">{beforeSend}</span>
+        )}
         {talk === undefined ? null : (
           <span className="armada-session-composer__talkwrap">
             <Tooltip
@@ -1402,9 +1405,6 @@ export function SessionComposer({
               />
             )}
           </span>
-        )}
-        {beforeSend === undefined ? null : (
-          <span className="armada-session-composer__figure">{beforeSend}</span>
         )}
         {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
       </div>
