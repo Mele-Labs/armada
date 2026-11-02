@@ -384,6 +384,114 @@ a.armada-inline-tag--link > svg {
   }
 }
 
+/* The Talk button's own box, so its guide can hang from it. */
+.armada-session-composer__talkwrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Why Talk could not hear: a card over the button, on the popover's ground. A head names what failed, the steps are numbered rows, and the one act is the foot's. */
+.armada-session-composer__guide {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: max-content;
+  min-width: var(--sidebar-default);
+  max-width: var(--palette-width);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  border: var(--border-width) solid var(--border-default);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-wrap: pretty;
+}
+
+.armada-session-composer__guide-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-session-composer__guide-glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-control);
+  height: var(--h-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+}
+
+.armada-session-composer__guide-title {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+
+/* The steps count themselves, in the mono face, on a sunken disc. What to find is bold; the rest is quiet. */
+.armada-session-composer__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  color: var(--fg-muted);
+}
+
+.armada-session-composer__steps > li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  counter-increment: step;
+}
+
+.armada-session-composer__steps > li::before {
+  content: counter(step);
+  flex: none;
+  width: var(--space-4);
+  text-align: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.armada-session-composer__steps strong {
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+
+.armada-session-composer__steps code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+}
+
+.armada-session-composer__guide-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.armada-session-composer__guide-foot > kbd {
+  margin-inline-start: auto;
+}
+
 /* The context ring, a step off Send. */
 .armada-session-composer__figure {
   display: flex;

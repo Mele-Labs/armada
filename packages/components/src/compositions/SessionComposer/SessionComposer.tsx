@@ -1,6 +1,6 @@
 import { useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { Cpu, File, Lightbulb, Mic, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
+import { Cpu, File, Lightbulb, Mic, MicOff, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { readKept, useKept, writeKept } from "../../keep";
@@ -15,7 +15,8 @@ import { modelSaid } from "../SessionFrame/model-said";
 import { useThreadYesWaits } from "../SessionThread/thread-keys";
 import { isLargePaste, snippetOf } from "./large-paste";
 import { QuickBar, quickLines } from "./QuickBar";
-import type { QuickAct, QuickPhrase } from "../ThreadSettings/thread-look";
+import type { QuickAct, QuickPhrase, TalkPane, TalkWhy } from "../ThreadSettings/thread-look";
+import { talkGuide } from "./talk-guide";
 import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
 import { addressOf, backspaceInBlock, beforeCaret, caretOffset, caretToEnd, CHIP, decorate, drawnAsText, enterInBlock, readDom, redraw, sentText, tagNode, writeDom } from "./message-dom";
@@ -189,7 +190,7 @@ export type SessionComposerProps = {
    */
   quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void; onAct?: (act: QuickAct) => void; /** Puts the bar away, for this Job or for all Jobs. Absent, the bar has no hide act. */ onHide?: (scope: "job" | "all") => void; };
   /** Talk: a press, or ⌥Space held in the box, listens, and each word heard joins the box. Nothing is sent by it. Absent draws no Talk. */
-  talk?: { listen: (onWord: (word: string) => void) => () => void };
+  talk?: { listen: (onWord: (word: string) => void, onEnd?: (why?: TalkWhy) => void) => () => void; openSettings?: (pane: TalkPane) => void };
   /** Drawn on the bar just left of Send, with room between: the Job's context ring. */
   beforeSend?: ReactNode;
 };
@@ -683,6 +684,9 @@ export function SessionComposer({
   const [listening, setListening] = useState(false);
   const stopTalk = useRef<(() => void) | undefined>(undefined);
   const heldTalk = useRef(false);
+  // Why the last hearing ended early, drawn as a guide over the bar until he is back from Settings or presses Talk again.
+  const [refused, setRefused] = useState<TalkWhy | undefined>(undefined);
+  const hearings = useRef(0);
   const endTalk = () => {
     stopTalk.current?.();
     stopTalk.current = undefined;
@@ -692,6 +696,7 @@ export function SessionComposer({
   const startTalk = (held: boolean) => {
     if (talk === undefined || stopTalk.current !== undefined) return;
     heldTalk.current = held;
+    setRefused(undefined);
     setListening(true);
     // The box takes focus first: a press on Talk leaves it on the button, and macOS Dictation types into whatever holds it.
     const box = editor.current;
@@ -699,8 +704,26 @@ export function SessionComposer({
       box.focus();
       caretToEnd(box);
     }
-    stopTalk.current = talk.listen((word) => setDraft((was) => ({ ...was, text: joined(was.text, word) })));
+    hearings.current += 1;
+    const mine = hearings.current;
+    stopTalk.current = talk.listen(
+      (word) => setDraft((was) => ({ ...was, text: joined(was.text, word) })),
+      (why) => {
+        // A hearing that ended on its own leaves the button; a stop he pressed already did, and a newer hearing is not this one's.
+        if (hearings.current !== mine) return;
+        stopTalk.current = undefined;
+        heldTalk.current = false;
+        setListening(false);
+        if (why !== undefined) setRefused(why);
+      },
+    );
   };
+  useEffect(() => {
+    if (refused === undefined) return;
+    const back = () => setRefused(undefined);
+    window.addEventListener("focus", back);
+    return () => window.removeEventListener("focus", back);
+  }, [refused]);
   useEffect(() => {
     if (!listening) return;
     const release = (event: globalThis.KeyboardEvent) => {
@@ -837,11 +860,14 @@ export function SessionComposer({
         )}
         {bare || (compact && held) ? null : chips}
         {talk === undefined ? null : (
-          <Tooltip label={<>Talk <Kbd>⌥Space</Kbd></>}>
-            <Button type="button" variant="ghost" size="sm" aria-label="Talk" aria-pressed={listening} aria-keyshortcuts="Alt+Space" className="armada-session-composer__talk" data-listening={listening || undefined} disabled={disabled} onClick={() => (listening ? endTalk() : startTalk(false))}>
-              <Mic size={16} strokeWidth={2} aria-hidden />
-            </Button>
-          </Tooltip>
+          <span className="armada-session-composer__talkwrap">
+            <Tooltip label={<>Talk <Kbd>⌥Space</Kbd></>}>
+              <Button type="button" variant="ghost" size="sm" aria-label="Talk" aria-pressed={listening} aria-keyshortcuts="Alt+Space" className="armada-session-composer__talk" data-listening={listening || undefined} disabled={disabled} onClick={() => (listening ? endTalk() : startTalk(false))}>
+                <Mic size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+            {refused === undefined ? null : <TalkGuide why={refused} onOpen={talk.openSettings} onClose={() => setRefused(undefined)} />}
+          </span>
         )}
         {beforeSend === undefined ? null : <span className="armada-session-composer__figure">{beforeSend}</span>}
         {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
@@ -849,6 +875,63 @@ export function SessionComposer({
     </form>
   );
   return box;
+}
+
+/** `**bold**` and `code` in a step, drawn as what they mark. */
+function marked(text: string): ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).filter((one) => one !== "").map((part, at) => {
+    if (part.startsWith("**")) return <strong key={at}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("`")) return <code key={at}>{part.slice(1, -1)}</code>;
+    return part;
+  });
+}
+
+/** Why Talk could not hear, and what to do about it, in a card over the Talk button, with a button to the Settings pane that holds it where there is one. */
+function TalkGuide({ why, onOpen, onClose }: { why: TalkWhy; onOpen: ((pane: TalkPane) => void) | undefined; onClose: () => void }) {
+  const { title, steps, pane, action } = talkGuide(why);
+  const card = useRef<HTMLDivElement>(null);
+  // Esc, a press elsewhere, or coming back from Settings puts it away.
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      onClose();
+    };
+    const onDown = (event: globalThis.MouseEvent) => {
+      if (!card.current?.contains(event.target as Node)) onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("mousedown", onDown);
+    };
+  }, [onClose]);
+  return (
+    <div ref={card} className="armada-session-composer__guide" role="status" aria-label="Talk could not hear">
+      <div className="armada-session-composer__guide-head">
+        <span className="armada-session-composer__guide-glyph">
+          <MicOff size={16} strokeWidth={2} aria-hidden />
+        </span>
+        <p className="armada-session-composer__guide-title">{title}</p>
+      </div>
+      <ol className="armada-session-composer__steps">
+        {steps.map((step) => (
+          <li key={step}>
+            <span>{marked(step)}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="armada-session-composer__guide-foot">
+        {pane === undefined || action === undefined || onOpen === undefined ? null : (
+          <Button type="button" variant="primary" size="sm" onClick={() => onOpen(pane)}>
+            {action}
+          </Button>
+        )}
+        <Kbd>Esc</Kbd>
+      </div>
+    </div>
+  );
 }
 
 /** One row of a typeahead. A tag's row leads with its kind's glyph. */

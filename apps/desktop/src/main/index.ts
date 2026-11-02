@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, net, Notification } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, net, Notification, shell } from "electron";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -831,6 +831,7 @@ void app.whenReady().then(() => {
   handleVoice({
     ipc: ipcMain,
     install: new WhisperInstall(whisperDir, whisperDisk(whisperDir, (url) => net.fetch(url)), (state) => everyWindow(CHANNELS.voiceWhisperChanged, state)),
+    openPane: (address) => void shell.openExternal(address),
     voice: {
       helper: process.platform === "darwin" && existsSync(voiceHelper) ? voiceHelper : null,
       spawn: (file, args) => spawn(file, args, { stdio: ["pipe", "pipe", "ignore"] }),
