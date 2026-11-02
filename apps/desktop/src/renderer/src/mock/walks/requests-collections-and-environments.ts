@@ -11,8 +11,8 @@ import { toSessions } from "../sessions/walk-kit";
 const thread = region("Thread");
 const panel = dialog("Requests");
 const within = (target: ReturnType<typeof role>) => inside(panel, target);
-const tree = dialog("Collections");
-const collections = inside(tree, role("list", "Collections"));
+const collections = role("list", "Collections");
+const inTab = region(/^Pane: Request/);
 const fresh = within(role("group", "New environment", { exact: true }));
 const added = within(role("group", "test", { exact: true }));
 const inherited = within(role("group", "From Store API", { exact: true }));
@@ -22,7 +22,7 @@ const steps: Step[] = [
   { press: inside(region("Jobs", { exact: true }), button(/Order confirmation shows no order/)), say: "Opened" },
   { look: inside(thread, role("listitem", "Saved Create order to Store API", { exact: true })), say: "The agent saved the query to Store API" },
   { press: inside(thread, button("Open in Requests", { exact: true })), say: "Open in Requests" },
-  { look: tree, say: "Collections, in a panel of their own to the left of Requests" },
+  { look: inside(inTab, panel), say: "A Request tab on the Job, on the saved request, with the collections above it" },
   { look: inside(collections, button("Store API", { exact: true })), say: "The Store API collection" },
   { look: inside(collections, button("POST Create order", { exact: true })), say: "Create order, open in the editor" },
   { look: within(role("heading", "Create order", { exact: true })), say: "Create order, under Store API, with Save beside it" },
@@ -40,6 +40,7 @@ const steps: Step[] = [
   { type: "walk-only-token", into: inside(fresh, role("textbox", "Value 2", { exact: true })), say: "Typed into a password field" },
   { press: inside(fresh, button("Save", { exact: true })), say: "Saved" },
   { look: inside(added, role("img", "Set, in the Keychain")), say: "token shows only as set" },
+  { press: within(tab("Request")), say: "Request" },
   { press: inside(collections, button("POST Create order", { exact: true })), say: "Back to Create order" },
   { type: "test", into: within(role("combobox", "Environment")), say: "The test environment, over the tabs, for every send" },
   { look: within(text("https://api.test.example.test/orders")), say: "Sends to https://api.test.example.test/orders" },
@@ -52,7 +53,6 @@ const steps: Step[] = [
   { look: within(text("http://127.0.0.1:5173/orders")), say: "Sends to the Job's server" },
   { look: inside(collections, inside(button("Billing API", { exact: true }), text("Hides the repository's"))), say: "His Billing API hides the repository's" },
   { look: inside(collections, inside(button("Health", { exact: true }), role("img", "The repository's"))), say: "Health, which the repository commits" },
-  { press: within(role("button", /^Close( Esc)?$/)), say: "Closed" },
   { key: "Escape", on: region(/^Job: /), say: "The Job closed, for the map" },
   ...viaPalette("Requests", "Requests, from the palette with no Job open"),
   { look: collections, say: "Collections, still to the left" },
