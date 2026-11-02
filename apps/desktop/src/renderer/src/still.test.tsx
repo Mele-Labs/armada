@@ -20,7 +20,11 @@ const ENTRIES = (import.meta as Globbing).glob("./**/main.tsx", {
   query: "?raw",
   import: "default",
 });
-const WALK_WINDOW = ["./mock/main.tsx", "./walk-panel/main.tsx", "./capture-window/main.tsx"];
+const WALK_WINDOW = [
+  "./mock/main.tsx",
+  "./walk-panel/main.tsx",
+  "./capture-window/main.tsx",
+];
 
 let stop: () => void = () => undefined;
 
@@ -37,13 +41,16 @@ test("every document a window loads starts the motion rules", () => {
     .map(([entry]) => entry);
   expect(without).toEqual([]);
   // The page, bar and panel of a walk window hold its focus in turn, so none of them may stop for losing it.
-  for (const entry of WALK_WINDOW) expect(ENTRIES[entry], entry).toContain("startMotionRules({ focus: false })");
+  for (const entry of WALK_WINDOW)
+    expect(ENTRIES[entry], entry).toContain("startMotionRules({ focus: false })");
 });
 
 test("a walk window's page keeps moving without focus, stands still after a minute with no input and wakes on the pointer", () => {
   vi.useFakeTimers();
   vi.spyOn(document, "hasFocus").mockReturnValue(false);
-  stop = watchStill({ focus: false });
+  stop = watchStill({
+    focus: false,
+  });
   const root = document.documentElement;
 
   window.dispatchEvent(new Event("blur"));

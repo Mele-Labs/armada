@@ -15,7 +15,9 @@ import { useWalkSubject } from "./subject";
 import { withState } from "../state-feed";
 import { startMotionRules } from "../still";
 
-startMotionRules({ focus: false });
+startMotionRules({
+  focus: false,
+});
 
 // The panel beside a walk window's page — `docs/practices/capture-window.md`, *The panel beside the
 // page*. A third renderer entry, beside Bridge's and the bar's: a Bridge document with Bridge's

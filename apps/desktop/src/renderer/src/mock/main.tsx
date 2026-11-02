@@ -20,7 +20,9 @@ import { storyFile } from "./story-files";
 import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
 
-startMotionRules({ focus: false });
+startMotionRules({
+  focus: false,
+});
 watchClippedText();
 
 const query = new URLSearchParams(window.location.search);

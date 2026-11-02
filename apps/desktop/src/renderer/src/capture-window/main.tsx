@@ -8,7 +8,9 @@ import { NOTHING_YET } from "../../../shared/bridge";
 import { CaptureWindow } from "./CaptureWindow";
 import { startMotionRules } from "../still";
 
-startMotionRules({ focus: false });
+startMotionRules({
+  focus: false,
+});
 
 // The capture window's bar — #1294. A second renderer entry, and the only one
 // besides Bridge's own: it is a separate document because it is a separate
