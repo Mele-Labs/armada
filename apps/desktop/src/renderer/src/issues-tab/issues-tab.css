@@ -64,9 +64,7 @@
 /* What is open is framed by its shape (`depth.css`), as the Cockpit's Jobs row. */
 
 /* An issue is a `ListCard` on the panel. */
-.issues-surface .issues-list__rows,
-.issues-surface .issues-list .deck-list__group { gap: var(--space-1); }
-.issues-surface .issues-list__rows { padding: var(--space-1); }
+.issues-surface .issues-list__rows { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); padding: var(--space-1); }
 .issues-row__from { min-width: 0; overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
 .issues-surface .issues-list .deck-list__band + .deck-list__band { margin-top: var(--space-3); }
 .issues-surface .issues-list__repository {

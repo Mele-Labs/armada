@@ -1,4 +1,4 @@
-// The four lists that wear the one card: the Cockpit's Jobs with every field on, the Issues tab, the Reviews tab and the Logbook, on one Fleet. The walk `one-card` plays it.
+// The four lists that wear the one card: the Cockpit's Jobs with Time on, the Issues tab, the Reviews tab and the Logbook, on one Fleet. The walk `one-card` plays it.
 
 import { MOCK_SETTINGS, savedInto } from "@armada/settings/fake";
 
@@ -13,5 +13,5 @@ export const oneCard: Scenario = {
   says: "Jobs, Issues, Pull requests and the Logbook, each list on the one card",
   draft: { ...issues.draft, prReview: reviewSeed() },
   logbook: logbookPage.logbook,
-  state: { ...issues.state, settings: savedInto(MOCK_SETTINGS, { "bridge.rowView": { pr: true, issue: true, now: true, time: true, conflicts: true, status: true, workflow: false } }) },
+  state: { ...issues.state, settings: savedInto(MOCK_SETTINGS, { "bridge.rowView": { pr: false, issue: false, now: false, time: true, conflicts: true, status: true, workflow: false } }) },
 };

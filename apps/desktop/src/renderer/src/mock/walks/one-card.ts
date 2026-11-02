@@ -3,8 +3,8 @@
 import { place, region, role, walk } from "../walk";
 
 const oneCard = walk("one-card", [
-  { look: region("Jobs", { exact: true }), say: "Jobs. Title first, the state glyph last in the top right corner, the number under the title, the time plain at the end of that line" },
-  { press: place("Issues"), say: "Issues. The same card: the linked pull request, then the state of the Job working it, the number under the title, the time in the same place" },
+  { look: region("Jobs", { exact: true }), say: "Jobs. One line in the Cockpit's own size and spacing, with hairlines and no fill. The time is plain text before the state glyph, which is last in the corner" },
+  { press: place("Issues"), say: "Issues. The same card: the linked pull request, then the state of the Job working it. Titles keep two lines here. The number is under the title and the time at the foot" },
   { press: place("Reviews"), say: "Pull requests. Review and checks are the state, so they stand where a Job's state stands" },
   { press: role("button", "List"), say: "The lists" },
   { press: role("menuitem", "My PRs"), say: "A pull request a Job holds takes the bot glyph beside its state" },

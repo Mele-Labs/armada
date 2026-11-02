@@ -110,9 +110,9 @@ export function columnsOf(view: RowView, earlier: boolean, tools = false, report
   // The reported-a-bug mark is a button too, drawn over its column the same way.
   const afterReported = on.slice(on.findIndex(({ field }) => field === "reported") + 1);
   return {
-    reportedRight: `calc(var(--space-3) + var(--border-width)${afterReported.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
-    toolsRight: `calc(var(--space-3) + var(--border-width)${afterTools.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
-    clashRight: `calc(var(--space-3) + var(--border-width)${after.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
+    reportedRight: `calc(var(--space-3)${afterReported.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
+    toolsRight: `calc(var(--space-3)${afterTools.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
+    clashRight: `calc(var(--space-3)${after.map(({ field, width }) => ` + var(--deck-w-${field}, ${width}px) + ${GAP}px`).join("")})`,
   };
 }
 

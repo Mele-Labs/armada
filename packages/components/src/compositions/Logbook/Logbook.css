@@ -71,9 +71,10 @@
 
 /* ---- The log ---------------------------------------------------------------------------------- */
 
-.armada-logbook__table { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2); outline: none; }
+.armada-logbook__table { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2); outline: none; }
 .armada-logbook__table:focus-visible .armada-logbook__row[aria-selected="true"] { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.armada-logbook__group { display: flex; flex-direction: column; gap: var(--space-1); }
+.armada-logbook__group { display: flex; flex-direction: column; }
+.armada-logbook__row + .armada-logbook__row { margin-top: var(--border-width); box-shadow: 0 calc(var(--border-width) * -1) 0 color-mix(in srgb, var(--fg-default) 10%, transparent); }
 
 /* A section's head stays as the log scrolls, until the next one pushes it out. */
 .armada-logbook__section {

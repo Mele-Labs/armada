@@ -5,8 +5,10 @@ import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 export type ListCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title" | "children"> & {
-  /** What it is called, up to two lines. */
+  /** What it is called, on one line. */
   title: ReactNode;
+  /** The title may take a second line, on a list whose titles say more than a few words. */
+  wrap?: boolean;
   /** The marks in the corner, each a `ListCardMark`, in the one order: linked item, Job, state. A list passes the same ones for every row, so an empty one keeps its place. */
   marks?: ReactNode;
   /** What it is, on the line under the title: its number or key, a `ListCardChip`. */
@@ -26,9 +28,9 @@ export type ListCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title
  * fixed places and the state is last**, so a state is found in one place on every list. The number is on its own line under the title, and the time is plain quiet text at the end
  * of that line, with no box. Everything else is a line under those, which the person turns on.
  */
-export function ListCard({ title, marks, tag, at, lines, selected = false, needs = false, className, ref, ...rest }: ListCardProps) {
+export function ListCard({ title, wrap = false, marks, tag, at, lines, selected = false, needs = false, className, ref, ...rest }: ListCardProps) {
   return (
-    <button {...rest} ref={ref} type="button" className={className === undefined ? "armada-list-card" : `armada-list-card ${className}`} data-selected={selected || undefined} data-needs={needs || undefined} aria-current={selected || undefined}>
+    <button {...rest} ref={ref} type="button" className={className === undefined ? "armada-list-card" : `armada-list-card ${className}`} data-wrap={wrap || undefined} data-selected={selected || undefined} data-needs={needs || undefined} aria-current={selected || undefined}>
       <span className="armada-list-card__title">{title}</span>
       {marks === undefined ? null : <span className="armada-list-card__marks">{marks}</span>}
       {tag === undefined ? null : <span className="armada-list-card__tag">{tag}</span>}

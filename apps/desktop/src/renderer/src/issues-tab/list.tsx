@@ -247,6 +247,7 @@ function ReportRow({ report, unread, open }: { report: ReportedBug; unread: bool
         aria-label={`${report.title}, from ${report.job_title}`}
         onClick={() => store.openReport(report.id)}
         title={report.title}
+        wrap
         marks={
           <>
             <ListCardMark>{report.fixed === undefined ? null : <FixedMark pullRequest={report.fixed.pull_request} />}</ListCardMark>
@@ -574,6 +575,7 @@ function Row({ band, ticket, fields, open }: { band: Band; ticket: Ticket; field
         aria-label={`${ticket.reference} ${ticket.title}`}
         onClick={() => store.open(band.manifestId, ticket.reference)}
         title={ticket.title}
+        wrap
         marks={
           <>
             <ListCardMark>{ticket.linked_pull_request ? <LinkedPullRequestMark /> : null}</ListCardMark>

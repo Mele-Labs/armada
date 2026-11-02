@@ -191,7 +191,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.deck-list__rows:is([data-now], [data-pr]) { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); }
+.deck-list__rows:is([data-now], [data-pr], [data-issue]) { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); }
 /* A row picked up is dimmed where it stood; the line is where it would be put down. Nothing else moves while it is held. */
 .deck-list__rows[data-reordering],
 .deck-list__rows[data-reordering] .deck-row { cursor: grabbing; user-select: none; }
@@ -226,6 +226,7 @@
 /* An idea saved to start later: the row of a Session not started, dashed in its hue, with the repository and the model where a Session's phase and mark would be. */
 .deck-row[data-queued] {
   grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
   border: var(--border-width) dashed color-mix(in srgb, var(--status-not-started) 55%, transparent);
 }
 .deck-row[data-queued] .deck-row__kind { color: var(--status-not-started); }
@@ -236,9 +237,7 @@
 .deck-row {
   position: relative;
   display: grid;
-  grid-template-columns: var(--space-4) minmax(0, 1fr) auto var(--space-4) var(--space-4);
   align-items: center;
-  column-gap: var(--space-3);
   width: 100%;
   min-height: var(--h-control-sm);
   padding: 0 var(--space-3);
@@ -301,20 +300,15 @@
 
 /* A Work row is a `ListCard` (`row-view.tsx`): the name, the corner's places, and the fields the person's View menu has on. */
 .deck-list__item { position: relative; }
-.deck-list__item + .deck-list__item:has(.armada-list-card) { border-top: 0; margin-top: var(--space-1); }
-.deck-list__item:first-child:has(.armada-list-card) { margin-top: var(--space-1); }
-.deck-row.armada-list-card { grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: var(--space-2); min-height: 0; padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-subtle); background: var(--chip); }
-.deck-row.armada-list-card .deck-row__title { white-space: normal; }
 .deck-row__said[data-found] { font-family: var(--font-mono); }
-.deck-row__flow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-row__flow,
 .deck-row__says { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The clash mark is a button, so it sits beside the row, over the marks' first slot, set from the trailing edge by the columns after its own. The earlier Job behind a row that took its place is
    a button on the same slot. */
 .deck-row__clash,
 .deck-row__earlier {
   position: absolute;
-  inset-block: calc(var(--space-2) + var(--border-width)) auto;
-  height: var(--leading-xs);
+  inset-block: 0;
   right: var(--deck-clash-right, calc(var(--space-3) + (var(--space-4) + var(--space-1)) * 2));
   display: flex;
   align-items: center;
@@ -324,8 +318,7 @@
 /* The tools mark is a button too, drawn over the tools column the same way. */
 .deck-row__tools {
   position: absolute;
-  inset-block: calc(var(--space-2) + var(--border-width)) auto;
-  height: var(--leading-xs);
+  inset-block: 0;
   right: var(--deck-tools-right, calc(var(--space-3) + var(--space-4) + var(--space-1)));
   display: flex;
   align-items: center;
@@ -338,8 +331,7 @@
 /* The reported-a-bug mark is a button as well, over its column. */
 .deck-row__reported {
   position: absolute;
-  inset-block: calc(var(--space-2) + var(--border-width)) auto;
-  height: var(--leading-xs);
+  inset-block: 0;
   right: var(--deck-reported-right, calc(var(--space-3) + var(--space-4) + var(--space-1)));
   display: flex;
   align-items: center;
@@ -352,6 +344,7 @@
 .deck-row__reported-mark { display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; cursor: pointer; }
 .deck-row__reported-mark:hover { background: var(--surface-row-hover); color: var(--fg-default); }
 .deck-row__reported-mark:focus-visible { outline: var(--focus-ring); }
+.deck-list__rows:is([data-now], [data-pr], [data-issue]) :is(.deck-row__clash, .deck-row__earlier, .deck-row__tools, .deck-row__reported) { inset-block: calc(var(--space-1) / 2) auto; height: var(--deck-line); }
 .deck-row__clash { flex-direction: row-reverse; pointer-events: none; }
 .deck-row__clash > * { pointer-events: auto; }
 

@@ -340,7 +340,7 @@ function List({ subjects, calling, banding, selected, builds, picked, found, onP
         <Filter rows={panel} />
         <PanelKey id="list" />
       </header>
-      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} style={{ "--deck-clash-right": columns.clashRight, "--deck-tools-right": columns.toolsRight, "--deck-reported-right": columns.reportedRight } as CSSProperties}>
+      <ul className="deck-list__rows" data-reordering={dragging === undefined ? undefined : ""} data-now={view.now || undefined} data-pr={view.pr || undefined} data-issue={view.issue || undefined} style={{ "--deck-clash-right": columns.clashRight, "--deck-tools-right": columns.toolsRight, "--deck-reported-right": columns.reportedRight } as CSSProperties}>
         {banding === undefined
           ? [...queuedIn(ideas, picked).map((idea) => <QueuedRow key={queuedKey(idea.id)} idea={idea} />), ...drawn.map(row)]
           : bandsOf(drawn, banding, queuedIn(ideas, picked)).map((band) => (
