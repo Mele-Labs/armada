@@ -1,38 +1,41 @@
 // The bridge take's console drawn on a canvas (mock): a cone section of a cockpit dashboard seen from the pilot seat, its facets joined edge to
-// edge, the wings sweeping toward the viewer. Each facet is drawn flat, with its instrument, onto a texture, and the texture is put on the
-// facet's projected quad, so the instrument skews with the surface. The lip, the back rim, the end walls and the hard shadows are flat polygons
-// in the theme's tones. The page lays a transparent button over each facet (`ConsoleBays.tsx`), which keeps the presses, labels and tooltips.
+// edge, the wings sweeping toward the viewer. Each facet is drawn flat, with its instrument, onto a texture (`console-art.ts`), and the texture is put
+// on the facet's projected quad, so the instrument skews with the surface. Hood, lip, front wall and ribs are bands of flat polygons, lit from above.
+// The page lays a transparent button and a straight label over each facet (`ConsoleBays.tsx`), which keep the presses, tooltips and words.
 // No gradients and no glow: the depth is the projection, the layering and the hard edges. Does not touch the map's stage.
 
 import "pixi.js/unsafe-eval";
-import { Application, Container, Graphics, PerspectiveMesh, RenderTexture, Text, Ticker } from "pixi.js";
+import { Application, Container, Graphics, PerspectiveMesh, RenderTexture, Ticker } from "pixi.js";
 
-import { hex, readPalette, type Rgba } from "./palette";
+import { drawLive, drawPlate, keySpots, materialsOf, readTones, type BayState, type Materials, type Paint, type Tones } from "./console-art";
 
-export type Kind = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles" | "usage" | "dispatch";
-/** A dot of the Activity graph, 0 to 1 across the scope's box. */
-export type Dot = { x: number; y: number; r: number; colour: string };
-export type BayState = { kind: Kind | null; pressed: boolean; calling: boolean; lit: boolean; code: string; label: string; dots?: readonly Dot[] };
+export type { BayState, Dot, Kind } from "./console-art";
 export type Rect = { x: number; y: number; w: number; h: number };
 type P = { x: number; y: number };
 type Quad = readonly [P, P, P, P];
 
+/** Where a bay's label stands: its centre, the angle of the edge it follows, and its size in pixels. */
+export type Label = { x: number; y: number; angle: number; size: number };
 /** Where each facet's button goes, and how tall the canvas has to be. */
-export type Layout = { width: number; height: number; inner: Rect[]; rim: Rect | undefined };
+export type Layout = { width: number; height: number; inner: Rect[]; labels: Label[]; rim: Rect | undefined };
 
 /** How wide each facet is, in units of one ordinary facet, and which facet carries Dispatch as a key on its lip (none where Dispatch is a facet). */
 export type Plan = { widths: readonly number[]; depths: readonly number[]; keyed: number | undefined };
 const FW = 190;
 const FH = 108;
+/** A facet's texture holds this many texels for each device pixel it lands on, so it is never magnified and nothing minifies enough to shimmer. */
+const TEXELS = 1.5;
 
 // ---- The projection: a pinhole over a cone ----------------------------------------------------------------
 
-const CONE = { R: 1250, U: 150, slope: (30 * Math.PI) / 180, step: 0.16, behind: 1100, focal: 1500, lipY: -190, raise: 60, thick: 30, rim: 17, key: 2.4 };
+const CONE = { R: 1250, U: 150, slope: (30 * Math.PI) / 180, step: 0.16, behind: 1100, focal: 1500, lipY: -190, raise: 60, thick: 30, rim: 17, key: 2.4, rib: 0.0034 };
 
-type World = { quads: Quad[]; lips: Quad[]; rims: Quad[]; ends: Quad[]; floor: Quad[]; shade: Quad[]; keyQuad: Quad | undefined; keyAspect: number; height: number };
+/** A piece of a structural rib, by the face it crosses and which of its three columns: lit, flat, shaded. */
+type RibFace = "rim" | "deck" | "lip" | "wall";
+type World = { quads: Quad[]; lips: Quad[]; rims: Quad[]; ends: Quad[]; floor: Quad[]; shade: Quad[]; ribs: { face: RibFace; column: number; quad: Quad }[]; keyQuad: Quad | undefined; keyAspect: number; height: number };
 
 function worldOf(width: number, plan: Plan): World {
-  const { R, U: baseU, slope, step, behind, focal, lipY, raise, thick, rim, key } = CONE;
+  const { R, U: baseU, slope, step, behind, focal, lipY, raise, thick, rim, key, rib } = CONE;
   const total = plan.widths.reduce((a, b) => a + b, 0);
   const edges = [-(total * step) / 2];
   for (const w of plan.widths) edges.push(edges.at(-1)! + w * step);
@@ -44,6 +47,8 @@ function worldOf(width: number, plan: Plan): World {
     const z = behind + radius * Math.cos(a);
     return { x: (focal * x) / z, y: (-focal * y) / z };
   };
+  const tOf = (i: number) => (i === plan.keyed ? thick * key : thick);
+  const uOf = (i: number) => baseU * plan.depths[i]!;
   const quads: Quad[] = [];
   const lips: Quad[] = [];
   const rims: Quad[] = [];
@@ -53,8 +58,8 @@ function worldOf(width: number, plan: Plan): World {
   let keyAspect = 1;
   plan.widths.forEach((_, i) => {
     const [a, b] = [edges[i]!, edges[i + 1]!];
-    const t = i === plan.keyed ? thick * key : thick;
-    const U = baseU * plan.depths[i]!;
+    const t = tOf(i);
+    const U = uOf(i);
     quads.push([at(a, U), at(b, U), at(b, 0), at(a, 0)]);
     const lip: Quad = [at(a, 0), at(b, 0), at(b, 0, t), at(a, 0, t)];
     lips.push(lip);
@@ -64,21 +69,37 @@ function worldOf(width: number, plan: Plan): World {
     }
     rims.push([at(a, U, 0, rim), at(b, U, 0, rim), at(b, U), at(a, U)]);
     floor.push([at(a, 0, t), at(b, 0, t), at(b, 0, t + thick * 0.9), at(a, 0, t + thick * 0.9)]);
-    const near = U * 0.8;
+    const near = U - 12;
     shade.push([at(a, U), at(b, U), at(b, near), at(a, near)]);
   });
   const ends: Quad[] = [edges[0]!, edges.at(-1)!].map((a, k) => {
-    const U = baseU * plan.depths[k === 0 ? 0 : plan.depths.length - 1]!;
-    return [at(a, 0), at(a, U), at(a, U, thick), at(a, 0, thick)] as const;
+    const U = uOf(k === 0 ? 0 : plan.widths.length - 1);
+    return [at(a, 0), at(a, U), at(a, U, thick), at(a, 0, thick * 1.9)] as const;
   });
-  const every = [...quads, ...lips, ...rims, ...floor, ...ends].flat();
+  // A rib stands on every join, proud of the taller neighbour; the two at the ends are heavier.
+  const ribs: World["ribs"] = [];
+  edges.forEach((a, n) => {
+    const around = [n - 1, n].filter((i) => i >= 0 && i < plan.widths.length);
+    const U = Math.max(...around.map(uOf));
+    const t = Math.max(...around.map(tOf));
+    const half = rib * (n === 0 || n === edges.length - 1 ? 1.6 : 1);
+    const columns = [a - half, a - half * 0.35, a + half * 0.45, a + half];
+    for (let column = 0; column < 3; column += 1) {
+      const [l, r] = [columns[column]!, columns[column + 1]!];
+      ribs.push({ face: "rim", column, quad: [at(l, U, 0, rim), at(r, U, 0, rim), at(r, U), at(l, U)] });
+      ribs.push({ face: "deck", column, quad: [at(l, U), at(r, U), at(r, 0), at(l, 0)] });
+      ribs.push({ face: "lip", column, quad: [at(l, 0), at(r, 0), at(r, 0, t), at(l, 0, t)] });
+      ribs.push({ face: "wall", column, quad: [at(l, 0, t), at(r, 0, t), at(r, 0, t + thick * 0.9), at(l, 0, t + thick * 0.9)] });
+    }
+  });
+  const every = [...quads, ...lips, ...rims, ...floor, ...ends, ...ribs.map((one) => one.quad)].flat();
   const [minX, maxX] = [Math.min(...every.map((p) => p.x)), Math.max(...every.map((p) => p.x))];
   const [minY, maxY] = [Math.min(...every.map((p) => p.y)), Math.max(...every.map((p) => p.y))];
   const margin = 4;
   const scale = (width - margin * 2) / (maxX - minX);
   const move = (p: P): P => ({ x: (p.x - minX) * scale + margin, y: (p.y - minY) * scale + margin });
   const fit = (q: Quad): Quad => [move(q[0]), move(q[1]), move(q[2]), move(q[3])];
-  return { quads: quads.map(fit), lips: lips.map(fit), rims: rims.map(fit), ends: ends.map(fit), floor: floor.map(fit), shade: shade.map(fit), keyQuad: keyQuad === undefined ? undefined : fit(keyQuad), keyAspect, height: Math.ceil((maxY - minY) * scale + margin * 2) };
+  return { quads: quads.map(fit), lips: lips.map(fit), rims: rims.map(fit), ends: ends.map(fit), floor: floor.map(fit), shade: shade.map(fit), ribs: ribs.map((one) => ({ ...one, quad: fit(one.quad) })), keyQuad: keyQuad === undefined ? undefined : fit(keyQuad), keyAspect, height: Math.ceil((maxY - minY) * scale + margin * 2) };
 }
 
 const boxOf = (q: Quad): Rect => {
@@ -87,221 +108,65 @@ const boxOf = (q: Quad): Rect => {
   return { x, y, w: Math.min(q[1].x, q[2].x) - x, h: Math.min(q[2].y, q[3].y) - y };
 };
 
-/** The room each facet's button has: the box inside its quad, so neighbours never overlap. The key on a lip comes last. */
+/** A point of a quad, 0 to 1 across and down. */
+const inQuad = (q: Quad, x: number, y: number): P => {
+  const [ax, ay] = [q[0].x + (q[1].x - q[0].x) * x, q[0].y + (q[1].y - q[0].y) * x];
+  const [bx, by] = [q[3].x + (q[2].x - q[3].x) * x, q[3].y + (q[2].y - q[3].y) * x];
+  return { x: ax + (bx - ax) * y, y: ay + (by - ay) * y };
+};
+/** The part of a quad between two fractions across and two down. */
+const partOf = (q: Quad, x0: number, y0: number, x1: number, y1: number): Quad => [inQuad(q, x0, y0), inQuad(q, x1, y0), inQuad(q, x1, y1), inQuad(q, x0, y1)];
+const span = (a: P, b: P) => Math.hypot(b.x - a.x, b.y - a.y);
+
+/** Each label follows the lip below its facet; a keyed facet's lip is Dispatch's, so its label keeps to the plate's foot. */
+function labelsOf(world: World, plan: Plan): Label[] {
+  const edge = (q: Quad) => Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x);
+  const labels = world.lips.map((lip, i): Label => {
+    const quad = world.quads[i]!;
+    const tall = span(lip[0], lip[3]);
+    const size = tall < 14 ? 10 : tall < 18 ? 11 : 12;
+    if (i === plan.keyed) {
+      const spot = inQuad(quad, 0.5, 1 - 8 / span(quad[0], quad[3]));
+      return { ...spot, angle: edge(quad), size: 12 };
+    }
+    return { ...inQuad(lip, 0.5, 0.58), angle: edge(lip), size };
+  });
+  if (world.keyQuad !== undefined) labels.push({ ...inQuad(world.keyQuad, keySpots(span(world.keyQuad[3], world.keyQuad[2])).word, 0.6), angle: edge(world.keyQuad), size: 12 });
+  return labels;
+}
+
+/** The room each facet's button has: the box inside its quad, so neighbours never overlap, down to the foot of its lip so its label is part of the press. The key on a lip comes last. */
 export function layoutOf(width: number, plan: Plan): Layout {
   const world = worldOf(width, plan);
-  const inner = world.quads.map(boxOf);
+  const inner = world.quads.map((q, i): Rect => {
+    const box = boxOf(q);
+    const lip = world.lips[i]!;
+    return i === plan.keyed ? box : { ...box, h: Math.max(lip[2].y, lip[3].y) - box.y };
+  });
   if (world.keyQuad !== undefined) inner.push(boxOf(world.keyQuad));
   const first = world.rims[0]!;
   const last = world.rims.at(-1)!;
-  return { width, height: world.height, inner, rim: { x: first[0].x, y: Math.min(first[0].y, last[1].y), w: last[1].x - first[0].x, h: first[3].y - first[0].y } };
-}
-
-// ---- Colours ------------------------------------------------------------------------------------------------
-
-type Tones = { base: number; sunken: number; raised: number; strong: number; edge: number; quiet: number; fg: number; muted: number; subtle: number; accent: number; accentMuted: number; ask: number; bad: number; good: number; run: number; mono: string };
-
-let scratch: CanvasRenderingContext2D | undefined;
-const inks = new Map<string, number>();
-/** Any CSS colour, `color-mix()` included, as 0xRRGGBB. */
-function cssHex(css: string): number {
-  const kept = inks.get(css);
-  if (kept !== undefined) return kept;
-  scratch ??= document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
-  scratch.canvas.width = 1;
-  scratch.canvas.height = 1;
-  scratch.clearRect(0, 0, 1, 1);
-  scratch.fillStyle = css;
-  scratch.fillRect(0, 0, 1, 1);
-  const [r, g, b] = scratch.getImageData(0, 0, 1, 1).data;
-  const ink = (r! << 16) | (g! << 8) | b!;
-  inks.set(css, ink);
-  return ink;
-}
-function readTones(host: HTMLElement): Tones {
-  const base = readPalette(host);
-  const probe = document.createElement("span");
-  host.append(probe);
-  const colour = (name: string): number => {
-    probe.style.color = "";
-    probe.style.color = `var(${name})`;
-    scratch ??= document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
-    scratch.canvas.width = 1;
-    scratch.canvas.height = 1;
-    scratch.clearRect(0, 0, 1, 1);
-    scratch.fillStyle = getComputedStyle(probe).color;
-    scratch.fillRect(0, 0, 1, 1);
-    const [r, g, b] = scratch.getImageData(0, 0, 1, 1).data;
-    return (r! << 16) | (g! << 8) | b!;
-  };
-  const tones: Tones = {
-    base: colour("--bg-base"),
-    sunken: colour("--bg-sunken"),
-    raised: colour("--bg-raised"),
-    strong: colour("--border-strong"),
-    edge: colour("--border-default"),
-    quiet: colour("--border-subtle"),
-    fg: colour("--fg-default"),
-    muted: colour("--fg-muted"),
-    subtle: colour("--fg-subtle"),
-    accent: colour("--accent"),
-    accentMuted: colour("--accent-muted"),
-    ask: hex(base.ask as Rgba),
-    bad: hex(base.bad as Rgba),
-    good: hex(base.good as Rgba),
-    run: hex(base.run as Rgba),
-    mono: base.mono,
-  };
-  probe.remove();
-  return tones;
-}
-
-// ---- A facet's flat picture ----------------------------------------------------------------------------------------
-
-type Facet = { w: number; h: number; root: Container; g: Graphics; code: Text; label: Text; extra: Text; tex: RenderTexture; mesh: PerspectiveMesh };
-
-const TAU = Math.PI * 2;
-
-function draw(f: Facet, s: BayState, tone: Tones, t: number, lipKey: boolean): void {
-  const g = f.g;
-  const { w: W, h: H } = f;
-  g.clear();
-  const edge = s.pressed ? tone.accent : s.lit ? tone.fg : tone.strong;
-  g.rect(0, 0, W, H).fill(tone.sunken);
-  g.rect(2, 2, W - 4, H - 4).fill(s.pressed ? tone.accentMuted : tone.raised).stroke({ width: 4, color: edge });
-  if (s.kind === null) {
-    g.rect(2, 2, W - 4, H - 4).fill(tone.sunken).stroke({ width: 4, color: tone.edge });
-    g.rect(10, 10, W - 20, H - 20).stroke({ width: 1.5, color: tone.quiet });
-    f.code.text = "";
-    f.label.text = "";
-    f.extra.text = "";
-    return;
-  }
-  const [x, y, w, h] = [10, 16, W - 20, H - 40];
-  const [cx, cy] = [x + w / 2, y + h / 2];
-  if (s.kind !== "dispatch") g.rect(x, y, w, h).fill(tone.base).stroke({ width: 1.5, color: tone.edge });
-  switch (s.kind) {
-    case "matrix": {
-      const cols = Math.floor((w - 16) / 8.6);
-      const lit = Math.round(cols * (0.55 + 0.25 * Math.sin(Math.floor(t * 2) * 1.7)));
-      const rows = Math.max(3, Math.floor((h - 26) / 11));
-      for (let c = 0; c < cols; c += 1) {
-        for (let r = 0; r < rows; r += 1) g.rect(x + 8 + c * 8.6, y + 16 + r * 11, 6.4, 8).fill(c < lit ? tone.run : tone.strong);
-      }
-      for (let k = 0; k < 3; k += 1) g.rect(x + w - 10 - k * 9, y + 5, 5, 5).fill(k === 0 || s.pressed ? tone.run : tone.strong);
-      break;
-    }
-    case "beacon": {
-      const pulse = s.calling ? 0.65 + 0.35 * Math.abs(Math.sin(t * 3.4)) : 0;
-      const k = Math.min(w, h) / 82;
-      g.circle(cx, cy, 36 * k).fill(tone.sunken).stroke({ width: 4, color: tone.strong });
-      g.circle(cx, cy, 24 * k).fill(s.calling ? tone.ask : tone.sunken).stroke({ width: 1.5, color: tone.ask });
-      if (s.calling) g.circle(cx, cy, 24 * k).fill({ color: tone.ask, alpha: pulse });
-      else g.circle(cx, cy, 20 * k).fill({ color: tone.ask, alpha: 0.22 });
-      for (let n = 0; n < 12; n += 1) {
-        const a = (n / 12) * TAU + (s.calling ? t * 1.6 : 0);
-        g.moveTo(cx + Math.cos(a) * 31 * k, cy + Math.sin(a) * 31 * k).arc(cx, cy, 31 * k, a, a + 0.28).stroke({ width: 5 * k, color: tone.ask, alpha: s.calling ? 1 : 0.25 });
-      }
-      break;
-    }
-    case "radar": {
-      const r = Math.min(w, h) / 2 - 3;
-      if (w > h * 1.8) {
-        for (const side of [-1, 1]) {
-          for (let k = 0; k < 7; k += 1) g.rect(side < 0 ? x + 10 + k * 9 : x + w - 10 - k * 9 - 2, cy - 5 - (k % 3) * 3, 2, 10 + (k % 3) * 6).fill(k < 3 ? tone.run : tone.strong);
-          for (let k = 0; k < 3; k += 1) g.rect(side < 0 ? x + 10 : x + w - 10 - 70, y + h - 12 - k * 7, 70, 2.4).fill(tone.edge);
-        }
-      }
-      for (const k of [1, 0.75, 0.5, 0.25]) g.circle(cx, cy, r * k).stroke({ width: 1.4, color: k === 1 ? tone.strong : tone.edge });
-      g.moveTo(cx - r, cy).lineTo(cx + r, cy).moveTo(cx, cy - r).lineTo(cx, cy + r).stroke({ width: 1, color: tone.edge });
-      for (let k = 0; k < 72; k += 1) {
-        const a = (k / 72) * TAU;
-        const long = k % 6 === 0;
-        g.moveTo(cx + Math.cos(a) * (r - (long ? 7 : 4)), cy + Math.sin(a) * (r - (long ? 7 : 4))).lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r).stroke({ width: long ? 1.5 : 1, color: tone.subtle });
-      }
-      const sweep = t * 1.3;
-      g.moveTo(cx, cy).arc(cx, cy, r - 2, sweep - 0.6, sweep).closePath().fill({ color: tone.run, alpha: 0.32 });
-      g.moveTo(cx, cy).lineTo(cx + Math.cos(sweep) * (r - 2), cy + Math.sin(sweep) * (r - 2)).stroke({ width: 2, color: tone.run });
-      for (const [bx, by] of [[0.3, -0.35], [-0.4, 0.3], [0.45, 0.2]] as const) g.circle(cx + bx * r, cy + by * r, 2.4).fill(tone.fg);
-      g.circle(cx, cy, 3).fill(s.pressed ? tone.accent : tone.muted);
-      break;
-    }
-    case "trace": {
-      const shift = (t * 30) % 40;
-      g.moveTo(x + 6, cy - 8);
-      for (let px = x + 6; px <= x + w - 6; px += 2) {
-        const p = (px - x + shift) % 40;
-        const v = p < 8 ? 0 : p < 11 ? -(p - 8) * 5 : p < 15 ? -15 + (p - 11) * 8 : p < 19 ? 17 - (p - 15) * 4.2 : 0;
-        g.lineTo(px, cy - 8 + v * 0.8);
-      }
-      g.stroke({ width: 1.8, color: tone.run });
-      for (let px = x + 6; px < x + w - 6; px += 8) g.rect(px, y + h - 22, 1.2, ((px - x + shift) % 40) < 8 ? 12 : 6).fill(tone.strong);
-      g.rect(cx, y + 6, 1.5, h - 12).fill(tone.ask);
-      break;
-    }
-    case "scope": {
-      g.rect(x + 6, cy, w - 12, 1.2).fill(tone.strong);
-      for (let px = x + 8; px < x + w - 8; px += 8) g.rect(px, y + h - 9, 1.2, px % 40 < 8 ? 7 : 4).fill(tone.strong);
-      g.rect(x + w - 8, y + h - 24, 1.5, 15).fill(tone.ask);
-      for (const d of s.dots ?? []) g.circle(x + 6 + d.x * (w - 12), y + 6 + d.y * (h - 12), Math.max(1.6, d.r)).fill(cssHex(d.colour));
-      break;
-    }
-    case "needles": {
-      for (const [k, ink, rate] of [[0, tone.ask, 1.3], [1, tone.run, 0.9]] as const) {
-        const px = x + w * (0.27 + 0.46 * k);
-        const py = y + h * 0.62;
-        g.moveTo(px - 26, py).arc(px, py, 26, Math.PI, 0).stroke({ width: 1.5, color: tone.strong });
-        for (let q = 0; q <= 6; q += 1) {
-          const a = Math.PI + (q / 6) * Math.PI;
-          g.moveTo(px + Math.cos(a) * 26, py + Math.sin(a) * 26).lineTo(px + Math.cos(a) * 21, py + Math.sin(a) * 21).stroke({ width: 1, color: tone.strong });
-        }
-        const a = Math.PI * 1.5 + Math.sin(t * rate + k) * 0.7;
-        g.moveTo(px, py).lineTo(px + Math.cos(a) * 23, py + Math.sin(a) * 23).stroke({ width: 2.2, color: ink });
-        g.circle(px, py, 2.5).fill(tone.muted);
-      }
-      for (let k = 0; k < 3; k += 1) g.rect(x + 12, y + h - 18 + k * 5, w - 24, 2.4).fill(tone.edge);
-      break;
-    }
-    case "usage": {
-      for (const [row, share, ink] of [[0, 0.42, tone.run], [1, 0.71, tone.ask]] as const) {
-        for (let c = 0; c < Math.floor((w - 16) / 7.6); c += 1) g.rect(x + 8 + c * 7.6, y + 24 + row * 22, 5.6, 9).fill(c / Math.floor((w - 16) / 7.6) < share ? ink : tone.strong);
-      }
-      break;
-    }
-    case "dispatch": {
-      if (lipKey) {
-        for (let k = 0; k < W / 9 + 1; k += 1) g.poly([k * 9, 0, k * 9 + 5, 0, k * 9, 10, k * 9 - 5, 10]).fill(tone.ask);
-        g.circle(W / 2 - 38, H / 2 + 2, H * 0.28).fill(tone.edge);
-        g.circle(W / 2 - 38, H / 2 - 2, H * 0.28).fill(tone.raised).stroke({ width: 3, color: s.pressed ? tone.accent : tone.strong });
-        g.rect(W / 2 + 4, H / 2 - 3, 48, 6).fill(Math.floor(t * 1.4) % 2 === 0 ? tone.ask : tone.strong);
-        break;
-      }
-      for (let k = 0; k < W / 9 + 1; k += 1) g.poly([k * 9, 8, k * 9 + 5, 8, k * 9, 20, k * 9 - 5, 20]).fill(tone.ask);
-      g.rect(8, 24, W - 16, H - 32).fill(tone.sunken).stroke({ width: 3, color: tone.strong });
-      const [dx, dy] = [W / 2, 24 + (H - 32 - 14) / 2 + 6];
-      const r = Math.min(W / 2 - 24, (H - 52) / 2);
-      g.circle(dx, dy + 6, r).fill(tone.edge);
-      g.circle(dx, dy, r).fill(tone.raised).stroke({ width: 5, color: s.pressed ? tone.accent : s.lit ? tone.fg : tone.strong });
-      g.circle(dx, dy, r * 0.78).stroke({ width: 1.5, color: tone.strong });
-      g.rect(dx - 9, dy - r + 4, 18, 6).fill(Math.floor(t * 1.4) % 2 === 0 ? tone.ask : tone.strong);
-      const k = r / 38;
-      g.poly([dx - 14 * k, dy + 12 * k, dx + 16 * k, dy - 2 * k, dx - 6 * k, dy + 16 * k]).fill(tone.accent).poly([dx - 14 * k, dy + 12 * k, dx + 16 * k, dy - 2 * k, dx - 4 * k, dy + 2 * k]).fill(tone.raised);
-      break;
-    }
-  }
-  f.code.text = lipKey ? "" : s.code;
-  f.code.style.fill = tone.subtle;
-  f.label.text = s.kind === "usage" ? "" : s.label;
-  f.label.style.fill = s.pressed || s.lit ? tone.fg : tone.muted;
-  f.extra.text = s.kind === "usage" ? "plan-usage" : "";
-  f.extra.style.fill = tone.subtle;
-  f.label.x = lipKey ? W / 2 + 4 : (W - f.label.width) / 2;
-  f.label.y = lipKey ? H / 2 + 8 : H - 20;
-  f.extra.x = x + 8;
-  f.extra.y = y + 6;
+  return { width, height: world.height, inner, labels: labelsOf(world, plan), rim: { x: first[0].x, y: Math.min(first[0].y, last[1].y), w: last[1].x - first[0].x, h: first[3].y - first[0].y } };
 }
 
 // ---- The stage ---------------------------------------------------------------------------------------------
+
+type Facet = {
+  /** The texture's unscaled root, holding `art`, which is scaled from the art's units to the texture's texels. */
+  root: Container;
+  art: Container;
+  plate: Graphics;
+  /** The screen's moving layer. A lit-screen effect would attach here, once, as a filter on this layer. */
+  live: Graphics;
+  /** The surface's true proportions, which keep a circle on it a circle before the projection. */
+  aspect: number;
+  paint: Paint;
+  tex: RenderTexture;
+  mesh: PerspectiveMesh;
+  drawn: string;
+};
+
+const EMPTY = (): BayState => ({ kind: null, pressed: false, calling: false, lit: false, focused: false });
 
 export class ConsoleStage {
   private app: Application | undefined;
@@ -311,14 +176,16 @@ export class ConsoleStage {
   private world: World | undefined;
   private facets: Facet[] = [];
   private shell = new Graphics();
-  private shade = new Graphics();
-  private stencil: Text | undefined;
+  private over = new Graphics();
+  private ribs = new Graphics();
   private tone: Tones | undefined;
+  private mat: Materials | undefined;
   private bays: BayState[] = [];
   private plan: Plan = { widths: [1, 1, 1, 1, 1], depths: [1, 1, 1, 1, 1], keyed: undefined };
   private source: () => BayState[] = () => [];
   private still = false;
   private watch: MediaQueryList | undefined;
+  private density: MediaQueryList | undefined;
   private themed: MutationObserver | undefined;
 
   private constructor(private readonly host: HTMLElement) {}
@@ -332,14 +199,14 @@ export class ConsoleStage {
 
   private async init(): Promise<void> {
     const app = new Application();
-    await app.init({ preference: "webgl", antialias: true, backgroundAlpha: 0, autoDensity: true, resolution: Math.min(window.devicePixelRatio || 1, 2), width: Math.max(1, this.width), height: 120, autoStart: false, sharedTicker: false, powerPreference: "low-power" });
+    await app.init({ preference: "webgl", antialias: true, backgroundAlpha: 0, autoDensity: true, resolution: densityNow(), width: Math.max(1, this.width), height: 120, autoStart: false, sharedTicker: false, powerPreference: "low-power" });
     Ticker.system.stop();
     if (this.gone) return void app.destroy(true, { children: true });
     this.app = app;
     app.stage.eventMode = "none";
     app.canvas.setAttribute("aria-hidden", "true");
     this.host.append(app.canvas);
-    this.tone = readTones(this.host);
+    this.setTone();
     this.build();
     app.ticker.maxFPS = 30;
     app.ticker.add(this.tick);
@@ -347,39 +214,52 @@ export class ConsoleStage {
     this.still = this.watch.matches;
     this.watch.addEventListener("change", this.motion);
     this.themed = new MutationObserver(() => {
-      this.tone = readTones(this.host);
+      this.setTone();
       this.rebuild();
     });
     this.themed.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-still", "data-idle"] });
     document.addEventListener("visibilitychange", this.settle);
+    this.watchDensity();
     this.resize(this.width);
   }
 
+  private setTone(): void {
+    this.tone = readTones(this.host);
+    this.mat = materialsOf(this.tone);
+  }
+
+  /** A window dragged to another display changes the density with no change of size, and the textures follow it. */
+  private watchDensity(): void {
+    this.density?.removeEventListener("change", this.redensify);
+    this.density = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    this.density.addEventListener("change", this.redensify);
+  }
+  private readonly redensify = (): void => {
+    this.watchDensity();
+    this.resize(this.width);
+  };
+
   /** One facet for each width, and one more for the key on a lip. */
   private build(): void {
-    const { app, tone } = this;
-    if (app === undefined || tone === undefined) return;
+    const { app } = this;
+    if (app === undefined) return;
     this.world = worldOf(Math.max(1, this.width), this.plan);
-    const sizes = this.plan.widths.map((w, i) => ({ w: Math.round(FW * w), h: Math.round(FH * this.plan.depths[i]!) }));
-    if (this.plan.keyed !== undefined) sizes.push({ w: Math.round(FW * this.plan.widths[this.plan.keyed]!), h: Math.round((FW * this.plan.widths[this.plan.keyed]!) / this.world!.keyAspect) });
-    for (const { w, h } of sizes) {
+    const shapes = this.plan.widths.map((w, i) => (FW * w) / (FH * this.plan.depths[i]!));
+    if (this.plan.keyed !== undefined) shapes.push(this.world.keyAspect);
+    for (const aspect of shapes) {
       const root = new Container();
-      const g = new Graphics();
-      const style = { fontFamily: tone.mono, fontSize: 9, letterSpacing: 1.5, fill: tone.subtle };
-      const code = new Text({ text: "", style: { ...style }, resolution: 2 });
-      const label = new Text({ text: "", style: { ...style, fontSize: 11, letterSpacing: 0 }, resolution: 2 });
-      const extra = new Text({ text: "", style: { ...style }, resolution: 2 });
-      code.x = 8;
-      code.y = 6;
-      root.addChild(g, code, label, extra);
-      const tex = RenderTexture.create({ width: w, height: h, resolution: 2 });
-      const mesh = new PerspectiveMesh({ texture: tex, verticesX: 12, verticesY: 12 });
-      this.facets.push({ w, h, root, g, code, label, extra, tex, mesh });
+      const art = new Container();
+      const plate = new Graphics();
+      const live = new Graphics();
+      art.addChild(plate, live);
+      root.addChild(art);
+      const tex = RenderTexture.create({ width: 2, height: 2, resolution: 1, antialias: true });
+      const mesh = new PerspectiveMesh({ texture: tex, verticesX: 20, verticesY: 20 });
+      this.facets.push({ root, art, plate, live, aspect, paint: { W: 1, H: 1, f: 1, lipKey: false, named: false }, tex, mesh, drawn: "" });
     }
-    this.stencil = new Text({ text: "SYS 01   NAV 0412.7   RNG 0.42   HDG 271", style: { fontFamily: tone.mono, fontSize: 9, letterSpacing: 2, fill: tone.subtle }, resolution: 2 });
     const keyed = this.plan.keyed === undefined ? [] : [this.facets.at(-1)!.mesh];
     const flat = this.plan.keyed === undefined ? this.facets : this.facets.slice(0, -1);
-    app.stage.addChild(this.shell, ...flat.map((f) => f.mesh), this.shade, ...keyed, this.stencil);
+    app.stage.addChild(this.shell, ...flat.map((f) => f.mesh), this.over, ...keyed, this.ribs);
   }
 
   private readonly motion = (): void => {
@@ -407,7 +287,7 @@ export class ConsoleStage {
     const layout = layoutOf(this.width, this.plan);
     if (this.app !== undefined && this.tone !== undefined) {
       this.world = worldOf(this.width, this.plan);
-      this.app.renderer.resize(this.width, layout.height);
+      this.app.renderer.resize(this.width, layout.height, densityNow());
       this.rebuild();
     }
     return layout;
@@ -423,50 +303,107 @@ export class ConsoleStage {
     if (this.app !== undefined && (this.still || !this.app.ticker.started)) this.frame();
   }
 
-  /** The shell, the lips and the shadows, flat polygons in the theme's tones. */
-  private rebuild(): void {
-    const { world, tone } = this;
-    if (world === undefined || tone === undefined) return;
-    const flat = (q: Quad) => q.flatMap((p) => [p.x, p.y]);
-    const poly = (g: Graphics, q: Quad, fill: number, line: number | undefined, alpha = 1, width = 1.5) => {
-      g.poly(flat(q)).fill({ color: fill, alpha });
-      if (line !== undefined) g.poly(flat(q)).stroke({ width, color: line });
-    };
-    this.shell.clear();
-    this.shade.clear();
-    world.floor.forEach((q) => poly(this.shell, q, tone.base, undefined, 0.9));
-    world.rims.forEach((q) => poly(this.shell, q, tone.edge, tone.muted, 1, 2));
-    world.ends.forEach((q) => poly(this.shell, q, tone.sunken, tone.strong, 1, 2));
-    world.shade.forEach((q) => poly(this.shade, q, tone.base, undefined, 0.55));
-    world.quads.forEach((q) => poly(this.shade, q, tone.base, tone.strong, 0, 3));
-    world.lips.forEach((q) => poly(this.shade, q, tone.sunken, tone.strong, this.plan.keyed === undefined ? 1 : 1, 2.5));
-    world.lips.forEach((q) => this.shade.moveTo(q[0].x, q[0].y).lineTo(q[1].x, q[1].y).stroke({ width: 3, color: tone.muted }));
-    world.quads.forEach((q) => this.shade.moveTo(q[0].x, q[0].y).lineTo(q[3].x, q[3].y).stroke({ width: 3.5, color: tone.muted }));
+  /** Each facet's texture takes the size it lands at on screen, in device pixels. */
+  private fitFacets(): void {
+    const { world, app } = this;
+    if (world === undefined || app === undefined) return;
     this.facets.forEach((f, i) => {
       const q = i < world.quads.length ? world.quads[i]! : world.keyQuad;
-      if (q !== undefined) f.mesh.setCorners(q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y);
+      if (q === undefined) return;
+      f.mesh.setCorners(q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y);
+      const across = Math.max(span(q[0], q[1]), span(q[3], q[2]));
+      const down = Math.max(span(q[0], q[3]), span(q[1], q[2]));
+      const W = across;
+      const H = W / f.aspect;
+      const lipKey = i === this.plan.widths.length;
+      f.paint = { W, H, f: down / H, lipKey, named: i === this.plan.keyed };
+      const texels = app.renderer.resolution * TEXELS;
+      const [tw, th] = [Math.ceil(across * texels), Math.ceil(down * texels)];
+      if (f.tex.width !== tw || f.tex.height !== th) {
+        f.tex.destroy(true);
+        f.tex = RenderTexture.create({ width: tw, height: th, resolution: 1, antialias: true });
+        f.mesh.texture = f.tex;
+        f.mesh.setCorners(q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y);
+      }
+      f.art.scale.set(tw / W, th / H);
+      f.drawn = "";
     });
-    const first = world.rims[0]!;
-    const mid = world.rims[Math.floor(world.rims.length / 2)]!;
-    if (this.stencil !== undefined) {
-      this.stencil.x = first[0].x + 14;
-      this.stencil.y = (first[0].y + first[3].y) / 2 - 5 + (mid[0].y - first[0].y) * 0.15;
-      this.stencil.style.fill = tone.subtle;
-      this.stencil.visible = this.width >= 760;
-    }
+  }
+
+  /** The shell: hood, lips, front wall, end cheeks and ribs, each a stack of hard bands. */
+  private rebuild(): void {
+    const { world, mat } = this;
+    if (world === undefined || mat === undefined) return;
+    const fill = (g: Graphics, q: Quad, colour: number, alpha = 1) => g.poly(q.flatMap((p) => [p.x, p.y])).fill({ color: colour, alpha });
+    /** A quad cut across into bands, each to the fraction it ends at. */
+    const bands = (g: Graphics, q: Quad, list: readonly (readonly [number, number])[]) => {
+      let from = 0;
+      for (const [to, colour] of list) {
+        fill(g, partOf(q, 0, from, 1, to), colour);
+        from = to;
+      }
+    };
+    const bolt = (g: Graphics, q: Quad, x: number, y: number, r: number) => {
+      const p = inQuad(q, x, y);
+      g.circle(p.x, p.y + 0.6, r + 0.7).fill(mat.gap);
+      g.circle(p.x, p.y, r).fill(mat.cap);
+      g.rect(p.x - r * 0.65, p.y - 0.4, r * 1.3, 0.8).fill(mat.gap);
+    };
+    const { shell, over, ribs } = this;
+    shell.clear();
+    over.clear();
+    ribs.clear();
+    const big = this.width >= 900;
+    world.ends.forEach((q) => {
+      fill(shell, q, mat.hullShade);
+      fill(shell, [q[0], q[1], inQuad(q, 1, 0.14), inQuad(q, 0, 0.14)], mat.hood);
+    });
+    world.floor.forEach((q) => {
+      bands(shell, q, [[0.28, mat.gap], [0.8, mat.wall], [0.9, mat.kick], [1, mat.gap]]);
+      const count = Math.max(4, Math.round(span(q[0], q[1]) / 11));
+      const from = count * 0.3;
+      for (let k = Math.round(from); k < count - from; k += 1) fill(shell, partOf(q, (k + 0.2) / count, 0.42, (k + 0.65) / count, 0.68), mat.gap);
+    });
+    world.rims.forEach((q) => {
+      bands(shell, q, [[0.14, mat.glint], [0.44, mat.cap], [0.84, mat.hood], [1, mat.hullShade]]);
+      for (const x of [0.34, 0.66]) {
+        fill(shell, partOf(q, x, 0, x + 0.006, 0.84), mat.gap);
+        fill(shell, partOf(q, x + 0.006, 0, x + 0.012, 0.84), mat.glint);
+      }
+      if (big) for (const x of [0.04, 0.96]) bolt(shell, q, x, 0.62, 1.7);
+    });
+    world.shade.forEach((q) => fill(over, q, mat.gap, 0.42));
+    world.lips.forEach((q, i) => {
+      if (i === this.plan.keyed) return;
+      bands(over, q, [[0.08, mat.glint], [0.2, mat.cap], [0.9, mat.fascia], [1, mat.hullShade]]);
+      if (span(q[0], q[3]) >= 14) for (const x of [0.035, 0.965]) bolt(over, q, x, 0.56, big ? 2 : 1.5);
+    });
+    const faces: Record<string, readonly [number, number, number]> = {
+      rim: [mat.glint, mat.cap, mat.hood],
+      deck: [mat.cap, mat.hood, mat.hullShade],
+      lip: [mat.cap, mat.hood, mat.hullShade],
+      wall: [mat.kick, mat.wall, mat.gap],
+    };
+    world.ribs.forEach(({ face, column, quad }) => fill(ribs, quad, faces[face]![column]!));
+    this.fitFacets();
     this.frame();
   }
 
   private readonly tick = (): void => this.frame();
 
   private frame(): void {
-    const { app, tone } = this;
-    if (app === undefined || tone === undefined || this.world === undefined) return;
+    const { app, tone, mat } = this;
+    if (app === undefined || tone === undefined || mat === undefined || this.world === undefined) return;
     const t = this.still ? 0 : performance.now() / 1000;
     this.bays = this.source();
     this.facets.forEach((f, i) => {
-      const state = this.bays[i] ?? { kind: null, pressed: false, calling: false, lit: false, code: "", label: "" };
-      draw(f, state, tone, t, this.plan.keyed !== undefined && i === this.plan.widths.length);
+      const state = this.bays[i] ?? EMPTY();
+      const key = `${state.kind}|${state.pressed}|${state.lit}|${state.focused}`;
+      if (f.drawn !== key) {
+        drawPlate(f.plate, f.paint, state, tone, mat);
+        f.drawn = key;
+      }
+      drawLive(f.live, f.paint, state, tone, mat, t);
       app.renderer.render({ container: f.root, target: f.tex, clear: true, clearColor: [0, 0, 0, 0] });
     });
     app.renderer.render(app.stage);
@@ -476,6 +413,7 @@ export class ConsoleStage {
     this.gone = true;
     this.themed?.disconnect();
     this.watch?.removeEventListener("change", this.motion);
+    this.density?.removeEventListener("change", this.redensify);
     document.removeEventListener("visibilitychange", this.settle);
     const app = this.app;
     if (app === undefined) return;
@@ -486,3 +424,5 @@ export class ConsoleStage {
     app.destroy({ removeView: true }, { children: true });
   }
 }
+
+const densityNow = () => Math.min(window.devicePixelRatio || 1, 2);

@@ -475,6 +475,11 @@
     & .console-bay > :is(.console-gauges, .console-usage) > * { opacity: 0; }
     & .console-bay .console-scope .armada-tl__dot { background: transparent; }
     & .console-bay .console-scope :is(.armada-tl__axis-line, .armada-tl__now) { display: none; }
+    & .console-bay.console-bay .deck-tile.deck-tile:focus-visible { outline: none; }
+    & .console-bay .console-scope__open { opacity: 0; }
+    & .console-bay:is(:hover, :focus-within) .console-scope__open { opacity: 1; }
+    & .console-bay__label { position: absolute; z-index: 2; font-family: var(--font-mono); line-height: 1; letter-spacing: 0.02em; white-space: nowrap; color: var(--fg-muted); pointer-events: none; user-select: none; }
+    & .console-bay:is(:hover, :focus-within) > .console-bay__label, & .console-bay:has([aria-pressed="true"]) > .console-bay__label { color: var(--fg-default); }
   }
 }
 

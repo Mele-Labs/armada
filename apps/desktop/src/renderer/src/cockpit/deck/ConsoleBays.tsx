@@ -247,8 +247,7 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
     stage.current?.setSource((): BayState[] =>
       items.map((id, at) => {
         const el = els.current[at];
-        if (id === null || el === null || el === undefined) return { kind: null, pressed: false, calling: false, lit: false, code: "", label: "" };
-        const meta = id === "dispatch" ? { code: "DSP", label: "Dispatch" } : INSTRUMENTS[id];
+        if (id === null || el === null || el === undefined) return { kind: null, pressed: false, calling: false, lit: false, focused: false };
         const kind: Kind = id === "dispatch" ? "dispatch" : id;
         let list: Dot[] | undefined;
         if (id === "scope") {
@@ -268,7 +267,7 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
           }
           list = dots.current.list;
         }
-        return { kind, pressed: el.querySelector("[aria-pressed='true']") !== null, calling: el.querySelector("[data-calling]") !== null, lit: el.matches(":hover, :focus-within"), code: meta.code, label: meta.label, ...(list === undefined ? {} : { dots: list }) };
+        return { kind, pressed: el.querySelector("[aria-pressed='true']") !== null, calling: el.querySelector("[data-calling]") !== null, lit: el.matches(":hover, :focus-within"), focused: el.querySelector(".deck-tile:focus-visible") !== null, ...(list === undefined ? {} : { dots: list }) };
       }),
     );
     stage.current?.poke();
@@ -278,6 +277,7 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
       <div ref={host} className="console-pixi" />
       {items.map((id, at) => {
         const room = layout?.inner[at];
+        const label = layout?.labels[at];
         return (
           <div
             key={at}
@@ -288,6 +288,16 @@ function CanvasBays({ wiring }: { wiring: Wiring }) {
             style={room === undefined ? { display: "none" } : { left: room.x, top: room.y, width: room.w, height: room.h }}
           >
             {id === null ? null : id === "dispatch" ? wiring.dispatch : <Seated id={id} wiring={wiring} />}
+            {id === null || room === undefined || label === undefined ? null : (
+              // The word is a straight piece of the page, standing on the lip; the bay's button runs under it and takes the press.
+              <span
+                className="console-bay__label"
+                aria-hidden="true"
+                style={{ left: label.x - room.x, top: label.y - room.y, fontSize: label.size, transform: `translate(-50%, -50%) rotate(${label.angle}rad)` }}
+              >
+                {id === "dispatch" ? "Dispatch" : INSTRUMENTS[id].label}
+              </span>
+            )}
           </div>
         );
       })}
