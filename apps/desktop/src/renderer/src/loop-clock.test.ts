@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { startLoopClock } from "./loop-clock";
+import { onLoopTick, startLoopClock } from "./loop-clock";
 
 /** The parts of a CSS animation the clock touches. */
 function loop(currentTime: number, iterations = Infinity, target: unknown = {}): Animation {
@@ -144,6 +144,30 @@ test("a loop that appears in an idle window is paused, so it does not run at the
   advance(200);
   expect(late.pause).toHaveBeenCalled();
   expect(late.currentTime).toBe(0);
+});
+
+test("a canvas's loop follows the same tick, holds while the window is still or idle, and stops when told", () => {
+  const follow = vi.fn();
+  const off = onLoopTick(follow);
+  stop = startLoopClock();
+
+  advance(600);
+  expect(follow).toHaveBeenCalledTimes(3);
+
+  marks.add("data-still");
+  advance(400);
+  marks.delete("data-still");
+  marks.add("data-idle");
+  advance(400);
+  expect(follow).toHaveBeenCalledTimes(3);
+
+  marks.delete("data-idle");
+  advance(200);
+  expect(follow).toHaveBeenCalledTimes(4);
+
+  off();
+  advance(400);
+  expect(follow).toHaveBeenCalledTimes(4);
 });
 
 test("a loop out of sight does not move, and the others do", () => {

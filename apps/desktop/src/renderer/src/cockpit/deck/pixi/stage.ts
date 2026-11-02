@@ -7,7 +7,8 @@
 // glow (over the drones' shadows, so a file a drone is on still shows), the lines they leave, the standing pictures, the drones, the effects.
 // The ground and the plots are built again only when the tree or what stands on a plot changes, never for a file, a glow or a drone.
 // Continuous motion belongs to the plays an event started; the ticker runs while one does, at half rate where the camera is still, and
-// stops when none does. A drone that loops holds its pose. A folded pane, a hidden window and an idle one draw nothing.
+// stops when none does. A drone's loop is drawn on the loop clock (`loop-clock.ts`): at thirty frames a second it held the whole window's GPU
+// (`motion.md`). A folded pane, a hidden window and an idle one draw nothing.
 
 // A page whose policy has no `unsafe-eval` cannot use Pixi's generated uniform code; this swaps it for the same code written out.
 import "pixi.js/unsafe-eval";
@@ -33,7 +34,9 @@ import { heldScale, standsOf, type StandSpec } from "./stands";
 import { drawTerrain } from "./terrain";
 import { drawTiles, tilesIn, type TilesIn } from "./tiles";
 import { drawMarks } from "./marks";
-import { drawBlame, drawLinks, drawPad } from "./off-floor";
+import { drawBlame, drawLinks, drawPad, padMoving, thinkMoving } from "./off-floor";
+import { arcsMoving } from "./arcs";
+import { onLoopTick } from "../../../loop-clock";
 import { drawLens } from "./lens";
 import { unitOf } from "../lens";
 import type { LensSpec } from "./scene";
@@ -115,6 +118,7 @@ export class Stage {
   private palette: Palette | undefined;
   private frame = 0;
   private quiet = false;
+  private offClock: (() => void) | undefined;
   /** The pane is folded away or has no size: nothing is drawn or built for it until it is shown again. */
   private hidden = false;
   /** A scene was handed over while nothing was drawn: it is taken in when the stage is seen again. */
@@ -238,6 +242,7 @@ export class Stage {
       this.effects,
     );
     app.ticker.add(this.tick);
+    this.offClock = onLoopTick(this.onClock);
     // A name drawn before its font arrived is drawn again once it has.
     void document.fonts.ready.then(() => this.restyle());
     // A theme put on the page, a mod's edited, or reduced motion asked for changes the tokens under every colour here. The loader adopts
@@ -363,6 +368,7 @@ export class Stage {
 
   destroy(): void {
     this.gone = true;
+    this.offClock?.();
     cancelAnimationFrame(this.frame);
     this.listeners.clear();
     this.themed?.disconnect();
@@ -807,7 +813,7 @@ export class Stage {
     );
   }
 
-  /** A play an event started has not finished. A drone's own loop draws nothing: at thirty frames a second it held the whole window's GPU (`motion.md`). */
+  /** A play an event started has not finished. */
   private get moving(): boolean {
     const { scene } = this;
     const pulse = this.palette?.pulseMs ?? 0;
@@ -817,6 +823,28 @@ export class Stage {
       (one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)),
     );
   }
+
+  /** A drone's loop is running: drawn on the loop clock rather than the ticker. */
+  private get looping(): boolean {
+    const { scene } = this;
+    if (scene === undefined || (this.palette?.pulseMs ?? 0) <= 0) return false;
+    const clock = this.clock();
+    return (
+      scene.drones.some((one) => one.loop && one.aim !== undefined) ||
+      padMoving(scene, clock) ||
+      thinkMoving(scene, clock) ||
+      arcsMoving(scene, clock)
+    );
+  }
+
+  /** One step on the clock's tick, where the ticker is not already drawing. */
+  private readonly onClock = (): void => {
+    if (this.quiet || this.app === undefined || this.app.ticker.started || !this.looping) return;
+    this.rebuildFx();
+    this.placeStands();
+    this.placeFliers();
+    this.app.render();
+  };
 
   private get easing(): boolean {
     return (
