@@ -111,7 +111,7 @@ An icon is off, with its reason as the tooltip, where its view has nothing in it
 
 ## The Jobs list
 
-A row is one line: the name, then status glyphs in fixed columns, so the glyphs line up from row to row.
+A row is a list card, the same card an issue, a pull request and a Logbook entry draw: the name, then status glyphs in fixed places in the corner, so the glyphs line up from row to row and the state is last.
 Rows are divided by a hairline and the repository groups are spaced apart.
 Hovering a row opens its full inspect card.
 
@@ -119,17 +119,17 @@ A right press on a row, or on the list's empty room, opens a menu whose View gro
 
 | Field | Draws |
 |---|---|
-| Active PRs | The Job's open pull request, on a line of its own under the row, under Now where Now is on |
-| Issues | The issue attached to the Job |
-| Now | The last thing the Job said, as a second line |
-| Time | How long since its last turn |
-| Conflicts | The write-clash mark |
-| Status | The Job's state mark |
-| Workflow | The step of the Job's workflow it is at |
+| Active PRs | The Job's open pull request, as a number on the line under the name |
+| Issues | The issue attached to the Job, as a number on the line under the name |
+| Now | The last thing the Job said, on a line under those |
+| Time | How long since its last turn, as plain text: before the corner on a one-line row, at the end of the number's line otherwise |
+| Conflicts | The write-clash mark, in the corner |
+| Status | The Job's state mark, last in the corner |
+| Workflow | The step of the Job's workflow it is at, on a line under the number's |
 
 The default is Status and Conflicts.
-Every field except Now and Active PRs has a column of its own, the same for every row, so a row without the field leaves its place empty and nothing moves.
-A column no row fills collapses.
+The corner's places are the same for every row, so a row without a mark leaves its place empty and nothing moves.
+A row without any other field draws nothing for it.
 The choice is kept with Bridge's settings.
 
 ## Bays

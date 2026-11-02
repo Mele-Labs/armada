@@ -1,6 +1,7 @@
 // What the Jobs list draws on each row, chosen from its context menu: a right press on a row or on the list's empty room opens a View
-// group of seven checkable fields, Status and Conflicts on to begin with. Each field draws a column, Now a second line and Active PRs a
-// line of its own under it, a column no row fills draws no room, and the choice is kept in `bridge.rowView` of settings.json.
+// group of seven checkable fields, Status and Conflicts on to begin with. Status and Conflicts are places in the card's corner, Issues and
+// Active PRs chips on the line under the title, Time plain text at the end of it, and Workflow and Now lines under those. A row without
+// the fact draws nothing for it, and the choice is kept in `bridge.rowView` of settings.json.
 // Through `App` on the flight deck's ship, where "Migration notes" is given an issue and a workflow so that every field has a row to fill it.
 
 import { expect, test, vi } from "vitest";
@@ -53,7 +54,12 @@ function withDetail(): Scenario {
 const list = () => page.getByRole("region", { name: "Jobs", exact: true });
 const row = (name: string) => list().getByRole("button", { name, exact: true });
 const rows = () => [...document.querySelectorAll<HTMLElement>(".deck-list .deck-row")];
-const cells = (field: string) => [...document.querySelectorAll<HTMLElement>(`.deck-list .deck-row__cell[data-field="${field}"]`)];
+const of = (selector: string) => [...document.querySelectorAll<HTMLElement>(`.deck-list .deck-row ${selector}`)];
+/** The state's place in the corner is the wide one, and the conflicts' the narrow one beside it. */
+const statusPlaces = () => of(".armada-list-card__mark[data-wide]");
+const conflictPlaces = () => of(".armada-list-card__mark:not([data-wide])");
+const filled = () => rows().find((one) => one.getAttribute("aria-label") === FILLED)!;
+const bare = () => rows().find((one) => one.getAttribute("aria-label") === "Cache key")!;
 const field = (label: string) => page.getByRole("menuitem", { name: label, exact: true });
 const FIELDS = ["Active PRs", "Issues", "Now", "Time", "Conflicts", "Status", "Workflow"];
 /** The fields the menu shows ticked, which it marks as current. */
@@ -87,27 +93,28 @@ test("a right press on the list's empty room opens the View group alone", async 
   expect(page.getByRole("menuitem").elements().map((one) => one.textContent)).toEqual(FIELDS);
 });
 
-test("by default a row draws its Status and Conflicts columns and nothing else", async () => {
+test("by default a row draws its Status and Conflicts places and nothing else", async () => {
   await deck();
-  expect(cells("status")).toHaveLength(rows().length);
-  expect(cells("conflicts")).toHaveLength(rows().length);
-  for (const other of ["issue", "time", "workflow"]) expect(cells(other), other).toHaveLength(0);
-  expect(document.querySelector(".deck-row__says")).toBeNull();
-  expect(document.querySelector(".deck-row__prs")).toBeNull();
+  expect(statusPlaces()).toHaveLength(rows().length);
+  expect(conflictPlaces()).toHaveLength(rows().length);
+  for (const other of [".armada-list-card__tag", ".armada-list-card__at", ".armada-list-card__lines"]) expect(of(other), other).toHaveLength(0);
 });
 
-test("each field switched on draws its column on every row, and switching it off takes the column away", async () => {
+test("each field switched on draws its part, and switching it off takes the part away", async () => {
   await deck();
-  const column = { Issues: "issue", Time: "time", Workflow: "workflow", Conflicts: "conflicts", Status: "status" } as const;
-  for (const [label, name] of Object.entries(column)) {
-    const had = cells(name).length;
+  const part = { Issues: ".armada-list-card__chip", "Active PRs": ".armada-list-card__chip", Time: ".armada-list-card__at", Workflow: ".deck-row__flow", Now: ".deck-row__says", Conflicts: ".armada-list-card__mark:not([data-wide])", Status: ".armada-list-card__mark[data-wide]" } as const;
+  for (const [label, selector] of Object.entries(part)) {
+    const had = of(selector).length;
     pressEmptyRoom();
     await field(label).click();
-    await expect.poll(() => cells(name).length, { message: label }).toBe(had === 0 ? rows().length : 0);
+    await expect.poll(() => of(selector).length, { message: label }).not.toBe(had);
+    pressEmptyRoom();
+    await field(label).click();
+    await expect.poll(() => of(selector).length, { message: label }).toBe(had);
   }
 });
 
-test("a row's own fact stands in its column: its issue, its workflow's step, how long since its last turn", async () => {
+test("a row's own fact stands on its card: its issue, its workflow's step, how long since its last turn", async () => {
   await deck();
   pressEmptyRoom();
   await field("Issues").click();
@@ -116,26 +123,25 @@ test("a row's own fact stands in its column: its issue, its workflow's step, how
   pressEmptyRoom();
   await field("Time").click();
 
-  const filled = rows().find((one) => one.getAttribute("aria-label") === FILLED)!;
-  const text = (selector: string) => filled.querySelector(selector)?.textContent;
-  await expect.poll(() => text(".deck-row__issue")).toBe("#2301");
+  const text = (selector: string) => filled().querySelector(selector)?.textContent;
+  await expect.poll(() => text(".armada-list-card__chip")).toBe("#2301");
   expect(text(".deck-row__flow")).toBe("Build");
-  expect(text('.deck-row__cell[data-field="time"] .deck-row__said')).toBeTruthy();
-  // A row without the fact leaves its place empty, and nothing moves.
-  const bare = rows().find((one) => one.getAttribute("aria-label") === "Cache key")!;
-  expect(bare.querySelector('.deck-row__cell[data-field="issue"]')?.textContent).toBe("");
-  expect(bare.querySelector('.deck-row__cell[data-field="workflow"]')?.textContent).toBe("");
+  expect(text(".armada-list-card__at")).toBeTruthy();
+  // A row without the fact draws nothing for it.
+  expect(bare().querySelector(".armada-list-card__chip")).toBeNull();
+  expect(bare().querySelector(".deck-row__flow")).toBeNull();
 });
 
-test("a column a row fills draws its room", async () => {
+test("a row with nothing under its title draws no tag line beside one that has", async () => {
   await deck();
   pressEmptyRoom();
   await field("Issues").click();
-  await expect.poll(() => cells("issue")).toHaveLength(rows().length);
-  expect(cells("issue")[0]!.getBoundingClientRect().width).toBeGreaterThan(0);
+  await expect.poll(() => filled().querySelector(".armada-list-card__tag")).not.toBeNull();
+  expect(bare().querySelector(".armada-list-card__tag")).toBeNull();
+  expect(filled().getBoundingClientRect().height).toBeGreaterThan(bare().getBoundingClientRect().height);
 });
 
-test("a column no row fills draws no room", async () => {
+test("a field no row fills draws nothing", async () => {
   // The ship as it is: none of its Jobs has an issue or a workflow.
   mount("cockpit-ship-flightdeck");
   await onScreen();
@@ -144,34 +150,28 @@ test("a column no row fills draws no room", async () => {
     pressEmptyRoom();
     await field(label).click();
   }
-  await expect.poll(() => cells("workflow")).toHaveLength(rows().length);
-  for (const name of ["issue", "workflow"]) {
-    expect(cells(name).every((one) => one.textContent === ""), name).toBe(true);
-    expect(cells(name)[0]!.getBoundingClientRect().width, name).toBe(0);
-  }
+  pressEmptyRoom();
+  await expect.element(field("Workflow")).toBeVisible();
+  expect(ticked()).toEqual(["Issues", "Conflicts", "Status", "Workflow"]);
+  expect(of(".armada-list-card__tag")).toHaveLength(0);
+  expect(of(".deck-row__flow")).toHaveLength(0);
 });
 
-test("Now is a second line under the name, and Active PRs a line of its own under Now", async () => {
+test("Active PRs is a chip under the name, and Now a line under that", async () => {
   await deck();
-  const filled = () => rows().find((one) => one.getAttribute("aria-label") === FILLED)!;
-  const top = (selector: string) => filled().querySelector(selector)?.getBoundingClientRect();
+  const box = (selector: string) => filled().querySelector(selector)?.getBoundingClientRect();
 
   pressEmptyRoom();
   await field("Active PRs").click();
-  // Alone, the pull requests' line is the second line, with the pull request's number on it.
-  await expect.poll(() => top(".deck-row__prs")).toBeDefined();
-  expect(filled().querySelector(".deck-row__prs")?.textContent).toContain("#1892");
-  expect(top(".deck-row__prs")!.top).toBeGreaterThanOrEqual(top(".deck-row__title")!.bottom);
-  const alone = top(".deck-row__prs")!.top;
+  await expect.poll(() => box(".armada-list-card__tag")).toBeDefined();
+  expect(filled().querySelector(".armada-list-card__tag")?.textContent).toContain("#1892");
+  expect(box(".armada-list-card__tag")!.top).toBeGreaterThanOrEqual(box(".armada-list-card__title")!.bottom);
 
   pressEmptyRoom();
   await field("Now").click();
-  await expect.poll(() => top(".deck-row__says")).toBeDefined();
+  await expect.poll(() => box(".deck-row__says")).toBeDefined();
   expect(filled().querySelector(".deck-row__says")?.textContent).not.toBe("");
-  expect(top(".deck-row__says")!.top).toBeGreaterThanOrEqual(top(".deck-row__title")!.bottom);
-  // The pull requests give Now the second line and stand under it.
-  expect(top(".deck-row__prs")!.top).toBeGreaterThanOrEqual(top(".deck-row__says")!.bottom);
-  expect(top(".deck-row__prs")!.top).toBeGreaterThan(alone);
+  expect(box(".deck-row__says")!.top).toBeGreaterThanOrEqual(box(".armada-list-card__tag")!.bottom);
 });
 
 test("the choice is saved to the bridge.rowView setting, every field named", async () => {
@@ -186,9 +186,9 @@ test("the choice is saved to the bridge.rowView setting, every field named", asy
 test("the choice saved is the one drawn: a window that reads it draws those fields and ticks them in the menu", async () => {
   const app = await deck();
   await app.api.saveSettings({ "bridge.rowView": { pr: false, issue: true, now: false, time: false, conflicts: false, status: false, workflow: false } });
-  await expect.poll(() => cells("issue")).toHaveLength(rows().length);
-  expect(cells("status")).toHaveLength(0);
-  expect(cells("conflicts")).toHaveLength(0);
+  await expect.poll(() => filled().querySelector(".armada-list-card__chip")?.textContent).toBe("#2301");
+  expect(statusPlaces()).toHaveLength(0);
+  expect(conflictPlaces()).toHaveLength(0);
   pressEmptyRoom();
   await expect.element(field("Issues")).toBeVisible();
   expect(ticked()).toEqual(["Issues"]);
