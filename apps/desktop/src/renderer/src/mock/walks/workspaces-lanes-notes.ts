@@ -69,7 +69,7 @@ const notes = walk("workspaces-lanes", [
   { look: inside(PANEL, dropdown("Ends when")), say: "Ends when is two dropdowns, set from the step: The pull request, is open" },
   { type: "approved", into: inside(PANEL, dropdown("Ends when state")), say: "Choosing is approved saves at once: Open PR ends when the pull request is approved" },
   { press: button("Add after step Open PR"), say: "Edit, Tell an agent, Add after and Delete. Add after puts a step beside it" },
-  { press: inside(group("Armada"), button("planning", { exact: true })), say: "A lane is any lifecycle" },
+  { press: inside(group("Shipped with Armada"), button("planning", { exact: true })), say: "A lane is any lifecycle" },
   { look: inside(LANES, button("Document: In review", { exact: true })), say: "planning moves a Document through Draft, In review and Approved, with a ticket beside it" },
 
   toSessions,

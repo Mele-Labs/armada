@@ -11,7 +11,7 @@
 import { button, inside, region, role, row, text, toSystemPage, walk } from "../walk";
 
 const group = (name: string) => role("group", name, { exact: true });
-const ARMADA = group("Armada");
+const ARMADA = group("Shipped with Armada");
 const REPOSITORY = group("armada repository");
 const YOURS = group("Yours");
 const step = (name: string) => group(name);
@@ -23,7 +23,7 @@ export const workflowsManaged = walk("workflows", [
   { look: ARMADA, say: "Armada's: read-only" },
   { look: REPOSITORY, say: "This repository's copies" },
   { look: YOURS, say: "Yours" },
-  { hover: role("img", "This repository's copy replaces Armada's"), say: "This repository's feature replaces Armada's" },
+  { hover: role("img", "armada's own copy, replaces Armada's"), say: "armada's own feature replaces Armada's" },
   { press: inside(REPOSITORY, button("feature", { exact: true })), say: "The repository's feature" },
   { look: inside(step("Walk"), text("you approve the walk")), say: "Walk ends when you approve the walk" },
   { look: inside(step("Walk"), role("group", /^Cockpit timeline rail/)), say: "Drifted here: a Job Fleet nudged at Walk, with Open Job and Not a drift" },
