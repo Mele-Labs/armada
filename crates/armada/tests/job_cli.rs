@@ -128,8 +128,8 @@ fn armada(home: &Path, in_folder: &Path, args: &[&str], stdin: Option<&str>) -> 
     run.args(args)
         .current_dir(in_folder)
         .env("HOME", home)
-        .env_remove("ARMADA_SESSION")
-        .env_remove("CLAUDE_CODE_SESSION_ID")
+        .env_remove(adapters::leasing::Holder::SESSION_ENV)
+        .env_remove(adapters::leasing::Holder::AGENT_SESSION_ENV)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
