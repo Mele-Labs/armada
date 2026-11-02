@@ -364,6 +364,26 @@ test("the retro sheet draws the same item, keeps its evidence behind a control, 
   await expect.element(sheet.getByText("Job started")).toBeVisible();
 });
 
+test("the retro sheet draws each item's answers in its card, ghost, and no head holds them", async () => {
+  mount(
+    <SessionRetroSheet
+      subject={{ kind: "session", id: "s-01K6Q3" }}
+      session="Retire two guides"
+      read={async () => ({ ok: true, retro: RETRO })}
+      onAgreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
+      onDisagreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
+      sessions={{ start: async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }), open: () => {} }}
+      floor={false}
+      onClose={() => {}}
+    />,
+  );
+  const card = page.getByRole("dialog", { name: "Retro" }).getByRole("listitem");
+  for (const name of ["Start Job", "Reject change"]) {
+    await expect.element(card.getByRole("button", { name, exact: true })).toBeVisible();
+    await expect.element(card.getByRole("button", { name, exact: true })).toHaveAttribute("data-variant", "ghost");
+  }
+});
+
 test("the retro sheet shows an answered item as it stands, and offers buttons only on an open one", async () => {
   const base = { who: "fleet" as const, lands_in: "armada" as const, evidence: [] };
   const retro: Retro = {
