@@ -42,7 +42,7 @@ test("every document a window loads starts the motion rules", () => {
   expect(without).toEqual([]);
   // The page, bar and panel of a walk window hold its focus in turn, so none of them may stop for losing it.
   for (const entry of WALK_WINDOW)
-    expect(ENTRIES[entry], entry).toContain("startMotionRules({ focus: false })");
+    expect(ENTRIES[entry], entry).toMatch(/startMotionRules\(\{\s*focus: false,?\s*\}\)/);
 });
 
 test("a walk window's page keeps moving without focus, stands still after a minute with no input and wakes on the pointer", () => {
