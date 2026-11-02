@@ -208,7 +208,8 @@ test("a report whose Job holds its report row shows the Job on its row and in it
 
 test("a report no Job holds, as when its Job ended without merging, shows no Job and offers Start a Job", async () => {
   await openLinked();
-  const mark = row(VERB).element().querySelector(".issues-row__job-mark");
+  // The corner's places are the fix, the Job and the read state, and the Job's stays empty.
+  const mark = row(VERB).element().querySelectorAll(".armada-list-card__mark")[1];
   expect(mark?.childElementCount).toBe(0);
 
   await userEvent.click(row(VERB));
