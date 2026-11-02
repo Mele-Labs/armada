@@ -6,13 +6,19 @@
 //! 7f7f4ae4 did it twice on 24 Oct 2026, the second time after a lone "Status:" line. So the first
 //! question after his message, and else the turn's end, is sent back to have the answer written.
 //! **Once a message**: a second send-back would only loop.
+//!
+//! **A status line is a lone line the agent carries on past**, whatever its first word. Job 77d7b355
+//! wrote "Found the main causes. I'm writing them up now." on 2 Nov 2026, ran a tool, and asked; and
+//! asked again after his answer to that question with nothing written at all. So a lone line is held
+//! until what follows it says what it was: a tool call makes it a status line, the question or the
+//! turn's end makes it the answer. And his answer to a question is his message, as a typed one is.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 
-use super::Runtime;
+use super::{Runtime, State};
 use crate::daemon::Fleet;
 
 /// What the agent reads when it asks a question before writing him anything since his message.
@@ -25,16 +31,41 @@ pub(crate) const UNANSWERED_TURN: &str = "Since his last message you have writte
 /// of it in the stream, and the stream is read apart from the door, so the door can be first.
 const CAUGHT_UP_WITHIN: Duration = Duration::from_secs(2);
 
-/// Whether `text` the agent wrote answers anything: all but a lone status line does.
-pub(crate) fn answers(text: &str) -> bool {
+/// The person wrote, or answered a question: the agent owes him a reply.
+pub(crate) fn owed(state: &mut State) {
+    state.owes_reply = true;
+    state.reply_line = false;
+}
+
+/// The agent wrote `text`. More than a line answers him; a lone line starting "Status:" never does;
+/// any other lone line is held until what follows it says, and a second one with it is an answer.
+pub(super) fn heard(state: &mut State, text: &str) {
     let text = text.trim();
-    !(text.starts_with("Status:") && !text.contains('\n'))
+    if text.contains('\n') || state.reply_line {
+        state.owes_reply = false;
+        state.reply_line = false;
+    } else if !text.starts_with("Status:") {
+        state.reply_line = true;
+    }
+}
+
+/// The agent called a tool other than the question after a lone line: it was a status line.
+pub(super) fn carried_past(state: &mut State) {
+    state.reply_line = false;
+}
+
+/// The lone line was the last thing before the question or the turn's end: it was his answer.
+fn line_settled(state: &mut State) {
+    if std::mem::take(&mut state.reply_line) {
+        state.owes_reply = false;
+    }
 }
 
 /// Whether the turn that ended leaves him unanswered. Not while another turn waits to start, which
 /// may be his message's own.
 pub(super) fn turn_unanswered(runtime: &Runtime) -> bool {
     let mut state = runtime.state();
+    line_settled(&mut state);
     !state.helm && state.queued == 0 && std::mem::take(&mut state.owes_reply)
 }
 
@@ -62,6 +93,7 @@ where
             }
         }
         let mut state = runtime.state();
+        line_settled(&mut state);
         !state.helm && std::mem::take(&mut state.owes_reply)
     }
 
