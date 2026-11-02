@@ -631,6 +631,8 @@ export type Session = {
   heldOpenBy?: readonly HeldOpenBy[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string; summary?: string };
+  /** What the Job has done, in a sentence or two. Fleet serves nothing like it, so the wire never sets it and a real Job has none; only the mock's `cockpit-ship` fills it. The Calls HUD draws it where it is present (`ConsoleCalls.tsx`). */
+  soFar?: string;
   /**
    * What Fleet read the Session to be doing: working, stuck, replied, done or idle. **The one answer**
    * the Sessions list, the Cockpit's tiles, lanes and calls all draw. Absent from a Fleet that does not

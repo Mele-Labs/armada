@@ -11,7 +11,7 @@ import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 import { PANELS, keySheetOf, panelKey, type Panel, type PanelId } from "./keys-model";
 
 const rootOf = (panel: Panel) => document.querySelector<HTMLElement>(panel.root) ?? undefined;
-const present = () => PANELS.filter((one) => one.aside !== true && rootOf(one) !== undefined);
+const present = () => PANELS.filter((one) => rootOf(one) !== undefined);
 
 /** The panel a key press or a focus is in. */
 export function panelAt(target: EventTarget | null): Panel | undefined {
@@ -32,6 +32,7 @@ export function remember(target: EventTarget | null): void {
 export function focusPanel(id: PanelId, cursor?: string): void {
   const panel = PANELS.find((one) => one.id === id);
   const root = panel === undefined ? undefined : rootOf(panel);
+  if (panel !== undefined && root === undefined && panel.elsewhere !== undefined) return document.querySelector<HTMLElement>(panel.elsewhere)?.focus();
   if (panel === undefined || root === undefined) return;
   const kept = last.get(id);
   const to =
@@ -101,7 +102,7 @@ export function useDeckKeys(press: (event: KeyboardEvent) => void): void {
   });
   useEffect(() => {
     const listen = (event: KeyboardEvent): void => {
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [data-hud="calls"]') !== null) return;
       // A layer opened over a Session's thread: Esc closes it, and is not the deck going back.
       if (event.key === "Escape" && document.querySelector("[data-keeps-escape]") !== null) return;
       // A menu or list open over the deck: Esc closes that, wherever focus is, and is not the deck going back.

@@ -1,4 +1,4 @@
-// The flight deck's Activity as a beeswarm, through `App` on a ship with an hour of events: hovering a dot opens a card that
+// Activity's HUD as a beeswarm, through `App` on a ship with an hour of events: hovering a dot opens a card that
 // names its events, and pressing the dot picks its event, which rings that dot and no other. The owner's pick of 16 Oct 2026.
 
 import { expect, test } from "vitest";
@@ -8,13 +8,18 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const dots = () => [...document.querySelectorAll<HTMLElement>(".deck-activity .armada-tl__dot")];
-const card = () => document.querySelector(".deck-activity .armada-tooltip__bubble:not([hidden]) .armada-tl__hour")?.textContent ?? "";
+const dots = () => [...document.querySelectorAll<HTMLElement>('[data-hud="activity"] .armada-tl__dot')];
+const card = () => document.querySelector('[data-hud="activity"] .armada-tooltip__bubble:not([hidden]) .armada-tl__hour')?.textContent ?? "";
 
-test("a dot's card names its events, and pressing it picks its event and rings it", async () => {
+async function hud() {
   mount("activity-beeswarm");
   await onScreen();
+  await page.getByRole("button", { name: "Activity", exact: true }).click();
   await expect.poll(() => dots().length).toBeGreaterThan(20);
+}
+
+test("a dot's card names its events, and pressing it picks its event and rings it", async () => {
+  await hud();
   // The newest dot is the last, as they are drawn oldest first. Its name is its Job or Session and what it did.
   const dot = dots().at(-1)!;
   const [who, ...rest] = dot.getAttribute("aria-label")!.split(": ");
@@ -30,9 +35,7 @@ test("a dot's card names its events, and pressing it picks its event and rings i
 });
 
 test("the arrow keys step along the dots, and no dot carries its place as an attribute that every event would rewrite", async () => {
-  mount("activity-beeswarm");
-  await onScreen();
-  await expect.poll(() => dots().length).toBeGreaterThan(20);
+  await hud();
   expect(dots().filter((one) => one.hasAttribute("data-i"))).toHaveLength(0);
   const last = dots().at(-1)!;
   last.focus();

@@ -39,7 +39,11 @@ import type { SessionBays } from "./slot-trouble";
 import "./session-view.css";
 
 /** The deck's own place for a Session's panels, as an element: `null` before the deck has drawn it. */
-export type Hosts = { side: HTMLElement | null };
+export type Hosts = {
+  side: HTMLElement | null;
+  /** Only these zones go into `side`, each its own panel, and no panes: the thread stands wherever its caller drew it. */
+  zones?: readonly StoryZone[];
+};
 
 const BAND_TAB: Partial<Record<Area | "workflow", TabKind>> = { done: "done", now: "now", next: "open", workflow: "workflow" };
 
@@ -57,7 +61,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   const work = session.work;
   const side = hosts?.side ?? null;
   // A Job with a story in the Cockpit has its area in panes, thread and story among them, and no column of its own for the story.
-  const paned = hosts !== undefined && work !== undefined && draft !== undefined;
+  const paned = hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined;
   const story = work !== undefined && draft !== undefined && side !== null;
   // The views a Job's keys open over it are tabs here: Artifacts is the Ledger, Bays and Workflow their own, and none opens a layer.
   useEffect(() => (paned ? drawLayersAsTabs(id, (one) => focusLayer(id, one)) : undefined), [paned, id]);
@@ -137,6 +141,21 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
     window.addEventListener("keydown", listen);
     return () => window.removeEventListener("keydown", listen);
   }, [story, paned, id, layer, session]);
+  if (hosts?.zones !== undefined && story) {
+    return (
+      <>
+        {children}
+        {createPortal(
+          hosts.zones.map((only) => (
+            <div key={only} className="sv-story-body">
+              <StoryColumn session={session} entries={entries} work={work} id={id} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} only={only} />
+            </div>
+          )),
+          side,
+        )}
+      </>
+    );
+  }
   if (paned) {
     const zone = (only?: StoryZone) => (
       <div className="sv-story-body">

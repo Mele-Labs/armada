@@ -88,7 +88,7 @@ export const JOB_BUILT_INS: readonly BuiltIn[] = SESSION_TILES.map((tile) => ({
 
 export const DECK_BUILT_INS: readonly BuiltIn[] = [
   { id: "checks", label: "Checks", text: "Checks", glyph: "shield-check" },
-  { id: "needs", label: "Needs me", text: "Calls", glyph: "megaphone" },
+  { id: "needs", label: "Calls", text: "Calls", glyph: "megaphone" },
   { id: "map", label: "Map", text: "Map", glyph: "orbit" },
   { id: "timeline", label: "Timeline", text: "Timeline", glyph: "chart-no-axes-gantt" },
 ];

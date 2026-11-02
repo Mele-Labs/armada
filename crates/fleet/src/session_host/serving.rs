@@ -374,18 +374,7 @@ where
                 self.person_changed(&mut store, &id, ipc::ProposedField::Effort);
             }
         }
-        // A process runs on what it was started with, so a running one ends
-        // once its turn is over and the next message resumes on the new ones.
-        let runtime = self.hosts().of(&id);
-        {
-            let mut state = runtime.state();
-            if state.process.is_some() {
-                match state.turn {
-                    SessionTurn::Idle => Self::let_go(&mut state),
-                    SessionTurn::Working { .. } => state.restart_after_turn = true,
-                }
-            }
-        }
+        self.restarts_on_what_it_names(&id);
         self.published_hosted(&id).await
     }
 
