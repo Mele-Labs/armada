@@ -101,6 +101,8 @@ pub(crate) struct WaitingReads {
     pub(crate) done: Option<String>,
     /// What the agent said the Job achieved, with the done.
     pub(crate) done_summary: Option<String>,
+    /// The running summary of what the Job has done.
+    pub(crate) so_far: Option<String>,
     /// How the last turn ended while nothing has followed it: when, and the end of what the agent said.
     turn_end: Option<(String, String)>,
     /// The last Fleet tell it was sent whose refusal is read.
@@ -154,6 +156,7 @@ pub(crate) fn waiting_reads(
         closed: store.closed_waiting(&session.id)?,
         done: store.done_since(&session.id)?,
         done_summary: store.done_summary(&session.id)?,
+        so_far: store.so_far(&session.id)?,
         turn_end: store.turn_end(&session.id)?,
         tell: store.tell_of(&session.id)?,
         plan: store
@@ -437,7 +440,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
