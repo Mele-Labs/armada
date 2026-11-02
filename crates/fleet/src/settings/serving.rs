@@ -107,6 +107,7 @@ where
     /// Put `saved` in force, clear any refusal, and say so.
     async fn settings_adopted(&self, saved: Saved) -> SettingsList {
         let settings = self.machine_settings();
+        let was_on = self.models_on();
         keep_last_good(settings.path(), &saved);
         let resolved: Resolved = {
             let mut held = settings.held();
@@ -117,6 +118,7 @@ where
         self.retuned(&resolved);
         self.relimited(&resolved).await;
         self.downshift_settings_moved(&resolved).await;
+        self.models_switched_off(&was_on).await;
         let list = settings.listed();
         self.publish(Event::SettingsChanged(list.clone()));
         list
