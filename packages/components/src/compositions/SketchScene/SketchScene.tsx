@@ -657,7 +657,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       const part = frame === null ? undefined : partAt(frame, id, point.x, point.y);
       if (part !== undefined) return aboutParts([], [part]);
     }
-    return aboutParts(id === undefined ? picked : picked.includes(id) ? picked : [id], boxedHere ? boxed : []);
+    // A press on a node whose elements were boxed is about them, and about the nodes picked beside them, and not about the node whole.
+    return aboutParts(id === undefined || (boxedHere && boxed.length > 0) ? picked : picked.includes(id) ? picked : [id], boxedHere ? boxed : []);
   };
   /** The menu at `at`, about what `target` points at; the box opens clear of the parts it is about. `pointer` is set when the press was the mouse's. */
   const noteMenu = (at: { x: number; y: number }, target: EventTarget | null, pointer = false) => {
