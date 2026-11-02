@@ -11,7 +11,8 @@ use ipc::{AutopilotDecision, AutopilotSettings, AutopilotWork, SessionRow, Sessi
 use store::KeptWaiting;
 use testkit::FakeJudge;
 
-use super::session_host::{rig_fitted, Rig};
+use super::planted::Held;
+use super::session_host::{eventually, rig_fitted, Rig};
 
 const OLD: &str = "2000-01-01T00:00:00.000Z";
 const EVERY_BOX: [AutopilotDecision; 10] = [
@@ -41,9 +42,21 @@ fn item(id: &str, text: &str, options: &[&str]) -> KeptWaiting {
 
 /// A rig whose call answers `answer`, and the call itself, so a test can say what it was asked.
 fn rig_calling(answer: &str) -> (Rig, Arc<FakeJudge>) {
+    let (rig, judge, _) = rig_calling_late(answer);
+    (rig, judge)
+}
+
+/// As [`rig_calling`], with the clock a test can move on, for an item that is stamped when it is
+/// raised and so has not waited out the grace.
+fn rig_calling_late(answer: &str) -> (Rig, Arc<FakeJudge>, Arc<Held>) {
     let judge = Arc::new(FakeJudge::saying(answer));
-    let held = Arc::clone(&judge);
-    (rig_fitted(move |fittings| fittings.judge = held), judge)
+    let (held, clock) = (Arc::clone(&judge), Arc::new(Held::started()));
+    let ticking = Arc::clone(&clock);
+    let rig = rig_fitted(move |fittings| {
+        fittings.judge = held;
+        fittings.clock = ticking;
+    });
+    (rig, judge, clock)
 }
 
 async fn started(rig: &Rig, decisions: &[AutopilotDecision]) {
@@ -333,4 +346,153 @@ fn the_question_carries_the_decision_its_ways_and_how_this_repository_was_answer
     assert!(!asked.contains('{'), "every placeholder was filled\n{asked}");
     let alone = question(&crate::prompts::Prompts::shipped(), "x", &deciding, &[]);
     assert!(alone.contains("none yet"));
+}
+
+// ---- The kinds that are not a question ----
+
+const APPROVE: &str = "choice: 1\nsure: yes\nbecause: it matches what was asked";
+
+async fn the_plan_waits(rig: &Rig, id: &ipc::SessionId) {
+    rig.fleet.record_plan(None, super::session_rail::plan(id), false).await.expect("recorded");
+    assert_eq!(waiting(rig, id).await, ["plan:1"]);
+}
+
+#[tokio::test]
+async fn a_plan_is_approved_when_plan_is_checked_and_waits_when_it_is_not() {
+    let (rig, judge, clock) = rig_calling_late(APPROVE);
+    let id = super::session_plan::running(&rig).await;
+    started(&rig, &[AutopilotDecision::Draft]).await;
+    the_plan_waits(&rig, &id).await;
+    clock.on(300);
+    let before = judge.asked().len();
+
+    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0);
+    assert_eq!(judge.asked().len(), before, "plan is not checked, so nothing is asked");
+
+    rig.fleet.stop_autopilot(rig.manifest.clone()).await.expect("stopped");
+    started(&rig, &[AutopilotDecision::Plan]).await;
+    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 1);
+
+    assert!(judge.asked().last().unwrap().contains("Reader"), "the helper reads the plan's groups");
+    assert!(waiting(&rig, &id).await.is_empty(), "the plan is approved");
+    eventually(|| async { super::session_plan::told(&rig, "approved plan v1") == 1 }).await;
+}
+
+#[tokio::test]
+async fn a_draft_is_approved_as_written() {
+    let (rig, judge, clock) = rig_calling_late(APPROVE);
+    let id = rig.start().await;
+    started(&rig, &[AutopilotDecision::Draft]).await;
+    rig.fleet
+        .propose_draft(
+            None,
+            ipc::ProposeDraft {
+                title: "Description for #41".into(),
+                text: "Reads the draft row back.".into(),
+                before: None,
+                session_id: Some(id.clone()),
+            },
+        )
+        .await
+        .expect("proposed");
+    clock.on(300);
+
+    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 1);
+
+    assert!(judge.asked()[0].contains("Reads the draft row back."), "the helper reads the draft's text");
+    assert!(told(&rig, &id).await.last().unwrap().starts_with("Approved: Description for #41"));
+    assert!(waiting(&rig, &id).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_walk_is_approved_the_way_his_press_approves_it() {
+    let (rig, _, clock) = rig_calling_late(APPROVE);
+    let id = rig.start().await;
+    started(&rig, &[AutopilotDecision::Walk]).await;
+    let page = "http://localhost:5173/?walk=findings";
+    rig.fleet
+        .show_window(None, ipc::ShowWindow { url: page.into(), title: Some("Findings".into()), session_id: Some(id.clone()), ..Default::default() })
+        .await
+        .expect("shown");
+    clock.on(300);
+
+    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 1);
+
+    assert_eq!(told(&rig, &id).await.last().unwrap(), &format!("Approved: {page}"));
+    assert!(waiting(&rig, &id).await.is_empty());
+}
+
+#[test]
+fn everything_but_the_kinds_waits_whatever_is_checked() {
+    use crate::autopilot::sorting::sorted;
+    for source in [
+        ipc::WaitingSource::WindowAsk,
+        ipc::WaitingSource::Replied,
+        ipc::WaitingSource::Done,
+        ipc::WaitingSource::FirstMessage,
+        ipc::WaitingSource::Delivery,
+        ipc::WaitingSource::Sketch,
+        ipc::WaitingSource::RuleAct,
+    ] {
+        let one = ipc::WaitingItem {
+            id: "a".into(),
+            text: "Which colour?".into(),
+            since: ipc::Instant::carried(OLD),
+            source,
+            act: None,
+            options: vec![ipc::WaitingOption { label: "Blue (Recommended)".into(), description: None }],
+            steps: Vec::new(),
+            place: None,
+            confirmed: false,
+        };
+        assert_eq!(sorted(&one, None), None, "{source:?}");
+    }
+    let errand = ipc::WaitingItem {
+        id: "a".into(),
+        text: "Merge once ci is green".into(),
+        since: ipc::Instant::carried(OLD),
+        source: ipc::WaitingSource::Agent,
+        act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "gh pr merge 1".into() }),
+        options: vec![ipc::WaitingOption { label: "Go (Recommended)".into(), description: None }],
+        steps: Vec::new(),
+        place: None,
+        confirmed: false,
+    };
+    assert_eq!(sorted(&errand, None), None, "an errand always waits");
+}
+
+/// A permission card held open for `tool`, by a Job on Ask mode.
+async fn permission_asked(rig: &Rig, id: &ipc::SessionId, tool: &str, input: &str) -> tokio::task::JoinHandle<()> {
+    rig.fleet
+        .tune_session(ipc::TuneSession { session_id: id.clone(), model: None, effort: None, mode: ipc::SessionMode::Ask })
+        .await
+        .unwrap();
+    let (fleet, session) = (Arc::clone(&rig.fleet), id.as_str().to_string());
+    let ask = format!(r#"{{"tool_name":"{tool}","input":{input}}}"#);
+    let held = tokio::spawn(async move {
+        let answer = fleet.session_permission(&session, ipc::decode("an ask", ask.as_bytes()).unwrap()).await;
+        assert!(matches!(answer, Ok(ipc::RunOrNot::Allow { .. })), "{answer:?}");
+    });
+    eventually(|| async {
+        Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked.is_some()
+    })
+    .await;
+    held
+}
+
+#[tokio::test]
+async fn a_run_command_is_allowed_by_writes_and_a_read_by_reads_and_neither_by_the_other() {
+    let (rig, judge, clock) = rig_calling_late("choice: 1\nsure: yes\nbecause: the build is what was asked");
+    let id = rig.start().await;
+    started(&rig, &[AutopilotDecision::Reads]).await;
+    let held = permission_asked(&rig, &id, "Bash", r#"{"command":"cargo build"}"#).await;
+    clock.on(300);
+
+    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "a run command is a write, and writes is not checked");
+    assert!(judge.asked().is_empty() && !held.is_finished());
+
+    rig.fleet.stop_autopilot(rig.manifest.clone()).await.expect("stopped");
+    started(&rig, &[AutopilotDecision::Writes]).await;
+    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 1);
+    tokio::time::timeout(std::time::Duration::from_secs(5), held).await.expect("allowed").expect("joined");
 }
