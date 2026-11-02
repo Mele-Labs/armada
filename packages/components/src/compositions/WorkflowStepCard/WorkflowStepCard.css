@@ -118,7 +118,7 @@ button.armada-wf-card:hover {
   inset-inline-start: 0;
   width: 40%;
   background: var(--status-running);
-  animation: armada-wf-card-sweep var(--duration-pulse) var(--loop-turn) infinite;
+  animation: armada-wf-card-sweep var(--duration-pulse) linear infinite;
 }
 
 @keyframes armada-wf-card-sweep {

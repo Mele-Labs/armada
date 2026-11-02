@@ -41,9 +41,9 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 /* A reply that only told him wears its glyph faint. A lane that needs him pulses its tint, as the Work list's row does. */
 .armada-tl__standing[data-reply] { opacity: 0.55; }
 @keyframes armada-tl-needs-pulse { 50% { opacity: 0.05; } }
-.armada-tl__lane[data-standing="ask"] > .armada-tl__label::after { content: ""; position: absolute; inset: 0; background: var(--status-awaiting-review); opacity: 0.14; animation: armada-tl-needs-pulse 1.6s var(--loop-pulse) infinite; pointer-events: none; }
+.armada-tl__lane[data-standing="ask"] > .armada-tl__label::after { content: ""; position: absolute; inset: 0; background: var(--status-awaiting-review); opacity: 0.14; animation: armada-tl-needs-pulse 1.6s ease-in-out infinite; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .armada-tl__lane[data-standing="ask"] > .armada-tl__label::after { animation: none; } }
-.armada-tl__standing[data-standing="run"] svg, .armada-tl__kind[data-running] svg { animation: armada-tl-turn var(--duration-pulse) var(--loop-turn) infinite; }
+.armada-tl__standing[data-standing="run"] svg, .armada-tl__kind[data-running] svg { animation: armada-tl-turn var(--duration-pulse) linear infinite; }
 
 @keyframes armada-tl-turn {
   to { transform: rotate(360deg); }

@@ -23,10 +23,9 @@
 **The app is not rigid.** A screen mounted into the shell fades up
 (opacity only; it never runs when the same screen's data moves), a sheet
 eases out as it eased in, every pressable thing eases colour and edge at
-`--duration-fast`, and behind the glass a star field drifts: transform-only,
-one tile per `--duration-drift`, in steps of one device pixel because every
-move re-blurs the glass over it, paused while the window is hidden and still
-under reduced motion. A loading place draws the
+`--duration-fast`, and behind the glass a faint tilted grid and a few marks
+drift: transform-only, one tile per `--duration-drift`, paused while the
+window is hidden and still under reduced motion. A loading place draws the
 running mark's pulse above its bars; the bars themselves stay still.
 
 **Three clocks, for three audiences.** A *transition* (press to travel,
@@ -107,19 +106,6 @@ What a loop still costs on the compositor does not depend on what it animates: a
 animation, even one small ring, holds frame production at the display's rate (about 150 to
 210 ms per second of compositor and Viz time, against about 2 when everything is paused).
 The floor is why a window nobody is looking at stills its loops (`styles/index.css`).
-
-**A loop moves in steps.** Glass makes the floor above expensive: a frame redraws the blurred panels, so one smooth loop of any size, a faint row pulse as much as the star field, held the GPU at 52% on the mock Cockpit.
-Every infinite animation takes `--loop-turn` or `--loop-pulse`, or its own `steps()` where a long travel needs more, and draws no frame between steps.
-
-| Measured in Bridge on an M5 Pro, 3024 by 1964, one loop kind at a time | GPU |
-|---|---|
-| No loops, glass on | 0% |
-| Stars, smooth | 52% |
-| Stars, stepped | 9.5% |
-| Row pulse, smooth | 52% |
-| Row pulse, 5 moves a second | 3% |
-| Row pulse, 12 moves a second | 7% |
-| Stepped stars and the 12 a second pulse together | 16% |
 
 **A layer nobody summoned does not enter.** The licence above is for chrome a
 person asked for, and it is the press that pays for it. A guide card opened by

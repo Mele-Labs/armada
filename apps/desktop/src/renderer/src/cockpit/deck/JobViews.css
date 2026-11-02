@@ -9,5 +9,5 @@
 .sv-view__clash { display: block; width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--status-awaiting-review); }
 
 /* Running, on the glyph: the running hue and a pulse; still under reduced motion. */
-button[data-view][data-running] > svg { color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) var(--loop-pulse) infinite; }
+button[data-view][data-running] > svg { color: var(--status-running); animation: deck-bay-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { button[data-view][data-running] > svg { animation: none; } }

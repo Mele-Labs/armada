@@ -123,7 +123,7 @@
 
 /* An open ring turning is a restart under way, and holds still under reduced motion. */
 .armada-fleet-build__spin {
-  animation: armada-fleet-build-spin var(--duration-pulse) var(--loop-turn) infinite;
+  animation: armada-fleet-build-spin var(--duration-pulse) linear infinite;
 }
 
 @keyframes armada-fleet-build-spin {

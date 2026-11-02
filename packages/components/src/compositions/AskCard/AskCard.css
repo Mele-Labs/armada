@@ -196,7 +196,7 @@
   height: var(--pending-bar);
   background: var(--status-running);
   pointer-events: none;
-  animation: armada-button-waiting var(--duration-pulse) var(--loop-turn) infinite;
+  animation: armada-button-waiting var(--duration-pulse) linear infinite;
 }
 .armada-callcard__reply[data-pending] textarea { color: var(--fg-muted); }
 @media (prefers-reduced-motion: reduce) {

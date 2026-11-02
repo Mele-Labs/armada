@@ -334,7 +334,7 @@
 }
 
 .armada-account__turn > svg {
-  animation: armada-account-turn var(--duration-pulse) var(--loop-turn) infinite;
+  animation: armada-account-turn var(--duration-pulse) linear infinite;
 }
 
 @keyframes armada-account-turn {
@@ -624,7 +624,7 @@
 }
 
 .armada-account__badge[data-turning] > svg {
-  animation: armada-account-turn var(--duration-pulse) var(--loop-turn) infinite;
+  animation: armada-account-turn var(--duration-pulse) linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

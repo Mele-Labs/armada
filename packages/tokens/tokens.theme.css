@@ -283,8 +283,6 @@
    --tooltip-grace — v4 has no --delay-* namespace; read it in CSS
    --duration-pulse — v4 has no --duration-* namespace; read it in CSS
    --duration-spin — v4 has no --duration-* namespace; read it in CSS
-   --loop-turn — a steps() timing has no utility; read it in an animation
-   --loop-pulse — a steps() timing has no utility; read it in an animation
    --duration-decay — v4 has no --duration-* namespace; read it in CSS
    --duration-hold — v4 has no --duration-* namespace; read it in CSS
    --duration-answer — v4 has no --duration-* namespace; read it in CSS

@@ -47,7 +47,7 @@
 /* The lamp: 6px and round in the state's hue, at the strip's left. Needs him pulses, on opacity alone. */
 .sv-panel__lamp { --lamp-hue: var(--fg-subtle); flex: none; width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--lamp-hue); }
 .sv-panel__lamp[data-lamp="running"] { --lamp-hue: var(--status-running); }
-.sv-panel__lamp[data-lamp="needs"] { --lamp-hue: var(--status-awaiting-review); animation: sv-lamp-pulse 1.6s var(--loop-pulse) infinite; }
+.sv-panel__lamp[data-lamp="needs"] { --lamp-hue: var(--status-awaiting-review); animation: sv-lamp-pulse 1.6s ease-in-out infinite; }
 .sv-panel__lamp[data-lamp="done"] { --lamp-hue: var(--status-completed-success); }
 .sv-panel__lamp[data-lamp="failed"] { --lamp-hue: var(--status-completed-failed); }
 @keyframes sv-lamp-pulse { 50% { opacity: 0.35; } }
@@ -344,7 +344,7 @@ button.sv-layer__row:hover { background: color-mix(in srgb, var(--fg-default) 6%
 /* Selection is a flat wash and a 2px bar. */
 button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
 .sv-layer__kind { display: inline-flex; align-items: center; justify-content: center; color: var(--fg-muted); }
-.sv-layer__kind [data-spinning] { animation: deck-spin 1s var(--loop-turn) infinite; }
+.sv-layer__kind [data-spinning] { animation: deck-spin 1s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .sv-layer__kind [data-spinning] { animation: none; } }
 .sv-layer__title-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sv-layer__sub { min-width: 0; max-width: calc(var(--space-12) * 6); overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
@@ -415,7 +415,7 @@ button.sv-layer__row:focus-visible { outline: none; background: color-mix(in srg
   line-height: var(--leading-xs);
 }
 /* Start pressed while the request is read: the ring turns until the Job starts. */
-.sv-start-strip [data-starting] > svg { animation: sv-start-spin var(--duration-pulse) var(--loop-turn) infinite; }
+.sv-start-strip [data-starting] > svg { animation: sv-start-spin var(--duration-pulse) linear infinite; }
 @keyframes sv-start-spin { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { .sv-start-strip [data-starting] > svg { animation: none; } }
 .sv-dock[data-starting] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }

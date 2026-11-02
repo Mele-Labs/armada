@@ -32,7 +32,7 @@
 .armada-doctor-tile[data-result="fail"] { --hue: var(--status-completed-failed); }
 
 /* A probe in flight breathes, in opacity alone, as a running dot on the horizon does. */
-.armada-doctor-tile[data-result="reading"] .armada-doctor__result { animation: armada-dot-breathe var(--duration-pulse) var(--loop-pulse) infinite; }
+.armada-doctor-tile[data-result="reading"] .armada-doctor__result { animation: armada-dot-breathe var(--duration-pulse) var(--ease) infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .armada-doctor-tile[data-result="reading"] .armada-doctor__result { animation: none; }

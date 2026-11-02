@@ -171,7 +171,7 @@
 /* What a search matched, in the age's place: mono, cut with an ellipsis where it is long. */
 .deck-row__said[data-found] { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--fg-default); }
 .deck-list__more { display: flex; justify-content: center; padding: var(--space-2); color: var(--fg-subtle); list-style: none; }
-.deck-list__more svg { animation: deck-spin 1s var(--loop-turn) infinite; }
+.deck-list__more svg { animation: deck-spin 1s linear infinite; }
 @keyframes deck-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .deck-list__more svg { animation: none; } }
 /* Rows are divided by a hairline, with no card to each. The look reads a row's height, padding and radius from the list (`depth.css`): 28px, with room above and below for Now or Active PRs. */
@@ -286,7 +286,7 @@
 .deck-row[data-reply] .deck-mark { position: relative; }
 .deck-row[data-reply] .deck-mark::after { content: ""; position: absolute; inset-block-start: calc(var(--space-1) * -0.5); inset-inline-end: calc(var(--space-1) * -0.5); width: var(--space-1); height: var(--space-1); border-radius: 50%; background: var(--fg-default); }
 /* A Session that needs him: the row's faint tint pulses, on opacity alone. The row's state glyph at its right tells every state; the row wears no dot. A paused row stays quiet. */
-.deck-row[data-lamp="needs"]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; animation: deck-needs-pulse 1.6s var(--loop-pulse) infinite; }
+.deck-row[data-lamp="needs"]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; animation: deck-needs-pulse 1.6s ease-in-out infinite; }
 @keyframes deck-needs-pulse { 50% { opacity: 0.14; } }
 .deck-row[data-lamp][data-paused]::after { content: none; }
 @keyframes deck-lamp-pulse { 50% { opacity: 0.35; } }
@@ -508,7 +508,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip[data-related][data-selected] { border-color: var(--fg-default); }
 .deck-chip[data-calling] { position: relative; }
 .deck-chip[data-calling]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; }
-.deck-chip[data-calling] .deck-chip__dot { animation: deck-lamp-pulse 1.6s var(--loop-pulse) infinite; }
+.deck-chip[data-calling] .deck-chip__dot { animation: deck-lamp-pulse 1.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .deck-chip[data-calling] .deck-chip__dot { animation: none; } }
 .deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
 .deck-chip__dot[data-queued],
@@ -717,7 +717,7 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-tile[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 /* Pressed is lit: the accent's edge and tint. */
 /* Running, as the Job's views read it: the glyph in the running hue and pulsing; still under reduced motion. */
-.deck-tile[data-running] > svg { color: var(--status-running); animation: deck-lamp-pulse calc(var(--duration-pulse) * 1.5) var(--loop-pulse) infinite; }
+.deck-tile[data-running] > svg { color: var(--status-running); animation: deck-lamp-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .deck-tile[data-running] > svg { animation: none; } }
 .deck-tile[aria-pressed="true"],
 .deck-tile[data-on] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
@@ -1067,7 +1067,7 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 
 /* Pressed and not yet answered: the turning glyph in the corner the clash mark takes, until Fleet's row carries the press. */
 .deck-tile__going { position: absolute; top: var(--space-1); right: var(--space-1); display: inline-flex; color: var(--fg-muted); }
-.deck-tile__going > svg { animation: deck-going-turn var(--duration-pulse) var(--loop-turn) infinite; }
+.deck-tile__going > svg { animation: deck-going-turn var(--duration-pulse) linear infinite; }
 @keyframes deck-going-turn { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { .deck-tile__going > svg { animation: none; } }
 /* Editing: the same tiles, arranged. Selection is the edge alone; a lifted tile takes the accent; a hidden one is drawn quiet and dashed. */

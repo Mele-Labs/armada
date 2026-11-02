@@ -381,7 +381,7 @@
   inset-inline-end: auto;
   width: 40%;
   transition: none;
-  animation: armada-button-waiting var(--duration-pulse) var(--loop-turn) infinite;
+  animation: armada-button-waiting var(--duration-pulse) linear infinite;
 }
 
 /* Answered: the control keeps the pending rendering while the answer holds,

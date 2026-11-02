@@ -333,7 +333,7 @@
 
 .armada-prose__run-mark[data-result="running"] {
   color: var(--run-running);
-  animation: armada-prose-run-pulse var(--duration-pulse) var(--loop-pulse) infinite;
+  animation: armada-prose-run-pulse var(--duration-pulse) var(--ease) infinite;
 }
 
 .armada-prose__run-mark[data-result="passed"] {

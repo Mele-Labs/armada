@@ -43,10 +43,6 @@
   --tooltip-grace: 300ms;
   --duration-pulse: 1600ms; /* a loop that says still working */
   --duration-spin: 1100ms;  /* the working mark's turn */
-  /* A loop's timing: every infinite animation moves in steps, because a smooth one holds
-     the whole window's frames at the display's rate. */
-  --loop-turn: steps(16);   /* a turn or a sweep: about 10 moves a second at --duration-pulse */
-  --loop-pulse: steps(6);   /* per keyframe segment: about 7 moves a second at --duration-pulse */
   /* The third clock. A transition is for a person watching; a decay is for a
      person returning. A changed row carries a mark that fades to nothing
      across this span, so somebody who looked away for a minute still sees

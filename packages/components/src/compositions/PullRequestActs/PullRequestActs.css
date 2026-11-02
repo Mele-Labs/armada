@@ -6,7 +6,7 @@
 
 /* An open ring turning is an act Fleet has not answered, and holds still under reduced motion. */
 .armada-pr-acts__spin {
-  animation: armada-pr-acts-spin var(--duration-pulse) var(--loop-turn) infinite;
+  animation: armada-pr-acts-spin var(--duration-pulse) linear infinite;
 }
 
 @keyframes armada-pr-acts-spin {

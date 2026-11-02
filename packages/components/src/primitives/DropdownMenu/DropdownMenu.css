@@ -195,7 +195,7 @@
 }
 
 .armada-dropdown-menu__item[data-state="running"] > .armada-dropdown-menu__icon {
-  animation: armada-act-pulse calc(var(--duration-pulse) * 1.5) var(--loop-pulse) infinite;
+  animation: armada-act-pulse calc(var(--duration-pulse) * 1.5) ease-in-out infinite;
 }
 
 @keyframes armada-act-pulse {
