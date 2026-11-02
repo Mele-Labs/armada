@@ -2,8 +2,8 @@
 
 import type { TalkPane, TalkWhy } from "../ThreadSettings/thread-look";
 
-/** `**bold**` marks what to find on screen and `code` what to type. `path` and `toggle` say where it is and what to switch, for a pane a person walks to. */
-export type TalkGuide = { title: string; steps: readonly string[]; pane?: TalkPane; action?: string; path?: readonly string[]; toggle?: string };
+/** `**bold**` marks what to find on screen and `code` what to type. */
+export type TalkGuide = { title: string; steps: readonly string[]; pane?: TalkPane; action?: string };
 
 const TRY_AGAIN = "Press Talk again.";
 const OTHER_VOICE = "Or pick **Whisper** or **macOS Dictation** under **System**, **Thread**, **Voice**.";
@@ -11,9 +11,9 @@ const OTHER_VOICE = "Or pick **Whisper** or **macOS Dictation** under **System**
 export function talkGuide(why: TalkWhy): TalkGuide {
   switch (why) {
     case "microphone_denied":
-      return { title: "The microphone is off for Armada Voice", steps: ["Open **Privacy & Security**, then **Microphone**.", "Turn on **Armada Voice**.", TRY_AGAIN], pane: "microphone", action: "Open Microphone settings", path: ["System Settings", "Privacy & Security", "Microphone"], toggle: "Armada Voice" };
+      return { title: "The microphone is off for Armada Voice", steps: ["Open **Privacy & Security**, then **Microphone**.", "Turn on **Armada Voice**.", TRY_AGAIN], pane: "microphone", action: "Open Microphone settings" };
     case "speech_denied":
-      return { title: "Speech recognition is off for Armada Voice", steps: ["Open **Privacy & Security**, then **Speech Recognition**.", "Turn on **Armada Voice**.", TRY_AGAIN], pane: "speech", action: "Open Speech Recognition settings", path: ["System Settings", "Privacy & Security", "Speech Recognition"], toggle: "Armada Voice" };
+      return { title: "Speech recognition is off for Armada Voice", steps: ["Open **Privacy & Security**, then **Speech Recognition**.", "Turn on **Armada Voice**.", TRY_AGAIN], pane: "speech", action: "Open Speech Recognition settings" };
     case "microphone_unavailable":
       return { title: "No microphone is available", steps: ["Plug one in, or choose an input in **Sound**, then **Input**.", TRY_AGAIN], pane: "sound", action: "Open Sound settings" };
     case "on_device_unavailable":

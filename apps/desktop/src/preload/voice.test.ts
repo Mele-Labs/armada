@@ -32,7 +32,7 @@ function fakeIpc(answer: (channel: string) => unknown = () => true) {
 }
 
 describe("Talk's preload surface", () => {
-  it("is the four members and nothing else", () => {
+  it("is the five members and nothing else", () => {
     const { voice } = voicePreload(fakeIpc().ipc);
     expect(Object.keys(voice).sort()).toEqual(["installWhisper", "listen", "onWhisper", "openSettings", "whisper"]);
   });
@@ -44,11 +44,13 @@ describe("Talk's preload surface", () => {
     stop();
     expect(await voice.whisper()).toEqual({ state: "absent" });
     await voice.installWhisper();
+    voice.openSettings("microphone");
     expect(fake.invoked).toEqual([
       [CHANNELS.voiceListen, 1, "apple"],
       [CHANNELS.voiceStop, 1],
       [CHANNELS.voiceWhisper],
       [CHANNELS.voiceInstallWhisper],
+      [CHANNELS.voiceOpenSettings, "microphone"],
     ]);
   });
 
