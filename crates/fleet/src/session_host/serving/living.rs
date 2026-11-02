@@ -89,11 +89,13 @@ where
     }
 
     /// A Job naming a model that is switched off goes back to the Job model, kept so its row says
-    /// what it runs on. Whoever named it, a hand-on, a fork or a Job from before the switch.
-    async fn off_a_model_switched_off(&self, mut hosting: KeptHosting) -> KeptHosting {
+    /// what it runs on. Whoever named it, a hand-on, a fork or a Job from before the switch, and a
+    /// process that outlived a Fleet on it moves too.
+    async fn off_a_model_switched_off(&self, id: &str, mut hosting: KeptHosting) -> KeptHosting {
         if hosting.model.as_ref().is_some_and(|model| !self.models_on().contains(model)) {
             hosting.model = None;
             let _ = self.store().lock().await.keep_hosting(&hosting);
+            self.restarts_on_what_it_names(id);
         }
         hosting
     }
@@ -142,7 +144,8 @@ where
         id: &str,
         hosting: &KeptHosting,
     ) -> Result<(), String> {
-        self.process_of(id, hosting, true).await.map(|_| ())
+        let hosting = self.off_a_model_switched_off(id, hosting.clone()).await;
+        self.process_of(id, &hosting, true).await.map(|_| ())
     }
 
     /// Reattach to every hosted session whose keeper still answers, at boot.
@@ -219,7 +222,6 @@ where
                         (directory, resuming, hosting.clone(), None)
                     }
                 };
-                let resumed = self.off_a_model_switched_off(resumed).await;
                 let hosting = &resumed;
                 self.mod_filled_for_launch().await;
                 let start = Start {
