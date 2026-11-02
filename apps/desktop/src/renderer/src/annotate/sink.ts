@@ -2,6 +2,7 @@
 // vite dev server when the renderer runs in a browser. Both write the same files.
 
 import { ANNOTATIONS_PATH, STORIES_PATH, type Annotation, type AnnotationsDevApi, type StoryIndex } from "../../../shared/annotations";
+import type { StoryModule } from "./story";
 
 export type Sink = AnnotationsDevApi & {
   /** Named in the indicator, so a failed save says which path failed. */
@@ -11,6 +12,12 @@ export type Sink = AnnotationsDevApi & {
    * which is Electron: the layer then draws no file line and no Variant tool.
    */
   stories?: () => Promise<StoryIndex>;
+  /**
+   * A story file's module, `file` being the index's path from the repository root, so the Variant tool can draw each story
+   * over its name. Only the mock sets it: Electron and the dev server's sink cannot import a story, and draw the names alone.
+   * Null where the file is unknown.
+   */
+  story?: (file: string) => Promise<StoryModule | null>;
 };
 
 export function mainSink(api: AnnotationsDevApi): Sink {
