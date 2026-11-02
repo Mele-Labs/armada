@@ -379,6 +379,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/sketch",
     },
     Route {
+        operation: "get_style_sources",
+        method: "GET",
+        path: "/sessions/style_sources",
+    },
+    Route {
+        operation: "get_kept_styles",
+        method: "GET",
+        path: "/sessions/kept_styles",
+    },
+    Route {
         operation: "show_file",
         method: "POST",
         path: "/sessions/show_file",

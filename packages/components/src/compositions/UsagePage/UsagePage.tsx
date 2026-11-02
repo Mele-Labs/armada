@@ -84,10 +84,10 @@ function Band({ children, keys }: { children: string; keys?: string[] }) {
   );
 }
 
-function Fig({ tip, children }: { tip: string; children: string }) {
+function Fig({ tip, over, children }: { tip: string; over?: boolean; children: string }) {
   return (
     <Tooltip label={tip}>
-      <span className="armada-usage__fig">{children}</span>
+      <span className="armada-usage__fig" data-over={over || undefined}>{children}</span>
     </Tooltip>
   );
 }
@@ -103,10 +103,21 @@ function Scope({ title, unit }: { title: string; unit?: string }) {
 
 type Delta = { up: boolean; text: string; tip: string };
 
+/** The plan window's share where its tile lights, and the context past which a Job's peak does. */
+const PLAN_NEAR = 80;
+const PLAN_OVER = 95;
+const PEAK_OVER = 400_000;
+
 /** One headline figure, a delta against the period before, and a thin meter where the figure is a share of a limit. */
 function Tile({ name, figure, tip, meter, delta }: { name: string; figure: string; tip: string; meter?: number; delta?: Delta | undefined }) {
   return (
-    <li className="armada-usage__tile" aria-label={name}>
+    <li
+      className="armada-usage__tile"
+      aria-label={name}
+      // Every figure here is burn, so one going up is going the wrong way.
+      data-way={delta === undefined ? undefined : delta.up ? "worse" : "better"}
+      data-level={meter === undefined ? undefined : meter >= PLAN_OVER ? "over" : meter >= PLAN_NEAR ? "near" : undefined}
+    >
       <span className="armada-usage__name">{name}</span>
       <span className="armada-usage__big">
         <Fig tip={tip}>{figure}</Fig>
@@ -119,7 +130,7 @@ function Tile({ name, figure, tip, meter, delta }: { name: string; figure: strin
       <span className="armada-usage__deltaslot">
         {delta === undefined ? null : (
           <Tooltip label={delta.tip}>
-            <span className="armada-usage__delta" aria-label={delta.tip}>
+            <span className="armada-usage__delta" data-way={delta.up ? "worse" : "better"} aria-label={delta.tip}>
               {delta.up ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />}
               {delta.text}
             </span>
@@ -577,7 +588,7 @@ function SessionRow({ one, whole, top, cursor, picked, onPick }: { one: Row; who
       </span>
       <Fig tip="Share of the week's burn">{pct(shareOf(one.units, whole))}</Fig>
       <Fig tip="Share of this job's burn that ran in subagents">{subagent}</Fig>
-      <Fig tip="Peak context">{peak}</Fig>
+      <Fig tip="Peak context" over={session.peak_context >= PEAK_OVER}>{peak}</Fig>
       <Tooltip label="Models used">
         <span className="armada-usage__model">{models}</span>
       </Tooltip>

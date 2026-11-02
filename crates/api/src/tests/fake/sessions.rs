@@ -419,6 +419,23 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn get_style_sources(
+        &self,
+        _caller: Option<crate::Caller>,
+        _session_id: Option<ipc::SessionId>,
+        path: Option<String>,
+    ) -> Result<ipc::StyleSources, Refusal> {
+        Ok(ipc::StyleSources { sources: Vec::new(), start: path, packages: Vec::new() })
+    }
+
+    async fn get_kept_styles(&self, hash: String) -> Result<ipc::KeptStyles, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised(
+            "fleet.no_such_kept_styles",
+            format!("No kept styles {hash}."),
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
     async fn get_shown_file(&self, _id: ipc::SessionId, path: String) -> Result<crate::ShownFile, Refusal> {
         Ok(crate::ShownFile::Text(ipc::ShownText { path, text: String::from("shown") }))
     }
