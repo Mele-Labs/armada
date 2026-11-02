@@ -261,6 +261,7 @@ where
         record.r#mod = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_job);
         record.from_job = reads.hosting.as_ref().and_then(|hosting| hosting.from_job.clone());
         record.from_tab = reads.hosting.as_ref().and_then(|hosting| hosting.from_tab.clone());
+        record.mod_of_bay = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_of_bay);
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
             record.tools_missing = self.hosts().of(&session.id).state().tools_missing.clone();

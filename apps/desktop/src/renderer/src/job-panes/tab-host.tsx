@@ -14,13 +14,16 @@ import { loadTabModule, type TabComponent, type TabHost } from "./tab-module";
 import { TAB_GLYPHS } from "./tab-glyph";
 import { TAB_UI } from "./tab-ui";
 
-type Loaded = { Component: TabComponent | undefined; /** Which load it came from. */ load: number; problems: readonly string[]; /** Switched off, which is his choice and nothing to fix. */ off: boolean };
+type Loaded<Host = TabHost> = { Component: TabComponent<Host> | undefined; /** Which load it came from. */ load: number; problems: readonly string[]; /** Switched off, which is his choice and nothing to fix. */ off: boolean };
+
+/** Where each kind of module is in `validate_mod`'s answer, and the file its faults name. */
+const MODULE_FILE = { tab: "tab.js", instrument: "instrument.js" } as const;
 
 /** The module of the mod called `name`, reloaded when its row's `changed_at` moves. Not loaded while the mod is off or not valid. */
-export function useTabModule(name: string): Loaded {
+export function useTabModule<Host = TabHost>(name: string, kind: keyof typeof MODULE_FILE = "tab"): Loaded<Host> {
   const row = useModList().find((one) => one.name === name);
   const stamp = `${row?.changed_at ?? ""}:${row?.valid === true && row.enabled}`;
-  const [loaded, setLoaded] = React.useState<Loaded>({ Component: undefined, load: 0, problems: [], off: false });
+  const [loaded, setLoaded] = React.useState<Loaded<Host>>({ Component: undefined, load: 0, problems: [], off: false });
   React.useEffect(() => {
     if (row === undefined) return;
     let live = true;
@@ -32,9 +35,10 @@ export function useTabModule(name: string): Loaded {
       if (!row.valid) return refuse([row.reason ?? `${name} is not valid`]);
       const checked = await window.armada.validateMod(name);
       if (checked === null) return fail(["Fleet did not answer"]);
-      if (!checked.valid || checked.tab === undefined) return refuse(checked.problems.length === 0 ? [`${name} is not valid`] : checked.problems);
+      const module = checked[kind];
+      if (!checked.valid || module === undefined) return refuse(checked.problems.length === 0 ? [`${name} is not valid`] : checked.problems);
       try {
-        const Component = await loadTabModule(checked.tab.code);
+        const Component = await loadTabModule<Host>(module.code, undefined, MODULE_FILE[kind]);
         if (live) setLoaded((was) => ({ Component, load: was.load + 1, problems: [], off: false }));
       } catch (why) {
         fail([why instanceof Error ? why.message : String(why)]);
@@ -45,7 +49,7 @@ export function useTabModule(name: string): Loaded {
     };
     // The row is read for what it said when `stamp` last moved.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, stamp]);
+  }, [name, kind, stamp]);
   return loaded;
 }
 
@@ -76,7 +80,7 @@ function Faults({ problems, fixing, over }: { problems: readonly string[]; /** A
   );
 }
 
-class Contained extends React.Component<{ children: React.ReactNode; fault: (why: string) => React.ReactNode }, { failed: string | undefined }> {
+export class Contained extends React.Component<{ children: React.ReactNode; fault: (why: string) => React.ReactNode }, { failed: string | undefined }> {
   override state = { failed: undefined as string | undefined };
   static getDerivedStateFromError(why: unknown) {
     return { failed: why instanceof Error ? why.message : String(why) };
