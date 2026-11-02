@@ -1233,7 +1233,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
         repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.loadout === undefined ? {} : { loadout: { summary: session.loadout, onOpen: () => goes.onOpenLoadout(session.id) } })}
-        {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         menu={{
           entries: [
             ...(deck?.acts ?? []).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, icon: one.icon })),
@@ -1251,8 +1250,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           },
         }}
         {...(deck === undefined ? {} : { back: deck.back })}
-        // On the Cockpit only: Compact is in the context figure.
-        {...(deck?.flight === true ? { compact: compactAct } : {})}
         {...{
               actions: (
                 <>
@@ -1412,6 +1409,8 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               {...(composerHere ?? {})}
+              // On the Cockpit only: Compact is in the context figure.
+              {...(session.context === undefined ? {} : { beforeSend: <ContextFigure fill={{ ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) }} {...(deck?.flight === true ? { compact: compactAct } : {})} /> })}
               onSend={(sent) => {
                 // A held Job's first send begins it: the box is the first message.
                 if (starting !== undefined) return starting.begin(sent.text);
