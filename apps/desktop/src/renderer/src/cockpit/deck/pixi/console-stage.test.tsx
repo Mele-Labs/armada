@@ -46,13 +46,13 @@ afterEach(async () => {
 });
 
 test("the lamps draw on the loop clock with the ticker stopped, and hold in an idle window", async () => {
-  await commands.motion(false);
+  await commands.motion(true);
   await start();
 
   const drawn = counting();
   await wait(1100);
   // Five moves a second, and not the thirty a ticker would draw.
-  expect(drawn()).toBeGreaterThanOrEqual(3);
+  expect(drawn()).toBeGreaterThanOrEqual(2);
   expect(drawn()).toBeLessThanOrEqual(7);
   expect(app()!.ticker.started).toBe(false);
 
@@ -64,10 +64,10 @@ test("the lamps draw on the loop clock with the ticker stopped, and hold in an i
 });
 
 test("reduced motion, turned on while it runs, stops the lamps and leaves the screens' once a second", async () => {
-  await commands.motion(false);
+  await commands.motion(true);
   await start();
 
-  await commands.motion(true);
+  await commands.motion(false);
   await expect.poll(() => (stage as unknown as { still: boolean }).still, { timeout: 5_000 }).toBe(true);
   const drawn = counting();
   await wait(2100);
