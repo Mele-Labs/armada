@@ -27,14 +27,18 @@ fn version_in(said: &str) -> Option<String> {
     shaped.then(|| word.to_string())
 }
 
+/// The agent CLI as the report names it.
+pub const HARNESS: &str = "claude code";
+
 /// This install as the report names it. **Nothing here assumes the app**: the binary is whichever
 /// runs, a `~/.cargo/bin` one as much as a bundle's, and `armada` resolves where `path` finds one.
-pub fn install_of(path: &str, claude_code: Option<String>) -> ipc::debug_report::Install {
+pub fn install_of(path: &str, harness_version: Option<String>) -> ipc::debug_report::Install {
     ipc::debug_report::Install {
         armada: env!("CARGO_PKG_VERSION").to_string(),
         runs_from: std::env::current_exe().map(|exe| exe.display().to_string()).unwrap_or_default(),
         resolves: resolves_on(path, "armada"),
-        claude_code,
+        harness: HARNESS.to_string(),
+        harness_version,
     }
 }
 

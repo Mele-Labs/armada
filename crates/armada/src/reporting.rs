@@ -52,10 +52,10 @@ fn fleet_says(home: &str, root: Option<&Path>) -> Option<String> {
 /// What this process can read without Fleet: the install and the log, and a line saying Fleet did not
 /// answer.
 pub fn silent(home: &str, path: &str, taken: &str) -> String {
-    let claude_code = adapters::HeadlessAgent::on_path().version_within(path, VERSION_WITHIN);
+    let harness_version = adapters::HeadlessAgent::on_path().version_within(path, VERSION_WITHIN);
     debug_report::render(&Facts {
         home: home.to_string(),
-        install: adapters::debug_facts::install_of(path, claude_code),
+        install: adapters::debug_facts::install_of(path, harness_version),
         fleet: None,
         trouble: adapters::debug_facts::recent_log(Path::new(home), taken),
         taken: taken.to_string(),

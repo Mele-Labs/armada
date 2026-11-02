@@ -44,9 +44,9 @@ describe("the last line", () => {
 describe("reading", () => {
   it("is Fleet's text for the selected repository, and runs nothing", async () => {
     const wire = api({ fleet: { ok: true, value: { text: WITH_FLEET } } });
-    const read = createFleetDebugReport(wire, on("/Users/ada/web-app"), "91bb07e4");
+    const read = createFleetDebugReport(wire, on("/Users/user/web-app"), "91bb07e4");
     await expect(read()).resolves.toBe(withBridgeProtocol(WITH_FLEET, "91bb07e4"));
-    expect(wire.getDebugReport).toHaveBeenCalledWith("/Users/ada/web-app");
+    expect(wire.getDebugReport).toHaveBeenCalledWith("/Users/user/web-app");
     expect(wire.runArmadaReport).not.toHaveBeenCalled();
   });
 
@@ -58,9 +58,9 @@ describe("reading", () => {
 
   it("falls back to armada report, in the same repository, where Fleet's read fails", async () => {
     const wire = api({ fleet: unanswered, ran: { ok: true, text: SILENT } });
-    const read = createFleetDebugReport(wire, on("/Users/ada/web-app"), "91bb07e4");
+    const read = createFleetDebugReport(wire, on("/Users/user/web-app"), "91bb07e4");
     await expect(read()).resolves.toBe(withBridgeProtocol(SILENT, "91bb07e4"));
-    expect(wire.runArmadaReport).toHaveBeenCalledWith("/Users/ada/web-app");
+    expect(wire.runArmadaReport).toHaveBeenCalledWith("/Users/user/web-app");
   });
 
   it("rejects with why where both reads fail", async () => {

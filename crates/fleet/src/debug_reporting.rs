@@ -120,8 +120,8 @@ where
         let read = tokio::task::spawn_blocking(move || {
             let home_dir = Path::new(&home);
             let copy = crate::runtime::mod_dir(&home);
-            let claude_code = told.or_else(|| harness.version_within(&path, VERSION_WITHIN));
-            let install = adapters::debug_facts::install_of(&path, claude_code);
+            let harness_version = told.or_else(|| harness.version_within(&path, VERSION_WITHIN));
+            let install = adapters::debug_facts::install_of(&path, harness_version);
             let mod_facts = ModFacts {
                 copy_filled: adapters::agent_mod::is_populated(&copy),
                 copy_version: adapters::debug_facts::mod_copy_version(&copy),

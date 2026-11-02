@@ -11,7 +11,7 @@ Install
   armada            0.14.2
   runs from         ~/Applications/Armada.app/Contents/Resources/bin/armada
   armada resolves   no
-  claude code       2.1.310
+  agent cli         2.1.310
 
 Mod
   fleet copy           filled
@@ -54,7 +54,7 @@ Install
   armada            0.14.2
   runs from         ~/Applications/Armada.app/Contents/Resources/bin/armada
   armada resolves   no
-  claude code       2.1.310
+  agent cli         2.1.310
 
 Fleet   did not answer
 
@@ -76,9 +76,10 @@ fn trouble(time: &str, target: &str, code: &str) -> Trouble {
 fn install() -> Install {
     Install {
         armada: "0.14.2".into(),
-        runs_from: "/Users/ada/Applications/Armada.app/Contents/Resources/bin/armada".into(),
+        runs_from: "/Users/user/Applications/Armada.app/Contents/Resources/bin/armada".into(),
         resolves: false,
-        claude_code: Some("2.1.310".into()),
+        harness: "agent cli".into(),
+        harness_version: Some("2.1.310".into()),
     }
 }
 
@@ -121,7 +122,7 @@ fn fleet() -> FleetFacts {
 }
 
 fn facts(fleet: Option<FleetFacts>) -> Facts {
-    Facts { home: "/Users/ada".into(), install: install(), fleet, trouble: Some(log()), taken: "2026-11-02T09:31:12Z".into() }
+    Facts { home: "/Users/user".into(), install: install(), fleet, trouble: Some(log()), taken: "2026-11-02T09:31:12Z".into() }
 }
 
 #[test]
@@ -137,12 +138,13 @@ fn a_report_with_fleet_silent_names_the_install_the_log_and_when_it_was_taken() 
 #[test]
 fn the_home_folder_is_written_as_a_tilde_at_a_folder_boundary_and_nowhere_else() {
     let mut taken = facts(Some(fleet()));
-    taken.install.runs_from = "/Users/ada/.cargo/bin/armada".into();
-    taken.fleet.as_mut().unwrap().jobs[0].title = "Read /Users/adams/notes and /Users/ada".into();
+    taken.home = "/opt/user".into();
+    taken.install.runs_from = "/opt/user/.cargo/bin/armada".into();
+    taken.fleet.as_mut().unwrap().jobs[0].title = "Read /opt/users/notes and /opt/user".into();
     let text = render(&taken);
     assert!(text.contains("  runs from         ~/.cargo/bin/armada\n"), "{text}");
-    assert!(text.contains("Job  Read /Users/adams/notes and ~\n"), "a longer name is not the home: {text}");
-    assert!(!text.contains("/Users/ada/"), "{text}");
+    assert!(text.contains("Job  Read /opt/users/notes and ~\n"), "a longer name is not the home: {text}");
+    assert!(!text.contains("/opt/user/"), "{text}");
 }
 
 #[test]
@@ -165,7 +167,7 @@ fn a_log_with_no_recent_lines_and_one_not_written_for_days_say_so() {
 }
 
 fn line(ts: &str, level: &str, extra: &str) -> String {
-    format!(r#"{{"ts":"{ts}","level":"{level}","component":"fleet","run_id":"r","msg":"/Users/ada/secret.txt was not read: the prompt said hello"{extra}}}"#)
+    format!(r#"{{"ts":"{ts}","level":"{level}","component":"fleet","run_id":"r","msg":"/Users/user/secret.txt was not read: the prompt said hello"{extra}}}"#)
 }
 
 #[test]

@@ -21,7 +21,7 @@ const INSTALL = block("Install", [
   ["armada", "0.14.2"],
   ["runs from", "~/Applications/Armada.app/Contents/Resources/bin/armada"],
   ["armada resolves", "no"],
-  ["claude code", "2.1.310"],
+  ["agent cli", "2.1.310"],
 ]);
 
 const TROUBLE = block("Recent trouble", [

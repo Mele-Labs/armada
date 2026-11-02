@@ -8,7 +8,7 @@ import { armadaReport, debugReportPath, locateArmada, REPORT_MS, rootOf, type Ex
 import { handleDebugReport } from "./debug-report-channels";
 import type { Run } from "./restart-fleet";
 
-const PROGRAM = "/Users/ada/.cargo/bin/armada";
+const PROGRAM = "/Users/user/.cargo/bin/armada";
 const PRINTED = `com.armada.fleet = {\n\tprogram = ${PROGRAM}\n\tpid = 41\n}`;
 const launchd = (stdout: string, code = 0): Run => vi.fn(async () => ({ code, stdout, stderr: "" }));
 
@@ -39,8 +39,8 @@ describe("locating the binary", () => {
 describe("running it", () => {
   it("runs the located binary with report, in the folder given, and returns what it printed", async () => {
     const run = vi.fn<Exec>(async () => ({ stdout: "Armada debug report\n\ntaken 2026-11-02T09:31:12Z\n" }));
-    await expect(armadaReport(PROGRAM, "/Users/ada/web-app", run)).resolves.toBe("Armada debug report\n\ntaken 2026-11-02T09:31:12Z");
-    expect(run).toHaveBeenCalledWith(PROGRAM, ["report"], { cwd: "/Users/ada/web-app", timeout: 15_000 });
+    await expect(armadaReport(PROGRAM, "/Users/user/web-app", run)).resolves.toBe("Armada debug report\n\ntaken 2026-11-02T09:31:12Z");
+    expect(run).toHaveBeenCalledWith(PROGRAM, ["report"], { cwd: "/Users/user/web-app", timeout: 15_000 });
     expect(REPORT_MS).toBe(15_000);
   });
 
@@ -67,12 +67,12 @@ describe("running it", () => {
 
 describe("what crosses from the renderer", () => {
   it("is a root only where it is an absolute path", () => {
-    expect(rootOf("/Users/ada/web-app")).toBe("/Users/ada/web-app");
+    expect(rootOf("/Users/user/web-app")).toBe("/Users/user/web-app");
     for (const bad of ["web-app", "", null, undefined, 3, {}]) expect(rootOf(bad)).toBeNull();
   });
 
   it("is asked of Fleet with the root encoded, or without one for All", () => {
-    expect(debugReportPath("/Users/ada/my app")).toBe("/debug_report?root=%2FUsers%2Fada%2Fmy%20app");
+    expect(debugReportPath("/Users/user/my app")).toBe("/debug_report?root=%2FUsers%2Fada%2Fmy%20app");
     expect(debugReportPath(null)).toBe("/debug_report");
   });
 });
@@ -85,13 +85,13 @@ describe("the channel", () => {
   it("answers the text, run in the repository's folder", async () => {
     const run = vi.fn<Exec>(async () => ({ stdout: "text\n" }));
     handleDebugReport({ ipc: ipc as never, connection: () => null, bundled: null, locate: async () => PROGRAM, run });
-    await expect(call("/Users/ada/web-app")).resolves.toEqual({ ok: true, text: "text" });
-    expect(run).toHaveBeenCalledWith(PROGRAM, ["report"], { cwd: "/Users/ada/web-app", timeout: 15_000 });
+    await expect(call("/Users/user/web-app")).resolves.toEqual({ ok: true, text: "text" });
+    expect(run).toHaveBeenCalledWith(PROGRAM, ["report"], { cwd: "/Users/user/web-app", timeout: 15_000 });
   });
 
   it("answers why where it could not run, and reads Fleet as not connected with no connection", async () => {
     handleDebugReport({ ipc: ipc as never, connection: () => null, bundled: null, locate: async () => null });
     await expect(call(null)).resolves.toEqual({ ok: false, why: "no armada binary was found" });
-    await expect(handlers.get(CHANNELS.getDebugReport)!(null, "/Users/ada/web-app")).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+    await expect(handlers.get(CHANNELS.getDebugReport)!(null, "/Users/user/web-app")).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
   });
 });

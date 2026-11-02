@@ -26,8 +26,10 @@ pub struct Install {
     pub runs_from: String,
     /// Whether `armada` is found on the `PATH` a Job is given.
     pub resolves: bool,
+    /// What the report calls the agent CLI. The adapter that runs it knows its name.
+    pub harness: String,
     /// `None` where it could not be read in time.
-    pub claude_code: Option<String>,
+    pub harness_version: Option<String>,
 }
 
 /// Fleet's copy of the mod and the one the agent CLI has installed.
@@ -154,7 +156,7 @@ fn install(install: &Install) -> String {
             row("armada", &install.armada),
             row("runs from", &install.runs_from),
             row("armada resolves", if install.resolves { "yes" } else { "no" }),
-            row("claude code", install.claude_code.clone().unwrap_or_else(|| "not found".to_string())),
+            row(&install.harness, install.harness_version.clone().unwrap_or_else(|| "not found".to_string())),
         ],
     )
 }

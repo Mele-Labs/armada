@@ -13,8 +13,8 @@ fn opening_line() -> Vec<DroneEvent> {
         model: String::from("stand-in"),
         mcp_servers: 1,
         harness: HarnessReading {
-            name: "Claude Code".into(),
-            update: "claude update".into(),
+            name: "The agent CLI".into(),
+            update: "agent update".into(),
             version: "2.1.310".into(),
             mod_loaded: true,
             door_connected: true,
@@ -51,7 +51,8 @@ async fn the_report_has_a_block_for_a_live_hosted_job_and_one_for_a_live_termina
     let text = rig.fleet.debug_report(Some(rig.root.clone())).await.expect("it answers").text;
 
     assert!(text.starts_with("Armada debug report\n\nInstall\n"), "{text}");
-    assert!(text.contains("  claude code       2.1.310\n"), "the version the opening line gave: {text}");
+    let harness = format!("  {:<18}2.1.310\n", adapters::debug_facts::HARNESS);
+    assert!(text.contains(&harness), "the version the opening line gave: {text}");
     assert!(text.contains("\n\nThis repository  "), "{text}");
     let hosted_block = format!(
         "  id        {}\n  runs      hosted\n  mod       none\n  door      connected\n  missing   nothing\n  tools     Bash, Read\n            mcp__armada-fleet__waiting_for\n  skills    armada:reading-a-brief",

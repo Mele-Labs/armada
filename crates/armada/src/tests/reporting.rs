@@ -39,7 +39,8 @@ fn with_no_fleet_it_prints_the_install_the_log_and_when_it_was_taken_and_nothing
     let text = report(scratch.path());
 
     assert!(text.starts_with("Armada debug report\n\nInstall\n"), "{text}");
-    assert!(text.contains("  armada resolves   no\n  claude code       not found\n\nFleet   did not answer\n\nRecent trouble\n"), "{text}");
+    let harness = format!("  {:<18}not found", adapters::debug_facts::HARNESS);
+    assert!(text.contains(&format!("  armada resolves   no\n{harness}\n\nFleet   did not answer\n\nRecent trouble\n")), "{text}");
     assert!(text.contains("WARN  fleet      fleet.slot_held\n"), "{text}");
     for left_out in ["secret", "prompt", "hello", "password", "fleet protocol"] {
         assert!(!text.contains(left_out), "{left_out} is in the report: {text}");
