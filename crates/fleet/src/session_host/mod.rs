@@ -58,6 +58,7 @@ mod naming;
 mod noting;
 mod modding;
 mod auto_landing;
+pub(crate) mod queue_guard;
 mod pausing;
 pub(crate) mod quick;
 mod reach_folders;

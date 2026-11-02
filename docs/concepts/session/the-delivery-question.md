@@ -33,6 +33,7 @@ A forge refusal does not undo the answer: the forge's words go to the agent.
 **Auto land merges a pull request however it was attached (#2679, 21 Oct 2026).** One the agent opened itself is reported by its mod, and nothing asked the forge then.
 So the pull reading asks for auto-merge on each pull request a Job with Auto land holds, once its checks pass, it conflicts with nothing and nothing merges it.
 It asks once a commit: a commit it saw queued or on auto-merge is not asked again, so a merge somebody stopped stays stopped.
+It first merge-tests the pull request against each one ahead of it in the merge queue, and a clash holds it: the Job is told once a commit which pull request it waits on and the files, and a held pull request is asked again when the test is clean ([Fleet](../fleet.md), *A Job's Auto land flag*).
 Fleet otherwise acts on it only by telling the agent. The agent delivers by it at `land`, the last step of `bug` and `feature`, whose instructions name what each answer means.
 A change the owner would see in Bridge is walked and approved before any of the three runs.
 `land` is declared `human_always`, and nothing in Fleet blocks on that gate.

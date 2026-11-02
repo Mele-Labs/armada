@@ -18,6 +18,7 @@ const ENABLE: &str = "mutation($id:ID!){enablePullRequestAutoMerge(input:{pullRe
     mergeMethod:MERGE}){clientMutationId}}";
 const DISABLE: &str = "mutation($id:ID!){disablePullRequestAutoMerge(input:{pullRequestId:$id})\
     {clientMutationId}}";
+const DEQUEUE: &str = "mutation($id:ID!){dequeuePullRequest(input:{id:$id}){clientMutationId}}";
 const MERGE_NOW: &str = "mutation($id:ID!){mergePullRequest(input:{pullRequestId:$id,\
     mergeMethod:MERGE}){clientMutationId}}";
 
@@ -88,6 +89,22 @@ pub(super) fn disable_auto_merge(
     };
     if !pull.is_in_merge_queue {
         mutate(api, DISABLE, &pull.id)?;
+    }
+    Ok(Ok(()))
+}
+
+/// [`Forge::dequeue`](adapter_traits::Forge::dequeue). A pull request not in the queue is done.
+pub(super) fn dequeue(
+    api: &GitHubApi,
+    repository: &GitHubRepository,
+    number: u64,
+) -> Result<Result<(), String>, ApiFailure> {
+    let pull = match node(api, repository, number)? {
+        Ok(pull) => pull,
+        Err(said) => return Ok(Err(said)),
+    };
+    if pull.is_in_merge_queue {
+        mutate(api, DEQUEUE, &pull.id)?;
     }
     Ok(Ok(()))
 }

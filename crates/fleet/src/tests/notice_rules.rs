@@ -257,7 +257,7 @@ async fn a_conflict_or_an_unmergeable_queue_entry_blocks_a_merge_and_a_draft_alo
         ruled_when(&rig, Notice::PrChecksFailed, Does::Batch, Condition::BlocksMerge, Does::Tell).await;
         holding(&rig, &id, 7, &[("state", state), ("checks", "pending")], Some(listed(7, mergeable))).await;
         if let Some(state) = queue {
-            rig.fleet.sweeping().lock().await.queues.insert(rig.root.clone(), vec![QueueEntry { number: 7, position: 1, state }]);
+            rig.fleet.sweeping().lock().await.queues.insert(rig.root.clone(), vec![QueueEntry { number: 7, position: 1, state, head: None }]);
         }
         notice_to(&rig, &id, "text").await;
         assert_eq!(!notices(&rig, &id).await.is_empty(), blocks, "{case}");
