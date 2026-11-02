@@ -11,7 +11,7 @@
 --duration-pulse   1600ms   a loop that says still working
 --duration-exit    140ms    a layer leaving, faster than it arrived
 --duration-enter   180ms    a screen fading up (= --duration-base)
---duration-drift   90s      the field behind the glass, one tile
+--duration-drift   90s      unused while the field behind the glass holds still
 --duration-answer  1600ms   how long a control shows Fleet's answer
 --duration-hold    900ms    holding a destructive control to commit
 --duration-decay   45s      a changed row's mark fading
@@ -23,10 +23,9 @@
 **The app is not rigid.** A screen mounted into the shell fades up
 (opacity only; it never runs when the same screen's data moves), a sheet
 eases out as it eased in, every pressable thing eases colour and edge at
-`--duration-fast`, and behind the glass a faint tilted grid and a few marks
-drift: transform-only, one tile per `--duration-drift`, paused while the
-window is hidden and still under reduced motion. A loading place draws the
-running mark's pulse above its bars; the bars themselves stay still.
+`--duration-fast`, and behind the glass a faint field of stars holds still.
+A loading place draws the running mark's pulse above its bars; the bars
+themselves stay still.
 
 **Three clocks, for three audiences.** A *transition* (press to travel,
 under 300ms) is for a person watching. A *loop* (pulse) says something
@@ -109,7 +108,7 @@ The floor is why a window nobody is looking at stills its loops (`styles/index.c
 
 **Every loop moves on one clock.** Glass makes that floor expensive, because a frame redraws the blurred panels.
 One smooth loop of any size, a faint row pulse as much as the star field, held the GPU at 52% on the mock Cockpit, and steps on each loop's own schedule add up.
-`apps/desktop/src/renderer/src/loop-clock.ts` pauses every infinite animation in Bridge's main windows and moves them together about 10 times a second.
+`apps/desktop/src/renderer/src/loop-clock.ts` pauses every infinite animation in Bridge's main windows and moves them together 5 times a second.
 
 | Measured in Bridge on an M5 Pro at 3024 by 1964, on the mock Cockpit | GPU |
 |---|---|
@@ -119,6 +118,14 @@ One smooth loop of any size, a faint row pulse as much as the star field, held t
 | Stars alone, one device pixel a step | 9.5% |
 | Row pulse alone, 12 moves a second | 7% |
 | Both of those, each on its own schedule | 16% |
+
+**Nothing moves on a canvas or behind the glass unless an event started it.** On the owner's real Bridge with a Job open and no input, GPU time read about 21%, and fell to 9% the moment the idle rule stopped the map: a drone's loop in a Field 270 points wide held the whole window at 30 frames a second, and every frame redraws the glass.
+So a drone holds its pose, the console's lamps hold still and draw once a second for what its screens read, and the stars do not drift.
+A play an event started still runs, and stops itself.
+
+| Measured on the mock in headless Chromium on Metal, GPU time | Before | After |
+|---|---|---|
+| A working Job open | 10.3% | 1.7% |
 
 **A layer nobody summoned does not enter.** The licence above is for chrome a
 person asked for, and it is the press that pays for it. A guide card opened by
