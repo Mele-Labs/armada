@@ -27,6 +27,7 @@ import { useModsMade } from "../mods-made";
 import { stateOf as jobStateOf } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { openInPanel } from "../shared-panel/store";
+import { draftPanelOf } from "../shared-panel/rule";
 import { showLayer } from "./layers";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
@@ -61,13 +62,6 @@ import { useLedgerView } from "./ledger-view";
 import "./progress-takes.css";
 import "./story.css";
 import "./story-zones.css";
-
-/** The rule a waiting item is the ask of, and its card in the thread: an item `draft:<card>` that a rule on the Job's lanes left. Absent where no rule did. */
-function ruleOf(session: Session, itemId: string): { rule: string; row: string } | undefined {
-  const row = itemId.startsWith("draft:") ? itemId.slice("draft:".length) : undefined;
-  const fired = row === undefined ? undefined : session.lanes?.job.fired.find((one) => one.needs === row);
-  return row === undefined || fired === undefined ? undefined : { rule: fired.rule, row };
-}
 
 /** The one zone a pane draws on its own, as the Job's panes can: Done, Now or Open. Absent, all three stand on the spine. */
 export type StoryZone = "done" | "now" | "next";
@@ -243,10 +237,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
       <ul className="sv-beats" aria-label="Now">
         {asking === undefined ? null : <AskBeat said="Waiting on you" text={asking} />}
         {owed.map((one) => {
-          const rule = ruleOf(session, one.id);
-          // A document waiting on him opens over the Job, where it is answered.
+          // A draft opens its card beside the thread, a rule's in the rule's panel; a document waiting on him opens over the Job. Each is answered where it opens.
+          const card = draftPanelOf(session, one.id);
           const page = one.source === "document" ? one.id.replace(/^document:/, "") : undefined;
-          const open = rule !== undefined ? () => openInPanel({ kind: "rule", sessionId: session.id, ...rule }) : page !== undefined ? () => showLayer(session.id, "document", page) : undefined;
+          const open = card !== undefined ? () => openInPanel(card) : page !== undefined ? () => showLayer(session.id, "document", page) : undefined;
           return <AskBeat key={one.id} said="Waiting on you" text={one.text} {...(open === undefined ? {} : { onOpen: open })} />;
         })}
         {walks.map((one) => (one.kind === "window" ? <WalkBeat key={one.id} title={one.title} takes={one.takes} onOpen={() => draft?.openWindow?.(id, one.url)} /> : null))}
