@@ -14,6 +14,7 @@ import {
   Link,
   ListChecks,
   MessageSquareText,
+  NotebookPen,
   PanelTop,
   Scale,
   Send,
@@ -123,5 +124,9 @@ export const KINDS: Readonly<
   custom: {
     label: "Custom",
     Glyph: PanelTop,
+  },
+  draft: {
+    label: "Draft",
+    Glyph: NotebookPen,
   },
 };

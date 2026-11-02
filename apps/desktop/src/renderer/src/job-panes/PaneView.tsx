@@ -313,7 +313,7 @@ function TabButton({
   );
 }
 
-/** The kinds the + offers. A Job has one thread, so it is offered only when none is open. */
+/** The kinds the + offers. A Job has one thread, so it is offered only when none is open. A Draft tab is one draft's, opened from where the draft is listed. */
 function addEntries(
   thread: boolean,
   built: readonly {
@@ -321,7 +321,9 @@ function addEntries(
     glyph?: string | undefined;
   }[],
 ): DropdownMenuEntry[] {
-  const kinds = TAB_KINDS.filter((kind) => kind !== "custom" && (kind !== "thread" || !thread)).map(
+  const kinds = TAB_KINDS.filter(
+    (kind) => kind !== "custom" && kind !== "draft" && (kind !== "thread" || !thread),
+  ).map(
     (kind): DropdownMenuEntry => ({
       kind: "item",
       id: kind,

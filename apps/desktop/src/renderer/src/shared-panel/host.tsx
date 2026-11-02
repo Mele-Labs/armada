@@ -12,7 +12,7 @@ import { BayPanel, CheckPanel, IssuePanel } from "./panels";
 import { ModPanel } from "./mod";
 import { LaneSide } from "./lane-side";
 import { LanesPanel } from "./lanes";
-import { RulePanel } from "./rule";
+import { DraftPanel, RulePanel } from "./rule";
 import { FileSide, useOpenFileKey } from "./file";
 import { PullRequestSide } from "./pull-request";
 import { RunPanel } from "./run";
@@ -86,6 +86,8 @@ export function SharedPanelHost() {
             <LanesPanel key={`lanes:${open.sessionId}`} item={open} />
           ) : open.kind === "rule" ? (
             <RulePanel key={`rule:${open.sessionId}:${open.rule}`} item={open} />
+          ) : open.kind === "draft" ? (
+            <DraftPanel key={`draft:${open.sessionId}:${open.row}`} item={open} />
           ) : open.kind === "check" ? (
             <CheckPanel key={`check:${open.id}`} item={open} />
           ) : null}

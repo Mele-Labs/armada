@@ -128,7 +128,9 @@ const nameOf = (item: PanelItem): string =>
                       ? "Workflow"
                       : item.kind === "rule"
                         ? "Rule"
-                        : (item.name ?? "Check");
+                        : item.kind === "draft"
+                          ? "Draft"
+                          : (item.name ?? "Check");
 
 // ---- An issue -----------------------------------------------------------------------------------------
 

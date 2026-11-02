@@ -25,6 +25,7 @@ import {
   BrowserBody,
   BrowserTabsSync,
   ChangesBody,
+  DraftBody,
   FilesBody,
   IssuesBody,
   JobsBody,
@@ -344,6 +345,8 @@ export function SessionWorkspace({
               onOpenSession={onOpenSession}
             />
           );
+        case "draft":
+          return <DraftBody jobId={id} tab={tab} />;
         case "subagents":
           return (
             <Layer

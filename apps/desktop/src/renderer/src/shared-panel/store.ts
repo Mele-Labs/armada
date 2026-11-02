@@ -125,6 +125,12 @@ export type PanelItem =
       rule: string;
       row?: string;
     }
+  /** A draft a Job put to the person, by its card in the thread, answered here as in the thread. */
+  | {
+      kind: "draft";
+      sessionId: string;
+      row: string;
+    }
   /** A command run in a repository's checkout with no Job behind it, started when the panel opens. `at` tells two runs of one line apart. */
   | {
       kind: "run";
