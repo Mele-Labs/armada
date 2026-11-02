@@ -68,7 +68,7 @@
 }
 
 .armada-shared-bar__turn[data-turning] {
-  animation: armada-shared-turn var(--duration-pulse) linear infinite;
+  animation: armada-shared-turn var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-shared-turn {

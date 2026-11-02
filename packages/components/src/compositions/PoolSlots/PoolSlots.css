@@ -486,7 +486,7 @@
 
 /* A take or a release under way, the one state that is in motion. */
 .armada-bay[data-bay="busy"] .armada-bay__state > svg {
-  animation: armada-pool-slots-spin var(--duration-pulse) linear infinite;
+  animation: armada-pool-slots-spin var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-pool-slots-spin {
@@ -630,7 +630,7 @@
 
 /* A Scout reading, the live state: a loop that says still working. */
 .armada-finding__reading {
-  animation: armada-finding-reading var(--duration-pulse) ease-in-out infinite;
+  animation: armada-finding-reading var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @keyframes armada-finding-reading {

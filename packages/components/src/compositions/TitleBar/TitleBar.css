@@ -402,7 +402,7 @@
   stroke-linecap: round;
   transform-box: fill-box;
   transform-origin: center;
-  animation: armada-title-usage-sweep calc(var(--duration-pulse) * 1.25) linear infinite;
+  animation: armada-title-usage-sweep calc(var(--duration-pulse) * 1.25) var(--loop-turn) infinite;
 }
 
 .armada-title-bar__usage-loading g:last-child .armada-title-bar__usage-ring-sweep {
@@ -424,7 +424,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .armada-title-bar__usage-ring-sweep {
-    animation: armada-title-usage-pulse var(--duration-pulse) ease-in-out infinite;
+    animation: armada-title-usage-pulse var(--duration-pulse) var(--loop-pulse) infinite;
   }
 }
 
@@ -776,7 +776,7 @@
   border-radius: var(--radius-md);
   background: var(--status-awaiting-review);
   opacity: 0.14;
-  animation: armada-title-calling 1.6s ease-in-out infinite;
+  animation: armada-title-calling 1.6s var(--loop-pulse) infinite;
   pointer-events: none;
 }
 

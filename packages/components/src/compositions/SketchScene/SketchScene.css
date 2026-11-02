@@ -390,7 +390,7 @@
 
 /* A preview is a still drawing until it is played, and the panel stops crawling while it plays: the step's dot is the only thing that moves. */
 .armada-sketch:not([data-playing]) .armada-scene-edge[data-flow]:not([data-still]) .armada-scene-edge__line {
-  animation: armada-scene-flow var(--duration-pulse) linear infinite;
+  animation: armada-scene-flow var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 /* The step's arrow: its line takes the focus hue and a dot crosses it, from where it starts to where it ends. */

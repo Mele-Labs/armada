@@ -59,7 +59,7 @@
 
 /* The one loop on the card: the mark plays back while Fleet is still at it. */
 .armada-session-retro__mark {
-  animation: armada-session-retro-rewind var(--duration-pulse) var(--ease) infinite;
+  animation: armada-session-retro-rewind var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @keyframes armada-session-retro-rewind {

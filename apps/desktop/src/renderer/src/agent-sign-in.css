@@ -6,7 +6,7 @@
 
 .armada-agent-sign-in__ring {
   display: inline-flex;
-  animation: armada-agent-sign-in-spin 1s linear infinite;
+  animation: armada-agent-sign-in-spin 1s var(--loop-turn) infinite;
 }
 
 @keyframes armada-agent-sign-in-spin {

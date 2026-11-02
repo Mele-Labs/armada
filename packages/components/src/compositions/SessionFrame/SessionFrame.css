@@ -256,7 +256,7 @@ button.armada-session-frame__context:focus-visible {
 /* The take that makes the mark apparent: the needs-you lamp's hue and pulse, on opacity alone. Reduced motion holds it lit. */
 .armada-session-mark[data-apparent] {
   color: var(--status-awaiting-review);
-  animation: armada-tools-mark-pulse 1.6s ease-in-out infinite;
+  animation: armada-tools-mark-pulse 1.6s var(--loop-pulse) infinite;
 }
 
 @keyframes armada-tools-mark-pulse {
@@ -320,7 +320,7 @@ button.armada-session-frame__context:focus-visible {
 .armada-tools-menu__working {
   display: inline-flex;
   margin-inline-end: var(--space-1);
-  animation: armada-tools-menu-spin var(--duration-pulse) linear infinite;
+  animation: armada-tools-menu-spin var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-tools-menu-spin {
@@ -337,7 +337,7 @@ button.armada-session-frame__context:focus-visible {
 .armada-session-mark[data-pulsing] > svg > circle + circle {
   transform-box: fill-box;
   transform-origin: center;
-  animation: armada-badge-pulse var(--duration-pulse) var(--ease) infinite;
+  animation: armada-badge-pulse var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

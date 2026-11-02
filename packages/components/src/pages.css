@@ -281,7 +281,7 @@
 :root[data-look="new"] .armada-doctor__glyph[data-result="pass"] { --hue: var(--status-completed-success); }
 :root[data-look="new"] .armada-doctor__glyph[data-result="warn"] { --hue: var(--status-awaiting-review); }
 :root[data-look="new"] .armada-doctor__glyph[data-result="fail"] { --hue: var(--status-completed-failed); }
-:root[data-look="new"] .armada-doctor__glyph[data-result="reading"] svg { animation: armada-dot-breathe var(--duration-pulse) var(--ease) infinite; }
+:root[data-look="new"] .armada-doctor__glyph[data-result="reading"] svg { animation: armada-dot-breathe var(--duration-pulse) var(--loop-pulse) infinite; }
 :root[data-look="new"] :is(.armada-doctor-tile .armada-tile__head, .armada-doctor-pane__head) > .armada-doctor__result {
   position: absolute;
   width: var(--border-width);

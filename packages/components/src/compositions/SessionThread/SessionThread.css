@@ -196,7 +196,7 @@
 .armada-session-thread__settled[data-state="waiting"] { color: var(--step-waiting); }
 /* Approve pressed, Fleet's answer still coming: the state's place turns. */
 .armada-session-thread__settled[data-state="going"] { color: var(--fg-muted); }
-.armada-session-thread__settled[data-state="going"] > svg { animation: armada-session-you-turn var(--duration-pulse) linear infinite; }
+.armada-session-thread__settled[data-state="going"] > svg { animation: armada-session-you-turn var(--duration-pulse) var(--loop-turn) infinite; }
 @media (prefers-reduced-motion: reduce) { .armada-session-thread__settled[data-state="going"] > svg { animation: none; } }
 /* A plan set aside is a chip: the band alone, quiet, until its press unfolds it. */
 .armada-session-thread__plan[data-aside][data-folded] { padding-block: var(--space-1); color: var(--fg-muted); }
@@ -833,7 +833,7 @@
 }
 
 .armada-session-you__delivery[data-state="sending"] > svg {
-  animation: armada-session-you-turn var(--duration-pulse) linear infinite;
+  animation: armada-session-you-turn var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-session-you-turn {
@@ -846,7 +846,7 @@
 
 /* A message still going breathes, on opacity alone so the compositor draws it. Held static and dimmed under reduced motion. */
 .armada-session-you[data-delivery="sending"] {
-  animation: armada-session-you-pulse calc(var(--duration-pulse) * 1.6) ease-in-out infinite;
+  animation: armada-session-you-pulse calc(var(--duration-pulse) * 1.6) var(--loop-pulse) infinite;
 }
 
 @keyframes armada-session-you-pulse {
@@ -1189,7 +1189,7 @@
 /* Rows held while they are read again: a turning mark where new ones land, held still under reduced motion. */
 .armada-session-thread__refreshing { display: flex; list-style: none; color: var(--fg-muted); }
 .armada-session-thread__loading { display: inline-flex; }
-.armada-session-thread__loading > svg { animation: armada-session-you-turn var(--duration-pulse) linear infinite; }
+.armada-session-thread__loading > svg { animation: armada-session-you-turn var(--duration-pulse) var(--loop-turn) infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .armada-session-thread__loading > svg { animation: none; }

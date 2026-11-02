@@ -322,7 +322,7 @@
 .armada-console__writing > svg > circle + circle {
   transform-box: fill-box;
   transform-origin: center;
-  animation: armada-console-writing var(--duration-pulse) var(--ease) infinite;
+  animation: armada-console-writing var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @keyframes armada-console-writing {

@@ -108,6 +108,19 @@ animation, even one small ring, holds frame production at the display's rate (ab
 210 ms per second of compositor and Viz time, against about 2 when everything is paused).
 The floor is why a window nobody is looking at stills its loops (`styles/index.css`).
 
+**A loop moves in steps.** Glass makes the floor above expensive: a frame redraws the blurred panels, so one smooth loop of any size, a faint row pulse as much as the star field, held the GPU at 52% on the mock Cockpit.
+Every infinite animation takes `--loop-turn` or `--loop-pulse`, or its own `steps()` where a long travel needs more, and draws no frame between steps.
+
+| Measured in Bridge on an M5 Pro, 3024 by 1964, one loop kind at a time | GPU |
+|---|---|
+| No loops, glass on | 0% |
+| Stars, smooth | 52% |
+| Stars, stepped | 9.5% |
+| Row pulse, smooth | 52% |
+| Row pulse, 5 moves a second | 3% |
+| Row pulse, 12 moves a second | 7% |
+| Stepped stars and the 12 a second pulse together | 16% |
+
 **A layer nobody summoned does not enter.** The licence above is for chrome a
 person asked for, and it is the press that pays for it. A guide card opened by
 a `?` scales from 0.97 like any dialog; the same card opened because somebody

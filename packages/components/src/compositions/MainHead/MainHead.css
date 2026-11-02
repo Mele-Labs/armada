@@ -9,7 +9,7 @@
 
 /* Green with newer checks running: the mark breathes, as a Job working does. */
 .armada-main-mark[data-checking] > svg {
-  animation: armada-fixing-breathe var(--duration-pulse) var(--ease) infinite;
+  animation: armada-fixing-breathe var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -176,7 +176,7 @@
 }
 
 .armada-fixing-mark[data-state="fixing"] > svg {
-  animation: armada-fixing-breathe var(--duration-pulse) var(--ease) infinite;
+  animation: armada-fixing-breathe var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @keyframes armada-fixing-breathe {

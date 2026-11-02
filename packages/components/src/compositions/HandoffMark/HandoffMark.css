@@ -7,7 +7,7 @@
 }
 
 .armada-handoff-mark > svg {
-  animation: armada-handoff-spin var(--duration-pulse) linear infinite;
+  animation: armada-handoff-spin var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-handoff-spin {

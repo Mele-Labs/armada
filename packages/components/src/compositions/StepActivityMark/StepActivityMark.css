@@ -93,7 +93,7 @@
 .armada-step-mark[data-pulsing] > svg > circle + circle {
   transform-box: fill-box;
   transform-origin: center;
-  animation: armada-step-mark-pulse var(--duration-pulse) var(--ease) infinite;
+  animation: armada-step-mark-pulse var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @keyframes armada-step-mark-pulse {

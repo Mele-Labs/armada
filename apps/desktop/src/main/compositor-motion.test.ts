@@ -87,7 +87,26 @@ describe("an infinite animation", () => {
   });
 });
 
-// Every move of the field re-blurs the glass over it, so `linear` costs a full blur at the display's rate.
+// One smooth loop of any size held the GPU at 52% on the mock Cockpit, against 7% stepped. `motion.md`.
+describe("an infinite animation's timing", () => {
+  function smooth(css: string): string[] {
+    const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    return [...text.matchAll(/(?<![\w-])animation\s*:([^;}]*)/g)]
+      .flatMap((found) => found[1]!.split(/,(?![^(]*\))/))
+      .filter((one) => one.includes("infinite") && !/steps\(|--loop-/.test(one))
+      .map((one) => one.trim());
+  }
+
+  test("is stepped", () => {
+    const sheets = SOURCES.flatMap((one) => cssFiles(join(ROOT, one))).map((file) => readFileSync(file, "utf8"));
+    expect(smooth(sheets.join("\n"))).toEqual([]);
+  });
+
+  test("is read from each animation in a list", () => {
+    expect(smooth(".x { animation: a 1s steps(4) infinite, b 1s cubic-bezier(0, 0, 1, 1) infinite, c 1s ease; }")).toEqual(["b 1s cubic-bezier(0, 0, 1, 1) infinite"]);
+  });
+});
+
 describe("the field behind the glass", () => {
   const css = readFileSync(join(ROOT, "packages/components/src/screens/screens.css"), "utf8");
 

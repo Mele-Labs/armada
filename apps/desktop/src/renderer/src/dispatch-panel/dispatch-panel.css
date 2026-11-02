@@ -230,7 +230,7 @@
 .armada-dispatch-panel__reading[data-reading="detecting"] { color: var(--accent); }
 
 .armada-dispatch-panel__reading[data-reading="detecting"] > svg {
-  animation: armada-dispatch-panel-spin var(--duration-pulse) linear infinite;
+  animation: armada-dispatch-panel-spin var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 .armada-dispatch-panel__repo {

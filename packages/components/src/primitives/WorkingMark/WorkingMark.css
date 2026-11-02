@@ -8,7 +8,7 @@
 .armada-working-mark__spin {
   transform-box: view-box;
   transform-origin: 50% 50%;
-  animation: armada-working-spin var(--duration-spin) linear infinite;
+  animation: armada-working-spin var(--duration-spin) var(--loop-turn) infinite;
 }
 
 @keyframes armada-working-spin {

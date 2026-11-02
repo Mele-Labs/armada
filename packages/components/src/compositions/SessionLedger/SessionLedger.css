@@ -436,7 +436,7 @@ path.armada-session-ledger__picture-later {
 .armada-session-mark[data-restart="failed"] { color: var(--status-completed-failed); }
 
 .armada-session-mark[data-restart="running"] > svg {
-  animation: armada-session-ledger-spin var(--duration-pulse) linear infinite;
+  animation: armada-session-ledger-spin var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-session-ledger-spin {

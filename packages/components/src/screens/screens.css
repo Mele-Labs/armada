@@ -82,11 +82,10 @@
 
    Each layer is one box that is painted once, a mask of a tiny SVG filled with a
    colour, then only translated: transform animations run on the compositor, no
-   layout, no repaint. **Every move re-blurs the glass over it**, and the panels
-   cover most of the window, so a layer moves in steps of one device pixel on a
-   2x screen and draws no frame between them: about 13 moves a second near and 4
-   far, where `linear` asked for 120 and held the GPU at 74%. A step count is the
-   tile in device pixels. A loop is a translate by exactly one tile, so it seams.
+   layout, no repaint. A layer moves in steps of one device pixel on a 2x screen
+   and draws no frame between them: about 13 moves a second near and 4 far, as
+   every loop must (`--loop-turn`, `motion.md`). A step count is the tile in
+   device pixels. A loop is a translate by exactly one tile, so it seams.
    No gradient, no glow, no grain. It holds still under
    reduced motion and while the window is hidden (`TheShell` marks the root). */
 .armada-shell {

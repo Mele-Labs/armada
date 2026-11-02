@@ -106,7 +106,7 @@
   width: 30%;
   height: 100%;
   background: var(--status-running);
-  animation: armada-pr-panel-refresh var(--duration-pulse) ease-in-out infinite;
+  animation: armada-pr-panel-refresh var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @keyframes armada-pr-panel-refresh {

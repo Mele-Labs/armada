@@ -58,7 +58,7 @@
 
 /* The part now breathes, a person's turn too (owner, 3 Oct). */
 .armada-step-track__part[data-state="now"] > svg {
-  animation: armada-step-track-breathe var(--duration-pulse) var(--ease) infinite;
+  animation: armada-step-track-breathe var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @keyframes armada-step-track-breathe {

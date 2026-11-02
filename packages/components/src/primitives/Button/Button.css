@@ -307,7 +307,7 @@
   transition: none;
   /* Linear, not --ease: a fast-out curve parks the bar past the right edge for
      most of the loop, and a screenshot showed no bar at all. */
-  animation: armada-button-waiting var(--duration-pulse) linear infinite;
+  animation: armada-button-waiting var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-button-waiting {

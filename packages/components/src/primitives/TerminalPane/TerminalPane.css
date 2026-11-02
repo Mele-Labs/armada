@@ -102,7 +102,7 @@
 
 .armada-terminal-mark[data-result="running"] {
   color: var(--run-running);
-  animation: armada-terminal-pulse var(--duration-pulse) var(--ease) infinite;
+  animation: armada-terminal-pulse var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 .armada-terminal-mark[data-result="passed"] {

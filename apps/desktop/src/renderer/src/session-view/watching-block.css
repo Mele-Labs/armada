@@ -62,7 +62,7 @@
   inset: 0;
   background: var(--step-waiting);
   opacity: 0.14;
-  animation: sv-watch-asks var(--duration-pulse) ease-in-out infinite;
+  animation: sv-watch-asks var(--duration-pulse) var(--loop-pulse) infinite;
   pointer-events: none;
 }
 @keyframes sv-watch-asks {

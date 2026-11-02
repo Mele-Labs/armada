@@ -105,7 +105,7 @@ span.armada-view__dot { cursor: default; }
 .armada-view__dot:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: 50%; }
 
 /* The one loop on the horizon: a running dot breathes, slowly, in opacity alone so nothing beside it moves. */
-.armada-view__dot[data-state="running"]::before { animation: armada-dot-breathe var(--duration-pulse) var(--ease) infinite; }
+.armada-view__dot[data-state="running"]::before { animation: armada-dot-breathe var(--duration-pulse) var(--loop-pulse) infinite; }
 
 @keyframes armada-dot-breathe {
   50% { opacity: 0.5; }

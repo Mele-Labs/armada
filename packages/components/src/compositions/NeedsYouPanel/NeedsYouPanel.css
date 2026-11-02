@@ -318,7 +318,7 @@
 }
 
 .armada-needs-panel__starting .armada-session-mark > svg {
-  animation: armada-needs-panel-spin var(--duration-pulse) linear infinite;
+  animation: armada-needs-panel-spin var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-needs-panel-spin {

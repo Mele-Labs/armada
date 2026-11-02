@@ -172,7 +172,7 @@
 /* A working state — a Run running, a Finding gathering — pulses its word. Opacity
    only, at --duration-pulse, so nothing reflows. */
 .armada-studio-node__state[data-working] {
-  animation: armada-studio-node-pulse var(--duration-pulse) var(--ease) infinite;
+  animation: armada-studio-node-pulse var(--duration-pulse) var(--loop-pulse) infinite;
 }
 
 @keyframes armada-studio-node-pulse {

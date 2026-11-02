@@ -142,7 +142,7 @@
 }
 
 .armada-teach-panel__reading > svg {
-  animation: armada-teach-panel-spin var(--duration-pulse) linear infinite;
+  animation: armada-teach-panel-spin var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-teach-panel-spin {

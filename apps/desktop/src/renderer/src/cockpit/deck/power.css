@@ -88,7 +88,7 @@
   border-top: var(--border-width) solid var(--border-strong);
   pointer-events: none;
   will-change: translate, opacity;
-  animation: power-rescan calc(var(--power-draw) * 6) linear calc(var(--power-n, 0) * var(--power-step) + var(--power-draw)) infinite both;
+  animation: power-rescan calc(var(--power-draw) * 6) steps(8) calc(var(--power-n, 0) * var(--power-step) + var(--power-draw)) infinite both;
 }
 @keyframes power-rescan {
   from { translate: 0 0; opacity: 0; }

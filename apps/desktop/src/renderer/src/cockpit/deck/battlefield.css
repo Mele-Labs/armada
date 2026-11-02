@@ -63,7 +63,7 @@
 .bf-callout__last span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bf-callout__last time { flex: none; color: var(--fg-subtle); }
 .bf-callout__call { display: flex; align-items: center; gap: var(--space-2); color: var(--status-awaiting-review); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.bf-callout__call i { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: currentColor; animation: bf-tip calc(var(--duration-pulse) * 0.8) ease-in-out infinite; }
+.bf-callout__call i { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: currentColor; animation: bf-tip calc(var(--duration-pulse) * 0.8) var(--loop-pulse) infinite; }
 .bf-callout__ticks { width: 100%; height: var(--space-4); }
 .bf-callout__ticks rect { fill: var(--tip); }
 .bf-callout__ticks rect[data-empty] { opacity: 0.3; }

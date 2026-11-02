@@ -7,7 +7,7 @@
 }
 
 .armada-adversarial__mark[data-turning] > svg {
-  animation: armada-adversarial-turn var(--duration-pulse) linear infinite;
+  animation: armada-adversarial-turn var(--duration-pulse) var(--loop-turn) infinite;
 }
 
 @keyframes armada-adversarial-turn {

@@ -261,6 +261,10 @@ pub const THEME: &[(&str, Slot)] = &[
         Slot::CssOnly("v4 has no --duration-* namespace; read it in CSS"),
     ),
     (
+        "--loop-",
+        Slot::CssOnly("a steps() timing has no utility; read it in an animation"),
+    ),
+    (
         "--tooltip-delay",
         Slot::CssOnly("v4 has no --delay-* namespace; read it in CSS"),
     ),

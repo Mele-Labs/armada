@@ -459,7 +459,7 @@
   display: inline-flex;
   flex: none;
   color: var(--fg-muted);
-  animation: armada-wm-spin var(--duration-pulse) linear infinite;
+  animation: armada-wm-spin var(--duration-pulse) var(--loop-turn) infinite;
 }
 @keyframes armada-wm-spin {
   to {
