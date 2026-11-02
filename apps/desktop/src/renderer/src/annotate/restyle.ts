@@ -2,9 +2,19 @@
 // closes, so the app is never left restyled. Each property's own inline value is kept as it was found;
 // Size and Colour are a rule of the note's own, which reaches inside the element as well.
 
-import type { StyleChange } from "../../../shared/annotations";
+import type { StoryArgs, StyleChange } from "../../../shared/annotations";
+import { hostRootOf } from "./fiber";
 
-type Kept = { styles: Map<string, { value: string; priority: string }>; text?: { node: Text; value: string }; id: string };
+/** A story picked on a component: the name its fiber is found by, and the args the story sets. */
+export type Swap = { component: string; args: StoryArgs };
+
+type Kept = {
+  styles: Map<string, { value: string; priority: string }>;
+  text?: { node: Text; value: string };
+  /** The component's root and each `data-` attribute of it a story set, as it was: null where it had none. */
+  attributes?: { host: Element; was: Map<string, string | null> };
+  id: string;
+};
 
 const kept = new WeakMap<Element, Kept>();
 
@@ -14,6 +24,11 @@ export function wordsOf(element: Element): Text | null {
     acceptNode: (node) => ((node.nodeValue ?? "").trim() === "" ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT),
   });
   return walker.nextNode() as Text | null;
+}
+
+/** What the component's root draws as `data-variant` now, or null where it has none or the page keeps no fiber. */
+export function variantOf(element: Element, component: string): string | null {
+  return hostRootOf(element, component)?.getAttribute("data-variant") ?? null;
 }
 
 /** What `property` computes to on `element` now, as the page draws it. */
@@ -60,13 +75,29 @@ const valueOf = (change: StyleChange): string => (change.token === undefined ? c
 /**
  * Takes off whatever was put on before, then puts note `id`'s `changes` on: a token as the token, so it follows the theme.
  * Size and Colour go in one rule for the element and all inside it; Fill and Spacing inline on the element; Text in its words.
+ * A variant swaps the args of `swap`'s story onto the component's root, as `data-<arg>` where the root has one.
  */
-export function putOn(element: Element, changes: readonly StyleChange[], id: string): void {
+export function putOn(element: Element, changes: readonly StyleChange[], id: string, swap?: Swap): void {
   takeOff(element);
   if (!(element instanceof HTMLElement) && !(element instanceof SVGElement)) return;
   const was: Kept = { styles: new Map(), id };
   const reaching: string[] = [];
   for (const change of changes) {
+    if (change.kind === "variant") {
+      if (swap === undefined || was.attributes !== undefined) continue;
+      const host = hostRootOf(element, swap.component);
+      if (host === null) continue;
+      const attributes = { host, was: new Map<string, string | null>() };
+      for (const [key, value] of Object.entries(swap.args)) {
+        const name = `data-${key}`;
+        if (!host.hasAttribute(name)) continue;
+        attributes.was.set(name, host.getAttribute(name));
+        if (value === false) host.removeAttribute(name);
+        else host.setAttribute(name, value === true ? "" : String(value));
+      }
+      was.attributes = attributes;
+      continue;
+    }
     if (change.kind === "text") {
       const node = was.text?.node ?? wordsOf(element);
       if (node === null) continue;
@@ -104,6 +135,12 @@ export function takeOff(element: Element): void {
     }
   }
   if (was.text !== undefined) was.text.node.nodeValue = was.text.value;
+  if (was.attributes !== undefined) {
+    for (const [name, value] of was.attributes.was) {
+      if (value === null) was.attributes.host.removeAttribute(name);
+      else was.attributes.host.setAttribute(name, value);
+    }
+  }
   if (element.getAttribute(RESTYLED) === was.id) element.removeAttribute(RESTYLED);
   if (rules.delete(was.id)) writeRules();
 }

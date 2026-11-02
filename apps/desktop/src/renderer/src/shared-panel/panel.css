@@ -284,6 +284,11 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
+/* Pending: each bar takes the text line, so a row is the height it will be when the names land. */
+.side-requests__skel { display: flex; align-items: center; min-height: var(--leading-xs); }
+.side-requests__tree[data-pending] { --skeleton-fill: var(--bg-raised); }
+.side-requests__tree[data-pending] .armada-skeleton.side-requests__skel-lead { width: var(--space-4); }
+
 .side-requests__hides,
 .side-requests__set {
   display: inline-flex;
@@ -496,4 +501,43 @@
 .side-watch__log {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Requests is a page, not a sheet: the collections in a panel and the requests in the rest, each under its legend strip, on the
+   window's edge with the page gap between. The glass is the other pages' (`depth.css`); each body scrolls inside its frame. */
+.armada-requests {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--gap-panel);
+  padding: 0 0 var(--pad-page);
+}
+
+.armada-requests__panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.armada-requests__panel[data-side="collections"] {
+  flex: none;
+  width: calc(var(--space-12) * 6);
+}
+
+.armada-requests__panel[data-side="requests"] {
+  flex: 1 1 0;
+}
+
+.armada-requests__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-4);
+  overflow-y: auto;
 }

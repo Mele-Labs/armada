@@ -102,6 +102,11 @@ export function closePanel(): void {
   set({ open: undefined, back: undefined });
 }
 
+/** Requests is a page in the deck's place, so going to any other place leaves it. */
+export function closeRequests(): void {
+  if (held.open?.kind === "requests") closePanel();
+}
+
 /** A pull request's address as the forge writes it: `/<owner>/<name>/pull/<number>`, with nothing after the number. */
 const PULL = /^https?:\/\/[^/]+\/(?:[^/]+\/)+pull\/(\d+)\/?$/;
 

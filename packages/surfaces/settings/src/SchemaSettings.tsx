@@ -14,17 +14,16 @@ import {
   SettingField,
   SettingFieldList,
   SettingsFileBar,
+  SettingsFileNote,
+  SettingsFileStrip,
   type SettingFieldControl,
   type SettingFieldValue,
 } from "@armada/components";
 import type { Outcome, SaveSettings, Setting, SettingsList, SettingValue } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import type { SettingsFileOpened } from "./api";
-
-/** Fleet-wide, so the line every section's card opens on says when a change counts. */
-const LEAD = "These live in settings.json. A change counts at once, unless a setting says Fleet has to restart first.";
 
 /** Why nothing can be sent. */
 const NOT_LIVE = "Fleet is not connected, so nothing can be changed.";
@@ -83,6 +82,8 @@ function controlOf(setting: Setting): { control: SettingFieldControl; shipped?: 
 
 export type SchemaSectionProps = {
   label: string;
+  /** settings.json's path and open act, drawn in the card's strip, and its refusal at the top of the card. */
+  file?: SettingsFileParts;
   /** The section's settings, or only those a search found. `null` before Fleet has answered. */
   settings: readonly Setting[] | null;
   live: boolean;
@@ -93,7 +94,7 @@ export type SchemaSectionProps = {
  * One section of settings.json. **One save in flight for the whole section**:
  * main sends one at a time, and a second press here could only be refused.
  */
-export function SchemaSection({ label, settings, live, onSave }: SchemaSectionProps) {
+export function SchemaSection({ label, file, settings, live, onSave }: SchemaSectionProps) {
   const [saving, setSaving] = useState<string | null>(null);
   const [refused, setRefused] = useState<Record<string, string>>({});
 
@@ -111,12 +112,14 @@ export function SchemaSection({ label, settings, live, onSave }: SchemaSectionPr
     <Card>
       <CardHeader>
         <CardTitle>{label}</CardTitle>
+        {file?.strip}
       </CardHeader>
       <CardContent>
+        {file?.note}
         {settings === null ? (
           <p className="armada-settings__quiet">Fleet has not answered yet, so these settings are not here.</p>
         ) : (
-          <SettingFieldList lead={LEAD} {...(live ? {} : { note: NOT_LIVE })}>
+          <SettingFieldList {...(live ? {} : { note: NOT_LIVE })}>
             {settings.map((setting) => {
               const drawn = controlOf(setting);
               if (drawn === null) return null;
@@ -158,6 +161,32 @@ function whyNotOpened(opened: SettingsFileOpened): string | null {
   if (opened.ok) return null;
   if (opened.why === "not_read") return "Fleet has not said where settings.json is yet. It does once it answers.";
   return `This machine did not open it: ${opened.detail}`;
+}
+
+/** settings.json as a card draws it: the path and open act for its strip, and the refusal or answer for its top. */
+export type SettingsFileParts = { strip: ReactNode; note: ReactNode };
+
+/** The same file as `SettingsFile`, split for the first card of a page: `SchemaSection` takes it as `file`. */
+export function useSettingsFile({ settings, onOpen }: SettingsFileProps): SettingsFileParts {
+  const [opening, setOpening] = useState(false);
+  const [said, setSaid] = useState<string | null>(null);
+  return {
+    strip: (
+      <SettingsFileStrip
+        path={settings?.path ?? null}
+        opening={opening}
+        onOpen={() => {
+          setOpening(true);
+          setSaid(null);
+          void onOpen().then((opened) => {
+            setOpening(false);
+            setSaid(whyNotOpened(opened));
+          });
+        }}
+      />
+    ),
+    note: <SettingsFileNote refused={settings?.refused ?? null} {...(said === null ? {} : { said })} />,
+  };
 }
 
 /** settings.json itself, above every category: `SettingsFileBar`, and what its press answered. */

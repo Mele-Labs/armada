@@ -4,17 +4,20 @@
 // named with Fleet's why, and nothing is saved over the person's own while it will not. The environment picked and each open
 // request's edits and answer are the panel's, so a tab switch keeps them and Save can sit on the heading's line.
 
-import { useContext, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { ChevronDown, ChevronRight, FolderGit2, SquareAsterisk, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, FolderGit2, Plus, SquareAsterisk, Trash2, TriangleAlert, X } from "lucide-react";
 import {
   Alert,
   Button,
+  CardHeader,
+  CardTitle,
   Checkbox,
   Input,
   RequestMark,
   Select,
   Separator,
+  Skeleton,
   Stamp,
   TabPanel,
   Table,
@@ -36,7 +39,7 @@ import type { RequestsAnswer, RequestsApi } from "../../../shared/api/requests";
 import { useSessions } from "../sessions-draft";
 import { HolderLink, useBack } from "./panels";
 import { useReading, usePanelReads } from "./reads";
-import { InlinePanel, SidePanel } from "./side";
+import { InlinePanel, useTabKeys } from "./side";
 import { closePanel } from "./store";
 import type { PanelItem, RequestStart } from "./store";
 import { METHODS, bodyShown, filledOf, historyOf, repositoryToRead, startOf, unreadFileOf, yoursUnread } from "./requests-model";
@@ -109,6 +112,8 @@ export function RequestsPanel({ item }: { item: Item }) {
   const read = useReading(async () => api?.readRequests(item.sessionId, repository), `requests:${item.sessionId ?? ""}:${repository ?? ""}`);
   const [latest, setLatest] = useState<Requests | undefined>(undefined);
   const now = latest ?? (read.out || read.value?.ok !== true ? undefined : read.value.value);
+  // The read is out and nothing has landed: a read that came back refused or with nothing is not pending.
+  const pending = latest === undefined && read.out;
   const [open, setOpen] = useState<Open | undefined>(() => openOf(item));
   const [environment, setEnvironment] = useState(item.start?.environment ?? "");
   const [drafts, setDrafts] = useState<Readonly<Record<string, Draft>>>({});
@@ -188,95 +193,159 @@ export function RequestsPanel({ item }: { item: Item }) {
 
   // A save over the person's own file while it will not read is refused, so none is offered.
   const locked = yoursUnread(now) !== undefined;
-  const heading = collection?.name ?? saved?.name ?? (open?.kind === "draft" ? "New request" : "No request open");
+  const heading = collection?.name ?? saved?.name ?? (open?.kind === "draft" ? "New request" : "");
   const crumb = collection !== undefined ? undefined : into?.name;
   const editing = tab === "request" && (rows !== undefined || draft !== undefined);
+  const page = useRef<HTMLDivElement>(null);
+  useTabKeys(tabs.map((one) => one.id), tab, setTab);
+  useEscapeClose();
+  // The close takes focus as the page opens, as a sheet's did, so the keys start from the page.
+  useEffect(() => {
+    page.current?.querySelector<HTMLElement>('[aria-label="Close"]')?.focus({ preventScroll: true });
+  }, []);
   return (
-    <SidePanel
-      title="Requests"
-      heading={heading}
-      crumb={crumb}
-      {...(!editing ? {} : {
-        beside: (
-          <Button variant="secondary" disabled={!savable || locked} onClick={() => void save()}>
-            Save
-          </Button>
-        ),
-      })}
-      {...(session === undefined ? {} : { meta: <HolderLink id={session.id} title={session.title ?? session.id} /> })}
-      {...(now === undefined && listed.length === 0 ? {} : {
-        bar: (
-          <>
-            {listed.length === 0 ? null : (
-              <Select label="Repository" value={repository ?? ""} onChange={(event) => switchTo(event.currentTarget.value)}>
-                {listed.map((one) => (
-                  <option key={one.root} value={one.root}>
-                    {repositoryLabel(one, listed)}
-                  </option>
-                ))}
-              </Select>
-            )}
-            {now === undefined ? null : (
-              <Select label="Environment" value={environment} onChange={(event) => setEnvironment(event.currentTarget.value)}>
-                <option value="">None</option>
-                {now.environments.map((one) => (
-                  <option key={one.name} value={one.name}>
-                    {one.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </>
-        ),
-      })}
-      tabs={tabs}
-      tab={tab}
-      onTab={setTab}
-      back={back}
-      onClose={closePanel}
-      {...(now === undefined ? {} : { left: { title: "Collections", body: <CollectionTree read={now} open={open} onOpen={openFromTree} /> } })}
-    >
-      {api === undefined ? (
-        <Alert tone="caution">Fleet does not serve Requests here.</Alert>
-      ) : !read.out && read.value !== undefined && !read.value.ok ? (
-        <Alert tone="escalated">{said(read.value)}</Alert>
-      ) : now === undefined ? null : (
-        <>
-          {now.not_read.map((one) => (
-            <Unread key={one.place} unread={one} />
-          ))}
-          {tab === "request" ? (
-            <RequestTab tree={floor ? <CollectionTree read={now} open={open} onOpen={openFromTree} /> : undefined}>
-              {collection !== undefined && rows !== undefined ? (
-                <CollectionView collection={collection} rows={rows} onRows={(next) => setShared((was) => ({ ...was, [collection.id]: next }))} refused={refused?.key === key ? refused?.said : undefined} />
-              ) : draft !== undefined && key !== undefined ? (
-                <Editor
-                  api={api}
-                  read={now}
-                  sessionId={item.sessionId}
-                  repository={repository}
-                  environment={environment}
-                  draft={draft}
-                  onDraft={onDraft}
-                  collection={inCollection}
-                  fresh={saved === undefined}
-                  scope={`requests:${item.sessionId ?? repository ?? "none"}:${key}`}
-                  sent={sends[key]}
-                  onSent={(sent) => setSends((was) => ({ ...was, [key]: sent }))}
-                  onEditCollection={(id) => setOpen({ kind: "collection", id })}
-                  refused={refused?.key === key ? refused?.said : undefined}
-                />
-              ) : null}
-            </RequestTab>
-          ) : tab === "environments" ? (
-            <Environments api={api} read={now} sessionId={item.sessionId} repository={repository} locked={locked} onRead={setLatest} />
-          ) : (
-            <History rows={history} onOpen={openFromHistory} />
-          )}
-        </>
+    <div className="armada-requests" ref={page}>
+      {floor ? null : (
+        <section className="armada-requests__panel" data-side="collections" role="dialog" aria-label="Collections">
+          <CardHeader>
+            <CardTitle>Collections</CardTitle>
+            <Tooltip label="New request">
+              <Button variant="ghost" iconOnly aria-label="New request" onClick={() => openFromTree({ kind: "draft", start: undefined, at: Date.now() })}>
+                <Plus size={16} aria-hidden="true" />
+              </Button>
+            </Tooltip>
+          </CardHeader>
+          <div className="armada-requests__body">{now !== undefined ? <CollectionTree read={now} open={open} onOpen={openFromTree} stripAct /> : pending ? <PendingTree /> : null}</div>
+        </section>
       )}
-    </SidePanel>
+      <section className="armada-requests__panel" data-side="requests" role="dialog" aria-label="Requests">
+        <CardHeader>
+          <CardTitle>Requests</CardTitle>
+          <Tabs compact items={tabs} value={tab} onChange={setTab} />
+          {back === undefined ? null : (
+            <Tooltip label={back.tooltip}>
+              <Button variant="ghost" iconOnly aria-label={back.label} onClick={back.onBack}>
+                <ArrowLeft size={16} aria-hidden="true" />
+              </Button>
+            </Tooltip>
+          )}
+          <Tooltip label="Close">
+            <Button variant="ghost" iconOnly aria-label="Close" onClick={closePanel}>
+              <X size={16} aria-hidden="true" />
+            </Button>
+          </Tooltip>
+        </CardHeader>
+        <div className="armada-requests__body">
+          <div className="armada-pr-panel">
+            {crumb === undefined && !editing ? (
+              heading === "" ? null : <h3 className="armada-pr-panel__title">{heading}</h3>
+            ) : (
+              <div className="side-panel__head">
+                <div className="side-panel__heading">
+                  {crumb === undefined ? null : <p className="side-panel__crumb">{crumb}</p>}
+                  <h3 className="armada-pr-panel__title">{heading}</h3>
+                </div>
+                {!editing ? null : (
+                  <Button variant="secondary" disabled={!savable || locked} onClick={() => void save()}>
+                    Save
+                  </Button>
+                )}
+              </div>
+            )}
+            {session === undefined ? null : (
+              <div className="armada-pr-panel__meta">
+                <HolderLink id={session.id} title={session.title ?? session.id} />
+              </div>
+            )}
+            {now === undefined && listed.length === 0 ? null : (
+              <div className="side-panel__bar">
+                {listed.length === 0 ? null : (
+                  <Select label="Repository" value={repository ?? ""} onChange={(event) => switchTo(event.currentTarget.value)}>
+                    {listed.map((one) => (
+                      <option key={one.root} value={one.root}>
+                        {repositoryLabel(one, listed)}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+                {now === undefined ? null : (
+                  <Select label="Environment" value={environment} onChange={(event) => setEnvironment(event.currentTarget.value)}>
+                    <option value="">None</option>
+                    {now.environments.map((one) => (
+                      <option key={one.name} value={one.name}>
+                        {one.name}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+            )}
+            <div className="armada-pr-tabs">
+              <TabPanel tab={tab} role="tabpanel" aria-label={tabs.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
+                {api === undefined ? (
+                  <Alert tone="caution">Fleet does not serve Requests here.</Alert>
+                ) : !read.out && read.value !== undefined && !read.value.ok ? (
+                  <Alert tone="escalated">{said(read.value)}</Alert>
+                ) : now === undefined ? null : (
+                  <>
+                    {now.not_read.map((one) => (
+                      <Unread key={one.place} unread={one} />
+                    ))}
+                    {tab === "request" ? (
+                      <RequestTab tree={floor ? <CollectionTree read={now} open={open} onOpen={openFromTree} /> : undefined}>
+                        {collection !== undefined && rows !== undefined ? (
+                          <CollectionView collection={collection} rows={rows} onRows={(next) => setShared((was) => ({ ...was, [collection.id]: next }))} refused={refused?.key === key ? refused?.said : undefined} />
+                        ) : draft !== undefined && key !== undefined ? (
+                          <Editor
+                            api={api}
+                            read={now}
+                            sessionId={item.sessionId}
+                            repository={repository}
+                            environment={environment}
+                            draft={draft}
+                            onDraft={onDraft}
+                            collection={inCollection}
+                            fresh={saved === undefined}
+                            scope={`requests:${item.sessionId ?? repository ?? "none"}:${key}`}
+                            sent={sends[key]}
+                            onSent={(sent) => setSends((was) => ({ ...was, [key]: sent }))}
+                            onEditCollection={(id) => setOpen({ kind: "collection", id })}
+                            refused={refused?.key === key ? refused?.said : undefined}
+                          />
+                        ) : null}
+                      </RequestTab>
+                    ) : tab === "environments" ? (
+                      <Environments api={api} read={now} sessionId={item.sessionId} repository={repository} locked={locked} onRead={setLatest} />
+                    ) : (
+                      <History rows={history} onOpen={openFromHistory} />
+                    )}
+                  </>
+                )}
+              </TabPanel>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
+}
+
+/**
+ * Esc leaves the page, unless something drawn over it holds the key: a popover, the palette, a box that asks, a sheet, a toast, or a
+ * field that keeps it. The checks are a sheet's own, which this page no longer is.
+ */
+function useEscapeClose(): void {
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector(".armada-popover__panel, .armada-palette, .armada-dialog, .armada-sheet, [data-holds-esc]") !== null) return;
+      if (document.activeElement?.closest(".armada-toast, [data-keeps-esc]")) return;
+      event.preventDefault();
+      closePanel();
+    };
+    window.addEventListener("keydown", down);
+    return () => window.removeEventListener("keydown", down);
+  }, []);
 }
 
 /** A file that would not read, and Fleet's why. None of its items are listed, so the panel never draws it as empty. */
@@ -410,20 +479,49 @@ function RequestTab({ tree, children }: { tree: ReactNode; children: ReactNode }
   );
 }
 
-function CollectionTree({ read, open, onOpen }: { read: Requests; open: Open | undefined; onOpen: (open: Open) => void }) {
+/** The collections tree before the read lands: folders and requests as bars, in the rows the tree draws, so the names pop in without a shift. */
+const PENDING_TREE: readonly { dir: boolean; width: string }[] = [
+  { dir: true, width: "7rem" },
+  { dir: false, width: "9rem" },
+  { dir: false, width: "6rem" },
+  { dir: true, width: "5rem" },
+  { dir: false, width: "8rem" },
+  { dir: true, width: "6rem" },
+  { dir: false, width: "7rem" },
+];
+
+function PendingTree() {
+  return (
+    <div className="armada-pr-tree side-requests__tree" data-pending="">
+      <ul className="armada-pr-list armada-pr-tree__list">
+        {PENDING_TREE.map((one, at) => (
+          <li key={at} className="armada-pr-tree__row" style={{ "--depth": one.dir ? 0 : 1 } as CSSProperties}>
+            <div className="armada-pr-tree__item" data-kind={one.dir ? "dir" : "file"} data-nested={one.dir ? undefined : ""}>
+              <span className="side-requests__skel">{one.dir ? <Skeleton className="side-requests__skel-lead" /> : <Skeleton width="2rem" />}</span>
+              <span className="side-requests__skel"><Skeleton width={one.width} /></span>
+              <span />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function CollectionTree({ read, open, onOpen, stripAct = false }: { read: Requests; open: Open | undefined; onOpen: (open: Open) => void; stripAct?: boolean }) {
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const step = (depth: number) => ({ "--depth": depth }) as CSSProperties;
   return (
     <div className="armada-pr-tree side-requests__tree">
-      <div className="armada-pr-tree__head">
-        <span />
-        <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "draft", start: undefined, at: Date.now() })}>
-          New request
-        </Button>
-      </div>
-      {read.collections.length === 0 ? (
-        read.not_read.length > 0 ? null : <p className="side-request__none">No collections in this repository.</p>
-      ) : (
+      {stripAct ? null : (
+        <div className="armada-pr-tree__head">
+          <span />
+          <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "draft", start: undefined, at: Date.now() })}>
+            New request
+          </Button>
+        </div>
+      )}
+      {read.collections.length === 0 ? null : (
         <ul className="armada-pr-list armada-pr-tree__list" aria-label="Collections">
           {read.collections.flatMap((one) => {
             const shut = folded.has(one.id);

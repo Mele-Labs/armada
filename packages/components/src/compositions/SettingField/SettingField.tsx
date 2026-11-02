@@ -1,7 +1,9 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { FileText } from "lucide-react";
+import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
+import { CardReadout } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Readout } from "../../primitives/Readout/Readout";
 import { Select } from "../../primitives/Select/Select";
@@ -152,11 +154,11 @@ export function SettingField({
 
   // A figure or a line is saved from inside its own frame, so the field and Save share one height and one bezel.
   const inFrame = control.kind === "number" || control.kind === "text";
-  const saveButton = (
+  // Save is drawn only while the field holds a change: an unchanged one has nothing to send.
+  const saveButton = !dirty && !saving ? null : (
     <Button
-      variant="secondary"
+      variant="ghost"
       size="sm"
-      ground="sunken"
       pending={saving}
       disabled={off || !dirty || !inRange}
       aria-label={`Save ${title}`}
@@ -197,6 +199,15 @@ export function SettingField({
         onChange={(event) => setTyped(event.target.value)}
       />
     ) : (
+      <Entry
+        control={control}
+        title={title}
+        field={field}
+        asked={asked}
+        inRange={inRange}
+        off={off}
+        onType={setTyped}
+      >
       <Input
         id={id}
         mono
@@ -214,6 +225,7 @@ export function SettingField({
             : {})}
         onChange={(event) => setTyped(event.target.value)}
       />
+      </Entry>
     );
 
   return (
@@ -248,17 +260,69 @@ export function SettingField({
   );
 }
 
+/** A range this narrow is dragged, with its figure still typed; a wider one (a port) is only typed. */
+const DRAGGED_SPAN = 1000;
+/** A mark at each step, until they would crowd. */
+const MARKED_STEPS = 32;
+
+/** A figure's field, with a slider beside it where the range is narrow enough to drag. The slider moves what is typed; Save sends it. */
+function Entry({ control, title, field, asked, inRange, off, onType, children }: {
+  control: SettingFieldControl;
+  title: string;
+  field: string;
+  asked: number;
+  inRange: boolean;
+  off: boolean;
+  onType: (text: string) => void;
+  children: ReactNode;
+}) {
+  if (control.kind !== "number" || control.max - control.min > DRAGGED_SPAN) return <>{children}</>;
+  const steps = control.max - control.min + 1;
+  const at = inRange && field.trim() !== "" ? asked : control.value;
+  return (
+    <div className="armada-setting-field__drag">
+      <span
+        className="armada-setting-field__track"
+        data-marked={steps <= MARKED_STEPS || undefined}
+        style={{ "--fill": (at - control.min) / (control.max - control.min) } as CSSProperties}
+      >
+        {steps > MARKED_STEPS ? null : (
+          <span className="armada-setting-field__marks" aria-hidden="true">
+            {Array.from({ length: steps }, (_, step) => (
+              <span key={step} data-on={control.min + step <= at || undefined} />
+            ))}
+          </span>
+        )}
+        <input
+          type="range"
+          className="armada-slider__input"
+          aria-label={`${title} slider`}
+          min={control.min}
+          max={control.max}
+          step={1}
+          value={at}
+          disabled={off}
+          onChange={(event) => onType(event.target.value)}
+        />
+      </span>
+      {children}
+    </div>
+  );
+}
+
 /**
- * A section's settings under the line that says when a change counts, and why nothing can be sent
- * where nothing can. The rows are `SettingField`s.
+ * A section's settings, under a line saying why nothing can be sent where nothing can. The rows are
+ * `SettingField`s.
  */
-export function SettingFieldList({ lead, note, children }: { lead: ReactNode; note?: ReactNode; children: ReactNode }) {
+export function SettingFieldList({ lead, note, children }: { lead?: ReactNode; note?: ReactNode; children: ReactNode }) {
   return (
     <div className="armada-setting-fields">
-      <div className="armada-setting-fields__opening">
-        <p className="armada-setting-fields__lead">{lead}</p>
-        {note === undefined ? null : <p className="armada-setting-fields__lead">{note}</p>}
-      </div>
+      {lead === undefined && note === undefined ? null : (
+        <div className="armada-setting-fields__opening">
+          {lead === undefined ? null : <p className="armada-setting-fields__lead">{lead}</p>}
+          {note === undefined ? null : <p className="armada-setting-fields__lead">{note}</p>}
+        </div>
+      )}
       {children}
     </div>
   );
@@ -302,6 +366,45 @@ export function SettingsFileBar({ path, refused, opening = false, said, onOpen }
           Open settings.json
         </Button>
       </div>
+      {said === undefined ? null : (
+        <p className="armada-setting-fields__lead" role="status">
+          {said}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** settings.json's path and its open act as a card's legend strip draws them: the path as the readout, the act a ghost icon button. */
+export function SettingsFileStrip({ path, opening = false, onOpen }: Pick<SettingsFileBarProps, "path" | "opening" | "onOpen">) {
+  return (
+    <>
+      <CardReadout data-path="">{path ?? "settings.json"}</CardReadout>
+      <Tooltip label="Open settings.json">
+        <Button variant="ghost" iconOnly aria-label="Open settings.json" pending={opening} disabled={path === null} onClick={onOpen}>
+          <FileText size={16} aria-hidden="true" />
+        </Button>
+      </Tooltip>
+    </>
+  );
+}
+
+/** What the strip has no room for: a refusal of settings.json, and why the last press did not open it. Drawn at the top of the card. */
+export function SettingsFileNote({ refused, said }: Pick<SettingsFileBarProps, "refused" | "said">) {
+  if (refused === null && said === undefined) return null;
+  return (
+    <div className="armada-setting-fields__opening">
+      {refused === null ? null : (
+        <Alert tone="caution" title="Fleet refused settings.json">
+          {refused.key == null ? null : (
+            <>
+              <code>{refused.key}</code>
+              {": "}
+            </>
+          )}
+          {`${refused.reason} The last settings that read cleanly stay in force until the file is fixed.`}
+        </Alert>
+      )}
       {said === undefined ? null : (
         <p className="armada-setting-fields__lead" role="status">
           {said}

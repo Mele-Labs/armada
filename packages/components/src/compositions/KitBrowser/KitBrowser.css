@@ -4,11 +4,10 @@
   display: grid;
   grid-template-columns: var(--w-guide-list) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
-  column-gap: var(--space-4);
+  column-gap: var(--gap-panel);
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding-bottom: var(--space-6);
 }
 
 .armada-kit-browser__list,
@@ -38,7 +37,6 @@
 .armada-kit-browser__items {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -51,30 +49,37 @@
   min-width: 0;
 }
 
+/* Rows are the Cockpit list's: flat on the panel, a hairline between, 28px, the picked one a wash. */
+.armada-kit-browser__item + .armada-kit-browser__item {
+  border-top: var(--border-width) solid color-mix(in srgb, var(--fg-default) 10%, transparent);
+}
+
 .armada-kit-browser__row {
   display: flex;
   flex: 1;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--h-control);
+  padding: 0 var(--space-3);
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--fg-default);
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   text-align: left;
   cursor: pointer;
 }
 
 .armada-kit-browser__row:hover {
-  background: var(--surface-row-hover);
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
 }
 
 .armada-kit-browser__row[aria-current] {
-  background: var(--surface-row-selected);
+  background: var(--select-ground, var(--surface-row-selected));
 }
 
 .armada-kit-browser__row:focus-visible {
@@ -161,20 +166,52 @@
   flex: 1 1 0;
 }
 
+/* The head is the thread's: 36px across the panel with a hairline under it, the title 14px at medium weight on one line. */
+.armada-kit-browser {
+  --kit-head: var(--head-min, calc(var(--space-8) + var(--space-1)));
+}
+
 .armada-kit-browser__head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  gap: var(--space-3);
   min-width: 0;
+  min-height: var(--kit-head);
+  margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) 0;
+  padding: 0 var(--space-4);
+  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule, var(--border-subtle));
+}
+
+/* A file's view puts its two acts beside the head, in a row of its own: they sit on the head's centre and its hairline runs the panel's width. */
+.armada-kit-browser__detail .armada-file-view__head {
+  position: relative;
+}
+.armada-kit-browser__detail .armada-file-view__head > :not(.armada-file-view__who) {
+  margin-top: calc((var(--kit-head) - var(--h-control-sm)) / 2 - var(--space-4));
+}
+.armada-kit-browser__detail .armada-file-view__head .armada-kit-browser__head {
+  box-shadow: none;
+}
+.armada-kit-browser__detail .armada-file-view__head::after {
+  content: "";
+  position: absolute;
+  inset-inline: calc(var(--space-4) * -1);
+  top: calc(var(--kit-head) - var(--space-4) - var(--border-width));
+  height: var(--border-width);
+  background: var(--head-rule, var(--border-subtle));
+  pointer-events: none;
 }
 
 .armada-kit-browser__title {
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   color: var(--fg-default);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-heading);
-  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .armada-kit-browser__path {
@@ -285,3 +322,13 @@
   display: inline-flex;
   visibility: hidden;
 }
+
+/* Pending: bars where the names and the item's words will be. Each wrapper takes the line its text takes, so a row is
+   the height it will be when the read lands. The pending row is no button: no hover, no pointer. */
+.armada-kit-browser__row[data-pending] { cursor: default; }
+.armada-kit-browser__row[data-pending]:hover { background: transparent; }
+.armada-kit-browser__skel { display: flex; align-items: center; min-height: var(--leading-xs); }
+.armada-kit-browser__skel[data-says] { min-height: var(--leading-sm); }
+.armada-kit-browser__skel[data-title] { min-height: var(--leading-sm); }
+.armada-kit-browser [data-pending].armada-kit-browser__item-detail { display: flex; flex-direction: column; gap: var(--space-3); }
+.armada-kit-browser [data-pending] { --skeleton-fill: var(--bg-sunken); }

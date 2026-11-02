@@ -1,5 +1,5 @@
 import { FolderPlus } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { RescueAct, SlotAct } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -53,6 +53,8 @@ export type PoolSlotsProps = {
   adding?: boolean;
   /** The window is at `--window-floor`, where the panel is flush to both edges. */
   floor?: boolean;
+  /** The strip's acts, at its right: ghost icon buttons the page draws, such as the way back to the list. */
+  bandActs?: ReactNode;
 };
 
 /** The ghost tile after the last bay: one more slot, made by the next lease. */
@@ -88,6 +90,7 @@ export function PoolSlots({
   addRefused,
   adding,
   floor = false,
+  bandActs,
 }: PoolSlotsProps) {
   /** The tile whose panel is open. */
   const [opened, setOpened] = useState<string | null>(null);
@@ -108,12 +111,15 @@ export function PoolSlots({
   const tile = (row: TileRow) => <PoolTile key={keyOf(row)} row={row} open={keyOf(row) === opened} onOpen={() => setOpened(keyOf(row))} />;
   return (
     <>
-      {/* The cockpit's viewscreen: a band over a ruled glass the tiles stand on. A band repeats its list's name, so it is unread. */}
+      {/* The cockpit's viewscreen: a band over a ruled glass the tiles stand on. The label repeats its list's name, so it is unread. */}
       <div className="armada-pool-slots__views" ref={view}>
         {pooled ? (
           <div className="armada-pool-slots__view">
-            <div className="armada-pool-slots__band" aria-hidden>
-              Worktree slots
+            <div className="armada-pool-slots__band">
+              <span className="armada-pool-slots__label" aria-hidden>
+                Worktree slots
+              </span>
+              {bandActs}
             </div>
             <ul className="armada-pool-slots" aria-label="Worktree slots">
               {rows.map(tile)}

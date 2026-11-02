@@ -7,8 +7,8 @@
 
 import { createPortal } from "react-dom";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Pause, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, tokenPx, useShortcutReveal, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
+import { ChartNoAxesGantt, ChevronDown, ChevronUp, CircleDashed, Filter as FilterGlyph, GitMerge, Link, LoaderCircle, Plane, Play, Send, SquarePen, Trash2, Unplug, UserCheck } from "lucide-react";
+import { Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Inspect, Kbd, EarlierMark, HandoffMark, PausedMark, Switch, Tooltip, keyFor, tokenPx, useTimeFormat, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, jobIdOf, manifestLabel, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -213,7 +213,7 @@ function Filter({ rows }: { rows: RefObject<HTMLElement | null> }) {
           search={{ value: typed, onChange: setQuery, onEnter: () => rows.current?.querySelector<HTMLElement>(".deck-row")?.focus() }}
           open={open}
           onOpenChange={setSearching}
-          entries={SCOPES.map(({ id, label: name }) => ({ kind: "item" as const, id, label: name, selected: id === scope, ...(id === "paused" ? { icon: Pause } : {}) }))}
+          entries={SCOPES.map(({ id, label: name }) => ({ kind: "item" as const, id, label: name, selected: id === scope }))}
           onSelect={(id) => setScope(id as Scope)}
         />
       </Tooltip>
@@ -1180,14 +1180,6 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const panels = new Set(useLayout("dashboard.panels").shown.map((one) => one.id));
   const autopilotShown = useSetting("features.autopilotPanel") === true;
   const bare = !reading && !panels.has("bays") && !panels.has("activity");
-  // The key caps are drawn only while ⌘ is held: the root's `data-reveal` says so.
-  const revealing = useShortcutReveal();
-  useEffect(() => {
-    const root = document.documentElement.dataset;
-    if (revealing) root.reveal = "";
-    else delete root.reveal;
-    return () => void delete root.reveal;
-  }, [revealing]);
   const footed = !unified && (panels.has("controls") || panels.has("dispatch") || (autopilotShown && panels.has("autopilot")));
   const layout = unified ? "session" : reading ? "reading" : bare ? "bare" : "idle";
   // The Jobs list rests as wide as the fields chosen for its rows need (`row-view.tsx`); a width dragged to is kept as dragged.

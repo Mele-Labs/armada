@@ -64,5 +64,13 @@ export function ShortcutRevealProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // The root says so too, for the stylesheets that draw a page's caps only while ⌘ is down: `:root:not([data-reveal])`.
+  useEffect(() => {
+    const root = document.documentElement.dataset;
+    if (revealing) root.reveal = "";
+    else delete root.reveal;
+    return () => void delete root.reveal;
+  }, [revealing]);
+
   return <ShortcutReveal.Provider value={revealing}>{children}</ShortcutReveal.Provider>;
 }

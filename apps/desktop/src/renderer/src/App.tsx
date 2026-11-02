@@ -57,7 +57,8 @@ import { useHelmBox } from "./helm-box";
 import { RefsHost, useHelmRefs } from "./helm-refs";
 import type { Host as RefsHostProps } from "./helm-refs";
 import { useHelmHosted } from "./helm-session";
-import { openAddressInPanel } from "./shared-panel/store";
+import { RequestsPanel } from "./shared-panel/requests";
+import { closeRequests, openAddressInPanel, usePanel } from "./shared-panel/store";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { startOn } from "./start-on";
 import { useSpacing } from "./spacing";
@@ -413,7 +414,11 @@ export function App() {
   const teachBridge = useTeachBridge();
   useOpenModAsked((kind) => (openSystemEntry(`bridge:${kind}`), goTo(SURFACE.settings))); // A taught entry's mod, opened in Mods.
 
+  const panelOpen = usePanel().open;
+  const requesting = panelOpen?.kind === "requests" ? panelOpen : undefined; // Requests takes the deck's place, as a page.
+
   function goTo(requested: string): void {
+    closeRequests(); // Requests is a page in the deck's place.
     // Retros is the Logbook's Retros tab: every way to the old page arrives there, on that tab.
     if (requested === SURFACE.lessons) askForFixes();
     const place = requested === SURFACE.lessons ? SURFACE.logbook : requested;
@@ -616,7 +621,7 @@ export function App() {
               located={<LocatedNotice locating={locate} repositories={repositories} />}
             />
 
-            {logbooking ? (<LogbookSurface repository={state.repository} {...guarded} />) : usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : issuing ? (<Boundary region="Issues" {...guarded}><IssuesSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : projecting ? (<Boundary region="Projects" {...guarded}><ProjectsSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : clearing ? (
+            {requesting !== undefined ? (<Boundary region="Requests" {...guarded}><RequestsPanel key={`requests:${requesting.sessionId ?? ""}:${requesting.from ?? ""}`} item={requesting} /></Boundary>) : logbooking ? (<LogbookSurface repository={state.repository} {...guarded} />) : usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : issuing ? (<Boundary region="Issues" {...guarded}><IssuesSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : projecting ? (<Boundary region="Projects" {...guarded}><ProjectsSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : clearing ? (
               /* What Fleet is holding disk for. The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and this is where the rest is
                  given back, one tile at a time. */

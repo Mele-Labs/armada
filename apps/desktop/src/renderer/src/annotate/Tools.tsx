@@ -2,12 +2,12 @@
 // element's size, colour, fill, spacing or words on the page, from the design tokens, and see each
 // change listed with what it was. Pictures he pastes or drops on the card sit under them.
 
-import { useEffect, useLayoutEffect, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
-import { ALargeSmall, PaintBucket, Palette, SquareDashed, TextCursorInput, Undo2, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { ALargeSmall, PaintBucket, Palette, SquareDashed, SwatchBook, TextCursorInput, Undo2, X } from "lucide-react";
 import { Button, Textarea, Tooltip } from "@armada/components";
 
-import { isPng, type ChangeKind, type StyleChange } from "../../../shared/annotations";
-import { asHex, computed, putOn, takeOff, tokenValue, wordsOf } from "./restyle";
+import { AS_DRAWN, isPng, type ChangeKind, type IndexedStory, type StoryIndex, type StyleChange } from "../../../shared/annotations";
+import { asHex, computed, putOn, takeOff, tokenValue, variantOf, wordsOf, type Swap } from "./restyle";
 import { COLOURS, FILLS, SIZES, SPACES, step } from "./tokens";
 
 const TOOLS: readonly { kind: ChangeKind; label: string; icon: ReactNode }[] = [
@@ -16,6 +16,7 @@ const TOOLS: readonly { kind: ChangeKind; label: string; icon: ReactNode }[] = [
   { kind: "fill", label: "Fill", icon: <PaintBucket size={14} strokeWidth={2} aria-hidden /> },
   { kind: "spacing", label: "Spacing", icon: <SquareDashed size={14} strokeWidth={2} aria-hidden /> },
   { kind: "text", label: "Text", icon: <TextCursorInput size={14} strokeWidth={2} aria-hidden /> },
+  { kind: "variant", label: "Variant", icon: <SwatchBook size={14} strokeWidth={2} aria-hidden /> },
 ];
 
 /** Left and right move between the buttons of a row, so a row is one stop on Tab and its buttons are a key apart. */
@@ -37,18 +38,44 @@ function withChange(changes: readonly StyleChange[], next: StyleChange): StyleCh
  * `changes` put on `element` while the card is up, and taken off when it goes. A layout effect, so the
  * first frame drawn with the card already shows them.
  */
-function useRestyled(element: Element | null, changes: readonly StyleChange[], id: string): void {
+function useRestyled(element: Element | null, changes: readonly StyleChange[], id: string, swap: Swap | undefined): void {
   useLayoutEffect(() => {
     if (element === null) return undefined;
-    putOn(element, changes, id);
+    putOn(element, changes, id, swap);
     return () => takeOff(element);
-  }, [element, changes, id]);
+  }, [element, changes, id, swap]);
 }
 
-/** `id` is the note's, which names the rule its Size and Colour are written in. */
-export function Tools({ id, element, changes, onChanges, keep }: { id: string; element: Element | null; changes: readonly StyleChange[]; onChanges: (next: StyleChange[]) => void; keep: string }) {
+const NO_NAMES: readonly string[] = [];
+const NO_STORIES: StoryIndex = {};
+
+/** `id` is the note's, which names the rule its Size and Colour are written in. `names` is the chain, nearest first; `stories` the index its Variant tool draws from. */
+export function Tools({
+  id,
+  element,
+  changes,
+  onChanges,
+  keep,
+  names = NO_NAMES,
+  stories = NO_STORIES,
+}: {
+  id: string;
+  element: Element | null;
+  changes: readonly StyleChange[];
+  onChanges: (next: StyleChange[]) => void;
+  keep: string;
+  names?: readonly string[];
+  stories?: StoryIndex;
+}) {
   const [tool, setTool] = useState<ChangeKind | null>(null);
-  useRestyled(element, changes, id);
+  // The nearest component in the chain that has stories, whose variants the Variant tool lists.
+  const target = names.find((name) => (stories[name]?.stories.length ?? 0) > 0);
+  const picked = changes.find((one) => one.kind === "variant");
+  const swap = useMemo<Swap | undefined>(() => {
+    const story = target === undefined || picked === undefined ? undefined : stories[target]?.stories.find((one) => one.name === picked.after);
+    return target === undefined || story === undefined ? undefined : { component: target, args: story.args };
+  }, [target, picked, stories]);
+  useRestyled(element, changes, id, swap);
   const words = element === null ? null : wordsOf(element);
   // Words cleared to nothing are still his to type back.
   const hasWords = words !== null || changes.some((one) => one.kind === "text");
@@ -68,6 +95,17 @@ export function Tools({ id, element, changes, onChanges, keep }: { id: string; e
     onChanges(withChange(changes, { kind, property, before, after: read(tokenValue(element, token)), token }));
   }
 
+  /** A story picked on the component: what its root read is kept from the first pick, and the story pressed again undoes it. */
+  function pickStory(story: IndexedStory): void {
+    if (element === null || target === undefined) return;
+    if (picked?.after === story.name) {
+      onChanges(changes.filter((one) => one.kind !== "variant"));
+      return;
+    }
+    const before = picked?.before ?? variantOf(element, target) ?? AS_DRAWN;
+    onChanges(withChange(changes, { kind: "variant", property: "variant", before, after: story.name, story: story.file }));
+  }
+
   function typed(text: string): void {
     const was = changes.find((one) => one.kind === "text");
     const before = was?.before ?? words?.nodeValue ?? "";
@@ -84,7 +122,7 @@ export function Tools({ id, element, changes, onChanges, keep }: { id: string; e
   return (
     <div className="armada-annotate__tools">
       <div className="armada-annotate__toolbar" role="toolbar" aria-label="Tools" onKeyDown={arrows}>
-        {TOOLS.map(({ kind, label, icon }) => {
+        {TOOLS.filter(({ kind }) => kind !== "variant" || target !== undefined).map(({ kind, label, icon }) => {
           const off = element === null || (kind === "text" && !hasWords);
           const button = (
             <Button key={kind} variant="ghost" size="sm" aria-label={label} aria-pressed={tool === kind} disabled={off} onClick={() => setTool(tool === kind ? null : kind)}>
@@ -112,6 +150,9 @@ export function Tools({ id, element, changes, onChanges, keep }: { id: string; e
         </>
       )}
       {element !== null && tool === "text" && hasWords && <Textarea label="Text" rows={2} keep={keep} value={textNow} onChange={(event) => typed(event.target.value)} />}
+      {element !== null && tool === "variant" && target !== undefined && (
+        <Stories label="Variant" stories={stories[target]!.stories} current={picked?.after} onPick={pickStory} />
+      )}
       <Changes changes={changes} onChanges={onChanges} />
     </div>
   );
@@ -131,6 +172,32 @@ function Scale({ label, sample, tokens, current, element, onPick }: { label: str
             </Button>
           </Tooltip>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** A component's stories as buttons reading each story's name as exported, with its args as the tooltip where it sets any. */
+function Stories({ label, stories, current, onPick }: { label: string; stories: readonly IndexedStory[]; current: string | undefined; onPick: (story: IndexedStory) => void }) {
+  return (
+    <div className="armada-annotate__picker" role="group" aria-label={label} onKeyDown={arrows}>
+      <span className="armada-annotate__picker-label">{label}</span>
+      <div className="armada-annotate__picker-steps">
+        {stories.map((story) => {
+          const args = Object.entries(story.args).map(([key, value]) => `${key} ${String(value)}`);
+          const button = (
+            <Button key={story.name} variant="ghost" size="sm" aria-pressed={current === story.name} onClick={() => onPick(story)}>
+              {story.name}
+            </Button>
+          );
+          return args.length === 0 ? (
+            button
+          ) : (
+            <Tooltip key={story.name} label={args.join(", ")} asChild>
+              {button}
+            </Tooltip>
+          );
+        })}
       </div>
     </div>
   );
@@ -162,7 +229,7 @@ function Swatches({ label, tokens, current, element, onPick }: { label: string; 
 const shown = (change: StyleChange, value: string): string => (change.kind === "text" ? value : value === "" ? "none" : value);
 
 /** What a change's row calls its property: the tool's name, and Padding and Gap apart. */
-const LABELS: Record<string, string> = { "font-size": "Size", color: "Colour", "background-color": "Fill", padding: "Padding", gap: "Gap", text: "Text" };
+const LABELS: Record<string, string> = { "font-size": "Size", color: "Colour", "background-color": "Fill", padding: "Padding", gap: "Gap", text: "Text", variant: "Variant" };
 const labelOf = (change: StyleChange): string => LABELS[change.property] ?? change.property;
 
 /** Each change, what it was and what it is, with its token; undone one at a time or all at once. */

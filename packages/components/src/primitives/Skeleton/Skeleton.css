@@ -1,18 +1,47 @@
-/* Skeleton — a bar in --bg-hover, the same step a row takes under the cursor,
-   which is what makes it read as surface rather than as content.
+/* Skeleton — the shape of data that has not arrived, drawn as telemetry: a row
+   of equal cells separated by hairline gaps (an SVG mask tile, rounded to fit
+   whole cells; a tall block becomes a matrix of them), a wash of the
+   foreground so it reads lighter than the surface it sits on, and a lit copy
+   of the row slid in from the left in steps, like an LED level readout.
 
-   The bars do not animate. The one continuous animation a loading place may
-   draw is the working mark above them (`WorkingMark`); a shimmering placeholder is what
-   the first sentence of that section forbids outright.
-
-   The bar height is --space-2. The sheet draws it at ten, which is off the
-   four-unit grid and has no token, and stepping to eight is the nearest thing
-   on the scale. Reported. */
+   Every bar keeps the height --space-2, so nothing shifts when data lands.
+   Motion is steps() only and stops under prefers-reduced-motion. No gradients.
+   Bars in one list start their sweep at three offsets so they do not move in
+   unison. */
 .armada-skeleton {
+  --skeleton-wash-faint: color-mix(in srgb, var(--fg-default) 7%, transparent);
+  --skeleton-lit: color-mix(in srgb, var(--fg-default) 26%, transparent);
+  position: relative;
+  box-sizing: border-box;
   width: 100%;
   height: var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--bg-hover);
+  overflow: hidden;
+  background: var(--skeleton-wash-faint);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='8'%3E%3Crect x='1' y='1' width='5' height='6' rx='0.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='8'%3E%3Crect x='1' y='1' width='5' height='6' rx='0.5'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: round;
+  mask-repeat: round;
+  -webkit-mask-size: calc(var(--space-2) - var(--border-width)) var(--space-2);
+  mask-size: calc(var(--space-2) - var(--border-width)) var(--space-2);
+}
+.armada-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--skeleton-lit);
+  transform: translateX(-100%);
+  animation: armada-skeleton-level 4.8s steps(16, end) infinite;
+  animation-delay: var(--skeleton-delay, 0s);
+}
+.armada-skeleton:nth-child(3n + 2) { --skeleton-delay: -1.2s; }
+.armada-skeleton:nth-child(3n) { --skeleton-delay: -2.7s; }
+@keyframes armada-skeleton-level {
+  0% { transform: translateX(-100%); }
+  65%, 100% { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-skeleton::after { display: none; }
 }
 
 .armada-skeleton-text {

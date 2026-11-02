@@ -19,7 +19,7 @@ import { Button, Checkbox, forgetKept, JobCard, KbdChord, SearchField, SplitButt
 
 
 import type { BridgeApi } from "../../../shared/api";
-import { byCreation, exampleName, sentAs, shotName, type Annotation, type Box, type Sent, type StyleChange } from "../../../shared/annotations";
+import { byCreation, definitionOf, exampleName, sentAs, shotName, type Annotation, type Box, type Sent, type StoryIndex, type StyleChange } from "../../../shared/annotations";
 import { pngSize, ringOn } from "../../../shared/ring";
 import { useDebugBridgeAsked } from "../debug-bridge";
 import { withState, type StateSource } from "../state-feed";
@@ -161,6 +161,10 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
   const [live, setLive] = useState<SessionTarget[]>([]);
   const [on, setOn] = useState(() => sessionStorage.getItem(ON_KEY) === "1");
   const [notes, setNotes] = useState<Annotation[]>([]);
+  // The stories that exist, fetched when the layer comes on; empty where nothing serves them.
+  const [stories, setStories] = useState<StoryIndex>({});
+  const storiesRef = useRef(stories);
+  storiesRef.current = stories;
   const [hovered, setHovered] = useState<Element | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
@@ -258,6 +262,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     }
     const read = (): void => void sink.list().then((all) => setNotes([...all].sort(byCreation)), (cause) => fail("Reading notes", cause));
     read();
+    void sink.stories?.().then(setStories, () => setStories({}));
     // Fleet rewrites a note when its Job closes, marked done or no longer sent; absent in a browser.
     return window.armadaDev?.onChanged?.(read);
   }, [on, sink, fail]);
@@ -291,7 +296,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
     reportedOffRef.current = !onRef.current;
     setOn(true);
     setOpened(null);
-    setDraft({ note: capture(element, new Date()), element, text: "" });
+    setDraft({ note: capture(element, new Date(), window, storiesRef.current), element, text: "" });
   }, []);
   useReportAsked(reportOn);
 
@@ -310,7 +315,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       // A note half written is not thrown away by a stray click.
       if (element === null || begun(draftRef.current)) return;
       setOpened(null);
-      setDraft({ note: capture(element, new Date()), element, text: "" });
+      setDraft({ note: capture(element, new Date(), window, storiesRef.current), element, text: "" });
     }
     window.addEventListener("pointermove", moved, true);
     for (const type of SWALLOWED) window.addEventListener(type, swallowed, true);
@@ -472,8 +477,11 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       const changes = draft.changes ?? [];
       const examples = (draft.examples ?? []).filter((name) => pictures[name] !== undefined);
       for (const name of examples) await sink.saveExample(begun.id, name, pictures[name]!);
+      // The stories may have arrived after the pin, so the component's file is read again here.
+      const definition = begun.definition ?? definitionOf(chainNames(begun), stories);
       const note: Annotation = {
         ...begun,
+        ...(definition === undefined ? {} : { definition }),
         text: draft.text.trim(),
         ...shot,
         ...(changes.length === 0 ? {} : { changes }),
@@ -775,7 +783,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
         <>
           <Outline box={draftBox} name={draft.note.component ?? draft.note.element.tag} held />
           <Card box={draftBox} view={view} label="New note" band={<Band icon={<Crosshair size={14} strokeWidth={2} aria-hidden />} title="New note" note={draft.note} />} {...takesPictures(null)}>
-            <Path note={draft.note} />
+            <Path note={draft.note} stories={stories} />
             <Textarea
               label="Note"
               autoFocus
@@ -790,6 +798,8 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
                 changes={draft.changes ?? NONE}
                 onChanges={(next) => changed(null, next)}
                 keep={keptAs(draft.note.id, "text")}
+                names={chainNames(draft.note)}
+                stories={stories}
               />
             )}
             <Examples pictures={(draft.examples ?? []).map((name) => ({ name, png: pictures[name] }))} onRemove={(name) => void removeExample(null, name)} />
@@ -813,10 +823,10 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
           band={<Band icon={<MapPin size={14} strokeWidth={2} aria-hidden />} title={numbers.has(openNote.id) ? `Note ${numbers.get(openNote.id)}` : "Done note"} note={openNote} />}
           {...takesPictures(openNote)}
         >
-          <Path note={openNote} />
+          <Path note={openNote} stories={stories} />
           <p className="armada-annotate__text">{openNote.text}</p>
           {openNote.scope !== "window" && (
-            <Tools id={openNote.id} element={locate(openNote)} changes={openNote.changes ?? NONE} onChanges={(next) => changed(openNote, next)} keep={keptAs(openNote.id, "text")} />
+            <Tools id={openNote.id} element={locate(openNote)} changes={openNote.changes ?? NONE} onChanges={(next) => changed(openNote, next)} keep={keptAs(openNote.id, "text")} names={chainNames(openNote)} stories={stories} />
           )}
           <Examples pictures={(openNote.examples ?? []).map((name) => ({ name, png: pictures[name] }))} onRemove={(name) => void removeExample(openNote, name)} />
           {openNote.sent !== undefined && (
@@ -1157,9 +1167,10 @@ function Band({ icon, title, note }: { icon: ReactNode; title: string; note: Ann
   );
 }
 
-/** The picked element's chain and selector on one line, cut short; the whole of it, and the file's whole path, behind a hover. */
-function Path({ note }: { note: Annotation }) {
+/** The picked element's chain and selector on one line, cut short; the whole of it, and the file's whole path, behind a hover. Under it, each component of the chain the stories know, and its file. */
+function Path({ note, stories }: { note: Annotation; stories: StoryIndex }) {
   const whole = chain(note);
+  const defined = chainNames(note).filter((name) => stories[name] !== undefined);
   const label =
     note.source === undefined ? (
       whole
@@ -1171,9 +1182,16 @@ function Path({ note }: { note: Annotation }) {
       </>
     );
   return (
-    <Tooltip label={label} asChild>
-      <span className="armada-annotate__path">{whole}</span>
-    </Tooltip>
+    <>
+      <Tooltip label={label} asChild>
+        <span className="armada-annotate__path">{whole}</span>
+      </Tooltip>
+      {defined.map((name) => (
+        <Tooltip key={name} label={stories[name]!.file} asChild>
+          <span className="armada-annotate__path">{`${name} · ${stories[name]!.file.split("/").pop() ?? stories[name]!.file}`}</span>
+        </Tooltip>
+      ))}
+    </>
   );
 }
 
@@ -1193,9 +1211,14 @@ function Outline({ box, name, held = false }: { box: Box; name: string; held?: b
   );
 }
 
+/** The components the card names for a note, nearest first, cut to four. None for a whole-window note. */
+function chainNames(note: Annotation): string[] {
+  return note.scope === "window" ? [] : [note.component, ...note.owners].filter((n): n is string => n !== null).slice(0, 4);
+}
+
 /** `SessionRow ← SessionList ← Sessions`, then the selector, for the person checking what was picked. */
 function chain(note: Annotation): string {
   if (note.scope === "window") return `Whole window · ${note.screen ?? "no screen marked"}`;
-  const names = [note.component, ...note.owners].filter((n): n is string => n !== null).slice(0, 4);
+  const names = chainNames(note);
   return `${names.length > 0 ? names.join(" ← ") : note.element.tag} · ${note.selector}`;
 }
