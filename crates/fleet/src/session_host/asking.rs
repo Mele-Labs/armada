@@ -180,6 +180,10 @@ where
                 });
             }
         }
+        // `armada job` is the Job's own acts, which the door has already scoped: allowed whatever the mode.
+        if asking.tool_name == "Bash" && asking.input.get("command").and_then(|line| line.as_str()).is_some_and(super::job_command::is_one_armada_job) {
+            return Ok(RunOrNot::Allow { updated_input: asking.input });
+        }
         let (session, hosting) = self.session_and_hosting(id).await?;
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)));
         let (held, root) = match &served {
