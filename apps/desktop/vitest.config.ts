@@ -25,6 +25,7 @@
 // which surfaces share.
 import { configDefaults, defineConfig } from "vitest/config";
 
+import { annotationStories } from "./src/main/annotations-stories";
 import { browserProject } from "./vitest.browser.preset";
 import WeightedShards from "./vitest.shard";
 
@@ -35,6 +36,11 @@ const smokeBrowser = ["src/renderer/src/mock/**/*.test.tsx", "src/renderer/src/a
 // The preset takes an `include` and nothing else, so what `smoke (browser)` owns is taken out here.
 const desktopBrowser = browserProject("desktop (browser)", ["src/renderer/**/*.test.tsx"]);
 desktopBrowser.test = { ...desktopBrowser.test, exclude: [...configDefaults.exclude, ...smokeBrowser] };
+
+// The walks play on the mock, whose note card reads the components' stories from the server
+// that serves the page, as `vite.mock.config.ts` does; without it a walk that picks a variant stops.
+const smokeBrowserProject = browserProject("smoke (browser)", smokeBrowser);
+smokeBrowserProject.plugins = [...(smokeBrowserProject.plugins ?? []), annotationStories()];
 
 // `electron.vite.config.ts` builds the walk finder into this module; a test that only loads
 // `capture/window.ts` needs the import to resolve, not the finder. `finder.test.ts` mocks its own.
@@ -65,7 +71,7 @@ export default defineConfig({
           include: smokeNode,
         },
       },
-      browserProject("smoke (browser)", smokeBrowser),
+      smokeBrowserProject,
     ],
   },
 });

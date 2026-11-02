@@ -19,7 +19,7 @@ import { Button, Checkbox, forgetKept, JobCard, KbdChord, SearchField, SplitButt
 
 
 import type { BridgeApi } from "../../../shared/api";
-import { byCreation, exampleName, sentAs, shotName, type Annotation, type Box, type Sent, type StoryIndex, type StyleChange } from "../../../shared/annotations";
+import { byCreation, definitionOf, exampleName, sentAs, shotName, type Annotation, type Box, type Sent, type StoryIndex, type StyleChange } from "../../../shared/annotations";
 import { pngSize, ringOn } from "../../../shared/ring";
 import { useDebugBridgeAsked } from "../debug-bridge";
 import { withState, type StateSource } from "../state-feed";
@@ -477,8 +477,11 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCock
       const changes = draft.changes ?? [];
       const examples = (draft.examples ?? []).filter((name) => pictures[name] !== undefined);
       for (const name of examples) await sink.saveExample(begun.id, name, pictures[name]!);
+      // The stories may have arrived after the pin, so the component's file is read again here.
+      const definition = begun.definition ?? definitionOf(chainNames(begun), stories);
       const note: Annotation = {
         ...begun,
+        ...(definition === undefined ? {} : { definition }),
         text: draft.text.trim(),
         ...shot,
         ...(changes.length === 0 ? {} : { changes }),
