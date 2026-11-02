@@ -128,6 +128,8 @@ export type SessionRecord = {
   done_since?: string;
   /** One or two plain sentences on what the Job delivered, set with `done_since`. Absent when none was given. */
   done_summary?: string;
+  /** One or two plain sentences on what the Job has done so far, rewritten by a small model. Absent until one is written, for an ended Job and for one run in a terminal. */
+  so_far?: string;
   /** What the Session is doing, derived by Fleet on every read. Absent from a Fleet before 23.86. */
   standing?: SessionStanding;
   /**

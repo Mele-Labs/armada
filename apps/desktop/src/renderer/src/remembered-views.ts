@@ -15,7 +15,6 @@
 // page is open comes back to the exact view (`cockpit/deck/store.ts`). It remembers the few ways of reading that
 // should survive a restart through the same failed-read-is-the-default rule.
 
-export const DECK_VIEW_KEY = "armada.bridge.deck-view";
 export const DECK_FILTERS_KEY = "armada.bridge.deck-filters";
 /** Which Sessions the list holds besides the live ones: Active, Quiet, Ended or All. */
 export const DECK_SCOPE_KEY = "armada.bridge.deck-scope";

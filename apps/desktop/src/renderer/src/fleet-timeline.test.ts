@@ -92,6 +92,71 @@ describe("the Cockpit's timeline over Fleet", () => {
     expect(heard.at(-1)).toBe(3);
   });
 
+  /** A Fleet holding `all`, answering as `GET /timeline` does: the newest `limit` of the window, oldest first, and `cut` where older ones were left out. */
+  const serving = (all: TimelineEvent[]) => {
+    const asks: TimelineAsk[] = [];
+    const api = {
+      state: async () => ({ connection: { state: "connected" } as BridgeState["connection"] }),
+      subscribe: () => () => {},
+      onTimelineAppended: () => () => {},
+      getFleetTimeline: async (ask: TimelineAsk = {}) => {
+        asks.push(ask);
+        const within = all.filter((one) => (ask.since === undefined || one.at >= ask.since) && (ask.until === undefined || one.at < ask.until));
+        const limit = ask.limit ?? 500;
+        return { ok: true as const, value: { events: within.slice(-limit), ...(within.length > limit ? { cut: true } : {}) } };
+      },
+    };
+    return { api, asks };
+  };
+  /** One entry a second, ending a minute before now. */
+  const seconds = (count: number, kindOf: (i: number) => TimelineEvent["kind"] = () => "session.turn"): TimelineEvent[] =>
+    Array.from({ length: count }, (_, i) => ({ ...entry(i + 1), at: new Date(NOW - 60_000 - (count - i) * 1000).toISOString(), kind: kindOf(i) }));
+
+  it("reads past Fleet's limit, a page at a time, and holds the newest it keeps", async () => {
+    const all = seconds(2500);
+    const { api, asks } = serving(all);
+    const source = createFleetTimeline(api, () => NOW);
+    source.subscribe(() => {});
+    await settle();
+    await settle();
+
+    expect(asks).toHaveLength(2);
+    expect(asks[1]?.until).toBe(all[500]!.at);
+    expect(source.get()).toHaveLength(2000);
+    expect(source.get().at(-1)?.id).toBe(2500);
+  });
+
+  it("keeps what a Job came to past what it holds of the rest", async () => {
+    const all = seconds(2500, (i) => (i === 10 ? "pr.merged" : "session.turn"));
+    const { api } = serving(all);
+    const source = createFleetTimeline(api, () => NOW);
+    source.subscribe(() => {});
+    await settle();
+    await settle();
+
+    expect(source.get()).toHaveLength(2001);
+    expect(source.get()[0]?.kind).toBe("pr.merged");
+  });
+
+  it("reaches back as far as it is told, for what a Job came to and nothing else", async () => {
+    const hours = (back: number, id: number, kind: TimelineEvent["kind"]): TimelineEvent => ({ ...entry(id), at: new Date(NOW - back * 3_600_000).toISOString(), kind });
+    const { api, asks } = serving([hours(9, 1, "session.ended"), hours(5, 2, "session.turn"), hours(5, 3, "main.red"), hours(1, 4, "session.turn")]);
+    const source = createFleetTimeline(api, () => NOW, () => NOW - 6 * 3_600_000);
+    source.subscribe(() => {});
+    await settle();
+
+    expect(asks[0]?.since).toBe(new Date(NOW - 6 * 3_600_000).toISOString());
+    expect(source.get().map((one) => one.id)).toEqual([3, 4]);
+  });
+
+  it("never reads less than the last two hours, however lately the list was closed", async () => {
+    const { api, asks } = serving([]);
+    const source = createFleetTimeline(api, () => NOW, () => NOW - 1000);
+    source.subscribe(() => {});
+    await settle();
+    expect(asks[0]?.since).toBe(new Date(NOW - TIMELINE_WINDOW_MS).toISOString());
+  });
+
   it("A timeline burst notifies its readers at most four times a second, and the last event always lands", async () => {
     vi.useFakeTimers();
     try {
