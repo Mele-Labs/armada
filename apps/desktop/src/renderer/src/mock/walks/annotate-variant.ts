@@ -37,6 +37,7 @@ const steps: Step[] = [
   { type: "Should Reset be a secondary button?", into: inside(card, role("textbox", "Note")), say: "What he wants" },
   { press: inside(inside(card, role("toolbar", "Tools")), button("Variant", { exact: true })), say: "Variant lists Button's stories" },
   { look: inside(variants, button("Secondary", { exact: true })), say: "Secondary, drawn before it is picked" },
+  { look: inside(card, button("Save note")), say: "Cancel and Save note stay at the card's foot while the tiles scroll" },
   { press: inside(variants, button("Secondary", { exact: true })), say: "Secondary is picked on the page" },
   { look: reset, say: "The ground changes on the page" },
   { press: inside(variants, button("Secondary", { exact: true })), say: "Pressed again, it is undone" },

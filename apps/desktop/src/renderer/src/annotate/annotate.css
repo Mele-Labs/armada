@@ -171,6 +171,8 @@
   max-height: var(--annotate-card-max);
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Tab lands a tile clear of the band and the foot, not under them. */
+  scroll-padding-block: var(--h-control) calc(var(--h-control-sm) + var(--space-2) * 2);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--bg-overlay);
@@ -270,6 +272,17 @@
   flex-wrap: wrap;
 }
 
+/* The card's own acts stay at its foot while the body scrolls over them, as the band stays at its head. */
+.armada-annotate__body > .armada-annotate__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 calc(var(--space-3) * -1) calc(var(--space-3) * -1);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-overlay);
+}
+
 /* The card's tools: a row of glyphs, the picked one's tokens under it, then what was changed. */
 .armada-annotate__tools {
   display: flex;
@@ -320,7 +333,7 @@
 }
 
 /* A step's chip: filled, its step in mono after a bar drawn at the token's own size. */
-.armada-annotate .armada-annotate__picker .armada-button {
+.armada-annotate .armada-annotate__picker-steps > .armada-button {
   gap: var(--space-1);
   border-color: var(--border-default);
   background: var(--bg-sunken);
@@ -334,7 +347,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.armada-annotate .armada-annotate__picker-steps[data-tiles] .armada-button {
+.armada-annotate .armada-annotate__picker-steps[data-tiles] > .armada-button {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
@@ -353,6 +366,8 @@
   background: var(--bg-sunken);
   color: var(--fg-default);
   pointer-events: none;
+  /* A story's own layers and fixed boxes stay in its tile, under the band and the foot. */
+  contain: paint;
 }
 
 .armada-annotate__preview-story {
@@ -776,7 +791,7 @@
 }
 
 .armada-annotate .armada-annotate__toolbar .armada-button[aria-pressed="true"]:not(:disabled),
-.armada-annotate .armada-annotate__picker .armada-button[aria-pressed="true"]:not(:disabled) {
+.armada-annotate .armada-annotate__picker-steps > .armada-button[aria-pressed="true"]:not(:disabled) {
   border-color: var(--hue);
   background: var(--hue);
   color: var(--text-on-accent);
