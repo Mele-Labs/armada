@@ -168,6 +168,38 @@ for (const [name, ready] of [
   });
 }
 
+test("Esc on the Timeline closes it back to the map, and a Job opened from it goes back to the Timeline first", async () => {
+  await deck();
+  await facet("Timeline").click();
+  await expect.poll(() => deckNow().view).toBe("timeline");
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => deckNow().view).toBe("map");
+  expect(deckNow().sel).toBeUndefined();
+
+  await facet("Timeline").click();
+  const row = document.querySelector<HTMLElement>(".deck-list .deck-row")!;
+  row.click();
+  await expect.poll(() => deckNow().sel).toBeDefined();
+  // The Job's box may hold focus: its first Esc leaves the box, as it does today, and the next goes back.
+  for (let i = 0; i < 3 && deckNow().sel !== undefined; i += 1) {
+    await userEvent.keyboard("{Escape}");
+    await new Promise((done) => window.setTimeout(done, 100));
+  }
+  expect(deckNow().sel).toBeUndefined();
+  expect(deckNow().view).toBe("timeline");
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => deckNow().view).toBe("map");
+});
+
+test("Esc on the map at rest closes no view, and the Checks filter is not a view Esc leaves", async () => {
+  await deck();
+  await facet("Checks").click();
+  await expect.element(facet("Checks")).toHaveAttribute("aria-pressed", "true");
+  await userEvent.keyboard("{Escape}");
+  expect(deckNow().view).toBe("map");
+  expect(deckNow().checks).toBe(true);
+});
+
 test("an instrument is seated in a bay from the rack by keyboard, and Esc takes an edit back", async () => {
   await deck();
   await page.elementLocator(document.querySelector(".deck-controls .deck-band [aria-label='Edit']")!).click();
