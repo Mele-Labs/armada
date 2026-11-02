@@ -30,14 +30,13 @@ type Handle = (
 const PANES: Record<VoicePane, string> = {
   microphone: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
   speech: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition",
-  sound: "x-apple.systempreferences:com.apple.Sound-Settings.extension",
 };
 
 type Hosts = {
   ipc: {
     handle: Handle;
   };
-  voice: Omit<VoiceHosts, "whisper">;
+  voice: Omit<VoiceHosts, "whisper" | "installWhisper">;
   install: WhisperInstall;
   openPane: (address: string) => void;
 };
@@ -71,6 +70,7 @@ export function handleVoice({ ipc, voice, install, openPane }: Hosts): void {
       {
         ...voice,
         whisper: () => install.paths(),
+        installWhisper: () => void install.install(),
       },
       (word) =>
         send({

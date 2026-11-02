@@ -269,7 +269,7 @@ function Ring({ fill, percent }: { fill: ContextFill; percent: number }) {
           <line className="armada-context-ring__tick" x1={x1} y1={y1} x2={x2} y2={y2} />
         )}
       </svg>
-      {`${percent}%`}
+      <span className="armada-context-ring__percent">{`${percent}%`}</span>
     </>
   );
 }
