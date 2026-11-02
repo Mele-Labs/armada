@@ -25,6 +25,7 @@ import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useSetting } from "../../use-setting";
 import { arrivedHere, noteArrivals } from "../../arrivals";
 import { useAutopilotLane } from "../AutopilotLane";
+import { ARM_SEAT, ArmKey, AutopilotSetup, GuardSwitch } from "./AutopilotArm";
 import { useColumns } from "./columns";
 import { useSplits } from "./splits";
 import { dotsOf, MERGE_BY_HAND } from "../horizon";
@@ -894,6 +895,7 @@ function FlightControl({ ship, props, listed, unified = false, withActivity = tr
               folded: folded.collapsed,
               ...(withActivity ? { scope: { small: <ActivityBody props={props} listed={listed} ship={ship} />, large: <ActivityBody props={props} listed={listed} ship={ship} dot={12} /> } } : {}),
               ...(withDispatch && session === undefined ? { dispatch: <DispatchKey /> } : {}),
+              ...(ARM_SEAT === "lip" ? { onLip: <GuardSwitch seat="lip" /> } : ARM_SEAT === "setup" ? { onLip: <ArmKey /> } : { inBay: <GuardSwitch seat="bay" /> }),
             }}
           />
         </div>
@@ -988,9 +990,19 @@ function AutopilotPanel({ autopilot }: { autopilot: ReturnType<typeof useAutopil
 function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
   // The bar is the lane's own, drawn while its control has it open; opening this pane is what opens it.
   const control = autopilot.control;
+  const panelled = useSetting("features.autopilotPanel") === true;
   useEffect(() => {
-    if (props.picked !== null && control !== undefined && !control.open) control.openNext();
-  }, [props.picked, control]);
+    if (panelled && props.picked !== null && control !== undefined && !control.open) control.openNext();
+  }, [panelled, props.picked, control]);
+  if (!panelled) {
+    const repositories = (props.state.holds.repositories ?? []).flatMap((one) => (one.manifest === undefined ? [] : [{ id: one.manifest.id, name: one.manifest.repository }]));
+    return (
+      <section className="deck-pane" aria-label="Autopilot setup">
+        <PaneHead glyph={Plane} kind="Autopilot" title="Autopilot" />
+        <div className="deck-pane__body"><AutopilotSetup repositories={repositories} sidings={autopilot.sidings} /></div>
+      </section>
+    );
+  }
   return (
     <section className="deck-pane" aria-label="Autopilot lane">
       <PaneHead glyph={Plane} kind="Autopilot" title="Autopilot" />
