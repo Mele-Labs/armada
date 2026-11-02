@@ -34,7 +34,7 @@ function fakeIpc(answer: (channel: string) => unknown = () => true) {
 describe("Talk's preload surface", () => {
   it("is the four members and nothing else", () => {
     const { voice } = voicePreload(fakeIpc().ipc);
-    expect(Object.keys(voice).sort()).toEqual(["installWhisper", "listen", "onWhisper", "whisper"]);
+    expect(Object.keys(voice).sort()).toEqual(["installWhisper", "listen", "onWhisper", "openSettings", "whisper"]);
   });
 
   it("names Talk's own channels only, with an engine and a hearing's number", async () => {

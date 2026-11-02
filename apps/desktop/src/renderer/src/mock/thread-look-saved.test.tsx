@@ -68,7 +68,7 @@ test("Talk hears through this Mac's voice with the engine the look names, into t
     onWord("it");
     return () => undefined;
   });
-  const voice = { listen, whisper: async () => ({ state: "absent" as const }), onWhisper: () => () => undefined, installWhisper: async () => ({ ok: true as const }) };
+  const voice = { listen, openSettings: () => undefined, whisper: async () => ({ state: "absent" as const }), onWhisper: () => () => undefined, installWhisper: async () => ({ ok: true as const }) };
   const app = mount({ ...s235SessionHead, behaves: (handle) => ({ ...s235SessionHead.behaves!(handle), voice }) });
   await onScreen();
   await app.api.saveSettings({ [KEY]: { voice: "dictation" } });

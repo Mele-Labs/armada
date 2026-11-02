@@ -107,6 +107,24 @@ export const VOICE_ENGINES: readonly { id: VoiceEngine; said: string }[] = [
 
 export const DEFAULT_LOOK: ThreadLook = { agentName: "", showTimes: true, showAgentName: true, textSize: "base", spacing: "default", quick: [], learn: true, forgotten: [], voice: "apple", quickOff: false, quickOffFor: [], responses: DEFAULT_RESPONSES };
 
+/** Why Talk ended early: the same names as `VoiceWhy` in the desktop app's `shared/api/voice.ts`. */
+export type TalkWhy =
+  | "helper_missing"
+  | "helper_failed"
+  | "microphone_denied"
+  | "microphone_unavailable"
+  | "speech_denied"
+  | "on_device_unavailable"
+  | "recognition_failed"
+  | "whisper_absent"
+  | "whisper_failed"
+  | "download_failed"
+  | "digest_mismatch"
+  | "unpack_failed";
+
+/** The System Settings panes Talk's guide can open. */
+export type TalkPane = "microphone" | "speech" | "sound";
+
 /** Whisper's model on this Mac: not here, coming down (`progress` 0 to 1), or here. */
 export type WhisperModel = { state: "absent" } | { state: "installing"; progress: number } | { state: "installed" };
 
@@ -126,8 +144,10 @@ export type ThreadLookSource = {
    * the look leaves lines out by, does. Called from an effect, and only while the Job's bar is drawn. Absent where `askedFor` is fixed.
    */
   wantQuick?: (sessionId: string, lastMessage: string, settled: string) => void;
-  /** Hears words, one at a time, until the returned stop is called. Absent where nothing hears: Talk is not drawn. */
-  listen?: (onWord: (word: string) => void) => () => void;
+  /** Hears words, one at a time, until the returned stop is called. `onEnd` is called once, with why where hearing ended early. Absent where nothing hears: Talk is not drawn. */
+  listen?: (onWord: (word: string) => void, onEnd?: (why?: TalkWhy) => void) => () => void;
+  /** Opens the System Settings pane that holds what Talk was refused. Absent where there is no such pane: the guide draws no button. */
+  openSettings?: (pane: TalkPane) => void;
   /** Absent where nothing installs it: the voice list reads Whisper as not here. */
   whisper?: WhisperModel;
   installWhisper?: () => void;

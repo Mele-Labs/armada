@@ -384,6 +384,16 @@ a.armada-inline-tag--link > svg {
   }
 }
 
+/* Why Talk could not hear: a standing strip over the bar, inside the box's border. */
+.armada-session-composer__guide {
+  padding: var(--space-2) var(--space-2) 0;
+}
+
+.armada-session-composer__steps {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+}
+
 /* The context ring, a step off Send. */
 .armada-session-composer__figure {
   display: flex;

@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_LOOK, ThreadLookButton, ThreadLookContext, actOnQuick, actOnResponses, quickShownIn, responseMessage, useThreadLook } from "@armada/components";
-import type { QuickPhrase, QuickResponse, SessionComposerProps, SessionThreadProps, ThreadLook, ThreadLookSource, WhisperModel } from "@armada/components";
+import type { QuickPhrase, QuickResponse, SessionComposerProps, SessionThreadProps, TalkPane, TalkWhy, ThreadLook, ThreadLookSource, WhisperModel } from "@armada/components";
 import type { SessionQuick, SettingValue } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -109,7 +109,8 @@ export function ThreadLookSaved({ children }: { children: ReactNode }) {
       ...(voice === undefined
         ? {}
         : {
-            listen: (onWord: (word: string) => void) => voice.listen(latest.current.voice, onWord),
+            listen: (onWord: (word: string) => void, onEnd?: (why?: TalkWhy) => void) => voice.listen(latest.current.voice, onWord, onEnd),
+            openSettings: (pane: TalkPane) => voice.openSettings(pane),
             whisper,
             installWhisper: () => void voice.installWhisper(),
           }),
@@ -129,7 +130,12 @@ function Held({ seed, children }: { seed: ThreadLookSeed; children: ReactNode })
       look,
       setLook,
       askedFor: (id) => seed.asked[id] ?? [],
-      listen: (onWord) => {
+      listen: (onWord, onEnd) => {
+        // A seed with no words plays a refusal: the microphone is off, as on a Mac that has not allowed it.
+        if (seed.heard === "") {
+          const refused = window.setTimeout(() => onEnd?.("microphone_denied"), WORD_MS);
+          return () => window.clearTimeout(refused);
+        }
         const words = seed.heard.split(/\s+/).filter((one) => one !== "");
         let at = 0;
         const timer = window.setInterval(() => {
@@ -140,6 +146,7 @@ function Held({ seed, children }: { seed: ThreadLookSeed; children: ReactNode })
         }, WORD_MS);
         return () => window.clearInterval(timer);
       },
+      openSettings: () => undefined,
       whisper,
       installWhisper: () => {
         if (installing.current !== undefined) return;

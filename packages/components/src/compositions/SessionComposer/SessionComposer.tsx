@@ -4,6 +4,7 @@ import { Cpu, File, Lightbulb, Mic, Paperclip, PencilRuler, Send, Shield, Zap } 
 import type { LucideIcon } from "lucide-react";
 
 import { readKept, useKept, writeKept } from "../../keep";
+import { Alert } from "../../primitives/Alert/Alert";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Kbd } from "../../primitives/Kbd/Kbd";
@@ -15,7 +16,8 @@ import { modelSaid } from "../SessionFrame/model-said";
 import { useThreadYesWaits } from "../SessionThread/thread-keys";
 import { isLargePaste, snippetOf } from "./large-paste";
 import { QuickBar, quickLines } from "./QuickBar";
-import type { QuickAct, QuickPhrase } from "../ThreadSettings/thread-look";
+import type { QuickAct, QuickPhrase, TalkPane, TalkWhy } from "../ThreadSettings/thread-look";
+import { talkGuide } from "./talk-guide";
 import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
 import { addressOf, backspaceInBlock, beforeCaret, caretOffset, caretToEnd, CHIP, decorate, drawnAsText, enterInBlock, readDom, redraw, sentText, tagNode, writeDom } from "./message-dom";
@@ -189,7 +191,7 @@ export type SessionComposerProps = {
    */
   quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void; onAct?: (act: QuickAct) => void; /** Puts the bar away, for this Job or for all Jobs. Absent, the bar has no hide act. */ onHide?: (scope: "job" | "all") => void; };
   /** Talk: a press, or ⌥Space held in the box, listens, and each word heard joins the box. Nothing is sent by it. Absent draws no Talk. */
-  talk?: { listen: (onWord: (word: string) => void) => () => void };
+  talk?: { listen: (onWord: (word: string) => void, onEnd?: (why?: TalkWhy) => void) => () => void; openSettings?: (pane: TalkPane) => void };
   /** Drawn on the bar just left of Send, with room between: the Job's context ring. */
   beforeSend?: ReactNode;
 };
@@ -683,6 +685,9 @@ export function SessionComposer({
   const [listening, setListening] = useState(false);
   const stopTalk = useRef<(() => void) | undefined>(undefined);
   const heldTalk = useRef(false);
+  // Why the last hearing ended early, drawn as a guide over the bar until he is back from Settings or presses Talk again.
+  const [refused, setRefused] = useState<TalkWhy | undefined>(undefined);
+  const hearings = useRef(0);
   const endTalk = () => {
     stopTalk.current?.();
     stopTalk.current = undefined;
@@ -692,6 +697,7 @@ export function SessionComposer({
   const startTalk = (held: boolean) => {
     if (talk === undefined || stopTalk.current !== undefined) return;
     heldTalk.current = held;
+    setRefused(undefined);
     setListening(true);
     // The box takes focus first: a press on Talk leaves it on the button, and macOS Dictation types into whatever holds it.
     const box = editor.current;
@@ -699,8 +705,26 @@ export function SessionComposer({
       box.focus();
       caretToEnd(box);
     }
-    stopTalk.current = talk.listen((word) => setDraft((was) => ({ ...was, text: joined(was.text, word) })));
+    hearings.current += 1;
+    const mine = hearings.current;
+    stopTalk.current = talk.listen(
+      (word) => setDraft((was) => ({ ...was, text: joined(was.text, word) })),
+      (why) => {
+        // A hearing that ended on its own leaves the button; a stop he pressed already did, and a newer hearing is not this one's.
+        if (hearings.current !== mine) return;
+        stopTalk.current = undefined;
+        heldTalk.current = false;
+        setListening(false);
+        if (why !== undefined) setRefused(why);
+      },
+    );
   };
+  useEffect(() => {
+    if (refused === undefined) return;
+    const back = () => setRefused(undefined);
+    window.addEventListener("focus", back);
+    return () => window.removeEventListener("focus", back);
+  }, [refused]);
   useEffect(() => {
     if (!listening) return;
     const release = (event: globalThis.KeyboardEvent) => {
@@ -772,6 +796,7 @@ export function SessionComposer({
         />
       </div>
       {compact && held ? <div className="armada-session-composer__held">{chips}</div> : null}
+      {refused === undefined || talk === undefined ? null : <TalkGuide why={refused} onOpen={talk.openSettings} />}
       <div className="armada-session-composer__bar">
         {modeHidden || bare || onMode === undefined ? null : (
           <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
@@ -849,6 +874,27 @@ export function SessionComposer({
     </form>
   );
   return box;
+}
+
+/** Why Talk could not hear, and what to do about it, with a button to the Settings pane that holds it where there is one. */
+function TalkGuide({ why, onOpen }: { why: TalkWhy; onOpen: ((pane: TalkPane) => void) | undefined }) {
+  const { title, steps, pane, action } = talkGuide(why);
+  return (
+    <div className="armada-session-composer__guide">
+      <Alert
+        tone="neutral"
+        title={title}
+        icon={<Mic size={16} strokeWidth={2} aria-hidden />}
+        {...(pane === undefined || action === undefined || onOpen === undefined ? {} : { action: <Button type="button" variant="ghost" size="sm" onClick={() => onOpen(pane)}>{action}</Button> })}
+      >
+        <ol className="armada-session-composer__steps">
+          {steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      </Alert>
+    </div>
+  );
 }
 
 /** One row of a typeahead. A tag's row leads with its kind's glyph. */
