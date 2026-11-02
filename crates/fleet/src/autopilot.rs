@@ -11,10 +11,14 @@
 
 mod acts;
 pub mod bounds;
+pub(crate) mod deciding;
+mod decisions;
+pub(crate) mod destructive;
 mod editing;
 mod pass;
 pub mod picking;
 pub mod sentence;
+pub(crate) mod sorting;
 mod starting;
 mod wire;
 
@@ -26,6 +30,7 @@ use crate::judging::JudgeBudget;
 use crate::prompts::Prompts;
 
 pub use bounds::{room, Cap, Caps, NotResumed, Settings, Spent, Standing, State, Unsettable};
+pub use decisions::keep_deciding;
 pub use pass::keep_autopiloting;
 pub use picking::{candidates, picked, read_pick, Candidate, NotPicked, Pick, SetAside, SurePick};
 pub use sentence::{read_settings, settings_from, NotRead, ProposedSettings, Quoted};
@@ -56,6 +61,9 @@ pub(crate) struct Remembered {
     /// Per repository, the picker calls failed in a row and the epoch millisecond before which it
     /// is not asked again. A failing call was asked again every pass, a call every few seconds.
     resting: std::sync::Mutex<std::collections::BTreeMap<String, (u32, i64)>>,
+    /// Per decision, what it was when the helper last left it with the person. **Not asked again
+    /// until it changes**, or every pass would pay for the same answer.
+    left: std::sync::Mutex<std::collections::BTreeMap<String, String>>,
 }
 
 /// How long the picker rests after its first failure in a row; each further one doubles it.
@@ -110,6 +118,15 @@ impl Remembered {
 
     pub(crate) fn picker_answered(&self, manifest: &str) {
         held(&self.resting).remove(manifest);
+    }
+
+    /// True where the helper already left this decision as it stands.
+    pub(crate) fn left_as_it_is(&self, decision: &str, what: &str) -> bool {
+        held(&self.left).get(decision).is_some_and(|last| last == what)
+    }
+
+    pub(crate) fn leave(&self, decision: &str, what: String) {
+        held(&self.left).insert(decision.to_string(), what);
     }
 
     /// True where `now` differs from what was last published for its repository.

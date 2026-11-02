@@ -238,9 +238,9 @@ fn what_counts_as_destructive_reads_the_text_and_the_options() {
         place: None,
         confirmed: false,
     };
-    assert!(crate::sleeping::destructive(&one("Close PR 12?", &[])));
-    assert!(crate::sleeping::destructive(&one("Which?", &["Overwrite it", "Keep"])));
-    assert!(crate::sleeping::destructive(&one("rm the cache?", &[])));
-    assert!(!crate::sleeping::destructive(&one("Which size?", &["Large", "Small"])));
-    assert!(!crate::sleeping::destructive(&one("Name the form field", &[])));
+    assert!(crate::autopilot::destructive::destructive(&one("Close PR 12?", &[])));
+    assert!(crate::autopilot::destructive::destructive(&one("Which?", &["Overwrite it", "Keep"])));
+    assert!(crate::autopilot::destructive::destructive(&one("rm the cache?", &[])));
+    assert!(!crate::autopilot::destructive::destructive(&one("Which size?", &["Large", "Small"])));
+    assert!(!crate::autopilot::destructive::destructive(&one("Name the form field", &[])));
 }

@@ -26,6 +26,7 @@ pub const PROMPT_HELM_ROUTE: Words = Words("prompts.helmRoute");
 pub const PROMPT_HELM_VOICE: Words = Words("prompts.helmVoice");
 pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
 pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
+pub const PROMPT_AUTOPILOT_DECIDER: Words = Words("prompts.autopilotDecider");
 pub const PROMPT_TEST_MAP_READING: Words = Words("prompts.testMapReading");
 pub const PROMPT_WORKFLOW_CHANGE: Words = Words("prompts.workflowChange");
 
@@ -149,6 +150,13 @@ pub(super) const PROMPTS: &[Entry] = &[
         "Choosing the next issue",
         "What Autopilot's picker is asked for each pick. {instruction} is the person's instruction, {issues} the open issues nothing is working on and {workflows} the workflows the repository holds. Its answer is read by field name, so keep the field names.",
         &["instruction", "issues", "workflows"],
+    ),
+    prompt(
+        PromptSection::Autopilot,
+        PROMPT_AUTOPILOT_DECIDER,
+        "Answering a decision",
+        "What Autopilot's helper is asked for each decision it may answer. {instruction} is the person's instruction, {kind} the kind of decision, {decision} what is being decided and the ways to answer it, and {earlier} how this repository's earlier decisions were answered. Its answer is read by field name, so keep the field names.",
+        &["instruction", "kind", "decision", "earlier"],
     ),
     prompt(
         PromptSection::Retros,

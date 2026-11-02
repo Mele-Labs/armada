@@ -61,6 +61,10 @@ fn shipped_texts() -> Vec<(Words, String)> {
             crate::autopilot::picking::QUESTION.to_string(),
         ),
         (
+            keys::PROMPT_AUTOPILOT_DECIDER,
+            crate::autopilot::deciding::QUESTION.to_string(),
+        ),
+        (
             keys::PROMPT_TEST_MAP_READING,
             crate::test_map_reading::QUESTION.to_string(),
         ),

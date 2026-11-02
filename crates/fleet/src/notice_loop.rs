@@ -12,7 +12,7 @@ use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
 /// Run the passes that wait on time every `tick`; their own intervals still gate them. Starts
-/// Autopilot's pass beside it.
+/// Autopilot's passes beside it: the picks, and the decisions it answers.
 pub fn keep_noticing<H, V, W>(
     fleet: Arc<Fleet<H, V, W>>,
     tick: Duration,
@@ -29,6 +29,7 @@ where
 {
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
+    crate::autopilot::keep_deciding(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     // The week's transcripts, read once and in the background, a while after Fleet is up.
     let backfill = Arc::clone(&fleet);
     tokio::spawn(async move {
