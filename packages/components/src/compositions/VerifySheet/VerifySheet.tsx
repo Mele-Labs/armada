@@ -32,7 +32,9 @@ export function VerifySheet({ open, file, floor = false, onClose, ...run }: Veri
       floor={floor}
       title="Verify"
       subtitle={
-        file === undefined || floor ? undefined : <span className="armada-verify-sheet__file">{file}</span>
+        file === undefined || floor ? undefined : (
+          <span className="armada-verify-sheet__file">{file}</span>
+        )
       }
       closeLabel="Close"
       closeBinding="Esc"

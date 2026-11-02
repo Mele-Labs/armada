@@ -12,13 +12,20 @@ import { Input } from "../../primitives/Input/Input";
  * warns under the field, never elsewhere. **Data in, callbacks out.**
  */
 
-export type PortAddition = { name: string; container: string; env: string };
+export type PortAddition = {
+  name: string;
+  container: string;
+  env: string;
+};
 
 export type PortAddFormProps = {
   /** Port names already declared here. A taken name is refused in its own field. */
   taken: readonly string[];
   /** A variable another workspace in the batch maps a port to, and that workspace. */
-  elsewhere?: readonly { env: string; dir: string }[];
+  elsewhere?: readonly {
+    env: string;
+    dir: string;
+  }[];
   onAdd: (port: PortAddition) => void;
   disabled?: boolean;
 };
@@ -92,7 +99,11 @@ export function PortAddForm({ taken, elsewhere = [], onAdd, disabled = false }: 
         size="sm"
         disabled={!ready}
         onClick={() => {
-          onAdd({ name: trimmed, container, env });
+          onAdd({
+            name: trimmed,
+            container,
+            env,
+          });
           setName("");
           setContainer("");
           setTypedEnv(null);

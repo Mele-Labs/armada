@@ -6,8 +6,27 @@
 // the body with what it found, and the way back is at its head.
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Compass, ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
-import { Badge, Button, DiffSize, Kbd, PrChecks, PrCommits, PullRequestFilesView, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
+import {
+  ChevronDown,
+  ChevronRight,
+  Compass,
+  ExternalLink,
+  GitPullRequest,
+  SquareTerminal,
+} from "lucide-react";
+import {
+  Badge,
+  Button,
+  DiffSize,
+  Kbd,
+  PrChecks,
+  PrCommits,
+  PullRequestFilesView,
+  Prose,
+  Tabs,
+  Tooltip,
+  agoOf,
+} from "@armada/components";
 
 import { patchesOf } from "../shared-panel/pull-request-patches";
 
@@ -23,15 +42,33 @@ import { isWalk, toolsOf } from "./tools";
 import { WalkView } from "./walk";
 
 const TABS = [
-  { id: "explanation", label: "Overview" },
-  { id: "files", label: "Files" },
-  { id: "checks", label: "Checks" },
-  { id: "commits", label: "Commits" },
+  {
+    id: "explanation",
+    label: "Overview",
+  },
+  {
+    id: "files",
+    label: "Files",
+  },
+  {
+    id: "checks",
+    label: "Checks",
+  },
+  {
+    id: "commits",
+    label: "Commits",
+  },
 ];
 
 const STATE = {
-  open: { status: "completed-success", said: "Open" },
-  draft: { status: "not-started", said: "Draft" },
+  open: {
+    status: "completed-success",
+    said: "Open",
+  },
+  draft: {
+    status: "not-started",
+    said: "Draft",
+  },
 } as const;
 
 type ReaderHosts = {
@@ -50,7 +87,13 @@ export function ReviewReader(hosts: ReaderHosts) {
   return <Reader key={pr.key} pr={pr} {...hosts} />;
 }
 
-function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr }) {
+function Reader({
+  pr,
+  onOpenLink,
+  onOpenSession,
+}: ReaderHosts & {
+  pr: ReviewPr;
+}) {
   const store = useReviewStore()!;
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
@@ -60,10 +103,20 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
   const tool = toolsOf(reviews, pr.manifestId).find((one) => one.id === work.view);
   // His review is a tab of its own, the Comments tool's view, counting the comments that wait on Submit.
   const pending = work.drafts.length;
-  const tabs = [...TABS, { id: "comments", label: pending === 0 ? "Review" : `Review · ${pending}` }];
+  const tabs = [
+    ...TABS,
+    {
+      id: "comments",
+      label: pending === 0 ? "Review" : `Review · ${pending}`,
+    },
+  ];
 
   return (
-    <section className="deck-pane pr-reader" aria-label={`Pull request #${pr.number}`} tabIndex={-1}>
+    <section
+      className="deck-pane pr-reader"
+      aria-label={`Pull request #${pr.number}`}
+      tabIndex={-1}
+    >
       <header className="deck-band deck-pane__head">
         <Tooltip label="Pull request">
           <span className="deck-pane__kind" role="img" aria-label="Pull request">
@@ -86,20 +139,37 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
             <Kbd>{REVIEW_KEYS.reader}</Kbd>
           </Tooltip>
           <Tooltip label="Where changes run" shortcut={capOf(REVIEW_KEYS.where)}>
-            <Button variant="ghost" size="sm" iconOnly aria-label="Where changes run" onClick={() => store.showPlaces()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Where changes run"
+              onClick={() => store.showPlaces()}
+            >
               <Compass size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
           {pr.holder === undefined ? null : (
             <Tooltip label="Held by this Job">
-              <Button variant="ghost" size="sm" aria-label={`Job: ${pr.holder.title}`} onClick={() => onOpenSession(pr.holder!.id)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Job: ${pr.holder.title}`}
+                onClick={() => onOpenSession(pr.holder!.id)}
+              >
                 <SquareTerminal size={16} strokeWidth={2} aria-hidden />
                 {pr.holder.title}
               </Button>
             </Tooltip>
           )}
           <Tooltip label="Open on the forge">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Open on the forge" onClick={() => onOpenLink(pr.address)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Open on the forge"
+              onClick={() => onOpenLink(pr.address)}
+            >
               <ExternalLink size={16} aria-hidden="true" />
             </Button>
           </Tooltip>
@@ -110,7 +180,9 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
           {state.said}
         </Badge>
         <Tooltip label="Branch and the branch it merges into">
-          <span className="pr-reader__branch mono">{pr.page.base === "" ? pr.branch : `${pr.branch} → ${pr.page.base}`}</span>
+          <span className="pr-reader__branch mono">
+            {pr.page.base === "" ? pr.branch : `${pr.branch} → ${pr.page.base}`}
+          </span>
         </Tooltip>
         <Tooltip label="Opened by">
           <span className="pr-reader__who">{pr.page.author}</span>
@@ -125,20 +197,57 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         <ChecksMark checks={pr.checks} />
       </div>
       <div className="pr-reader__body">
-        {work.page.state === "said" ? <p className="pr-reader__said" role="alert">{work.page.said}</p> : null}
-        {work.view === "files" ? <PullRequestFilesView rows={pr.page.files} patches={patchesOf(work.every.state === "read" ? { ok: true, files: work.every.files } : work.every.state === "said" ? { ok: false, said: work.every.said } : undefined)} /> : null}
+        {work.page.state === "said" ? (
+          <p className="pr-reader__said" role="alert">
+            {work.page.said}
+          </p>
+        ) : null}
+        {work.view === "files" ? (
+          <PullRequestFilesView
+            rows={pr.page.files}
+            patches={patchesOf(
+              work.every.state === "read"
+                ? {
+                    ok: true,
+                    files: work.every.files,
+                  }
+                : work.every.state === "said"
+                  ? {
+                      ok: false,
+                      said: work.every.said,
+                    }
+                  : undefined,
+            )}
+          />
+        ) : null}
         {work.view === "checks" ? <PrChecks rows={pr.page.checks} onOpenLink={onOpenLink} /> : null}
         {work.view === "commits" ? <PrCommits rows={pr.page.commits} /> : null}
         {work.view === "comments" ? <CommentsView pr={pr} send={send} /> : null}
-        {tool !== undefined && tool.agent ? isWalk(tool) ? <WalkView pr={pr} tool={tool} /> : <ToolResults pr={pr} tool={tool} send={send} /> : null}
-        {work.view === "explanation" ? <Overview pr={pr} send={send} onOpenLink={onOpenLink} /> : null}
+        {tool !== undefined && tool.agent ? (
+          isWalk(tool) ? (
+            <WalkView pr={pr} tool={tool} />
+          ) : (
+            <ToolResults pr={pr} tool={tool} send={send} />
+          )
+        ) : null}
+        {work.view === "explanation" ? (
+          <Overview pr={pr} send={send} onOpenLink={onOpenLink} />
+        ) : null}
       </div>
       <AskComposer pr={pr} />
     </section>
   );
 }
 
-export function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnType<typeof useSendFindings>; onOpenLink: (address: string) => void }) {
+export function Overview({
+  pr,
+  send,
+  onOpenLink,
+}: {
+  pr: ReviewPr;
+  send: ReturnType<typeof useSendFindings>;
+  onOpenLink: (address: string) => void;
+}) {
   const work = useReviews().work[pr.key] ?? NO_WORK;
   // **The description tucks away once an explanation is shown**, into one row that opens it again. With nothing chosen it is open.
   const shown = work.kind !== undefined;
@@ -149,9 +258,23 @@ export function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnT
       <AskedOf pr={pr} />
       <section className="pr-what pr-desc" aria-label="Description" data-open={open || undefined}>
         <header className="pr-what__head">
-          <Tooltip label={open ? "Hide the description" : "Show the description"} shortcut={capOf(REVIEW_KEYS.description)}>
-            <Button variant="ghost" size="sm" iconOnly aria-label={open ? "Hide the description" : "Show the description"} aria-expanded={open} onClick={() => setChosen(!open)}>
-              {open ? <ChevronDown size={16} strokeWidth={2} aria-hidden /> : <ChevronRight size={16} strokeWidth={2} aria-hidden />}
+          <Tooltip
+            label={open ? "Hide the description" : "Show the description"}
+            shortcut={capOf(REVIEW_KEYS.description)}
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={open ? "Hide the description" : "Show the description"}
+              aria-expanded={open}
+              onClick={() => setChosen(!open)}
+            >
+              {open ? (
+                <ChevronDown size={16} strokeWidth={2} aria-hidden />
+              ) : (
+                <ChevronRight size={16} strokeWidth={2} aria-hidden />
+              )}
             </Button>
           </Tooltip>
           <h3 className="pr-what__title">Description</h3>

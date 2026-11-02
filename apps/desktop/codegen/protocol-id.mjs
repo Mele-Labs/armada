@@ -19,7 +19,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..", "..", "..");
 
 function wireFiles(dir, keep, into = []) {
-  for (const entry of readdirSync(join(repo, dir), { withFileTypes: true })) {
+  for (const entry of readdirSync(join(repo, dir), {
+    withFileTypes: true,
+  })) {
     const rel = `${dir}/${entry.name}`;
     if (entry.isDirectory()) wireFiles(rel, keep, into);
     else if (keep(rel)) into.push(rel);
@@ -58,7 +60,9 @@ export function protocolId() {
       if (line === "" || line.trimStart().startsWith(comment)) continue;
       feed(encoder.encode(`${line}\n`));
     }
-    feed([0]);
+    feed([
+      0,
+    ]);
   }
   return hash.toString(16).padStart(16, "0");
 }

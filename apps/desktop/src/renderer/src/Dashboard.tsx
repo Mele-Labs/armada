@@ -61,7 +61,10 @@ export type Item = {
   live?: boolean;
   /** The detail's eyebrow: where it is. */
   where: string;
-  body: readonly (readonly [string, string])[];
+  body: readonly (readonly [
+    string,
+    string,
+  ])[];
   /** What it says, in its own words, under the facts. */
   said?: readonly string[];
   /** What it is doing, for a thing with no steps. */
@@ -83,15 +86,28 @@ export type Item = {
   /** The decision Sleep made, where the item is one: the call keeps it or changes it. */
   sleep?: MorningDecided;
   /** What a Session's call waits on: the item, which is what the call answers. */
-  waiting?: { sessionId: string; item: WaitingItem };
+  waiting?: {
+    sessionId: string;
+    item: WaitingItem;
+  };
   /** Who holds the pull request or red main the call is about, where somebody does: the card draws what they are doing. */
   ownedBy?: Owner;
 };
 
 /** A Session's last ten rows as bars, a message tall and a tool call short, with a faint floor where it has said less. */
 function sparkOf(session: Session): number[] {
-  const rows = session.rows.slice(-10).map((row) => (row.kind === "message" ? 1 : row.kind === "tool" ? 0.45 : 0.25));
-  return [...Array.from({ length: 10 - rows.length }, () => 0.12), ...rows];
+  const rows = session.rows
+    .slice(-10)
+    .map((row) => (row.kind === "message" ? 1 : row.kind === "tool" ? 0.45 : 0.25));
+  return [
+    ...Array.from(
+      {
+        length: 10 - rows.length,
+      },
+      () => 0.12,
+    ),
+    ...rows,
+  ];
 }
 
 const worded = (status: string) => status.replaceAll("_", " ");
@@ -108,7 +124,9 @@ export type Hosts = {
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: ((sentence: string) => void) | undefined;
   /** Releases a slot an agent session holds, for the holder the confirm showed: a terminal's process, or a hosted Session's id. */
-  onReleaseSlot?: ((manifestId: string, slot: number, holder: string) => Promise<Outcome>) | undefined;
+  onReleaseSlot?:
+    | ((manifestId: string, slot: number, holder: string) => Promise<Outcome>)
+    | undefined;
   /** Every other act the worktree pool's tile panel offers, which a bay's pane draws too. Absent, the pane offers none of them. */
   bayActs?: Omit<BayActs, "onRescue"> | undefined;
   /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
@@ -126,7 +144,17 @@ export type Hosts = {
 };
 
 /** Starts a Job on a brief for `root` and opens it in draft: the way a failing pull request or red main is handed on. */
-function StartSession({ brief, root, onDone, children }: { brief: string; root: string; onDone: () => void; children?: ReactNode }) {
+function StartSession({
+  brief,
+  root,
+  onDone,
+  children,
+}: {
+  brief: string;
+  root: string;
+  onDone: () => void;
+  children?: ReactNode;
+}) {
   const dispatching = useDispatching();
   return (
     <Button
@@ -140,7 +168,11 @@ function StartSession({ brief, root, onDone, children }: { brief: string; root: 
 }
 
 function sessionItem(session: Session, hosts: Hosts): Item {
-  const last = [...session.rows].reverse().find((row) => row.kind === "message");
+  const last = [
+    ...session.rows,
+  ]
+    .reverse()
+    .find((row) => row.kind === "message");
   const open = () => hosts.onOpenSession(session.id);
   // The state is the one the Sessions list reads (`session-state.ts`), so a tile never disagrees with its row.
   const read = stateOf(session).state;
@@ -153,52 +185,150 @@ function sessionItem(session: Session, hosts: Hosts): Item {
   const waiting = session.asked !== undefined && !ended;
   const limited = ended ? undefined : session.limitedUntil;
   const line = lineOf(session);
-  const said = drafted ? "Draft" : stuck ? "Stuck" : replied ? "Unread reply" : finished ? "Done" : working ? "Working" : "Idle";
+  const said = drafted
+    ? "Draft"
+    : stuck
+      ? "Stuck"
+      : replied
+        ? "Unread reply"
+        : finished
+          ? "Done"
+          : working
+            ? "Working"
+            : "Idle";
   return {
     key: `session:${session.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
     kind: "Job",
     session: true,
-    mark: ended ? Unplug : limited !== undefined ? BatteryLow : waiting ? Eye : drafted ? sessionGlyphOf("draft") : stuck ? Clock : working ? CircleDot : replied ? Reply : finished ? Power : Check,
-    state: limited !== undefined ? limitHeldSaid(limited) : waiting ? "Waiting on a command" : ended ? "Ended" : said,
+    mark: ended
+      ? Unplug
+      : limited !== undefined
+        ? BatteryLow
+        : waiting
+          ? Eye
+          : drafted
+            ? sessionGlyphOf("draft")
+            : stuck
+              ? Clock
+              : working
+                ? CircleDot
+                : replied
+                  ? Reply
+                  : finished
+                    ? Power
+                    : Check,
+    state:
+      limited !== undefined
+        ? limitHeldSaid(limited)
+        : waiting
+          ? "Waiting on a command"
+          : ended
+            ? "Ended"
+            : said,
     spark: sparkOf(session),
-    ...(line === undefined ? {} : { line }),
+    ...(line === undefined
+      ? {}
+      : {
+          line,
+        }),
     title: session.title ?? session.address ?? session.id,
-    fact: limited !== undefined ? "held" : waiting ? session.asked!.command : ended ? "ended" : said.toLowerCase(),
+    fact:
+      limited !== undefined
+        ? "held"
+        : waiting
+          ? session.asked!.command
+          : ended
+            ? "ended"
+            : said.toLowerCase(),
     at: session.lastTurnAt,
-    hue: waiting || finished || drafted ? "ask" : ended ? "ok" : stuck ? "issue" : working && limited === undefined ? "running" : "queued",
+    hue:
+      waiting || finished || drafted
+        ? "ask"
+        : ended
+          ? "ok"
+          : stuck
+            ? "issue"
+            : working && limited === undefined
+              ? "running"
+              : "queued",
     live: read === "working" && limited === undefined,
     where: session.address ?? "",
-    body: waiting ? [["Asks to run", session.asked!.command]] : [],
-    ...(last !== undefined && last.kind === "message" ? { said: [last.text] } : {}),
+    body: waiting
+      ? [
+          [
+            "Asks to run",
+            session.asked!.command,
+          ],
+        ]
+      : [],
+    ...(last !== undefined && last.kind === "message"
+      ? {
+          said: [
+            last.text,
+          ],
+        }
+      : {}),
     doing: waiting ? "Waiting on a command" : ended ? "Ended" : said,
-    context: session.rows.flatMap((row) => (row.kind === "message" ? [row.text] : [])).slice(-3),
+    context: session.rows
+      .flatMap((row) =>
+        row.kind === "message"
+          ? [
+              row.text,
+            ]
+          : [],
+      )
+      .slice(-3),
     contextHead: "Last messages",
     acts: (done) =>
       waiting ? (
         <>
-          <Button variant="primary" onClick={done}>Allow</Button>
-          <Button variant="secondary" onClick={done}>Deny</Button>
-          <Button variant="ghost" onClick={open}>Open Job</Button>
+          <Button variant="primary" onClick={done}>
+            Allow
+          </Button>
+          <Button variant="secondary" onClick={done}>
+            Deny
+          </Button>
+          <Button variant="ghost" onClick={open}>
+            Open Job
+          </Button>
         </>
       ) : (
-        <Button variant="secondary" onClick={open}>Open Job</Button>
+        <Button variant="secondary" onClick={open}>
+          Open Job
+        </Button>
       ),
   };
 }
 
 /** One thing a Session waits on, as a call: one card per item, in the order they began. */
 function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
-  const last = [...session.rows].reverse().find((row) => row.kind === "message");
+  const last = [
+    ...session.rows,
+  ]
+    .reverse()
+    .find((row) => row.kind === "message");
   return {
     key: `session:${session.id}:${item.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
     kind: callKindOf(item.source),
     session: true,
-    mark: item.source === "done" ? Power : stateOf(session).state === "unstarted" ? sessionGlyphOf("unstarted") : Eye,
-    state: item.source === "permission" ? "Waiting on a command" : item.source === "done" ? "Done" : stateOf(session).state === "unstarted" ? "Failed to start" : "Waiting on you",
+    mark:
+      item.source === "done"
+        ? Power
+        : stateOf(session).state === "unstarted"
+          ? sessionGlyphOf("unstarted")
+          : Eye,
+    state:
+      item.source === "permission"
+        ? "Waiting on a command"
+        : item.source === "done"
+          ? "Done"
+          : stateOf(session).state === "unstarted"
+            ? "Failed to start"
+            : "Waiting on you",
     spark: sparkOf(session),
     title: session.title ?? session.address ?? session.id,
     fact: item.text,
@@ -206,12 +336,33 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     hue: "ask",
     where: session.address ?? "",
     body: [],
-    ...(last !== undefined && last.kind === "message" ? { said: [last.text] } : {}),
+    ...(last !== undefined && last.kind === "message"
+      ? {
+          said: [
+            last.text,
+          ],
+        }
+      : {}),
     doing: item.source === "done" ? "Done" : "Waiting on you",
-    context: session.rows.flatMap((row) => (row.kind === "message" ? [row.text] : [])).slice(-3),
+    context: session.rows
+      .flatMap((row) =>
+        row.kind === "message"
+          ? [
+              row.text,
+            ]
+          : [],
+      )
+      .slice(-3),
     contextHead: "Last messages",
-    waiting: { sessionId: session.id, item },
-    acts: () => <Button variant="secondary" onClick={() => hosts.onOpenSession(session.id)}>Open Job</Button>,
+    waiting: {
+      sessionId: session.id,
+      item,
+    },
+    acts: () => (
+      <Button variant="secondary" onClick={() => hosts.onOpenSession(session.id)}>
+        Open Job
+      </Button>
+    ),
   };
 }
 
@@ -226,7 +377,9 @@ function sleepItem(one: MorningDecided): Item {
     hue: "ask",
     where: "",
     body: [],
-    context: [one.corrected ?? one.chose],
+    context: [
+      one.corrected ?? one.chose,
+    ],
     contextHead: "Chose",
     sleep: one,
     acts: () => null,
@@ -234,7 +387,12 @@ function sleepItem(one: MorningDecided): Item {
 }
 
 /** `sessions` finds who made a branch in the line, so its row opens that Session. */
-function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions: readonly Session[]): Item[] {
+function lineItems(
+  state: BridgeState,
+  tab: DashboardTab,
+  hosts: Hosts,
+  sessions: readonly Session[],
+): Item[] {
   const items: Item[] = [];
   for (const view of viewsOf(state)) {
     const where = view.name ?? "Merge line";
@@ -247,15 +405,41 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions
           icon: GitMerge,
           kind: "Main",
           title: "main is red",
-          fact: [main.red.check, main.red.test].filter(Boolean).join(" · "),
+          fact: [
+            main.red.check,
+            main.red.test,
+          ]
+            .filter(Boolean)
+            .join(" · "),
           hue: "issue",
           where,
-          body: [["Check", main.red.check], ...(main.red.test === undefined ? [] : [["Test", main.red.test] as const])],
+          body: [
+            [
+              "Check",
+              main.red.check,
+            ],
+            ...(main.red.test === undefined
+              ? []
+              : [
+                  [
+                    "Test",
+                    main.red.test,
+                  ] as const,
+                ]),
+          ],
           doing: "Red, nobody on it",
           context: [
             `check   ${main.red.check}`,
-            ...(main.red.test === undefined ? [] : [`test    ${main.red.test}`]),
-            ...(main.red.merge === undefined ? [] : [`broke   #${main.red.merge.number} ${main.red.merge.branch}`]),
+            ...(main.red.test === undefined
+              ? []
+              : [
+                  `test    ${main.red.test}`,
+                ]),
+            ...(main.red.merge === undefined
+              ? []
+              : [
+                  `broke   #${main.red.merge.number} ${main.red.merge.branch}`,
+                ]),
           ],
           contextHead: "What broke",
           acts: (done) => <StartSession brief={briefOf(main.red)} root={view.root} onDone={done} />,
@@ -273,7 +457,13 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions
           fact: held.fact,
           hue: "ask",
           where,
-          body: held.facts.map((one) => [one.label, one.lines.map((line) => line.text).join("\n")] as const),
+          body: held.facts.map(
+            (one) =>
+              [
+                one.label,
+                one.lines.map((line) => line.text).join("\n"),
+              ] as const,
+          ),
           acts: () => null,
         });
       }
@@ -290,8 +480,23 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions
             fact: MERGE_BY_HAND,
             hue: "ask",
             where,
-            body: [["Branch", pull.branch]],
-            acts: () => <ByHandActs root={view.root} number={pull.number} {...(pull.ci === undefined ? {} : { ci: pull.ci })} />,
+            body: [
+              [
+                "Branch",
+                pull.branch,
+              ],
+            ],
+            acts: () => (
+              <ByHandActs
+                root={view.root}
+                number={pull.number}
+                {...(pull.ci === undefined
+                  ? {}
+                  : {
+                      ci: pull.ci,
+                    })}
+              />
+            ),
           });
           continue;
         }
@@ -304,7 +509,12 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions
           fact: pull.ci === "failed" ? "checks failed" : "unmergeable",
           hue: "issue",
           where,
-          body: [["Branch", pull.branch]],
+          body: [
+            [
+              "Branch",
+              pull.branch,
+            ],
+          ],
           acts: (done) => (
             <>
               <StartSession
@@ -312,7 +522,20 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions
                 root={view.root}
                 onDone={done}
               />
-              <Button variant="secondary" onClick={() => openInPanel({ kind: "pr", number: pull.number, address: pull.url, root: view.root, branch: pull.branch })}>Open pull request</Button>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  openInPanel({
+                    kind: "pr",
+                    number: pull.number,
+                    address: pull.url,
+                    root: view.root,
+                    branch: pull.branch,
+                  })
+                }
+              >
+                Open pull request
+              </Button>
             </>
           ),
         });
@@ -330,9 +553,26 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, sessions
         hue: "running",
         live: entry.state === "gating" || entry.state === "merging" || entry.state === "preparing",
         where,
-        body: [["Branch", entry.branch], ...(entry.pr === undefined ? [] : [["Pull request", `#${entry.pr.number}`] as const])],
+        body: [
+          [
+            "Branch",
+            entry.branch,
+          ],
+          ...(entry.pr === undefined
+            ? []
+            : [
+                [
+                  "Pull request",
+                  `#${entry.pr.number}`,
+                ] as const,
+              ]),
+        ],
         acts: () =>
-          owner === undefined ? null : <Button variant="secondary" onClick={() => hosts.onOpenSession(owner.id)}>Open Job</Button>,
+          owner === undefined ? null : (
+            <Button variant="secondary" onClick={() => hosts.onOpenSession(owner.id)}>
+              Open Job
+            </Button>
+          ),
       });
     }
   }
@@ -356,13 +596,26 @@ export function useItems(
     const items: Item[] = [];
     if (tab === "command-central") {
       // A walk whose window is open is being looked at, so it is not a call yet.
-      const unseen = (one: WaitingCall) => !(one.item.source === "walk" && one.item.act !== undefined && walking.has(one.item.act.target));
-      items.push(...callsFromWaiting(sessions, viewedAt).filter(unseen).map((one) => waitingItem(one, hosts)));
+      const unseen = (one: WaitingCall) =>
+        !(
+          one.item.source === "walk" &&
+          one.item.act !== undefined &&
+          walking.has(one.item.act.target)
+        );
+      items.push(
+        ...callsFromWaiting(sessions, viewedAt)
+          .filter(unseen)
+          .map((one) => waitingItem(one, hosts)),
+      );
       items.push(...slept.map(sleepItem));
     } else {
       items.push(
         ...sessions
-          .filter((one) => (tab === "done" ? one.dead === "ended" && one.replacedBy === undefined : one.dead === undefined && one.asked === undefined))
+          .filter((one) =>
+            tab === "done"
+              ? one.dead === "ended" && one.replacedBy === undefined
+              : one.dead === undefined && one.asked === undefined,
+          )
           .map((one) => sessionItem(one, hosts)),
       );
     }
@@ -371,17 +624,53 @@ export function useItems(
     items.push(
       ...lineItems(state, tab, hosts, sessions).flatMap((item): Item[] => {
         const owner = ownerOfCall(views, sessions, item.key);
-        if (owner === undefined) return [item];
-        return isOnIt(owner, sessions, failedAt(views, item.key)) ? [] : [{ ...item, ownedBy: owner }];
+        if (owner === undefined)
+          return [
+            item,
+          ];
+        return isOnIt(owner, sessions, failedAt(views, item.key))
+          ? []
+          : [
+              {
+                ...item,
+                ownedBy: owner,
+              },
+            ];
       }),
     );
     return items.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, sessions, slept, walking, answered, dismissed, viewed]);
+  }, [
+    tab,
+    state,
+    picked,
+    sessions,
+    slept,
+    walking,
+    answered,
+    dismissed,
+    viewed,
+  ]);
   // A call dismissed for good stays gone while its state stands; once the state clears, the next one shows.
-  const standing = useMemo(() => new Set(items.map(identityOf)), [items]);
+  const standing = useMemo(
+    () => new Set(items.map(identityOf)),
+    [
+      items,
+    ],
+  );
   const board = sessions.length > 0 || viewsOf(state).length > 0;
   useEffect(() => {
     if (calls) forgetCleared(standing, board);
-  }, [calls, standing, board]);
-  return useMemo(() => (calls ? items.filter((item) => !dismissed.has(identityOf(item))) : items), [calls, items, dismissed]);
+  }, [
+    calls,
+    standing,
+    board,
+  ]);
+  return useMemo(
+    () => (calls ? items.filter((item) => !dismissed.has(identityOf(item))) : items),
+    [
+      calls,
+      items,
+      dismissed,
+    ],
+  );
 }

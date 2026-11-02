@@ -3,7 +3,16 @@
 
 import type { KitInventory, SessionRecord } from "@armada/protocol";
 import { createHash } from "node:crypto";
-import { chmod, mkdir, mkdtemp, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -11,22 +20,49 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PanelFileItem } from "../shared/api/files";
 import { createFilePanel, diskPanel, type PanelDisk } from "./file-panel";
 
-const sha = (bytes: Uint8Array | string): string => createHash("sha256").update(bytes).digest("hex");
+const sha = (bytes: Uint8Array | string): string =>
+  createHash("sha256").update(bytes).digest("hex");
 const bytesOf = (text: string): Uint8Array => new TextEncoder().encode(text);
 
 const record = {
   id: "S1",
   cwd: "/repo",
   attachments: [
-    { kind: "artifact", target: "/repo/docs/spike.md", state: "standing", detail: { form: "file" } },
-    { kind: "artifact", target: "notes/todo.txt", state: "standing", detail: { form: "file" } },
-    { kind: "artifact", target: "/tmp/shot.png", state: "standing", detail: { form: "image" } },
+    {
+      kind: "artifact",
+      target: "/repo/docs/spike.md",
+      state: "standing",
+      detail: {
+        form: "file",
+      },
+    },
+    {
+      kind: "artifact",
+      target: "notes/todo.txt",
+      state: "standing",
+      detail: {
+        form: "file",
+      },
+    },
+    {
+      kind: "artifact",
+      target: "/tmp/shot.png",
+      state: "standing",
+      detail: {
+        form: "image",
+      },
+    },
   ],
 } as unknown as SessionRecord;
 
 /** A disk in memory. `touch` is the OS telling a watcher something under a directory changed. */
 function memory(files: Record<string, string>) {
-  const held = new Map<string, Uint8Array>(Object.entries(files).map(([path, text]) => [path, bytesOf(text)]));
+  const held = new Map<string, Uint8Array>(
+    Object.entries(files).map(([path, text]) => [
+      path,
+      bytesOf(text),
+    ]),
+  );
   const watchers = new Map<string, Set<(name: string | null) => void>>();
   const closed: string[] = [];
   const reads: string[] = [];
@@ -44,7 +80,13 @@ function memory(files: Record<string, string>) {
       if (one === undefined) throw new Error("ENOENT");
       return one;
     },
-    real: async (path) => (held.has(path) ? { path, file: true } : null),
+    real: async (path) =>
+      held.has(path)
+        ? {
+            path,
+            file: true,
+          }
+        : null,
     readable: async (path) => held.has(path),
     replace: async (path, bytes) => {
       replaced.push(path);
@@ -58,16 +100,40 @@ function memory(files: Record<string, string>) {
       const set = watchers.get(dir) ?? new Set();
       set.add(onEvent);
       watchers.set(dir, set);
-      return { close: () => void (set.delete(onEvent), closed.push(dir)) };
+      return {
+        close: () => void (set.delete(onEvent), closed.push(dir)),
+      };
     },
   };
-  const touch = (dir: string, name: string | null) => watchers.get(dir)?.forEach((one) => one(name));
-  return { disk, held, replaced, created, reads, closed, touch, watching: (dir: string) => watchers.get(dir)?.size ?? 0 };
+  const touch = (dir: string, name: string | null) =>
+    watchers.get(dir)?.forEach((one) => one(name));
+  return {
+    disk,
+    held,
+    replaced,
+    created,
+    reads,
+    closed,
+    touch,
+    watching: (dir: string) => watchers.get(dir)?.size ?? 0,
+  };
 }
 
-function wired(files: Record<string, string>, extra: { settings?: string; pick?: string | null; kit?: KitInventory } = {}) {
+function wired(
+  files: Record<string, string>,
+  extra: {
+    settings?: string;
+    pick?: string | null;
+    kit?: KitInventory;
+  } = {},
+) {
   const on = memory(files);
-  const sent: Array<[unknown, PanelFileItem]> = [];
+  const sent: Array<
+    [
+      unknown,
+      PanelFileItem,
+    ]
+  > = [];
   const inEditor = vi.fn(async (_path: string): Promise<string | null> => null);
   const showInFolder = vi.fn((_path: string) => {});
   const panel = createFilePanel({
@@ -78,16 +144,43 @@ function wired(files: Record<string, string>, extra: { settings?: string; pick?:
     pick: async () => extra.pick ?? null,
     inEditor,
     showInFolder,
-    send: (owner, item) => void sent.push([owner, item]),
+    send: (owner, item) =>
+      void sent.push([
+        owner,
+        item,
+      ]),
     settleMs: 50,
   });
-  return { ...on, panel, sent, inEditor, showInFolder };
+  return {
+    ...on,
+    panel,
+    sent,
+    inEditor,
+    showInFolder,
+  };
 }
 
-const session = (path: string, sessionId = "S1"): PanelFileItem => ({ kind: "file", path, from: "session", sessionId });
-const settings = (path: string): PanelFileItem => ({ kind: "file", path, from: "settings" });
-const picked = (path: string): PanelFileItem => ({ kind: "file", path, from: "picked" });
-const kit = (path: string): PanelFileItem => ({ kind: "file", path, from: "kit" });
+const session = (path: string, sessionId = "S1"): PanelFileItem => ({
+  kind: "file",
+  path,
+  from: "session",
+  sessionId,
+});
+const settings = (path: string): PanelFileItem => ({
+  kind: "file",
+  path,
+  from: "settings",
+});
+const picked = (path: string): PanelFileItem => ({
+  kind: "file",
+  path,
+  from: "picked",
+});
+const kit = (path: string): PanelFileItem => ({
+  kind: "file",
+  path,
+  from: "kit",
+});
 
 const HOME = "/Users/user/.agent";
 const inventory: KitInventory = {
@@ -95,9 +188,45 @@ const inventory: KitInventory = {
   home: HOME,
   present: true,
   kinds: [
-    { kind: "skills", read: { what: "read", unreadable: [], items: [{ name: "humanizer", source: `${HOME}/skills/humanizer` }] } },
-    { kind: "sub_agents", read: { what: "read", unreadable: [], items: [{ name: "reviewer", source: `${HOME}/agents/reviewer.md` }] } },
-    { kind: "allowlist", read: { what: "read", unreadable: [], items: [{ name: "git status", source: "/etc/passwd" }] } },
+    {
+      kind: "skills",
+      read: {
+        what: "read",
+        unreadable: [],
+        items: [
+          {
+            name: "humanizer",
+            source: `${HOME}/skills/humanizer`,
+          },
+        ],
+      },
+    },
+    {
+      kind: "sub_agents",
+      read: {
+        what: "read",
+        unreadable: [],
+        items: [
+          {
+            name: "reviewer",
+            source: `${HOME}/agents/reviewer.md`,
+          },
+        ],
+      },
+    },
+    {
+      kind: "allowlist",
+      read: {
+        what: "read",
+        unreadable: [],
+        items: [
+          {
+            name: "git status",
+            source: "/etc/passwd",
+          },
+        ],
+      },
+    },
   ],
 };
 const KIT_FILES = {
@@ -109,22 +238,49 @@ const KIT_FILES = {
 
 describe("a path from Kit", () => {
   it("reads and saves a file the inventory names, and a skill folder's SKILL.md", async () => {
-    const { panel, held } = wired(KIT_FILES, { kit: inventory });
+    const { panel, held } = wired(KIT_FILES, {
+      kit: inventory,
+    });
     const agent = `${HOME}/agents/reviewer.md`;
     const skill = `${HOME}/skills/humanizer/SKILL.md`;
-    expect(await panel.read({}, kit(agent))).toMatchObject({ ok: true, text: "reviews", version: sha("reviews") });
-    expect(await panel.read({}, kit(skill))).toMatchObject({ ok: true, text: "# Humanizer" });
-    expect(await panel.save(kit(skill), "# Humanizer, edited", sha("# Humanizer"))).toEqual({ state: "saved", version: sha("# Humanizer, edited") });
+    expect(await panel.read({}, kit(agent))).toMatchObject({
+      ok: true,
+      text: "reviews",
+      version: sha("reviews"),
+    });
+    expect(await panel.read({}, kit(skill))).toMatchObject({
+      ok: true,
+      text: "# Humanizer",
+    });
+    expect(await panel.save(kit(skill), "# Humanizer, edited", sha("# Humanizer"))).toEqual({
+      state: "saved",
+      version: sha("# Humanizer, edited"),
+    });
     expect(held.get(skill)).toEqual(bytesOf("# Humanizer, edited"));
   });
 
   it("refuses a path off the inventory for read, save and open-in, and touches nothing", async () => {
-    const { panel, reads, replaced, inEditor, showInFolder } = wired(KIT_FILES, { kit: inventory });
-    for (const path of [`${HOME}/skills/humanizer/notes.md`, "/etc/passwd", "/etc/hosts"]) {
-      expect(await panel.read({}, kit(path))).toEqual({ ok: false, why: "not_addressable" });
-      expect(await panel.save(kit(path), "x", sha("root"))).toMatchObject({ state: "failed" });
-      expect(await panel.openIn(kit(path), "editor")).toMatchObject({ ok: false });
-      expect(await panel.openIn(kit(path), "finder")).toMatchObject({ ok: false });
+    const { panel, reads, replaced, inEditor, showInFolder } = wired(KIT_FILES, {
+      kit: inventory,
+    });
+    for (const path of [
+      `${HOME}/skills/humanizer/notes.md`,
+      "/etc/passwd",
+      "/etc/hosts",
+    ]) {
+      expect(await panel.read({}, kit(path))).toEqual({
+        ok: false,
+        why: "not_addressable",
+      });
+      expect(await panel.save(kit(path), "x", sha("root"))).toMatchObject({
+        state: "failed",
+      });
+      expect(await panel.openIn(kit(path), "editor")).toMatchObject({
+        ok: false,
+      });
+      expect(await panel.openIn(kit(path), "finder")).toMatchObject({
+        ok: false,
+      });
     }
     expect(reads).toEqual([]);
     expect(replaced).toEqual([]);
@@ -134,67 +290,153 @@ describe("a path from Kit", () => {
 
   it("refuses everything while Fleet does not answer", async () => {
     const { panel } = wired(KIT_FILES);
-    expect(await panel.read({}, kit(`${HOME}/agents/reviewer.md`))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read({}, kit(`${HOME}/agents/reviewer.md`))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
   });
 
   it("opens a named file in the editor and in Finder", async () => {
-    const { panel, inEditor, showInFolder } = wired(KIT_FILES, { kit: inventory });
+    const { panel, inEditor, showInFolder } = wired(KIT_FILES, {
+      kit: inventory,
+    });
     const skill = `${HOME}/skills/humanizer/SKILL.md`;
-    expect(await panel.openIn(kit(skill), "editor")).toEqual({ ok: true });
+    expect(await panel.openIn(kit(skill), "editor")).toEqual({
+      ok: true,
+    });
     expect(inEditor).toHaveBeenCalledWith(skill);
-    expect(await panel.openIn(kit(skill), "finder")).toEqual({ ok: true });
+    expect(await panel.openIn(kit(skill), "finder")).toEqual({
+      ok: true,
+    });
     expect(showInFolder).toHaveBeenCalledWith(skill);
   });
 });
 
 describe("a path no source names", () => {
-  const files = { "/repo/docs/spike.md": "# spike", "/repo/notes/todo.txt": "todo", "/etc/passwd": "root", "/home/user/settings.json": "{}", "/home/user/other.txt": "x" };
+  const files = {
+    "/repo/docs/spike.md": "# spike",
+    "/repo/notes/todo.txt": "todo",
+    "/etc/passwd": "root",
+    "/home/user/settings.json": "{}",
+    "/home/user/other.txt": "x",
+  };
 
   it("is refused for each source, and a named one reads", async () => {
-    const { panel, reads } = wired(files, { settings: "/home/user/settings.json" });
+    const { panel, reads } = wired(files, {
+      settings: "/home/user/settings.json",
+    });
     const owner = {};
-    expect(await panel.read(owner, session("/etc/passwd"))).toEqual({ ok: false, why: "not_addressable" });
-    expect(await panel.read(owner, session("/repo/docs/spike.md", "S9"))).toEqual({ ok: false, why: "not_addressable" });
-    expect(await panel.read(owner, { kind: "file", path: "/repo/docs/spike.md", from: "session" })).toEqual({ ok: false, why: "not_addressable" });
-    expect(await panel.read(owner, settings("/home/user/other.txt"))).toEqual({ ok: false, why: "not_addressable" });
-    expect(await panel.read(owner, picked("/etc/passwd"))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read(owner, session("/etc/passwd"))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
+    expect(await panel.read(owner, session("/repo/docs/spike.md", "S9"))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
+    expect(
+      await panel.read(owner, {
+        kind: "file",
+        path: "/repo/docs/spike.md",
+        from: "session",
+      }),
+    ).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
+    expect(await panel.read(owner, settings("/home/user/other.txt"))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
+    expect(await panel.read(owner, picked("/etc/passwd"))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
     expect(reads).toEqual([]);
 
-    expect(await panel.read(owner, session("/repo/docs/spike.md"))).toEqual({ ok: true, text: "# spike", type: "text/markdown", version: sha("# spike") });
-    expect(await panel.read(owner, settings("/home/user/settings.json"))).toMatchObject({ ok: true, text: "{}" });
+    expect(await panel.read(owner, session("/repo/docs/spike.md"))).toEqual({
+      ok: true,
+      text: "# spike",
+      type: "text/markdown",
+      version: sha("# spike"),
+    });
+    expect(await panel.read(owner, settings("/home/user/settings.json"))).toMatchObject({
+      ok: true,
+      text: "{}",
+    });
   });
 
   it("reads a Session's relative target against the Session's folder, and only as the ledger wrote it", async () => {
     const { panel } = wired(files);
-    expect(await panel.read({}, session("notes/todo.txt"))).toMatchObject({ ok: true, text: "todo" });
+    expect(await panel.read({}, session("notes/todo.txt"))).toMatchObject({
+      ok: true,
+      text: "todo",
+    });
     // The same file by its absolute path is not what the ledger names.
-    expect(await panel.read({}, session("/repo/notes/todo.txt"))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read({}, session("/repo/notes/todo.txt"))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
   });
 
   it("is refused for a picked file until the dialog has chosen it, and reads after", async () => {
-    const { panel } = wired(files, { pick: "/home/user/other.txt" });
-    expect(await panel.read({}, picked("/home/user/other.txt"))).toEqual({ ok: false, why: "not_addressable" });
+    const { panel } = wired(files, {
+      pick: "/home/user/other.txt",
+    });
+    expect(await panel.read({}, picked("/home/user/other.txt"))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
     expect(await panel.pick()).toEqual(picked("/home/user/other.txt"));
-    expect(await panel.read({}, picked("/home/user/other.txt"))).toMatchObject({ ok: true, text: "x" });
-    expect(await panel.read({}, picked("/etc/passwd"))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read({}, picked("/home/user/other.txt"))).toMatchObject({
+      ok: true,
+      text: "x",
+    });
+    expect(await panel.read({}, picked("/etc/passwd"))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
   });
 
   it("answers null from a dialog that was closed, and picks nothing", async () => {
-    const { panel } = wired(files, { pick: null });
+    const { panel } = wired(files, {
+      pick: null,
+    });
     expect(await panel.pick()).toBeNull();
   });
 
   it("creates settings.json with nothing in it where the machine has none, as opening it does", async () => {
-    const { panel, created } = wired({}, { settings: "/home/user/settings.json" });
-    expect(await panel.read({}, settings("/home/user/settings.json"))).toMatchObject({ ok: true, text: "{}\n" });
-    expect(created).toEqual(["/home/user/settings.json"]);
+    const { panel, created } = wired(
+      {},
+      {
+        settings: "/home/user/settings.json",
+      },
+    );
+    expect(await panel.read({}, settings("/home/user/settings.json"))).toMatchObject({
+      ok: true,
+      text: "{}\n",
+    });
+    expect(created).toEqual([
+      "/home/user/settings.json",
+    ]);
   });
 
   it("reads a picture as bytes and refuses binary and big files", async () => {
-    const png = wired({ "/tmp/shot.png": "png!" });
-    expect(await png.panel.read({}, session("/tmp/shot.png"))).toMatchObject({ ok: true, bytes: bytesOf("png!"), type: "image/png" });
-    const bin = wired({ "/repo/docs/spike.md": "a\u0000b" });
-    expect(await bin.panel.read({}, session("/repo/docs/spike.md"))).toEqual({ ok: false, why: "binary" });
+    const png = wired({
+      "/tmp/shot.png": "png!",
+    });
+    expect(await png.panel.read({}, session("/tmp/shot.png"))).toMatchObject({
+      ok: true,
+      bytes: bytesOf("png!"),
+      type: "image/png",
+    });
+    const bin = wired({
+      "/repo/docs/spike.md": "a\u0000b",
+    });
+    expect(await bin.panel.read({}, session("/repo/docs/spike.md"))).toEqual({
+      ok: false,
+      why: "binary",
+    });
   });
 });
 
@@ -202,36 +444,60 @@ describe("saving", () => {
   const path = "/repo/docs/spike.md";
 
   it("refuses a stale version as moved, with what is on disk, and writes nothing", async () => {
-    const { panel, held, replaced } = wired({ [path]: "theirs" });
+    const { panel, held, replaced } = wired({
+      [path]: "theirs",
+    });
     const saved = await panel.save(session(path), "mine", sha("what I read"));
-    expect(saved).toEqual({ state: "moved", onDisk: "theirs", version: sha("theirs") });
+    expect(saved).toEqual({
+      state: "moved",
+      onDisk: "theirs",
+      version: sha("theirs"),
+    });
     expect(replaced).toEqual([]);
     expect(held.get(path)).toEqual(bytesOf("theirs"));
   });
 
   it("writes at the current version and answers the new one", async () => {
-    const { panel, held } = wired({ [path]: "before" });
-    expect(await panel.save(session(path), "after", sha("before"))).toEqual({ state: "saved", version: sha("after") });
+    const { panel, held } = wired({
+      [path]: "before",
+    });
+    expect(await panel.save(session(path), "after", sha("before"))).toEqual({
+      state: "saved",
+      version: sha("after"),
+    });
     expect(held.get(path)).toEqual(bytesOf("after"));
   });
 
   it("overwrites when the moved answer's version comes back with the save", async () => {
-    const { panel, held } = wired({ [path]: "theirs" });
+    const { panel, held } = wired({
+      [path]: "theirs",
+    });
     const moved = await panel.save(session(path), "mine", sha("what I read"));
     if (moved.state !== "moved") throw new Error("expected moved");
-    expect(await panel.save(session(path), "mine", moved.version)).toEqual({ state: "saved", version: sha("mine") });
+    expect(await panel.save(session(path), "mine", moved.version)).toEqual({
+      state: "saved",
+      version: sha("mine"),
+    });
     expect(held.get(path)).toEqual(bytesOf("mine"));
   });
 
   it("refuses to write a path no source names", async () => {
-    const { panel, replaced } = wired({ "/etc/passwd": "root" });
-    expect(await panel.save(session("/etc/passwd"), "x", sha("root"))).toMatchObject({ state: "failed" });
-    expect(await panel.save(picked("/etc/passwd"), "x", sha("root"))).toMatchObject({ state: "failed" });
+    const { panel, replaced } = wired({
+      "/etc/passwd": "root",
+    });
+    expect(await panel.save(session("/etc/passwd"), "x", sha("root"))).toMatchObject({
+      state: "failed",
+    });
+    expect(await panel.save(picked("/etc/passwd"), "x", sha("root"))).toMatchObject({
+      state: "failed",
+    });
     expect(replaced).toEqual([]);
   });
 
   it("says the OS's own words when the write is refused", async () => {
-    const { panel, disk } = wired({ [path]: "before" });
+    const { panel, disk } = wired({
+      [path]: "before",
+    });
     disk.replace = async () => {
       throw new Error("EACCES: permission denied, open '/repo/docs/.spike.md.tmp'");
     };
@@ -245,24 +511,36 @@ describe("saving", () => {
 describe("opening in another program", () => {
   it("refuses a path no source names, and starts nothing", async () => {
     const { panel, inEditor, showInFolder } = wired({});
-    expect(await panel.openIn(session("/etc/passwd"), "editor")).toMatchObject({ ok: false });
-    expect(await panel.openIn(picked("/etc/passwd"), "finder")).toMatchObject({ ok: false });
-    expect(await panel.openIn(kit("/etc/passwd"), "finder")).toMatchObject({ ok: false });
+    expect(await panel.openIn(session("/etc/passwd"), "editor")).toMatchObject({
+      ok: false,
+    });
+    expect(await panel.openIn(picked("/etc/passwd"), "finder")).toMatchObject({
+      ok: false,
+    });
+    expect(await panel.openIn(kit("/etc/passwd"), "finder")).toMatchObject({
+      ok: false,
+    });
     expect(inEditor).not.toHaveBeenCalled();
     expect(showInFolder).not.toHaveBeenCalled();
   });
 
   it("opens a named path in the editor or shows it in Finder, a relative one by where it is", async () => {
     const { panel, inEditor, showInFolder } = wired({});
-    expect(await panel.openIn(session("notes/todo.txt"), "editor")).toEqual({ ok: true });
+    expect(await panel.openIn(session("notes/todo.txt"), "editor")).toEqual({
+      ok: true,
+    });
     expect(inEditor).toHaveBeenCalledWith("/repo/notes/todo.txt");
-    expect(await panel.openIn(session("/repo/docs/spike.md"), "finder")).toEqual({ ok: true });
+    expect(await panel.openIn(session("/repo/docs/spike.md"), "finder")).toEqual({
+      ok: true,
+    });
     expect(showInFolder).toHaveBeenCalledWith("/repo/docs/spike.md");
   });
 
   it("carries the editor's own reason when it will not open", async () => {
     const { panel, inEditor } = wired({});
-    inEditor.mockResolvedValueOnce("editor.command names code, and nothing on PATH is called that.");
+    inEditor.mockResolvedValueOnce(
+      "editor.command names code, and nothing on PATH is called that.",
+    );
     expect(await panel.openIn(session("/repo/docs/spike.md"), "editor")).toEqual({
       ok: false,
       detail: "editor.command names code, and nothing on PATH is called that.",
@@ -276,8 +554,12 @@ describe("watching the open file", () => {
 
   it("tells the window that read it, once, after a burst settles", async () => {
     vi.useFakeTimers();
-    const { panel, sent, held, touch } = wired({ [path]: "one" });
-    const owner = { window: 1 };
+    const { panel, sent, held, touch } = wired({
+      [path]: "one",
+    });
+    const owner = {
+      window: 1,
+    };
     await panel.read(owner, session(path));
     held.set(path, bytesOf("two"));
     touch("/repo/docs", "spike.md");
@@ -286,12 +568,19 @@ describe("watching the open file", () => {
     await vi.advanceTimersByTimeAsync(10);
     expect(sent).toEqual([]);
     await vi.advanceTimersByTimeAsync(100);
-    expect(sent).toEqual([[owner, session(path)]]);
+    expect(sent).toEqual([
+      [
+        owner,
+        session(path),
+      ],
+    ]);
   });
 
   it("says nothing of a touch that left the bytes as they were, nor of its own save", async () => {
     vi.useFakeTimers();
-    const { panel, sent, touch } = wired({ [path]: "one" });
+    const { panel, sent, touch } = wired({
+      [path]: "one",
+    });
     const owner = {};
     await panel.read(owner, session(path));
     touch("/repo/docs", "spike.md");
@@ -304,7 +593,10 @@ describe("watching the open file", () => {
   });
 
   it("holds one watcher per window: reading another file lets go of the first, and a window going lets go of its own", async () => {
-    const { panel, watching, closed } = wired({ [path]: "one", "/repo/notes/todo.txt": "todo" });
+    const { panel, watching, closed } = wired({
+      [path]: "one",
+      "/repo/notes/todo.txt": "todo",
+    });
     const owner = {};
     await panel.read(owner, session(path));
     await panel.read(owner, session(path));
@@ -314,11 +606,16 @@ describe("watching the open file", () => {
     expect(watching("/repo/notes")).toBe(1);
     panel.release(owner);
     expect(watching("/repo/notes")).toBe(0);
-    expect(closed).toEqual(["/repo/docs", "/repo/notes"]);
+    expect(closed).toEqual([
+      "/repo/docs",
+      "/repo/notes",
+    ]);
   });
 
   it("watches nothing for a read that was refused", async () => {
-    const { panel, watching } = wired({ "/etc/passwd": "root" });
+    const { panel, watching } = wired({
+      "/etc/passwd": "root",
+    });
     await panel.read({}, session("/etc/passwd"));
     expect(watching("/etc")).toBe(0);
   });
@@ -333,7 +630,9 @@ describe("on a real disk", () => {
     await diskPanel.replace(path, bytesOf("after"));
     expect(await readFile(path, "utf8")).toBe("after");
     expect((await stat(path)).mode & 0o777).toBe(0o640);
-    expect(await readdir(dir)).toEqual(["a.txt"]);
+    expect(await readdir(dir)).toEqual([
+      "a.txt",
+    ]);
   });
 });
 
@@ -346,7 +645,11 @@ describe("a path in the Job's checkout", () => {
     await writeFile(join(root, "docs", "plan.md"), "# Plan");
     await writeFile(join(outside, "secret.md"), "not yours");
     await symlink(join(outside, "secret.md"), join(root, "escape.md"));
-    const held = { id: "S1", cwd: root, attachments: [] } as unknown as SessionRecord;
+    const held = {
+      id: "S1",
+      cwd: root,
+      attachments: [],
+    } as unknown as SessionRecord;
     const panel = createFilePanel({
       disk: diskPanel,
       recordOf: (id) => (id === "S1" ? held : undefined),
@@ -357,22 +660,56 @@ describe("a path in the Job's checkout", () => {
       showInFolder: () => {},
       send: () => {},
     });
-    return { root, outside, panel };
+    return {
+      root,
+      outside,
+      panel,
+    };
   }
 
   it("reports the paths that are files there, and not a missing one, a folder, or one that leaves the checkout", async () => {
     const { root, outside, panel } = await checkout();
-    const asked = ["docs/plan.md", "docs/missing.md", "docs", "escape.md", `../${basename(outside)}/secret.md`, join(root, "docs", "plan.md")];
-    expect(await panel.known("S1", asked)).toEqual(["docs/plan.md", join(root, "docs", "plan.md")]);
+    const asked = [
+      "docs/plan.md",
+      "docs/missing.md",
+      "docs",
+      "escape.md",
+      `../${basename(outside)}/secret.md`,
+      join(root, "docs", "plan.md"),
+    ];
+    expect(await panel.known("S1", asked)).toEqual([
+      "docs/plan.md",
+      join(root, "docs", "plan.md"),
+    ]);
     expect(await panel.known("S2", asked)).toEqual([]);
   });
 
   it("reads a file there for a Session that never listed it, and refuses one outside", async () => {
     const { outside, panel } = await checkout();
-    expect(await panel.read({}, session("docs/plan.md"))).toMatchObject({ ok: true, text: "# Plan" });
-    expect(await panel.read({}, session("escape.md"))).toEqual({ ok: false, why: "not_addressable" });
-    expect(await panel.read({}, session(`../${basename(outside)}/secret.md`))).toEqual({ ok: false, why: "not_addressable" });
-    expect(await panel.read({}, { ...session("docs/plan.md"), sessionId: "S2" })).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read({}, session("docs/plan.md"))).toMatchObject({
+      ok: true,
+      text: "# Plan",
+    });
+    expect(await panel.read({}, session("escape.md"))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
+    expect(await panel.read({}, session(`../${basename(outside)}/secret.md`))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
+    expect(
+      await panel.read(
+        {},
+        {
+          ...session("docs/plan.md"),
+          sessionId: "S2",
+        },
+      ),
+    ).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
   });
 });
 
@@ -381,13 +718,19 @@ describe("a path written from the repository root", () => {
   async function slot() {
     const repo = await mkdtemp(join(tmpdir(), "file-panel-repo-"));
     const cwd = join(repo, ".armada", "slots", "slot-5");
-    await mkdir(cwd, { recursive: true });
+    await mkdir(cwd, {
+      recursive: true,
+    });
     await mkdir(join(repo, ".armada", "slots", "slot-6"));
     await writeFile(join(cwd, "example.md"), "# Example");
     await writeFile(join(repo, "top.md"), "# Top");
     await writeFile(join(repo, ".armada", "slots", "slot-6", "other.md"), "# Other");
     await symlink(join(repo, "top.md"), join(cwd, "link.md"));
-    const held = { id: "S1", cwd, attachments: [] } as unknown as SessionRecord;
+    const held = {
+      id: "S1",
+      cwd,
+      attachments: [],
+    } as unknown as SessionRecord;
     const panel = createFilePanel({
       disk: diskPanel,
       recordOf: (id) => (id === "S1" ? held : undefined),
@@ -398,21 +741,40 @@ describe("a path written from the repository root", () => {
       showInFolder: () => {},
       send: () => {},
     });
-    return { cwd, panel };
+    return {
+      cwd,
+      panel,
+    };
   }
 
   it("is found when it lands on a file in the slot, and opens that file", async () => {
     const { panel } = await slot();
     const written = ".armada/slots/slot-5/example.md";
-    expect(await panel.known("S1", [written])).toEqual([written]);
-    expect(await panel.read({}, session(written))).toMatchObject({ ok: true, text: "# Example" });
+    expect(
+      await panel.known("S1", [
+        written,
+      ]),
+    ).toEqual([
+      written,
+    ]);
+    expect(await panel.read({}, session(written))).toMatchObject({
+      ok: true,
+      text: "# Example",
+    });
   });
 
   it("is refused when it lands outside the slot, by name or by link", async () => {
     const { panel } = await slot();
-    const asked = ["top.md", ".armada/slots/slot-6/other.md", ".armada/slots/slot-5/link.md"];
+    const asked = [
+      "top.md",
+      ".armada/slots/slot-6/other.md",
+      ".armada/slots/slot-5/link.md",
+    ];
     expect(await panel.known("S1", asked)).toEqual([]);
-    expect(await panel.read({}, session("top.md"))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read({}, session("top.md"))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
   });
 });
 
@@ -425,7 +787,11 @@ describe("a typed path", () => {
     await writeFile(join(home, "notes", "a.md"), "home note");
     await mkdir(join(root, "docs"));
     await writeFile(join(root, "docs", "plan.md"), "# Plan");
-    const held = { id: "S1", cwd: root, attachments: [] } as unknown as SessionRecord;
+    const held = {
+      id: "S1",
+      cwd: root,
+      attachments: [],
+    } as unknown as SessionRecord;
     const panel = createFilePanel({
       disk: diskPanel,
       recordOf: (id) => (id === "S1" ? held : undefined),
@@ -437,7 +803,11 @@ describe("a typed path", () => {
       send: () => {},
       home: () => home,
     });
-    return { home, root, panel };
+    return {
+      home,
+      root,
+      panel,
+    };
   }
 
   it("opens an absolute path, with quotes and spaces trimmed, and the file then reads as picked", async () => {
@@ -445,7 +815,10 @@ describe("a typed path", () => {
     const path = join(root, "docs", "plan.md");
     const item = await panel.openPath(`  "${path}" `);
     expect(item).toEqual(picked(path));
-    expect(await panel.read({}, picked(path))).toMatchObject({ ok: true, text: "# Plan" });
+    expect(await panel.read({}, picked(path))).toMatchObject({
+      ok: true,
+      text: "# Plan",
+    });
   });
 
   it("expands ~ to the home folder", async () => {
@@ -455,7 +828,9 @@ describe("a typed path", () => {
 
   it("resolves a relative path against the Session's checkout", async () => {
     const { root, panel } = await typed();
-    expect(await panel.openPath("docs/plan.md", "S1")).toEqual(picked(join(root, "docs", "plan.md")));
+    expect(await panel.openPath("docs/plan.md", "S1")).toEqual(
+      picked(join(root, "docs", "plan.md")),
+    );
   });
 
   it("refuses a relative path with no Session to resolve it against", async () => {
@@ -468,6 +843,9 @@ describe("a typed path", () => {
     const { root, panel } = await typed();
     expect(await panel.openPath(join(root, "docs", "missing.md"))).toBeNull();
     expect(await panel.openPath(join(root, "docs"))).toBeNull();
-    expect(await panel.read({}, picked(join(root, "docs")))).toEqual({ ok: false, why: "not_addressable" });
+    expect(await panel.read({}, picked(join(root, "docs")))).toEqual({
+      ok: false,
+      why: "not_addressable",
+    });
   });
 });

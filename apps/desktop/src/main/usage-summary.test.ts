@@ -13,5 +13,14 @@ test("the path carries the caller's offset and nothing else", () => {
 test("only a whole offset within a day either way is passed on", () => {
   expect(offsetOf(-300)).toBe(-300);
   expect(offsetOf(0)).toBe(0);
-  for (const bad of [1441, -1441, 1.5, "120", null, undefined, NaN]) expect(offsetOf(bad)).toBeNull();
+  for (const bad of [
+    1441,
+    -1441,
+    1.5,
+    "120",
+    null,
+    undefined,
+    NaN,
+  ])
+    expect(offsetOf(bad)).toBeNull();
 });

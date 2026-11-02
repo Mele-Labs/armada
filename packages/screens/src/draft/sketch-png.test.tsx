@@ -19,12 +19,20 @@ const SCALE = 2;
 const PICTURE_FILL = "red";
 
 /** One colour, as the canvas would store it. */
-function rgbOf(colour: string): [number, number, number] {
+function rgbOf(colour: string): [
+  number,
+  number,
+  number,
+] {
   const pen = new OffscreenCanvas(1, 1).getContext("2d")!;
   pen.fillStyle = colour;
   pen.fillRect(0, 0, 1, 1);
   const [r, g, b] = pen.getImageData(0, 0, 1, 1).data;
-  return [r!, g!, b!];
+  return [
+    r!,
+    g!,
+    b!,
+  ];
 }
 
 /** A picture of one colour, as a paste would hand the pad one: a `blob:` address. */
@@ -33,12 +41,25 @@ async function solid(width: number, height: number): Promise<string> {
   const pen = canvas.getContext("2d")!;
   pen.fillStyle = PICTURE_FILL;
   pen.fillRect(0, 0, width, height);
-  return URL.createObjectURL(await canvas.convertToBlob({ type: "image/png" }));
+  return URL.createObjectURL(
+    await canvas.convertToBlob({
+      type: "image/png",
+    }),
+  );
 }
 
 /** The PNG decoded again, so it is read the way anything reading the file would. */
 async function decode(png: SketchPng): Promise<ImageData> {
-  const bitmap = await createImageBitmap(new Blob([png.bytes], { type: "image/png" }));
+  const bitmap = await createImageBitmap(
+    new Blob(
+      [
+        png.bytes,
+      ],
+      {
+        type: "image/png",
+      },
+    ),
+  );
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
   const pen = canvas.getContext("2d")!;
   pen.drawImage(bitmap, 0, 0);
@@ -51,14 +72,33 @@ let png: SketchPng;
 let read: ImageData;
 
 /** The pixel at a place on the pad, through the frame's margin and the scale. */
-function at(x: number, y: number): [number, number, number] {
+function at(
+  x: number,
+  y: number,
+): [
+  number,
+  number,
+  number,
+] {
   const px = Math.round((x + ink.margin) * SCALE);
   const py = Math.round((y + ink.margin) * SCALE);
   const from = (py * read.width + px) * 4;
-  return [read.data[from]!, read.data[from + 1]!, read.data[from + 2]!];
+  return [
+    read.data[from]!,
+    read.data[from + 1]!,
+    read.data[from + 2]!,
+  ];
 }
 
-function near(got: [number, number, number], want: string, slack = 2): boolean {
+function near(
+  got: [
+    number,
+    number,
+    number,
+  ],
+  want: string,
+  slack = 2,
+): boolean {
   return rgbOf(want).every((one, channel) => Math.abs(one - got[channel]!) <= slack);
 }
 
@@ -66,20 +106,51 @@ beforeAll(async () => {
   ink = sketchInkOf(getComputedStyle(document.documentElement));
   drawing = {
     // One line of words, so the box is its two-row well and the inset round it.
-    shapes: [{ id: "b1", x: 0, y: 0, body: "the stat" }],
-    joins: [{ id: "b1-p1", from: "b1", to: "p1" }],
+    shapes: [
+      {
+        id: "b1",
+        x: 0,
+        y: 0,
+        body: "the stat",
+      },
+    ],
+    joins: [
+      {
+        id: "b1-p1",
+        from: "b1",
+        to: "p1",
+      },
+    ],
     // A line under the box, well clear of everything else.
     strokes: [
       {
         id: "s1",
         points: [
-          { x: 20, y: 120 },
-          { x: 120, y: 120 },
-          { x: 220, y: 120 },
+          {
+            x: 20,
+            y: 120,
+          },
+          {
+            x: 120,
+            y: 120,
+          },
+          {
+            x: 220,
+            y: 120,
+          },
         ],
       },
     ],
-    pictures: [{ id: "p1", x: 400, y: 0, width: 200, height: 150, src: await solid(200, 150) }],
+    pictures: [
+      {
+        id: "p1",
+        x: 400,
+        y: 0,
+        width: 200,
+        height: 150,
+        src: await solid(200, 150),
+      },
+    ],
   };
   png = await sketchPng(drawing, ink, SCALE);
   read = await decode(png);
@@ -87,11 +158,23 @@ beforeAll(async () => {
 
 describe("the sketch as a PNG", () => {
   it("is a PNG, framed on what is drawn with the margin round it", () => {
-    expect([...png.bytes.slice(1, 4)].map((one) => String.fromCharCode(one)).join("")).toBe("PNG");
+    expect(
+      [
+        ...png.bytes.slice(1, 4),
+      ]
+        .map((one) => String.fromCharCode(one))
+        .join(""),
+    ).toBe("PNG");
     // The picture's far edge is the drawing's right and bottom; the box's corner its left and top.
     expect(png.width).toBe((600 + ink.margin * 2) * SCALE);
     expect(png.height).toBe((150 + ink.margin * 2) * SCALE);
-    expect([read.width, read.height]).toEqual([png.width, png.height]);
+    expect([
+      read.width,
+      read.height,
+    ]).toEqual([
+      png.width,
+      png.height,
+    ]);
   });
 
   it("draws the pasted picture at its own place and size", () => {
@@ -107,7 +190,12 @@ describe("the sketch as a PNG", () => {
     // The second row is empty, so it is the well's own colour.
     expect(near(at(200, 55), ink.well)).toBe(true);
     // Somewhere along the first row the words are drawn.
-    const row = Array.from({ length: 100 }, (_, step) => at(17 + step, 28));
+    const row = Array.from(
+      {
+        length: 100,
+      },
+      (_, step) => at(17 + step, 28),
+    );
     expect(row.some((pixel) => !near(pixel, ink.well, 24))).toBe(true);
   });
 

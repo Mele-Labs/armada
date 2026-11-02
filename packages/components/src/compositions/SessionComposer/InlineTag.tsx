@@ -24,7 +24,9 @@ export type ComposerTag = {
 export function titleWithoutReference(tag: Pick<ComposerTag, "kind" | "id" | "title">): string {
   const forge = tag.title.replace(/^#\d+\s*/, "");
   if (forge !== tag.title || tag.kind !== "issue") return forge;
-  return tag.title.toLowerCase().startsWith(tag.id.toLowerCase()) ? tag.title.slice(tag.id.length).trimStart() : tag.title;
+  return tag.title.toLowerCase().startsWith(tag.id.toLowerCase())
+    ? tag.title.slice(tag.id.length).trimStart()
+    : tag.title;
 }
 
 export const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
@@ -40,7 +42,15 @@ export const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
  * message box it is atomic, so Backspace takes it whole; in the thread it is the same unit, read-only.
  * **With `onOpen` it is a link** to where Bridge shows what it names, with its kind and title on hover.
  */
-export function InlineTag({ tag, atomic = false, onOpen }: { tag: ComposerTag; atomic?: boolean; onOpen?: () => void }) {
+export function InlineTag({
+  tag,
+  atomic = false,
+  onOpen,
+}: {
+  tag: ComposerTag;
+  atomic?: boolean;
+  onOpen?: () => void;
+}) {
   const Glyph = TAG_GLYPH[tag.kind];
   if (onOpen !== undefined) {
     return (
@@ -62,7 +72,19 @@ export function InlineTag({ tag, atomic = false, onOpen }: { tag: ComposerTag; a
   return (
     <span
       className="armada-inline-tag"
-      {...(atomic ? { contentEditable: false, "data-tag-kind": tag.kind, "data-tag-id": tag.id, "data-tag-title": tag.title, ...(tag.url === undefined ? {} : { "data-tag-url": tag.url }) } : {})}
+      {...(atomic
+        ? {
+            contentEditable: false,
+            "data-tag-kind": tag.kind,
+            "data-tag-id": tag.id,
+            "data-tag-title": tag.title,
+            ...(tag.url === undefined
+              ? {}
+              : {
+                  "data-tag-url": tag.url,
+                }),
+          }
+        : {})}
     >
       <Glyph size={12} strokeWidth={2} aria-hidden />
       {tag.title}
@@ -70,4 +92,10 @@ export function InlineTag({ tag, atomic = false, onOpen }: { tag: ComposerTag; a
   );
 }
 
-const TAG_KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue", report: "Reported bug" };
+const TAG_KIND_SAID: Record<ComposerTag["kind"], string> = {
+  session: "Job",
+  pull_request: "Pull request",
+  branch: "Branch",
+  issue: "Issue",
+  report: "Reported bug",
+};

@@ -9,10 +9,62 @@ const setup: KitInventory = {
   home: HOME,
   present: true,
   kinds: [
-    { kind: "skills", read: { what: "read", unreadable: [], items: [{ name: "a", source: `${HOME}/skills/a` }, { name: "rel", source: "skills/rel" }] } },
-    { kind: "sub_agents", read: { what: "read", unreadable: [], items: [{ name: "r", source: `${HOME}/agents/r.md` }] } },
-    { kind: "plugins", read: { what: "read", unreadable: [], items: [{ name: "p@m", source: `${HOME}/plugins/p` }] } },
-    { kind: "allowlist", read: { what: "read", unreadable: [], items: [{ name: "x", source: `${HOME}/skills/b/SKILL.md` }] } },
+    {
+      kind: "skills",
+      read: {
+        what: "read",
+        unreadable: [],
+        items: [
+          {
+            name: "a",
+            source: `${HOME}/skills/a`,
+          },
+          {
+            name: "rel",
+            source: "skills/rel",
+          },
+        ],
+      },
+    },
+    {
+      kind: "sub_agents",
+      read: {
+        what: "read",
+        unreadable: [],
+        items: [
+          {
+            name: "r",
+            source: `${HOME}/agents/r.md`,
+          },
+        ],
+      },
+    },
+    {
+      kind: "plugins",
+      read: {
+        what: "read",
+        unreadable: [],
+        items: [
+          {
+            name: "p@m",
+            source: `${HOME}/plugins/p`,
+          },
+        ],
+      },
+    },
+    {
+      kind: "allowlist",
+      read: {
+        what: "read",
+        unreadable: [],
+        items: [
+          {
+            name: "x",
+            source: `${HOME}/skills/b/SKILL.md`,
+          },
+        ],
+      },
+    },
   ],
 };
 

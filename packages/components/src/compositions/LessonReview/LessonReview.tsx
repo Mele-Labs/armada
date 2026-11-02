@@ -8,7 +8,10 @@ import { Input } from "../../primitives/Input/Input";
 import { SkeletonText } from "../../primitives/Skeleton/Skeleton";
 
 /** One turn of the thread under a card. */
-export type ReviewTurn = { role: "person" | "fleet"; text: string };
+export type ReviewTurn = {
+  role: "person" | "fleet";
+  text: string;
+};
 
 /** The question thread under one card, held by the surface so it outlives a move to another card. */
 export type ReviewThreadProps = {
@@ -26,7 +29,14 @@ export type ReviewThreadProps = {
  * Questions about one card and Fleet's answers, oldest first. **Fleet stores no
  * thread**, so Bridge carries it, for as long as the window is open.
  */
-export function ReviewThread({ turns, draft, onDraft, onSend, pending = false, failure }: ReviewThreadProps) {
+export function ReviewThread({
+  turns,
+  draft,
+  onDraft,
+  onSend,
+  pending = false,
+  failure,
+}: ReviewThreadProps) {
   return (
     <section className="armada-review__thread" aria-label="Ask about this item">
       {turns.length === 0 ? null : (
@@ -59,7 +69,12 @@ export function ReviewThread({ turns, draft, onDraft, onSend, pending = false, f
           disabled={pending}
           onChange={(event) => onDraft(event.target.value)}
         />
-        <Button type="submit" variant="secondary" pending={pending} disabled={pending || draft.trim() === ""}>
+        <Button
+          type="submit"
+          variant="secondary"
+          pending={pending}
+          disabled={pending || draft.trim() === ""}
+        >
           Send
         </Button>
       </form>
@@ -68,7 +83,11 @@ export function ReviewThread({ turns, draft, onDraft, onSend, pending = false, f
 }
 
 /** A duplicate the card stands for. */
-export type ReviewMerged = { id: string; label: string; title: string };
+export type ReviewMerged = {
+  id: string;
+  label: string;
+  title: string;
+};
 
 export type LessonReviewStepProps = {
   /** One-based place among the queue the review made, and how long that queue is. */
@@ -79,7 +98,10 @@ export type LessonReviewStepProps = {
   /** The duplicates this card stands for. Absent where it stands for none. */
   merged?: readonly ReviewMerged[];
   /** Whether the duplicates are rejected with it. Off until the person turns it on. */
-  duplicates?: { checked: boolean; onChange: (checked: boolean) => void };
+  duplicates?: {
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+  };
   /** Fleet's words for duplicates it did not reject. */
   duplicatesFailure?: string;
   /** Absent on the first card. */
@@ -132,8 +154,17 @@ export function LessonReviewStep({
       </div>
       {merged.length === 0 ? null : (
         <div className="armada-review__merged">
-          <Button variant="ghost" size="sm" aria-expanded={showing} onClick={() => setShowing((was) => !was)}>
-            {showing ? <ChevronDown size={14} strokeWidth={2} aria-hidden /> : <ChevronRight size={14} strokeWidth={2} aria-hidden />}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={showing}
+            onClick={() => setShowing((was) => !was)}
+          >
+            {showing ? (
+              <ChevronDown size={14} strokeWidth={2} aria-hidden />
+            ) : (
+              <ChevronRight size={14} strokeWidth={2} aria-hidden />
+            )}
             {seenIn(merged)}
           </Button>
           {!showing ? null : (
@@ -150,7 +181,10 @@ export function LessonReviewStep({
       )}
       {children}
       {duplicates === undefined || merged.length === 0 ? null : (
-        <Checkbox checked={duplicates.checked} onChange={(event) => duplicates.onChange(event.target.checked)}>
+        <Checkbox
+          checked={duplicates.checked}
+          onChange={(event) => duplicates.onChange(event.target.checked)}
+        >
           Also reject the {merged.length} {merged.length === 1 ? "duplicate" : "duplicates"}
         </Checkbox>
       )}
@@ -180,7 +214,13 @@ export type LessonReviewEndProps = {
 };
 
 /** The end of the queue, or an empty one, with the way back to the list. */
-export function LessonReviewEnd({ title, skipped = 0, onAgain, onBack, onList }: LessonReviewEndProps) {
+export function LessonReviewEnd({
+  title,
+  skipped = 0,
+  onAgain,
+  onBack,
+  onList,
+}: LessonReviewEndProps) {
   return (
     <section className="armada-review armada-review--end" aria-label="Review">
       <p className="armada-review__ended">{title}</p>
@@ -254,7 +294,12 @@ export function LessonReviewWait({ failure, onRetry }: { failure?: string; onRet
 }
 
 /** One item the review left out of the queue. */
-export type ReviewSetAsideItem = { id: string; title: string; why: string; onPutBack: () => void };
+export type ReviewSetAsideItem = {
+  id: string;
+  title: string;
+  why: string;
+  onPutBack: () => void;
+};
 
 /** The items the review left out, folded, each with why and a way to put it back in the queue. */
 export function ReviewSetAside({ items }: { items: readonly ReviewSetAsideItem[] }) {
@@ -262,8 +307,17 @@ export function ReviewSetAside({ items }: { items: readonly ReviewSetAsideItem[]
   if (items.length === 0) return null;
   return (
     <section className="armada-review__aside" aria-label="Set aside">
-      <Button variant="ghost" size="sm" aria-expanded={showing} onClick={() => setShowing((was) => !was)}>
-        {showing ? <ChevronDown size={14} strokeWidth={2} aria-hidden /> : <ChevronRight size={14} strokeWidth={2} aria-hidden />}
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-expanded={showing}
+        onClick={() => setShowing((was) => !was)}
+      >
+        {showing ? (
+          <ChevronDown size={14} strokeWidth={2} aria-hidden />
+        ) : (
+          <ChevronRight size={14} strokeWidth={2} aria-hidden />
+        )}
         Set aside ({items.length})
       </Button>
       {!showing ? null : (

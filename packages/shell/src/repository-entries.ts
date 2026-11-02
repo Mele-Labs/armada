@@ -38,7 +38,11 @@ const RECENT = "recent:";
 const IN = "in|";
 
 /** A Workspace as the picker lists it: the repositories in it by root. */
-export type PickerWorkspace = { id: string; name: string; repositories: readonly string[] };
+export type PickerWorkspace = {
+  id: string;
+  name: string;
+  repositories: readonly string[];
+};
 
 /** The root a picked row names, whichever of its places it was picked from. */
 export function rootOf(id: string): string {
@@ -69,47 +73,124 @@ export function repositoryEntries(
     workspaceScope?: string | null;
   },
 ): DropdownMenuEntry[] {
-  const { scope, all, add = false, create = false, onlySetUp = false, recent = [], workspaces = [], newWorkspace = false, workspaceScope = null } = options;
+  const {
+    scope,
+    all,
+    add = false,
+    create = false,
+    onlySetUp = false,
+    recent = [],
+    workspaces = [],
+    newWorkspace = false,
+    workspaceScope = null,
+  } = options;
   const setUp = repositories.filter((one) => one.manifest !== undefined);
   const loose = repositories.filter((one) => one.manifest === undefined);
   const item = (repo: RepositorySummary, id = repo.root, member = false): DropdownMenuEntry => ({
     kind: "item",
     id,
-    ...(member ? { member: true } : {}),
-    label: onlySetUp && jobIdOf(repo) === undefined ? `${repositoryLabel(repo, repositories)} — Set it up first` : repositoryLabel(repo, repositories),
+    ...(member
+      ? {
+          member: true,
+        }
+      : {}),
+    label:
+      onlySetUp && jobIdOf(repo) === undefined
+        ? `${repositoryLabel(repo, repositories)} — Set it up first`
+        : repositoryLabel(repo, repositories),
     selected: scope !== undefined && repo.root === scope,
-    ...(onlySetUp && jobIdOf(repo) === undefined ? { disabled: true } : {}),
+    ...(onlySetUp && jobIdOf(repo) === undefined
+      ? {
+          disabled: true,
+        }
+      : {}),
   });
   const entries: DropdownMenuEntry[] = [];
-  const led = repositories.length > RECENT_FROM
-    ? recent.flatMap((root) => repositories.filter((one) => one.root === root && (!onlySetUp || jobIdOf(one) !== undefined)))
-    : [];
+  const led =
+    repositories.length > RECENT_FROM
+      ? recent.flatMap((root) =>
+          repositories.filter(
+            (one) => one.root === root && (!onlySetUp || jobIdOf(one) !== undefined),
+          ),
+        )
+      : [];
   if (led.length > 0) {
-    entries.push({ kind: "label", id: "recent", label: "Recent" });
+    entries.push({
+      kind: "label",
+      id: "recent",
+      label: "Recent",
+    });
     entries.push(...led.map((repo) => item(repo, `${RECENT}${repo.root}`)));
-    entries.push({ kind: "separator", id: "recent-rule" });
+    entries.push({
+      kind: "separator",
+      id: "recent-rule",
+    });
   }
   if (all !== undefined) {
-    entries.push({ kind: "item", id: ALL, label: all, selected: scope === null && workspaceScope === null });
+    entries.push({
+      kind: "item",
+      id: ALL,
+      label: all,
+      selected: scope === null && workspaceScope === null,
+    });
   }
   // A Workspace with none of its repositories served is not listed: a heading over nothing.
-  const heldBy = workspaces.map((one) => ({ one, repos: one.repositories.flatMap((root) => repositories.filter((repo) => repo.root === root)) })).filter((held) => held.repos.length > 0);
-  const inNone = setUp.filter((repo) => !workspaces.some((one) => one.repositories.includes(repo.root)));
+  const heldBy = workspaces
+    .map((one) => ({
+      one,
+      repos: one.repositories.flatMap((root) => repositories.filter((repo) => repo.root === root)),
+    }))
+    .filter((held) => held.repos.length > 0);
+  const inNone = setUp.filter(
+    (repo) => !workspaces.some((one) => one.repositories.includes(repo.root)),
+  );
   if (setUp.length > 0) {
-    if (all !== undefined) entries.push({ kind: "separator", id: "all-repositories-rule" });
+    if (all !== undefined)
+      entries.push({
+        kind: "separator",
+        id: "all-repositories-rule",
+      });
     for (const { one, repos } of heldBy) {
-      entries.push({ kind: "item", id: `${WORKSPACE}${one.id}`, label: one.name, selected: workspaceScope === one.id });
+      entries.push({
+        kind: "item",
+        id: `${WORKSPACE}${one.id}`,
+        label: one.name,
+        selected: workspaceScope === one.id,
+      });
       entries.push(...repos.map((repo) => item(repo, `${IN}${one.id}|${repo.root}`, true)));
     }
     entries.push(...inNone.map((repo) => item(repo)));
   }
   if (loose.length > 0) {
-    entries.push({ kind: "label", id: "not-set-up", label: "Not set up" });
+    entries.push({
+      kind: "label",
+      id: "not-set-up",
+      label: "Not set up",
+    });
     entries.push(...loose.map((repo) => item(repo)));
   }
-  if (add || create || newWorkspace) entries.push({ kind: "separator", id: "add-repository-rule" });
-  if (create) entries.push({ kind: "item", id: NEW, label: "New project" });
-  if (add) entries.push({ kind: "item", id: ADD, label: "Add a repository" });
-  if (newWorkspace) entries.push({ kind: "item", id: NEW_WORKSPACE, label: "New Workspace" });
+  if (add || create || newWorkspace)
+    entries.push({
+      kind: "separator",
+      id: "add-repository-rule",
+    });
+  if (create)
+    entries.push({
+      kind: "item",
+      id: NEW,
+      label: "New project",
+    });
+  if (add)
+    entries.push({
+      kind: "item",
+      id: ADD,
+      label: "Add a repository",
+    });
+  if (newWorkspace)
+    entries.push({
+      kind: "item",
+      id: NEW_WORKSPACE,
+      label: "New Workspace",
+    });
   return entries;
 }

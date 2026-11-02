@@ -5,10 +5,22 @@ import type { Outcome, RepositorySummary } from "@armada/protocol";
 
 /** What an add or a clone came to. `busy` is Bridge's own: one is already out. */
 export type LocateAnswer =
-  | { state: "located"; repository: RepositorySummary }
-  | { state: "refused"; code: string; saying: string }
-  | { state: "busy" }
-  | { state: "failed"; outcome: Outcome };
+  | {
+      state: "located";
+      repository: RepositorySummary;
+    }
+  | {
+      state: "refused";
+      code: string;
+      saying: string;
+    }
+  | {
+      state: "busy";
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    };
 
 /** Fleet's code for a read or act that needs a repository, while it serves none. */
 export const NO_REPOSITORY = "fleet.no_repository";

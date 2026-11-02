@@ -4,4 +4,8 @@
 import type { Scenario } from "../moment";
 import { videoScriptScenario } from "../video-script-job";
 
-export const documentAsksAgain: Scenario = videoScriptScenario("document-asks-again", "The video script Job with revision 1 approved and revision 2 waiting on his Approve", 2);
+export const documentAsksAgain: Scenario = videoScriptScenario(
+  "document-asks-again",
+  "The video script Job with revision 1 approved and revision 2 waiting on his Approve",
+  2,
+);

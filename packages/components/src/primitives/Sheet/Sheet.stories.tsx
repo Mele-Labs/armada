@@ -42,7 +42,9 @@ export const Right: Story = {
    * identically — nothing else here would notice.
    */
   play: async ({ args, canvas, userEvent }) => {
-    const panel = canvas.getByRole("dialog", { name: "Kit allowlist" });
+    const panel = canvas.getByRole("dialog", {
+      name: "Kit allowlist",
+    });
 
     // The ground behind, reached through the structure rather than by class
     // name: the scrim is what the panel renders inside, and it carries no role
@@ -116,7 +118,11 @@ export const Leading: Story = {
     children: "Questions waiting on you, and Helm, will be here.",
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("dialog", { name: "Helm" })).toBeVisible();
+    await expect(
+      canvas.getByRole("dialog", {
+        name: "Helm",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -133,14 +139,23 @@ export const Back: Story = {
     size: "wide",
     title: "Drone on T6",
     subtitle: "Implement · T6 · running",
-    back: { label: "Back to T6", tooltip: "Back to Plan · T6", binding: "⌘[", onBack: fn() },
+    back: {
+      label: "Back to T6",
+      tooltip: "Back to Plan · T6",
+      binding: "⌘[",
+      onBack: fn(),
+    },
     closeLabel: "Close",
     closeBinding: "Esc",
     children: "The Drone's turns.",
     onClose: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: /Back to T6/ }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /Back to T6/,
+      }),
+    );
     await expect(args.back?.onBack).toHaveBeenCalled();
     await expect(args.onClose).not.toHaveBeenCalled();
   },
@@ -168,10 +183,26 @@ function TwoKinds() {
       <Button variant="secondary" size="sm" onClick={() => setOpen("task")}>
         Open the task
       </Button>
-      <Sheet open={open === "log"} kind="story-log" contained size="wide" title="Job log" closeLabel="Close" onClose={close}>
+      <Sheet
+        open={open === "log"}
+        kind="story-log"
+        contained
+        size="wide"
+        title="Job log"
+        closeLabel="Close"
+        onClose={close}
+      >
         The Job&apos;s own log.
       </Sheet>
-      <Sheet open={open === "task"} kind="story-task" floating size="dock" title="T5" closeLabel="Close" onClose={close}>
+      <Sheet
+        open={open === "task"}
+        kind="story-task"
+        floating
+        size="dock"
+        title="T5"
+        closeLabel="Close"
+        onClose={close}
+      >
         Draw what is running, in four lists.
       </Sheet>
     </div>
@@ -188,10 +219,26 @@ export const EachKindKeepsItsWidth: Story = {
   render: () => <TwoKinds />,
   play: async ({ canvas, userEvent }) => {
     window.localStorage.removeItem("armada.bridge.sheet-width");
-    const open = (which: string) => userEvent.click(canvas.getByRole("button", { name: `Open the ${which}` }));
+    const open = (which: string) =>
+      userEvent.click(
+        canvas.getByRole("button", {
+          name: `Open the ${which}`,
+        }),
+      );
     const close = (title: string) =>
-      userEvent.click(within(canvas.getByRole("dialog", { name: title })).getByRole("button", { name: "Close" }));
-    const handle = (title: string) => canvas.getByRole("separator", { name: `Resize ${title}` });
+      userEvent.click(
+        within(
+          canvas.getByRole("dialog", {
+            name: title,
+          }),
+        ).getByRole("button", {
+          name: "Close",
+        }),
+      );
+    const handle = (title: string) =>
+      canvas.getByRole("separator", {
+        name: `Resize ${title}`,
+      });
     const now = (title: string) => Number(handle(title).getAttribute("aria-valuenow"));
     const width = async (title: string) => {
       await waitFor(() => expect(now(title)).toBeGreaterThan(0));
@@ -201,10 +248,23 @@ export const EachKindKeepsItsWidth: Story = {
     const drag = (title: string, by: number) => {
       const grip = handle(title);
       const box = grip.getBoundingClientRect();
-      const at = { pointerId: 1, button: 0, clientY: box.y + box.height / 2 };
-      fireEvent.pointerDown(grip, { ...at, clientX: box.x });
-      fireEvent.pointerMove(grip, { ...at, clientX: box.x - by });
-      fireEvent.pointerUp(grip, { ...at, clientX: box.x - by });
+      const at = {
+        pointerId: 1,
+        button: 0,
+        clientY: box.y + box.height / 2,
+      };
+      fireEvent.pointerDown(grip, {
+        ...at,
+        clientX: box.x,
+      });
+      fireEvent.pointerMove(grip, {
+        ...at,
+        clientX: box.x - by,
+      });
+      fireEvent.pointerUp(grip, {
+        ...at,
+        clientX: box.x - by,
+      });
     };
 
     await open("task");
@@ -255,13 +315,27 @@ function Holding(props: ComponentProps<typeof Sheet>) {
  */
 export const HoldsEsc: Story = {
   render: (args) => <Holding {...args} />,
-  args: { kind: "story-sheet", open: true, side: "right", title: "Workflow", onClose: fn() },
+  args: {
+    kind: "story-sheet",
+    open: true,
+    side: "right",
+    title: "Workflow",
+    onClose: fn(),
+  },
   play: async ({ args, canvas, userEvent }) => {
     // Focus is on the sheet's close, not on what holds Esc: it is held wherever focus is.
-    await expect(canvas.getByRole("button", { name: "Close" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Close",
+      }),
+    ).toHaveFocus();
     await userEvent.keyboard("{Escape}");
     await expect(args.onClose).not.toHaveBeenCalled();
-    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Back",
+      }),
+    );
     await userEvent.keyboard("{Escape}");
     await expect(args.onClose).toHaveBeenCalledTimes(1);
   },

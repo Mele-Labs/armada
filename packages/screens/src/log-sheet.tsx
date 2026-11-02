@@ -24,18 +24,27 @@ export type LogSheetProps = {
   /** Changes as lines arrive, so the tail is followed while `live`. */
   grows: number;
   /** The wrap toggle, where the lines are console lines. Absent draws none. */
-  wrap?: { wrap: boolean; onToggle: () => void };
+  wrap?: {
+    wrap: boolean;
+    onToggle: () => void;
+  };
   /**
    * A way on to where this log's record is read, icon-only and named by its tooltip: a Check's
    * log goes to the Check's own Record row (owner, 2 Oct 2026). Absent draws none, never a
    * control that is off.
    */
-  goes?: { label: string; onGo: () => void };
+  goes?: {
+    label: string;
+    onGo: () => void;
+  };
   /**
    * Ending a run that is still going: Stop asks it to wind down, Force stop ends it at once. Absent
    * draws neither. No confirm on Force stop, as nothing in Bridge confirms a kill.
    */
-  stops?: { onStop: () => void; onForce: () => void };
+  stops?: {
+    onStop: () => void;
+    onForce: () => void;
+  };
   /** Bands under the head that stay while the log scrolls: the facts of what it is of. */
   bands?: ReactNode;
   /** The log's well runs edge to edge and fills the panel, as a console's does. */
@@ -51,19 +60,43 @@ export type LogSheetProps = {
   children: ReactNode;
 };
 
-export function LogSheet({ kind, title, about, live, grows, wrap, goes, stops, bands, bleed, placement, floor, onClose, children }: LogSheetProps) {
+export function LogSheet({
+  kind,
+  title,
+  about,
+  live,
+  grows,
+  wrap,
+  goes,
+  stops,
+  bands,
+  bleed,
+  placement,
+  floor,
+  onClose,
+  children,
+}: LogSheetProps) {
   const body = useRef<HTMLDivElement>(null);
   // The tail, while it is written. A reader that follows its own (`DroneTurns`) is not moved by
   // this either way: it is already at the bottom.
   useLayoutEffect(() => {
     const el = body.current;
     if (live && el !== null) el.scrollTop = el.scrollHeight;
-  }, [live, grows]);
+  }, [
+    live,
+    grows,
+  ]);
   return (
     <Sheet
       kind={kind}
       open
-      {...(placement === "floating" ? { floating: true } : { contained: true })}
+      {...(placement === "floating"
+        ? {
+            floating: true,
+          }
+        : {
+            contained: true,
+          })}
       size="wide"
       floor={floor}
       title={title}
@@ -93,11 +126,19 @@ export function LogSheet({ kind, title, about, live, grows, wrap, goes, stops, b
                     </Button>
                   </>
                 )}
-                {wrap === undefined ? null : <ConsoleWrapToggle wrap={wrap.wrap} onToggle={wrap.onToggle} />}
+                {wrap === undefined ? null : (
+                  <ConsoleWrapToggle wrap={wrap.wrap} onToggle={wrap.onToggle} />
+                )}
                 {goes === undefined ? null : (
                   // `chevron-right`'s goes-to, alone: the tooltip is its label.
                   <Tooltip label={goes.label} asChild>
-                    <Button variant="ghost" size="sm" iconOnly aria-label={goes.label} onClick={goes.onGo}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      aria-label={goes.label}
+                      onClick={goes.onGo}
+                    >
                       <ChevronRight size={16} strokeWidth={2} aria-hidden="true" />
                     </Button>
                   </Tooltip>
@@ -105,8 +146,16 @@ export function LogSheet({ kind, title, about, live, grows, wrap, goes, stops, b
               </>
             ),
           })}
-      {...(bands === undefined ? {} : { bands })}
-      {...(bleed === true ? { bleed } : {})}
+      {...(bands === undefined
+        ? {}
+        : {
+            bands,
+          })}
+      {...(bleed === true
+        ? {
+            bleed,
+          }
+        : {})}
       closeLabel="Close"
       closeBinding="Esc"
       bodyRef={body}

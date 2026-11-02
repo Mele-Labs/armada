@@ -15,18 +15,42 @@ import { sessionsStore } from "../sessions/script";
 const OWNER = repository().manifest!.id;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const said = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "agent" }, text }) as const;
-const asked = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "you" }, text }) as const;
+const said = (id: string, at: string, text: string) =>
+  ({
+    id,
+    at,
+    kind: "message",
+    from: {
+      kind: "agent",
+    },
+    text,
+  }) as const;
+const asked = (id: string, at: string, text: string) =>
+  ({
+    id,
+    at,
+    kind: "message",
+    from: {
+      kind: "you",
+    },
+    text,
+  }) as const;
 
 const replied: Session = {
   id: "r1",
   title: "Pin the store clock",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: REPLIED_AT,
   standing: "replied",
   rows: [
     asked("r1-u", "14:02:00", "Pin the clock in the store tests."),
-    said("r1-a", "14:12:09", "The clock is pinned in all four store tests and the fixture is gone.\nTwo files changed, and the suite passes."),
+    said(
+      "r1-a",
+      "14:12:09",
+      "The clock is pinned in all four store tests and the fixture is gone.\nTwo files changed, and the suite passes.",
+    ),
   ],
   attachments: [],
 };
@@ -34,22 +58,35 @@ const replied: Session = {
 const done: Session = {
   id: "d1",
   title: "Changelog script",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: DONE_AT,
   standing: "done",
-  done: { since: DONE_AT },
+  done: {
+    since: DONE_AT,
+  },
   rows: [
     asked("d1-u", "14:01:00", "Write the changelog script and merge it."),
     said("d1-a", "14:14:30", "The script is merged. There is nothing left to do."),
   ],
   attachments: [],
-  waitingFor: [{ id: DONE_ITEM, text: "Done", since: DONE_AT, source: "done" }],
+  waitingFor: [
+    {
+      id: DONE_ITEM,
+      text: "Done",
+      since: DONE_AT,
+      source: "done",
+    },
+  ],
 };
 
 const asking: Session = {
   id: "o1",
   title: "Cache key",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(9),
   standing: "idle",
   rows: [
@@ -58,25 +95,59 @@ const asking: Session = {
   ],
   attachments: [],
   waitingFor: [
-    { id: "o1-a1", text: "Confirm the old fixture can go", since: ago(14), source: "agent" },
-    { id: "o1-a2", text: "Pick a name for the cache table", since: ago(11), source: "agent" },
+    {
+      id: "o1-a1",
+      text: "Confirm the old fixture can go",
+      since: ago(14),
+      source: "agent",
+    },
+    {
+      id: "o1-a2",
+      text: "Pick a name for the cache table",
+      since: ago(11),
+      source: "agent",
+    },
   ],
 };
 
 const idle: Session = {
   id: "i1",
   title: "Migration notes",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(20),
   standing: "idle",
-  rows: [asked("i1-u", "13:40:00", "Summarise the migrations since 0042."), said("i1-a", "13:58:12", "Four migrations since 0042, summarised in the notes file.")],
+  rows: [
+    asked("i1-u", "13:40:00", "Summarise the migrations since 0042."),
+    said("i1-a", "13:58:12", "Four migrations since 0042, summarised in the notes file."),
+  ],
   attachments: [],
 };
 
 let count = 0;
-const event = (minutes: number, session: Session, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string): TimelineEvent => {
+const event = (
+  minutes: number,
+  session: Session,
+  kind: TimelineEvent["kind"],
+  tone: TimelineEvent["tone"],
+  says: string,
+): TimelineEvent => {
   count += 1;
-  return { id: count, at: ago(minutes), kind, subject: { kind: "session", id: session.id }, title: session.title ?? session.id, tone, says, manifest_id: OWNER, live: true };
+  return {
+    id: count,
+    at: ago(minutes),
+    kind,
+    subject: {
+      kind: "session",
+      id: session.id,
+    },
+    title: session.title ?? session.id,
+    tone,
+    says,
+    manifest_id: OWNER,
+    live: true,
+  };
 };
 
 const EVENTS: TimelineEvent[] = [
@@ -91,14 +162,28 @@ const EVENTS: TimelineEvent[] = [
 ];
 
 function build(): Scenario {
-  const base = holding("needs-me-replied-and-delete", "A reply under Idle with an unread mark, a done under Needs you, and a Session with two items its agent stated");
+  const base = holding(
+    "needs-me-replied-and-delete",
+    "A reply under Idle with an unread mark, a done under Needs you, and a Session with two items its agent stated",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: null },
-    later: [{}],
+    state: {
+      ...base.state,
+      repository: null,
+    },
+    later: [
+      {},
+    ],
     draft: {
       events: EVENTS,
-      sessions: () => sessionsStore([replied, done, asking, idle]),
+      sessions: () =>
+        sessionsStore([
+          replied,
+          done,
+          asking,
+          idle,
+        ]),
     },
   };
 }

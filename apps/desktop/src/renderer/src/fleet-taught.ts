@@ -6,7 +6,15 @@
 // taught on and what it holds are kept here, for its row to say.
 
 import type { ModChecked, ModSummary, Outcome, TrackerTry } from "@armada/protocol";
-import { trackerOf, type TaughtDetail, type TaughtKind, type TaughtMod, type TaughtPart, type TaughtSource, type TaughtState } from "@armada/settings";
+import {
+  trackerOf,
+  type TaughtDetail,
+  type TaughtKind,
+  type TaughtMod,
+  type TaughtPart,
+  type TaughtSource,
+  type TaughtState,
+} from "@armada/settings";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -26,11 +34,21 @@ export type FleetTaught = {
   validateMod: (name: string) => Promise<ModChecked | null>;
 };
 
-const KINDS: readonly TaughtKind[] = ["words", "fleet", "tweak", "tracker", "tab"];
-const isTaught = (kind: ModSummary["kind"]): kind is TaughtKind => (KINDS as readonly (string | undefined)[]).includes(kind);
+const KINDS: readonly TaughtKind[] = [
+  "words",
+  "fleet",
+  "tweak",
+  "tracker",
+  "tab",
+];
+const isTaught = (kind: ModSummary["kind"]): kind is TaughtKind =>
+  (KINDS as readonly (string | undefined)[]).includes(kind);
 
 /** A window that lists no taught mod: safe mode, which reads no mod. */
-const NOTHING: TaughtState = { mods: [], details: {} };
+const NOTHING: TaughtState = {
+  mods: [],
+  details: {},
+};
 export const NO_TAUGHT: TaughtSource = {
   get: () => NOTHING,
   subscribe: () => () => undefined,
@@ -39,7 +57,10 @@ export const NO_TAUGHT: TaughtSource = {
   open: () => undefined,
 };
 
-export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) => void = askToTell): TaughtSource {
+export function createFleetTaught(
+  fleet: FleetTaught,
+  tell: (sentence: string) => void = askToTell,
+): TaughtSource {
   let rows: readonly ModSummary[] = [];
   let seen = "";
   // A switch just pressed, drawn at once; Fleet's next list replaces it.
@@ -48,7 +69,14 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
   // A try just answered, drawn at once; Fleet's next list replaces it.
   const tried = new Map<string, TrackerTry>();
   // What each mod holds, from the file Fleet last checked for it, and the change of the mod that read was of.
-  const checked = new Map<string, { at: string; parts: readonly TaughtPart[]; line?: string }>();
+  const checked = new Map<
+    string,
+    {
+      at: string;
+      parts: readonly TaughtPart[];
+      line?: string;
+    }
+  >();
   const asking = new Set<string>();
   const listeners = new Set<() => void>();
 
@@ -60,21 +88,52 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
             {
               name: row.name,
               kind: row.kind,
-              description: row.valid ? (checked.get(row.name)?.line ?? row.description ?? "") : (row.reason ?? "Did not pass its checks"),
+              description: row.valid
+                ? (checked.get(row.name)?.line ?? row.description ?? "")
+                : (row.reason ?? "Did not pass its checks"),
               on: row.taught_on ?? "",
               enabled: switched.get(row.name) ?? row.enabled,
-              ...(branches.has(row.name) ? { branch: branches.get(row.name)! } : {}),
+              ...(branches.has(row.name)
+                ? {
+                    branch: branches.get(row.name)!,
+                  }
+                : {}),
               parts: checked.get(row.name)?.parts ?? [],
-              ...(row.kind === "tracker" ? { tracker: trackerOf(tried.has(row.name) ? { ...row, tried: tried.get(row.name)!, stale: false } : row) } : {}),
+              ...(row.kind === "tracker"
+                ? {
+                    tracker: trackerOf(
+                      tried.has(row.name)
+                        ? {
+                            ...row,
+                            tried: tried.get(row.name)!,
+                            stale: false,
+                          }
+                        : row,
+                    ),
+                  }
+                : {}),
             },
           ],
     );
     const details: Record<string, TaughtDetail> = {};
     for (const row of rows) {
-      if (row.kind === "layout" && row.taught_on !== undefined) details[row.name] = { on: row.taught_on, parts: checked.get(row.name)?.parts ?? [] };
+      if (row.kind === "layout" && row.taught_on !== undefined)
+        details[row.name] = {
+          on: row.taught_on,
+          parts: checked.get(row.name)?.parts ?? [],
+        };
     }
     const named = modOpened.get();
-    return { mods, details, ...(named !== undefined && (details[named] !== undefined || mods.some((one) => one.name === named)) ? { opened: named } : {}) };
+    return {
+      mods,
+      details,
+      ...(named !== undefined &&
+      (details[named] !== undefined || mods.some((one) => one.name === named))
+        ? {
+            opened: named,
+          }
+        : {}),
+    };
   };
 
   let held = build();
@@ -94,7 +153,15 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
         if (read === null) return;
         // A Fleet mod's line is its rules in the words its row opened and the Logbook use, not the file's own description.
         const line = read.fleet === undefined ? undefined : fleetAlso(read.fleet);
-        checked.set(row.name, { at, parts: partsOf(read), ...(line === undefined ? {} : { line: `${line.charAt(0).toUpperCase()}${line.slice(1)}` }) });
+        checked.set(row.name, {
+          at,
+          parts: partsOf(read),
+          ...(line === undefined
+            ? {}
+            : {
+                line: `${line.charAt(0).toUpperCase()}${line.slice(1)}`,
+              }),
+        });
         refresh();
       },
       () => void asking.delete(key),
@@ -108,10 +175,21 @@ export function createFleetTaught(fleet: FleetTaught, tell: (sentence: string) =
     rows = next.mods?.mods ?? [];
     switched.clear();
     tried.clear();
-    for (const name of [...checked.keys()]) if (!rows.some((row) => row.name === name)) checked.delete(name);
+    for (const name of [
+      ...checked.keys(),
+    ])
+      if (!rows.some((row) => row.name === name)) checked.delete(name);
     refresh();
     // A Words, Fleet or tweak mod holds a file worth reading; a layout only where it was taught, since the layout source lists the rest.
-    rows.filter((row) => row.valid && (row.kind === "layout" ? row.taught_on !== undefined : row.kind === "words" || row.kind === "fleet" || row.kind === "tweak")).forEach(ask);
+    rows
+      .filter(
+        (row) =>
+          row.valid &&
+          (row.kind === "layout"
+            ? row.taught_on !== undefined
+            : row.kind === "words" || row.kind === "fleet" || row.kind === "tweak"),
+      )
+      .forEach(ask);
   };
   fleet.state().then(ingest, () => undefined);
   fleet.subscribe(ingest);

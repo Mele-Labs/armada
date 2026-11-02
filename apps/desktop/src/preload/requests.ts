@@ -7,9 +7,13 @@ import type { RequestsApi } from "../shared/api/requests";
 import { CHANNELS } from "../shared/bridge";
 
 export const requestsPreload: RequestsApi = {
-  readRequests: (sessionId, repository) => ipcRenderer.invoke(CHANNELS.readRequests, sessionId, repository),
-  saveRequestCollection: (collection, sessionId, repository) => ipcRenderer.invoke(CHANNELS.saveRequestCollection, collection, sessionId, repository),
-  saveRequestEnvironment: (environment, sessionId, repository) => ipcRenderer.invoke(CHANNELS.saveRequestEnvironment, environment, sessionId, repository),
-  deleteRequestEnvironment: (name, sessionId, repository) => ipcRenderer.invoke(CHANNELS.deleteRequestEnvironment, name, sessionId, repository),
+  readRequests: (sessionId, repository) =>
+    ipcRenderer.invoke(CHANNELS.readRequests, sessionId, repository),
+  saveRequestCollection: (collection, sessionId, repository) =>
+    ipcRenderer.invoke(CHANNELS.saveRequestCollection, collection, sessionId, repository),
+  saveRequestEnvironment: (environment, sessionId, repository) =>
+    ipcRenderer.invoke(CHANNELS.saveRequestEnvironment, environment, sessionId, repository),
+  deleteRequestEnvironment: (name, sessionId, repository) =>
+    ipcRenderer.invoke(CHANNELS.deleteRequestEnvironment, name, sessionId, repository),
   sendRequest: (send) => ipcRenderer.invoke(CHANNELS.sendRequest, send),
 };

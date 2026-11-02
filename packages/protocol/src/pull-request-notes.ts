@@ -29,7 +29,9 @@ export type PullRequestNote = {
 };
 
 /** Every note on one pull request, oldest first: `list_pull_request_notes`, and what the commands that change the notes answer. */
-export type PullRequestNotes = { notes: PullRequestNote[] };
+export type PullRequestNotes = {
+  notes: PullRequestNote[];
+};
 
 /** Without `id` a save makes a note and `path`, `line` and `side` are required. With `id` it edits that note's `body`, only while the note is open and unsent. */
 export type SavePullRequestNote = {

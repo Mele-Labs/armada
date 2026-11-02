@@ -15,7 +15,9 @@ unmountAfterEach();
 
 const ANSWERED = 150;
 const SETTLED = 700;
-const SLOW = { ...SLOW_FLEET };
+const SLOW = {
+  ...SLOW_FLEET,
+};
 beforeEach(() => {
   forgetDismissals();
   localStorage.removeItem("armada.bridge.dashboard-tab");
@@ -26,12 +28,33 @@ beforeEach(() => {
 });
 afterEach(() => void Object.assign(SLOW_FLEET, SLOW));
 
-const question = () => page.getByRole("region", { name: /^Job question/ });
-const radio = (name: RegExp) => page.getByRole("radio", { name });
+const question = () =>
+  page.getByRole("region", {
+    name: /^Job question/,
+  });
+const radio = (name: RegExp) =>
+  page.getByRole("radio", {
+    name,
+  });
 // The card's own acts, in the pane the call opened.
-const key = (name: RegExp) => page.getByRole("region", { name: /^Call: / }).getByRole("button", { name });
+const key = (name: RegExp) =>
+  page
+    .getByRole("region", {
+      name: /^Call: /,
+    })
+    .getByRole("button", {
+      name,
+    });
 /** The Session's row in Work, which opens its two questions, oldest first. A call answered is put away, so the next is opened from here. */
-const hails = () => page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: /^Pin the store clock/ });
+const hails = () =>
+  page
+    .getByRole("region", {
+      name: "Jobs",
+      exact: true,
+    })
+    .getByRole("button", {
+      name: /^Pin the store clock/,
+    });
 const FIRST = /A fake the test sets/;
 const SECOND = /Keep three/;
 
@@ -50,9 +73,20 @@ async function asking() {
  * pass the second half and fail the first.
  */
 async function staysGone(from: number): Promise<void> {
-  const here = () => page.getByRole("radio", { name: FIRST }).query();
-  await expect.poll(() => here() === null, { interval: 10 }).toBe(true);
-  expect(Date.now() - from, "the card left only when Fleet stopped carrying it").toBeLessThan(ANSWERED + SETTLED - 200);
+  const here = () =>
+    page
+      .getByRole("radio", {
+        name: FIRST,
+      })
+      .query();
+  await expect
+    .poll(() => here() === null, {
+      interval: 10,
+    })
+    .toBe(true);
+  expect(Date.now() - from, "the card left only when Fleet stopped carrying it").toBeLessThan(
+    ANSWERED + SETTLED - 200,
+  );
   const until = from + ANSWERED + SETTLED + 400;
   while (Date.now() < until) {
     expect(here(), "the card came back while Fleet still carried it").toBeNull();
@@ -67,8 +101,19 @@ test.skip("the answer pressed carries the loop, the rest of the card is held, an
   const app = await asking();
   const answer = vi.spyOn(app.api, "answerWaiting");
   // Every control on the card, measured at rest: none of them may change size while the answer is out.
-  const controls = () => [radio(FIRST), radio(/The real one, stopped/), radio(/Make the best decision/), radio(/Just get it done/), key(/Send/), key(/Later/), key(/Dismiss/)];
-  const size = (box: DOMRect) => [box.width, box.height];
+  const controls = () => [
+    radio(FIRST),
+    radio(/The real one, stopped/),
+    radio(/Make the best decision/),
+    radio(/Just get it done/),
+    key(/Send/),
+    key(/Later/),
+    key(/Dismiss/),
+  ];
+  const size = (box: DOMRect) => [
+    box.width,
+    box.height,
+  ];
   await entered(question());
   const resting = controls().map((one) => size(one.element().getBoundingClientRect()));
   await userEvent.keyboard("1");
@@ -76,7 +121,9 @@ test.skip("the answer pressed carries the loop, the rest of the card is held, an
 
   const pressed = radio(FIRST);
   await expect.element(pressed).toHaveAttribute("aria-busy", "true");
-  expect(getComputedStyle(pressed.element(), "::after").animationName).toBe("armada-button-waiting");
+  expect(getComputedStyle(pressed.element(), "::after").animationName).toBe(
+    "armada-button-waiting",
+  );
   // Every other answer and Send cannot be pressed, and no other control on the card acts.
   await expect.element(radio(/The real one, stopped/)).toBeDisabled();
   await expect.element(radio(/Make the best decision/)).toBeDisabled();
@@ -90,7 +137,11 @@ test.skip("the answer pressed carries the loop, the rest of the card is held, an
   await userEvent.keyboard("{Enter}");
   await expect.element(radio(SECOND)).toBeVisible();
   expect(answer).toHaveBeenCalledTimes(1);
-  expect(answer).toHaveBeenCalledWith({ session_id: "s14", item_id: "q1", choice: 0 });
+  expect(answer).toHaveBeenCalledWith({
+    session_id: "s14",
+    item_id: "q1",
+    choice: 0,
+  });
 });
 
 // Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
@@ -104,9 +155,13 @@ test.skip("a refusal stops the loop, leaves the card where it was, and the toast
   await userEvent.keyboard("{Enter}");
   await expect.element(radio(/Raise it to five/)).toHaveAttribute("aria-busy", "true");
 
-  await expect.element(page.getByText("Session Pin the store clock is already working on that").first()).toBeVisible();
+  await expect
+    .element(page.getByText("Session Pin the store clock is already working on that").first())
+    .toBeVisible();
   await expect.element(radio(/Raise it to five/)).not.toHaveAttribute("aria-busy");
-  expect(getComputedStyle(radio(/Raise it to five/).element(), "::after").animationName).not.toBe("armada-button-waiting");
+  expect(getComputedStyle(radio(/Raise it to five/).element(), "::after").animationName).not.toBe(
+    "armada-button-waiting",
+  );
   // Nothing is held now, and the same answer can be sent again.
   await expect.element(radio(SECOND)).toBeEnabled();
   await expect.element(key(/Send/)).toBeEnabled();
@@ -146,8 +201,20 @@ test.skip("a call Fleet keeps carrying comes back after the hold, with nothing s
   await userEvent.keyboard("1");
   await userEvent.keyboard("{Enter}");
   await expect.element(radio(SECOND)).toBeVisible();
-  expect(page.getByRole("radio", { name: FIRST }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("radio", {
+        name: FIRST,
+      })
+      .query(),
+  ).toBeNull();
   // The hold lets go: the call is in the deck again, behind the one now in front, and nobody was told anything.
-  await expect.element(page.getByRole("button", { name: /^Job question: Pin the store clock/ })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: /^Job question: Pin the store clock/,
+      }),
+    )
+    .toBeVisible();
   expect(page.getByText(/already working on that/).query()).toBeNull();
 });

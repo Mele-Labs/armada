@@ -22,8 +22,15 @@ const NO_ROWS: ReturnType<typeof threadRowsFrom> = [];
 const NO_SESSION_ROWS: Session["rows"] = [];
 
 /** Helm's Session for the repository the dock answers for, among the Sessions the window lists. */
-export function helmSessionOf(sessions: readonly Session[], manifestId: string | undefined): Session | undefined {
-  return manifestId === undefined ? undefined : sessions.find((one) => one.helm === true && one.dead === undefined && one.manifestId === manifestId);
+export function helmSessionOf(
+  sessions: readonly Session[],
+  manifestId: string | undefined,
+): Session | undefined {
+  return manifestId === undefined
+    ? undefined
+    : sessions.find(
+        (one) => one.helm === true && one.dead === undefined && one.manifestId === manifestId,
+      );
 }
 
 /**
@@ -48,7 +55,10 @@ type Host = {
 };
 
 /** What the dock is given to draw Helm as a Session, and the sheets its chips open, drawn once beside the dock. */
-export function useHelmHosted({ manifestId, goes, held, openSession, words }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
+export function useHelmHosted({ manifestId, goes, held, openSession, words }: Host): {
+  hosted: HelmDockProps["hosted"];
+  sheets: ReactNode;
+} {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const session = useHelmSession(manifestId);
@@ -58,7 +68,13 @@ export function useHelmHosted({ manifestId, goes, held, openSession, words }: Ho
   const id = session?.id;
   const watch = draft?.watch;
   // A real Fleet reads a thread when it is opened and follows it from there.
-  useEffect(() => (id === undefined ? undefined : watch?.(id)), [watch, id]);
+  useEffect(
+    () => (id === undefined ? undefined : watch?.(id)),
+    [
+      watch,
+      id,
+    ],
+  );
   const { onWant } = held;
   // The panel a slot's chip opens reads what Fleet holds, so it is wanted while Helm holds one.
   const holdsSlot = session?.attachments.some((one) => one.kind === "slot") === true;
@@ -66,20 +82,54 @@ export function useHelmHosted({ manifestId, goes, held, openSession, words }: Ho
     if (!holdsSlot) return undefined;
     onWant(true);
     return () => onWant(false);
-  }, [holdsSlot, onWant]);
+  }, [
+    holdsSlot,
+    onWant,
+  ]);
   // Words the person sent are in the thread from the press, going, and Fleet's row takes their place when it arrives.
-  const version = useSyncExternalStore(words.engine.subscribe, () => words.engine.version(words.key), () => 0);
-  const rows = useMemo(() => words.engine.overlay(words.key, session?.rows ?? NO_SESSION_ROWS), [words, session?.rows, version]);
+  const version = useSyncExternalStore(
+    words.engine.subscribe,
+    () => words.engine.version(words.key),
+    () => 0,
+  );
+  const rows = useMemo(
+    () => words.engine.overlay(words.key, session?.rows ?? NO_SESSION_ROWS),
+    [
+      words,
+      session?.rows,
+      version,
+    ],
+  );
   const waiting = session === undefined && rows.length > 0;
-  const thread = useBackfilled(session === undefined && !waiting ? NO_ROWS : threadRowsFrom(rows, session?.attachments), id ?? words.key);
-  if (draft === undefined) return { hosted: undefined, sheets: null };
+  const thread = useBackfilled(
+    session === undefined && !waiting ? NO_ROWS : threadRowsFrom(rows, session?.attachments),
+    id ?? words.key,
+  );
+  if (draft === undefined)
+    return {
+      hosted: undefined,
+      sheets: null,
+    };
   // The repository's first message has no Session yet and so no thread: the words are shown where it will be.
   if (session === undefined) {
-    if (!waiting) return { hosted: undefined, sheets: null };
+    if (!waiting)
+      return {
+        hosted: undefined,
+        sheets: null,
+      };
     return {
       hosted: {
         working: false,
-        thread: <SessionThread sessionId={words.key} rows={thread} agentName="Helm" onRetry={words.retry} onAnswer={() => undefined} onOpenSession={openSession} />,
+        thread: (
+          <SessionThread
+            sessionId={words.key}
+            rows={thread}
+            agentName="Helm"
+            onRetry={words.retry}
+            onAnswer={() => undefined}
+            onOpenSession={openSession}
+          />
+        ),
       },
       sheets: null,
     };
@@ -88,8 +138,14 @@ export function useHelmHosted({ manifestId, goes, held, openSession, words }: Ho
   // A pull request opens in the side panel; the other readings open beside the thread.
   const read = (one: ReadAsked) => {
     if (one.kind !== "pull_request") return setReading(one);
-    const attached = session.attachments.find((a) => a.kind === "pull_request" && a.number === one.number);
-    openInPanel({ kind: "pr", number: one.number, address: attached?.kind === "pull_request" ? attached.address : "" });
+    const attached = session.attachments.find(
+      (a) => a.kind === "pull_request" && a.number === one.number,
+    );
+    openInPanel({
+      kind: "pr",
+      number: one.number,
+      address: attached?.kind === "pull_request" ? attached.address : "",
+    });
   };
   const entries = entriesOf(
     session,
@@ -101,10 +157,15 @@ export function useHelmHosted({ manifestId, goes, held, openSession, words }: Ho
     (url) => draft.openWindow?.(session.id, url),
     undefined,
     () => undefined,
-    { slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
+    {
+      slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [],
+    },
     undefined,
   );
-  const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
+  const slot =
+    held.held.state === "read"
+      ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen)
+      : undefined;
   const questions = session.asked?.questions;
   const hosted: NonNullable<HelmDockProps["hosted"]> = {
     working: session.turn.state === "working",
@@ -116,7 +177,11 @@ export function useHelmHosted({ manifestId, goes, held, openSession, words }: Ho
         onRetry={words.retry}
         agentName="Helm"
         working={session.turn.state === "working"}
-        {...(draft.stop === undefined ? {} : { onStop: () => draft.stop?.(session.id) })}
+        {...(draft.stop === undefined
+          ? {}
+          : {
+              onStop: () => draft.stop?.(session.id),
+            })}
         onOpenWindow={(url) => draft.openWindow?.(session.id, url)}
         onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
         onOpenSent={(target) => openSession(target.id)}
@@ -129,10 +194,18 @@ export function useHelmHosted({ manifestId, goes, held, openSession, words }: Ho
                 questions,
                 ...(session.asked.offers === undefined
                   ? {}
-                  : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                  : {
+                      offers: helmOfferedOf(session.asked.offers).map((one) => ({
+                        id: one.offer,
+                        label: one.label,
+                        means: one.means,
+                      })),
+                    }),
               },
             })}
-        onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+        onAnswer={(answer, answers) =>
+          draft.answer(session.id, answer as SessionAnswer | undefined, answers)
+        }
         onOpenSession={openSession}
       />
     ),
@@ -148,8 +221,19 @@ export function useHelmHosted({ manifestId, goes, held, openSession, words }: Ho
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}
       />
-      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onClose={() => setSlotOpen(undefined)} />}
+      {slot === undefined ? null : (
+        <TileSheet
+          row={{
+            slot,
+          }}
+          floor={floor}
+          onClose={() => setSlotOpen(undefined)}
+        />
+      )}
     </>
   );
-  return { hosted, sheets };
+  return {
+    hosted,
+    sheets,
+  };
 }

@@ -19,5 +19,7 @@ export function useSpacing(settings: SettingsList | null | undefined): void {
     const root = document.documentElement.dataset;
     if (spacing === "default") delete root["spacing"];
     else root["spacing"] = spacing;
-  }, [spacing]);
+  }, [
+    spacing,
+  ]);
 }

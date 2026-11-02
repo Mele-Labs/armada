@@ -5,7 +5,15 @@
 import type { FleetTimeline, Outcome, TimelineAsk, TimelineEvent } from "@armada/protocol";
 
 /** What reading the window came to: Fleet's entries, oldest first, or the refusal to word. */
-export type FleetTimelineRead = { ok: true; value: FleetTimeline } | { ok: false; outcome: Outcome };
+export type FleetTimelineRead =
+  | {
+      ok: true;
+      value: FleetTimeline;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type TimelineApi = {
   /** The entries in a window, as `GET /timeline` answers them. A Fleet before protocol 23.82 answers a refusal. */

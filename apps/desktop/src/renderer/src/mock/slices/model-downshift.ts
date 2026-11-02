@@ -9,11 +9,26 @@ export const modelDownshift: Slice<ModelDownshiftApi, Record<string, never>> = {
   name: "modelDownshift",
   state: {},
   api: () => ({
-    getModelDownshift: async () => ({ ok: false, outcome: unanswered("/model_downshift") }),
-    acceptDownshift: async () => ({ ok: false, outcome: unanswered("/model_downshift/accept") }),
-    restoreDownshift: async () => ({ ok: false, outcome: unanswered("/model_downshift/restore") }),
-    keepDownshift: async () => ({ ok: false, outcome: unanswered("/model_downshift/keep") }),
-    settleDownshift: async () => ({ ok: false, outcome: unanswered("/model_downshift/settle") }),
+    getModelDownshift: async () => ({
+      ok: false,
+      outcome: unanswered("/model_downshift"),
+    }),
+    acceptDownshift: async () => ({
+      ok: false,
+      outcome: unanswered("/model_downshift/accept"),
+    }),
+    restoreDownshift: async () => ({
+      ok: false,
+      outcome: unanswered("/model_downshift/restore"),
+    }),
+    keepDownshift: async () => ({
+      ok: false,
+      outcome: unanswered("/model_downshift/keep"),
+    }),
+    settleDownshift: async () => ({
+      ok: false,
+      outcome: unanswered("/model_downshift/settle"),
+    }),
     onModelDownshiftChanged: () => () => {},
   }),
 };

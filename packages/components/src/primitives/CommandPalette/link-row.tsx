@@ -13,9 +13,34 @@ export type PaletteLink = {
 
 export const LINK_ROW = "armada-palette-row-link";
 
-const ROWS = { pull: { label: "Open review", Glyph: GitPullRequest, kind: "Pull request" }, issue: { label: "Open issue", Glyph: CircleDot, kind: "Issue" } } as const;
+const ROWS = {
+  pull: {
+    label: "Open review",
+    Glyph: GitPullRequest,
+    kind: "Pull request",
+  },
+  issue: {
+    label: "Open issue",
+    Glyph: CircleDot,
+    kind: "Issue",
+  },
+} as const;
 
-export function LinkRow({ kind, link, active, ref, onEnter, onChoose }: { kind: PaletteLinkKind; link: string; active: boolean; ref?: React.Ref<HTMLDivElement> | undefined; onEnter: () => void; onChoose: () => void }) {
+export function LinkRow({
+  kind,
+  link,
+  active,
+  ref,
+  onEnter,
+  onChoose,
+}: {
+  kind: PaletteLinkKind;
+  link: string;
+  active: boolean;
+  ref?: React.Ref<HTMLDivElement> | undefined;
+  onEnter: () => void;
+  onChoose: () => void;
+}) {
   const { label, Glyph, kind: drawn } = ROWS[kind];
   return (
     <div
@@ -23,7 +48,12 @@ export function LinkRow({ kind, link, active, ref, onEnter, onChoose }: { kind: 
       id={LINK_ROW}
       role="option"
       aria-selected={active}
-      className={["armada-palette__row", active ? "armada-palette__row--active" : ""].filter((one) => one !== "").join(" ")}
+      className={[
+        "armada-palette__row",
+        active ? "armada-palette__row--active" : "",
+      ]
+        .filter((one) => one !== "")
+        .join(" ")}
       onMouseEnter={onEnter}
       onClick={onChoose}
     >

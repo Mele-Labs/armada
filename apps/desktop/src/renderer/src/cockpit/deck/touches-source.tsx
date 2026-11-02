@@ -9,7 +9,13 @@ const NONE: ReadonlyMap<string, readonly Touch[]> = new Map();
 const Held = createContext<ReadonlyMap<string, readonly Touch[]>>(NONE);
 
 /** Hands the window the areas each holder of a slot has changed, by the holder's key. */
-export function SlotTouchesFrom({ touches, children }: { touches: ReadonlyMap<string, readonly Touch[]>; children: ReactNode }) {
+export function SlotTouchesFrom({
+  touches,
+  children,
+}: {
+  touches: ReadonlyMap<string, readonly Touch[]>;
+  children: ReactNode;
+}) {
   return <Held.Provider value={touches}>{children}</Held.Provider>;
 }
 

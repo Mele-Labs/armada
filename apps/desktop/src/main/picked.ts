@@ -15,7 +15,11 @@ import type { ProjectRowRef, RepositorySummary, StartAfter, StartSession } from 
  * layer needs on All repositories; a root nothing serves is none rather than a guess. Unnamed, it is
  * the pick, or the only one Fleet serves.
  */
-export function repositoryToStart(served: readonly RepositorySummary[], picked: Picked, root?: string): RepositorySummary | undefined {
+export function repositoryToStart(
+  served: readonly RepositorySummary[],
+  picked: Picked,
+  root?: string,
+): RepositorySummary | undefined {
   if (root !== undefined) return served.find((one) => one.root === root);
   return picked.repository ?? (served.length === 1 ? served[0] : undefined);
 }
@@ -25,25 +29,81 @@ export function repositoryToStart(served: readonly RepositorySummary[], picked: 
  * it** (`implicit_id`) where a request comes with it or no root is named; **a root named without a request
  * is Setup's**: the Session runs in that root to write a Manifest. `null` where neither applies.
  */
-export function startOn(repository: RepositorySummary, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: readonly ProjectRowRef[]): StartSession | null {
+export function startOn(
+  repository: RepositorySummary,
+  title?: string,
+  root?: string,
+  request?: string,
+  tuning?: {
+    model?: string;
+    effort?: string;
+  },
+  after?: StartAfter,
+  held?: boolean,
+  projectRows?: readonly ProjectRowRef[],
+): StartSession | null {
   const given = {
-    ...(title === undefined ? {} : { title }),
-    ...(request === undefined ? {} : { request }),
+    ...(title === undefined
+      ? {}
+      : {
+          title,
+        }),
+    ...(request === undefined
+      ? {}
+      : {
+          request,
+        }),
     // Only what the person picked: Fleet's proposer fills in what a start leaves unset.
-    ...(tuning?.model === undefined ? {} : { model: tuning.model }),
-    ...(tuning?.effort === undefined ? {} : { effort: tuning.effort }),
+    ...(tuning?.model === undefined
+      ? {}
+      : {
+          model: tuning.model,
+        }),
+    ...(tuning?.effort === undefined
+      ? {}
+      : {
+          effort: tuning.effort,
+        }),
     // The Session it waits on: `request` is then the brief it starts on.
-    ...(after === undefined ? {} : { after }),
+    ...(after === undefined
+      ? {}
+      : {
+          after,
+        }),
     // Held on its start card: only a request Fleet reads, never a wait's brief.
-    ...(held === true && request !== undefined && after === undefined ? { held } : {}),
+    ...(held === true && request !== undefined && after === undefined
+      ? {
+          held,
+        }
+      : {}),
     // The rows of his projects it starts with: a start in a repository, since a row is in one.
-    ...(projectRows === undefined || projectRows.length === 0 ? {} : { project_rows: [...projectRows] }),
+    ...(projectRows === undefined || projectRows.length === 0
+      ? {}
+      : {
+          project_rows: [
+            ...projectRows,
+          ],
+        }),
   };
-  if (repository.manifest !== undefined) return { manifest_id: repository.manifest.id, ...given };
-  if (repository.implicit_id !== undefined && (request !== undefined || root === undefined)) return { manifest_id: repository.implicit_id, ...given };
+  if (repository.manifest !== undefined)
+    return {
+      manifest_id: repository.manifest.id,
+      ...given,
+    };
+  if (repository.implicit_id !== undefined && (request !== undefined || root === undefined))
+    return {
+      manifest_id: repository.implicit_id,
+      ...given,
+    };
   // Setup's start in a root is never held.
   const { held: _held, project_rows: _rows, ...setup } = given;
-  return root === undefined ? null : { manifest_id: "", root: repository.root, ...setup };
+  return root === undefined
+    ? null
+    : {
+        manifest_id: "",
+        root: repository.root,
+        ...setup,
+      };
 }
 
 export class Picked {
@@ -202,7 +262,12 @@ export class PickedByWindow {
   }
 
   /** Every window that has a pick of its own, for a listing that moves all of them at once. */
-  all(): readonly (readonly [number, Picked])[] {
-    return [...this.windows.entries()];
+  all(): readonly (readonly [
+    number,
+    Picked,
+  ])[] {
+    return [
+      ...this.windows.entries(),
+    ];
   }
 }

@@ -26,10 +26,20 @@ import type {
  * asked" and "the read failed" are different things to draw.
  */
 export type HeldWorktrees =
-  | { state: "none" }
-  | { state: "reading" }
-  | { state: "read"; held: WorktreesHeld }
-  | { state: "failed"; outcome: Outcome };
+  | {
+      state: "none";
+    }
+  | {
+      state: "reading";
+    }
+  | {
+      state: "read";
+      held: WorktreesHeld;
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    };
 
 /**
  * What one Check's output came back as.
@@ -40,8 +50,14 @@ export type HeldWorktrees =
  * re-renders on — and keep a test runner's whole log alive.
  */
 export type CheckOutputRead =
-  | { ok: true; output: CheckOutput }
-  | { ok: false; outcome: Outcome };
+  | {
+      ok: true;
+      output: CheckOutput;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /**
  * What one frame came back as: the bytes, and what they are.
@@ -60,8 +76,15 @@ export type CheckOutputRead =
  * nothing on that side should be parsing an extension to guess.
  */
 export type FrameRead =
-  | { ok: true; bytes: Uint8Array; type: string }
-  | { ok: false; outcome: Outcome };
+  | {
+      ok: true;
+      bytes: Uint8Array;
+      type: string;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** The values a proposal may name. Empty until the connection answers. */
 export type Holdings = {
@@ -93,33 +116,72 @@ export type Outcome =
       /** What `try_tracker_mod` answered, passed or not. Drawn on the row that pressed Try. */
       trackerTried?: TrackerTry;
     }
-  | { ok: false; why: "not_connected" }
-  | { ok: false; why: "not_understood" }
-  | { ok: false; why: "empty_brief" }
-  | { ok: false; why: "no_manifest" }
+  | {
+      ok: false;
+      why: "not_connected";
+    }
+  | {
+      ok: false;
+      why: "not_understood";
+    }
+  | {
+      ok: false;
+      why: "empty_brief";
+    }
+  | {
+      ok: false;
+      why: "no_manifest";
+    }
   /** A Manifest-scoped act on the picked repository, which has no `armada.yml` yet. Refused before it is sent. */
-  | { ok: false; why: "not_set_up" }
-  | { ok: false; why: "already_answering_lesson" }
-  | { ok: false; why: "already_setting" }
+  | {
+      ok: false;
+      why: "not_set_up";
+    }
+  | {
+      ok: false;
+      why: "already_answering_lesson";
+    }
+  | {
+      ok: false;
+      why: "already_setting";
+    }
   /**
    * A capture press in the capture window with nothing held — #1294. Bridge's
    * own, and Fleet never sees it: a Note with no capture is not the act.
    */
-  | { ok: false; why: "nothing_held" }
+  | {
+      ok: false;
+      why: "nothing_held";
+    }
   /**
    * A capture in the capture window after the Run stopped serving — #1294.
    * **Refused before it is sent**: a loopback port is not an identity, so a
    * Note taken against whatever replaced the Run would be a record of
    * something other than what it names. `docs/practices/capture-window.md`.
    */
-  | { ok: false; why: "run_ended" }
+  | {
+      ok: false;
+      why: "run_ended";
+    }
   /**
    * Approve on a capture window that no Session opened. Bridge's own, and Fleet never sees
    * it: a Studio's bar offers no Approve, since there is nobody to tell.
    */
-  | { ok: false; why: "no_owner" }
-  | { ok: false; why: "refused"; error: WireError }
-  | { ok: false; why: "transport"; detail: string; fault: TransportFault };
+  | {
+      ok: false;
+      why: "no_owner";
+    }
+  | {
+      ok: false;
+      why: "refused";
+      error: WireError;
+    }
+  | {
+      ok: false;
+      why: "transport";
+      detail: string;
+      fault: TransportFault;
+    };
 
 /**
  * What went wrong between Bridge and Fleet, for the one refusal that carries no
@@ -159,6 +221,11 @@ export type TransportFault = {
       /** How long Bridge waited, in milliseconds. The dial, not a guess. */
       waitedMs: number;
     }
-  | { why: "unreachable" }
-  | { why: "unanswerable"; status: number }
+  | {
+      why: "unreachable";
+    }
+  | {
+      why: "unanswerable";
+      status: number;
+    }
 );

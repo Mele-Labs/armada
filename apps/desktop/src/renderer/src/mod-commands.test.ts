@@ -8,10 +8,37 @@ import { displayOf, fill, keysOf, rowsOf, slugOf } from "./mod-commands";
 
 const FILE: CommandsFile = {
   command: [
-    { name: "Security pass on a pull request", aliases: ["sec", "audit"], hotkey: "⌥⌘S", prompt: "Review {pr} for {focus} problems", blanks: ["pr", "focus"] },
-    { name: "Open pull request on the forge", url: "https://forge.example/pull/{pr}", blanks: ["pr"] },
-    { name: "Audit dependencies", shell: "pnpm audit" },
-    { name: "Triage the board", chain: ["nav:reviews", "nav:projects"] },
+    {
+      name: "Security pass on a pull request",
+      aliases: [
+        "sec",
+        "audit",
+      ],
+      hotkey: "⌥⌘S",
+      prompt: "Review {pr} for {focus} problems",
+      blanks: [
+        "pr",
+        "focus",
+      ],
+    },
+    {
+      name: "Open pull request on the forge",
+      url: "https://forge.example/pull/{pr}",
+      blanks: [
+        "pr",
+      ],
+    },
+    {
+      name: "Audit dependencies",
+      shell: "pnpm audit",
+    },
+    {
+      name: "Triage the board",
+      chain: [
+        "nav:reviews",
+        "nav:projects",
+      ],
+    },
   ],
 };
 
@@ -35,7 +62,15 @@ describe("what the palette draws of a row", () => {
   const [prompt, url, shell, chain] = rowsOf("m", FILE);
 
   test("its kind is the act it has, and its alias is searchable", () => {
-    expect(displayOf(prompt!, undefined)).toMatchObject({ id: "m:security-pass-on-a-pull-request", label: "Security pass on a pull request", kind: "prompt", aliases: ["sec", "audit"] });
+    expect(displayOf(prompt!, undefined)).toMatchObject({
+      id: "m:security-pass-on-a-pull-request",
+      label: "Security pass on a pull request",
+      kind: "prompt",
+      aliases: [
+        "sec",
+        "audit",
+      ],
+    });
     expect(displayOf(url!, undefined).kind).toBe("url");
     expect(displayOf(shell!, undefined).kind).toBe("shell");
     expect(displayOf(chain!, undefined).kind).toBe("chain");
@@ -49,49 +84,115 @@ describe("what the palette draws of a row", () => {
 });
 
 describe("the keys the files name", () => {
-  const keyed = (hotkey: string | undefined, name = "Run") => rowsOf("m", { command: [{ name, ...(hotkey === undefined ? {} : { hotkey }), shell: "true" }] });
+  const keyed = (hotkey: string | undefined, name = "Run") =>
+    rowsOf("m", {
+      command: [
+        {
+          name,
+          ...(hotkey === undefined
+            ? {}
+            : {
+                hotkey,
+              }),
+          shell: "true",
+        },
+      ],
+    });
 
   test("an allowed key is kept, by the row's palette id", () => {
-    expect(keysOf(rowsOf("team-commands", FILE), {})).toEqual({ "cmd:team-commands:security-pass-on-a-pull-request": "⌥⌘S" });
+    expect(keysOf(rowsOf("team-commands", FILE), {})).toEqual({
+      "cmd:team-commands:security-pass-on-a-pull-request": "⌥⌘S",
+    });
   });
 
   test("a key the shared rules refuse is dropped: no ⌘ or ⌃, ⌘1 to ⌘9, an act's, the system's", () => {
-    for (const refused of ["⇧J", "⌘1", "⌘K", "⌘C", "not a key"]) expect(keysOf(keyed(refused), {})).toEqual({});
+    for (const refused of [
+      "⇧J",
+      "⌘1",
+      "⌘K",
+      "⌘C",
+      "not a key",
+    ])
+      expect(keysOf(keyed(refused), {})).toEqual({});
   });
 
   test("a key another row already has is dropped, the first row in file order keeping it", () => {
     const rows = rowsOf("m", {
       command: [
-        { name: "First", hotkey: "⇧⌘J", shell: "true" },
-        { name: "Second", hotkey: "⇧⌘J", shell: "true" },
+        {
+          name: "First",
+          hotkey: "⇧⌘J",
+          shell: "true",
+        },
+        {
+          name: "Second",
+          hotkey: "⇧⌘J",
+          shell: "true",
+        },
       ],
     });
-    expect(keysOf(rows, {})).toEqual({ "cmd:m:first": "⇧⌘J" });
+    expect(keysOf(rows, {})).toEqual({
+      "cmd:m:first": "⇧⌘J",
+    });
   });
 
   const two = rowsOf("m", {
     command: [
-      { name: "First", hotkey: "⇧⌘J", shell: "true" },
-      { name: "Second", hotkey: "⇧⌘L", shell: "true" },
+      {
+        name: "First",
+        hotkey: "⇧⌘J",
+        shell: "true",
+      },
+      {
+        name: "Second",
+        hotkey: "⇧⌘L",
+        shell: "true",
+      },
     ],
   });
 
   test("a key he recorded for a row wins over the file's: the file's is not used for that row", () => {
-    expect(keysOf(two, { "cmd:m:second": "⇧⌘M" })).toEqual({ "cmd:m:first": "⇧⌘J" });
+    expect(
+      keysOf(two, {
+        "cmd:m:second": "⇧⌘M",
+      }),
+    ).toEqual({
+      "cmd:m:first": "⇧⌘J",
+    });
   });
 
   test("a key he recorded holds its place first: a file's key the same is dropped", () => {
-    expect(keysOf(two, { "cmd:elsewhere": "⇧⌘J" })).toEqual({ "cmd:m:second": "⇧⌘L" });
+    expect(
+      keysOf(two, {
+        "cmd:elsewhere": "⇧⌘J",
+      }),
+    ).toEqual({
+      "cmd:m:second": "⇧⌘L",
+    });
   });
 });
 
 describe("filling the blanks", () => {
   test("each blank is replaced by what it was filled with, and one unfilled is left", () => {
-    expect(fill("Review {pr} for {focus} problems", { pr: "#12", focus: "auth" })).toBe("Review #12 for auth problems");
-    expect(fill("Review {pr} for {focus}", { pr: "#12" })).toBe("Review #12 for {focus}");
+    expect(
+      fill("Review {pr} for {focus} problems", {
+        pr: "#12",
+        focus: "auth",
+      }),
+    ).toBe("Review #12 for auth problems");
+    expect(
+      fill("Review {pr} for {focus}", {
+        pr: "#12",
+      }),
+    ).toBe("Review #12 for {focus}");
   });
 
   test("a brace after a $ is shell text and stays", () => {
-    expect(fill("echo ${home} {word}", { word: "x", home: "no" })).toBe("echo ${home} x");
+    expect(
+      fill("echo ${home} {word}", {
+        word: "x",
+        home: "no",
+      }),
+    ).toBe("echo ${home} x");
   });
 });

@@ -28,15 +28,38 @@ function windowNow(state: ContextState): WindowFacts {
     // A state read half-published is no reason to lose the rest.
     context = undefined;
   }
-  return { screen, layer, location, scenario, window: size, ...(context === undefined ? {} : { context }) };
+  return {
+    screen,
+    layer,
+    location,
+    scenario,
+    window: size,
+    ...(context === undefined
+      ? {}
+      : {
+          context,
+        }),
+  };
 }
 
 /** A picture of the window with the layer out of it, or none: only a build with the annotation layer can capture, and a capture that fails sends without. */
 async function windowShot(): Promise<File | undefined> {
   const dev = window.armadaDev;
   if (dev === undefined) return undefined;
-  const png = await withoutLayer(document.querySelector(".armada-annotate"), () => dev.capture(windowBox())).catch(() => null);
-  return png === null ? undefined : new File([png], "bridge-window.png", { type: "image/png" });
+  const png = await withoutLayer(document.querySelector(".armada-annotate"), () =>
+    dev.capture(windowBox()),
+  ).catch(() => null);
+  return png === null
+    ? undefined
+    : new File(
+        [
+          png,
+        ],
+        "bridge-window.png",
+        {
+          type: "image/png",
+        },
+      );
 }
 
 /**
@@ -64,8 +87,24 @@ export function useDispatchFailure(
       return false;
     }
     started.current = id;
-    const files = shot === undefined ? [] : [{ id: "failure-window", name: shot.name, file: shot, src: URL.createObjectURL(shot) }];
-    if ((await draft.send(id, { ...plain(failureMessage(payload, view, state)), files })) === false) return false;
+    const files =
+      shot === undefined
+        ? []
+        : [
+            {
+              id: "failure-window",
+              name: shot.name,
+              file: shot,
+              src: URL.createObjectURL(shot),
+            },
+          ];
+    if (
+      (await draft.send(id, {
+        ...plain(failureMessage(payload, view, state)),
+        files,
+      })) === false
+    )
+      return false;
     started.current = undefined;
     open(id);
     return true;
@@ -73,6 +112,8 @@ export function useDispatchFailure(
 }
 
 /** The toast's Dispatch job, offered to a band that is a failure too (a hand off that did not start). Absent where nothing serves it. */
-export const DispatchFailure = createContext<((payload: DebugPayload) => Promise<boolean>) | undefined>(undefined);
+export const DispatchFailure = createContext<
+  ((payload: DebugPayload) => Promise<boolean>) | undefined
+>(undefined);
 
 export const useDispatchFailureHere = () => useContext(DispatchFailure);

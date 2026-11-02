@@ -16,7 +16,9 @@ const pull = (number: number, state: "open" | "draft", title: string): SessionAt
   title,
   branch: "bridge/queue-for-later",
   address: `https://example.com/pull/${number}`,
-  checks: { state: state === "draft" ? "pending" : "passed" },
+  checks: {
+    state: state === "draft" ? "pending" : "passed",
+  },
   state,
   auto: false,
 });
@@ -27,8 +29,18 @@ const holding = (one: Session): Session => ({
     ...one.attachments,
     pull(2431, "open", "Queue a Session for later"),
     pull(2433, "draft", "Show the queue in the list"),
-    { kind: "artifact", form: "doc", id: "https://example.com/artifact/queue-notes", title: "Queue notes" },
-    { kind: "artifact", form: "file", id: "/tmp/queue-dry-run.txt", title: "Queue dry run" },
+    {
+      kind: "artifact",
+      form: "doc",
+      id: "https://example.com/artifact/queue-notes",
+      title: "Queue notes",
+    },
+    {
+      kind: "artifact",
+      form: "file",
+      id: "/tmp/queue-dry-run.txt",
+      title: "Queue dry run",
+    },
     ...backgroundAttachments,
   ],
 });

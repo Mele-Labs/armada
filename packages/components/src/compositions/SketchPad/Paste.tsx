@@ -24,7 +24,12 @@ import type { SketchPictureLanding } from "./SketchPad";
  */
 const A_PICTURE_FILLS = 0.6;
 
-type Room = { x: number; y: number; width: number; height: number };
+type Room = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 /** How finely a free spot is searched for, in box widths. */
 const A_SEARCH_STEP = 1 / 8;
@@ -36,11 +41,20 @@ const A_SEARCH_STEP = 1 / 8;
  */
 function freeSpot(
   taken: readonly Room[],
-  size: { width: number; height: number },
+  size: {
+    width: number;
+    height: number;
+  },
   view: Room,
-  centre: { x: number; y: number },
+  centre: {
+    x: number;
+    y: number;
+  },
   step: number,
-): { x: number; y: number } | null {
+): {
+  x: number;
+  y: number;
+} | null {
   const clear = (x: number, y: number) =>
     taken.every(
       (one) =>
@@ -49,16 +63,29 @@ function freeSpot(
         y + size.height + step <= one.y ||
         one.y + one.height + step <= y,
     );
-  const spots: { x: number; y: number; far: number }[] = [];
+  const spots: {
+    x: number;
+    y: number;
+    far: number;
+  }[] = [];
   for (let y = view.y; y + size.height <= view.y + view.height; y += step) {
     for (let x = view.x; x + size.width <= view.x + view.width; x += step) {
       const far = Math.hypot(x + size.width / 2 - centre.x, y + size.height / 2 - centre.y);
-      spots.push({ x, y, far });
+      spots.push({
+        x,
+        y,
+        far,
+      });
     }
   }
   spots.sort((a, b) => a.far - b.far);
   const found = spots.find((spot) => clear(spot.x, spot.y));
-  return found === undefined ? null : { x: Math.round(found.x), y: Math.round(found.y) };
+  return found === undefined
+    ? null
+    : {
+        x: Math.round(found.x),
+        y: Math.round(found.y),
+      };
 }
 
 /**
@@ -82,11 +109,29 @@ export function useMiddle() {
       const pane = document
         .querySelector(".armada-sketch-pad__canvas .react-flow")
         ?.getBoundingClientRect();
-      if (pane === undefined) return { x: 0, y: 0 };
-      const from = flow.screenToFlowPosition({ x: pane.left, y: pane.top });
-      const to = flow.screenToFlowPosition({ x: pane.right, y: pane.bottom });
-      const view = { x: from.x, y: from.y, width: to.x - from.x, height: to.y - from.y };
-      const centre = { x: view.x + view.width / 2, y: view.y + view.height / 2 };
+      if (pane === undefined)
+        return {
+          x: 0,
+          y: 0,
+        };
+      const from = flow.screenToFlowPosition({
+        x: pane.left,
+        y: pane.top,
+      });
+      const to = flow.screenToFlowPosition({
+        x: pane.right,
+        y: pane.bottom,
+      });
+      const view = {
+        x: from.x,
+        y: from.y,
+        width: to.x - from.x,
+        height: to.y - from.y,
+      };
+      const centre = {
+        x: view.x + view.width / 2,
+        y: view.y + view.height / 2,
+      };
       // A box's width is read off the token it is drawn at rather than restated
       // here; its height is the shortest box already measured, which is what an
       // empty or one-line box comes to.
@@ -116,7 +161,10 @@ export function useMiddle() {
       // down exactly there, and never walked out of the view.
       const stepped = clearOf(
         nodes.map((node) => node.position),
-        { x: centre.x - size.width / 2, y: centre.y - size.height / 2 },
+        {
+          x: centre.x - size.width / 2,
+          y: centre.y - size.height / 2,
+        },
         step,
       );
       return {
@@ -124,13 +172,17 @@ export function useMiddle() {
         y: Math.round(Math.min(Math.max(stepped.y, view.y), view.y + view.height - size.height)),
       };
     },
-    [flow],
+    [
+      flow,
+    ],
   );
 }
 
 /** Whether a paste was aimed at somewhere a person types, which takes it as text. */
 function isTyping(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest("textarea, input, [contenteditable]") !== null;
+  return (
+    target instanceof HTMLElement && target.closest("textarea, input, [contenteditable]") !== null
+  );
 }
 
 /**
@@ -150,8 +202,20 @@ export function Paste({
   onPicture,
 }: {
   pad: RefObject<HTMLDivElement | null>;
-  onAdd: (at: { x: number; y: number }, body: string) => void;
-  onPicture: (picture: SketchPictureLanding, at: { x: number; y: number }) => void;
+  onAdd: (
+    at: {
+      x: number;
+      y: number;
+    },
+    body: string,
+  ) => void;
+  onPicture: (
+    picture: SketchPictureLanding,
+    at: {
+      x: number;
+      y: number;
+    },
+  ) => void;
 }) {
   const flow = useReactFlow();
   const middle = useMiddle();
@@ -171,8 +235,17 @@ export function Paste({
         ((shown.width / zoom) * A_PICTURE_FILLS) / width,
         ((shown.height / zoom) * A_PICTURE_FILLS) / height,
       );
-      const size = { width: Math.round(width * scale), height: Math.round(height * scale) };
-      onPicture({ src: URL.createObjectURL(file), ...size }, middle(size));
+      const size = {
+        width: Math.round(width * scale),
+        height: Math.round(height * scale),
+      };
+      onPicture(
+        {
+          src: URL.createObjectURL(file),
+          ...size,
+        },
+        middle(size),
+      );
     };
 
     const pasted = (event: ClipboardEvent) => {
@@ -193,8 +266,13 @@ export function Paste({
 
     frame.addEventListener("paste", pasted);
     return () => frame.removeEventListener("paste", pasted);
-  }, [pad, flow, middle, onAdd, onPicture]);
+  }, [
+    pad,
+    flow,
+    middle,
+    onAdd,
+    onPicture,
+  ]);
 
   return null;
 }
-

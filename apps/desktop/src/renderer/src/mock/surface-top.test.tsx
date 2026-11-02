@@ -21,11 +21,20 @@ test.skip("Manifest's ask on All repositories starts level with the left column,
   mount("default");
   // The control beside the picker, in the rail's repository panel, is how the
   // surface is reached (#1595).
-  await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Open the Manifest",
+      exact: true,
+    })
+    .click();
 
-  const ask = page.getByRole("status").filter({ hasText: "Pick a repository to open its Manifest" });
+  const ask = page.getByRole("status").filter({
+    hasText: "Pick a repository to open its Manifest",
+  });
   await expect.element(ask).toBeVisible();
-  const first = page.getByRole("region", { name: "Repository" });
+  const first = page.getByRole("region", {
+    name: "Repository",
+  });
   await expect.element(first).toBeVisible();
 
   // Level with the rail's first panel, which the title bar does not touch.

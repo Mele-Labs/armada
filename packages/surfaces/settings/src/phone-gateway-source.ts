@@ -11,17 +11,44 @@ import type { PhoneGateway, PhoneSetup, PhoneSource, PhoneState } from "./phone-
 const CLAIM_EVERY = 2000;
 const RETRY_EVERY = 5000;
 
-type Device = { id: string; name: string; created_at: number; last_seen_at: number | null };
-type Pending = { code: string; name: string; claimed_at: number };
-type Started = { code: string; address: string; expires_at: number };
+type Device = {
+  id: string;
+  name: string;
+  created_at: number;
+  last_seen_at: number | null;
+};
+type Pending = {
+  code: string;
+  name: string;
+  claimed_at: number;
+};
+type Started = {
+  code: string;
+  address: string;
+  expires_at: number;
+};
 
 export type PhoneAsk = (request: PhoneRequest) => Promise<PhoneAnswer>;
 
 /** Every step done that a person takes: a tunnel of his own, or Funnel on. */
-const finished = (setup: PhoneSetup | null) => setup !== null && (setup.named || setup.served === "funnel");
+const finished = (setup: PhoneSetup | null) =>
+  setup !== null && (setup.named || setup.served === "funnel");
 
-export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date.now, open: (page: string) => void = () => undefined): PhoneSource {
-  let state: PhoneState = { access: null, gateway: { state: "running" }, phones: [], pairing: null, claim: null, setup: null };
+export function createPhoneGatewaySource(
+  ask: PhoneAsk,
+  now: () => number = Date.now,
+  open: (page: string) => void = () => undefined,
+): PhoneSource {
+  let state: PhoneState = {
+    access: null,
+    gateway: {
+      state: "running",
+    },
+    phones: [],
+    pairing: null,
+    claim: null,
+    setup: null,
+  };
   let setupTimer: ReturnType<typeof setInterval> | undefined;
   let code: string | null = null;
   let listening = 0;
@@ -31,80 +58,194 @@ export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date
   const listeners = new Set<() => void>();
 
   const set = (next: Partial<PhoneState>) => {
-    state = { ...state, ...next };
+    state = {
+      ...state,
+      ...next,
+    };
     listeners.forEach((on) => on());
     sync();
   };
 
   /** What a failed call says about the Gateway; `null` where the answer was good. */
   const problem = (answer: PhoneAnswer): PhoneGateway | null =>
-    answer.ok ? null : answer.why === "unreachable" ? { state: "not_running" } : { state: "said", said: answer.said };
+    answer.ok
+      ? null
+      : answer.why === "unreachable"
+        ? {
+            state: "not_running",
+          }
+        : {
+            state: "said",
+            said: answer.said,
+          };
 
   const devices = (list: Device[]) =>
-    list.map((one) => ({ id: one.id, name: one.name, seenAt: (one.last_seen_at ?? one.created_at) * 1000 }));
+    list.map((one) => ({
+      id: one.id,
+      name: one.name,
+      seenAt: (one.last_seen_at ?? one.created_at) * 1000,
+    }));
 
   /** Fleet's answer on `/phone`, and the Gateway read where it says one listens. */
   async function took(access: PhoneAccess): Promise<void> {
     if (!access.on) {
       code = null;
-      return set({ access: { on: false, turning: false }, gateway: { state: "running" }, phones: [], pairing: null, claim: null, setup: null });
+      return set({
+        access: {
+          on: false,
+          turning: false,
+        },
+        gateway: {
+          state: "running",
+        },
+        phones: [],
+        pairing: null,
+        claim: null,
+        setup: null,
+      });
     }
     if (!access.listening) {
       const why = access.why ?? `Nothing listens on port ${access.port}.`;
-      return set({ access: { on: true, turning: false }, gateway: { state: "said", said: why }, pairing: null, claim: null });
+      return set({
+        access: {
+          on: true,
+          turning: false,
+        },
+        gateway: {
+          state: "said",
+          said: why,
+        },
+        pairing: null,
+        claim: null,
+      });
     }
-    set({ access: { on: true, turning: false } });
+    set({
+      access: {
+        on: true,
+        turning: false,
+      },
+    });
     await gateway();
   }
 
   async function refresh(): Promise<void> {
-    const access = await ask({ op: "access" });
+    const access = await ask({
+      op: "access",
+    });
     const bad = problem(access);
-    if (bad !== null) return set({ gateway: bad, pairing: null, claim: null });
-    await took((access as { ok: true; body: unknown }).body as PhoneAccess);
+    if (bad !== null)
+      return set({
+        gateway: bad,
+        pairing: null,
+        claim: null,
+      });
+    await took(
+      (
+        access as {
+          ok: true;
+          body: unknown;
+        }
+      ).body as PhoneAccess,
+    );
   }
 
   async function gateway(): Promise<void> {
-    const status = await ask({ op: "status" });
+    const status = await ask({
+      op: "status",
+    });
     const bad = problem(status);
-    if (bad !== null) return set({ gateway: bad, pairing: null, claim: null });
-    const list = await ask({ op: "devices" });
+    if (bad !== null)
+      return set({
+        gateway: bad,
+        pairing: null,
+        claim: null,
+      });
+    const list = await ask({
+      op: "devices",
+    });
     const failed = problem(list);
-    if (failed !== null) return set({ gateway: failed });
-    set({ gateway: { state: "running" }, phones: devices(list.ok && Array.isArray(list.body) ? (list.body as Device[]) : []) });
+    if (failed !== null)
+      return set({
+        gateway: failed,
+      });
+    set({
+      gateway: {
+        state: "running",
+      },
+      phones: devices(list.ok && Array.isArray(list.body) ? (list.body as Device[]) : []),
+    });
     await readSetup();
   }
 
   /** The way in as the Gateway says it now, keeping a Funnel press still waiting on the tailnet's page. */
   async function readSetup(): Promise<void> {
-    const answer = await ask({ op: "setup" });
-    if (!answer.ok || answer.body === null || typeof answer.body !== "object") return set({ setup: null });
+    const answer = await ask({
+      op: "setup",
+    });
+    if (!answer.ok || answer.body === null || typeof answer.body !== "object")
+      return set({
+        setup: null,
+      });
     const read = answer.body as PhoneSetup;
-    const waiting = state.setup?.funnel?.state === "approve" && read.served !== "funnel" ? { funnel: state.setup.funnel } : {};
-    set({ setup: { ...read, ...waiting } });
+    const waiting =
+      state.setup?.funnel?.state === "approve" && read.served !== "funnel"
+        ? {
+            funnel: state.setup.funnel,
+          }
+        : {};
+    set({
+      setup: {
+        ...read,
+        ...waiting,
+      },
+    });
   }
 
   async function poll(): Promise<void> {
-    const answer = await ask({ op: "pending" });
+    const answer = await ask({
+      op: "pending",
+    });
     const bad = problem(answer);
-    if (bad !== null) return set({ gateway: bad, pairing: null, claim: null });
-    const mine = (answer.ok && Array.isArray(answer.body) ? (answer.body as Pending[]) : []).find((one) => one.code === code);
-    if (mine !== undefined && state.claim?.device !== mine.name) set({ claim: { device: mine.name } });
+    if (bad !== null)
+      return set({
+        gateway: bad,
+        pairing: null,
+        claim: null,
+      });
+    const mine = (answer.ok && Array.isArray(answer.body) ? (answer.body as Pending[]) : []).find(
+      (one) => one.code === code,
+    );
+    if (mine !== undefined && state.claim?.device !== mine.name)
+      set({
+        claim: {
+          device: mine.name,
+        },
+      });
   }
 
   /** Timers follow the state: a claim poll for a live code, a retry for a problem. */
   function sync(): void {
     const on = state.access?.on !== false;
-    const wantsClaims = listening > 0 && on && state.pairing !== null && state.gateway.state === "running";
-    if (wantsClaims && claimTimer === undefined) claimTimer = setInterval(() => void poll(), CLAIM_EVERY);
-    if (!wantsClaims && claimTimer !== undefined) (clearInterval(claimTimer), (claimTimer = undefined));
+    const wantsClaims =
+      listening > 0 && on && state.pairing !== null && state.gateway.state === "running";
+    if (wantsClaims && claimTimer === undefined)
+      claimTimer = setInterval(() => void poll(), CLAIM_EVERY);
+    if (!wantsClaims && claimTimer !== undefined)
+      clearInterval(claimTimer), (claimTimer = undefined);
     const wantsRetry = listening > 0 && on && state.gateway.state !== "running";
     if (wantsRetry && retry === undefined) retry = setInterval(() => void refresh(), RETRY_EVERY);
-    if (!wantsRetry && retry !== undefined) (clearInterval(retry), (retry = undefined));
-    if (state.pairing === null && expiry !== undefined) (clearTimeout(expiry), (expiry = undefined));
-    const wantsSetup = listening > 0 && on && state.gateway.state === "running" && state.setup !== null && !finished(state.setup);
-    if (wantsSetup && setupTimer === undefined) setupTimer = setInterval(() => void readSetup(), RETRY_EVERY);
-    if (!wantsSetup && setupTimer !== undefined) (clearInterval(setupTimer), (setupTimer = undefined));
+    if (!wantsRetry && retry !== undefined) clearInterval(retry), (retry = undefined);
+    if (state.pairing === null && expiry !== undefined) clearTimeout(expiry), (expiry = undefined);
+    const wantsSetup =
+      listening > 0 &&
+      on &&
+      state.gateway.state === "running" &&
+      state.setup !== null &&
+      !finished(state.setup);
+    if (wantsSetup && setupTimer === undefined)
+      setupTimer = setInterval(() => void readSetup(), RETRY_EVERY);
+    if (!wantsSetup && setupTimer !== undefined)
+      clearInterval(setupTimer), (setupTimer = undefined);
   }
 
   return {
@@ -122,58 +263,149 @@ export function createPhoneGatewaySource(ask: PhoneAsk, now: () => number = Date
     },
     turn: (on) => {
       const was = state.access?.on ?? false;
-      set({ access: { on: was, turning: true } });
-      void ask({ op: "turn", on }).then(async (answer) => {
+      set({
+        access: {
+          on: was,
+          turning: true,
+        },
+      });
+      void ask({
+        op: "turn",
+        on,
+      }).then(async (answer) => {
         const bad = problem(answer);
-        if (bad !== null) return set({ access: { on: was, turning: false }, gateway: bad });
-        await took((answer as { ok: true; body: unknown }).body as PhoneAccess);
+        if (bad !== null)
+          return set({
+            access: {
+              on: was,
+              turning: false,
+            },
+            gateway: bad,
+          });
+        await took(
+          (
+            answer as {
+              ok: true;
+              body: unknown;
+            }
+          ).body as PhoneAccess,
+        );
       });
     },
     pair: () => {
-      void ask({ op: "start" }).then((answer) => {
+      void ask({
+        op: "start",
+      }).then((answer) => {
         const bad = problem(answer);
-        if (bad !== null) return set({ gateway: bad });
-        const started = (answer as { ok: true; body: unknown }).body as Started;
+        if (bad !== null)
+          return set({
+            gateway: bad,
+          });
+        const started = (
+          answer as {
+            ok: true;
+            body: unknown;
+          }
+        ).body as Started;
         code = started.code;
         clearTimeout(expiry);
-        expiry = setTimeout(() => set({ pairing: null, claim: null }), Math.max(0, started.expires_at * 1000 - now()));
+        expiry = setTimeout(
+          () =>
+            set({
+              pairing: null,
+              claim: null,
+            }),
+          Math.max(0, started.expires_at * 1000 - now()),
+        );
         set({
-          pairing: { url: `${started.address}/pair?code=${started.code}`, expiresAt: started.expires_at * 1000 },
+          pairing: {
+            url: `${started.address}/pair?code=${started.code}`,
+            expiresAt: started.expires_at * 1000,
+          },
           claim: null,
         });
       });
     },
     confirm: () => {
       if (code === null) return;
-      void ask({ op: "confirm", code }).then(async (answer) => {
+      void ask({
+        op: "confirm",
+        code,
+      }).then(async (answer) => {
         const bad = problem(answer);
-        if (bad !== null) return set({ gateway: bad, pairing: null, claim: null });
+        if (bad !== null)
+          return set({
+            gateway: bad,
+            pairing: null,
+            claim: null,
+          });
         code = null;
-        set({ pairing: null, claim: null });
+        set({
+          pairing: null,
+          claim: null,
+        });
         await refresh();
       });
     },
     funnel: () => {
       if (state.setup === null) return;
-      set({ setup: { ...state.setup, funnel: { state: "turning" } } });
-      void ask({ op: "funnel" }).then(async (answer) => {
+      set({
+        setup: {
+          ...state.setup,
+          funnel: {
+            state: "turning",
+          },
+        },
+      });
+      void ask({
+        op: "funnel",
+      }).then(async (answer) => {
         if (state.setup === null) return;
         if (!answer.ok) {
           const said = answer.why === "unreachable" ? "The Gateway is not running." : answer.said;
-          return set({ setup: { ...state.setup, funnel: { state: "said", said } } });
+          return set({
+            setup: {
+              ...state.setup,
+              funnel: {
+                state: "said",
+                said,
+              },
+            },
+          });
         }
-        const page = (answer.body as { approve?: unknown } | null)?.approve;
-        if (typeof page === "string") return set({ setup: { ...state.setup, funnel: { state: "approve", page } } });
+        const page = (
+          answer.body as {
+            approve?: unknown;
+          } | null
+        )?.approve;
+        if (typeof page === "string")
+          return set({
+            setup: {
+              ...state.setup,
+              funnel: {
+                state: "approve",
+                page,
+              },
+            },
+          });
         const { funnel: _done, ...rest } = state.setup;
-        set({ setup: rest });
+        set({
+          setup: rest,
+        });
         await readSetup();
       });
     },
     open,
     unpair: (id) => {
-      void ask({ op: "unpair", id }).then(async (answer) => {
+      void ask({
+        op: "unpair",
+        id,
+      }).then(async (answer) => {
         const bad = problem(answer);
-        if (bad !== null) return set({ gateway: bad });
+        if (bad !== null)
+          return set({
+            gateway: bad,
+          });
         await refresh();
       });
     },

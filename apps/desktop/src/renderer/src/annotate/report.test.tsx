@@ -33,11 +33,22 @@ const fleetOf = () =>
     startSession: vi.fn(),
     sendSessionMessage: vi.fn(),
     sendSessionNotes: vi.fn(),
-    state: vi.fn(async () => ({ sessions: { state: "read", sessions: [] } }) as never),
+    state: vi.fn(
+      async () =>
+        ({
+          sessions: {
+            state: "read",
+            sessions: [],
+          },
+        }) as never,
+    ),
     subscribe: () => () => undefined,
   }) satisfies LayerFleet;
 
-let mounted: { root: Root; host: HTMLElement }[] = [];
+let mounted: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const one of mounted) {
@@ -59,10 +70,19 @@ async function layerOff(saved: Annotation[] = []) {
   root.render(
     <StrictMode>
       <PointMenu />
-      <Layer sink={{ ...sink, save: async (note) => void saved.push(note) }} fleet={fleet} />
+      <Layer
+        sink={{
+          ...sink,
+          save: async (note) => void saved.push(note),
+        }}
+        fleet={fleet}
+      />
     </StrictMode>,
   );
-  mounted.push({ root, host });
+  mounted.push({
+    root,
+    host,
+  });
   await vi.waitFor(() => expect(fleet.state).toHaveBeenCalled());
 }
 
@@ -80,9 +100,24 @@ test("asking to report an element opens the note card on it with the layer off",
   const one = target();
   askToReport(one);
 
-  await expect.element(page.getByRole("dialog", { name: "New note" })).toBeVisible();
-  await userEvent.fill(page.getByRole("textbox", { name: "Note" }), "wrong colour");
-  await page.getByRole("button", { name: "Save note" }).click();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "New note",
+      }),
+    )
+    .toBeVisible();
+  await userEvent.fill(
+    page.getByRole("textbox", {
+      name: "Note",
+    }),
+    "wrong colour",
+  );
+  await page
+    .getByRole("button", {
+      name: "Save note",
+    })
+    .click();
   await vi.waitFor(() => expect(saved).toHaveLength(1));
   expect(saved[0]?.text).toBe("wrong colour");
   expect(saved[0]?.element.tag).toBe("button");
@@ -91,24 +126,67 @@ test("asking to report an element opens the note card on it with the layer off",
 test("a right press on a plain element opens a menu with Report, and choosing it opens the note card", async () => {
   await layerOff();
   const one = target();
-  one.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+  one.dispatchEvent(
+    new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 40,
+      clientY: 40,
+    }),
+  );
 
-  await page.getByRole("menuitem", { name: "Report" }).click();
-  await expect.element(page.getByRole("dialog", { name: "New note" })).toBeVisible();
+  await page
+    .getByRole("menuitem", {
+      name: "Report",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "New note",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("cancelling a card Report opened puts the layer away, and Escape does the same", async () => {
   await layerOff();
   const one = target();
   askToReport(one);
-  await page.getByRole("button", { name: "Cancel" }).click();
-  await vi.waitFor(() => expect(page.getByRole("dialog", { name: "New note" }).query()).toBeNull());
+  await page
+    .getByRole("button", {
+      name: "Cancel",
+    })
+    .click();
+  await vi.waitFor(() =>
+    expect(
+      page
+        .getByRole("dialog", {
+          name: "New note",
+        })
+        .query(),
+    ).toBeNull(),
+  );
   expect(page.getByRole("status").query()).toBeNull();
 
   askToReport(one);
-  await expect.element(page.getByRole("dialog", { name: "New note" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "New note",
+      }),
+    )
+    .toBeVisible();
   await userEvent.keyboard("{Escape}");
-  await vi.waitFor(() => expect(page.getByRole("dialog", { name: "New note" }).query()).toBeNull());
+  await vi.waitFor(() =>
+    expect(
+      page
+        .getByRole("dialog", {
+          name: "New note",
+        })
+        .query(),
+    ).toBeNull(),
+  );
   expect(page.getByRole("status").query()).toBeNull();
 });
 
@@ -116,8 +194,17 @@ test("cancelling a card the layer's own click opened leaves the layer on", async
   sessionStorage.setItem("armada.annotate.on", "1");
   await layerOff();
   const one = target();
-  one.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  await page.getByRole("button", { name: "Cancel" }).click();
+  one.dispatchEvent(
+    new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  await page
+    .getByRole("button", {
+      name: "Cancel",
+    })
+    .click();
   await expect.element(page.getByRole("status")).toBeVisible();
 });
 
@@ -125,7 +212,20 @@ test("a right press the app handled itself opens no menu", async () => {
   await layerOff();
   const one = target();
   one.addEventListener("contextmenu", (event) => event.preventDefault());
-  one.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+  one.dispatchEvent(
+    new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 40,
+      clientY: 40,
+    }),
+  );
 
-  expect(page.getByRole("menuitem", { name: "Report" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("menuitem", {
+        name: "Report",
+      })
+      .query(),
+  ).toBeNull();
 });

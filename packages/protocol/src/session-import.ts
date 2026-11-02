@@ -7,12 +7,21 @@
 /** Whether a folder is a git repository, read from the folder alone. Tagged on `state`. */
 export type ImportGit =
   /** The folder is a repository's root. */
-  | { state: "root" }
+  | {
+      state: "root";
+    }
   /** Under a repository's root, which is the folder to serve. */
-  | { state: "inside"; root: string }
-  | { state: "not_a_repository" }
+  | {
+      state: "inside";
+      root: string;
+    }
+  | {
+      state: "not_a_repository";
+    }
   /** The folder is gone, so there is nothing to look in. */
-  | { state: "unknown" };
+  | {
+      state: "unknown";
+    };
 
 /** One folder an agent CLI has kept sessions for. */
 export type ImportFolder = {
@@ -67,12 +76,21 @@ export type ImportRuns = {
  * `install_agent_mod`'s body (`POST /import/install_mod`). `requested` must be `true`: `false` is a 422
  * `fleet.install_not_requested`, and the install runs only for a person who pressed it.
  */
-export type InstallAgentMod = { requested: boolean };
+export type InstallAgentMod = {
+  requested: boolean;
+};
 
 /** Which step of the install stopped. */
 export type ModInstallStep = "populate" | "add_marketplace" | "install";
 
 /** How the install went, answered 200 either way. Tagged on `result`; `said` is the CLI's own words. */
 export type ModInstalled =
-  | { result: "installed"; said: string }
-  | { result: "failed"; step: ModInstallStep; said: string };
+  | {
+      result: "installed";
+      said: string;
+    }
+  | {
+      result: "failed";
+      step: ModInstallStep;
+      said: string;
+    };

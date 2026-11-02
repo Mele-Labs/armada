@@ -14,7 +14,9 @@ export type PieceToShare = {
 };
 
 /** `share_package`'s body (`POST /share/package`). Fleet only makes the text; Bridge writes the file and the clipboard. */
-export type SharePieces = { pieces: PieceToShare[] };
+export type SharePieces = {
+  pieces: PieceToShare[];
+};
 
 /** `share_package`'s answer. */
 export type SharedPackage = {
@@ -29,7 +31,9 @@ export type PieceKind = "tile" | "workflow" | "review_tool" | "manifest" | "requ
 export type TileList = "job" | "deck";
 
 /** `read_package`'s body (`POST /share/read`), writing nothing. */
-export type PackageText = { text: string };
+export type PackageText = {
+  text: string;
+};
 
 /** One piece a package holds, and what adding it would do. */
 export type PackagePiece = {
@@ -51,7 +55,9 @@ export type PackagePiece = {
 };
 
 /** `read_package`'s answer. */
-export type PackageRead = { pieces: PackagePiece[] };
+export type PackageRead = {
+  pieces: PackagePiece[];
+};
 
 /** `add_package`'s body (`POST /share/add`). A malformed package is a 422 `fleet.share_malformed`; an id Kit holds without `replace`, `fleet.share_exists`. */
 export type AddPackage = {
@@ -78,7 +84,9 @@ export type PieceAdded = {
 };
 
 /** `add_package`'s answer. */
-export type PackageAdded = { pieces: PieceAdded[] };
+export type PackageAdded = {
+  pieces: PieceAdded[];
+};
 
 /** A piece kept unbound until a repository is chosen. */
 export type UnboundPiece = {
@@ -92,7 +100,9 @@ export type UnboundPiece = {
 };
 
 /** `list_unbound_pieces`' answer (`GET /share/unbound`). */
-export type UnboundPieces = { pieces: UnboundPiece[] };
+export type UnboundPieces = {
+  pieces: UnboundPiece[];
+};
 
 /** `bind_unbound_piece`'s body (`POST /share/bind`), answered with a `PieceAdded`. Once: the piece is no longer unbound. */
 export type BindUnboundPiece = {

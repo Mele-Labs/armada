@@ -52,7 +52,11 @@ const GROUPS: RunPageGroup[] = [
     kind: "setup",
     label: "Setup",
     entries: [
-      { id: "setup:bootstrap", name: "bootstrap", run: "pnpm install --frozen-lockfile" },
+      {
+        id: "setup:bootstrap",
+        name: "bootstrap",
+        run: "pnpm install --frozen-lockfile",
+      },
       {
         id: "setup:browsers",
         name: "browsers",
@@ -64,16 +68,36 @@ const GROUPS: RunPageGroup[] = [
     kind: "checks",
     label: "Checks",
     entries: [
-      { id: "check:build", name: "build", run: "cargo build --workspace --locked" },
-      { id: "check:test", name: "test", run: "cargo nextest run --workspace --exclude acceptance" },
-      { id: "check:typecheck", name: "typecheck", run: "pnpm typecheck" },
-      { id: "check:bridge_build", name: "bridge_build", run: "pnpm -C apps/desktop build" },
+      {
+        id: "check:build",
+        name: "build",
+        run: "cargo build --workspace --locked",
+      },
+      {
+        id: "check:test",
+        name: "test",
+        run: "cargo nextest run --workspace --exclude acceptance",
+      },
+      {
+        id: "check:typecheck",
+        name: "typecheck",
+        run: "pnpm typecheck",
+      },
+      {
+        id: "check:bridge_build",
+        name: "bridge_build",
+        run: "pnpm -C apps/desktop build",
+      },
       {
         id: "check:storybook",
         name: "storybook",
         run: "pnpm -C packages/components build-storybook",
       },
-      { id: "check:bridge_test", name: "bridge_test", run: "pnpm bridge-test" },
+      {
+        id: "check:bridge_test",
+        name: "bridge_test",
+        run: "pnpm bridge-test",
+      },
       {
         id: "check:format",
         name: "format",
@@ -88,8 +112,17 @@ const GROUPS: RunPageGroup[] = [
     entries: [
       // The one row on this page the flag means something on: it rewrites
       // every Rust file in the tree a person is working in.
-      { id: "command:fmt", name: "fmt", run: "cargo fmt --all", destructive: true },
-      { id: "command:gate", name: "gate", run: "cargo xtask verify-foundations" },
+      {
+        id: "command:fmt",
+        name: "fmt",
+        run: "cargo fmt --all",
+        destructive: true,
+      },
+      {
+        id: "command:gate",
+        name: "gate",
+        run: "cargo xtask verify-foundations",
+      },
       {
         id: "server:storybook",
         name: "storybook",
@@ -99,11 +132,18 @@ const GROUPS: RunPageGroup[] = [
   },
 ];
 
-const EDITED = { manifestEditedAt: "2026-10-17T09:30:00Z" };
+const EDITED = {
+  manifestEditedAt: "2026-10-17T09:30:00Z",
+};
 
 /** Nothing picked — the control reads as an instruction, not a dead form. */
 export const AtRest: Story = {
-  args: { ...EDITED, groups: GROUPS, onSelect: fn(), onRun: fn() },
+  args: {
+    ...EDITED,
+    groups: GROUPS,
+    onSelect: fn(),
+    onRun: fn(),
+  },
 };
 
 /** The Manifest declares `setup.seed`: Setup names it and says how warm it is. #1064. */
@@ -137,12 +177,20 @@ export const WithAnAlwaysAllowedCommand: Story = {
     groups: GROUPS,
     onSelect: fn(),
     onRun: fn(),
-    alwaysAllowed: [{ run: "gh issue view" }],
+    alwaysAllowed: [
+      {
+        run: "gh issue view",
+      },
+    ],
     onRemoveAlwaysAllowed: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getByText("gh issue view")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Remove gh issue view" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Remove gh issue view",
+      }),
+    );
     await expect(args.onRemoveAlwaysAllowed).toHaveBeenCalledWith("gh issue view");
   },
 };
@@ -168,7 +216,10 @@ export const RowsCarryingWhatTheyAreWorth: Story = {
             ...group,
             entries: group.entries.map((entry) =>
               entry.id === "check:bridge_test"
-                ? { ...entry, drifted: true }
+                ? {
+                    ...entry,
+                    drifted: true,
+                  }
                 : entry.id === "check:typecheck"
                   ? {
                       ...entry,
@@ -203,26 +254,48 @@ export const RowsCarryingWhatTheyAreWorth: Story = {
    * still current is the one that reads as true.
    */
   play: async ({ canvas }) => {
-    const drifted = canvas.getByRole("button", { name: /^bridge_test/ });
+    const drifted = canvas.getByRole("button", {
+      name: /^bridge_test/,
+    });
     await expect(drifted).toHaveTextContent("gone");
-    await expect(canvas.getByRole("button", { name: /^build/ })).not.toHaveTextContent("gone");
+    await expect(
+      canvas.getByRole("button", {
+        name: /^build/,
+      }),
+    ).not.toHaveTextContent("gone");
     // The code is short on the row; what it expected is in the title, because
     // `exit 2 (expects 0)` and a clock do not fit a 240px rail.
-    const failed = canvas.getByRole("button", { name: /^typecheck/ });
+    const failed = canvas.getByRole("button", {
+      name: /^typecheck/,
+    });
     await expect(failed).toHaveTextContent("exit 2");
     await expect(failed.querySelector(".armada-chip")).toHaveAttribute(
       "title",
       "exit 2 (expects 0)",
     );
     // A row that has never run here says nothing rather than exit 0.
-    await expect(canvas.getByRole("button", { name: /^bridge_build/ })).not.toHaveTextContent("exit");
-    await expect(canvas.getByRole("button", { name: /^fmt/ })).toHaveTextContent("writes");
+    await expect(
+      canvas.getByRole("button", {
+        name: /^bridge_build/,
+      }),
+    ).not.toHaveTextContent("exit");
+    await expect(
+      canvas.getByRole("button", {
+        name: /^fmt/,
+      }),
+    ).toHaveTextContent("writes");
   },
 };
 
 /** Read, and this repository has always-allowed nothing yet: **no Always allowed group at all**. */
 export const NothingAlwaysAllowed: Story = {
-  args: { ...EDITED, groups: GROUPS, onSelect: fn(), onRun: fn(), alwaysAllowed: [] },
+  args: {
+    ...EDITED,
+    groups: GROUPS,
+    onSelect: fn(),
+    onRun: fn(),
+    alwaysAllowed: [],
+  },
   play: async ({ canvas }) => {
     await expect(canvas.queryByText("Always allowed")).toBeNull();
     await expect(canvas.queryByText(/allowed yet/)).toBeNull();
@@ -232,9 +305,22 @@ export const NothingAlwaysAllowed: Story = {
 // Cut mid-build rather than at a result: a run in flight has not finished, and
 // a streamed reading already showing `test result: ok` would say otherwise.
 const RUNNING_ROWS: ConsoleRow[] = [
-  { row: "line", at: 1, text: "   Compiling armada-fleet v0.1.0" },
-  { row: "fold", at: 2, says: "compiling chrono-lite v0.4.2 (18.4s) — 62 lines", open: false },
-  { row: "line", at: 64, text: "   Compiling armada-api v0.1.0" },
+  {
+    row: "line",
+    at: 1,
+    text: "   Compiling armada-fleet v0.1.0",
+  },
+  {
+    row: "fold",
+    at: 2,
+    says: "compiling chrono-lite v0.4.2 (18.4s) — 62 lines",
+    open: false,
+  },
+  {
+    row: "line",
+    at: 64,
+    text: "   Compiling armada-api v0.1.0",
+  },
 ];
 
 /** A run underway: output streaming, elapsed counting up, and Stop. */
@@ -246,8 +332,14 @@ export const Running: Story = {
     onSelect: fn(),
     onRun: fn(),
     onDismiss: fn(),
-    running: { elapsed: "6.1s elapsed", onStop: fn() },
-    output: { rows: RUNNING_ROWS, following: true },
+    running: {
+      elapsed: "6.1s elapsed",
+      onStop: fn(),
+    },
+    output: {
+      rows: RUNNING_ROWS,
+      following: true,
+    },
   },
 };
 
@@ -265,7 +357,11 @@ export const UnexpectedExit: Story = {
     onDismiss: fn(),
     output: {
       rows: [
-        { row: "line", at: 1, text: "test result: FAILED. 311 passed; 1 failed; 3 ignored" },
+        {
+          row: "line",
+          at: 1,
+          text: "test result: FAILED. 311 passed; 1 failed; 3 ignored",
+        },
         {
           row: "line",
           at: 2,
@@ -297,9 +393,18 @@ export const UnexpectedExit: Story = {
 
 // What `fmt` actually touches: Rust source, run through rustfmt.
 const REFORMATTED: ChangedFile[] = [
-  { path: "crates/fleet/src/rehearsing/checkout.rs", change: "modified" },
-  { path: "crates/api/src/rehearsing.rs", change: "modified" },
-  { path: "crates/ipc/src/rehearsal.rs", change: "modified" },
+  {
+    path: "crates/fleet/src/rehearsing/checkout.rs",
+    change: "modified",
+  },
+  {
+    path: "crates/api/src/rehearsing.rs",
+    change: "modified",
+  },
+  {
+    path: "crates/ipc/src/rehearsal.rs",
+    change: "modified",
+  },
 ];
 
 /**
@@ -316,7 +421,15 @@ export const AfterARunThatChangedFiles: Story = {
     onSelect: fn(),
     onRun: fn(),
     onDismiss: fn(),
-    output: { rows: [{ row: "line", at: 1, text: "Diff in crates/fleet/src/rehearsing/checkout.rs" }] },
+    output: {
+      rows: [
+        {
+          row: "line",
+          at: 1,
+          text: "Diff in crates/fleet/src/rehearsing/checkout.rs",
+        },
+      ],
+    },
     result: {
       name: "fmt",
       exitCode: 0,
@@ -325,10 +438,18 @@ export const AfterARunThatChangedFiles: Story = {
       duration: "2.7s",
       outcome: "passed",
     },
-    changed: { files: REFORMATTED, onOpenDiff: fn(), onUndo: fn() },
+    changed: {
+      files: REFORMATTED,
+      onOpenDiff: fn(),
+      onUndo: fn(),
+    },
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Open the diff" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open the diff",
+      }),
+    );
     await expect(args.changed?.onOpenDiff).toHaveBeenCalled();
     // A read, not an act: nothing was confirmed and nothing was put back.
     await expect(canvas.queryByRole("dialog")).toBeNull();
@@ -364,9 +485,19 @@ export const AfterTheRunWasUndone: Story = {
     },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText(/These files are back as they were before the run/)).toHaveTextContent(`Undone at ${timeSaid("2026-10-19T14:21:03Z")}`);
-    await expect(canvas.getByRole("button", { name: "Open the diff" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Undo this run" })).toBeNull();
+    await expect(
+      canvas.getByText(/These files are back as they were before the run/),
+    ).toHaveTextContent(`Undone at ${timeSaid("2026-10-19T14:21:03Z")}`);
+    await expect(
+      canvas.getByRole("button", {
+        name: "Open the diff",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Undo this run",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -384,10 +515,22 @@ export const TheRunsDiffOpen: Story = {
           {
             path: "crates/fleet/src/rehearsing/checkout.rs",
             lines: [
-              { kind: "hunk", text: "@@ -137,9 +137,7 @@ impl Fleet {" },
-              { kind: "removed", text: "-            answered(ipc::RunDiffReading::Gone {" },
-              { kind: "removed", text: "-                why: why.to_string()," },
-              { kind: "removed", text: "-            })" },
+              {
+                kind: "hunk",
+                text: "@@ -137,9 +137,7 @@ impl Fleet {",
+              },
+              {
+                kind: "removed",
+                text: "-            answered(ipc::RunDiffReading::Gone {",
+              },
+              {
+                kind: "removed",
+                text: "-                why: why.to_string(),",
+              },
+              {
+                kind: "removed",
+                text: "-            })",
+              },
               {
                 kind: "added",
                 text: "+            answered(ipc::RunDiffReading::Gone { why: why.to_string() })",
@@ -415,7 +558,12 @@ export const AServerServing: Story = {
       phase: "serving",
       address: "localhost:41207",
       uptime: "up 4m",
-      links: [{ url: "http://localhost:41207", name: "Storybook" }],
+      links: [
+        {
+          url: "http://localhost:41207",
+          name: "Storybook",
+        },
+      ],
     },
   },
 };
@@ -428,25 +576,55 @@ export const AServerServing: Story = {
  * does not gate it.
  */
 export const ADestructiveCommandConfirms: Story = {
-  args: { ...EDITED, groups: GROUPS, selectedId: "command:fmt", onSelect: fn(), onRun: fn() },
+  args: {
+    ...EDITED,
+    groups: GROUPS,
+    selectedId: "command:fmt",
+    onSelect: fn(),
+    onRun: fn(),
+  },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Run" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Run",
+      }),
+    );
     await expect(args.onRun).not.toHaveBeenCalled();
 
-    const dialog = canvas.getByRole("dialog", { name: "Run a Command that writes?" });
+    const dialog = canvas.getByRole("dialog", {
+      name: "Run a Command that writes?",
+    });
     await expect(dialog).toHaveTextContent("cargo fmt --all");
-    await expect(canvas.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Cancel",
+      }),
+    ).toHaveFocus();
 
-    await userEvent.click(canvas.getByRole("button", { name: "Run it" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Run it",
+      }),
+    );
     await expect(args.onRun).toHaveBeenCalledWith("command:fmt");
   },
 };
 
 /** A Check that writes nothing runs on the press — no dialog for a flag it does not carry. */
 export const ACheckRunsOnThePress: Story = {
-  args: { ...EDITED, groups: GROUPS, selectedId: "check:typecheck", onSelect: fn(), onRun: fn() },
+  args: {
+    ...EDITED,
+    groups: GROUPS,
+    selectedId: "check:typecheck",
+    onSelect: fn(),
+    onRun: fn(),
+  },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Run" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Run",
+      }),
+    );
     await expect(args.onRun).toHaveBeenCalledWith("check:typecheck");
     await expect(canvas.queryByRole("dialog")).toBeNull();
   },
@@ -472,16 +650,29 @@ export const UndoNamesWhatItDiscards: Story = {
       duration: "2.7s",
       outcome: "passed",
     },
-    changed: { files: REFORMATTED, onUndo: fn() },
+    changed: {
+      files: REFORMATTED,
+      onUndo: fn(),
+    },
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Undo this run" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Undo this run",
+      }),
+    );
     await expect(args.changed?.onUndo).not.toHaveBeenCalled();
 
-    const dialog = canvas.getByRole("dialog", { name: "Put these files back as they were?" });
+    const dialog = canvas.getByRole("dialog", {
+      name: "Put these files back as they were?",
+    });
     for (const file of REFORMATTED) await expect(dialog).toHaveTextContent(file.path);
 
-    await userEvent.click(canvas.getByRole("button", { name: "Undo the run" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Undo the run",
+      }),
+    );
     await expect(args.changed?.onUndo).toHaveBeenCalled();
   },
 };
@@ -490,12 +681,30 @@ export const UndoNamesWhatItDiscards: Story = {
 export const YourCheckHidesTheRepositorys: Story = {
   args: {
     ...EDITED,
-    groups: GROUPS.map((group) => ({ ...group, entries: group.entries.map((entry) => (entry.id === "check:test" ? { ...entry, hides: true } : entry)) })),
+    groups: GROUPS.map((group) => ({
+      ...group,
+      entries: group.entries.map((entry) =>
+        entry.id === "check:test"
+          ? {
+              ...entry,
+              hides: true,
+            }
+          : entry,
+      ),
+    })),
     onSelect: fn(),
     onRun: fn(),
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Hides the repository's test" })).toBeVisible();
-    await expect(canvas.queryByRole("img", { name: "Hides the repository's build" })).toBeNull();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Hides the repository's test",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("img", {
+        name: "Hides the repository's build",
+      }),
+    ).toBeNull();
   },
 };

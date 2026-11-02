@@ -28,10 +28,21 @@ const D4 = hz(-7);
 
 const TONES = {
   "armada-blocked": [
-    { at: 0, hz: G4 },
-    { at: 170, hz: D4 },
+    {
+      at: 0,
+      hz: G4,
+    },
+    {
+      at: 170,
+      hz: D4,
+    },
   ],
-  "armada-waiting": [{ at: 0, hz: A4 }],
+  "armada-waiting": [
+    {
+      at: 0,
+      hz: A4,
+    },
+  ],
 };
 
 function envelope(ms) {

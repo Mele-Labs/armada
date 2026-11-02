@@ -19,7 +19,7 @@ export function reviewQueueModule(step: number): string {
   const order = (a, b) => (${step >= 1} ? a.updated_at.localeCompare(b.updated_at) : b.updated_at.localeCompare(a.updated_at));
   return h("div", { className: "job-pane__scroll" }, repositories.map((repository) =>
     h("section", { key: repository, className: "sv-layer__group", "aria-label": repository },
-      h("h4", { className: "sv-layer__group-label" }, ${step >= 3 ? "repository + \" · oldest first\"" : "repository"}),
+      h("h4", { className: "sv-layer__group-label" }, ${step >= 3 ? 'repository + " · oldest first"' : "repository"}),
       h("ul", { className: "sv-layer__rows" }, rows.filter((one) => one.repository === repository).sort(order).map((pr) =>
         h("li", { key: pr.number, className: "sv-ledger" },
           h("button", { type: "button", className: "sv-ledger__main", "aria-label": "Pull request #" + pr.number + " " + pr.title, onClick: () => window.open(pr.address) },

@@ -2,7 +2,13 @@
 // kept teaching opens. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 // `docs/concepts/mods.md`.
 
-import type { ReadTeaching, SaveTeaching, TeachingRead, TeachingSaved, WordRulesRead } from "@armada/protocol";
+import type {
+  ReadTeaching,
+  SaveTeaching,
+  TeachingRead,
+  TeachingSaved,
+  WordRulesRead,
+} from "@armada/protocol";
 
 export type TeachingApi = {
   /** `POST /teachings/read`: one model call, nothing kept. The answer has at least one part. */

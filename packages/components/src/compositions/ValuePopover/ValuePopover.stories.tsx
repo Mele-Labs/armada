@@ -27,23 +27,49 @@ export const Prerequisites: Story = {
         label="Commands e2e runs first"
         says="Ticked Commands run before the Check, in the order ticked."
         options={[
-          { name: "migrate" },
-          { name: "seed" },
-          { name: "reset", unavailable: "Destructive, so no Check may run it first." },
+          {
+            name: "migrate",
+          },
+          {
+            name: "seed",
+          },
+          {
+            name: "reset",
+            unavailable: "Destructive, so no Check may run it first.",
+          },
         ]}
-        picked={["migrate"]}
+        picked={[
+          "migrate",
+        ]}
         onPicked={picked}
       />
     ),
   },
   play: async ({ canvasElement, userEvent }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Edit e2e runs first" }));
-    const layer = canvas.getByRole("dialog", { name: "e2e runs first" });
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Edit e2e runs first",
+      }),
+    );
+    const layer = canvas.getByRole("dialog", {
+      name: "e2e runs first",
+    });
     await expect(within(layer).getByText("1")).toBeVisible();
-    await expect(within(layer).getByRole("checkbox", { name: "reset" })).toBeDisabled();
-    await userEvent.click(within(layer).getByRole("checkbox", { name: "seed" }));
-    await expect(picked).toHaveBeenCalledWith(["migrate", "seed"]);
+    await expect(
+      within(layer).getByRole("checkbox", {
+        name: "reset",
+      }),
+    ).toBeDisabled();
+    await userEvent.click(
+      within(layer).getByRole("checkbox", {
+        name: "seed",
+      }),
+    );
+    await expect(picked).toHaveBeenCalledWith([
+      "migrate",
+      "seed",
+    ]);
     // Never left up.
     await userEvent.keyboard("{Escape}");
     await expect(canvas.queryByRole("dialog")).toBeNull();
@@ -71,10 +97,20 @@ export const Destructive: Story = {
   },
   play: async ({ canvasElement, userEvent }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Mark destructive: reset" }));
-    const layer = canvas.getByRole("dialog", { name: "reset destructive" });
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Mark destructive: reset",
+      }),
+    );
+    const layer = canvas.getByRole("dialog", {
+      name: "reset destructive",
+    });
     await expect(within(layer).getByText(/this is your judgement/)).toBeVisible();
-    await userEvent.click(within(layer).getByRole("switch", { name: /Destructive/ }));
+    await userEvent.click(
+      within(layer).getByRole("switch", {
+        name: /Destructive/,
+      }),
+    );
     await expect(flagged).toHaveBeenCalledWith(true);
     await userEvent.keyboard("{Escape}");
     await expect(canvas.queryByRole("dialog")).toBeNull();

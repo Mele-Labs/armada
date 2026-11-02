@@ -14,19 +14,57 @@ type Night = (state: SleepState) => SleepState;
 export const LUNCH_SESSION = "s21";
 export const BRANCH_SESSION = "s22";
 
-const LUNCH: MorningDecided = { id: "d1", who: "Order the lunch", asked: "Which size?", chose: "Large", sessionId: LUNCH_SESSION };
-const BRANCH: MorningDecided = { id: "d2", who: "Name the branch", asked: "fix or feat?", chose: "fix", sessionId: BRANCH_SESSION };
+const LUNCH: MorningDecided = {
+  id: "d1",
+  who: "Order the lunch",
+  asked: "Which size?",
+  chose: "Large",
+  sessionId: LUNCH_SESSION,
+};
+const BRANCH: MorningDecided = {
+  id: "d2",
+  who: "Name the branch",
+  asked: "fix or feat?",
+  chose: "fix",
+  sessionId: BRANCH_SESSION,
+};
 
-const decide = (one: MorningDecided): Night => (state) => ({ ...state, decided: [...state.decided, one] });
+const decide =
+  (one: MorningDecided): Night =>
+  (state) => ({
+    ...state,
+    decided: [
+      ...state.decided,
+      one,
+    ],
+  });
 
-const NIGHT: readonly Night[] = [decide(LUNCH), decide(BRANCH)];
+const NIGHT: readonly Night[] = [
+  decide(LUNCH),
+  decide(BRANCH),
+];
 
-const EMPTY: SleepState = { on: false, decided: [], blocked: [], landed: [], walks: [] };
+const EMPTY: SleepState = {
+  on: false,
+  decided: [],
+  blocked: [],
+  landed: [],
+  walks: [],
+};
 
 /** Sleep still on after the night: every decision made, none looked at. */
-export const overnight = (): SleepState => ({ ...EMPTY, on: true, decided: [LUNCH, BRANCH] });
+export const overnight = (): SleepState => ({
+  ...EMPTY,
+  on: true,
+  decided: [
+    LUNCH,
+    BRANCH,
+  ],
+});
 
-export function createMockSleep(): SleepSource & { reset(to?: SleepState): void } {
+export function createMockSleep(): SleepSource & {
+  reset(to?: SleepState): void;
+} {
   let state = EMPTY;
   let next = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -53,19 +91,33 @@ export function createMockSleep(): SleepSource & { reset(to?: SleepState): void 
     },
     toggle: () => {
       if (!state.on) {
-        set({ ...state, on: true });
+        set({
+          ...state,
+          on: true,
+        });
         timer = setTimeout(pass, GRACE_MS);
         return;
       }
       stop();
-      let to = { ...state, on: false };
+      let to = {
+        ...state,
+        on: false,
+      };
       for (let at = next; at < NIGHT.length; at++) to = NIGHT[at]!(to);
       next = NIGHT.length;
       set(to);
     },
     // A decision answered either way is reviewed: its call leaves the Cockpit.
-    override: (id, _text) => set({ ...state, decided: state.decided.filter((one) => one.id !== id) }),
-    review: (id) => set({ ...state, decided: state.decided.filter((one) => one.id !== id) }),
+    override: (id, _text) =>
+      set({
+        ...state,
+        decided: state.decided.filter((one) => one.id !== id),
+      }),
+    review: (id) =>
+      set({
+        ...state,
+        decided: state.decided.filter((one) => one.id !== id),
+      }),
   };
 }
 

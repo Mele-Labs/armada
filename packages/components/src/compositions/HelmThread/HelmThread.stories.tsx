@@ -8,7 +8,13 @@ const meta: Meta<typeof HelmThread> = {
   title: "Compositions/Helm thread",
   component: HelmThread,
   render: (args) => (
-    <div style={{ width: "var(--w-dock)", background: "var(--bg-sunken)", padding: "var(--space-4)" }}>
+    <div
+      style={{
+        width: "var(--w-dock)",
+        background: "var(--bg-sunken)",
+        padding: "var(--space-4)",
+      }}
+    >
       <HelmThread {...args} />
     </div>
   ),
@@ -17,21 +23,40 @@ export default meta;
 
 type Story = StoryObj<typeof HelmThread>;
 
-const asked: HelmThreadRow = { id: "1", at: "14:29:40", actor: "you", message: "Why did the checkout Session stall?" };
+const asked: HelmThreadRow = {
+  id: "1",
+  at: "14:29:40",
+  actor: "you",
+  message: "Why did the checkout Session stall?",
+};
 const replied: HelmThreadRow = {
   id: "2",
   at: "14:29:52",
   actor: "helm",
   message: "The Session is waiting on a command it was not given: cargo nextest run -p store.",
 };
-const cost: HelmThreadRow = { ...replied, id: "3", message: "It needs an answer in the dock above.", meta: "~$0.01 · 4 turns" };
+const cost: HelmThreadRow = {
+  ...replied,
+  id: "3",
+  message: "It needs an answer in the dock above.",
+  meta: "~$0.01 · 4 turns",
+};
 
 /** A conversation with a reply already in, nothing in flight. */
-export const AtRest: Story = { args: { rows: [asked, cost] } };
+export const AtRest: Story = {
+  args: {
+    rows: [
+      asked,
+      cost,
+    ],
+  },
+};
 
 /** Nothing asked yet, or the thread just cleared: **nothing is drawn**, no sentence and no note. */
 export const Empty: Story = {
-  args: { rows: [] },
+  args: {
+    rows: [],
+  },
   play: async ({ canvas, canvasElement }) => {
     await expect(canvas.queryByRole("note")).toBeNull();
     await expect(canvasElement.textContent).toBe("");
@@ -40,7 +65,12 @@ export const Empty: Story = {
 
 /** A message just went out and Helm's own rows are still arriving. */
 export const MidReply: Story = {
-  args: { rows: [asked], replying: true },
+  args: {
+    rows: [
+      asked,
+    ],
+    replying: true,
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("status")).toHaveTextContent("Helm is replying…");
   },
@@ -48,7 +78,13 @@ export const MidReply: Story = {
 
 /** Fleet is unreachable. What already arrived stays on screen. */
 export const FleetUnreachable: Story = {
-  args: { rows: [asked, cost], notice: "Fleet is not connected. What Helm already said is still here." },
+  args: {
+    rows: [
+      asked,
+      cost,
+    ],
+    notice: "Fleet is not connected. What Helm already said is still here.",
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("alert")).toHaveTextContent("Fleet is not connected");
   },
@@ -62,7 +98,12 @@ export const FleetUnreachable: Story = {
 export const AMarkdownReply: Story = {
   args: {
     rows: [
-      { id: "1", at: "14:29:40", actor: "you", message: "Why did the checkout Session stall?" },
+      {
+        id: "1",
+        at: "14:29:40",
+        actor: "you",
+        message: "Why did the checkout Session stall?",
+      },
       {
         id: "2",
         at: "14:29:52",
@@ -95,21 +136,45 @@ export const SentWithFiles: Story = {
         ...asked,
         message: "Do these explain the stale clock?",
         files: [
-          { id: "f1", name: "Screenshot.png", src: PIXEL },
-          { id: "f2", name: "clock.log" },
+          {
+            id: "f1",
+            name: "Screenshot.png",
+            src: PIXEL,
+          },
+          {
+            id: "f2",
+            name: "clock.log",
+          },
         ],
       },
     ],
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: /Screenshot\.png/ })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", {
+        name: /Screenshot\.png/,
+      }),
+    ).toBeInTheDocument();
     await expect(canvas.getByText("clock.log")).toBeInTheDocument();
   },
 };
 
 /** A sketch sent from this window is drawn as the sketch, by its title. */
 export const SentWithASketch: Story = {
-  args: { rows: [{ ...asked, message: "Like this?", sketches: [{ id: "k1", title: "pin the clock" }] }] },
+  args: {
+    rows: [
+      {
+        ...asked,
+        message: "Like this?",
+        sketches: [
+          {
+            id: "k1",
+            title: "pin the clock",
+          },
+        ],
+      },
+    ],
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("pin the clock")).toBeInTheDocument();
   },
@@ -121,10 +186,21 @@ export const SentWithTags: Story = {
     rows: [
       {
         ...asked,
-        message: "see @#2214 Sessions list drops a quiet Session and @#2207 Stop the Drone count drifting",
+        message:
+          "see @#2214 Sessions list drops a quiet Session and @#2207 Stop the Drone count drifting",
         tags: [
-          { kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" },
-          { kind: "pull_request", id: "2207", title: "#2207 Stop the Drone count drifting", url: "https://forge.invalid/pull/2207" },
+          {
+            kind: "issue",
+            id: "2214",
+            title: "#2214 Sessions list drops a quiet Session",
+            url: "https://forge.invalid/issues/2214",
+          },
+          {
+            kind: "pull_request",
+            id: "2207",
+            title: "#2207 Stop the Drone count drifting",
+            url: "https://forge.invalid/pull/2207",
+          },
         ],
       },
     ],
@@ -137,8 +213,26 @@ export const SentWithTags: Story = {
 
 /** A message that was only a picture has no words, and its row is the picture. */
 export const SentWithNoWords: Story = {
-  args: { rows: [{ ...asked, message: "", files: [{ id: "f1", name: "Screenshot.png", src: PIXEL }] }] },
+  args: {
+    rows: [
+      {
+        ...asked,
+        message: "",
+        files: [
+          {
+            id: "f1",
+            name: "Screenshot.png",
+            src: PIXEL,
+          },
+        ],
+      },
+    ],
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: /Screenshot\.png/ })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", {
+        name: /Screenshot\.png/,
+      }),
+    ).toBeInTheDocument();
   },
 };

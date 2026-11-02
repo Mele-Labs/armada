@@ -7,11 +7,32 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 type Verdict = NonNullable<PullRequestReviewer["verdict"]> | "waiting";
 
 // The same glyphs the Conversation tab gives a verdict; a reviewer with none yet is waiting.
-const VERDICT: Record<Verdict, { Glyph: LucideIcon; said: string; tone?: string }> = {
-  waiting: { Glyph: Clock, said: "Waiting" },
-  approved: { Glyph: Check, said: "Approved", tone: "success" },
-  changes_requested: { Glyph: Ban, said: "Changes requested", tone: "failed" },
-  commented: { Glyph: ScrollText, said: "Commented" },
+const VERDICT: Record<
+  Verdict,
+  {
+    Glyph: LucideIcon;
+    said: string;
+    tone?: string;
+  }
+> = {
+  waiting: {
+    Glyph: Clock,
+    said: "Waiting",
+  },
+  approved: {
+    Glyph: Check,
+    said: "Approved",
+    tone: "success",
+  },
+  changes_requested: {
+    Glyph: Ban,
+    said: "Changes requested",
+    tone: "failed",
+  },
+  commented: {
+    Glyph: ScrollText,
+    said: "Commented",
+  },
 };
 
 /** Who is a reviewer on the pull request, a row each, a requested team's people under its row. Drawn only where Fleet named one. */
@@ -26,7 +47,9 @@ export function PullRequestReviewers({
   const teams = reviewers.filter(({ kind }) => kind === "team");
   const people = reviewers.filter(({ kind }) => kind === "person");
   const placed = (slug: string) => people.filter(({ team }) => team === slug);
-  const unplaced = people.filter(({ team }) => team === undefined || !teams.some(({ login }) => login === team));
+  const unplaced = people.filter(
+    ({ team }) => team === undefined || !teams.some(({ login }) => login === team),
+  );
 
   const row = ({ login, kind, verdict, name, url }: PullRequestReviewer) => {
     const { Glyph, said, tone } = VERDICT[verdict ?? "waiting"];
@@ -35,7 +58,12 @@ export function PullRequestReviewers({
       url === undefined ? (
         <span className="armada-pr-reviewers__login">{login}</span>
       ) : (
-        <button type="button" className="armada-pr-reviewers__login" data-link onClick={() => onOpenLink(url)}>
+        <button
+          type="button"
+          className="armada-pr-reviewers__login"
+          data-link
+          onClick={() => onOpenLink(url)}
+        >
           {login}
         </button>
       );
@@ -50,7 +78,12 @@ export function PullRequestReviewers({
           </Tooltip>
         ) : null}
         <Tooltip label={said}>
-          <span className="armada-pr-reviewers__verdict" data-tone={tone} role="img" aria-label={said}>
+          <span
+            className="armada-pr-reviewers__verdict"
+            data-tone={tone}
+            role="img"
+            aria-label={said}
+          >
             <Glyph size={16} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
@@ -73,7 +106,12 @@ export function PullRequestReviewers({
     <section className="armada-pr-plate armada-pr-reviewers" aria-label="Reviewers">
       <span className="armada-pr-plate__eyebrow">Reviewers</span>
       {teams.map((team) => (
-        <div key={team.login} role="group" aria-label={team.login} className="armada-pr-reviewers__group">
+        <div
+          key={team.login}
+          role="group"
+          aria-label={team.login}
+          className="armada-pr-reviewers__group"
+        >
           <div className="armada-pr-reviewers__row">{row(team)}</div>
           {list(placed(team.login))}
         </div>

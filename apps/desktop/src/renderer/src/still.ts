@@ -13,7 +13,10 @@ export function watchStill(): () => void {
   const root = document.documentElement;
   let last = Date.now();
   const set = (): void => {
-    root.toggleAttribute("data-still", document.visibilityState === "hidden" || !document.hasFocus());
+    root.toggleAttribute(
+      "data-still",
+      document.visibilityState === "hidden" || !document.hasFocus(),
+    );
   };
   const look = (): void => {
     root.toggleAttribute("data-idle", Date.now() - last >= IDLE_MS);
@@ -26,14 +29,26 @@ export function watchStill(): () => void {
   window.addEventListener("focus", set);
   window.addEventListener("blur", set);
   document.addEventListener("visibilitychange", set);
-  const inputs = ["pointermove", "pointerdown", "keydown", "wheel"] as const;
-  for (const one of inputs) window.addEventListener(one, input, { passive: true, capture: true });
+  const inputs = [
+    "pointermove",
+    "pointerdown",
+    "keydown",
+    "wheel",
+  ] as const;
+  for (const one of inputs)
+    window.addEventListener(one, input, {
+      passive: true,
+      capture: true,
+    });
   const timer = window.setInterval(look, LOOK_MS);
   return () => {
     window.removeEventListener("focus", set);
     window.removeEventListener("blur", set);
     document.removeEventListener("visibilitychange", set);
-    for (const one of inputs) window.removeEventListener(one, input, { capture: true });
+    for (const one of inputs)
+      window.removeEventListener(one, input, {
+        capture: true,
+      });
     window.clearInterval(timer);
     root.removeAttribute("data-still");
     root.removeAttribute("data-idle");

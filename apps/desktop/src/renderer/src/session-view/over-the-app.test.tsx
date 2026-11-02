@@ -8,9 +8,16 @@ import { Sheet } from "@armada/components";
 
 import { OverTheApp } from "./OverTheApp";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
     act(() => root.unmount());
@@ -21,12 +28,25 @@ afterEach(() => {
 function Pane() {
   const [open, setOpen] = useState(false);
   return (
-    <section className="deck-pane" style={{ backdropFilter: "blur(1px)" }}>
+    <section
+      className="deck-pane"
+      style={{
+        backdropFilter: "blur(1px)",
+      }}
+    >
       <button type="button" onClick={() => setOpen(true)}>
         Open
       </button>
       <OverTheApp open={open}>
-        <Sheet kind="over-the-app-test" open={open} floating title="Reading" closeLabel="Close" closeBinding="Esc" onClose={() => setOpen(false)}>
+        <Sheet
+          kind="over-the-app-test"
+          open={open}
+          floating
+          title="Reading"
+          closeLabel="Close"
+          closeBinding="Esc"
+          onClose={() => setOpen(false)}
+        >
           Body
         </Sheet>
       </OverTheApp>
@@ -39,7 +59,10 @@ function mount(): HTMLElement {
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(<Pane />));
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   return host;
 }
 
@@ -60,9 +83,19 @@ test("Esc closes the sheet and focus goes back to the button that opened it", as
   open.focus();
   act(() => open.click());
   await act(async () => {
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   });
   // The sheet eases out for its exit before it leaves the page.
-  await expect.poll(() => document.querySelector(".armada-sheet"), { timeout: 2000 }).toBeNull();
+  await expect
+    .poll(() => document.querySelector(".armada-sheet"), {
+      timeout: 2000,
+    })
+    .toBeNull();
   await expect.poll(() => document.activeElement).toBe(open);
 });

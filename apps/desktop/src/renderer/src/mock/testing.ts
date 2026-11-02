@@ -14,7 +14,10 @@ import type { Mounted } from "./mount";
 import type { Scenario } from "./scenario";
 import type { StudioKeeping } from "@armada/studios/fake";
 
-let mounted: { app: Mounted; host: HTMLElement }[] = [];
+let mounted: {
+  app: Mounted;
+  host: HTMLElement;
+}[] = [];
 
 /** What the next mount's viewer remembers, set by a test that opens on a pick it made earlier. */
 let remembered: Readonly<Record<string, string>> = {};
@@ -51,13 +54,26 @@ export function mount(scenario: string | Scenario, options?: FakeOptions): Mount
   localStorage.removeItem("armada.bridge.cockpit-view");
   localStorage.removeItem("armada.bridge.cockpit-timeline-take");
   // And the flight deck's: the switch, its view and its filters.
-  for (const key of ["deck-preview", "deck-system", "deck-view", "deck-job-view", "deck-only", "deck-filters", "deck-scope", "deck-order"]) localStorage.removeItem(`armada.bridge.${key}`);
+  for (const key of [
+    "deck-preview",
+    "deck-system",
+    "deck-view",
+    "deck-job-view",
+    "deck-only",
+    "deck-filters",
+    "deck-scope",
+    "deck-order",
+  ])
+    localStorage.removeItem(`armada.bridge.${key}`);
   for (const [key, value] of Object.entries(remembered)) localStorage.setItem(key, value);
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
   const app = mountApp(scenario, host, undefined, options);
-  mounted.push({ app, host });
+  mounted.push({
+    app,
+    host,
+  });
   return app;
 }
 
@@ -81,14 +97,30 @@ export async function onScreen(): Promise<void> {
 export async function openHelm(): Promise<void> {
   await onScreen();
   await userEvent.keyboard("{Meta>}j{/Meta}");
-  await expect.element(page.getByRole("complementary", { name: "Helm" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("complementary", {
+        name: "Helm",
+      }),
+    )
+    .toBeVisible();
 }
 
 /**
  * Two windows on one main, side by side, each labelled as a region so a test
  * can scope to it. Both talk to one fake, so a clone either sends lands in both.
  */
-export function mountTwo(scenario: Scenario, labels: [string, string], options?: FakeOptions): [HTMLElement, HTMLElement] {
+export function mountTwo(
+  scenario: Scenario,
+  labels: [
+    string,
+    string,
+  ],
+  options?: FakeOptions,
+): [
+  HTMLElement,
+  HTMLElement,
+] {
   const row = document.createElement("div");
   row.style.display = "flex";
   document.body.append(row);
@@ -101,15 +133,26 @@ export function mountTwo(scenario: Scenario, labels: [string, string], options?:
     row.append(host);
     const app = mountApp(scenario, host, api, options);
     api = app.api;
-    mounted.push({ app, host });
+    mounted.push({
+      app,
+      host,
+    });
     return host;
   });
   // The row is not a window of its own: both of its windows are already tracked above.
   mounted.push({
-    app: { api: api!, scenario, onScreen: Promise.resolve(), unmount: () => undefined },
+    app: {
+      api: api!,
+      scenario,
+      onScreen: Promise.resolve(),
+      unmount: () => undefined,
+    },
     host: row,
   });
-  return hosts as [HTMLElement, HTMLElement];
+  return hosts as [
+    HTMLElement,
+    HTMLElement,
+  ];
 }
 
 /**
@@ -122,7 +165,12 @@ export function mountTwo(scenario: Scenario, labels: [string, string], options?:
  */
 export async function entered(layer: ReturnType<typeof page.getByRole>): Promise<void> {
   await expect.element(layer).toBeVisible();
-  await Promise.all(layer.element().getAnimations().map((one) => one.finished));
+  await Promise.all(
+    layer
+      .element()
+      .getAnimations()
+      .map((one) => one.finished),
+  );
 }
 
 declare module "vitest/browser" {
@@ -144,23 +192,50 @@ export async function motion(): Promise<void> {
 }
 
 /** A place in the title bar: Cockpit, Jobs, Studios, Logbook or System. Pressing the one a person is in goes up to its list. A Session is no place: `toSession` reaches it. */
-export async function toPlace(name: "Cockpit" | "Jobs" | "Studios" | "Logbook" | "System"): Promise<void> {
-  await userEvent.click(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name }));
+export async function toPlace(
+  name: "Cockpit" | "Jobs" | "Studios" | "Logbook" | "System",
+): Promise<void> {
+  await userEvent.click(
+    page
+      .getByRole("navigation", {
+        name: "Places",
+      })
+      .getByRole("tab", {
+        name,
+      }),
+  );
 }
 
 /** What the System strip's five pages were called, and the sidebar entry each opens now. A name that is an entry of its own is passed through. */
-const SIDEBAR_ENTRY: Readonly<Record<string, string>> = { Kit: "Skills", Mods: "Theme", Settings: "Limits" };
+const SIDEBAR_ENTRY: Readonly<Record<string, string>> = {
+  Kit: "Skills",
+  Mods: "Theme",
+  Settings: "Limits",
+};
 
 /** An entry of the System sidebar, from anywhere: System, then the entry's button. Studios is a tab of its own, one press, and Retros is the Logbook's Retros tab. */
 export async function toSystemPage(name: string): Promise<void> {
   if (name === "Studios") return toPlace(name);
   if (name === "Retros") {
     await toPlace("Logbook");
-    return userEvent.click(page.getByRole("tab", { name: "Retros", exact: true }));
+    return userEvent.click(
+      page.getByRole("tab", {
+        name: "Retros",
+        exact: true,
+      }),
+    );
   }
   await toPlace("System");
   const entry = SIDEBAR_ENTRY[name] ?? name;
-  await userEvent.click(page.getByRole("navigation", { name: "System" }).getByRole("button", { name: new RegExp(`^${entry}( |$)`) }));
+  await userEvent.click(
+    page
+      .getByRole("navigation", {
+        name: "System",
+      })
+      .getByRole("button", {
+        name: new RegExp(`^${entry}( |$)`),
+      }),
+  );
 }
 
 /** A page no tab or strip place carries, by name from ⌘K. */
@@ -175,23 +250,44 @@ export async function toPageByName(name: string): Promise<void> {
  * name, one given as a pattern is matched inside it. The list shows Active Sessions until its Filter menu is turned to another
  * scope, which a Session that ended or went quiet is found under, and which stays turned until it is chosen again.
  */
-export async function toSession(title: RegExp | string, scope?: "Active" | "Quiet" | "Ended" | "All"): Promise<ReturnType<typeof page.getByRole>> {
+export async function toSession(
+  title: RegExp | string,
+  scope?: "Active" | "Quiet" | "Ended" | "All",
+): Promise<ReturnType<typeof page.getByRole>> {
   await toPlace("Cockpit");
-  const work = page.getByRole("region", { name: "Jobs", exact: true });
+  const work = page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
   await expect.element(work).toBeVisible();
   if (scope !== undefined) {
-    await userEvent.click(work.getByRole("button", { name: /^Filter/ }));
-    await userEvent.click(page.getByRole("menuitem", { name: scope, exact: true }));
+    await userEvent.click(
+      work.getByRole("button", {
+        name: /^Filter/,
+      }),
+    );
+    await userEvent.click(
+      page.getByRole("menuitem", {
+        name: scope,
+        exact: true,
+      }),
+    );
   }
   // The Session's row is the one keyed `session:<id>`, named by its title.
   const row = () =>
-    [...document.querySelectorAll<HTMLElement>('section[aria-label="Jobs"] [data-row^="session:"]')].find((one) => {
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        'section[aria-label="Jobs"] [data-row^="session:"]',
+      ),
+    ].find((one) => {
       const name = one.getAttribute("aria-label") ?? "";
       return typeof title === "string" ? name === title : title.test(name);
     });
   await expect.poll(() => row() !== undefined).toBe(true);
   await userEvent.click(row()!);
-  const view = page.getByRole("region", { name: /^Job: / });
+  const view = page.getByRole("region", {
+    name: /^Job: /,
+  });
   await expect.element(view).toBeVisible();
   return view;
 }
@@ -217,7 +313,10 @@ export function whenCalled(spy: Mock, times = 1): Promise<void> {
  * Resolves once the fake Fleet's Studios or browsed addresses satisfy `held`, at once if they
  * already do. The same wait as `whenCalled`, on state the fake keeps rather than a function.
  */
-export function whenFleet(fleet: Pick<StudioKeeping, "onChange">, held: () => boolean): Promise<void> {
+export function whenFleet(
+  fleet: Pick<StudioKeeping, "onChange">,
+  held: () => boolean,
+): Promise<void> {
   if (held()) return Promise.resolve();
   return new Promise((resolve) => {
     const stop = fleet.onChange(() => {

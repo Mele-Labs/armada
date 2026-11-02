@@ -13,10 +13,26 @@ type Way = "tab" | "system" | "link" | "palette";
 
 function ways(surface: string): Way[] {
   return [
-    ...(DECK_TABS.some((tab) => tab.id !== "system" && tab.surface === surface) ? (["tab"] as const) : []),
-    ...(SYSTEM_PAGES.some((page) => page.surface === surface) ? (["system"] as const) : []),
-    ...(Object.values(DECK_LINK).includes(surface as never) ? (["link"] as const) : []),
-    ...(SURFACES.some((one) => one.id === surface) ? (["palette"] as const) : []),
+    ...(DECK_TABS.some((tab) => tab.id !== "system" && tab.surface === surface)
+      ? ([
+          "tab",
+        ] as const)
+      : []),
+    ...(SYSTEM_PAGES.some((page) => page.surface === surface)
+      ? ([
+          "system",
+        ] as const)
+      : []),
+    ...(Object.values(DECK_LINK).includes(surface as never)
+      ? ([
+          "link",
+        ] as const)
+      : []),
+    ...(SURFACES.some((one) => one.id === surface)
+      ? ([
+          "palette",
+        ] as const)
+      : []),
   ];
 }
 
@@ -30,15 +46,28 @@ describe("every page in the roster", () => {
   });
 
   it("names the pages that only the palette reaches, so a new one is a decision", () => {
-    const paletteOnly = SURFACES.filter((one) => ways(one.id).length === 1).map((one) => one.id).sort();
+    const paletteOnly = SURFACES.filter((one) => ways(one.id).length === 1)
+      .map((one) => one.id)
+      .sort();
     // Account and Doctor also open from the title menu's rows, and Account from Settings' Account section, which this roster does not count.
     // Requests is a panel and not a page: it also opens from a tile on a Job's Flight control.
     // Retros is a tab of the Logbook: the palette row and a retro card's link open the Logbook on it.
-    expect(paletteOnly).toEqual([SURFACE.account, SURFACE.checks, SURFACE.doctor, SURFACE.usage, SURFACE.requests, SURFACE.lessons].sort());
+    expect(paletteOnly).toEqual(
+      [
+        SURFACE.account,
+        SURFACE.checks,
+        SURFACE.doctor,
+        SURFACE.usage,
+        SURFACE.requests,
+        SURFACE.lessons,
+      ].sort(),
+    );
   });
 
   it("is reached by a tab or a System entry for every page the title bar draws, and System opens one of them", () => {
     for (const tab of DECK_TABS) expect(SURFACES.some((one) => one.id === tab.surface)).toBe(true);
-    expect(SYSTEM_PAGES.map((page) => page.surface)).toContain(DECK_TABS.find((tab) => tab.id === "system")!.surface);
+    expect(SYSTEM_PAGES.map((page) => page.surface)).toContain(
+      DECK_TABS.find((tab) => tab.id === "system")!.surface,
+    );
   });
 });

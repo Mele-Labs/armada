@@ -64,20 +64,44 @@ const STRIDE = 10;
 /** The most dashes one segment of a stroke is cut into; a longer one is drawn solid, so no stroke can grow without bound. */
 const MOST_DASHES = 2000;
 
-const program = () => GlProgram.from({ vertex: VERTEX, fragment: FRAGMENT, name: "bf-plane" });
+const program = () =>
+  GlProgram.from({
+    vertex: VERTEX,
+    fragment: FRAGMENT,
+    name: "bf-plane",
+  });
 
 /** The camera the shaders of every layer read, one group shared so a move is written once. */
 export class PlaneView {
   readonly group: UniformGroup;
-  private readonly packed = { cam: new Float32Array(2), trig: new Float32Array(4), screen: new Float32Array(3) };
+  private readonly packed = {
+    cam: new Float32Array(2),
+    trig: new Float32Array(4),
+    screen: new Float32Array(3),
+  };
 
   constructor() {
     this.group = new UniformGroup({
-      uCam: { value: this.packed.cam, type: "vec2<f32>" },
-      uEye: { value: 1, type: "f32" },
-      uTrig: { value: this.packed.trig, type: "vec4<f32>" },
-      uScreen: { value: this.packed.screen, type: "vec3<f32>" },
-      uHairline: { value: 0.5, type: "f32" },
+      uCam: {
+        value: this.packed.cam,
+        type: "vec2<f32>",
+      },
+      uEye: {
+        value: 1,
+        type: "f32",
+      },
+      uTrig: {
+        value: this.packed.trig,
+        type: "vec4<f32>",
+      },
+      uScreen: {
+        value: this.packed.screen,
+        type: "vec3<f32>",
+      },
+      uHairline: {
+        value: 0.5,
+        type: "f32",
+      },
     });
   }
 
@@ -137,15 +161,62 @@ export class PlaneBuilder {
 
   /** An axis-aligned rectangle lying flat at height z. */
   flat(x: number, y: number, w: number, h: number, z: number, c: Rgba): void {
-    this.fan([{ x, y, z }, { x: x + w, y, z }, { x: x + w, y: y + h, z }, { x, y: y + h, z }], c);
+    this.fan(
+      [
+        {
+          x,
+          y,
+          z,
+        },
+        {
+          x: x + w,
+          y,
+          z,
+        },
+        {
+          x: x + w,
+          y: y + h,
+          z,
+        },
+        {
+          x,
+          y: y + h,
+          z,
+        },
+      ],
+      c,
+    );
   }
 
   /**
    * A line of the given half width (in plane units, kept at least a hairline on the screen), through `points`, optionally dashed:
    * `dash` is the length of a dash and of the gap after it. Corners are not mitred, so a stroke through a sharp one thins there.
    */
-  stroke(points: readonly P3[], half: number, c: Rgba, opts: { closed?: boolean; dash?: readonly [number, number]; offset?: number; shade?: (p: P3) => Rgba; normal?: { x: number; y: number } } = {}): void {
-    const path = opts.closed === true ? [...points, points[0]!] : points;
+  stroke(
+    points: readonly P3[],
+    half: number,
+    c: Rgba,
+    opts: {
+      closed?: boolean;
+      dash?: readonly [
+        number,
+        number,
+      ];
+      offset?: number;
+      shade?: (p: P3) => Rgba;
+      normal?: {
+        x: number;
+        y: number;
+      };
+    } = {},
+  ): void {
+    const path =
+      opts.closed === true
+        ? [
+            ...points,
+            points[0]!,
+          ]
+        : points;
     if (path.length < 2) return;
     const { shade, normal } = opts;
     if (opts.dash === undefined) {
@@ -161,16 +232,32 @@ export class PlaneBuilder {
       run = [];
     };
     for (let i = 0; i < path.length - 1; i += 1) {
-      const [a, b] = [path[i]!, path[i + 1]!];
+      const [a, b] = [
+        path[i]!,
+        path[i + 1]!,
+      ];
       const length = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
       // A segment to a point at infinity would be dashed forever, until the vertices outgrow what an array can hold.
       if (length === 0 || !Number.isFinite(length)) continue;
       if (length / cycle > MOST_DASHES) {
         flush();
-        this.ribbon([a, b], half, c, shade, normal);
+        this.ribbon(
+          [
+            a,
+            b,
+          ],
+          half,
+          c,
+          shade,
+          normal,
+        );
         continue;
       }
-      const lerp = (s: number): P3 => ({ x: a.x + ((b.x - a.x) * s) / length, y: a.y + ((b.y - a.y) * s) / length, z: a.z + ((b.z - a.z) * s) / length });
+      const lerp = (s: number): P3 => ({
+        x: a.x + ((b.x - a.x) * s) / length,
+        y: a.y + ((b.y - a.y) * s) / length,
+        z: a.z + ((b.z - a.z) * s) / length,
+      });
       let at = 0;
       while (at < length) {
         const dashing = phase < on;
@@ -188,7 +275,16 @@ export class PlaneBuilder {
     flush();
   }
 
-  private ribbon(path: readonly P3[], half: number, c: Rgba, shade?: (p: P3) => Rgba, fixed?: { x: number; y: number }): void {
+  private ribbon(
+    path: readonly P3[],
+    half: number,
+    c: Rgba,
+    shade?: (p: P3) => Rgba,
+    fixed?: {
+      x: number;
+      y: number;
+    },
+  ): void {
     const n = path.length;
     // A normal in the plane at each point: the turn of the line there, the mean of its two sides. A line that stands upright has none
     // of its own, so it is given one.
@@ -196,9 +292,20 @@ export class PlaneBuilder {
       if (fixed !== undefined) return fixed;
       const a = path[Math.max(0, i - 1)]!;
       const b = path[Math.min(n - 1, i + 1)]!;
-      const [dx, dy] = [b.x - a.x, b.y - a.y];
+      const [dx, dy] = [
+        b.x - a.x,
+        b.y - a.y,
+      ];
       const length = Math.hypot(dx, dy);
-      return length === 0 ? { x: 0, y: 1 } : { x: -dy / length, y: dx / length };
+      return length === 0
+        ? {
+            x: 0,
+            y: 1,
+          }
+        : {
+            x: -dy / length,
+            y: dx / length,
+          };
     });
     const first = this.count;
     path.forEach((p, i) => {
@@ -215,13 +322,25 @@ export class PlaneBuilder {
   }
 
   /** The points of a rounded rectangle on the plane, going round once. */
-  static rounded(x: number, y: number, w: number, h: number, r: number, z: number, steps = 6): P3[] {
+  static rounded(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    r: number,
+    z: number,
+    steps = 6,
+  ): P3[] {
     const radius = Math.max(0, Math.min(r, w / 2, h / 2));
     const out: P3[] = [];
     const corner = (cx: number, cy: number, from: number) => {
       for (let i = 0; i <= steps; i += 1) {
         const a = from + (i / steps) * (Math.PI / 2);
-        out.push({ x: cx + Math.cos(a) * radius, y: cy + Math.sin(a) * radius, z });
+        out.push({
+          x: cx + Math.cos(a) * radius,
+          y: cy + Math.sin(a) * radius,
+          z,
+        });
       }
     };
     corner(x + w - radius, y + radius, -Math.PI / 2);
@@ -232,16 +351,50 @@ export class PlaneBuilder {
   }
 
   /** The points of a circle, or a part of one, on the plane. */
-  static arc(cx: number, cy: number, r: number, from: number, to: number, z: number, steps = 32): P3[] {
-    return Array.from({ length: steps + 1 }, (_, i) => {
-      const a = from + ((to - from) * i) / steps;
-      return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, z };
-    });
+  static arc(
+    cx: number,
+    cy: number,
+    r: number,
+    from: number,
+    to: number,
+    z: number,
+    steps = 32,
+  ): P3[] {
+    return Array.from(
+      {
+        length: steps + 1,
+      },
+      (_, i) => {
+        const a = from + ((to - from) * i) / steps;
+        return {
+          x: cx + Math.cos(a) * r,
+          y: cy + Math.sin(a) * r,
+          z,
+        };
+      },
+    );
   }
 
   /** A filled circle, or a sector of an annulus when `inner` is given, on the plane. */
-  disc(cx: number, cy: number, outer: number, c: Rgba, z: number, opts: { inner?: number; from?: number; to?: number; steps?: number } = {}): void {
-    const { inner = 0, from = 0, to = Math.PI * 2, steps = Math.max(8, Math.round((Math.abs(to - from) / (Math.PI * 2)) * 40)) } = opts;
+  disc(
+    cx: number,
+    cy: number,
+    outer: number,
+    c: Rgba,
+    z: number,
+    opts: {
+      inner?: number;
+      from?: number;
+      to?: number;
+      steps?: number;
+    } = {},
+  ): void {
+    const {
+      inner = 0,
+      from = 0,
+      to = Math.PI * 2,
+      steps = Math.max(8, Math.round((Math.abs(to - from) / (Math.PI * 2)) * 40)),
+    } = opts;
     if (inner <= 0) {
       const first = this.count;
       this.vertex(cx, cy, z, c);
@@ -266,7 +419,16 @@ export class PlaneBuilder {
   }
 
   /** A ring from `r0` to `r1` whose colour runs from `c0` at the inner edge to `c1` at the outer: a glow, or a soft edge. */
-  halo(cx: number, cy: number, r0: number, r1: number, c0: Rgba, c1: Rgba, z: number, steps = 40): void {
+  halo(
+    cx: number,
+    cy: number,
+    r0: number,
+    r1: number,
+    c0: Rgba,
+    c1: Rgba,
+    z: number,
+    steps = 40,
+  ): void {
     const first = this.count;
     for (let i = 0; i <= steps; i += 1) {
       const a = (i / steps) * Math.PI * 2;
@@ -283,13 +445,31 @@ export class PlaneBuilder {
   /** The geometry for what was added. */
   geometry(): Geometry {
     const data = new Float32Array(this.verts);
-    const buffer = new Buffer({ data, usage: BufferUsage.VERTEX | BufferUsage.COPY_DST });
+    const buffer = new Buffer({
+      data,
+      usage: BufferUsage.VERTEX | BufferUsage.COPY_DST,
+    });
     const stride = STRIDE * 4;
     return new Geometry({
       attributes: {
-        aPosition: { buffer, format: "float32x3", stride, offset: 0 },
-        aColor: { buffer, format: "float32x4", stride, offset: 12 },
-        aEdge: { buffer, format: "float32x3", stride, offset: 28 },
+        aPosition: {
+          buffer,
+          format: "float32x3",
+          stride,
+          offset: 0,
+        },
+        aColor: {
+          buffer,
+          format: "float32x4",
+          stride,
+          offset: 12,
+        },
+        aEdge: {
+          buffer,
+          format: "float32x3",
+          stride,
+          offset: 28,
+        },
       },
       indexBuffer: new Uint32Array(this.index),
     });
@@ -303,11 +483,43 @@ export class PlaneLayer {
 
   /** `glow` adds its colour to what is under it, so overlapping light brightens and nothing darkens. */
   constructor(view: PlaneView, glow = false) {
-    this.shader = new Shader({ glProgram: program(), resources: { view: view.group } });
+    this.shader = new Shader({
+      glProgram: program(),
+      resources: {
+        view: view.group,
+      },
+    });
     // A buffer cannot be empty, so the mesh starts as one invisible triangle and is hidden until it is given some.
     const seed = new PlaneBuilder();
-    seed.fan([{ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }], [0, 0, 0, 0]);
-    this.mesh = new Mesh({ geometry: seed.geometry(), shader: this.shader });
+    seed.fan(
+      [
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+      ],
+    );
+    this.mesh = new Mesh({
+      geometry: seed.geometry(),
+      shader: this.shader,
+    });
     this.mesh.visible = false;
     // The mesh's own bounds are the plane's, not the screen's: it is never culled by them.
     this.mesh.cullable = false;
@@ -326,7 +538,9 @@ export class PlaneLayer {
   destroy(): void {
     // The mesh lets go of its geometry as it goes, so it is held first.
     const { geometry } = this.mesh;
-    this.mesh.destroy({ children: true });
+    this.mesh.destroy({
+      children: true,
+    });
     geometry.destroy(true);
     this.shader.destroy();
   }

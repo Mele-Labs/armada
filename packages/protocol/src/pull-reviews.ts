@@ -81,9 +81,23 @@ export type PullReviewThread = {
 
 /** One comment of the review a person submits. They leave together, with the review. */
 export type PullReviewComment =
-  | { kind: "line"; path: string; line: number; side: DiffSide; body: string }
-  | { kind: "file"; path: string; body: string }
-  | { kind: "reply"; thread: string; body: string };
+  | {
+      kind: "line";
+      path: string;
+      line: number;
+      side: DiffSide;
+      body: string;
+    }
+  | {
+      kind: "file";
+      path: string;
+      body: string;
+    }
+  | {
+      kind: "reply";
+      thread: string;
+      body: string;
+    };
 
 /** `resolve_review_thread`'s body. `POST /review_threads/:repository`. */
 export type ResolvePullThread = {

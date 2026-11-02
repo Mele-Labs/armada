@@ -10,9 +10,13 @@
 }
 
 @keyframes armada-agent-sign-in-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-agent-sign-in__ring { animation: none; }
+  .armada-agent-sign-in__ring {
+    animation: none;
+  }
 }

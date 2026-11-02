@@ -15,7 +15,8 @@ const EVERY_MS = 60_000;
 export function titlesOf(sessions: BridgeState["sessions"]): ReadonlyMap<string, string> {
   const titles = new Map<string, string>();
   if (sessions.state !== "read") return titles;
-  for (const one of sessions.sessions) if (one.title !== undefined && one.title !== "") titles.set(one.id, one.title);
+  for (const one of sessions.sessions)
+    if (one.title !== undefined && one.title !== "") titles.set(one.id, one.title);
   return titles;
 }
 
@@ -40,8 +41,15 @@ export function UsageSurface({ state }: { state: Pick<BridgeState, "connection" 
       live = false;
       clearInterval(again);
     };
-  }, [connected]);
-  const titles = useMemo(() => titlesOf(state.sessions), [state.sessions]);
+  }, [
+    connected,
+  ]);
+  const titles = useMemo(
+    () => titlesOf(state.sessions),
+    [
+      state.sessions,
+    ],
+  );
   const planPercent = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
   return <UsagePage summary={summary} titles={titles} planPercent={planPercent} rules={rules} />;
 }

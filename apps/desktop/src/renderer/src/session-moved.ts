@@ -22,22 +22,61 @@ export function moveRefusalWords(outcome: Outcome): string | undefined {
   return outcome.ok || outcome.why !== "refused" ? undefined : REFUSED[outcome.error.code];
 }
 
-type Forked<K extends "forked_to" | "forked_from"> = Extract<SessionAttachment, { kind: K }>;
+type Forked<K extends "forked_to" | "forked_from"> = Extract<
+  SessionAttachment,
+  {
+    kind: K;
+  }
+>;
 
 /** The Session this one was moved to, from the ledger: a fork that names the repository it went to. */
 export const movedTo = (session: Session): Forked<"forked_to"> | undefined =>
-  session.attachments.find((one): one is Forked<"forked_to"> => one.kind === "forked_to" && one.moved !== undefined);
+  session.attachments.find(
+    (one): one is Forked<"forked_to"> => one.kind === "forked_to" && one.moved !== undefined,
+  );
 
 /** The Session this one was moved from, from the ledger: a fork that names the repository it came from. */
 export const movedFrom = (session: Session): Forked<"forked_from"> | undefined =>
-  session.attachments.find((one): one is Forked<"forked_from"> => one.kind === "forked_from" && one.moved !== undefined);
+  session.attachments.find(
+    (one): one is Forked<"forked_from"> => one.kind === "forked_from" && one.moved !== undefined,
+  );
 
 /** The row that ends the old Session's thread and the one that starts the new one's, each naming the other repository. */
-export function movedRowsOf(session: Session, repositories: readonly RepositorySummary[]): { head: SessionThreadRow[]; tail: SessionThreadRow[] } {
+export function movedRowsOf(
+  session: Session,
+  repositories: readonly RepositorySummary[],
+): {
+  head: SessionThreadRow[];
+  tail: SessionThreadRow[];
+} {
   const to = movedTo(session);
   const from = movedFrom(session);
   return {
-    head: from === undefined ? [] : [{ id: `moved-from-${from.id}`, at: "", kind: "moved", way: "from", session: from.id, repository: manifestLabel(from.moved!, repositories) }],
-    tail: to === undefined ? [] : [{ id: `moved-to-${to.id}`, at: "", kind: "moved", way: "to", session: to.id, repository: manifestLabel(to.moved!, repositories) }],
+    head:
+      from === undefined
+        ? []
+        : [
+            {
+              id: `moved-from-${from.id}`,
+              at: "",
+              kind: "moved",
+              way: "from",
+              session: from.id,
+              repository: manifestLabel(from.moved!, repositories),
+            },
+          ],
+    tail:
+      to === undefined
+        ? []
+        : [
+            {
+              id: `moved-to-${to.id}`,
+              at: "",
+              kind: "moved",
+              way: "to",
+              session: to.id,
+              repository: manifestLabel(to.moved!, repositories),
+            },
+          ],
   };
 }

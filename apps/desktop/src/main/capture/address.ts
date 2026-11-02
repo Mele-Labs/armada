@@ -12,10 +12,18 @@ import type { CaptureOpened } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
 
 /** The three hosts a process on this machine binds. Nothing else opens a window. */
-const LOOPBACK = ["127.0.0.1", "[::1]", "::1", "localhost"] as const;
+const LOOPBACK = [
+  "127.0.0.1",
+  "[::1]",
+  "::1",
+  "localhost",
+] as const;
 
 /** The two schemes. A `file:`, a `data:` or a custom scheme opens no window. */
-const SCHEMES = ["http:", "https:"] as const;
+const SCHEMES = [
+  "http:",
+  "https:",
+] as const;
 
 /**
  * An address this window is pinned to: the whole URL as the link gave it, and
@@ -41,8 +49,19 @@ export type Pinned = {
  * titled by its address**, so the name is dropped and the address drawn in full: the full address
  * holds the origin the window is pinned to, and the same words are not said twice.
  */
-export function shown(pin: Pinned): { name: string | null; address: string } {
-  return pin.name === pin.url ? { name: null, address: pin.url } : { name: pin.name, address: pin.origin };
+export function shown(pin: Pinned): {
+  name: string | null;
+  address: string;
+} {
+  return pin.name === pin.url
+    ? {
+        name: null,
+        address: pin.url,
+      }
+    : {
+        name: pin.name,
+        address: pin.origin,
+      };
 }
 
 /**
@@ -56,13 +75,30 @@ export function shown(pin: Pinned): { name: string | null; address: string } {
  */
 export function pinned(state: BridgeState, serverId: string, url: string): Pinned | CaptureOpened {
   const server = state.servers.servers.find((one) => one.id === serverId);
-  if (server === undefined) return { ok: false, why: "no_address" };
+  if (server === undefined)
+    return {
+      ok: false,
+      why: "no_address",
+    };
   // A loopback port is not an identity: once the process is gone anything on
   // the machine may bind it, so a window is never opened onto one that ended.
-  if (server.phase === "exited") return { ok: false, why: "not_serving" };
-  if (!server.links.some((link) => link.url === url)) return { ok: false, why: "no_address" };
+  if (server.phase === "exited")
+    return {
+      ok: false,
+      why: "not_serving",
+    };
+  if (!server.links.some((link) => link.url === url))
+    return {
+      ok: false,
+      why: "no_address",
+    };
   const origin = loopbackOrigin(url);
-  if (origin === null) return { ok: false, why: "not_loopback", address: url };
+  if (origin === null)
+    return {
+      ok: false,
+      why: "not_loopback",
+      address: url,
+    };
   return {
     run: server.id,
     name: server.name,
@@ -105,7 +141,9 @@ export function webOrigin(address: string): string | null {
   } catch {
     return null;
   }
-  return SCHEMES.some((scheme) => scheme === parsed.protocol) && parsed.hostname !== "" ? parsed.origin : null;
+  return SCHEMES.some((scheme) => scheme === parsed.protocol) && parsed.hostname !== ""
+    ? parsed.origin
+    : null;
 }
 
 /**
@@ -123,8 +161,14 @@ export function passThrough(named: readonly string[]): string[] {
     } catch {
       continue;
     }
-    const bare = parsed.pathname === "/" && parsed.search === "" && parsed.hash === "" && parsed.username === "" && parsed.password === "";
-    if (bare && SCHEMES.some((scheme) => scheme === parsed.protocol) && parsed.hostname !== "") origins.push(parsed.origin);
+    const bare =
+      parsed.pathname === "/" &&
+      parsed.search === "" &&
+      parsed.hash === "" &&
+      parsed.username === "" &&
+      parsed.password === "";
+    if (bare && SCHEMES.some((scheme) => scheme === parsed.protocol) && parsed.hostname !== "")
+      origins.push(parsed.origin);
   }
   return origins;
 }
@@ -154,7 +198,11 @@ export const LOCAL_NETWORK = "local-network-access";
  * Whether a page is given a permission. **The one permission a walk's page is given is local network
  * access, and only on an origin the window may reach**; every other permission is refused.
  */
-export function granted(permission: string, requesting: string, allowed: (address: string) => boolean): boolean {
+export function granted(
+  permission: string,
+  requesting: string,
+  allowed: (address: string) => boolean,
+): boolean {
   return permission === LOCAL_NETWORK && allowed(requesting);
 }
 
@@ -179,7 +227,9 @@ export function onNamedOrigin(pin: Pinned, address: string): boolean {
  * rest. Anything the fallback does not spell like Electron's is returned as it came.
  */
 export function chromeAgent(fallback: string): string {
-  return fallback.replace(/\s+Electron\/\S+/g, "").replace(/(like Gecko\))\s+\S+\/\S+(\s+Chrome\/)/, "$1$2");
+  return fallback
+    .replace(/\s+Electron\/\S+/g, "")
+    .replace(/(like Gecko\))\s+\S+\/\S+(\s+Chrome\/)/, "$1$2");
 }
 
 /**

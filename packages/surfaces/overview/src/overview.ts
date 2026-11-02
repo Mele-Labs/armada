@@ -13,7 +13,11 @@ import type { FleetHealth } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 
 /** One of the state machine's own hues, or none — never a colour picked for its own sake. */
-export type ReadingTone = "completed-success" | "awaiting-review" | "completed-failed" | "notice-caution";
+export type ReadingTone =
+  | "completed-success"
+  | "awaiting-review"
+  | "completed-failed"
+  | "notice-caution";
 
 /** A reading, in `FleetPanel`'s own terms. */
 export type MachineReading = {
@@ -33,19 +37,36 @@ const FLEET_TONE: Partial<Record<Connection["state"], ReadingTone>> = {
 };
 
 /** The connection's own statement — the status bar's sentence, not a second one. */
-export function fleetReading(connection: Connection, now: number, readAt: number | null): MachineReading {
+export function fleetReading(
+  connection: Connection,
+  now: number,
+  readAt: number | null,
+): MachineReading {
   const statement = statementOf(connection, now, readAt);
   const tone = FLEET_TONE[connection.state];
   return {
     label: "Fleet",
     value: statement.headline,
-    ...(tone === undefined ? {} : { tone }),
-    ...(statement.detail === "" ? {} : { detail: statement.detail, detailFace: "mono" as const }),
+    ...(tone === undefined
+      ? {}
+      : {
+          tone,
+        }),
+    ...(statement.detail === ""
+      ? {}
+      : {
+          detail: statement.detail,
+          detailFace: "mono" as const,
+        }),
   };
 }
 
 /** Doctor's words, worst first. A word this build does not know ranks below all three. */
-const OUTCOMES = ["fail", "warn", "pass"] as const;
+const OUTCOMES = [
+  "fail",
+  "warn",
+  "pass",
+] as const;
 const DOCTOR_TONE: Record<(typeof OUTCOMES)[number], ReadingTone> = {
   fail: "completed-failed",
   warn: "awaiting-review",
@@ -56,9 +77,15 @@ export function doctorReading(read: HealthRead): MachineReading {
   switch (read.state) {
     case "none":
     case "reading":
-      return { label: "Doctor" };
+      return {
+        label: "Doctor",
+      };
     case "failed":
-      return { label: "Doctor", value: "Not read", detail: said(read.outcome) };
+      return {
+        label: "Doctor",
+        value: "Not read",
+        detail: said(read.outcome),
+      };
     case "read":
       return doctorOf(read.health);
   }
@@ -70,7 +97,11 @@ export function doctorReading(read: HealthRead): MachineReading {
  */
 function doctorOf(health: FleetHealth): MachineReading {
   const first = health.probes[0];
-  if (first === undefined) return { label: "Doctor", value: "Nothing probed" };
+  if (first === undefined)
+    return {
+      label: "Doctor",
+      value: "Nothing probed",
+    };
   const worst = OUTCOMES.find((word) => health.probes.some((probe) => probe.outcome === word));
   const flagged = health.probes.filter((probe) => probe.outcome !== "pass");
   const detail =
@@ -81,7 +112,11 @@ function doctorOf(health: FleetHealth): MachineReading {
     label: "Doctor",
     value: worst ?? first.outcome,
     valueFace: "mono",
-    ...(worst === undefined ? {} : { tone: DOCTOR_TONE[worst] }),
+    ...(worst === undefined
+      ? {}
+      : {
+          tone: DOCTOR_TONE[worst],
+        }),
     detail,
   };
 }

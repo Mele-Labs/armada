@@ -5,7 +5,15 @@
 import type { BayHistory, Outcome } from "@armada/protocol";
 
 /** What reading a bay's history came to: Fleet's entries, newest first, or the refusal to word. */
-export type BayHistoryRead = { ok: true; value: BayHistory } | { ok: false; outcome: Outcome };
+export type BayHistoryRead =
+  | {
+      ok: true;
+      value: BayHistory;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type BayHistoryApi = {
   /** `GET /slot_history`: the leases, releases and checkouts of slot `slot` of repository `manifestId`, newest first. A Fleet before it answers a refusal. */

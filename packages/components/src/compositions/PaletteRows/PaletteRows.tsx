@@ -6,7 +6,14 @@ import { Button } from "../../primitives/Button/Button";
 import { Checkbox } from "../../primitives/Checkbox/Checkbox";
 import { Input } from "../../primitives/Input/Input";
 import { KbdChord } from "../../primitives/Kbd/Kbd";
-import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+} from "../../primitives/Table/Table";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /** A row of the command palette that holds a word, a key or a pin, as Settings lists it. */
@@ -52,7 +59,8 @@ export function PaletteRows({ rows, onAlias, onHotkey, onPin }: PaletteRowsProps
       event.preventDefault();
       event.stopImmediatePropagation();
       if (event.key === "Escape") return stop();
-      if (event.key === "Backspace" || event.key === "Delete") return void (onHotkey(id, ""), stop());
+      if (event.key === "Backspace" || event.key === "Delete")
+        return void (onHotkey(id, ""), stop());
       const chord = chordOf(event);
       if (chord === null) return;
       const why = onHotkey(id, formatChord(chord));
@@ -62,7 +70,10 @@ export function PaletteRows({ rows, onAlias, onHotkey, onPin }: PaletteRowsProps
     const stop = () => (setListening(null), setRefused(null));
     window.addEventListener("keydown", pressed, true);
     return () => window.removeEventListener("keydown", pressed, true);
-  }, [listening, onHotkey]);
+  }, [
+    listening,
+    onHotkey,
+  ]);
 
   // ↑ ↓ move to the same control in the row above or below, since a column of them is what is being driven.
   function onKeyDown(event: React.KeyboardEvent<HTMLTableElement>): void {
@@ -70,7 +81,9 @@ export function PaletteRows({ rows, onAlias, onHotkey, onPin }: PaletteRowsProps
     const here = (event.target as HTMLElement).closest<HTMLElement>("[data-col]");
     const col = here?.dataset["col"];
     if (here === undefined || here === null || col === undefined) return;
-    const column = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(`[data-col="${col}"]`));
+    const column = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(`[data-col="${col}"]`),
+    );
     const next = column[column.indexOf(here) + (event.key === "ArrowDown" ? 1 : -1)];
     if (next === undefined) return;
     event.preventDefault();
@@ -117,13 +130,29 @@ export function PaletteRows({ rows, onAlias, onHotkey, onPin }: PaletteRowsProps
                     data-recording={listening === row.id ? "" : undefined}
                     data-refused={listening === row.id && refused !== null ? "" : undefined}
                     aria-pressed={listening === row.id}
-                    aria-label={listening === row.id ? `${row.name}: press a key, Esc to cancel, Delete to clear` : `${row.name}, hotkey${row.hotkey === "" ? "" : `: ${row.hotkey}`}`}
-                    onClick={() => (setRefused(null), setListening(listening === row.id ? null : row.id))}
+                    aria-label={
+                      listening === row.id
+                        ? `${row.name}: press a key, Esc to cancel, Delete to clear`
+                        : `${row.name}, hotkey${row.hotkey === "" ? "" : `: ${row.hotkey}`}`
+                    }
+                    onClick={() => (
+                      setRefused(null), setListening(listening === row.id ? null : row.id)
+                    )}
                   >
-                    {listening === row.id ? <span className="armada-palette-rows__waiting">Press a key</span> : row.hotkey === "" ? null : <KbdChord keys={Array.from(row.hotkey)} aria-hidden />}
+                    {listening === row.id ? (
+                      <span className="armada-palette-rows__waiting">Press a key</span>
+                    ) : row.hotkey === "" ? null : (
+                      <KbdChord keys={Array.from(row.hotkey)} aria-hidden />
+                    )}
                   </button>
                 ) : null}
-                <Clear name={row.name} what="hotkey" col="hotkey-clear" shown={row.hotkey !== ""} onClear={() => void onHotkey(row.id, "")} />
+                <Clear
+                  name={row.name}
+                  what="hotkey"
+                  col="hotkey-clear"
+                  shown={row.hotkey !== ""}
+                  onClear={() => void onHotkey(row.id, "")}
+                />
               </div>
               {listening === row.id && refused !== null ? (
                 <span className="armada-palette-rows__refused" role="alert">
@@ -144,12 +173,31 @@ export function PaletteRows({ rows, onAlias, onHotkey, onPin }: PaletteRowsProps
 }
 
 /** The cell's clear, in a slot that keeps its width whether or not there is something to clear. */
-function Clear({ name, what, col, shown, onClear }: { name: string; what: string; col: string; shown: boolean; onClear: () => void }) {
+function Clear({
+  name,
+  what,
+  col,
+  shown,
+  onClear,
+}: {
+  name: string;
+  what: string;
+  col: string;
+  shown: boolean;
+  onClear: () => void;
+}) {
   return (
     <span className="armada-palette-rows__clear">
       {shown ? (
         <Tooltip label={`Clear ${what}`}>
-          <Button variant="ghost" size="sm" iconOnly data-col={col} aria-label={`Clear ${what}: ${name}`} onClick={onClear}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            data-col={col}
+            aria-label={`Clear ${what}: ${name}`}
+            onClick={onClear}
+          >
             <X size={12} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
@@ -158,7 +206,13 @@ function Clear({ name, what, col, shown, onClear }: { name: string; what: string
   );
 }
 
-function AliasCell({ row, onAlias }: { row: PaletteRowView; onAlias: PaletteRowsProps["onAlias"] }) {
+function AliasCell({
+  row,
+  onAlias,
+}: {
+  row: PaletteRowView;
+  onAlias: PaletteRowsProps["onAlias"];
+}) {
   // What is typed and not yet kept, or `null` while the field shows what is kept.
   const [typed, setTyped] = useState<string | null>(null);
   const [refused, setRefused] = useState<string | null>(null);
@@ -179,7 +233,11 @@ function AliasCell({ row, onAlias }: { row: PaletteRowView; onAlias: PaletteRows
         data-col="alias"
         value={typed ?? row.alias}
         invalid={refused !== null}
-        {...(refused === null ? {} : { message: refused })}
+        {...(refused === null
+          ? {}
+          : {
+              message: refused,
+            })}
         onChange={(event) => (setTyped(event.target.value), setRefused(null))}
         onBlur={keep}
         onKeyDown={(event) => {
@@ -194,7 +252,13 @@ function AliasCell({ row, onAlias }: { row: PaletteRowView; onAlias: PaletteRows
           }
         }}
       />
-      <Clear name={row.name} what="alias" col="alias-clear" shown={row.alias !== "" && typed === null} onClear={() => void onAlias(row.id, "")} />
+      <Clear
+        name={row.name}
+        what="alias"
+        col="alias-clear"
+        shown={row.alias !== "" && typed === null}
+        onClear={() => void onAlias(row.id, "")}
+      />
     </div>
   );
 }

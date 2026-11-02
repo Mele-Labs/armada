@@ -28,29 +28,61 @@ export type { FleetHandle, Scenario } from "./moment";
  */
 const ROW_FILES = (
   import.meta as ImportMeta & {
-    glob(pattern: string, options: { eager: true }): Record<string, Record<string, Scenario>>;
+    glob(
+      pattern: string,
+      options: {
+        eager: true;
+      },
+    ): Record<string, Record<string, Scenario>>;
   }
-).glob("./scenarios/*.ts", { eager: true });
+).glob("./scenarios/*.ts", {
+  eager: true,
+});
 
 /**
  * Whether a value a `scenarios/` file exports is a row. A file may also export plain values, words, helpers and lists
  * (`job-notes.ts`, `workspaces-and-autonomy.ts`): only an object with a name and a state is one.
  */
 export function isRow(value: unknown): value is Scenario {
-  return typeof value === "object" && value !== null && typeof (value as Partial<Scenario>).name === "string" && (value as Partial<Scenario>).state !== undefined;
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Partial<Scenario>).name === "string" &&
+    (value as Partial<Scenario>).state !== undefined
+  );
 }
 
-const LISTED: Scenario[] = Object.entries(Object.assign({}, ...Object.values(ROW_FILES)) as Record<string, unknown>)
-  .filter((entry): entry is [string, Scenario] => isRow(entry[1]))
+const LISTED: Scenario[] = Object.entries(
+  Object.assign({}, ...Object.values(ROW_FILES)) as Record<string, unknown>,
+)
+  .filter(
+    (
+      entry,
+    ): entry is [
+      string,
+      Scenario,
+    ] => isRow(entry[1]),
+  )
   .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   .map(([, scenario]) => scenario);
 
 /** The same scenario with Fleet serving three lines: one with a queue and outcomes, a quiet one, an empty one. */
 function lined(scenario: Scenario): Scenario {
-  const lines = [...mergeLines().lines, emptiedLine(NOTES.root), neverLanded(SCRATCH.root)];
-  return { ...scenario, state: { ...scenario.state, mergeLines: { lines } } };
+  const lines = [
+    ...mergeLines().lines,
+    emptiedLine(NOTES.root),
+    neverLanded(SCRATCH.root),
+  ];
+  return {
+    ...scenario,
+    state: {
+      ...scenario.state,
+      mergeLines: {
+        lines,
+      },
+    },
+  };
 }
-
 
 /**
  * Three merge lines mid-turn, a Check failing in each, moment by moment: `later` carries the
@@ -60,10 +92,28 @@ function failingCheck(): Scenario {
   const base = holding(
     "merge-line-failed-check",
     "Three merge lines mid-turn, each with a Check failed and the turn still going",
-    [repository(), NOTES, SCRATCH, BRIDGE],
+    [
+      repository(),
+      NOTES,
+      SCRATCH,
+      BRIDGE,
+    ],
   );
-  const { first, later } = failingTurn({ armada: repository().root, notes: NOTES.root, scratch: SCRATCH.root, bridge: BRIDGE.root });
-  return { ...base, state: { ...base.state, ...first }, later, behaves: writingTheFailedLogs };
+  const { first, later } = failingTurn({
+    armada: repository().root,
+    notes: NOTES.root,
+    scratch: SCRATCH.root,
+    bridge: BRIDGE.root,
+  });
+  return {
+    ...base,
+    state: {
+      ...base.state,
+      ...first,
+    },
+    later,
+    behaves: writingTheFailedLogs,
+  };
 }
 
 /**
@@ -87,9 +137,26 @@ const BRIDGE: RepositorySummary = {
  * one is the cost, so it grows a filter field and leads with the last few picked.
  */
 const MANY: RepositorySummary[] = [
-  "billing-api", "billing-web", "checkout", "docs-site", "infra", "ios-app", "android-app",
-  "data-pipeline", "design-system", "auth-service", "search", "notifications", "analytics",
-  "admin-console", "marketing-site", "mobile-sdk", "payments", "reporting", "scheduler", "armada-fork",
+  "billing-api",
+  "billing-web",
+  "checkout",
+  "docs-site",
+  "infra",
+  "ios-app",
+  "android-app",
+  "data-pipeline",
+  "design-system",
+  "auth-service",
+  "search",
+  "notifications",
+  "analytics",
+  "admin-console",
+  "marketing-site",
+  "mobile-sdk",
+  "payments",
+  "reporting",
+  "scheduler",
+  "armada-fork",
 ].map((name) => ({
   root: `/Users/user/code/${name}`,
   records_root: `/Users/user/Library/Application Support/Armada/records/${name}`,
@@ -105,7 +172,19 @@ const NOTHING_SET_UP: Scenario = {
   name: "nothing-set-up",
   says: "Two repositories served, neither set up",
   // Fleet gives each the id a Job started there carries.
-  state: connected([], [{ ...SCRATCH, implicit_id: "scratch-4f2a9c" }, { ...NOTES, implicit_id: "notes-81d3be" }]),
+  state: connected(
+    [],
+    [
+      {
+        ...SCRATCH,
+        implicit_id: "scratch-4f2a9c",
+      },
+      {
+        ...NOTES,
+        implicit_id: "notes-81d3be",
+      },
+    ],
+  ),
 };
 
 /** A Fleet that is not running: no runtime file, so nothing was ever connected. */
@@ -138,11 +217,17 @@ export const SCENARIOS: readonly Scenario[] = [
       // drew nothing under Not set up, and the one scenario that shows an
       // unset repository — `nothing-set-up` — has no set-up one to show it
       // beside. `scratch` is the folder Setup is run against.
-      [repository(), SCRATCH],
+      [
+        repository(),
+        SCRATCH,
+      ],
     ),
     // Studios worth looking at: every node kind and every edge kind on one, and a second nobody
     // has named — #1341.
-    studios: [everyKind(), untitled()],
+    studios: [
+      everyKind(),
+      untitled(),
+    ],
   },
   NOT_RUNNING,
   NOTHING_SET_UP,
@@ -154,13 +239,24 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     name: "empty-store",
     says: "One repository, and no Session yet",
-    state: connected([workflow()], [repository()]),
+    state: connected(
+      [
+        workflow(),
+      ],
+      [
+        repository(),
+      ],
+    ),
   },
   lined(
     holding(
       "merge-line",
       "Three repositories with a line: six in one, nobody in another, nothing ever landed in the third",
-      [repository(), NOTES, SCRATCH],
+      [
+        repository(),
+        NOTES,
+        SCRATCH,
+      ],
     ),
   ),
   failingCheck(),
@@ -179,7 +275,10 @@ export const SCENARIOS: readonly Scenario[] = [
 /** Cleanup over the worktree pool, one slot in each state. */
 function pooled(): Scenario {
   const scenario = holding("cleanup/slots", "The worktree pool on Cleanup, a slot in each state");
-  return { ...scenario, held: slotsHeld(Date.now()) };
+  return {
+    ...scenario,
+    held: slotsHeld(Date.now()),
+  };
 }
 
 /**
@@ -187,14 +286,24 @@ function pooled(): Scenario {
  * outside the pool, each with the acts that fit it.
  */
 function gridded(): Scenario {
-  const scenario = holding("cleanup/grid", "Cleanup as one grid of tiles, each opening its own panel");
-  return { ...scenario, held: gridHeld(Date.now()) };
+  const scenario = holding(
+    "cleanup/grid",
+    "Cleanup as one grid of tiles, each opening its own panel",
+  );
+  return {
+    ...scenario,
+    held: gridHeld(Date.now()),
+  };
 }
 
 /** Two Sessions with their retros written, and the Lessons listing over both. */
 function retros(name: string, says: string): Scenario {
   const { retros: written, lessons } = retroFixtures();
-  return { ...holding(name, says), retros: written, lessons };
+  return {
+    ...holding(name, says),
+    retros: written,
+    lessons,
+  };
 }
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */
@@ -203,8 +312,32 @@ export function scenarioNamed(name: string): Scenario | undefined {
 }
 /** Twenty-one repositories served and Sessions served, so a Job started in one makes it a recent pick. */
 function manyRepositories(): Scenario {
-  const served = [repository(), ...MANY];
-  const base = holding("many-repositories", "Twenty-one repositories served, so the picker has a filter field and leads with the last few picked", served);
-  const owners = new Map(served.flatMap((one) => (one.manifest === undefined ? [] : [[one.root, one.manifest.id] as const])));
-  return { ...base, draft: { ...base.draft, sessions: () => sessionsStore([], [], owners) } };
+  const served = [
+    repository(),
+    ...MANY,
+  ];
+  const base = holding(
+    "many-repositories",
+    "Twenty-one repositories served, so the picker has a filter field and leads with the last few picked",
+    served,
+  );
+  const owners = new Map(
+    served.flatMap((one) =>
+      one.manifest === undefined
+        ? []
+        : [
+            [
+              one.root,
+              one.manifest.id,
+            ] as const,
+          ],
+    ),
+  );
+  return {
+    ...base,
+    draft: {
+      ...base.draft,
+      sessions: () => sessionsStore([], [], owners),
+    },
+  };
 }

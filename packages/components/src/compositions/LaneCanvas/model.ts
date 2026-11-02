@@ -10,7 +10,10 @@ import type { LifecycleRule } from "@armada/protocol";
 export type WorkflowLane = "workflow";
 
 /** A place in a lane: the lane, and the step or state in it. */
-export type Ref = { lane: string; item: string };
+export type Ref = {
+  lane: string;
+  item: string;
+};
 
 /** The id a node is drawn under, and the one a selection names. */
 export const nodeId = (lane: string, item: string): string => `${lane}/${item}`;
@@ -34,7 +37,10 @@ export const isWorkspaceLevel = (level: string): boolean => level.startsWith("wo
 export type Clash = readonly (readonly string[])[];
 
 /** Names as a person lists them: `a`, `a and b`, `a, b and c`. */
-export const listed = (names: readonly string[]): string => (names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
+export const listed = (names: readonly string[]): string =>
+  names.length < 2
+    ? (names[0] ?? "")
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 
 /** What a mark says of Workspaces whose pieces differ. */
 export const differSaid = (names: readonly string[]): string => `${listed(names)} differ`;
@@ -43,42 +49,103 @@ export const differSaid = (names: readonly string[]): string => `${listed(names)
 export type Held = Pick<Workspace, "id" | "name" | "workspaces" | "repositories">;
 
 /** The Workspaces the page draws: the ones that hold the repository it is on. A Workspace that names none draws the one `id` and `name` say, or none where `id` is empty. */
-export const workspacesOf = (workspace: Pick<Workspace, "id" | "name" | "workspaces">): readonly { id: string; name: string }[] =>
-  workspace.workspaces ?? (workspace.id === "" ? [] : [{ id: workspace.id, name: workspace.name }]);
+export const workspacesOf = (
+  workspace: Pick<Workspace, "id" | "name" | "workspaces">,
+): readonly {
+  id: string;
+  name: string;
+}[] =>
+  workspace.workspaces ??
+  (workspace.id === ""
+    ? []
+    : [
+        {
+          id: workspace.id,
+          name: workspace.name,
+        },
+      ]);
 
 /** The name a level goes by: a Workspace's, else a repository's. */
 export const levelName = (workspace: Held, level: string): string =>
-  isWorkspaceLevel(level) ? (workspacesOf(workspace).find((one) => workspaceLevel(one.id) === level)?.name ?? level) : (workspace.repositories.find((one) => one.id === level)?.name ?? level);
+  isWorkspaceLevel(level)
+    ? (workspacesOf(workspace).find((one) => workspaceLevel(one.id) === level)?.name ?? level)
+    : (workspace.repositories.find((one) => one.id === level)?.name ?? level);
 
 /** The levels of the Workspaces that hold a repository. One that names none is in each of the Workspaces. */
 const holders = (workspace: Held, repository: string): string[] => {
   const found = workspace.repositories.find((one) => one.id === repository);
-  return found === undefined ? [] : workspacesOf(workspace).filter((one) => found.in === undefined || found.in.includes(one.id)).map((one) => workspaceLevel(one.id));
+  return found === undefined
+    ? []
+    : workspacesOf(workspace)
+        .filter((one) => found.in === undefined || found.in.includes(one.id))
+        .map((one) => workspaceLevel(one.id));
 };
 
 /** The levels of a chain that a clash sets aside: those of a group that two or more of the chain are in. */
-const setAside = (chain: readonly string[], clash: Clash): string[] => chain.filter((level) => clash.some((group) => group.includes(level) && group.filter((one) => chain.includes(one)).length > 1));
+const setAside = (chain: readonly string[], clash: Clash): string[] =>
+  chain.filter((level) =>
+    clash.some(
+      (group) => group.includes(level) && group.filter((one) => chain.includes(one)).length > 1,
+    ),
+  );
 
 /** The levels a tab reads, nearest first: a repository's own, the Workspaces that hold it, then the default's. Given the clash a piece has, the Workspaces that tie are not read. */
 export function levelsOf(scope: string, workspace: Held, clash: Clash = []): string[] {
-  if (scope === DEFAULT) return [DEFAULT];
-  const chain = isWorkspaceLevel(scope) ? [scope] : [scope, ...holders(workspace, scope)];
+  if (scope === DEFAULT)
+    return [
+      DEFAULT,
+    ];
+  const chain = isWorkspaceLevel(scope)
+    ? [
+        scope,
+      ]
+    : [
+        scope,
+        ...holders(workspace, scope),
+      ];
   const aside = setAside(chain, clash);
-  return [...chain.filter((level) => !aside.includes(level)), DEFAULT];
+  return [
+    ...chain.filter((level) => !aside.includes(level)),
+    DEFAULT,
+  ];
 }
 
 /** The Workspace levels a clash sets aside on a tab: the ones whose pieces differ, so the tab reads the default's. A tab that keeps a piece of its own (`own`, the levels that set it) reads that and has none set aside. */
-export const clashAt = (clash: Clash | undefined, scope: string, workspace: Held, own: readonly string[] = []): string[] =>
-  own.includes(scope) || scope === DEFAULT || isWorkspaceLevel(scope) ? [] : setAside([scope, ...holders(workspace, scope)], clash ?? []);
+export const clashAt = (
+  clash: Clash | undefined,
+  scope: string,
+  workspace: Held,
+  own: readonly string[] = [],
+): string[] =>
+  own.includes(scope) || scope === DEFAULT || isWorkspaceLevel(scope)
+    ? []
+    : setAside(
+        [
+          scope,
+          ...holders(workspace, scope),
+        ],
+        clash ?? [],
+      );
 
 /** The levels that set a rule: where it applies, and each that changes it. */
-export const ownersOf = (rule: Pick<Rule, "scope" | "overrides">): string[] => [rule.scope, ...(rule.overrides ?? []).map((one) => one.scope)];
+export const ownersOf = (rule: Pick<Rule, "scope" | "overrides">): string[] => [
+  rule.scope,
+  ...(rule.overrides ?? []).map((one) => one.scope),
+];
 
 /** The levels that set a state: where it was added, and each that names it or reads it another way. */
-export const stateOwners = (state: Pick<StateDef, "scope" | "names" | "reads">): string[] => [state.scope ?? DEFAULT, ...(state.names ?? []).map((one) => one.scope), ...state.reads.map((one) => one.scope)];
+export const stateOwners = (state: Pick<StateDef, "scope" | "names" | "reads">): string[] => [
+  state.scope ?? DEFAULT,
+  ...(state.names ?? []).map((one) => one.scope),
+  ...state.reads.map((one) => one.scope),
+];
 
 /** The tracker's, forge's or watch's own words that count as being in a state, at one level: the default's, a Workspace's or one repository's. */
-export type StateReads = { source: string; values: readonly string[]; scope: string };
+export type StateReads = {
+  source: string;
+  values: readonly string[];
+  scope: string;
+};
 
 /** A state as the Workspace defines it: where Fleet reads it from is the lifecycle's, and the words that count as being in it are its own. */
 export type StateDef = {
@@ -87,7 +154,10 @@ export type StateDef = {
   /** The level it was added at, so it exists there and below. Absent, it is the default's. */
   scope?: string;
   /** Another name for it at a level below the default. */
-  names?: readonly { scope: string; label: string }[];
+  names?: readonly {
+    scope: string;
+    label: string;
+  }[];
   reads: readonly StateReads[];
   /** Nothing follows it. */
   end?: true;
@@ -110,7 +180,10 @@ export type LifecycleDef = {
   kind?: LifecycleKind;
   states: readonly StateDef[];
   /** The ways a state is left, as pairs of state ids. */
-  next: readonly (readonly [string, string])[];
+  next: readonly (readonly [
+    string,
+    string,
+  ])[];
   /** The level it was added at, so it exists there and below. Absent, it is the default's. */
   scope?: string;
   /** Who may change the piece that defines it, which decides whether it can be deleted: Armada's cannot. */
@@ -118,10 +191,14 @@ export type LifecycleDef = {
 };
 
 /** A state as a workflow draws it: in a column shared with the workflow's steps, so time reads across the lanes. */
-export type LifecycleState = StateDef & { col: number };
+export type LifecycleState = StateDef & {
+  col: number;
+};
 
 /** A lifecycle as a workflow draws it, or a Job holds it: the states the workflow places, each with its column. */
-export type Lifecycle = Omit<LifecycleDef, "states"> & { states: readonly LifecycleState[] };
+export type Lifecycle = Omit<LifecycleDef, "states"> & {
+  states: readonly LifecycleState[];
+};
 
 /** Who may change a piece: Armada's, the person's own, or the repository's. */
 export type Kept = "armada" | "yours" | "repository";
@@ -129,13 +206,25 @@ export type Kept = "armada" | "yours" | "repository";
 export type Autonomy = "acts" | "asks" | "off";
 
 /** Kinds of act a rule does. A write to the tracker or the forge and a message that speaks as the person default to Asks. */
-export type ActKind = "tracker" | "forge" | "message" | "job" | "watch" | "tell" | "command" | "agent";
+export type ActKind =
+  | "tracker"
+  | "forge"
+  | "message"
+  | "job"
+  | "watch"
+  | "tell"
+  | "command"
+  | "agent";
 
 /**
  * What a level below the default changes of a rule. **Where the host keeps rules as pieces, the override is the level's own piece whole** (`wire`, with every field drawn from it), since Fleet runs the
  * narrower piece and merges nothing. Elsewhere it is any of the rule's fields, and only those.
  */
-export type RuleOverride = { scope: string } & Partial<Pick<Rule, "label" | "from" | "at" | "to" | "ifs" | "does" | "autonomy" | "workflow" | "wire">>;
+export type RuleOverride = {
+  scope: string;
+} & Partial<
+  Pick<Rule, "label" | "from" | "at" | "to" | "ifs" | "does" | "autonomy" | "workflow" | "wire">
+>;
 
 export type Rule = {
   id: string;
@@ -149,7 +238,10 @@ export type Rule = {
   to: Ref;
   /** Conditions over linked instances and the Job, each a line. */
   ifs: readonly string[];
-  does: readonly { act: ActKind; text: string }[];
+  does: readonly {
+    act: ActKind;
+    text: string;
+  }[];
   autonomy: Autonomy;
   kept: Kept;
   /** `default`, `workspace:<id>`, or the id of the one repository it applies in. */
@@ -165,7 +257,10 @@ export type Rule = {
 };
 
 /** What a step is ended by, or passed over for: a thing Fleet watches (`Observed`) or a lifecycle, and the state of it. */
-export type Waits = { on: string; state: string };
+export type Waits = {
+  on: string;
+  state: string;
+};
 
 /** One step of the workflow in a lane, as the page lists it. */
 export type LaneStep = {
@@ -173,7 +268,10 @@ export type LaneStep = {
   label: string;
   col: number;
   /** A lifecycle state that ends it, so the step waits on it. */
-  endsOn?: { lane: string; state: string };
+  endsOn?: {
+    lane: string;
+    state: string;
+  };
   /** What the person chose to end it, where it is not the words Fleet read from the definition. */
   ends?: Waits;
   /** What the person chose to pass it over for. */
@@ -181,13 +279,34 @@ export type LaneStep = {
 };
 
 /** What a level below the default changes of a step: its name, its words, what ends it and what passes it over. `endsOn` goes with `ends`. */
-export type StepLayer = { step: string; scope: string; label?: string; words?: string; ends?: Waits; endsOn?: { lane: string; state: string }; passedOver?: Waits };
+export type StepLayer = {
+  step: string;
+  scope: string;
+  label?: string;
+  words?: string;
+  ends?: Waits;
+  endsOn?: {
+    lane: string;
+    state: string;
+  };
+  passedOver?: Waits;
+};
 
 /** A step added at a level below the default: it runs there and below, after the step it follows, and the definition does not hold it. */
-export type AddedStep = { id: string; label: string; after: string; scope: string; words?: string };
+export type AddedStep = {
+  id: string;
+  label: string;
+  after: string;
+  scope: string;
+  words?: string;
+};
 
 /** A repository a Workspace holds. `in` is the ids of the Workspaces it is in, among the ones the page draws; absent, all of them. */
-export type Repository = { id: string; name: string; in?: readonly string[] };
+export type Repository = {
+  id: string;
+  name: string;
+  in?: readonly string[];
+};
 
 /** What one workflow draws of the Workspace: where its steps sit, and which states of which lifecycles it has a lane for, and where. */
 export type WorkflowPlace = {
@@ -210,7 +329,15 @@ export type Observed = {
   label: string;
   /** The lifecycle whose states these are, so that lifecycle is not listed twice. */
   lifecycle?: string;
-  states: readonly { id: string; label: string; says: string; endsOn?: { lane: string; state: string } }[];
+  states: readonly {
+    id: string;
+    label: string;
+    says: string;
+    endsOn?: {
+      lane: string;
+      state: string;
+    };
+  }[];
 };
 
 /** A named set of repositories that build one product, and what applies across them. */
@@ -218,7 +345,10 @@ export type Workspace = {
   id: string;
   name: string;
   /** The Workspaces that hold the repository the page is on, each with a tab. Absent, the one `id` and `name` say. */
-  workspaces?: readonly { id: string; name: string }[];
+  workspaces?: readonly {
+    id: string;
+    name: string;
+  }[];
   repositories: readonly Repository[];
   lifecycles: readonly LifecycleDef[];
   /** What else a step can wait on or be passed over for. */
@@ -229,10 +359,17 @@ export type Workspace = {
 };
 
 /** Whether something added at `own` exists on the tab for `scope`: at that level or below it. What the default holds has no level of its own and exists everywhere. */
-export const existsAt = (own: string | undefined, scope: string, workspace: Held, clash?: Clash): boolean => own === undefined || own === DEFAULT || levelsOf(scope, workspace, clash).includes(own);
+export const existsAt = (
+  own: string | undefined,
+  scope: string,
+  workspace: Held,
+  clash?: Clash,
+): boolean =>
+  own === undefined || own === DEFAULT || levelsOf(scope, workspace, clash).includes(own);
 
 /** Whether a state is there on the tab for `scope`: added at that level or above, and not left out of the piece that tab runs. */
-export const stateExistsAt = (state: StateDef, scope: string, workspace: Held): boolean => existsAt(state.scope, scope, workspace, state.clash) && !(state.absent ?? []).includes(scope);
+export const stateExistsAt = (state: StateDef, scope: string, workspace: Held): boolean =>
+  existsAt(state.scope, scope, workspace, state.clash) && !(state.absent ?? []).includes(scope);
 
 /**
  * The lifecycles a workflow draws, each with the states it places, in the Workspace's order. Given a `scope`, a state added at another level is left out and the ways in and out of it are
@@ -244,50 +381,122 @@ export function lifecyclesFor(workspace: Workspace, workflow: string, scope?: st
     if (scope !== undefined && !existsAt(lifecycle.scope, scope, workspace)) return [];
     const states = lifecycle.states.flatMap((state): LifecycleState[] => {
       const col = place[`${lifecycle.id}/${state.id}`];
-      return col === undefined || (scope !== undefined && !stateExistsAt(state, scope, workspace)) ? [] : [{ ...state, col }];
+      return col === undefined || (scope !== undefined && !stateExistsAt(state, scope, workspace))
+        ? []
+        : [
+            {
+              ...state,
+              col,
+            },
+          ];
     });
     const drawn = new Set(states.map((state) => state.id));
     // A state left out is stepped over: whatever led into it now leads to whatever it led to.
     let next = lifecycle.next;
-    for (const gone of lifecycle.states.filter((state) => !drawn.has(state.id) && scope !== undefined && !stateExistsAt(state, scope, workspace))) {
+    for (const gone of lifecycle.states.filter(
+      (state) =>
+        !drawn.has(state.id) && scope !== undefined && !stateExistsAt(state, scope, workspace),
+    )) {
       const into = next.filter(([, to]) => to === gone.id).map(([from]) => from);
       const out = next.filter(([from]) => from === gone.id).map(([, to]) => to);
-      next = [...next.filter(([from, to]) => from !== gone.id && to !== gone.id), ...into.flatMap((from) => out.map((to) => [from, to] as const))];
+      next = [
+        ...next.filter(([from, to]) => from !== gone.id && to !== gone.id),
+        ...into.flatMap((from) =>
+          out.map(
+            (to) =>
+              [
+                from,
+                to,
+              ] as const,
+          ),
+        ),
+      ];
     }
-    return states.length === 0 ? [] : [{ ...lifecycle, states, next: next.filter(([from, to]) => drawn.has(from) && drawn.has(to)) }];
+    return states.length === 0
+      ? []
+      : [
+          {
+            ...lifecycle,
+            states,
+            next: next.filter(([from, to]) => drawn.has(from) && drawn.has(to)),
+          },
+        ];
   });
 }
 
 /** The lifecycles a workflow draws with each state named as it is at a level. */
 export function lifecyclesAt(workspace: Workspace, workflow: string, scope: string): Lifecycle[] {
-  return lifecyclesFor(workspace, workflow, scope).map((lifecycle) => ({ ...lifecycle, states: lifecycle.states.map((state) => ({ ...state, label: stateLabelAt(state, scope, workspace) })) }));
+  return lifecyclesFor(workspace, workflow, scope).map((lifecycle) => ({
+    ...lifecycle,
+    states: lifecycle.states.map((state) => ({
+      ...state,
+      label: stateLabelAt(state, scope, workspace),
+    })),
+  }));
 }
 
 /** The levels below the default that name a state another way or read it as other words, as the ids of the Workspace and the repositories. */
 export const stateDiffers = (state: StateDef): string[] => [
-  ...new Set([...state.reads.map((one) => one.scope), ...(state.names ?? []).map((one) => one.scope), ...(state.absent ?? []), ...(state.scope === undefined ? [] : [state.scope])].filter((one) => one !== DEFAULT)),
+  ...new Set(
+    [
+      ...state.reads.map((one) => one.scope),
+      ...(state.names ?? []).map((one) => one.scope),
+      ...(state.absent ?? []),
+      ...(state.scope === undefined
+        ? []
+        : [
+            state.scope,
+          ]),
+    ].filter((one) => one !== DEFAULT),
+  ),
 ];
 
 /** The levels a rule differs at: where it applies alone, and where a level below changes it. */
-export const ruleDiffers = (rule: Rule): string[] => [...new Set([...(rule.scope === DEFAULT ? [] : [rule.scope]), ...(rule.overrides ?? []).map((one) => one.scope)])];
+export const ruleDiffers = (rule: Rule): string[] => [
+  ...new Set([
+    ...(rule.scope === DEFAULT
+      ? []
+      : [
+          rule.scope,
+        ]),
+    ...(rule.overrides ?? []).map((one) => one.scope),
+  ]),
+];
 
 /** The levels that change a step. */
 export const stepDiffers = (place: WorkflowPlace | undefined, step: string): string[] => [
-  ...new Set([...(place?.layers ?? []).filter((one) => one.step === step).map((one) => one.scope), ...(place?.added ?? []).filter((one) => one.id === step).map((one) => one.scope)]),
+  ...new Set([
+    ...(place?.layers ?? []).filter((one) => one.step === step).map((one) => one.scope),
+    ...(place?.added ?? []).filter((one) => one.id === step).map((one) => one.scope),
+  ]),
 ];
 
 /**
  * The steps at a level: the definition's, with each step added at it or above placed after the step it follows. A step the default added since sits between them where the columns put it,
  * so the order the steps run in is the order they are drawn in.
  */
-export function stepsAt<T extends { id: string; label: string }>(steps: readonly T[], place: WorkflowPlace | undefined, scope: string, workspace: Held, make: (added: AddedStep) => T): T[] {
-  const out = [...steps];
+export function stepsAt<
+  T extends {
+    id: string;
+    label: string;
+  },
+>(
+  steps: readonly T[],
+  place: WorkflowPlace | undefined,
+  scope: string,
+  workspace: Held,
+  make: (added: AddedStep) => T,
+): T[] {
+  const out = [
+    ...steps,
+  ];
   for (const one of place?.added ?? []) {
     if (!existsAt(one.scope, scope, workspace)) continue;
     const after = out.findIndex((each) => each.id === one.after);
     let at = after < 0 ? out.length : after + 1;
     const col = place?.steps[one.id]?.col;
-    while (col !== undefined && at < out.length && (place?.steps[out[at]!.id]?.col ?? col) < col) at++;
+    while (col !== undefined && at < out.length && (place?.steps[out[at]!.id]?.col ?? col) < col)
+      at++;
     out.splice(at, 0, make(one));
   }
   return out;
@@ -302,12 +511,20 @@ export function ruleAt(rule: Rule, scope: string, workspace: Held, above = false
       const own = rule.overrides?.find((one) => one.scope === level);
       if (own === undefined) return now;
       const { scope: _level, ...fields } = own;
-      return { ...now, ...fields };
+      return {
+        ...now,
+        ...fields,
+      };
     }, rule);
 }
 
 /** A state's name at a level: the nearest that names it, else its own. */
-export function stateLabelAt(state: StateDef, scope: string, workspace: Held, above = false): string {
+export function stateLabelAt(
+  state: StateDef,
+  scope: string,
+  workspace: Held,
+  above = false,
+): string {
   for (const level of levelsOf(scope, workspace, state.clash).slice(above ? 1 : 0)) {
     const named = state.names?.find((one) => one.scope === level);
     if (named !== undefined) return named.label;
@@ -316,7 +533,13 @@ export function stateLabelAt(state: StateDef, scope: string, workspace: Held, ab
 }
 
 /** The words that count as being in a state at a level, for one source: the nearest level that sets them. Absent where none does. */
-export function readsAt(state: StateDef, source: string, scope: string, workspace: Held, above = false): readonly string[] | undefined {
+export function readsAt(
+  state: StateDef,
+  source: string,
+  scope: string,
+  workspace: Held,
+  above = false,
+): readonly string[] | undefined {
   for (const level of levelsOf(scope, workspace, state.clash).slice(above ? 1 : 0)) {
     const found = state.reads.find((one) => one.source === source && one.scope === level);
     if (found !== undefined) return found.values;
@@ -325,7 +548,17 @@ export function readsAt(state: StateDef, source: string, scope: string, workspac
 }
 
 /** What the levels from the default down to `scope` change of a step, in the order they apply. */
-export const layersAt = (place: WorkflowPlace | undefined, step: string, scope: string, workspace: Held): StepLayer[] => levelsOf(scope, workspace).reverse().flatMap((level) => (place?.layers ?? []).filter((one) => one.step === step && one.scope === level));
+export const layersAt = (
+  place: WorkflowPlace | undefined,
+  step: string,
+  scope: string,
+  workspace: Held,
+): StepLayer[] =>
+  levelsOf(scope, workspace)
+    .reverse()
+    .flatMap((level) =>
+      (place?.layers ?? []).filter((one) => one.step === step && one.scope === level),
+    );
 
 // ---- What a canvas draws -------------------------------------------------------------------------------------------------
 
@@ -334,7 +567,16 @@ export const layersAt = (place: WorkflowPlace | undefined, step: string, scope: 
  * and a state a watch reads are hexagons; a Job another Job started is a card with the drone glyph; and where the workflow starts and ends are small circles. **A kind is never a status**: its tint is a
  * faint ground from `kinds.css`, and what a node stands in (working, waiting, went through) is its frame and its mark.
  */
-export type NodeKind = "step" | "wait" | "tracker" | "forge" | "document" | "watch" | "job" | "start" | "end";
+export type NodeKind =
+  | "step"
+  | "wait"
+  | "tracker"
+  | "forge"
+  | "document"
+  | "watch"
+  | "job"
+  | "start"
+  | "end";
 
 /** What the mark on a piece says while the pull request that removes it from the repository is open. */
 export const REMOVAL_WAITS = "Removed from the repository when its pull request merges";
@@ -346,7 +588,10 @@ export const KEEP_WAITS = "Kept for every Job once its draft is approved";
 export type PendingKind = "removal" | "keep";
 
 /** The sentence of each wait, which is its mark's tooltip. */
-export const PENDING_SAID: Readonly<Record<PendingKind, string>> = { removal: REMOVAL_WAITS, keep: KEEP_WAITS };
+export const PENDING_SAID: Readonly<Record<PendingKind, string>> = {
+  removal: REMOVAL_WAITS,
+  keep: KEEP_WAITS,
+};
 
 /** Where the workflow starts and ends, drawn as small circles at the ends of its lane: not steps, so nothing picks them. */
 export const START_ITEM = "$start";
@@ -406,7 +651,10 @@ export type LaneView = {
   changed?: string;
   nodes: readonly LaneNodeView[];
   /** The ways a state is left within the lane. */
-  moves: readonly (readonly [string, string])[];
+  moves: readonly (readonly [
+    string,
+    string,
+  ])[];
   /** The repository's file that defines it is being removed by a pull request that has not merged, or a draft that keeps it for every Job waits on Approve. */
   pending?: PendingKind;
 };
@@ -447,7 +695,12 @@ export type RuleView = {
  * A ticket a started Job holds for the Job that started it: its key, its title where the source gave one, the name of the state it stands in as the lifecycle names it, and that
  * state's id. **Both are `""` where it stands in none**: it is not read yet, or the source said a status no state lists, which `state` then keeps as it was said.
  */
-export type CarriedTicket = { label: string; title?: string; state: string; stateId: string };
+export type CarriedTicket = {
+  label: string;
+  title?: string;
+  state: string;
+  stateId: string;
+};
 
 /** One thing a Job holds: a ticket, its pull request, a deploy. */
 export type Instance = {
@@ -477,7 +730,13 @@ export type Instance = {
 export const CURRENT_STEP = "$step";
 
 /** One act of a rule as the Job's rules kept it, for the rule's panel. `standing` is Fleet's word: `planned`, `asked`, `stuck`, `done`, `skipped`, `told` or `not_carried`. */
-export type FiredAct = { text: string; course: "acts" | "asks"; standing: string; said?: string; at: string };
+export type FiredAct = {
+  text: string;
+  course: "acts" | "asks";
+  standing: string;
+  said?: string;
+  at: string;
+};
 
 /** A rule that fired for an instance, and how it ended. */
 export type Fired = {
@@ -499,39 +758,85 @@ export type Fired = {
  * A change made to this Job's own copy, marked on what it changes: `lane` is the instance and `item` its state, `workflow` and `item` the step added or skipped,
  * `rule` and `item` the rule, or a lifecycle's id and no `item` for the lifecycle as a whole.
  */
-export type JobChange = { id: string; lane: string; item: string; text: string; at: string; /** A rule or a lifecycle the Job took out of its copy: nothing of it is left to keep for every Job. */ dropped?: true; /** A changed rule's name, from any rule the Job or its repository holds, drawn or not. */ name?: string };
+export type JobChange = {
+  id: string;
+  lane: string;
+  item: string;
+  text: string;
+  at: string /** A rule or a lifecycle the Job took out of its copy: nothing of it is left to keep for every Job. */;
+  dropped?: true /** A changed rule's name, from any rule the Job or its repository holds, drawn or not. */;
+  name?: string;
+};
 
 /** What the agent made of a human comment left on an instance. */
 export type CommentRead = "change" | "answer" | "skip";
 
-export type TriagedComment = { id: string; author: string; where: string; text: string; read: CommentRead; sent?: true };
+export type TriagedComment = {
+  id: string;
+  author: string;
+  where: string;
+  text: string;
+  read: CommentRead;
+  sent?: true;
+};
 
 /** What a Job holds of the Workspace: its copy of the definitions, frozen when it started, and everything standing on them. */
 export type JobLanes = {
   workspace: string;
-  copy: { steps: readonly LaneStep[]; lifecycles: readonly Lifecycle[]; rules: readonly Rule[] };
+  copy: {
+    steps: readonly LaneStep[];
+    lifecycles: readonly Lifecycle[];
+    rules: readonly Rule[];
+  };
   instances: readonly Instance[];
   fired: readonly Fired[];
   changes: readonly JobChange[];
   /** What the step the Job is on waits for, a sentence for each end that has not come, as Fleet words them: `Waiting on PR #812: Approved`. Absent when it waits on none. */
   waiting?: readonly string[];
   /** The comments left on an instance while it is in review. */
-  triage?: { instance: string; comments: readonly TriagedComment[] };
+  triage?: {
+    instance: string;
+    comments: readonly TriagedComment[];
+  };
 };
 
 // ---- Words ---------------------------------------------------------------------------------------------------------------
 
 /** Enough of a lifecycle to name its states. */
-type Named = { id: string; label: string; states: readonly { id: string; label: string }[] };
+type Named = {
+  id: string;
+  label: string;
+  states: readonly {
+    id: string;
+    label: string;
+  }[];
+};
 
 /** The label of a state or a step in the lifecycles and steps given. */
-export function labelOf(ref: Ref, lifecycles: readonly Named[], steps: readonly { id: string; label: string }[]): string {
+export function labelOf(
+  ref: Ref,
+  lifecycles: readonly Named[],
+  steps: readonly {
+    id: string;
+    label: string;
+  }[],
+): string {
   if (ref.lane === "workflow") return steps.find((one) => one.id === ref.item)?.label ?? ref.item;
-  return lifecycles.find((one) => one.id === ref.lane)?.states.find((one) => one.id === ref.item)?.label ?? ref.item;
+  return (
+    lifecycles.find((one) => one.id === ref.lane)?.states.find((one) => one.id === ref.item)
+      ?.label ?? ref.item
+  );
 }
 
 /** What fires a rule, as a line: `Document enters Approved`, `Plan starts`. */
-export function whenSaid(rule: Rule, lifecycles: readonly Named[], steps: readonly { id: string; label: string }[]): string {
+export function whenSaid(
+  rule: Rule,
+  lifecycles: readonly Named[],
+  steps: readonly {
+    id: string;
+    label: string;
+  }[],
+): string {
   const name = labelOf(rule.from, lifecycles, steps);
   if (rule.from.lane === "workflow") return `${name} ${rule.at === "ends" ? "ends" : "starts"}`;
   const lifecycle = lifecycles.find((one) => one.id === rule.from.lane);

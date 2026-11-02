@@ -8,21 +8,55 @@ import { DownshiftNotice } from "./downshift-notice";
 import type { Notice } from "./downshift-notice";
 import { soundOf } from "./telling";
 
-const offered = (percent: number): ModelDownshiftState => ({ downshift: { phase: "offered", percent, was: "opus", to: "sonnet" } });
-const SHIFTED: ModelDownshiftState = { downshift: { phase: "shifted", was: "opus", to: "sonnet", until: "2026-10-18T00:00:00Z" } };
-const RESET: ModelDownshiftState = { downshift: { phase: "reset", was: "opus", to: "sonnet" } };
+const offered = (percent: number): ModelDownshiftState => ({
+  downshift: {
+    phase: "offered",
+    percent,
+    was: "opus",
+    to: "sonnet",
+  },
+});
+const SHIFTED: ModelDownshiftState = {
+  downshift: {
+    phase: "shifted",
+    was: "opus",
+    to: "sonnet",
+    until: "2026-10-18T00:00:00Z",
+  },
+};
+const RESET: ModelDownshiftState = {
+  downshift: {
+    phase: "reset",
+    was: "opus",
+    to: "sonnet",
+  },
+};
 const NONE: ModelDownshiftState = {};
 
-function watching(): { notice: DownshiftNotice; shown: Notice[] } {
+function watching(): {
+  notice: DownshiftNotice;
+  shown: Notice[];
+} {
   const shown: Notice[] = [];
-  return { notice: new DownshiftNotice({ show: (one) => shown.push(one) }), shown };
+  return {
+    notice: new DownshiftNotice({
+      show: (one) => shown.push(one),
+    }),
+    shown,
+  };
 }
 
 describe("the offer", () => {
   it("is told once when the state enters offered, as bare facts", () => {
     const { notice, shown } = watching();
     notice.read(offered(83));
-    expect(shown).toEqual([{ title: "Default to sonnet offered", body: "Weekly limit 83% used", sound: soundOf("waiting") }]);
+    expect(shown).toEqual([
+      {
+        title: "Default to sonnet offered",
+        body: "Weekly limit 83% used",
+        sound: soundOf("waiting"),
+      },
+    ]);
   });
 
   it("is not told again while the percent moves", () => {
@@ -55,7 +89,13 @@ describe("the reset", () => {
     notice.read(SHIFTED);
     notice.read(RESET);
     notice.read(RESET);
-    expect(shown).toEqual([{ title: "Back to opus offered", body: "Weekly limit reset", sound: soundOf("waiting") }]);
+    expect(shown).toEqual([
+      {
+        title: "Back to opus offered",
+        body: "Weekly limit reset",
+        sound: soundOf("waiting"),
+      },
+    ]);
     notice.read(NONE);
     expect(shown).toHaveLength(1);
   });

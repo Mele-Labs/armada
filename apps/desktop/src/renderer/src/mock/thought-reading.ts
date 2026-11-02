@@ -19,7 +19,9 @@ export const READING_MS = 1400;
 const BAR = 4;
 
 const STOP = new Set(
-  "the that this with would could should into they them their there are was were for and but not you your our just new from then than when what which who how why does did have has had can will its also all any too very more some into onto about after before over under out off one two".split(" "),
+  "the that this with would could should into they them their there are was were for and but not you your our just new from then than when what which who how why does did have has had can will its also all any too very more some into onto about after before over under out off one two".split(
+    " ",
+  ),
 );
 
 /** Words, lower case, with a plural, a tense and a trailing e taken off, so "retries" meets "retry". */
@@ -50,7 +52,11 @@ const QUESTION = /\?\s*$|^\s*(why|what|how|which|when|where|who|is|are|does|did|
 
 function ledgerOf(session: SessionRecord): string {
   return session.attachments
-    .flatMap((one) => [one.kind === "branch" ? one.target : "", one.detail?.title ?? "", one.detail?.branch ?? ""])
+    .flatMap((one) => [
+      one.kind === "branch" ? one.target : "",
+      one.detail?.title ?? "",
+      one.detail?.branch ?? "",
+    ])
     .join(" ");
 }
 
@@ -60,9 +66,15 @@ function slotOf(session: SessionRecord): number | undefined {
 }
 
 export function readThought(text: string, world: ThoughtWorld): ThoughtReading {
-  if (QUESTION.test(text)) return { kind: "question" };
+  if (QUESTION.test(text))
+    return {
+      kind: "question",
+    };
   const thought = words(text);
-  const candidates: { target: ThoughtTarget; score: number }[] = [
+  const candidates: {
+    target: ThoughtTarget;
+    score: number;
+  }[] = [
     ...world.sessions
       .filter((one) => one.state === "live" && one.title !== undefined)
       .map((one) => ({
@@ -70,16 +82,40 @@ export function readThought(text: string, world: ThoughtWorld): ThoughtReading {
           kind: "session" as const,
           id: one.id,
           title: one.title!,
-          ...(one.manifest_id === undefined ? {} : { manifest_id: one.manifest_id }),
-          ...(slotOf(one) === undefined ? {} : { slot: slotOf(one)! }),
+          ...(one.manifest_id === undefined
+            ? {}
+            : {
+                manifest_id: one.manifest_id,
+              }),
+          ...(slotOf(one) === undefined
+            ? {}
+            : {
+                slot: slotOf(one)!,
+              }),
         },
         score: score(thought, one.title!, ledgerOf(one)),
       })),
   ];
   const best = candidates.sort((a, b) => b.score - a.score)[0];
-  return best !== undefined && best.score >= BAR ? { kind: "thought", target: best.target } : { kind: "thought" };
+  return best !== undefined && best.score >= BAR
+    ? {
+        kind: "thought",
+        target: best.target,
+      }
+    : {
+        kind: "thought",
+      };
 }
 
 /** The scenario's answer to `read_thought`, after the pause a real reading takes. */
 export const readAfterPause = (text: string, world: ThoughtWorld): Promise<ThoughtRead> =>
-  new Promise((resolve) => setTimeout(() => resolve({ ok: true, reading: readThought(text, world) }), READING_MS));
+  new Promise((resolve) =>
+    setTimeout(
+      () =>
+        resolve({
+          ok: true,
+          reading: readThought(text, world),
+        }),
+      READING_MS,
+    ),
+  );

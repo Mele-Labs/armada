@@ -3,7 +3,9 @@ import type { ManifestFormProps } from "./ManifestForm";
 
 export function AfterMergeSection({ draft, onDraft }: ManifestFormProps) {
   // A Check that runs a Command first would write in the checkout a person works in.
-  const prepares = draft.checks.filter((check) => check.requires.length > 0).map((check) => check.name);
+  const prepares = draft.checks
+    .filter((check) => check.requires.length > 0)
+    .map((check) => check.name);
   // A name no longer declared stays, ticked, so it can be cleared; Fleet refuses it otherwise.
   const declared = draft.checks.map((check) => check.name);
   const offered = [
@@ -20,7 +22,12 @@ export function AfterMergeSection({ draft, onDraft }: ManifestFormProps) {
         offered={offered}
         chosen={draft.afterMerge}
         none="This file declares no Check that can run here."
-        onChosen={(afterMerge) => onDraft({ ...draft, afterMerge })}
+        onChosen={(afterMerge) =>
+          onDraft({
+            ...draft,
+            afterMerge,
+          })
+        }
       />
       {prepares.length === 0 ? null : (
         <p className="armada-manifest-form__hint">

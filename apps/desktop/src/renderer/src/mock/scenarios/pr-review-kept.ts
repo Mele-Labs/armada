@@ -9,5 +9,15 @@ export const s262PrReviewKept: Scenario = {
   ...base,
   name: "pr-review-kept",
   says: "The review surface on a relaunch: a reading of the lists 20 minutes old is drawn at once, and Fleet's answer follows with one more pull request",
-  draft: { ...base.draft, prReview: { ...reviewSeed(), kept: { minutesAgo: 20, without: "mele-labs/pocket#212", answersAfterMs: 4000 } } },
+  draft: {
+    ...base.draft,
+    prReview: {
+      ...reviewSeed(),
+      kept: {
+        minutesAgo: 20,
+        without: "mele-labs/pocket#212",
+        answersAfterMs: 4000,
+      },
+    },
+  },
 };

@@ -6,16 +6,31 @@
 
 import { createPortal } from "react-dom";
 import { Square } from "lucide-react";
-import { editHeldNote, removeHeldNote, sendHeldNotes, useHeldNotes, useWalkQueue, walkOnScreen } from "@armada/screens/src/fixtures/walk-window";
+import {
+  editHeldNote,
+  removeHeldNote,
+  sendHeldNotes,
+  useHeldNotes,
+  useWalkQueue,
+  walkOnScreen,
+} from "@armada/screens/src/fixtures/walk-window";
 
 import { OPEN_SESSION_ATTRIBUTE, askToOpenSession } from "../open-session";
 import { SessionView } from "../sessions";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { HeldNotes } from "../walk-panel/HeldNotes";
 
-const NOT_HELD = { ok: false, said: "That note is no longer pending." } as const;
+const NOT_HELD = {
+  ok: false,
+  said: "That note is no longer pending.",
+} as const;
 
-const HELD = { held: { state: "none" }, onWant: () => {} } as const;
+const HELD = {
+  held: {
+    state: "none",
+  },
+  onWant: () => {},
+} as const;
 
 export function WalkJobPanel() {
   const queue = useWalkQueue();
@@ -28,11 +43,23 @@ export function WalkJobPanel() {
   const host = queue?.panelHost ?? null;
   if (host === null || session === undefined || draft === undefined) return null;
   return createPortal(
-    <section className="deck-pane" data-frame="" aria-label={`Job: ${session.title ?? session.id}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
+    <section
+      className="deck-pane"
+      data-frame=""
+      aria-label={`Job: ${session.title ?? session.id}`}
+      {...{
+        [OPEN_SESSION_ATTRIBUTE]: session.id,
+      }}
+    >
       <SessionView
         key={session.id}
         session={session}
-        goes={{ onGoTo: () => {}, onOpenLink: () => {}, onOpenCheck: () => {}, onOpenLoadout: () => {} }}
+        goes={{
+          onGoTo: () => {},
+          onOpenLink: () => {},
+          onOpenCheck: () => {},
+          onOpenLoadout: () => {},
+        }}
         onOpen={askToOpenSession}
         held={HELD}
         {...(held.length === 0
@@ -41,8 +68,20 @@ export function WalkJobPanel() {
               trailing: (
                 <HeldNotes
                   notes={held}
-                  onEdit={async (note, said) => (editHeldNote(session.id, note, said) ? { ok: true } : NOT_HELD)}
-                  onRemove={async (note) => (removeHeldNote(session.id, note) ? { ok: true } : NOT_HELD)}
+                  onEdit={async (note, said) =>
+                    editHeldNote(session.id, note, said)
+                      ? {
+                          ok: true,
+                        }
+                      : NOT_HELD
+                  }
+                  onRemove={async (note) =>
+                    removeHeldNote(session.id, note)
+                      ? {
+                          ok: true,
+                        }
+                      : NOT_HELD
+                  }
                   onSend={() => sendHeldNotes(session.id)}
                 />
               ),
@@ -50,7 +89,17 @@ export function WalkJobPanel() {
         deck={{
           ledger: null,
           back: null,
-          acts: draft.stop === undefined ? [] : [{ id: "stop", label: "Stop", icon: Square, run: () => draft.stop?.(session.id) }],
+          acts:
+            draft.stop === undefined
+              ? []
+              : [
+                  {
+                    id: "stop",
+                    label: "Stop",
+                    icon: Square,
+                    run: () => draft.stop?.(session.id),
+                  },
+                ],
         }}
       />
     </section>,

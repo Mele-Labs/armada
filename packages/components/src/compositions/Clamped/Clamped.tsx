@@ -78,7 +78,10 @@ export function Clamped({
     const watching = new ResizeObserver(measure);
     watching.observe(node);
     return () => watching.disconnect();
-  }, [measure, children]);
+  }, [
+    measure,
+    children,
+  ]);
 
   return (
     <div className="armada-clamped">
@@ -89,7 +92,9 @@ export function Clamped({
         // The clamp is off while open, and the measurement above only means
         // anything against the clamped box — so it is re-read on every close.
         data-open={open ? "true" : undefined}
-        style={{ ["--armada-clamped-lines" as string]: String(lines) }}
+        style={{
+          ["--armada-clamped-lines" as string]: String(lines),
+        }}
       >
         {children}
       </div>

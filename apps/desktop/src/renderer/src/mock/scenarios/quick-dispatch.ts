@@ -15,20 +15,60 @@ function elsewhere(name: string): RepositorySummary {
   return {
     root: `/Users/user/code/${name}`,
     records_root: `/records/${name}`,
-    manifest: { ...repository().manifest!, id: name, repository: name, path: `${name}/armada.yml` },
+    manifest: {
+      ...repository().manifest!,
+      id: name,
+      repository: name,
+      path: `${name}/armada.yml`,
+    },
   };
 }
 
-const SERVED = [repository(), elsewhere("storefront"), elsewhere("billing"), elsewhere("docs-site")];
+const SERVED = [
+  repository(),
+  elsewhere("storefront"),
+  elsewhere("billing"),
+  elsewhere("docs-site"),
+];
 
-const base = holding("quick-dispatch", "The Cockpit on All repositories, nothing needing the owner: the dispatch panel in one press, over four set-up repositories");
+const base = holding(
+  "quick-dispatch",
+  "The Cockpit on All repositories, nothing needing the owner: the dispatch panel in one press, over four set-up repositories",
+);
 
-const owners = new Map(SERVED.flatMap((one) => (one.manifest === undefined ? [] : [[one.root, one.manifest.id] as const])));
+const owners = new Map(
+  SERVED.flatMap((one) =>
+    one.manifest === undefined
+      ? []
+      : [
+          [
+            one.root,
+            one.manifest.id,
+          ] as const,
+        ],
+  ),
+);
 
 export const s210QuickDispatch: Scenario = {
   ...base,
   // The base repository is replaced by the four, so the row of chips names exactly these.
-  state: { ...base.state, holds: { ...base.state.holds, repositories: SERVED, manifests: SERVED.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest])) } },
+  state: {
+    ...base.state,
+    holds: {
+      ...base.state.holds,
+      repositories: SERVED,
+      manifests: SERVED.flatMap((one) =>
+        one.manifest === undefined
+          ? []
+          : [
+              one.manifest,
+            ],
+      ),
+    },
+  },
   // A Session starts in the repository it is given and is listed under it, as Fleet lists one by the Manifest it started in.
-  draft: { ...base.draft, sessions: () => sessionsStore([], [], owners) },
+  draft: {
+    ...base.draft,
+    sessions: () => sessionsStore([], [], owners),
+  },
 };

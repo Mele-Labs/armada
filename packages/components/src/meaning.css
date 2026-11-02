@@ -2,17 +2,29 @@
    its hue on the frame, a wash on the ground, and the figure or glyph at full strength. Every hue here is one
    `tokens/status.css` declares. No gradient, no glow: depth stays with the shadow and the sunken well. */
 
-:root[data-look="new"] { --state-bar: calc(var(--bar) + var(--border-width)); }
+:root[data-look="new"] {
+  --state-bar: calc(var(--bar) + var(--border-width));
+}
 
 /* ================================================================ Usage ====================================== */
 /* A figure going the wrong way, or a plan window running out, lights its tile. A figure going the right way keeps a quiet tile and a green chip. */
-:root[data-look="new"] .armada-usage__tile:is([data-way="worse"], [data-level="near"]) { --hue: var(--usage-worse); }
-:root[data-look="new"] .armada-usage__tile[data-level="over"] { --hue: var(--usage-over); }
-:root[data-look="new"] .armada-usage__tile:is([data-way="worse"], [data-level="near"], [data-level="over"]) {
+:root[data-look="new"] .armada-usage__tile:is([data-way="worse"], [data-level="near"]) {
+  --hue: var(--usage-worse);
+}
+:root[data-look="new"] .armada-usage__tile[data-level="over"] {
+  --hue: var(--usage-over);
+}
+:root[data-look="new"]
+  .armada-usage__tile:is([data-way="worse"], [data-level="near"], [data-level="over"]) {
   border-color: color-mix(in srgb, var(--hue) 55%, var(--border-subtle));
   background: color-mix(in srgb, var(--hue) var(--status-wash), var(--bg-raised));
 }
-:root[data-look="new"] .armada-usage__tile:is([data-way="worse"], [data-level="near"], [data-level="over"]) .armada-usage__big .armada-usage__fig { color: var(--hue); }
+:root[data-look="new"]
+  .armada-usage__tile:is([data-way="worse"], [data-level="near"], [data-level="over"])
+  .armada-usage__big
+  .armada-usage__fig {
+  color: var(--hue);
+}
 
 /* The plan's meter is the Limits rail: a well cut into the tile, the fill laid in it. */
 :root[data-look="new"] .armada-usage__tile .armada-usage__meter {
@@ -20,12 +32,16 @@
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: var(--bg-sunken);
-  box-shadow: inset 0 calc(2 * var(--border-width)) calc(3 * var(--border-width)) rgb(0 0 0 / 0.55), 0 var(--border-width) 0 var(--border-highlight);
+  box-shadow:
+    inset 0 calc(2 * var(--border-width)) calc(3 * var(--border-width)) rgb(0 0 0 / 0.55),
+    0 var(--border-width) 0 var(--border-highlight);
 }
 :root[data-look="new"] .armada-usage__tile .armada-usage__fill {
   border-radius: var(--radius-sm);
   background: var(--hue, var(--usage-meter));
-  box-shadow: inset 0 var(--border-width) 0 rgb(255 255 255 / 0.4), inset 0 calc(-1 * var(--border-width)) 0 rgb(0 0 0 / 0.25);
+  box-shadow:
+    inset 0 var(--border-width) 0 rgb(255 255 255 / 0.4),
+    inset 0 calc(-1 * var(--border-width)) 0 rgb(0 0 0 / 0.25);
 }
 
 :root[data-look="new"] .armada-usage__delta[data-way] {
@@ -33,49 +49,102 @@
   border-radius: var(--radius-sm);
   font-weight: var(--weight-medium);
 }
-:root[data-look="new"] .armada-usage__delta[data-way="better"] { color: var(--usage-better); background: color-mix(in srgb, var(--usage-better) 14%, transparent); }
-:root[data-look="new"] .armada-usage__delta[data-way="worse"] { color: var(--usage-worse); background: color-mix(in srgb, var(--usage-worse) 16%, transparent); }
+:root[data-look="new"] .armada-usage__delta[data-way="better"] {
+  color: var(--usage-better);
+  background: color-mix(in srgb, var(--usage-better) 14%, transparent);
+}
+:root[data-look="new"] .armada-usage__delta[data-way="worse"] {
+  color: var(--usage-worse);
+  background: color-mix(in srgb, var(--usage-worse) 16%, transparent);
+}
 
 /* A Job whose context ran past the line: the one figure in its row. */
-:root[data-look="new"] .armada-usage__fig[data-over] { color: var(--usage-worse); font-weight: var(--weight-heading); }
+:root[data-look="new"] .armada-usage__fig[data-over] {
+  color: var(--usage-worse);
+  font-weight: var(--weight-heading);
+}
 
 /* A usage rule that is on is lit; one that is off stays out. */
-:root[data-look="new"] .armada-usage__state[data-on="true"] { color: var(--usage-meter); }
+:root[data-look="new"] .armada-usage__state[data-on="true"] {
+  color: var(--usage-meter);
+}
 
 /* ================================================================ Doctor ===================================== */
 /* The bays' band: a probe that warns or fails heads its well in its hue. A pass keeps its well, with the hue on the hairline. */
-:root[data-look="new"] .armada-doctor-tile[data-result="pass"] { border-color: color-mix(in srgb, var(--hue) 30%, var(--border-subtle)); }
+:root[data-look="new"] .armada-doctor-tile[data-result="pass"] {
+  border-color: color-mix(in srgb, var(--hue) 30%, var(--border-subtle));
+}
 :root[data-look="new"] .armada-doctor-tile:is([data-result="warn"], [data-result="fail"]) {
   border-color: color-mix(in srgb, var(--hue) 70%, var(--border-subtle));
   background: color-mix(in srgb, var(--hue) var(--status-wash), var(--bg-sunken));
 }
-:root[data-look="new"] .armada-doctor-tile:is([data-result="warn"], [data-result="fail"]) .armada-tile__head {
+:root[data-look="new"]
+  .armada-doctor-tile:is([data-result="warn"], [data-result="fail"])
+  .armada-tile__head {
   margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-4)) 0;
   padding: var(--space-2) var(--space-4);
   border-bottom: var(--border-width) solid color-mix(in srgb, var(--hue) 45%, var(--border-subtle));
   background: color-mix(in srgb, var(--hue) 24%, var(--bg-sunken));
 }
-:root[data-look="new"] .armada-doctor-tile:is([data-result="warn"], [data-result="fail"]) .armada-doctor-tile__module {
+:root[data-look="new"]
+  .armada-doctor-tile:is([data-result="warn"], [data-result="fail"])
+  .armada-doctor-tile__module {
   color: var(--hue);
   font-weight: var(--weight-head);
 }
-:root[data-look="new"] .armada-doctor-tile:is([data-result="warn"], [data-result="fail"]) .armada-doctor-reading__line { color: var(--fg-default); }
-:root[data-look="new"] .armada-doctor-tile[aria-selected="true"]:is([data-result="warn"], [data-result="fail"]) .armada-tile__head { background: transparent; }
+:root[data-look="new"]
+  .armada-doctor-tile:is([data-result="warn"], [data-result="fail"])
+  .armada-doctor-reading__line {
+  color: var(--fg-default);
+}
+:root[data-look="new"]
+  .armada-doctor-tile[aria-selected="true"]:is([data-result="warn"], [data-result="fail"])
+  .armada-tile__head {
+  background: transparent;
+}
 
 /* ================================================================ Checks ===================================== */
 /* The row's frame already says it. Its glyph sits at full strength, and a run that failed or is running names itself in its hue. */
-:root[data-look="new"] .armada-check-list__row:is([data-status="running"], [data-status="passed"], [data-status="failed"]) .armada-step-mark { color: var(--hue); }
-:root[data-look="new"] .armada-check-list__row:is([data-status="running"], [data-status="passed"], [data-status="failed"]) .armada-step-mark svg { width: var(--space-4); height: var(--space-4); }
-:root[data-look="new"] .armada-check-list__row:is([data-status="running"], [data-status="failed"]) .armada-check-list__open { color: var(--hue); }
-:root[data-look="new"] .armada-check-list__row[data-status="running"] { background: color-mix(in srgb, var(--hue) var(--status-wash), transparent); }
+:root[data-look="new"]
+  .armada-check-list__row:is(
+    [data-status="running"],
+    [data-status="passed"],
+    [data-status="failed"]
+  )
+  .armada-step-mark {
+  color: var(--hue);
+}
+:root[data-look="new"]
+  .armada-check-list__row:is(
+    [data-status="running"],
+    [data-status="passed"],
+    [data-status="failed"]
+  )
+  .armada-step-mark
+  svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+:root[data-look="new"]
+  .armada-check-list__row:is([data-status="running"], [data-status="failed"])
+  .armada-check-list__open {
+  color: var(--hue);
+}
+:root[data-look="new"] .armada-check-list__row[data-status="running"] {
+  background: color-mix(in srgb, var(--hue) var(--status-wash), transparent);
+}
 
 /* ================================================================ Issues ===================================== */
 /* An issue a Job works: the lamp grows into a bar down the row's edge, and the ground takes the hue. An issue nothing works stays neutral. */
-:root[data-look="new"] .issues-surface .issues-row:is([data-tone="live"], [data-tone="ask"], [data-tone="wait"]):not([data-selected]) {
+:root[data-look="new"]
+  .issues-surface
+  .issues-row:is([data-tone="live"], [data-tone="ask"], [data-tone="wait"]):not([data-selected]) {
   border-color: color-mix(in srgb, var(--lamp-hue) 40%, var(--border-subtle));
   background: color-mix(in srgb, var(--lamp-hue) 12%, var(--chip));
 }
-:root[data-look="new"] .issues-surface .issues-row:is([data-tone="live"], [data-tone="ask"], [data-tone="wait"])::before {
+:root[data-look="new"]
+  .issues-surface
+  .issues-row:is([data-tone="live"], [data-tone="ask"], [data-tone="wait"])::before {
   content: "";
   position: absolute;
   inset-block: 0;
@@ -87,10 +156,18 @@
 
 /* ================================================================ Reviews ==================================== */
 /* A pull request's checks are on the row's edge: read down the list before reading a mark. */
-:root[data-look="new"] .pr-row[data-checks="passed"] { --hue: var(--run-passed); }
-:root[data-look="new"] .pr-row[data-checks="running"] { --hue: var(--run-running); }
-:root[data-look="new"] .pr-row[data-checks="failed"] { --hue: var(--run-failed); }
-:root[data-look="new"] .pr-row[data-checks] { position: relative; }
+:root[data-look="new"] .pr-row[data-checks="passed"] {
+  --hue: var(--run-passed);
+}
+:root[data-look="new"] .pr-row[data-checks="running"] {
+  --hue: var(--run-running);
+}
+:root[data-look="new"] .pr-row[data-checks="failed"] {
+  --hue: var(--run-failed);
+}
+:root[data-look="new"] .pr-row[data-checks] {
+  position: relative;
+}
 :root[data-look="new"] .pr-row[data-checks]::after {
   content: "";
   position: absolute;
@@ -100,13 +177,22 @@
   background: var(--hue);
   pointer-events: none;
 }
-:root[data-look="new"] .pr-row[data-checks="failed"]:not([data-selected]) { background: color-mix(in srgb, var(--hue) 12%, transparent); }
-:root[data-look="new"] .pr-row .pr-review__mark svg { width: var(--space-4); height: var(--space-4); }
+:root[data-look="new"] .pr-row[data-checks="failed"]:not([data-selected]) {
+  background: color-mix(in srgb, var(--hue) 12%, transparent);
+}
+:root[data-look="new"] .pr-row .pr-review__mark svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
 
 /* ================================================================ Projects =================================== */
 /* The two views that name a state wear its hue, and a task that asks takes the same bar and ground as an issue that asks. */
-:root[data-look="new"] .projects-view[data-view="needs"] svg { color: var(--status-awaiting-review); }
-:root[data-look="new"] .projects-view[data-view="held"] svg { color: var(--status-running); }
+:root[data-look="new"] .projects-view[data-view="needs"] svg {
+  color: var(--status-awaiting-review);
+}
+:root[data-look="new"] .projects-view[data-view="held"] svg {
+  color: var(--status-running);
+}
 :root[data-look="new"] .projects-row[data-asking] {
   background: color-mix(in srgb, var(--status-awaiting-review) 12%, transparent);
   box-shadow: inset var(--state-bar) 0 0 var(--status-awaiting-review);
@@ -114,9 +200,16 @@
   border-end-start-radius: 0;
 }
 /* A lit task stands clear of what is next to it: its own ground is the divide, so the hairlines give way to a gap. */
-:root[data-look="new"] .projects-item-card:has(> .projects-row[data-asking]) { margin-block: var(--space-2); border-top: 0; }
-:root[data-look="new"] .projects-item-card:has(> .projects-row[data-asking]) + .projects-item-card { border-top: 0; }
-:root[data-look="new"] .projects-row[data-state="closed"] .projects-row__mark { color: var(--hue); }
+:root[data-look="new"] .projects-item-card:has(> .projects-row[data-asking]) {
+  margin-block: var(--space-2);
+  border-top: 0;
+}
+:root[data-look="new"] .projects-item-card:has(> .projects-row[data-asking]) + .projects-item-card {
+  border-top: 0;
+}
+:root[data-look="new"] .projects-row[data-state="closed"] .projects-row__mark {
+  color: var(--hue);
+}
 
 /* ================================================================ Settings =================================== */
 /* A setting moved off what ships: Modified in the slider's hue, where the eye is already following the fill. */

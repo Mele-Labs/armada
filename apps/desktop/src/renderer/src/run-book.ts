@@ -11,13 +11,21 @@ import type { BridgeApi } from "../../shared/api";
 import { factOf, placeOf, runsOf, wireOfPlace } from "./run-places";
 
 /** What the book asks of Fleet. */
-export type RunBookApi = Pick<BridgeApi, "getRunMemory" | "getRunMemoryPlace" | "setRunMemoryPlace" | "dropRunFact">;
+export type RunBookApi = Pick<
+  BridgeApi,
+  "getRunMemory" | "getRunMemoryPlace" | "setRunMemoryPlace" | "dropRunFact"
+>;
 
 /** Fleet lists none: a synced folder is chosen with the folder dialog and named by where it is. */
 export const NO_SYNCED: readonly SyncedFolder[] = [];
 export const NO_PROFILES: readonly string[] = [];
 /** The store rows of the place menu: the one profile the repository is bound to, whose store view cloud runs are kept in. None where it is bound to none. */
-export const profilesOf = (profile: string | undefined): readonly string[] => (profile === undefined ? NO_PROFILES : [profile]);
+export const profilesOf = (profile: string | undefined): readonly string[] =>
+  profile === undefined
+    ? NO_PROFILES
+    : [
+        profile,
+      ];
 
 const KEY = "armada.bridge.first-jobs";
 
@@ -55,7 +63,10 @@ export function cardOn(root: string, job: string, sent: boolean): boolean {
   const firsts = readFirsts();
   if (!(root in firsts)) {
     // A Job with something sent in it belongs to a repository already in use: no card to show for it, now or later.
-    writeFirsts({ ...firsts, [root]: sent ? null : job });
+    writeFirsts({
+      ...firsts,
+      [root]: sent ? null : job,
+    });
     return !sent;
   }
   return firsts[root] === job && !sent;
@@ -104,7 +115,18 @@ export class RunBook {
     const said = this.failed.get(root);
     const place = this.places.get(root);
     if (said === undefined) return undefined;
-    return { repository: name, source: "", rows: [], place: place === undefined ? { id: "mac" } : placeOf(place, NO_SYNCED, profile), said };
+    return {
+      repository: name,
+      source: "",
+      rows: [],
+      place:
+        place === undefined
+          ? {
+              id: "mac",
+            }
+          : placeOf(place, NO_SYNCED, profile),
+      said,
+    };
   }
 
   /** Reads a repository's runs again, for a layer about to show them. */
@@ -112,7 +134,11 @@ export class RunBook {
     const answer = await this.api.getRunMemory(root);
     if (answer.ok) {
       this.memories.set(root, answer.value);
-      this.places.set(root, { repository: root, place: answer.value.place, ...this.folderOf(root) });
+      this.places.set(root, {
+        repository: root,
+        place: answer.value.place,
+        ...this.folderOf(root),
+      });
       this.failed.delete(root);
     } else {
       this.failed.set(root, refusalWords(answer.outcome));
@@ -120,9 +146,15 @@ export class RunBook {
     this.changed();
   }
 
-  private folderOf(root: string): { synced_folder?: string } {
+  private folderOf(root: string): {
+    synced_folder?: string;
+  } {
     const held = this.places.get(root);
-    return held?.synced_folder === undefined ? {} : { synced_folder: held.synced_folder };
+    return held?.synced_folder === undefined
+      ? {}
+      : {
+          synced_folder: held.synced_folder,
+        };
   }
 
   private async readPlace(root: string): Promise<void> {
@@ -152,7 +184,12 @@ export class RunBook {
     const memory = this.memories.get(root);
     const fact = memory === undefined ? undefined : factOf(memory, id);
     if (fact === undefined) return undefined;
-    const body: DropRunFact = { repository: root, workspace: fact.workspace, kind: fact.kind, command: fact.command };
+    const body: DropRunFact = {
+      repository: root,
+      workspace: fact.workspace,
+      kind: fact.kind,
+      command: fact.command,
+    };
     const answer = await this.api.dropRunFact(body);
     if (!answer.ok) return refusalWords(answer.outcome);
     this.memories.set(root, answer.value);

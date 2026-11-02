@@ -7,20 +7,40 @@ import { createContext, useContext, useEffect, useSyncExternalStore } from "reac
 import type { TheShellProps } from "@armada/components";
 
 /** A question Sleep answered for the owner. `sessionId` is the Session it was decided in. */
-export type MorningDecided = { id: string; who: string; asked: string; chose: string; corrected?: string; sessionId?: string };
+export type MorningDecided = {
+  id: string;
+  who: string;
+  asked: string;
+  chose: string;
+  corrected?: string;
+  sessionId?: string;
+};
 
 /** Something only the owner can settle. */
-export type MorningBlocked = { id: string; who: string; text: string };
+export type MorningBlocked = {
+  id: string;
+  who: string;
+  text: string;
+};
 
 /** A pull request that merged during the night. */
-export type MorningLanded = { id: string; who: string; title: string; pr: string };
+export type MorningLanded = {
+  id: string;
+  who: string;
+  title: string;
+  pr: string;
+};
 
 export type SleepState = {
   on: boolean;
   decided: readonly MorningDecided[];
   blocked: readonly MorningBlocked[];
   landed: readonly MorningLanded[];
-  walks: readonly { id: string; who: string; title: string }[];
+  walks: readonly {
+    id: string;
+    who: string;
+    title: string;
+  }[];
 };
 
 export type SleepSource = {
@@ -35,7 +55,13 @@ export type SleepSource = {
 const SleepContext = createContext<SleepSource | null>(null);
 export const SleepSourceProvider = SleepContext.Provider;
 
-const NO_STATE: SleepState = { on: false, decided: [], blocked: [], landed: [], walks: [] };
+const NO_STATE: SleepState = {
+  on: false,
+  decided: [],
+  blocked: [],
+  landed: [],
+  walks: [],
+};
 
 const NONE: SleepSource = {
   get: () => NO_STATE,
@@ -59,7 +85,9 @@ export function useSleepDecided(): readonly MorningDecided[] {
  * on: the first key or press anywhere in the window. The press on the toggle itself is the owner's own
  * toggle, so it is left to do what it says.
  */
-export function useSleepMode(): { sleep: TheShellProps["sleep"] } {
+export function useSleepMode(): {
+  sleep: TheShellProps["sleep"];
+} {
   const source = useSleepSource();
   const state = useSyncExternalStore((source ?? NONE).subscribe, (source ?? NONE).get);
   const on = state.on;
@@ -68,7 +96,11 @@ export function useSleepMode(): { sleep: TheShellProps["sleep"] } {
     if (!on || toggle === undefined) return;
     const used = (event: Event) => {
       // The menu holding the toggle is the owner's own: nothing pressed inside it is the first use.
-      if (event.target instanceof Element && event.target.closest('[aria-label="Sleep mode"], [data-keeps-sleep]') !== null) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[aria-label="Sleep mode"], [data-keeps-sleep]') !== null
+      )
+        return;
       stop();
       toggle();
     };
@@ -79,7 +111,18 @@ export function useSleepMode(): { sleep: TheShellProps["sleep"] } {
     window.addEventListener("keydown", used, true);
     window.addEventListener("pointerdown", used, true);
     return stop;
-  }, [on, toggle]);
-  if (source === null) return { sleep: undefined };
-  return { sleep: { on, onToggle: source.toggle } };
+  }, [
+    on,
+    toggle,
+  ]);
+  if (source === null)
+    return {
+      sleep: undefined,
+    };
+  return {
+    sleep: {
+      on,
+      onToggle: source.toggle,
+    },
+  };
 }

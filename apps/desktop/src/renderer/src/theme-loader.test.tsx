@@ -11,14 +11,24 @@ import type { CatalogueTheme, ThemeMod, ThemeState } from "@armada/settings";
 import { createThemeLoader } from "./theme-loader";
 import { Themed } from "./theme";
 
-const MOD = (name: string, css: string, enabled = true): ThemeMod => ({ name, title: name, enabled, load: () => Promise.resolve(css) });
-const STATE = (active: string, ...mods: ThemeMod[]): ThemeState => ({ active, mods, catalogue: [] });
+const MOD = (name: string, css: string, enabled = true): ThemeMod => ({
+  name,
+  title: name,
+  enabled,
+  load: () => Promise.resolve(css),
+});
+const STATE = (active: string, ...mods: ThemeMod[]): ThemeState => ({
+  active,
+  mods,
+  catalogue: [],
+});
 const BLOCK = (id: string, bg = "tomato") => `[data-theme="${id}"] { --bg-base: ${bg}; }`;
 const DUSK_CSS = BLOCK("dusk");
 const DUSK = MOD("dusk", DUSK_CSS);
 
 const theme = () => document.documentElement.dataset["theme"];
-const bgBase = () => getComputedStyle(document.documentElement).getPropertyValue("--bg-base").trim();
+const bgBase = () =>
+  getComputedStyle(document.documentElement).getPropertyValue("--bg-base").trim();
 
 afterEach(() => {
   document.adoptedStyleSheets = [];
@@ -46,7 +56,13 @@ test("a theme's CSS is adopted under its own data-theme, and leaves with it", ()
 
 test("CSS that is empty, unparseable, unscoped or fetches something is Dark", () => {
   const loader = createThemeLoader(document);
-  for (const css of ["", "/* nothing */", "not css at all {{{", "body { --bg-base: red; }", '@import url("https://example.com/x.css"); ' + BLOCK("dusk")]) {
+  for (const css of [
+    "",
+    "/* nothing */",
+    "not css at all {{{",
+    "body { --bg-base: red; }",
+    '@import url("https://example.com/x.css"); ' + BLOCK("dusk"),
+  ]) {
     expect(loader.apply("dusk", css)).toBe("dark");
     expect(theme()).toBe("dark");
     expect(document.adoptedStyleSheets).toHaveLength(0);
@@ -86,13 +102,29 @@ function themed(props: Parameters<typeof Themed>[0]) {
 }
 
 const settled = () => new Promise((done) => setTimeout(done, 0));
-const SHIPPED = (id: string, css: string | (() => Promise<string>)): CatalogueTheme => ({ id, title: id, tone: "dark", load: typeof css === "string" ? () => Promise.resolve(css) : css });
+const SHIPPED = (id: string, css: string | (() => Promise<string>)): CatalogueTheme => ({
+  id,
+  title: id,
+  tone: "dark",
+  load: typeof css === "string" ? () => Promise.resolve(css) : css,
+});
 
 test("a catalogue theme is read when it is chosen, then applied like a mod's", async () => {
   let reads = 0;
-  const shipped = SHIPPED("catalogue:nord", () => (reads += 1, Promise.resolve(BLOCK("catalogue:nord", "navy"))));
-  const source = createThemeSource(() => ({ mods: [], catalogue: [shipped], active: "dark" }));
-  const down = themed({ source });
+  const shipped = SHIPPED(
+    "catalogue:nord",
+    () => ((reads += 1), Promise.resolve(BLOCK("catalogue:nord", "navy"))),
+  );
+  const source = createThemeSource(() => ({
+    mods: [],
+    catalogue: [
+      shipped,
+    ],
+    active: "dark",
+  }));
+  const down = themed({
+    source,
+  });
   expect(reads).toBe(0);
   source.setActive("catalogue:nord");
   await settled();
@@ -104,8 +136,16 @@ test("a catalogue theme is read when it is chosen, then applied like a mod's", a
 
 test("a catalogue theme that cannot be read is Dark, in the source as well", async () => {
   const shipped = SHIPPED("catalogue:gone", () => Promise.reject(new Error("no such chunk")));
-  const source = createThemeSource(() => ({ mods: [], catalogue: [shipped], active: "catalogue:gone" }));
-  const down = themed({ source });
+  const source = createThemeSource(() => ({
+    mods: [],
+    catalogue: [
+      shipped,
+    ],
+    active: "catalogue:gone",
+  }));
+  const down = themed({
+    source,
+  });
   await settled();
   expect(theme()).toBe("dark");
   expect(source.get().active).toBe("dark");
@@ -115,8 +155,16 @@ test("a catalogue theme that cannot be read is Dark, in the source as well", asy
 test("the last choice wins when an earlier one is still being read", async () => {
   let release: (css: string) => void = () => undefined;
   const slow = SHIPPED("catalogue:slow", () => new Promise<string>((done) => (release = done)));
-  const source = createThemeSource(() => ({ mods: [], catalogue: [slow], active: "dark" }));
-  const down = themed({ source });
+  const source = createThemeSource(() => ({
+    mods: [],
+    catalogue: [
+      slow,
+    ],
+    active: "dark",
+  }));
+  const down = themed({
+    source,
+  });
   source.setActive("catalogue:slow");
   source.setActive("light");
   release(BLOCK("catalogue:slow"));
@@ -127,7 +175,9 @@ test("the last choice wins when an earlier one is still being read", async () =>
 
 test("the source and the picker are told Dark when a mod's CSS is refused", async () => {
   const source = createThemeSource(() => STATE("dusk", MOD("dusk", "")));
-  const down = themed({ source });
+  const down = themed({
+    source,
+  });
   await settled();
   expect(theme()).toBe("dark");
   expect(source.get().active).toBe("dark");
@@ -136,17 +186,27 @@ test("the source and the picker are told Dark when a mod's CSS is refused", asyn
 
 test("a mod's CSS is read when its theme is drawn, and a mod that cannot be read is Dark", async () => {
   let reads = 0;
-  const read = { ...DUSK, load: () => (reads += 1, Promise.resolve(BLOCK("dusk", "navy"))) };
+  const read = {
+    ...DUSK,
+    load: () => ((reads += 1), Promise.resolve(BLOCK("dusk", "navy"))),
+  };
   const source = createThemeSource(() => STATE("dusk", read));
-  const down = themed({ source });
+  const down = themed({
+    source,
+  });
   await settled();
   expect(reads).toBe(1);
   expect(theme()).toBe("dusk");
   expect(bgBase()).toBe("navy");
   down();
 
-  const unreadable = { ...DUSK, load: () => Promise.reject(new Error("did not pass its checks")) };
-  const gone = themed({ source: createThemeSource(() => STATE("dusk", unreadable)) });
+  const unreadable = {
+    ...DUSK,
+    load: () => Promise.reject(new Error("did not pass its checks")),
+  };
+  const gone = themed({
+    source: createThemeSource(() => STATE("dusk", unreadable)),
+  });
   await settled();
   expect(theme()).toBe("dark");
   expect(document.adoptedStyleSheets).toHaveLength(0);
@@ -156,29 +216,48 @@ test("a mod's CSS is read when its theme is drawn, and a mod that cannot be read
 test("a source that keeps the choice is told which theme fell back, and is not made to choose Dark", async () => {
   const told: string[] = [];
   const source = createThemeSource(() => STATE("dusk", MOD("dusk", "")));
-  const kept = { ...source, fellBack: (id: string) => void told.push(id), setActive: (id: string) => void told.push(`chose ${id}`) };
-  const down = themed({ source: kept });
+  const kept = {
+    ...source,
+    fellBack: (id: string) => void told.push(id),
+    setActive: (id: string) => void told.push(`chose ${id}`),
+  };
+  const down = themed({
+    source: kept,
+  });
   await settled();
   expect(theme()).toBe("dark");
-  expect(told).toEqual(["dusk"]);
+  expect(told).toEqual([
+    "dusk",
+  ]);
   down();
 });
 
 test("the blocks Fleet's checks let a mod write are accepted: bare :root and [data-theme], and its own name", () => {
   const loader = createThemeLoader(document);
-  for (const css of [":root { --bg-base: tomato; }", "[data-theme] { --bg-base: tomato; }", `:root, ${BLOCK("dusk").split(" {")[0]} { --bg-base: tomato; }`]) {
+  for (const css of [
+    ":root { --bg-base: tomato; }",
+    "[data-theme] { --bg-base: tomato; }",
+    `:root, ${BLOCK("dusk").split(" {")[0]} { --bg-base: tomato; }`,
+  ]) {
     expect(loader.apply("dusk", css)).toBe("dusk");
     expect(bgBase()).toBe("tomato");
   }
   // Anything else is not the theme's: it would restyle Bridge whichever theme is in force.
-  for (const css of ["body { --bg-base: red; }", `:root, body { --bg-base: red; }`, BLOCK("other")]) {
+  for (const css of [
+    "body { --bg-base: red; }",
+    `:root, body { --bg-base: red; }`,
+    BLOCK("other"),
+  ]) {
     expect(loader.apply("dusk", css)).toBe("dark");
   }
 });
 
 test("safe mode loads without mods", () => {
   const source = createThemeSource(() => STATE("dusk", DUSK));
-  const down = themed({ source, noMods: true });
+  const down = themed({
+    source,
+    noMods: true,
+  });
   expect(theme()).toBe("dark");
   expect(document.adoptedStyleSheets).toHaveLength(0);
   // The mod is still on the machine; it is only not loaded.
@@ -187,8 +266,15 @@ test("safe mode loads without mods", () => {
 });
 
 test("a source that throws leaves Dark, and Bridge mounted", () => {
-  const broken = { ...createThemeSource(), get: (): ThemeState => { throw new Error("the mod folder is unreadable"); } };
-  const down = themed({ source: broken });
+  const broken = {
+    ...createThemeSource(),
+    get: (): ThemeState => {
+      throw new Error("the mod folder is unreadable");
+    },
+  };
+  const down = themed({
+    source: broken,
+  });
   expect(theme()).toBe("dark");
   down();
 });

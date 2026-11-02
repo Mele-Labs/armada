@@ -55,7 +55,9 @@ export function MentionPopover({
             role="option"
             aria-selected={index === active}
             className={
-              index === active ? "armada-mention__row armada-mention__row--active" : "armada-mention__row"
+              index === active
+                ? "armada-mention__row armada-mention__row--active"
+                : "armada-mention__row"
             }
             onMouseEnter={() => onHover(index)}
             // `onMouseDown`, not `onClick`: a click fires after the field's own

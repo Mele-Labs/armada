@@ -37,7 +37,10 @@ export type SetupPickerProps = {
   /** Check names across the ticked batch, in first-declared order. */
   names: string[];
   /** One row per ticked workspace, a cell per name. */
-  grid: { dir: string; cells: SetupGridCell[] }[];
+  grid: {
+    dir: string;
+    cells: SetupGridCell[];
+  }[];
 };
 
 export function SetupPicker({ rows, onTick, onOpen, names, grid }: SetupPickerProps) {
@@ -57,7 +60,10 @@ export function SetupPicker({ rows, onTick, onOpen, names, grid }: SetupPickerPr
               aria-current={row.open || undefined}
               data-open={row.open || undefined}
             >
-              <Checkbox checked={row.ticked} onChange={(event) => onTick(row.dir, event.target.checked)}>
+              <Checkbox
+                checked={row.ticked}
+                onChange={(event) => onTick(row.dir, event.target.checked)}
+              >
                 <span className="armada-setup-picker__dir">{row.dir}</span>
               </Checkbox>
               <span className="armada-setup-picker__detail">
@@ -67,7 +73,12 @@ export function SetupPicker({ rows, onTick, onOpen, names, grid }: SetupPickerPr
                 {row.note === undefined ? null : <span>{row.note}</span>}
               </span>
               <span className="armada-setup-picker__state">{row.state}</span>
-              <Button variant="ghost" size="sm" aria-label={`Open ${row.dir}`} onClick={() => onOpen(row.dir)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Open ${row.dir}`}
+                onClick={() => onOpen(row.dir)}
+              >
                 Open
               </Button>
             </li>

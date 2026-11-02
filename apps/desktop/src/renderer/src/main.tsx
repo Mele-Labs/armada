@@ -77,7 +77,10 @@ import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 // when everything under it has gone.
 
 /** The themes this window offers: Fleet's mods and the saved preference, and the catalogue Bridge ships. */
-const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
+const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, {
+  builtIn: BUILT_IN_SWATCHES,
+  ofMod: modSwatch,
+});
 
 /** The layout this window draws: Fleet's layout mods and the owner's saved choices, or the shipped layout in safe mode. */
 const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(withState(window.armada));
@@ -121,7 +124,9 @@ const ISSUES = createIssuesStore(issuesSourceOf(window.armada, window.armada));
 /** His projects, kept in Fleet and read when the window opens, then kept current by `projects.changed`. */
 const PROJECTS = createProjectsStore(window.armada);
 /** The title menu's account entry: the profiles, the sign-in and What syncs, over Fleet. A kind switched reads the home again. */
-const ACCOUNT = createFleetAccount(withState(window.armada), undefined, { kindSwitched: (login) => HOME.readAgain(login) });
+const ACCOUNT = createFleetAccount(withState(window.armada), undefined, {
+  kindSwitched: (login) => HOME.readAgain(login),
+});
 /** Kit and the Theme rows against the chosen profile's shared home, over Fleet. */
 const HOME = createFleetSharedHome(window.armada, ACCOUNT);
 
@@ -137,54 +142,50 @@ function Root() {
   }, []);
 
   return (
-    <Boundary
-      region="the window"
-      usable={false}
-      bridge={bridge}
-    >
+    <Boundary region="the window" usable={false} bridge={bridge}>
       {/* Here rather than in `App`, which the mock mounts: only a real Bridge reaches a trackpad. */}
       <HapticsProvider perform={window.armada.tap}>
         <Themed source={THEMES}>
           <LayoutSourceProvider value={LAYOUT}>
             <TaughtSourceProvider value={TAUGHT}>
-            <TweakSourceProvider source={TWEAKS}>
-            <PhoneSourceProvider value={PHONE}>
-              <SleepSourceProvider value={SLEEP}>
-                <WiredNumbered>
-                  <PlanUsageSourceProvider value={PLAN_USAGE}>
-                    <DownshiftSourceProvider value={DOWNSHIFT}>
-                    <AgentSignInSourceProvider value={AGENT_SIGN_IN}>
-                      <WiredSessions events={TIMELINE}>
-                        <ClashesFromFleet source={CLASHES}>
-                          <TerritoryFromFleet source={TERRITORY}>
-                            <AccountFromFleet source={ACCOUNT} home={HOME}>
-                              <FleetEventsOver source={TIMELINE}>
-                                <ReviewsFrom store={REVIEWS}>
-                                  <IssuesFrom store={ISSUES}>
-                                    <ProjectsFrom store={PROJECTS}>
-                                      <ThreadLookSaved>
-                                        <MockStylesContext.Provider value={MOCK_STYLES}>
-                                          <WiredSharedPanel>
-                                            <App />
-                                            <TweaksApplied />
-                                          </WiredSharedPanel>
-                                        </MockStylesContext.Provider>
-                                      </ThreadLookSaved>
-                                    </ProjectsFrom>
-                                  </IssuesFrom>
-                                </ReviewsFrom>
-                              </FleetEventsOver>
-                            </AccountFromFleet>
-                          </TerritoryFromFleet>
-                        </ClashesFromFleet>
-                      </WiredSessions>
-                    </AgentSignInSourceProvider>
-                    </DownshiftSourceProvider>
-                  </PlanUsageSourceProvider>
-                </WiredNumbered>
-              </SleepSourceProvider>
-            </PhoneSourceProvider>
-            </TweakSourceProvider>
+              <TweakSourceProvider source={TWEAKS}>
+                <PhoneSourceProvider value={PHONE}>
+                  <SleepSourceProvider value={SLEEP}>
+                    <WiredNumbered>
+                      <PlanUsageSourceProvider value={PLAN_USAGE}>
+                        <DownshiftSourceProvider value={DOWNSHIFT}>
+                          <AgentSignInSourceProvider value={AGENT_SIGN_IN}>
+                            <WiredSessions events={TIMELINE}>
+                              <ClashesFromFleet source={CLASHES}>
+                                <TerritoryFromFleet source={TERRITORY}>
+                                  <AccountFromFleet source={ACCOUNT} home={HOME}>
+                                    <FleetEventsOver source={TIMELINE}>
+                                      <ReviewsFrom store={REVIEWS}>
+                                        <IssuesFrom store={ISSUES}>
+                                          <ProjectsFrom store={PROJECTS}>
+                                            <ThreadLookSaved>
+                                              <MockStylesContext.Provider value={MOCK_STYLES}>
+                                                <WiredSharedPanel>
+                                                  <App />
+                                                  <TweaksApplied />
+                                                </WiredSharedPanel>
+                                              </MockStylesContext.Provider>
+                                            </ThreadLookSaved>
+                                          </ProjectsFrom>
+                                        </IssuesFrom>
+                                      </ReviewsFrom>
+                                    </FleetEventsOver>
+                                  </AccountFromFleet>
+                                </TerritoryFromFleet>
+                              </ClashesFromFleet>
+                            </WiredSessions>
+                          </AgentSignInSourceProvider>
+                        </DownshiftSourceProvider>
+                      </PlanUsageSourceProvider>
+                    </WiredNumbered>
+                  </SleepSourceProvider>
+                </PhoneSourceProvider>
+              </TweakSourceProvider>
             </TaughtSourceProvider>
           </LayoutSourceProvider>
         </Themed>

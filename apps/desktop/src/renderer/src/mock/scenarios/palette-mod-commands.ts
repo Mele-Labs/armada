@@ -12,25 +12,91 @@ const MOD = "team-commands";
 
 const FILE: CommandsFile = {
   command: [
-    { name: "Security pass on a pull request", aliases: ["sec"], hotkey: "⌥⌘S", prompt: "Review {pr} for {focus} problems", blanks: ["pr", "focus"] },
-    { name: "Open pull request on the forge", aliases: ["forge"], url: "https://forge.example/mele-labs/armada/pull/{pr}", blanks: ["pr"] },
-    { name: "Triage the board", chain: ["nav:reviews", "nav:projects"] },
-    { name: "Audit dependencies", shell: "pnpm audit" },
+    {
+      name: "Security pass on a pull request",
+      aliases: [
+        "sec",
+      ],
+      hotkey: "⌥⌘S",
+      prompt: "Review {pr} for {focus} problems",
+      blanks: [
+        "pr",
+        "focus",
+      ],
+    },
+    {
+      name: "Open pull request on the forge",
+      aliases: [
+        "forge",
+      ],
+      url: "https://forge.example/mele-labs/armada/pull/{pr}",
+      blanks: [
+        "pr",
+      ],
+    },
+    {
+      name: "Triage the board",
+      chain: [
+        "nav:reviews",
+        "nav:projects",
+      ],
+    },
+    {
+      name: "Audit dependencies",
+      shell: "pnpm audit",
+    },
   ],
 };
 
-const checked = (name: string): ModChecked | null => (name === MOD ? { name, valid: true, problems: [], commands: FILE } : null);
+const checked = (name: string): ModChecked | null =>
+  name === MOD
+    ? {
+        name,
+        valid: true,
+        problems: [],
+        commands: FILE,
+      }
+    : null;
 
 /** A Fleet that runs the line it is given in a directory: it prints what an audit prints, then ends. Output is sent as main sends it, by run id. */
 function fakeRun() {
   const hearers = new Set<(runId: string, message: SessionRunMessage) => void>();
-  const ok = async () => ({ ok: true, value: { run_id: "run-audit" } }) as const;
+  const ok = async () =>
+    ({
+      ok: true,
+      value: {
+        run_id: "run-audit",
+      },
+    }) as const;
   return {
     startTerminalRun: async (command: string, dir: string) => {
-      const send = (message: SessionRunMessage) => hearers.forEach((one) => one("run-audit", message));
-      setTimeout(() => send({ kind: "output", text: `${dir}\r\n$ ${command}\r\n` }), 150);
-      setTimeout(() => send({ kind: "output", text: "found 0 vulnerabilities in 412 packages\r\n" }), 400);
-      setTimeout(() => send({ kind: "exited", code: 0, stopped: false }), 650);
+      const send = (message: SessionRunMessage) =>
+        hearers.forEach((one) => one("run-audit", message));
+      setTimeout(
+        () =>
+          send({
+            kind: "output",
+            text: `${dir}\r\n$ ${command}\r\n`,
+          }),
+        150,
+      );
+      setTimeout(
+        () =>
+          send({
+            kind: "output",
+            text: "found 0 vulnerabilities in 412 packages\r\n",
+          }),
+        400,
+      );
+      setTimeout(
+        () =>
+          send({
+            kind: "exited",
+            code: 0,
+            stopped: false,
+          }),
+        650,
+      );
       return ok();
     },
     writeSessionRun: ok,
@@ -47,11 +113,41 @@ export const s333PaletteModCommands: Scenario = {
   ...base,
   name: "palette-mod-commands",
   says: "The palette with the rows of a Commands mod: a prompt with two blanks, an address, a chain and a shell line that runs in a side panel",
-  state: { ...base.state, mods: { mods: [{ name: MOD, origin: "local", kind: "commands", version: "1", enabled: true, valid: true, changed_at: "2026-10-27T09:00:00Z" }] } },
+  state: {
+    ...base.state,
+    mods: {
+      mods: [
+        {
+          name: MOD,
+          origin: "local",
+          kind: "commands",
+          version: "1",
+          enabled: true,
+          valid: true,
+          changed_at: "2026-10-27T09:00:00Z",
+        },
+      ],
+    },
+  },
   draft: {
     ...base.draft,
-    palette: { ...base.draft!.palette!, commands: [], pinned: [], recent: [] },
-    sharedPanel: () => ({ ...sharedPanelReads(base.state.mergeLines ?? { lines: [] }), terminalRun: fakeRun() }),
+    palette: {
+      ...base.draft!.palette!,
+      commands: [],
+      pinned: [],
+      recent: [],
+    },
+    sharedPanel: () => ({
+      ...sharedPanelReads(
+        base.state.mergeLines ?? {
+          lines: [],
+        },
+      ),
+      terminalRun: fakeRun(),
+    }),
   },
-  behaves: (fleet) => ({ ...(base.behaves?.(fleet) ?? {}), validateMod: async (name) => checked(name) }),
+  behaves: (fleet) => ({
+    ...(base.behaves?.(fleet) ?? {}),
+    validateMod: async (name) => checked(name),
+  }),
 };

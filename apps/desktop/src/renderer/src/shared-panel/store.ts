@@ -8,13 +8,25 @@ import type { LanePanel, TeachSourceKind } from "@armada/components";
 import type { ModKind } from "@armada/protocol";
 
 /** What Requests starts from: a request's sent half, as a `requested` row holds it. */
-export type RequestStart = { method: string; url: string; environment?: string; headers: readonly RequestHeader[]; body?: string };
+export type RequestStart = {
+  method: string;
+  url: string;
+  environment?: string;
+  headers: readonly RequestHeader[];
+  body?: string;
+};
 
 import type { NoteRegion } from "@armada/components";
 import type { PanelFileItem } from "../../../shared/api/files";
 
 /** A file opened again from a note the person sent on it: the lines to select, or the region of a picture to draw. */
-export type PanelFileMarked = { lines?: { from: number; to: number }; region?: NoteRegion };
+export type PanelFileMarked = {
+  lines?: {
+    from: number;
+    to: number;
+  };
+  region?: NoteRegion;
+};
 
 /** What a press hands over: enough to name the thing, and whatever the surface already knew of it. The panel reads the rest. */
 export type PanelItem =
@@ -29,51 +41,155 @@ export type PanelItem =
       branch?: string;
       tab?: string;
       /** A comment to open the pull request at, named by who wrote it and the start of what they said. */
-      comment?: { author: string; body: string };
+      comment?: {
+        author: string;
+        body: string;
+      };
     }
-  | { kind: "issue"; /** The forge's number as digits, or a tracker's key. */ number: string; root?: string; manifestId?: string; address?: string; title?: string }
-  | { kind: "bay"; manifestId: string; slot: number }
+  | {
+      kind: "issue" /** The forge's number as digits, or a tracker's key. */;
+      number: string;
+      root?: string;
+      manifestId?: string;
+      address?: string;
+      title?: string;
+    }
+  | {
+      kind: "bay";
+      manifestId: string;
+      slot: number;
+    }
   /** One of a Session's watches, read from the Session as `watches.changed` last carried it. */
-  | { kind: "watch"; sessionId: string; id: string; name: string }
+  | {
+      kind: "watch";
+      sessionId: string;
+      id: string;
+      name: string;
+    }
   /** A mod on this machine, by its folder, with the title its row draws and its kind. The panel reads the rest from Fleet's mod list. */
-  | { kind: "mod"; name: string; title: string; modKind: ModKind }
-  | (PanelFileItem & { marked?: PanelFileMarked })
-  | { kind: "check"; id: string; name?: string; branch?: string; land?: { root: string; branch: string; check: string }; row?: { state: "passed" | "failed" | "running"; seconds?: number; address?: string } }
+  | {
+      kind: "mod";
+      name: string;
+      title: string;
+      modKind: ModKind;
+    }
+  | (PanelFileItem & {
+      marked?: PanelFileMarked;
+    })
+  | {
+      kind: "check";
+      id: string;
+      name?: string;
+      branch?: string;
+      land?: {
+        root: string;
+        branch: string;
+        check: string;
+      };
+      row?: {
+        state: "passed" | "failed" | "running";
+        seconds?: number;
+        address?: string;
+      };
+    }
   /**
    * Requests, for the Job it was opened in where there was one, starting from a request where it was opened on one (`from` is
    * that row's id), or on a saved request where it was opened on a `saved` row.
    */
-  | { kind: "requests"; sessionId?: string; start?: RequestStart; from?: string; saved?: { collection: string; request: string } }
+  | {
+      kind: "requests";
+      sessionId?: string;
+      start?: RequestStart;
+      from?: string;
+      saved?: {
+        collection: string;
+        request: string;
+      };
+    }
   /** A pick on the Workflows page's lanes: the page draws it into the panel's body (`useLanePanel`). */
-  | { kind: "lane"; title: string; heading: string; crumb: string }
+  | {
+      kind: "lane";
+      title: string;
+      heading: string;
+      crumb: string;
+    }
   /** A Job's lanes: the workflow and what it holds, with the spine left on show beside. */
-  | { kind: "lanes"; sessionId: string }
+  | {
+      kind: "lanes";
+      sessionId: string;
+    }
   /** What a rule on a Job's lanes is waiting on the person for, answered there. `row` is its card in the thread, which stays on show once it is sent. Without one, the panel says what the rule's acts are and where each stands. */
-  | { kind: "rule"; sessionId: string; rule: string; row?: string }
+  | {
+      kind: "rule";
+      sessionId: string;
+      rule: string;
+      row?: string;
+    }
   /** A command run in a repository's checkout with no Job behind it, started when the panel opens. `at` tells two runs of one line apart. */
-  | { kind: "run"; command: string; dir: string; repository: string; at: number }
+  | {
+      kind: "run";
+      command: string;
+      dir: string;
+      repository: string;
+      at: number;
+    }
   /** Teach, for something in this Session (`source` is what, `text` its text as it stands, `at` when the row was written): the repository it is in, by id, root and name. */
-  | { kind: "teach"; sessionId: string; jobTitle: string; manifestId?: string; root?: string; repository: string; source: TeachSourceKind; text: string; at?: string; /** What names the thing, as Fleet reads it: a notice's word, a panel's id. */ ids?: string[] };
+  | {
+      kind: "teach";
+      sessionId: string;
+      jobTitle: string;
+      manifestId?: string;
+      root?: string;
+      repository: string;
+      source: TeachSourceKind;
+      text: string;
+      at?: string /** What names the thing, as Fleet reads it: a notice's word, a panel's id. */;
+      ids?: string[];
+    };
 
-type Held = { open: PanelItem | undefined; back: PanelItem | undefined; hosts: number };
+type Held = {
+  open: PanelItem | undefined;
+  back: PanelItem | undefined;
+  hosts: number;
+};
 
-let held: Held = { open: undefined, back: undefined, hosts: 0 };
+let held: Held = {
+  open: undefined,
+  back: undefined,
+  hosts: 0,
+};
 const listeners = new Set<() => void>();
 const set = (next: Partial<Held>) => {
-  held = { ...held, ...next };
+  held = {
+    ...held,
+    ...next,
+  };
   listeners.forEach((one) => one());
 };
 
 /** A window that draws the panel says so while it is mounted. */
 export function hostsPanel(): () => void {
-  set({ hosts: held.hosts + 1 });
-  return () => set({ hosts: held.hosts - 1, ...(held.hosts === 1 ? { open: undefined, back: undefined } : {}) });
+  set({
+    hosts: held.hosts + 1,
+  });
+  return () =>
+    set({
+      hosts: held.hosts - 1,
+      ...(held.hosts === 1
+        ? {
+            open: undefined,
+            back: undefined,
+          }
+        : {}),
+    });
 }
 
 let browse: ((address: string) => boolean) | undefined;
 
 /** Where `links.openPullRequestsIn` says the browser, the host hands over how a pull request goes there. */
-export function browsePullRequestsWith(next: ((address: string) => boolean) | undefined): () => void {
+export function browsePullRequestsWith(
+  next: ((address: string) => boolean) | undefined,
+): () => void {
   browse = next;
   return () => {
     if (browse === next) browse = undefined;
@@ -84,22 +200,37 @@ export function browsePullRequestsWith(next: ((address: string) => boolean) | un
 export function openInPanel(item: PanelItem): boolean {
   if (held.hosts === 0) return false;
   if (item.kind === "pr" && item.address !== "" && browse?.(item.address) === true) return true;
-  set({ open: item, back: held.open !== undefined && held.open.kind !== item.kind ? held.open : held.back });
+  set({
+    open: item,
+    back: held.open !== undefined && held.open.kind !== item.kind ? held.open : held.back,
+  });
   return true;
 }
 
 /** Opens a mod in the panel, from a press on its row. */
 export function openMod(mod: { name: string; title: string; kind: ModKind }): boolean {
-  return openInPanel({ kind: "mod", name: mod.name, title: mod.title, modKind: mod.kind });
+  return openInPanel({
+    kind: "mod",
+    name: mod.name,
+    title: mod.title,
+    modKind: mod.kind,
+  });
 }
 
 /** Back to the item the panel was on before a press inside it moved it. */
 export function panelBack(): void {
-  if (held.back !== undefined) set({ open: held.back, back: undefined });
+  if (held.back !== undefined)
+    set({
+      open: held.back,
+      back: undefined,
+    });
 }
 
 export function closePanel(): void {
-  set({ open: undefined, back: undefined });
+  set({
+    open: undefined,
+    back: undefined,
+  });
 }
 
 /** Requests is a page in the deck's place, so going to any other place leaves it. */
@@ -119,7 +250,18 @@ export function pullNumberOf(address: string): number | undefined {
 /** Opens the pull request an address names, where one is hosted. Any other address is left alone. */
 export function openAddressInPanel(address: string, tab?: string): boolean {
   const number = pullNumberOf(address);
-  return number === undefined ? false : openInPanel({ kind: "pr", number, address, ...(tab === undefined ? {} : { tab }) });
+  return number === undefined
+    ? false
+    : openInPanel({
+        kind: "pr",
+        number,
+        address,
+        ...(tab === undefined
+          ? {}
+          : {
+              tab,
+            }),
+      });
 }
 
 /** A bay's key on the deck, `slot:<manifest>/<slot>`. */
@@ -127,7 +269,11 @@ export function openSlotKeyInPanel(key: string): boolean {
   const rest = key.startsWith("slot:") ? key.slice("slot:".length) : undefined;
   const at = rest?.lastIndexOf("/") ?? -1;
   if (rest === undefined || at < 0 || Number.isNaN(Number(rest.slice(at + 1)))) return false;
-  return openInPanel({ kind: "bay", manifestId: rest.slice(0, at), slot: Number(rest.slice(at + 1)) });
+  return openInPanel({
+    kind: "bay",
+    manifestId: rest.slice(0, at),
+    slot: Number(rest.slice(at + 1)),
+  });
 }
 
 export const usePanel = (): Pick<Held, "open" | "back"> => {
@@ -180,16 +326,41 @@ export const useFilesBeside = (): string | undefined =>
 
 /** A window starting over: nothing open, and nothing hosted until its own host mounts. */
 export function forgetPanel(): void {
-  held = { open: undefined, back: undefined, hosts: 0 };
+  held = {
+    open: undefined,
+    back: undefined,
+    hosts: 0,
+  };
   previewing = false;
 }
 
 /** Requests, for the Job named where one is open. */
-export const openRequestsInPanel = (sessionId?: string): boolean => openInPanel({ kind: "requests", ...(sessionId === undefined ? {} : { sessionId }) });
+export const openRequestsInPanel = (sessionId?: string): boolean =>
+  openInPanel({
+    kind: "requests",
+    ...(sessionId === undefined
+      ? {}
+      : {
+          sessionId,
+        }),
+  });
 
 /** The deck's pull request, as the panel names it. */
-export const openPullRequestInPanel = (pr: { number: number; url: string; root: string; title: string; branch: string }): boolean =>
-  openInPanel({ kind: "pr", number: pr.number, address: pr.url, root: pr.root, title: pr.title, branch: pr.branch });
+export const openPullRequestInPanel = (pr: {
+  number: number;
+  url: string;
+  root: string;
+  title: string;
+  branch: string;
+}): boolean =>
+  openInPanel({
+    kind: "pr",
+    number: pr.number,
+    address: pr.url,
+    root: pr.root,
+    title: pr.title,
+    branch: pr.branch,
+  });
 
 // ---- The Workflows page's lanes ---------------------------------------------------------------------------------------------
 
@@ -214,17 +385,25 @@ export function useLanePanel(): LanePanel {
     () => ({
       open: open?.kind === "lane",
       slot: open?.kind === "lane" ? slot : null,
-      show: (what) => void openInPanel({ kind: "lane", ...what }),
+      show: (what) =>
+        void openInPanel({
+          kind: "lane",
+          ...what,
+        }),
       close: () => held.open?.kind === "lane" && closePanel(),
     }),
-    [open?.kind, slot],
+    [
+      open?.kind,
+      slot,
+    ],
   );
 }
 
 // ---- A Job's lanes -----------------------------------------------------------------------------------------------------------
 
 /** The Job's Lanes are open in the panel. */
-export const lanesOpenFor = (sessionId: string): boolean => held.open?.kind === "lanes" && held.open.sessionId === sessionId;
+export const lanesOpenFor = (sessionId: string): boolean =>
+  held.open?.kind === "lanes" && held.open.sessionId === sessionId;
 
 /** Whether this Job's Lanes are open in the panel, for a button that shows it pressed. */
 export function useLanesOpen(sessionId: string): boolean {

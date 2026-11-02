@@ -9,15 +9,52 @@ const needs = region("Needs you");
 
 const newWorkflow = walk("new-workflow", [
   ...toSystemPage("Workflows", "Workflows, from System"),
-  { press: button(/^New workflow/), say: "New workflow opens the sheet" },
-  { type: "Release notes for a tag", into: inside(sheet, role("textbox", "Request")), say: "What it should do" },
-  { press: inside(sheet, role("radio", "This repository")), say: "Where it is kept" },
-  { press: inside(sheet, button("Start", { exact: true })), say: "Start begins a Job, which opens in the Cockpit" },
-  { press: inside(needs, button(/^Needs you/)), say: "The proposed workflow is in Needs you, and as a card in the thread" },
-  { press: inside(needs, role("radio", /Approve/)), say: "Approve" },
-  { press: inside(needs, button("Answer", { exact: true })), say: "Answer sends it" },
+  {
+    press: button(/^New workflow/),
+    say: "New workflow opens the sheet",
+  },
+  {
+    type: "Release notes for a tag",
+    into: inside(sheet, role("textbox", "Request")),
+    say: "What it should do",
+  },
+  {
+    press: inside(sheet, role("radio", "This repository")),
+    say: "Where it is kept",
+  },
+  {
+    press: inside(
+      sheet,
+      button("Start", {
+        exact: true,
+      }),
+    ),
+    say: "Start begins a Job, which opens in the Cockpit",
+  },
+  {
+    press: inside(needs, button(/^Needs you/)),
+    say: "The proposed workflow is in Needs you, and as a card in the thread",
+  },
+  {
+    press: inside(needs, role("radio", /Approve/)),
+    say: "Approve",
+  },
+  {
+    press: inside(
+      needs,
+      button("Answer", {
+        exact: true,
+      }),
+    ),
+    say: "Answer sends it",
+  },
   ...toSystemPage("Workflows", "Workflows, from System"),
-  { look: role("button", "release-notes", { exact: true }), say: "release-notes is listed" },
+  {
+    look: role("button", "release-notes", {
+      exact: true,
+    }),
+    say: "release-notes is listed",
+  },
 ]);
 
 export { newWorkflow as "new-workflow" };

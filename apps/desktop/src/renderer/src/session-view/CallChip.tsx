@@ -11,7 +11,13 @@ export function callWord(session: Session): string | undefined {
   return plan !== undefined && !plan.approved && planAsked(session) ? "Plan" : undefined;
 }
 
-export function CallChip({ word, scope }: { word: string | undefined; scope: RefObject<HTMLElement | null> }) {
+export function CallChip({
+  word,
+  scope,
+}: {
+  word: string | undefined;
+  scope: RefObject<HTMLElement | null>;
+}) {
   const [away, setAway] = useState(false);
   useEffect(() => {
     const scroller = scope.current?.querySelector<HTMLElement>(".armada-session-thread__rows");
@@ -24,19 +30,29 @@ export function CallChip({ word, scope }: { word: string | undefined; scope: Ref
       setAway(box.top > view.bottom - 24);
     };
     read();
-    scroller.addEventListener("scroll", read, { passive: true });
+    scroller.addEventListener("scroll", read, {
+      passive: true,
+    });
     const watch = new ResizeObserver(read);
     watch.observe(scroller);
     return () => {
       scroller.removeEventListener("scroll", read);
       watch.disconnect();
     };
-  }, [scope, word]);
+  }, [
+    scope,
+    word,
+  ]);
   if (word === undefined || !away) return null;
   const jump = () => {
     const tail = scope.current?.querySelector<HTMLElement>(".armada-session-thread__tail");
-    tail?.scrollIntoView({ block: "end", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-    tail?.querySelector<HTMLElement>("button, textarea, input")?.focus({ preventScroll: true });
+    tail?.scrollIntoView({
+      block: "end",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+    tail?.querySelector<HTMLElement>("button, textarea, input")?.focus({
+      preventScroll: true,
+    });
   };
   return (
     <div className="sv-callchip">

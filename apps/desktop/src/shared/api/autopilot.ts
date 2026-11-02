@@ -2,14 +2,32 @@
 // #2092, `docs/concepts/autopilot.md`. A slice imports protocol, never another slice; `../api.ts` and
 // `../bridge.ts` compose them.
 
-import type { Autopilot, AutopilotList, AutopilotProposal, AutopilotSettings, Outcome } from "@armada/protocol";
+import type {
+  Autopilot,
+  AutopilotList,
+  AutopilotProposal,
+  AutopilotSettings,
+  Outcome,
+} from "@armada/protocol";
 
 /** What an Autopilot act came to: Fleet's answer, or the refusal to word. */
-export type AutopilotActed<T = Autopilot> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+export type AutopilotActed<T = Autopilot> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type AutopilotApi = {
   /** One sentence read as settings, with the words each came from, for the person to confirm or change. **Starts nothing.** */
-  proposeAutopilot: (manifestId: string, sentence: string, localNow: string) => Promise<AutopilotActed<AutopilotProposal>>;
+  proposeAutopilot: (
+    manifestId: string,
+    sentence: string,
+    localNow: string,
+  ) => Promise<AutopilotActed<AutopilotProposal>>;
   /** Start with what the person confirmed. */
   startAutopilot: (manifestId: string, settings: AutopilotSettings) => Promise<AutopilotActed>;
   /** New settings for one running or paused, in its state: never a resume. Raising the cap that paused it lets Resume through. */

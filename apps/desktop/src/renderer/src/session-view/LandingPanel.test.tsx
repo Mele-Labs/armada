@@ -13,10 +13,17 @@ import { LandingPanel } from "./LandingPanel";
 import { dropLayer, useLayer, useLayerPage } from "./layers";
 import { resetFolds } from "./story";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const ID = "landing-s1";
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   resetFolds(ID);
   dropLayer(ID);
@@ -24,16 +31,68 @@ afterEach(() => {
     act(() => root.unmount());
     host.remove();
   }
-  Object.defineProperty(window, "armada", { value: undefined, configurable: true });
+  Object.defineProperty(window, "armada", {
+    value: undefined,
+    configurable: true,
+  });
 });
 
-const pull = (number: number, state: "draft" | "open" | "merged" = "open"): SessionAttachment => ({ kind: "pull_request", number, title: `Pull ${number}`, branch: `armada/b${number}`, address: `https://forge/pull/${number}`, checks: { state: "passed" }, state, auto: false });
-const issue = (number: number): SessionAttachment => ({ kind: "issue", number: String(number), title: `Issue ${number}`, address: `https://forge/issues/${number}`, state: "open" });
-const doc = (id: string, title: string): SessionAttachment => ({ kind: "artifact", form: "doc", id, title });
-const page = (id: string, title: string): SessionAttachment => ({ kind: "artifact", form: "document", id, title, revisions: [`/kept/${title}/r1.html`] });
+const pull = (number: number, state: "draft" | "open" | "merged" = "open"): SessionAttachment => ({
+  kind: "pull_request",
+  number,
+  title: `Pull ${number}`,
+  branch: `armada/b${number}`,
+  address: `https://forge/pull/${number}`,
+  checks: {
+    state: "passed",
+  },
+  state,
+  auto: false,
+});
+const issue = (number: number): SessionAttachment => ({
+  kind: "issue",
+  number: String(number),
+  title: `Issue ${number}`,
+  address: `https://forge/issues/${number}`,
+  state: "open",
+});
+const doc = (id: string, title: string): SessionAttachment => ({
+  kind: "artifact",
+  form: "doc",
+  id,
+  title,
+});
+const page = (id: string, title: string): SessionAttachment => ({
+  kind: "artifact",
+  form: "document",
+  id,
+  title,
+  revisions: [
+    `/kept/${title}/r1.html`,
+  ],
+});
 
-function sessionOf(landing: WorkLanding | undefined, attachments: SessionAttachment[], extra: Partial<Session> = {}): Session {
-  return { id: ID, attachments, rows: [], turn: { state: "idle" }, ...(landing === undefined ? {} : { work: { landing } }), ...extra } as unknown as Session;
+function sessionOf(
+  landing: WorkLanding | undefined,
+  attachments: SessionAttachment[],
+  extra: Partial<Session> = {},
+): Session {
+  return {
+    id: ID,
+    attachments,
+    rows: [],
+    turn: {
+      state: "idle",
+    },
+    ...(landing === undefined
+      ? {}
+      : {
+          work: {
+            landing,
+          },
+        }),
+    ...extra,
+  } as unknown as Session;
 }
 
 /** The layer open over the Job, drawn beside the panel as the Job view would draw it. */
@@ -55,22 +114,53 @@ async function mount(session: Session): Promise<HTMLElement> {
       </>,
     ),
   );
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   return host;
 }
 
-const titles = (host: HTMLElement, list: string) => [...host.querySelectorAll(`[aria-label="${list}"] > li`)].map((one) => one.querySelector("button")?.getAttribute("aria-label"));
+const titles = (host: HTMLElement, list: string) =>
+  [
+    ...host.querySelectorAll(`[aria-label="${list}"] > li`),
+  ].map((one) => one.querySelector("button")?.getAttribute("aria-label"));
 
 test("a pull request landing draws the pull requests as rows, the newest first", async () => {
-  const host = await mount(sessionOf("pull_request", [pull(7), pull(8)]));
-  expect(titles(host, "Pull requests")).toEqual(["Pull request #8 Pull 8", "Pull request #7 Pull 7"]);
+  const host = await mount(
+    sessionOf("pull_request", [
+      pull(7),
+      pull(8),
+    ]),
+  );
+  expect(titles(host, "Pull requests")).toEqual([
+    "Pull request #8 Pull 8",
+    "Pull request #7 Pull 7",
+  ]);
   expect(host.querySelector('[aria-label="Findings"]')).toBeNull();
 });
 
 test("pull requests stacked on one another read parent first, share a lane, and a chip finds a parent that is not the row above", async () => {
-  const on = (number: number, branch: string, base: string): SessionAttachment => ({ ...(pull(number) as object), branch, base }) as SessionAttachment;
-  const host = await mount(sessionOf("pull_request", [on(1, "root", "main"), on(2, "one", "root"), on(3, "two", "root"), pull(4)]));
-  expect(titles(host, "Pull requests")).toEqual(["Pull request #4 Pull 4", "Pull request #1 Pull 1", "Pull request #2 Pull 2", "Pull request #3 Pull 3"]);
+  const on = (number: number, branch: string, base: string): SessionAttachment =>
+    ({
+      ...(pull(number) as object),
+      branch,
+      base,
+    }) as SessionAttachment;
+  const host = await mount(
+    sessionOf("pull_request", [
+      on(1, "root", "main"),
+      on(2, "one", "root"),
+      on(3, "two", "root"),
+      pull(4),
+    ]),
+  );
+  expect(titles(host, "Pull requests")).toEqual([
+    "Pull request #4 Pull 4",
+    "Pull request #1 Pull 1",
+    "Pull request #2 Pull 2",
+    "Pull request #3 Pull 3",
+  ]);
   // The root stands flush left with the line starting under it; only the two stacked on it sit in the lane.
   expect(host.querySelectorAll(".sv-lane")).toHaveLength(2);
   expect(host.querySelector('[data-pr="1"]')?.hasAttribute("data-root")).toBe(true);
@@ -84,49 +174,110 @@ test("pull requests stacked on one another read parent first, share a lane, and 
 });
 
 test("a Job with no landing named lands in a pull request", async () => {
-  const host = await mount(sessionOf(undefined, [pull(7)]));
-  expect(titles(host, "Pull requests")).toEqual(["Pull request #7 Pull 7"]);
+  const host = await mount(
+    sessionOf(undefined, [
+      pull(7),
+    ]),
+  );
+  expect(titles(host, "Pull requests")).toEqual([
+    "Pull request #7 Pull 7",
+  ]);
 });
 
 test("a pull request row names its branch and how its Checks stand", async () => {
-  const host = await mount(sessionOf("pull_request", [pull(7)]));
+  const host = await mount(
+    sessionOf("pull_request", [
+      pull(7),
+    ]),
+  );
   const row = host.querySelector('[aria-label="Pull requests"] > li')!;
   expect(row.textContent).toContain("armada/b7");
   expect(row.textContent).toContain("Passed");
 });
 
 test("a merged pull request settles the band as landed", async () => {
-  const host = await mount(sessionOf("pull_request", [pull(7, "merged")]));
+  const host = await mount(
+    sessionOf("pull_request", [
+      pull(7, "merged"),
+    ]),
+  );
   expect(host.querySelector("section.sv-panel")?.getAttribute("data-state")).toBe("done");
 });
 
 test("a spike landing draws the doc it made as Findings, and the pull request it opened beside them", async () => {
-  const host = await mount(sessionOf("spike", [doc("docs/findings.md", "Why the lease drops"), pull(7)]));
-  expect(titles(host, "Findings")).toEqual(["Why the lease drops"]);
-  expect(titles(host, "Pull requests")).toEqual(["Pull request #7 Pull 7"]);
+  const host = await mount(
+    sessionOf("spike", [
+      doc("docs/findings.md", "Why the lease drops"),
+      pull(7),
+    ]),
+  );
+  expect(titles(host, "Findings")).toEqual([
+    "Why the lease drops",
+  ]);
+  expect(titles(host, "Pull requests")).toEqual([
+    "Pull request #7 Pull 7",
+  ]);
 });
 
 // A page written with the document skill stands in the Landing whatever the Job lands in, and opens in the reading layer.
-for (const [said, landing] of [["a pull request landing", "pull_request"], ["a Job with no workflow", undefined]] as const) {
+for (const [said, landing] of [
+  [
+    "a pull request landing",
+    "pull_request",
+  ],
+  [
+    "a Job with no workflow",
+    undefined,
+  ],
+] as const) {
   test(`${said} draws the document the Job wrote beside its pull request, and pressing it opens the reading layer`, async () => {
-    const host = await mount(sessionOf(landing, [pull(7), page("/work/.armada/documents/lease.html", "Why leases end")]));
-    expect(titles(host, "Document")).toEqual(["Why leases end"]);
-    expect(titles(host, "Pull requests")).toEqual(["Pull request #7 Pull 7"]);
+    const host = await mount(
+      sessionOf(landing, [
+        pull(7),
+        page("/work/.armada/documents/lease.html", "Why leases end"),
+      ]),
+    );
+    expect(titles(host, "Document")).toEqual([
+      "Why leases end",
+    ]);
+    expect(titles(host, "Pull requests")).toEqual([
+      "Pull request #7 Pull 7",
+    ]);
     act(() => host.querySelector<HTMLElement>('[aria-label="Document"] button')!.click());
     const layer = host.querySelector("output")!;
-    expect([layer.dataset["layer"], layer.dataset["page"]]).toEqual(["document", "/work/.armada/documents/lease.html"]);
+    expect([
+      layer.dataset["layer"],
+      layer.dataset["page"],
+    ]).toEqual([
+      "document",
+      "/work/.armada/documents/lease.html",
+    ]);
   });
 }
 
 // A Job whose workflow lands a doc may still open a pull request, which stands in Delivery beside the doc and holds the band until it merges.
 test("a document landing draws the pull request the Job opened beside the doc it made", async () => {
-  const host = await mount(sessionOf("document", [doc("docs/design/watches.md", "How a watch ends"), pull(7)]));
-  expect(titles(host, "Document")).toEqual(["How a watch ends"]);
-  expect(titles(host, "Pull requests")).toEqual(["Pull request #7 Pull 7"]);
+  const host = await mount(
+    sessionOf("document", [
+      doc("docs/design/watches.md", "How a watch ends"),
+      pull(7),
+    ]),
+  );
+  expect(titles(host, "Document")).toEqual([
+    "How a watch ends",
+  ]);
+  expect(titles(host, "Pull requests")).toEqual([
+    "Pull request #7 Pull 7",
+  ]);
 });
 
 test("an open pull request keeps a document landing's band live, though the doc is written", async () => {
-  const host = await mount(sessionOf("document", [doc("docs/design/watches.md", "How a watch ends"), pull(7)]));
+  const host = await mount(
+    sessionOf("document", [
+      doc("docs/design/watches.md", "How a watch ends"),
+      pull(7),
+    ]),
+  );
   expect(host.querySelector("section.sv-panel")?.getAttribute("data-state")).toBe("live");
 });
 
@@ -137,63 +288,196 @@ test("a spike that has written nothing yet draws no Findings", async () => {
 
 function fleet(mods: ModSummary[]) {
   const api = {
-    syncState: async () => ({ full: { ...NOTHING_YET, mods: { mods } } satisfies BridgeState, seq: 1 }),
+    syncState: async () => ({
+      full: {
+        ...NOTHING_YET,
+        mods: {
+          mods,
+        },
+      } satisfies BridgeState,
+      seq: 1,
+    }),
     subscribeChanges: () => () => undefined,
     setModEnabled: vi.fn(),
   };
-  Object.defineProperty(window, "armada", { value: api, configurable: true });
+  Object.defineProperty(window, "armada", {
+    value: api,
+    configurable: true,
+  });
 }
-const mod = (name: string, extra: Partial<ModSummary> = {}): ModSummary => ({ name, kind: "theme", enabled: true, valid: true, ...extra });
+const mod = (name: string, extra: Partial<ModSummary> = {}): ModSummary => ({
+  name,
+  kind: "theme",
+  enabled: true,
+  valid: true,
+  ...extra,
+});
 
 test("a mod landing draws the mods this Job made, each with its switch, and none made by another", async () => {
-  fleet([mod("dusk", { made_by: ID }), mod("by-another", { made_by: "other" })]);
+  fleet([
+    mod("dusk", {
+      made_by: ID,
+    }),
+    mod("by-another", {
+      made_by: "other",
+    }),
+  ]);
   const host = await mount(sessionOf("mod", []));
-  expect([...host.querySelectorAll('[role="switch"]')].map((one) => one.getAttribute("aria-label"))).toEqual(["Dusk"]);
+  expect(
+    [
+      ...host.querySelectorAll('[role="switch"]'),
+    ].map((one) => one.getAttribute("aria-label")),
+  ).toEqual([
+    "Dusk",
+  ]);
   expect(host.querySelector('[aria-label="Pull requests"]')).toBeNull();
 });
 
 test("a landing in a pull request draws no mods", async () => {
-  fleet([mod("dusk", { made_by: ID })]);
-  const host = await mount(sessionOf("pull_request", [pull(7)]));
+  fleet([
+    mod("dusk", {
+      made_by: ID,
+    }),
+  ]);
+  const host = await mount(
+    sessionOf("pull_request", [
+      pull(7),
+    ]),
+  );
   expect(host.querySelector('[role="switch"]')).toBeNull();
 });
 
 // ---- Deferred ------------------------------------------------------------------------------------------------
 
-const deferred = (host: HTMLElement) => host.querySelector<HTMLElement>('section[aria-label="Deferred"]');
+const deferred = (host: HTMLElement) =>
+  host.querySelector<HTMLElement>('section[aria-label="Deferred"]');
 
 test("Deferred lists the issues the Job filed, once it is opened", async () => {
-  const host = await mount(sessionOf("pull_request", [pull(7), issue(31), issue(32)]));
+  const host = await mount(
+    sessionOf("pull_request", [
+      pull(7),
+      issue(31),
+      issue(32),
+    ]),
+  );
   const band = deferred(host)!.querySelector<HTMLElement>("button.sv-later__row")!;
   expect(band.getAttribute("aria-expanded")).toBe("false");
   expect(deferred(host)!.querySelector(".sv-later__list")).toBeNull();
   act(() => band.click());
-  expect([...deferred(host)!.querySelectorAll('.sv-later__item[data-kind="issue"] button')].map((one) => one.getAttribute("aria-label"))).toEqual(["Issue #31 Issue 31", "Issue #32 Issue 32"]);
+  expect(
+    [
+      ...deferred(host)!.querySelectorAll('.sv-later__item[data-kind="issue"] button'),
+    ].map((one) => one.getAttribute("aria-label")),
+  ).toEqual([
+    "Issue #31 Issue 31",
+    "Issue #32 Issue 32",
+  ]);
 });
 
 test("Deferred keeps the follow-ups the agent set aside beside the issues, and offers Remind and Drop on the follow-ups alone", async () => {
-  const host = await mount(sessionOf("pull_request", [pull(7), issue(31)], { later: [{ id: "l1", text: "Check the retry on Windows", at: "13:00:00" }] } as Partial<Session>));
+  const host = await mount(
+    sessionOf(
+      "pull_request",
+      [
+        pull(7),
+        issue(31),
+      ],
+      {
+        later: [
+          {
+            id: "l1",
+            text: "Check the retry on Windows",
+            at: "13:00:00",
+          },
+        ],
+      } as Partial<Session>,
+    ),
+  );
   act(() => deferred(host)!.querySelector<HTMLElement>("button.sv-later__row")!.click());
-  const items = [...deferred(host)!.querySelectorAll(".sv-later__item")];
+  const items = [
+    ...deferred(host)!.querySelectorAll(".sv-later__item"),
+  ];
   expect(items).toHaveLength(2);
-  expect(deferred(host)!.querySelector('[aria-label="Remind: Check the retry on Windows"]')).not.toBeNull();
+  expect(
+    deferred(host)!.querySelector('[aria-label="Remind: Check the retry on Windows"]'),
+  ).not.toBeNull();
   expect(items[1]!.querySelector('[aria-label^="Remind"]')).toBeNull();
 });
 
 test("an issue a plan group works stands in the Blueprint, not in Deferred", async () => {
-  const plan = { scope: [], approved: true, groups: [{ id: "g1", title: "Retry", agent: "a", paths: [], issue: "31", tasks: [] }] };
-  const host = await mount(sessionOf("pull_request", [pull(7), issue(31)], { work: { landing: "pull_request", plan } } as Partial<Session>));
+  const plan = {
+    scope: [],
+    approved: true,
+    groups: [
+      {
+        id: "g1",
+        title: "Retry",
+        agent: "a",
+        paths: [],
+        issue: "31",
+        tasks: [],
+      },
+    ],
+  };
+  const host = await mount(
+    sessionOf(
+      "pull_request",
+      [
+        pull(7),
+        issue(31),
+      ],
+      {
+        work: {
+          landing: "pull_request",
+          plan,
+        },
+      } as Partial<Session>,
+    ),
+  );
   expect(deferred(host)).toBeNull();
 });
 
 test("an issue the Job claimed stands in the Landing, not in Deferred", async () => {
-  const claimed: SessionAttachment = { ...(issue(31) as Extract<SessionAttachment, { kind: "issue" }>), claimed: true, pull_requests: [7] };
-  const host = await mount(sessionOf("pull_request", [pull(7), claimed, issue(32)]));
-  expect(host.querySelector('[aria-label="Issues"] [aria-label="Issue #31 Issue 31"]')).not.toBeNull();
+  const claimed: SessionAttachment = {
+    ...(issue(31) as Extract<
+      SessionAttachment,
+      {
+        kind: "issue";
+      }
+    >),
+    claimed: true,
+    pull_requests: [
+      7,
+    ],
+  };
+  const host = await mount(
+    sessionOf("pull_request", [
+      pull(7),
+      claimed,
+      issue(32),
+    ]),
+  );
+  expect(
+    host.querySelector('[aria-label="Issues"] [aria-label="Issue #31 Issue 31"]'),
+  ).not.toBeNull();
   act(() => deferred(host)!.querySelector<HTMLElement>("button.sv-later__row")!.click());
-  expect([...deferred(host)!.querySelectorAll('.sv-later__item[data-kind="issue"] button')].map((one) => one.getAttribute("aria-label"))).toEqual(["Issue #32 Issue 32"]);
+  expect(
+    [
+      ...deferred(host)!.querySelectorAll('.sv-later__item[data-kind="issue"] button'),
+    ].map((one) => one.getAttribute("aria-label")),
+  ).toEqual([
+    "Issue #32 Issue 32",
+  ]);
 });
 
 test("a Job with nothing filed and nothing set aside draws no Deferred", async () => {
-  expect(deferred(await mount(sessionOf("pull_request", [pull(7)])))).toBeNull();
+  expect(
+    deferred(
+      await mount(
+        sessionOf("pull_request", [
+          pull(7),
+        ]),
+      ),
+    ),
+  ).toBeNull();
 });

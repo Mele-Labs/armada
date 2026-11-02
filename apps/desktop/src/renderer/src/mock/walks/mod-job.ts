@@ -3,18 +3,55 @@
 
 import { deckRow, inside, region, role, text, walk } from "../walk";
 
-const made = region("Done", { exact: true });
+const made = region("Done", {
+  exact: true,
+});
 
 const modJob = walk("mod-job", [
-  { context: region("Bays", { exact: true }), say: "A right press on a panel of the Cockpit" },
-  { look: role("menuitem", "Mod"), say: "Mod is in the menu" },
-  { press: role("menuitem", "Mod"), say: "Mod starts a Job, titled after what was pointed at" },
-  { look: text(/Pointed at:/), say: "Its first message says what was pointed at" },
-  { look: inside(region("Jobs", { exact: true }), role("heading", "Mods")), say: "The Job sits under Mods in the list" },
-  { look: deckRow(/Bays/), say: "Beside the Jobs of the repository, not among them" },
-  { key: "Alt+1", on: made, say: "Done is folded until pressed: ⌥1 opens it" },
-  { look: inside(made, role("switch", "Dusk")), say: "The mod it made, on, and in force as it was saved" },
-  { press: inside(made, role("switch", "Dusk")), say: "Off undoes it" },
+  {
+    context: region("Bays", {
+      exact: true,
+    }),
+    say: "A right press on a panel of the Cockpit",
+  },
+  {
+    look: role("menuitem", "Mod"),
+    say: "Mod is in the menu",
+  },
+  {
+    press: role("menuitem", "Mod"),
+    say: "Mod starts a Job, titled after what was pointed at",
+  },
+  {
+    look: text(/Pointed at:/),
+    say: "Its first message says what was pointed at",
+  },
+  {
+    look: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      role("heading", "Mods"),
+    ),
+    say: "The Job sits under Mods in the list",
+  },
+  {
+    look: deckRow(/Bays/),
+    say: "Beside the Jobs of the repository, not among them",
+  },
+  {
+    key: "Alt+1",
+    on: made,
+    say: "Done is folded until pressed: ⌥1 opens it",
+  },
+  {
+    look: inside(made, role("switch", "Dusk")),
+    say: "The mod it made, on, and in force as it was saved",
+  },
+  {
+    press: inside(made, role("switch", "Dusk")),
+    say: "Off undoes it",
+  },
 ]);
 
 export { modJob as "mod-job" };

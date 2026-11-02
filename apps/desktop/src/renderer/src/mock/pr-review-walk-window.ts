@@ -29,14 +29,19 @@ function pageOf(shown: ShownReviewWalk, runner: RunnerPage | undefined): string 
 }
 
 /** Opens the stand-in on a walk. `runner` is the page of an API walk: its requests with the response each is sent for. */
-export function openReviewWalkWindow(shown: ShownReviewWalk, runner: RunnerPage | undefined, hooks: WalkWindowHooks): void {
+export function openReviewWalkWindow(
+  shown: ShownReviewWalk,
+  runner: RunnerPage | undefined,
+  hooks: WalkWindowHooks,
+): void {
   openWalkWindow(shown.title, pageOf(shown, runner), {
     title: shown.title,
     address: shown.address,
     // A note goes to the Session that holds the pull request, as main sends it. Without one it stays in Armada.
     job: shown.holder?.title ?? "Armada",
     into: "Session",
-    onNote: (said, picked) => (shown.holder === undefined ? hooks.onNote(said, picked.location) : undefined),
+    onNote: (said, picked) =>
+      shown.holder === undefined ? hooks.onNote(said, picked.location) : undefined,
     readiness: "ready",
     onClose: hooks.onClose,
   });
@@ -46,17 +51,44 @@ export function openReviewWalkWindow(shown: ShownReviewWalk, runner: RunnerPage 
  * The same walk joining the window that is open, or opening it, among the walks of Jobs: queued as `review:<manifest>#<n>`,
  * by when it was shown. Its entry names the pull request, and the panel beside the page is the Job that holds it.
  */
-export function queueReviewWalk(shown: ShownReviewWalk, runner: RunnerPage | undefined, hooks: WalkWindowHooks & { since: string; onApprove?: () => Promise<{ ok: true } | { ok: false; said: string }> }): void {
+export function queueReviewWalk(
+  shown: ShownReviewWalk,
+  runner: RunnerPage | undefined,
+  hooks: WalkWindowHooks & {
+    since: string;
+    onApprove?: () => Promise<
+      | {
+          ok: true;
+        }
+      | {
+          ok: false;
+          said: string;
+        }
+    >;
+  },
+): void {
   queueWalk(`review:${shown.manifestId}#${shown.number}`, shown.title, pageOf(shown, runner), {
     title: shown.title,
     address: shown.address,
     job: shown.holder?.title ?? "Armada",
     into: "Session",
-    entry: { name: shown.title.replace(/^#\d+\s*/, ""), pull: shown.number },
+    entry: {
+      name: shown.title.replace(/^#\d+\s*/, ""),
+      pull: shown.number,
+    },
     since: hooks.since,
-    ...(shown.holder === undefined ? {} : { panelFor: shown.holder.id }),
-    onNote: (said, picked) => (shown.holder === undefined ? hooks.onNote(said, picked.location) : undefined),
-    ...(hooks.onApprove === undefined ? {} : { onApprove: hooks.onApprove }),
+    ...(shown.holder === undefined
+      ? {}
+      : {
+          panelFor: shown.holder.id,
+        }),
+    onNote: (said, picked) =>
+      shown.holder === undefined ? hooks.onNote(said, picked.location) : undefined,
+    ...(hooks.onApprove === undefined
+      ? {}
+      : {
+          onApprove: hooks.onApprove,
+        }),
     readiness: "ready",
     onClose: hooks.onClose,
   });

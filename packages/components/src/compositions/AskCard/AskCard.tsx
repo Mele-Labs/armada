@@ -38,7 +38,20 @@ export type AskCardProps = {
   children: ReactNode;
 };
 
-export function AskCard({ icon: Icon, kind, where, at, now, title, label, hue, leaving, from, flow = false, children }: AskCardProps) {
+export function AskCard({
+  icon: Icon,
+  kind,
+  where,
+  at,
+  now,
+  title,
+  label,
+  hue,
+  leaving,
+  from,
+  flow = false,
+  children,
+}: AskCardProps) {
   return (
     <section
       className="armada-callcard"
@@ -52,7 +65,18 @@ export function AskCard({ icon: Icon, kind, where, at, now, title, label, hue, l
         <Icon size={16} aria-hidden="true" />
         <span>{kind}</span>
         {where === undefined ? null : <span className="armada-callcard__where">{where}</span>}
-        {at === undefined ? null : <Stamp first="age" at={at} {...(now === undefined ? {} : { now })} className="armada-callcard__age" />}
+        {at === undefined ? null : (
+          <Stamp
+            first="age"
+            at={at}
+            {...(now === undefined
+              ? {}
+              : {
+                  now,
+                })}
+            className="armada-callcard__age"
+          />
+        )}
       </header>
       <div className="armada-callcard__body">
         {title === undefined ? null : <h2 className="armada-callcard__title">{title}</h2>}
@@ -63,7 +87,13 @@ export function AskCard({ icon: Icon, kind, where, at, now, title, label, hue, l
 }
 
 /** What an answer tile draws: its words, the agent's line under it where it gave one, and what it tells the agent. */
-export type AskAnswerOffer = { label: string; description?: string; recommended?: boolean; says?: string; standing?: boolean };
+export type AskAnswerOffer = {
+  label: string;
+  description?: string;
+  recommended?: boolean;
+  says?: string;
+  standing?: boolean;
+};
 
 /**
  * One answer: its number or its own key, the line under it where one was given, and what it commits
@@ -104,16 +134,30 @@ export function AskAnswer({
       aria-busy={pending || undefined}
       disabled={held && !pending}
       onClick={onPick}
-      {...(onHover === undefined ? {} : { onMouseEnter: () => onHover(true), onMouseLeave: () => onHover(false) })}
-      {...(onFocusing === undefined ? {} : { onFocus: () => onFocusing(true), onBlur: () => onFocusing(false) })}
+      {...(onHover === undefined
+        ? {}
+        : {
+            onMouseEnter: () => onHover(true),
+            onMouseLeave: () => onHover(false),
+          })}
+      {...(onFocusing === undefined
+        ? {}
+        : {
+            onFocus: () => onFocusing(true),
+            onBlur: () => onFocusing(false),
+          })}
     >
       <Kbd>{mark}</Kbd>
       <span className="armada-callcard__option">
         <span className="armada-callcard__label">
           {one.label}
-          {one.recommended === true ? <span className="armada-callcard__recommended">Recommended</span> : null}
+          {one.recommended === true ? (
+            <span className="armada-callcard__recommended">Recommended</span>
+          ) : null}
         </span>
-        {one.description === undefined ? null : <span className="armada-callcard__description">{one.description}</span>}
+        {one.description === undefined ? null : (
+          <span className="armada-callcard__description">{one.description}</span>
+        )}
       </span>
     </button>
   );
@@ -132,16 +176,39 @@ export function AskQuestion({ quiet = false, children }: { quiet?: boolean; chil
 }
 
 /** The answers' own group, named by the question it answers. */
-export function AskChoices({ label, onKeyDown, children }: { label: string; onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void; children: ReactNode }) {
+export function AskChoices({
+  label,
+  onKeyDown,
+  children,
+}: {
+  label: string;
+  onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+  children: ReactNode;
+}) {
   return (
-    <div role="radiogroup" aria-label={label} className="armada-callcard__choices" {...(onKeyDown === undefined ? {} : { onKeyDown })}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="armada-callcard__choices"
+      {...(onKeyDown === undefined
+        ? {}
+        : {
+            onKeyDown,
+          })}
+    >
       {children}
     </div>
   );
 }
 
 /** One row of answers. `standing` is the dashed pair that sits under them. */
-export function AskAnswers({ standing = false, children }: { standing?: boolean; children: ReactNode }) {
+export function AskAnswers({
+  standing = false,
+  children,
+}: {
+  standing?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div className="armada-callcard__answers" data-standing={standing ? "" : undefined}>
       {children}
@@ -150,13 +217,28 @@ export function AskAnswers({ standing = false, children }: { standing?: boolean;
 }
 
 /** Where a question is among its decisions: a pip each, the one asked now filled. Named by the decision it stands for. */
-export function AskPips({ decisions, at }: { decisions: readonly { id: string; question: string }[]; at: number }) {
+export function AskPips({
+  decisions,
+  at,
+}: {
+  decisions: readonly {
+    id: string;
+    question: string;
+  }[];
+  at: number;
+}) {
   return (
     <ol className="armada-callcard__pips" aria-label="Decisions">
       {decisions.map((one, index) => (
         <li key={one.id}>
           <Tooltip label={one.question}>
-            <span className="armada-callcard__pip" role="img" aria-label={one.question} aria-current={index === at ? "step" : undefined} data-here={index === at || undefined} />
+            <span
+              className="armada-callcard__pip"
+              role="img"
+              aria-label={one.question}
+              aria-current={index === at ? "step" : undefined}
+              data-here={index === at || undefined}
+            />
           </Tooltip>
         </li>
       ))}

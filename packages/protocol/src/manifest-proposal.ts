@@ -13,7 +13,10 @@ export type ManifestProposals = {
   caps: StatedCaps;
 };
 
-export type StatedCaps = { cost_micros: number; turns: number };
+export type StatedCaps = {
+  cost_micros: number;
+  turns: number;
+};
 
 export type ManifestProposal = {
   /** `.` for the root. What an edit names. */
@@ -42,9 +45,16 @@ export type ManifestProposal = {
  * `source` is `read`, `convention`, `default`, `edited_during_setup` or
  * `added_during_setup`. Only the first two carry `file`; mono for those, sans otherwise.
  */
-export type Provenance = { source: string; file?: string; key?: string };
+export type Provenance = {
+  source: string;
+  file?: string;
+  key?: string;
+};
 
-export type ProposedId = { value: string; provenance: Provenance };
+export type ProposedId = {
+  value: string;
+  provenance: Provenance;
+};
 
 /** `env` is absent for a compose service, which needs no variable. */
 export type ProposedPort = {
@@ -86,24 +96,68 @@ export type ProposedCommand = {
   provenance: Provenance;
 };
 
-export type ProposedSetup = { requires: string[]; provenance: Provenance };
+export type ProposedSetup = {
+  requires: string[];
+  provenance: Provenance;
+};
 
 /** A `default` row is an absent key. */
-export type ProposedPolicy = { key: string; value: string; provenance: Provenance };
+export type ProposedPolicy = {
+  key: string;
+  value: string;
+  provenance: Provenance;
+};
 
 /** `POST /repository/edit_proposal`. */
-export type EditManifestProposal = { dir: string; edit: ProposalEdit };
+export type EditManifestProposal = {
+  dir: string;
+  edit: ProposalEdit;
+};
 
 /** A put replaces the line it names or adds one. `band` is `ports`, `checks` or `commands`. */
 export type ProposalEdit =
-  | { edit: "id"; id: string }
-  | { edit: "port"; name: string; container?: number; env?: string }
-  | { edit: "check"; name: string; run: string; requires?: string[] }
-  | { edit: "command"; name: string; run: string; destructive?: boolean }
-  | { edit: "setup"; requires: string[] }
-  | { edit: "policy"; key: string; value?: string }
-  | { edit: "move"; name: string }
-  | { edit: "remove"; band: string; name: string };
+  | {
+      edit: "id";
+      id: string;
+    }
+  | {
+      edit: "port";
+      name: string;
+      container?: number;
+      env?: string;
+    }
+  | {
+      edit: "check";
+      name: string;
+      run: string;
+      requires?: string[];
+    }
+  | {
+      edit: "command";
+      name: string;
+      run: string;
+      destructive?: boolean;
+    }
+  | {
+      edit: "setup";
+      requires: string[];
+    }
+  | {
+      edit: "policy";
+      key: string;
+      value?: string;
+    }
+  | {
+      edit: "move";
+      name: string;
+    }
+  | {
+      edit: "remove";
+      band: string;
+      name: string;
+    };
 
 /** `POST /repository/write_proposal`. */
-export type WriteManifestProposal = { dir: string };
+export type WriteManifestProposal = {
+  dir: string;
+};

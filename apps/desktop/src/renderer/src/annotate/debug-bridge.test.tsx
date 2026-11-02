@@ -15,7 +15,17 @@ import "../styles/index.css";
 import { Layer, type LayerFleet } from "./Layer";
 import type { Sink } from "./sink";
 
-const PNG = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0]).buffer;
+const PNG = Uint8Array.from([
+  137,
+  80,
+  78,
+  71,
+  13,
+  10,
+  26,
+  10,
+  0,
+]).buffer;
 const JOB = "01M22TYSAE0023MADDP5ZQEYGW";
 
 function capturing() {
@@ -24,7 +34,9 @@ function capturing() {
   const capture = vi.fn(async () => PNG);
   const sink: Sink = {
     via: "main",
-    list: async () => [...notes.values()],
+    list: async () => [
+      ...notes.values(),
+    ],
     save: async (note) => void notes.set(note.id, note),
     remove: async (id) => void notes.delete(id),
     root: async () => "/repo",
@@ -35,32 +47,108 @@ function capturing() {
     example: async () => null,
     removeExample: async () => undefined,
   };
-  return { sink, notes, capture };
+  return {
+    sink,
+    notes,
+    capture,
+  };
 }
 
 function fleetWith(refuse = false) {
-  const sent: { session_id: string; text: string; attachments?: { name: string }[] }[] = [];
+  const sent: {
+    session_id: string;
+    text: string;
+    attachments?: {
+      name: string;
+    }[];
+  }[] = [];
   const fleet = {
-    startSession: vi.fn(async (title?: string) =>
-      (refuse ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: { id: "01DEBUGSESSION00", title, state: "live" } }) as never,
+    startSession: vi.fn(
+      async (title?: string) =>
+        (refuse
+          ? {
+              ok: false,
+              outcome: {
+                ok: false,
+                why: "not_connected",
+              },
+            }
+          : {
+              ok: true,
+              value: {
+                id: "01DEBUGSESSION00",
+                title,
+                state: "live",
+              },
+            }) as never,
     ),
     sendSessionMessage: vi.fn(async (send: (typeof sent)[number]) => {
       sent.push(send);
-      return { ok: true, value: { id: send.session_id } } as never;
+      return {
+        ok: true,
+        value: {
+          id: send.session_id,
+        },
+      } as never;
     }),
-    sendSessionNotes: vi.fn(async () => ({ ok: true, value: { session: {}, candidates: [] } }) as never),
-    state: vi.fn(async () => ({
-      connection: { state: "connected", fleet: { protocolId: "23.62", pid: 4242, port: 7421, startedAt: "Mon Oct 12 09:00:00 2026" }, cursor: 0 },
-      health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "read_only" } },
-      jobs: [{ id: JOB, handle: "12-the-drone-count-is-wrong", title: "The Drone count is wrong", status: "running", workflow_id: "default" }],
-      sessions: { state: "read", sessions: [] },
-    }) as never),
+    sendSessionNotes: vi.fn(
+      async () =>
+        ({
+          ok: true,
+          value: {
+            session: {},
+            candidates: [],
+          },
+        }) as never,
+    ),
+    state: vi.fn(
+      async () =>
+        ({
+          connection: {
+            state: "connected",
+            fleet: {
+              protocolId: "23.62",
+              pid: 4242,
+              port: 7421,
+              startedAt: "Mon Oct 12 09:00:00 2026",
+            },
+            cursor: 0,
+          },
+          health: {
+            state: "read",
+            health: {
+              probes: [],
+              not_probed: [],
+              helm_action_authority: "read_only",
+            },
+          },
+          jobs: [
+            {
+              id: JOB,
+              handle: "12-the-drone-count-is-wrong",
+              title: "The Drone count is wrong",
+              status: "running",
+              workflow_id: "default",
+            },
+          ],
+          sessions: {
+            state: "read",
+            sessions: [],
+          },
+        }) as never,
+    ),
     subscribe: () => () => undefined,
   } satisfies LayerFleet;
-  return { fleet, sent };
+  return {
+    fleet,
+    sent,
+  };
 }
 
-let mounted: { root: Root; host: HTMLElement }[] = [];
+let mounted: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const one of mounted) {
@@ -84,9 +172,15 @@ async function layerOff(sink: Sink, fleet: LayerFleet, openSession = vi.fn(), te
       <Layer sink={sink} fleet={fleet} openSession={openSession} tell={tell} />
     </StrictMode>,
   );
-  mounted.push({ root, host });
+  mounted.push({
+    root,
+    host,
+  });
   await vi.waitFor(() => expect(fleet.state).toHaveBeenCalled());
-  return { openSession, tell };
+  return {
+    openSession,
+    tell,
+  };
 }
 
 function onOverview(): void {
@@ -105,23 +199,49 @@ test("the palette's Debug Bridge opens a Session holding the picture and the sta
   askToDebugBridge();
 
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("01DEBUGSESSION00"));
-  expect(capture).toHaveBeenCalledWith({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
+  expect(capture).toHaveBeenCalledWith({
+    x: 0,
+    y: 0,
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
   // Held on its start card, with the note's words as the request so Fleet's proposer reads them at the start. No title goes up: Fleet names it.
-  expect(fleet.startSession).toHaveBeenCalledWith(undefined, "/repo", expect.stringContaining("Work out what is going on in Bridge"), undefined, undefined, true);
+  expect(fleet.startSession).toHaveBeenCalledWith(
+    undefined,
+    "/repo",
+    expect.stringContaining("Work out what is going on in Bridge"),
+    undefined,
+    undefined,
+    true,
+  );
   // No message: Fleet starts no turn until the owner sends the draft.
   expect(sent).toHaveLength(0);
   expect(fleet.sendSessionMessage).not.toHaveBeenCalled();
 
-  const draft = readKept<{ text: string; tags: unknown[]; files: { name: string; file?: File }[] }>("session:01DEBUGSESSION00");
+  const draft = readKept<{
+    text: string;
+    tags: unknown[];
+    files: {
+      name: string;
+      file?: File;
+    }[];
+  }>("session:01DEBUGSESSION00");
   expect(draft?.text).toContain("Work out what is going on in Bridge");
   expect(draft?.text).toContain("- Doctor: ");
   // A blank line under the state, where his context goes.
   expect(draft?.text.endsWith("\n\n")).toBe(true);
-  expect(draft?.files.map((one) => one.name)).toEqual([expect.stringMatching(/^annotation-.*\.png$/)]);
+  expect(draft?.files.map((one) => one.name)).toEqual([
+    expect.stringMatching(/^annotation-.*\.png$/),
+  ]);
   expect(draft?.files[0]?.file?.type).toBe("image/png");
 
-  const [note] = [...notes.values()];
-  expect(note).toMatchObject({ scope: "window", screenshot: `${note?.id}.png` });
+  const [note] = [
+    ...notes.values(),
+  ];
+  expect(note).toMatchObject({
+    scope: "window",
+    screenshot: `${note?.id}.png`,
+  });
   // Nothing was sent, so the note says so.
   expect(note?.sent).toBeUndefined();
   // Nothing of the layer was drawn: it stayed off.
@@ -132,7 +252,16 @@ test("⇧⌘D does the same from anywhere, and a second press while the first is
   const { sink } = capturing();
   const { fleet } = fleetWith();
   const { openSession } = await layerOff(sink, fleet);
-  const press = () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "d", code: "KeyD", metaKey: true, shiftKey: true, bubbles: true }));
+  const press = () =>
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "d",
+        code: "KeyD",
+        metaKey: true,
+        shiftKey: true,
+        bubbles: true,
+      }),
+    );
   press();
   press();
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledTimes(1));
@@ -145,10 +274,14 @@ test("a Session Fleet refuses is told, and the note is kept unsent for /annotati
   const { fleet } = fleetWith(true);
   const { openSession, tell } = await layerOff(sink, fleet);
   askToDebugBridge();
-  await vi.waitFor(() => expect(tell).toHaveBeenCalledWith(expect.stringMatching(/^Job not started: /)));
+  await vi.waitFor(() =>
+    expect(tell).toHaveBeenCalledWith(expect.stringMatching(/^Job not started: /)),
+  );
   expect(openSession).not.toHaveBeenCalled();
   expect(readKept("session:01DEBUGSESSION00")).toBeUndefined();
-  const [note] = [...notes.values()];
+  const [note] = [
+    ...notes.values(),
+  ];
   expect(note?.scope).toBe("window");
   expect(note?.sent).toBeUndefined();
 });

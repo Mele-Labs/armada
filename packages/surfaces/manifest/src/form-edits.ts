@@ -51,7 +51,10 @@ export function draftOf(declared: ManifestDeclared): ManifestFormDraft {
       destructive: command.destructive ?? false,
       serve: command.serve ?? "",
       ready: command.ready ?? "",
-      links: (command.links ?? []).map((link) => ({ url: link.url, name: link.name ?? "" })),
+      links: (command.links ?? []).map((link) => ({
+        url: link.url,
+        name: link.name ?? "",
+      })),
     })),
     ports: declared.ports.map(({ name, port }) => ({
       name,
@@ -96,64 +99,146 @@ export function editsOf(declared: ManifestDeclared, draft: ManifestFormDraft): M
   const adds: ManifestEdit[] = [];
   const sets: ManifestEdit[] = [];
 
-  const checks = new Map(declared.checks.map(({ name, check }) => [name, check]));
+  const checks = new Map(
+    declared.checks.map(({ name, check }) => [
+      name,
+      check,
+    ]),
+  );
   const keptChecks = new Set(draft.checks.map((row) => row.name));
   for (const name of checks.keys()) {
-    if (!keptChecks.has(name)) removes.push({ edit: "remove_check", name });
+    if (!keptChecks.has(name))
+      removes.push({
+        edit: "remove_check",
+        name,
+      });
   }
   for (const row of draft.checks) {
     const name = row.name;
     const next = checkOf(row);
     const was = checks.get(name);
     if (was === undefined) {
-      adds.push({ edit: "add_check", name, check: next });
+      adds.push({
+        edit: "add_check",
+        name,
+        check: next,
+      });
       continue;
     }
-    if (next.run !== was.run) sets.push({ edit: "set_check_run", name, run: next.run });
+    if (next.run !== was.run)
+      sets.push({
+        edit: "set_check_run",
+        name,
+        run: next.run,
+      });
     const code = next.expect_exit_code ?? 0;
     if (code !== (was.expect_exit_code ?? 0)) {
-      sets.push({ edit: "set_check_expect_exit_code", name, expect_exit_code: code });
+      sets.push({
+        edit: "set_check_expect_exit_code",
+        name,
+        expect_exit_code: code,
+      });
     }
     const requires = next.requires ?? [];
-    if (!same(requires, was.requires ?? [])) sets.push({ edit: "set_check_requires", name, requires });
+    if (!same(requires, was.requires ?? []))
+      sets.push({
+        edit: "set_check_requires",
+        name,
+        requires,
+      });
     const when = next.when ?? [];
-    if (!same(when, was.when ?? [])) sets.push({ edit: "set_check_when", name, when });
+    if (!same(when, was.when ?? []))
+      sets.push({
+        edit: "set_check_when",
+        name,
+        when,
+      });
     if (narrowKey(next.narrow) !== narrowKey(was.narrow)) {
-      sets.push({ edit: "set_check_narrow", name, narrow: next.narrow ?? null });
+      sets.push({
+        edit: "set_check_narrow",
+        name,
+        narrow: next.narrow ?? null,
+      });
     }
   }
 
-  const commands = new Map(declared.commands.map(({ name, command }) => [name, command]));
+  const commands = new Map(
+    declared.commands.map(({ name, command }) => [
+      name,
+      command,
+    ]),
+  );
   const keptCommands = new Set(draft.commands.map((row) => row.name));
   for (const name of commands.keys()) {
-    if (!keptCommands.has(name)) removes.push({ edit: "remove_command", name });
+    if (!keptCommands.has(name))
+      removes.push({
+        edit: "remove_command",
+        name,
+      });
   }
   for (const row of draft.commands) {
     const name = row.name;
     const next = commandOf(row);
     const was = commands.get(name);
     if (was === undefined) {
-      adds.push({ edit: "add_command", name, command: next });
+      adds.push({
+        edit: "add_command",
+        name,
+        command: next,
+      });
       continue;
     }
     const run = next.run ?? null;
-    if (run !== (was.run ?? null)) sets.push({ edit: "set_command_run", name, run });
+    if (run !== (was.run ?? null))
+      sets.push({
+        edit: "set_command_run",
+        name,
+        run,
+      });
     const destructive = next.destructive ?? false;
     if (destructive !== (was.destructive ?? false)) {
-      sets.push({ edit: "set_command_destructive", name, destructive });
+      sets.push({
+        edit: "set_command_destructive",
+        name,
+        destructive,
+      });
     }
     const serve = next.serve ?? null;
-    if (serve !== (was.serve ?? null)) sets.push({ edit: "set_command_serve", name, serve });
+    if (serve !== (was.serve ?? null))
+      sets.push({
+        edit: "set_command_serve",
+        name,
+        serve,
+      });
     const ready = next.ready ?? null;
-    if (ready !== (was.ready ?? null)) sets.push({ edit: "set_command_ready", name, ready });
+    if (ready !== (was.ready ?? null))
+      sets.push({
+        edit: "set_command_ready",
+        name,
+        ready,
+      });
     const links = next.links ?? [];
-    if (linksKey(links) !== linksKey(was.links ?? [])) sets.push({ edit: "set_command_links", name, links });
+    if (linksKey(links) !== linksKey(was.links ?? []))
+      sets.push({
+        edit: "set_command_links",
+        name,
+        links,
+      });
   }
 
-  const ports = new Map(declared.ports.map(({ name, port }) => [name, port]));
+  const ports = new Map(
+    declared.ports.map(({ name, port }) => [
+      name,
+      port,
+    ]),
+  );
   const keptPorts = new Set(draft.ports.map((row) => row.name));
   for (const name of ports.keys()) {
-    if (!keptPorts.has(name)) removes.push({ edit: "remove_port", name });
+    if (!keptPorts.has(name))
+      removes.push({
+        edit: "remove_port",
+        name,
+      });
   }
   for (const row of draft.ports) {
     const name = row.name;
@@ -165,72 +250,159 @@ export function editsOf(declared: ManifestDeclared, draft: ManifestFormDraft): M
         edit: "add_port",
         name,
         port: {
-          ...(container === null ? {} : { container }),
-          ...(env === null ? {} : { env }),
+          ...(container === null
+            ? {}
+            : {
+                container,
+              }),
+          ...(env === null
+            ? {}
+            : {
+                env,
+              }),
         },
       });
       continue;
     }
-    if (container !== (was.container ?? null)) sets.push({ edit: "set_port_container", name, container });
-    if (env !== (was.env ?? null)) sets.push({ edit: "set_port_env", name, env });
+    if (container !== (was.container ?? null))
+      sets.push({
+        edit: "set_port_container",
+        name,
+        container,
+      });
+    if (env !== (was.env ?? null))
+      sets.push({
+        edit: "set_port_env",
+        name,
+        env,
+      });
   }
 
   const base = textOf(draft.base);
-  if (base !== (declared.base ?? null)) sets.push({ edit: "set_base", base });
+  if (base !== (declared.base ?? null))
+    sets.push({
+      edit: "set_base",
+      base,
+    });
   const was = declared.evidence;
   const evidence = draft.evidence === null ? null : evidenceOf(draft.evidence);
   if (evidence === null) {
-    if (was !== undefined) removes.push({ edit: "remove_evidence" });
+    if (was !== undefined)
+      removes.push({
+        edit: "remove_evidence",
+      });
   } else if (was === undefined) {
-    adds.push({ edit: "add_evidence", evidence });
+    adds.push({
+      edit: "add_evidence",
+      evidence,
+    });
   } else {
     const serve = evidence.serve ?? null;
-    if (serve !== (was.serve ?? null)) sets.push({ edit: "set_evidence_serve", serve });
+    if (serve !== (was.serve ?? null))
+      sets.push({
+        edit: "set_evidence_serve",
+        serve,
+      });
     const ready = evidence.ready ?? null;
-    if (ready !== (was.ready ?? null)) sets.push({ edit: "set_evidence_ready", ready });
-    if (evidence.run !== was.run) sets.push({ edit: "set_evidence_run", run: evidence.run });
-    if (evidence.frames !== was.frames) sets.push({ edit: "set_evidence_frames", frames: evidence.frames });
+    if (ready !== (was.ready ?? null))
+      sets.push({
+        edit: "set_evidence_ready",
+        ready,
+      });
+    if (evidence.run !== was.run)
+      sets.push({
+        edit: "set_evidence_run",
+        run: evidence.run,
+      });
+    if (evidence.frames !== was.frames)
+      sets.push({
+        edit: "set_evidence_frames",
+        frames: evidence.frames,
+      });
     const never = evidence.never ?? [];
-    if (!same(never, was.never ?? [])) sets.push({ edit: "set_evidence_never", never });
+    if (!same(never, was.never ?? []))
+      sets.push({
+        edit: "set_evidence_never",
+        never,
+      });
   }
   if (!same(draft.afterMerge, declared.after_merge_checks ?? [])) {
-    sets.push({ edit: "set_after_merge_checks", checks: draft.afterMerge });
+    sets.push({
+      edit: "set_after_merge_checks",
+      checks: draft.afterMerge,
+    });
   }
   if (!same(draft.setup, declared.setup_requires ?? [])) {
-    sets.push({ edit: "set_setup_requires", requires: draft.setup });
+    sets.push({
+      edit: "set_setup_requires",
+      requires: draft.setup,
+    });
   }
   const quiet = wholeOf(draft.quietAfter);
   if (quiet !== (declared.quiet_after_seconds ?? null)) {
-    sets.push({ edit: "set_quiet_after_seconds", quiet_after_seconds: quiet });
+    sets.push({
+      edit: "set_quiet_after_seconds",
+      quiet_after_seconds: quiet,
+    });
   }
   const pokes = wholeOf(draft.pokeLimit);
-  if (pokes !== (declared.poke_limit ?? null)) sets.push({ edit: "set_poke_limit", poke_limit: pokes });
+  if (pokes !== (declared.poke_limit ?? null))
+    sets.push({
+      edit: "set_poke_limit",
+      poke_limit: pokes,
+    });
   const excluded = listOf(draft.excludePaths);
   if (!same(excluded, declared.exclude_paths ?? [])) {
-    sets.push({ edit: "set_exclude_paths", exclude_paths: excluded });
+    sets.push({
+      edit: "set_exclude_paths",
+      exclude_paths: excluded,
+    });
   }
 
-  if (draft.freeze !== (declared.freeze === true)) sets.push({ edit: "set_freeze", freeze: draft.freeze });
+  if (draft.freeze !== (declared.freeze === true))
+    sets.push({
+      edit: "set_freeze",
+      freeze: draft.freeze,
+    });
   // Off removes the key and the machine's default holds; a file that says `ready` and is left alone stays.
   if (draft.draftPr !== (declared.pr_mode === "draft")) {
-    sets.push({ edit: "set_pr_mode", pr_mode: draft.draftPr ? "draft" : null });
+    sets.push({
+      edit: "set_pr_mode",
+      pr_mode: draft.draftPr ? "draft" : null,
+    });
   }
   if (draft.autoMerge !== declared.auto_merge.written) {
-    sets.push({ edit: "set_auto_merge", auto_merge: draft.autoMerge });
+    sets.push({
+      edit: "set_auto_merge",
+      auto_merge: draft.autoMerge,
+    });
   }
   if (draft.reviewGate !== declared.review_gate.written) {
-    sets.push({ edit: "set_review_gate", review_gate: draft.reviewGate });
+    sets.push({
+      edit: "set_review_gate",
+      review_gate: draft.reviewGate,
+    });
   }
   const cost = microsOf(draft.costCap);
   if (cost !== (declared.cost_cap_micros_per_job ?? null)) {
-    sets.push({ edit: "set_cost_cap_micros_per_job", cost_cap_micros_per_job: cost });
+    sets.push({
+      edit: "set_cost_cap_micros_per_job",
+      cost_cap_micros_per_job: cost,
+    });
   }
   const turns = wholeOf(draft.turnCap);
   if (turns !== (declared.turn_cap_per_job ?? null)) {
-    sets.push({ edit: "set_turn_cap_per_job", turn_cap_per_job: turns });
+    sets.push({
+      edit: "set_turn_cap_per_job",
+      turn_cap_per_job: turns,
+    });
   }
 
-  return [...removes, ...adds, ...sets];
+  return [
+    ...removes,
+    ...adds,
+    ...sets,
+  ];
 }
 
 /**
@@ -247,12 +419,14 @@ export function problemsOf(draft: ManifestFormDraft): Record<string, string> {
     }
     const narrow = check.narrow;
     if (narrow !== null && (narrow.run.trim() === "" || narrow.each.trim() === "")) {
-      problems[`checks.${check.name}.narrow`] = "Narrowing needs its command and what each path becomes.";
+      problems[`checks.${check.name}.narrow`] =
+        "Narrowing needs its command and what each path becomes.";
     }
   }
   for (const command of draft.commands) {
     if (command.run.trim() === "" && command.serve.trim() === "") {
-      problems[`commands.${command.name}.run`] = "A Command needs a command to run, or one to serve.";
+      problems[`commands.${command.name}.run`] =
+        "A Command needs a command to run, or one to serve.";
     }
     if (command.links.some((link) => link.url.trim() === "" && link.name.trim() !== "")) {
       problems[`commands.${command.name}.links`] = "A link needs its address.";
@@ -260,21 +434,28 @@ export function problemsOf(draft: ManifestFormDraft): Record<string, string> {
   }
   for (const port of draft.ports) {
     const container = wholeOf(port.container);
-    if (port.container.trim() !== "" && (container === null || container < 1 || container > 65_535)) {
-      problems[`ports.${port.name}.container`] = "A container port is a whole number from 1 to 65535.";
+    if (
+      port.container.trim() !== "" &&
+      (container === null || container < 1 || container > 65_535)
+    ) {
+      problems[`ports.${port.name}.container`] =
+        "A container port is a whole number from 1 to 65535.";
     }
   }
   const evidence = draft.evidence;
   if (evidence !== null) {
-    if (!evidence.run.includes("{}")) problems["evidence.run"] = "Nowhere for the spec's path to go yet.";
-    if (evidence.frames.trim() === "") problems["evidence.frames"] = "Frames need a directory to land in.";
+    if (!evidence.run.includes("{}"))
+      problems["evidence.run"] = "Nowhere for the spec's path to go yet.";
+    if (evidence.frames.trim() === "")
+      problems["evidence.frames"] = "Frames need a directory to land in.";
     if ((evidence.serve.trim() === "") !== (evidence.ready.trim() === "")) {
       problems["evidence.ready"] = "Serves and Ready when go together, or neither is set.";
     }
   }
   const quiet = wholeOf(draft.quietAfter);
   if (draft.quietAfter.trim() !== "" && (quiet === null || quiet < 1 || quiet > MOST_A_CAP_HOLDS)) {
-    problems["drone.quiet_after_seconds"] = "A silence threshold is a whole number of seconds, 1 or more.";
+    problems["drone.quiet_after_seconds"] =
+      "A silence threshold is a whole number of seconds, 1 or more.";
   }
   const pokes = wholeOf(draft.pokeLimit);
   if (draft.pokeLimit.trim() !== "" && (pokes === null || pokes > MOST_A_CAP_HOLDS)) {
@@ -282,7 +463,8 @@ export function problemsOf(draft: ManifestFormDraft): Record<string, string> {
   }
   const cost = microsOf(draft.costCap);
   if (draft.costCap.trim() !== "" && (cost === null || cost > MOST_A_CAP_HOLDS)) {
-    problems["budget.cost"] = `A cap is a number of dollars, from 0 to ${String(MOST_A_CAP_HOLDS / MICROS)}.`;
+    problems["budget.cost"] =
+      `A cap is a number of dollars, from 0 to ${String(MOST_A_CAP_HOLDS / MICROS)}.`;
   }
   const turns = wholeOf(draft.turnCap);
   if (draft.turnCap.trim() !== "" && (turns === null || turns > MOST_A_CAP_HOLDS)) {
@@ -297,10 +479,26 @@ function checkOf(row: ManifestFormCheck): CheckDraft {
   const code = integerOf(row.expectExitCode) ?? 0;
   return {
     run: row.run.trim(),
-    ...(code === 0 ? {} : { expect_exit_code: code }),
-    ...(requires.length === 0 ? {} : { requires }),
-    ...(when.length === 0 ? {} : { when }),
-    ...(row.narrow === null ? {} : { narrow: narrowingOf(row.narrow) }),
+    ...(code === 0
+      ? {}
+      : {
+          expect_exit_code: code,
+        }),
+    ...(requires.length === 0
+      ? {}
+      : {
+          requires,
+        }),
+    ...(when.length === 0
+      ? {}
+      : {
+          when,
+        }),
+    ...(row.narrow === null
+      ? {}
+      : {
+          narrow: narrowingOf(row.narrow),
+        }),
   };
 }
 
@@ -311,9 +509,21 @@ function narrowingOf(row: ManifestFormNarrow): NarrowingDraft {
   return {
     run: row.run.trim(),
     each: row.each.trim(),
-    ...(from.length === 0 ? {} : { from }),
-    ...(under === null ? {} : { under }),
-    ...(except.length === 0 ? {} : { except }),
+    ...(from.length === 0
+      ? {}
+      : {
+          from,
+        }),
+    ...(under === null
+      ? {}
+      : {
+          under,
+        }),
+    ...(except.length === 0
+      ? {}
+      : {
+          except,
+        }),
   };
 }
 
@@ -325,14 +535,41 @@ function commandOf(row: ManifestFormCommand): CommandDraft {
     .filter((link) => link.url.trim() !== "")
     .map((link) => {
       const name = textOf(link.name);
-      return { url: link.url.trim(), ...(name === null ? {} : { name }) };
+      return {
+        url: link.url.trim(),
+        ...(name === null
+          ? {}
+          : {
+              name,
+            }),
+      };
     });
   return {
-    ...(run === null ? {} : { run }),
-    ...(row.destructive ? { destructive: true } : {}),
-    ...(serve === null ? {} : { serve }),
-    ...(ready === null ? {} : { ready }),
-    ...(links.length === 0 ? {} : { links }),
+    ...(run === null
+      ? {}
+      : {
+          run,
+        }),
+    ...(row.destructive
+      ? {
+          destructive: true,
+        }
+      : {}),
+    ...(serve === null
+      ? {}
+      : {
+          serve,
+        }),
+    ...(ready === null
+      ? {}
+      : {
+          ready,
+        }),
+    ...(links.length === 0
+      ? {}
+      : {
+          links,
+        }),
   };
 }
 
@@ -341,21 +578,44 @@ function evidenceOf(row: ManifestFormEvidence): EvidenceDraft {
   const ready = textOf(row.ready);
   const never = listOf(row.never);
   return {
-    ...(serve === null ? {} : { serve }),
-    ...(ready === null ? {} : { ready }),
+    ...(serve === null
+      ? {}
+      : {
+          serve,
+        }),
+    ...(ready === null
+      ? {}
+      : {
+          ready,
+        }),
     run: row.run.trim(),
     frames: row.frames.trim(),
-    ...(never.length === 0 ? {} : { never }),
+    ...(never.length === 0
+      ? {}
+      : {
+          never,
+        }),
   };
 }
 
 function narrowKey(narrow: NarrowingDraft | undefined): string {
   if (narrow === undefined) return "";
-  return JSON.stringify([narrow.run, narrow.each, narrow.from ?? [], narrow.under ?? null, narrow.except ?? []]);
+  return JSON.stringify([
+    narrow.run,
+    narrow.each,
+    narrow.from ?? [],
+    narrow.under ?? null,
+    narrow.except ?? [],
+  ]);
 }
 
 function linksKey(links: readonly LinkDraft[]): string {
-  return JSON.stringify(links.map((link) => [link.url, link.name ?? null]));
+  return JSON.stringify(
+    links.map((link) => [
+      link.url,
+      link.name ?? null,
+    ]),
+  );
 }
 
 function same(one: readonly string[], other: readonly string[]): boolean {

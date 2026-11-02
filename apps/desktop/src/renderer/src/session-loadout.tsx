@@ -7,8 +7,26 @@
 // the person's own offers Remove, then Restore from the Trash. A plugin's skill offers to remove the plugin.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LoadoutSheet, loadoutKeyOf, type LoadoutItemRead, type LoadoutOpened, type LoadoutRead, type LoadoutRef, type LoadoutSkillAct, type LoadoutSkillActs, type McpGroup, type McpServerRow, type SkillGroup } from "@armada/components";
-import type { KitInventory, LoadoutSummary, McpServerAct, McpServerState, SessionMcpServer } from "@armada/protocol";
+import {
+  LoadoutSheet,
+  loadoutKeyOf,
+  type LoadoutItemRead,
+  type LoadoutOpened,
+  type LoadoutRead,
+  type LoadoutRef,
+  type LoadoutSkillAct,
+  type LoadoutSkillActs,
+  type McpGroup,
+  type McpServerRow,
+  type SkillGroup,
+} from "@armada/components";
+import type {
+  KitInventory,
+  LoadoutSummary,
+  McpServerAct,
+  McpServerState,
+  SessionMcpServer,
+} from "@armada/protocol";
 import { refusalWords, whyNotOpenedLink } from "@armada/screens";
 import type { LoadoutItemBody, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 import { skillActsByKit } from "@armada/screens/src/loadout-kit";
@@ -16,7 +34,13 @@ import { kitChanged } from "@armada/screens/src/manifest-kit";
 
 import { openLink, readKitInventory, removeKitPiece, restoreKitPiece } from "./commands";
 import { OverTheApp } from "./session-view/OverTheApp";
-import { closePanel, filesBeside, openInPanel, useFilePreviewing, usePanel } from "./shared-panel/store";
+import {
+  closePanel,
+  filesBeside,
+  openInPanel,
+  useFilePreviewing,
+  usePanel,
+} from "./shared-panel/store";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { useAtFloor } from "@armada/shell";
 
@@ -28,44 +52,95 @@ export const MCP_EVERY_MS = 5_000;
 
 /** What moves when the Session reports a new list or a new use. */
 const summaryKey = (summary: LoadoutSummary | undefined): string =>
-  summary === undefined ? "" : `${summary.knows}/${summary.told}/${summary.latest_turn?.started_at ?? ""}/${summary.latest_turn?.used.length ?? 0}`;
+  summary === undefined
+    ? ""
+    : `${summary.knows}/${summary.told}/${summary.latest_turn?.started_at ?? ""}/${summary.latest_turn?.used.length ?? 0}`;
 
 function useLoadoutRead(session: Session, read: SessionsDraft["loadout"] | undefined): LoadoutRead {
   const latest = session.loadout?.latest_turn;
-  const [got, setGot] = useState<LoadoutRead>({ state: "reading" });
+  const [got, setGot] = useState<LoadoutRead>({
+    state: "reading",
+  });
   const key = summaryKey(session.loadout);
   const { id } = session;
   useEffect(() => {
     if (read === undefined) {
-      setGot({ state: "failed" });
+      setGot({
+        state: "failed",
+      });
       return;
     }
     let live = true;
     void read(id).then((loadout) => {
-      if (live) setGot(loadout === undefined ? { state: "failed" } : { state: "read", loadout });
+      if (live)
+        setGot(
+          loadout === undefined
+            ? {
+                state: "failed",
+              }
+            : {
+                state: "read",
+                loadout,
+              },
+        );
     });
     return () => {
       live = false;
     };
-  }, [read, id, key]);
-  useEffect(() => setGot({ state: "reading" }), [id]);
+  }, [
+    read,
+    id,
+    key,
+  ]);
+  useEffect(
+    () =>
+      setGot({
+        state: "reading",
+      }),
+    [
+      id,
+    ],
+  );
   if (got.state === "read") return got;
-  return latest === undefined ? got : { ...got, latest };
+  return latest === undefined
+    ? got
+    : {
+        ...got,
+        latest,
+      };
 }
 
 /** The Loadout of Session `id`, open. Nothing while that Session is not listed, or reports no Loadout and has no MCP servers to read. */
-export function LoadoutPanel({ id, at, onClose }: { id: string; at?: LoadoutAt | undefined; onClose: () => void }) {
+export function LoadoutPanel({
+  id,
+  at,
+  onClose,
+}: {
+  id: string;
+  at?: LoadoutAt | undefined;
+  onClose: () => void;
+}) {
   const session = useSessions().find((one) => one.id === id);
   const draft = useSessionsDraft();
-  if (session === undefined || (session.loadout === undefined && mcpReadOf(session, draft) === undefined)) return null;
-  return <SessionLoadout key={session.id} session={session} draft={draft} at={at} onClose={onClose} />;
+  if (
+    session === undefined ||
+    (session.loadout === undefined && mcpReadOf(session, draft) === undefined)
+  )
+    return null;
+  return (
+    <SessionLoadout key={session.id} session={session} draft={draft} at={at} onClose={onClose} />
+  );
 }
 
 /** The read of a hosted Job's MCP servers. A terminal Job's come from its agent's report alone. */
-const mcpReadOf = (session: Session, draft: SessionsDraft | undefined) => (session.terminal === true ? undefined : draft?.mcp);
+const mcpReadOf = (session: Session, draft: SessionsDraft | undefined) =>
+  session.terminal === true ? undefined : draft?.mcp;
 
 /** A refusal is drawn while the server still stands where it stood when refused. */
-type Refused = { said: string; state: McpServerState };
+type Refused = {
+  said: string;
+  state: McpServerState;
+};
 
 /**
  * A hosted Job's MCP servers, read when the panel opens and every `MCP_EVERY_MS` while it is, and after each act. **An
@@ -111,7 +186,11 @@ function useMcpGroup(session: Session, draft: SessionsDraft | undefined): McpGro
       live.current = false;
       clearTimeout(timer);
     };
-  }, [read, id, lands]);
+  }, [
+    read,
+    id,
+    lands,
+  ]);
   const onAct = useCallback(
     (server: string, what: McpServerAct) => {
       if (act === undefined) return;
@@ -123,17 +202,33 @@ function useMcpGroup(session: Session, draft: SessionsDraft | undefined): McpGro
         out.current -= 1;
         if (!live.current) return;
         setActing((now) => without(now, server));
-        if (!got.ok) return setRefused((now) => new Map(now).set(server, { said: got.said, state: was }));
+        if (!got.ok)
+          return setRefused((now) =>
+            new Map(now).set(server, {
+              said: got.said,
+              state: was,
+            }),
+          );
         landed.current = asked.current;
         setServers(got.servers);
         if (got.signIn === undefined) return;
         setSignedIn((now) => new Set(now).add(server));
         const why = whyNotOpenedLink(await openLink(got.signIn.url));
         const after = got.servers.find((one) => one.name === server)?.state ?? was;
-        if (why !== null && live.current) setRefused((now) => new Map(now).set(server, { said: why, state: after }));
+        if (why !== null && live.current)
+          setRefused((now) =>
+            new Map(now).set(server, {
+              said: why,
+              state: after,
+            }),
+          );
       });
     },
-    [act, id, servers],
+    [
+      act,
+      id,
+      servers,
+    ],
   );
   if (read === undefined) return undefined;
   const rows = servers?.map((one): McpServerRow => {
@@ -141,12 +236,36 @@ function useMcpGroup(session: Session, draft: SessionsDraft | undefined): McpGro
     const no = refused.get(one.name);
     return {
       ...one,
-      ...(out === undefined ? {} : { acting: out }),
-      ...(no === undefined || no.state !== one.state ? {} : { refused: no.said }),
-      ...(one.state === "needs_sign_in" && signedIn.has(one.name) ? { signedIn: true as const } : {}),
+      ...(out === undefined
+        ? {}
+        : {
+            acting: out,
+          }),
+      ...(no === undefined || no.state !== one.state
+        ? {}
+        : {
+            refused: no.said,
+          }),
+      ...(one.state === "needs_sign_in" && signedIn.has(one.name)
+        ? {
+            signedIn: true as const,
+          }
+        : {}),
     };
   });
-  return { ...(rows === undefined ? {} : { servers: rows }), ...(said === undefined ? {} : { said }), onAct };
+  return {
+    ...(rows === undefined
+      ? {}
+      : {
+          servers: rows,
+        }),
+    ...(said === undefined
+      ? {}
+      : {
+          said,
+        }),
+    onAct,
+  };
 }
 
 function without<V>(map: ReadonlyMap<string, V>, key: string): ReadonlyMap<string, V> {
@@ -159,29 +278,83 @@ function without<V>(map: ReadonlyMap<string, V>, key: string): ReadonlyMap<strin
 /** The wire's answer as the panel draws it. */
 const itemReadOf = (body: LoadoutItemBody | undefined): LoadoutItemRead =>
   body === undefined
-    ? { state: "failed" }
+    ? {
+        state: "failed",
+      }
     : body.what === "not_read"
-      ? { state: "not_read", why: body.why }
-      : { state: "read", format: body.format, body: body.body, ...(body.path === undefined ? {} : { path: body.path }), ...(body.truncated === true ? { truncated: true } : {}) };
+      ? {
+          state: "not_read",
+          why: body.why,
+        }
+      : {
+          state: "read",
+          format: body.format,
+          body: body.body,
+          ...(body.path === undefined
+            ? {}
+            : {
+                path: body.path,
+              }),
+          ...(body.truncated === true
+            ? {
+                truncated: true,
+              }
+            : {}),
+        };
 
 /**
  * The item open beside the Loadout, read when its row is pressed. **The last press wins**: an answer for a row
  * pressed before it is dropped. An MCP server is not read, since the Loadout already lists its tools.
  */
-function useOpenedItem(id: string, read: SessionsDraft["loadoutItem"] | undefined): [LoadoutOpened | undefined, (item: LoadoutRef | null) => void] {
+function useOpenedItem(
+  id: string,
+  read: SessionsDraft["loadoutItem"] | undefined,
+): [
+  LoadoutOpened | undefined,
+  (item: LoadoutRef | null) => void,
+] {
   const [opened, setOpened] = useState<LoadoutOpened | undefined>(undefined);
   const open = useCallback(
     (item: LoadoutRef | null) => {
       if (item === null) return setOpened(undefined);
-      if (item.kind === "mcp_server") return setOpened({ item });
-      if (read === undefined) return setOpened({ item, read: { state: "failed" } });
-      setOpened({ item, read: { state: "reading" } });
+      if (item.kind === "mcp_server")
+        return setOpened({
+          item,
+        });
+      if (read === undefined)
+        return setOpened({
+          item,
+          read: {
+            state: "failed",
+          },
+        });
+      setOpened({
+        item,
+        read: {
+          state: "reading",
+        },
+      });
       const key = loadoutKeyOf(item);
-      void read(id, item).then((body) => setOpened((now) => (now === undefined || loadoutKeyOf(now.item) !== key ? now : { item, read: itemReadOf(body) })));
+      void read(id, item).then((body) =>
+        setOpened((now) =>
+          now === undefined || loadoutKeyOf(now.item) !== key
+            ? now
+            : {
+                item,
+                read: itemReadOf(body),
+              },
+        ),
+      );
     },
-    [id, read],
+    [
+      id,
+      read,
+    ],
   );
-  return [opened, open];
+  return [
+    opened,
+    open,
+  ];
 }
 
 /** A skill removed from this Mac by its row: where its folder went in the Trash, or `null` where nothing can bring it back. */
@@ -197,7 +370,9 @@ type Gone = ReadonlyMap<string, string | null>;
 function useSkillGroup(read: LoadoutRead, onCloseItem: () => void): SkillGroup | undefined {
   const [setup, setSetup] = useState<KitInventory | undefined>(undefined);
   const [gone, setGone] = useState<Gone>(new Map());
-  const [acting, setActing] = useState<ReadonlyMap<string, Exclude<LoadoutSkillAct, "edit">>>(new Map());
+  const [acting, setActing] = useState<ReadonlyMap<string, Exclude<LoadoutSkillAct, "edit">>>(
+    new Map(),
+  );
   const [refused, setRefused] = useState<ReadonlyMap<string, string>>(new Map());
   const live = useRef(true);
   useEffect(() => {
@@ -212,14 +387,31 @@ function useSkillGroup(read: LoadoutRead, onCloseItem: () => void): SkillGroup |
   if (setup === undefined || read.state !== "read") return undefined;
   const matched = skillActsByKit(read.loadout.items, setup);
   const rows: Record<string, LoadoutSkillActs> = {};
-  for (const key of new Set([...Object.keys(matched), ...gone.keys()])) {
+  for (const key of new Set([
+    ...Object.keys(matched),
+    ...gone.keys(),
+  ])) {
     const trashed = gone.get(key);
     const out = acting.get(key);
     const no = refused.get(key);
     rows[key] = {
-      ...(gone.has(key) ? { removed: { restorable: trashed !== null && trashed !== undefined } } : matched[key]!.acts),
-      ...(out === undefined ? {} : { acting: out }),
-      ...(no === undefined ? {} : { refused: no }),
+      ...(gone.has(key)
+        ? {
+            removed: {
+              restorable: trashed !== null && trashed !== undefined,
+            },
+          }
+        : matched[key]!.acts),
+      ...(out === undefined
+        ? {}
+        : {
+            acting: out,
+          }),
+      ...(no === undefined
+        ? {}
+        : {
+            refused: no,
+          }),
     };
   }
   const settled = (key: string, said: string | undefined) => {
@@ -231,27 +423,58 @@ function useSkillGroup(read: LoadoutRead, onCloseItem: () => void): SkillGroup |
     if (act === "edit") {
       const path = matched[key]?.acts.edits;
       if (path === undefined) return;
-      if (!openInPanel({ kind: "file", path, from: "kit" })) return void window.armada.openKitFile(path, "editor");
+      if (
+        !openInPanel({
+          kind: "file",
+          path,
+          from: "kit",
+        })
+      )
+        return void window.armada.openKitFile(path, "editor");
       return onCloseItem();
     }
-    const body = act === "remove" ? matched[key]?.remove : act === "remove_plugin" ? matched[key]?.removePlugin : undefined;
+    const body =
+      act === "remove"
+        ? matched[key]?.remove
+        : act === "remove_plugin"
+          ? matched[key]?.removePlugin
+          : undefined;
     const trashed = act === "restore" ? gone.get(key) : undefined;
     if (body === undefined && (trashed === undefined || trashed === null)) return;
     setActing((now) => new Map(now).set(key, act));
     if (body !== undefined) {
       // A plugin takes every skill it brought, so each of its rows is marked, and none can be restored.
-      const took = body.kind === "plugin" ? Object.keys(matched).filter((one) => matched[one]?.removePlugin?.name === body.name) : [key];
+      const took =
+        body.kind === "plugin"
+          ? Object.keys(matched).filter((one) => matched[one]?.removePlugin?.name === body.name)
+          : [
+              key,
+            ];
       void removeKitPiece(body).then((got) => {
         if (!live.current) return;
         settled(key, got.ok ? undefined : refusalWords(got.outcome));
         if (!got.ok) return;
         setSetup(got.removed.setup);
-        setGone((now) => new Map([...now, ...took.map((one) => [one, got.removed.trashed] as const)]));
+        setGone(
+          (now) =>
+            new Map([
+              ...now,
+              ...took.map(
+                (one) =>
+                  [
+                    one,
+                    got.removed.trashed,
+                  ] as const,
+              ),
+            ]),
+        );
         kitChanged();
       });
       return;
     }
-    void restoreKitPiece({ trashed: trashed! }).then((got) => {
+    void restoreKitPiece({
+      trashed: trashed!,
+    }).then((got) => {
       if (!live.current) return;
       settled(key, got.ok ? undefined : refusalWords(got.outcome));
       if (!got.ok) return;
@@ -260,10 +483,23 @@ function useSkillGroup(read: LoadoutRead, onCloseItem: () => void): SkillGroup |
       kitChanged();
     });
   };
-  return { rows, onAct };
+  return {
+    rows,
+    onAct,
+  };
 }
 
-function SessionLoadout({ session, draft, at, onClose }: { session: Session; draft: SessionsDraft | undefined; at: LoadoutAt | undefined; onClose: () => void }) {
+function SessionLoadout({
+  session,
+  draft,
+  at,
+  onClose,
+}: {
+  session: Session;
+  draft: SessionsDraft | undefined;
+  at: LoadoutAt | undefined;
+  onClose: () => void;
+}) {
   const floor = useAtFloor();
   const got = useLoadoutRead(session, draft?.loadout);
   const [opened, openItem] = useOpenedItem(session.id, draft?.loadoutItem);
@@ -272,7 +508,12 @@ function SessionLoadout({ session, draft, at, onClose }: { session: Session; dra
   // A file's Preview beside the file has no room beside the Loadout too, so the Loadout steps aside while it is open
   // and the file goes back to the trailing edge. Its state stays here, so it comes back as it was.
   const aside = useFilePreviewing();
-  useEffect(() => (aside ? undefined : filesBeside("session-loadout")), [aside]);
+  useEffect(
+    () => (aside ? undefined : filesBeside("session-loadout")),
+    [
+      aside,
+    ],
+  );
   // A row pressed while a file is open to the Loadout's left takes that place, so the file closes.
   const fileOpen = usePanel().open?.kind === "file";
   const onOpenItem = useCallback(
@@ -280,7 +521,10 @@ function SessionLoadout({ session, draft, at, onClose }: { session: Session; dra
       if (item !== null && fileOpen) closePanel();
       openItem(item);
     },
-    [fileOpen, openItem],
+    [
+      fileOpen,
+      openItem,
+    ],
   );
   // On the body, as the side panel is: a file opened beside it is then drawn after it in the same layer, and over its
   // scrim, as the item's panel beside it is. Drawn inside the app, its scrim lay over the file. Held in its own place
@@ -293,11 +537,27 @@ function SessionLoadout({ session, draft, at, onClose }: { session: Session; dra
         read={got}
         floor={floor}
         onClose={onClose}
-        {...(opened === undefined ? {} : { opened })}
+        {...(opened === undefined
+          ? {}
+          : {
+              opened,
+            })}
         onOpenItem={onOpenItem}
-        {...(mcp === undefined ? {} : { mcp })}
-        {...(at === undefined ? {} : { at })}
-        {...(skills === undefined ? {} : { skills })}
+        {...(mcp === undefined
+          ? {}
+          : {
+              mcp,
+            })}
+        {...(at === undefined
+          ? {}
+          : {
+              at,
+            })}
+        {...(skills === undefined
+          ? {}
+          : {
+              skills,
+            })}
       />
     </OverTheApp>
   );

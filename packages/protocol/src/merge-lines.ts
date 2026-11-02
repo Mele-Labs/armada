@@ -10,7 +10,9 @@ import type { ProtocolId } from "./connection";
 import type { Requester } from "./requester";
 
 /** Every served repository that has a line. One nobody has run `armada land` in is not here. */
-export type MergeLines = { lines: MergeLine[] };
+export type MergeLines = {
+  lines: MergeLine[];
+};
 
 /** One repository's line. */
 export type MergeLine = {
@@ -67,13 +69,19 @@ export type HeldCheckout = {
   /** Above zero is diverged. */
   ahead: number;
   /** The pull request Fleet opened from the uncommitted files, on the person's press of "Pull request". Absent until then. */
-  pull_request?: { number: number; auto_merge: boolean };
+  pull_request?: {
+    number: number;
+    auto_merge: boolean;
+  };
 };
 
 /** Who holds main's red on another machine: a Session by id, the machine, and since when. No title: only the holder can say. */
 export type FixingElsewhere = {
   machine: string;
-  holder: { kind: "session"; id: string };
+  holder: {
+    kind: "session";
+    id: string;
+  };
   since: string;
 };
 
@@ -179,7 +187,10 @@ export type MainFailedJob = {
 };
 
 /** A Session, by its id and the title the ledger holds for it. Since 23.80. */
-export type HubSession = { id: string; title?: string };
+export type HubSession = {
+  id: string;
+  title?: string;
+};
 
 export type MainMerge = {
   number: number;
@@ -255,7 +266,11 @@ export type MergeLineRow = {
   /** 1-based. Absent once off the line. */
   place?: number;
   /** `settled`, landed only: how it ended, `merged` or `closed_unmerged`. Since 23.2. */
-  pull_request?: { number: number; url: string; settled?: string };
+  pull_request?: {
+    number: number;
+    url: string;
+    settled?: string;
+  };
   /** `land_state` in the generated vocabulary. */
   state: string;
   /** The runner's own words, while gating or merging. */
@@ -291,9 +306,19 @@ export type MergeLineCheck = {
  * `finished`, so this one socket reads a Check that is running and one that has ended.
  */
 export type LandOutputMessage =
-  | ({ message: "opened" } & LandOutputOpened)
-  | ({ message: "lines" } & { lines: string[] })
-  | ({ message: "closed" } & { because: string });
+  | ({
+      message: "opened";
+    } & LandOutputOpened)
+  | ({
+      message: "lines";
+    } & {
+      lines: string[];
+    })
+  | ({
+      message: "closed";
+    } & {
+      because: string;
+    });
 
 /** Whose log this is, by the line's own names. No path: the runner's logs stay off the wire. */
 export type LandOutputOpened = {
@@ -306,15 +331,23 @@ export type LandOutputOpened = {
 };
 
 /** Which merge line Check's log is asked for: the line's three names, and nothing else. */
-export type LandCheckAt = { root: string; branch: string; check: string };
+export type LandCheckAt = {
+  root: string;
+  branch: string;
+  check: string;
+};
 
 /**
  * The merge line Check's log a window is reading, as main holds it. `FollowedLog`'s shape, by the
  * line's names. **One at a time**: opening another replaces the first.
  */
 export type FollowedLandLog =
-  | { state: "none" }
-  | ({ state: "opening" } & LandCheckAt)
+  | {
+      state: "none";
+    }
+  | ({
+      state: "opening";
+    } & LandCheckAt)
   | ({
       state: "following";
       /** The file's own line number of `lines[0]`, counted from one. */
@@ -324,4 +357,7 @@ export type FollowedLandLog =
       /** Why it ended, `finished`, `unreadable` or `broke`, or absent while it is still arriving. */
       ended?: string;
     } & LandCheckAt)
-  | ({ state: "failed"; detail: string } & LandCheckAt);
+  | ({
+      state: "failed";
+      detail: string;
+    } & LandCheckAt);

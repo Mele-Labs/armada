@@ -11,12 +11,23 @@ export default meta;
 
 type Story = StoryObj<typeof Slider>;
 
-const EFFORTS = ["default", "low", "medium", "high", "xhigh", "max"];
+const EFFORTS = [
+  "default",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
 
 function Held() {
   const [value, setValue] = useState("high");
   return (
-    <div style={{ width: "var(--w-guide-list)" }}>
+    <div
+      style={{
+        width: "var(--w-guide-list)",
+      }}
+    >
       <Slider aria-label="Effort" steps={EFFORTS} value={value} onChange={setValue} />
     </div>
   );
@@ -26,9 +37,15 @@ function Held() {
 export const Steps: Story = {
   render: () => <Held />,
   play: async ({ canvasElement }) => {
-    const slider = within(canvasElement).getByRole("slider", { name: "Effort" });
+    const slider = within(canvasElement).getByRole("slider", {
+      name: "Effort",
+    });
     await expect(slider).toHaveAttribute("aria-valuetext", "high");
-    fireEvent.change(slider, { target: { value: "4" } });
+    fireEvent.change(slider, {
+      target: {
+        value: "4",
+      },
+    });
     await expect(slider).toHaveAttribute("aria-valuetext", "xhigh");
   },
 };

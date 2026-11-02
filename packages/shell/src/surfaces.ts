@@ -69,7 +69,9 @@ type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
  * The surfaces the bar leaves off, as the app last said (`useSurfaceKeys`). Until it says, only the old Jobs tab is off: it has
  * no page, so it is never drawn and never takes a digit.
  */
-let off: readonly string[] = [SURFACE.jobs];
+let off: readonly string[] = [
+  SURFACE.jobs,
+];
 
 /**
  * What reaches a surface, spelled as this person has `deck_tabs`: `⌘3` unless Settings → Keyboard moved the row. The digit is the
@@ -110,7 +112,9 @@ export const SURFACES: readonly PaletteSurface[] = [
     get shortcut() {
       return digitOf(SURFACE.jobs);
     },
-    aliases: ["job"],
+    aliases: [
+      "job",
+    ],
     // `box` is the registry's Job, at 12px on a chip; the tab bar draws it at 16px. For the owner to rule on.
     icon: Box,
   },
@@ -131,7 +135,11 @@ export const SURFACES: readonly PaletteSurface[] = [
     },
     // What a person looking for it will type. "health" and "status" are the
     // words for the question it answers; `armada doctor` is the verb (#99).
-    aliases: ["health", "status", "system health"],
+    aliases: [
+      "health",
+      "status",
+      "system health",
+    ],
     icon: Stethoscope,
   },
   {
@@ -151,7 +159,12 @@ export const SURFACES: readonly PaletteSurface[] = [
     get shortcut() {
       return digitOf(SURFACE.worktrees);
     },
-    aliases: ["cleanup", "held worktrees", "disk", "held disk"],
+    aliases: [
+      "cleanup",
+      "held worktrees",
+      "disk",
+      "held disk",
+    ],
     icon: HardDrive,
   },
   {
@@ -163,7 +176,11 @@ export const SURFACES: readonly PaletteSurface[] = [
     // "MCP" and "servers" are what a person looking for this will type: Kit
     // is Armada's word for the set, and the thing they came to connect has
     // its own name in every other tool they use.
-    aliases: ["mcp", "servers", "mcp servers"],
+    aliases: [
+      "mcp",
+      "servers",
+      "mcp servers",
+    ],
     icon: Briefcase,
   },
   {
@@ -194,7 +211,11 @@ export const SURFACES: readonly PaletteSurface[] = [
     // What a person looking for this will type. "Help" is the word every other
     // application uses for the place explanations live, and "guide" singular is
     // what somebody types who met one card and wants the rest.
-    aliases: ["help", "guide", "explain"],
+    aliases: [
+      "help",
+      "guide",
+      "explain",
+    ],
     icon: BookOpen,
   },
   {
@@ -205,7 +226,9 @@ export const SURFACES: readonly PaletteSurface[] = [
       return digitOf(SURFACE.mergeLine);
     },
     // `armada land` is the word a person already runs to read it.
-    aliases: ["land"],
+    aliases: [
+      "land",
+    ],
     icon: Merge,
   },
   {
@@ -214,7 +237,10 @@ export const SURFACES: readonly PaletteSurface[] = [
     // open the Retros page, opens the Logbook on it. No key.
     label: "Retros",
     // What each item is, in `docs/concepts/retro.md`'s word.
-    aliases: ["retro", "retros"],
+    aliases: [
+      "retro",
+      "retros",
+    ],
     icon: Rewind,
   },
   {
@@ -224,7 +250,10 @@ export const SURFACES: readonly PaletteSurface[] = [
     get shortcut() {
       return digitOf(SURFACE.logbook);
     },
-    aliases: ["memory", "learned"],
+    aliases: [
+      "memory",
+      "learned",
+    ],
     // A sketch: `notebook-tabs` is Proposed in the registry for this place. The owner's to rule on.
     icon: NotebookTabs,
   },
@@ -235,7 +264,11 @@ export const SURFACES: readonly PaletteSurface[] = [
       return digitOf(SURFACE.reviews);
     },
     // Its tab takes the next digit when drawn (`drawnTabs`).
-    aliases: ["review", "pull requests", "pr review"],
+    aliases: [
+      "review",
+      "pull requests",
+      "pr review",
+    ],
     // `eye` is Review's.
     icon: Eye,
   },
@@ -246,7 +279,13 @@ export const SURFACES: readonly PaletteSurface[] = [
       return digitOf(SURFACE.issues);
     },
     // Its tab takes the next digit when drawn, as Reviews does.
-    aliases: ["issue", "tickets", "tracker", "jira", "backlog"],
+    aliases: [
+      "issue",
+      "tickets",
+      "tracker",
+      "jira",
+      "backlog",
+    ],
     // `ticket` is the registry's issue.
     icon: Ticket,
   },
@@ -257,7 +296,14 @@ export const SURFACES: readonly PaletteSurface[] = [
       return digitOf(SURFACE.projects);
     },
     // Its tab takes the next digit when drawn (`drawnTabs`).
-    aliases: ["project", "tasks", "task list", "todo", "to do", "plan"],
+    aliases: [
+      "project",
+      "tasks",
+      "task list",
+      "todo",
+      "to do",
+      "plan",
+    ],
     // A sketch: `list-todo` is the registry's list of tasks, some open and some done. A Navigation glyph is the owner's to mint.
     icon: ListTodo,
   },
@@ -268,7 +314,10 @@ export const SURFACES: readonly PaletteSurface[] = [
     get shortcut() {
       return digitOf(SURFACE.workflows);
     },
-    aliases: ["workflow", "create workflow"],
+    aliases: [
+      "workflow",
+      "create workflow",
+    ],
     icon: Workflow,
   },
   {
@@ -278,7 +327,10 @@ export const SURFACES: readonly PaletteSurface[] = [
     get shortcut() {
       return digitOf(SURFACE.checks);
     },
-    aliases: ["check", "checks run"],
+    aliases: [
+      "check",
+      "checks run",
+    ],
     // A sketch: `shield-check` is the registry's Check family. A Navigation glyph is the owner's to mint.
     icon: ShieldCheck,
   },
@@ -289,7 +341,13 @@ export const SURFACES: readonly PaletteSurface[] = [
     get shortcut() {
       return digitOf(SURFACE.sessions);
     },
-    aliases: ["job", "new job", "session", "sessions", "new session"],
+    aliases: [
+      "job",
+      "new job",
+      "session",
+      "sessions",
+      "new session",
+    ],
     icon: SquareTerminal,
   },
   {
@@ -299,14 +357,25 @@ export const SURFACES: readonly PaletteSurface[] = [
     get shortcut() {
       return digitOf(SURFACE.account);
     },
-    aliases: ["sign in", "sign out", "profile", "profiles", "login"],
+    aliases: [
+      "sign in",
+      "sign out",
+      "profile",
+      "profiles",
+      "login",
+    ],
     icon: UserCheck,
   },
   {
     id: SURFACE.usage,
     label: "Usage",
     // No key and not a System entry yet: reached by name.
-    aliases: ["tokens", "burn", "spend", "plan usage"],
+    aliases: [
+      "tokens",
+      "burn",
+      "spend",
+      "plan usage",
+    ],
     // A sketch: `chart-no-axes-column` is not in the registry. A Navigation glyph is the owner's to mint.
     icon: ChartNoAxesColumn,
   },
@@ -314,7 +383,14 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.requests,
     label: "Requests",
     // Not a page: it opens the side panel, for the Job that is open where one is. No key; a tile on a Job's Flight control too.
-    aliases: ["request", "http", "api", "collection", "environment", "graphql"],
+    aliases: [
+      "request",
+      "http",
+      "api",
+      "collection",
+      "environment",
+      "graphql",
+    ],
     icon: ArrowRightLeft,
   },
 ];
@@ -326,15 +402,51 @@ export const SURFACES: readonly PaletteSurface[] = [
  * lists them all.
  */
 export const DECK_TABS = [
-  { id: "cockpit", label: "Cockpit", surface: SURFACE.overview },
-  { id: "jobs", label: "Jobs", surface: SURFACE.jobs },
-  { id: "sessions", label: "Jobs", surface: SURFACE.sessions },
-  { id: "studios", label: "Studios", surface: SURFACE.studios },
-  { id: "logbook", label: "Logbook", surface: SURFACE.logbook },
-  { id: "reviews", label: "Reviews", surface: SURFACE.reviews },
-  { id: "issues", label: "Issues", surface: SURFACE.issues },
-  { id: "projects", label: "Projects", surface: SURFACE.projects },
-  { id: "system", label: "System", surface: SURFACE.kit },
+  {
+    id: "cockpit",
+    label: "Cockpit",
+    surface: SURFACE.overview,
+  },
+  {
+    id: "jobs",
+    label: "Jobs",
+    surface: SURFACE.jobs,
+  },
+  {
+    id: "sessions",
+    label: "Jobs",
+    surface: SURFACE.sessions,
+  },
+  {
+    id: "studios",
+    label: "Studios",
+    surface: SURFACE.studios,
+  },
+  {
+    id: "logbook",
+    label: "Logbook",
+    surface: SURFACE.logbook,
+  },
+  {
+    id: "reviews",
+    label: "Reviews",
+    surface: SURFACE.reviews,
+  },
+  {
+    id: "issues",
+    label: "Issues",
+    surface: SURFACE.issues,
+  },
+  {
+    id: "projects",
+    label: "Projects",
+    surface: SURFACE.projects,
+  },
+  {
+    id: "system",
+    label: "System",
+    surface: SURFACE.kit,
+  },
 ] as const;
 
 export type DeckTabId = (typeof DECK_TABS)[number]["id"];
@@ -352,13 +464,19 @@ export function drawnTabs(hidden: readonly string[]): readonly (typeof DECK_TABS
  * The pages under System, in the order the roster lists them. **The names are the roster's**, read from
  * `SURFACES`, so a page renamed there is renamed here.
  */
-export const SYSTEM_PAGES: readonly { surface: string; label: string }[] = [
+export const SYSTEM_PAGES: readonly {
+  surface: string;
+  label: string;
+}[] = [
   SURFACE.kit,
   SURFACE.mods,
   SURFACE.settings,
   SURFACE.guides,
   SURFACE.workflows,
-].map((surface) => ({ surface, label: SURFACES.find((one) => one.id === surface)?.label ?? surface }));
+].map((surface) => ({
+  surface,
+  label: SURFACES.find((one) => one.id === surface)?.label ?? surface,
+}));
 
 /** The places a layout may name: the tabs that are a surface, then the pages under System the layout reaches. The old Jobs tab is never drawn (`App.tsx`), so it is not one. */
 export const PLACES: readonly string[] = [
@@ -396,7 +514,10 @@ export function surfaceOfDigit(digit: number, hidden: readonly string[] = off): 
  * contextual tier is suppressed while a text input holds focus precisely so that typing cannot act, and the whole point of the
  * modifier is that it still works from inside one.
  */
-export function useSurfaceKeys(onSurface: (surfaceId: string) => void, hidden: readonly string[]): void {
+export function useSurfaceKeys(
+  onSurface: (surfaceId: string) => void,
+  hidden: readonly string[],
+): void {
   // **Bound once, and the handler is read through a ref.** The app rebuilds its `goTo` every render, and a listener
   // re-registered on every render is one that has to be right about removal every time.
   const latest = useRef(onSurface);

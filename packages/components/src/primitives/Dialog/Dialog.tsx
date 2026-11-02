@@ -96,7 +96,12 @@ export type DialogProps = {
 };
 
 /** `glass.css` drops the blur beneath a scrim, which is a rule about the document. */
-const SCRIMMED: readonly Mark[] = [{ of: ":root", as: "data-scrimmed" }];
+const SCRIMMED: readonly Mark[] = [
+  {
+    of: ":root",
+    as: "data-scrimmed",
+  },
+];
 
 export function Dialog({
   open,
@@ -125,7 +130,11 @@ export function Dialog({
     // After the keystroke that opened the layer has finished: an `Enter` sent from a box must not reach the confirm it just opened.
     const timer = window.setTimeout(() => confirmRef.current?.focus(), 0);
     return () => window.clearTimeout(timer);
-  }, [open, confirmLabel, initialFocus]);
+  }, [
+    open,
+    confirmLabel,
+    initialFocus,
+  ]);
 
   // Whether the layer collects the confirmation in a field it draws.
   //
@@ -142,7 +151,9 @@ export function Dialog({
   const scrimmed = useMarking(SCRIMMED);
   const [collects, setCollects] = useState(false);
   useEffect(() => {
-    setCollects(open && confirmLabel !== undefined && layer.current?.querySelector(COLLECTED_IN) != null);
+    setCollects(
+      open && confirmLabel !== undefined && layer.current?.querySelector(COLLECTED_IN) != null,
+    );
   });
 
   useEffect(() => {
@@ -163,7 +174,13 @@ export function Dialog({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onCancel, onConfirm, confirmDisabled, collects]);
+  }, [
+    open,
+    onCancel,
+    onConfirm,
+    confirmDisabled,
+    collects,
+  ]);
 
   if (!open) return null;
 

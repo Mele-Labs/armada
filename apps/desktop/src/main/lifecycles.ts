@@ -24,7 +24,10 @@ import type {
 import type { LifecyclesActed } from "../shared/api/lifecycles";
 import { ask } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 export class LifecyclesHost {
   private readonly port: () => number | null;
@@ -117,7 +120,9 @@ export class LifecyclesHost {
 
   /** `POST /sessions/copy/keep`. Saves nothing: the change waits on the owner's Approve. */
   keep(sessionId: string): Promise<LifecyclesActed<WorkflowChange>> {
-    return this.send("/sessions/copy/keep", { session_id: sessionId });
+    return this.send("/sessions/copy/keep", {
+      session_id: sessionId,
+    });
   }
 
   /** `POST /sessions/copy/keep_piece`. Saves nothing: the proposal waits on the owner's Approve on the Job's draft. */
@@ -133,10 +138,26 @@ export class LifecyclesHost {
     return this.ask("POST", path, body);
   }
 
-  private async ask<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<LifecyclesActed<T>> {
+  private async ask<T>(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+  ): Promise<LifecyclesActed<T>> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, method, path, body);
-    return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
+    return answer.ok === true
+      ? {
+          ok: true,
+          value: answer.body as T,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 }

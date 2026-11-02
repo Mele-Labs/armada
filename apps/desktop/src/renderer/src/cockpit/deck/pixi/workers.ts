@@ -12,10 +12,18 @@ import type { PixiSceneIn, WorkerSpec } from "./scene";
 /** Where a subagent hovers: round its ring at its phase, `floor` being the height of the plot under the ring. */
 export function workerAt(w: WorkerSpec, floor: number): P3 {
   const turn = (w.phase % 1) * 2 * Math.PI;
-  return { x: w.anchor.x + w.radius * Math.cos(turn), y: w.anchor.y + w.radius * Math.sin(turn), z: floor + 1.5 + 26 + 6 * w.i };
+  return {
+    x: w.anchor.x + w.radius * Math.cos(turn),
+    y: w.anchor.y + w.radius * Math.sin(turn),
+    z: floor + 1.5 + 26 + 6 * w.i,
+  };
 }
 
-type Flier = { spec: WorkerSpec; sig: string; root: Container };
+type Flier = {
+  spec: WorkerSpec;
+  sig: string;
+  root: Container;
+};
 
 export class Workers {
   private nodes = new Map<string, Flier>();
@@ -34,16 +42,26 @@ export class Workers {
         next.set(spec.key, kept);
         continue;
       }
-      kept?.root.destroy({ children: true });
+      kept?.root.destroy({
+        children: true,
+      });
       const root = new Container();
       root.eventMode = "none";
       const glyph = body(false, palette.muted, palette);
       glyph.scale.set(0.5 * scene.big);
       root.addChild(glyph);
       this.layer.addChild(root);
-      next.set(spec.key, { spec, sig, root });
+      next.set(spec.key, {
+        spec,
+        sig,
+        root,
+      });
     }
-    for (const [key, one] of this.nodes) if (!next.has(key)) one.root.destroy({ children: true });
+    for (const [key, one] of this.nodes)
+      if (!next.has(key))
+        one.root.destroy({
+          children: true,
+        });
     this.nodes = next;
   }
 
@@ -61,7 +79,10 @@ export class Workers {
   }
 
   destroy(): void {
-    for (const one of this.nodes.values()) one.root.destroy({ children: true });
+    for (const one of this.nodes.values())
+      one.root.destroy({
+        children: true,
+      });
     this.nodes.clear();
   }
 }

@@ -13,11 +13,24 @@ const held = new Map<string, ResolveMockStyles>();
 function stylesOf(machine: Machine): ResolveMockStyles {
   const had = held.get(machine.origin);
   if (had !== undefined) return had;
-  const made = createKeptStyles((hash) => readKept(machine, hash), () => document.documentElement.getAttribute("data-theme"));
+  const made = createKeptStyles(
+    (hash) => readKept(machine, hash),
+    () => document.documentElement.getAttribute("data-theme"),
+  );
   held.set(machine.origin, made);
   return made;
 }
 
-export function WithKeptStyles({ machine, children }: { machine: Machine | undefined; children: ReactNode }) {
-  return <MockStylesContext.Provider value={machine === undefined ? undefined : stylesOf(machine)}>{children}</MockStylesContext.Provider>;
+export function WithKeptStyles({
+  machine,
+  children,
+}: {
+  machine: Machine | undefined;
+  children: ReactNode;
+}) {
+  return (
+    <MockStylesContext.Provider value={machine === undefined ? undefined : stylesOf(machine)}>
+      {children}
+    </MockStylesContext.Provider>
+  );
 }

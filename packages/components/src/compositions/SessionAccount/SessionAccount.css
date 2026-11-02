@@ -24,9 +24,15 @@
   align-self: center;
 }
 
-.armada-account__line[data-line="done"] { color: var(--fg-muted); }
-.armada-account__line[data-line="now"] { color: var(--fg-default); }
-.armada-account__line[data-line="next"] { color: var(--fg-subtle); }
+.armada-account__line[data-line="done"] {
+  color: var(--fg-muted);
+}
+.armada-account__line[data-line="now"] {
+  color: var(--fg-default);
+}
+.armada-account__line[data-line="next"] {
+  color: var(--fg-subtle);
+}
 
 .armada-account__text {
   min-width: 0;

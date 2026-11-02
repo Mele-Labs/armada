@@ -32,7 +32,10 @@ export type AttachmentState = "standing" | "spent" | "given_back";
 
 export type HolderKind = "session";
 
-export type Holder = { kind: HolderKind; id: string };
+export type Holder = {
+  kind: HolderKind;
+  id: string;
+};
 
 /** The figures a session last reported. Each is absent until reported. */
 export type SessionUsage = {
@@ -76,7 +79,9 @@ export type AttachmentVersion = {
 };
 
 /** `get_attachment_history`: every version of everything one session holds, oldest first. */
-export type AttachmentHistory = { versions: AttachmentVersion[] };
+export type AttachmentHistory = {
+  versions: AttachmentVersion[];
+};
 
 /**
  * A session and everything it holds. `report_session` answers it, `list_sessions`
@@ -115,7 +120,12 @@ export type SessionRecord = {
    * A hosted session whose agent came up without some of its Armada tools, as Fleet read the CLI's init line. `mod`: the mod did not load; `door`: Fleet's MCP door did not
    * connect; `task_tools`: the CLI served no task list tools. Absent when nothing is missing.
    */
-  tools_missing?: { harness: string; update: string; harness_version: string; missing: Array<"mod" | "door" | "task_tools"> };
+  tools_missing?: {
+    harness: string;
+    update: string;
+    harness_version: string;
+    missing: Array<"mod" | "door" | "task_tools">;
+  };
   /**
    * What the session waits on the person for: the agent's list with Fleet's own items merged in, the
    * agent's first. Absent is nothing, and always absent for an ended session.
@@ -232,14 +242,25 @@ export type SessionStarted = {
   effort?: string;
   mode?: SessionMode;
   /** The Job that started it. */
-  by?: { id: string; title: string };
+  by?: {
+    id: string;
+    title: string;
+  };
 };
 
 /** The time a workflow step began. `step` is its index in the workflow. */
-export type StepVisit = { step: number; since: string };
+export type StepVisit = {
+  step: number;
+  since: string;
+};
 
 /** A follow-up the agent kept for itself, read from the close of a reply. `id` is what `settle_later` names it by. */
-export type SessionLater = { id: string; sentence: string; said_at: string; /** Thumbs up on it (`confirm_later`). Absent where not. */ confirmed?: boolean };
+export type SessionLater = {
+  id: string;
+  sentence: string;
+  said_at: string /** Thumbs up on it (`confirm_later`). Absent where not. */;
+  confirmed?: boolean;
+};
 
 /** How a follow-up was settled: the work is done, it is an issue now (`issue`), or it will not be done (`reason`). */
 export type LaterHow = "done" | "filed" | "dropped";
@@ -250,22 +271,43 @@ export type LaterHow = "done" | "filed" | "dropped";
  * Fleet refuses 422 `fleet.later_not_settleable` for a `filed` with no issue it can read or an agent's drop with no reason, and
  * 409 `fleet.later_not_open` for an id that names no open follow-up.
  */
-export type SettleLater = { id: string; how: LaterHow; issue?: string; reason?: string; session_id?: string; /** Thumbs down, Not deferred: the person's `dropped` only; keeps the sentence as no follow-up. */ misread?: boolean };
+export type SettleLater = {
+  id: string;
+  how: LaterHow;
+  issue?: string;
+  reason?: string;
+  session_id?: string /** Thumbs down, Not deferred: the person's `dropped` only; keeps the sentence as no follow-up. */;
+  misread?: boolean;
+};
 
 /** `POST /sessions/later/confirm`: thumbs up on an open follow-up; answered with the `SessionRecord`. */
-export type ConfirmLater = { id: string; session_id?: string };
+export type ConfirmLater = {
+  id: string;
+  session_id?: string;
+};
 
 /**
  * `POST /sessions/defer_later`: the agent keeps one follow-up for itself, as a sentence. `session_id` names the Session only where the
  * connection places none. Fleet refuses 422 `fleet.later_not_deferrable` for an empty sentence and 409 `fleet.later_not_open` for one settled already.
  */
-export type DeferLater = { sentence: string; session_id?: string };
+export type DeferLater = {
+  sentence: string;
+  session_id?: string;
+};
 
 /** What `defer_later` answers: the follow-up kept and the ones open with it. */
-export type LaterDeferred = { id: string; sentence: string; open: SessionLater[] };
+export type LaterDeferred = {
+  id: string;
+  sentence: string;
+  open: SessionLater[];
+};
 
 /** What `settle_later` answers: the follow-up settled and the ones still open. */
-export type LaterSettled = { id: string; sentence: string; open: SessionLater[] };
+export type LaterSettled = {
+  id: string;
+  sentence: string;
+  open: SessionLater[];
+};
 
 /** A value of a Session the proposer can pick. */
 export type ProposedField = "title" | "workflow" | "model" | "effort";
@@ -282,7 +324,10 @@ export type SessionProposal = {
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
-export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "message"; target: string };
+export type WaitingAct = {
+  kind: "walk" | "answer" | "approve_pr" | "run" | "message";
+  target: string;
+};
 
 /**
  * Who put an item on the list: the agent, or Fleet from an open card, a permission, an unapproved walk
@@ -329,7 +374,28 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
  * `detail.settled`. Its press opens the document. `answer_document` answers it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "draft" | "first_message" | "replied" | "done" | "plan" | "slot_choice" | "delivery" | "words_address" | "fleet_call" | "task_done" | "watch_not_ours" | "held_child" | "preview_offer" | "rule_act" | "sketch" | "document";
+export type WaitingSource =
+  | "agent"
+  | "ask_card"
+  | "walk"
+  | "permission"
+  | "window_ask"
+  | "draft"
+  | "first_message"
+  | "replied"
+  | "done"
+  | "plan"
+  | "slot_choice"
+  | "delivery"
+  | "words_address"
+  | "fleet_call"
+  | "task_done"
+  | "watch_not_ours"
+  | "held_child"
+  | "preview_offer"
+  | "rule_act"
+  | "sketch"
+  | "document";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -340,19 +406,45 @@ export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "wind
 export type SessionStanding = "working" | "stuck" | "replied" | "done" | "idle";
 
 /** One thing, not the person, that keeps a Session open: a fact, never a sentence. `crates/ipc/src/sessions.rs`. */
-export type HeldOpenBy = { kind: "watch"; name: string } | { kind: "pull_request"; number: number; on: PullRequestWait };
+export type HeldOpenBy =
+  | {
+      kind: "watch";
+      name: string;
+    }
+  | {
+      kind: "pull_request";
+      number: number;
+      on: PullRequestWait;
+    };
 
 /** What an open pull request of the Session waits on: the merge queue, auto-merge, or its Checks (`auto_merge` says it merges once they pass). */
-export type PullRequestWait = { kind: "queue" } | { kind: "auto_merge" } | { kind: "checks"; auto_merge: boolean };
+export type PullRequestWait =
+  | {
+      kind: "queue";
+    }
+  | {
+      kind: "auto_merge";
+    }
+  | {
+      kind: "checks";
+      auto_merge: boolean;
+    };
 
 /** One choice of an item or a question, with what choosing it means where the asker said. */
-export type WaitingOption = { label: string; description?: string };
+export type WaitingOption = {
+  label: string;
+  description?: string;
+};
 
 /**
  * Where on a walked page a question points: the address, on the origin of a window the session showed,
  * a CSS selector for the element, and text it shows that picks one where the selector finds several.
  */
-export type WindowPlace = { url: string; selector: string; text?: string };
+export type WindowPlace = {
+  url: string;
+  selector: string;
+  text?: string;
+};
 
 /**
  * `POST /sessions/window/ask`, the agent's: a question about a place on the page its walk window shows.
@@ -441,36 +533,57 @@ export type StartAnotherSession = {
  * `POST /sessions/hand_to_session`, the person's: hand one group of a Session's plan to a linked Session. The same start as
  * `StartAnotherSession` with a `group`, except the first message is sent, since the press is his. Answers `SessionHeld`.
  */
-export type HandToSession = { session_id: string; group: string };
+export type HandToSession = {
+  session_id: string;
+  group: string;
+};
 
 /**
  * `POST /sessions/fork_this`, the agent's: a new Session that starts as a copy of the caller's own
  * conversation, ending at the row `at` (included) or, absent, at its latest message of its own that the
  * transcript holds. It is held with `message` as `StartAnotherSession`'s is.
  */
-export type ForkThisSession = { title: string; message: string; at?: string };
+export type ForkThisSession = {
+  title: string;
+  message: string;
+  at?: string;
+};
 
 /** What both answer: the Session exists and is listed, and no process has started. */
-export type SessionHeld = { session_id: string; title: string; fork: boolean };
+export type SessionHeld = {
+  session_id: string;
+  title: string;
+  fork: boolean;
+};
 
 /**
  * `POST /sessions/start_another`'s whole body: one Job's fields at the top, or several Jobs in `jobs` and nothing else.
  * Each in `jobs` starts as a call of its own would, in order. One Job answers `SessionHeld`, several `SessionsHeld`.
  */
-export type StartAnotherSessions = Partial<StartAnotherSession> & { jobs?: StartAnotherSession[] };
+export type StartAnotherSessions = Partial<StartAnotherSession> & {
+  jobs?: StartAnotherSession[];
+};
 
 /** What a call with `jobs` answers: one entry per Job in the order given. A refused one leaves the others started. */
-export type SessionsHeld = { jobs: HeldOrRefused[] };
+export type SessionsHeld = {
+  jobs: HeldOrRefused[];
+};
 
 /** One Job of `SessionsHeld`: `held` where it started, `refused` with its own call's refusal where it did not. */
-export type HeldOrRefused = { held?: SessionHeld; refused?: WireError };
+export type HeldOrRefused = {
+  held?: SessionHeld;
+  refused?: WireError;
+};
 
 /**
  * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session holds.
  * `session_id` names the claimant where the connection places none, which is Bridge's case. Fleet refuses
  * 422 `fleet.pull_request_not_claimable`, naming the holder, where a live one has it or it is not open.
  */
-export type ClaimPullRequest = { number: number; session_id?: string };
+export type ClaimPullRequest = {
+  number: number;
+  session_id?: string;
+};
 
 /** What `claim_pull_request` answers: the pull request now held, and by which Session. */
 export type PullRequestClaimed = {
@@ -490,10 +603,18 @@ export type PullRequestClaimed = {
  * In a repository whose tracker Fleet writes to, it claims there first and refuses 409 `fleet.issue_held`, naming
  * the holder, where the synced copy gives the issue to someone else.
  */
-export type ClaimIssue = { issue: string; session_id?: string; pull_requests?: number[] };
+export type ClaimIssue = {
+  issue: string;
+  session_id?: string;
+  pull_requests?: number[];
+};
 
 /** What `claim_issue` answers: the issue as held, by which Session, and every pull request its row now names. */
-export type IssueClaimed = { issue: string; holder_id: string; pull_requests: number[] };
+export type IssueClaimed = {
+  issue: string;
+  holder_id: string;
+  pull_requests: number[];
+};
 
 /**
  * `POST /sessions/take_main_red`: a Session takes its repository's red main in the central store, so no Job
@@ -502,10 +623,16 @@ export type IssueClaimed = { issue: string; holder_id: string; pull_requests: nu
  * Fleet refuses 409 `fleet.main_taken_elsewhere` naming the holder, and 500 `fleet.main_claim_not_made`
  * where the store would not answer.
  */
-export type TakeMainRed = { session_id?: string; take_over?: boolean };
+export type TakeMainRed = {
+  session_id?: string;
+  take_over?: boolean;
+};
 
 /** What `take_main_red` answers. `claimed` is false where the switch is off or the machine is signed out: nothing was written. */
-export type MainRedTaken = { root: string; claimed: boolean };
+export type MainRedTaken = {
+  root: string;
+  claimed: boolean;
+};
 
 /**
  * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
@@ -513,20 +640,31 @@ export type MainRedTaken = { root: string; claimed: boolean };
  * the agent stated: it is told `Owner removed "<item text>"`, with `reason` after it where the person gave one.
  * `misread` is Not a question on an item Fleet read from a reply: its sentence is kept as one that asks nothing.
  */
-export type DismissWaiting = { session_id: string; item_id: string; reason?: string; misread?: boolean };
+export type DismissWaiting = {
+  session_id: string;
+  item_id: string;
+  reason?: string;
+  misread?: boolean;
+};
 
 /**
  * `POST /sessions/waiting/confirm`: thumbs up on an item Fleet read from a reply. Its sentence is kept as one
  * that asks, the item stays, and it reads `confirmed` from then on. Refused on an item of any other source.
  */
-export type ConfirmWaiting = { session_id: string; item_id: string };
+export type ConfirmWaiting = {
+  session_id: string;
+  item_id: string;
+};
 
 /**
  * `POST /sessions/waiting/reopen`: the person lets an item he closed wait again, by the `id` in `SessionRecord.closed`. An agent's own item
  * goes back on its list as it was stated, and the agent is told so (`The owner reopened "<text>"; ...`); any other item tells it nothing. Fleet refuses 409 `fleet.session_waiting_unheld` for an id nothing
  * closed holds, and 422 `fleet.session_waiting_unreopenable` where `ended` is true.
  */
-export type ReopenWaiting = { session_id: string; item_id: string };
+export type ReopenWaiting = {
+  session_id: string;
+  item_id: string;
+};
 
 /**
  * An item the person closed, as `SessionRecord.closed` lists it: `item` is the `WaitingItem` as Needs you drew it when he closed it
@@ -534,35 +672,77 @@ export type ReopenWaiting = { session_id: string; item_id: string };
  * only as `true`: what the item stood for has ended, so it cannot be reopened (a permission whose call ended, a walk that was withdrawn, any
  * item of a Job that has ended). The agent's own items and those whose subject still stands are reopenable.
  */
-export type ClosedWaiting = { item: WaitingItem; at: string; ended?: true };
+export type ClosedWaiting = {
+  item: WaitingItem;
+  at: string;
+  ended?: true;
+};
 
 /** `GET /sessions/waiting/closed`, an agent's read: the Job's `closed` items, newest first. */
-export type ClosedWaitingList = { session_id: string; closed: ClosedWaiting[] };
+export type ClosedWaitingList = {
+  session_id: string;
+  closed: ClosedWaiting[];
+};
 
 /** One take of a change a session shows in its window. `url` is `http` or `https`. */
-export type WindowTake = { name: string; url: string };
+export type WindowTake = {
+  name: string;
+  url: string;
+};
 
 /**
  * Something on a page a walk's step aims at, found by role and accessible name or by the words it
  * draws. `role` is `text` for the words an element draws, and then `name` is those words. `name` is a
  * string inside the name in any case, or the whole of it with `exact`. `within` looks only inside another.
  */
-export type WalkTarget = { role: string; name?: string; exact?: boolean; within?: WalkTarget };
+export type WalkTarget = {
+  role: string;
+  name?: string;
+  exact?: boolean;
+  within?: WalkTarget;
+};
 
 /**
  * One step of a scripted walk: a `say` caption and exactly one verb, with the key that goes with it.
  * The mock walks' own shape (`mock/walk.ts`), as JSON. Fleet refuses any other combination.
  */
-export type WalkStep = { say: string } & (
-  | { press: WalkTarget }
-  | { look: WalkTarget }
-  | { hover: WalkTarget }
-  | { later: WalkTarget }
-  | { type: string; into: WalkTarget }
-  | { key: string; on: WalkTarget }
-  | { select: string; in: WalkTarget }
-  | { paste: WalkTarget }
-  | { drag: WalkTarget; by: { x: number; y: number } }
+export type WalkStep = {
+  say: string;
+} & (
+  | {
+      press: WalkTarget;
+    }
+  | {
+      look: WalkTarget;
+    }
+  | {
+      hover: WalkTarget;
+    }
+  | {
+      later: WalkTarget;
+    }
+  | {
+      type: string;
+      into: WalkTarget;
+    }
+  | {
+      key: string;
+      on: WalkTarget;
+    }
+  | {
+      select: string;
+      in: WalkTarget;
+    }
+  | {
+      paste: WalkTarget;
+    }
+  | {
+      drag: WalkTarget;
+      by: {
+        x: number;
+        y: number;
+      };
+    }
 );
 
 /**
@@ -584,23 +764,35 @@ export type ShowWindow = {
 };
 
 /** `POST /sessions/window/sign_in`: Bridge, opening a window, asks for the sign-in addresses held for it. */
-export type TakeWindowSignIn = { session_id: string; url: string };
+export type TakeWindowSignIn = {
+  session_id: string;
+  url: string;
+};
 
 /** What it answers: the addresses, once. Empty where none are held. */
-export type WindowSignIn = { sign_in: string[] };
+export type WindowSignIn = {
+  sign_in: string[];
+};
 
 /**
  * `POST /sessions/sketch`, the agent's: a diagram to draw. `scene` is the format `parseScene` reads
  * (`SketchScene/scene.ts`), which Fleet has already checked by the time Bridge sees it. It lands on the
  * ledger as an artifact of form `sketch`, keyed by `title`: a second call with the same title replaces it.
  */
-export type ShowSketch = { title: string; scene: unknown; session_id?: string };
+export type ShowSketch = {
+  title: string;
+  scene: unknown;
+  session_id?: string;
+};
 
 /**
  * `POST /sessions/withdraw_sketch`, the agent's: take back a sketch it put to the person. Fleet marks the sketch's attachment
  * `detail.withdrawn` `"true"` and drops its Needs you item. His own Withdraw press is `POST /sessions/waiting/dismiss` on `sketch:<title>`.
  */
-export type WithdrawSketch = { title: string; session_id?: string };
+export type WithdrawSketch = {
+  title: string;
+  session_id?: string;
+};
 
 /** How the person answered a sketch put to him, as `detail.settled` holds it. */
 export type SketchHow = "approved" | "sent_back";
@@ -611,7 +803,13 @@ export type SketchHow = "approved" | "sent_back";
  * 409, `fleet.sketch_redrawn`. `words` is required for `sent_back`. Every sketch shown carries `detail.asked`
  * `"true"`, and once answered `detail.settled`, `detail.settled_at` and his `detail.words`.
  */
-export type AnswerSketch = { session_id: string; sketch: string; drawn: string; how: SketchHow; words?: string };
+export type AnswerSketch = {
+  session_id: string;
+  sketch: string;
+  drawn: string;
+  how: SketchHow;
+  words?: string;
+};
 
 /**
  * What a stylesheet found for a `mock` node is, by how a browser can use it. Closed set, crossing as a string:
@@ -629,29 +827,54 @@ export type StyleKind =
   | "theme_module";
 
 /** A token read out of a stylesheet or theme file: its name and value, never the file's text. */
-export type StyleToken = { name: string; value: string };
+export type StyleToken = {
+  name: string;
+  value: string;
+};
 
 /** One stylesheet found near the code a Job works on. `usable` is whether a browser can use it as it stands. */
-export type StyleSource = { path: string; bytes: number; kind: StyleKind; usable: boolean; tokens: StyleToken[] };
+export type StyleSource = {
+  path: string;
+  bytes: number;
+  kind: StyleKind;
+  usable: boolean;
+  tokens: StyleToken[];
+};
 
 /**
  * `GET /sessions/style_sources?path=&session_id=`, the agent's: the stylesheets nearest the code being worked on, closest
  * first, for a `mock` node's `styles`. `start` is the path the search walked up from; `packages` is non-empty where Fleet
  * would not guess between packages of the repository. An empty array is the same as an omitted one.
  */
-export type StyleSources = { sources: StyleSource[]; start?: string; packages?: string[] };
+export type StyleSources = {
+  sources: StyleSource[];
+  start?: string;
+  packages?: string[];
+};
 
 /** A stylesheet as Fleet kept it. `edited` is true where the Job's checkout held uncommitted changes to the file. */
-export type KeptSheet = { path: string; css: string; edited: boolean };
+export type KeptSheet = {
+  path: string;
+  css: string;
+  edited: boolean;
+};
 
 /** A font a kept stylesheet names. `bytes` is base64. */
-export type KeptFont = { family: string; weight: string; style?: string; bytes: string };
+export type KeptFont = {
+  family: string;
+  weight: string;
+  style?: string;
+  bytes: string;
+};
 
 /**
  * `GET /sessions/kept_styles?hash=`, Bridge's: the style set a `mock` node's `kept` names, `sheets` in the order they apply.
  * Content addressed, so an answer never changes; a hash Fleet does not hold is a 404. Never carried on a record.
  */
-export type KeptStyles = { sheets: KeptSheet[]; fonts: KeptFont[] };
+export type KeptStyles = {
+  sheets: KeptSheet[];
+  fonts: KeptFont[];
+};
 
 /** How the person answered a document put to him, as `detail.settled` holds it. */
 export type DocumentHow = "approved" | "sent_back";
@@ -663,32 +886,53 @@ export type DocumentHow = "approved" | "sent_back";
  * `detail.asked` `"true"` and `detail.revision`, and once answered `detail.settled`, `detail.settled_at` and his
  * `detail.words`; a new revision drops those three, so it asks again.
  */
-export type AnswerDocument = { session_id: string; document: string; revision: string; how: DocumentHow; words?: string };
+export type AnswerDocument = {
+  session_id: string;
+  document: string;
+  revision: string;
+  how: DocumentHow;
+  words?: string;
+};
 
 /**
  * `POST /sessions/show_file`, the agent's: a file to open in the side panel. `path` is absolute or relative
  * to the folder the job runs in; Fleet keeps the canonical path as an artifact of form `file`, `detail.by`
  * `agent` and `detail.shown` the time of the call, so each call is a new show.
  */
-export type ShowFile = { path: string; session_id?: string };
+export type ShowFile = {
+  path: string;
+  session_id?: string;
+};
 
 /**
  * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
  * `show_window` named it. It ends the session's walk and settles nothing on Waiting on you.
  */
-export type WindowClosed = { session_id: string; url: string };
+export type WindowClosed = {
+  session_id: string;
+  url: string;
+};
 
 /**
  * `POST /sessions/window/failed`: the window a session showed could not show its page. Fleet tells the
  * session in its own voice; the walk stays open.
  */
-export type WindowFailed = { session_id: string; url: string; why: string };
+export type WindowFailed = {
+  session_id: string;
+  url: string;
+  why: string;
+};
 
 /** What `window_failed` answers: whether the walk's owner was told now. */
-export type WalkTold = { told: boolean };
+export type WalkTold = {
+  told: boolean;
+};
 
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
-export type TerminalCommand = { name: string; says: string };
+export type TerminalCommand = {
+  name: string;
+  says: string;
+};
 
 /**
  * What a session run in a terminal runs on, as its mod last said. **The mode is read-only**: the mods API
@@ -706,31 +950,54 @@ export type TerminalFacts = {
 };
 
 /** `list_sessions`, the most recently seen first. */
-export type SessionList = { sessions: SessionRecord[] };
+export type SessionList = {
+  sessions: SessionRecord[];
+};
 
 /** `rename_session`: a person's name for a session, hosted or in a terminal. `POST /sessions/rename`. Since 23.52. */
-export type RenameSession = { session_id: string; title: string };
+export type RenameSession = {
+  session_id: string;
+  title: string;
+};
 
 /** `name_session`: Armada names a hosted session from its first message, as the start names one. `POST /sessions/name`. Not kept as the person's rename. */
-export type NameSession = { session_id: string };
+export type NameSession = {
+  session_id: string;
+};
 
 /**
  * `start_session_run`: the person ran a shell block from a Session's thread, on a terminal of its own.
  * `POST /sessions/run/start`. `cols` and `rows` are the terminal's size in cells; absent is 80 by 24.
  */
-export type StartSessionRun = { session_id: string; command: string; cols?: number; rows?: number };
+export type StartSessionRun = {
+  session_id: string;
+  command: string;
+  cols?: number;
+  rows?: number;
+};
 
 /** `start_session_run`, answered 202: the run is underway; what it prints is on `observe_session_run`. */
-export type SessionRunUnderway = { run_id: string };
+export type SessionRunUnderway = {
+  run_id: string;
+};
 
 /** `stop_session_run`: end a run's process group. `POST /sessions/run/stop`. Answered 200 with the same body. */
-export type StopSessionRun = { run_id: string };
+export type StopSessionRun = {
+  run_id: string;
+};
 
 /** `write_session_run`: keys typed into a run's terminal, written as they are (Ctrl-C is "\u0003"). `POST /sessions/run/write`. Answered 200 with `SessionRunUnderway`. */
-export type WriteSessionRun = { run_id: string; data: string };
+export type WriteSessionRun = {
+  run_id: string;
+  data: string;
+};
 
 /** `resize_session_run`: the run's terminal changed size, in cells. `POST /sessions/run/resize`. Answered 200 with `SessionRunUnderway`. */
-export type ResizeSessionRun = { run_id: string; cols: number; rows: number };
+export type ResizeSessionRun = {
+  run_id: string;
+  cols: number;
+  rows: number;
+};
 
 /**
  * `observe_session_run`, `GET /sessions/run/:run_id/observe` on a socket of its own. What the run
@@ -740,67 +1007,163 @@ export type ResizeSessionRun = { run_id: string; cols: number; rows: number };
  * true where it was Stop that ended it: a null `code` with `stopped` false is a signal's.
  */
 export type SessionRunMessage =
-  | { kind: "opened"; protocol_id: string; run_id: string }
-  | { kind: "output"; text: string }
-  | { kind: "missed"; dropped: number }
-  | { kind: "exited"; code: number | null; stopped: boolean };
+  | {
+      kind: "opened";
+      protocol_id: string;
+      run_id: string;
+    }
+  | {
+      kind: "output";
+      text: string;
+    }
+  | {
+      kind: "missed";
+      dropped: number;
+    }
+  | {
+      kind: "exited";
+      code: number | null;
+      stopped: boolean;
+    };
 
 /** `open_terminal`: the person opens the Job's shell in Bridge. `POST /sessions/terminal/open`. Answered 200 with `SessionRunUnderway`: the shell already open, or one opened now. `cols` and `rows` are the size in cells where it opens now; absent is 80 by 24. */
-export type OpenTerminal = { session_id: string; cols?: number; rows?: number };
+export type OpenTerminal = {
+  session_id: string;
+  cols?: number;
+  rows?: number;
+};
 
 /** `start_terminal_run`: the person runs `command` in `dir` with no Job behind it. `POST /sessions/terminal/run`. Answered 200 with `SessionRunUnderway`; what it prints is `observe_session_run`'s. `dir` must exist; `cols` and `rows` are the size in cells, absent is 80 by 24. */
-export type StartTerminalRun = { command: string; dir: string; cols?: number; rows?: number };
+export type StartTerminalRun = {
+  command: string;
+  dir: string;
+  cols?: number;
+  rows?: number;
+};
 
 /** `type_in_terminal`: the Job's agent types into the Job's shell, opening it where it has none. `POST /sessions/terminal/type`. Answered 200 with `TerminalTyped`. `text` is written as it is; `enter` absent is true; `clear` absent is true, which writes Ctrl-U before `text`; `wait_seconds` absent is 10, at most 60; `session_id` is read only where the connection places no hosted Job. */
-export type TypeInTerminal = { text: string; enter?: boolean; clear?: boolean; wait_seconds?: number; session_id?: string };
+export type TypeInTerminal = {
+  text: string;
+  enter?: boolean;
+  clear?: boolean;
+  wait_seconds?: number;
+  session_id?: string;
+};
 
 /** `type_in_terminal`'s answer: what the shell printed after the text was typed, as plain lines, the last 200 at most. `still_printing` is whether output was still arriving when the wait ran out. `echoed` is false where the text typed never appeared in what was printed. */
-export type TerminalTyped = { run_id: string; printed: string; still_printing: boolean; echoed: boolean };
+export type TerminalTyped = {
+  run_id: string;
+  printed: string;
+  still_printing: boolean;
+  echoed: boolean;
+};
 
 /** `read_terminal`: the Job's agent reads the Job's shell. `GET /sessions/terminal/read`, these as its query. `lines` absent is 60, at most 500; `until` is waited for in what the shell printed since the agent last typed, as text or, with `regex`, a regular expression; `wait_seconds` absent is 10, at most 60. */
-export type ReadTerminal = { session_id?: string; lines?: number; until?: string; regex?: boolean; wait_seconds?: number };
+export type ReadTerminal = {
+  session_id?: string;
+  lines?: number;
+  until?: string;
+  regex?: boolean;
+  wait_seconds?: number;
+};
 
 /** `read_terminal`'s answer: the last lines of the Job's shell, as its screen drew them. `GET /sessions/terminal/read`. `matched` is whether `until` was printed before the wait ran out, absent where the read named none. */
-export type TerminalScreen = { run_id: string; screen: string; matched?: boolean };
+export type TerminalScreen = {
+  run_id: string;
+  screen: string;
+  matched?: boolean;
+};
 
 /** `terminal.opened` and `terminal.exited` on `/events`: a Job's shell opened or ended, so a pane can follow it. What it prints is `observe_session_run`'s, on `run_id`. */
-export type JobTerminal = { session_id: string; run_id: string };
+export type JobTerminal = {
+  session_id: string;
+  run_id: string;
+};
 
 // The Job browser: `crates/ipc/src/job_browser.rs`, and `docs/practices/protocol/the-job-browser.md` for the contract.
 
 /** `browser_open`: the agent loads an `http` or `https` page. `POST /sessions/browser/open`. Answered 200 with `BrowserAnswer` `page`. `session_id` is read only where the connection places no hosted Job. */
-export type BrowserOpen = { url: string; session_id?: string };
+export type BrowserOpen = {
+  url: string;
+  session_id?: string;
+};
 
 /** `browser_click`: the agent presses `target`. `POST /sessions/browser/click`. Answered 200 with `BrowserAnswer` `page`. */
-export type BrowserClick = { target: WalkTarget; session_id?: string };
+export type BrowserClick = {
+  target: WalkTarget;
+  session_id?: string;
+};
 
 /** `browser_type`: the agent types `text` into `target`, and Enter after it with `submit` (absent is false). `POST /sessions/browser/type`. Answered 200 with `BrowserAnswer` `page`. */
-export type BrowserType = { target: WalkTarget; text: string; submit?: boolean; session_id?: string };
+export type BrowserType = {
+  target: WalkTarget;
+  text: string;
+  submit?: boolean;
+  session_id?: string;
+};
 
 /** `browser_snapshot` and `browser_screenshot`: nothing but the Job. `POST /sessions/browser/snapshot` answers `page`; `POST /sessions/browser/screenshot` answers `screenshot`. */
-export type BrowserLook = { session_id?: string };
+export type BrowserLook = {
+  session_id?: string;
+};
 
 /** `browser_wait_for`: exactly one of `text` and `target`. `timeout_ms` absent or 0 is 5000, at most 30000. `POST /sessions/browser/wait_for`. Answered 200 with `BrowserAnswer` `page`. */
-export type BrowserWaitFor = { text?: string; target?: WalkTarget; timeout_ms?: number; session_id?: string };
+export type BrowserWaitFor = {
+  text?: string;
+  target?: WalkTarget;
+  timeout_ms?: number;
+  session_id?: string;
+};
 
 /** `browser_evaluate`: an expression run in the page. `POST /sessions/browser/evaluate`. Answered 200 with `BrowserAnswer` `evaluated`. */
-export type BrowserEvaluate = { expression: string; session_id?: string };
+export type BrowserEvaluate = {
+  expression: string;
+  session_id?: string;
+};
 
 /**
  * One act Bridge is asked to do. `screenshot`'s `path` is the PNG to write, in the Job's scratch folder, which
  * Fleet made. `wait_for` carries one of `text` and `target`, and `timeout_ms` as Fleet held it.
  */
 export type BrowserAct =
-  | { kind: "open"; url: string }
-  | { kind: "click"; target: WalkTarget }
-  | { kind: "type"; target: WalkTarget; text: string; submit?: boolean }
-  | { kind: "snapshot" }
-  | { kind: "screenshot"; path: string }
-  | { kind: "wait_for"; text?: string; target?: WalkTarget; timeout_ms: number }
-  | { kind: "evaluate"; expression: string };
+  | {
+      kind: "open";
+      url: string;
+    }
+  | {
+      kind: "click";
+      target: WalkTarget;
+    }
+  | {
+      kind: "type";
+      target: WalkTarget;
+      text: string;
+      submit?: boolean;
+    }
+  | {
+      kind: "snapshot";
+    }
+  | {
+      kind: "screenshot";
+      path: string;
+    }
+  | {
+      kind: "wait_for";
+      text?: string;
+      target?: WalkTarget;
+      timeout_ms: number;
+    }
+  | {
+      kind: "evaluate";
+      expression: string;
+    };
 
 /** `browser.request` on `/events`: an agent's act, held by Fleet until `answer_browser_request` names `request_id`. Not replayed. */
-export type BrowserRequest = { session_id: string; request_id: string; act: BrowserAct };
+export type BrowserRequest = {
+  session_id: string;
+  request_id: string;
+  act: BrowserAct;
+};
 
 /**
  * What a done act answers. `page` after `open`, `click`, `type`, `snapshot` and `wait_for`, `snapshot` being the
@@ -809,22 +1172,55 @@ export type BrowserRequest = { session_id: string; request_id: string; act: Brow
  * `path` and no `truncated`: Fleet sets them on the agent's answer.
  */
 export type BrowserAnswer =
-  | { kind: "page"; url: string; title: string; snapshot: string; truncated?: boolean }
-  | { kind: "screenshot"; url: string; title: string; path?: string }
-  | { kind: "evaluated"; url: string; title: string; result?: string; truncated?: boolean };
+  | {
+      kind: "page";
+      url: string;
+      title: string;
+      snapshot: string;
+      truncated?: boolean;
+    }
+  | {
+      kind: "screenshot";
+      url: string;
+      title: string;
+      path?: string;
+    }
+  | {
+      kind: "evaluated";
+      url: string;
+      title: string;
+      result?: string;
+      truncated?: boolean;
+    };
 
 /** Why Bridge could not do an act. Fleet words each for the agent; `failed`'s `why` reaches it after "The Job browser could not do that:". */
 export type BrowserError =
-  | { kind: "owner_driving" }
-  | { kind: "not_found" }
-  | { kind: "timed_out" }
-  | { kind: "failed"; why: string };
+  | {
+      kind: "owner_driving";
+    }
+  | {
+      kind: "not_found";
+    }
+  | {
+      kind: "timed_out";
+    }
+  | {
+      kind: "failed";
+      why: string;
+    };
 
 /** `answer_browser_request`: Bridge answers one `browser.request` with exactly one of `answer` and `error`. `POST /sessions/browser/answer`. */
-export type AnswerBrowserRequest = { request_id: string; answer?: BrowserAnswer; error?: BrowserError };
+export type AnswerBrowserRequest = {
+  request_id: string;
+  answer?: BrowserAnswer;
+  error?: BrowserError;
+};
 
 /** `answer_browser_request`'s answer: the held call it answered. */
-export type BrowserRequestAnswered = { request_id: string; session_id: string };
+export type BrowserRequestAnswered = {
+  request_id: string;
+  session_id: string;
+};
 
 /** One holder of what `who_owns` was asked about, with its row. */
 export type Ownership = {
@@ -835,49 +1231,116 @@ export type Ownership = {
 };
 
 /** `who_owns`: every holder, the ones still holding it first. Empty is an answer. */
-export type Owners = { holders: Ownership[] };
+export type Owners = {
+  holders: Ownership[];
+};
 
 /** One fact a harness reports. `POST /sessions/report`. */
 export type SessionFact =
-  | { kind: "started"; cwd: string; title?: string; origin?: SessionOrigin; mod_version?: string }
-  | { kind: "titled"; title: string; named?: boolean }
-  | { kind: "moved"; cwd: string }
+  | {
+      kind: "started";
+      cwd: string;
+      title?: string;
+      origin?: SessionOrigin;
+      mod_version?: string;
+    }
+  | {
+      kind: "titled";
+      title: string;
+      named?: boolean;
+    }
+  | {
+      kind: "moved";
+      cwd: string;
+    }
   | {
       kind: "attached";
-      attachment: { kind: string; target: string; detail?: Record<string, string> };
+      attachment: {
+        kind: string;
+        target: string;
+        detail?: Record<string, string>;
+      };
     }
   | {
       kind: "settled";
-      attachment: { kind: string; target: string };
+      attachment: {
+        kind: string;
+        target: string;
+      };
       state: AttachmentState;
     }
-  | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[]; context_breakdown?: ContextBreakdown }
+  | {
+      kind: "measured";
+      usage: SessionUsage;
+      plan?: PlanWindow[];
+      context_breakdown?: ContextBreakdown;
+    }
   /** `said` is the close of the last thing the agent said to the person: its last 1,500 characters, from a line start. Since 23.86. */
-  | { kind: "turn_completed"; said?: string }
+  | {
+      kind: "turn_completed";
+      said?: string;
+    }
   /** A turn began. Since 23.86. */
-  | { kind: "turn_started" }
+  | {
+      kind: "turn_started";
+    }
   /** A turn ended on the plan's limit, which resets at `resets_at`. Fleet wakes the session then. */
-  | { kind: "limited"; resets_at: string }
+  | {
+      kind: "limited";
+      resets_at: string;
+    }
   /** Files written, relative to the session's `cwd`. Since 23.81. */
-  | { kind: "touched"; paths: string[] }
-  | { kind: "wrote" }
+  | {
+      kind: "touched";
+      paths: string[];
+    }
+  | {
+      kind: "wrote";
+    }
   /** The agent reached for a browser outside Bridge: `tool` as the person reads it, and the address it opened. Fleet writes a `browser_reminder` row. */
-  | { kind: "browser_outside"; tool: string; address?: string }
+  | {
+      kind: "browser_outside";
+      tool: string;
+      address?: string;
+    }
   /** The agent's task list, whole, as its last task tool left it. An empty list clears it. */
-  | { kind: "tasks"; tasks: ReportedTask[] }
+  | {
+      kind: "tasks";
+      tasks: ReportedTask[];
+    }
   /** The agent left plan mode. */
-  | { kind: "plan_left" }
+  | {
+      kind: "plan_left";
+    }
   /** A `git commit` ran and its output showed a commit made. `branch` is absent on a detached head. */
-  | { kind: "committed"; branch?: string }
+  | {
+      kind: "committed";
+      branch?: string;
+    }
   /** A `git push` ran and its output showed a ref updated. */
-  | { kind: "pushed"; branch?: string }
+  | {
+      kind: "pushed";
+      branch?: string;
+    }
   /** A turn answered: model, tokens and the tools it called. One row a message id. */
-  | { kind: "turn_measured"; turn: TurnUsage }
+  | {
+      kind: "turn_measured";
+      turn: TurnUsage;
+    }
   /** What the agent knows and was told, whole, replacing the last. */
-  | { kind: "equipped"; loadout: LoadoutItems }
+  | {
+      kind: "equipped";
+      loadout: LoadoutItems;
+    }
   /** A skill, tool or subagent used. Fleet keeps the last fifty turns. */
-  | { kind: "used"; use: LoadoutUse }
-  | { kind: "ended"; reason: string };
+  | {
+      kind: "used";
+      use: LoadoutUse;
+    }
+  | {
+      kind: "ended";
+      reason: string;
+    };
 
 export type SessionReport = {
   harness: string;
@@ -908,13 +1371,18 @@ export type SessionCheckCall = {
  * held (`ask`, repeated about once a second as its heartbeat) or is done waiting (`done`). Bridge never
  * sends it; it is here so the wire reads whole. The call it raises is the Session's `slot_choice` item.
  */
-export type AskForSlot = { act: "ask" | "done"; session_id: string };
+export type AskForSlot = {
+  act: "ask" | "done";
+  session_id: string;
+};
 
 /**
  * What it answers: `asking` the call is on the list, `waiting` he chose to wait, `added` a slot was
  * made and is held for the command for about thirty seconds, `unasked` Fleet does not host the Session.
  */
-export type SlotAsked = { standing: "asking" | "waiting" | "added" | "unasked" };
+export type SlotAsked = {
+  standing: "asking" | "waiting" | "added" | "unasked";
+};
 
 /** How a person asked a running Check to stop: `SIGTERM` to its group, or `SIGKILL`. */
 export type SessionCheckStop = "graceful" | "force";
@@ -923,16 +1391,29 @@ export type SessionCheckStop = "graceful" | "force";
  * What it answers. `run` is absent where no Session holds the slot, which is a person's own run.
  * `stop` is a stop a person asked for, answered to `chunk` and to the two stop routes.
  */
-export type SessionCheckAnswer = { run?: number; stop?: SessionCheckStop };
+export type SessionCheckAnswer = {
+  run?: number;
+  stop?: SessionCheckStop;
+};
 
 /**
  * One message on `GET /sessions/checks/:run/observe`, a Session run's log as it is
  * written. An ended run opens, sends what it holds and closes `finished`.
  */
 export type SessionCheckOutputMessage =
-  | ({ message: "opened" } & SessionCheckOutputOpened)
-  | ({ message: "lines" } & { lines: string[] })
-  | ({ message: "closed" } & { because: string });
+  | ({
+      message: "opened";
+    } & SessionCheckOutputOpened)
+  | ({
+      message: "lines";
+    } & {
+      lines: string[];
+    })
+  | ({
+      message: "closed";
+    } & {
+      because: string;
+    });
 
 export type SessionCheckOutputOpened = {
   protocol_id: ProtocolId;

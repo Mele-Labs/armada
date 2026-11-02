@@ -14,10 +14,20 @@ export function contextOf(state: ContextState, doc: Document = document): AppCon
   const grid = gridOf(state.health, state.connection, state.connection.state);
   const context: AppContext = {
     connection: state.connection.state,
-    doctor: { summary: summaryOf(grid), rows: grid.rows.map(({ module, result, detail }) => ({ module, result, detail })) },
+    doctor: {
+      summary: summaryOf(grid),
+      rows: grid.rows.map(({ module, result, detail }) => ({
+        module,
+        result,
+        detail,
+      })),
+    },
   };
   const sessionId = openSessionIn(doc);
-  const session = sessionId === undefined || state.sessions.state !== "read" ? undefined : state.sessions.sessions.find((one) => one.id === sessionId);
+  const session =
+    sessionId === undefined || state.sessions.state !== "read"
+      ? undefined
+      : state.sessions.sessions.find((one) => one.id === sessionId);
   if (session !== undefined) context.session = sessionFacts(session);
   return context;
 }

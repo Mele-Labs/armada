@@ -27,7 +27,14 @@ type Host = {
 };
 
 /** The dock's routing: Fleet's reading, and the acts the words may go through. */
-export function useThoughtRouting({ state, repositories, dispatching, openSession, sketchesOf, carryOf }: Host): ThoughtRouting {
+export function useThoughtRouting({
+  state,
+  repositories,
+  dispatching,
+  openSession,
+  sketchesOf,
+  carryOf,
+}: Host): ThoughtRouting {
   const draft = useSessionsDraft();
   // The conversation the dock shows, whose thread keeps the row for words sent on.
   const manifestId = state.helm.state === "none" ? undefined : state.helm.manifestId;
@@ -37,10 +44,14 @@ export function useThoughtRouting({ state, repositories, dispatching, openSessio
     if (manifestId === undefined) return;
     try {
       // What the thought went with is kept on the row, so a reload draws it as it was.
-      const sent = carry === undefined || carry.files.length + carry.tags.length + carry.sketches.length === 0 ? undefined : await carryOf(carry);
-      const outcome = sent === undefined
-        ? await window.armada.recordThoughtSent(manifestId, text, wireTargetOf(target))
-        : await window.armada.recordThoughtSent(manifestId, text, wireTargetOf(target), sent);
+      const sent =
+        carry === undefined || carry.files.length + carry.tags.length + carry.sketches.length === 0
+          ? undefined
+          : await carryOf(carry);
+      const outcome =
+        sent === undefined
+          ? await window.armada.recordThoughtSent(manifestId, text, wireTargetOf(target))
+          : await window.armada.recordThoughtSent(manifestId, text, wireTargetOf(target), sent);
       if (!outcome.ok) askToTell(refusalWords(outcome));
     } catch {
       askToTell(`Sent to "${target.title}", but the thread could not record it`);
@@ -51,9 +62,19 @@ export function useThoughtRouting({ state, repositories, dispatching, openSessio
     read: async (text): Promise<ThoughtReading> => {
       const read = await window.armada.readThought(text);
       // A read that failed is a question: the words go to Helm and are never lost.
-      if (!read.ok || read.reading.kind === "question") return { kind: "question" };
+      if (!read.ok || read.reading.kind === "question")
+        return {
+          kind: "question",
+        };
       const { target } = read.reading;
-      return target === undefined ? { kind: "thought" } : { kind: "thought", match: routeTargetOf(target, repositories) };
+      return target === undefined
+        ? {
+            kind: "thought",
+          }
+        : {
+            kind: "thought",
+            match: routeTargetOf(target, repositories),
+          };
     },
     send: async (target, text, carry?: ThoughtCarry) => {
       if (draft === undefined) {

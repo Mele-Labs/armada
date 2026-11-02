@@ -7,10 +7,16 @@ export function useOpenWalks(): ReadonlySet<string> {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => {
     const bridge = window.armada;
-    if (typeof bridge?.getSessionWindows !== "function" || typeof bridge.onSessionWindows !== "function") return;
+    if (
+      typeof bridge?.getSessionWindows !== "function" ||
+      typeof bridge.onSessionWindows !== "function"
+    )
+      return;
     let live = true;
     // A surface's fake Bridge answers every call, with whatever it has: only a list is the open windows.
-    const take = (addresses: unknown) => Array.isArray(addresses) && setOpen(new Set(addresses.filter((one): one is string => typeof one === "string")));
+    const take = (addresses: unknown) =>
+      Array.isArray(addresses) &&
+      setOpen(new Set(addresses.filter((one): one is string => typeof one === "string")));
     void bridge.getSessionWindows().then((addresses) => live && take(addresses));
     const off = bridge.onSessionWindows(take);
     return () => {

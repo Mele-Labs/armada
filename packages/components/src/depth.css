@@ -19,11 +19,8 @@
 
 /* ---- Type roles: a header, a title, a figure --------------------------------------------------------------- */
 /* A section label: small tracked caps. A panel's own header is the legend strip, below. */
-:root[data-look="new"] :is(
-  .deck-list__repository,
-  .armada-card-title,
-  .armada-session-ledger__eyebrow
-) {
+:root[data-look="new"]
+  :is(.deck-list__repository, .armada-card-title, .armada-session-ledger__eyebrow) {
   font-family: var(--font-display);
   font-size: var(--text-head);
   line-height: var(--leading-head);
@@ -31,16 +28,30 @@
   letter-spacing: var(--tracking-head);
   text-transform: uppercase;
 }
-:root[data-look="new"] .armada-card-title { color: var(--fg-muted); }
-:root[data-look="new"] .deck-list__repository { font-size: calc(var(--text-head) - var(--border-width) * 1.5); line-height: var(--repository-leading, var(--leading-sm)); }
+:root[data-look="new"] .armada-card-title {
+  color: var(--fg-muted);
+}
+:root[data-look="new"] .deck-list__repository {
+  font-size: calc(var(--text-head) - var(--border-width) * 1.5);
+  line-height: var(--repository-leading, var(--leading-sm));
+}
 
 /* A title is stronger than a header and reads as a sentence. */
-:root[data-look="new"] :is(.armada-dialog__title, .armada-sheet__title:not([data-titled]), .armada-account-screen__title, .armada-call__title) {
+:root[data-look="new"]
+  :is(
+    .armada-dialog__title,
+    .armada-sheet__title:not([data-titled]),
+    .armada-account-screen__title,
+    .armada-call__title
+  ) {
   font-family: var(--font-title);
   font-weight: var(--weight-title);
   letter-spacing: var(--tracking-title);
 }
-:root[data-look="new"] .armada-account-screen__title { font-size: var(--text-title); line-height: var(--leading-title); }
+:root[data-look="new"] .armada-account-screen__title {
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+}
 
 /* The places in the title bar: the display face, caps, tracked. */
 :root[data-look="new"] .deck-places .armada-tabs__tab {
@@ -51,8 +62,14 @@
 }
 
 /* A row has three voices: the title firm, the meta in the mono and quieter, the age with it. */
-:root[data-look="new"] .deck-row__title { font-size: var(--text-row); font-weight: var(--weight-row); letter-spacing: var(--tracking-row); }
-:root[data-look="new"] .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
+:root[data-look="new"] .deck-row__title {
+  font-size: var(--text-row);
+  font-weight: var(--weight-row);
+  letter-spacing: var(--tracking-row);
+}
+:root[data-look="new"] .deck-row[data-tone="calm"] .deck-row__title {
+  font-weight: var(--weight-body);
+}
 :root[data-look="new"] .deck-row__said {
   font-family: var(--font-mono);
   font-size: var(--size-meta);
@@ -61,7 +78,14 @@
 }
 
 /* A large figure is tight and tabular; the bay's number is the one in the Cockpit. */
-:root[data-look="new"] :is(.armada-overview-summary__count, .armada-pr-status__place, .deck-bay__name, .armada-autopilot__cap dd, .armada-title-bar__usage-meter) {
+:root[data-look="new"]
+  :is(
+    .armada-overview-summary__count,
+    .armada-pr-status__place,
+    .deck-bay__name,
+    .armada-autopilot__cap dd,
+    .armada-title-bar__usage-meter
+  ) {
   font-family: var(--font-figure);
   font-weight: var(--weight-light);
   letter-spacing: var(--tracking-figure);
@@ -83,10 +107,19 @@
   background: var(--bg-step-strong);
   box-shadow: inset 0 0 0 var(--border-width) var(--border-default);
 }
-:root[data-look="new"] .deck-places .armada-tabs__tab { border-radius: calc(var(--radius-md) - var(--bar)); }
-:root[data-look="new"] .armada-tabs__tab { color: var(--fg-muted); transition: color var(--duration-fast) var(--ease); }
-:root[data-look="new"] .armada-tabs__tab:hover { color: var(--fg-default); }
-:root[data-look="new"] .armada-tabs__tab--active { color: var(--fg-default); }
+:root[data-look="new"] .deck-places .armada-tabs__tab {
+  border-radius: calc(var(--radius-md) - var(--bar));
+}
+:root[data-look="new"] .armada-tabs__tab {
+  color: var(--fg-muted);
+  transition: color var(--duration-fast) var(--ease);
+}
+:root[data-look="new"] .armada-tabs__tab:hover {
+  color: var(--fg-default);
+}
+:root[data-look="new"] .armada-tabs__tab--active {
+  color: var(--fg-default);
+}
 
 /* The search trigger beside the places takes the control radius, not a pill. */
 /* The search trigger is the tab strip's own family: the same ground, hairline and radius, so the two read one height. */
@@ -98,7 +131,8 @@
 }
 
 /* ---- Buttons and fields: main's, with the hairline stepping under the pointer ------------------------------ */
-:root[data-look="new"] .armada-button:is([data-variant="secondary"], [data-variant="tonal"]):hover:not(:disabled) {
+:root[data-look="new"]
+  .armada-button:is([data-variant="secondary"], [data-variant="tonal"]):hover:not(:disabled) {
   border-color: var(--edge-lifted);
 }
 
@@ -106,14 +140,30 @@
 /* Every panel and pane is the same object: the glass below, the bezel, the rest shadow, the lifted one while focus is inside. */
 :root[data-look="new"] :is(.deck-panel, .deck-pane) {
   border-radius: var(--glass-radius);
-  transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
+  transition:
+    border-color var(--duration-base) var(--ease),
+    box-shadow var(--duration-base) var(--ease);
 }
 
 /* ---- The legend strip: every panel's header ------------------------------------------------------------------ */
 /* 24px, the label in tracked caps at the left, then a mono readout and the panel's ghost icon buttons at the right, and one
    hairline under it, drawn inset so the strip keeps its height. The Cockpit's band, a Card's header, the Logbook's band and the
    Job's band are this one strip; a filled or dimmed band is a state in the wrong place, and a lamp says state (below). */
-:root[data-look="new"] :is(.deck-band, .armada-card-header, .armada-logbook__band, .sv-panel__band, .armada-pool-slots__band, .armada-usage__band, .armada-wm-step__band, .pr-desc > .pr-what__head, .armada-doctor__gaps-head, .issues-reader__eyebrow, .armada-check-list__band, .armada-screen__tabs) {
+:root[data-look="new"]
+  :is(
+    .deck-band,
+    .armada-card-header,
+    .armada-logbook__band,
+    .sv-panel__band,
+    .armada-pool-slots__band,
+    .armada-usage__band,
+    .armada-wm-step__band,
+    .pr-desc > .pr-what__head,
+    .armada-doctor__gaps-head,
+    .issues-reader__eyebrow,
+    .armada-check-list__band,
+    .armada-screen__tabs
+  ) {
   display: flex;
   flex: none;
   align-items: center;
@@ -134,7 +184,18 @@
   text-transform: uppercase;
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
 }
-:root[data-look="new"] :is(.deck-band, .armada-card-header, .armada-logbook__band, .sv-panel__band, .armada-pool-slots__band, .armada-usage__band, .armada-wm-step__band, .pr-desc > .pr-what__head) :is(.armada-card-title, .deck-band__name, .sv-panel__label, .armada-pool-slots__label) {
+:root[data-look="new"]
+  :is(
+    .deck-band,
+    .armada-card-header,
+    .armada-logbook__band,
+    .sv-panel__band,
+    .armada-pool-slots__band,
+    .armada-usage__band,
+    .armada-wm-step__band,
+    .pr-desc > .pr-what__head
+  )
+  :is(.armada-card-title, .deck-band__name, .sv-panel__label, .armada-pool-slots__label) {
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
@@ -157,18 +218,50 @@
   font-variant-numeric: tabular-nums;
   text-transform: none;
 }
-:root[data-look="new"] :is(.deck-band, .armada-card-header) .armada-kbd { opacity: 1; }
+:root[data-look="new"] :is(.deck-band, .armada-card-header) .armada-kbd {
+  opacity: 1;
+}
 /* A page's panel header strip is the thread's head in height (`--strip-h`), the same label, centred, the hairline under. Group heads,
    the Cockpit's strips and a body's own eyebrows keep the legend's 24px. */
-:root[data-look="new"] :is(.armada-card-header, .armada-pool-slots__band, .armada-usage__band, .armada-wm-step__band, .armada-doctor__gaps-head, .armada-check-list__band, .armada-screen__tabs) {
+:root[data-look="new"]
+  :is(
+    .armada-card-header,
+    .armada-pool-slots__band,
+    .armada-usage__band,
+    .armada-wm-step__band,
+    .armada-doctor__gaps-head,
+    .armada-check-list__band,
+    .armada-screen__tabs
+  ) {
   --strip-min: var(--strip-h);
 }
 /* The same strip where the page has no panel header of its own: a band that sits in a body takes no side padding, so its label lines
    up with what it heads, and a label that is the strip itself reads in the title's colour. */
-:root[data-look="new"] :is(.armada-doctor__gaps-head, .issues-reader__eyebrow, .pr-desc > .pr-what__head) { padding-inline: 0; margin: 0; color: var(--fg-default); }
-:root[data-look="new"] .pr-desc > .pr-what__head .pr-what__title { flex: 1 1 auto; margin: 0; color: inherit; font: inherit; letter-spacing: inherit; line-height: inherit; text-transform: inherit; }
-:root[data-look="new"] :is(.armada-check-list__label, .armada-screen__label) { flex: none; margin: 0 var(--space-2) 0 0; color: var(--fg-default); }
-:root[data-look="new"] .armada-usage__band > :first-child { flex: 1 1 auto; min-width: 0; color: var(--fg-default); }
+:root[data-look="new"]
+  :is(.armada-doctor__gaps-head, .issues-reader__eyebrow, .pr-desc > .pr-what__head) {
+  padding-inline: 0;
+  margin: 0;
+  color: var(--fg-default);
+}
+:root[data-look="new"] .pr-desc > .pr-what__head .pr-what__title {
+  flex: 1 1 auto;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-transform: inherit;
+}
+:root[data-look="new"] :is(.armada-check-list__label, .armada-screen__label) {
+  flex: none;
+  margin: 0 var(--space-2) 0 0;
+  color: var(--fg-default);
+}
+:root[data-look="new"] .armada-usage__band > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--fg-default);
+}
 
 /* A detail pane's head is the thread's (`.armada-session-frame__head`): 36px, the title 14px at medium weight on one line, with the acts at the right. The meta under it is the body's. */
 :root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head {
@@ -176,7 +269,10 @@
   min-height: var(--head-min, calc(var(--h-row-header) + var(--space-2)));
   padding: var(--head-pad, 0 var(--space-3));
 }
-:root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head .deck-pane__title {
+:root[data-look="new"]
+  :is(.issues-reader, .pr-reader, .projects-pane)
+  > .deck-pane__head
+  .deck-pane__title {
   display: block;
   color: var(--fg-default);
   font-family: var(--font-sans);
@@ -186,12 +282,20 @@
   letter-spacing: 0;
   text-transform: none;
 }
-:root[data-look="new"] .armada-usage__keys { margin-left: auto; }
+:root[data-look="new"] .armada-usage__keys {
+  margin-left: auto;
+}
 
 /* ---- The group head: the Cockpit's `deck-list__head` ----------------------------------------------------------- */
 /* A heading over a run of rows, in any list: 24px in a band of the text colour at 8%, the label in mono caps. Where the heading has
    a press of its own beside it (Add, New project), the row is the band and the label sits in it. */
-:root[data-look="new"] :is(.armada-system-side__head, .projects-section__head, .armada-wm__caption, .armada-guides__group-title) {
+:root[data-look="new"]
+  :is(
+    .armada-system-side__head,
+    .projects-section__head,
+    .armada-wm__caption,
+    .armada-guides__group-title
+  ) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -221,8 +325,12 @@
   line-height: inherit;
   text-transform: inherit;
 }
-:root[data-look="new"] :is(.armada-system-side__caption, .armada-wm__caption)::after { content: none; }
-:root[data-look="new"] .armada-card-header:has(+ .armada-card-content:empty) { box-shadow: none; }
+:root[data-look="new"] :is(.armada-system-side__caption, .armada-wm__caption)::after {
+  content: none;
+}
+:root[data-look="new"] .armada-card-header:has(+ .armada-card-content:empty) {
+  box-shadow: none;
+}
 
 /* ---- Jobs and Sessions: a row's title, meta and state ------------------------------------------------------ */
 /* A repository group is a section label: caps, quiet, and a hairline running out to the edge. */
@@ -247,39 +355,76 @@
   transition: background-color var(--duration-fast) var(--ease);
 }
 /* A list sets a row's height, padding and radius (`--row-min`, `--row-pad`, `--row-radius`); the pocket's are these. */
-:root[data-look="new"] .deck-row:not([data-queued]) { min-height: var(--row-min, 0); padding: var(--row-pad, var(--space-2) var(--space-3)); }
-:root[data-look="new"] .deck-row__says { font-size: var(--size-meta); }
-:root[data-look="new"] .deck-row__title { color: var(--fg-default); }
-:root[data-look="new"] .deck-row__said { color: var(--fg-muted); }
+:root[data-look="new"] .deck-row:not([data-queued]) {
+  min-height: var(--row-min, 0);
+  padding: var(--row-pad, var(--space-2) var(--space-3));
+}
+:root[data-look="new"] .deck-row__says {
+  font-size: var(--size-meta);
+}
+:root[data-look="new"] .deck-row__title {
+  color: var(--fg-default);
+}
+:root[data-look="new"] .deck-row__said {
+  color: var(--fg-muted);
+}
 /* Hover is one flat background step. The keyboard cursor is the same step and a hairline. */
-:root[data-look="new"] .deck-row:is(:hover, [data-hover], [data-cursor]):not([data-selected]) { background: var(--bg-step); }
-:root[data-look="new"] .deck-row[data-cursor]:not([data-selected]) { box-shadow: inset 0 0 0 var(--border-width) var(--edge-lifted); }
+:root[data-look="new"] .deck-row:is(:hover, [data-hover], [data-cursor]):not([data-selected]) {
+  background: var(--bg-step);
+}
+:root[data-look="new"] .deck-row[data-cursor]:not([data-selected]) {
+  box-shadow: inset 0 0 0 var(--border-width) var(--edge-lifted);
+}
 /* ---- What is picked: a shape, not a hue ---------------------------------------------------------------------- */
 /* A row, chip, bay, rail entry or index tab that is open draws a 1px frame in the text colour (`--select-edge`) on a raised
    ground, and its title takes the heading weight. No accent fill, no accent ring and no bar: the accent is a theme's to
    choose and some themes put it next to the needs-you amber, so a hue cannot say "this one". A row that needs him as well
    shows both, the frame and its lamp. A tab keeps its pill. */
-:root[data-look="new"] :is(
-  .deck-row[data-selected],
-  .armada-list-card[data-selected],
-  .pr-row[data-selected],
-  .issues-row[data-selected],
-  .projects-item[data-selected],
-  .armada-system-side__entry[aria-current="page"],
-  .armada-settings-index__tab[aria-selected="true"],
-  .armada-logbook__row[aria-selected="true"]
-) {
+:root[data-look="new"]
+  :is(
+    .deck-row[data-selected],
+    .armada-list-card[data-selected],
+    .pr-row[data-selected],
+    .issues-row[data-selected],
+    .projects-item[data-selected],
+    .armada-system-side__entry[aria-current="page"],
+    .armada-settings-index__tab[aria-selected="true"],
+    .armada-logbook__row[aria-selected="true"]
+  ) {
   background: var(--select-ground);
   box-shadow: var(--select-frame);
 }
-:root[data-look="new"] :is(.deck-row, .pr-row, .issues-row, .projects-item, .armada-system-side__entry, .armada-settings-index__tab)[data-selected] :is(.deck-row__title, .pr-row__title, .issues-row__title),
-:root[data-look="new"] :is(.armada-system-side__entry[aria-current="page"], .armada-settings-index__tab[aria-selected="true"], .projects-item[data-selected]) { font-weight: var(--weight-heading); }
+:root[data-look="new"]
+  :is(
+    .deck-row,
+    .pr-row,
+    .issues-row,
+    .projects-item,
+    .armada-system-side__entry,
+    .armada-settings-index__tab
+  )[data-selected]
+  :is(.deck-row__title, .pr-row__title, .issues-row__title),
+:root[data-look="new"]
+  :is(
+    .armada-system-side__entry[aria-current="page"],
+    .armada-settings-index__tab[aria-selected="true"],
+    .projects-item[data-selected]
+  ) {
+  font-weight: var(--weight-heading);
+}
 
 /* The picked ground is tinted, so the row's quiet text takes the full text colour to keep its contrast. */
-:root[data-look="new"] .deck-row[data-selected] :is(.deck-row__said, .deck-row__says, .deck-row__phase, .deck-row__kind) { color: var(--fg-default); }
+:root[data-look="new"]
+  .deck-row[data-selected]
+  :is(.deck-row__said, .deck-row__says, .deck-row__phase, .deck-row__kind) {
+  color: var(--fg-default);
+}
 
 /* ---- The repository selector: a field, and a menu at the overlay level ------------------------------------ */
-:root[data-look="new"] .deck-scope .armada-button { border-radius: var(--radius-md); box-shadow: none; }
+:root[data-look="new"] .deck-scope .armada-button {
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
 :root[data-look="new"] .deck-combo__input {
   border-color: var(--edge-hover);
   border-radius: var(--radius-md);
@@ -287,37 +432,62 @@
   box-shadow: none;
   font-weight: var(--weight-medium);
 }
-:root[data-look="new"] .deck-combo__input:hover { border-color: var(--edge-lifted); }
-:root[data-look="new"] .deck-combo[data-open] .deck-combo__input { border-color: var(--accent); }
-:root[data-look="new"] .deck-combo__list { border-color: var(--edge-overlay); }
-:root[data-look="new"] .deck-combo__option { transition: background-color var(--duration-fast) var(--ease); }
-:root[data-look="new"] .armada-dropdown-menu__panel { padding: var(--space-1); border-radius: var(--radius-lg); }
+:root[data-look="new"] .deck-combo__input:hover {
+  border-color: var(--edge-lifted);
+}
+:root[data-look="new"] .deck-combo[data-open] .deck-combo__input {
+  border-color: var(--accent);
+}
+:root[data-look="new"] .deck-combo__list {
+  border-color: var(--edge-overlay);
+}
+:root[data-look="new"] .deck-combo__option {
+  transition: background-color var(--duration-fast) var(--ease);
+}
+:root[data-look="new"] .armada-dropdown-menu__panel {
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+}
 :root[data-look="new"] .armada-dropdown-menu__item {
   border-radius: var(--radius-md);
-  transition: background-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
 }
-:root[data-look="new"] .armada-dropdown-menu__item:hover:not([aria-disabled="true"]) { background: var(--bg-step); }
-:root[data-look="new"] .armada-dropdown-menu__item[aria-current] .armada-dropdown-menu__check { color: var(--accent); }
-:root[data-look="new"] .armada-dropdown-menu__separator { margin: var(--space-1) var(--space-2); }
+:root[data-look="new"] .armada-dropdown-menu__item:hover:not([aria-disabled="true"]) {
+  background: var(--bg-step);
+}
+:root[data-look="new"] .armada-dropdown-menu__item[aria-current] .armada-dropdown-menu__check {
+  color: var(--accent);
+}
+:root[data-look="new"] .armada-dropdown-menu__separator {
+  margin: var(--space-1) var(--space-2);
+}
 
 /* ---- Levels: a floating layer is the overlay level ---------------------------------------------------------- */
 /* The glass layers take their edge from the material below; a tooltip is solid and takes the overlay edge. */
-:root[data-look="new"] :is(
-  .armada-dropdown-menu__panel,
-  .deck-combo__list,
-  .armada-popover__panel,
-  .armada-tooltip__bubble,
-  .armada-palette
-) {
+:root[data-look="new"]
+  :is(
+    .armada-dropdown-menu__panel,
+    .deck-combo__list,
+    .armada-popover__panel,
+    .armada-tooltip__bubble,
+    .armada-palette
+  ) {
   box-shadow: var(--shadow-overlay);
 }
-:root[data-look="new"] .armada-tooltip__bubble { border-color: var(--edge-overlay); }
+:root[data-look="new"] .armada-tooltip__bubble {
+  border-color: var(--edge-overlay);
+}
 
 /* A card that is itself a control rises one pixel under the pointer, its shadow stepping rest to hover. Rows and list
    items never move: their hover is the background step. A press settles it back. */
 :root[data-look="new"] .armada-card:is(button, a, [role="button"], [data-interactive]) {
   box-shadow: var(--shadow-rest);
-  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease);
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease),
+    transform var(--duration-fast) var(--ease);
 }
 :root[data-look="new"] .armada-card:is(button, a, [role="button"], [data-interactive]):hover {
   border-color: var(--edge-hover);
@@ -334,17 +504,25 @@
    opened on). They are unmounted on close, so closing is the instant the layer goes; a person summoned them, so
    entering is allowed (design-system.md → Motion). */
 @keyframes armada-type-pop {
-  from { opacity: 0; transform: translateY(var(--pop-rise)) scale(var(--pop-from)); }
+  from {
+    opacity: 0;
+    transform: translateY(var(--pop-rise)) scale(var(--pop-from));
+  }
 }
 :root[data-look="new"] .armada-popover__panel {
   transform-origin: top right;
   animation: armada-type-pop var(--duration-base) var(--ease);
 }
-:root[data-look="new"] .armada-popover__panel--start { transform-origin: top left; }
+:root[data-look="new"] .armada-popover__panel--start {
+  transform-origin: top left;
+}
 
 /* The focus ring eases in: it starts a little out from the control and clear, and settles on its own offset. */
 @keyframes armada-type-focus {
-  from { outline-color: transparent; outline-offset: calc(var(--focus-ring-offset) + var(--space-1) - var(--border-width)); }
+  from {
+    outline-color: transparent;
+    outline-offset: calc(var(--focus-ring-offset) + var(--space-1) - var(--border-width));
+  }
 }
 :root[data-look="new"] :focus-visible:not([data-pending]) {
   animation: armada-type-focus var(--duration-base) var(--ease);
@@ -352,7 +530,11 @@
 
 /* Reduced motion: the durations are already zero; the lift and the rise go to nothing too, so no state is a movement. */
 @media (prefers-reduced-motion: reduce) {
-  :root[data-look="new"] { --lift: 0; --pop-rise: 0; --pop-from: 1; }
+  :root[data-look="new"] {
+    --lift: 0;
+    --pop-rise: 0;
+    --pop-from: 1;
+  }
 }
 
 /* ---- Panels as glass ----------------------------------------------------------------------------------------- */
@@ -368,59 +550,133 @@
    The pages that are not the Cockpit draw their panels as it does (the `:where()` names them without weighing more than the
    Cockpit's own): a Studios repository, the Logbook's lists and its open entry, System's side and the cards of an entry. A Card
    on the canvas that holds a legend strip has no padding of its own: the strip runs to its edges and its content is padded. */
-:root[data-look="new"] :is(
-  .deck-panel,
-  .deck-pane:not([data-bare]),
-  .armada-studios-page > .armada-card,
-  :where(.armada-logbook__panel, .armada-logbook__card, .armada-system-side, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card, .armada-guides__panel, .armada-wf__list, .armada-pool-slots__view)
-) {
+:root[data-look="new"]
+  :is(
+    .deck-panel,
+    .deck-pane:not([data-bare]),
+    .armada-studios-page > .armada-card,
+    :where(
+      .armada-logbook__panel,
+      .armada-logbook__card,
+      .armada-system-side,
+      .armada-system__pane .armada-card:not([data-flat]),
+      .armada-settings-index__body .armada-card,
+      .armada-screen__pane > .armada-card,
+      .armada-guides__panel,
+      .armada-wf__list,
+      .armada-pool-slots__view
+    )
+  ) {
   background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
 }
 /* The flight controls and Dispatch blur on a layer behind their keys instead (`deck.css`). */
-:root[data-look="new"] :is(
-  .deck-panel:not(.deck-controls, .deck-dispatch),
-  .deck-pane:not([data-bare]),
-  .armada-studios-page > .armada-card,
-  :where(.armada-logbook__panel, .armada-logbook__card, .armada-system-side, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card, .armada-guides__panel, .armada-wf__list, .armada-pool-slots__view)
-) {
+:root[data-look="new"]
+  :is(
+    .deck-panel:not(.deck-controls, .deck-dispatch),
+    .deck-pane:not([data-bare]),
+    .armada-studios-page > .armada-card,
+    :where(
+      .armada-logbook__panel,
+      .armada-logbook__card,
+      .armada-system-side,
+      .armada-system__pane .armada-card:not([data-flat]),
+      .armada-settings-index__body .armada-card,
+      .armada-screen__pane > .armada-card,
+      .armada-guides__panel,
+      .armada-wf__list,
+      .armada-pool-slots__view
+    )
+  ) {
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
 }
-:root[data-look="new"] :is(
-  .deck-panel,
-  .deck-pane:not([data-bare]),
-  .armada-studios-page > .armada-card,
-  :where(.armada-logbook__panel, .armada-logbook__card, .armada-system-side, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card, .armada-guides__panel, .armada-wf__list, .armada-pool-slots__view)
-) {
+:root[data-look="new"]
+  :is(
+    .deck-panel,
+    .deck-pane:not([data-bare]),
+    .armada-studios-page > .armada-card,
+    :where(
+      .armada-logbook__panel,
+      .armada-logbook__card,
+      .armada-system-side,
+      .armada-system__pane .armada-card:not([data-flat]),
+      .armada-settings-index__body .armada-card,
+      .armada-screen__pane > .armada-card,
+      .armada-guides__panel,
+      .armada-wf__list,
+      .armada-pool-slots__view
+    )
+  ) {
   border-color: var(--glass-edge);
   box-shadow: var(--bezel), var(--glass-shadow);
 }
-:root[data-look="new"] :is(
-  .deck-panel,
-  .deck-pane:not([data-bare]),
-  :where(.armada-logbook__panel, .armada-logbook__card, .armada-system-side, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card, .armada-guides__panel, .armada-wf__list, .armada-pool-slots__view)
-):focus-within {
+:root[data-look="new"]
+  :is(
+    .deck-panel,
+    .deck-pane:not([data-bare]),
+    :where(
+      .armada-logbook__panel,
+      .armada-logbook__card,
+      .armada-system-side,
+      .armada-system__pane .armada-card:not([data-flat]),
+      .armada-settings-index__body .armada-card,
+      .armada-screen__pane > .armada-card,
+      .armada-guides__panel,
+      .armada-wf__list,
+      .armada-pool-slots__view
+    )
+  ):focus-within {
   border-color: var(--glass-edge-lifted);
   box-shadow: var(--bezel), var(--glass-shadow-lifted);
 }
 /* The card's own glass layer (`glass.css`) is a gradient and a top highlight: a panel here is the sheet above, so the layer goes. */
-:root[data-look="new"] :where(.armada-studios-page > .armada-card, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card)::before { content: none; }
-:root[data-look="new"] :where(.armada-studios-page > .armada-card, .armada-system__pane .armada-card:not([data-flat]), .armada-settings-index__body .armada-card, .armada-screen__pane > .armada-card):has(> .armada-card-header) {
+:root[data-look="new"]
+  :where(
+    .armada-studios-page > .armada-card,
+    .armada-system__pane .armada-card:not([data-flat]),
+    .armada-settings-index__body .armada-card,
+    .armada-screen__pane > .armada-card
+  )::before {
+  content: none;
+}
+:root[data-look="new"]
+  :where(
+    .armada-studios-page > .armada-card,
+    .armada-system__pane .armada-card:not([data-flat]),
+    .armada-settings-index__body .armada-card,
+    .armada-screen__pane > .armada-card
+  ):has(> .armada-card-header) {
   gap: 0;
   padding: 0;
 }
-:root[data-look="new"] :where(.armada-system__pane, .armada-settings-index__body, .armada-screen__pane) .armada-card > .armada-card-header + .armada-card-content { padding: var(--space-3); }
+:root[data-look="new"]
+  :where(.armada-system__pane, .armada-settings-index__body, .armada-screen__pane)
+  .armada-card
+  > .armada-card-header
+  + .armada-card-content {
+  padding: var(--space-3);
+}
 /* The rest of the pages' panels are the same sheet: System's Kit and Workspaces columns, the Guides and Workflows lists and the open workflow,
    Usage's panels and its figures, Doctor's three, the Checks list and the Manifest's. The `:where()` keeps them from weighing more than the
    Cockpit's own. Nothing here is a fill of its own: no solid ground, no well, and no graph paper, which stays on the Flight map. */
-:root[data-look="new"] :where(
-  .armada-kit-browser__list, .armada-kit-browser__detail, .armada-workspaces__list, .armada-workspaces__detail,
-  .armada-guides__list, .armada-wm__list, .armada-wm__detail,
-  .armada-usage__panel, .armada-usage__tile,
-  .armada-doctor__modules, .armada-doctor-pane, .armada-doctor__gaps,
-  .armada-requests__panel,
-  .armada-check-list, .armada-screen__viewscreen
-) {
+:root[data-look="new"]
+  :where(
+    .armada-kit-browser__list,
+    .armada-kit-browser__detail,
+    .armada-workspaces__list,
+    .armada-workspaces__detail,
+    .armada-guides__list,
+    .armada-wm__list,
+    .armada-wm__detail,
+    .armada-usage__panel,
+    .armada-usage__tile,
+    .armada-doctor__modules,
+    .armada-doctor-pane,
+    .armada-doctor__gaps,
+    .armada-requests__panel,
+    .armada-check-list,
+    .armada-screen__viewscreen
+  ) {
   border: var(--border-width) solid var(--glass-edge);
   border-radius: var(--glass-radius);
   background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
@@ -428,30 +684,49 @@
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--bezel), var(--glass-shadow);
 }
-:root[data-look="new"] :where(
-  .armada-kit-browser__list, .armada-kit-browser__detail, .armada-workspaces__list, .armada-workspaces__detail,
-  .armada-guides__list, .armada-wm__list, .armada-wm__detail,
-  .armada-usage__panel, .armada-doctor__modules, .armada-doctor-pane, .armada-doctor__gaps,
-  .armada-requests__panel,
-  .armada-check-list, .armada-screen__viewscreen
-):focus-within {
+:root[data-look="new"]
+  :where(
+    .armada-kit-browser__list,
+    .armada-kit-browser__detail,
+    .armada-workspaces__list,
+    .armada-workspaces__detail,
+    .armada-guides__list,
+    .armada-wm__list,
+    .armada-wm__detail,
+    .armada-usage__panel,
+    .armada-doctor__modules,
+    .armada-doctor-pane,
+    .armada-doctor__gaps,
+    .armada-requests__panel,
+    .armada-check-list,
+    .armada-screen__viewscreen
+  ):focus-within {
   border-color: var(--glass-edge-lifted);
   box-shadow: var(--bezel), var(--glass-shadow-lifted);
 }
-:root[data-look="new"] :where(.armada-check-list__scroll, .armada-screen__glass) { background: none; }
+:root[data-look="new"] :where(.armada-check-list__scroll, .armada-screen__glass) {
+  background: none;
+}
 /* ---- The grid the glass hovers over ---------------------------------------------------------------------------- */
 /* A grid of 1px dots on the shell, under every panel, static, drawn from the `--grid-*` tokens in `takes.css`. Dots, not
    lines, so the map's own lines never cross a second set behind it. It is what the blur samples, so the glass has
    something to be glass over. On a pseudo-element, so the shell's own pool of light
    stays underneath and the grid sits between it and the panels. */
-:root[data-look="new"] .armada-shell { position: relative; isolation: isolate; }
+:root[data-look="new"] .armada-shell {
+  position: relative;
+  isolation: isolate;
+}
 :root[data-look="new"] .armada-shell::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(circle at 0 0, var(--grid-line) var(--grid-dot), transparent var(--grid-dot-edge));
+  background-image: radial-gradient(
+    circle at 0 0,
+    var(--grid-line) var(--grid-dot),
+    transparent var(--grid-dot-edge)
+  );
   background-size: var(--grid-pitch) var(--grid-pitch);
 }
 
@@ -462,32 +737,55 @@
   border-radius: 0;
   box-shadow: none;
 }
-:root[data-look="new"] .deck-pane[data-frame] .armada-session-frame::before { content: none; }
+:root[data-look="new"] .deck-pane[data-frame] .armada-session-frame::before {
+  content: none;
+}
 /* Its head is the band every panel has: the same height, side padding and hairline under it. */
-:root[data-look="new"] .deck-pane[data-frame] .armada-session-frame { padding: 0; gap: 0; }
+:root[data-look="new"] .deck-pane[data-frame] .armada-session-frame {
+  padding: 0;
+  gap: 0;
+}
 :root[data-look="new"] .deck-pane[data-frame] .armada-session-frame__head {
   /* A step taller than the other bands, so the context tank has room above and below it. */
   min-height: var(--head-min, calc(var(--h-row-header) + var(--space-2)));
   padding: var(--head-pad, 0 var(--space-4));
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule);
 }
-:root[data-look="new"] .deck-pane[data-frame] .armada-session-frame__body { padding: var(--body-pad, var(--space-3)); }
+:root[data-look="new"] .deck-pane[data-frame] .armada-session-frame__body {
+  padding: var(--body-pad, var(--space-3));
+}
 /* The message box is a frosted chip on the sheet, at the chip radius. */
 :root[data-look="new"] .deck-pane .armada-session-composer {
   border-color: var(--chip-edge);
   border-radius: var(--glass-radius-chip);
   background: var(--chip);
 }
-:root[data-look="new"] .deck-pane .armada-session-composer:focus-within { border-color: var(--edge-focus); }
+:root[data-look="new"] .deck-pane .armada-session-composer:focus-within {
+  border-color: var(--edge-focus);
+}
 /* While Needs you is up, the composer is its foot: the panel's hue is the one edge round both, as `session-view.css` draws it, and the look's own edge does not take it back. Its top edge is the seam with the body, so it has no line, and the side edges run unbroken into the body's. */
 :root[data-look="new"] .deck-pane .sv-dock[data-open="true"] .armada-session-composer,
-:root[data-look="new"] .deck-pane .sv-dock[data-open="true"] .armada-session-composer:focus-within { border-color: var(--step-waiting); }
+:root[data-look="new"] .deck-pane .sv-dock[data-open="true"] .armada-session-composer:focus-within {
+  border-color: var(--step-waiting);
+}
 :root[data-look="new"] .deck-pane .sv-dock[data-end] .armada-session-composer,
-:root[data-look="new"] .deck-pane .sv-dock[data-end] .armada-session-composer:focus-within { border-color: var(--step-advanced); }
+:root[data-look="new"] .deck-pane .sv-dock[data-end] .armada-session-composer:focus-within {
+  border-color: var(--step-advanced);
+}
 :root[data-look="new"] .deck-pane .sv-dock[data-wait-open] .armada-session-composer,
-:root[data-look="new"] .deck-pane .sv-dock[data-wait-open] .armada-session-composer:focus-within { border-color: var(--status-handed-in); }
-:root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end], [data-wait-open]) .armada-session-composer,
-:root[data-look="new"] .deck-pane .sv-dock:is([data-open="true"], [data-end], [data-wait-open]) .armada-session-composer:focus-within { border-block-start-width: 0; }
+:root[data-look="new"] .deck-pane .sv-dock[data-wait-open] .armada-session-composer:focus-within {
+  border-color: var(--status-handed-in);
+}
+:root[data-look="new"]
+  .deck-pane
+  .sv-dock:is([data-open="true"], [data-end], [data-wait-open])
+  .armada-session-composer,
+:root[data-look="new"]
+  .deck-pane
+  .sv-dock:is([data-open="true"], [data-end], [data-wait-open])
+  .armada-session-composer:focus-within {
+  border-block-start-width: 0;
+}
 /* The repository picker and its button over Jobs are sheets of the same glass, not fields on the canvas. */
 :root[data-look="new"] .deck-scope :is(.deck-combo__input, .armada-button) {
   border-color: var(--glass-edge);
@@ -497,11 +795,15 @@
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
-:root[data-look="new"] .deck-scope :is(.deck-combo__input:hover, .armada-button:hover:not(:disabled)) {
+:root[data-look="new"]
+  .deck-scope
+  :is(.deck-combo__input:hover, .armada-button:hover:not(:disabled)) {
   border-color: var(--glass-edge-lifted);
   background: color-mix(in srgb, var(--glass-tint) var(--glass-fill), transparent);
 }
-:root[data-look="new"] .deck-scope .deck-combo[data-open] .deck-combo__input { border-color: var(--accent); }
+:root[data-look="new"] .deck-scope .deck-combo[data-open] .deck-combo__input {
+  border-color: var(--accent);
+}
 /* The Field and Progress beside an open Job are the same sheet. The Field keeps an opaque fill, since its drawing animates; its edge, corner and shadow are the sheet's. A state is the edge's colour and nothing around it. */
 :root[data-look="new"] .sv-panel {
   border-color: var(--glass-edge);
@@ -510,7 +812,9 @@
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--bezel), var(--glass-shadow);
-  transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
+  transition:
+    border-color var(--duration-base) var(--ease),
+    box-shadow var(--duration-base) var(--ease);
 }
 :root[data-look="new"] .sv-panel[data-area="field"] {
   background: var(--glass-field, var(--bg-glass));
@@ -522,8 +826,14 @@
   box-shadow: var(--bezel), var(--glass-shadow-lifted);
 }
 :root[data-look="new"] .sv-panel[data-state] > .sv-panel__band,
-:root[data-look="new"] .sv-panel[data-state][data-collapsed] > .sv-panel__band { background: none; color: var(--fg-muted); border-bottom-color: transparent; }
-:root[data-look="new"] .sv-panel:has(> .sv-panel__body:empty) > .sv-panel__band { box-shadow: none; }
+:root[data-look="new"] .sv-panel[data-state][data-collapsed] > .sv-panel__band {
+  background: none;
+  color: var(--fg-muted);
+  border-bottom-color: transparent;
+}
+:root[data-look="new"] .sv-panel:has(> .sv-panel__body:empty) > .sv-panel__band {
+  box-shadow: none;
+}
 
 /* The map's zoom and recentre buttons float over the canvas as glass. */
 :root[data-look="new"] .bf-zoom .armada-button {
@@ -538,51 +848,92 @@
 /* ---- Chips and controls on the sheet ---------------------------------------------------------------------------- */
 /* The material is the tokens' (`takes.css`). What sits inside a sheet is a frosted chip: the tiles, rows, fields and
    selects, with the control radius on the buttons and toolbars. The headers keep the tracked caps and the rule. */
-:root[data-look="new"] .deck-row { border-radius: var(--row-radius, var(--glass-radius-chip)); }
-:root[data-look="new"] :is(.deck-pane, .sv-panel) :is(.armada-select, .armada-session-composer__bar .armada-button) {
+:root[data-look="new"] .deck-row {
+  border-radius: var(--row-radius, var(--glass-radius-chip));
+}
+:root[data-look="new"]
+  :is(.deck-pane, .sv-panel)
+  :is(.armada-select, .armada-session-composer__bar .armada-button) {
   border-color: var(--chip-edge);
   border-radius: var(--glass-radius-control);
   background: var(--chip);
 }
 /* Send is the composer's one Primary: it keeps its accent fill rather than the chip, which is what made it read as disabled. */
-:root[data-look="new"] :is(.deck-pane, .sv-panel) .armada-session-composer__bar .armada-button[data-variant="primary"]:not(:disabled) {
+:root[data-look="new"]
+  :is(.deck-pane, .sv-panel)
+  .armada-session-composer__bar
+  .armada-button[data-variant="primary"]:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent);
   box-shadow: var(--shadow-primary);
 }
-:root[data-look="new"] :is(.deck-pane, .sv-panel) .armada-session-composer__bar .armada-button[data-variant="primary"]:hover:not(:disabled) {
+:root[data-look="new"]
+  :is(.deck-pane, .sv-panel)
+  .armada-session-composer__bar
+  .armada-button[data-variant="primary"]:hover:not(:disabled) {
   border-color: var(--accent-hover);
   background: var(--accent-hover);
 }
 /* Needs you is the composer's head: the body is the composer's chip over the sheet's own tone (opaque, so the thread under it never shows), its band takes the composer's corner, and its rows and buttons are the composer's controls. The box meets the band square. */
-:root[data-look="new"] .deck-pane .sv-dock[data-needs] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
+:root[data-look="new"] .deck-pane .sv-dock[data-needs] .armada-session-composer {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}
 /* A held Job's Workflow and Delivery strip is the composer's chip with an accent tint, on its top edge: the chip radius at its top corners, squared where the two meet. */
-:root[data-look="new"] .deck-pane .sv-dock[data-starting] .armada-session-composer { border-start-start-radius: 0; border-start-end-radius: 0; }
-:root[data-look="new"] .deck-pane .sv-start-strip { border-color: var(--chip-edge); border-radius: var(--glass-radius-chip) var(--glass-radius-chip) 0 0; background: color-mix(in srgb, var(--accent) 20%, var(--chip)); }
+:root[data-look="new"] .deck-pane .sv-dock[data-starting] .armada-session-composer {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}
+:root[data-look="new"] .deck-pane .sv-start-strip {
+  border-color: var(--chip-edge);
+  border-radius: var(--glass-radius-chip) var(--glass-radius-chip) 0 0;
+  background: color-mix(in srgb, var(--accent) 20%, var(--chip));
+}
 :root[data-look="new"] .deck-pane .armada-needs-panel__band,
-:root[data-look="new"] .deck-pane .armada-needs-panel[data-open="true"] .armada-needs-panel__band { border-radius: var(--glass-radius-chip) var(--glass-radius-chip) 0 0; }
+:root[data-look="new"] .deck-pane .armada-needs-panel[data-open="true"] .armada-needs-panel__band {
+  border-radius: var(--glass-radius-chip) var(--glass-radius-chip) 0 0;
+}
 :root[data-look="new"] .deck-pane .armada-needs-panel__body {
   background: color-mix(in srgb, var(--fg-default) 8%, var(--glass-field));
 }
-:root[data-look="new"] .deck-pane .armada-needs-panel :is(.armada-question-deck__answer, .armada-button) {
+:root[data-look="new"]
+  .deck-pane
+  .armada-needs-panel
+  :is(.armada-question-deck__answer, .armada-button) {
   border-color: var(--chip-edge);
   border-radius: var(--glass-radius-control);
   background: var(--chip);
 }
 /* Answer is the panel's one Primary: like Send, it keeps its accent fill rather than the chip, which made it read as disabled. */
-:root[data-look="new"] .deck-pane .armada-needs-panel .armada-button[data-variant="primary"]:not(:disabled) {
+:root[data-look="new"]
+  .deck-pane
+  .armada-needs-panel
+  .armada-button[data-variant="primary"]:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent);
   box-shadow: var(--shadow-primary);
 }
-:root[data-look="new"] .deck-pane .armada-needs-panel .armada-button[data-variant="primary"]:hover:not(:disabled) {
+:root[data-look="new"]
+  .deck-pane
+  .armada-needs-panel
+  .armada-button[data-variant="primary"]:hover:not(:disabled) {
   border-color: var(--accent-hover);
   background: var(--accent-hover);
 }
-:root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer > kbd { color: var(--fg-muted); }
-:root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer:hover { border-color: var(--hue); background: var(--chip-hover); }
-:root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer[data-on] { border-color: var(--hue); background: color-mix(in srgb, var(--hue) 22%, transparent); }
-:root[data-look="new"] .armada-session-frame__head .armada-button { border-radius: var(--glass-radius-control); }
+:root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer > kbd {
+  color: var(--fg-muted);
+}
+:root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer:hover {
+  border-color: var(--hue);
+  background: var(--chip-hover);
+}
+:root[data-look="new"] .deck-pane .armada-needs-panel .armada-question-deck__answer[data-on] {
+  border-color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 22%, transparent);
+}
+:root[data-look="new"] .armada-session-frame__head .armada-button {
+  border-radius: var(--glass-radius-control);
+}
 /* The places and the search beside them sit on the title bar's notch: frosted glass hanging from the top edge, which
    is their ground, so neither draws one of its own. The chosen place is its brighter word on a faint wash. */
 :root[data-look="new"] .armada-title-bar[data-places] .armada-title-bar__center {
@@ -592,7 +943,8 @@
   backdrop-filter: blur(var(--blur-glass)) saturate(var(--glass-saturate));
   box-shadow: var(--glass-shadow);
 }
-:root[data-look="new"] :is(.deck-places .armada-tabs, .armada-title-bar[data-places] .armada-title-bar__search) {
+:root[data-look="new"]
+  :is(.deck-places .armada-tabs, .armada-title-bar[data-places] .armada-title-bar__search) {
   border-color: transparent;
   border-radius: var(--glass-radius-control);
   background: transparent;
@@ -605,16 +957,26 @@
   background: color-mix(in srgb, var(--fg-default) 8%, transparent);
   box-shadow: none;
 }
-:root[data-look="new"] .deck-places .armada-tabs__tab { border-radius: calc(var(--armada-notch-radius) - var(--armada-notch-gap)); }
+:root[data-look="new"] .deck-places .armada-tabs__tab {
+  border-radius: calc(var(--armada-notch-radius) - var(--armada-notch-gap));
+}
 
 /* Menus, popovers, the palette and the inspect card float over the panels: the same material, more opaque, at the
    overlay level. The inspect card keeps its own hairline and tone edge. */
-:root[data-look="new"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette, .armada-inspect-card) {
+:root[data-look="new"]
+  :is(
+    .armada-dropdown-menu__panel,
+    .deck-combo__list,
+    .armada-popover__panel,
+    .armada-palette,
+    .armada-inspect-card
+  ) {
   background: color-mix(in srgb, var(--bg-overlay) 78%, transparent);
   -webkit-backdrop-filter: blur(var(--blur-overlay)) saturate(170%);
   backdrop-filter: blur(var(--blur-overlay)) saturate(170%);
 }
-:root[data-look="new"] :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette) {
+:root[data-look="new"]
+  :is(.armada-dropdown-menu__panel, .deck-combo__list, .armada-popover__panel, .armada-palette) {
   border-color: rgb(255 255 255 / 0.12);
 }
 
@@ -630,16 +992,25 @@
   animation: armada-palette-in 120ms var(--ease);
 }
 @keyframes armada-palette-in {
-  from { opacity: 0; transform: translateY(calc(var(--space-1) * -1)); }
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--space-1) * -1));
+  }
 }
-:root[data-look="new"] .armada-palette__field { border-bottom-color: var(--head-rule); }
-:root[data-look="new"] .armada-palette__of { margin-left: var(--space-4); }
+:root[data-look="new"] .armada-palette__field {
+  border-bottom-color: var(--head-rule);
+}
+:root[data-look="new"] .armada-palette__of {
+  margin-left: var(--space-4);
+}
 :root[data-look="new"] .armada-palette__input {
   height: var(--space-12);
   padding: 0 var(--space-4);
   font-size: var(--text-lg);
 }
-:root[data-look="new"] .armada-palette__list { padding: var(--space-1) var(--space-2) var(--space-2); }
+:root[data-look="new"] .armada-palette__list {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
 :root[data-look="new"] .armada-palette__section {
   height: calc(var(--space-8) - var(--space-1));
   padding: 0 var(--space-2);
@@ -657,8 +1028,14 @@
   transition: background-color var(--duration-fast) var(--ease);
 }
 /* A stacked row, a dispatch row carrying chips, grows to its two lines. */
-:root[data-look="new"] .armada-palette__row--stacked { height: auto; min-height: var(--palette-row); padding-block: var(--space-2); }
-:root[data-look="new"] .armada-palette__row:not(.armada-palette__row--dormant):hover { background: var(--bg-step); }
+:root[data-look="new"] .armada-palette__row--stacked {
+  height: auto;
+  min-height: var(--palette-row);
+  padding-block: var(--space-2);
+}
+:root[data-look="new"] .armada-palette__row:not(.armada-palette__row--dormant):hover {
+  background: var(--bg-step);
+}
 /* The row under the cursor is one neutral rounded fill, as Raycast draws it (the owner, 27 Oct 2026): no edge bar
  * and no accent, so the highlight reads as where you are rather than as a state. */
 :root[data-look="new"] .armada-palette__row--active,
@@ -670,18 +1047,44 @@
 :root[data-look="new"] .armada-palette__row--dormant.armada-palette__row--active:hover {
   background: var(--bg-step);
 }
-:root[data-look="new"] .armada-palette__row--dormant .armada-palette__glyph { color: var(--fg-subtle); }
-:root[data-look="new"] .armada-palette__row--trailing { background: transparent; border-top: 0; }
+:root[data-look="new"] .armada-palette__row--dormant .armada-palette__glyph {
+  color: var(--fg-subtle);
+}
+:root[data-look="new"] .armada-palette__row--trailing {
+  background: transparent;
+  border-top: 0;
+}
 @media (prefers-reduced-motion: reduce) {
-  :root[data-look="new"] .armada-palette { animation: none; }
+  :root[data-look="new"] .armada-palette {
+    animation: none;
+  }
 }
 
 /* Every page's key caps are the Cockpit's: not drawn, not hidden, until ⌘ is held. `ShortcutRevealProvider` sets `data-reveal`
    on the root for as long, and the key still works the rest of the time. The Logbook's own caps are its own. */
-:root:not([data-reveal]) :is(.armada-usage__page, .projects-top, .projects-list, .projects-pane, .armada-system-side, .armada-wm__list, .issues-list, .issues-reader, .pr-list, .pr-reader, .pr-ask-bar, .pr-tools) :is(.armada-kbd, .armada-tooltip:has(> .armada-kbd)) {
+:root:not([data-reveal])
+  :is(
+    .armada-usage__page,
+    .projects-top,
+    .projects-list,
+    .projects-pane,
+    .armada-system-side,
+    .armada-wm__list,
+    .issues-list,
+    .issues-reader,
+    .pr-list,
+    .pr-reader,
+    .pr-ask-bar,
+    .pr-tools
+  )
+  :is(.armada-kbd, .armada-tooltip:has(> .armada-kbd)) {
   display: none;
 }
-:root:not([data-reveal]) .armada-usage__keys { display: none; }
+:root:not([data-reveal]) .armada-usage__keys {
+  display: none;
+}
 
 /* A menu is portaled out of its page, so the page lists above never reach its rows: every menu's shortcut hint is drawn only while ⌘ is held. */
-:root:not([data-reveal]) .armada-dropdown-menu__kbd { display: none; }
+:root:not([data-reveal]) .armada-dropdown-menu__kbd {
+  display: none;
+}

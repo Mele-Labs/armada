@@ -8,16 +8,57 @@ const message = role("textbox", "Message");
 
 const createMod = walk("mod-job", [
   ...viaPalette("Create mod", "⌘K, then Create mod"),
-  { look: inside(region("What a Mod Job makes"), text("Colours")), say: "An empty Mod Job opens, listing what it can make" },
-  { press: role("radio", "Colours"), say: "He picks Colours, and the Job knows what he is aiming for" },
-  { type: `${words}\n`, into: message, say: "The box has the caret: he types what he wants and sends it" },
-  { look: text("Dusk is a theme, saved and on."), say: "The Job knew it was a theme" },
-  { look: inside(region("Jobs", { exact: true }), button(`Mod ${words}`)), say: "His first line names the Job" },
-  { look: inside(region("Jobs", { exact: true }), role("heading", "Mods")), say: "It sits under Mods in the list" },
-  { press: place("System"), say: "System" },
-  { press: systemPage("All"), say: "Mods, all of them" },
-  { press: button("Create mod"), say: "Create mod in the header of the list opens another empty Mod Job" },
-  { look: inside(region("What a Mod Job makes"), text("Anything else")), say: "Empty again, with the list" },
+  {
+    look: inside(region("What a Mod Job makes"), text("Colours")),
+    say: "An empty Mod Job opens, listing what it can make",
+  },
+  {
+    press: role("radio", "Colours"),
+    say: "He picks Colours, and the Job knows what he is aiming for",
+  },
+  {
+    type: `${words}\n`,
+    into: message,
+    say: "The box has the caret: he types what he wants and sends it",
+  },
+  {
+    look: text("Dusk is a theme, saved and on."),
+    say: "The Job knew it was a theme",
+  },
+  {
+    look: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      button(`Mod ${words}`),
+    ),
+    say: "His first line names the Job",
+  },
+  {
+    look: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      role("heading", "Mods"),
+    ),
+    say: "It sits under Mods in the list",
+  },
+  {
+    press: place("System"),
+    say: "System",
+  },
+  {
+    press: systemPage("All"),
+    say: "Mods, all of them",
+  },
+  {
+    press: button("Create mod"),
+    say: "Create mod in the header of the list opens another empty Mod Job",
+  },
+  {
+    look: inside(region("What a Mod Job makes"), text("Anything else")),
+    say: "Empty again, with the list",
+  },
 ]);
 
 export { createMod as "create-mod" };

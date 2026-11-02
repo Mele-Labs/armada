@@ -8,8 +8,18 @@ import { noAreas, type AreaSource } from "./areas";
 const Source = createContext<AreaSource>(noAreas);
 
 /** Hands the window a source of areas. Nothing handed, nothing is drawn. */
-export function AreasFrom({ source, children }: { source: AreaSource | undefined; children: ReactNode }) {
-  return source === undefined ? <>{children}</> : <Source.Provider value={source}>{children}</Source.Provider>;
+export function AreasFrom({
+  source,
+  children,
+}: {
+  source: AreaSource | undefined;
+  children: ReactNode;
+}) {
+  return source === undefined ? (
+    <>{children}</>
+  ) : (
+    <Source.Provider value={source}>{children}</Source.Provider>
+  );
 }
 
 export const useAreas = (): AreaSource => useContext(Source);

@@ -14,7 +14,11 @@ function setting(key: string, value: Setting["value"]): Setting {
     title: key,
     description: "",
     tip: null,
-    kind: { kind: "integer", min: 0, max: 100000 },
+    kind: {
+      kind: "integer",
+      min: 0,
+      max: 100000,
+    },
     default: value,
     value,
     saved: null,
@@ -24,13 +28,19 @@ function setting(key: string, value: Setting["value"]): Setting {
   };
 }
 
-const list = (...settings: Setting[]): SettingsList => ({ path: "/m/settings.json", refused: null, settings });
+const list = (...settings: Setting[]): SettingsList => ({
+  path: "/m/settings.json",
+  refused: null,
+  settings,
+});
 
 describe("publishSettings", () => {
   it("publishes the list, and the command wait follows timeouts.commandSeconds plus five seconds", () => {
     expect(request.COMMAND_MS).toBe(20_000);
     const published: SettingsList[] = [];
-    publishSettings(list(setting("timeouts.commandSeconds", 30)), (change) => published.push(change.settings));
+    publishSettings(list(setting("timeouts.commandSeconds", 30)), (change) =>
+      published.push(change.settings),
+    );
     expect(published).toHaveLength(1);
     // A live binding: the importer reads the value now in force.
     expect(request.COMMAND_MS).toBe(35_000);
@@ -46,7 +56,10 @@ describe("publishSettings", () => {
 
 describe("textSetting", () => {
   it("reads a text value, and empty for anything else", () => {
-    const held = list(setting("editor.command", "code -g {file}:{line}"), setting("timeouts.checkSeconds", 900));
+    const held = list(
+      setting("editor.command", "code -g {file}:{line}"),
+      setting("timeouts.checkSeconds", 900),
+    );
     expect(textSetting(held, "editor.command")).toBe("code -g {file}:{line}");
     expect(textSetting(held, "timeouts.checkSeconds")).toBe("");
     expect(textSetting(null, "editor.command")).toBe("");

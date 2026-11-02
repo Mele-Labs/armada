@@ -21,7 +21,10 @@ export function openSystemEntry(id: string): void {
   listeners.forEach((on) => on());
 }
 
-export function useSystemEntry(): [string, (id: string) => void] {
+export function useSystemEntry(): [
+  string,
+  (id: string) => void,
+] {
   const now = useSyncExternalStore(
     (on) => {
       listeners.add(on);
@@ -30,5 +33,8 @@ export function useSystemEntry(): [string, (id: string) => void] {
     systemEntryNow,
     systemEntryNow,
   );
-  return [now, openSystemEntry];
+  return [
+    now,
+    openSystemEntry,
+  ];
 }

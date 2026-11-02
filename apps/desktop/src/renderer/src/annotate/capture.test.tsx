@@ -27,7 +27,9 @@ test("a note names the screen by the System sidebar's current entry before the t
     <nav aria-label="Places"><button role="tab" aria-selected="false">Cockpit</button><button role="tab" aria-selected="true">System</button></nav>
     <nav aria-label="System"><button>Skills</button><button aria-current="page">Limits</button></nav>
     <main><p id="target">All green.</p></main>`;
-  expect(capture(document.getElementById("target")!, new Date("2026-10-14T14:00:00Z")).screen).toBe("Limits");
+  expect(capture(document.getElementById("target")!, new Date("2026-10-14T14:00:00Z")).screen).toBe(
+    "Limits",
+  );
 });
 
 test("a note names the screen by the rail item's label, not its count or binding", () => {
@@ -57,7 +59,10 @@ test("a note carries the JSX that drew the element it was pinned on", () => {
 });
 
 test("an element the build did not stamp takes the nearest stamped ancestor, not the outermost", () => {
-  expect(capture(stamped(), AT).source).toEqual({ file: "packages/screens/src/JobRow.tsx", line: 88 });
+  expect(capture(stamped(), AT).source).toEqual({
+    file: "packages/screens/src/JobRow.tsx",
+    line: 88,
+  });
 });
 
 test("a note on an element with nothing stamped above it carries no source at all", () => {
@@ -68,7 +73,11 @@ test("a note on an element with nothing stamped above it carries no source at al
 });
 
 test("a stamp that is not a file and a line is read as none rather than guessed at", () => {
-  for (const value of ["packages/screens/src/Board.tsx", "packages/screens/src/Board.tsx:none", ":12"]) {
+  for (const value of [
+    "packages/screens/src/Board.tsx",
+    "packages/screens/src/Board.tsx:none",
+    ":12",
+  ]) {
     document.body.innerHTML = `<div ${SOURCE_ATTRIBUTE}="${value}"><p id="target">Waiting on you</p></div>`;
     expect(capture(document.getElementById("target")!, AT).source, value).toBeUndefined();
   }
@@ -107,11 +116,18 @@ test("a note names the places around the element and the heading above it, inner
     </main>
     <div data-armada-annotate=""><button aria-pressed="true">Pin</button></div>`;
   const note = capture(document.getElementById("row")!, AT);
-  expect(note.nearby).toEqual(["Burn by Bash command", "Where the burn went", "Burn", "Usage"]);
-  expect(note.selected).toEqual(['tab "Bash"']);
+  expect(note.nearby).toEqual([
+    "Burn by Bash command",
+    "Where the burn went",
+    "Burn",
+    "Usage",
+  ]);
+  expect(note.selected).toEqual([
+    'tab "Bash"',
+  ]);
 });
 
-test("a note reads current, pressed, checked, expanded and open, never `aria-current=\"false\"`", () => {
+test('a note reads current, pressed, checked, expanded and open, never `aria-current="false"`', () => {
   document.body.innerHTML = `
     <a href="/" aria-current="page">Usage</a><a href="/x" aria-current="false">Cockpit</a>
     <button aria-pressed="true" aria-label="Mono"></button>
@@ -120,6 +136,15 @@ test("a note reads current, pressed, checked, expanded and open, never `aria-cur
     <details open><summary>Why</summary>Because</details>
     <dialog open aria-label="Settings"><p id="inside">Here</p></dialog>`;
   const note = capture(document.getElementById("inside")!, AT);
-  expect(note.selected).toEqual(['link "Usage"', 'button "Mono"', 'checkbox "Autoplay"', 'button "More"', 'group "Why"', 'dialog "Settings"']);
-  expect(note.nearby).toEqual(["Settings"]);
+  expect(note.selected).toEqual([
+    'link "Usage"',
+    'button "Mono"',
+    'checkbox "Autoplay"',
+    'button "More"',
+    'group "Why"',
+    'dialog "Settings"',
+  ]);
+  expect(note.nearby).toEqual([
+    "Settings",
+  ]);
 });

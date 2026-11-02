@@ -17,7 +17,10 @@ export default meta;
 type Story = StoryObj<typeof AttachmentChip>;
 
 export const Default: Story = {
-  args: { filename: "screenshot.png", onRemove: () => {} },
+  args: {
+    filename: "screenshot.png",
+    onRemove: () => {},
+  },
 };
 
 export const LongFilename: Story = {
@@ -29,17 +32,27 @@ export const LongFilename: Story = {
 
 /** No `onRemove` — a chip with nothing to take back. */
 export const ReadOnly: Story = {
-  args: { filename: "evidence.log" },
+  args: {
+    filename: "evidence.log",
+  },
 };
 
 /** An address attached beside the request, rather than a file staged from disk. */
 export const ALink: Story = {
-  args: { filename: "armada/1162", kind: "link", onRemove: () => {} },
+  args: {
+    filename: "armada/1162",
+    kind: "link",
+    onRemove: () => {},
+  },
 };
 
 /** One node of a Studio, carried into the request it was dispatched from. */
 export const AStudioNode: Story = {
-  args: { filename: "The Drones stat says nothing", kind: "node", onRemove: () => {} },
+  args: {
+    filename: "The Drones stat says nothing",
+    kind: "node",
+    onRemove: () => {},
+  },
 };
 
 /**
@@ -48,10 +61,15 @@ export const AStudioNode: Story = {
  * are visible, rather than by a press on a chip that says only `sketch 1`.
  */
 export const ASketch: Story = {
-  args: { filename: "sketch 1", from: "From a Studio" },
+  args: {
+    filename: "sketch 1",
+    from: "From a Studio",
+  },
 };
 
 /** The same picture drawn from nothing, which says so by naming no source. */
 export const ASketchFromNothing: Story = {
-  args: { filename: "sketch 1" },
+  args: {
+    filename: "sketch 1",
+  },
 };

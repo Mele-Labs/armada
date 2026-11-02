@@ -27,18 +27,15 @@ export function isWideWindow(): boolean {
 
 /** `isWideWindow`, redrawn when the window crosses the line. */
 export function useWideWindow(): boolean {
-  return useSyncExternalStore(
-    (listener) => {
-      hear.add(listener);
-      const query = typeof window.matchMedia === "function" ? window.matchMedia(QUERY) : undefined;
-      query?.addEventListener("change", listener);
-      return () => {
-        hear.delete(listener);
-        query?.removeEventListener("change", listener);
-      };
-    },
-    isWideWindow,
-  );
+  return useSyncExternalStore((listener) => {
+    hear.add(listener);
+    const query = typeof window.matchMedia === "function" ? window.matchMedia(QUERY) : undefined;
+    query?.addEventListener("change", listener);
+    return () => {
+      hear.delete(listener);
+      query?.removeEventListener("change", listener);
+    };
+  }, isWideWindow);
 }
 
 /** The Job's Lanes are open, in the spine or in the panel. */
@@ -56,7 +53,11 @@ export function toggleLanes(sessionId: string): void {
     return;
   }
   if (isWideWindow()) toggleLayer(sessionId, "lanes");
-  else openInPanel({ kind: "lanes", sessionId });
+  else
+    openInPanel({
+      kind: "lanes",
+      sessionId,
+    });
 }
 
 /** Carries open Lanes to the place the window's width now puts them. Answers nothing: a Job with Lanes shut is left as it is. */
@@ -67,7 +68,10 @@ export function placeLanes(sessionId: string): void {
     showLayer(sessionId, "lanes");
   } else if (!wide && layerOver(sessionId) === "lanes") {
     closeLayer();
-    openInPanel({ kind: "lanes", sessionId });
+    openInPanel({
+      kind: "lanes",
+      sessionId,
+    });
   }
 }
 

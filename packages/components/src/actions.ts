@@ -39,10 +39,27 @@ export * from "./generated/actions";
 export const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = {
   // "dispatch" left the alias list on 2026-09-14 (#1087): it is the verb now,
   // and an alias identical to the label it finds teaches nothing.
-  new_job: ["start", "compose", "session", "new session"],
-  copy_debug_info: ["clipboard", "support", "envelope"],
-  debug_bridge: ["screenshot", "diagnose", "state"],
-  state_filter: ["tab", "narrow", "status"],
+  new_job: [
+    "start",
+    "compose",
+    "session",
+    "new session",
+  ],
+  copy_debug_info: [
+    "clipboard",
+    "support",
+    "envelope",
+  ],
+  debug_bridge: [
+    "screenshot",
+    "diagnose",
+    "state",
+  ],
+  state_filter: [
+    "tab",
+    "narrow",
+    "status",
+  ],
 };
 
 /**
@@ -67,10 +84,21 @@ export type ActionContext = "board" | "detail" | "studio";
  * registry exists to prevent, one layer down.
  */
 const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
-  anywhere: ["board", "detail", "studio"],
-  list: ["board"],
-  "list and detail": ["board", "detail"],
-  "open studio": ["studio"],
+  anywhere: [
+    "board",
+    "detail",
+    "studio",
+  ],
+  list: [
+    "board",
+  ],
+  "list and detail": [
+    "board",
+    "detail",
+  ],
+  "open studio": [
+    "studio",
+  ],
   // Keys on the Dashboard's panel and on a call in front: found from its own `?` sheet, not drawn as
   // palette rows, which would each need a handler the panel owns.
   dashboard: [],

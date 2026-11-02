@@ -14,27 +14,56 @@ const COLD = "Fix the flaky store clock test";
 const CACHED = "Fix the retry backoff reset";
 const KEPT = "armada.bridge.first-jobs";
 /** The scenario holds each first read for four seconds; the rows land after, and a poll allows for it. */
-const READ = { timeout: 12_000 };
+const READ = {
+  timeout: 12_000,
+};
 
-const jobs = () => page.getByRole("region", { name: "Jobs", exact: true });
-const thread = () => page.getByRole("region", { name: "Thread", exact: true });
-const card = () => thread().getByText("Armada configuration", { exact: true });
-const glyph = () => page.getByRole("button", { name: /^Armada configuration kept/ });
+const jobs = () =>
+  page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
+const thread = () =>
+  page.getByRole("region", {
+    name: "Thread",
+    exact: true,
+  });
+const card = () =>
+  thread().getByText("Armada configuration", {
+    exact: true,
+  });
+const glyph = () =>
+  page.getByRole("button", {
+    name: /^Armada configuration kept/,
+  });
 /** Which Job holds the card of each repository, as the browser keeps it. */
 const claims = (): Record<string, string | null> => JSON.parse(localStorage.getItem(KEPT) ?? "{}");
 
 async function open(title: string) {
   mount("transcript-loading");
   await onScreen();
-  await jobs().getByRole("button", { name: title, exact: true }).click();
-  await expect.element(page.getByRole("region", { name: `Job: ${title}` })).toBeVisible();
+  await jobs()
+    .getByRole("button", {
+      name: title,
+      exact: true,
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: `Job: ${title}`,
+      }),
+    )
+    .toBeVisible();
 }
 
 test("an unread Job claims no card while it is read, and none when the person's message is in the rows", async () => {
   await open(COLD);
 
   // The bars stand: the thread is busy, and neither the card nor the glyph is drawn nor claimed.
-  await expect.poll(() => document.querySelector('[aria-busy="true"].armada-helm-thread__rows') !== null).toBe(true);
+  await expect
+    .poll(() => document.querySelector('[aria-busy="true"].armada-helm-thread__rows') !== null)
+    .toBe(true);
   expect(page.getByText("passes 200 runs in a row").query()).toBeNull();
   expect(card().query()).toBeNull();
   expect(glyph().query()).toBeNull();
@@ -43,7 +72,9 @@ test("an unread Job claims no card while it is read, and none when the person's 
   // The rows land, the first of them the person's own: this repository is in use, so no Job on it carries a card.
   await expect.element(thread().getByText("passes 200 runs in a row"), READ).toBeVisible();
   expect(card().query()).toBeNull();
-  expect(claims()).toEqual({ [repository().root]: null });
+  expect(claims()).toEqual({
+    [repository().root]: null,
+  });
 });
 
 test("a Job read before and read again claims no card either", async () => {
@@ -51,5 +82,7 @@ test("a Job read before and read again claims no card either", async () => {
 
   await expect.element(thread().getByText("The counter lives on the connection")).toBeVisible();
   expect(card().query()).toBeNull();
-  expect(claims()).toEqual({ [repository().root]: null });
+  expect(claims()).toEqual({
+    [repository().root]: null,
+  });
 });

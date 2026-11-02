@@ -7,7 +7,10 @@ import type { AutopilotPick } from "@armada/protocol";
 
 import type { NextUp } from "./autopilot";
 
-export type SidingPress = { pickId: string; act: "run" | "dismiss" };
+export type SidingPress = {
+  pickId: string;
+  act: "run" | "dismiss";
+};
 
 export type Siding = {
   manifest: string;
@@ -18,21 +21,48 @@ export type Siding = {
 };
 
 /** Run it and Dismiss on one set-aside pick. Run it goes to the approval gate, as any dispatch does. */
-export function AsideActs({ pick, pending, onRun, onDismiss }: { pick: AutopilotPick; pending: SidingPress | undefined; onRun: () => void; onDismiss: () => void }) {
+export function AsideActs({
+  pick,
+  pending,
+  onRun,
+  onDismiss,
+}: {
+  pick: AutopilotPick;
+  pending: SidingPress | undefined;
+  onRun: () => void;
+  onDismiss: () => void;
+}) {
   const mine = pending?.pickId === pick.pick_id ? pending.act : undefined;
   return (
     <span className="armada-autopilot-aside__acts">
-      <Button variant="secondary" size="sm" onClick={onRun} pending={mine === "run"} disabled={pending !== undefined && mine !== "run"}>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onRun}
+        pending={mine === "run"}
+        disabled={pending !== undefined && mine !== "run"}
+      >
         Run it
       </Button>
-      <Button variant="ghost" size="sm" onClick={onDismiss} pending={mine === "dismiss"} disabled={pending !== undefined && mine !== "dismiss"}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onDismiss}
+        pending={mine === "dismiss"}
+        disabled={pending !== undefined && mine !== "dismiss"}
+      >
         Dismiss
       </Button>
     </span>
   );
 }
 
-export function AutopilotSidings({ sidings, pending, onRun, onDismiss }: {
+export function AutopilotSidings({
+  sidings,
+  pending,
+  onRun,
+  onDismiss,
+}: {
   sidings: readonly Siding[];
   pending: SidingPress | undefined;
   onRun: (manifest: string, pick: AutopilotPick) => void;
@@ -43,11 +73,21 @@ export function AutopilotSidings({ sidings, pending, onRun, onDismiss }: {
       {sidings.map((siding) => (
         <div key={siding.manifest} className="armada-autopilot-sidings">
           {siding.nextUp.length === 0 ? null : (
-            <section className="armada-autopilot-next" aria-label={siding.name === undefined ? "Next up" : `Next up in ${siding.name}`}>
-              <h3 className="armada-metro__part">Next up{siding.name === undefined ? "" : ` · ${siding.name}`} · what Autopilot is choosing from</h3>
+            <section
+              className="armada-autopilot-next"
+              aria-label={siding.name === undefined ? "Next up" : `Next up in ${siding.name}`}
+            >
+              <h3 className="armada-metro__part">
+                Next up{siding.name === undefined ? "" : ` · ${siding.name}`} · what Autopilot is
+                choosing from
+              </h3>
               <ol className="armada-autopilot-next__list">
                 {siding.nextUp.map((one) => (
-                  <li key={one.reference} className="armada-autopilot-next__row" data-passed={one.order === undefined || undefined}>
+                  <li
+                    key={one.reference}
+                    className="armada-autopilot-next__row"
+                    data-passed={one.order === undefined || undefined}
+                  >
                     <span className="armada-autopilot-next__order">{one.order ?? "–"}</span>
                     <span className="armada-autopilot-next__number">{one.reference}</span>
                     <span className="armada-autopilot-next__title" title={one.title}>
@@ -59,8 +99,13 @@ export function AutopilotSidings({ sidings, pending, onRun, onDismiss }: {
               </ol>
             </section>
           )}
-          <section className="armada-autopilot-aside" aria-label={siding.name === undefined ? "Set aside" : `Set aside in ${siding.name}`}>
-            <h3 className="armada-metro__part">Set aside{siding.name === undefined ? "" : ` · ${siding.name}`} · Autopilot was unsure</h3>
+          <section
+            className="armada-autopilot-aside"
+            aria-label={siding.name === undefined ? "Set aside" : `Set aside in ${siding.name}`}
+          >
+            <h3 className="armada-metro__part">
+              Set aside{siding.name === undefined ? "" : ` · ${siding.name}`} · Autopilot was unsure
+            </h3>
             {siding.asides.length === 0 ? (
               <p className="armada-autopilot-aside__empty">Nothing set aside.</p>
             ) : (
@@ -70,7 +115,12 @@ export function AutopilotSidings({ sidings, pending, onRun, onDismiss }: {
                     <span className="armada-autopilot-aside__number">{pick.issue_reference}</span>
                     <span className="armada-autopilot-aside__title">{pick.issue_title}</span>
                     <span className="armada-autopilot-aside__why">{pick.reason}</span>
-                    <AsideActs pick={pick} pending={pending} onRun={() => onRun(siding.manifest, pick)} onDismiss={() => onDismiss(siding.manifest, pick)} />
+                    <AsideActs
+                      pick={pick}
+                      pending={pending}
+                      onRun={() => onRun(siding.manifest, pick)}
+                      onDismiss={() => onDismiss(siding.manifest, pick)}
+                    />
                   </li>
                 ))}
               </ul>

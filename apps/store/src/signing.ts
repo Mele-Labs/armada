@@ -10,8 +10,14 @@ export const TIME_HEADER = "X-Armada-Time";
 export const NONCE_HEADER = "X-Armada-Nonce";
 export const SIGNATURE_HEADER = "X-Armada-Signature";
 
-const ECDSA = { name: "ECDSA", hash: "SHA-256" } as const;
-const CURVE = { name: "ECDSA", namedCurve: "P-256" } as const;
+const ECDSA = {
+  name: "ECDSA",
+  hash: "SHA-256",
+} as const;
+const CURVE = {
+  name: "ECDSA",
+  namedCurve: "P-256",
+} as const;
 
 export const hex = (bytes: ArrayBuffer | Uint8Array): string =>
   Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -40,15 +46,27 @@ export async function bodyHash(body: Uint8Array | string): Promise<string> {
 }
 
 /** `method + path_and_query + time + nonce + hex(sha256(body))`, joined with nothing. */
-export function signedText(method: string, target: string, time: string, nonce: string, hash: string): string {
+export function signedText(
+  method: string,
+  target: string,
+  time: string,
+  nonce: string,
+  hash: string,
+): string {
   return `${method}${target}${time}${nonce}${hash}`;
 }
 
 export async function importPublicKey(spki: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey("spki", spki, CURVE, false, ["verify"]);
+  return crypto.subtle.importKey("spki", spki, CURVE, false, [
+    "verify",
+  ]);
 }
 
-export async function verifySignature(key: CryptoKey, text: string, signature: Uint8Array): Promise<boolean> {
+export async function verifySignature(
+  key: CryptoKey,
+  text: string,
+  signature: Uint8Array,
+): Promise<boolean> {
   if (signature.length !== 64) return false;
   return crypto.subtle.verify(ECDSA, key, signature, new TextEncoder().encode(text));
 }

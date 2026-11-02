@@ -18,10 +18,26 @@ import type { Outcome } from "@armada/protocol";
 import type { LessonReview, LessonReviewRead } from "./review-wire";
 
 /** One item's thread of questions, kept by id so moving between cards loses nothing. */
-export type Thread = { turns: ReviewTurn[]; draft: string; pending: boolean; failure?: string };
+export type Thread = {
+  turns: ReviewTurn[];
+  draft: string;
+  pending: boolean;
+  failure?: string;
+};
 
 /** Where the review's one model call stands. */
-export type Made = { state: "loading" } | { state: "failed"; outcome: Outcome } | { state: "ready"; review: LessonReview };
+export type Made =
+  | {
+      state: "loading";
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    }
+  | {
+      state: "ready";
+      review: LessonReview;
+    };
 
 /** One pick's review as the person has left it. */
 export type Held = {
@@ -70,7 +86,16 @@ export function createReviewHold(now: () => number = Date.now): ReviewHold {
   function start(key: string, run: () => Promise<LessonReviewRead>): void {
     runs += 1;
     const generation = runs;
-    held.set(key, { made: { state: "loading" }, at: 0, putBack: [], threads: {}, also: [], generation });
+    held.set(key, {
+      made: {
+        state: "loading",
+      },
+      at: 0,
+      putBack: [],
+      threads: {},
+      also: [],
+      generation,
+    });
     emit();
     void run().then((answer) => {
       const was = held.get(key);
@@ -78,8 +103,21 @@ export function createReviewHold(now: () => number = Date.now): ReviewHold {
       held.set(
         key,
         answer.ok
-          ? { ...was, made: { state: "ready", review: answer.review }, reviewedAt: now() }
-          : { ...was, made: { state: "failed", outcome: answer.outcome } },
+          ? {
+              ...was,
+              made: {
+                state: "ready",
+                review: answer.review,
+              },
+              reviewedAt: now(),
+            }
+          : {
+              ...was,
+              made: {
+                state: "failed",
+                outcome: answer.outcome,
+              },
+            },
       );
       emit();
     });

@@ -17,12 +17,25 @@ const MOST_WORDS_READ = 16_000;
  * and no ranking, which the panel meets by asking the person. Fleet leaves `manifest_id` out where it
  * could not tell; this is where that becomes the `null` the renderer compares against.
  */
-export async function readRequestRepository(board: Pick<Board, "port">, words: string): Promise<RequestRepositoryRead> {
-  const none: RequestRepositoryRead = { manifest_id: null, likely: [] };
+export async function readRequestRepository(
+  board: Pick<Board, "port">,
+  words: string,
+): Promise<RequestRepositoryRead> {
+  const none: RequestRepositoryRead = {
+    manifest_id: null,
+    likely: [],
+  };
   const port = board.port();
   if (port === null) return none;
-  const answer = await ask(port, "GET", `/repositories/of_request?q=${encodeURIComponent(words.slice(0, MOST_WORDS_READ))}`);
+  const answer = await ask(
+    port,
+    "GET",
+    `/repositories/of_request?q=${encodeURIComponent(words.slice(0, MOST_WORDS_READ))}`,
+  );
   if (answer.ok !== true) return none;
   const read = answer.body as RequestRepository;
-  return { manifest_id: read.manifest_id ?? null, likely: read.likely };
+  return {
+    manifest_id: read.manifest_id ?? null,
+    likely: read.likely,
+  };
 }

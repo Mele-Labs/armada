@@ -9,11 +9,32 @@ const takes = inside(window, role("radiogroup", "Variations"));
 
 const approved = walk("walk-variations", [
   toSessions,
-  { press: inside(region("Jobs", { exact: true }), button("Board layout takes")), say: "A Job with three layouts built" },
-  { type: "Show me the layouts\n", into: role("textbox", "Message"), say: "Asked to show them" },
-  { press: inside(takes, role("radio", "Needs you first")), say: "B on screen, ready to walk" },
-  { press: inside(window, button("Approve B")), say: "Approved" },
-  { look: inside(window, text(/^Approved B$/)), say: "The bar says Approved B at its start, in green" },
+  {
+    press: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      button("Board layout takes"),
+    ),
+    say: "A Job with three layouts built",
+  },
+  {
+    type: "Show me the layouts\n",
+    into: role("textbox", "Message"),
+    say: "Asked to show them",
+  },
+  {
+    press: inside(takes, role("radio", "Needs you first")),
+    say: "B on screen, ready to walk",
+  },
+  {
+    press: inside(window, button("Approve B")),
+    say: "Approved",
+  },
+  {
+    look: inside(window, text(/^Approved B$/)),
+    say: "The bar says Approved B at its start, in green",
+  },
 ]);
 
 export { approved as "walk-approved" };

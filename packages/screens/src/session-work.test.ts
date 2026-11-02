@@ -1,10 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import type { BuildPiece, FileTouch, SessionPlan, SessionRecord, SessionRow as WireRow, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type {
+  BuildPiece,
+  FileTouch,
+  SessionPlan,
+  SessionRecord,
+  SessionRow as WireRow,
+  TimelineEvent,
+  WorkflowSummary,
+} from "@armada/protocol";
 import type { PlanMark, SessionAttachment } from "./draft/sessions";
 import { sessionOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
-import { changeOfEvent, choicesOf, fieldOf, linesOfWire, planOf, tasksOf, workOf, wireMarksOf } from "./session-work";
+import {
+  changeOfEvent,
+  choicesOf,
+  fieldOf,
+  linesOfWire,
+  planOf,
+  tasksOf,
+  workOf,
+  wireMarksOf,
+} from "./session-work";
 
 const AT = "2026-10-16T09:00:00Z";
 
@@ -19,146 +36,706 @@ const record = (change: Partial<SessionRecord> = {}): SessionRecord => ({
   last_seen_at: AT,
   usage: {},
   attachments: [],
-  hosted: { turn: { state: "idle" }, mode: "auto", running: false },
+  hosted: {
+    turn: {
+      state: "idle",
+    },
+    mode: "auto",
+    running: false,
+  },
   ...change,
 });
 
-const step = (step_id: string, label: string) => ({ step_id, label, checks: [], judge_checks: [] }) as unknown as WorkflowSummary["steps"][number];
-const FEATURE = { id: "feature", name: "Feature", version: 1, manifest_id: "armada", steps: [step("plan", "Plan"), step("build", "Build"), step("pr", "Pull request")] } as WorkflowSummary;
+const step = (step_id: string, label: string) =>
+  ({
+    step_id,
+    label,
+    checks: [],
+    judge_checks: [],
+  }) as unknown as WorkflowSummary["steps"][number];
+const FEATURE = {
+  id: "feature",
+  name: "Feature",
+  version: 1,
+  manifest_id: "armada",
+  steps: [
+    step("plan", "Plan"),
+    step("build", "Build"),
+    step("pr", "Pull request"),
+  ],
+} as WorkflowSummary;
 
-const beside = (more: Partial<Parameters<typeof workOf>[1]> = {}): Parameters<typeof workOf>[1] => ({ workflows: [FEATURE], attachments: [], rows: undefined, drawn: [], unpicked: new Set(), ...more });
+const beside = (
+  more: Partial<Parameters<typeof workOf>[1]> = {},
+): Parameters<typeof workOf>[1] => ({
+  workflows: [
+    FEATURE,
+  ],
+  attachments: [],
+  rows: undefined,
+  drawn: [],
+  unpicked: new Set(),
+  ...more,
+});
 
 const PLAN: SessionPlan = {
   version: 2,
   summary: "",
   recorded_at: AT,
   approved: false,
-  scope: ["crates/fleet"],
-  groups: [{ id: "g1", agent: "rust-engineer", title: "Retry the lease", paths: ["crates/fleet"], lands_in: { label: "PR 1" }, tasks: [{ id: "t1", text: "Back off", state: "working", seen: true }, { id: "t2", text: "Cap it", state: "open" }] }],
-  changes: { added: ["t2"], renamed: [{ id: "t1", from: "Wait" }], moved: [], removed: [{ group: "g1", text: "Sleep" }] },
-  sketch: { id: "sketch:Plan", title: "Plan" },
+  scope: [
+    "crates/fleet",
+  ],
+  groups: [
+    {
+      id: "g1",
+      agent: "rust-engineer",
+      title: "Retry the lease",
+      paths: [
+        "crates/fleet",
+      ],
+      lands_in: {
+        label: "PR 1",
+      },
+      tasks: [
+        {
+          id: "t1",
+          text: "Back off",
+          state: "working",
+          seen: true,
+        },
+        {
+          id: "t2",
+          text: "Cap it",
+          state: "open",
+        },
+      ],
+    },
+  ],
+  changes: {
+    added: [
+      "t2",
+    ],
+    renamed: [
+      {
+        id: "t1",
+        from: "Wait",
+      },
+    ],
+    moved: [],
+    removed: [
+      {
+        group: "g1",
+        text: "Sleep",
+      },
+    ],
+  },
+  sketch: {
+    id: "sketch:Plan",
+    title: "Plan",
+  },
 };
 
 describe("the proposer's picks", () => {
   it("are listed for a hosted Session, and the ones he changed are not", () => {
-    const one = record({ workflow: "feature", proposal: { picked: ["title", "workflow", "model", "effort"] } });
-    expect(workOf(one, beside())?.proposal).toEqual({ workflow: "feature", picked: ["workflow", "model", "effort"] });
-    expect(workOf(one, beside({ unpicked: new Set(["model", "workflow"]) }))?.proposal).toEqual({ workflow: "feature", picked: ["effort"] });
-    expect(workOf(one, beside({ unpicked: new Set(["model", "workflow", "effort"]) }))?.proposal).toEqual({ workflow: "feature" });
+    const one = record({
+      workflow: "feature",
+      proposal: {
+        picked: [
+          "title",
+          "workflow",
+          "model",
+          "effort",
+        ],
+      },
+    });
+    expect(workOf(one, beside())?.proposal).toEqual({
+      workflow: "feature",
+      picked: [
+        "workflow",
+        "model",
+        "effort",
+      ],
+    });
+    expect(
+      workOf(
+        one,
+        beside({
+          unpicked: new Set([
+            "model",
+            "workflow",
+          ]),
+        }),
+      )?.proposal,
+    ).toEqual({
+      workflow: "feature",
+      picked: [
+        "effort",
+      ],
+    });
+    expect(
+      workOf(
+        one,
+        beside({
+          unpicked: new Set([
+            "model",
+            "workflow",
+            "effort",
+          ]),
+        }),
+      )?.proposal,
+    ).toEqual({
+      workflow: "feature",
+    });
   });
 
   it("carry the proposer reading, and a custom Session has no workflow", () => {
-    expect(workOf(record({ proposal: { reading: true } }), beside())?.proposal).toEqual({ workflow: null, reading: true });
+    expect(
+      workOf(
+        record({
+          proposal: {
+            reading: true,
+          },
+        }),
+        beside(),
+      )?.proposal,
+    ).toEqual({
+      workflow: null,
+      reading: true,
+    });
   });
 
   it("are not a terminal Session's, which Fleet does not set a workflow for", () => {
-    const terminal = record({ hosted: undefined, terminal: { listening: true } as SessionRecord["terminal"] });
+    const terminal = record({
+      hosted: undefined,
+      terminal: {
+        listening: true,
+      } as SessionRecord["terminal"],
+    });
     expect(workOf(terminal, beside())?.proposal).toBeUndefined();
   });
 
   it("reach the Session the view draws", () => {
-    const session = sessionOfRecord(record({ workflow: "feature", proposal: { picked: ["effort"] } }), undefined, { picture: () => undefined, sketches: [], pending: [], workflows: [FEATURE] } as Beside);
-    expect(session.work?.proposal?.picked).toEqual(["effort"]);
-    const changed = sessionOfRecord(record({ proposal: { picked: ["effort"] } }), undefined, { picture: () => undefined, sketches: [], pending: [], unpicked: new Set(["effort"]) } as Beside);
+    const session = sessionOfRecord(
+      record({
+        workflow: "feature",
+        proposal: {
+          picked: [
+            "effort",
+          ],
+        },
+      }),
+      undefined,
+      {
+        picture: () => undefined,
+        sketches: [],
+        pending: [],
+        workflows: [
+          FEATURE,
+        ],
+      } as Beside,
+    );
+    expect(session.work?.proposal?.picked).toEqual([
+      "effort",
+    ]);
+    const changed = sessionOfRecord(
+      record({
+        proposal: {
+          picked: [
+            "effort",
+          ],
+        },
+      }),
+      undefined,
+      {
+        picture: () => undefined,
+        sketches: [],
+        pending: [],
+        unpicked: new Set([
+          "effort",
+        ]),
+      } as Beside,
+    );
     expect(changed.work?.proposal?.picked).toBeUndefined();
   });
 });
 
 describe("the workflow", () => {
   it("draws the steps unlit while Fleet names none", () => {
-    expect(workOf(record({ workflow: "feature" }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Build", "Pull request"] });
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+        }),
+        beside(),
+      )?.workflow,
+    ).toEqual({
+      name: "Feature",
+      steps: [
+        "Plan",
+        "Build",
+        "Pull request",
+      ],
+    });
   });
 
   it("carries when each step began, in order, with a step it went back to twice", () => {
-    const workflow_visits = [{ step: 0, since: "2026-10-27T10:00:00Z" }, { step: 1, since: "2026-10-27T10:05:00Z" }, { step: 0, since: "2026-10-27T10:09:00Z" }];
-    expect(workOf(record({ workflow: "feature", workflow_step: 0, workflow_visits }), beside())?.workflow?.visits).toEqual(workflow_visits);
-    expect(workOf(record({ workflow: "feature" }), beside())?.workflow?.visits).toBeUndefined();
+    const workflow_visits = [
+      {
+        step: 0,
+        since: "2026-10-27T10:00:00Z",
+      },
+      {
+        step: 1,
+        since: "2026-10-27T10:05:00Z",
+      },
+      {
+        step: 0,
+        since: "2026-10-27T10:09:00Z",
+      },
+    ];
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+          workflow_step: 0,
+          workflow_visits,
+        }),
+        beside(),
+      )?.workflow?.visits,
+    ).toEqual(workflow_visits);
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+        }),
+        beside(),
+      )?.workflow?.visits,
+    ).toBeUndefined();
   });
 
   it("lights the step Fleet names", () => {
-    expect(workOf(record({ workflow: "feature", workflow_step: 1 }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Build", "Pull request"], at: 1 });
-    expect(workOf(record({ workflow: "feature", workflow_step: 0 }), beside())?.workflow?.at).toBe(0);
-    expect(workOf(record({ workflow: "feature", workflow_step: 9 }), beside())?.workflow?.at).toBeUndefined();
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+          workflow_step: 1,
+        }),
+        beside(),
+      )?.workflow,
+    ).toEqual({
+      name: "Feature",
+      steps: [
+        "Plan",
+        "Build",
+        "Pull request",
+      ],
+      at: 1,
+    });
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+          workflow_step: 0,
+        }),
+        beside(),
+      )?.workflow?.at,
+    ).toBe(0);
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+          workflow_step: 9,
+        }),
+        beside(),
+      )?.workflow?.at,
+    ).toBeUndefined();
   });
 
   it("reads the steps of the Job's own copy once it changed one, and the repository's again when it follows another workflow", () => {
-    const own = { ...FEATURE, steps: [step("plan", "Plan"), step("dispatch", "Dispatch"), step("build", "Build"), step("pr", "Pull request")] } as WorkflowSummary;
-    expect(workOf(record({ workflow: "feature", workflow_step: 1, workflow_copy: own }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Dispatch", "Build", "Pull request"], at: 1 });
-    expect(workOf(record({ workflow: "bug", workflow_copy: own }), beside({ workflows: [{ ...FEATURE, id: "bug", name: "Bug" }] }))?.workflow?.steps).toEqual(["Plan", "Build", "Pull request"]);
+    const own = {
+      ...FEATURE,
+      steps: [
+        step("plan", "Plan"),
+        step("dispatch", "Dispatch"),
+        step("build", "Build"),
+        step("pr", "Pull request"),
+      ],
+    } as WorkflowSummary;
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+          workflow_step: 1,
+          workflow_copy: own,
+        }),
+        beside(),
+      )?.workflow,
+    ).toEqual({
+      name: "Feature",
+      steps: [
+        "Plan",
+        "Dispatch",
+        "Build",
+        "Pull request",
+      ],
+      at: 1,
+    });
+    expect(
+      workOf(
+        record({
+          workflow: "bug",
+          workflow_copy: own,
+        }),
+        beside({
+          workflows: [
+            {
+              ...FEATURE,
+              id: "bug",
+              name: "Bug",
+            },
+          ],
+        }),
+      )?.workflow?.steps,
+    ).toEqual([
+      "Plan",
+      "Build",
+      "Pull request",
+    ]);
   });
 
   it("carries the phase Fleet resolved for the step the Session is at", () => {
-    const phased = { ...FEATURE, steps: [{ ...step("plan", "Plan"), phase: "work" }, { ...step("pr", "Pull request"), phase: "delivery" }] } as WorkflowSummary;
-    expect(workOf(record({ workflow: "feature", workflow_step: 1 }), beside({ workflows: [phased] }))?.workflow?.phase).toBe("delivery");
-    expect(workOf(record({ workflow: "feature", workflow_step: 0 }), beside({ workflows: [phased] }))?.workflow?.phase).toBe("work");
-    expect(workOf(record({ workflow: "feature" }), beside({ workflows: [phased] }))?.workflow?.phase).toBeUndefined();
+    const phased = {
+      ...FEATURE,
+      steps: [
+        {
+          ...step("plan", "Plan"),
+          phase: "work",
+        },
+        {
+          ...step("pr", "Pull request"),
+          phase: "delivery",
+        },
+      ],
+    } as WorkflowSummary;
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+          workflow_step: 1,
+        }),
+        beside({
+          workflows: [
+            phased,
+          ],
+        }),
+      )?.workflow?.phase,
+    ).toBe("delivery");
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+          workflow_step: 0,
+        }),
+        beside({
+          workflows: [
+            phased,
+          ],
+        }),
+      )?.workflow?.phase,
+    ).toBe("work");
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+        }),
+        beside({
+          workflows: [
+            phased,
+          ],
+        }),
+      )?.workflow?.phase,
+    ).toBeUndefined();
   });
 
   it("lands in what Fleet says the workflow lands in, and says nothing where Fleet does not", () => {
-    expect(workOf(record({ workflow: "feature" }), beside({ workflows: [{ ...FEATURE, lands: "spike" }] }))?.landing).toBe("spike");
-    expect(workOf(record({ workflow: "feature" }), beside())?.landing).toBeUndefined();
-    expect(workOf(record({}), beside({ workflows: [{ ...FEATURE, lands: "report" }] }))?.landing).toBeUndefined();
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+        }),
+        beside({
+          workflows: [
+            {
+              ...FEATURE,
+              lands: "spike",
+            },
+          ],
+        }),
+      )?.landing,
+    ).toBe("spike");
+    expect(
+      workOf(
+        record({
+          workflow: "feature",
+        }),
+        beside(),
+      )?.landing,
+    ).toBeUndefined();
+    expect(
+      workOf(
+        record({}),
+        beside({
+          workflows: [
+            {
+              ...FEATURE,
+              lands: "report",
+            },
+          ],
+        }),
+      )?.landing,
+    ).toBeUndefined();
   });
 
   it("is hidden while the setting turns workflows off: no steps, no picker, no mark for a workflow", () => {
-    const one = record({ workflow: "feature", workflow_step: 1, proposal: { picked: ["workflow", "model"] } });
-    const work = workOf(one, beside({ workflowsOff: true }));
+    const one = record({
+      workflow: "feature",
+      workflow_step: 1,
+      proposal: {
+        picked: [
+          "workflow",
+          "model",
+        ],
+      },
+    });
+    const work = workOf(
+      one,
+      beside({
+        workflowsOff: true,
+      }),
+    );
     expect(work?.railOff).toBe(true);
     expect(work?.workflow).toBeUndefined();
-    expect(work?.proposal?.picked).toEqual(["model"]);
+    expect(work?.proposal?.picked).toEqual([
+      "model",
+    ]);
     expect(workOf(one, beside())?.railOff).toBeUndefined();
   });
 
   it("has no steps for a custom Session, and lists the picker's choices by id", () => {
     expect(workOf(record(), beside())?.workflow).toBeUndefined();
-    expect(choicesOf([FEATURE])).toEqual([{ id: "feature", name: "Feature", steps: ["Plan", "Build", "Pull request"], manifestId: "armada" }]);
+    expect(
+      choicesOf([
+        FEATURE,
+      ]),
+    ).toEqual([
+      {
+        id: "feature",
+        name: "Feature",
+        steps: [
+          "Plan",
+          "Build",
+          "Pull request",
+        ],
+        manifestId: "armada",
+      },
+    ]);
   });
 
   it("is a Helm Session's none", () => {
-    expect(workOf(record({ helm: true }), beside())).toBeUndefined();
+    expect(
+      workOf(
+        record({
+          helm: true,
+        }),
+        beside(),
+      ),
+    ).toBeUndefined();
   });
 });
 
 describe("the plan", () => {
-  const sketch: SessionAttachment = { kind: "sketch", id: "sketch:Plan", title: "Plan", by: "agent", drawing: { nodes: [], edges: [] } };
+  const sketch: SessionAttachment = {
+    kind: "sketch",
+    id: "sketch:Plan",
+    title: "Plan",
+    by: "agent",
+    drawing: {
+      nodes: [],
+      edges: [],
+    },
+  };
 
   it("keeps Fleet's task states and what it changed, with the sketch the ledger holds", () => {
-    const plan = planOf(PLAN, { attachments: [sketch], rows: undefined, drawn: [] });
+    const plan = planOf(PLAN, {
+      attachments: [
+        sketch,
+      ],
+      rows: undefined,
+      drawn: [],
+    });
     expect(plan.version).toBe(2);
-    expect(plan.groups[0]?.tasks).toEqual([{ id: "t1", text: "Back off", state: "working", seen: true }, { id: "t2", text: "Cap it", state: "open" }]);
-    expect(plan.changes).toEqual({ added: ["t2"], renamed: [{ id: "t1", from: "Wait" }], removed: [{ group: "g1", text: "Sleep" }] });
-    expect(plan.sketch).toEqual({ id: "sketch:Plan", title: "Plan", scene: { nodes: [], edges: [] } });
+    expect(plan.groups[0]?.tasks).toEqual([
+      {
+        id: "t1",
+        text: "Back off",
+        state: "working",
+        seen: true,
+      },
+      {
+        id: "t2",
+        text: "Cap it",
+        state: "open",
+      },
+    ]);
+    expect(plan.changes).toEqual({
+      added: [
+        "t2",
+      ],
+      renamed: [
+        {
+          id: "t1",
+          from: "Wait",
+        },
+      ],
+      removed: [
+        {
+          group: "g1",
+          text: "Sleep",
+        },
+      ],
+    });
+    expect(plan.sketch).toEqual({
+      id: "sketch:Plan",
+      title: "Plan",
+      scene: {
+        nodes: [],
+        edges: [],
+      },
+    });
   });
 
   it("carries when a task last changed, Fleet's proof and its stale reading, and leaves each off where Fleet sent none", () => {
-    const stale = { why: "edits went to Bridge", since: AT };
-    const fleets: SessionPlan = { ...PLAN, groups: [{ ...PLAN.groups[0]!, tasks: [{ id: "t1", text: "Back off", state: "working", changed_at: AT, stale }, { id: "t2", text: "Cap it", state: "done", changed_at: AT, marked: "commit 1a2b3c4 names it" }] }] };
-    const tasks = planOf(fleets, { attachments: [], rows: undefined, drawn: [] }).groups[0]?.tasks;
+    const stale = {
+      why: "edits went to Bridge",
+      since: AT,
+    };
+    const fleets: SessionPlan = {
+      ...PLAN,
+      groups: [
+        {
+          ...PLAN.groups[0]!,
+          tasks: [
+            {
+              id: "t1",
+              text: "Back off",
+              state: "working",
+              changed_at: AT,
+              stale,
+            },
+            {
+              id: "t2",
+              text: "Cap it",
+              state: "done",
+              changed_at: AT,
+              marked: "commit 1a2b3c4 names it",
+            },
+          ],
+        },
+      ],
+    };
+    const tasks = planOf(fleets, {
+      attachments: [],
+      rows: undefined,
+      drawn: [],
+    }).groups[0]?.tasks;
     expect(tasks).toEqual([
-      { id: "t1", text: "Back off", state: "working", changedAt: AT, stale },
-      { id: "t2", text: "Cap it", state: "done", changedAt: AT, marked: "commit 1a2b3c4 names it" },
+      {
+        id: "t1",
+        text: "Back off",
+        state: "working",
+        changedAt: AT,
+        stale,
+      },
+      {
+        id: "t2",
+        text: "Cap it",
+        state: "done",
+        changedAt: AT,
+        marked: "commit 1a2b3c4 names it",
+      },
     ]);
   });
 
   it("keeps the issue a group names, and names none where it names none", () => {
-    const named: SessionPlan = { ...PLAN, groups: [{ ...PLAN.groups[0]!, issue: "2214" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], lands_in: { label: "PR 1" }, tasks: [] }] };
-    const groups = planOf(named, { attachments: [], rows: undefined, drawn: [] }).groups;
+    const named: SessionPlan = {
+      ...PLAN,
+      groups: [
+        {
+          ...PLAN.groups[0]!,
+          issue: "2214",
+        },
+        {
+          id: "g2",
+          agent: "bridge-engineer",
+          title: "Draw it",
+          paths: [],
+          lands_in: {
+            label: "PR 1",
+          },
+          tasks: [],
+        },
+      ],
+    };
+    const groups = planOf(named, {
+      attachments: [],
+      rows: undefined,
+      drawn: [],
+    }).groups;
     expect(groups[0]?.issue).toBe("2214");
     expect(groups[1]).not.toHaveProperty("issue");
   });
 
   it("maps the lands_in of each group onto landsIn, with the pull request once it is bound and without one before", () => {
-    const pull = { number: 2814, title: "Pair a phone", state: "open" as const };
+    const pull = {
+      number: 2814,
+      title: "Pair a phone",
+      state: "open" as const,
+    };
     const wire: SessionPlan = {
       ...PLAN,
       groups: [
-        { ...PLAN.groups[0]!, lands_in: { label: "PR 1", pull_request: pull } },
-        { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], lands_in: { label: "PR 2" }, tasks: [] },
+        {
+          ...PLAN.groups[0]!,
+          lands_in: {
+            label: "PR 1",
+            pull_request: pull,
+          },
+        },
+        {
+          id: "g2",
+          agent: "bridge-engineer",
+          title: "Draw it",
+          paths: [],
+          lands_in: {
+            label: "PR 2",
+          },
+          tasks: [],
+        },
       ],
     };
-    const groups = planOf(wire, { attachments: [], rows: undefined, drawn: [] }).groups;
-    expect(groups[0]?.landsIn).toEqual({ label: "PR 1", pullRequest: pull });
-    expect(groups[1]?.landsIn).toEqual({ label: "PR 2" });
+    const groups = planOf(wire, {
+      attachments: [],
+      rows: undefined,
+      drawn: [],
+    }).groups;
+    expect(groups[0]?.landsIn).toEqual({
+      label: "PR 1",
+      pullRequest: pull,
+    });
+    expect(groups[1]?.landsIn).toEqual({
+      label: "PR 2",
+    });
     expect(groups[1]?.landsIn).not.toHaveProperty("pullRequest");
   });
 
@@ -166,69 +743,218 @@ describe("the plan", () => {
     const wire: SessionPlan = {
       ...PLAN,
       groups: [
-        { ...PLAN.groups[0]!, own_job: true },
-        { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], lands_in: { label: "PR 1" }, tasks: [] },
+        {
+          ...PLAN.groups[0]!,
+          own_job: true,
+        },
+        {
+          id: "g2",
+          agent: "bridge-engineer",
+          title: "Draw it",
+          paths: [],
+          lands_in: {
+            label: "PR 1",
+          },
+          tasks: [],
+        },
       ],
     };
-    const groups = planOf(wire, { attachments: [], rows: undefined, drawn: [] }).groups;
+    const groups = planOf(wire, {
+      attachments: [],
+      rows: undefined,
+      drawn: [],
+    }).groups;
     expect(groups[0]?.ownJob).toBe(true);
     expect(groups[1]).not.toHaveProperty("ownJob");
   });
 
   it("carries the summary, what each group gives and when he set it aside, and leaves each off where Fleet has none", () => {
-    const plain = planOf({ ...PLAN, summary: "He can queue a Session for later.", set_aside_at: AT, groups: [{ ...PLAN.groups[0]!, gives: "A queue that survives a restart" }, { id: "g2", agent: "bridge-engineer", title: "Draw it", paths: [], lands_in: { label: "PR 1" }, tasks: [] }] }, { attachments: [], rows: undefined, drawn: [] });
+    const plain = planOf(
+      {
+        ...PLAN,
+        summary: "He can queue a Session for later.",
+        set_aside_at: AT,
+        groups: [
+          {
+            ...PLAN.groups[0]!,
+            gives: "A queue that survives a restart",
+          },
+          {
+            id: "g2",
+            agent: "bridge-engineer",
+            title: "Draw it",
+            paths: [],
+            lands_in: {
+              label: "PR 1",
+            },
+            tasks: [],
+          },
+        ],
+      },
+      {
+        attachments: [],
+        rows: undefined,
+        drawn: [],
+      },
+    );
     expect(plain.summary).toBe("He can queue a Session for later.");
     expect(plain.setAside).toBe(true);
     expect(plain.groups[0]?.gives).toBe("A queue that survives a restart");
     expect(plain.groups[1]).not.toHaveProperty("gives");
-    const old = planOf(PLAN, { attachments: [], rows: undefined, drawn: [] });
+    const old = planOf(PLAN, {
+      attachments: [],
+      rows: undefined,
+      drawn: [],
+    });
     expect(old).not.toHaveProperty("summary");
     expect(old).not.toHaveProperty("setAside");
   });
 
   it("leaves the sketch off until the ledger holds it", () => {
-    expect(planOf(PLAN, { attachments: [], rows: undefined, drawn: [] }).sketch).toBeUndefined();
+    expect(
+      planOf(PLAN, {
+        attachments: [],
+        rows: undefined,
+        drawn: [],
+      }).sketch,
+    ).toBeUndefined();
   });
 
   it("settles after the last row before the one that recorded it", () => {
     const rows = [
-      { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "go" },
-      { kind: "message", id: "m2", at: AT, from: { kind: "agent" }, text: "planned" },
-      { kind: "plan", id: "p1", at: AT, version: 2 },
+      {
+        kind: "message",
+        id: "m1",
+        at: AT,
+        from: {
+          kind: "you",
+        },
+        text: "go",
+      },
+      {
+        kind: "message",
+        id: "m2",
+        at: AT,
+        from: {
+          kind: "agent",
+        },
+        text: "planned",
+      },
+      {
+        kind: "plan",
+        id: "p1",
+        at: AT,
+        version: 2,
+      },
     ] as WireRow[];
-    const drawn = [{ id: "m1" }, { id: "m2" }] as never;
-    expect(planOf(PLAN, { attachments: [], rows, drawn }).after).toBe("m2");
-    expect(planOf({ ...PLAN, version: 3 }, { attachments: [], rows, drawn }).after).toBeUndefined();
+    const drawn = [
+      {
+        id: "m1",
+      },
+      {
+        id: "m2",
+      },
+    ] as never;
+    expect(
+      planOf(PLAN, {
+        attachments: [],
+        rows,
+        drawn,
+      }).after,
+    ).toBe("m2");
+    expect(
+      planOf(
+        {
+          ...PLAN,
+          version: 3,
+        },
+        {
+          attachments: [],
+          rows,
+          drawn,
+        },
+      ).after,
+    ).toBeUndefined();
   });
 });
 
 describe("the Field", () => {
-  const touch = (path: string, act: FileTouch["act"], at: string, by?: FileTouch["by"]): FileTouch => ({ path, act, at, ...(by === undefined ? {} : { by }) });
+  const touch = (
+    path: string,
+    act: FileTouch["act"],
+    at: string,
+    by?: FileTouch["by"],
+  ): FileTouch => ({
+    path,
+    act,
+    at,
+    ...(by === undefined
+      ? {}
+      : {
+          by,
+        }),
+  });
 
   it("puts the Session's drone and one for each subagent at the last file each touched", () => {
     const { field, files } = fieldOf([
       touch("crates/fleet/src/lease.rs", "edit", "2026-10-16T09:00:01Z"),
-      touch("crates/ipc/src/lease.rs", "write", "2026-10-16T09:00:02Z", { agent: "protocol-engineer", id: "a1" }),
+      touch("crates/ipc/src/lease.rs", "write", "2026-10-16T09:00:02Z", {
+        agent: "protocol-engineer",
+        id: "a1",
+      }),
       touch("crates/fleet/src/retry.rs", "write", "2026-10-16T09:00:03Z"),
     ]);
     expect(field).toEqual([
-      { id: "main", path: "crates/fleet", doing: "write", file: "crates/fleet/src/retry.rs", at: "2026-10-16T09:00:03Z" },
-      { id: "a1", agent: "protocol-engineer", path: "crates/ipc", doing: "write", file: "crates/ipc/src/lease.rs", at: "2026-10-16T09:00:02Z" },
+      {
+        id: "main",
+        path: "crates/fleet",
+        doing: "write",
+        file: "crates/fleet/src/retry.rs",
+        at: "2026-10-16T09:00:03Z",
+      },
+      {
+        id: "a1",
+        agent: "protocol-engineer",
+        path: "crates/ipc",
+        doing: "write",
+        file: "crates/ipc/src/lease.rs",
+        at: "2026-10-16T09:00:02Z",
+      },
     ]);
     expect(files).toEqual([
-      { path: "crates/fleet/src/lease.rs", act: "edit" },
-      { path: "crates/ipc/src/lease.rs", act: "write" },
-      { path: "crates/fleet/src/retry.rs", act: "write" },
+      {
+        path: "crates/fleet/src/lease.rs",
+        act: "edit",
+      },
+      {
+        path: "crates/ipc/src/lease.rs",
+        act: "write",
+      },
+      {
+        path: "crates/fleet/src/retry.rs",
+        act: "write",
+      },
     ]);
   });
 
   it("marks a file with what was done to it last, a removal included", () => {
-    const { files } = fieldOf([touch("a/b/c.rs", "write", "2026-10-16T09:00:01Z"), touch("a/b/c.rs", "remove", "2026-10-16T09:00:02Z")]);
-    expect(files).toEqual([{ path: "a/b/c.rs", act: "remove" }]);
+    const { files } = fieldOf([
+      touch("a/b/c.rs", "write", "2026-10-16T09:00:01Z"),
+      touch("a/b/c.rs", "remove", "2026-10-16T09:00:02Z"),
+    ]);
+    expect(files).toEqual([
+      {
+        path: "a/b/c.rs",
+        act: "remove",
+      },
+    ]);
   });
 
   it("is empty with no touches", () => {
-    expect(fieldOf([])).toEqual({ field: [], files: [] });
+    expect(fieldOf([])).toEqual({
+      field: [],
+      files: [],
+    });
     expect(workOf(record(), beside())?.field).toBeUndefined();
   });
 });
@@ -236,92 +962,359 @@ describe("the Field", () => {
 describe("what he marked on the plan, as Fleet takes it", () => {
   it("renames the added task and group, the move and the subagent, and keeps the rest", () => {
     const marks: PlanMark[] = [
-      { kind: "rename", group: "g1", task: "t1", from: "Back off", to: "Back off with a ceiling" },
-      { kind: "remove", group: "g1" },
-      { kind: "add", group: "g1", task: "t-new-1", id: "t-new-1", text: "Log it" },
-      { kind: "add", group: "g-new-1", id: "g-new-1", text: "Docs" },
-      { kind: "move", task: "t2", from: "g1", to: "g2" },
-      { kind: "agent", group: "g1", from: "rust-engineer", to: "general-purpose" },
-      { kind: "note", id: "n1", group: "g1", text: "Reuse a field?" },
+      {
+        kind: "rename",
+        group: "g1",
+        task: "t1",
+        from: "Back off",
+        to: "Back off with a ceiling",
+      },
+      {
+        kind: "remove",
+        group: "g1",
+      },
+      {
+        kind: "add",
+        group: "g1",
+        task: "t-new-1",
+        id: "t-new-1",
+        text: "Log it",
+      },
+      {
+        kind: "add",
+        group: "g-new-1",
+        id: "g-new-1",
+        text: "Docs",
+      },
+      {
+        kind: "move",
+        task: "t2",
+        from: "g1",
+        to: "g2",
+      },
+      {
+        kind: "agent",
+        group: "g1",
+        from: "rust-engineer",
+        to: "general-purpose",
+      },
+      {
+        kind: "note",
+        id: "n1",
+        group: "g1",
+        text: "Reuse a field?",
+      },
     ];
     expect(wireMarksOf(marks)).toEqual([
-      { kind: "rename", group: "g1", task: "t1", from: "Back off", to: "Back off with a ceiling" },
-      { kind: "remove", group: "g1" },
-      { kind: "add_task", group: "g1", id: "t-new-1", text: "Log it" },
-      { kind: "add_group", id: "g-new-1", text: "Docs" },
-      { kind: "move_task", task: "t2", from: "g1", to: "g2" },
-      { kind: "subagent", group: "g1", from: "rust-engineer", to: "general-purpose" },
-      { kind: "note", id: "n1", group: "g1", text: "Reuse a field?" },
+      {
+        kind: "rename",
+        group: "g1",
+        task: "t1",
+        from: "Back off",
+        to: "Back off with a ceiling",
+      },
+      {
+        kind: "remove",
+        group: "g1",
+      },
+      {
+        kind: "add_task",
+        group: "g1",
+        id: "t-new-1",
+        text: "Log it",
+      },
+      {
+        kind: "add_group",
+        id: "g-new-1",
+        text: "Docs",
+      },
+      {
+        kind: "move_task",
+        task: "t2",
+        from: "g1",
+        to: "g2",
+      },
+      {
+        kind: "subagent",
+        group: "g1",
+        from: "rust-engineer",
+        to: "general-purpose",
+      },
+      {
+        kind: "note",
+        id: "n1",
+        group: "g1",
+        text: "Reuse a field?",
+      },
     ]);
   });
 });
 
 describe("the thread's rows", () => {
   it("draws the changes he sent as one row with a line for each", () => {
-    expect(linesOfWire([{ verb: "Renamed", place: "Retry", from: "A", text: "B" }, { verb: "Odd", place: "Retry" }])).toEqual([
-      { verb: "Renamed", where: "Retry", from: "A", text: "B" },
-      { verb: "Note", where: "Retry" },
+    expect(
+      linesOfWire([
+        {
+          verb: "Renamed",
+          place: "Retry",
+          from: "A",
+          text: "B",
+        },
+        {
+          verb: "Odd",
+          place: "Retry",
+        },
+      ]),
+    ).toEqual([
+      {
+        verb: "Renamed",
+        where: "Retry",
+        from: "A",
+        text: "B",
+      },
+      {
+        verb: "Note",
+        where: "Retry",
+      },
     ]);
   });
 
   it("reads a value he changed off the timeline entry", () => {
-    expect(changeOfEvent("session.workflow", "workflow: Feature → custom")).toEqual({ what: "Workflow", from: "Feature", to: "custom" });
-    expect(changeOfEvent("session.model", "model: opus → sonnet")).toEqual({ what: "Model", from: "opus", to: "sonnet" });
-    expect(changeOfEvent("session.effort", "effort: high → medium")).toEqual({ what: "Effort", from: "high", to: "medium" });
+    expect(changeOfEvent("session.workflow", "workflow: Feature → custom")).toEqual({
+      what: "Workflow",
+      from: "Feature",
+      to: "custom",
+    });
+    expect(changeOfEvent("session.model", "model: opus → sonnet")).toEqual({
+      what: "Model",
+      from: "opus",
+      to: "sonnet",
+    });
+    expect(changeOfEvent("session.effort", "effort: high → medium")).toEqual({
+      what: "Effort",
+      from: "high",
+      to: "medium",
+    });
     expect(changeOfEvent("session.started", "Started")).toBeUndefined();
   });
 
   it("puts the plan changes and the value changes in the thread where they happened", () => {
     const rows = [
-      { kind: "message", id: "m1", at: "2026-10-16T09:00:00Z", from: { kind: "you" }, text: "go" },
-      { kind: "plan_changes", id: "pc", at: "2026-10-16T09:02:00Z", version: 1, lines: [{ verb: "Removed", place: "Retry" }] },
-      { kind: "message", id: "m2", at: "2026-10-16T09:03:00Z", from: { kind: "agent" }, text: "ok" },
+      {
+        kind: "message",
+        id: "m1",
+        at: "2026-10-16T09:00:00Z",
+        from: {
+          kind: "you",
+        },
+        text: "go",
+      },
+      {
+        kind: "plan_changes",
+        id: "pc",
+        at: "2026-10-16T09:02:00Z",
+        version: 1,
+        lines: [
+          {
+            verb: "Removed",
+            place: "Retry",
+          },
+        ],
+      },
+      {
+        kind: "message",
+        id: "m2",
+        at: "2026-10-16T09:03:00Z",
+        from: {
+          kind: "agent",
+        },
+        text: "ok",
+      },
     ] as WireRow[];
     const events = [
-      { id: 7, at: "2026-10-16T09:01:00Z", kind: "session.workflow", subject: { kind: "session", id: "s1" }, tone: "idle", says: "workflow: Feature → custom" },
-      { id: 8, at: "2026-10-16T09:01:30Z", kind: "session.model", subject: { kind: "session", id: "other" }, tone: "idle", says: "model: a → b" },
+      {
+        id: 7,
+        at: "2026-10-16T09:01:00Z",
+        kind: "session.workflow",
+        subject: {
+          kind: "session",
+          id: "s1",
+        },
+        tone: "idle",
+        says: "workflow: Feature → custom",
+      },
+      {
+        id: 8,
+        at: "2026-10-16T09:01:30Z",
+        kind: "session.model",
+        subject: {
+          kind: "session",
+          id: "other",
+        },
+        tone: "idle",
+        says: "model: a → b",
+      },
     ] as TimelineEvent[];
-    const session = sessionOfRecord(record(), rows, { picture: () => undefined, sketches: [], pending: [], events });
-    expect(session.rows.map((one) => one.kind)).toEqual(["message", "change", "suggest", "message"]);
-    expect(session.rows[1]).toMatchObject({ id: "event:7", what: "Workflow", from: "Feature", to: "custom" });
-    expect(session.rows[2]).toMatchObject({ lines: [{ verb: "Removed", where: "Retry" }] });
+    const session = sessionOfRecord(record(), rows, {
+      picture: () => undefined,
+      sketches: [],
+      pending: [],
+      events,
+    });
+    expect(session.rows.map((one) => one.kind)).toEqual([
+      "message",
+      "change",
+      "suggest",
+      "message",
+    ]);
+    expect(session.rows[1]).toMatchObject({
+      id: "event:7",
+      what: "Workflow",
+      from: "Feature",
+      to: "custom",
+    });
+    expect(session.rows[2]).toMatchObject({
+      lines: [
+        {
+          verb: "Removed",
+          where: "Retry",
+        },
+      ],
+    });
   });
 });
 
 describe("the agent's own tasks", () => {
-  const piece = (id: string, text: string, kind: BuildPiece["piece"], working?: true): BuildPiece => ({ id, text, piece: kind, ...(working === undefined ? {} : { working }) });
-  const build = (pieces: BuildPiece[]): SessionRecord["build"] => ({ phase: "implement", pieces, stops: [], forecast: [], stalled: false, workers: [] });
-  const PIECES = [piece("1", "Read the runner", "solid"), piece("2", "List the files", "hollow"), piece("3", "Rename them", "scaffold", true), piece("4", "Update the tests", "ghost"), piece("5", "Run the checks", "ghost")];
+  const piece = (
+    id: string,
+    text: string,
+    kind: BuildPiece["piece"],
+    working?: true,
+  ): BuildPiece => ({
+    id,
+    text,
+    piece: kind,
+    ...(working === undefined
+      ? {}
+      : {
+          working,
+        }),
+  });
+  const build = (pieces: BuildPiece[]): SessionRecord["build"] => ({
+    phase: "implement",
+    pieces,
+    stops: [],
+    forecast: [],
+    stalled: false,
+    workers: [],
+  });
+  const PIECES = [
+    piece("1", "Read the runner", "solid"),
+    piece("2", "List the files", "hollow"),
+    piece("3", "Rename them", "scaffold", true),
+    piece("4", "Update the tests", "ghost"),
+    piece("5", "Run the checks", "ghost"),
+  ];
 
   it("are the build record's pieces in the order made, a finished piece done, one in progress working and the rest open", () => {
     expect(tasksOf(PIECES)).toEqual([
-      { id: "1", subject: "Read the runner", state: "done" },
-      { id: "2", subject: "List the files", state: "done" },
-      { id: "3", subject: "Rename them", state: "working" },
-      { id: "4", subject: "Update the tests", state: "open" },
-      { id: "5", subject: "Run the checks", state: "open" },
+      {
+        id: "1",
+        subject: "Read the runner",
+        state: "done",
+      },
+      {
+        id: "2",
+        subject: "List the files",
+        state: "done",
+      },
+      {
+        id: "3",
+        subject: "Rename them",
+        state: "working",
+      },
+      {
+        id: "4",
+        subject: "Update the tests",
+        state: "open",
+      },
+      {
+        id: "5",
+        subject: "Run the checks",
+        state: "open",
+      },
     ]);
   });
 
   it("are the work of a Session with no plan", () => {
-    expect(workOf(record({ build: build(PIECES) }), beside())?.tasks?.map((one) => one.state)).toEqual(["done", "done", "working", "open", "open"]);
+    expect(
+      workOf(
+        record({
+          build: build(PIECES),
+        }),
+        beside(),
+      )?.tasks?.map((one) => one.state),
+    ).toEqual([
+      "done",
+      "done",
+      "working",
+      "open",
+      "open",
+    ]);
   });
 
   it("are left off where the agent made none, or the Session ended", () => {
-    expect(workOf(record({ build: build([]) }), beside())?.tasks).toBeUndefined();
+    expect(
+      workOf(
+        record({
+          build: build([]),
+        }),
+        beside(),
+      )?.tasks,
+    ).toBeUndefined();
     expect(workOf(record(), beside())?.tasks).toBeUndefined();
-    expect(workOf(record({ build: build(PIECES), state: "ended" }), beside())?.tasks).toBeUndefined();
+    expect(
+      workOf(
+        record({
+          build: build(PIECES),
+          state: "ended",
+        }),
+        beside(),
+      )?.tasks,
+    ).toBeUndefined();
   });
 
   it("give way to the plan once one is recorded", () => {
-    const work = workOf(record({ build: build(PIECES), plan: PLAN }), beside());
+    const work = workOf(
+      record({
+        build: build(PIECES),
+        plan: PLAN,
+      }),
+      beside(),
+    );
     expect(work?.tasks).toBeUndefined();
     expect(work?.plan?.groups[0]?.tasks).toHaveLength(2);
   });
 
   it("reach the Session the view draws", () => {
-    const session = sessionOfRecord(record({ build: build(PIECES) }), undefined, { picture: () => undefined, sketches: [], pending: [], workflows: [FEATURE] } as Beside);
-    expect(session.work?.tasks?.[2]).toEqual({ id: "3", subject: "Rename them", state: "working" });
+    const session = sessionOfRecord(
+      record({
+        build: build(PIECES),
+      }),
+      undefined,
+      {
+        picture: () => undefined,
+        sketches: [],
+        pending: [],
+        workflows: [
+          FEATURE,
+        ],
+      } as Beside,
+    );
+    expect(session.work?.tasks?.[2]).toEqual({
+      id: "3",
+      subject: "Rename them",
+      state: "working",
+    });
   });
 });
-

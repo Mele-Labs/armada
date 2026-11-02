@@ -11,7 +11,13 @@ const meta: Meta<typeof ThoughtCard> = {
   title: "Compositions/Thought card",
   component: ThoughtCard,
   render: (args) => (
-    <div style={{ width: "var(--w-dock)", background: "var(--bg-sunken)", padding: "var(--space-4)" }}>
+    <div
+      style={{
+        width: "var(--w-dock)",
+        background: "var(--bg-sunken)",
+        padding: "var(--space-4)",
+      }}
+    >
       <ThoughtCard {...args} />
     </div>
   ),
@@ -20,7 +26,8 @@ export default meta;
 
 type Story = StoryObj<typeof ThoughtCard>;
 
-const WORDS = "I wish the sessions page would move sessions into a status that says they are waiting for work to land";
+const WORDS =
+  "I wish the sessions page would move sessions into a status that says they are waiting for work to land";
 
 const onSend = fn();
 const onNo = fn();
@@ -33,30 +40,61 @@ export const MatchSession: Story = {
   args: {
     stage: "match",
     words: WORDS,
-    target: { kind: "session", title: "Sessions list views", repository: "armada", slot: 3 },
+    target: {
+      kind: "session",
+      title: "Sessions list views",
+      repository: "armada",
+      slot: 3,
+    },
     onSend,
     onNo,
     onAskHelm,
   },
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("group", { name: "Send to" })).toBeVisible();
+    await expect(
+      canvas.getByRole("group", {
+        name: "Send to",
+      }),
+    ).toBeVisible();
     await expect(canvas.getByText(WORDS)).toBeVisible();
     await expect(canvas.getByText("Sessions list views")).toBeVisible();
     await expect(canvas.getByText("armada")).toBeVisible();
-    await expect(canvas.getByRole("img", { name: "Job" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Job",
+      }),
+    ).toBeVisible();
 
     // The key each act answers to is on its button and in the shortcuts the dock binds.
-    const send = canvas.getByRole("button", { name: "Send" });
+    const send = canvas.getByRole("button", {
+      name: "Send",
+    });
     await expect(send).toHaveTextContent("↵");
     await expect(send).toHaveAttribute("aria-keyshortcuts", "↵");
-    await expect(canvas.getByRole("button", { name: "No" })).toHaveTextContent("N");
-    await expect(canvas.getByRole("button", { name: "Ask Helm" })).toHaveTextContent("H");
+    await expect(
+      canvas.getByRole("button", {
+        name: "No",
+      }),
+    ).toHaveTextContent("N");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Ask Helm",
+      }),
+    ).toHaveTextContent("H");
 
     await userEvent.click(send);
     await expect(onSend).toHaveBeenCalledTimes(1);
-    await userEvent.click(canvas.getByRole("button", { name: "No" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "No",
+      }),
+    );
     await expect(onNo).toHaveBeenCalledTimes(1);
-    await userEvent.click(canvas.getByRole("button", { name: "Ask Helm" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Ask Helm",
+      }),
+    );
     await expect(onAskHelm).toHaveBeenCalledTimes(1);
   },
 };
@@ -66,13 +104,21 @@ export const MatchSessionWithoutSlot: Story = {
   args: {
     stage: "match",
     words: WORDS,
-    target: { kind: "session", title: "Release notes script", repository: "armada" },
+    target: {
+      kind: "session",
+      title: "Release notes script",
+      repository: "armada",
+    },
     onSend,
     onNo,
     onAskHelm,
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Job" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Job",
+      }),
+    ).toBeVisible();
     await expect(canvas.getByText("Release notes script")).toBeVisible();
   },
 };
@@ -87,17 +133,47 @@ export const New: Story = {
     onDismiss,
   },
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("group", { name: "Start new" })).toBeVisible();
-    await expect(canvas.getByText("the merge line page should group PRs by repository")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Job" })).toHaveTextContent("S");
-    await expect(canvas.getByRole("button", { name: "Ask Helm" })).toHaveTextContent("H");
-    await expect(canvas.getByRole("button", { name: "Dismiss" })).toHaveAttribute("aria-keyshortcuts", "Escape");
+    await expect(
+      canvas.getByRole("group", {
+        name: "Start new",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("the merge line page should group PRs by repository"),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Job",
+      }),
+    ).toHaveTextContent("S");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Ask Helm",
+      }),
+    ).toHaveTextContent("H");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Dismiss",
+      }),
+    ).toHaveAttribute("aria-keyshortcuts", "Escape");
 
-    await userEvent.click(canvas.getByRole("button", { name: "Job" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Job",
+      }),
+    );
     await expect(onSession).toHaveBeenCalledTimes(1);
-    await userEvent.click(canvas.getByRole("button", { name: "Ask Helm" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Ask Helm",
+      }),
+    );
     await expect(onAskHelm).toHaveBeenCalledTimes(1);
-    await userEvent.click(canvas.getByRole("button", { name: "Dismiss" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Dismiss",
+      }),
+    );
     await expect(onDismiss).toHaveBeenCalledTimes(1);
   },
 };

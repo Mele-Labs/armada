@@ -6,7 +6,14 @@
 
 import { useSyncExternalStore } from "react";
 import type { Hosts, Item } from "../../Dashboard";
-import { DECK_FILTERS_KEY, DECK_ORDER_KEY, DECK_SCOPE_KEY, DECK_VIEW_KEY, readRemembered, writeRemembered } from "../../remembered-views";
+import {
+  DECK_FILTERS_KEY,
+  DECK_ORDER_KEY,
+  DECK_SCOPE_KEY,
+  DECK_VIEW_KEY,
+  readRemembered,
+  writeRemembered,
+} from "../../remembered-views";
 import { forgetPlace, leaving } from "../../session-view/place";
 import { sessionIdOf } from "../waiting";
 import { bandsOf, type Banding } from "./bands";
@@ -16,16 +23,37 @@ import type { Ship, Subject } from "./ship";
 import { openPullRequestInPanel } from "../../shared-panel/store";
 
 /** What the dynamic area is showing. Nothing selected is the map or the timeline. */
-export type Sel = { kind: "session" | "call" | "autopilot"; key: string };
+export type Sel = {
+  kind: "session" | "call" | "autopilot";
+  key: string;
+};
 export type DeckView = "map" | "timeline";
 /** What the list holds: the live Sessions, the ones he paused, the Sessions Fleet cannot reach, the ones that ended, or every one of them. */
 export type Scope = "active" | "paused" | "quiet" | "ended" | "all";
-export const SCOPES: readonly { id: Scope; label: string }[] = [
-  { id: "active", label: "Active" },
-  { id: "paused", label: "Paused" },
-  { id: "quiet", label: "Quiet" },
-  { id: "ended", label: "Ended" },
-  { id: "all", label: "All" },
+export const SCOPES: readonly {
+  id: Scope;
+  label: string;
+}[] = [
+  {
+    id: "active",
+    label: "Active",
+  },
+  {
+    id: "paused",
+    label: "Paused",
+  },
+  {
+    id: "quiet",
+    label: "Quiet",
+  },
+  {
+    id: "ended",
+    label: "Ended",
+  },
+  {
+    id: "all",
+    label: "All",
+  },
 ];
 /** How many rows of the list are drawn at first, and how many more each time its end is reached. */
 export const LIST_PAGE = 50;
@@ -76,14 +104,20 @@ export type DeckState = {
   /** What was open when a holder was opened from it (a bay's history), so that back returns to it and not to the map. */
   from: Sel | undefined;
   /** What the area held when Autopilot took it over, and comes back to when it is switched off. */
-  before: { sel: Sel | undefined; view: DeckView } | undefined;
+  before:
+    | {
+        sel: Sel | undefined;
+        view: DeckView;
+      }
+    | undefined;
   /** A light on the merge queue that a call asked to open its card: the light pins it and lets go of the ask. */
   light?: "checkout";
 };
 
 const viewNamed = (value: string | null): DeckView => (value === "timeline" ? "timeline" : "map");
 const filtersNamed = (value: string | null): string => value ?? "";
-const scopeNamed = (value: string | null): Scope => SCOPES.find((one) => one.id === value)?.id ?? "active";
+const scopeNamed = (value: string | null): Scope =>
+  SCOPES.find((one) => one.id === value)?.id ?? "active";
 /** The stored order, or none where it is missing or is not a list of keys. */
 const orderNamed = (value: string | null): string => value ?? "[]";
 function orderRead(): readonly string[] {
@@ -124,7 +158,10 @@ let state: DeckState = fresh();
 const listeners = new Set<() => void>();
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
 const set = (change: Partial<DeckState>) => {
-  state = { ...state, ...change };
+  state = {
+    ...state,
+    ...change,
+  };
   listeners.forEach((one) => one());
 };
 
@@ -139,17 +176,31 @@ export const scene = {
 };
 
 /** Where the map's camera was left, so a pane opened over it and closed finds the map as it was. Not state: nothing draws from it. */
-export type Camera = { x: number; y: number; eye: number; tilt: boolean };
-export const camera = { current: undefined as Camera | undefined };
+export type Camera = {
+  x: number;
+  y: number;
+  eye: number;
+  tilt: boolean;
+};
+export const camera = {
+  current: undefined as Camera | undefined,
+};
 
 /** A pane that was open over the map has been closed: the map is next drawn whole, at the fit, and does not lock on the drone the cursor holds. Not state: nothing draws from it. */
-export const wide = { now: false };
+export const wide = {
+  now: false,
+};
 
 /** A drone the camera is asked to ease to when the map is next drawn: `w` names the one it goes to. Not state: nothing draws from it. */
-export const aimAt = { key: undefined as string | undefined };
+export const aimAt = {
+  key: undefined as string | undefined,
+};
 
 /** The calls `w` has opened, oldest first, and which one is on show: `w` goes on, Shift+W goes back. */
-export const callTrail = { keys: [] as string[], at: -1 };
+export const callTrail = {
+  keys: [] as string[],
+  at: -1,
+};
 
 export const forgetDeck = () => {
   camera.current = undefined;
@@ -176,7 +227,11 @@ export function useDeck<T>(read?: (deck: DeckState) => T): DeckState | T {
 export const deckNow = () => state;
 
 /** Lights a Session, by its list key, in the list and in the bays. */
-export const setHover = (hover: string | undefined) => state.hover !== hover && set({ hover });
+export const setHover = (hover: string | undefined) =>
+  state.hover !== hover &&
+  set({
+    hover,
+  });
 
 export const select = (sel: Sel | undefined) => {
   forgetPlace();
@@ -184,10 +239,23 @@ export const select = (sel: Sel | undefined) => {
     camera.current = undefined;
     wide.now = true;
   }
-  set({ sel, from: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "session" ? sel.key : state.cursor }) });
+  set({
+    sel,
+    from: undefined,
+    ...(sel === undefined
+      ? {}
+      : {
+          cursor: sel.kind === "session" ? sel.key : state.cursor,
+        }),
+  });
 };
 /** Opens a thing from what is open, which back returns to: a holder in a bay's history. */
-export const openFrom = (sel: Sel) => set({ from: state.sel, sel, cursor: sel.kind === "session" ? sel.key : state.cursor });
+export const openFrom = (sel: Sel) =>
+  set({
+    from: state.sel,
+    sel,
+    cursor: sel.kind === "session" ? sel.key : state.cursor,
+  });
 /**
  * Opens a Session linked to the one open, from it or to it, which back returns to **as he left it**: the thread where it was scrolled
  * and the Plan groups that were open.
@@ -198,57 +266,134 @@ export const openLinked = (sel: Sel) => {
   openFrom(sel);
 };
 /** Whether one subject is a Session a plan group of the other was handed to, either way round. */
-const linkedPair = (a: Subject | undefined, b: Subject): boolean => a !== undefined && (a.linked?.parent === b.key || b.linked?.parent === a.key);
+const linkedPair = (a: Subject | undefined, b: Subject): boolean =>
+  a !== undefined && (a.linked?.parent === b.key || b.linked?.parent === a.key);
 /** Opens a row of the list as a press on it does: a Session linked to the one open is opened from it, so back returns there. */
 export const openSubject = (ship: Pick<Ship, "subjects">, subject: Subject): void => {
-  const open = state.sel === undefined ? undefined : ship.subjects.find((one) => one.key === state.sel?.key && one.kind !== "pr");
+  const open =
+    state.sel === undefined
+      ? undefined
+      : ship.subjects.find((one) => one.key === state.sel?.key && one.kind !== "pr");
   if (linkedPair(open, subject)) openLinked(selOfSubject(subject));
   else select(selOfSubject(subject));
 };
 /** Back from what is open: to what it was opened from, else to the map or timeline. */
-export const goBack = () => (state.from === undefined ? select(undefined) : set({ sel: state.from, from: undefined, ...(state.from.kind === "session" ? { cursor: state.from.key } : {}) }));
+export const goBack = () =>
+  state.from === undefined
+    ? select(undefined)
+    : set({
+        sel: state.from,
+        from: undefined,
+        ...(state.from.kind === "session"
+          ? {
+              cursor: state.from.key,
+            }
+          : {}),
+      });
 export const moveCursor = (key: string | undefined) => {
-  if (state.cursor !== key) set({ cursor: key });
+  if (state.cursor !== key)
+    set({
+      cursor: key,
+    });
 };
 /** Choosing a view is going back to it: what was open in the area is put away. */
 export const setView = (view: DeckView) => {
   writeRemembered(DECK_VIEW_KEY, view);
-  set({ view, sel: undefined, from: undefined });
+  set({
+    view,
+    sel: undefined,
+    from: undefined,
+  });
 };
 /** Autopilot's configuration takes the area, and what was open is kept to come back to. */
 export const enterAutopilot = () => {
   if (state.sel?.kind === "autopilot") return;
-  set({ before: { sel: state.sel, view: state.view }, sel: { kind: "autopilot", key: "autopilot" } });
+  set({
+    before: {
+      sel: state.sel,
+      view: state.view,
+    },
+    sel: {
+      kind: "autopilot",
+      key: "autopilot",
+    },
+  });
 };
 /** Autopilot is put away: the area is as it was left. */
 export const leaveAutopilot = () => {
   const before = state.before;
-  set({ sel: before?.sel, view: before?.view ?? state.view, before: undefined });
+  set({
+    sel: before?.sel,
+    view: before?.view ?? state.view,
+    before: undefined,
+  });
 };
 
 /** Picks an event, or puts it away when it is the one picked. Choosing one brings the map back and the subject's drone in. */
-export const setFocus = (id: string | undefined, subject?: string) => set({ focus: state.focus === id ? undefined : id, ...(id === undefined || state.focus === id ? {} : { view: "map" as const, sel: undefined, ...(subject === undefined ? {} : { cursor: subject }) }) });
+export const setFocus = (id: string | undefined, subject?: string) =>
+  set({
+    focus: state.focus === id ? undefined : id,
+    ...(id === undefined || state.focus === id
+      ? {}
+      : {
+          view: "map" as const,
+          sel: undefined,
+          ...(subject === undefined
+            ? {}
+            : {
+                cursor: subject,
+              }),
+        }),
+  });
 let runs = 0;
 export const startReplay = (from: number) => {
   runs += 1;
-  set({ replay: { from, at: from, playing: true, speed: 1, plays: [], run: runs }, view: "map", sel: undefined });
+  set({
+    replay: {
+      from,
+      at: from,
+      playing: true,
+      speed: 1,
+      plays: [],
+      run: runs,
+    },
+    view: "map",
+    sel: undefined,
+  });
 };
 export const changeReplay = (change: Partial<Replay>) => {
-  if (state.replay !== undefined) set({ replay: { ...state.replay, ...change } });
+  if (state.replay !== undefined)
+    set({
+      replay: {
+        ...state.replay,
+        ...change,
+      },
+    });
 };
 /** Back to Live: plain, with no picked event left over it. */
-export const stopReplay = () => set({ replay: undefined, focus: undefined });
+export const stopReplay = () =>
+  set({
+    replay: undefined,
+    focus: undefined,
+  });
 
-const keepFilters = (filters: Pick<DeckState, "checks">) => writeRemembered(DECK_FILTERS_KEY, filters.checks ? "checks" : "");
+const keepFilters = (filters: Pick<DeckState, "checks">) =>
+  writeRemembered(DECK_FILTERS_KEY, filters.checks ? "checks" : "");
 /** The Checks tile is a plain filter: what is not running a Check dims, and the list and the feed narrow to the rest. */
 export const toggleChecks = () => {
-  keepFilters({ checks: !state.checks });
-  set({ checks: !state.checks });
+  keepFilters({
+    checks: !state.checks,
+  });
+  set({
+    checks: !state.checks,
+  });
 };
 const keepOrder = (order: readonly string[], live: ReadonlySet<string>) => {
   const kept = order.length > ORDER_KEPT ? order.filter((one) => live.has(one)) : order;
   writeRemembered(DECK_ORDER_KEY, JSON.stringify(kept));
-  set({ order: kept });
+  set({
+    order: kept,
+  });
 };
 /** A Session the order has not met stands at the bottom, in the standing order it would have been drawn in, and nothing placed moves. */
 export function placeNew(ship: Ship): void {
@@ -256,9 +401,35 @@ export function placeNew(ship: Ship): void {
   const live = orderOf(ship);
   const fresh = live.filter((one) => !placed.has(one.key));
   // A Job that took another's place stands where that one stood.
-  const took = new Map<string, string>(fresh.flatMap((one) => (one.earlier !== undefined && placed.has(`session:${one.earlier}`) ? [[`session:${one.earlier}`, one.key] as [string, string]] : [])));
-  const rest = fresh.filter((one) => ![...took.values()].includes(one.key));
-  if (fresh.length > 0) keepOrder([...state.order.map((one) => took.get(one) ?? one), ...rest.map((one) => one.key)], new Set(live.map((one) => one.key)));
+  const took = new Map<string, string>(
+    fresh.flatMap((one) =>
+      one.earlier !== undefined && placed.has(`session:${one.earlier}`)
+        ? [
+            [
+              `session:${one.earlier}`,
+              one.key,
+            ] as [
+              string,
+              string,
+            ],
+          ]
+        : [],
+    ),
+  );
+  const rest = fresh.filter(
+    (one) =>
+      ![
+        ...took.values(),
+      ].includes(one.key),
+  );
+  if (fresh.length > 0)
+    keepOrder(
+      [
+        ...state.order.map((one) => took.get(one) ?? one),
+        ...rest.map((one) => one.key),
+      ],
+      new Set(live.map((one) => one.key)),
+    );
 }
 /** Puts one live Session before another, or after it: a drag, or ⌥↑ and ⌥↓. */
 export function moveRow(ship: Ship, key: string, target: string, after: boolean): void {
@@ -268,58 +439,120 @@ export function moveRow(ship: Ship, key: string, target: string, after: boolean)
 /** A new scope or a new search starts the list from its first page again. */
 export const setScope = (scope: Scope) => {
   writeRemembered(DECK_SCOPE_KEY, scope);
-  set({ scope, limit: LIST_PAGE });
+  set({
+    scope,
+    limit: LIST_PAGE,
+  });
 };
-export const setQuery = (query: string) => set({ query, limit: LIST_PAGE });
-export const setSearching = (searching: boolean) => state.searching !== searching && set({ searching });
+export const setQuery = (query: string) =>
+  set({
+    query,
+    limit: LIST_PAGE,
+  });
+export const setSearching = (searching: boolean) =>
+  state.searching !== searching &&
+  set({
+    searching,
+  });
 /** Draws the rows up to `row` (and a page past it), so a key that walks the list is never stopped at its end. */
 export const showRows = (row: number) => {
-  if (row + 1 > state.limit) set({ limit: Math.ceil((row + 1) / LIST_PAGE) * LIST_PAGE + LIST_PAGE });
+  if (row + 1 > state.limit)
+    set({
+      limit: Math.ceil((row + 1) / LIST_PAGE) * LIST_PAGE + LIST_PAGE,
+    });
 };
-export const showMoreRows = () => set({ limit: state.limit + LIST_PAGE });
+export const showMoreRows = () =>
+  set({
+    limit: state.limit + LIST_PAGE,
+  });
 export const setHere = (here: boolean) => {
-  if (state.here !== here) set({ here });
+  if (state.here !== here)
+    set({
+      here,
+    });
 };
 
 /** The card is open: the call has been seen, so it leaves the tray. */
 export function visit(key: string): void {
-  if (!state.visited.has(key)) set({ visited: new Set(state.visited).add(key) });
+  if (!state.visited.has(key))
+    set({
+      visited: new Set(state.visited).add(key),
+    });
 }
 /** The light has pinned the card a call asked it to open. */
-export const lightPinned = (): void => set({ light: undefined });
+export const lightPinned = (): void =>
+  set({
+    light: undefined,
+  });
 /** The call is answered: held out of every list until Fleet stops carrying it. */
 export function answered(key: string): void {
-  set({ held: new Map(state.held).set(key, Date.now()), visited: new Set(state.visited).add(key) });
+  set({
+    held: new Map(state.held).set(key, Date.now()),
+    visited: new Set(state.visited).add(key),
+  });
 }
 export function release(keys: readonly string[]): void {
-  if (keys.length > 0) set({ held: new Map([...state.held].filter(([key]) => !keys.includes(key))) });
+  if (keys.length > 0)
+    set({
+      held: new Map(
+        [
+          ...state.held,
+        ].filter(([key]) => !keys.includes(key)),
+      ),
+    });
 }
 
 // ---- The calls -----------------------------------------------------------------------------------------
 
 /** When a call arrived, by the Item's own `at`: the instant, or 0 where Fleet gave none. */
-export const arrivedOf = (item: Pick<Item, "at">): number => (item.at === undefined ? 0 : Date.parse(item.at) || 0);
+export const arrivedOf = (item: Pick<Item, "at">): number =>
+  item.at === undefined ? 0 : Date.parse(item.at) || 0;
 
 /** The calls still to be opened, the one that arrived last in front: not answered, not visited. */
-export function incomingOf(calls: readonly Item[], held: ReadonlyMap<string, number>, visited: ReadonlySet<string>, needing: ReadonlySet<string> = new Set()): Item[] {
+export function incomingOf(
+  calls: readonly Item[],
+  held: ReadonlyMap<string, number>,
+  visited: ReadonlySet<string>,
+  needing: ReadonlySet<string> = new Set(),
+): Item[] {
   const owners = new Set<string>();
-  return calls
-    // Seen is not enough for a Session that still needs the person: its call stays until it does not.
-    .filter((one) => !held.has(one.key) && (!visited.has(one.key) || needing.has(callOwnerOf(one))))
-    .map((one, at) => ({ one, at, when: arrivedOf(one) }))
-    .sort((a, b) => b.when - a.when || a.at - b.at)
-    .map(({ one }) => one)
-    .filter((one) => {
-      const owner = callOwnerOf(one);
-      if (owners.has(owner)) return false;
-      owners.add(owner);
-      return true;
-    });
+  return (
+    calls
+      // Seen is not enough for a Session that still needs the person: its call stays until it does not.
+      .filter(
+        (one) => !held.has(one.key) && (!visited.has(one.key) || needing.has(callOwnerOf(one))),
+      )
+      .map((one, at) => ({
+        one,
+        at,
+        when: arrivedOf(one),
+      }))
+      .sort((a, b) => b.when - a.when || a.at - b.at)
+      .map(({ one }) => one)
+      .filter((one) => {
+        const owner = callOwnerOf(one);
+        if (owners.has(owner)) return false;
+        owners.add(owner);
+        return true;
+      })
+  );
 }
 
 /** The calls without the open Session's own: what it needs of him is a card in its thread, and nothing shows twice. */
-export const withoutOpenSession = (calls: readonly Item[], sel: { kind: string; key: string } | undefined): Item[] =>
-  sel?.kind === "session" ? calls.filter((one) => callOwnerOf(one) !== sel.key) : [...calls];
+export const withoutOpenSession = (
+  calls: readonly Item[],
+  sel:
+    | {
+        kind: string;
+        key: string;
+      }
+    | undefined,
+): Item[] =>
+  sel?.kind === "session"
+    ? calls.filter((one) => callOwnerOf(one) !== sel.key)
+    : [
+        ...calls,
+      ];
 
 /** The Sessions waiting on the person's answer, by the key `callOwnerOf` gives their calls: seeing their call does not end it. */
 export const needingOf = (ship: Pick<Ship, "asking">): ReadonlySet<string> => ship.asking;
@@ -357,22 +590,38 @@ export function openCall(ship: Ship, item: Item, hosts?: Pick<Hosts, "onOpenSess
     (owner === undefined ? undefined : held(owner.id));
   if (subject !== undefined) return picked(selOfSubject(subject));
   // A held checkout is the merge queue's light: opening its call pins the light's card and leaves the stage as it was.
-  if (item.key.startsWith("checkout:")) return (set({ light: "checkout" }), false);
+  if (item.key.startsWith("checkout:"))
+    return (
+      set({
+        light: "checkout",
+      }),
+      false
+    );
   if (sessionId !== undefined && hosts !== undefined) return handed(sessionId, hosts);
   const number = /^pull:(\d+)$/.exec(item.key)?.[1];
-  const pr = number === undefined ? undefined : ship.prs.find((one) => one.number === Number(number));
+  const pr =
+    number === undefined ? undefined : ship.prs.find((one) => one.number === Number(number));
   if (pr !== undefined) return (openPullRequestInPanel(pr), false);
   if (owner !== undefined && hosts !== undefined) return handed(owner.id, hosts);
-  return picked({ kind: "call", key: item.key });
+  return picked({
+    kind: "call",
+    key: item.key,
+  });
 }
 
 /** Drawn on the deck's stage: the caller may bring the deck up. */
 const picked = (sel: Sel): boolean => (select(sel), true);
 /** Opened by the window as a link is: the deck's stage is not where it went. */
-const handed = (id: string, hosts: Pick<Hosts, "onOpenSession">): boolean => (hosts.onOpenSession(id), false);
+const handed = (id: string, hosts: Pick<Hosts, "onOpenSession">): boolean => (
+  hosts.onOpenSession(id), false
+);
 
 /** The call that is about a Session, while it is not answered. */
-export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number>): string | undefined => (subject.call === undefined || held.has(subject.call) ? undefined : subject.call);
+export const callOfSubject = (
+  subject: Subject,
+  held: ReadonlyMap<string, number>,
+): string | undefined =>
+  subject.call === undefined || held.has(subject.call) ? undefined : subject.call;
 
 // ---- The list ------------------------------------------------------------------------------------------
 
@@ -381,24 +630,79 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
  * **Active is the live ones in the order he placed them, the new ones last, without the paused; Paused is the ones he parked; Quiet and Ended are the Sessions that are not, newest first**, an ended one last seen
  * before the week only where a search is. All is both. The Session open on the stage is in the list wherever it came from.
  */
-export function listOf(whole: Ship, deck: Pick<DeckState, "checks" | "held"> & { order?: readonly string[]; scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
+export function listOf(
+  whole: Ship,
+  deck: Pick<DeckState, "checks" | "held"> & {
+    order?: readonly string[];
+    scope?: Scope;
+    found?: ReadonlyMap<string, unknown>;
+    open?: string;
+  },
+  banding?: readonly Banding[],
+): Subject[] {
   // A Mod Job that builds a Custom tab is never a row, not even while it is open on the stage.
-  const ship: Ship = { ...whole, subjects: whole.subjects.filter((one) => one.tab !== true) };
+  const ship: Ship = {
+    ...whole,
+    subjects: whole.subjects.filter((one) => one.tab !== true),
+  };
   const scope = deck.scope ?? "active";
-  const past = ship.subjects.filter((one) => one.past !== undefined).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
-  const held = past.filter((one) => (scope === "all" || scope === one.past) && (one.older !== true || deck.found !== undefined) && one.behind !== true);
+  const past = ship.subjects
+    .filter((one) => one.past !== undefined)
+    .sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
+  const held = past.filter(
+    (one) =>
+      (scope === "all" || scope === one.past) &&
+      (one.older !== true || deck.found !== undefined) &&
+      one.behind !== true,
+  );
   const every = fixedOrderOf(ship, deck.order ?? []);
   const parked = every.filter((one) => one.paused === true);
   const live = every.filter((one) => one.paused !== true);
-  const base = scope === "quiet" || scope === "ended" ? held : scope === "paused" ? parked : scope === "all" ? [...every, ...held] : live;
-  const kept = base.filter((one) => (!deck.checks || ship.running.has(one.key)) && (deck.found === undefined || deck.found.has(one.key)));
-  const open = [...past, ...parked].find((one) => one.key === deck.open && !kept.includes(one) && one.behind !== true);
-  const rows = open === undefined ? kept : [...kept, open];
+  const base =
+    scope === "quiet" || scope === "ended"
+      ? held
+      : scope === "paused"
+        ? parked
+        : scope === "all"
+          ? [
+              ...every,
+              ...held,
+            ]
+          : live;
+  const kept = base.filter(
+    (one) =>
+      (!deck.checks || ship.running.has(one.key)) &&
+      (deck.found === undefined || deck.found.has(one.key)),
+  );
+  const open = [
+    ...past,
+    ...parked,
+  ].find((one) => one.key === deck.open && !kept.includes(one) && one.behind !== true);
+  const rows =
+    open === undefined
+      ? kept
+      : [
+          ...kept,
+          open,
+        ];
   // The one order the list draws and the cursor walks: grouped by repository where the list is, and nested inside each group, so a
   // Job never hangs under a parent drawn in another group.
   if (banding === undefined) return linkedUnder(rows);
   const bands = bandsOf(rows, banding);
-  const away = new Map(bands.flatMap((band) => band.subjects.map((one) => [one.key, { title: one.title, repo: band.label }] as const)));
+  const away = new Map(
+    bands.flatMap((band) =>
+      band.subjects.map(
+        (one) =>
+          [
+            one.key,
+            {
+              title: one.title,
+              repo: band.label,
+            },
+          ] as const,
+      ),
+    ),
+  );
   return bands.flatMap((band) => linkedUnder(band.subjects, away));
 }
 
@@ -406,25 +710,81 @@ export function listOf(whole: Ship, deck: Pick<DeckState, "checks" | "held"> & {
  * Each Session a plan group was handed to stands right under the Session it was handed from, when that one is listed too, however deep the chain.
  * One whose parent is listed in another repository's group (`away`) stands on its own, linked by its glyph alone.
  */
-function linkedUnder(rows: readonly Subject[], away: ReadonlyMap<string, { title: string; repo: string }> = new Map()): Subject[] {
+function linkedUnder(
+  rows: readonly Subject[],
+  away: ReadonlyMap<
+    string,
+    {
+      title: string;
+      repo: string;
+    }
+  > = new Map(),
+): Subject[] {
   const listed = new Set(rows.map((one) => one.key));
   const placed = new Set<string>();
   // A row whose parent is not listed is a plain top-level row: its link would hang off whatever row sits above it.
   const plain = (one: Subject): Subject => {
     const { linked, ...rest } = one;
-    const from = linked === undefined || listed.has(linked.parent) ? undefined : away.get(linked.parent);
-    return from === undefined || linked === undefined ? rest : { ...rest, linked: { parent: linked.parent, ...(linked.group === undefined ? {} : { group: linked.group }), from } };
+    const from =
+      linked === undefined || listed.has(linked.parent) ? undefined : away.get(linked.parent);
+    return from === undefined || linked === undefined
+      ? rest
+      : {
+          ...rest,
+          linked: {
+            parent: linked.parent,
+            ...(linked.group === undefined
+              ? {}
+              : {
+                  group: linked.group,
+                }),
+            from,
+          },
+        };
   };
   // `rails` are the levels whose line runs on past this row: a parent's, down to its next Job, at each level above.
   const tree = (one: Subject, depth: number, rails: readonly number[]): Subject[] => {
     placed.add(one.key);
-    const row = depth === 0 || one.linked === undefined ? plain(one) : { ...one, linked: { ...one.linked, depth, ...(rails.length === 0 ? {} : { rails }) } };
+    const row =
+      depth === 0 || one.linked === undefined
+        ? plain(one)
+        : {
+            ...one,
+            linked: {
+              ...one.linked,
+              depth,
+              ...(rails.length === 0
+                ? {}
+                : {
+                    rails,
+                  }),
+            },
+          };
     const kids = rows.filter((child) => child.linked?.parent === one.key && !placed.has(child.key));
-    return [row, ...kids.flatMap((child, at) => tree(child, depth + 1, at === kids.length - 1 ? rails : [...rails, depth + 1]))];
+    return [
+      row,
+      ...kids.flatMap((child, at) =>
+        tree(
+          child,
+          depth + 1,
+          at === kids.length - 1
+            ? rails
+            : [
+                ...rails,
+                depth + 1,
+              ],
+        ),
+      ),
+    ];
   };
-  const listedRows = rows.filter((one) => one.linked === undefined || !listed.has(one.linked.parent)).flatMap((one) => tree(one, 0, []));
+  const listedRows = rows
+    .filter((one) => one.linked === undefined || !listed.has(one.linked.parent))
+    .flatMap((one) => tree(one, 0, []));
   // Rows that started one another in a loop have no top to hang from: the first of them stands on its own, the rest under it.
-  return [...listedRows, ...rows.flatMap((one) => (placed.has(one.key) ? [] : tree(one, 0, [])))];
+  return [
+    ...listedRows,
+    ...rows.flatMap((one) => (placed.has(one.key) ? [] : tree(one, 0, []))),
+  ];
 }
 
 /**
@@ -432,11 +792,19 @@ function linkedUnder(rows: readonly Subject[], away: ReadonlyMap<string, { title
  * the list. **One predicate for the three**, so the Checks filter narrows the list, the
  * feed and the stage together.
  */
-export function keepOf(listed: readonly Subject[], deck: Pick<DeckState, "checks"> & Partial<Pick<DeckState, "scope" | "query">>): (subject: { kind: string; id?: string }) => boolean {
+export function keepOf(
+  listed: readonly Subject[],
+  deck: Pick<DeckState, "checks"> & Partial<Pick<DeckState, "scope" | "query">>,
+): (subject: { kind: string; id?: string }) => boolean {
   const shown = new Set(listed.map((one) => one.key));
-  const whole = !deck.checks && (deck.scope ?? "active") === "active" && (deck.query ?? "").trim() === "";
-  return (subject) => (subject.kind === "main" ? whole : shown.has(`${subject.kind}:${subject.id}`));
+  const whole =
+    !deck.checks && (deck.scope ?? "active") === "active" && (deck.query ?? "").trim() === "";
+  return (subject) =>
+    subject.kind === "main" ? whole : shown.has(`${subject.kind}:${subject.id}`);
 }
 
 /** The selection of a subject: its own key, which is what the list and the map both carry. */
-export const selOfSubject = (subject: Subject): Sel => ({ kind: "session", key: subject.key });
+export const selOfSubject = (subject: Subject): Sel => ({
+  kind: "session",
+  key: subject.key,
+});

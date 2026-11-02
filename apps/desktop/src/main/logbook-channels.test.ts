@@ -11,22 +11,71 @@ type Handler = (event: unknown, ...args: unknown[]) => unknown;
 
 function channels(connection: FleetConnection | null): Map<string, Handler> {
   const handlers = new Map<string, Handler>();
-  handleLogbook({ ipc: { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) } as unknown as IpcMain, connection: () => connection });
+  handleLogbook({
+    ipc: {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    } as unknown as IpcMain,
+    connection: () => connection,
+  });
   return handlers;
 }
 
 const called: string[] = [];
 const logbook = {
-  read: async () => (called.push("read"), { ok: true, entries: [] }),
-  edit: async (id: string, text: string) => (called.push(`edit ${id} ${text}`), { ok: true }),
-  lock: async (id: string, locked: boolean) => (called.push(`lock ${id} ${locked}`), { ok: true }),
-  forget: async (id: string) => (called.push(`forget ${id}`), { ok: true }),
-  organize: async (action: string) => (called.push(`organize ${action}`), { ok: true }),
-  applyOrganize: async (action: string, proposals: unknown[]) => (called.push(`apply ${action} ${proposals.length}`), { ok: true }),
-  dismissOrganize: async () => (called.push("dismiss"), { ok: true }),
-  tidy: async () => (called.push("tidy"), { ok: true, merged: 3 }),
+  read: async () => (
+    called.push("read"),
+    {
+      ok: true,
+      entries: [],
+    }
+  ),
+  edit: async (id: string, text: string) => (
+    called.push(`edit ${id} ${text}`),
+    {
+      ok: true,
+    }
+  ),
+  lock: async (id: string, locked: boolean) => (
+    called.push(`lock ${id} ${locked}`),
+    {
+      ok: true,
+    }
+  ),
+  forget: async (id: string) => (
+    called.push(`forget ${id}`),
+    {
+      ok: true,
+    }
+  ),
+  organize: async (action: string) => (
+    called.push(`organize ${action}`),
+    {
+      ok: true,
+    }
+  ),
+  applyOrganize: async (action: string, proposals: unknown[]) => (
+    called.push(`apply ${action} ${proposals.length}`),
+    {
+      ok: true,
+    }
+  ),
+  dismissOrganize: async () => (
+    called.push("dismiss"),
+    {
+      ok: true,
+    }
+  ),
+  tidy: async () => (
+    called.push("tidy"),
+    {
+      ok: true,
+      merged: 3,
+    }
+  ),
 };
-const connected = { logbook } as unknown as FleetConnection;
+const connected = {
+  logbook,
+} as unknown as FleetConnection;
 
 describe("the Logbook channels", () => {
   it("pass a well-formed call to the host", async () => {
@@ -35,14 +84,29 @@ describe("the Logbook channels", () => {
     await handlers.get(CHANNELS.editLogbookEntry)?.({}, "w1", "Words.");
     await handlers.get(CHANNELS.lockLogbookEntry)?.({}, "w1", true);
     await handlers.get(CHANNELS.forgetLogbookEntry)?.({}, "w1");
-    expect(await handlers.get(CHANNELS.tidyLogbook)?.({})).toEqual({ ok: true, merged: 3 });
-    expect(called).toEqual(["read", "edit w1 Words.", "lock w1 true", "forget w1", "tidy"]);
+    expect(await handlers.get(CHANNELS.tidyLogbook)?.({})).toEqual({
+      ok: true,
+      merged: 3,
+    });
+    expect(called).toEqual([
+      "read",
+      "edit w1 Words.",
+      "lock w1 true",
+      "forget w1",
+      "tidy",
+    ]);
   });
 
   it("refuse an id or a value that is not the type it should be, without asking Fleet", async () => {
     called.length = 0;
     const handlers = channels(connected);
-    const unread = { ok: false, outcome: { ok: false, why: "not_understood" } };
+    const unread = {
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    };
     expect(await handlers.get(CHANNELS.editLogbookEntry)?.({}, "", "Words.")).toEqual(unread);
     expect(await handlers.get(CHANNELS.editLogbookEntry)?.({}, "w1", 3)).toEqual(unread);
     expect(await handlers.get(CHANNELS.lockLogbookEntry)?.({}, "w1", "yes")).toEqual(unread);
@@ -53,19 +117,50 @@ describe("the Logbook channels", () => {
   it("pass Organize and its apply to the host, and refuse an unknown action or a malformed proposal", async () => {
     called.length = 0;
     const handlers = channels(connected);
-    const one = { id: "a", entry_ids: ["a"], text: "T.", note: "" };
+    const one = {
+      id: "a",
+      entry_ids: [
+        "a",
+      ],
+      text: "T.",
+      note: "",
+    };
     await handlers.get(CHANNELS.organizeLogbook)?.({}, "bugs");
-    await handlers.get(CHANNELS.applyOrganizeLogbook)?.({}, "stale", [one]);
+    await handlers.get(CHANNELS.applyOrganizeLogbook)?.({}, "stale", [
+      one,
+    ]);
     await handlers.get(CHANNELS.dismissOrganizeLogbook)?.({});
-    const unread = { ok: false, outcome: { ok: false, why: "not_understood" } };
+    const unread = {
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_understood",
+      },
+    };
     expect(await handlers.get(CHANNELS.organizeLogbook)?.({}, "tidy")).toEqual(unread);
-    expect(await handlers.get(CHANNELS.applyOrganizeLogbook)?.({}, "stale", [{ id: "a" }])).toEqual(unread);
-    expect(called).toEqual(["organize bugs", "apply stale 1", "dismiss"]);
+    expect(
+      await handlers.get(CHANNELS.applyOrganizeLogbook)?.({}, "stale", [
+        {
+          id: "a",
+        },
+      ]),
+    ).toEqual(unread);
+    expect(called).toEqual([
+      "organize bugs",
+      "apply stale 1",
+      "dismiss",
+    ]);
   });
 
   it("say Fleet is not connected when there is no connection", async () => {
     const handlers = channels(null);
-    const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const unsent = {
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_connected",
+      },
+    };
     expect(await handlers.get(CHANNELS.readLogbook)?.({})).toEqual(unsent);
     expect(await handlers.get(CHANNELS.forgetLogbookEntry)?.({}, "w1")).toEqual(unsent);
     expect(await handlers.get(CHANNELS.tidyLogbook)?.({})).toEqual(unsent);

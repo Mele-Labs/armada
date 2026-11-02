@@ -14,7 +14,16 @@ const ROOT = repository().root;
 
 /** What the window hears when a promise nobody handled is rejected, without a real rejection the test runner would fail on. */
 function rejectUnhandled(reason: Error): void {
-  setTimeout(() => window.dispatchEvent(Object.assign(new Event("unhandledrejection"), { reason, promise: Promise.resolve() })), 0);
+  setTimeout(
+    () =>
+      window.dispatchEvent(
+        Object.assign(new Event("unhandledrejection"), {
+          reason,
+          promise: Promise.resolve(),
+        }),
+      ),
+    0,
+  );
 }
 
 export const s261FailureDispatchSession: Scenario = {
@@ -47,7 +56,11 @@ export const s261FailureDispatchSession: Scenario = {
             return Promise.resolve(undefined);
           }
           const id = store.start(tag, root);
-          if (typeof id === "string" && root === ROOT) store.edit(id, (one) => ({ ...one, manifestId: OWNER }));
+          if (typeof id === "string" && root === ROOT)
+            store.edit(id, (one) => ({
+              ...one,
+              manifestId: OWNER,
+            }));
           return id;
         },
       };

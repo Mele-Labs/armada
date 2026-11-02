@@ -10,10 +10,18 @@
  * middle. Where the whole line is covered it stays at the middle.
  */
 
-type At = { x: number; y: number };
+type At = {
+  x: number;
+  y: number;
+};
 
 /** A card on the board, in the board's own units. */
-export type CardBox = { x: number; y: number; width: number; height: number };
+export type CardBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 /** How far round the dot a card is kept: half the dot's hit area, and a step. */
 const DOT_ROOM = 12;
@@ -39,7 +47,16 @@ export function dotOnTheLine(path: string, middle: At, cards: readonly CardBox[]
   if (clear(middle)) return middle;
   const points = pointsOf(path);
   if (points === null) return middle;
-  const [x0, y0, x1, y1, x2, y2, x3, y3] = points as [number, number, number, number, number, number, number, number];
+  const [x0, y0, x1, y1, x2, y2, x3, y3] = points as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
   const on = (t: number): At => {
     const u = 1 - t;
     return {
@@ -48,7 +65,10 @@ export function dotOnTheLine(path: string, middle: At, cards: readonly CardBox[]
     };
   };
   for (let step = 1; step < TRIES; step += 1) {
-    for (const t of [0.5 - step / (2 * TRIES), 0.5 + step / (2 * TRIES)]) {
+    for (const t of [
+      0.5 - step / (2 * TRIES),
+      0.5 + step / (2 * TRIES),
+    ]) {
       const at = on(t);
       if (clear(at)) return at;
     }

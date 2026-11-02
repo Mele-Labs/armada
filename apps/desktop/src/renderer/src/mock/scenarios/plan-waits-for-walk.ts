@@ -18,10 +18,20 @@ const GROUPS: readonly WorkGroup[] = [
     id: "h1",
     agent: "bridge-engineer",
     title: "Show the bay's warm time",
-    paths: ["apps/desktop/src/renderer/src/cockpit/deck"],
+    paths: [
+      "apps/desktop/src/renderer/src/cockpit/deck",
+    ],
     tasks: [
-      { id: "H1", text: "Draw the warm time on the bay tile", state: "open" },
-      { id: "H2", text: "Keep the tile still while it warms", state: "open" },
+      {
+        id: "H1",
+        text: "Draw the warm time on the bay tile",
+        state: "open",
+      },
+      {
+        id: "H2",
+        text: "Keep the tile still while it warms",
+        state: "open",
+      },
     ],
   },
 ];
@@ -29,16 +39,56 @@ const GROUPS: readonly WorkGroup[] = [
 const held: Session = {
   id: HELD,
   title: TITLE,
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   standing: "working",
   lastTurnAt: new Date().toISOString(),
   rows: [
-    { id: "h-1", at: "14:05:00", kind: "message", from: { kind: "you" }, text: "Show how long a bay took to warm." },
-    { id: "h-2", at: "14:08:10", kind: "window", title: PAGE, url: mockPage() },
-    { id: "h-3", at: "14:10:30", kind: "message", from: { kind: "agent" }, text: "Changing the page. The plan is recorded." },
+    {
+      id: "h-1",
+      at: "14:05:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Show how long a bay took to warm.",
+    },
+    {
+      id: "h-2",
+      at: "14:08:10",
+      kind: "window",
+      title: PAGE,
+      url: mockPage(),
+    },
+    {
+      id: "h-3",
+      at: "14:10:30",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "Changing the page. The plan is recorded.",
+    },
   ],
-  attachments: [{ kind: "artifact", form: "window", id: mockPage(), title: PAGE }],
-  work: { plan: { scope: ["apps/desktop/src/renderer/src/cockpit/deck"], approved: false, after: "h-3", groups: GROUPS } },
+  attachments: [
+    {
+      kind: "artifact",
+      form: "window",
+      id: mockPage(),
+      title: PAGE,
+    },
+  ],
+  work: {
+    plan: {
+      scope: [
+        "apps/desktop/src/renderer/src/cockpit/deck",
+      ],
+      approved: false,
+      after: "h-3",
+      groups: GROUPS,
+    },
+  },
 };
 
 export const s291PlanWaitsForWalk: Scenario = {
@@ -47,7 +97,9 @@ export const s291PlanWaitsForWalk: Scenario = {
   says: "A Job changing a page it showed, with its plan recorded: the page waits in Needs you once ready, and the plan once he approves it",
   draft: {
     sessions: (board) => {
-      const store = s200Sessions.draft!.sessions!(board, [held]);
+      const store = s200Sessions.draft!.sessions!(board, [
+        held,
+      ]);
       const url = mockPage();
       // Changing: nothing is put to him. Ready: the page waits. Approved: the page is off the list and the plan is asked.
       let phase: "changing" | "ready" | "approved" = "changing";
@@ -69,13 +121,35 @@ export const s291PlanWaitsForWalk: Scenario = {
                   ...one,
                   rows: [
                     ...one.rows,
-                    { id: "h-5", at: "14:14:00", kind: "message", from: { kind: "you" }, text: `Approved: ${at}`, instant: now },
-                    { id: "h-6", at: "14:14:20", kind: "message", from: { kind: "agent" }, text: "Approve the plan, or tell me what to change." },
+                    {
+                      id: "h-5",
+                      at: "14:14:00",
+                      kind: "message",
+                      from: {
+                        kind: "you",
+                      },
+                      text: `Approved: ${at}`,
+                      instant: now,
+                    },
+                    {
+                      id: "h-6",
+                      at: "14:14:20",
+                      kind: "message",
+                      from: {
+                        kind: "agent",
+                      },
+                      text: "Approve the plan, or tell me what to change.",
+                    },
                   ],
-                  waitingFor: [...withoutPlanCall(withWalkCall(one.waitingFor, url)), planCall(undefined, now)],
+                  waitingFor: [
+                    ...withoutPlanCall(withWalkCall(one.waitingFor, url)),
+                    planCall(undefined, now),
+                  ],
                 }));
               }
-              return { ok: true };
+              return {
+                ok: true,
+              };
             },
           });
         },
@@ -85,11 +159,28 @@ export const s291PlanWaitsForWalk: Scenario = {
           markWalkWindow("ready");
           store.edit(HELD, (one) => ({
             ...one,
-            turn: { state: "idle" },
+            turn: {
+              state: "idle",
+            },
             standing: "replied",
             lastTurnAt: new Date().toISOString(),
-            rows: [...one.rows, { id: "h-4", at: "14:13:00", kind: "message", from: { kind: "agent" }, text: "The page is ready." }],
-            waitingFor: withWalkCall(one.waitingFor, url, walkCall(url, PAGE, new Date().toISOString())),
+            rows: [
+              ...one.rows,
+              {
+                id: "h-4",
+                at: "14:13:00",
+                kind: "message",
+                from: {
+                  kind: "agent",
+                },
+                text: "The page is ready.",
+              },
+            ],
+            waitingFor: withWalkCall(
+              one.waitingFor,
+              url,
+              walkCall(url, PAGE, new Date().toISOString()),
+            ),
           }));
         },
       };

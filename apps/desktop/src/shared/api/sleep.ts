@@ -4,7 +4,15 @@
 import type { Outcome, SleepState } from "@armada/protocol";
 
 /** What a sleep act came to: the night as Fleet answered with it, or the refusal to word. */
-export type SleepActed = { ok: true; value: SleepState } | { ok: false; outcome: Outcome };
+export type SleepActed =
+  | {
+      ok: true;
+      value: SleepState;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type SleepApi = {
   /** The switch and the night's rows. */

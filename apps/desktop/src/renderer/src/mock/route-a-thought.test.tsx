@@ -10,9 +10,18 @@ import { mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const helm = () => page.getByRole("complementary", { name: "Helm" });
-const box = () => helm().getByRole("textbox", { name: "Ask Helm" });
-const SENT_CHIP = (what: string) => page.getByRole("button", { name: `Sent to ${what}` });
+const helm = () =>
+  page.getByRole("complementary", {
+    name: "Helm",
+  });
+const box = () =>
+  helm().getByRole("textbox", {
+    name: "Ask Helm",
+  });
+const SENT_CHIP = (what: string) =>
+  page.getByRole("button", {
+    name: `Sent to ${what}`,
+  });
 
 /** Type a message in Helm's box and send it with ↵, as the walk does. */
 async function say(words: string): Promise<void> {
@@ -25,9 +34,24 @@ function reading(app: ReturnType<typeof mount>, answer: ThoughtRead | Promise<Th
   app.api.readThought = async () => answer;
 }
 
-const thought = (target?: Extract<ThoughtReading, { kind: "thought" }>["target"]): ThoughtRead => ({
+const thought = (
+  target?: Extract<
+    ThoughtReading,
+    {
+      kind: "thought";
+    }
+  >["target"],
+): ThoughtRead => ({
   ok: true,
-  reading: target === undefined ? { kind: "thought" } : { kind: "thought", target },
+  reading:
+    target === undefined
+      ? {
+          kind: "thought",
+        }
+      : {
+          kind: "thought",
+          target,
+        },
 });
 
 test("words sent to a Session arrive as its message, are recorded once, and never reach Helm's own session", async () => {
@@ -37,9 +61,17 @@ test("words sent to a Session arrive as its message, are recorded once, and neve
   const recorded = vi.spyOn(app.api, "recordThoughtSent");
   await openHelm();
 
-  const words = "I wish that the sessions page would move sessions into a new status that says they are just waiting for work to land";
+  const words =
+    "I wish that the sessions page would move sessions into a new status that says they are just waiting for work to land";
   await say(words);
-  await expect.element(helm().getByRole("group", { name: "Send to", exact: true })).toBeVisible();
+  await expect
+    .element(
+      helm().getByRole("group", {
+        name: "Send to",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   // Fleet has said nothing is sent yet: the row is the thread's, and the thread has none.
   expect(SENT_CHIP("Session Sessions list views").query()).toBeNull();
 
@@ -47,7 +79,12 @@ test("words sent to a Session arrive as its message, are recorded once, and neve
   await expect.element(SENT_CHIP("Session Sessions list views")).toBeVisible();
 
   expect(delivered).toHaveBeenCalledTimes(1);
-  expect(delivered).toHaveBeenCalledWith(expect.objectContaining({ session_id: "01LISTVIEWSAAAAAAAAAAAAAAA", text: words }));
+  expect(delivered).toHaveBeenCalledWith(
+    expect.objectContaining({
+      session_id: "01LISTVIEWSAAAAAAAAAAAAAAA",
+      text: words,
+    }),
+  );
   expect(recorded).toHaveBeenCalledTimes(1);
   expect(recorded).toHaveBeenCalledWith("armada", words, {
     kind: "session",
@@ -58,19 +95,39 @@ test("words sent to a Session arrive as its message, are recorded once, and neve
   });
   expect(asked).not.toHaveBeenCalled();
   // The card is gone, and pressing the chip is the row's own act.
-  expect(helm().getByRole("group", { name: "Send to", exact: true }).query()).toBeNull();
+  expect(
+    helm()
+      .getByRole("group", {
+        name: "Send to",
+        exact: true,
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("a read that failed is a question, and the words go to Helm", async () => {
   const app = mount("route-a-thought");
   const asked = vi.spyOn(app.api, "askHelm");
-  reading(app, { ok: false, outcome: { ok: false, why: "not_connected" } });
+  reading(app, {
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "not_connected",
+    },
+  });
   await openHelm();
 
   await say("why did the store migration spike stop?");
   await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(1));
   expect(asked.mock.calls[0]?.[0]).toBe("why did the store migration spike stop?");
-  expect(helm().getByRole("group", { name: "Send to", exact: true }).query()).toBeNull();
+  expect(
+    helm()
+      .getByRole("group", {
+        name: "Send to",
+        exact: true,
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("a read that was rejected is a question too", async () => {
@@ -92,7 +149,14 @@ test("a thought nothing is about offers a new Session and sends nothing", async 
   await openHelm();
 
   await say("the merge line page should group PRs by repository");
-  await expect.element(helm().getByRole("group", { name: "Start new", exact: true })).toBeVisible();
+  await expect
+    .element(
+      helm().getByRole("group", {
+        name: "Start new",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   expect(delivered).not.toHaveBeenCalled();
   expect(recorded).not.toHaveBeenCalled();
 });

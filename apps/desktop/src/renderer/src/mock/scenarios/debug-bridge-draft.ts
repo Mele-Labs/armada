@@ -9,7 +9,13 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 const AT = "2026-10-12T14:00:00.000Z";
 const READ_MS = 700;
 const BACKFILL = "01SESSIONAAAAAAAAAAAAAAAAA";
@@ -17,16 +23,43 @@ const BACKFILL = "01SESSIONAAAAAAAAAAAAAAAAA";
 const sessions = () => [
   hosted(BACKFILL, {
     title: "Backfill dry run",
-    attachments: [held("slot", "3"), held("branch", "fix/backfill")],
-    hosted: { turn: { state: "working" }, mode: "auto", running: true },
+    attachments: [
+      held("slot", "3"),
+      held("branch", "fix/backfill"),
+    ],
+    hosted: {
+      turn: {
+        state: "working",
+      },
+      mode: "auto",
+      running: true,
+    },
   }),
 ];
 
 const threads = (): Record<string, SessionRow[]> => ({
   [BACKFILL]: [
-    { kind: "message", id: "w1", at: AT, from: { kind: "you" }, text: "Dry-run the backfill against the copy." },
-    { kind: "tool", id: "w2", at: AT, text: "Read crates/store/src/backfill.rs" },
-    { kind: "tool", id: "w3", at: AT, text: "Bash cargo run -p store --example backfill -- --dry-run" },
+    {
+      kind: "message",
+      id: "w1",
+      at: AT,
+      from: {
+        kind: "you",
+      },
+      text: "Dry-run the backfill against the copy.",
+    },
+    {
+      kind: "tool",
+      id: "w2",
+      at: AT,
+      text: "Read crates/store/src/backfill.rs",
+    },
+    {
+      kind: "tool",
+      id: "w3",
+      at: AT,
+      text: "Bash cargo run -p store --example backfill -- --dry-run",
+    },
   ],
 });
 
@@ -42,12 +75,20 @@ async function windowShot(): Promise<Uint8Array> {
   paint.fillRect(220, 20, 60, 150);
   paint.fillStyle = "#2b3d63";
   paint.fillRect(8, 4, 272, 8);
-  return new Uint8Array(await (await canvas.convertToBlob({ type: "image/png" })).arrayBuffer());
+  return new Uint8Array(
+    await (
+      await canvas.convertToBlob({
+        type: "image/png",
+      })
+    ).arrayBuffer(),
+  );
 }
 
 function build(): Scenario {
   const board = onBoard({
-    repositories: [ARMADA],
+    repositories: [
+      ARMADA,
+    ],
     picked: ARMADA.root,
   });
   const served = new FakeSessionsFleet(sessions(), threads()).scenario(board);
@@ -66,15 +107,38 @@ function build(): Scenario {
         startSession: async (title, root, request, tuning, after, holds) => {
           const started = await own.startSession!(title, root, request, tuning, after, holds);
           if (!started.ok) return started;
-          if (title !== undefined) await own.renameSession!({ session_id: started.value.id, title });
+          if (title !== undefined)
+            await own.renameSession!({
+              session_id: started.value.id,
+              title,
+            });
           if (request !== undefined && holds === true) {
             const id = started.value.id;
-            fake.proposes(id, { reading: true });
-            window.setTimeout(() => fake.proposes(id, { workflow: "feature", picked: ["workflow"], landing: { choice: "auto_land", from: "usual" } }), READ_MS);
+            fake.proposes(id, {
+              reading: true,
+            });
+            window.setTimeout(
+              () =>
+                fake.proposes(id, {
+                  workflow: "feature",
+                  picked: [
+                    "workflow",
+                  ],
+                  landing: {
+                    choice: "auto_land",
+                    from: "usual",
+                  },
+                }),
+              READ_MS,
+            );
           }
           return started;
         },
-        readSessionFile: async () => ({ ok: true, bytes: await windowShot(), type: "image/png" }),
+        readSessionFile: async () => ({
+          ok: true,
+          bytes: await windowShot(),
+          type: "image/png",
+        }),
         sendSessionMessage: async (send) => {
           await own.watchSession!(send.session_id);
           return own.sendSessionMessage!(send);

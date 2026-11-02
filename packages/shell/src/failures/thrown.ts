@@ -72,11 +72,25 @@ export function rendererFailure(
   usable: boolean,
 ): Failure {
   const details: FailureDetail[] = [
-    { label: "Component", value: caught.component ?? "not named by the stack" },
-    { label: "Message", value: caught.message },
+    {
+      label: "Component",
+      value: caught.component ?? "not named by the stack",
+    },
+    {
+      label: "Message",
+      value: caught.message,
+    },
   ];
-  if (caught.where !== null) details.push({ label: "Where", value: caught.where.trim() });
-  if (caught.stack !== null) details.push({ label: "Stack", value: caught.stack.trim() });
+  if (caught.where !== null)
+    details.push({
+      label: "Where",
+      value: caught.where.trim(),
+    });
+  if (caught.stack !== null)
+    details.push({
+      label: "Stack",
+      value: caught.stack.trim(),
+    });
 
   return {
     // **A fault, not the stale view it resembles.** Fleet is fine and Jobs are
@@ -93,11 +107,22 @@ export function rendererFailure(
       code: RENDER_BOUNDARY,
       message: caught.message,
       fields: [
-        { key: "region", value: region },
+        {
+          key: "region",
+          value: region,
+        },
         ...(caught.component === null
           ? []
-          : [{ key: "component", value: caught.component }]),
-        { key: "window_usable", value: String(usable) },
+          : [
+              {
+                key: "component",
+                value: caught.component,
+              },
+            ]),
+        {
+          key: "window_usable",
+          value: String(usable),
+        },
         ...logField(bridge),
       ],
       // The thrown stack where React gave one, and the component stack where
@@ -142,8 +167,17 @@ const UNCAUGHT_THROW: BridgeCode = "bridge.uncaught.throw";
  * open the payload to learn the one thing that decides what to do.
  */
 export function uncaughtFailure(uncaught: Uncaught, bridge: BridgeIdentity): Failure {
-  const details: FailureDetail[] = [{ label: "Message", value: uncaught.message }];
-  if (uncaught.stack !== null) details.push({ label: "Stack", value: uncaught.stack.trim() });
+  const details: FailureDetail[] = [
+    {
+      label: "Message",
+      value: uncaught.message,
+    },
+  ];
+  if (uncaught.stack !== null)
+    details.push({
+      label: "Stack",
+      value: uncaught.stack.trim(),
+    });
 
   return {
     // **A fault, both ways.** Something inside Bridge stopped halfway. Fleet's
@@ -158,7 +192,13 @@ export function uncaughtFailure(uncaught: Uncaught, bridge: BridgeIdentity): Fai
     payload: {
       code: uncaught.from === "rejection" ? UNCAUGHT_REJECTION : UNCAUGHT_THROW,
       message: uncaught.message,
-      fields: [{ key: "from", value: uncaught.from }, ...logField(bridge)],
+      fields: [
+        {
+          key: "from",
+          value: uncaught.from,
+        },
+        ...logField(bridge),
+      ],
       chain: frames(uncaught.stack, uncaught.message),
       ...versions(bridge),
     },

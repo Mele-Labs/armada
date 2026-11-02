@@ -25,39 +25,83 @@ function pageSession(): Electron.Session {
   prepared = true;
   part.setPermissionRequestHandler((_contents, _permission, decide) => decide(false));
   part.setPermissionCheckHandler(() => false);
-  part.setDisplayMediaRequestHandler(() => {}, { useSystemPicker: false });
+  part.setDisplayMediaRequestHandler(() => {}, {
+    useSystemPicker: false,
+  });
   part.on("will-download", (event) => event.preventDefault());
   return part;
 }
 
 /** The size the page is laid out at for its picture, and the widest the picture is sent. The renderer's live frame lays out at the same size. */
-const SNAPSHOT = { width: 800, height: 440 } as const;
+const SNAPSHOT = {
+  width: 800,
+  height: 440,
+} as const;
 
 export class SessionPages {
   /** The hidden window a window's live page is held in, and what ends its pictures. One per window. */
-  private readonly shots = new Map<number, { address: string; host: BrowserWindow; stop: () => void }>();
+  private readonly shots = new Map<
+    number,
+    {
+      address: string;
+      host: BrowserWindow;
+      stop: () => void;
+    }
+  >();
 
   /** One view per window, since a window has one panel. */
-  private readonly views = new Map<number, { view: WebContentsView; window: BrowserWindow; address: string }>();
+  private readonly views = new Map<
+    number,
+    {
+      view: WebContentsView;
+      window: BrowserWindow;
+      address: string;
+    }
+  >();
 
-  show(sender: Electron.WebContents, record: SessionRecord | undefined, address: string, bounds: unknown): Followed {
-    if (!namesPage(record, address)) return { ok: false, why: "not_addressable", address };
+  show(
+    sender: Electron.WebContents,
+    record: SessionRecord | undefined,
+    address: string,
+    bounds: unknown,
+  ): Followed {
+    if (!namesPage(record, address))
+      return {
+        ok: false,
+        why: "not_addressable",
+        address,
+      };
     const window = BrowserWindow.fromWebContents(sender);
-    if (window === null || window.isDestroyed()) return { ok: false, why: "refused", address, detail: "no window" };
+    if (window === null || window.isDestroyed())
+      return {
+        ok: false,
+        why: "refused",
+        address,
+        detail: "no window",
+      };
     const held = this.views.get(window.id);
     const rect = boundsOf(bounds, window.getContentBounds());
     if (held !== undefined && held.address === address) {
       held.view.setBounds(rect);
-      return { ok: true };
+      return {
+        ok: true,
+      };
     }
     this.hide(sender);
     const view = new WebContentsView({
-      webPreferences: { session: pageSession(), sandbox: true, contextIsolation: true, nodeIntegration: false },
+      webPreferences: {
+        session: pageSession(),
+        sandbox: true,
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
     });
     // A page that opens another opens it in the browser, never in a window of ours.
     view.webContents.setWindowOpenHandler(({ url }) => {
       if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
-      return { action: "deny" };
+      return {
+        action: "deny",
+      };
     });
     // The view has the keyboard while it is shown, so Esc never reaches the renderer's own binding.
     view.webContents.on("before-input-event", (event, input) => {
@@ -67,18 +111,42 @@ export class SessionPages {
     });
     window.contentView.addChildView(view);
     view.setBounds(rect);
-    this.views.set(window.id, { view, window, address });
+    this.views.set(window.id, {
+      view,
+      window,
+      address,
+    });
     window.once("closed", () => this.views.delete(window.id));
     void view.webContents.loadURL(address);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /** Starts pictures of a page the Session's ledger names, for the window that asked. A second ask for the same page keeps the first. */
-  watch(sender: Electron.WebContents, record: SessionRecord | undefined, address: string): Followed {
-    if (!namesPage(record, address)) return { ok: false, why: "not_addressable", address };
+  watch(
+    sender: Electron.WebContents,
+    record: SessionRecord | undefined,
+    address: string,
+  ): Followed {
+    if (!namesPage(record, address))
+      return {
+        ok: false,
+        why: "not_addressable",
+        address,
+      };
     const window = BrowserWindow.fromWebContents(sender);
-    if (window === null || window.isDestroyed()) return { ok: false, why: "refused", address, detail: "no window" };
-    if (this.shots.get(window.id)?.address === address) return { ok: true };
+    if (window === null || window.isDestroyed())
+      return {
+        ok: false,
+        why: "refused",
+        address,
+        detail: "no window",
+      };
+    if (this.shots.get(window.id)?.address === address)
+      return {
+        ok: true,
+      };
     this.stop(sender);
     // A window never shown, at the size the page is laid out at. A view in no window, or in a hidden BaseWindow, gives
     // capturePage() nothing to draw on macOS; a hidden BrowserWindow does.
@@ -88,12 +156,20 @@ export class SessionPages {
       useContentSize: true,
       skipTaskbar: true,
       focusable: false,
-      webPreferences: { session: pageSession(), sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
+      webPreferences: {
+        session: pageSession(),
+        sandbox: true,
+        contextIsolation: true,
+        nodeIntegration: false,
+        backgroundThrottling: false,
+      },
     });
     const contents = host.webContents;
     contents.setWindowOpenHandler(({ url }) => {
       if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
-      return { action: "deny" };
+      return {
+        action: "deny",
+      };
     });
     const stopTaking = keepSnapshots(
       {
@@ -101,7 +177,13 @@ export class SessionPages {
           if (contents.isDestroyed()) return undefined;
           const image = await contents.capturePage();
           if (image.isEmpty()) return undefined;
-          return (image.getSize().width > SNAPSHOT.width ? image.resize({ width: SNAPSHOT.width }) : image).toPNG();
+          return (
+            image.getSize().width > SNAPSHOT.width
+              ? image.resize({
+                  width: SNAPSHOT.width,
+                })
+              : image
+          ).toPNG();
         },
         onChange: (on) => {
           contents.on("did-finish-load", on);
@@ -109,7 +191,11 @@ export class SessionPages {
         },
       },
       (png) => {
-        if (!sender.isDestroyed()) sender.send(SESSIONS_CHANNELS.sessionSnapshot, { address, png });
+        if (!sender.isDestroyed())
+          sender.send(SESSIONS_CHANNELS.sessionSnapshot, {
+            address,
+            png,
+          });
       },
     );
     this.shots.set(window.id, {
@@ -126,7 +212,9 @@ export class SessionPages {
       this.shots.delete(id);
     });
     void contents.loadURL(address);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /** Ends the window's pictures and closes the hidden window they were taken in. */

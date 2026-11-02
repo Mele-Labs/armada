@@ -6,7 +6,10 @@ import type { ClashFileRead } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
 
-const base = compactSession("compact-slot-clash", "A Session holding two bays, in write clashes with two other Sessions, with no call for them in the thread");
+const base = compactSession(
+  "compact-slot-clash",
+  "A Session holding two bays, in write clashes with two other Sessions, with no call for them in the thread",
+);
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 /** A side's change to a file: an import, and a hunk at line 41 that both sides change, so it collides. The other side's first hunk is further down. */
@@ -23,25 +26,59 @@ export const s274CompactSlotClash: Scenario = {
   held: {
     ...base.held!,
     slots: (base.held!.slots ?? []).map((one) =>
-      one.slot === 4 ? { ...one, held: { state: "hosted_session", session_id: "compact-1", session_title: "Retry the slot lease" }, branch: "armada/lease-retry-wire", since: ago(12), behind: 2 } : one,
+      one.slot === 4
+        ? {
+            ...one,
+            held: {
+              state: "hosted_session",
+              session_id: "compact-1",
+              session_title: "Retry the slot lease",
+            },
+            branch: "armada/lease-retry-wire",
+            since: ago(12),
+            behind: 2,
+          }
+        : one,
     ),
   },
   draft: {
     ...base.draft,
     sessions: (board, more) => ({
       ...base.draft!.sessions!(board, more),
-      clashFile: async (_id, _other, path): Promise<ClashFileRead> => ({ ok: true, ours: patchOf(path, true), theirs: patchOf(path, false) }),
+      clashFile: async (_id, _other, path): Promise<ClashFileRead> => ({
+        ok: true,
+        ours: patchOf(path, true),
+        theirs: patchOf(path, false),
+      }),
     }),
     clashes: [
       {
-        one: { kind: "session", id: "compact-1", label: "Retry the slot lease" },
-        other: { kind: "session", id: "compact-3", label: "Name the store migrations" },
-        paths: ["crates/ipc/src/lib.rs"],
+        one: {
+          kind: "session",
+          id: "compact-1",
+          label: "Retry the slot lease",
+        },
+        other: {
+          kind: "session",
+          id: "compact-3",
+          label: "Name the store migrations",
+        },
+        paths: [
+          "crates/ipc/src/lib.rs",
+        ],
         since: ago(5),
       },
       {
-        one: { kind: "session", id: "compact-4", label: "Rotate the audit log" },
-        other: { kind: "session", id: "compact-1", label: "Retry the slot lease" },
+        one: {
+          kind: "session",
+          id: "compact-4",
+          label: "Rotate the audit log",
+        },
+        other: {
+          kind: "session",
+          id: "compact-1",
+          label: "Retry the slot lease",
+        },
         paths: [
           "crates/fleet/src/audit.rs",
           "crates/fleet/src/lease.rs",

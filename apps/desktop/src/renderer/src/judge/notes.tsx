@@ -4,7 +4,13 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import { FindingNotes, useFindingKeys, type DiffFile, type Finding } from "@armada/components";
 
-import { useJudgeApi, useJudgeRecord, useJudgeRecords, type JudgeArtifact, type JudgeNote } from "./store";
+import {
+  useJudgeApi,
+  useJudgeRecord,
+  useJudgeRecords,
+  type JudgeArtifact,
+  type JudgeNote,
+} from "./store";
 
 const NONE: readonly JudgeNote[] = [];
 
@@ -12,9 +18,23 @@ const NONE: readonly JudgeNote[] = [];
 export const findingOf = (note: JudgeNote): Finding => ({
   id: note.id,
   consequence: note.claim,
-  ...(note.where === undefined ? {} : { cites: [note.where] }),
-  ...(note.about === undefined ? {} : { about: note.about }),
-  ...(note.settled === undefined ? {} : { settled: note.settled }),
+  ...(note.where === undefined
+    ? {}
+    : {
+        cites: [
+          note.where,
+        ],
+      }),
+  ...(note.about === undefined
+    ? {}
+    : {
+        about: note.about,
+      }),
+  ...(note.settled === undefined
+    ? {}
+    : {
+        settled: note.settled,
+      }),
 });
 
 /** The reading of one artifact, with the acts on its notes. The notes are read once something draws them: `markRead` is the caller's to call. */
@@ -33,22 +53,45 @@ export function useJudgeNotes(job: string, artifact: Pick<JudgeArtifact, "kind" 
 }
 
 /** Keeps the reading's notes read for as long as something draws them. */
-export function useNotesRead(job: string, artifact: Pick<JudgeArtifact, "kind" | "id">, drawn: boolean): void {
+export function useNotesRead(
+  job: string,
+  artifact: Pick<JudgeArtifact, "kind" | "id">,
+  drawn: boolean,
+): void {
   const { record, markRead } = useJudgeNotes(job, artifact);
   const unread = record !== undefined && !record.read;
   useEffect(() => {
     if (drawn && unread) markRead();
     // The record is the thing that changes; the act is made fresh each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawn, unread, record?.id]);
+  }, [
+    drawn,
+    unread,
+    record?.id,
+  ]);
 }
 
 /** The notes of a reading that stand under one part, as a list in the artifact. Draws nothing where the part has none. */
-export function JudgeNotes({ job, artifact, label, only, draws = true }: { job: string; artifact: Pick<JudgeArtifact, "kind" | "id">; label: string; /** Which notes stand here. Absent, every one. */ only?: (note: JudgeNote) => boolean; draws?: boolean }) {
+export function JudgeNotes({
+  job,
+  artifact,
+  label,
+  only,
+  draws = true,
+}: {
+  job: string;
+  artifact: Pick<JudgeArtifact, "kind" | "id">;
+  label: string /** Which notes stand here. Absent, every one. */;
+  only?: (note: JudgeNote) => boolean;
+  draws?: boolean;
+}) {
   const { notes, send, dismiss } = useJudgeNotes(job, artifact);
   const here = notes.filter((one) => only?.(one) ?? true);
   const findings = here.map(findingOf);
-  const keys = useFindingKeys(findings, { onSend: send, onDismiss: dismiss });
+  const keys = useFindingKeys(findings, {
+    onSend: send,
+    onDismiss: dismiss,
+  });
   useNotesRead(job, artifact, draws && here.length > 0);
   if (here.length === 0) return null;
   return (
@@ -59,8 +102,21 @@ export function JudgeNotes({ job, artifact, label, only, draws = true }: { job: 
 }
 
 /** A note block at the top of a view that has no parts to pin to: the notes whose part is the whole of it. */
-export function JudgeNoteBlock({ job, artifact }: { job: string; artifact: Pick<JudgeArtifact, "kind" | "id"> }) {
-  return <JudgeNotes job={job} artifact={artifact} label="Notes from the judge" only={(note) => note.about === undefined} />;
+export function JudgeNoteBlock({
+  job,
+  artifact,
+}: {
+  job: string;
+  artifact: Pick<JudgeArtifact, "kind" | "id">;
+}) {
+  return (
+    <JudgeNotes
+      job={job}
+      artifact={artifact}
+      label="Notes from the judge"
+      only={(note) => note.about === undefined}
+    />
+  );
 }
 
 /** The line a diff's line has in the new file: counted from the hunk headers, since the diff draws no numbers. Absent for a line that is only removed. */
@@ -84,7 +140,10 @@ export function newLineAt(file: DiffFile, index: number): number | undefined {
 }
 
 /** The `under` of a diff: the notes whose `path:line` is the line drawn, under it. Absent where the reading has no note on a line, so a diff draws as it did. */
-export function useDiffUnder(job: string, artifact: Pick<JudgeArtifact, "kind" | "id">): ((file: DiffFile, index: number) => ReactNode) | undefined {
+export function useDiffUnder(
+  job: string,
+  artifact: Pick<JudgeArtifact, "kind" | "id">,
+): ((file: DiffFile, index: number) => ReactNode) | undefined {
   const { notes } = useJudgeNotes(job, artifact);
   const { kind, id } = artifact;
   return useMemo(() => {
@@ -93,17 +152,38 @@ export function useDiffUnder(job: string, artifact: Pick<JudgeArtifact, "kind" |
       const line = newLineAt(file, index);
       const about = line === undefined ? undefined : `${file.path}:${line}`;
       if (about === undefined || !notes.some((one) => one.about === about)) return null;
-      return <JudgeNotes job={job} artifact={{ kind, id }} label={`Notes on ${about}`} only={(note) => note.about === about} />;
+      return (
+        <JudgeNotes
+          job={job}
+          artifact={{
+            kind,
+            id,
+          }}
+          label={`Notes on ${about}`}
+          only={(note) => note.about === about}
+        />
+      );
     };
-  }, [notes, job, kind, id]);
+  }, [
+    notes,
+    job,
+    kind,
+    id,
+  ]);
 }
 
 /** Kinds that have a view of their own to hold their notes. */
-const OWN_VIEW: ReadonlySet<string> = new Set(["plan", "pull_request", "doc"]);
+const OWN_VIEW: ReadonlySet<string> = new Set([
+  "plan",
+  "pull_request",
+  "doc",
+]);
 
 /** The notes of the artifacts that have no view of their own, at the head of the Job's thread: each headed by what it is about. */
 export function JudgeLooseNotes({ job }: { job: string }) {
-  const records = useJudgeRecords(job).filter((one) => one.state === "done" && !OWN_VIEW.has(one.artifact.kind) && one.notes.length > 0);
+  const records = useJudgeRecords(job).filter(
+    (one) => one.state === "done" && !OWN_VIEW.has(one.artifact.kind) && one.notes.length > 0,
+  );
   if (records.length === 0) return null;
   return (
     <div className="judge-loose">

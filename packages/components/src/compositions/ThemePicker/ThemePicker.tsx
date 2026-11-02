@@ -23,7 +23,10 @@ export type ThemeChoice = {
    */
   swatch?: readonly string[];
 };
-export type ThemeGroup = { label: string; choices: readonly ThemeChoice[] };
+export type ThemeGroup = {
+  label: string;
+  choices: readonly ThemeChoice[];
+};
 
 export type ThemePickerProps = {
   /** Sentence case, no Wh- opener. Names the field and the list it opens. */
@@ -38,11 +41,32 @@ const PLACEHOLDER_CELLS = 8;
 
 /** The theme's colours as one compact strip. Decoration: the name beside it says which theme. */
 function Swatch({ colours }: { colours: readonly string[] | undefined }) {
-  const cells = colours ?? Array.from({ length: PLACEHOLDER_CELLS }, () => null);
+  const cells =
+    colours ??
+    Array.from(
+      {
+        length: PLACEHOLDER_CELLS,
+      },
+      () => null,
+    );
   return (
-    <span className="armada-themepick__swatch" data-placeholder={colours === undefined || undefined} aria-hidden>
+    <span
+      className="armada-themepick__swatch"
+      data-placeholder={colours === undefined || undefined}
+      aria-hidden
+    >
       {cells.map((colour, at) => (
-        <span key={at} className="armada-themepick__cell" {...(colour === null ? {} : { style: { background: colour } })} />
+        <span
+          key={at}
+          className="armada-themepick__cell"
+          {...(colour === null
+            ? {}
+            : {
+                style: {
+                  background: colour,
+                },
+              })}
+        />
       ))}
     </span>
   );
@@ -59,19 +83,33 @@ export function ThemePicker({ label, value, groups, onValue }: ThemePickerProps)
 
   const needle = (query ?? "").trim().toLowerCase();
   const shown = groups
-    .map((group) => ({ label: group.label, choices: group.choices.filter((one) => one.title.toLowerCase().includes(needle)) }))
+    .map((group) => ({
+      label: group.label,
+      choices: group.choices.filter((one) => one.title.toLowerCase().includes(needle)),
+    }))
     .filter((group) => group.choices.length > 0);
   const flat = shown.flatMap((group) => group.choices);
   const chosen = groups.flatMap((group) => group.choices).find((one) => one.id === value);
 
   // The pointer or an arrow key moved the highlight: bring that row into view.
   useEffect(() => {
-    if (open) list.current?.querySelector(`[id="${optionId(active)}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [open, active]);
+    if (open)
+      list.current?.querySelector(`[id="${optionId(active)}"]`)?.scrollIntoView({
+        block: "nearest",
+      });
+  }, [
+    open,
+    active,
+  ]);
 
   function show(): void {
     setOpen(true);
-    setActive(Math.max(0, flat.findIndex((one) => one.id === value)));
+    setActive(
+      Math.max(
+        0,
+        flat.findIndex((one) => one.id === value),
+      ),
+    );
   }
 
   function close(): void {
@@ -121,7 +159,12 @@ export function ThemePicker({ label, value, groups, onValue }: ThemePickerProps)
         trailing={
           <span className="armada-themepick__trailing">
             {chosen === undefined || query !== null ? null : <Swatch colours={chosen.swatch} />}
-            <ChevronDown className="armada-themepick__caret" size={16} strokeWidth={2} aria-hidden />
+            <ChevronDown
+              className="armada-themepick__caret"
+              size={16}
+              strokeWidth={2}
+              aria-hidden
+            />
           </span>
         }
         onChange={(event) => {
@@ -139,7 +182,13 @@ export function ThemePicker({ label, value, groups, onValue }: ThemePickerProps)
         onKeyDown={onKeyDown}
       />
       {!open || flat.length === 0 ? null : (
-        <div className="armada-themepick__list" id={listId} role="listbox" aria-label={label} ref={list}>
+        <div
+          className="armada-themepick__list"
+          id={listId}
+          role="listbox"
+          aria-label={label}
+          ref={list}
+        >
           {shown.map((group) => (
             <div key={group.label} role="group" aria-label={group.label}>
               <div className="armada-themepick__group caps" aria-hidden>
@@ -154,7 +203,11 @@ export function ThemePicker({ label, value, groups, onValue }: ThemePickerProps)
                     id={optionId(index)}
                     role="option"
                     aria-selected={choice.id === value}
-                    className={index === active ? "armada-themepick__row armada-themepick__row--active" : "armada-themepick__row"}
+                    className={
+                      index === active
+                        ? "armada-themepick__row armada-themepick__row--active"
+                        : "armada-themepick__row"
+                    }
                     onMouseEnter={() => setActive(index)}
                     // `onMouseDown`, not `onClick`: a click fires after the field's own blur, which has already closed the list.
                     onMouseDown={(event) => {

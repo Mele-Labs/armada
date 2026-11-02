@@ -10,7 +10,13 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { Holdings, MergeLines, PlanUsage, SessionRecord, TimelineEvent } from "@armada/protocol";
+import type {
+  Holdings,
+  MergeLines,
+  PlanUsage,
+  SessionRecord,
+  TimelineEvent,
+} from "@armada/protocol";
 
 /** How old the file may be and still be drawn. Fixed, not a setting. */
 export const REMEMBERED_FOR_MS = 5 * 60_000;
@@ -26,7 +32,8 @@ export type Picture = {
   timeline?: TimelineEvent[];
 };
 
-const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 const listOf = (value: unknown, one: (item: Record<string, unknown>) => boolean): boolean =>
   Array.isArray(value) && value.every((item) => isObject(item) && one(item));
 
@@ -44,17 +51,30 @@ export function parsePicture(text: string, now: number): Picture | null {
 
   const picture: Picture = {};
   const sessions = file["sessions"];
-  if (listOf(sessions, (one) => typeof one["id"] === "string" && typeof one["state"] === "string")) picture.sessions = sessions as SessionRecord[];
+  if (listOf(sessions, (one) => typeof one["id"] === "string" && typeof one["state"] === "string"))
+    picture.sessions = sessions as SessionRecord[];
   const mergeLines = file["mergeLines"];
-  if (isObject(mergeLines) && Array.isArray(mergeLines["lines"])) picture.mergeLines = mergeLines as MergeLines;
+  if (isObject(mergeLines) && Array.isArray(mergeLines["lines"]))
+    picture.mergeLines = mergeLines as MergeLines;
   const holds = file["holds"];
-  if (isObject(holds) && Array.isArray(holds["workflows"]) && Array.isArray(holds["manifests"]) && Array.isArray(holds["repositories"])) {
-    picture.holds = { workflows: holds["workflows"], manifests: holds["manifests"], repositories: holds["repositories"] } as Picture["holds"] & object;
+  if (
+    isObject(holds) &&
+    Array.isArray(holds["workflows"]) &&
+    Array.isArray(holds["manifests"]) &&
+    Array.isArray(holds["repositories"])
+  ) {
+    picture.holds = {
+      workflows: holds["workflows"],
+      manifests: holds["manifests"],
+      repositories: holds["repositories"],
+    } as Picture["holds"] & object;
   }
   const planUsage = file["planUsage"];
-  if (isObject(planUsage) && Array.isArray(planUsage["windows"])) picture.planUsage = planUsage as PlanUsage;
+  if (isObject(planUsage) && Array.isArray(planUsage["windows"]))
+    picture.planUsage = planUsage as PlanUsage;
   const timeline = file["timeline"];
-  if (listOf(timeline, (one) => typeof one["id"] === "number")) picture.timeline = timeline as TimelineEvent[];
+  if (listOf(timeline, (one) => typeof one["id"] === "number"))
+    picture.timeline = timeline as TimelineEvent[];
   return Object.keys(picture).length === 0 ? null : picture;
 }
 
@@ -79,13 +99,18 @@ export class Remembered {
       return null;
     }
     const found = parsePicture(text, this.now());
-    this.picture = { ...found };
+    this.picture = {
+      ...found,
+    };
     return found;
   }
 
   /** Parts that changed. They are written `WRITE_AFTER_MS` after the first change since the last write. */
   keep(part: Picture): void {
-    this.picture = { ...this.picture, ...part };
+    this.picture = {
+      ...this.picture,
+      ...part,
+    };
     this.heard = true;
     if (this.file === undefined) return;
     this.writing ??= setTimeout(() => void this.write(), WRITE_AFTER_MS);
@@ -97,8 +122,16 @@ export class Remembered {
     const file = this.file;
     if (file === undefined) return;
     try {
-      await mkdir(dirname(file), { recursive: true });
-      await writeFile(file, JSON.stringify({ at: this.now(), ...this.picture }));
+      await mkdir(dirname(file), {
+        recursive: true,
+      });
+      await writeFile(
+        file,
+        JSON.stringify({
+          at: this.now(),
+          ...this.picture,
+        }),
+      );
     } catch {}
   }
 
@@ -108,7 +141,13 @@ export class Remembered {
     clearTimeout(this.writing);
     this.writing = undefined;
     try {
-      writeFileSync(this.file, JSON.stringify({ at: this.now(), ...this.picture }));
+      writeFileSync(
+        this.file,
+        JSON.stringify({
+          at: this.now(),
+          ...this.picture,
+        }),
+      );
     } catch {}
   }
 }

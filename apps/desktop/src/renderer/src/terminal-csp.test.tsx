@@ -12,12 +12,32 @@ import { page } from "vitest/browser";
 import "./styles/index.css";
 
 // Typed by hand, as `catalogue.ts` does: Vite's client types are not loaded here.
-type Globbing = ImportMeta & { glob(pattern: string, options: { eager: true; query: string; import: string }): Record<string, string> };
-const [indexHtml = ""] = Object.values((import.meta as Globbing).glob("../index.html", { eager: true, query: "?raw", import: "default" }));
+type Globbing = ImportMeta & {
+  glob(
+    pattern: string,
+    options: {
+      eager: true;
+      query: string;
+      import: string;
+    },
+  ): Record<string, string>;
+};
+const [indexHtml = ""] = Object.values(
+  (import.meta as Globbing).glob("../index.html", {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  }),
+);
 
 const POLICY = /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/.exec(indexHtml)?.[1];
 
-const colorOfWord = (word: string) => getComputedStyle([...document.querySelectorAll(".xterm-rows span")].find((one) => one.textContent === word)!).color;
+const colorOfWord = (word: string) =>
+  getComputedStyle(
+    [
+      ...document.querySelectorAll(".xterm-rows span"),
+    ].find((one) => one.textContent === word)!,
+  ).color;
 
 test("the policy is in force: an inline <style> is refused", () => {
   expect(POLICY).toContain("default-src 'self'");
@@ -41,14 +61,30 @@ test("a screen drawn under it still has the theme's background, its palette colo
   const host = document.createElement("div");
   host.style.cssText = "width: 640px; height: 240px; display: flex";
   document.body.append(host);
-  const out = "\u001b[32mgreen\u001b[39m \u001b[31mred\u001b[39m \u001b[38;5;208morange\u001b[39m \u001b[38;2;10;200;30mlime\u001b[39m\r\n";
-  createRoot(host).render(<XtermScreen out={out} run={1} running={false} write={() => undefined} onSize={() => undefined} />);
+  const out =
+    "\u001b[32mgreen\u001b[39m \u001b[31mred\u001b[39m \u001b[38;5;208morange\u001b[39m \u001b[38;2;10;200;30mlime\u001b[39m\r\n";
+  createRoot(host).render(
+    <XtermScreen
+      out={out}
+      run={1}
+      running={false}
+      write={() => undefined}
+      onSize={() => undefined}
+    />,
+  );
 
   await expect.element(page.getByText("lime")).toBeVisible();
-  const [green, red, orange, lime] = ["green", "red", "orange", "lime"].map(colorOfWord);
+  const [green, red, orange, lime] = [
+    "green",
+    "red",
+    "orange",
+    "lime",
+  ].map(colorOfWord);
   expect(green).not.toBe(red);
   expect(green).not.toBe("rgb(0, 0, 0)");
   expect(orange).toBe("rgb(255, 135, 0)");
   expect(lime).toBe("rgb(10, 200, 30)");
-  expect(getComputedStyle(document.querySelector(".xterm-scrollable-element")!).backgroundColor).toBe("rgb(11, 15, 19)");
+  expect(
+    getComputedStyle(document.querySelector(".xterm-scrollable-element")!).backgroundColor,
+  ).toBe("rgb(11, 15, 19)");
 });

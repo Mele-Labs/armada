@@ -8,8 +8,22 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GitPullRequest, Puzzle } from "lucide-react";
-import { choiceOf, Palette, SURFACE, type PaletteChoice, type PaletteRepository, type PaletteSurface, type PaletteTask } from "@armada/shell";
-import { Dialog, parseChord, pressesChord, type PaletteDispatch, type PaletteStep } from "@armada/components";
+import {
+  choiceOf,
+  Palette,
+  SURFACE,
+  type PaletteChoice,
+  type PaletteRepository,
+  type PaletteSurface,
+  type PaletteTask,
+} from "@armada/shell";
+import {
+  Dialog,
+  parseChord,
+  pressesChord,
+  type PaletteDispatch,
+  type PaletteStep,
+} from "@armada/components";
 import { useProjectsStore } from "./projects-tab/store";
 import { useSessionsDraft, useSessionsEverywhere } from "./sessions-draft";
 import { useDeck } from "./cockpit/deck/store";
@@ -41,7 +55,9 @@ export type PaletteMountProps = {
   onClose: () => void;
   /** The Studio open on its whiteboard, or nothing — by its name alone, which
       is all a title needs and all this should be able to read. */
-  shownStudio: { name?: string } | null;
+  shownStudio: {
+    name?: string;
+  } | null;
   surfaces: readonly PaletteSurface[];
   checkoutRunSheet: BridgeState["checkoutRunSheet"];
   failing: unknown | null;
@@ -55,7 +71,10 @@ export type PaletteMountProps = {
    * Run and Add, which this reaches itself: the rail takes the ask directly, so
    * `App` holds nothing for them.
    */
-  acts: Omit<Parameters<typeof carryOut>[1], "studioRun" | "studioAdd" | "createMod" | "debugBridge" | "openSession" | "requests">;
+  acts: Omit<
+    Parameters<typeof carryOut>[1],
+    "studioRun" | "studioAdd" | "createMod" | "debugBridge" | "openSession" | "requests"
+  >;
   /** The page showing, by its surface id: the palette heads its results with that page's own acts. */
   showing?: string;
   /** The name a Job's repository goes by in the title row's picker, from the Manifest id the Job carries. */
@@ -65,7 +84,10 @@ export type PaletteMountProps = {
   /** The one bar's dispatch row. `one-bar.tsx`. */
   dispatch: PaletteDispatch;
   /** What a typed link names, and opening it. `link-routes.ts`. */
-  linkRoutes: { kindOf: (typed: string) => "pull" | "issue" | null; open: (typed: string) => boolean };
+  linkRoutes: {
+    kindOf: (typed: string) => "pull" | "issue" | null;
+    open: (typed: string) => boolean;
+  };
 };
 
 /**
@@ -99,12 +121,24 @@ export function PaletteMount({
   const memory = usePaletteMemory();
   // The rows of every Commands mod that is on. A scenario's own commands stand in for them, so a walk draws the same screen.
   const modRows = useModRows();
-  const modKeys = useMemo(() => keysOf(modRows, memory.hotkeys), [modRows, memory.hotkeys]);
-  const commands = fixtures.commands.length > 0 ? fixtures.commands : modRows.map((row) => displayOf(row, modKeys[`cmd:${row.id}`]));
+  const modKeys = useMemo(
+    () => keysOf(modRows, memory.hotkeys),
+    [
+      modRows,
+      memory.hotkeys,
+    ],
+  );
+  const commands =
+    fixtures.commands.length > 0
+      ? fixtures.commands
+      : modRows.map((row) => displayOf(row, modKeys[`cmd:${row.id}`]));
   const projects = useProjectsStore();
   const extras = usePaletteExtras();
   const onDeck = useDeck((deck) => (deck.sel?.kind === "session" ? deck.sel.key : undefined));
-  const job = showing === SURFACE.overview && onDeck !== undefined ? sessions.find((one) => one.id === onDeck) : undefined;
+  const job =
+    showing === SURFACE.overview && onDeck !== undefined
+      ? sessions.find((one) => one.id === onDeck)
+      : undefined;
   // The step the palette opens on, for a row run by its key that asks for something.
   const [opening, setOpening] = useState<PaletteStep | undefined>(undefined);
   // A Job that asks to be stopped is confirmed over the palette, which stays up behind it.
@@ -112,21 +146,47 @@ export function PaletteMount({
   const stopped = stopping === null ? undefined : sessions.find((one) => one.id === stopping);
 
   const world = {
-    fixtures, jobs: sessions, draft, job,
-    projects, ...(acts.task === undefined ? {} : { task: acts.task }),
+    fixtures,
+    jobs: sessions,
+    draft,
+    job,
+    projects,
+    ...(acts.task === undefined
+      ? {}
+      : {
+          task: acts.task,
+        }),
     taskTitle: (rowId: string) => tasks?.find((one) => one.id === rowId)?.label,
-    openSession: askToOpenSession, compose: acts.compose, surface: acts.surface,
+    openSession: askToOpenSession,
+    compose: acts.compose,
+    surface: acts.surface,
     openLink: (address: string) => linkRoutes.open(address),
     startJob: (words: string) => dispatch.onDispatch(words, "session"),
-    modRows, tell: askToTell, runRow: (id: string) => choosing.current(choiceOf(id)),
-    repositories, picked,
+    modRows,
+    tell: askToTell,
+    runRow: (id: string) => choosing.current(choiceOf(id)),
+    repositories,
+    picked,
     openAt: (row: ModRow) => {
       setOpening(stepOfRow(row));
       onOpen?.();
     },
-    runShell: (command: string, dir: string, repository: string) => openInPanel({ kind: "run", command, dir, repository, at: Date.now() }),
+    runShell: (command: string, dir: string, repository: string) =>
+      openInPanel({
+        kind: "run",
+        command,
+        dir,
+        repository,
+        at: Date.now(),
+      }),
   };
-  const blankWorld = { pulls: fixtures.pulls, issues: fixtures.issues, repositories, picked, run: (row: ModRow, filled: Filled) => runModRow(row, filled, world) };
+  const blankWorld = {
+    pulls: fixtures.pulls,
+    issues: fixtures.issues,
+    repositories,
+    picked,
+    run: (row: ModRow, filled: Filled) => runModRow(row, filled, world),
+  };
   const stepOfRow = (row: ModRow): PaletteStep | undefined => firstStep(row, blankWorld);
   // A command with a blank asks for it in the palette's second step, listing what can fill it.
   const commandStep = (id: string): PaletteStep | undefined => {
@@ -136,12 +196,29 @@ export function PaletteMount({
       ? undefined
       : {
           title: "Pull request to review",
-          sections: [{ id: "pulls", title: "Open pull requests" }],
-          entries: fixtures.pulls.map((one) => ({ id: `pull:${one.repo}:${one.number}`, section: "pulls", label: one.title, icon: GitPullRequest, meta: { repo: one.repo, number: `#${one.number}` } })),
+          sections: [
+            {
+              id: "pulls",
+              title: "Open pull requests",
+            },
+          ],
+          entries: fixtures.pulls.map((one) => ({
+            id: `pull:${one.repo}:${one.number}`,
+            section: "pulls",
+            label: one.title,
+            icon: GitPullRequest,
+            meta: {
+              repo: one.repo,
+              number: `#${one.number}`,
+            },
+          })),
           searched: "every open pull request",
           onChoose: (entry) => {
-            const one = fixtures.pulls.find((held) => `pull:${held.repo}:${held.number}` === entry.id);
-            if (one !== undefined) dispatch.onDispatch(`Review #${one.number} ${one.title} for security`, "session");
+            const one = fixtures.pulls.find(
+              (held) => `pull:${held.repo}:${held.number}` === entry.id,
+            );
+            if (one !== undefined)
+              dispatch.onDispatch(`Review #${one.number} ${one.title} for security`, "session");
           },
         };
   };
@@ -150,19 +227,49 @@ export function PaletteMount({
     if (extra !== undefined) return extra.run();
     const row = rowOf(choice);
     if (row !== undefined) remember(row);
-    if (choice.of === "pull" || choice.of === "issue" || choice.of === "task" || choice.of === "command" || choice.of === "page" || choice.of === "on") return carryOutRow(choice, world);
-    carryOut(choice, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, createMod: askToCreateMod, debugBridge: askToDebugBridge, openSession: askToOpenSession, requests: () => void openRequestsInPanel(openSessionIn(document)) });
+    if (
+      choice.of === "pull" ||
+      choice.of === "issue" ||
+      choice.of === "task" ||
+      choice.of === "command" ||
+      choice.of === "page" ||
+      choice.of === "on"
+    )
+      return carryOutRow(choice, world);
+    carryOut(choice, {
+      ...acts,
+      studioRun: askStudioRun,
+      studioAdd: askStudioAdd,
+      createMod: askToCreateMod,
+      debugBridge: askToDebugBridge,
+      openSession: askToOpenSession,
+      requests: () => void openRequestsInPanel(openSessionIn(document)),
+    });
   };
   // **A key he gave a row fires anywhere in Bridge**, with the palette down, and runs the row as ↵ would. It is read in the
   // capture phase so a terminal or a field does not keep it, and a key being recorded in Settings is left to the recorder.
   const choosing = useRef(choose);
   choosing.current = choose;
   // A key he recorded for a row wins over the one its mod's file names.
-  const hotkeys = useMemo(() => ({ ...modKeys, ...memory.hotkeys }), [modKeys, memory.hotkeys]);
+  const hotkeys = useMemo(
+    () => ({
+      ...modKeys,
+      ...memory.hotkeys,
+    }),
+    [
+      modKeys,
+      memory.hotkeys,
+    ],
+  );
   useEffect(() => {
     if (open) return;
     function fire(event: KeyboardEvent): void {
-      if (event.defaultPrevented || event.repeat || (event.target as Element | null)?.closest?.("[data-recording]") != null) return;
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        (event.target as Element | null)?.closest?.("[data-recording]") != null
+      )
+        return;
       for (const [id, spelled] of Object.entries(hotkeys)) {
         const chord = parseChord(spelled);
         if (chord === null || !pressesChord(chord, event)) continue;
@@ -175,81 +282,119 @@ export function PaletteMount({
     }
     window.addEventListener("keydown", fire, true);
     return () => window.removeEventListener("keydown", fire, true);
-  }, [open, hotkeys]);
+  }, [
+    open,
+    hotkeys,
+  ]);
   return (
     <>
-    <Palette
-      open={open}
-      onClose={() => (setOpening(undefined), onClose())}
-      opensOn={open ? opening : undefined}
-      dispatch={dispatch}
-      // A pasted pull request opens in Reviews and an issue in the side panel.
-      link={{ kindOf: linkRoutes.kindOf, onOpen: (typed) => linkRoutes.open(typed) }}
-      // A pasted path opens in the panel, in the Session's checkout where it is relative: any file the person can read.
-      path={{
-        onOpen: async (typed) => {
-          const item = await window.armada.openPanelPath(typed, openSessionIn(document));
-          if (item !== null) openInPanel(item);
-          return item !== null;
-        },
-      }}
-      // Two places: a Studio open on its whiteboard is not the Cockpit, and the acts
-      // scoped to it act on the board rather than on anything focused — #1364.
-      context={shownStudio === null ? "board" : "studio"}
-      // The block is titled with what its rows act on, which on a Studio is the
-      // Studio: the acts scoped there put a node on the board.
-      on={shownStudio === null ? null : `Studio — ${studioName(shownStudio)}`}
-      surfaces={surfaces}
-      // **No filter rows.** They were the Job Board's state tabs, and that
-      // surface is gone, so there is nothing here for a row to set.
-      filters={[]}
-      // A row about the window as a whole: it starts a Mod Job through Fleet, so it waits on the connection.
-      board={[{ id: CREATE_MOD, label: "Create mod", icon: Puzzle, ...(live ? {} : { dormant: FLEET_DOWN }) }, ...extras.map(({ id, label, icon }) => ({ id, label, icon }))]}
-      // One row per Check and Command, off the same reading the Manifest
-      // surface draws from — Journey 9's own table. Empty until that read has
-      // answered, which is what `App.tsx`'s effect holds open.
-      runnables={checkoutRunnablesOf(checkoutRunSheet)}
-      repositories={repositories}
-      picked={picked}
-      // Only the live Sessions: the palette jumps to work in hand.
-      // A Session is found by any word of its title or by its id, whole or the `s-` address.
-      sessions={sessions.filter((one) => one.dead === undefined).map((one) => jobRow(one, repoOf, draft))}
-      // Tasks and subtasks by title, listed only while something is typed.
-      {...(tasks === undefined ? {} : { tasks })}
-      // One row per category of Settings, each opening Settings at it — Fleet
-      // settings first. None carries a value: each opens a screen rather than
-      // stating a field.
-      settings={SETTINGS_PALETTE}
-      page={pageOf(showing ?? "", job)}
-      pulls={fixtures.pulls}
-      issues={fixtures.issues}
-      commands={commands}
-      commandStep={commandStep}
-      pinned={memory.pinned}
-      recent={memory.recent}
-      opens={memory.opens}
-      aliases={memory.aliases}
-      hotkeys={memory.hotkeys}
-      onRows={setKnownRows}
-      onConfirmAct={(id) => id === "job-stop" && job !== undefined && setStopping(job.id)}
-      onConfirmOn={(target, action) => action === "stop" && setStopping(target.slice("session:".length))}
-      dormant={dormantIn({ failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}
-      absent={absentIn({ failing: failing !== null })}
-      onChoose={choose}
-    />
-    <Dialog
-      open={stopped !== undefined}
-      title={`Stop ${stopped?.title ?? "this Job"}?`}
-      confirmLabel="Stop"
-      onConfirm={() => {
-        if (stopping !== null) draft?.stop?.(stopping);
-        setStopping(null);
-        onClose();
-      }}
-      onCancel={() => setStopping(null)}
-    >
-      The running turn ends. The Job rests and takes the next message.
-    </Dialog>
+      <Palette
+        open={open}
+        onClose={() => (setOpening(undefined), onClose())}
+        opensOn={open ? opening : undefined}
+        dispatch={dispatch}
+        // A pasted pull request opens in Reviews and an issue in the side panel.
+        link={{
+          kindOf: linkRoutes.kindOf,
+          onOpen: (typed) => linkRoutes.open(typed),
+        }}
+        // A pasted path opens in the panel, in the Session's checkout where it is relative: any file the person can read.
+        path={{
+          onOpen: async (typed) => {
+            const item = await window.armada.openPanelPath(typed, openSessionIn(document));
+            if (item !== null) openInPanel(item);
+            return item !== null;
+          },
+        }}
+        // Two places: a Studio open on its whiteboard is not the Cockpit, and the acts
+        // scoped to it act on the board rather than on anything focused — #1364.
+        context={shownStudio === null ? "board" : "studio"}
+        // The block is titled with what its rows act on, which on a Studio is the
+        // Studio: the acts scoped there put a node on the board.
+        on={shownStudio === null ? null : `Studio — ${studioName(shownStudio)}`}
+        surfaces={surfaces}
+        // **No filter rows.** They were the Job Board's state tabs, and that
+        // surface is gone, so there is nothing here for a row to set.
+        filters={[]}
+        // A row about the window as a whole: it starts a Mod Job through Fleet, so it waits on the connection.
+        board={[
+          {
+            id: CREATE_MOD,
+            label: "Create mod",
+            icon: Puzzle,
+            ...(live
+              ? {}
+              : {
+                  dormant: FLEET_DOWN,
+                }),
+          },
+          ...extras.map(({ id, label, icon }) => ({
+            id,
+            label,
+            icon,
+          })),
+        ]}
+        // One row per Check and Command, off the same reading the Manifest
+        // surface draws from — Journey 9's own table. Empty until that read has
+        // answered, which is what `App.tsx`'s effect holds open.
+        runnables={checkoutRunnablesOf(checkoutRunSheet)}
+        repositories={repositories}
+        picked={picked}
+        // Only the live Sessions: the palette jumps to work in hand.
+        // A Session is found by any word of its title or by its id, whole or the `s-` address.
+        sessions={sessions
+          .filter((one) => one.dead === undefined)
+          .map((one) => jobRow(one, repoOf, draft))}
+        // Tasks and subtasks by title, listed only while something is typed.
+        {...(tasks === undefined
+          ? {}
+          : {
+              tasks,
+            })}
+        // One row per category of Settings, each opening Settings at it — Fleet
+        // settings first. None carries a value: each opens a screen rather than
+        // stating a field.
+        settings={SETTINGS_PALETTE}
+        page={pageOf(showing ?? "", job)}
+        pulls={fixtures.pulls}
+        issues={fixtures.issues}
+        commands={commands}
+        commandStep={commandStep}
+        pinned={memory.pinned}
+        recent={memory.recent}
+        opens={memory.opens}
+        aliases={memory.aliases}
+        hotkeys={memory.hotkeys}
+        onRows={setKnownRows}
+        onConfirmAct={(id) => id === "job-stop" && job !== undefined && setStopping(job.id)}
+        onConfirmOn={(target, action) =>
+          action === "stop" && setStopping(target.slice("session:".length))
+        }
+        dormant={dormantIn({
+          failing: failing !== null,
+          live,
+          debuggable: window.armadaDev !== undefined,
+          studioRun,
+          studioAdd,
+        })}
+        absent={absentIn({
+          failing: failing !== null,
+        })}
+        onChoose={choose}
+      />
+      <Dialog
+        open={stopped !== undefined}
+        title={`Stop ${stopped?.title ?? "this Job"}?`}
+        confirmLabel="Stop"
+        onConfirm={() => {
+          if (stopping !== null) draft?.stop?.(stopping);
+          setStopping(null);
+          onClose();
+        }}
+        onCancel={() => setStopping(null)}
+      >
+        The running turn ends. The Job rests and takes the next message.
+      </Dialog>
     </>
   );
 }

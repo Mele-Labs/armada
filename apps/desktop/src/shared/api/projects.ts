@@ -1,10 +1,31 @@
 // His projects across repositories, kept in Fleet: every route, and the event that carries them whole. `docs/practices/protocol/projects.md`.
 // A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask, Outcome, ProjectTask, Projects, TickProjectTask } from "@armada/protocol";
+import type {
+  LinkProjectIssue,
+  LinkTaskJob,
+  LinkTaskPull,
+  MoveProjectRow,
+  MoveProjectTaskRepository,
+  NameProject,
+  NewProjectIssue,
+  NewProjectTask,
+  Outcome,
+  ProjectTask,
+  Projects,
+  TickProjectTask,
+} from "@armada/protocol";
 
 /** What a read or a write came to: his projects as Fleet holds them now, or the refusal to word. */
-export type ProjectsActed = { ok: true; value: Projects } | { ok: false; outcome: Outcome };
+export type ProjectsActed =
+  | {
+      ok: true;
+      value: Projects;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type ProjectsApi = {
   /** His projects, each with its rows in order, and the tasks in none. */
@@ -29,7 +50,10 @@ export type ProjectsApi = {
   /** To a place in a project or out of every one, keeping its repository. */
   moveProjectRow: (row: string, body: MoveProjectRow) => Promise<ProjectsActed>;
   /** A top-level task and its subtasks to another repository, in the same project and place. Its links stay where they were linked. */
-  moveProjectTaskRepository: (row: string, body: MoveProjectTaskRepository) => Promise<ProjectsActed>;
+  moveProjectTaskRepository: (
+    row: string,
+    body: MoveProjectTaskRepository,
+  ) => Promise<ProjectsActed>;
   /** Done, or open again. On a row the Job asked about it answers the ask. */
   tickProjectTask: (row: string, body: TickProjectTask) => Promise<ProjectsActed>;
   /** A live Job of the task's repository holds the task and its subtasks, as if started with them; one holding it is replaced. */

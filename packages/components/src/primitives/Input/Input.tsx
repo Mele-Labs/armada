@@ -84,7 +84,9 @@ export function Input({
           aria-invalid={invalid || undefined}
           aria-describedby={showMessage ? messageId : undefined}
         />
-        {unit === undefined || unit === "" ? null : <span className="armada-input-field__unit">{unit}</span>}
+        {unit === undefined || unit === "" ? null : (
+          <span className="armada-input-field__unit">{unit}</span>
+        )}
         {trailing === undefined ? null : (
           <span className="armada-input-field__trailing">{trailing}</span>
         )}

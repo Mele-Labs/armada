@@ -11,7 +11,9 @@ import { GuideSteps } from "./GuideSteps";
 const meta: Meta<typeof GuideSteps> = {
   title: "Compositions/Guide steps",
   component: GuideSteps,
-  args: { where: "panel" },
+  args: {
+    where: "panel",
+  },
   decorators: [
     (Story) => (
       <div
@@ -36,10 +38,16 @@ type Story = StoryObj<typeof GuideSteps>;
  * because the order is the relation.
  */
 export const WithAFigure: Story = {
-  args: { guide: GUIDE_PLAN },
+  args: {
+    guide: GUIDE_PLAN,
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("img", { name: /Two groups of a plan/ })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: /Two groups of a plan/,
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -48,7 +56,9 @@ export const WithAFigure: Story = {
  * relation in it, so the lines stand alone.
  */
 export const WithNoFigure: Story = {
-  args: { guide: GUIDE_MERGE_LINE },
+  args: {
+    guide: GUIDE_MERGE_LINE,
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByRole("img")).toBeNull();
@@ -57,7 +67,10 @@ export const WithNoFigure: Story = {
 
 /** The same guide in the layer a `?` opens, where the drawing has less width. */
 export const InTheCard: Story = {
-  args: { guide: GUIDE_PLAN, where: "card" },
+  args: {
+    guide: GUIDE_PLAN,
+    where: "card",
+  },
   decorators: [
     (Story) => (
       <div

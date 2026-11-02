@@ -9,7 +9,11 @@
 // Nothing here runs in more than one process — the preload is a wire and not an
 // import path, and this file is the shape of what crosses it.
 
-import type { CheckoutRunFollowed, CheckoutRunSheetRead, ManifestDriftRead } from "@armada/protocol";
+import type {
+  CheckoutRunFollowed,
+  CheckoutRunSheetRead,
+  ManifestDriftRead,
+} from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestReading } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 import { spoken } from "@armada/protocol";
@@ -82,7 +86,13 @@ export function identifying(state: BridgeState): BridgeState {
   const fleetProtocol =
     "fleet" in state.connection ? spoken(state.connection.fleet.protocolId) : null;
   if (fleetProtocol === state.bridge.fleetProtocol) return state;
-  return { ...state, bridge: { ...state.bridge, fleetProtocol } };
+  return {
+    ...state,
+    bridge: {
+      ...state.bridge,
+      fleetProtocol,
+    },
+  };
 }
 
 /**

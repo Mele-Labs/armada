@@ -8,17 +8,45 @@ import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 
 /** What a look at a source came to. */
-export type KitLookAnswer = { state: "found"; found: KitSourceFound } | { state: "refused"; why: ReactNode };
+export type KitLookAnswer =
+  | {
+      state: "found";
+      found: KitSourceFound;
+    }
+  | {
+      state: "refused";
+      why: ReactNode;
+    };
 
 /** What an install came to. A command that failed is drawn in the panel, which stays open on it. */
 export type KitInstallAnswer =
-  | { state: "installed" }
-  | { state: "failed"; command: string; exitCode: number; error: string; takenBack: string[] }
-  | { state: "refused"; why: ReactNode };
+  | {
+      state: "installed";
+    }
+  | {
+      state: "failed";
+      command: string;
+      exitCode: number;
+      error: string;
+      takenBack: string[];
+    }
+  | {
+      state: "refused";
+      why: ReactNode;
+    };
 
 /** What starting a Job, or sending to one, came to: the Job's title, or why not. */
 /** What starting a Job, or sending to one, came to: the Job, by id and title where it has one yet, or why not. */
-export type LinkJobAnswer = { state: "done"; id: string; title?: string | undefined } | { state: "refused"; why: ReactNode };
+export type LinkJobAnswer =
+  | {
+      state: "done";
+      id: string;
+      title?: string | undefined;
+    }
+  | {
+      state: "refused";
+      why: ReactNode;
+    };
 
 export type LinkPanelProps = {
   open: boolean;
@@ -28,34 +56,82 @@ export type LinkPanelProps = {
   /** What a source is, read before anything runs. The commands Install runs come with the answer. */
   onLook: (source: string) => Promise<KitLookAnswer>;
   /** `source` is the repository the look resolved to, and `choice` the one picked where it holds several. */
-  onInstall: (adding: { source: string; kind: KitPieceKind; choice?: string }) => Promise<KitInstallAnswer>;
+  onInstall: (adding: {
+    source: string;
+    kind: KitPieceKind;
+    choice?: string;
+  }) => Promise<KitInstallAnswer>;
   /** A Job that takes the source, sets it up and reports back. With `failed`, it is asked to fix that install. */
-  onStartJob: (source: string, failed?: { command: string; error: string }) => Promise<LinkJobAnswer>;
+  onStartJob: (
+    source: string,
+    failed?: {
+      command: string;
+      error: string;
+    },
+  ) => Promise<LinkJobAnswer>;
   /** The Job open in the window, which Add to this Job sends the link to as a message from the person. Absent offers no such choice. */
-  job?: { title?: string | undefined; onAdd: (source: string, found: KitSourceFound | undefined) => Promise<LinkJobAnswer> } | undefined;
+  job?:
+    | {
+        title?: string | undefined;
+        onAdd: (source: string, found: KitSourceFound | undefined) => Promise<LinkJobAnswer>;
+      }
+    | undefined;
   /** Opens a Job this panel started or sent to, closing the panel. */
   onOpenJob: (id: string) => void;
   /** A Job's title as the window holds it now, for a Job that had none when it started. */
   titleOf: (id: string) => string | undefined;
 };
 
-type Look = { state: "idle" } | { state: "looking" } | KitLookAnswer;
+type Look =
+  | {
+      state: "idle";
+    }
+  | {
+      state: "looking";
+    }
+  | KitLookAnswer;
 
 /** How long typing in Source rests before what it holds is looked at. */
 const SETTLE_MS = 600;
 
 /** Whether the field holds something a look could place: a link, or `owner/repository`. */
-const couldBeSource = (text: string): boolean => /^https?:\/\/\S+\.\S+$/i.test(text) || /^[\w.-]+\/[\w.-]+$/.test(text);
-type Failed = Exclude<KitInstallAnswer, { state: "installed" }>;
+const couldBeSource = (text: string): boolean =>
+  /^https?:\/\/\S+\.\S+$/i.test(text) || /^[\w.-]+\/[\w.-]+$/.test(text);
+type Failed = Exclude<
+  KitInstallAnswer,
+  {
+    state: "installed";
+  }
+>;
 
 /** What Install in Kit runs: the one piece a look found, or the one picked of several. */
-type Placed = { repository: string; kind: KitPieceKind; name: string; commands: string[]; choice?: string };
+type Placed = {
+  repository: string;
+  kind: KitPieceKind;
+  name: string;
+  commands: string[];
+  choice?: string;
+};
 
 function placedOf(found: KitSourceFound | undefined, picked: string | null): Placed | undefined {
   if (found === undefined || found.found === "unknown") return undefined;
-  if (found.found !== "several") return { repository: found.repository, kind: found.found, name: found.name, commands: found.commands };
+  if (found.found !== "several")
+    return {
+      repository: found.repository,
+      kind: found.found,
+      name: found.name,
+      commands: found.commands,
+    };
   const pick = found.choices.find((one) => one.name === picked);
-  return pick === undefined ? undefined : { repository: found.repository, kind: found.kind, name: pick.name, commands: pick.commands, choice: pick.name };
+  return pick === undefined
+    ? undefined
+    : {
+        repository: found.repository,
+        kind: found.kind,
+        name: pick.name,
+        commands: pick.commands,
+        choice: pick.name,
+      };
 }
 
 /**
@@ -72,11 +148,23 @@ export function LinkPanel(props: LinkPanelProps) {
   );
 }
 
-function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOpenJob, titleOf }: LinkPanelProps) {
-  const said = (answer: LinkJobAnswer | null, done: string) => <JobSaid answer={answer} done={done} onOpen={onOpenJob} titleOf={titleOf} />;
+function LinkChoices({
+  source: dropped,
+  onLook,
+  onInstall,
+  onStartJob,
+  job,
+  onOpenJob,
+  titleOf,
+}: LinkPanelProps) {
+  const said = (answer: LinkJobAnswer | null, done: string) => (
+    <JobSaid answer={answer} done={done} onOpen={onOpenJob} titleOf={titleOf} />
+  );
   const group = useId();
   const [source, setSource] = useKept("link-panel:source", dropped);
-  const [look, setLook] = useState<Look>({ state: "idle" });
+  const [look, setLook] = useState<Look>({
+    state: "idle",
+  });
   const [picked, setPicked] = useState<string | null>(null);
   const [failed, setFailed] = useState<Failed | null>(null);
   const [installing, setInstalling] = useState(false);
@@ -111,7 +199,9 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
   async function lookAt(at: string): Promise<void> {
     const mine = ++latest.current;
     looked.current = at;
-    setLook({ state: "looking" });
+    setLook({
+      state: "looking",
+    });
     reset();
     const answer = await onLook(at);
     if (mine === latest.current) setLook(answer);
@@ -121,22 +211,36 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
   useEffect(() => {
     setSource(dropped);
     if (dropped !== "") void lookAt(dropped);
-  }, [dropped]);
+  }, [
+    dropped,
+  ]);
 
   // What is typed is looked at once typing rests, where it could be a source and was not the last thing looked at.
   useEffect(() => {
     if (!couldBeSource(typed) || typed === looked.current) return;
     const timer = window.setTimeout(() => void lookAt(typed), SETTLE_MS);
     return () => window.clearTimeout(timer);
-  }, [typed]);
+  }, [
+    typed,
+  ]);
 
   async function install(): Promise<void> {
     if (placed === undefined || installing) return;
     setInstalling(true);
     setFailed(null);
     setFixing(null);
-    const adding = { source: placed.repository, kind: placed.kind };
-    const answer = await onInstall(placed.choice === undefined ? adding : { ...adding, choice: placed.choice });
+    const adding = {
+      source: placed.repository,
+      kind: placed.kind,
+    };
+    const answer = await onInstall(
+      placed.choice === undefined
+        ? adding
+        : {
+            ...adding,
+            choice: placed.choice,
+          },
+    );
     setInstalling(false);
     if (answer.state === "installed") setInstalled(true);
     else setFailed(answer);
@@ -158,7 +262,9 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
             latest.current += 1;
             looked.current = "";
             setSource(event.target.value);
-            setLook({ state: "idle" });
+            setLook({
+              state: "idle",
+            });
             reset();
           }}
         />
@@ -174,10 +280,17 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
       {found?.found !== "several" ? null : (
         <RadioGroup label={found.kind === "plugin" ? "Plugins" : "Skills"}>
           {found.choices.map((one) => (
-            <Radio key={one.name} name={`${group}-choice`} checked={picked === one.name} onChange={() => pick(one.name)}>
+            <Radio
+              key={one.name}
+              name={`${group}-choice`}
+              checked={picked === one.name}
+              onChange={() => pick(one.name)}
+            >
               <span className="armada-link-panel__pick">
                 <span data-mono="">{one.name}</span>
-                {one.says === undefined ? null : <span className="armada-link-panel__why">{one.says}</span>}
+                {one.says === undefined ? null : (
+                  <span className="armada-link-panel__why">{one.says}</span>
+                )}
               </span>
             </Radio>
           ))}
@@ -198,7 +311,11 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
                 <code>{failed.command}</code> exited {failed.exitCode}
               </p>
               <pre className="armada-link-panel__commands">{failed.error}</pre>
-              {failed.takenBack.length === 0 ? null : <p className="armada-link-panel__why">Fleet took back {failed.takenBack.join(", ")}.</p>}
+              {failed.takenBack.length === 0 ? null : (
+                <p className="armada-link-panel__why">
+                  Fleet took back {failed.takenBack.join(", ")}.
+                </p>
+              )}
               <div className="armada-link-panel__acts">
                 <Button
                   type="button"
@@ -206,11 +323,23 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
                   size="sm"
                   ground="card"
                   disabled={fixing?.state === "done"}
-                  onClick={() => void onStartJob(typed, { command: failed.command, error: failed.error }).then(setFixing)}
+                  onClick={() =>
+                    void onStartJob(typed, {
+                      command: failed.command,
+                      error: failed.error,
+                    }).then(setFixing)
+                  }
                 >
                   Start a Job to fix it
                 </Button>
-                <Button type="button" variant="secondary" size="sm" ground="card" disabled={installing} onClick={() => void install()}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  ground="card"
+                  disabled={installing}
+                  onClick={() => void install()}
+                >
                   {installing ? "Installing" : "Try again"}
                 </Button>
                 {said(fixing, "Started a Job")}
@@ -219,7 +348,14 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
           )}
           <div className="armada-link-panel__acts">
             {failed?.state === "failed" ? null : (
-              <Button type="button" variant="primary" size="sm" ground="card" disabled={installing || installed} onClick={() => void install()}>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                ground="card"
+                disabled={installing || installed}
+                onClick={() => void install()}
+              >
                 {installing ? "Installing" : "Install in Kit"}
               </Button>
             )}
@@ -249,10 +385,21 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
           </div>
           {job === undefined ? null : (
             <div className="armada-link-panel__acts">
-              <Button type="button" variant="secondary" size="sm" ground="card" disabled={sent?.state === "done"} onClick={() => void job.onAdd(typed, found).then(setSent)}>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                ground="card"
+                disabled={sent?.state === "done"}
+                onClick={() => void job.onAdd(typed, found).then(setSent)}
+              >
                 Add to this Job
               </Button>
-              {sent === null ? <span className="armada-link-panel__job">{job.title}</span> : said(sent, "Sent to the Job")}
+              {sent === null ? (
+                <span className="armada-link-panel__job">{job.title}</span>
+              ) : (
+                said(sent, "Sent to the Job")
+              )}
             </div>
           )}
         </section>
@@ -262,16 +409,33 @@ function LinkChoices({ source: dropped, onLook, onInstall, onStartJob, job, onOp
 }
 
 /** What a start or a send came to, and the way to the Job it reached. */
-function JobSaid({ answer, done, onOpen, titleOf }: { answer: LinkJobAnswer | null; done: string; onOpen: (id: string) => void; titleOf: (id: string) => string | undefined }) {
+function JobSaid({
+  answer,
+  done,
+  onOpen,
+  titleOf,
+}: {
+  answer: LinkJobAnswer | null;
+  done: string;
+  onOpen: (id: string) => void;
+  titleOf: (id: string) => string | undefined;
+}) {
   if (answer === null) return null;
-  if (answer.state === "refused") return <span className="armada-link-panel__refused">{answer.why}</span>;
+  if (answer.state === "refused")
+    return <span className="armada-link-panel__refused">{answer.why}</span>;
   const title = titleOf(answer.id) ?? answer.title;
   return (
     <>
       <span className="armada-link-panel__done" role="status">
         {title === undefined ? done : `${done}: ${title}`}
       </span>
-      <Button type="button" variant="ghost" size="sm" ground="card" onClick={() => onOpen(answer.id)}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        ground="card"
+        onClick={() => onOpen(answer.id)}
+      >
         Open the Job
       </Button>
     </>
@@ -285,7 +449,9 @@ function Found({ found }: { found: KitSourceFound }) {
       <section className="armada-link-panel__found" aria-label="Found">
         <p className="armada-link-panel__found-head">
           <span data-mono="">{found.repository}</span>
-          <span className="armada-link-panel__mark">{found.kind === "plugin" ? "Plugins" : "Skills"}</span>
+          <span className="armada-link-panel__mark">
+            {found.kind === "plugin" ? "Plugins" : "Skills"}
+          </span>
         </p>
       </section>
     );
@@ -302,7 +468,9 @@ function Found({ found }: { found: KitSourceFound }) {
     <section className="armada-link-panel__found" aria-label="Found">
       <p className="armada-link-panel__found-head">
         <span>{found.name}</span>
-        <span className="armada-link-panel__mark">{found.found === "plugin" ? "Plugin" : "Skill"}</span>
+        <span className="armada-link-panel__mark">
+          {found.found === "plugin" ? "Plugin" : "Skill"}
+        </span>
       </p>
       <dl className="armada-link-panel__facts">
         <div>

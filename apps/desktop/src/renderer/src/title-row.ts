@@ -7,8 +7,22 @@ import { useDownshiftOffer } from "./downshift";
 import { usePlanUsage } from "./plan-usage";
 import { useSleepMode } from "./sleep";
 
-export function useTitleRow(openModelSetting: () => void): { sleep?: NonNullable<TheShellProps["sleep"]>; planUsage?: PlanUsage[] } {
+export function useTitleRow(openModelSetting: () => void): {
+  sleep?: NonNullable<TheShellProps["sleep"]>;
+  planUsage?: PlanUsage[];
+} {
   const { sleep } = useSleepMode();
   const planUsage = useDownshiftOffer(usePlanUsage(), openModelSetting);
-  return { ...(sleep === undefined ? {} : { sleep }), ...(planUsage === undefined ? {} : { planUsage }) };
+  return {
+    ...(sleep === undefined
+      ? {}
+      : {
+          sleep,
+        }),
+    ...(planUsage === undefined
+      ? {}
+      : {
+          planUsage,
+        }),
+  };
 }

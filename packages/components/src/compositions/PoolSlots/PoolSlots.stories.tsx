@@ -16,7 +16,11 @@ type Story = StoryObj<typeof PoolSlots>;
 const ROWS: TileRow[] = [
   {
     slot: slot(1, {
-      held: { state: "hosted_session", session_id: "01SESS", session_title: "Fix the reader" },
+      held: {
+        state: "hosted_session",
+        session_id: "01SESS",
+        session_title: "Fix the reader",
+      },
       branch: "armada/12-fix-the-reader",
       warm: true,
       behind: 0,
@@ -25,25 +29,57 @@ const ROWS: TileRow[] = [
   },
   {
     slot: slot(2, {
-      held: { state: "session", holder: "zsh (pid 4120)" },
+      held: {
+        state: "session",
+        holder: "zsh (pid 4120)",
+      },
       branch: "fleet/slot-pool-in-cleanup",
       warm: true,
       behind: 7,
     }),
     heldFor: "40 minutes",
   },
-  { slot: slot(3, { held: { state: "free" }, warm: false, behind: 3 }) },
+  {
+    slot: slot(3, {
+      held: {
+        state: "free",
+      },
+      warm: false,
+      behind: 3,
+    }),
+  },
   {
     slot: slot(4, {
-      held: { state: "stranded", why: "2 uncommitted, first src/lib.rs" },
+      held: {
+        state: "stranded",
+        why: "2 uncommitted, first src/lib.rs",
+      },
       branch: "fleet/old-try",
       behind: 12,
     }),
     heldFor: "3 days",
   },
-  { slot: slot(5, { held: { state: "busy" } }) },
-  { slot: slot(6, { held: { state: "unmade" } }) },
-  { slot: slot(7, { held: { state: "not_a_checkout" } }) },
+  {
+    slot: slot(5, {
+      held: {
+        state: "busy",
+      },
+    }),
+  },
+  {
+    slot: slot(6, {
+      held: {
+        state: "unmade",
+      },
+    }),
+  },
+  {
+    slot: slot(7, {
+      held: {
+        state: "not_a_checkout",
+      },
+    }),
+  },
 ];
 
 /**
@@ -54,14 +90,27 @@ const ROWS: TileRow[] = [
  */
 export const EveryState: Story = {
   name: "Every state",
-  args: { rows: ROWS },
+  args: {
+    rows: ROWS,
+  },
   play: async ({ canvas }) => {
-    const bays = within(canvas.getByRole("list", { name: "Worktree slots" })).getAllByRole("listitem");
+    const bays = within(
+      canvas.getByRole("list", {
+        name: "Worktree slots",
+      }),
+    ).getAllByRole("listitem");
     await expect(bays).toHaveLength(ROWS.length);
-    const bay = (n: number) => canvas.getByRole("listitem", { name: `slot-${n}` });
+    const bay = (n: number) =>
+      canvas.getByRole("listitem", {
+        name: `slot-${n}`,
+      });
 
     const held = within(bay(1));
-    await expect(held.getByRole("img", { name: "Held" })).toBeInTheDocument();
+    await expect(
+      held.getByRole("img", {
+        name: "Held",
+      }),
+    ).toBeInTheDocument();
     await expect(held.getByLabelText("Held for 2 hours")).toBeInTheDocument();
     await expect(held.getByLabelText("0 commits behind main")).toBeInTheDocument();
     await expect(held.getByText("Fix the reader")).toBeInTheDocument();
@@ -71,13 +120,29 @@ export const EveryState: Story = {
     await expect(within(bay(2)).getAllByRole("button")).toHaveLength(1);
 
     const free = within(bay(3));
-    await expect(free.getByRole("img", { name: "Free" })).toBeInTheDocument();
-    await expect(free.getByRole("img", { name: "Cold" })).toBeInTheDocument();
+    await expect(
+      free.getByRole("img", {
+        name: "Free",
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      free.getByRole("img", {
+        name: "Cold",
+      }),
+    ).toBeInTheDocument();
     await expect(free.queryByLabelText(/Held for|Commits behind/)).toBeNull();
 
     await expect(within(bay(4)).getByText("2 uncommitted, first src/lib.rs")).toBeInTheDocument();
-    await expect(within(bay(6)).getByRole("img", { name: "Not made yet" })).toBeInTheDocument();
-    await expect(within(bay(6)).queryByRole("img", { name: /Warm|Cold/ })).toBeNull();
+    await expect(
+      within(bay(6)).getByRole("img", {
+        name: "Not made yet",
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      within(bay(6)).queryByRole("img", {
+        name: /Warm|Cold/,
+      }),
+    ).toBeNull();
 
     // Availability is the bay's own shape: filled and solid, open and dashed, hatched.
     const style = (n: number) => getComputedStyle(bay(n));
@@ -100,14 +165,26 @@ export const Figures: Story = {
     rows: [
       {
         slot: slot(1, {
-          held: { state: "session", holder: "zsh (pid 4120)" },
+          held: {
+            state: "session",
+            holder: "zsh (pid 4120)",
+          },
           branch: "fleet/a",
           base: "develop",
           behind: 1,
         }),
         heldFor: "1 day",
       },
-      { slot: slot(2, { held: { state: "session", holder: "zsh (pid 4121)" }, behind: 3 }), heldFor: "3 days" },
+      {
+        slot: slot(2, {
+          held: {
+            state: "session",
+            holder: "zsh (pid 4121)",
+          },
+          behind: 3,
+        }),
+        heldFor: "3 days",
+      },
     ],
   },
   play: async ({ canvas }) => {
@@ -122,7 +199,11 @@ export const Figures: Story = {
 const CLOSED: TileRow[] = [
   {
     slot: slot(1, {
-      held: { state: "hosted_session", session_id: "01SESS", session_title: "Fix the reader" },
+      held: {
+        state: "hosted_session",
+        session_id: "01SESS",
+        session_title: "Fix the reader",
+      },
       branch: "armada/12-fix-the-reader",
       warm: true,
       behind: 0,
@@ -130,9 +211,31 @@ const CLOSED: TileRow[] = [
     }),
     heldFor: "2 hours",
   },
-  { slot: slot(2, { held: { state: "free" }, warm: true, closed: true }) },
-  { slot: slot(3, { held: { state: "unmade" }, closed: true }) },
-  { slot: slot(4, { held: { state: "free" }, warm: true }) },
+  {
+    slot: slot(2, {
+      held: {
+        state: "free",
+      },
+      warm: true,
+      closed: true,
+    }),
+  },
+  {
+    slot: slot(3, {
+      held: {
+        state: "unmade",
+      },
+      closed: true,
+    }),
+  },
+  {
+    slot: slot(4, {
+      held: {
+        state: "free",
+      },
+      warm: true,
+    }),
+  },
 ];
 
 /**
@@ -142,21 +245,52 @@ const CLOSED: TileRow[] = [
  */
 export const Closed: Story = {
   name: "Closed",
-  args: { rows: CLOSED },
+  args: {
+    rows: CLOSED,
+  },
   play: async ({ canvas }) => {
     const bay = (n: number) => tile(canvas, `slot-${n}`);
 
-    await expect(bay(1).getByRole("img", { name: "Held" })).toBeInTheDocument();
-    await expect(bay(1).getByRole("img", { name: "Closed" })).toBeInTheDocument();
+    await expect(
+      bay(1).getByRole("img", {
+        name: "Held",
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      bay(1).getByRole("img", {
+        name: "Closed",
+      }),
+    ).toBeInTheDocument();
     await expect(bay(1).getByText("Fix the reader")).toBeInTheDocument();
 
-    await expect(bay(2).getByRole("img", { name: "Closed" })).toBeInTheDocument();
-    await expect(bay(2).queryByRole("img", { name: "Free" })).toBeNull();
-    await expect(bay(3).getByRole("img", { name: "Closed" })).toBeInTheDocument();
-    await expect(bay(4).queryByRole("img", { name: "Closed" })).toBeNull();
+    await expect(
+      bay(2).getByRole("img", {
+        name: "Closed",
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      bay(2).queryByRole("img", {
+        name: "Free",
+      }),
+    ).toBeNull();
+    await expect(
+      bay(3).getByRole("img", {
+        name: "Closed",
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      bay(4).queryByRole("img", {
+        name: "Closed",
+      }),
+    ).toBeNull();
 
     // Shuttered is its own shape: solid where a free bay is dashed.
-    const style = (n: number) => getComputedStyle(canvas.getByRole("listitem", { name: `slot-${n}` }));
+    const style = (n: number) =>
+      getComputedStyle(
+        canvas.getByRole("listitem", {
+          name: `slot-${n}`,
+        }),
+      );
     await expect(style(2).borderTopStyle).toBe("solid");
     await expect(style(4).borderTopStyle).toBe("dashed");
   },
@@ -169,13 +303,34 @@ export const Closed: Story = {
  */
 export const Acts: Story = {
   name: "Acts",
-  args: { rows: [...ROWS, { slot: slot(8, { held: { state: "unmade" }, closed: true }) }], onAct: fn() },
+  args: {
+    rows: [
+      ...ROWS,
+      {
+        slot: slot(8, {
+          held: {
+            state: "unmade",
+          },
+          closed: true,
+        }),
+      },
+    ],
+    onAct: fn(),
+  },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.queryByRole("button", { name: /^(Close|Reopen|Remove) slot$/ })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /^(Close|Reopen|Remove) slot$/,
+      }),
+    ).toBeNull();
 
     const act = async (n: number, name: string) => {
       const open = await openTile(canvas, userEvent, `slot-${n}`);
-      await userEvent.click(open.getByRole("button", { name }));
+      await userEvent.click(
+        open.getByRole("button", {
+          name,
+        }),
+      );
       await userEvent.keyboard("{Escape}");
     };
     await act(3, "Close slot");
@@ -188,19 +343,39 @@ export const Acts: Story = {
     await expect(args.onAct).toHaveBeenLastCalledWith("open", 8);
 
     // Held, a session's, stranded, busy and not a checkout: nothing to remove.
-    for (const n of [1, 2, 4, 5, 7]) {
+    for (const n of [
+      1,
+      2,
+      4,
+      5,
+      7,
+    ]) {
       const open = await openTile(canvas, userEvent, `slot-${n}`);
-      await expect(open.queryByRole("button", { name: "Remove slot" })).toBeNull();
-      await expect(open.getByRole("button", { name: "Close slot" })).toBeInTheDocument();
+      await expect(
+        open.queryByRole("button", {
+          name: "Remove slot",
+        }),
+      ).toBeNull();
+      await expect(
+        open.getByRole("button", {
+          name: "Close slot",
+        }),
+      ).toBeInTheDocument();
       await userEvent.keyboard("{Escape}");
     }
 
-    await userEvent.click(canvas.getByRole("button", { name: "Add a slot" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Add a slot",
+      }),
+    );
     await expect(args.onAct).toHaveBeenLastCalledWith("add");
 
     // Every act has an edge at rest, so none reads as a bare glyph.
     const open = await openTile(canvas, userEvent, "slot-3");
-    for (const one of open.getAllByRole("button", { name: /^(Close|Remove) slot$/ })) {
+    for (const one of open.getAllByRole("button", {
+      name: /^(Close|Remove) slot$/,
+    })) {
       await expect(getComputedStyle(one).borderTopStyle).toBe("solid");
     }
   },
@@ -216,8 +391,22 @@ export const Refused: Story = {
   name: "Refused",
   args: {
     rows: [
-      { slot: slot(1, { held: { state: "free" } }), refused: "Slot not removed: 1 uncommitted, first notes.md" },
-      { slot: slot(2, { held: { state: "free" } }), acting: true },
+      {
+        slot: slot(1, {
+          held: {
+            state: "free",
+          },
+        }),
+        refused: "Slot not removed: 1 uncommitted, first notes.md",
+      },
+      {
+        slot: slot(2, {
+          held: {
+            state: "free",
+          },
+        }),
+        acting: true,
+      },
     ],
     onAct: fn(),
     addRefused: "Slot not added: .armada/slots/pool: permission denied",
@@ -225,16 +414,24 @@ export const Refused: Story = {
   play: async ({ args, canvas, userEvent }) => {
     await expect(tile(canvas, "slot-1").queryByRole("alert")).toBeNull();
     const first = await openTile(canvas, userEvent, "slot-1");
-    await expect(first.getByRole("alert")).toHaveTextContent("Slot not removed: 1 uncommitted, first notes.md");
+    await expect(first.getByRole("alert")).toHaveTextContent(
+      "Slot not removed: 1 uncommitted, first notes.md",
+    );
     await userEvent.keyboard("{Escape}");
 
     const second = await openTile(canvas, userEvent, "slot-2");
     await expect(second.queryByRole("alert")).toBeNull();
     // Past the pointer, which a waiting tile's acts refuse: the press itself sends nothing.
-    fireEvent.click(second.getByRole("button", { name: "Remove slot" }));
+    fireEvent.click(
+      second.getByRole("button", {
+        name: "Remove slot",
+      }),
+    );
     await expect(args.onAct).not.toHaveBeenCalled();
     await userEvent.keyboard("{Escape}");
 
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Slot not added: .armada/slots/pool: permission denied");
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Slot not added: .armada/slots/pool: permission denied",
+    );
   },
 };

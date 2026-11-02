@@ -26,13 +26,29 @@ test("a screen redrawing history answers none of its queries, and answers a new 
   await settle();
   expect(sent).toEqual([]);
 
-  root.render(<XtermScreen out={history + ASK_CURSOR} run={1} running write={write} onSize={() => undefined} />);
+  root.render(
+    <XtermScreen
+      out={history + ASK_CURSOR}
+      run={1}
+      running
+      write={write}
+      onSize={() => undefined}
+    />,
+  );
   await settle();
   expect(sent).toHaveLength(1);
   expect(sent[0]).toMatch(/^\u001b\[\d+;\d+R$/);
 
   // A long run's output is cut to its last part, and the screen starts over on what is kept: that too is history.
-  root.render(<XtermScreen out={`${ASK_CURSOR}kept`} run={1} running write={write} onSize={() => undefined} />);
+  root.render(
+    <XtermScreen
+      out={`${ASK_CURSOR}kept`}
+      run={1}
+      running
+      write={write}
+      onSize={() => undefined}
+    />,
+  );
   await settle();
   expect(sent).toHaveLength(1);
   root.unmount();

@@ -40,7 +40,10 @@ export function HelmRecord({ open, record, failed, onCopied, onClose }: HelmReco
   const copy = useCallback(() => {
     if (record === undefined) return;
     copyHelmRecord(record, onCopied);
-  }, [record, onCopied]);
+  }, [
+    record,
+    onCopied,
+  ]);
 
   // `c` runs the control's own function, bound only while this is open: the
   // palette's own `copy debug info` row copies the failure on screen, which is
@@ -55,7 +58,11 @@ export function HelmRecord({ open, record, failed, onCopied, onClose }: HelmReco
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, record, copy]);
+  }, [
+    open,
+    record,
+    copy,
+  ]);
 
   const text = record === undefined ? null : helmRecord(record);
 

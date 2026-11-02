@@ -107,7 +107,14 @@ export type ReviewImpact = {
 };
 
 /** Where a step of How to Test came from: the author's directions come first. */
-export type ReviewStepSource = { from: "description" } | { from: "doc"; path: string };
+export type ReviewStepSource =
+  | {
+      from: "description";
+    }
+  | {
+      from: "doc";
+      path: string;
+    };
 
 /** One step of How to Test. */
 export type ReviewStep = {
@@ -139,18 +146,50 @@ export type ReviewFinding = {
 
 /** What a run came to, in the shape its kind has. Validated by Fleet before it is kept. */
 export type ReviewResult =
-  | { shape: "themes"; summary: string; themes: ReviewTheme[] }
-  | { shape: "impact"; rows: ReviewImpact[] }
-  | { shape: "steps"; steps: ReviewStep[] }
-  | { shape: "reason"; problem: string; cost: string; links?: ReviewLink[] }
-  | { shape: "text"; body: string }
-  | { shape: "findings"; findings: ReviewFinding[] }
+  | {
+      shape: "themes";
+      summary: string;
+      themes: ReviewTheme[];
+    }
+  | {
+      shape: "impact";
+      rows: ReviewImpact[];
+    }
+  | {
+      shape: "steps";
+      steps: ReviewStep[];
+    }
+  | {
+      shape: "reason";
+      problem: string;
+      cost: string;
+      links?: ReviewLink[];
+    }
+  | {
+      shape: "text";
+      body: string;
+    }
+  | {
+      shape: "findings";
+      findings: ReviewFinding[];
+    }
   /** Natural Search: the open pull requests that matched, each with why. */
-  | { shape: "matches"; matches: ReviewMatch[] }
+  | {
+      shape: "matches";
+      matches: ReviewMatch[];
+    }
   /** The tool `walk` for a web change: `show_window` steps over the page at `place`. */
-  | { shape: "web_walk"; place: WalkPlace; steps: WalkStep[] }
+  | {
+      shape: "web_walk";
+      place: WalkPlace;
+      steps: WalkStep[];
+    }
   /** The tool `walk` for an API: one request a step. */
-  | { shape: "api_walk"; place: WalkPlace; requests: ReviewRequest[] };
+  | {
+      shape: "api_walk";
+      place: WalkPlace;
+      requests: ReviewRequest[];
+    };
 
 /** One run about one pull request at one commit, going or kept. Carried as `run` by `review_run.changed`. */
 export type ReviewRun = {

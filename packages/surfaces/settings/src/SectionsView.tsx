@@ -1,7 +1,14 @@
 // A few of settings.json's categories drawn on their own, one card each, for a page that places them
 // itself. The same bodies `BridgeSettings` draws; this is the way to ask for some by id.
 
-import { Button, Card, CardContent, CardHeader, CardTitle, GuidesSetting } from "@armada/components";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  GuidesSetting,
+} from "@armada/components";
 import type { Outcome, SaveSettings, SettingsList } from "@armada/protocol";
 import type { ComponentProps, ReactNode } from "react";
 
@@ -42,7 +49,22 @@ export type SettingsSectionsViewProps = {
   onCreateMod?: ComponentProps<typeof ModList>["onCreate"];
 };
 
-export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, palette, file, under = {}, onOpenPull, onOpenJob, onOpenMod, onCreateMod }: SettingsSectionsViewProps) {
+export function SettingsSectionsView({
+  ids,
+  settings,
+  live,
+  onSaveSettings,
+  onOpenAccount,
+  onReadGuides,
+  onCopied,
+  palette,
+  file,
+  under = {},
+  onOpenPull,
+  onOpenJob,
+  onOpenMod,
+  onCreateMod,
+}: SettingsSectionsViewProps) {
   const card = (title: string, body: ReactNode) => (
     <Card>
       <CardHeader>
@@ -52,27 +74,115 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
     </Card>
   );
   const panes: Record<string, (title: string) => ReactNode> = {
-    phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
-    "mods-all": (title) => <ModList kind="all" title={title} {...(onOpenPull === undefined ? {} : { onOpenPull })} {...(onOpenJob === undefined ? {} : { onOpenJob })} {...(onOpenMod === undefined ? {} : { onOpenMod })} {...(onCreateMod === undefined ? {} : { onCreate: onCreateMod })} />,
+    phone: () => (
+      <PhoneSettings
+        {...(onCopied === undefined
+          ? {}
+          : {
+              onCopied,
+            })}
+      />
+    ),
+    "mods-all": (title) => (
+      <ModList
+        kind="all"
+        title={title}
+        {...(onOpenPull === undefined
+          ? {}
+          : {
+              onOpenPull,
+            })}
+        {...(onOpenJob === undefined
+          ? {}
+          : {
+              onOpenJob,
+            })}
+        {...(onOpenMod === undefined
+          ? {}
+          : {
+              onOpenMod,
+            })}
+        {...(onCreateMod === undefined
+          ? {}
+          : {
+              onCreate: onCreateMod,
+            })}
+      />
+    ),
     theme: (title) => card(title, <ThemeSettings />),
     layout: (title) => card(title, <LayoutSettings />),
-    words: (title) => <ModList kind="words" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
-    trackers: (title) => <ModList kind="tracker" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
-    "fleet-mods": (title) => <ModList kind="fleet" title={title} {...(onOpenMod === undefined ? {} : { onOpenMod })} />,
+    words: (title) => (
+      <ModList
+        kind="words"
+        title={title}
+        {...(onOpenMod === undefined
+          ? {}
+          : {
+              onOpenMod,
+            })}
+      />
+    ),
+    trackers: (title) => (
+      <ModList
+        kind="tracker"
+        title={title}
+        {...(onOpenMod === undefined
+          ? {}
+          : {
+              onOpenMod,
+            })}
+      />
+    ),
+    "fleet-mods": (title) => (
+      <ModList
+        kind="fleet"
+        title={title}
+        {...(onOpenMod === undefined
+          ? {}
+          : {
+              onOpenMod,
+            })}
+      />
+    ),
     thread: (title) => card(title, <ThreadPane />),
     time: (title) => card(title, <TimeSettings />),
     keyboard: (title) => card(title, <KeyboardSettings query="" />),
-    palette: (title) => (palette === undefined ? null : card(title, <PaletteSettings {...palette} />)),
-    guides: (title) => card(title, <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />),
+    palette: (title) =>
+      palette === undefined ? null : card(title, <PaletteSettings {...palette} />),
+    guides: (title) =>
+      card(
+        title,
+        <GuidesSetting
+          {...(onReadGuides === undefined
+            ? {}
+            : {
+                onReadGuides,
+              })}
+        />,
+      ),
   };
 
-  const firstSchema = ids.find((id) => SETTINGS_SECTIONS.find((one) => one.id === id)?.schema === true);
+  const firstSchema = ids.find(
+    (id) => SETTINGS_SECTIONS.find((one) => one.id === id)?.schema === true,
+  );
   const body = (id: string): ReactNode => {
     const section = SETTINGS_SECTIONS.find((one) => one.id === id);
     if (section === undefined) return null;
     const own = panes[id];
     if (section.schema !== true && own !== undefined) return own(section.label);
-    const schema = <SchemaSection label={section.label} {...(file === undefined || id !== firstSchema ? {} : { file })} settings={settings === null ? null : settingsIn(settings, id)} live={live} onSave={onSaveSettings} />;
+    const schema = (
+      <SchemaSection
+        label={section.label}
+        {...(file === undefined || id !== firstSchema
+          ? {}
+          : {
+              file,
+            })}
+        settings={settings === null ? null : settingsIn(settings, id)}
+        live={live}
+        onSave={onSaveSettings}
+      />
+    );
     // The folder list is JSON, which the schema's form does not draw.
     if (id === "features") {
       return (

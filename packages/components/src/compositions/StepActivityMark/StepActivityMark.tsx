@@ -1,4 +1,14 @@
-import { Check, CircleDashed, CircleDot, Eye, Flag, Power, RotateCw, X, type LucideIcon } from "lucide-react";
+import {
+  Check,
+  CircleDashed,
+  CircleDot,
+  Eye,
+  Flag,
+  Power,
+  RotateCw,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { STEP_STATE } from "../../generated/vocabulary";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
@@ -75,7 +85,10 @@ const GLYPH: Record<StepActivity, LucideIcon> = {
  * One of each per rail, because a Job stops or fails in exactly one place.
  * `WorkflowRail` reads this rather than holding a second copy of the rule.
  */
-export const STEP_ACTIVITY_CARRIES_A_SURFACE: readonly StepActivity[] = ["stopped", "failed"];
+export const STEP_ACTIVITY_CARRIES_A_SURFACE: readonly StepActivity[] = [
+  "stopped",
+  "failed",
+];
 
 /**
  * The two activity values `job_steps.state` does not carry, and their words. A refusal lands in
@@ -153,7 +166,11 @@ export function StepActivityMark({
   // glyph always wins, unchanged from before this value had one.
   const showOrdinal = activity === "not_started" && ordinal !== undefined;
   const mark = (
-    <span className="armada-step-mark" data-activity={activity} data-pulsing={animates || undefined}>
+    <span
+      className="armada-step-mark"
+      data-activity={activity}
+      data-pulsing={animates || undefined}
+    >
       {showOrdinal ? (
         <span className="armada-step-mark__ordinal" aria-hidden>
           {ordinal}

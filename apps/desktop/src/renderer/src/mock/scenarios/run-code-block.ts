@@ -34,11 +34,29 @@ const running: Session[] = [
   {
     id: "s13",
     title: "Verify the build",
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     lastTurnAt: minutesAgo(1),
     rows: [
-      { id: "r1", at: "14:39:50", kind: "message", from: { kind: "you" }, text: "What do I run to check the build?" },
-      { id: "r2", at: "14:40:02", kind: "message", from: { kind: "agent" }, text: TEXT },
+      {
+        id: "r1",
+        at: "14:39:50",
+        kind: "message",
+        from: {
+          kind: "you",
+        },
+        text: "What do I run to check the build?",
+      },
+      {
+        id: "r2",
+        at: "14:40:02",
+        kind: "message",
+        from: {
+          kind: "agent",
+        },
+        text: TEXT,
+      },
     ],
     attachments: [],
   },
@@ -48,5 +66,7 @@ export const s205RunCodeBlock: Scenario = {
   ...s200Sessions,
   name: "run-code-block",
   says: "A Session whose agent message holds shell blocks, run from the thread: passing, failing, stopped",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, running) },
+  draft: {
+    sessions: (board) => s200Sessions.draft!.sessions!(board, running),
+  },
 };

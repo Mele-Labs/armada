@@ -9,7 +9,13 @@ const meta: Meta<typeof ModRules> = {
   component: ModRules,
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)", maxWidth: "var(--w-dialog-wide)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+          maxWidth: "var(--w-dialog-wide)",
+        }}
+      >
         <Card>
           <CardContent>
             <Story />
@@ -31,15 +37,30 @@ export const Words: Story = {
       {
         part: "Words",
         facts: [
-          { label: "Pattern", value: "#\\d+", code: true },
-          { label: "Opens", value: "https://tracker.example/issues/{n}", code: true, from: "origin remote" },
+          {
+            label: "Pattern",
+            value: "#\\d+",
+            code: true,
+          },
+          {
+            label: "Opens",
+            value: "https://tracker.example/issues/{n}",
+            code: true,
+            from: "origin remote",
+          },
         ],
       },
     ],
   },
   play: async ({ canvasElement }) => {
-    const group = within(canvasElement).getByRole("group", { name: "Details of Issue links" });
-    await expect(within(group).getByRole("region", { name: "Words" })).toBeVisible();
+    const group = within(canvasElement).getByRole("group", {
+      name: "Details of Issue links",
+    });
+    await expect(
+      within(group).getByRole("region", {
+        name: "Words",
+      }),
+    ).toBeVisible();
     await expect(within(group).getByText("origin remote")).toBeVisible();
   },
 };
@@ -52,9 +73,19 @@ export const Fleet: Story = {
       {
         part: "Fleet",
         facts: [
-          { label: "Notice", value: "Checks failed" },
-          { label: "Matches", value: "^lint", code: true },
-          { label: "Does", value: "Holds the Job" },
+          {
+            label: "Notice",
+            value: "Checks failed",
+          },
+          {
+            label: "Matches",
+            value: "^lint",
+            code: true,
+          },
+          {
+            label: "Does",
+            value: "Holds the Job",
+          },
         ],
       },
     ],
@@ -69,15 +100,27 @@ export const Theme: Story = {
       {
         part: "Colour",
         facts: [
-          { label: "Accent", value: "--accent-muted", code: true },
-          { label: "", value: "Job row" },
-          { label: "", value: "Tab strip" },
+          {
+            label: "Accent",
+            value: "--accent-muted",
+            code: true,
+          },
+          {
+            label: "",
+            value: "Job row",
+          },
+          {
+            label: "",
+            value: "Tab strip",
+          },
         ],
       },
     ],
   },
   play: async ({ canvasElement }) => {
-    const part = within(canvasElement).getByRole("region", { name: "Colour" });
+    const part = within(canvasElement).getByRole("region", {
+      name: "Colour",
+    });
     await expect(within(part).getByText("Job row")).toBeVisible();
     await expect(within(part).getByText("Accent")).toBeVisible();
   },
@@ -88,8 +131,25 @@ export const TwoParts: Story = {
   args: {
     name: "Plain notices",
     parts: [
-      { part: "Words", facts: [{ label: "Pattern", value: "out of date", code: true }] },
-      { part: "Fleet", facts: [{ label: "Does", value: "Holds the Job" }] },
+      {
+        part: "Words",
+        facts: [
+          {
+            label: "Pattern",
+            value: "out of date",
+            code: true,
+          },
+        ],
+      },
+      {
+        part: "Fleet",
+        facts: [
+          {
+            label: "Does",
+            value: "Holds the Job",
+          },
+        ],
+      },
     ],
   },
   play: async ({ canvasElement }) => {

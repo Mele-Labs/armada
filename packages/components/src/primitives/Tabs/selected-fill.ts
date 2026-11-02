@@ -46,7 +46,13 @@ export function useSelectedFill(active: string | undefined, key: string) {
       cancelAnimationFrame(frame);
       watching.disconnect();
     };
-  }, [active, key]);
+  }, [
+    active,
+    key,
+  ]);
 
-  return { strip, fill };
+  return {
+    strip,
+    fill,
+  };
 }

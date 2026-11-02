@@ -6,7 +6,17 @@
 export type VoiceEngine = "apple" | "whisper" | "dictation";
 
 /** Whisper on this Mac, shaped as `WhisperModel` in `thread-look.ts`: not here, coming down (`progress` 0 to 1), or here. */
-export type WhisperState = { state: "absent" } | { state: "installing"; progress: number } | { state: "installed" };
+export type WhisperState =
+  | {
+      state: "absent";
+    }
+  | {
+      state: "installing";
+      progress: number;
+    }
+  | {
+      state: "installed";
+    };
 
 /**
  * Why hearing ended early, or why an install did not finish. `helper_missing`: Armada Voice was not built into this
@@ -38,16 +48,37 @@ export type VoiceApi = {
      * neither: macOS types into the box that has focus, so the box must have it before this is called. `onEnd` is
      * called once, when nothing more will come, with why where it ended early.
      */
-    listen: (engine: VoiceEngine, onWord: (word: string) => void, onEnd?: (why?: VoiceWhy) => void) => () => void;
+    listen: (
+      engine: VoiceEngine,
+      onWord: (word: string) => void,
+      onEnd?: (why?: VoiceWhy) => void,
+    ) => () => void;
     whisper: () => Promise<WhisperState>;
     onWhisper: (listener: (state: WhisperState) => void) => () => void;
     /** Downloads whisper.cpp and its model into Bridge's data folder. Resolves when it is installed or has given up. */
-    installWhisper: () => Promise<{ ok: true } | { ok: false; why: VoiceWhy }>;
+    installWhisper: () => Promise<
+      | {
+          ok: true;
+        }
+      | {
+          ok: false;
+          why: VoiceWhy;
+        }
+    >;
   };
 };
 
 /** One message on `voiceHeard`: a word for the hearing `id`, or its end. */
-export type Heard = { id: number; word: string } | { id: number; end: true; why?: VoiceWhy };
+export type Heard =
+  | {
+      id: number;
+      word: string;
+    }
+  | {
+      id: number;
+      end: true;
+      why?: VoiceWhy;
+    };
 
 export const VOICE_CHANNELS = {
   voiceListen: "bridge:voice-listen",

@@ -104,20 +104,42 @@ export class ScriptPerformer implements Performer {
   }
 }
 
-const NOTHING: Performer = { perform: () => undefined, dispose: () => undefined };
+const NOTHING: Performer = {
+  perform: () => undefined,
+  dispose: () => undefined,
+};
 
 /** The one performer, chosen once. Only macOS has a trackpad this can reach. */
 export function pickPerformer(platform: NodeJS.Platform = process.platform): Performer {
   if (platform !== "darwin") return NOTHING;
   return new ScriptPerformer(() =>
-    spawn("osascript", ["-l", "JavaScript", "-e", SCRIPT], { stdio: ["pipe", "ignore", "ignore"] }),
+    spawn(
+      "osascript",
+      [
+        "-l",
+        "JavaScript",
+        "-e",
+        SCRIPT,
+      ],
+      {
+        stdio: [
+          "pipe",
+          "ignore",
+          "ignore",
+        ],
+      },
+    ),
   );
 }
 
 /** The narrow part of `ipcMain` and `app` this registers on. */
 export type Hosts = {
-  ipc: { on: (channel: string, listener: (event: unknown, pattern: unknown) => void) => unknown };
-  app: { on: (event: "will-quit", listener: () => void) => unknown };
+  ipc: {
+    on: (channel: string, listener: (event: unknown, pattern: unknown) => void) => unknown;
+  };
+  app: {
+    on: (event: "will-quit", listener: () => void) => unknown;
+  };
 };
 
 /** Listen for the renderer's taps, and end the script as Bridge quits. */

@@ -61,7 +61,10 @@ export function AskRepository({
         align="start"
         triggerLabel="Choose a repository"
         searchLabel={FIND_A_REPOSITORY}
-        entries={repositoryEntries(repositories, { onlySetUp, recent })}
+        entries={repositoryEntries(repositories, {
+          onlySetUp,
+          recent,
+        })}
         onSelect={(picked) => {
           const root = rootOf(picked);
           remember(root);

@@ -23,15 +23,30 @@ export const AutopilotIsTheSecondKind: Story = {
     entries: [],
     searched: "",
     defaultQuery: "work through the open bugs, two at a time, until 7am",
-    dispatch: { kind: "autopilot", kinds: ["session", "autopilot"], onDispatch: fn(), onKind: fn() },
+    dispatch: {
+      kind: "autopilot",
+      kinds: [
+        "session",
+        "autopilot",
+      ],
+      onDispatch: fn(),
+      onKind: fn(),
+    },
   },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("option", { name: /^Start Autopilot with “work through the open bugs, two at a time, until 7am”/ })).toBeVisible();
+    await expect(
+      canvas.getByRole("option", {
+        name: /^Start Autopilot with “work through the open bugs, two at a time, until 7am”/,
+      }),
+    ).toBeVisible();
     // The foot offers the kind ⇥ goes on to.
     await expect(canvas.getByText("Job")).toBeInTheDocument();
     await userEvent.keyboard("{Tab}");
     await expect(args.dispatch!.onKind).toHaveBeenCalledWith("session");
     await userEvent.keyboard("{Enter}");
-    await expect(args.dispatch!.onDispatch).toHaveBeenCalledWith("work through the open bugs, two at a time, until 7am", "autopilot");
+    await expect(args.dispatch!.onDispatch).toHaveBeenCalledWith(
+      "work through the open bugs, two at a time, until 7am",
+      "autopilot",
+    );
   },
 };

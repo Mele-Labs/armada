@@ -21,9 +21,24 @@ type Api = FleetPanelApi & StateSource;
 
 /** The pull requests a `#number` in the panel can name: the ones the merge lines hold open. */
 const numberedOf = (lines: MergeLines | null): PanelReads["numbered"] =>
-  (lines?.lines ?? []).flatMap((one) => (one.hub?.pull_requests ?? []).map((pr) => ({ kind: "pull_request" as const, number: String(pr.number), title: pr.title, url: pr.url })));
+  (lines?.lines ?? []).flatMap((one) =>
+    (one.hub?.pull_requests ?? []).map((pr) => ({
+      kind: "pull_request" as const,
+      number: String(pr.number),
+      title: pr.title,
+      url: pr.url,
+    })),
+  );
 
-export function SharedPanelOver({ api, children, testsReaching }: { api: Api; children: ReactNode; testsReaching?: PanelReads["testsReaching"] | undefined }) {
+export function SharedPanelOver({
+  api,
+  children,
+  testsReaching,
+}: {
+  api: Api;
+  children: ReactNode;
+  testsReaching?: PanelReads["testsReaching"] | undefined;
+}) {
   const now = useRef<BridgeState | undefined>(undefined);
   const [lines, setLines] = useState<MergeLines | null>(null);
   const [browser, setBrowser] = useState(false);
@@ -42,11 +57,39 @@ export function SharedPanelOver({ api, children, testsReaching }: { api: Api; ch
       live = false;
       off();
     };
-  }, [api]);
-  const base = useMemo(() => fleetPanelReads(api, () => now.current), [api]);
+  }, [
+    api,
+  ]);
+  const base = useMemo(
+    () => fleetPanelReads(api, () => now.current),
+    [
+      api,
+    ],
+  );
   const reads = useMemo(
-    (): PanelReads => ({ ...base, lines, numbered: numberedOf(lines), followed, ...(browser ? { browse: (address: string) => (void openLink(address), true) } : {}), ...(testsReaching === undefined ? {} : { testsReaching }) }),
-    [base, lines, browser, followed, testsReaching],
+    (): PanelReads => ({
+      ...base,
+      lines,
+      numbered: numberedOf(lines),
+      followed,
+      ...(browser
+        ? {
+            browse: (address: string) => (void openLink(address), true),
+          }
+        : {}),
+      ...(testsReaching === undefined
+        ? {}
+        : {
+            testsReaching,
+          }),
+    }),
+    [
+      base,
+      lines,
+      browser,
+      followed,
+      testsReaching,
+    ],
   );
   return (
     <SharedPanelFrom reads={reads}>

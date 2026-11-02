@@ -52,9 +52,17 @@ export type ManifestEditing = {
   /** What the toggle is called: the file's own name, never its format. */
   named: string;
   file:
-    | { state: "reading" }
-    | { state: "failed"; saying: string }
-    | { state: "open"; props: ManifestFileProps };
+    | {
+        state: "reading";
+      }
+    | {
+        state: "failed";
+        saying: string;
+      }
+    | {
+        state: "open";
+        props: ManifestFileProps;
+      };
 };
 
 /**
@@ -80,11 +88,15 @@ export function useManifestEditing({
   repository,
 }: ManifestEditingSlice): ManifestEditing {
   const [view, setView] = useState<ManifestView>(initialView);
-  const [held, setHeld] = useState<HeldFile>({ state: "none" });
+  const [held, setHeld] = useState<HeldFile>({
+    state: "none",
+  });
   const [heldFor, setHeldFor] = useState(repository);
   if (heldFor !== repository) {
     setHeldFor(repository);
-    setHeld({ state: "none" });
+    setHeld({
+      state: "none",
+    });
   }
   // What a press reads. **A save takes the text as it is at the press**, and
   // a closure over the render before it would send the edit minus its last
@@ -98,7 +110,13 @@ export function useManifestEditing({
   const out = useRef(false);
 
   function readFile(): void {
-    setHeld((prev) => (prev.state === "open" ? prev : { state: "reading" }));
+    setHeld((prev) =>
+      prev.state === "open"
+        ? prev
+        : {
+            state: "reading",
+          },
+    );
     void onReadFile().then((answer) => setHeld((prev) => fileAnswered(prev, answer)));
   }
 
@@ -107,7 +125,11 @@ export function useManifestEditing({
   // **unless it is being edited**, which `fileAnswered` keeps.
   useEffect(() => {
     if (showing) readFile();
-  }, [showing, reading?.at, repository]);
+  }, [
+    showing,
+    reading?.at,
+    repository,
+  ]);
 
   function save(over: boolean): void {
     const at = current.current;
@@ -116,9 +138,20 @@ export function useManifestEditing({
     // the one thing the person pressing has just been shown.
     const read = over ? at.moved?.onDisk : at.read;
     if (read === undefined || read === null) return;
-    const sent: SaveManifestFile = { read, text: at.text };
+    const sent: SaveManifestFile = {
+      read,
+      text: at.text,
+    };
     out.current = true;
-    setHeld((prev) => (prev.state === "open" ? { ...prev, saving: true, failure: undefined } : prev));
+    setHeld((prev) =>
+      prev.state === "open"
+        ? {
+            ...prev,
+            saving: true,
+            failure: undefined,
+          }
+        : prev,
+    );
     void onSaveFile(sent).then((answer) => {
       out.current = false;
       setHeld((prev) => saveAnswered(prev, sent, answer));
@@ -132,39 +165,78 @@ export function useManifestEditing({
     named: fileNameOf(path),
     file:
       held.state === "open"
-        ? { state: "open", props: propsOf(held, reading) }
+        ? {
+            state: "open",
+            props: propsOf(held, reading),
+          }
         : held.state === "failed"
-          ? { state: "failed", saying: unlandedSaying(held.outcome) }
-          : { state: "reading" },
+          ? {
+              state: "failed",
+              saying: unlandedSaying(held.outcome),
+            }
+          : {
+              state: "reading",
+            },
   };
 
-  function propsOf(open: Extract<HeldFile, { state: "open" }>, now: ManifestReading | null): ManifestFileProps {
+  function propsOf(
+    open: Extract<
+      HeldFile,
+      {
+        state: "open";
+      }
+    >,
+    now: ManifestReading | null,
+  ): ManifestFileProps {
     const moved = open.moved;
     return {
       path: open.path,
       text: open.text,
-      onText: (text) => setHeld((prev) => (prev.state === "open" ? { ...prev, text } : prev)),
+      onText: (text) =>
+        setHeld((prev) =>
+          prev.state === "open"
+            ? {
+                ...prev,
+                text,
+              }
+            : prev,
+        ),
       changed: open.text !== open.read,
       saving: open.saving,
       onSave: () => save(false),
       ...(open.saved === undefined
         ? {}
-        : { saved: { at: open.saved.at, settled: settledBy(open.saved, now) } }),
-      ...(now === null ? {} : { reading: now }),
+        : {
+            saved: {
+              at: open.saved.at,
+              settled: settledBy(open.saved, now),
+            },
+          }),
+      ...(now === null
+        ? {}
+        : {
+            reading: now,
+          }),
       ...(moved === undefined
         ? {}
         : {
             moved: {
               onDisk: moved.onDisk,
               ...(moved.onDisk === null
-                ? { onReadAgain: readFile }
+                ? {
+                    onReadAgain: readFile,
+                  }
                 : {
                     onSaveOver: () => save(true),
                     onTakeOnDisk: () => setHeld((prev) => takenOnDisk(prev)),
                   }),
             },
           }),
-      ...(open.failure === undefined ? {} : { failure: unlandedSaying(open.failure) }),
+      ...(open.failure === undefined
+        ? {}
+        : {
+            failure: unlandedSaying(open.failure),
+          }),
     };
   }
 }

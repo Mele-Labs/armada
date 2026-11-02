@@ -39,7 +39,11 @@ export type LessonCardItem = {
 /** The two answers, and what each does for this item's place. */
 export type LessonAnswers = {
   /** Accept, or Update Kit: only a Kit item has one. Any other item is agreed by starting a Session. */
-  agree?: { label: string; tip: string; onAgree: () => void };
+  agree?: {
+    label: string;
+    tip: string;
+    onAgree: () => void;
+  };
   disagreeTip: string;
   onDisagree: () => void;
   /**
@@ -47,7 +51,10 @@ export type LessonAnswers = {
    * has no repository to start one on. **A press begins work at once**: Fleet sends the request as
    * the Session's first message, and the host opens the Session running.
    */
-  startSession?: { tip: string; onStart: () => void };
+  startSession?: {
+    tip: string;
+    onStart: () => void;
+  };
   /** The answer sent and not yet answered: its button sweeps and the others are held. */
   pressing?: "agree" | "disagree" | "session";
   /** Fleet's words for an answer it refused. */
@@ -61,7 +68,10 @@ export type LessonSettled = {
   /** The command Kit was updated with, drawn in monospace beside `said`. */
   command?: string;
   /** The Session the item started, where the surface can open one. */
-  session?: { label: string; onOpen: () => void };
+  session?: {
+    label: string;
+    onOpen: () => void;
+  };
   /** Fleet's words where the Session started and its first message did not go. */
   note?: string;
 };
@@ -86,7 +96,11 @@ export type LessonCardProps = {
   answers?: LessonAnswers;
   settled?: LessonSettled;
   /** The Session the item came from, on the Lessons list, where a press opens its retro. */
-  from?: { label: string; exact?: string; onOpen: () => void };
+  from?: {
+    label: string;
+    exact?: string;
+    onOpen: () => void;
+  };
 };
 
 /**
@@ -105,7 +119,9 @@ export function LessonRoute({ who, landsIn }: { who?: Who; landsIn?: Lands }) {
       )}
       {landsIn === undefined ? null : (
         <>
-          {who === undefined ? null : <MoveRight className="armada-lesson__arrow" size={14} strokeWidth={2} aria-hidden />}
+          {who === undefined ? null : (
+            <MoveRight className="armada-lesson__arrow" size={14} strokeWidth={2} aria-hidden />
+          )}
           <span className="armada-lesson__label" data-hue={landsIn}>
             <LandsMark lands={landsIn} />
             <span className="armada-lesson__word">{landsWord(landsIn)}</span>
@@ -193,7 +209,11 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
                 <span className="armada-lesson__command mono">{settled.command}</span>
               )}
               {settled.session === undefined ? null : (
-                <button type="button" className="armada-lesson__job" onClick={settled.session.onOpen}>
+                <button
+                  type="button"
+                  className="armada-lesson__job"
+                  onClick={settled.session.onOpen}
+                >
                   {settled.session.label}
                 </button>
               )}
@@ -270,8 +290,12 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
                 <span className="armada-retro__name" data-mono={cite.mono ? "true" : undefined}>
                   {cite.name}
                 </span>
-                {cite.detail === undefined ? null : <span className="armada-retro__detail">{cite.detail}</span>}
-                {cite.at === undefined ? null : <Stamp at={cite.at} className="armada-retro__when" />}
+                {cite.detail === undefined ? null : (
+                  <span className="armada-retro__detail">{cite.detail}</span>
+                )}
+                {cite.at === undefined ? null : (
+                  <Stamp at={cite.at} className="armada-retro__when" />
+                )}
               </li>
             ))}
           </ul>

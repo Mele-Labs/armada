@@ -3,19 +3,33 @@
 // (`putReadings`), and the components read them as records. A reading arrives whole and replaces the one before it for the same artifact.
 
 import { useSyncExternalStore } from "react";
-import type { JudgeArtifact, JudgeKind, JudgeNote as WireNote, JudgeReading } from "@armada/protocol";
+import type {
+  JudgeArtifact,
+  JudgeKind,
+  JudgeNote as WireNote,
+  JudgeReading,
+} from "@armada/protocol";
 import type { SessionJudgeActs } from "@armada/screens/src/draft/sessions";
 
 export type { JudgeArtifact, JudgeKind };
 
 /** The press: an empty prompt asks what was missed. */
-export type JudgeRequest = { job: string; artifact: JudgeArtifact; prompt: string };
+export type JudgeRequest = {
+  job: string;
+  artifact: JudgeArtifact;
+  prompt: string;
+};
 
 /** A note as the components read it: `settled` is how the person settled it, and absent while it waits. */
-export type JudgeNote = Omit<WireNote, "settled"> & { settled?: "sent" | "dismissed" };
+export type JudgeNote = Omit<WireNote, "settled"> & {
+  settled?: "sent" | "dismissed";
+};
 
 /** A reading as the components read it, with the Job it belongs to. */
-export type JudgeRecord = Omit<JudgeReading, "notes"> & { job: string; notes: readonly JudgeNote[] };
+export type JudgeRecord = Omit<JudgeReading, "notes"> & {
+  job: string;
+  notes: readonly JudgeNote[];
+};
 
 /** What the components ask: `record` is a reading's id, and the Job it belongs to is looked up from the readings held. */
 export type JudgeApi = {
@@ -25,11 +39,26 @@ export type JudgeApi = {
   markRead: (record: string) => void;
 };
 
-export const keyOf = (artifact: Pick<JudgeArtifact, "kind" | "id">): string => `${artifact.kind}:${artifact.id}`;
+export const keyOf = (artifact: Pick<JudgeArtifact, "kind" | "id">): string =>
+  `${artifact.kind}:${artifact.id}`;
 
 /** What `judge_readings` of one Job are to the components. */
-export const recordsOf = (job: string, readings: readonly JudgeReading[] | undefined): readonly JudgeRecord[] =>
-  (readings ?? []).map((one) => ({ ...one, job, notes: one.notes.map(({ settled, ...note }) => (settled === undefined ? note : { ...note, settled: settled.how })) }));
+export const recordsOf = (
+  job: string,
+  readings: readonly JudgeReading[] | undefined,
+): readonly JudgeRecord[] =>
+  (readings ?? []).map((one) => ({
+    ...one,
+    job,
+    notes: one.notes.map(({ settled, ...note }) =>
+      settled === undefined
+        ? note
+        : {
+            ...note,
+            settled: settled.how,
+          },
+    ),
+  }));
 
 let api: JudgeApi | undefined;
 let records: readonly JudgeRecord[] = [];
@@ -40,7 +69,8 @@ const told = () => listeners.forEach((one) => one());
 const subscribe = (hear: () => void) => (listeners.add(hear), () => void listeners.delete(hear));
 
 /** The Job a reading belongs to, from the readings held. */
-const jobOf = (reading: string): string | undefined => records.find((one) => one.id === reading)?.job;
+const jobOf = (reading: string): string | undefined =>
+  records.find((one) => one.id === reading)?.job;
 
 /** The acts of the window's Sessions as the components ask them. Fleet needs the Job with each; a reading no longer held is no act. */
 export function judgeApiOver(acts: SessionJudgeActs): JudgeApi {
@@ -70,7 +100,10 @@ export function provideJudge(next: JudgeApi | undefined): void {
 export function putReadings(job: string, readings: readonly JudgeReading[] | undefined): void {
   if (handed.has(job) && handed.get(job) === readings) return;
   handed.set(job, readings);
-  records = [...records.filter((one) => one.job !== job), ...recordsOf(job, readings)];
+  records = [
+    ...records.filter((one) => one.job !== job),
+    ...recordsOf(job, readings),
+  ];
   told();
 }
 
@@ -84,7 +117,10 @@ export const useJudgeRecords = (job: string): readonly JudgeRecord[] => {
 };
 
 /** The reading of one artifact, if it was asked. */
-export function useJudgeRecord(job: string, artifact: Pick<JudgeArtifact, "kind" | "id">): JudgeRecord | undefined {
+export function useJudgeRecord(
+  job: string,
+  artifact: Pick<JudgeArtifact, "kind" | "id">,
+): JudgeRecord | undefined {
   const all = useSyncExternalStore(subscribe, allRecords);
   return all.find((one) => one.job === job && keyOf(one.artifact) === keyOf(artifact));
 }
@@ -94,7 +130,11 @@ export function useJudgeRecord(job: string, artifact: Pick<JudgeArtifact, "kind"
 const openers = new Map<string, () => void>();
 
 /** The Judge act of an artifact stands here so a key can open its popover. */
-export function registerOpener(job: string, artifact: Pick<JudgeArtifact, "kind" | "id">, open: () => void): () => void {
+export function registerOpener(
+  job: string,
+  artifact: Pick<JudgeArtifact, "kind" | "id">,
+  open: () => void,
+): () => void {
   const key = `${job}|${keyOf(artifact)}`;
   openers.set(key, open);
   return () => void (openers.get(key) === open && openers.delete(key));

@@ -26,12 +26,23 @@ const PICKED_SESSION = "01JAUTOPILOTSESSION000000002";
  */
 function onTheRepository(): Scenario {
   const base = scenarioNamed("dashboard-cockpit")!;
-  const picked: Session = { id: PICKED_SESSION, title: "Checkout total rounds the tax twice", turn: { state: "idle" }, rows: [], attachments: [] };
+  const picked: Session = {
+    id: PICKED_SESSION,
+    title: "Checkout total rounds the tax twice",
+    turn: {
+      state: "idle",
+    },
+    rows: [],
+    attachments: [],
+  };
   const sessions = base.draft!.sessions!;
   return {
     ...base,
     name: "dashboard-cockpit-autopilot",
-    state: { ...base.state, repository: repository().root },
+    state: {
+      ...base.state,
+      repository: repository().root,
+    },
     draft: {
       ...base.draft,
       sessions: (control) => {
@@ -39,14 +50,20 @@ function onTheRepository(): Scenario {
         let from: readonly Session[] | undefined;
         let held: readonly Session[] = [];
         // Stable between changes, as a store's snapshot must be.
-        return { ...store, get: () => {
-          const now = store.get();
-          if (now !== from) {
-            from = now;
-            held = [...now, picked];
-          }
-          return held;
-        } };
+        return {
+          ...store,
+          get: () => {
+            const now = store.get();
+            if (now !== from) {
+              from = now;
+              held = [
+                ...now,
+                picked,
+              ];
+            }
+            return held;
+          },
+        };
       },
     },
   };
@@ -56,19 +73,40 @@ function onTheRepository(): Scenario {
 const issue = (n: number) => `#${n}`;
 
 /** The lane on the stage, and the bar inside it. The foot's own card is a region named Autopilot too, so the bar is found in the lane. */
-const lane = () => page.getByRole("region", { name: "Autopilot lane" });
-const bar = () => lane().getByRole("region", { name: "Autopilot", exact: true });
+const lane = () =>
+  page.getByRole("region", {
+    name: "Autopilot lane",
+  });
+const bar = () =>
+  lane().getByRole("region", {
+    name: "Autopilot",
+    exact: true,
+  });
 
 /** The panel in the deck's foot, one row of a name and a switch, after the stage's own bar, which opens the lane on the stage and puts it away. */
-const foot = () => page.getByRole("region", { name: "Autopilot", exact: true }).last();
+const foot = () =>
+  page
+    .getByRole("region", {
+      name: "Autopilot",
+      exact: true,
+    })
+    .last();
 // The switch's input is hidden under its label, so the label is what is pressed.
-const control = () => foot().getByText("Autopilot", { exact: true });
+const control = () =>
+  foot().getByText("Autopilot", {
+    exact: true,
+  });
 
 /** How the foot's switch says Autopilot stands: on while it runs, which holds while the lane is put away. */
 const standing = () => foot().getByRole("switch");
 
 /** The switch, pressed where a person presses it: on its label, since the native box is clipped. */
-const flip = () => bar().getByText("Autopilot", { exact: true }).click();
+const flip = () =>
+  bar()
+    .getByText("Autopilot", {
+      exact: true,
+    })
+    .click();
 
 /** The lane is put away until the switch is pressed, so this opens it. */
 async function cockpit(scenario: Scenario = onTheRepository()): Promise<void> {
@@ -76,7 +114,9 @@ async function cockpit(scenario: Scenario = onTheRepository()): Promise<void> {
   const app = mount(scenario);
   await onScreen();
   // The panel is off until the Features switch turns it on.
-  await app.api.saveSettings({ "features.autopilotPanel": true });
+  await app.api.saveSettings({
+    "features.autopilotPanel": true,
+  });
   expect(bar().query()).toBeNull();
   await control().click();
   await expect.element(bar().getByRole("status")).toBeVisible();
@@ -85,14 +125,30 @@ async function cockpit(scenario: Scenario = onTheRepository()): Promise<void> {
 test("the bar shows its caps used of their limit, and pauses and resumes", async () => {
   await cockpit();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
-  await expect.element(bar()).toHaveTextContent("work through the open issues that don't need design decisions");
+  await expect
+    .element(bar())
+    .toHaveTextContent("work through the open issues that don't need design decisions");
   await expect.element(bar().getByText("1 of 2 running")).toBeVisible();
   await expect.element(bar().getByText("$4.12 of $30")).toBeVisible();
   await expect.element(bar().getByText("2 started · no cap")).toBeVisible();
-  await expect.element(bar().getByRole("button", { name: "Pause" })).toBeVisible();
-  await bar().getByRole("button", { name: "Pause" }).click();
+  await expect
+    .element(
+      bar().getByRole("button", {
+        name: "Pause",
+      }),
+    )
+    .toBeVisible();
+  await bar()
+    .getByRole("button", {
+      name: "Pause",
+    })
+    .click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · started Jobs finish");
-  await bar().getByRole("button", { name: "Resume" }).click();
+  await bar()
+    .getByRole("button", {
+      name: "Resume",
+    })
+    .click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
 });
 
@@ -100,45 +156,118 @@ test("turning it off asks in the bar first, and turning it on reads a sentence b
   await cockpit();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await flip();
-  const asked = bar().getByRole("group", { name: "Stop Autopilot" });
-  await expect.element(asked).toHaveTextContent(`Stop ends Autopilot. ${issue(401)}, picked and not started, is withdrawn.`);
+  const asked = bar().getByRole("group", {
+    name: "Stop Autopilot",
+  });
+  await expect
+    .element(asked)
+    .toHaveTextContent(`Stop ends Autopilot. ${issue(401)}, picked and not started, is withdrawn.`);
   expect(page.getByRole("dialog").query()).toBeNull();
-  await asked.getByRole("button", { name: "Stop Autopilot" }).click();
+  await asked
+    .getByRole("button", {
+      name: "Stop Autopilot",
+    })
+    .click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Off");
 
   await flip();
-  await bar().getByRole("textbox", { name: /Tell Autopilot what to work on/ }).fill("Fix the open bugs, two at a time, until 7am, $30 max.");
-  expect(bar().getByRole("button", { name: "Start Autopilot" }).query()).toBeNull();
-  await bar().getByRole("button", { name: "Read it" }).click();
-  await expect.element(bar().getByRole("textbox", { name: "At once" })).toHaveValue("2");
-  await expect.element(bar().getByRole("textbox", { name: "Spend, in dollars" })).toHaveValue("30");
+  await bar()
+    .getByRole("textbox", {
+      name: /Tell Autopilot what to work on/,
+    })
+    .fill("Fix the open bugs, two at a time, until 7am, $30 max.");
+  expect(
+    bar()
+      .getByRole("button", {
+        name: "Start Autopilot",
+      })
+      .query(),
+  ).toBeNull();
+  await bar()
+    .getByRole("button", {
+      name: "Read it",
+    })
+    .click();
+  await expect
+    .element(
+      bar().getByRole("textbox", {
+        name: "At once",
+      }),
+    )
+    .toHaveValue("2");
+  await expect
+    .element(
+      bar().getByRole("textbox", {
+        name: "Spend, in dollars",
+      }),
+    )
+    .toHaveValue("30");
   await expect.element(bar().getByText("not said")).toBeVisible();
-  await bar().getByRole("textbox", { name: "Jobs" }).fill("4");
-  await bar().getByRole("button", { name: "Start Autopilot" }).click();
+  await bar()
+    .getByRole("textbox", {
+      name: "Jobs",
+    })
+    .fill("4");
+  await bar()
+    .getByRole("button", {
+      name: "Start Autopilot",
+    })
+    .click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await expect.element(bar().getByText("0 of 4 started")).toBeVisible();
 });
 
 test("a pick it set aside is in the lane's Set aside, and Dismiss takes it off", async () => {
   await cockpit();
-  const aside = lane().getByRole("region", { name: "Set aside" });
+  const aside = lane().getByRole("region", {
+    name: "Set aside",
+  });
   await expect.element(aside).toHaveTextContent(`${issue(377)}`);
-  await aside.getByRole("button", { name: "Dismiss" }).first().click();
+  await aside
+    .getByRole("button", {
+      name: "Dismiss",
+    })
+    .first()
+    .click();
   await expect.element(aside).not.toHaveTextContent(`${issue(377)}`);
 });
 
 test("the lane draws Next up as a numbered list and the set-aside siding", async () => {
   await cockpit();
-  await expect.element(lane().getByText("Next up", { exact: false }).first()).toBeVisible();
+  await expect
+    .element(
+      lane()
+        .getByText("Next up", {
+          exact: false,
+        })
+        .first(),
+    )
+    .toBeVisible();
 
   // Next up is a numbered list, and one it passes over says why on the right.
-  const next = lane().getByRole("region", { name: "Next up" });
-  const rows = [...next.element().querySelectorAll("li")].map((li) => li.textContent);
-  expect(rows).toEqual(["1#405Coupon field accepts an expired code", "2#409Order history pages past the last order", "–#398Checkout button stays disabled after a failed cardhas a pull request"]);
+  const next = lane().getByRole("region", {
+    name: "Next up",
+  });
+  const rows = [
+    ...next.element().querySelectorAll("li"),
+  ].map((li) => li.textContent);
+  expect(rows).toEqual([
+    "1#405Coupon field accepts an expired code",
+    "2#409Order history pages past the last order",
+    "–#398Checkout button stays disabled after a failed cardhas a pull request",
+  ]);
 
-  const aside = lane().getByRole("region", { name: "Set aside" });
-  await expect.element(aside).toHaveTextContent("It asks how the Board should look, which is a design decision.");
-  await aside.getByRole("button", { name: "Run it" }).click();
+  const aside = lane().getByRole("region", {
+    name: "Set aside",
+  });
+  await expect
+    .element(aside)
+    .toHaveTextContent("It asks how the Board should look, which is a design decision.");
+  await aside
+    .getByRole("button", {
+      name: "Run it",
+    })
+    .click();
   await expect.element(aside).toHaveTextContent("Nothing set aside.");
 });
 
@@ -147,19 +276,52 @@ test("the Dispatch sheet's second kind is Autopilot: Tab steps to it, and the sh
   // The switch just pressed holds focus, and a bare key does nothing while a control does.
   (document.activeElement as HTMLElement).blur();
   await userEvent.keyboard("{Meta>}n{/Meta}");
-  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
-  const field = panel.getByRole("textbox", { name: "Request" });
+  const panel = page.getByRole("region", {
+    name: "Dispatch",
+    exact: true,
+  });
+  const field = panel.getByRole("textbox", {
+    name: "Request",
+  });
   await expect.element(field).toHaveFocus();
   await userEvent.keyboard("Work the open bugs until 7am");
   for (let tries = 0; tries < 3; tries += 1) {
-    if ((await panel.getByRole("tab", { name: "Autopilot" }).element().getAttribute("aria-selected")) === "true") break;
+    if (
+      (await panel
+        .getByRole("tab", {
+          name: "Autopilot",
+        })
+        .element()
+        .getAttribute("aria-selected")) === "true"
+    )
+      break;
     await userEvent.keyboard("{Tab}");
   }
-  await expect.element(panel.getByRole("tab", { name: "Autopilot" })).toHaveAttribute("aria-selected", "true");
+  await expect
+    .element(
+      panel.getByRole("tab", {
+        name: "Autopilot",
+      }),
+    )
+    .toHaveAttribute("aria-selected", "true");
   // Its act reads the words as settings, and nothing starts until the next press.
-  await panel.getByRole("button", { name: "Read it" }).click();
-  await expect.element(panel.getByRole("textbox", { name: "At once" })).toBeVisible();
-  await panel.getByRole("button", { name: "Start Autopilot" }).click();
+  await panel
+    .getByRole("button", {
+      name: "Read it",
+    })
+    .click();
+  await expect
+    .element(
+      panel.getByRole("textbox", {
+        name: "At once",
+      }),
+    )
+    .toBeVisible();
+  await panel
+    .getByRole("button", {
+      name: "Start Autopilot",
+    })
+    .click();
   await expect.element(panel).not.toBeInTheDocument();
 });
 
@@ -168,17 +330,36 @@ test("in a short window the Dispatch sheet stays inside it and its Autopilot for
   await cockpit();
   (document.activeElement as HTMLElement).blur();
   await userEvent.keyboard("{Meta>}n{/Meta}");
-  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
+  const panel = page.getByRole("region", {
+    name: "Dispatch",
+    exact: true,
+  });
   await userEvent.keyboard("Work the open bugs until 7am");
   for (let tries = 0; tries < 3; tries += 1) {
-    if ((await panel.getByRole("tab", { name: "Autopilot" }).element().getAttribute("aria-selected")) === "true") break;
+    if (
+      (await panel
+        .getByRole("tab", {
+          name: "Autopilot",
+        })
+        .element()
+        .getAttribute("aria-selected")) === "true"
+    )
+      break;
     await userEvent.keyboard("{Tab}");
   }
-  await panel.getByRole("button", { name: "Read it" }).click();
-  const start = panel.getByRole("button", { name: "Start Autopilot" });
+  await panel
+    .getByRole("button", {
+      name: "Read it",
+    })
+    .click();
+  const start = panel.getByRole("button", {
+    name: "Start Autopilot",
+  });
   await expect.element(start).toBeInTheDocument();
   const frame = panel.element().closest<HTMLElement>(".armada-dispatch-panel__frame")!;
-  await expect.poll(() => frame.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight);
+  await expect
+    .poll(() => frame.getBoundingClientRect().bottom)
+    .toBeLessThanOrEqual(window.innerHeight);
   start.element().scrollIntoView();
   await expect.element(start).toBeVisible();
   await start.click();
@@ -188,24 +369,61 @@ test("in a short window the Dispatch sheet stays inside it and its Autopilot for
 /** The Cockpit on the second repository, whose Autopilot its Session cap paused. */
 function onPocket(): Scenario {
   const base = scenarioNamed("dashboard-cockpit")!;
-  return { ...base, name: "dashboard-cockpit-pocket", state: { ...base.state, repository: "/Users/user/pocket" } };
+  return {
+    ...base,
+    name: "dashboard-cockpit-pocket",
+    state: {
+      ...base.state,
+      repository: "/Users/user/pocket",
+    },
+  };
 }
 
 test("a cap paused it: the bar names the cap, Resume is refused while it holds, and raising it lets Resume through", async () => {
   await cockpit(onPocket());
   await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
-  await expect.element(bar().getByText("3 of 3 started")).toHaveTextContent("3 of 3 started · reached");
+  await expect
+    .element(bar().getByText("3 of 3 started"))
+    .toHaveTextContent("3 of 3 started · reached");
 
-  await bar().getByRole("button", { name: "Resume" }).click();
-  await expect.element(bar().getByRole("alert")).toHaveTextContent("Autopilot stays paused: the Session cap is reached. Raise it, then resume");
+  await bar()
+    .getByRole("button", {
+      name: "Resume",
+    })
+    .click();
+  await expect
+    .element(bar().getByRole("alert"))
+    .toHaveTextContent("Autopilot stays paused: the Session cap is reached. Raise it, then resume");
   await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
 
-  await bar().getByRole("button", { name: "Edit caps" }).click();
-  await bar().getByRole("textbox", { name: "Jobs" }).fill("5");
-  await bar().getByRole("button", { name: "Save caps" }).click();
+  await bar()
+    .getByRole("button", {
+      name: "Edit caps",
+    })
+    .click();
+  await bar()
+    .getByRole("textbox", {
+      name: "Jobs",
+    })
+    .fill("5");
+  await bar()
+    .getByRole("button", {
+      name: "Save caps",
+    })
+    .click();
   await expect.element(bar().getByText("3 of 5 started")).toBeVisible();
-  expect(bar().getByRole("form", { name: "Edit caps" }).query()).toBeNull();
-  await bar().getByRole("button", { name: "Resume" }).click();
+  expect(
+    bar()
+      .getByRole("form", {
+        name: "Edit caps",
+      })
+      .query(),
+  ).toBeNull();
+  await bar()
+    .getByRole("button", {
+      name: "Resume",
+    })
+    .click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
 });
 
@@ -213,7 +431,9 @@ test("on All with no repository picked the lane asks for one, and the bar opens 
   localStorage.removeItem("armada.bridge.dashboard-tab");
   const app = mount(scenarioNamed("dashboard-cockpit")!);
   await onScreen();
-  await app.api.saveSettings({ "features.autopilotPanel": true });
+  await app.api.saveSettings({
+    "features.autopilotPanel": true,
+  });
   // Nothing stands at rest, and no line says where to start one.
   expect(bar().query()).toBeNull();
   expect(page.getByText("Pick a repository to start Autopilot").query()).toBeNull();
@@ -222,9 +442,23 @@ test("on All with no repository picked the lane asks for one, and the bar opens 
   await control().click();
   await expect.element(lane()).toBeVisible();
   expect(bar().query()).toBeNull();
-  await lane().getByRole("button", { name: "Repository" }).click();
-  await expect.element(page.getByRole("searchbox", { name: "Find a repository" })).toBeVisible();
-  await page.getByRole("menuitem", { name: /armada/ }).click();
+  await lane()
+    .getByRole("button", {
+      name: "Repository",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("searchbox", {
+        name: "Find a repository",
+      }),
+    )
+    .toBeVisible();
+  await page
+    .getByRole("menuitem", {
+      name: /armada/,
+    })
+    .click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
 });
 

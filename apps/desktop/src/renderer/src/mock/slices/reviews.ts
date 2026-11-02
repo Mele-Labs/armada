@@ -30,7 +30,12 @@ const withBarePages = (forge: ReviewsApi): ReviewsApi => ({
   ...forge,
   readReviewPage: async (manifestId, number) => {
     const read = await forge.readReviewPage(manifestId, number);
-    return read.ok ? read : { ok: true, value: barePage(manifestId, number) };
+    return read.ok
+      ? read
+      : {
+          ok: true,
+          value: barePage(manifestId, number),
+        };
   },
 });
 
@@ -39,14 +44,36 @@ const withPages = (forge: ReviewsApi, pages: PullRequestPages): ReviewsApi => ({
   ...forge,
   readReviewPage: async (manifestId, number) => {
     const page = pages.read(number);
-    return page === undefined ? forge.readReviewPage(manifestId, number) : { ok: true, value: page };
+    return page === undefined
+      ? forge.readReviewPage(manifestId, number)
+      : {
+          ok: true,
+          value: page,
+        };
   },
   writeReview: async (manifestId, write) => {
     if (pages.read(write.pull_request) === undefined) return forge.writeReview(manifestId, write);
     const done = pages.write(write.pull_request, write);
-    if (!("said" in done)) return { ok: true, value: done };
+    if (!("said" in done))
+      return {
+        ok: true,
+        value: done,
+      };
     const path = `/pull_request_writes/${manifestId}`;
-    return { ok: false, outcome: refusedWith(409, JSON.stringify({ code: "fleet.pull_request_write_refused", message: done.said }), { method: "POST", path }) };
+    return {
+      ok: false,
+      outcome: refusedWith(
+        409,
+        JSON.stringify({
+          code: "fleet.pull_request_write_refused",
+          message: done.said,
+        }),
+        {
+          method: "POST",
+          path,
+        },
+      ),
+    };
   },
 });
 
@@ -54,7 +81,12 @@ export const reviews: Slice<ReviewsApi, Record<string, never>> = {
   name: "reviews",
   state: {},
   api: (scenario) => {
-    const forge = scenario.draft?.prReview === undefined ? NO_FORGE : createMockForge(scenario.draft.prReview);
-    return withBarePages(scenario.draft?.pullRequestPages === undefined ? forge : withPages(forge, scenario.draft.pullRequestPages()));
+    const forge =
+      scenario.draft?.prReview === undefined ? NO_FORGE : createMockForge(scenario.draft.prReview);
+    return withBarePages(
+      scenario.draft?.pullRequestPages === undefined
+        ? forge
+        : withPages(forge, scenario.draft.pullRequestPages()),
+    );
   },
 };

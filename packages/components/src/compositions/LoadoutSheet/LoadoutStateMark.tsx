@@ -10,13 +10,39 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  */
 type Marked = LoadoutState | McpServerState | "removed";
 
-const STATE_MARK: Partial<Record<Marked, { Glyph: LucideIcon; said: string }>> = {
-  failed: { Glyph: Unplug, said: "Failed" },
-  pending: { Glyph: Clock, said: "Connecting" },
-  connecting: { Glyph: Clock, said: "Connecting" },
-  needs_sign_in: { Glyph: LogIn, said: "Needs sign-in" },
-  off: { Glyph: ToggleLeft, said: "Off" },
-  removed: { Glyph: Trash2, said: "Removed" },
+const STATE_MARK: Partial<
+  Record<
+    Marked,
+    {
+      Glyph: LucideIcon;
+      said: string;
+    }
+  >
+> = {
+  failed: {
+    Glyph: Unplug,
+    said: "Failed",
+  },
+  pending: {
+    Glyph: Clock,
+    said: "Connecting",
+  },
+  connecting: {
+    Glyph: Clock,
+    said: "Connecting",
+  },
+  needs_sign_in: {
+    Glyph: LogIn,
+    said: "Needs sign-in",
+  },
+  off: {
+    Glyph: ToggleLeft,
+    said: "Off",
+  },
+  removed: {
+    Glyph: Trash2,
+    said: "Removed",
+  },
 };
 
 export function StateMark({ state }: { state: Marked | undefined }) {

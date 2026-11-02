@@ -116,13 +116,23 @@ export type UnifiedDiffProps = {
 /** What a drifted file says. `ChangedFiles`' wording, not a second one. */
 const OUTSIDE_PLAN = "outside plan";
 
-export function UnifiedDiff({ files, emptyNote, cut, note, onCopied, under, onLine }: UnifiedDiffProps) {
+export function UnifiedDiff({
+  files,
+  emptyNote,
+  cut,
+  note,
+  onCopied,
+  under,
+  onLine,
+}: UnifiedDiffProps) {
   const copy = useCallback(
     (event: MouseEvent<HTMLElement>, value: string) => {
       event.stopPropagation();
       void navigator.clipboard.writeText(value).then(() => onCopied?.(value));
     },
-    [onCopied],
+    [
+      onCopied,
+    ],
   );
 
   if (files.length === 0) {
@@ -141,8 +151,18 @@ export function UnifiedDiff({ files, emptyNote, cut, note, onCopied, under, onLi
         </p>
       )}
       {files.map((file) => (
-        <section className="armada-diff__file" key={file.path} role="group" aria-label={file.path} data-diff-path={file.path} data-folded={file.folded === true || undefined}>
-          <header className="armada-diff__head" data-outside={file.outsidePlan === true || undefined}>
+        <section
+          className="armada-diff__file"
+          key={file.path}
+          role="group"
+          aria-label={file.path}
+          data-diff-path={file.path}
+          data-folded={file.folded === true || undefined}
+        >
+          <header
+            className="armada-diff__head"
+            data-outside={file.outsidePlan === true || undefined}
+          >
             {/* The title carries the whole path however narrow the pane gets,
                 and so does the clipboard: a copy that truncated with the
                 display would be worse than the overflow it was fixing. */}
@@ -170,7 +190,12 @@ export function UnifiedDiff({ files, emptyNote, cut, note, onCopied, under, onLi
           {file.folded === true ? null : (
             <ol className="armada-diff__lines">
               {file.lines.map((line, i) => (
-                <li className="armada-diff__line" data-kind={line.kind} data-collides={line.collides === undefined ? undefined : ""} key={i}>
+                <li
+                  className="armada-diff__line"
+                  data-kind={line.kind}
+                  data-collides={line.collides === undefined ? undefined : ""}
+                  key={i}
+                >
                   {onLine === undefined || line.kind === "hunk" ? null : (
                     <Tooltip label={onLine.label} asChild>
                       <button

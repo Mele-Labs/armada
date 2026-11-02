@@ -10,7 +10,9 @@ import type { SessionRecord } from "./sessions";
  * `POST /sessions/note`. Answered 202 with `NoteSent`. It takes a turn, as `SendSessionMessage` does.
  * **The thread keeps only `said`**; the rest is lines Fleet adds.
  */
-export type SendSessionNote = { session_id: string } & SessionNote;
+export type SendSessionNote = {
+  session_id: string;
+} & SessionNote;
 
 /**
  * `POST /sessions/notes`. Answered 202 with `NotesSent`. The notes of a walk as one turn, numbered in order.
@@ -73,13 +75,23 @@ export type NoteState = {
 };
 
 /** The walk the page was on, and its step. */
-export type NoteWalk = { name: string; step: number; of: number };
+export type NoteWalk = {
+  name: string;
+  step: number;
+  of: number;
+};
 
 /** The take of a walk with variations. */
-export type NoteTake = { letter: string; name: string };
+export type NoteTake = {
+  letter: string;
+  name: string;
+};
 
 /** A picture of the spot. `data` is base64. */
-export type NoteCrop = { media_type: string; data: string };
+export type NoteCrop = {
+  media_type: string;
+  data: string;
+};
 
 /** `send_session_note`'s answer: the turn taken, and the lines the Session was handed. */
 export type NoteSent = {

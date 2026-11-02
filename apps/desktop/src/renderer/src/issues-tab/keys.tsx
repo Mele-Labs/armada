@@ -10,20 +10,35 @@ import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { useIssues, useIssuesStore, type IssuesStore } from "./store";
 
-const ZONES = [".issues-list", ".issues-reader"] as const;
-const zoneOf = (target: Element): (typeof ZONES)[number] | undefined => ZONES.find((one) => target.closest(one) !== null);
+const ZONES = [
+  ".issues-list",
+  ".issues-reader",
+] as const;
+const zoneOf = (target: Element): (typeof ZONES)[number] | undefined =>
+  ZONES.find((one) => target.closest(one) !== null);
 
-const all = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].filter((one) => !one.hasAttribute("disabled"));
+const all = (selector: string) =>
+  [
+    ...document.querySelectorAll<HTMLElement>(selector),
+  ].filter((one) => !one.hasAttribute("disabled"));
 
 /** Moves focus along `items` from the one holding it, without wrapping. */
 function step(items: HTMLElement[], from: Element, by: 1 | -1): void {
   const at = items.findIndex((one) => one === from || one.contains(from));
-  items[at < 0 ? (by === 1 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, at + by))]?.focus();
+  items[
+    at < 0 ? (by === 1 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, at + by))
+  ]?.focus();
 }
 
 function focusList(): void {
   const rows = all(".issues-list .issues-row");
-  (rows.find((one) => one.hasAttribute("data-selected")) ?? rows[0] ?? document.querySelector<HTMLElement>(".issues-list .issues-refused__teach") ?? document.querySelector<HTMLElement>(".issues-list__pick button") ?? document.querySelector<HTMLElement>(".issues-list"))?.focus();
+  (
+    rows.find((one) => one.hasAttribute("data-selected")) ??
+    rows[0] ??
+    document.querySelector<HTMLElement>(".issues-list .issues-refused__teach") ??
+    document.querySelector<HTMLElement>(".issues-list__pick button") ??
+    document.querySelector<HTMLElement>(".issues-list")
+  )?.focus();
 }
 function focusReader(): void {
   document.querySelector<HTMLElement>(".issues-reader")?.focus();
@@ -36,14 +51,22 @@ export function IssuesKeys() {
     const listen = (event: KeyboardEvent) => press(event, store);
     window.addEventListener("keydown", listen, true);
     return () => window.removeEventListener("keydown", listen, true);
-  }, [store]);
+  }, [
+    store,
+  ]);
   // The box takes focus when it is put up, and the list when a query has been written for him.
   const was = useRef(describing?.phase);
   useEffect(() => {
-    if (describing?.phase === "box") window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".issues-describe textarea")?.focus());
-    else if (was.current === "box" && describing?.phase === "written") window.requestAnimationFrame(focusList);
+    if (describing?.phase === "box")
+      window.requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>(".issues-describe textarea")?.focus(),
+      );
+    else if (was.current === "box" && describing?.phase === "written")
+      window.requestAnimationFrame(focusList);
     was.current = describing?.phase;
-  }, [describing?.phase]);
+  }, [
+    describing?.phase,
+  ]);
   return null;
 }
 
@@ -99,8 +122,8 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
   }
 
   const part = pressedSlot("issues_panel", event);
-  if (part === 0) return take(), focusList();
-  if (part === 1) return take(), focusReader();
+  if (part === 0) return (take(), focusList());
+  if (part === 1) return (take(), focusReader());
   if (isPressed("issues_queries", event)) {
     take();
     return document.querySelector<HTMLElement>(".issues-list__pick button")?.click();
@@ -112,7 +135,12 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
     return field.focus();
   }
   // A reported bug: the one in the reader, or the row under focus in the list.
-  const reported = here === ".issues-reader" ? snap.openReport : here === ".issues-list" ? target.closest<HTMLElement>("[data-report]")?.dataset.report : undefined;
+  const reported =
+    here === ".issues-reader"
+      ? snap.openReport
+      : here === ".issues-list"
+        ? target.closest<HTMLElement>("[data-report]")?.dataset.report
+        : undefined;
   const report = snap.reports.find((one) => one.id === reported);
   if (report !== undefined && isPressed("issues_drop", event)) {
     take();
@@ -121,7 +149,11 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
   }
   if (report !== undefined && !report.kept && isPressed("issues_keep", event)) {
     take();
-    void store.keepReport(report.id).then(() => window.requestAnimationFrame(here === ".issues-reader" ? focusReader : focusList));
+    void store
+      .keepReport(report.id)
+      .then(() =>
+        window.requestAnimationFrame(here === ".issues-reader" ? focusReader : focusList),
+      );
     return;
   }
   if (isPressed("issues_describe", event)) {
@@ -146,7 +178,10 @@ function press(event: KeyboardEvent, store: IssuesStore): void {
       return step(all(".issues-list .issues-row, .issues-list .issues-refused__teach"), target, by);
     }
     // Enter and `o` open the row under focus. Focus stays on the list, so j and k go on through it.
-    if ((event.key === "Enter" || isPressed("open", event)) && target.closest(".issues-row") !== null) {
+    if (
+      (event.key === "Enter" || isPressed("open", event)) &&
+      target.closest(".issues-row") !== null
+    ) {
       take();
       return target.closest<HTMLElement>(".issues-row")!.click();
     }

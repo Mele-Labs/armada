@@ -29,10 +29,22 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { IssuesApi } from "../../../shared/api/issues";
 import type { ReviewActed, ReviewsApi } from "../../../shared/api/reviews";
-import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../../../shared/review-walk";
+import type {
+  ReviewWalkNote,
+  ShownReviewWalk,
+  ShownReviewWalkOutcome,
+} from "../../../shared/review-walk";
 
 /** An answer, or Fleet's words for why there is none. For a forge that would not take a write, the words are the forge's own. */
-export type Read<T> = { ok: true; value: T } | { ok: false; said: string };
+export type Read<T> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      said: string;
+    };
 
 export type ReviewSource = {
   lists: () => Promise<Read<PullReviewLists>>;
@@ -72,17 +84,30 @@ export type ReviewSource = {
   onClosed: (onClosed: (walkId: string) => void) => () => void;
 };
 
-const worded = <T>(answer: ReviewActed<T>): Read<T> => (answer.ok ? { ok: true, value: answer.value } : { ok: false, said: refusalWords(answer.outcome) });
+const worded = <T>(answer: ReviewActed<T>): Read<T> =>
+  answer.ok
+    ? {
+        ok: true,
+        value: answer.value,
+      }
+    : {
+        ok: false,
+        said: refusalWords(answer.outcome),
+      };
 
 /** The source over what the preload (or the mock Fleet) offers. */
-export const reviewSourceOf = (api: ReviewsApi & Pick<IssuesApi, "getPullRequest">): ReviewSource => ({
+export const reviewSourceOf = (
+  api: ReviewsApi & Pick<IssuesApi, "getPullRequest">,
+): ReviewSource => ({
   lists: async () => worded(await api.getReviewLists()),
   page: async (manifestId, number) => worded(await api.readReviewPage(manifestId, number)),
   pull: async (manifestId, number) => worded(await api.getPullRequest(manifestId, number)),
-  file: async (manifestId, number, path) => worded(await api.readReviewFile(manifestId, number, path)),
+  file: async (manifestId, number, path) =>
+    worded(await api.readReviewFile(manifestId, number, path)),
   patches: async (manifestId, number) => worded(await api.readReviewPatches(manifestId, number)),
   write: async (manifestId, write) => worded(await api.writeReview(manifestId, write)),
-  resolve: async (manifestId, resolve) => worded(await api.resolveReviewThread(manifestId, resolve)),
+  resolve: async (manifestId, resolve) =>
+    worded(await api.resolveReviewThread(manifestId, resolve)),
   tools: async (manifestId) => worded(await api.listReviewTools(manifestId)),
   saveTool: async (manifestId, save) => worded(await api.saveReviewTool(manifestId, save)),
   startRun: async (manifestId, start) => worded(await api.startReviewRun(manifestId, start)),

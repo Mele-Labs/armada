@@ -9,11 +9,26 @@ import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
 function heldElsewhere(): Scenario {
-  const base = holding("red-held-elsewhere", "Main red, claimed on another machine: Take over, a stale claim");
+  const base = holding(
+    "red-held-elsewhere",
+    "Main red, claimed on another machine: Take over, a stale claim",
+  );
   const { first, later } = redHeldElsewhere(repository().root);
   // Sessions served, so Take over has a Job to draft.
-  const draft = { ...base.draft, sessions: () => sessionsStore() };
-  return { ...base, state: { ...base.state, ...first }, later, draft, behaves: writingMainsLogs };
+  const draft = {
+    ...base.draft,
+    sessions: () => sessionsStore(),
+  };
+  return {
+    ...base,
+    state: {
+      ...base.state,
+      ...first,
+    },
+    later,
+    draft,
+    behaves: writingMainsLogs,
+  };
 }
 
 export const s245RedHeldElsewhere: Scenario = heldElsewhere();

@@ -5,7 +5,9 @@ import { ACTION } from "../../generated/actions";
 import { CaptureBar } from "./CaptureBar";
 
 /** The binding is the registry's own, as Studio capture's is. */
-const BINDING = [...(ACTION.capture_note?.shortcut ?? "")];
+const BINDING = [
+  ...(ACTION.capture_note?.shortcut ?? ""),
+];
 
 const meta: Meta<typeof CaptureBar> = {
   title: "Compositions/Capture bar",
@@ -42,19 +44,41 @@ export const Serving: Story = {
  * says what it is and offers no Capture — a Note would have nowhere to land.
  */
 export const Walking: Story = {
-  args: { run: "mock", address: "http://localhost:41311", studio: null },
+  args: {
+    run: "mock",
+    address: "http://localhost:41311",
+    studio: null,
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Walking a server")).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Capture" })).toBeNull();
-    await expect(canvas.getByRole("button", { name: "Reload" })).toBeEnabled();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Capture",
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Reload",
+      }),
+    ).toBeEnabled();
   },
 };
 
 /** The Session's title opens the Session in Bridge where the window offers it. */
 export const WalkingASessionLinked: Story = {
-  args: { run: "mock", address: "http://localhost:41311", studio: null, session: "Findings page", onOpenOwner: fn() },
+  args: {
+    run: "mock",
+    address: "http://localhost:41311",
+    studio: null,
+    session: "Findings page",
+    onOpenOwner: fn(),
+  },
   play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Findings page" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Findings page",
+      }),
+    );
     await expect(args.onOpenOwner).toHaveBeenCalledOnce();
   },
 };
@@ -73,15 +97,23 @@ export const ShownBySession: Story = {
     onApprove: fn(),
   },
   play: async ({ args, canvas }) => {
-    await expect(canvas.getAllByText("http://localhost:47342/?walk=cockpit-pending")).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("button", { name: "Capture Window Titlebar" }));
+    await expect(canvas.getAllByText("http://localhost:47342/?walk=cockpit-pending")).toHaveLength(
+      1,
+    );
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Capture Window Titlebar",
+      }),
+    );
     await expect(args.onOpenOwner).toHaveBeenCalledOnce();
   },
 };
 
 /** Armed: a press on the page points rather than acts. */
 export const Capturing: Story = {
-  args: { armed: true },
+  args: {
+    armed: true,
+  },
 };
 
 /**
@@ -97,14 +129,20 @@ export const Refused: Story = {
     },
   },
   play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Open in browser" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open in browser",
+      }),
+    );
     await expect(args.onFollowRefused).toHaveBeenCalled();
   },
 };
 
 /** A subframe off the origin is counted rather than named: a page draws many. */
 export const FramesRefused: Story = {
-  args: { framesRefused: 3 },
+  args: {
+    framesRefused: 3,
+  },
 };
 
 /**
@@ -113,10 +151,20 @@ export const FramesRefused: Story = {
  * exits.
  */
 export const RunEnded: Story = {
-  args: { serving: false },
+  args: {
+    serving: false,
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Capture" })).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "Reload" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Capture",
+      }),
+    ).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Reload",
+      }),
+    ).toBeDisabled();
   },
 };
 
@@ -135,7 +183,11 @@ export const QuestionFolded: Story = {
   },
   play: async ({ args, canvas }) => {
     await expect(canvas.getByText(/Question waiting: Should the count sit/)).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Show question" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Show question",
+      }),
+    );
     await expect(args.onShowQuestion).toHaveBeenCalled();
   },
 };
@@ -151,11 +203,19 @@ export const WalkingASession: Story = {
     studio: null,
     session: "Findings page",
     onApprove: fn(),
-    panel: { kind: "session", open: true, onToggle: fn() },
+    panel: {
+      kind: "session",
+      open: true,
+      onToggle: fn(),
+    },
   },
   play: async ({ args, canvas }) => {
     await expect(canvas.getByText("Notes go to Findings page")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Hide Job" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Hide Job",
+      }),
+    );
     await expect(args.panel?.onToggle).toHaveBeenCalledWith(false);
   },
 };
@@ -163,7 +223,11 @@ export const WalkingASession: Story = {
 /** A Studio's window has no panel: its Studio is read on Bridge's window. */
 export const StudioHasNoPanel: Story = {
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("button", { name: /Session|Job/ })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /Session|Job/,
+      }),
+    ).toBeNull();
   },
 };
 
@@ -192,13 +256,24 @@ export const WaitingOnNext: Story = {
     address: "https://staging.example.com",
     studio: null,
     session: "Staging",
-    walk: { ...PLAYING, guide: { shown: true, onShow: fn(), waiting: true } },
+    walk: {
+      ...PLAYING,
+      guide: {
+        shown: true,
+        onShow: fn(),
+        waiting: true,
+      },
+    },
   },
   play: async ({ args, canvas }) => {
-    const next = canvas.getByRole("button", { name: /Next/ });
+    const next = canvas.getByRole("button", {
+      name: /Next/,
+    });
     await expect(next).toHaveAttribute("data-waiting");
     await userEvent.hover(next);
-    await waitFor(() => expect(canvas.getByText("Autoplay stops before a step that acts on this page")).toBeVisible());
+    await waitFor(() =>
+      expect(canvas.getByText("Autoplay stops before a step that acts on this page")).toBeVisible(),
+    );
     await userEvent.click(next);
     await expect(args.walk?.onNext).toHaveBeenCalled();
   },
@@ -206,9 +281,22 @@ export const WaitingOnNext: Story = {
 
 /** A step with nothing to wait for: the Next key is plain. */
 export const NotWaiting: Story = {
-  args: { ...WaitingOnNext.args, walk: { ...PLAYING, guide: { shown: true, onShow: fn() } } },
+  args: {
+    ...WaitingOnNext.args,
+    walk: {
+      ...PLAYING,
+      guide: {
+        shown: true,
+        onShow: fn(),
+      },
+    },
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: /Next/ })).not.toHaveAttribute("data-waiting");
+    await expect(
+      canvas.getByRole("button", {
+        name: /Next/,
+      }),
+    ).not.toHaveAttribute("data-waiting");
   },
 };
 
@@ -222,35 +310,113 @@ export const SigningIn: Story = {
     address: "https://staging.example.com",
     studio: null,
     session: "Staging",
-    walk: { ...PLAYING, ready: false, guide: { shown: true, onShow: fn(), signingIn: true, waiting: true } },
+    walk: {
+      ...PLAYING,
+      ready: false,
+      guide: {
+        shown: true,
+        onShow: fn(),
+        signingIn: true,
+        waiting: true,
+      },
+    },
   },
   play: async ({ canvas }) => {
-    const glyph = canvas.getByRole("img", { name: "Signing in" });
+    const glyph = canvas.getByRole("img", {
+      name: "Signing in",
+    });
     await expect(glyph).toBeVisible();
     await userEvent.hover(glyph);
     await waitFor(() => expect(canvas.getByText("Signing in")).toBeVisible());
-    await expect(canvas.queryByRole("img", { name: "Not found" })).toBeNull();
-    await expect(canvas.getByRole("button", { name: /Next/ })).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: /Next/ })).not.toHaveAttribute("data-waiting");
+    await expect(
+      canvas.queryByRole("img", {
+        name: "Not found",
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("button", {
+        name: /Next/,
+      }),
+    ).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: /Next/,
+      }),
+    ).not.toHaveAttribute("data-waiting");
   },
 };
 
 /** A step whose target is not found draws the not-found glyph, and signing in does not. */
 export const TargetNotFound: Story = {
-  args: { ...SigningIn.args, walk: { ...PLAYING, ready: false, guide: { shown: true, onShow: fn(), stopped: "a button named “Report”" } } },
+  args: {
+    ...SigningIn.args,
+    walk: {
+      ...PLAYING,
+      ready: false,
+      guide: {
+        shown: true,
+        onShow: fn(),
+        stopped: "a button named “Report”",
+      },
+    },
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Not found" })).toBeVisible();
-    await expect(canvas.queryByRole("img", { name: "Signing in" })).toBeNull();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Not found",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("img", {
+        name: "Signing in",
+      }),
+    ).toBeNull();
   },
 };
 
 /** Five walks in one window, oldest first: a Job named twice, and a pull request by its number. The first is on screen. */
 const WALKS = [
-  { id: "a", name: "Retry backoff cap", title: "Backoff table", address: "http://localhost:41311", aim: "Notes go to Retry backoff cap", readiness: "ready" as const },
-  { id: "b1", name: "Pin the store clock", title: "Clock report", address: "http://localhost:41311", aim: "Notes go to Pin the store clock", readiness: "ready" as const },
-  { id: "p", name: "Take a draft out", pull: 2412, title: "#2412 Take a draft out", address: "http://localhost:41311", aim: "Notes go to Take a draft out", readiness: "ready" as const },
-  { id: "c", name: "Fold Jobs into Sessions", title: "Plan sketch", address: "http://localhost:41311", aim: "Notes go to Fold Jobs into Sessions", readiness: "working" as const },
-  { id: "b2", name: "Pin the store clock", title: "Store tests", address: "http://localhost:41311", aim: "Notes go to Pin the store clock", readiness: "ready" as const },
+  {
+    id: "a",
+    name: "Retry backoff cap",
+    title: "Backoff table",
+    address: "http://localhost:41311",
+    aim: "Notes go to Retry backoff cap",
+    readiness: "ready" as const,
+  },
+  {
+    id: "b1",
+    name: "Pin the store clock",
+    title: "Clock report",
+    address: "http://localhost:41311",
+    aim: "Notes go to Pin the store clock",
+    readiness: "ready" as const,
+  },
+  {
+    id: "p",
+    name: "Take a draft out",
+    pull: 2412,
+    title: "#2412 Take a draft out",
+    address: "http://localhost:41311",
+    aim: "Notes go to Take a draft out",
+    readiness: "ready" as const,
+  },
+  {
+    id: "c",
+    name: "Fold Jobs into Sessions",
+    title: "Plan sketch",
+    address: "http://localhost:41311",
+    aim: "Notes go to Fold Jobs into Sessions",
+    readiness: "working" as const,
+  },
+  {
+    id: "b2",
+    name: "Pin the store clock",
+    title: "Store tests",
+    address: "http://localhost:41311",
+    aim: "Notes go to Pin the store clock",
+    readiness: "ready" as const,
+  },
 ];
 
 /** The worst case in two rows: walks queued, three takes, a walk's steps and a question waiting. */
@@ -261,20 +427,61 @@ const WORST = {
   session: "Retry backoff cap",
   readiness: "ready" as const,
   onApprove: fn(),
-  panel: { kind: "session" as const, open: true, onToggle: fn() },
-  variations: { names: ["Every state", "Needs you first", "Sessions beside"], at: 0, onPick: fn() },
-  walk: { ...PLAYING, name: "Backoff", at: 2, of: 5, said: "Open the table", guide: { shown: true, onShow: fn() } },
+  panel: {
+    kind: "session" as const,
+    open: true,
+    onToggle: fn(),
+  },
+  variations: {
+    names: [
+      "Every state",
+      "Needs you first",
+      "Sessions beside",
+    ],
+    at: 0,
+    onPick: fn(),
+  },
+  walk: {
+    ...PLAYING,
+    name: "Backoff",
+    at: 2,
+    of: 5,
+    said: "Open the table",
+    guide: {
+      shown: true,
+      onShow: fn(),
+    },
+  },
   question: "Keep the old fixture or drop it?",
   onShowQuestion: fn(),
-  queue: { entries: WALKS.map((one, at) => (at === 4 ? { ...one, asking: "Keep the old fixture or drop it?" } : one)), at: 0, onPick: fn(), onStep: fn() },
+  queue: {
+    entries: WALKS.map((one, at) =>
+      at === 4
+        ? {
+            ...one,
+            asking: "Keep the old fixture or drop it?",
+          }
+        : one,
+    ),
+    at: 0,
+    onPick: fn(),
+    onStep: fn(),
+  },
 };
 
 /** The first row: the walks and the takes as dropdowns, Reload and Capture as icons, Approve and Hide Job. The steps and the question share the second. */
-export const WalksInOneDropdown: Story = { args: WORST };
+export const WalksInOneDropdown: Story = {
+  args: WORST,
+};
 
 /** No takes, no steps and nothing to say: one row. */
 export const OneRowWhenNothingElse: Story = {
-  args: { ...WORST, walk: undefined, question: undefined, variations: undefined },
+  args: {
+    ...WORST,
+    walk: undefined,
+    question: undefined,
+    variations: undefined,
+  },
 };
 
 /**
@@ -289,22 +496,52 @@ export const NotesHeld: Story = {
     question: undefined,
     variations: undefined,
     onApprove: fn(),
-    held: { notes: "several", onSendAndApprove: fn() },
+    held: {
+      notes: "several",
+      onSendAndApprove: fn(),
+    },
   },
   play: async ({ args, canvas, canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await expect(canvas.getByText("Notes pending in the Job panel")).toBeVisible();
     // ⌘↵ asks rather than approves.
-    canvasElement.querySelector(".armada-capture-bar")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", metaKey: true, bubbles: true }));
-    await userEvent.click(await body.findByRole("menuitem", { name: "Go back" }));
+    canvasElement.querySelector(".armada-capture-bar")!.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        code: "Enter",
+        metaKey: true,
+        bubbles: true,
+      }),
+    );
+    await userEvent.click(
+      await body.findByRole("menuitem", {
+        name: "Go back",
+      }),
+    );
     await expect(args.onApprove).not.toHaveBeenCalled();
     await expect(args.held!.onSendAndApprove).not.toHaveBeenCalled();
-    await userEvent.click(canvas.getByRole("button", { name: /^Approve/ }));
-    await userEvent.click(await body.findByRole("menuitem", { name: "Send notes and approve" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /^Approve/,
+      }),
+    );
+    await userEvent.click(
+      await body.findByRole("menuitem", {
+        name: "Send notes and approve",
+      }),
+    );
     await expect(args.held!.onSendAndApprove).toHaveBeenCalledOnce();
     await expect(args.onApprove).not.toHaveBeenCalled();
-    await userEvent.click(canvas.getByRole("button", { name: /^Approve/ }));
-    await userEvent.click(await body.findByRole("menuitem", { name: "Approve without them" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /^Approve/,
+      }),
+    );
+    await userEvent.click(
+      await body.findByRole("menuitem", {
+        name: "Approve without them",
+      }),
+    );
     await expect(args.onApprove).toHaveBeenCalledOnce();
   },
 };
@@ -314,11 +551,19 @@ export const NotesHeldPanelHidden: Story = {
   name: "Notes pending, panel hidden",
   args: {
     ...NotesHeld.args,
-    panel: { kind: "session", open: false, onToggle: fn() },
+    panel: {
+      kind: "session",
+      open: false,
+      onToggle: fn(),
+    },
   },
   play: async ({ args, canvas }) => {
     await expect(canvas.getByText("Notes pending")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Show notes" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Show notes",
+      }),
+    );
     await expect(args.panel?.onToggle).toHaveBeenCalledWith(true);
   },
 };
@@ -329,20 +574,32 @@ export const NotesHeldPanelHidden: Story = {
  */
 export const PageLoading: Story = {
   name: "Page loading",
-  args: { ...NotesHeld.args, loading: true },
+  args: {
+    ...NotesHeld.args,
+    loading: true,
+  },
   play: async ({ canvas }) => {
     const status = canvas.getByText("Loading");
     await expect(status).toBeVisible();
     await expect(canvas.queryByText("Notes pending in the Job panel")).toBeNull();
     await userEvent.hover(status);
-    await waitFor(() => expect(canvas.getByText("The page has not finished loading")).toBeVisible());
+    await waitFor(() =>
+      expect(canvas.getByText("The page has not finished loading")).toBeVisible(),
+    );
   },
 };
 
 /** A refused address outranks the page loading. */
 export const RefusedWhileLoading: Story = {
   name: "Page loading, address refused",
-  args: { ...PageLoading.args, refused: { address: "https://accounts.example.com/login", said: "Navigation", offerable: true } },
+  args: {
+    ...PageLoading.args,
+    refused: {
+      address: "https://accounts.example.com/login",
+      said: "Navigation",
+      offerable: true,
+    },
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Navigation refused")).toBeVisible();
     await expect(canvas.queryByText("Loading")).toBeNull();
@@ -352,9 +609,15 @@ export const RefusedWhileLoading: Story = {
 /** One walk, not queued: the status row says the page is loading. */
 export const PageLoadingOneWalk: Story = {
   name: "Page loading, one walk",
-  args: { loading: true },
+  args: {
+    loading: true,
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Loading")).toBeVisible();
-    await expect(canvas.getByRole("img", { name: "Loading" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Loading",
+      }),
+    ).toBeVisible();
   },
 };

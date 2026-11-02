@@ -154,7 +154,9 @@
 .armada-markdown-preview [data-noted] {
   position: relative;
   background: var(--accent-faint);
-  box-shadow: calc(-1 * var(--space-2)) 0 0 var(--accent-faint), calc(-1 * var(--space-2) - var(--edge-active)) 0 0 var(--accent);
+  box-shadow:
+    calc(-1 * var(--space-2)) 0 0 var(--accent-faint),
+    calc(-1 * var(--space-2) - var(--edge-active)) 0 0 var(--accent);
 }
 
 .armada-markdown-preview [data-noted]::before {

@@ -13,15 +13,29 @@ import { createFleetSleep, type FleetSleep } from "./fleet-sleep";
 const night = (over: Partial<SleepWire> = {}): SleepWire => ({
   on: true,
   decided: [
-    { id: "d1", who: "Order the lunch", asked: "Which size?", chose: "Large", session_id: "s21" },
-    { id: "d2", who: "Shorten the wait", asked: "Timed out twice", chose: "Retried" },
+    {
+      id: "d1",
+      who: "Order the lunch",
+      asked: "Which size?",
+      chose: "Large",
+      session_id: "s21",
+    },
+    {
+      id: "d2",
+      who: "Shorten the wait",
+      asked: "Timed out twice",
+      chose: "Retried",
+    },
   ],
   blocked: [],
   landed: [],
   walks: [],
   ...over,
 });
-const REFUSED: Outcome = { ok: false, why: "not_connected" };
+const REFUSED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 const settled = () => new Promise((done) => setTimeout(done, 0));
 
 /** A Fleet holding a night, and a record of what Bridge asked of it, in order. */
@@ -31,22 +45,63 @@ function fake(start: SleepWire, refuseOverride = false) {
   let hear: (state: SleepWire) => void = () => undefined;
   let release: () => void = () => undefined;
   const fleet: FleetSleep = {
-    state: async () => ({ connection: { state: "connected" } }) as never,
+    state: async () =>
+      ({
+        connection: {
+          state: "connected",
+        },
+      }) as never,
     subscribe: () => () => undefined,
-    getSleep: async () => ({ ok: true, value: held }),
-    setSleep: async (on) => (asked.push(`set ${on}`), { ok: true, value: (held = { ...held, on }) }),
+    getSleep: async () => ({
+      ok: true,
+      value: held,
+    }),
+    setSleep: async (on) => (
+      asked.push(`set ${on}`),
+      {
+        ok: true,
+        value: (held = {
+          ...held,
+          on,
+        }),
+      }
+    ),
     overrideSleep: async (id, text) => {
       asked.push(`override ${id} ${text}`);
       // Fleet answers a correction after a beat, and marks the row reviewed itself.
       await new Promise<void>((done) => (release = done));
-      if (refuseOverride) return { ok: false, outcome: REFUSED } satisfies SleepActed;
-      return { ok: true, value: (held = { ...held, decided: held.decided.filter((one) => one.id !== id) }) };
+      if (refuseOverride)
+        return {
+          ok: false,
+          outcome: REFUSED,
+        } satisfies SleepActed;
+      return {
+        ok: true,
+        value: (held = {
+          ...held,
+          decided: held.decided.filter((one) => one.id !== id),
+        }),
+      };
     },
-    reviewSleep: async (id) => (asked.push(`review ${id}`), { ok: true, value: (held = { ...held, decided: held.decided.filter((one) => one.id !== id) }) }),
+    reviewSleep: async (id) => (
+      asked.push(`review ${id}`),
+      {
+        ok: true,
+        value: (held = {
+          ...held,
+          decided: held.decided.filter((one) => one.id !== id),
+        }),
+      }
+    ),
     onSleepChanged: (on) => ((hear = on), () => undefined),
   };
   const source = createFleetSleep(fleet);
-  return { source, asked, push: (state: SleepWire) => hear(state), finish: () => release() };
+  return {
+    source,
+    asked,
+    push: (state: SleepWire) => hear(state),
+    finish: () => release(),
+  };
 }
 
 describe("the night, as Fleet carries it", () => {
@@ -55,7 +110,13 @@ describe("the night, as Fleet carries it", () => {
     source.subscribe(() => undefined);
     await settled();
     expect(source.get().on).toBe(true);
-    expect(source.get().decided[0]).toEqual({ id: "d1", who: "Order the lunch", asked: "Which size?", chose: "Large", sessionId: "s21" });
+    expect(source.get().decided[0]).toEqual({
+      id: "d1",
+      who: "Order the lunch",
+      asked: "Which size?",
+      chose: "Large",
+      sessionId: "s21",
+    });
   });
 
   it("leaves a Job's decision with no Session, and no key for one", async () => {
@@ -70,8 +131,30 @@ describe("the night, as Fleet carries it", () => {
     const { source, push } = fake(night());
     source.subscribe(() => undefined);
     await settled();
-    push(night({ decided: [{ id: "d9", who: "Name the branch", asked: "fix or feat?", chose: "fix", session_id: "s22" }] }));
-    expect(source.get().decided.map((one) => [one.id, one.sessionId])).toEqual([["d9", "s22"]]);
+    push(
+      night({
+        decided: [
+          {
+            id: "d9",
+            who: "Name the branch",
+            asked: "fix or feat?",
+            chose: "fix",
+            session_id: "s22",
+          },
+        ],
+      }),
+    );
+    expect(
+      source.get().decided.map((one) => [
+        one.id,
+        one.sessionId,
+      ]),
+    ).toEqual([
+      [
+        "d9",
+        "s22",
+      ],
+    ]);
   });
 });
 
@@ -82,7 +165,9 @@ describe("the switch", () => {
     await settled();
     source.toggle();
     await settled();
-    expect(asked).toEqual(["set false"]);
+    expect(asked).toEqual([
+      "set false",
+    ]);
     expect(source.get().on).toBe(false);
   });
 });
@@ -94,8 +179,12 @@ describe("the acts on a decision", () => {
     await settled();
     source.review("d1");
     await settled();
-    expect(asked).toEqual(["review d1"]);
-    expect(source.get().decided.map((one) => one.id)).toEqual(["d2"]);
+    expect(asked).toEqual([
+      "review d1",
+    ]);
+    expect(source.get().decided.map((one) => one.id)).toEqual([
+      "d2",
+    ]);
   });
 
   it("sends a correction, and holds the review after it until Fleet has answered", async () => {
@@ -105,12 +194,18 @@ describe("the acts on a decision", () => {
     source.override("d1", "Medium");
     source.review("d1");
     await settled();
-    expect(asked).toEqual(["override d1 Medium"]);
+    expect(asked).toEqual([
+      "override d1 Medium",
+    ]);
     finish();
     await settled();
     // Fleet marked the row reviewed with the correction, so there is nothing left to review.
-    expect(asked).toEqual(["override d1 Medium"]);
-    expect(source.get().decided.map((one) => one.id)).toEqual(["d2"]);
+    expect(asked).toEqual([
+      "override d1 Medium",
+    ]);
+    expect(source.get().decided.map((one) => one.id)).toEqual([
+      "d2",
+    ]);
   });
 
   it("keeps a decision whose correction Fleet refused, rather than reviewing it away", async () => {
@@ -121,7 +216,12 @@ describe("the acts on a decision", () => {
     source.review("d2");
     finish();
     await settled();
-    expect(asked).toEqual(["override d2 Do not retry"]);
-    expect(source.get().decided.map((one) => one.id)).toEqual(["d1", "d2"]);
+    expect(asked).toEqual([
+      "override d2 Do not retry",
+    ]);
+    expect(source.get().decided.map((one) => one.id)).toEqual([
+      "d1",
+      "d2",
+    ]);
   });
 });

@@ -26,7 +26,13 @@ import type {
 } from "@armada/screens/src/lessons/review-wire";
 import type { ServerList } from "@armada/protocol";
 import type { CheckOutput } from "@armada/protocol";
-import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";
+import type {
+  LeftOutWorkflow,
+  ManifestSummary,
+  ModelChoices,
+  RepositoryList,
+  WorkflowSummary,
+} from "@armada/protocol";
 import { pendingAt, refusedWith, sentOf } from "@armada/protocol";
 import { Socket } from "node:net";
 import { Agent, fetch, type Dispatcher } from "undici";
@@ -77,7 +83,10 @@ typeOfServiceStaysAdvisory();
  * same undici as the fetch using it, and the global is the runtime's — 7.24 in
  * Electron 40, another major in the Node the tests run on.
  */
-const FLEET: Dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+const FLEET: Dispatcher = new Agent({
+  headersTimeout: 0,
+  bodyTimeout: 0,
+});
 
 /** The margin over Fleet's own bound on a command, so Fleet gives up first and says so in words. */
 const COMMAND_MARGIN_MS = 5_000;
@@ -148,13 +157,26 @@ export const NO_WAIT = 0;
 const FRAME_MS = 30_000;
 
 /** Bridge names itself on every request, so Fleet tells a press here from an agent's (23.12). */
-export const CALLER = { "x-armada-caller": "bridge" } as const;
+export const CALLER = {
+  "x-armada-caller": "bridge",
+} as const;
 
 /** A Manifest-scoped call on a repository with no `armada.yml` yet — `Picked.manifest` answered `null`. */
-export const NOT_SET_UP = { ok: false, why: "not_set_up" } as const;
+export const NOT_SET_UP = {
+  ok: false,
+  why: "not_set_up",
+} as const;
 
 /** What came back: a body to read, or the refusal to render. */
-export type Answer = { ok: true; body: unknown } | { ok: false; outcome: Outcome };
+export type Answer =
+  | {
+      ok: true;
+      body: unknown;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /**
  * One request to Fleet. Loopback plus the port from the runtime file.
@@ -182,23 +204,43 @@ export async function ask(
   const asked = {
     method,
     path,
-    ...(body !== undefined && pendingAt(method, path) !== null ? { sent: sentOf(body) } : {}),
+    ...(body !== undefined && pendingAt(method, path) !== null
+      ? {
+          sent: sentOf(body),
+        }
+      : {}),
   };
   try {
     const answer = await fetch(`http://${HOST}:${port}${path}`, {
       method,
-      headers: body === undefined ? CALLER : { ...CALLER, "content-type": "application/json" },
+      headers:
+        body === undefined
+          ? CALLER
+          : {
+              ...CALLER,
+              "content-type": "application/json",
+            },
       body: body === undefined ? undefined : JSON.stringify(body),
       // Zero is no signal at all rather than an immediate abort — see
       // `NO_WAIT`. `AbortSignal.timeout(0)` would fire on the next tick.
-      ...(waitMs === NO_WAIT ? {} : { signal: AbortSignal.timeout(waitMs) }),
+      ...(waitMs === NO_WAIT
+        ? {}
+        : {
+            signal: AbortSignal.timeout(waitMs),
+          }),
       dispatcher: through,
     });
     const text = await answer.text();
     if (!answer.ok) {
-      return { ok: false, outcome: refusedWith(answer.status, text, asked) };
+      return {
+        ok: false,
+        outcome: refusedWith(answer.status, text, asked),
+      };
     }
-    return { ok: true, body: JSON.parse(text) };
+    return {
+      ok: true,
+      body: JSON.parse(text),
+    };
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
     // `AbortSignal.timeout` rejects with a `TimeoutError`, and it is the one
@@ -206,9 +248,24 @@ export async function ask(
     // than by the message, which is the vendor's wording and not a contract.
     const fault: TransportFault =
       cause instanceof Error && cause.name === "TimeoutError"
-        ? { ...asked, why: "timed_out", waitedMs: waitMs }
-        : { ...asked, why: "unreachable" };
-    return { ok: false, outcome: { ok: false, why: "transport", detail, fault } };
+        ? {
+            ...asked,
+            why: "timed_out",
+            waitedMs: waitMs,
+          }
+        : {
+            ...asked,
+            why: "unreachable",
+          };
+    return {
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "transport",
+        detail,
+        fault,
+      },
+    };
   }
 }
 
@@ -232,8 +289,17 @@ export async function holdingsOf(port: number, held: Holdings, picked: Picked): 
     workflows: workflows.ok === true ? (workflows.body as WorkflowSummary[]) : held.workflows,
     manifests: manifests.ok === true ? (manifests.body as ManifestSummary[]) : held.manifests,
     models: models.ok === true ? (models.body as ModelChoices) : held.models,
-    leftOut: leftOut === null ? [] : leftOut.ok === true ? (leftOut.body as LeftOutWorkflow[]) : held.leftOut,
-    ...(held.repositories === undefined ? {} : { repositories: held.repositories }),
+    leftOut:
+      leftOut === null
+        ? []
+        : leftOut.ok === true
+          ? (leftOut.body as LeftOutWorkflow[])
+          : held.leftOut,
+    ...(held.repositories === undefined
+      ? {}
+      : {
+          repositories: held.repositories,
+        }),
   };
 }
 
@@ -295,7 +361,10 @@ export async function preferencesOf(port: number): Promise<Preferences | null> {
  * somebody saves a file, and `manifest.reread` is what says so. This is for the
  * window that opened *after* the save, which an event cannot reach.
  */
-export async function manifestReadingOf(port: number, picked: Picked): Promise<ManifestReading | null> {
+export async function manifestReadingOf(
+  port: number,
+  picked: Picked,
+): Promise<ManifestReading | null> {
   const path = picked.manifest("/manifest/reading");
   if (path === null) return null;
   const answer = await ask(port, "GET", path);
@@ -324,18 +393,41 @@ export async function serversOf(port: number): Promise<ServerList | null> {
  * through whole.
  */
 export async function sessionCheckOutputOf(port: number, run: number): Promise<CheckOutputRead> {
-  const answer = await ask(port, "GET", `/sessions/checks/${encodeURIComponent(String(run))}/output`);
-  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-  return { ok: true, output: answer.body as CheckOutput };
+  const answer = await ask(
+    port,
+    "GET",
+    `/sessions/checks/${encodeURIComponent(String(run))}/output`,
+  );
+  if (answer.ok !== true)
+    return {
+      ok: false,
+      outcome: answer.outcome,
+    };
+  return {
+    ok: true,
+    output: answer.body as CheckOutput,
+  };
 }
 
 /**
  * Ask a running Session Check to stop: `POST /sessions/checks/:run/stop`, or `/force_stop` for `SIGKILL`.
  * Fleet holds the ask for the run's own `armada check`, which carries it out; the run then ends as any does.
  */
-export async function stopSessionCheck(port: number, run: number, force: boolean): Promise<Outcome> {
-  const answer = await ask(port, "POST", `/sessions/checks/${encodeURIComponent(String(run))}/${force ? "force_stop" : "stop"}`);
-  return answer.ok === true ? { ok: true } : answer.outcome;
+export async function stopSessionCheck(
+  port: number,
+  run: number,
+  force: boolean,
+): Promise<Outcome> {
+  const answer = await ask(
+    port,
+    "POST",
+    `/sessions/checks/${encodeURIComponent(String(run))}/${force ? "force_stop" : "stop"}`,
+  );
+  return answer.ok === true
+    ? {
+        ok: true,
+      }
+    : answer.outcome;
 }
 
 /**
@@ -345,8 +437,15 @@ export async function stopSessionCheck(port: number, run: number, force: boolean
 export async function retroOf(port: number, subject: RetroSubject): Promise<RetroRead> {
   const path = `/sessions/${encodeURIComponent(subject.id)}/retro${subject.n === undefined ? "" : `?n=${Math.trunc(subject.n)}`}`;
   const answer = await ask(port, "GET", path);
-  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-  return { ok: true, retro: answer.body as Retro };
+  if (answer.ok !== true)
+    return {
+      ok: false,
+      outcome: answer.outcome,
+    };
+  return {
+    ok: true,
+    retro: answer.body as Retro,
+  };
 }
 
 /**
@@ -359,12 +458,24 @@ export async function lessonsOf(
   state: "open" | "accepted" = "open",
 ): Promise<LessonsRead> {
   const narrowed = picked.narrowed("/lessons");
-  if (narrowed === null) return { ok: true, lessons: [] };
+  if (narrowed === null)
+    return {
+      ok: true,
+      lessons: [],
+    };
   // `open` is what Fleet answers where `state` is not sent, so it is not sent.
-  const path = state === "open" ? narrowed : `${narrowed}${narrowed.includes("?") ? "&" : "?"}state=${state}`;
+  const path =
+    state === "open" ? narrowed : `${narrowed}${narrowed.includes("?") ? "&" : "?"}state=${state}`;
   const answer = await ask(port, "GET", path);
-  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-  return { ok: true, lessons: (answer.body as Lessons).lessons };
+  if (answer.ok !== true)
+    return {
+      ok: false,
+      outcome: answer.outcome,
+    };
+  return {
+    ok: true,
+    lessons: (answer.body as Lessons).lessons,
+  };
 }
 
 /**
@@ -374,11 +485,36 @@ export async function lessonsOf(
  */
 export async function reviewOf(port: number, picked: Picked): Promise<LessonReviewRead> {
   const manifest = picked.narrowed("/lessons");
-  if (manifest === null) return { ok: true, review: { model: "", entries: [], set_aside: [] } };
+  if (manifest === null)
+    return {
+      ok: true,
+      review: {
+        model: "",
+        entries: [],
+        set_aside: [],
+      },
+    };
   const id = new URL(manifest, "http://fleet").searchParams.get("manifest_id");
-  const answer = await ask(port, "POST", "/lessons/review", id === null ? {} : { manifest_id: id }, MODEL_CALL_MS);
-  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-  return { ok: true, review: answer.body as LessonReview };
+  const answer = await ask(
+    port,
+    "POST",
+    "/lessons/review",
+    id === null
+      ? {}
+      : {
+          manifest_id: id,
+        },
+    MODEL_CALL_MS,
+  );
+  if (answer.ok !== true)
+    return {
+      ok: false,
+      outcome: answer.outcome,
+    };
+  return {
+    ok: true,
+    review: answer.body as LessonReview,
+  };
 }
 
 /**
@@ -386,18 +522,44 @@ export async function reviewOf(port: number, picked: Picked): Promise<LessonRevi
  * wire takes** here, because the renderer is sandboxed and its argument is not trusted: two roles,
  * text only, nothing else it may have attached.
  */
-export async function askOf(port: number, lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> {
+export async function askOf(
+  port: number,
+  lessonId: string,
+  question: string,
+  history: AskTurn[],
+): Promise<AskLessonRead> {
   const turns = Array.isArray(history)
     ? history.flatMap((turn) =>
         (turn?.role === "person" || turn?.role === "fleet") && typeof turn.text === "string"
-          ? [{ role: turn.role, text: turn.text }]
+          ? [
+              {
+                role: turn.role,
+                text: turn.text,
+              },
+            ]
           : [],
       )
     : [];
-  const body: LessonAsk = { question: String(question), history: turns };
-  const answer = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/ask`, body, MODEL_CALL_MS);
-  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-  return { ok: true, answer: answer.body as AskLessonAnswer };
+  const body: LessonAsk = {
+    question: String(question),
+    history: turns,
+  };
+  const answer = await ask(
+    port,
+    "POST",
+    `/lessons/${encodeURIComponent(lessonId)}/ask`,
+    body,
+    MODEL_CALL_MS,
+  );
+  if (answer.ok !== true)
+    return {
+      ok: false,
+      outcome: answer.outcome,
+    };
+  return {
+    ok: true,
+    answer: answer.body as AskLessonAnswer,
+  };
 }
 
 /**
@@ -445,13 +607,23 @@ export async function studioFrameOf(
 }
 
 /** A picture or file a hosted session's message carried, read the way a frame is. `GET /sessions/file`. */
-export async function sessionFileOf(port: number, sessionId: string, file: string): Promise<FrameRead> {
-  return await fileAt(port, `/sessions/file?session_id=${encodeURIComponent(sessionId)}&file=${encodeURIComponent(file)}`);
+export async function sessionFileOf(
+  port: number,
+  sessionId: string,
+  file: string,
+): Promise<FrameRead> {
+  return await fileAt(
+    port,
+    `/sessions/file?session_id=${encodeURIComponent(sessionId)}&file=${encodeURIComponent(file)}`,
+  );
 }
 
 /** The file at one path, as [`frameOf`] describes: bytes and a media type, or a refusal. */
 async function fileAt(port: number, path: string): Promise<FrameRead> {
-  const asked = { method: "GET" as const, path };
+  const asked = {
+    method: "GET" as const,
+    path,
+  };
   try {
     const answer = await fetch(`http://${HOST}:${port}${asked.path}`, {
       method: "GET",
@@ -462,7 +634,10 @@ async function fileAt(port: number, path: string): Promise<FrameRead> {
     if (!answer.ok) {
       // The refusal is JSON even though the success is not, so it is read as
       // text here and handed to the same parser every other route uses.
-      return { ok: false, outcome: refusedWith(answer.status, await answer.text(), asked) };
+      return {
+        ok: false,
+        outcome: refusedWith(answer.status, await answer.text(), asked),
+      };
     }
     return {
       ok: true,
@@ -476,8 +651,23 @@ async function fileAt(port: number, path: string): Promise<FrameRead> {
     const detail = cause instanceof Error ? cause.message : String(cause);
     const fault: TransportFault =
       cause instanceof Error && cause.name === "TimeoutError"
-        ? { ...asked, why: "timed_out", waitedMs: FRAME_MS }
-        : { ...asked, why: "unreachable" };
-    return { ok: false, outcome: { ok: false, why: "transport", detail, fault } };
+        ? {
+            ...asked,
+            why: "timed_out",
+            waitedMs: FRAME_MS,
+          }
+        : {
+            ...asked,
+            why: "unreachable",
+          };
+    return {
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "transport",
+        detail,
+        fault,
+      },
+    };
   }
 }

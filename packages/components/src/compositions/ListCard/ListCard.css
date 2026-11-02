@@ -30,10 +30,19 @@
   grid-template-rows: minmax(var(--deck-line, var(--h-control)), auto) auto auto;
   grid-template-areas: "title marks" "tag at" "lines at";
 }
-.armada-list-card:hover { background: var(--bg-step, color-mix(in srgb, var(--fg-default) 10%, transparent)); }
-.armada-list-card:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.armada-list-card[data-pending] { cursor: default; }
-.armada-list-card[data-pending]:hover { background: transparent; }
+.armada-list-card:hover {
+  background: var(--bg-step, color-mix(in srgb, var(--fg-default) 10%, transparent));
+}
+.armada-list-card:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+.armada-list-card[data-pending] {
+  cursor: default;
+}
+.armada-list-card[data-pending]:hover {
+  background: transparent;
+}
 
 .armada-list-card__title {
   grid-area: title;
@@ -45,24 +54,111 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.armada-list-card[data-wrap] .armada-list-card__title { display: -webkit-box; align-self: start; margin-block-start: calc((var(--deck-line, var(--h-control)) - var(--leading-xs)) / 2); overflow-wrap: anywhere; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.armada-list-card[data-selected] .armada-list-card__title { font-weight: var(--weight-heading); }
+.armada-list-card[data-wrap] .armada-list-card__title {
+  display: -webkit-box;
+  align-self: start;
+  margin-block-start: calc((var(--deck-line, var(--h-control)) - var(--leading-xs)) / 2);
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.armada-list-card[data-selected] .armada-list-card__title {
+  font-weight: var(--weight-heading);
+}
 
-.armada-list-card__marks { grid-area: marks; align-self: start; display: flex; min-height: var(--deck-line, var(--h-control)); align-items: center; justify-content: flex-end; gap: var(--space-1); color: var(--fg-muted); }
-.armada-list-card__mark { display: flex; flex: none; align-items: center; justify-content: center; gap: var(--space-1); width: var(--space-4); }
-.armada-list-card__mark[data-wide] { justify-content: flex-end; width: calc(var(--space-4) * 2 + var(--space-1)); }
-.armada-list-card__mark > * { display: inline-flex; align-items: center; }
+.armada-list-card__marks {
+  grid-area: marks;
+  align-self: start;
+  display: flex;
+  min-height: var(--deck-line, var(--h-control));
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+}
+.armada-list-card__mark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: var(--space-4);
+}
+.armada-list-card__mark[data-wide] {
+  justify-content: flex-end;
+  width: calc(var(--space-4) * 2 + var(--space-1));
+}
+.armada-list-card__mark > * {
+  display: inline-flex;
+  align-items: center;
+}
 
-.armada-list-card__tag { grid-area: tag; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; }
-.armada-list-card__chip { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 8%, transparent); color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--size-meta, var(--text-2xs)); font-variant-numeric: tabular-nums; line-height: var(--leading-xs); white-space: nowrap; }
+.armada-list-card__tag {
+  grid-area: tag;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.armada-list-card__chip {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--size-meta, var(--text-2xs));
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
 
 /* The time is the quietest thing on the card: the row's meta voice, with no box. */
-.armada-list-card__at { grid-area: at; justify-self: end; align-self: end; color: var(--fg-subtle); font-size: var(--size-meta, var(--text-2xs)); font-variant-numeric: tabular-nums; line-height: var(--leading-xs); white-space: nowrap; }
-.armada-list-card:not(:has(> .armada-list-card__tag, > .armada-list-card__lines)) .armada-list-card__at { align-self: center; }
+.armada-list-card__at {
+  grid-area: at;
+  justify-self: end;
+  align-self: end;
+  color: var(--fg-subtle);
+  font-size: var(--size-meta, var(--text-2xs));
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
+.armada-list-card:not(:has(> .armada-list-card__tag, > .armada-list-card__lines))
+  .armada-list-card__at {
+  align-self: center;
+}
 
-.armada-list-card__lines { grid-area: lines; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; color: var(--fg-muted); font-size: var(--size-meta, var(--text-2xs)); line-height: var(--leading-xs); }
+.armada-list-card__lines {
+  grid-area: lines;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--size-meta, var(--text-2xs));
+  line-height: var(--leading-xs);
+}
 
 /* Needs him: the card's faint tint pulses, on opacity alone. */
-.armada-list-card[data-needs]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--status-awaiting-review); opacity: 0.06; pointer-events: none; animation: armada-list-card-needs 1.6s ease-in-out infinite; }
-@keyframes armada-list-card-needs { 50% { opacity: 0.14; } }
-@media (prefers-reduced-motion: reduce) { .armada-list-card[data-needs]::after { animation: none; } }
+.armada-list-card[data-needs]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--status-awaiting-review);
+  opacity: 0.06;
+  pointer-events: none;
+  animation: armada-list-card-needs 1.6s ease-in-out infinite;
+}
+@keyframes armada-list-card-needs {
+  50% {
+    opacity: 0.14;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .armada-list-card[data-needs]::after {
+    animation: none;
+  }
+}

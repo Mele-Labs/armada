@@ -14,13 +14,30 @@ import { DoneGroup } from "./StoryParts";
 import type { ViewGroup } from "./plan-marks";
 
 // The Jobs the window holds: a group handed to one draws it, found by the parent's ledger.
-const held: { sessions: Session[] } = { sessions: [] };
-vi.mock("../sessions-draft", async (original) => ({ ...(await original<typeof import("../sessions-draft")>()), useSessions: () => held.sessions }));
-vi.mock("../shared-panel/store", async (original) => ({ ...(await original<typeof import("../shared-panel/store")>()), openInPanel: vi.fn(() => true) }));
+const held: {
+  sessions: Session[];
+} = {
+  sessions: [],
+};
+vi.mock("../sessions-draft", async (original) => ({
+  ...(await original<typeof import("../sessions-draft")>()),
+  useSessions: () => held.sessions,
+}));
+vi.mock("../shared-panel/store", async (original) => ({
+  ...(await original<typeof import("../shared-panel/store")>()),
+  openInPanel: vi.fn(() => true),
+}));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   held.sessions = [];
   vi.mocked(openInPanel).mockClear();
@@ -35,18 +52,52 @@ function show(node: React.ReactNode): HTMLElement {
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(node));
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   return host;
 }
 
-const session = { id: "s1", attachments: [], rows: [], turn: { state: "idle" } } as unknown as Session;
-const group = (id: string, ...states: string[]): ViewGroup => ({ id, title: `Group ${id}`, agent: "rust-engineer", paths: [], tasks: states.map((state, at) => ({ id: `${id}-t${at}`, text: `Task ${id} ${at}`, state })) }) as unknown as ViewGroup;
+const session = {
+  id: "s1",
+  attachments: [],
+  rows: [],
+  turn: {
+    state: "idle",
+  },
+} as unknown as Session;
+const group = (id: string, ...states: string[]): ViewGroup =>
+  ({
+    id,
+    title: `Group ${id}`,
+    agent: "rust-engineer",
+    paths: [],
+    tasks: states.map((state, at) => ({
+      id: `${id}-t${at}`,
+      text: `Task ${id} ${at}`,
+      state,
+    })),
+  }) as unknown as ViewGroup;
 
 const TRACK = '[role="img"][aria-label="Tasks in this group, done and to do"]';
-const rowOf = (host: HTMLElement, id: string) => host.querySelector<HTMLElement>(`[data-group="${id}"]`)!;
+const rowOf = (host: HTMLElement, id: string) =>
+  host.querySelector<HTMLElement>(`[data-group="${id}"]`)!;
 
 test("an open group lists its tasks and draws no track, and a folded group draws the track and lists nothing", () => {
-  const host = show(<FlightRows groups={[group("one", "done", "working", "open"), group("two", "open", "open")]} workingGroup="one" now={undefined} session={session} manifestId={undefined} onOpenSession={() => undefined} />);
+  const host = show(
+    <FlightRows
+      groups={[
+        group("one", "done", "working", "open"),
+        group("two", "open", "open"),
+      ]}
+      workingGroup="one"
+      now={undefined}
+      session={session}
+      manifestId={undefined}
+      onOpenSession={() => undefined}
+    />,
+  );
   const open = rowOf(host, "one");
   expect(open.dataset["open"]).toBe("true");
   expect(open.querySelectorAll(TRACK)).toHaveLength(0);
@@ -60,14 +111,31 @@ test("an open group lists its tasks and draws no track, and a folded group draws
 });
 
 test("pressing an open group's row folds it and brings the track in", () => {
-  const host = show(<FlightRows groups={[group("one", "done", "working")]} workingGroup="one" now={undefined} session={session} manifestId={undefined} onOpenSession={() => undefined} />);
+  const host = show(
+    <FlightRows
+      groups={[
+        group("one", "done", "working"),
+      ]}
+      workingGroup="one"
+      now={undefined}
+      session={session}
+      manifestId={undefined}
+      onOpenSession={() => undefined}
+    />,
+  );
   act(() => rowOf(host, "one").querySelector<HTMLElement>("button.sv-flight__row")!.click());
   expect(rowOf(host, "one").querySelectorAll(TRACK)).toHaveLength(1);
   expect(rowOf(host, "one").querySelector('ul[aria-label="Tasks"]')).toBeNull();
 });
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-const task = (state: string, minutes: number) => ({ id: "t", text: "Retry once", state, changedAt: ago(minutes) }) as unknown as ViewGroup["tasks"][number];
+const task = (state: string, minutes: number) =>
+  ({
+    id: "t",
+    text: "Retry once",
+    state,
+    changedAt: ago(minutes),
+  }) as unknown as ViewGroup["tasks"][number];
 
 function line(minutes: number): HTMLElement {
   const host = show(
@@ -106,56 +174,160 @@ test("a task that is not in progress carries no age", () => {
   expect(host.querySelector<HTMLElement>("li.sv-group__task")!.dataset["stale"]).toBeUndefined();
 });
 
-const handed = { id: "s1", attachments: [{ kind: "started_to", id: "c1", group: "one" }], rows: [], turn: { state: "idle" } } as unknown as Session;
+const handed = {
+  id: "s1",
+  attachments: [
+    {
+      kind: "started_to",
+      id: "c1",
+      group: "one",
+    },
+  ],
+  rows: [],
+  turn: {
+    state: "idle",
+  },
+} as unknown as Session;
 const child = {
   id: "c1",
   title: "Migrations get names",
-  attachments: [{ kind: "pull_request", number: 2412, title: "Name the migrations", branch: "armada/names", address: "https://forge/pull/2412", checks: { state: "pending" }, state: "open", auto: false }],
+  attachments: [
+    {
+      kind: "pull_request",
+      number: 2412,
+      title: "Name the migrations",
+      branch: "armada/names",
+      address: "https://forge/pull/2412",
+      checks: {
+        state: "pending",
+      },
+      state: "open",
+      auto: false,
+    },
+  ],
   rows: [],
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   standing: "working",
   lastTurnAt: ago(1),
 } as unknown as Session;
 
 test("a group handed to a Job is the Job's card, titled with the Job and the group under it, with its pull request, and has no toggle; each press opens its own", () => {
-  held.sessions = [handed, child];
+  held.sessions = [
+    handed,
+    child,
+  ];
   const opened: string[] = [];
-  const host = show(<FlightRows calm groups={[group("one", "open"), group("two", "open")]} workingGroup={undefined} now={undefined} session={handed} manifestId="armada" onOpenSession={(id) => opened.push(id)} />);
+  const host = show(
+    <FlightRows
+      calm
+      groups={[
+        group("one", "open"),
+        group("two", "open"),
+      ]}
+      workingGroup={undefined}
+      now={undefined}
+      session={handed}
+      manifestId="armada"
+      onOpenSession={(id) => opened.push(id)}
+    />,
+  );
   const row = rowOf(host, "one");
   expect(row.querySelector("button.sv-flight__row")).toBeNull();
   const card = row.querySelector<HTMLElement>("button.armada-job-card")!;
   expect(card.getAttribute("aria-label")).toBe("Job Migrations get names");
   expect(card.querySelector(".armada-job-card__says")?.textContent).toBe("Group one");
-  expect(card.querySelector('.armada-job-card__mark [role="img"]')?.getAttribute("aria-label")).toBe("Working");
+  expect(
+    card.querySelector('.armada-job-card__mark [role="img"]')?.getAttribute("aria-label"),
+  ).toBe("Working");
   expect(card.querySelector(".armada-job-card__kind")?.getAttribute("aria-label")).toBe("Job");
   act(() => card.click());
-  expect(opened).toEqual(["c1"]);
+  expect(opened).toEqual([
+    "c1",
+  ]);
   act(() => row.querySelector<HTMLElement>("button.armada-pull-chip")!.click());
-  expect(vi.mocked(openInPanel)).toHaveBeenCalledWith({ kind: "pr", number: 2412, address: "https://forge/pull/2412" });
+  expect(vi.mocked(openInPanel)).toHaveBeenCalledWith({
+    kind: "pr",
+    number: 2412,
+    address: "https://forge/pull/2412",
+  });
 });
 
 test("a group handed to a Job is the card whether its row would have been open or shut", () => {
-  held.sessions = [handed, child];
-  const host = show(<FlightRows all groups={[group("one", "open")]} workingGroup={undefined} now={undefined} session={handed} manifestId="armada" onOpenSession={() => undefined} />);
+  held.sessions = [
+    handed,
+    child,
+  ];
+  const host = show(
+    <FlightRows
+      all
+      groups={[
+        group("one", "open"),
+      ]}
+      workingGroup={undefined}
+      now={undefined}
+      session={handed}
+      manifestId="armada"
+      onOpenSession={() => undefined}
+    />,
+  );
   expect(rowOf(host, "one").querySelector("button.armada-job-card")).not.toBeNull();
   expect(rowOf(host, "one").querySelector('ul[aria-label="Tasks"]')).toBeNull();
 });
 
 test("a group handed to no Job keeps its toggle and its track, and draws no card and no pull request", () => {
-  held.sessions = [handed, child];
-  const host = show(<FlightRows calm groups={[group("one", "open"), group("two", "open")]} workingGroup={undefined} now={undefined} session={handed} manifestId="armada" onOpenSession={() => undefined} />);
+  held.sessions = [
+    handed,
+    child,
+  ];
+  const host = show(
+    <FlightRows
+      calm
+      groups={[
+        group("one", "open"),
+        group("two", "open"),
+      ]}
+      workingGroup={undefined}
+      now={undefined}
+      session={handed}
+      manifestId="armada"
+      onOpenSession={() => undefined}
+    />,
+  );
   const none = rowOf(host, "two");
   expect(none.querySelector(".armada-job-card, .armada-pull-chip")).toBeNull();
   expect(none.querySelector('button.sv-flight__row[aria-expanded="false"]')).not.toBeNull();
   expect(none.querySelectorAll(TRACK)).toHaveLength(1);
 });
 
-const ed: PlanEditing = { id: "s1", plan: { scope: [], approved: true, groups: [] }, marks: [], set: () => undefined, send: () => undefined };
+const ed: PlanEditing = {
+  id: "s1",
+  plan: {
+    scope: [],
+    approved: true,
+    groups: [],
+  },
+  marks: [],
+  set: () => undefined,
+  send: () => undefined,
+};
 
 test("in the Blueprint a handed group is the Job's card with its pull request, and has no toggle", () => {
-  held.sessions = [handed, child];
+  held.sessions = [
+    handed,
+    child,
+  ];
   const opened: string[] = [];
-  const host = show(<Group group={group("one", "open")} ed={ed} parent={handed} manifestId="armada" onOpenSession={(id) => opened.push(id)} />);
+  const host = show(
+    <Group
+      group={group("one", "open")}
+      ed={ed}
+      parent={handed}
+      manifestId="armada"
+      onOpenSession={(id) => opened.push(id)}
+    />,
+  );
   const row = rowOf(host, "one");
   expect(row.querySelector(".sv-group__row")).toBeNull();
   const card = row.querySelector<HTMLElement>("button.armada-job-card")!;
@@ -163,22 +335,36 @@ test("in the Blueprint a handed group is the Job's card with its pull request, a
   expect(card.querySelector(".armada-job-card__says")?.textContent).toBe("Group one");
   expect(row.querySelector("button.armada-pull-chip")).not.toBeNull();
   act(() => card.click());
-  expect(opened).toEqual(["c1"]);
+  expect(opened).toEqual([
+    "c1",
+  ]);
 });
 
 test("a finished handed group under Done is the Job's card with no tick track and no task list", () => {
-  held.sessions = [handed, child];
+  held.sessions = [
+    handed,
+    child,
+  ];
   const opened: string[] = [];
   const host = show(
     <ul>
-      <DoneGroup group={group("one", "done", "done")} open session={handed} onOpenSession={(id) => opened.push(id)} />
+      <DoneGroup
+        group={group("one", "done", "done")}
+        open
+        session={handed}
+        onOpenSession={(id) => opened.push(id)}
+      />
     </ul>,
   );
   const row = rowOf(host, "one");
-  expect(row.querySelector("button.armada-job-card")?.getAttribute("aria-label")).toBe("Job Migrations get names");
+  expect(row.querySelector("button.armada-job-card")?.getAttribute("aria-label")).toBe(
+    "Job Migrations get names",
+  );
   expect(row.querySelector(TRACK)).toBeNull();
   expect(row.querySelector(".sv-group__tasks")).toBeNull();
   expect(row.querySelector("button.armada-pull-chip")).not.toBeNull();
   act(() => row.querySelector<HTMLElement>("button.armada-job-card")!.click());
-  expect(opened).toEqual(["c1"]);
+  expect(opened).toEqual([
+    "c1",
+  ]);
 });

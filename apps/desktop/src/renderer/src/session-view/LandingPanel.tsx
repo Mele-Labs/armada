@@ -36,7 +36,13 @@ export function Docs({ rows, said }: { rows: readonly ArtifactRow[]; said: strin
     <ul className="sv-landing__docs" aria-label={said}>
       {rows.map((row) => (
         <li key={row.key}>
-          <button type="button" className="sv-landing__doc" aria-label={row.title} disabled={row.open === undefined} onClick={row.open}>
+          <button
+            type="button"
+            className="sv-landing__doc"
+            aria-label={row.title}
+            disabled={row.open === undefined}
+            onClick={row.open}
+          >
             <Tooltip label={said}>
               <span className="sv-landing__doc-mark" role="img" aria-label={said}>
                 <row.Glyph size={12} strokeWidth={2} aria-hidden />
@@ -66,11 +72,28 @@ function conclusionOf(text: string): string {
  */
 export function Report({ session, row }: { session: Session; row: ArtifactRow }) {
   const doc = documentOf(session, row.sub);
-  const held = useArtifact(useSessionsDraft(), session.id, doc === undefined ? (row.sub ?? "") : (doc.revisions[doc.revisions.length - 1] ?? ""));
-  const text = held.state === "read" && held.read.ok ? new TextDecoder().decode(held.read.bytes) : "";
-  const conclusion = useMemo(() => (doc === undefined ? conclusionOf(text) : text === "" ? "" : readPage(text).lede), [doc === undefined, text]);
+  const held = useArtifact(
+    useSessionsDraft(),
+    session.id,
+    doc === undefined ? (row.sub ?? "") : (doc.revisions[doc.revisions.length - 1] ?? ""),
+  );
+  const text =
+    held.state === "read" && held.read.ok ? new TextDecoder().decode(held.read.bytes) : "";
+  const conclusion = useMemo(
+    () => (doc === undefined ? conclusionOf(text) : text === "" ? "" : readPage(text).lede),
+    [
+      doc === undefined,
+      text,
+    ],
+  );
   return (
-    <button type="button" className="sv-landing__report" aria-label={row.title} disabled={row.open === undefined} onClick={doc === undefined ? row.open : () => showLayer(session.id, "document", doc.id)}>
+    <button
+      type="button"
+      className="sv-landing__report"
+      aria-label={row.title}
+      disabled={row.open === undefined}
+      onClick={doc === undefined ? row.open : () => showLayer(session.id, "document", doc.id)}
+    >
       <span className="sv-landing__report-head">
         <Tooltip label="Report">
           <span className="sv-landing__report-mark" role="img" aria-label="Report">
@@ -84,7 +107,17 @@ export function Report({ session, row }: { session: Session; row: ArtifactRow })
   );
 }
 
-export function LandingPanel({ session, entries, place, id }: { session: Session; entries: readonly LedgerEntry[]; place: Place; id: string }) {
+export function LandingPanel({
+  session,
+  entries,
+  place,
+  id,
+}: {
+  session: Session;
+  entries: readonly LedgerEntry[];
+  place: Place;
+  id: string;
+}) {
   const fold = useFold(session, "landing");
   const draft = useSessionsDraft();
   const kind = landingOf(session);
@@ -97,40 +130,92 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
     row?.setAttribute("data-found", "");
     window.setTimeout(() => row?.removeAttribute("data-found"), 1200);
   };
-  const docs = kind === "spike" || kind === "document" ? (artifactsOf(session, entries).find((group) => group.id === "doc")?.rows ?? []) : [];
+  const docs =
+    kind === "spike" || kind === "document"
+      ? (artifactsOf(session, entries).find((group) => group.id === "doc")?.rows ?? [])
+      : [];
   const groups = kind === "report" ? artifactsOf(session, entries) : [];
-  const report = [...(groups.find((group) => group.id === "doc")?.rows ?? []), ...(groups.find((group) => group.id === "file")?.rows ?? [])].find((row) => row.sub !== undefined && row.open !== undefined);
+  const report = [
+    ...(groups.find((group) => group.id === "doc")?.rows ?? []),
+    ...(groups.find((group) => group.id === "file")?.rows ?? []),
+  ].find((row) => row.sub !== undefined && row.open !== undefined);
   // The Job's own pages where the kind draws no doc of its own: a Job landing a pull request, or with no workflow, may still write one.
   const pages =
     kind === "pull_request" || kind === "mod"
-      ? (artifactsOf(session, entries).find((group) => group.id === "doc")?.rows ?? []).flatMap((row) => {
-          const page = row.sub === undefined ? undefined : documentOf(session, row.sub);
-          return page === undefined ? [] : [{ ...row, open: () => showLayer(session.id, "document", page.id) }];
-        })
+      ? (artifactsOf(session, entries).find((group) => group.id === "doc")?.rows ?? []).flatMap(
+          (row) => {
+            const page = row.sub === undefined ? undefined : documentOf(session, row.sub);
+            return page === undefined
+              ? []
+              : [
+                  {
+                    ...row,
+                    open: () => showLayer(session.id, "document", page.id),
+                  },
+                ];
+          },
+        )
       : [];
   const later = session.later ?? [];
   const outside = issuesOutsidePlan(session).issues.map(({ issue }) => issue);
   const claimed = outside.filter((issue) => issue.claimed === true);
   const filed = outside.filter((issue) => issue.claimed !== true);
   const mods = useModsMade(id).mods;
-  const steps = routeOf(session, kind, { doc: kind === "report" ? report !== undefined : docs.length > 0, mods });
+  const steps = routeOf(session, kind, {
+    doc: kind === "report" ? report !== undefined : docs.length > 0,
+    mods,
+  });
   const stack =
     prs.length === 0 ? undefined : (
       <ul className="sv-landing__prs" aria-label="Pull requests" ref={list}>
         {stackedRows(prs).map((row) => (
-          <PullRow key={row.pr.number} session={session} pr={row.pr} onJump={jump} {...(row.lane === "none" ? {} : { lane: row.lane })} {...(row.rootBase === undefined ? {} : { rootBase: row.rootBase })} {...(row.chip === undefined ? {} : { chip: row.chip })} />
+          <PullRow
+            key={row.pr.number}
+            session={session}
+            pr={row.pr}
+            onJump={jump}
+            {...(row.lane === "none"
+              ? {}
+              : {
+                  lane: row.lane,
+                })}
+            {...(row.rootBase === undefined
+              ? {}
+              : {
+                  rootBase: row.rootBase,
+                })}
+            {...(row.chip === undefined
+              ? {}
+              : {
+                  chip: row.chip,
+                })}
+          />
         ))}
       </ul>
     );
   const bodies = {
     "Pull request": stack,
     // A doc kind has no Pull request step, so a pull request the Job opened stands under the doc beside what it made.
-    Findings: docs.length === 0 && stack === undefined ? undefined : <>{docs.length === 0 ? null : <Docs rows={docs} said="Findings" />}{stack}</>,
+    Findings:
+      docs.length === 0 && stack === undefined ? undefined : (
+        <>
+          {docs.length === 0 ? null : <Docs rows={docs} said="Findings" />}
+          {stack}
+        </>
+      ),
     Document:
       kind === "report" ? (
-        report === undefined && stack === undefined ? undefined : <>{report === undefined ? null : <Report session={session} row={report} />}{stack}</>
+        report === undefined && stack === undefined ? undefined : (
+          <>
+            {report === undefined ? null : <Report session={session} row={report} />}
+            {stack}
+          </>
+        )
       ) : docs.length === 0 && stack === undefined ? undefined : (
-        <>{docs.length === 0 ? null : <Docs rows={docs} said="Document" />}{stack}</>
+        <>
+          {docs.length === 0 ? null : <Docs rows={docs} said="Document" />}
+          {stack}
+        </>
       ),
     Mod: kind === "mod" && mods.length > 0 ? <ModsMade id={id} /> : undefined,
   };
@@ -143,9 +228,24 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
         : prs.some((pr) => pr.state !== "merged" && pr.checks.state === "failed")
           ? "failed"
           : "live";
-  const state: PanelState | undefined = pulled ?? (kind === "report" ? (report !== undefined ? "done" : undefined) : docs.length > 0 ? "done" : undefined);
+  const state: PanelState | undefined =
+    pulled ??
+    (kind === "report"
+      ? report !== undefined
+        ? "done"
+        : undefined
+      : docs.length > 0
+        ? "done"
+        : undefined);
   return (
-    <SvPanel label="Delivery" area="landing" place={place} state={state} fold={fold} keycap={bandKeyFor("landing")}>
+    <SvPanel
+      label="Delivery"
+      area="landing"
+      place={place}
+      state={state}
+      fold={fold}
+      keycap={bandKeyFor("landing")}
+    >
       <DeliveryRoute steps={steps} bodies={bodies} />
       {pages.length === 0 ? null : <Docs rows={pages} said="Document" />}
       {claimed.length === 0 ? null : (
@@ -158,7 +258,16 @@ export function LandingPanel({ session, entries, place, id }: { session: Session
         </ul>
       )}
       <WatchingBlock key={session.id} session={session} />
-      {later.length === 0 && filed.length === 0 ? null : <LaterBlock later={later} issues={filed} manifestId={session.manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />}
+      {later.length === 0 && filed.length === 0 ? null : (
+        <LaterBlock
+          later={later}
+          issues={filed}
+          manifestId={session.manifestId}
+          onRemind={(sentence) => void remindLater(draft, id, sentence)}
+          onConfirm={(one) => draft?.confirmLater?.(id, one.id)}
+          onDrop={(one) => draft?.dropLater?.(id, one.id, true)}
+        />
+      )}
     </SvPanel>
   );
 }

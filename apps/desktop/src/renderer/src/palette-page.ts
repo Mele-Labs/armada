@@ -13,10 +13,33 @@ export function pageOf(showing: string, job: Session | undefined): PalettePage |
     return {
       title: job.title ?? job.id,
       rows: [
-        job.paused === true ? { id: `${JOB_PAGE}resume`, label: "Resume", icon: Play } : { id: `${JOB_PAGE}pause`, label: "Pause", icon: Pause },
-        { id: `${JOB_PAGE}stop`, label: "Stop", icon: Ban, destructive: true },
-        { id: `${JOB_PAGE}fork`, label: "Fork", icon: GitFork },
-        { id: `${JOB_PAGE}open-pull`, label: "Open pull request", icon: GitPullRequest },
+        job.paused === true
+          ? {
+              id: `${JOB_PAGE}resume`,
+              label: "Resume",
+              icon: Play,
+            }
+          : {
+              id: `${JOB_PAGE}pause`,
+              label: "Pause",
+              icon: Pause,
+            },
+        {
+          id: `${JOB_PAGE}stop`,
+          label: "Stop",
+          icon: Ban,
+          destructive: true,
+        },
+        {
+          id: `${JOB_PAGE}fork`,
+          label: "Fork",
+          icon: GitFork,
+        },
+        {
+          id: `${JOB_PAGE}open-pull`,
+          label: "Open pull request",
+          icon: GitPullRequest,
+        },
       ],
     };
   }
@@ -24,13 +47,40 @@ export function pageOf(showing: string, job: Session | undefined): PalettePage |
     return {
       title: "Cockpit",
       rows: [
-        { id: "dispatch", label: "Dispatch", icon: Plus },
-        { id: "map", label: "Show the map" },
-        { id: "timeline", label: "Show the timeline" },
-        { id: "needing-you", label: "Go to Jobs needing you" },
+        {
+          id: "dispatch",
+          label: "Dispatch",
+          icon: Plus,
+        },
+        {
+          id: "map",
+          label: "Show the map",
+        },
+        {
+          id: "timeline",
+          label: "Show the timeline",
+        },
+        {
+          id: "needing-you",
+          label: "Go to Jobs needing you",
+        },
       ],
     };
   }
-  if (showing === SURFACE.projects) return { title: "Projects", rows: [{ id: "add-task", label: "Add a task", icon: Plus }, { id: "new-project", label: "New project" }] };
+  if (showing === SURFACE.projects)
+    return {
+      title: "Projects",
+      rows: [
+        {
+          id: "add-task",
+          label: "Add a task",
+          icon: Plus,
+        },
+        {
+          id: "new-project",
+          label: "New project",
+        },
+      ],
+    };
   return undefined;
 }

@@ -10,7 +10,10 @@ export const PIXEL =
 const meta: Meta<typeof Enlargeable> = {
   title: "Primitives/Enlargeable",
   component: Enlargeable,
-  args: { src: PIXEL, name: "login-error.png" },
+  args: {
+    src: PIXEL,
+    name: "login-error.png",
+  },
 };
 export default meta;
 
@@ -22,9 +25,19 @@ export const Thumbnail: Story = {};
 export const PressOpens: Story = {
   play: async ({ canvas }) => {
     await expect(screen.queryByRole("dialog")).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "login-error.png" }));
-    const dialog = await screen.findByRole("dialog", { name: "login-error.png" });
-    await expect(screen.getByRole("img", { name: "login-error.png" })).toHaveAttribute("src", PIXEL);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "login-error.png",
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "login-error.png",
+    });
+    await expect(
+      screen.getByRole("img", {
+        name: "login-error.png",
+      }),
+    ).toHaveAttribute("src", PIXEL);
     await expect(dialog).toBeVisible();
   },
 };
@@ -32,16 +45,24 @@ export const PressOpens: Story = {
 /** Enter on the focused thumbnail opens it, so the picture is reachable without a pointer. */
 export const EnterOpens: Story = {
   play: async ({ canvas }) => {
-    canvas.getByRole("button", { name: "login-error.png" }).focus();
+    canvas
+      .getByRole("button", {
+        name: "login-error.png",
+      })
+      .focus();
     await userEvent.keyboard("{Enter}");
-    await screen.findByRole("dialog", { name: "login-error.png" });
+    await screen.findByRole("dialog", {
+      name: "login-error.png",
+    });
   },
 };
 
 /** Escape closes it and focus goes back to the thumbnail that opened it. */
 export const EscapeCloses: Story = {
   play: async ({ canvas }) => {
-    const thumb = canvas.getByRole("button", { name: "login-error.png" });
+    const thumb = canvas.getByRole("button", {
+      name: "login-error.png",
+    });
     await userEvent.click(thumb);
     await screen.findByRole("dialog");
     await userEvent.keyboard("{Escape}");
@@ -53,7 +74,9 @@ export const EscapeCloses: Story = {
 /** A press outside the picture closes it, and focus goes back to the thumbnail. */
 export const PressOutsideCloses: Story = {
   play: async ({ canvas }) => {
-    const thumb = canvas.getByRole("button", { name: "login-error.png" });
+    const thumb = canvas.getByRole("button", {
+      name: "login-error.png",
+    });
     await userEvent.click(thumb);
     const dialog = await screen.findByRole("dialog");
     // The scrim is the dialog itself; a press on its own box is a press outside the picture.
@@ -72,7 +95,11 @@ export const EscapeStopsHere: Story = {
     const behind = fn();
     document.addEventListener("keydown", behind);
     try {
-      await userEvent.click(canvas.getByRole("button", { name: "login-error.png" }));
+      await userEvent.click(
+        canvas.getByRole("button", {
+          name: "login-error.png",
+        }),
+      );
       await screen.findByRole("dialog");
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

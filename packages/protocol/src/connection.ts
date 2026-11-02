@@ -10,7 +10,8 @@
 declare const __PROTOCOL_ID__: string | undefined;
 
 /** The protocol this Bridge was built with. `unbuilt` where nothing injected one, which no Fleet speaks. */
-export const PROTOCOL_ID: string = typeof __PROTOCOL_ID__ === "string" ? __PROTOCOL_ID__ : "unbuilt";
+export const PROTOCOL_ID: string =
+  typeof __PROTOCOL_ID__ === "string" ? __PROTOCOL_ID__ : "unbuilt";
 
 /**
  * Which wire a build speaks, as `crates/ipc` hashes it. Compared whole: two
@@ -38,7 +39,9 @@ export function spoken(id: ProtocolId): string {
  * matches this Bridge. The next runtime file says which.
  */
 export type FleetRestart =
-  | { ok: true }
+  | {
+      ok: true;
+    }
   | {
       ok: false;
       /**
@@ -69,9 +72,22 @@ export type FleetIdentity = {
  * opened against a port an unrelated program owns.
  */
 export type Absence =
-  | { why: "no_runtime_file"; path: string }
-  | { why: "pid_dead"; path: string; pid: number }
-  | { why: "pid_held_by_another"; path: string; pid: number; wrote: string; holder: string };
+  | {
+      why: "no_runtime_file";
+      path: string;
+    }
+  | {
+      why: "pid_dead";
+      path: string;
+      pid: number;
+    }
+  | {
+      why: "pid_held_by_another";
+      path: string;
+      pid: number;
+      wrote: string;
+      holder: string;
+    };
 
 /**
  * Why the runtime file could not be read at all. **None of these is "not
@@ -79,17 +95,41 @@ export type Absence =
  * it tells a person Fleet is down on no evidence.
  */
 export type RuntimeFault =
-  | { why: "unreadable"; path: string; detail: string }
-  | { why: "undecodable"; path: string; detail: string }
-  | { why: "probe_failed"; path: string; pid: number; detail: string };
+  | {
+      why: "unreadable";
+      path: string;
+      detail: string;
+    }
+  | {
+      why: "undecodable";
+      path: string;
+      detail: string;
+    }
+  | {
+      why: "probe_failed";
+      path: string;
+      pid: number;
+      detail: string;
+    };
 
 /** Where Bridge's one connection is. */
 export type Connection =
-  | { state: "reading" }
-  | { state: "not_running"; absence: Absence }
-  | { state: "runtime_file_refused"; fault: RuntimeFault }
+  | {
+      state: "reading";
+    }
+  | {
+      state: "not_running";
+      absence: Absence;
+    }
+  | {
+      state: "runtime_file_refused";
+      fault: RuntimeFault;
+    }
   /** The first attempt on a Fleet whose pid checks out. Milliseconds on a Fleet that has been up. */
-  | { state: "connecting"; fleet: FleetIdentity }
+  | {
+      state: "connecting";
+      fleet: FleetIdentity;
+    }
   /**
    * The pid checks out, the process is young, and the socket has not answered.
    * Fleet binds its port, publishes the runtime file and only then reconciles,
@@ -97,21 +137,42 @@ export type Connection =
    * never answered. Once the process is older than Bridge allows a boot, this
    * becomes `unreachable`.
    */
-  | { state: "starting"; fleet: FleetIdentity }
+  | {
+      state: "starting";
+      fleet: FleetIdentity;
+    }
   /** The pid checks out and the socket does not answer. A different thing to do. */
-  | { state: "unreachable"; fleet: FleetIdentity; detail: string; sinceMs: number }
+  | {
+      state: "unreachable";
+      fleet: FleetIdentity;
+      detail: string;
+      sinceMs: number;
+    }
   /**
    * Fleet speaks another protocol than this Bridge, so Bridge opens no socket.
    * Either side may be the stale one and the IDs do not say which, except that
    * a `speaks` of `""` is a Fleet from before IDs.
    */
-  | { state: "protocol_mismatch"; fleet: FleetIdentity; speaks: ProtocolId; expected: ProtocolId }
+  | {
+      state: "protocol_mismatch";
+      fleet: FleetIdentity;
+      speaks: ProtocolId;
+      expected: ProtocolId;
+    }
   /** Connected, and both sides speak the same protocol. */
-  | { state: "connected"; fleet: FleetIdentity; cursor: number };
+  | {
+      state: "connected";
+      fleet: FleetIdentity;
+      cursor: number;
+    };
 
 /** A live connection. Here so every surface builds `connected` one way. */
 export function connectedTo(fleet: FleetIdentity, cursor: number): Connection {
-  return { state: "connected", fleet, cursor };
+  return {
+    state: "connected",
+    fleet,
+    cursor,
+  };
 }
 
 /* What the side holding the connection knows about its own session, which the

@@ -16,9 +16,26 @@ import type { ProjectRowRef, StartAfter } from "@armada/protocol";
 import type { HelmCarry } from "../shared/api/helm";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
-import type { Connection, HelmContext, HelmDebugRead, Outcome, ThoughtRead, ThoughtTarget } from "@armada/protocol";
-import type { CheckOutputRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
-import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/screens/src/lessons/review-wire";
+import type {
+  Connection,
+  HelmContext,
+  HelmDebugRead,
+  Outcome,
+  ThoughtRead,
+  ThoughtTarget,
+} from "@armada/protocol";
+import type {
+  CheckOutputRead,
+  LandCheckAt,
+  LessonsRead,
+  RetroRead,
+  RetroSubject,
+} from "@armada/protocol";
+import type {
+  AskLessonRead,
+  AskTurn,
+  LessonReviewRead,
+} from "@armada/screens/src/lessons/review-wire";
 import { applyArrival, readModels } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { Commands } from "./command";
@@ -88,7 +105,10 @@ export type Wiring = {
   /** Where `remembered.ts` keeps the picture the screens draw from, so a restarted Bridge draws it before Fleet answers. None where a test has no disk to use. */
   pictureFile?: string;
   /** `socket.ts`'s two waits, shortened where a test cannot spend minutes. */
-  timing?: { graceMs: number; bootMs: number };
+  timing?: {
+    graceMs: number;
+    bootMs: number;
+  };
 };
 
 export class FleetConnection {
@@ -137,7 +157,11 @@ export class FleetConnection {
    * What Fleet is holding disk for, where a surface asked — see `holding.ts`.
    * **Scoped to nothing**: what is being decided is which of a set to give back.
    */
-  private readonly held = new HeldReader((held) => this.publish({ held }));
+  private readonly held = new HeldReader((held) =>
+    this.publish({
+      held,
+    }),
+  );
   /** A repository's Studios and the one open, where the Studios surface asked — `studios.ts`. */
   readonly studios: StudioReads = new StudioReads(
     (change) => this.publish(change),
@@ -166,7 +190,9 @@ export class FleetConnection {
   /** The plan's windows — `plan-usage.ts`. */
   readonly planUsage: PlanUsageHost = new PlanUsageHost(() => this.connected()?.port ?? null);
   /** The default model's step down — `model-downshift.ts`. */
-  readonly modelDownshift: ModelDownshiftHost = new ModelDownshiftHost(() => this.connected()?.port ?? null);
+  readonly modelDownshift: ModelDownshiftHost = new ModelDownshiftHost(
+    () => this.connected()?.port ?? null,
+  );
   /** A repository's projects — `projects.ts`. */
   readonly projects: ProjectsHost = new ProjectsHost(() => this.connected()?.port ?? null);
   /** Bugs agents reported in Armada — `bug-reports.ts`. */
@@ -184,7 +210,15 @@ export class FleetConnection {
     () => this.connected()?.port ?? null,
     () => {
       const listed = this.current.holds.repositories;
-      return listed === undefined || listed.length === 0 ? null : listed.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest.id]));
+      return listed === undefined || listed.length === 0
+        ? null
+        : listed.flatMap((one) =>
+            one.manifest === undefined
+              ? []
+              : [
+                  one.manifest.id,
+                ],
+          );
     },
   );
   /** What a person taught, read into a proposal and kept — `teaching.ts`. */
@@ -196,15 +230,23 @@ export class FleetConnection {
   /** Who held one slot and what was checked out in it — `bay-history.ts`. */
   readonly bayHistory: BayHistoryHost = new BayHistoryHost(() => this.connected()?.port ?? null);
   /** A Job's processes, load, worktrees and logs, and ending a process of it — `session-system.ts`. */
-  readonly sessionSystem: SessionSystemHost = new SessionSystemHost(() => this.connected()?.port ?? null);
+  readonly sessionSystem: SessionSystemHost = new SessionSystemHost(
+    () => this.connected()?.port ?? null,
+  );
   /** What agents learned, and the owner's acts on an entry — `logbook.ts`. */
   readonly logbook: LogbookHost = new LogbookHost(() => this.connected()?.port ?? null);
   /** What the last seven days cost, for the Usage page — `usage-summary.ts`. */
-  readonly usageSummary: UsageSummaryHost = new UsageSummaryHost(() => this.connected()?.port ?? null);
+  readonly usageSummary: UsageSummaryHost = new UsageSummaryHost(
+    () => this.connected()?.port ?? null,
+  );
   /** The Cockpit's flight controls, and a shell line run for a Job — `flight-controls.ts`. */
-  readonly flightControls: FlightControlsHost = new FlightControlsHost(() => this.connected()?.port ?? null);
+  readonly flightControls: FlightControlsHost = new FlightControlsHost(
+    () => this.connected()?.port ?? null,
+  );
   /** The owner's notes on a pull request's lines — `pull-request-notes.ts`. */
-  readonly pullRequestNotes: PullRequestNotesHost = new PullRequestNotesHost(() => this.connected()?.port ?? null);
+  readonly pullRequestNotes: PullRequestNotesHost = new PullRequestNotesHost(
+    () => this.connected()?.port ?? null,
+  );
   /** Past sessions to import, how a repository runs and where that is kept, and the mod's install — `onboarding.ts`. */
   readonly onboarding: OnboardingHost = new OnboardingHost(() => this.connected()?.port ?? null);
   /** A piece committed to a Job's branch, and a package made, read and added — `sharing.ts`. */
@@ -229,7 +271,10 @@ export class FleetConnection {
     this.wiring = wiring;
     // Resolved once, from the home main can see. A failure that cannot say
     // where its log is is half a failure.
-    this.current = { ...NOTHING_YET, bridge: startingIdentity(wiring.home) };
+    this.current = {
+      ...NOTHING_YET,
+      bridge: startingIdentity(wiring.home),
+    };
     // What the last run kept, if it is recent: drawn at once, and replaced by Fleet's own reads as they land.
     this.remembered = new Remembered(wiring.pictureFile, wiring.now);
     const picture = this.remembered.load();
@@ -237,31 +282,78 @@ export class FleetConnection {
       this.current = {
         ...this.current,
         drawnFromDisk: picture.sessions !== undefined,
-        ...(picture.sessions === undefined ? {} : { sessions: { state: "read", sessions: picture.sessions } }),
-        ...(picture.mergeLines === undefined ? {} : { mergeLines: picture.mergeLines }),
-        ...(picture.holds === undefined ? {} : { holds: { ...this.current.holds, ...picture.holds } }),
+        ...(picture.sessions === undefined
+          ? {}
+          : {
+              sessions: {
+                state: "read",
+                sessions: picture.sessions,
+              },
+            }),
+        ...(picture.mergeLines === undefined
+          ? {}
+          : {
+              mergeLines: picture.mergeLines,
+            }),
+        ...(picture.holds === undefined
+          ? {}
+          : {
+              holds: {
+                ...this.current.holds,
+                ...picture.holds,
+              },
+            }),
       };
       if (picture.sessions !== undefined) this.sessions.remember(picture.sessions);
     }
-    this.planUsage.remembering(picture?.planUsage ?? null, (planUsage) => this.remembered.keep({ planUsage }));
-    this.timeline.remembering(picture?.timeline ?? [], (timeline) => this.remembered.keep({ timeline }));
+    this.planUsage.remembering(picture?.planUsage ?? null, (planUsage) =>
+      this.remembered.keep({
+        planUsage,
+      }),
+    );
+    this.timeline.remembering(picture?.timeline ?? [], (timeline) =>
+      this.remembered.keep({
+        timeline,
+      }),
+    );
     if (wiring.threadsDir !== undefined) this.sessions.keepIn(wiring.threadsDir);
     this.socket = new FleetSocket({
       home: wiring.home,
       now: wiring.now,
-      ...(wiring.timing === undefined ? {} : { timing: wiring.timing }),
+      ...(wiring.timing === undefined
+        ? {}
+        : {
+            timing: wiring.timing,
+          }),
       settle: (connection) => this.settle(connection),
       arrived: (text, fleet) => this.arrived(text, fleet),
     });
-    this.follow = new FollowSocket((followed) => this.publish({ followed }));
-    this.landFollow = new LandFollowSocket((landFollowed) => this.publish({ landFollowed }));
+    this.follow = new FollowSocket((followed) =>
+      this.publish({
+        followed,
+      }),
+    );
+    this.landFollow = new LandFollowSocket((landFollowed) =>
+      this.publish({
+        landFollowed,
+      }),
+    );
     const port = (): number | null => this.connected()?.port ?? null;
-    this.helm = new HelmConnection({ publish: (change) => this.publish(change), port, folded: (record) => this.sessions.changed(record) });
+    this.helm = new HelmConnection({
+      publish: (change) => this.publish(change),
+      port,
+      folded: (record) => this.sessions.changed(record),
+    });
     const publish = (change: Partial<BridgeState>) => this.publish(change);
     // The one registry every per-window pick is minted into — `rehearsal` and `repositories`
     // both read it, so a window's Setup, Verify and rail all name the same `Picked`.
     const pickedByWindow = new PickedByWindow();
-    this.rehearsal = new RehearsalConnection({ publish, publishToWindow: wiring.publishToWindow, port, pickedByWindow });
+    this.rehearsal = new RehearsalConnection({
+      publish,
+      publishToWindow: wiring.publishToWindow,
+      port,
+      pickedByWindow,
+    });
     const holds = () => this.current.holds;
     this.repositories = new RepositoryReads({
       pickedByWindow,
@@ -345,9 +437,7 @@ export class FleetConnection {
     return this.facadesFor(windowId).overview;
   }
 
-  private facadesFor(
-    windowId: number,
-  ): {
+  private facadesFor(windowId: number): {
     editing: ManifestFileCommands;
     repositoryAllows: RepositoryAllowsCommands;
     kit: KitCommands;
@@ -375,7 +465,9 @@ export class FleetConnection {
 
   /** Every open window's own Overview read again, off its own pick — `repositories.ts`'s `overviewAgain`. */
   private async overviewAgainForEveryWindow(port: number): Promise<void> {
-    await Promise.all(this.wiring.windowIds().map((windowId) => this.facadesFor(windowId).overview.again(port)));
+    await Promise.all(
+      this.wiring.windowIds().map((windowId) => this.facadesFor(windowId).overview.again(port)),
+    );
   }
 
   /** The window closed. Its own pick and every per-window facade go with it. */
@@ -450,7 +542,12 @@ export class FleetConnection {
   }
 
   /** The words reached a Session: Fleet keeps a row for them in `manifestId`'s thread. */
-  recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
+  recordThoughtSent(
+    manifestId: string,
+    text: string,
+    target: ThoughtTarget,
+    carry?: HelmCarry,
+  ): Promise<Outcome> {
     return this.helm.recordThoughtSent(manifestId, text, target, carry);
   }
 
@@ -530,11 +627,37 @@ export class FleetConnection {
    * one repository Fleet serves** where there is exactly one, and a refusal in words where there are
    * several: a session starts in a repository, and guessing one would put it somewhere unseen.
    */
-  async startSession(picked: Picked, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: readonly ProjectRowRef[]): Promise<SessionActed> {
+  async startSession(
+    picked: Picked,
+    title?: string,
+    root?: string,
+    request?: string,
+    tuning?: {
+      model?: string;
+      effort?: string;
+    },
+    after?: StartAfter,
+    held?: boolean,
+    projectRows?: readonly ProjectRowRef[],
+  ): Promise<SessionActed> {
     const repository = repositoryToStart(this.current.holds.repositories ?? [], picked, root);
-    if (repository === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
+    if (repository === undefined)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "no_manifest",
+        },
+      };
     const start = startOn(repository, title, root, request, tuning, after, held, projectRows);
-    if (start === null) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
+    if (start === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_set_up",
+        },
+      };
     return await this.sessions.start(start);
   }
 
@@ -550,17 +673,38 @@ export class FleetConnection {
 
   // ------------------------------------------------------------------ state
   private settle(connection: Connection): void {
-    this.publish({ connection });
+    this.publish({
+      connection,
+    });
   }
 
   private publish(change: Partial<BridgeState>): void {
     // Fleet's version rides on the identity, so it is brought current in the
     // one funnel every change passes through. `shared/bridge.ts` owns the rule.
-    this.current = identifying({ ...this.current, ...change });
+    this.current = identifying({
+      ...this.current,
+      ...change,
+    });
     const part: Picture = {
-      ...(change.sessions?.state === "read" ? { sessions: change.sessions.sessions } : {}),
-      ...(change.mergeLines ? { mergeLines: change.mergeLines } : {}),
-      ...(change.holds ? { holds: { workflows: change.holds.workflows, manifests: change.holds.manifests, repositories: change.holds.repositories ?? [] } } : {}),
+      ...(change.sessions?.state === "read"
+        ? {
+            sessions: change.sessions.sessions,
+          }
+        : {}),
+      ...(change.mergeLines
+        ? {
+            mergeLines: change.mergeLines,
+          }
+        : {}),
+      ...(change.holds
+        ? {
+            holds: {
+              workflows: change.holds.workflows,
+              manifests: change.holds.manifests,
+              repositories: change.holds.repositories ?? [],
+            },
+          }
+        : {}),
     };
     if (Object.keys(part).length > 0) this.remembered.keep(part);
     // Every repository Fleet serves is still shared through this funnel;
@@ -568,7 +712,8 @@ export class FleetConnection {
     // when picks went per-window, so that half of Helm's own targeting is
     // wired at `RepositoryReads`'s own `onPicked`, the one place a pick
     // actually changes.
-    if (change.holds !== undefined) this.helm.onRepositoriesChanged(this.current.holds.repositories ?? []);
+    if (change.holds !== undefined)
+      this.helm.onRepositoriesChanged(this.current.holds.repositories ?? []);
     this.wiring.publish(this.current);
   }
 }

@@ -11,7 +11,23 @@ export const oneCard: Scenario = {
   ...issues,
   name: "one-card",
   says: "Jobs, Issues, Pull requests and the Logbook, each list on the one card",
-  draft: { ...issues.draft, prReview: reviewSeed() },
+  draft: {
+    ...issues.draft,
+    prReview: reviewSeed(),
+  },
   logbook: logbookPage.logbook,
-  state: { ...issues.state, settings: savedInto(MOCK_SETTINGS, { "bridge.rowView": { pr: false, issue: false, now: false, time: true, conflicts: true, status: true, workflow: false } }) },
+  state: {
+    ...issues.state,
+    settings: savedInto(MOCK_SETTINGS, {
+      "bridge.rowView": {
+        pr: false,
+        issue: false,
+        now: false,
+        time: true,
+        conflicts: true,
+        status: true,
+        workflow: false,
+      },
+    }),
+  },
 };

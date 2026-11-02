@@ -31,11 +31,18 @@ type Story = StoryObj<typeof MentionPopover>;
 
 export const Results: Story = {
   args: {
-    results: ["packages/components/src/index.ts", "packages/components/package.json"],
+    results: [
+      "packages/components/src/index.ts",
+      "packages/components/package.json",
+    ],
   },
   /** A press on a row is a choice, and it carries the row's own path. */
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("option", { name: "packages/components/package.json" }));
+    await userEvent.click(
+      canvas.getByRole("option", {
+        name: "packages/components/package.json",
+      }),
+    );
     await expect(args.onChoose).toHaveBeenCalledWith("packages/components/package.json");
   },
 };
@@ -43,15 +50,22 @@ export const Results: Story = {
 /** The row `Enter` would choose, drawn active without a press. */
 export const SecondRowActive: Story = {
   args: {
-    results: ["packages/components/src/index.ts", "packages/components/package.json"],
+    results: [
+      "packages/components/src/index.ts",
+      "packages/components/package.json",
+    ],
     active: 1,
   },
   play: async ({ canvas }) => {
     await expect(
-      canvas.getByRole("option", { name: "packages/components/package.json" }),
+      canvas.getByRole("option", {
+        name: "packages/components/package.json",
+      }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(
-      canvas.getByRole("option", { name: "packages/components/src/index.ts" }),
+      canvas.getByRole("option", {
+        name: "packages/components/src/index.ts",
+      }),
     ).toHaveAttribute("aria-selected", "false");
   },
 };
@@ -61,14 +75,20 @@ export const SecondRowActive: Story = {
  * own empty state carries — there is no suggestion and no did-you-mean.
  */
 export const NoMatch: Story = {
-  args: { query: "zzz", results: [] },
+  args: {
+    query: "zzz",
+    results: [],
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("No file matches “zzz”.")).toBeVisible();
   },
 };
 
 /** What the harness below searches. Both paths carry `com`. */
-const FILES = ["packages/components/src/index.ts", "packages/components/package.json"];
+const FILES = [
+  "packages/components/src/index.ts",
+  "packages/components/package.json",
+];
 
 /**
  * A field driven by `useMention`, which is the only way to press a key at the
@@ -128,7 +148,9 @@ export const DrivenByTheHook: Story = {
     await expect(field).toHaveAttribute("aria-controls", canvas.getByRole("listbox").id);
 
     // The arrow moves the active row, and the field names it.
-    const second = canvas.getByRole("option", { name: FILES[1] });
+    const second = canvas.getByRole("option", {
+      name: FILES[1],
+    });
     await userEvent.keyboard("{ArrowDown}");
     await expect(second).toHaveAttribute("aria-selected", "true");
     await expect(field).toHaveAttribute("aria-activedescendant", second.id);

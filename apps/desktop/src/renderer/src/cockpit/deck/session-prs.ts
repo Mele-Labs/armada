@@ -6,7 +6,14 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Pr } from "./ship";
 
-export function sessionHolds(session: Pick<Session, "id" | "attachments">, pr: Pick<Pr, "number" | "branch" | "owner">): boolean {
+export function sessionHolds(
+  session: Pick<Session, "id" | "attachments">,
+  pr: Pick<Pr, "number" | "branch" | "owner">,
+): boolean {
   if (pr.owner?.kind === "session" && pr.owner.id === session.id) return true;
-  return session.attachments.some((one) => (one.kind === "pull_request" && (one.number === pr.number || one.branch === pr.branch)) || (one.kind === "branch" && one.name === pr.branch));
+  return session.attachments.some(
+    (one) =>
+      (one.kind === "pull_request" && (one.number === pr.number || one.branch === pr.branch)) ||
+      (one.kind === "branch" && one.name === pr.branch),
+  );
 }

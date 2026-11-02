@@ -23,5 +23,8 @@ export const GUIDE_WORKFLOW: Guide = {
     "You can change the workflow while the job runs, and the agent is told at once.",
   ],
   // Under the line that names the order, the same drawing guide 15 carries.
-  figure: { id: "workflow-steps", at: 1 },
+  figure: {
+    id: "workflow-steps",
+    at: 1,
+  },
 };

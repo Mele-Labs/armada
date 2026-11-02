@@ -6,7 +6,20 @@
 // Nothing here draws: a surface reads `useLayout(region)` and draws what it is handed.
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-import { Activity, Box, CircleCheck, CircleDashed, CircleDot, GitMerge, PanelBottom, Plane, Radar, Rows3, Send, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  Box,
+  CircleCheck,
+  CircleDashed,
+  CircleDot,
+  GitMerge,
+  PanelBottom,
+  Plane,
+  Radar,
+  Rows3,
+  Send,
+  type LucideIcon,
+} from "lucide-react";
 
 import { PLACES, SURFACE, SURFACES } from "./surfaces";
 
@@ -30,7 +43,11 @@ type Spec = {
   entries: readonly LayoutEntry[];
 };
 
-const PLACES_FIXED: readonly string[] = [SURFACE.overview, SURFACE.settings, SURFACE.mods];
+const PLACES_FIXED: readonly string[] = [
+  SURFACE.overview,
+  SURFACE.settings,
+  SURFACE.mods,
+];
 
 /** Default order is the array's own, and every entry is drawn until a layout says otherwise. */
 export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
@@ -40,14 +57,54 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
     ordered: false,
     firstable: false,
     entries: [
-      { id: "list", label: "Jobs", icon: Box, hideable: false },
-      { id: "field", label: "Field", icon: Radar, hideable: true },
-      { id: "merge-line", label: "Merge queue", icon: GitMerge, hideable: true },
-      { id: "activity", label: "Activity", icon: Activity, hideable: true },
-      { id: "bays", label: "Bays", icon: Rows3, hideable: true },
-      { id: "controls", label: "Flight control", icon: PanelBottom, hideable: true },
-      { id: "dispatch", label: "Dispatch", icon: Send, hideable: true },
-      { id: "autopilot", label: "Autopilot", icon: Plane, hideable: true },
+      {
+        id: "list",
+        label: "Jobs",
+        icon: Box,
+        hideable: false,
+      },
+      {
+        id: "field",
+        label: "Field",
+        icon: Radar,
+        hideable: true,
+      },
+      {
+        id: "merge-line",
+        label: "Merge queue",
+        icon: GitMerge,
+        hideable: true,
+      },
+      {
+        id: "activity",
+        label: "Activity",
+        icon: Activity,
+        hideable: true,
+      },
+      {
+        id: "bays",
+        label: "Bays",
+        icon: Rows3,
+        hideable: true,
+      },
+      {
+        id: "controls",
+        label: "Flight control",
+        icon: PanelBottom,
+        hideable: true,
+      },
+      {
+        id: "dispatch",
+        label: "Dispatch",
+        icon: Send,
+        hideable: true,
+      },
+      {
+        id: "autopilot",
+        label: "Autopilot",
+        icon: Plane,
+        hideable: true,
+      },
     ],
   },
   // An open Job's right column, told in three zones in the order it reads: what the Job has made, what it is doing, what comes. A layout hides Done or Open and never
@@ -57,9 +114,24 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
     ordered: false,
     firstable: false,
     entries: [
-      { id: "done", label: "Done", icon: CircleCheck, hideable: true },
-      { id: "now", label: "Now", icon: CircleDot, hideable: false },
-      { id: "next", label: "Open", icon: CircleDashed, hideable: true },
+      {
+        id: "done",
+        label: "Done",
+        icon: CircleCheck,
+        hideable: true,
+      },
+      {
+        id: "now",
+        label: "Now",
+        icon: CircleDot,
+        hideable: false,
+      },
+      {
+        id: "next",
+        label: "Open",
+        icon: CircleDashed,
+        hideable: true,
+      },
     ],
   },
   rail: {
@@ -70,7 +142,16 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
     // is reached from a link on the deck or by name, and a layout has nothing to say of it.
     entries: PLACES.flatMap((id) => {
       const surface = SURFACES.find((one) => one.id === id);
-      return surface === undefined ? [] : [{ id, label: surface.label, icon: surface.icon, hideable: !PLACES_FIXED.includes(id) }];
+      return surface === undefined
+        ? []
+        : [
+            {
+              id,
+              label: surface.label,
+              icon: surface.icon,
+              hideable: !PLACES_FIXED.includes(id),
+            },
+          ];
     }),
   },
 };
@@ -78,17 +159,27 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
 export const LAYOUT_REGIONS = Object.keys(LAYOUT) as LayoutRegion[];
 
 /** What one layer says about one region. Every field is optional, and a field replaces the one below it. */
-export type RegionChoice = { order?: readonly string[]; hidden?: readonly string[]; first?: string };
+export type RegionChoice = {
+  order?: readonly string[];
+  hidden?: readonly string[];
+  first?: string;
+};
 
 /** `layout.json` as read, and the owner's own choice as kept. */
-export type LayoutFile = { regions: Partial<Record<LayoutRegion, RegionChoice>> };
+export type LayoutFile = {
+  regions: Partial<Record<LayoutRegion, RegionChoice>>;
+};
 
 const VERSION = 1;
 export const LAYOUT_BYTES = 4096;
 const MOST_IDS = 32;
 const ID = /^[a-z][a-z0-9-]{0,39}$/;
 
-export type Parsed = { file: LayoutFile; problems: string[]; ignored: string[] };
+export type Parsed = {
+  file: LayoutFile;
+  problems: string[];
+  ignored: string[];
+};
 
 /**
  * `layout.json` checked. **Only known keys, ids and shapes pass**: a wrong type or an extra key is a
@@ -97,15 +188,37 @@ export type Parsed = { file: LayoutFile; problems: string[]; ignored: string[] }
 export function parseLayout(text: string): Parsed {
   const problems: string[] = [];
   const ignored: string[] = [];
-  const file: LayoutFile = { regions: {} };
-  if (new TextEncoder().encode(text).length > LAYOUT_BYTES) return { file, problems: [`larger than ${LAYOUT_BYTES} bytes`], ignored };
+  const file: LayoutFile = {
+    regions: {},
+  };
+  if (new TextEncoder().encode(text).length > LAYOUT_BYTES)
+    return {
+      file,
+      problems: [
+        `larger than ${LAYOUT_BYTES} bytes`,
+      ],
+      ignored,
+    };
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch {
-    return { file, problems: ["not JSON"], ignored };
+    return {
+      file,
+      problems: [
+        "not JSON",
+      ],
+      ignored,
+    };
   }
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return { file, problems: ["not an object"], ignored };
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return {
+      file,
+      problems: [
+        "not an object",
+      ],
+      ignored,
+    };
   const top = raw as Record<string, unknown>;
   if (top["version"] !== VERSION) problems.push(`version is not ${VERSION}`);
   for (const [key, value] of Object.entries(top)) {
@@ -120,11 +233,16 @@ export function parseLayout(text: string): Parsed {
       problems.push(`${key} is not an object`);
       continue;
     }
-    const choice: { order?: string[]; hidden?: string[]; first?: string } = {};
+    const choice: {
+      order?: string[];
+      hidden?: string[];
+      first?: string;
+    } = {};
     for (const [field, body] of Object.entries(value as Record<string, unknown>)) {
       if (field === "order" || field === "hidden") {
         const ids = idsOf(body);
-        if (ids === undefined) problems.push(`${key}.${field} is not a list of up to ${MOST_IDS} ids`);
+        if (ids === undefined)
+          problems.push(`${key}.${field} is not a list of up to ${MOST_IDS} ids`);
         else choice[field] = known(spec, ids, `${key}.${field}`, ignored);
       } else if (field === "first") {
         if (typeof body !== "string" || !ID.test(body)) problems.push(`${key}.first is not an id`);
@@ -142,7 +260,16 @@ export function parseLayout(text: string): Parsed {
     }
     file.regions[region] = choice;
   }
-  return { file: problems.length === 0 ? file : { regions: {} }, problems, ignored };
+  return {
+    file:
+      problems.length === 0
+        ? file
+        : {
+            regions: {},
+          },
+    problems,
+    ignored,
+  };
 }
 
 /**
@@ -150,25 +277,37 @@ export function parseLayout(text: string): Parsed {
  * chosen**, which Fleet takes as no choices. `parseLayout` reads back what this wrote.
  */
 export function serializeLayout(file: LayoutFile): string {
-  const regions = Object.entries(file.regions).filter(([, choice]) => choice !== undefined && Object.keys(choice).length > 0);
-  return regions.length === 0 ? "" : JSON.stringify({ version: VERSION, ...Object.fromEntries(regions) });
+  const regions = Object.entries(file.regions).filter(
+    ([, choice]) => choice !== undefined && Object.keys(choice).length > 0,
+  );
+  return regions.length === 0
+    ? ""
+    : JSON.stringify({
+        version: VERSION,
+        ...Object.fromEntries(regions),
+      });
 }
 
 function idsOf(body: unknown): string[] | undefined {
   if (!Array.isArray(body) || body.length > MOST_IDS) return undefined;
-  return body.every((one): one is string => typeof one === "string" && ID.test(one)) ? body : undefined;
+  return body.every((one): one is string => typeof one === "string" && ID.test(one))
+    ? body
+    : undefined;
 }
 
 function known(spec: Spec, ids: string[], at: string, ignored: string[]): string[] {
   const seen = new Set<string>();
   return ids.filter((id) => {
     if (!spec.entries.some((one) => one.id === id)) ignored.push(`${at} ${id}`);
-    else if (!seen.has(id)) return seen.add(id), true;
+    else if (!seen.has(id)) return (seen.add(id), true);
     return false;
   });
 }
 
-export type Layer = { by: string; file: LayoutFile };
+export type Layer = {
+  by: string;
+  file: LayoutFile;
+};
 export type Placed = LayoutEntry & {
   visible: boolean;
   /** Who hid it: a mod's title, or `You`. */
@@ -197,20 +336,43 @@ export function resolveLayout(region: LayoutRegion, layers: readonly Layer[]): R
     if (choice === undefined) continue;
     if (choice.order !== undefined && spec.ordered) {
       const named = choice.order.filter((id) => order.includes(id));
-      order = [...named, ...order.filter((id) => !named.includes(id))];
+      order = [
+        ...named,
+        ...order.filter((id) => !named.includes(id)),
+      ];
     }
     if (choice.hidden !== undefined) {
-      hidden = new Map(choice.hidden.filter((id) => spec.entries.find((one) => one.id === id)?.hideable === true).map((id) => [id, by]));
+      hidden = new Map(
+        choice.hidden
+          .filter((id) => spec.entries.find((one) => one.id === id)?.hideable === true)
+          .map((id) => [
+            id,
+            by,
+          ]),
+      );
     }
     if (choice.first !== undefined && spec.firstable) first = choice.first;
   }
   const all = order.map((id): Placed => {
     const entry = spec.entries.find((one) => one.id === id)!;
     const by = hidden.get(id);
-    return by === undefined ? { ...entry, visible: true } : { ...entry, visible: false, hiddenBy: by };
+    return by === undefined
+      ? {
+          ...entry,
+          visible: true,
+        }
+      : {
+          ...entry,
+          visible: false,
+          hiddenBy: by,
+        };
   });
   const shown = all.filter((one) => one.visible);
-  return { all, shown, first: shown.some((one) => one.id === first) ? first : (shown[0]?.id ?? first) };
+  return {
+    all,
+    shown,
+    first: shown.some((one) => one.id === first) ? first : (shown[0]?.id ?? first),
+  };
 }
 
 /** A layout mod: `layout.json` in a mod folder, once Fleet has checked it. */
@@ -224,13 +386,23 @@ export type LayoutMod = {
   /** The branch of the repository it was put on, once it has been. */
   branch?: string;
   /** The pull request Promote opened, while it is open. */
-  pull?: { number: number; title: string; address: string };
+  pull?: {
+    number: number;
+    title: string;
+    address: string;
+  };
   /** The Job that opened it. */
-  job?: { id: string; title: string };
+  job?: {
+    id: string;
+    title: string;
+  };
   file: LayoutFile;
 };
 
-export type LayoutState = { mods: readonly LayoutMod[]; own: LayoutFile };
+export type LayoutState = {
+  mods: readonly LayoutMod[];
+  own: LayoutFile;
+};
 
 export interface LayoutSource {
   get(): LayoutState;
@@ -243,7 +415,12 @@ export interface LayoutSource {
   promote(name: string): void;
 }
 
-const EMPTY: LayoutState = { mods: [], own: { regions: {} } };
+const EMPTY: LayoutState = {
+  mods: [],
+  own: {
+    regions: {},
+  },
+};
 
 /** A source held in memory: the mock runs on it, and a window with no mods runs on the empty one. */
 export function createLayoutSource(): LayoutSource & {
@@ -257,7 +434,18 @@ export function createLayoutSource(): LayoutSource & {
     held = next;
     listeners.forEach((on) => on());
   };
-  const edit = (name: string, change: Partial<LayoutMod>) => set({ ...held, mods: held.mods.map((mod) => (mod.name === name ? { ...mod, ...change } : mod)) });
+  const edit = (name: string, change: Partial<LayoutMod>) =>
+    set({
+      ...held,
+      mods: held.mods.map((mod) =>
+        mod.name === name
+          ? {
+              ...mod,
+              ...change,
+            }
+          : mod,
+      ),
+    });
   return {
     get: () => held,
     subscribe: (on) => {
@@ -266,12 +454,52 @@ export function createLayoutSource(): LayoutSource & {
     },
     setOwn: (region, choice) => {
       const { [region]: _was, ...rest } = held.own.regions;
-      set({ ...held, own: { regions: choice === undefined ? rest : { ...rest, [region]: choice } } });
+      set({
+        ...held,
+        own: {
+          regions:
+            choice === undefined
+              ? rest
+              : {
+                  ...rest,
+                  [region]: choice,
+                },
+        },
+      });
     },
-    toDefaults: () => set({ mods: held.mods.map((mod) => ({ ...mod, enabled: false })), own: EMPTY.own }),
-    setEnabled: (name, enabled) => edit(name, { enabled }),
-    promote: (name) => edit(name, { branch: `armada/mod-${name}-${Date.now()}` }),
-    install: (mod) => set({ ...held, mods: held.mods.some((one) => one.name === mod.name) ? held.mods.map((one) => (one.name === mod.name ? { ...mod, branch: one.branch } : one)) : [...held.mods, mod] }),
+    toDefaults: () =>
+      set({
+        mods: held.mods.map((mod) => ({
+          ...mod,
+          enabled: false,
+        })),
+        own: EMPTY.own,
+      }),
+    setEnabled: (name, enabled) =>
+      edit(name, {
+        enabled,
+      }),
+    promote: (name) =>
+      edit(name, {
+        branch: `armada/mod-${name}-${Date.now()}`,
+      }),
+    install: (mod) =>
+      set({
+        ...held,
+        mods: held.mods.some((one) => one.name === mod.name)
+          ? held.mods.map((one) =>
+              one.name === mod.name
+                ? {
+                    ...mod,
+                    branch: one.branch,
+                  }
+                : one,
+            )
+          : [
+              ...held.mods,
+              mod,
+            ],
+      }),
     reset: () => set(EMPTY),
   };
 }
@@ -281,19 +509,43 @@ const LayoutSourceContext = createContext<LayoutSource>(createLayoutSource());
 export const LayoutSourceProvider = LayoutSourceContext.Provider;
 
 /** The source in force, and its state as it stands. */
-export function useLayouts(): LayoutState & { source: LayoutSource } {
+export function useLayouts(): LayoutState & {
+  source: LayoutSource;
+} {
   const source = useContext(LayoutSourceContext);
   const state = useSyncExternalStore(source.subscribe, source.get, source.get);
-  return { ...state, source };
+  return {
+    ...state,
+    source,
+  };
 }
 
 /** The layers in force, lowest first: each mod that is on and passes, by name, then the owner's own. */
 export function layersOf(state: LayoutState): Layer[] {
-  return [...state.mods.filter((mod) => mod.enabled && mod.problem === undefined).sort((a, b) => a.name.localeCompare(b.name)).map((mod) => ({ by: mod.title, file: mod.file })), { by: "You", file: state.own }];
+  return [
+    ...state.mods
+      .filter((mod) => mod.enabled && mod.problem === undefined)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((mod) => ({
+        by: mod.title,
+        file: mod.file,
+      })),
+    {
+      by: "You",
+      file: state.own,
+    },
+  ];
 }
 
 /** One region as it is to be drawn. */
 export function useLayout(region: LayoutRegion): Resolved {
   const state = useLayouts();
-  return useMemo(() => resolveLayout(region, layersOf(state)), [region, state.mods, state.own]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(
+    () => resolveLayout(region, layersOf(state)),
+    [
+      region,
+      state.mods,
+      state.own,
+    ],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 }

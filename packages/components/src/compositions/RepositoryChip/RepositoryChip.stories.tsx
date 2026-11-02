@@ -6,7 +6,9 @@ import { RepositoryChip } from "./RepositoryChip";
 const meta: Meta<typeof RepositoryChip> = {
   title: "Compositions/Repository chip",
   component: RepositoryChip,
-  args: { name: "storefront" },
+  args: {
+    name: "storefront",
+  },
 };
 export default meta;
 
@@ -15,4 +17,8 @@ type Story = StoryObj<typeof RepositoryChip>;
 export const Named: Story = {};
 
 /** A long name clips, and the tooltip and the accessible name keep it whole. */
-export const Long: Story = { args: { name: "payments-reconciliation-service" } };
+export const Long: Story = {
+  args: {
+    name: "payments-reconciliation-service",
+  },
+};

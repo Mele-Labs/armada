@@ -9,9 +9,27 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { SessionsApi, TerminalMovedBack } from "../../shared/api/sessions";
 
-type ShellApi = Pick<SessionsApi, "openTerminal" | "writeSessionRun" | "resizeSessionRun" | "stopSessionRun" | "onSessionRunMessage" | "onSessionTerminal"> &
+type ShellApi = Pick<
+  SessionsApi,
+  | "openTerminal"
+  | "writeSessionRun"
+  | "resizeSessionRun"
+  | "stopSessionRun"
+  | "onSessionRunMessage"
+  | "onSessionTerminal"
+> &
   // A test's fake may serve no terminal windows, and no output kept in main.
-  Partial<Pick<SessionsApi, "readTerminalSoFar" | "openTerminalWindow" | "getTerminalWindows" | "onTerminalWindows" | "moveTerminalBack" | "onTerminalMovedBack">>;
+  Partial<
+    Pick<
+      SessionsApi,
+      | "readTerminalSoFar"
+      | "openTerminalWindow"
+      | "getTerminalWindows"
+      | "onTerminalWindows"
+      | "moveTerminalBack"
+      | "onTerminalMovedBack"
+    >
+  >;
 
 /** Where a shell moved back out of its window goes. */
 export type MovedBackTo = TerminalMovedBack["to"];
@@ -47,12 +65,21 @@ export class JobShells {
   private readonly ofRun = new Map<string, string>();
   private readonly shown = new Set<string>();
   /** Messages for a run nobody has claimed, held while an open is unanswered: its answer may name it. */
-  private held: { runId: string; message: SessionRunMessage }[] = [];
+  private held: {
+    runId: string;
+    message: SessionRunMessage;
+  }[] = [];
   private opening = 0;
   /** A run this window came to late, with its messages held until main says what it printed so far. */
   private readonly catching = new Map<string, SessionRunMessage[]>();
   private readonly typed = new Map<string, string>();
-  private readonly sizes = new Map<string, { cols: number; rows: number }>();
+  private readonly sizes = new Map<
+    string,
+    {
+      cols: number;
+      rows: number;
+    }
+  >();
   private readonly listeners = new Set<() => void>();
   private readonly opened = new Set<(sessionId: string) => void>();
   private screens = 0;
@@ -62,7 +89,9 @@ export class JobShells {
 
   constructor(private readonly api: ShellApi) {
     api.onSessionRunMessage((runId, message) => this.message(runId, message));
-    api.onSessionTerminal(({ session_id, run_id, change }) => (change === "opened" ? this.adopt(session_id, run_id, true) : this.end(run_id)));
+    api.onSessionTerminal(({ session_id, run_id, change }) =>
+      change === "opened" ? this.adopt(session_id, run_id, true) : this.end(run_id),
+    );
     let heard = false;
     api.onTerminalWindows?.((sessionIds) => {
       heard = true;
@@ -130,7 +159,13 @@ export class JobShells {
     const now = this.shells.get(sessionId);
     if (now !== undefined && !now.ended) return;
     this.typed.delete(sessionId);
-    this.set(sessionId, { runId: null, out: "", screen: (this.screens += 1), ended: false, waiting: true });
+    this.set(sessionId, {
+      runId: null,
+      out: "",
+      screen: (this.screens += 1),
+      ended: false,
+      waiting: true,
+    });
   }
 
   /**
@@ -142,11 +177,21 @@ export class JobShells {
     // Held already: ended, or its end is on its way.
     if (this.shells.get(sessionId)?.runId === shell.runId) return;
     const { runId } = shell;
-    this.set(sessionId, { runId, out: "", screen: (this.screens += 1), ended: true, waiting: false });
+    this.set(sessionId, {
+      runId,
+      out: "",
+      screen: (this.screens += 1),
+      ended: true,
+      waiting: false,
+    });
     this.ofRun.set(runId, sessionId);
     void (this.api.readTerminalSoFar?.(runId) ?? Promise.resolve(null)).then((soFar) => {
       const now = this.shells.get(sessionId);
-      if (soFar !== null && now?.runId === runId) this.set(sessionId, { ...now, out: trimmed(soFar) });
+      if (soFar !== null && now?.runId === runId)
+        this.set(sessionId, {
+          ...now,
+          out: trimmed(soFar),
+        });
     });
   }
 
@@ -158,7 +203,10 @@ export class JobShells {
 
   /** The pane fitted its screen: the size a waiting shell opens at, else the size a running one is told. */
   sized(sessionId: string, cols: number, rows: number): void {
-    this.sizes.set(sessionId, { cols, rows });
+    this.sizes.set(sessionId, {
+      cols,
+      rows,
+    });
     const now = this.shells.get(sessionId);
     if (now === undefined || now.ended) return;
     if (now.waiting) void this.open(sessionId, cols, rows);
@@ -179,7 +227,10 @@ export class JobShells {
 
   private async open(sessionId: string, cols: number, rows: number): Promise<void> {
     const asked = this.shells.get(sessionId)!;
-    this.set(sessionId, { ...asked, waiting: false });
+    this.set(sessionId, {
+      ...asked,
+      waiting: false,
+    });
     this.opening += 1;
     const answer = await this.api.openTerminal(sessionId, cols, rows);
     this.opening -= 1;
@@ -187,7 +238,12 @@ export class JobShells {
     // Fleet's opening, heard first, already holds it; or a newer shell took its place.
     if (now?.screen === asked.screen && now.runId === null) {
       if (answer.ok) this.catchUp(sessionId, answer.value.run_id);
-      else this.set(sessionId, { ...now, out: `${refusalWords(answer.outcome)}\r\n`, ended: true });
+      else
+        this.set(sessionId, {
+          ...now,
+          out: `${refusalWords(answer.outcome)}\r\n`,
+          ended: true,
+        });
     }
     if (this.opening === 0) this.held = [];
   }
@@ -207,8 +263,13 @@ export class JobShells {
       this.catching.delete(runId);
       const now = this.shells.get(sessionId);
       if (now?.runId !== runId) return;
-      if (soFar !== null) this.set(sessionId, { ...now, out: trimmed(soFar) });
-      for (const message of caught) if (soFar === null || message.kind !== "output") this.message(runId, message);
+      if (soFar !== null)
+        this.set(sessionId, {
+          ...now,
+          out: trimmed(soFar),
+        });
+      for (const message of caught)
+        if (soFar === null || message.kind !== "output") this.message(runId, message);
     });
   }
 
@@ -217,15 +278,32 @@ export class JobShells {
     const now = this.shells.get(sessionId);
     if (now?.runId !== runId) {
       const opening = now !== undefined && now.runId === null && !now.ended;
-      this.set(sessionId, opening ? { ...now, runId, waiting: false } : { runId, out: "", screen: (this.screens += 1), ended: false, waiting: false });
+      this.set(
+        sessionId,
+        opening
+          ? {
+              ...now,
+              runId,
+              waiting: false,
+            }
+          : {
+              runId,
+              out: "",
+              screen: (this.screens += 1),
+              ended: false,
+              waiting: false,
+            },
+      );
       this.ofRun.set(runId, sessionId);
-      for (const one of this.held.filter((it) => it.runId === runId)) this.message(one.runId, one.message);
+      for (const one of this.held.filter((it) => it.runId === runId))
+        this.message(one.runId, one.message);
       this.held = this.held.filter((it) => it.runId !== runId);
       const typed = this.typed.get(sessionId);
       this.typed.delete(sessionId);
       if (typed !== undefined) void this.api.writeSessionRun(runId, typed);
       const size = this.sizes.get(sessionId);
-      if (opening && size !== undefined) void this.api.resizeSessionRun(runId, size.cols, size.rows);
+      if (opening && size !== undefined)
+        void this.api.resizeSessionRun(runId, size.cols, size.rows);
     }
     if (told) this.opened.forEach((one) => one(sessionId));
   }
@@ -238,12 +316,21 @@ export class JobShells {
     }
     const sessionId = this.ofRun.get(runId);
     if (sessionId === undefined) {
-      if (this.opening > 0) this.held.push({ runId, message });
+      if (this.opening > 0)
+        this.held.push({
+          runId,
+          message,
+        });
       return;
     }
     const now = this.shells.get(sessionId);
     if (now?.runId !== runId) return;
-    if (message.kind === "output" && message.text !== "") this.set(sessionId, { ...now, out: trimmed(now.out + message.text), printedAt: Date.now() });
+    if (message.kind === "output" && message.text !== "")
+      this.set(sessionId, {
+        ...now,
+        out: trimmed(now.out + message.text),
+        printedAt: Date.now(),
+      });
     else if (message.kind === "exited") this.end(runId);
   }
 
@@ -251,7 +338,10 @@ export class JobShells {
     const sessionId = this.ofRun.get(runId);
     const now = sessionId === undefined ? undefined : this.shells.get(sessionId);
     if (sessionId === undefined || now?.runId !== runId || now.ended) return;
-    this.set(sessionId, { ...now, ended: true });
+    this.set(sessionId, {
+      ...now,
+      ended: true,
+    });
   }
 
   private windowsAre(sessionIds: readonly string[]): void {
@@ -274,7 +364,8 @@ const SHELLS = new WeakMap<object, JobShells>();
 /** The window's shells, over its `window.armada`. Made once, and listening from then on. */
 export function shellsOf(api: ShellApi): JobShells | null {
   // A window whose Fleet serves no shells: a test's fake that left Sessions out.
-  if (typeof api.onSessionTerminal !== "function" || typeof api.onSessionRunMessage !== "function") return null;
+  if (typeof api.onSessionTerminal !== "function" || typeof api.onSessionRunMessage !== "function")
+    return null;
   let made = SHELLS.get(api);
   if (made === undefined) {
     made = new JobShells(api);
@@ -285,15 +376,37 @@ export function shellsOf(api: ShellApi): JobShells | null {
 
 /** One Job's shell, drawn again as it changes: the side panel's, which shows it while it is open. */
 export function useShellOf(shells: JobShells | null, sessionId: string): JobShell | undefined {
-  const subscribe = useCallback((listener: () => void) => shells?.subscribe(listener) ?? (() => undefined), [shells]);
+  const subscribe = useCallback(
+    (listener: () => void) => shells?.subscribe(listener) ?? (() => undefined),
+    [
+      shells,
+    ],
+  );
   return useSyncExternalStore(subscribe, () => shells?.shell(sessionId));
 }
 
 /** One Job's shell, whether its pane shows in `place`, and whether it is in a window of its own, drawn again as any changes. */
-export function useJobShell(shells: JobShells | null, place: ShellPlace, sessionId: string): { shell: JobShell | undefined; shown: boolean; windowed: boolean } {
-  const subscribe = useCallback((listener: () => void) => shells?.subscribe(listener) ?? (() => undefined), [shells]);
+export function useJobShell(
+  shells: JobShells | null,
+  place: ShellPlace,
+  sessionId: string,
+): {
+  shell: JobShell | undefined;
+  shown: boolean;
+  windowed: boolean;
+} {
+  const subscribe = useCallback(
+    (listener: () => void) => shells?.subscribe(listener) ?? (() => undefined),
+    [
+      shells,
+    ],
+  );
   const shell = useSyncExternalStore(subscribe, () => shells?.shell(sessionId));
   const shown = useSyncExternalStore(subscribe, () => shells?.isShown(place, sessionId) ?? false);
   const windowed = useSyncExternalStore(subscribe, () => shells?.hasWindow(sessionId) ?? false);
-  return { shell, shown, windowed };
+  return {
+    shell,
+    shown,
+    windowed,
+  };
 }

@@ -50,8 +50,12 @@
 
 /* Ready or still changing, in the frame as well as the mark: the bar takes the Job rows' status hue,
    lit while it waits on the person, as a Session row that waits on him is. */
-.armada-capture-bar[data-readiness="ready"] { --hue: var(--status-awaiting-review); }
-.armada-capture-bar[data-readiness="working"] { --hue: var(--status-running); }
+.armada-capture-bar[data-readiness="ready"] {
+  --hue: var(--status-awaiting-review);
+}
+.armada-capture-bar[data-readiness="working"] {
+  --hue: var(--status-running);
+}
 
 .armada-capture-bar[data-readiness] {
   border-bottom: calc(2 * var(--border-width)) solid var(--hue);
@@ -199,7 +203,9 @@
 }
 
 @keyframes armada-capture-bar-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -502,7 +508,9 @@
 }
 
 /* A trigger's tooltip stays down while its menu is open, where it would cover the first item. */
-.armada-tooltip:has(> .armada-capture-bar__walks-menu [aria-expanded="true"]) > .armada-tooltip__bubble,
-.armada-tooltip:has(> .armada-capture-bar__takes-menu [aria-expanded="true"]) > .armada-tooltip__bubble {
+.armada-tooltip:has(> .armada-capture-bar__walks-menu [aria-expanded="true"])
+  > .armada-tooltip__bubble,
+.armada-tooltip:has(> .armada-capture-bar__takes-menu [aria-expanded="true"])
+  > .armada-tooltip__bubble {
   display: none;
 }

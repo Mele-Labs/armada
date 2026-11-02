@@ -9,17 +9,30 @@ export type PaletteSettingsProps = PaletteRowsProps & {
   onOpens: (opens: PaletteOpens) => void;
 };
 
-export function PaletteSettings({ opens, onOpens, rows, onAlias, onHotkey, onPin }: PaletteSettingsProps) {
+export function PaletteSettings({
+  opens,
+  onOpens,
+  rows,
+  onAlias,
+  onHotkey,
+  onPin,
+}: PaletteSettingsProps) {
   return (
     <div className="armada-palette-settings">
-      <Select label="Palette opens with" value={opens} onChange={(event) => onOpens(event.target.value as PaletteOpens)}>
+      <Select
+        label="Palette opens with"
+        value={opens}
+        onChange={(event) => onOpens(event.target.value as PaletteOpens)}
+      >
         {PALETTE_OPENS.map((one) => (
           <option key={one.id} value={one.id}>
             {one.label}
           </option>
         ))}
       </Select>
-      {rows.length === 0 ? null : <PaletteRows rows={rows} onAlias={onAlias} onHotkey={onHotkey} onPin={onPin} />}
+      {rows.length === 0 ? null : (
+        <PaletteRows rows={rows} onAlias={onAlias} onHotkey={onHotkey} onPin={onPin} />
+      )}
     </div>
   );
 }

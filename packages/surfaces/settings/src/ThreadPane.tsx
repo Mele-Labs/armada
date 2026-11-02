@@ -5,7 +5,9 @@ import { useState } from "react";
 import { DEFAULT_LOOK, ThreadSettings, useThreadLook } from "@armada/components";
 import type { ThreadLook } from "@armada/components";
 
-const NO_MODEL = { state: "absent" } as const;
+const NO_MODEL = {
+  state: "absent",
+} as const;
 
 export function ThreadPane() {
   const source = useThreadLook();
@@ -15,7 +17,10 @@ export function ThreadPane() {
     <ThreadSettings
       look={source?.look ?? own}
       onChange={source?.setLook ?? setOwn}
-      voice={{ whisper: source?.whisper ?? NO_MODEL, onInstall: source?.installWhisper ?? (() => undefined) }}
+      voice={{
+        whisper: source?.whisper ?? NO_MODEL,
+        onInstall: source?.installWhisper ?? (() => undefined),
+      }}
       keep="thread-look:new-line:system"
     />
   );

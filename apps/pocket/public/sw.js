@@ -21,8 +21,15 @@ self.addEventListener("push", (event) => {
 
 /** The app's path for the Job a push is about. A push with no Job opens the app as it is. */
 function pathOf(push) {
-  if (typeof push !== "object" || push === null || typeof push.session_id !== "string" || push.session_id === "") return "/";
-  const mac = typeof push.origin === "string" && push.origin !== "" ? encodeURIComponent(push.origin) : "_";
+  if (
+    typeof push !== "object" ||
+    push === null ||
+    typeof push.session_id !== "string" ||
+    push.session_id === ""
+  )
+    return "/";
+  const mac =
+    typeof push.origin === "string" && push.origin !== "" ? encodeURIComponent(push.origin) : "_";
   return `/jobs/${mac}/${encodeURIComponent(push.session_id)}`;
 }
 
@@ -30,15 +37,20 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const path = pathOf(event.notification.data);
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {
-      for (const window of windows) {
-        if ("navigate" in window) {
-          await window.navigate(path);
-          return window.focus();
+    self.clients
+      .matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      })
+      .then(async (windows) => {
+        for (const window of windows) {
+          if ("navigate" in window) {
+            await window.navigate(path);
+            return window.focus();
+          }
         }
-      }
-      return self.clients.openWindow(path);
-    }),
+        return self.clients.openWindow(path);
+      }),
   );
 });
 
@@ -61,7 +73,10 @@ async function keep(page) {
   const before = kept ? await kept.clone().text() : undefined;
   if (kept && before !== fresh) await cache.put(BEFORE, kept);
   const older = await cache.match(BEFORE);
-  const named = new Set([...assetsOf(fresh), ...(older ? assetsOf(await older.text()) : [])]);
+  const named = new Set([
+    ...assetsOf(fresh),
+    ...(older ? assetsOf(await older.text()) : []),
+  ]);
   await cache.put(PAGE, page);
   for (const request of await cache.keys()) {
     const { pathname } = new URL(request.url);
@@ -72,11 +87,19 @@ async function keep(page) {
 /** Network first; the kept page when the network fails, answers wrongly or takes over three seconds. */
 async function page(event) {
   const fresh = fetch(event.request);
-  event.waitUntil(fresh.then((response) => (response.ok ? keep(response.clone()) : undefined), () => undefined));
+  event.waitUntil(
+    fresh.then(
+      (response) => (response.ok ? keep(response.clone()) : undefined),
+      () => undefined,
+    ),
+  );
   let timer;
   const late = new Promise((_, reject) => (timer = setTimeout(reject, WAIT_MS)));
   try {
-    const response = await Promise.race([fresh, late]);
+    const response = await Promise.race([
+      fresh,
+      late,
+    ]);
     if (response.ok) return response;
   } catch {
     // Fall through to the kept page.
@@ -102,6 +125,7 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
-  if (request.mode === "navigate" && !/^\/(api\/|admin\/|sw\.js$)/.test(url.pathname)) event.respondWith(page(event));
+  if (request.mode === "navigate" && !/^\/(api\/|admin\/|sw\.js$)/.test(url.pathname))
+    event.respondWith(page(event));
   else if (url.pathname.startsWith("/assets/")) event.respondWith(asset(request));
 });

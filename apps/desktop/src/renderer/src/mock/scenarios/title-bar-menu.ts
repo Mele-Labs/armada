@@ -16,8 +16,16 @@ function build(): Scenario {
     draft: {
       ...(prOwners.draft ?? {}),
       account: {
-        signIn: { login: "nickmele", code: "WDJB-MJHT", repository: "armada-home" },
-        add: { login: "mele-work", code: "KQXP-4N7D", items: PERSONAL_ITEMS },
+        signIn: {
+          login: "nickmele",
+          code: "WDJB-MJHT",
+          repository: "armada-home",
+        },
+        add: {
+          login: "mele-work",
+          code: "KQXP-4N7D",
+          items: PERSONAL_ITEMS,
+        },
       },
     },
   };

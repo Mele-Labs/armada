@@ -20,23 +20,84 @@ test("the question draws with the known sites as its options and one Other, and 
   const needs = region("Needs you");
   await walkThrough([
     toSessions,
-    { press: deckRow(ARMADA_TITLE), say: "" },
-    { select: "STORE-1234", in: inside(thread, text(KEY_MESSAGE.slice(0, 40))), say: "" },
-    { press: inside(role("toolbar", "Selection"), button("Teach")), say: "" },
-    { type: "A Jira key. Link it to our Jira", into: inside(role("dialog", "Teach"), role("textbox", "Instruction")), say: "" },
-    { press: inside(role("dialog", "Teach"), button(/^armada$/)), say: "" },
-    { key: "Meta+Enter", on: inside(role("dialog", "Teach"), role("textbox", "Instruction")), say: "" },
-    { press: inside(role("dialog", "Teach"), button("Save")), say: "" },
+    {
+      press: deckRow(ARMADA_TITLE),
+      say: "",
+    },
+    {
+      select: "STORE-1234",
+      in: inside(thread, text(KEY_MESSAGE.slice(0, 40))),
+      say: "",
+    },
+    {
+      press: inside(role("toolbar", "Selection"), button("Teach")),
+      say: "",
+    },
+    {
+      type: "A Jira key. Link it to our Jira",
+      into: inside(role("dialog", "Teach"), role("textbox", "Instruction")),
+      say: "",
+    },
+    {
+      press: inside(role("dialog", "Teach"), button(/^armada$/)),
+      say: "",
+    },
+    {
+      key: "Meta+Enter",
+      on: inside(role("dialog", "Teach"), role("textbox", "Instruction")),
+      say: "",
+    },
+    {
+      press: inside(role("dialog", "Teach"), button("Save")),
+      say: "",
+    },
     toSessions,
-    { press: deckRow(LEDGER_TITLE), say: "" },
-    { press: button("Needs you", { exact: true }), say: "" },
-    { look: inside(needs, text("Which Jira site does ledger use?")), say: "" },
+    {
+      press: deckRow(LEDGER_TITLE),
+      say: "",
+    },
+    {
+      press: button("Needs you", {
+        exact: true,
+      }),
+      say: "",
+    },
+    {
+      look: inside(needs, text("Which Jira site does ledger use?")),
+      say: "",
+    },
   ]);
-  await expect.element(page.getByText("acme.atlassian.net", { exact: true })).toBeVisible();
-  await expect.element(page.getByText("Other", { exact: true })).toHaveLength(1);
+  await expect
+    .element(
+      page.getByText("acme.atlassian.net", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText("Other", {
+        exact: true,
+      }),
+    )
+    .toHaveLength(1);
   await walkThrough([
-    { press: inside(needs, text("acme-payments.atlassian.net")), say: "" },
-    { press: inside(needs, button("Answer", { exact: true })), say: "" },
-    { look: inside(thread, role("link", "LED-210")), say: "" },
+    {
+      press: inside(needs, text("acme-payments.atlassian.net")),
+      say: "",
+    },
+    {
+      press: inside(
+        needs,
+        button("Answer", {
+          exact: true,
+        }),
+      ),
+      say: "",
+    },
+    {
+      look: inside(thread, role("link", "LED-210")),
+      say: "",
+    },
   ]);
 });

@@ -5,6 +5,29 @@
 
 import { signInGap } from "../sign-in-gaps";
 
-export const signInEnded = signInGap("sign-in-ended", "Signing in comes to nothing four ways, then is refused for blank settings", {
-  attempts: [{ ends: "denied" }, { ends: "expired" }, { ends: "unreachable" }, { ends: "refused" }, { blank: ["account", "store"] }],
-});
+export const signInEnded = signInGap(
+  "sign-in-ended",
+  "Signing in comes to nothing four ways, then is refused for blank settings",
+  {
+    attempts: [
+      {
+        ends: "denied",
+      },
+      {
+        ends: "expired",
+      },
+      {
+        ends: "unreachable",
+      },
+      {
+        ends: "refused",
+      },
+      {
+        blank: [
+          "account",
+          "store",
+        ],
+      },
+    ],
+  },
+);

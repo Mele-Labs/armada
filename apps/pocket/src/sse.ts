@@ -24,7 +24,10 @@ export class SseParser {
 }
 
 /** `heard` is told of every chunk the body yields, a comment line included, for a liveness check. */
-export async function* events(body: ReadableStream<Uint8Array>, heard?: () => void): AsyncGenerator<string> {
+export async function* events(
+  body: ReadableStream<Uint8Array>,
+  heard?: () => void,
+): AsyncGenerator<string> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   const parser = new SseParser();
@@ -33,7 +36,11 @@ export async function* events(body: ReadableStream<Uint8Array>, heard?: () => vo
       const { done, value } = await reader.read();
       if (done) return;
       heard?.();
-      yield* parser.feed(decoder.decode(value, { stream: true }));
+      yield* parser.feed(
+        decoder.decode(value, {
+          stream: true,
+        }),
+      );
     }
   } finally {
     reader.releaseLock();

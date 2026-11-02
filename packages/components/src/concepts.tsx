@@ -80,7 +80,8 @@ const SAID: Readonly<Record<string, string>> = {
   "job log":
     "Everything Fleet recorded about this Job, one line per event. The screen you are reading is " +
     "this file read back.",
-  transcript: "Every turn between Fleet and the Drone, as it was sent. The activity log summarises it.",
+  transcript:
+    "Every turn between Fleet and the Drone, as it was sent. The activity log summarises it.",
   drone:
     "The coding agent working this Job. Bridge never talks to one — every instruction and every " +
     "answer goes through Fleet.",
@@ -98,7 +99,8 @@ const SAID: Readonly<Record<string, string>> = {
     "What the Job has cost so far, from the tokens its Drone reported. Estimated rather than " +
     "measured, which is why it is marked approximate.",
 
-  "the run": "The workflow's steps, in the order this Job ran them. The order is the workflow's and never changes.",
+  "the run":
+    "The workflow's steps, in the order this Job ran them. The order is the workflow's and never changes.",
   "where things are":
     "What this Job holds on disk and what identifies it. The screen above exists so nobody needs " +
     "these; they are here for when you want one anyway.",

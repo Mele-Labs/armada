@@ -26,20 +26,62 @@ const MARK = {
 } as const;
 
 /** What the merge queue says of a pull request in it, as the Merge line surface words it. */
-const QUEUE: Record<string, { state: PullState; says: string }> = {
-  waiting_for_ci: { state: "running", says: "Waiting for ci to join the merge queue" },
-  in_queue: { state: "queued", says: "In the merge queue" },
-  queued: { state: "queued", says: "In the merge queue, waiting its turn" },
-  awaiting_checks: { state: "running", says: "In the merge queue, running its checks" },
-  mergeable: { state: "ready", says: "In the merge queue, ready to merge" },
-  unmergeable: { state: "failing", says: "In the merge queue, cannot merge" },
+const QUEUE: Record<
+  string,
+  {
+    state: PullState;
+    says: string;
+  }
+> = {
+  waiting_for_ci: {
+    state: "running",
+    says: "Waiting for ci to join the merge queue",
+  },
+  in_queue: {
+    state: "queued",
+    says: "In the merge queue",
+  },
+  queued: {
+    state: "queued",
+    says: "In the merge queue, waiting its turn",
+  },
+  awaiting_checks: {
+    state: "running",
+    says: "In the merge queue, running its checks",
+  },
+  mergeable: {
+    state: "ready",
+    says: "In the merge queue, ready to merge",
+  },
+  unmergeable: {
+    state: "failing",
+    says: "In the merge queue, cannot merge",
+  },
 };
 
-const CI: Record<string, { state: PullState; says: string }> = {
-  passed: { state: "ready", says: "ci passed" },
-  running: { state: "running", says: "ci running" },
-  failed: { state: "failing", says: "ci failed" },
-  waiting_on_main: { state: "blocked", says: "ci red because main is" },
+const CI: Record<
+  string,
+  {
+    state: PullState;
+    says: string;
+  }
+> = {
+  passed: {
+    state: "ready",
+    says: "ci passed",
+  },
+  running: {
+    state: "running",
+    says: "ci running",
+  },
+  failed: {
+    state: "failing",
+    says: "ci failed",
+  },
+  waiting_on_main: {
+    state: "blocked",
+    says: "ci red because main is",
+  },
 };
 
 /** A form edit's pull request the forge would not auto-merge: the tooltip of its mark. */
@@ -52,30 +94,76 @@ export type Review = "approved" | "changes" | "required";
  * What the forge says of a pull request beyond its checks: when it was opened, its review, whether it is a
  * draft, whether it conflicts with main (`opened_at`, `review`, `draft` and `mergeable` on the hub row).
  */
-export type PullFacts = { opened?: string; review?: Review; draft?: true; conflicts?: true; byHand?: true };
+export type PullFacts = {
+  opened?: string;
+  review?: Review;
+  draft?: true;
+  conflicts?: true;
+  byHand?: true;
+};
 
 /** The review decision in the forge's word. `none` is a pull request no rule applies to: no station. */
-const REVIEWS: Record<string, Review> = { approved: "approved", changes_requested: "changes", review_required: "required" };
+const REVIEWS: Record<string, Review> = {
+  approved: "approved",
+  changes_requested: "changes",
+  review_required: "required",
+};
 
 /** What the wire's hub row says beyond its checks. `mergeable: unknown` is the forge still computing, not a conflict. */
 export function factsOf(row: HubPullRequest | undefined): PullFacts {
   if (row === undefined) return {};
   const review = row.review === undefined ? undefined : REVIEWS[row.review];
   return {
-    ...(row.opened_at === undefined ? {} : { opened: row.opened_at }),
-    ...(review === undefined ? {} : { review }),
-    ...(row.draft === true ? { draft: true as const } : {}),
-    ...(row.mergeable === "conflicting" ? { conflicts: true as const } : {}),
+    ...(row.opened_at === undefined
+      ? {}
+      : {
+          opened: row.opened_at,
+        }),
+    ...(review === undefined
+      ? {}
+      : {
+          review,
+        }),
+    ...(row.draft === true
+      ? {
+          draft: true as const,
+        }
+      : {}),
+    ...(row.mergeable === "conflicting"
+      ? {
+          conflicts: true as const,
+        }
+      : {}),
   };
 }
 
 /** Just the facts, so a card carries a key only where the forge said something. */
 const keep = (one: PullFacts): PullFacts => ({
-  ...(one.opened === undefined ? {} : { opened: one.opened }),
-  ...(one.review === undefined ? {} : { review: one.review }),
-  ...(one.draft === undefined ? {} : { draft: one.draft }),
-  ...(one.conflicts === undefined ? {} : { conflicts: one.conflicts }),
-  ...(one.byHand === undefined ? {} : { byHand: one.byHand }),
+  ...(one.opened === undefined
+    ? {}
+    : {
+        opened: one.opened,
+      }),
+  ...(one.review === undefined
+    ? {}
+    : {
+        review: one.review,
+      }),
+  ...(one.draft === undefined
+    ? {}
+    : {
+        draft: one.draft,
+      }),
+  ...(one.conflicts === undefined
+    ? {}
+    : {
+        conflicts: one.conflicts,
+      }),
+  ...(one.byHand === undefined
+    ? {}
+    : {
+        byHand: one.byHand,
+      }),
 });
 
 export type PullBlock = PullFacts & {
@@ -109,7 +197,12 @@ export function pullBlocks(
 ): readonly PullBlock[] {
   const wire = lines?.lines.find((one) => one.root === view.root)?.hub?.pull_requests ?? [];
   return (view.hub?.pulls ?? []).map((pull) => {
-    const reading = pull.queue === undefined ? (pull.ci === undefined ? undefined : CI[pull.ci]) : QUEUE[pull.queue.state];
+    const reading =
+      pull.queue === undefined
+        ? pull.ci === undefined
+          ? undefined
+          : CI[pull.ci]
+        : QUEUE[pull.queue.state];
     const state = reading?.state ?? "open";
     const owner = pullOwner(sessions, pull.number, pull.branch);
     const row = wire.find((one) => one.number === pull.number);
@@ -119,8 +212,16 @@ export function pullBlocks(
       `#${pull.number}${title === undefined || title === "" ? "" : ` ${title}`}`,
       pull.branch,
       `${reading?.says ?? "Open"}${position === undefined ? "" : `, place ${position}`}`,
-      ...(pull.mergeByHand === true ? [MERGE_BY_HAND] : []),
-      ...(owner === undefined ? [] : [`Job: ${owner.title}`]),
+      ...(pull.mergeByHand === true
+        ? [
+            MERGE_BY_HAND,
+          ]
+        : []),
+      ...(owner === undefined
+        ? []
+        : [
+            `Job: ${owner.title}`,
+          ]),
     ].join(" · ");
     return {
       number: pull.number,
@@ -137,13 +238,20 @@ export function pullBlocks(
       says: reading?.says ?? "Open",
       tip,
       ...factsOf(row),
-      ...(pull.mergeByHand === true ? { byHand: true as const } : {}),
+      ...(pull.mergeByHand === true
+        ? {
+            byHand: true as const,
+          }
+        : {}),
     };
   });
 }
 
 /** What a dot does when pressed: the pull request on the forge. */
-export type DotAct = { kind: "link"; url: string };
+export type DotAct = {
+  kind: "link";
+  url: string;
+};
 
 /** What the dot's card says, row by row. A row is drawn only where its fact is. */
 export type DotCard = PullFacts & {
@@ -191,7 +299,8 @@ const LANDING: Record<string, PullState> = {
 
 /** A landing's Checks in a line: what failed, else what is running, else what Fleet says it is doing. */
 function checkOf(entry: MergeLineView["line"][number]): string | undefined {
-  if (entry.failed !== undefined && entry.failed.length > 0) return `Failed: ${entry.failed.join(", ")}`;
+  if (entry.failed !== undefined && entry.failed.length > 0)
+    return `Failed: ${entry.failed.join(", ")}`;
   const running = entry.checks?.find((one) => one.state === "running");
   if (running !== undefined) return `Running: ${running.name}`;
   return entry.doing;
@@ -201,15 +310,32 @@ function checkOf(entry: MergeLineView["line"][number]): string | undefined {
 export function landingDots(line: MergeLineView["line"]): readonly Dot[] {
   return line.map((entry) => {
     const says = LAND_STATE[entry.state]?.verb ?? entry.state;
-    const act: DotAct | undefined = entry.pr !== undefined ? { kind: "link", url: entry.pr.url } : undefined;
+    const act: DotAct | undefined =
+      entry.pr !== undefined
+        ? {
+            kind: "link",
+            url: entry.pr.url,
+          }
+        : undefined;
     const state = LANDING[entry.state] ?? "open";
     return {
       key: `line:${entry.branch}`,
       state,
       queued: true,
       icon: MARK[state]?.icon ?? null,
-      tip: [entry.branch, says].join(" · "),
-      card: { heading: entry.branch, title: undefined, branch: entry.branch, says, check: checkOf(entry), place: entry.place, owner: undefined },
+      tip: [
+        entry.branch,
+        says,
+      ].join(" · "),
+      card: {
+        heading: entry.branch,
+        title: undefined,
+        branch: entry.branch,
+        says,
+        check: checkOf(entry),
+        place: entry.place,
+        owner: undefined,
+      },
       act,
     };
   });
@@ -230,8 +356,25 @@ export function dotsOf(
         queued: pull.queued,
         icon: pull.mark?.icon ?? null,
         tip: pull.tip,
-        card: { heading: `#${pull.number}`, title: pull.title, branch: pull.branch, says: pull.says, check: pull.check, place: pull.place, owner: pull.owner, ...(pull.author === undefined ? {} : { author: pull.author }), ...keep(pull) },
-        act: { kind: "link", url: pull.url },
+        card: {
+          heading: `#${pull.number}`,
+          title: pull.title,
+          branch: pull.branch,
+          says: pull.says,
+          check: pull.check,
+          place: pull.place,
+          owner: pull.owner,
+          ...(pull.author === undefined
+            ? {}
+            : {
+                author: pull.author,
+              }),
+          ...keep(pull),
+        },
+        act: {
+          kind: "link",
+          url: pull.url,
+        },
       }),
     ),
   ];

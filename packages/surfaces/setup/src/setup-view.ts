@@ -25,8 +25,16 @@ import type { ProposalAnswer } from "@armada/screens/src/setup-reads";
 /** What the last edit or Write on one workspace came to, where it did not simply take. */
 export type SetupMark = {
   problem?: string;
-  refused?: { saying: string; faults: { key: string; fault: string }[] };
-  appeared?: { onDisk: string | null };
+  refused?: {
+    saying: string;
+    faults: {
+      key: string;
+      fault: string;
+    }[];
+  };
+  appeared?: {
+    onDisk: string | null;
+  };
 };
 
 export type SetupOpen = {
@@ -42,13 +50,47 @@ export type SetupOpen = {
   busy: string | null;
 };
 
-export type SetupHeld = { state: "reading" } | { state: "failed"; saying: string } | SetupOpen;
+export type SetupHeld =
+  | {
+      state: "reading";
+    }
+  | {
+      state: "failed";
+      saying: string;
+    }
+  | SetupOpen;
 
 /** A read folded in. Ticks a person set survive it; a workspace new to the read ticks by evidence. */
-export function readInto(was: SetupHeld, scan: RepositoryScan, proposals: ManifestProposals): SetupHeld {
-  const ticks = Object.fromEntries(scan.workspaces.map((one) => [one.dir, one.evidence === "strong"]));
-  if (was.state === "open") return { ...was, scan, proposals, ticks: { ...ticks, ...was.ticks } };
-  return { state: "open", scan, proposals, ticks, open: null, marks: {}, busy: null };
+export function readInto(
+  was: SetupHeld,
+  scan: RepositoryScan,
+  proposals: ManifestProposals,
+): SetupHeld {
+  const ticks = Object.fromEntries(
+    scan.workspaces.map((one) => [
+      one.dir,
+      one.evidence === "strong",
+    ]),
+  );
+  if (was.state === "open")
+    return {
+      ...was,
+      scan,
+      proposals,
+      ticks: {
+        ...ticks,
+        ...was.ticks,
+      },
+    };
+  return {
+    state: "open",
+    scan,
+    proposals,
+    ticks,
+    open: null,
+    marks: {},
+    busy: null,
+  };
 }
 
 /** An edit's or a Write's answer. What Fleet answered with is what the sheet redraws from. */
@@ -71,16 +113,40 @@ export function answered(
       };
       break;
     case "refused":
-      mark = doing === "write" ? { refused: { saying: answer.saying, faults: answer.faults } } : { problem: answer.saying };
+      mark =
+        doing === "write"
+          ? {
+              refused: {
+                saying: answer.saying,
+                faults: answer.faults,
+              },
+            }
+          : {
+              problem: answer.saying,
+            };
       break;
     case "appeared":
-      mark = { appeared: { onDisk: answer.onDisk } };
+      mark = {
+        appeared: {
+          onDisk: answer.onDisk,
+        },
+      };
       break;
     case "failed":
-      mark = { problem: say(answer.outcome) };
+      mark = {
+        problem: say(answer.outcome),
+      };
       break;
   }
-  return { ...was, proposals, busy, marks: { ...was.marks, [dir]: mark } };
+  return {
+    ...was,
+    proposals,
+    busy,
+    marks: {
+      ...was.marks,
+      [dir]: mark,
+    },
+  };
 }
 
 /** The picker's state column. It reports, never instructs, and none of it is hued. */
@@ -94,10 +160,21 @@ export function stateOf(proposal: ManifestProposal, open: boolean, mark: SetupMa
 }
 
 export function pickerOf(held: SetupOpen): Pick<SetupPickerProps, "rows" | "names" | "grid"> {
-  const scanned = new Map(held.scan.workspaces.map((one) => [one.dir, one]));
+  const scanned = new Map(
+    held.scan.workspaces.map((one) => [
+      one.dir,
+      one,
+    ]),
+  );
   const rows = held.proposals.proposals.map((proposal) => {
     const workspace = scanned.get(proposal.dir);
-    const files = workspace === undefined ? [] : [...workspace.manifests, ...workspace.lockfiles].map((one) => one.file);
+    const files =
+      workspace === undefined
+        ? []
+        : [
+            ...workspace.manifests,
+            ...workspace.lockfiles,
+          ].map((one) => one.file);
     const note =
       workspace?.evidence === "not_followed"
         ? "Nothing here could be read."
@@ -109,11 +186,18 @@ export function pickerOf(held: SetupOpen): Pick<SetupPickerProps, "rows" | "name
       ticked: held.ticks[proposal.dir] ?? false,
       open: held.open === proposal.dir,
       files,
-      ...(note === undefined ? {} : { note }),
+      ...(note === undefined
+        ? {}
+        : {
+            note,
+          }),
       state: stateOf(proposal, held.open === proposal.dir, held.marks[proposal.dir]),
     };
   });
-  return { rows, ...gridOf(held.proposals.proposals, held.ticks) };
+  return {
+    rows,
+    ...gridOf(held.proposals.proposals, held.ticks),
+  };
 }
 
 /**
@@ -130,7 +214,12 @@ export function gridOf(
   for (const proposal of batch) {
     for (const check of proposal.checks) if (!names.includes(check.name)) names.push(check.name);
   }
-  const declared = new Map(batch.map((one) => [one.dir, new Set(one.checks.map((check) => check.name))]));
+  const declared = new Map(
+    batch.map((one) => [
+      one.dir,
+      new Set(one.checks.map((check) => check.name)),
+    ]),
+  );
   const siblings = batch.filter((one) => one.dir !== ".");
   const grid = batch.map((proposal) => ({
     dir: proposal.dir,
@@ -138,15 +227,22 @@ export function gridOf(
       if (declared.get(proposal.dir)?.has(name)) return "declared";
       if (proposal.dir === ".") return "absent";
       const others = siblings.filter((one) => one.dir !== proposal.dir);
-      return others.length > 0 && others.every((one) => declared.get(one.dir)?.has(name)) ? "missing" : "absent";
+      return others.length > 0 && others.every((one) => declared.get(one.dir)?.has(name))
+        ? "missing"
+        : "absent";
     }),
   }));
-  return { names, grid };
+  return {
+    names,
+    grid,
+  };
 }
 
 /** A registry verb, as the first word of a label. */
 function sentence(verb: string | null | undefined, word: string): string {
-  return verb === null || verb === undefined ? word : `${verb.charAt(0).toUpperCase()}${verb.slice(1)}`;
+  return verb === null || verb === undefined
+    ? word
+    : `${verb.charAt(0).toUpperCase()}${verb.slice(1)}`;
 }
 
 /**
@@ -154,7 +250,17 @@ function sentence(verb: string | null | undefined, word: string): string {
  * value in force. Auto merge's words and consequences are the registry's; the review gate's
  * consequences have no registry row yet, so they are written here.
  */
-export const POLICY_CHOICES: Record<string, { label: string; options: { value: string; reads: string; says: string }[] }> = {
+export const POLICY_CHOICES: Record<
+  string,
+  {
+    label: string;
+    options: {
+      value: string;
+      reads: string;
+      says: string;
+    }[];
+  }
+> = {
   auto_merge: {
     label: "Auto merge",
     options: Object.entries(AUTO_MERGE).map(([value, reading]) => ({
@@ -166,7 +272,11 @@ export const POLICY_CHOICES: Record<string, { label: string; options: { value: s
   review_gate: {
     label: "Review gate",
     options: [
-      { value: "human_always", reads: sentence(ADVANCE_GATE.human_always?.verb, "human_always"), says: "A person answers every review step." },
+      {
+        value: "human_always",
+        reads: sentence(ADVANCE_GATE.human_always?.verb, "human_always"),
+        says: "A person answers every review step.",
+      },
       {
         value: "auto_if_judge_passes",
         reads: sentence(ADVANCE_GATE.auto_if_judge_passes?.verb, "auto_if_judge_passes"),
@@ -177,27 +287,76 @@ export const POLICY_CHOICES: Record<string, { label: string; options: { value: s
 };
 
 /** A put replaces the whole line, so a retyped command carries the key beside it. */
-export function runEdit(proposal: ManifestProposal, band: "checks" | "commands", name: string, run: string): ProposalEdit {
+export function runEdit(
+  proposal: ManifestProposal,
+  band: "checks" | "commands",
+  name: string,
+  run: string,
+): ProposalEdit {
   if (band === "checks") {
     const requires = proposal.checks.find((one) => one.name === name)?.requires ?? [];
-    return { edit: "check", name, run, ...(requires.length === 0 ? {} : { requires }) };
+    return {
+      edit: "check",
+      name,
+      run,
+      ...(requires.length === 0
+        ? {}
+        : {
+            requires,
+          }),
+    };
   }
   const destructive = proposal.commands.find((one) => one.name === name)?.destructive === true;
-  return { edit: "command", name, run, ...(destructive ? { destructive } : {}) };
+  return {
+    edit: "command",
+    name,
+    run,
+    ...(destructive
+      ? {
+          destructive,
+        }
+      : {}),
+  };
 }
 
 /** A Check's prerequisites, sent with its command. `null` for a Check the proposal no longer has. */
-export function requiresEdit(proposal: ManifestProposal, name: string, requires: string[]): ProposalEdit | null {
+export function requiresEdit(
+  proposal: ManifestProposal,
+  name: string,
+  requires: string[],
+): ProposalEdit | null {
   const check = proposal.checks.find((one) => one.name === name);
   if (check === undefined) return null;
-  return { edit: "check", name, run: check.run, ...(requires.length === 0 ? {} : { requires }) };
+  return {
+    edit: "check",
+    name,
+    run: check.run,
+    ...(requires.length === 0
+      ? {}
+      : {
+          requires,
+        }),
+  };
 }
 
 /** A Command's flag, sent with its command. `null` for a Command the proposal no longer has. */
-export function destructiveEdit(proposal: ManifestProposal, name: string, destructive: boolean): ProposalEdit | null {
+export function destructiveEdit(
+  proposal: ManifestProposal,
+  name: string,
+  destructive: boolean,
+): ProposalEdit | null {
   const command = proposal.commands.find((one) => one.name === name);
   if (command === undefined) return null;
-  return { edit: "command", name, run: command.run, ...(destructive ? { destructive } : {}) };
+  return {
+    edit: "command",
+    name,
+    run: command.run,
+    ...(destructive
+      ? {
+          destructive,
+        }
+      : {}),
+  };
 }
 
 /** The caps in one line, never controls: at Setup no Job has run here to set them against. */
@@ -211,8 +370,16 @@ export function capsLine(caps: StatedCaps): string {
 function cited(provenance: Provenance): ProvenanceProps {
   return {
     source: provenance.source,
-    ...(provenance.file === undefined ? {} : { file: provenance.file }),
-    ...(provenance.key === undefined ? {} : { at: provenance.key }),
+    ...(provenance.file === undefined
+      ? {}
+      : {
+          file: provenance.file,
+        }),
+    ...(provenance.key === undefined
+      ? {}
+      : {
+          at: provenance.key,
+        }),
   };
 }
 
@@ -245,47 +412,102 @@ export function sheetOf(held: SetupOpen, proposal: ManifestProposal): Drawn {
       key: row.key,
       label: choices?.label ?? row.key,
       value: row.value,
-      options: choices?.options ?? [{ value: row.value, says: "" }],
+      options: choices?.options ?? [
+        {
+          value: row.value,
+          says: "",
+        },
+      ],
       cited: cited(row.provenance),
     };
   });
   const elsewhere = held.proposals.proposals
     .filter((one) => one.dir !== proposal.dir)
-    .flatMap((one) => one.ports.flatMap((port) => (port.env === undefined ? [] : [{ env: port.env, dir: one.dir }])));
+    .flatMap((one) =>
+      one.ports.flatMap((port) =>
+        port.env === undefined
+          ? []
+          : [
+              {
+                env: port.env,
+                dir: one.dir,
+              },
+            ],
+      ),
+    );
   return {
     dir: proposal.dir,
     file: proposal.file,
-    id: { value: proposal.id.value, cited: cited(proposal.id.provenance) },
+    id: {
+      value: proposal.id.value,
+      cited: cited(proposal.id.provenance),
+    },
     ports: proposal.ports.map((port) => ({
       name: port.name,
-      ...(port.container === undefined ? {} : { container: port.container }),
-      ...(port.env === undefined ? {} : { env: port.env }),
+      ...(port.container === undefined
+        ? {}
+        : {
+            container: port.container,
+          }),
+      ...(port.env === undefined
+        ? {}
+        : {
+            env: port.env,
+          }),
       cited: cited(port.provenance),
     })),
     checks: proposal.checks.map((check) => ({
       name: check.name,
       run: check.run,
-      ...(check.requires === undefined ? {} : { requires: check.requires }),
+      ...(check.requires === undefined
+        ? {}
+        : {
+            requires: check.requires,
+          }),
       cited: cited(check.provenance),
     })),
     commands: proposal.commands.map((command) => ({
       name: command.name,
       run: command.run,
-      ...(command.destructive === undefined ? {} : { destructive: command.destructive }),
+      ...(command.destructive === undefined
+        ? {}
+        : {
+            destructive: command.destructive,
+          }),
       cited: cited(command.provenance),
     })),
     ...(proposal.setup === undefined
       ? {}
-      : { setup: { requires: proposal.setup.requires, cited: cited(proposal.setup.provenance) } }),
+      : {
+          setup: {
+            requires: proposal.setup.requires,
+            cited: cited(proposal.setup.provenance),
+          },
+        }),
     policy,
     caps: capsLine(held.proposals.caps),
     elsewhere,
-    ...(mark.problem === undefined ? {} : { problem: mark.problem }),
-    ...(mark.refused === undefined ? {} : { refused: mark.refused }),
-    ...(mark.appeared === undefined ? {} : { appeared: mark.appeared }),
-    setUp: proposal.written === undefined && (proposal.present === true || mark.appeared !== undefined),
+    ...(mark.problem === undefined
+      ? {}
+      : {
+          problem: mark.problem,
+        }),
+    ...(mark.refused === undefined
+      ? {}
+      : {
+          refused: mark.refused,
+        }),
+    ...(mark.appeared === undefined
+      ? {}
+      : {
+          appeared: mark.appeared,
+        }),
+    setUp:
+      proposal.written === undefined && (proposal.present === true || mark.appeared !== undefined),
     ...(proposal.written === undefined
       ? {}
-      : { written: proposal.written.at }),
+      : {
+          written: proposal.written.at,
+        }),
   };
 }

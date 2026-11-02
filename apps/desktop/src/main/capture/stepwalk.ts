@@ -16,7 +16,12 @@ import type { WalkAct } from "./walk";
 type Mouse = Electron.MouseInputEvent;
 type Key = Electron.KeyboardInputEvent;
 /** What is sent to the page: input events, and the one thing they cannot spell, text outside the keyboard's range. */
-export type Sent = Mouse | Key | { insert: string };
+export type Sent =
+  | Mouse
+  | Key
+  | {
+      insert: string;
+    };
 
 /** How long a step waits for its target, as `walk-find.ts`'s `PATIENCE_MS`, which the mock waits. */
 export const PATIENCE_MS = 5_000;
@@ -77,7 +82,12 @@ function verb(step: WalkStep): string {
   return "look at";
 }
 
-const line = (words: string, max: number) => [...words.replace(/\s+/g, " ").trim()].slice(0, max).join("");
+const line = (words: string, max: number) =>
+  [
+    ...words.replace(/\s+/g, " ").trim(),
+  ]
+    .slice(0, max)
+    .join("");
 
 /** Why the walk holds on a step: what the session reads, naming the step and its target. */
 export function heldAt(at: number, steps: readonly WalkStep[], why: "target" | "words"): string {
@@ -91,47 +101,106 @@ export function heldAt(at: number, steps: readonly WalkStep[], why: "target" | "
   return line(`${place}: ${missing}`, REPORT_MAX);
 }
 
-const centre = (box: CaptureRect) => ({ x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) });
+const centre = (box: CaptureRect) => ({
+  x: Math.round(box.x + box.width / 2),
+  y: Math.round(box.y + box.height / 2),
+});
 
-type Point = { x: number; y: number };
+type Point = {
+  x: number;
+  y: number;
+};
 
 const move = (at: Point, held = false): Mouse => ({
   type: "mouseMove",
   x: at.x,
   y: at.y,
-  ...(held ? { button: "left" as const, modifiers: ["leftbuttondown" as const] } : {}),
+  ...(held
+    ? {
+        button: "left" as const,
+        modifiers: [
+          "leftbuttondown" as const,
+        ],
+      }
+    : {}),
 });
-const down = (at: Point): Mouse => ({ type: "mouseDown", x: at.x, y: at.y, button: "left", clickCount: 1 });
-const up = (at: Point): Mouse => ({ type: "mouseUp", x: at.x, y: at.y, button: "left", clickCount: 1 });
+const down = (at: Point): Mouse => ({
+  type: "mouseDown",
+  x: at.x,
+  y: at.y,
+  button: "left",
+  clickCount: 1,
+});
+const up = (at: Point): Mouse => ({
+  type: "mouseUp",
+  x: at.x,
+  y: at.y,
+  button: "left",
+  clickCount: 1,
+});
 
 /** A press as a pointer makes one: arrive, down, up, at the box's middle. The page hears a click. */
 export function pressEvents(box: CaptureRect): Mouse[] {
   const at = centre(box);
-  return [move(at), down(at), up(at)];
+  return [
+    move(at),
+    down(at),
+    up(at),
+  ];
 }
 
 /** The pointer arriving and staying, for a hover. */
 export function hoverEvents(box: CaptureRect): Mouse[] {
-  return [move(centre(box))];
+  return [
+    move(centre(box)),
+  ];
 }
 
 /** The pointer leaving, which ends a hover. */
 export function leaveEvents(box: CaptureRect): Mouse[] {
   const at = centre(box);
-  return [{ type: "mouseLeave", x: at.x, y: at.y }];
+  return [
+    {
+      type: "mouseLeave",
+      x: at.x,
+      y: at.y,
+    },
+  ];
 }
 
 /** Picked up by the middle and put down `by` further on, with moves between so a canvas hears a drag. */
 export function dragEvents(box: CaptureRect, by: Point): Mouse[] {
   const from = centre(box);
-  const at = (part: number): Point => ({ x: Math.round(from.x + by.x * part), y: Math.round(from.y + by.y * part) });
-  return [move(from), down(from), ...[0.25, 0.5, 0.75, 1].map((part) => move(at(part), true)), up(at(1))];
+  const at = (part: number): Point => ({
+    x: Math.round(from.x + by.x * part),
+    y: Math.round(from.y + by.y * part),
+  });
+  return [
+    move(from),
+    down(from),
+    ...[
+      0.25,
+      0.5,
+      0.75,
+      1,
+    ].map((part) => move(at(part), true)),
+    up(at(1)),
+  ];
 }
 
 /** A drag across words, from where they start to where they end: what a pointer leaves selected. */
 export function selectEvents(from: Point, to: Point): Mouse[] {
-  const middle = { x: Math.round((from.x + to.x) / 2), y: Math.round((from.y + to.y) / 2) };
-  return [move(from), down(from), move(middle, true), move(to, true), up(to)];
+  const middle = {
+    x: Math.round((from.x + to.x) / 2),
+    y: Math.round((from.y + to.y) / 2),
+  };
+  return [
+    move(from),
+    down(from),
+    move(middle, true),
+    move(to, true),
+    up(to),
+  ];
 }
 
 /** The keys Electron spells otherwise than `KeyboardEvent.key` does. */
@@ -163,24 +232,53 @@ const MODIFIERS: Record<string, "alt" | "shift" | "meta" | "control"> = {
 };
 
 /** The symbols a shifted key makes, which take Shift down with them. */
-const SHIFTED = new Set([..."~!@#$%^&*()_+{}|:\"<>?"]);
+const SHIFTED = new Set([
+  ...'~!@#$%^&*()_+{}|:"<>?',
+]);
 
 /** One printable ASCII character as the keyboard sends it: down, the character, up. */
 function typed(character: string): Key[] {
   const shift = (character >= "A" && character <= "Z") || SHIFTED.has(character);
   const code = character === " " ? "Space" : character.toUpperCase();
-  const modifiers = shift ? { modifiers: ["shift" as const] } : {};
+  const modifiers = shift
+    ? {
+        modifiers: [
+          "shift" as const,
+        ],
+      }
+    : {};
   return [
-    { type: "keyDown", keyCode: code, ...modifiers },
-    { type: "char", keyCode: character === " " ? " " : character, ...modifiers },
-    { type: "keyUp", keyCode: code, ...modifiers },
+    {
+      type: "keyDown",
+      keyCode: code,
+      ...modifiers,
+    },
+    {
+      type: "char",
+      keyCode: character === " " ? " " : character,
+      ...modifiers,
+    },
+    {
+      type: "keyUp",
+      keyCode: code,
+      ...modifiers,
+    },
   ];
 }
 
 const enter = (): Key[] => [
-  { type: "keyDown", keyCode: "Enter" },
-  { type: "char", keyCode: "Enter" },
-  { type: "keyUp", keyCode: "Enter" },
+  {
+    type: "keyDown",
+    keyCode: "Enter",
+  },
+  {
+    type: "char",
+    keyCode: "Enter",
+  },
+  {
+    type: "keyUp",
+    keyCode: "Enter",
+  },
 ];
 
 /**
@@ -195,9 +293,17 @@ export function typeEvents(words: string): Sent[] {
   for (const character of body) {
     if (character === "\n") sent.push(...enter());
     else if (character >= " " && character <= "~") sent.push(...typed(character));
-    else sent.push({ insert: character });
+    else
+      sent.push({
+        insert: character,
+      });
   }
-  return submit ? [...sent, ...enter()] : sent;
+  return submit
+    ? [
+        ...sent,
+        ...enter(),
+      ]
+    : sent;
 }
 
 /** A key or a chord as the keyboard sends it: `n`, `Tab`, `Meta+n`. */
@@ -205,14 +311,35 @@ export function keyEvents(spec: string): Key[] {
   const parts = spec.split("+");
   const name = parts[parts.length - 1] === "" ? "+" : parts[parts.length - 1]!;
   const modifiers = parts.slice(0, -1).flatMap((one) => MODIFIERS[one] ?? []);
-  const withModifiers = modifiers.length === 0 ? {} : { modifiers };
+  const withModifiers =
+    modifiers.length === 0
+      ? {}
+      : {
+          modifiers,
+        };
   const code = NAMED[name] ?? (name.length === 1 ? name.toUpperCase() : name);
   // A character reaches a field only when no command key is down; a chord is a shortcut and not text.
   const text = name.length === 1 && !modifiers.includes("meta") && !modifiers.includes("control");
   return [
-    { type: "keyDown", keyCode: code, ...withModifiers },
-    ...(text ? [{ type: "char" as const, keyCode: name, ...withModifiers }] : []),
-    { type: "keyUp", keyCode: code, ...withModifiers },
+    {
+      type: "keyDown",
+      keyCode: code,
+      ...withModifiers,
+    },
+    ...(text
+      ? [
+          {
+            type: "char" as const,
+            keyCode: name,
+            ...withModifiers,
+          },
+        ]
+      : []),
+    {
+      type: "keyUp",
+      keyCode: code,
+      ...withModifiers,
+    },
   ];
 }
 
@@ -221,7 +348,11 @@ export function keyEvents(spec: string): Key[] {
  * address's load, and not a provider's page** the window passed through, which the steps were not written
  * for and which the finder is asked of no more than the shown origin.
  */
-export function beginsOn(load: { begun: boolean; signingIn: boolean; onShownOrigin: boolean }): boolean {
+export function beginsOn(load: {
+  begun: boolean;
+  signingIn: boolean;
+  onShownOrigin: boolean;
+}): boolean {
   return !load.begun && !load.signingIn && load.onShownOrigin;
 }
 
@@ -275,7 +406,11 @@ export class StepWalk {
   /** Autoplay stopped on this step because it acts on a page off this machine, and Next is what is waited on. */
   private waiting = false;
   /** The press just shown to the person, which the bar draws a cursor to. `n` makes each one a new thing to play. */
-  private pressed: { x: number; y: number; n: number } | null = null;
+  private pressed: {
+    x: number;
+    y: number;
+    n: number;
+  } | null = null;
   private presses = 0;
   private fading: ReturnType<typeof setTimeout> | null = null;
 
@@ -299,10 +434,26 @@ export class StepWalk {
       guide: {
         box: this.phase === "ready" ? this.box : null,
         folded: this.folded,
-        ...(this.signing ? { signingIn: true } : {}),
-        ...(this.phase === "ready" && this.waiting && !this.signing ? { waiting: true } : {}),
-        ...(this.phase === "stopped" && !this.signing ? { stopped: line(this.stoppedWords(), SAID_MAX) } : {}),
-        ...(this.pressed === null ? {} : { press: this.pressed }),
+        ...(this.signing
+          ? {
+              signingIn: true,
+            }
+          : {}),
+        ...(this.phase === "ready" && this.waiting && !this.signing
+          ? {
+              waiting: true,
+            }
+          : {}),
+        ...(this.phase === "stopped" && !this.signing
+          ? {
+              stopped: line(this.stoppedWords(), SAID_MAX),
+            }
+          : {}),
+        ...(this.pressed === null
+          ? {}
+          : {
+              press: this.pressed,
+            }),
       },
     };
   }
@@ -310,7 +461,9 @@ export class StepWalk {
   private stoppedWords(): string {
     const step = this.steps[this.at];
     if (step === undefined) return "";
-    return this.stoppedOn === "words" && "select" in step ? `the words ${quoted(step.select)} in ${saidOf(step.in)}` : saidOf(targetOf(step));
+    return this.stoppedOn === "words" && "select" in step
+      ? `the words ${quoted(step.select)} in ${saidOf(step.in)}`
+      : saidOf(targetOf(step));
   }
 
   /** Begin on the page as it stands: the first load. */
@@ -494,7 +647,13 @@ export class StepWalk {
         return;
       }
       const was = this.box;
-      if (was === null || was.x !== box.x || was.y !== box.y || was.width !== box.width || was.height !== box.height) {
+      if (
+        was === null ||
+        was.x !== box.x ||
+        was.y !== box.y ||
+        was.width !== box.width ||
+        was.height !== box.height
+      ) {
         this.box = box;
         this.host.changed();
       }
@@ -549,12 +708,20 @@ export class StepWalk {
   }
 
   /** Do what the step does to its target. `false`: the walk stopped on it, or was moved. `shown`: the person is watching, so a press is shown first. */
-  private async perform(step: WalkStep, box: CaptureRect, round: number, shown = false): Promise<boolean> {
+  private async perform(
+    step: WalkStep,
+    box: CaptureRect,
+    round: number,
+    shown = false,
+  ): Promise<boolean> {
     const send = (events: readonly Sent[]) => events.forEach((one) => this.host.send(one));
     if ("press" in step) {
       if (shown) {
         // The bar's cursor goes to the target before the page hears the press.
-        this.pressed = { ...centre(box), n: (this.presses += 1) };
+        this.pressed = {
+          ...centre(box),
+          n: (this.presses += 1),
+        };
         this.host.changed();
         if (this.fading !== null) clearTimeout(this.fading);
         this.fading = setTimeout(() => {

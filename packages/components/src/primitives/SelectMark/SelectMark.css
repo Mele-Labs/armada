@@ -44,12 +44,26 @@
   transition: transform var(--duration-fast) var(--ease);
 }
 
-.armada-select-mark:hover { color: var(--fg-muted); }
-.armada-select-mark[data-checked] { color: var(--accent); }
-.armada-select-mark[data-checked] .armada-select-mark__corners { transform: scale(0.84); }
-.armada-select-mark[data-checked] .armada-select-mark__core { transform: scale(1); }
+.armada-select-mark:hover {
+  color: var(--fg-muted);
+}
+.armada-select-mark[data-checked] {
+  color: var(--accent);
+}
+.armada-select-mark[data-checked] .armada-select-mark__corners {
+  transform: scale(0.84);
+}
+.armada-select-mark[data-checked] .armada-select-mark__core {
+  transform: scale(1);
+}
 
 /* ---- A size down: a row under another ---- */
 
-.armada-select-mark[data-size="sm"] { min-width: var(--space-4); height: var(--space-4); }
-.armada-select-mark[data-size="sm"] .armada-select-mark__reticle { width: var(--space-4); height: var(--space-4); }
+.armada-select-mark[data-size="sm"] {
+  min-width: var(--space-4);
+  height: var(--space-4);
+}
+.armada-select-mark[data-size="sm"] .armada-select-mark__reticle {
+  width: var(--space-4);
+  height: var(--space-4);
+}

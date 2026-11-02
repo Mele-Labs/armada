@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Check, CircleSlash, GitCommitHorizontal, LoaderCircle, RotateCw, Unplug } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  CircleSlash,
+  GitCommitHorizontal,
+  LoaderCircle,
+  RotateCw,
+  Unplug,
+} from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Select } from "../../primitives/Select/Select";
@@ -10,7 +19,10 @@ import { Line, Mono } from "../PoolSlots/ConfirmLine";
 export type FleetBuildChoice = "main" | "preview";
 
 /** Commits the running build holds that main lacks, and commits main holds that it lacks. Both zero is aligned. */
-export type FleetBuildPosition = { ahead: number; behind: number };
+export type FleetBuildPosition = {
+  ahead: number;
+  behind: number;
+};
 
 /** Where a restart has got to, in the order it takes them. `merging` is the preview's alone, `fetching_main` main's. */
 export type FleetBuildStage =
@@ -33,10 +45,17 @@ const STAGE_SAID: Record<FleetBuildStage, string> = {
 };
 
 /** A Job whose Drone is working, and so is adopted by a restart. */
-export type FleetBuildDrone = { id: string; label: string };
+export type FleetBuildDrone = {
+  id: string;
+  label: string;
+};
 
 /** A branch the last Refresh preview did not merge in, and the script's reason in one line. `moved` is a branch with commits since; absent is false. */
-export type FleetBuildLeftOut = { branch: string; why: string; moved?: boolean };
+export type FleetBuildLeftOut = {
+  branch: string;
+  why: string;
+  moved?: boolean;
+};
 
 export type FleetBuild = {
   on: FleetBuildChoice;
@@ -71,7 +90,14 @@ const ADOPTING_COSTS =
   "Its servers stop with Fleet. A Check running mid-gate most likely re-runs from scratch";
 
 /** The act the person pressed, held while the Jobs it would adopt are shown. */
-type Asked = { kind: "choose"; build: FleetBuildChoice } | { kind: "restart" };
+type Asked =
+  | {
+      kind: "choose";
+      build: FleetBuildChoice;
+    }
+  | {
+      kind: "restart";
+    };
 
 /**
  * Where the running build stands against main, the build it runs on, and the
@@ -90,7 +116,14 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
   // The button names what is being restarted onto while that is under way, and the build in use otherwise.
   const target = working ?? on;
   const idleOnMain = working === null && on === "main" && aligned;
-  const label = target === "preview" ? (working === null ? "Refresh preview" : "Refreshing preview") : working === null ? "Update to main" : "Updating to main";
+  const label =
+    target === "preview"
+      ? working === null
+        ? "Refresh preview"
+        : "Refreshing preview"
+      : working === null
+        ? "Update to main"
+        : "Updating to main";
   const tip = idleOnMain
     ? "On latest main"
     : target === "preview"
@@ -113,7 +146,11 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
           disabled={working !== null}
           onChange={(event) => {
             const chosen = event.target.value === "preview" ? "preview" : "main";
-            if (chosen !== on) press({ kind: "choose", build: chosen });
+            if (chosen !== on)
+              press({
+                kind: "choose",
+                build: chosen,
+              });
           }}
         >
           <option value="main">Main</option>
@@ -126,7 +163,11 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
           size="sm"
           pending={working !== null}
           disabled={idleOnMain || working !== null}
-          onClick={() => press({ kind: "restart" })}
+          onClick={() =>
+            press({
+              kind: "restart",
+            })
+          }
         >
           {working !== null ? (
             <LoaderCircle size={16} strokeWidth={2} aria-hidden="true" />
@@ -141,12 +182,20 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
           {build.failed}
         </p>
       )}
-      {on !== "preview" || working !== null || build.leftOut === undefined || build.leftOut.length === 0 ? null : (
+      {on !== "preview" ||
+      working !== null ||
+      build.leftOut === undefined ||
+      build.leftOut.length === 0 ? null : (
         <ul className="armada-fleet-build__left-out" aria-label="Left out of the preview">
           {build.leftOut.map((one) => (
             <li key={one.branch} className="armada-fleet-build__left-out-row">
               <Tooltip label="Left out of the preview">
-                <span className="armada-fleet-build__mark" data-tone="warn" role="img" aria-label="Left out of the preview">
+                <span
+                  className="armada-fleet-build__mark"
+                  data-tone="warn"
+                  role="img"
+                  aria-label="Left out of the preview"
+                >
                   <CircleSlash size={12} strokeWidth={2} aria-hidden="true" />
                 </span>
               </Tooltip>
@@ -175,9 +224,21 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
             <span
               className="armada-fleet-build__mark"
               data-tone="muted"
-              {...(stage === undefined ? { role: "img", "aria-label": "Restarting Fleet" } : { role: "status" })}
+              {...(stage === undefined
+                ? {
+                    role: "img",
+                    "aria-label": "Restarting Fleet",
+                  }
+                : {
+                    role: "status",
+                  })}
             >
-              <LoaderCircle className="armada-fleet-build__spin" size={12} strokeWidth={2} aria-hidden="true" />
+              <LoaderCircle
+                className="armada-fleet-build__spin"
+                size={12}
+                strokeWidth={2}
+                aria-hidden="true"
+              />
               {stage === undefined ? null : STAGE_SAID[stage]}
             </span>
           </Tooltip>
@@ -185,7 +246,12 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
           <span className="armada-fleet-build__marks">
             {aligned ? (
               <Tooltip label="Aligned with main">
-                <span className="armada-fleet-build__mark" data-tone="success" role="img" aria-label="Aligned with main">
+                <span
+                  className="armada-fleet-build__mark"
+                  data-tone="success"
+                  role="img"
+                  aria-label="Aligned with main"
+                >
                   <Check size={12} strokeWidth={2} aria-hidden="true" />
                 </span>
               </Tooltip>

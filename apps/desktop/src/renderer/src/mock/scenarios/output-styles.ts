@@ -5,7 +5,9 @@ import { KIT_INVENTORY, manifesting } from "../manifest-fake";
 import type { Scenario } from "../moment";
 
 function build(): Scenario {
-  const base = manifesting({ kitInventory: KIT_INVENTORY });
+  const base = manifesting({
+    kitInventory: KIT_INVENTORY,
+  });
   return {
     ...base,
     name: "output-styles",

@@ -12,6 +12,21 @@ export const workspacesPieces: Scenario = {
   name: "workspaces-pieces",
   says: "The Workflows page over the lifecycles and rules Fleet keeps for store-web: edited by hand, each change saved as the pieces it changes",
   state: workspacesLanes.state,
-  ...(workspacesLanes.behaves === undefined ? {} : { behaves: workspacesLanes.behaves }),
-  draft: { pieces: storePieces({ id: web!.manifest!.id, root: web!.root }, { id: api!.manifest!.id, root: api!.root }) },
+  ...(workspacesLanes.behaves === undefined
+    ? {}
+    : {
+        behaves: workspacesLanes.behaves,
+      }),
+  draft: {
+    pieces: storePieces(
+      {
+        id: web!.manifest!.id,
+        root: web!.root,
+      },
+      {
+        id: api!.manifest!.id,
+        root: api!.root,
+      },
+    ),
+  },
 };

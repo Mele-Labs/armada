@@ -20,16 +20,46 @@ const BEGIN_MS = 900;
 
 /** The repository's workflows. Review has no landing step, so a Job of that kind is not asked how it lands. */
 const WORKFLOWS: readonly WorkflowChoice[] = [
-  { id: "feature", name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] },
-  { id: "bug", name: "Bug", steps: ["Reproduce", "Fix", "Verify", "Pull request"] },
-  { id: "review", name: "Review", steps: ["Read", "Review", "Report"] },
+  {
+    id: "feature",
+    name: "Feature",
+    steps: [
+      "Plan",
+      "Build",
+      "Verify",
+      "Pull request",
+    ],
+  },
+  {
+    id: "bug",
+    name: "Bug",
+    steps: [
+      "Reproduce",
+      "Fix",
+      "Verify",
+      "Pull request",
+    ],
+  },
+  {
+    id: "review",
+    name: "Review",
+    steps: [
+      "Read",
+      "Review",
+      "Report",
+    ],
+  },
 ];
 
 /** What he usually picks for each kind in this repository. */
-const USUAL: Readonly<Record<string, DeliveryChoice>> = { feature: "auto_land", bug: "open_pr" };
+const USUAL: Readonly<Record<string, DeliveryChoice>> = {
+  feature: "auto_land",
+  bug: "open_pr",
+};
 
 /** The kind a request reads as. */
-const kindOf = (words: string): string => (/\b(bug|broken|crash|fails?|failing|error|regression)\b/i.test(words) ? "bug" : "feature");
+const kindOf = (words: string): string =>
+  /\b(bug|broken|crash|fails?|failing|error|regression)\b/i.test(words) ? "bug" : "feature";
 
 /** How the request itself says the work lands, if it does. */
 function namedIn(words: string): DeliveryChoice | undefined {
@@ -42,8 +72,21 @@ function namedIn(words: string): DeliveryChoice | undefined {
 /** The title the proposer writes: the request's first words. */
 const titleOf = (words: string): string => words.trim().split(/\s+/).slice(0, 8).join(" ");
 
-const message = (id: string, text: string): SessionRow => ({ id, at: "14:12:00", kind: "message", from: { kind: "you" }, text });
-const tool = (id: string, text: string): SessionRow => ({ id, at: "14:12:09", kind: "tool", text });
+const message = (id: string, text: string): SessionRow => ({
+  id,
+  at: "14:12:00",
+  kind: "message",
+  from: {
+    kind: "you",
+  },
+  text,
+});
+const tool = (id: string, text: string): SessionRow => ({
+  id,
+  at: "14:12:09",
+  kind: "tool",
+  text,
+});
 
 export const s323JobStartCard: Scenario = {
   ...s210QuickDispatch,
@@ -52,7 +95,17 @@ export const s323JobStartCard: Scenario = {
   draft: {
     ...s210QuickDispatch.draft,
     sessions: () => {
-      const store = sessionsStore([], [], new Map([[repository().root, repository().manifest!.id]]), others().filter((one) => one.id !== MINE));
+      const store = sessionsStore(
+        [],
+        [],
+        new Map([
+          [
+            repository().root,
+            repository().manifest!.id,
+          ],
+        ]),
+        others().filter((one) => one.id !== MINE),
+      );
       /** What each held Job's request named, by id. */
       const named = new Map<string, DeliveryChoice>();
       /** The first message each held Job will begin with: his words, then his edit. It is in the thread from Start. */
@@ -63,7 +116,21 @@ export const s323JobStartCard: Scenario = {
         return {
           asksDelivery: kind !== "review",
           message: first.get(id) ?? "",
-          ...(choice !== undefined ? { picked: { choice, from: "named" as const } } : usual === undefined || kind === "review" ? {} : { picked: { choice: usual, from: "usual" as const } }),
+          ...(choice !== undefined
+            ? {
+                picked: {
+                  choice,
+                  from: "named" as const,
+                },
+              }
+            : usual === undefined || kind === "review"
+              ? {}
+              : {
+                  picked: {
+                    choice: usual,
+                    from: "usual" as const,
+                  },
+                }),
         };
       };
       const timers = (ms: number, run: () => void) => void window.setTimeout(run, ms);
@@ -77,19 +144,51 @@ export const s323JobStartCard: Scenario = {
           if (choice !== undefined) named.set(id, choice);
           first.set(id, words);
           // The proposer is reading: the Job is up with nothing written.
-          store.edit(id, (one) => ({ ...one, start: { asksDelivery: true, message: words }, work: { proposal: { workflow: null, reading: true } } }));
+          store.edit(id, (one) => ({
+            ...one,
+            start: {
+              asksDelivery: true,
+              message: words,
+            },
+            work: {
+              proposal: {
+                workflow: null,
+                reading: true,
+              },
+            },
+          }));
           timers(READ_MS, () => {
             const kind = kindOf(words);
             store.edit(id, (one) => ({
               ...one,
               title: titleOf(words),
-              ...(one.model === undefined ? { model: "opus" } : {}),
-              ...(one.effort === undefined ? { effort: "high" } : {}),
+              ...(one.model === undefined
+                ? {
+                    model: "opus",
+                  }
+                : {}),
+              ...(one.effort === undefined
+                ? {
+                    effort: "high",
+                  }
+                : {}),
               start: startFor(id, kind),
               work: {
                 proposal: {
                   workflow: kind,
-                  picked: ["workflow", ...(one.model === undefined ? ["model" as const] : []), ...(one.effort === undefined ? ["effort" as const] : [])],
+                  picked: [
+                    "workflow",
+                    ...(one.model === undefined
+                      ? [
+                          "model" as const,
+                        ]
+                      : []),
+                    ...(one.effort === undefined
+                      ? [
+                          "effort" as const,
+                        ]
+                      : []),
+                  ],
                 },
               },
             }));
@@ -98,9 +197,16 @@ export const s323JobStartCard: Scenario = {
         },
         // His words are the first message, held in the composer: the thread has nothing until Start.
         send(id, sent) {
-          if (store.get().find((one) => one.id === id)?.start === undefined) return store.send(id, sent);
+          if (store.get().find((one) => one.id === id)?.start === undefined)
+            return store.send(id, sent);
           first.set(id, sent.text);
-          store.edit(id, (one) => ({ ...one, start: { ...one.start!, message: sent.text } }));
+          store.edit(id, (one) => ({
+            ...one,
+            start: {
+              ...one.start!,
+              message: sent.text,
+            },
+          }));
         },
         begin(id, delivery, said) {
           const opening = said ?? first.get(id) ?? "";
@@ -108,17 +214,44 @@ export const s323JobStartCard: Scenario = {
             const flow = WORKFLOWS.find((it) => it.id === one.work?.proposal?.workflow);
             return {
               ...one,
-              rows: opening.trim() === "" ? one.rows : [...one.rows, message(`m${one.rows.length + 1}`, opening)],
-              turn: { state: "working" },
-              ...(delivery === "auto_land" ? { autoLand: true as const } : {}),
-              work: { ...one.work, ...(flow === undefined ? {} : { workflow: { name: flow.name, steps: flow.steps, at: 0 } }) },
+              rows:
+                opening.trim() === ""
+                  ? one.rows
+                  : [
+                      ...one.rows,
+                      message(`m${one.rows.length + 1}`, opening),
+                    ],
+              turn: {
+                state: "working",
+              },
+              ...(delivery === "auto_land"
+                ? {
+                    autoLand: true as const,
+                  }
+                : {}),
+              work: {
+                ...one.work,
+                ...(flow === undefined
+                  ? {}
+                  : {
+                      workflow: {
+                        name: flow.name,
+                        steps: flow.steps,
+                        at: 0,
+                      },
+                    }),
+              },
             };
           });
           // The agent's first rows follow a moment later. Nothing is asked of him.
           timers(BEGIN_MS, () =>
             store.edit(id, (one) => ({
               ...one,
-              rows: [...one.rows, tool(`t${one.rows.length + 1}`, "Read crates/store/src/client.rs"), tool(`t${one.rows.length + 2}`, "Read crates/store/src/retry.rs")],
+              rows: [
+                ...one.rows,
+                tool(`t${one.rows.length + 1}`, "Read crates/store/src/client.rs"),
+                tool(`t${one.rows.length + 2}`, "Read crates/store/src/retry.rs"),
+              ],
             })),
           );
         },
@@ -128,13 +261,34 @@ export const s323JobStartCard: Scenario = {
           choose(id, workflow) {
             store.edit(id, (one) => ({
               ...one,
-              ...(one.start === undefined ? {} : { start: startFor(id, workflow) }),
-              work: { ...one.work, proposal: { workflow, picked: (one.work?.proposal?.picked ?? []).filter((it) => it !== "workflow") } },
+              ...(one.start === undefined
+                ? {}
+                : {
+                    start: startFor(id, workflow),
+                  }),
+              work: {
+                ...one.work,
+                proposal: {
+                  workflow,
+                  picked: (one.work?.proposal?.picked ?? []).filter((it) => it !== "workflow"),
+                },
+              },
             }));
           },
           unpick(id, value) {
             store.edit(id, (one) =>
-              one.work?.proposal === undefined ? one : { ...one, work: { ...one.work, proposal: { ...one.work.proposal, picked: (one.work.proposal.picked ?? []).filter((it) => it !== value) } } },
+              one.work?.proposal === undefined
+                ? one
+                : {
+                    ...one,
+                    work: {
+                      ...one.work,
+                      proposal: {
+                        ...one.work.proposal,
+                        picked: (one.work.proposal.picked ?? []).filter((it) => it !== value),
+                      },
+                    },
+                  },
             );
           },
           approve: () => undefined,

@@ -18,16 +18,28 @@ export const s342BandReplacesBar: Scenario = realThreadScenario({
   ask: {
     command: QUESTION,
     call: "band-replaces-bar-q1",
-    offers: ["allow_once", "refuse"],
+    offers: [
+      "allow_once",
+      "refuse",
+    ],
     questions: [
       {
         question: QUESTION,
         header: "Plan",
         multi_select: false,
         options: [
-          { label: "Record the plan", description: "" },
-          { label: "Keep discussing", description: "" },
-          { label: "Show size B", description: "" },
+          {
+            label: "Record the plan",
+            description: "",
+          },
+          {
+            label: "Keep discussing",
+            description: "",
+          },
+          {
+            label: "Show size B",
+            description: "",
+          },
         ],
       },
     ],

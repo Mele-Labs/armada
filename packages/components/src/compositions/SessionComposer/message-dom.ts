@@ -13,9 +13,24 @@ export const CHIP = "￼";
  * other line is a `div`. `readDom` gives the markers back, so what is kept and sent is the text it always was.
  */
 type Kind = "quote" | "list";
-const BLOCK: Record<Kind, { tag: string; line: string; marker: string }> = {
-  quote: { tag: "blockquote", line: "div", marker: "> " },
-  list: { tag: "ul", line: "li", marker: "- " },
+const BLOCK: Record<
+  Kind,
+  {
+    tag: string;
+    line: string;
+    marker: string;
+  }
+> = {
+  quote: {
+    tag: "blockquote",
+    line: "div",
+    marker: "> ",
+  },
+  list: {
+    tag: "ul",
+    line: "li",
+    marker: "- ",
+  },
 };
 
 const kindOf = (node: Node): Kind | undefined => {
@@ -24,15 +39,42 @@ const kindOf = (node: Node): Kind | undefined => {
 };
 
 /** What starts a drawn line: `> ` for a quote, `- ` or `* ` for an item. A lone `>` is an empty quote line in text that arrives. */
-const markerOf = (line: string): { kind: Kind; content: string } | undefined => {
-  if (line.startsWith("> ")) return { kind: "quote", content: line.slice(2) };
-  if (line === ">") return { kind: "quote", content: "" };
-  if (/^[-*] /.test(line)) return { kind: "list", content: line.slice(2) };
+const markerOf = (
+  line: string,
+):
+  | {
+      kind: Kind;
+      content: string;
+    }
+  | undefined => {
+  if (line.startsWith("> "))
+    return {
+      kind: "quote",
+      content: line.slice(2),
+    };
+  if (line === ">")
+    return {
+      kind: "quote",
+      content: "",
+    };
+  if (/^[-*] /.test(line))
+    return {
+      kind: "list",
+      content: line.slice(2),
+    };
   return undefined;
 };
 
 /** Each line's marker, none inside a ``` fence: a pasted diff's `- ` lines are code, not a list. */
-const markersOf = (lines: readonly string[]): ({ kind: Kind; content: string } | undefined)[] => {
+const markersOf = (
+  lines: readonly string[],
+): (
+  | {
+      kind: Kind;
+      content: string;
+    }
+  | undefined
+)[] => {
   let fenced = false;
   return lines.map((line) => {
     if (line.trimStart().startsWith("```")) {
@@ -44,10 +86,15 @@ const markersOf = (lines: readonly string[]): ({ kind: Kind; content: string } |
 };
 
 /** Whether a node is something the box holds whole: a tag, or a markdown link. */
-const isAtom = (node: Node): node is HTMLElement => node instanceof HTMLElement && (node.dataset.tagKind !== undefined || node.dataset.mdHref !== undefined);
+const isAtom = (node: Node): node is HTMLElement =>
+  node instanceof HTMLElement &&
+  (node.dataset.tagKind !== undefined || node.dataset.mdHref !== undefined);
 
 /** The message as the box holds it: its text with a CHIP at each tag, and the tags in that order. */
-export function readDom(root: Node): { text: string; tags: ComposerTag[] } {
+export function readDom(root: Node): {
+  text: string;
+  tags: ComposerTag[];
+} {
   const tags: ComposerTag[] = [];
   const lines: string[] = [];
   let current: string | null = null;
@@ -72,10 +119,15 @@ export function readDom(root: Node): { text: string; tags: ComposerTag[] } {
             kind: child.dataset.tagKind as ComposerTag["kind"],
             id: child.dataset.tagId ?? "",
             title: child.dataset.tagTitle ?? "",
-            ...(child.dataset.tagUrl === undefined ? {} : { url: child.dataset.tagUrl }),
+            ...(child.dataset.tagUrl === undefined
+              ? {}
+              : {
+                  url: child.dataset.tagUrl,
+                }),
           });
         } else if (child.dataset.mdHref !== undefined) {
-          current = (current ?? prefix) + `[${child.dataset.mdWords ?? ""}](${child.dataset.mdHref})`;
+          current =
+            (current ?? prefix) + `[${child.dataset.mdWords ?? ""}](${child.dataset.mdHref})`;
         } else if (child.tagName === "BR") {
           // A break that ends its line after words is where the browser keeps the caret, not a line.
           if (child !== child.parentNode?.lastChild || current === null) {
@@ -101,7 +153,10 @@ export function readDom(root: Node): { text: string; tags: ComposerTag[] } {
   };
   walk(root, "");
   end();
-  return { text: lines.join("\n"), tags };
+  return {
+    text: lines.join("\n"),
+    tags,
+  };
 }
 
 /**
@@ -114,12 +169,31 @@ export function sentText(text: string, tags: readonly ComposerTag[]): string {
   const written = text.replace(new RegExp(CHIP, "g"), () => `@${tags[at++]?.title ?? ""}`);
   const lines = written.split("\n");
   const marks = markersOf(lines);
-  return lines.flatMap((line, index) => (marks[index] !== undefined && lines[index + 1] !== undefined && lines[index + 1] !== "" && marks[index + 1] === undefined ? [line, ""] : [line])).join("\n");
+  return lines
+    .flatMap((line, index) =>
+      marks[index] !== undefined &&
+      lines[index + 1] !== undefined &&
+      lines[index + 1] !== "" &&
+      marks[index + 1] === undefined
+        ? [
+            line,
+            "",
+          ]
+        : [
+            line,
+          ],
+    )
+    .join("\n");
 }
 
 function chipNode(tag: ComposerTag): Node {
   const holder = document.createElement("template");
-  holder.innerHTML = renderToStaticMarkup(createElement(InlineTag, { tag, atomic: true }));
+  holder.innerHTML = renderToStaticMarkup(
+    createElement(InlineTag, {
+      tag,
+      atomic: true,
+    }),
+  );
   return holder.content.firstChild!;
 }
 
@@ -163,7 +237,13 @@ export function writeDom(root: HTMLElement, text: string, tags: readonly Compose
 export const tagNode = chipNode;
 
 /** What stands before the caret, tags as spaces, and the text node the caret is in. */
-export function beforeCaret(root: HTMLElement): { head: string; node: Text | null; offset: number } | undefined {
+export function beforeCaret(root: HTMLElement):
+  | {
+      head: string;
+      node: Text | null;
+      offset: number;
+    }
+  | undefined {
   const selection = window.getSelection();
   if (selection === null || selection.rangeCount === 0) return undefined;
   const range = selection.getRangeAt(0);
@@ -174,10 +254,25 @@ export function beforeCaret(root: HTMLElement): { head: string; node: Text | nul
   const holder = document.createElement("div");
   holder.append(before.cloneContents());
   const head = readDom(holder).text.replace(new RegExp(CHIP, "g"), " ");
-  if (range.startContainer.nodeType === Node.TEXT_NODE) return { head, node: range.startContainer as Text, offset: range.startOffset };
+  if (range.startContainer.nodeType === Node.TEXT_NODE)
+    return {
+      head,
+      node: range.startContainer as Text,
+      offset: range.startOffset,
+    };
   // A caret at the end of a line the box was drawn with sits between nodes, after the text node it follows.
   const prior = range.startContainer.childNodes[range.startOffset - 1];
-  return prior?.nodeType === Node.TEXT_NODE ? { head, node: prior as Text, offset: (prior as Text).length } : { head, node: null, offset: 0 };
+  return prior?.nodeType === Node.TEXT_NODE
+    ? {
+        head,
+        node: prior as Text,
+        offset: (prior as Text).length,
+      }
+    : {
+        head,
+        node: null,
+        offset: 0,
+      };
 }
 
 function setCaret(node: Node, offset: number): void {
@@ -192,10 +287,17 @@ function setCaret(node: Node, offset: number): void {
 /** The caret at the end of the box: at the end of its last line, before the break that holds an empty one open. */
 export function caretToEnd(root: HTMLElement): void {
   let node: Node = root;
-  while (node.lastChild !== null && node.lastChild.nodeType !== Node.TEXT_NODE && !isAtom(node.lastChild) && node.lastChild.nodeName !== "BR") node = node.lastChild;
+  while (
+    node.lastChild !== null &&
+    node.lastChild.nodeType !== Node.TEXT_NODE &&
+    !isAtom(node.lastChild) &&
+    node.lastChild.nodeName !== "BR"
+  )
+    node = node.lastChild;
   const last = node.lastChild;
   if (last?.nodeType === Node.TEXT_NODE) setCaret(last, (last as Text).length);
-  else setCaret(node, last?.nodeName === "BR" ? node.childNodes.length - 1 : node.childNodes.length);
+  else
+    setCaret(node, last?.nodeName === "BR" ? node.childNodes.length - 1 : node.childNodes.length);
 }
 
 /** How much of the message a node stands for, as `readDom` counts it. */
@@ -203,7 +305,8 @@ function sizeOf(node: Node): number {
   if (node.nodeType === Node.TEXT_NODE) return (node as Text).length;
   if (!(node instanceof HTMLElement)) return 0;
   if (node.dataset.tagKind !== undefined) return 1;
-  if (node.dataset.mdHref !== undefined) return `[${node.dataset.mdWords ?? ""}](${node.dataset.mdHref})`.length;
+  if (node.dataset.mdHref !== undefined)
+    return `[${node.dataset.mdWords ?? ""}](${node.dataset.mdHref})`.length;
   let size = 0;
   node.childNodes.forEach((child) => (size += sizeOf(child)));
   return size;
@@ -211,11 +314,26 @@ function sizeOf(node: Node): number {
 
 /** The caret `offset` characters into the message as it was drawn by `writeDom`. */
 function placeCaret(root: HTMLElement, offset: number): void {
-  const lines: { el: HTMLElement; marker: number }[] = [];
+  const lines: {
+    el: HTMLElement;
+    marker: number;
+  }[] = [];
   root.childNodes.forEach((child) => {
     if (!(child instanceof HTMLElement)) return;
-    if (kindOf(child) === undefined) lines.push({ el: child, marker: 0 });
-    else child.childNodes.forEach((line) => line instanceof HTMLElement && lines.push({ el: line, marker: 2 }));
+    if (kindOf(child) === undefined)
+      lines.push({
+        el: child,
+        marker: 0,
+      });
+    else
+      child.childNodes.forEach(
+        (line) =>
+          line instanceof HTMLElement &&
+          lines.push({
+            el: line,
+            marker: 2,
+          }),
+      );
   });
   let start = 0;
   for (const { el, marker } of lines) {
@@ -249,7 +367,9 @@ export function caretOffset(root: HTMLElement): number {
 
 /** Whether the lines the text marks as quote or list are drawn as such, and no others are. */
 export function drawnAsText(root: HTMLElement): boolean {
-  const marked = markersOf(readDom(root).text.split("\n")).filter((one) => one !== undefined).length;
+  const marked = markersOf(readDom(root).text.split("\n")).filter(
+    (one) => one !== undefined,
+  ).length;
   return marked === root.querySelectorAll(":scope > [data-block] > *").length;
 }
 
@@ -262,7 +382,11 @@ export function redraw(root: HTMLElement, offset: number): void {
 
 // A quote or a list line, and the keys that leave it.
 
-type Line = { line: HTMLElement; block: HTMLElement; kind: Kind };
+type Line = {
+  line: HTMLElement;
+  block: HTMLElement;
+  kind: Kind;
+};
 
 /** The quote or list line the caret is in, when it is a caret and not a selection. */
 function lineOf(root: HTMLElement): Line | undefined {
@@ -273,14 +397,22 @@ function lineOf(root: HTMLElement): Line | undefined {
   while (node !== null && node !== root) {
     const parent: HTMLElement | null = node.parentElement;
     const kind = parent === null ? undefined : kindOf(parent);
-    if (parent !== null && kind !== undefined && node instanceof HTMLElement) return { line: node, block: parent, kind };
+    if (parent !== null && kind !== undefined && node instanceof HTMLElement)
+      return {
+        line: node,
+        block: parent,
+        kind,
+      };
     node = parent;
   }
   return undefined;
 }
 
-const holds = (range: Range): boolean => range.toString() !== "" || range.cloneContents().querySelector("[data-tag-kind],[data-md-href]") !== null;
-const empty = (line: HTMLElement): boolean => (line.textContent ?? "") === "" && line.querySelector("[data-tag-kind],[data-md-href]") === null;
+const holds = (range: Range): boolean =>
+  range.toString() !== "" ||
+  range.cloneContents().querySelector("[data-tag-kind],[data-md-href]") !== null;
+const empty = (line: HTMLElement): boolean =>
+  (line.textContent ?? "") === "" && line.querySelector("[data-tag-kind],[data-md-href]") === null;
 
 function caretIs(line: HTMLElement, where: "start" | "end"): boolean {
   const caret = window.getSelection()!.getRangeAt(0);
@@ -296,7 +428,8 @@ function caretIs(line: HTMLElement, where: "start" | "end"): boolean {
 }
 
 const held = (el: HTMLElement) => {
-  if (!el.hasChildNodes() || (empty(el) && el.querySelector("br") === null)) el.replaceChildren(document.createElement("br"));
+  if (!el.hasChildNodes() || (empty(el) && el.querySelector("br") === null))
+    el.replaceChildren(document.createElement("br"));
 };
 
 /** The line as a plain one where it stands in its block, the block split around it. */
@@ -372,7 +505,29 @@ export function backspaceInBlock(root: HTMLElement): boolean {
 // Links, drawn as the words are typed.
 
 const URL_ADDRESS = /^https?:\/\/[^\s<>/][^\s<>]*$/;
-const KNOWN = new Set(["rs", "ts", "tsx", "js", "jsx", "mjs", "json", "toml", "md", "mdx", "css", "html", "yml", "yaml", "sh", "py", "go", "lock", "txt", "sql", "svg"]);
+const KNOWN = new Set([
+  "rs",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "mjs",
+  "json",
+  "toml",
+  "md",
+  "mdx",
+  "css",
+  "html",
+  "yml",
+  "yaml",
+  "sh",
+  "py",
+  "go",
+  "lock",
+  "txt",
+  "sql",
+  "svg",
+]);
 const MARKDOWN_LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
 
 /**
@@ -381,7 +536,9 @@ const MARKDOWN_LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
  */
 function isPath(core: string): boolean {
   const at = core.startsWith("@");
-  const found = /^((?:[\w.-]+\/)*[\w.-]+)(\/?)(?::\d+(?:[:-]\d+)?)?$/.exec(at ? core.slice(1) : core);
+  const found = /^((?:[\w.-]+\/)*[\w.-]+)(\/?)(?::\d+(?:[:-]\d+)?)?$/.exec(
+    at ? core.slice(1) : core,
+  );
   if (found === null || /^\.+$/.test(found[1]!)) return false;
   const path = found[1]!;
   const extension = /\.([A-Za-z][A-Za-z0-9]{0,7})$/.exec(path)?.[1]?.toLowerCase();
@@ -392,16 +549,23 @@ function isPath(core: string): boolean {
 }
 
 type Link = "web" | "file";
-const classify = (core: string): Link | null => (URL_ADDRESS.test(core) ? "web" : isPath(core) ? "file" : null);
+const classify = (core: string): Link | null =>
+  URL_ADDRESS.test(core) ? "web" : isPath(core) ? "file" : null;
 
 /** The part of a whitespace-delimited word that is the address: not the bracket or quote before it, nor the stop or comma after. */
-function coreOf(word: string): [number, number] {
+function coreOf(word: string): [
+  number,
+  number,
+] {
   let from = 0;
   let to = word.length;
   while (from < to && "(\"'`<[".includes(word[from]!)) from += 1;
   while (to > from && ".,;:!?\"'`>]".includes(word[to - 1]!)) to -= 1;
   while (to > from && word[to - 1] === ")" && !word.slice(from, to).includes("(")) to -= 1;
-  return [from, to];
+  return [
+    from,
+    to,
+  ];
 }
 
 function mdNode(words: string, href: string): HTMLElement {
@@ -418,7 +582,8 @@ function mdNode(words: string, href: string): HTMLElement {
 /** Whether anything is drawn after this text in the box, so that its last word is closed by it. */
 function followed(node: Node, root: Node): boolean {
   for (let at: Node | null = node; at !== null && at !== root; at = at.parentNode) {
-    for (let next = at.nextSibling; next !== null; next = next.nextSibling) if (next.nodeType !== Node.TEXT_NODE || (next as Text).length > 0) return true;
+    for (let next = at.nextSibling; next !== null; next = next.nextSibling)
+      if (next.nodeType !== Node.TEXT_NODE || (next as Text).length > 0) return true;
   }
   return false;
 }
@@ -426,9 +591,13 @@ function followed(node: Node, root: Node): boolean {
 function textNodes(root: HTMLElement): Text[] {
   const found: Text[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => (node.parentElement?.closest("[data-link],[data-tag-kind],[data-md-href]") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    acceptNode: (node) =>
+      node.parentElement?.closest("[data-link],[data-tag-kind],[data-md-href]")
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT,
   });
-  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) found.push(node as Text);
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode())
+    found.push(node as Text);
   return found;
 }
 
@@ -448,7 +617,16 @@ export function decorate(root: HTMLElement): void {
     }
   });
   const selection = window.getSelection();
-  const caret = selection !== null && selection.rangeCount > 0 && selection.isCollapsed && root.contains(selection.anchorNode) ? { node: selection.anchorNode, offset: selection.anchorOffset } : undefined;
+  const caret =
+    selection !== null &&
+    selection.rangeCount > 0 &&
+    selection.isCollapsed &&
+    root.contains(selection.anchorNode)
+      ? {
+          node: selection.anchorNode,
+          offset: selection.anchorOffset,
+        }
+      : undefined;
 
   for (const node of textNodes(root)) {
     const matches = Array.from(node.data.matchAll(MARKDOWN_LINK)).reverse();
@@ -488,7 +666,8 @@ export function decorate(root: HTMLElement): void {
       range.setStart(node, start);
       range.setEnd(node, end);
       const link = document.createElement("span");
-      link.className = kind === "web" ? "armada-prose__link" : "armada-prose__link armada-session-composer__path";
+      link.className =
+        kind === "web" ? "armada-prose__link" : "armada-prose__link armada-session-composer__path";
       link.dataset.link = kind;
       link.title = node.data.slice(start, end);
       range.surroundContents(link);
@@ -500,5 +679,8 @@ export function decorate(root: HTMLElement): void {
 export function addressOf(node: Element | null): string | undefined {
   const link = node?.closest<HTMLElement>("[data-link],[data-md-href]");
   if (link === null || link === undefined) return undefined;
-  return link.dataset.mdHref ?? (link.dataset.link === "web" ? (link.textContent ?? undefined) : undefined);
+  return (
+    link.dataset.mdHref ??
+    (link.dataset.link === "web" ? (link.textContent ?? undefined) : undefined)
+  );
 }

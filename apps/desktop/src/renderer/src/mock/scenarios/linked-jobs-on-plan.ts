@@ -2,4 +2,7 @@
 
 import { linkedJobsOnPlan } from "../sessions/linked-jobs";
 
-export const s271LinkedJobsOnPlan = linkedJobsOnPlan("linked-jobs-on-plan", "A Job with a plan of eight groups, seven of them handed to Jobs, each shown on its shut row");
+export const s271LinkedJobsOnPlan = linkedJobsOnPlan(
+  "linked-jobs-on-plan",
+  "A Job with a plan of eight groups, seven of them handed to Jobs, each shown on its shut row",
+);

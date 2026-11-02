@@ -20,7 +20,11 @@ function asString(node: unknown): string | undefined {
   return typeof node === "string" ? node : undefined;
 }
 
-const DOCTOR_OUTCOMES = new Set(["pass", "warn", "fail"]);
+const DOCTOR_OUTCOMES = new Set([
+  "pass",
+  "warn",
+  "fail",
+]);
 
 /**
  * Fleet — Running, the pid / port / protocol / up rows, and Doctor as a rollup
@@ -40,7 +44,10 @@ export function fleetPanelOf(
   const doctor =
     outcome === undefined || !DOCTOR_OUTCOMES.has(outcome)
       ? undefined
-      : { outcome: outcome as "pass" | "warn" | "fail", checked: asString(reading.detail) ?? "" };
+      : {
+          outcome: outcome as "pass" | "warn" | "fail",
+          checked: asString(reading.detail) ?? "",
+        };
   return {
     state: fleetStateOf(connection),
     label: shortLabelOf(connection),
@@ -60,12 +67,22 @@ export function fleetPanelClocked(
   health: HealthRead,
   readAt: number | null,
 ): Omit<FleetPanelProps, "open" | "onOpenChange"> {
-  const { rows: _rows, detail: _detail, ...rest } = fleetPanelOf(connection, statement, health, 0, readAt);
+  const {
+    rows: _rows,
+    detail: _detail,
+    ...rest
+  } = fleetPanelOf(connection, statement, health, 0, readAt);
   const reading = (now: number) => {
     const { rows, detail } = fleetPanelOf(connection, statement, health, now, readAt);
-    return { rows, detail };
+    return {
+      rows,
+      detail,
+    };
   };
-  return { ...rest, reading };
+  return {
+    ...rest,
+    reading,
+  };
 }
 
 /**
@@ -90,13 +107,26 @@ function rowsOf(connection: Connection, now: number): Figure[] | undefined {
     return undefined;
   }
   const rows: Figure[] = [
-    { label: "pid", value: String(connection.fleet.pid) },
-    { label: "port", value: String(connection.fleet.port) },
+    {
+      label: "pid",
+      value: String(connection.fleet.pid),
+    },
+    {
+      label: "port",
+      value: String(connection.fleet.port),
+    },
   ];
   if (connection.state !== "connected") return rows;
-  rows.push({ label: "protocol", value: spoken(connection.fleet.protocolId) });
+  rows.push({
+    label: "protocol",
+    value: spoken(connection.fleet.protocolId),
+  });
   const startedMs = instant(connection.fleet.startedAt);
-  if (startedMs !== null) rows.push({ label: "up", value: lasting(now - startedMs) });
+  if (startedMs !== null)
+    rows.push({
+      label: "up",
+      value: lasting(now - startedMs),
+    });
   return rows;
 }
 
@@ -105,7 +135,12 @@ function rowsOf(connection: Connection, now: number): Figure[] | undefined {
  * **Never the pid or port again**: the states that have rows say only what the
  * rows cannot, and the rest keep the statement's own detail whole.
  */
-function sentenceOf(connection: Connection, statement: Statement, now: number, readAt: number | null) {
+function sentenceOf(
+  connection: Connection,
+  statement: Statement,
+  now: number,
+  readAt: number | null,
+) {
   switch (connection.state) {
     case "connecting":
     case "connected":

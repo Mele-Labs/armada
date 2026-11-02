@@ -13,9 +13,13 @@ export const CODE = "~/code";
 export async function projectParent(
   parent: string,
   home: string = homedir(),
-  make: (path: string) => Promise<unknown> = (path) => mkdir(path, { recursive: true }),
+  make: (path: string) => Promise<unknown> = (path) =>
+    mkdir(path, {
+      recursive: true,
+    }),
 ): Promise<string> {
-  const absolute = parent === "~" ? home : parent.startsWith("~/") ? join(home, parent.slice(2)) : parent;
+  const absolute =
+    parent === "~" ? home : parent.startsWith("~/") ? join(home, parent.slice(2)) : parent;
   if (parent === CODE) await make(absolute);
   return absolute;
 }

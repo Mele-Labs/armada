@@ -16,7 +16,11 @@ test("a Session nobody has open is not on screen", () => {
 });
 
 test("an open Session stops counting after a minute with no key or pointer", () => {
-  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  (
+    globalThis as {
+      IS_REACT_ACT_ENVIRONMENT?: boolean;
+    }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
   const mounted = createRoot(document.createElement("div"));
   act(() => mounted.render(<Probe />));
   expect(viewingNow("s1")).toBe(true);

@@ -4,24 +4,53 @@
 import { button, inside, place, region, role, tab, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const sessions = region("Jobs", { exact: true });
+const sessions = region("Jobs", {
+  exact: true,
+});
 const glass = role("listbox", "Tiles");
 const open = (title: RegExp) => inside(sessions, button(title));
 
 const sessionWorkingOn = walk("session-working-on", [
   toSessions,
-  { press: open(/Pin the store clock/), say: "A Job that also waits on the person" },
-  { look: region("Needs you"), say: "Needs you over the box" },
+  {
+    press: open(/Pin the store clock/),
+    say: "A Job that also waits on the person",
+  },
+  {
+    look: region("Needs you"),
+    say: "Needs you over the box",
+  },
 
   toSessions,
-  { press: open(/Order the store migrations/), say: "A Job that is done" },
-  { look: region("Nothing left to do"), say: "The Job end band" },
+  {
+    press: open(/Order the store migrations/),
+    say: "A Job that is done",
+  },
+  {
+    look: region("Nothing left to do"),
+    say: "The Job end band",
+  },
 
-  { press: place("Cockpit"), say: "Back to the Cockpit" },
-  { press: tab("Active"), say: "Active" },
-  { press: button("Grid"), say: "Grid" },
-  { look: inside(glass, text("Run the policy on every pull request")), say: "A tile reads the todo being done" },
-  { look: inside(glass, text("Running cargo check")), say: "With no todo list, the line Fleet detected" },
+  {
+    press: place("Cockpit"),
+    say: "Back to the Cockpit",
+  },
+  {
+    press: tab("Active"),
+    say: "Active",
+  },
+  {
+    press: button("Grid"),
+    say: "Grid",
+  },
+  {
+    look: inside(glass, text("Run the policy on every pull request")),
+    say: "A tile reads the todo being done",
+  },
+  {
+    look: inside(glass, text("Running cargo check")),
+    say: "With no todo list, the line Fleet detected",
+  },
 ]);
 
 export { sessionWorkingOn as "session-working-on" };

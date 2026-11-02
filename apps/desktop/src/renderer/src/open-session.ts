@@ -6,7 +6,11 @@ import { useEffect } from "react";
 const OPEN_SESSION = "armada:open-session";
 
 export function askToOpenSession(id: string): void {
-  window.dispatchEvent(new CustomEvent<string>(OPEN_SESSION, { detail: id }));
+  window.dispatchEvent(
+    new CustomEvent<string>(OPEN_SESSION, {
+      detail: id,
+    }),
+  );
 }
 
 export function useOpenSessionAsked(open: (id: string) => void): void {
@@ -14,14 +18,20 @@ export function useOpenSessionAsked(open: (id: string) => void): void {
     const heard = (event: Event): void => open((event as CustomEvent<string>).detail);
     window.addEventListener(OPEN_SESSION, heard);
     return () => window.removeEventListener(OPEN_SESSION, heard);
-  }, [open]);
+  }, [
+    open,
+  ]);
 }
 
 const OPEN_SESSION_IN_COCKPIT = "armada:open-session-in-cockpit";
 
 /** The Session opened on the Cockpit's deck rather than the Sessions page: where an annotation sent to it goes. */
 export function askToOpenSessionInCockpit(id: string): void {
-  window.dispatchEvent(new CustomEvent<string>(OPEN_SESSION_IN_COCKPIT, { detail: id }));
+  window.dispatchEvent(
+    new CustomEvent<string>(OPEN_SESSION_IN_COCKPIT, {
+      detail: id,
+    }),
+  );
 }
 
 export function useOpenSessionInCockpitAsked(open: (id: string) => void): void {
@@ -29,7 +39,9 @@ export function useOpenSessionInCockpitAsked(open: (id: string) => void): void {
     const heard = (event: Event): void => open((event as CustomEvent<string>).detail);
     window.addEventListener(OPEN_SESSION_IN_COCKPIT, heard);
     return () => window.removeEventListener(OPEN_SESSION_IN_COCKPIT, heard);
-  }, [open]);
+  }, [
+    open,
+  ]);
 }
 
 /** The attribute the Sessions page carries the open Session's id on, as Job detail carries `data-armada-open-job`. */

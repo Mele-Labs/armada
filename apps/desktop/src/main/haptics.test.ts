@@ -8,7 +8,12 @@ import { CHANNELS } from "../shared/bridge";
 import { handleTaps, pickPerformer, ScriptPerformer } from "./haptics";
 import type { Child, Performer } from "./haptics";
 
-type Fake = Child & { lines: string[]; ended: boolean; die: () => void; breakPipe: () => void };
+type Fake = Child & {
+  lines: string[];
+  ended: boolean;
+  die: () => void;
+  breakPipe: () => void;
+};
 
 function fakeChild(): Fake {
   const exits: (() => void)[] = [];
@@ -30,7 +35,10 @@ function fakeChild(): Fake {
   return fake;
 }
 
-function performer(): { performer: ScriptPerformer; started: Fake[] } {
+function performer(): {
+  performer: ScriptPerformer;
+  started: Fake[];
+} {
   const started: Fake[] = [];
   return {
     started,
@@ -56,7 +64,11 @@ describe("the script", () => {
     taps.perform("level_change");
     taps.perform("alignment");
     expect(started).toHaveLength(1);
-    expect(started[0]?.lines).toEqual(["alignment\n", "level_change\n", "alignment\n"]);
+    expect(started[0]?.lines).toEqual([
+      "alignment\n",
+      "level_change\n",
+      "alignment\n",
+    ]);
   });
 
   it("starts again on the tap after it died, and loses only the tap it missed", () => {
@@ -65,7 +77,9 @@ describe("the script", () => {
     started[0]?.die();
     taps.perform("level_change");
     expect(started).toHaveLength(2);
-    expect(started[1]?.lines).toEqual(["level_change\n"]);
+    expect(started[1]?.lines).toEqual([
+      "level_change\n",
+    ]);
   });
 
   it("starts again after a write to a dead script broke the pipe", () => {
@@ -111,7 +125,12 @@ describe("the script", () => {
 });
 
 describe("the channel", () => {
-  function hosted(): { send: (pattern: unknown) => void; quit: () => void; played: string[]; disposed: () => boolean } {
+  function hosted(): {
+    send: (pattern: unknown) => void;
+    quit: () => void;
+    played: string[];
+    disposed: () => boolean;
+  } {
     let listener: (event: unknown, pattern: unknown) => void = () => undefined;
     let quitting: () => void = () => undefined;
     const played: string[] = [];
@@ -129,11 +148,18 @@ describe("the channel", () => {
             if (channel === CHANNELS.tap) listener = handler;
           },
         },
-        app: { on: (_event, handler) => (quitting = handler) },
+        app: {
+          on: (_event, handler) => (quitting = handler),
+        },
       },
       recording,
     );
-    return { send: (pattern) => listener({}, pattern), quit: () => quitting(), played, disposed: () => disposed };
+    return {
+      send: (pattern) => listener({}, pattern),
+      quit: () => quitting(),
+      played,
+      disposed: () => disposed,
+    };
   }
 
   it("plays the two patterns and nothing else the renderer sends", () => {
@@ -141,8 +167,13 @@ describe("the channel", () => {
     send("alignment");
     send("level_change");
     send("generic");
-    send({ pattern: "alignment" });
-    expect(played).toEqual(["alignment", "level_change"]);
+    send({
+      pattern: "alignment",
+    });
+    expect(played).toEqual([
+      "alignment",
+      "level_change",
+    ]);
   });
 
   it("disposes the performer as Bridge quits", () => {

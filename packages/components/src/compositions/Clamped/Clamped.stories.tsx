@@ -15,7 +15,11 @@ const meta: Meta<typeof Clamped> = {
   component: Clamped,
   decorators: [
     (Story) => (
-      <div style={{ width: "var(--w-dialog)" }}>
+      <div
+        style={{
+          width: "var(--w-dialog)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -41,7 +45,9 @@ const SHORT = "Run the regression suite and fix anything it turns up.";
  * one press away.
  */
 export const LongEnoughToClamp: Story = {
-  args: { children: LONG },
+  args: {
+    children: LONG,
+  },
 };
 
 /**
@@ -49,7 +55,9 @@ export const LongEnoughToClamp: Story = {
  * behind it.
  */
 export const NothingToOpen: Story = {
-  args: { children: SHORT },
+  args: {
+    children: SHORT,
+  },
 };
 
 /**
@@ -57,7 +65,10 @@ export const NothingToOpen: Story = {
  * here — a redirect just written, a refusal's grounds.
  */
 export const OpenOnMount: Story = {
-  args: { children: LONG, defaultOpen: true },
+  args: {
+    children: LONG,
+    defaultOpen: true,
+  },
 };
 
 /**
@@ -65,7 +76,10 @@ export const OpenOnMount: Story = {
  * passage is worth showing depends on what sits under it.
  */
 export const HeldToTwoLines: Story = {
-  args: { children: LONG, lines: 2 },
+  args: {
+    children: LONG,
+    lines: 2,
+  },
 };
 
 /**
@@ -78,16 +92,21 @@ export const HeldToTwoLines: Story = {
  * wrong on every panel but this one.
  */
 export const TheControlExistsOnlyWhenThereIsMore: Story = {
-  args: { children: LONG },
+  args: {
+    children: LONG,
+  },
   play: async ({ canvas, userEvent }) => {
-    const more = canvas.getByRole("button", { name: "View more" });
+    const more = canvas.getByRole("button", {
+      name: "View more",
+    });
     await expect(more).toHaveAttribute("aria-expanded", "false");
 
     await userEvent.click(more);
-    await expect(canvas.getByRole("button", { name: "View less" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("button", {
+        name: "View less",
+      }),
+    ).toHaveAttribute("aria-expanded", "true");
   },
 };
 
@@ -95,7 +114,9 @@ export const TheControlExistsOnlyWhenThereIsMore: Story = {
  * And it is absent on a passage that fits.
  */
 export const NoControlOnShortText: Story = {
-  args: { children: SHORT },
+  args: {
+    children: SHORT,
+  },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button")).toBeNull();
   },

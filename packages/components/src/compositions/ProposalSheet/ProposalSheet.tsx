@@ -26,7 +26,12 @@ import { Destructive, RunsFirst } from "./values";
 
 export type ProposalBand = "checks" | "commands";
 
-export type ProposalPort = { name: string; container?: number; env?: string; cited: ProvenanceProps };
+export type ProposalPort = {
+  name: string;
+  container?: number;
+  env?: string;
+  cited: ProvenanceProps;
+};
 
 export type ProposalEntry = {
   name: string;
@@ -42,7 +47,11 @@ export type ProposalPolicy = {
   label: string;
   value: string;
   /** Every value it takes, each in words where the registry has them, and its consequence. */
-  options: { value: string; reads?: string; says: string }[];
+  options: {
+    value: string;
+    reads?: string;
+    says: string;
+  }[];
   cited: ProvenanceProps;
 };
 
@@ -51,22 +60,39 @@ export type ProposalSheetProps = {
   dir: string;
   /** Where Write would put the file, relative to the checkout. */
   file: string;
-  id: { value: string; cited: ProvenanceProps };
+  id: {
+    value: string;
+    cited: ProvenanceProps;
+  };
   ports: ProposalPort[];
   checks: ProposalEntry[];
   commands: ProposalEntry[];
-  setup?: { requires: string[]; cited: ProvenanceProps };
+  setup?: {
+    requires: string[];
+    cited: ProvenanceProps;
+  };
   policy: ProposalPolicy[];
   /** The budget caps, stated in one line and never offered as controls. */
   caps: string;
   /** Port variables other workspaces in the batch map, for the add form's warning. */
-  elsewhere?: { env: string; dir: string }[];
+  elsewhere?: {
+    env: string;
+    dir: string;
+  }[];
   /** An edit Fleet would not apply, in its words. */
   problem?: string;
   /** Faults the file would not load for; each is also drawn under the row it names. */
-  refused?: { saying: string; faults: { key: string; fault: string }[] };
+  refused?: {
+    saying: string;
+    faults: {
+      key: string;
+      fault: string;
+    }[];
+  };
   /** A file was already at the path, so nothing was written. */
-  appeared?: { onDisk: string | null };
+  appeared?: {
+    onDisk: string | null;
+  };
   /** When Write landed, an RFC 3339 instant. The sheet takes no edits after it. */
   written?: string;
   /** An `armada.yml` is already here, so nothing is offered to write or edit. */
@@ -92,9 +118,18 @@ export type ProposalSheetProps = {
   floor?: boolean;
 };
 
-const NOUN: Record<ProposalBand, string> = { checks: "Check", commands: "Command" };
-const OTHER: Record<ProposalBand, ProposalBand> = { checks: "commands", commands: "checks" };
-const TITLE: Record<ProposalBand, string> = { checks: "Checks", commands: "Commands" };
+const NOUN: Record<ProposalBand, string> = {
+  checks: "Check",
+  commands: "Command",
+};
+const OTHER: Record<ProposalBand, ProposalBand> = {
+  checks: "commands",
+  commands: "checks",
+};
+const TITLE: Record<ProposalBand, string> = {
+  checks: "Checks",
+  commands: "Commands",
+};
 
 export function ProposalSheet(props: ProposalSheetProps) {
   const { open, dir, file, id, written, busy = false, refused } = props;
@@ -146,11 +181,14 @@ export function ProposalSheet(props: ProposalSheetProps) {
           <Provenance {...id.cited} />
         </div>
 
-        <Band title="Ports" says="Declared once, and read by every Check and Command below as a variable.">
+        <Band
+          title="Ports"
+          says="Declared once, and read by every Check and Command below as a variable."
+        >
           {props.ports.length === 0 ? (
             <p className="armada-proposal-sheet__says">
-              A declared port is leased per worktree and handed in, so two Jobs can run the same Check at
-              once without colliding. No file here declares one.
+              A declared port is leased per worktree and handed in, so two Jobs can run the same
+              Check at once without colliding. No file here declares one.
             </p>
           ) : (
             <ul className="armada-proposal-sheet__rows" aria-label="Ports">
@@ -162,7 +200,11 @@ export function ProposalSheet(props: ProposalSheetProps) {
                   faults={faultsAt(`ports.${port.name}`)}
                   acts={
                     locked ? null : (
-                      <Button variant="ghost" size="sm" onClick={() => props.onRemove("ports", port.name)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => props.onRemove("ports", port.name)}
+                      >
                         Remove
                       </Button>
                     )
@@ -186,21 +228,34 @@ export function ProposalSheet(props: ProposalSheetProps) {
           )}
         </Band>
 
-        {(["checks", "commands"] as const).map((band) => (
+        {(
+          [
+            "checks",
+            "commands",
+          ] as const
+        ).map((band) => (
           <Registry key={band} band={band} {...props} locked={locked} faultsAt={faultsAt} />
         ))}
 
         {props.setup === undefined ? null : (
-          <Band title="Setup" says="Commands run once per worktree, before any Check. Not a Check or a Command, so it does not move.">
+          <Band
+            title="Setup"
+            says="Commands run once per worktree, before any Check. Not a Check or a Command, so it does not move."
+          >
             <ul className="armada-proposal-sheet__rows" aria-label="Setup">
               <Row name="requires" cited={props.setup.cited} faults={faultsAt("setup")}>
-                <span className="armada-proposal-sheet__mono">{props.setup.requires.join(", ")}</span>
+                <span className="armada-proposal-sheet__mono">
+                  {props.setup.requires.join(", ")}
+                </span>
               </Row>
             </ul>
           </Band>
         )}
 
-        <Band title="Policy" says="Nothing in a repository says either, so each reads default until you choose. A default is written as no key.">
+        <Band
+          title="Policy"
+          says="Nothing in a repository says either, so each reads default until you choose. A default is written as no key."
+        >
           {props.policy.map((row) => (
             <div key={row.key} className="armada-proposal-sheet__policy">
               <RadioGroup label={row.label}>
@@ -217,7 +272,8 @@ export function ProposalSheet(props: ProposalSheetProps) {
                       <span className="armada-proposal-sheet__mono">{option.value}</span>
                     ) : (
                       <>
-                        {option.reads} <span className="armada-proposal-sheet__mono">{option.value}</span>
+                        {option.reads}{" "}
+                        <span className="armada-proposal-sheet__mono">{option.value}</span>
                       </>
                     )}
                   </Radio>
@@ -236,7 +292,16 @@ export function ProposalSheet(props: ProposalSheetProps) {
   );
 }
 
-function Foot({ file, refused, appeared, written, busy = false, setUp, onEditManifest, onWrite }: ProposalSheetProps) {
+function Foot({
+  file,
+  refused,
+  appeared,
+  written,
+  busy = false,
+  setUp,
+  onEditManifest,
+  onWrite,
+}: ProposalSheetProps) {
   return (
     <div className="armada-proposal-sheet__foot">
       {refused === undefined ? null : (
@@ -264,16 +329,16 @@ function Foot({ file, refused, appeared, written, busy = false, setUp, onEditMan
       )}
       {/* Beside the press it answers; no press where a file is already here. */}
       {setUp === true ? null : (
-      <div className="armada-proposal-sheet__press">
-        {written === undefined ? null : (
-          <p className="armada-proposal-sheet__said">
-            Wrote {file} at <Stamp at={written} />. Nothing was staged or committed.
-          </p>
-        )}
-        <Button variant="primary" disabled={written !== undefined || busy} onClick={onWrite}>
-          {written !== undefined ? "Written" : busy ? "Writing" : `Write ${file}`}
-        </Button>
-      </div>
+        <div className="armada-proposal-sheet__press">
+          {written === undefined ? null : (
+            <p className="armada-proposal-sheet__said">
+              Wrote {file} at <Stamp at={written} />. Nothing was staged or committed.
+            </p>
+          )}
+          <Button variant="primary" disabled={written !== undefined || busy} onClick={onWrite}>
+            {written !== undefined ? "Written" : busy ? "Writing" : `Write ${file}`}
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -284,7 +349,9 @@ function Landed({ children }: { children: ReactNode }) {
   const at = useRef<HTMLDivElement>(null);
   // A block, so nothing `scrollIntoView` returns is taken for a cleanup.
   useEffect(() => {
-    at.current?.scrollIntoView?.({ block: "start" });
+    at.current?.scrollIntoView?.({
+      block: "start",
+    });
   }, []);
   return (
     <div ref={at} className="armada-proposal-sheet__landed">
@@ -301,7 +368,10 @@ function Registry({
 }: ProposalSheetProps & {
   band: ProposalBand;
   locked: boolean;
-  faultsAt: (prefix: string) => { key: string; fault: string }[];
+  faultsAt: (prefix: string) => {
+    key: string;
+    fault: string;
+  }[];
 }) {
   const entries = props[band];
   const says =
@@ -323,10 +393,18 @@ function Registry({
               acts={
                 locked ? null : (
                   <>
-                    <Button variant="ghost" size="sm" onClick={() => props.onMove(band, entry.name)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => props.onMove(band, entry.name)}
+                    >
                       {`Move to ${TITLE[OTHER[band]]}`}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => props.onRemove(band, entry.name)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => props.onRemove(band, entry.name)}
+                    >
                       Remove
                     </Button>
                   </>
@@ -358,7 +436,11 @@ function Registry({
         </ul>
       )}
       {locked ? null : (
-        <AddLine noun={NOUN[band]} taken={entries.map((entry) => entry.name)} onAdd={(name, run) => props.onAdd(band, name, run)} />
+        <AddLine
+          noun={NOUN[band]}
+          taken={entries.map((entry) => entry.name)}
+          onAdd={(name, run) => props.onAdd(band, name, run)}
+        />
       )}
     </Band>
   );
@@ -383,12 +465,19 @@ function Row({
 }: {
   name: string;
   cited: ProvenanceProps;
-  faults: { key: string; fault: string }[];
+  faults: {
+    key: string;
+    fault: string;
+  }[];
   children: ReactNode;
   acts?: ReactNode;
 }) {
   return (
-    <li className="armada-proposal-sheet__row" aria-label={name} data-refused={faults.length > 0 || undefined}>
+    <li
+      className="armada-proposal-sheet__row"
+      aria-label={name}
+      data-refused={faults.length > 0 || undefined}
+    >
       <span className="armada-proposal-sheet__name">{name}</span>
       {children}
       {/* Source and acts travel together, and drop beneath when the sheet is narrow. */}
@@ -397,7 +486,9 @@ function Row({
         <span className="armada-proposal-sheet__acts">{acts}</span>
       </span>
       {faults.length === 0 ? null : (
-        <span className="armada-proposal-sheet__fault">{faults.map((one) => one.fault).join(" ")}</span>
+        <span className="armada-proposal-sheet__fault">
+          {faults.map((one) => one.fault).join(" ")}
+        </span>
       )}
     </li>
   );
@@ -419,7 +510,12 @@ function InPlace({
   if (locked) return <span className="armada-proposal-sheet__mono">{value}</span>;
   if (typed === null) {
     return (
-      <button type="button" className="armada-proposal-sheet__value" aria-label={`Edit ${label}`} onClick={() => setTyped(value)}>
+      <button
+        type="button"
+        className="armada-proposal-sheet__value"
+        aria-label={`Edit ${label}`}
+        onClick={() => setTyped(value)}
+      >
         {value}
       </button>
     );
@@ -444,7 +540,15 @@ function InPlace({
   );
 }
 
-function AddLine({ noun, taken, onAdd }: { noun: string; taken: string[]; onAdd: (name: string, run: string) => void }) {
+function AddLine({
+  noun,
+  taken,
+  onAdd,
+}: {
+  noun: string;
+  taken: string[];
+  onAdd: (name: string, run: string) => void;
+}) {
   const [name, setName] = useState("");
   const [run, setRun] = useState("");
   const clash = taken.includes(name.trim());

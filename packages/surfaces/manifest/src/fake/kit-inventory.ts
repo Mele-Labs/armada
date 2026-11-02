@@ -29,19 +29,35 @@ export function withAllowlist(inventory: KitInventory, items: readonly SetupItem
   return {
     ...inventory,
     kinds: inventory.kinds.map((one) =>
-      one.kind === "allowlist" ? { kind: "allowlist", read: { what: "read", items: [...items], unreadable: [] } } : one,
+      one.kind === "allowlist"
+        ? {
+            kind: "allowlist",
+            read: {
+              what: "read",
+              items: [
+                ...items,
+              ],
+              unreadable: [],
+            },
+          }
+        : one,
     ),
   };
 }
 
 /** The allowlist as the commands `remove_kit_allowed_command` answers with become its rows. */
-export function withAllowed(inventory: KitInventory, allowed: readonly KitAllowedCommand[]): KitInventory {
+export function withAllowed(
+  inventory: KitInventory,
+  allowed: readonly KitAllowedCommand[],
+): KitInventory {
   return withAllowlist(
     inventory,
-    allowed.map((one) => ({ name: one.run, source: sourceSpelled(one) })),
+    allowed.map((one) => ({
+      name: one.run,
+      source: sourceSpelled(one),
+    })),
   );
 }
-
 
 /** What a person on this mock machine already has. */
 export const KIT_INVENTORY: KitInventory = {
@@ -110,38 +126,68 @@ export const KIT_INVENTORY: KitInventory = {
             name: "bluf",
             says: "Bottom line first, then only what the reader needs to act on it.",
             source: "/Users/user/.agent/output-styles/bluf.md",
-            style: { from: "person", applied: "active" },
+            style: {
+              from: "person",
+              applied: "active",
+            },
           },
           {
             name: "Armada",
             says: "Answers the way Armada's own jobs do: facts, no filler.",
             source: "/Users/user/.agent/plugins/cache/armada/1.0.0/output-styles/Armada.md",
-            style: { from: "plugin", applied: "available", plugin: "armada" },
+            style: {
+              from: "plugin",
+              applied: "available",
+              plugin: "armada",
+            },
           },
           {
             name: "terse-review",
             says: "Short findings for reading a diff, one line each.",
             source: "/Users/user/develop/armada/.agent/output-styles/terse-review.md",
-            style: { from: "repository", applied: "available" },
+            style: {
+              from: "repository",
+              applied: "available",
+            },
           },
           {
             name: "Explanatory",
             says: "Explains the choices it makes as it works.",
             source: "built in to An agent CLI",
-            style: { from: "built_in", applied: "available" },
+            style: {
+              from: "built_in",
+              applied: "available",
+            },
           },
           {
             name: "Armada job rules",
             says: "Armada's rules for the jobs Bridge hosts, applied on top of the active style.",
             source: "Armada",
-            style: { from: "armada", applied: "always" },
+            style: {
+              from: "armada",
+              applied: "always",
+            },
           },
         ],
         unreadable: [],
       },
     },
-    { kind: "sub_agents", read: { what: "read", items: [], unreadable: [] } },
-    { kind: "commands", read: { what: "read", items: [], unreadable: [] } },
+    {
+      kind: "sub_agents",
+      read: {
+        what: "read",
+        items: [],
+        unreadable: [],
+      },
+    },
+    {
+      kind: "commands",
+      read: {
+        what: "read",
+        items: [],
+        unreadable: [],
+      },
+    },
     {
       kind: "mcp_servers",
       read: {
@@ -157,7 +203,14 @@ export const KIT_INVENTORY: KitInventory = {
       },
     },
     // Read since 23.35, from `~/.armada/allowed-commands`. Nothing in it until a command is added.
-    { kind: "allowlist", read: { what: "read", items: [], unreadable: [] } },
+    {
+      kind: "allowlist",
+      read: {
+        what: "read",
+        items: [],
+        unreadable: [],
+      },
+    },
     {
       kind: "models",
       read: {
@@ -173,8 +226,13 @@ export const NOT_READ_ALLOWLIST: KitInventory = {
   ...KIT_INVENTORY,
   kinds: KIT_INVENTORY.kinds.map((one) =>
     one.kind === "allowlist"
-      ? { kind: "allowlist", read: { what: "not_read", why: "allowed-commands would not read: line 3 is not a command" } }
+      ? {
+          kind: "allowlist",
+          read: {
+            what: "not_read",
+            why: "allowed-commands would not read: line 3 is not a command",
+          },
+        }
       : one,
   ),
 };
-

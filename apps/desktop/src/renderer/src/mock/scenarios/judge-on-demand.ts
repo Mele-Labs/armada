@@ -4,7 +4,12 @@
 // sketch and the command with one note on the whole of them. Mock only: the answers are `../judge-fleet.ts`, over the real routes. The walk `judgeOnDemand` plays it.
 
 import type { PullRequestPage } from "@armada/protocol";
-import type { Session, SessionAttachment, SessionRow, WorkGroup } from "@armada/screens/src/draft/sessions";
+import type {
+  Session,
+  SessionAttachment,
+  SessionRow,
+  WorkGroup,
+} from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { jobOpens } from "../../job-panes/store";
@@ -30,26 +35,128 @@ const DOC_TITLE = "Session tokens";
 const WALK_URL = "https://example.com/walk/sign-in-after-the-switch";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const task = (id: string, text: string) => ({ id, text, state: "done" as const, seen: true });
+const task = (id: string, text: string) => ({
+  id,
+  text,
+  state: "done" as const,
+  seen: true,
+});
 
 const GROUPS: WorkGroup[] = [
-  { id: "g1", agent: "rust-engineer", title: "Move sign-in to session tokens", paths: ["crates/api/src/auth"], tasks: [task("T1", "Issue a session token at sign-in"), task("T2", "Check the token on every request")] },
-  { id: "g2", agent: "bridge-engineer", title: "Show the signed-in state", paths: ["apps/desktop/src/main"], tasks: [task("T3", "Read the token from the sign-in reply")] },
+  {
+    id: "g1",
+    agent: "rust-engineer",
+    title: "Move sign-in to session tokens",
+    paths: [
+      "crates/api/src/auth",
+    ],
+    tasks: [
+      task("T1", "Issue a session token at sign-in"),
+      task("T2", "Check the token on every request"),
+    ],
+  },
+  {
+    id: "g2",
+    agent: "bridge-engineer",
+    title: "Show the signed-in state",
+    paths: [
+      "apps/desktop/src/main",
+    ],
+    tasks: [
+      task("T3", "Read the token from the sign-in reply"),
+    ],
+  },
 ];
 
-const SKETCH = scene([box("client", 0, 0, "Client", "Signs in", { icon: "globe", step: 1 }), box("api", 360, 0, "API", "Issues a session token", { icon: "server", step: 2 })], [arrow("client", "api", "code", undefined, 1)]);
+const SKETCH = scene(
+  [
+    box("client", 0, 0, "Client", "Signs in", {
+      icon: "globe",
+      step: 1,
+    }),
+    box("api", 360, 0, "API", "Issues a session token", {
+      icon: "server",
+      step: 2,
+    }),
+  ],
+  [
+    arrow("client", "api", "code", undefined, 1),
+  ],
+);
 
-const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
-const agent = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
+const you = (id: string, at: string, text: string): SessionRow => ({
+  id,
+  at,
+  kind: "message",
+  from: {
+    kind: "you",
+  },
+  text,
+});
+const agent = (id: string, at: string, text: string): SessionRow => ({
+  id,
+  at,
+  kind: "message",
+  from: {
+    kind: "agent",
+  },
+  text,
+});
 
 const ATTACHMENTS: SessionAttachment[] = [
-  { kind: "branch", name: BRANCH, slot: 3 },
-  { kind: "pull_request", number: PULL, title: PULL_TITLE, branch: BRANCH, address: ADDRESS, checks: { state: "pending" }, state: "open", auto: false },
-  { kind: "issue", number: "2367", title: "Sign-in should not depend on a cookie", address: "https://forge.invalid/issues/2367", state: "open" },
-  { kind: "artifact", form: "document", id: DOC_PATH, title: DOC_TITLE, revisions: [DOC_PATH] },
-  { kind: "artifact", form: "window", id: WALK_URL, title: "Sign-in after the switch" },
-  { kind: "sketch", id: "sketch:Flow", title: "Sign-in flow", by: "agent", drawing: SKETCH },
-  { kind: "subagent", id: "sub-1", task: "Read where the old cookie is set", state: "done", agentType: "explorer" },
+  {
+    kind: "branch",
+    name: BRANCH,
+    slot: 3,
+  },
+  {
+    kind: "pull_request",
+    number: PULL,
+    title: PULL_TITLE,
+    branch: BRANCH,
+    address: ADDRESS,
+    checks: {
+      state: "pending",
+    },
+    state: "open",
+    auto: false,
+  },
+  {
+    kind: "issue",
+    number: "2367",
+    title: "Sign-in should not depend on a cookie",
+    address: "https://forge.invalid/issues/2367",
+    state: "open",
+  },
+  {
+    kind: "artifact",
+    form: "document",
+    id: DOC_PATH,
+    title: DOC_TITLE,
+    revisions: [
+      DOC_PATH,
+    ],
+  },
+  {
+    kind: "artifact",
+    form: "window",
+    id: WALK_URL,
+    title: "Sign-in after the switch",
+  },
+  {
+    kind: "sketch",
+    id: "sketch:Flow",
+    title: "Sign-in flow",
+    by: "agent",
+    drawing: SKETCH,
+  },
+  {
+    kind: "subagent",
+    id: "sub-1",
+    task: "Read where the old cookie is set",
+    state: "done",
+    agentType: "explorer",
+  },
 ];
 
 const job: Session = {
@@ -60,27 +167,71 @@ const job: Session = {
   model: "opus",
   effort: "high",
   mode: "auto",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(1),
   standing: "idle",
   rows: [
     you("j-1", "14:02:00", "Move sign-in from the cookie to session tokens."),
-    { id: "j-2", at: "14:20:10", kind: "tool", text: 'Bash git commit -m "Issue a session token at sign-in"' },
-    { id: "j-3", at: "14:31:45", kind: "tool", text: 'Bash git commit -m "Check the token on every request"' },
-    { id: "j-4", at: "14:33:02", kind: "ran", command: "cargo test -p api auth", code: 0, tail: "test result: ok. 14 passed" },
-    agent("j-5", "14:36:00", `The pull request is open. Plan v2 covers what the review asked for: approve it, or tell me what to change.`),
+    {
+      id: "j-2",
+      at: "14:20:10",
+      kind: "tool",
+      text: 'Bash git commit -m "Issue a session token at sign-in"',
+    },
+    {
+      id: "j-3",
+      at: "14:31:45",
+      kind: "tool",
+      text: 'Bash git commit -m "Check the token on every request"',
+    },
+    {
+      id: "j-4",
+      at: "14:33:02",
+      kind: "ran",
+      command: "cargo test -p api auth",
+      code: 0,
+      tail: "test result: ok. 14 passed",
+    },
+    agent(
+      "j-5",
+      "14:36:00",
+      `The pull request is open. Plan v2 covers what the review asked for: approve it, or tell me what to change.`,
+    ),
   ],
   attachments: ATTACHMENTS,
-  waitingFor: [planCall(2, ago(1))],
+  waitingFor: [
+    planCall(2, ago(1)),
+  ],
   work: {
-    workflow: { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"], at: 0 },
+    workflow: {
+      name: "Feature",
+      steps: [
+        "Plan",
+        "Build",
+        "Verify",
+        "Pull request",
+      ],
+      at: 0,
+    },
     plan: {
       version: 2,
-      scope: ["crates/api/src/auth", "apps/desktop/src/main"],
+      scope: [
+        "crates/api/src/auth",
+        "apps/desktop/src/main",
+      ],
       approved: false,
       after: "j-5",
-      summary: "Sign-in issues a session token instead of setting a cookie, the API checks it on every request, and the desktop app reads it from the sign-in reply.",
-      groups: GROUPS.map((group, at) => ({ ...group, gives: ["Sign-in issues a session token", "The desktop app reads the token from the reply"][at]! })),
+      summary:
+        "Sign-in issues a session token instead of setting a cookie, the API checks it on every request, and the desktop app reads it from the sign-in reply.",
+      groups: GROUPS.map((group, at) => ({
+        ...group,
+        gives: [
+          "Sign-in issues a session token",
+          "The desktop app reads the token from the reply",
+        ][at]!,
+      })),
     },
   },
 };
@@ -161,25 +312,76 @@ function pulled(): PullRequestRead {
     approvals: 0,
     body: "Sign-in issues a session token and the API checks it on every request.",
     conversation: [],
-    checks: [{ name: "build", state: "running", address: `${ADDRESS}/checks?check_run_id=1` }],
-    files: files.map((path) => ({ path, status: "modified" as const, additions: path === MIDDLEWARE ? 6 : 2, deletions: 1 })),
+    checks: [
+      {
+        name: "build",
+        state: "running",
+        address: `${ADDRESS}/checks?check_run_id=1`,
+      },
+    ],
+    files: files.map((path) => ({
+      path,
+      status: "modified" as const,
+      additions: path === MIDDLEWARE ? 6 : 2,
+      deletions: 1,
+    })),
     commits: [
-      { sha: "a41c9e2", headline: "Issue a session token at sign-in", author: "nick", at: ago(25) },
-      { sha: "b7d02f1", headline: "Check the token on every request", author: "nick", at: ago(17) },
+      {
+        sha: "a41c9e2",
+        headline: "Issue a session token at sign-in",
+        author: "nick",
+        at: ago(25),
+      },
+      {
+        sha: "b7d02f1",
+        headline: "Check the token on every request",
+        author: "nick",
+        at: ago(17),
+      },
     ],
   };
-  return { repository: "mele-labs/armada", root: ROOT, facts: { kind: "pull_request", number: PULL, title: PULL_TITLE, branch: BRANCH, address: ADDRESS, checks: { state: "pending" }, state: "open", auto: false, body: page.body ?? "" }, page };
+  return {
+    repository: "mele-labs/armada",
+    root: ROOT,
+    facts: {
+      kind: "pull_request",
+      number: PULL,
+      title: PULL_TITLE,
+      branch: BRANCH,
+      address: ADDRESS,
+      checks: {
+        state: "pending",
+      },
+      state: "open",
+      auto: false,
+      body: page.body ?? "",
+    },
+    page,
+  };
 }
 
 function reads(): PanelReads {
-  const base = sharedPanelReads({ lines: [] });
+  const base = sharedPanelReads({
+    lines: [],
+  });
   return {
     ...base,
     pullRequest: async (item) => (item.number === PULL ? pulled() : base.pullRequest(item)),
     pullRequestPatches: async (item) =>
       item.number === PULL
-        ? { ok: true, files: Object.entries(PATCHES).map(([path, text]) => ({ manifest_id: OWNER, number: PULL, path, patch: text })) }
-        : ((await base.pullRequestPatches?.(item)) ?? { ok: false, said: "The forge could not find this pull request." }),
+        ? {
+            ok: true,
+            files: Object.entries(PATCHES).map(([path, text]) => ({
+              manifest_id: OWNER,
+              number: PULL,
+              path,
+              patch: text,
+            })),
+          }
+        : ((await base.pullRequestPatches?.(item)) ?? {
+            ok: false,
+            said: "The forge could not find this pull request.",
+          }),
   };
 }
 
@@ -187,7 +389,14 @@ function reads(): PanelReads {
 let judge: ReturnType<typeof mockJudge> | undefined;
 
 function sessions() {
-  const store = sessionsStore([job], [], new Map(), []);
+  const store = sessionsStore(
+    [
+      job,
+    ],
+    [],
+    new Map(),
+    [],
+  );
   const mine = mockJudge(store);
   judge = mine;
   // The Job opens with a Ledger tab beside its thread, which lists what it made with a Judge on each row.
@@ -196,7 +405,16 @@ function sessions() {
     ...store,
     judge: mine.acts,
     readArtifact: async (id: string, path: string) =>
-      path === DOC_PATH ? { ok: true as const, bytes: new TextEncoder().encode(DOC), type: "text/html" } : (store.readArtifact?.(id, path) ?? { ok: false as const, why: "unreadable" as const }),
+      path === DOC_PATH
+        ? {
+            ok: true as const,
+            bytes: new TextEncoder().encode(DOC),
+            type: "text/html",
+          }
+        : (store.readArtifact?.(id, path) ?? {
+            ok: false as const,
+            why: "unreadable" as const,
+          }),
     dispose: () => {
       mine.dispose();
       store.dispose();
@@ -204,12 +422,22 @@ function sessions() {
   };
 }
 
-const base = holding("judge-on-demand", "A Job with a plan, a pull request, commits, a document, a walk page, a sketch and a command, each with a Judge that reads on a press and leaves notes inside it");
+const base = holding(
+  "judge-on-demand",
+  "A Job with a plan, a pull request, commits, a document, a walk page, a sketch and a command, each with a Judge that reads on a press and leaves notes inside it",
+);
 
 export const judgeOnDemandScenario: Scenario = {
   ...base,
-  state: { ...base.state, repository: null },
-  draft: { sessions, areas: () => mockAreas("/armada"), sharedPanel: reads },
+  state: {
+    ...base.state,
+    repository: null,
+  },
+  draft: {
+    sessions,
+    areas: () => mockAreas("/armada"),
+    sharedPanel: reads,
+  },
   // The window's own api answers the Judge's four routes, as a real Fleet's does.
   behaves: () => ({
     askJudge: (ask) => judge!.routes.askJudge(ask),

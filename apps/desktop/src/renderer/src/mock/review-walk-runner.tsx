@@ -12,10 +12,20 @@ import { sendName } from "../../../shared/review-walk";
 import "../pr-review/walk.css";
 import "./review-walk-runner.css";
 
-export type MockResponse = { status: number; ms: number; body: string };
+export type MockResponse = {
+  status: number;
+  ms: number;
+  body: string;
+};
 
 /** What the page is handed in its address: the base address, and each request with the response it gets back. */
-export type RunnerPage = { base: string; requests: readonly { request: ReviewRequest; response: MockResponse }[] };
+export type RunnerPage = {
+  base: string;
+  requests: readonly {
+    request: ReviewRequest;
+    response: MockResponse;
+  }[];
+};
 
 type Sent = "sending" | "sent";
 
@@ -23,8 +33,18 @@ export function WalkRunner({ base, requests }: RunnerPage) {
   const [sent, setSent] = useState<Readonly<Record<number, Sent>>>({});
   const send = (at: number) => {
     if (sent[at] !== undefined) return;
-    setSent((was) => ({ ...was, [at]: "sending" }));
-    window.setTimeout(() => setSent((was) => ({ ...was, [at]: "sent" })), 300);
+    setSent((was) => ({
+      ...was,
+      [at]: "sending",
+    }));
+    window.setTimeout(
+      () =>
+        setSent((was) => ({
+          ...was,
+          [at]: "sent",
+        })),
+      300,
+    );
   };
   return (
     <main className="pr-walk pr-runner" aria-label="Requests">
@@ -43,7 +63,13 @@ export function WalkRunner({ base, requests }: RunnerPage) {
                   <code className="pr-walk__verb">{request.method}</code>
                   <code className="pr-walk__path">{request.path}</code>
                   <span className="pr-change__marks">
-                    <Button variant="ghost" size="sm" aria-label={sendName(request, at)} pending={sent[at] === "sending"} onClick={() => send(at)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={sendName(request, at)}
+                      pending={sent[at] === "sending"}
+                      onClick={() => send(at)}
+                    >
                       <Play size={16} strokeWidth={2} aria-hidden />
                       Send
                     </Button>
@@ -57,7 +83,10 @@ export function WalkRunner({ base, requests }: RunnerPage) {
                 {sent[at] !== "sent" ? null : (
                   <div className="pr-walk__response" role="group" aria-label={`Response ${at + 1}`}>
                     <p className="pr-walk__status">
-                      <Badge status={ok ? "completed-success" : "completed-failed"} icon={ok ? Check : X}>
+                      <Badge
+                        status={ok ? "completed-success" : "completed-failed"}
+                        icon={ok ? Check : X}
+                      >
                         {String(response.status)}
                       </Badge>
                       <Tooltip label="Time the response took">

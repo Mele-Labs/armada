@@ -13,11 +13,26 @@ export function realThreadWalk(name: string, title: string, commands: RegExp) {
   const thread = region("Thread");
   const steps: readonly Step[] = [
     toSessions,
-    { press: deckRow(title), say: "A real Job's thread in the new look" },
-    { look: inside(thread, region("Your message")), say: "Your own words, as a bubble on the right" },
-    { look: inside(thread, text(commands)), say: "Commands, with their glyph and time" },
-    { look: role("group", "Quick replies"), say: "The quick bar sits above the box, with replies to the last message" },
-    { press: button("Thread look"), say: "Aa: how this thread reads" },
+    {
+      press: deckRow(title),
+      say: "A real Job's thread in the new look",
+    },
+    {
+      look: inside(thread, region("Your message")),
+      say: "Your own words, as a bubble on the right",
+    },
+    {
+      look: inside(thread, text(commands)),
+      say: "Commands, with their glyph and time",
+    },
+    {
+      look: role("group", "Quick replies"),
+      say: "The quick bar sits above the box, with replies to the last message",
+    },
+    {
+      press: button("Thread look"),
+      say: "Aa: how this thread reads",
+    },
   ];
   return walk(name, steps);
 }

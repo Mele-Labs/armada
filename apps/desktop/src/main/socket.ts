@@ -53,13 +53,21 @@ const ANSWER_GRACE_MS = 1500;
 const BOOT_WINDOW_MS = 5 * 60_000;
 
 /** The one connection state that carries which Fleet Bridge is talking to. */
-export type BridgeStateFleet = Extract<Connection, { state: "connected" }>["fleet"];
+export type BridgeStateFleet = Extract<
+  Connection,
+  {
+    state: "connected";
+  }
+>["fleet"];
 
 export type FleetSocketWiring = {
   home: string | undefined;
   now: () => number;
   /** The two waits above, shortened where a test cannot spend minutes. */
-  timing?: { graceMs: number; bootMs: number };
+  timing?: {
+    graceMs: number;
+    bootMs: number;
+  };
   /** A connection state to settle, this instant. */
   settle: (connection: Connection) => void;
   /** A message arrived on the open socket, unparsed. */
@@ -139,12 +147,18 @@ export class FleetSocket {
       // Both render as "Fleet is not running", and the screen says which.
       // Neither opens a socket: a stale file's port may not be Fleet's.
       this.unreachableSince = null;
-      this.wiring.settle({ state: "not_running", absence: presence.absence });
+      this.wiring.settle({
+        state: "not_running",
+        absence: presence.absence,
+      });
       return this.later();
     }
     if (presence.at === "refused") {
       this.unreachableSince = null;
-      this.wiring.settle({ state: "runtime_file_refused", fault: presence.fault });
+      this.wiring.settle({
+        state: "runtime_file_refused",
+        fault: presence.fault,
+      });
       return this.later();
     }
 
@@ -163,7 +177,10 @@ export class FleetSocket {
 
     this.wiring.settle(
       this.unreachableSince === null
-        ? { state: "connecting", fleet }
+        ? {
+            state: "connecting",
+            fleet,
+          }
         : {
             state: "unreachable",
             fleet,
@@ -184,7 +201,10 @@ export class FleetSocket {
     // `close`, and the socket would sit in `connecting` for as long as boot
     // takes. The timer is what notices.
     this.unwatch();
-    this.watch = setTimeout(() => this.unanswered(fleet), this.wiring.timing?.graceMs ?? ANSWER_GRACE_MS);
+    this.watch = setTimeout(
+      () => this.unanswered(fleet),
+      this.wiring.timing?.graceMs ?? ANSWER_GRACE_MS,
+    );
 
     socket.on("message", (data: WebSocket.RawData) => {
       this.unwatch();
@@ -209,7 +229,10 @@ export class FleetSocket {
     // A start time that will not parse says nothing about age, so it cannot
     // earn the starting view.
     if (!Number.isNaN(born) && age < bootMs) {
-      this.wiring.settle({ state: "starting", fleet });
+      this.wiring.settle({
+        state: "starting",
+        fleet,
+      });
       this.watch = setTimeout(() => this.unanswered(fleet), bootMs - age);
       return;
     }
@@ -234,7 +257,12 @@ export class FleetSocket {
     this.socket.removeAllListeners();
     this.socket = null;
     if (this.unreachableSince === null) this.unreachableSince = this.wiring.now();
-    this.wiring.settle({ state: "unreachable", fleet, detail, sinceMs: this.unreachableSince });
+    this.wiring.settle({
+      state: "unreachable",
+      fleet,
+      detail,
+      sinceMs: this.unreachableSince,
+    });
     this.later();
   }
 

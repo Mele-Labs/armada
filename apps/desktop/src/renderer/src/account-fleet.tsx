@@ -9,7 +9,15 @@ import { AccountProvider, SharedHomeProvider, WhatSyncsSheet } from "@armada/com
 import type { AccountSource } from "./fleet-account";
 import type { SharedHomeSource } from "./fleet-shared-home";
 
-export function AccountFromFleet({ source, home, children }: { source: AccountSource; home: SharedHomeSource; children: ReactNode }) {
+export function AccountFromFleet({
+  source,
+  home,
+  children,
+}: {
+  source: AccountSource;
+  home: SharedHomeSource;
+  children: ReactNode;
+}) {
   const held = useSyncExternalStore(source.subscribe, source.get);
   const shared = useSyncExternalStore(home.subscribe, home.get);
   return (

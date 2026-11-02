@@ -7,16 +7,35 @@ import { useEscapeFold } from "./useEscapeFold";
 import { useScrimFold } from "./useScrimFold";
 
 /** One thing a Job waits on that is not him: a watch, its pull request in the queue or set to merge, or its pull request's Checks running. */
-export type WaitingLine = { kind: "watch" | "merge" | "checks"; said: string };
+export type WaitingLine = {
+  kind: "watch" | "merge" | "checks";
+  said: string;
+};
 
-const GLYPH: Record<WaitingLine["kind"], LucideIcon> = { watch: Radar, merge: GitMerge, checks: CircleDot };
+const GLYPH: Record<WaitingLine["kind"], LucideIcon> = {
+  watch: Radar,
+  merge: GitMerge,
+  checks: CircleDot,
+};
 
 /**
  * A Job waiting on something that is not him, as a band on the composer in the waiting hue, drawn as the Needs you band is: a glyph for each
  * thing it waits on, named on hover, and pressed it rides up as the header of a panel with a row for each. Esc and a press on the dimmed thread
  * fold it. It shares the panel's styles, so the band and the body move the same way.
  */
-export function WaitingBand({ waits, open, onOpen, onDismiss }: { waits: readonly WaitingLine[]; open: boolean; onOpen: (next: boolean) => void; /** Dismisses the wait at that place in `waits`: a watch is stopped, a pull request stops counting. */ onDismiss?: (at: number) => void }) {
+export function WaitingBand({
+  waits,
+  open,
+  onOpen,
+  onDismiss,
+}: {
+  waits: readonly WaitingLine[];
+  open: boolean;
+  onOpen: (
+    next: boolean,
+  ) => void /** Dismisses the wait at that place in `waits`: a watch is stopped, a pull request stops counting. */;
+  onDismiss?: (at: number) => void;
+}) {
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useScrimFold(section, open, () => onOpen(false));
@@ -29,9 +48,24 @@ export function WaitingBand({ waits, open, onOpen, onDismiss }: { waits: readonl
     trigger.current?.focus();
   };
   return (
-    <section ref={section} className="armada-needs-panel" aria-label="Waiting" data-kind="waiting" data-open={open} onKeyDown={close} data-keeps-escape={open ? "" : undefined}>
+    <section
+      ref={section}
+      className="armada-needs-panel"
+      aria-label="Waiting"
+      data-kind="waiting"
+      data-open={open}
+      onKeyDown={close}
+      data-keeps-escape={open ? "" : undefined}
+    >
       <div className="armada-needs-panel__band">
-        <button ref={trigger} type="button" className="armada-needs-panel__trigger" aria-label="Waiting" aria-expanded={open} onClick={() => onOpen(!open)}>
+        <button
+          ref={trigger}
+          type="button"
+          className="armada-needs-panel__trigger"
+          aria-label="Waiting"
+          aria-expanded={open}
+          onClick={() => onOpen(!open)}
+        >
           <Radar size={12} strokeWidth={2} aria-hidden />
           <span className="armada-needs-panel__label">Waiting</span>
           <span className="armada-needs-panel__glyphs">
@@ -66,7 +100,12 @@ export function WaitingBand({ waits, open, onOpen, onDismiss }: { waits: readonl
                     </span>
                     {onDismiss === undefined ? null : (
                       <Tooltip label={away}>
-                        <button type="button" className="armada-waiting-band__dismiss" aria-label={`${away}: ${one.said}`} onClick={() => onDismiss(at)}>
+                        <button
+                          type="button"
+                          className="armada-waiting-band__dismiss"
+                          aria-label={`${away}: ${one.said}`}
+                          onClick={() => onDismiss(at)}
+                        >
                           <X size={12} strokeWidth={2} aria-hidden />
                         </button>
                       </Tooltip>

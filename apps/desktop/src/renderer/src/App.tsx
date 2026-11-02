@@ -20,7 +20,14 @@ import type { HelmContext } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
 import { contextOf, HelmDock, screenOf } from "@armada/helm";
 import { UsageSurface } from "./usage-surface";
-import { AccountPage, Button, GuidanceProvider, GuideCatalogue, ProseLinks, useNowWhile } from "@armada/components";
+import {
+  AccountPage,
+  Button,
+  GuidanceProvider,
+  GuideCatalogue,
+  ProseLinks,
+  useNowWhile,
+} from "@armada/components";
 
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
@@ -41,7 +48,14 @@ import { PointMenu } from "./point-menu";
 import { PointActsProvided } from "./point-acts";
 import { useTeachBridge } from "./teach";
 import { useLandings, usePullLinks, useSummoned, useUiSounds } from "./app-effects";
-import { Overview } from "./Overview"; import { DoctorSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
+import { Overview } from "./Overview";
+import {
+  DoctorSurfaceNow,
+  ManifestNow,
+  SetupNow,
+  StudiosSurfaceNow,
+  WorktreesNow,
+} from "./clocked-screens";
 import { CallAlerts } from "./cockpit/CallAlerts";
 import { DockCount } from "./cockpit/DockCount";
 import { DeckHost, DeckPlaces } from "./cockpit/deck/DeckHost";
@@ -82,7 +96,59 @@ import { LinkPanelHost, useLinkDrop } from "./link-drop";
 import { usePasteAndDrop } from "./paste-and-drop";
 import { useLinkRoutes } from "./link-routes";
 import { SketchSharing } from "./sketch-sharing";
-import { openServerLink, openLink, restartFleet, changeFleetBuild, observeCheckoutRun, pickRepository, chooseFolder, resolveFolder, addRepository, cloneRepository, createProject, helmDebugInfo, startHelmFresh, pointHelm, getCheckoutRunOutput, getCheckoutRunDiff, readManifestFile, saveManifestFile, editManifest, readRepositoryScan, readManifestProposals, editManifestProposal, writeManifestProposal, listRepositoryAllowedCommands, removeRepositoryAllowedCommand, listKitServers, readKitInventory, removeKitAllowedCommand, removeKitPiece, restoreKitPiece, addKitServer, forgetKitServer, setKitServerReach, setManifestServerReach, listCheckoutRuns, undoCheckoutRun, setupSessionFleet, getRunMemoryPlace, captureStudioNote, readHeld, slotActs, bayActs, startCheckoutRun, startCheckoutVerify, startServer, stopCheckoutRun, stopServer, useCommands, watchCheckoutRunSheet, watchManifestDrift, watchOverview } from "./commands";
+import {
+  openServerLink,
+  openLink,
+  restartFleet,
+  changeFleetBuild,
+  observeCheckoutRun,
+  pickRepository,
+  chooseFolder,
+  resolveFolder,
+  addRepository,
+  cloneRepository,
+  createProject,
+  helmDebugInfo,
+  startHelmFresh,
+  pointHelm,
+  getCheckoutRunOutput,
+  getCheckoutRunDiff,
+  readManifestFile,
+  saveManifestFile,
+  editManifest,
+  readRepositoryScan,
+  readManifestProposals,
+  editManifestProposal,
+  writeManifestProposal,
+  listRepositoryAllowedCommands,
+  removeRepositoryAllowedCommand,
+  listKitServers,
+  readKitInventory,
+  removeKitAllowedCommand,
+  removeKitPiece,
+  restoreKitPiece,
+  addKitServer,
+  forgetKitServer,
+  setKitServerReach,
+  setManifestServerReach,
+  listCheckoutRuns,
+  undoCheckoutRun,
+  setupSessionFleet,
+  getRunMemoryPlace,
+  captureStudioNote,
+  readHeld,
+  slotActs,
+  bayActs,
+  startCheckoutRun,
+  startCheckoutVerify,
+  startServer,
+  stopCheckoutRun,
+  stopServer,
+  useCommands,
+  watchCheckoutRunSheet,
+  watchManifestDrift,
+  watchOverview,
+} from "./commands";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { useMergeByHand } from "./merge-by-hand";
 import { LogbookSurface } from "./logbook";
@@ -91,14 +157,30 @@ import { AgentSignInAlert } from "./agent-sign-in";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { LoadoutPanel } from "./session-loadout";
-import { ReviewsSurface } from "./pr-review/surface"; import { reviewsHidden, useReviewStore } from "./pr-review/store"; import { IssuesSurface } from "./issues-tab/surface"; import { issuesHidden, useIssuesStore, useReportedBugsFollowed } from "./issues-tab/store"; import { ProjectsSurface } from "./projects-tab/surface"; import { projectsHidden, useProjectsFollowed, useProjectsStore } from "./projects-tab/store"; import { ProjectsUndo } from "./projects-tab/undo"; import { usePaletteTasks } from "./projects-tab/palette"; import { useShowTaskAsked } from "./projects-tab/held";
+import { ReviewsSurface } from "./pr-review/surface";
+import { reviewsHidden, useReviewStore } from "./pr-review/store";
+import { IssuesSurface } from "./issues-tab/surface";
+import { issuesHidden, useIssuesStore, useReportedBugsFollowed } from "./issues-tab/store";
+import { ProjectsSurface } from "./projects-tab/surface";
+import { projectsHidden, useProjectsFollowed, useProjectsStore } from "./projects-tab/store";
+import { ProjectsUndo } from "./projects-tab/undo";
+import { usePaletteTasks } from "./projects-tab/palette";
+import { useShowTaskAsked } from "./projects-tab/held";
 import { SessionsOwnership } from "./sessions";
-import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session"; import { askForFixes, useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
+import { askToOpenSessionInCockpit, useOpenSessionAsked } from "./open-session";
+import { askForFixes, useOpenRetroAsked } from "./open-retro";
+import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
 import { tellActFailures } from "./act-failed";
 import { useOutcomeRaised } from "./tell";
 import { ImportPackage } from "./sharing/ImportPackage";
-import { scopeToWorkspace } from "./workspace-scope"; import { useHistory } from "./history"; import { showingOf } from "./showing"; import { workflowsWarned } from "./workflows-warned"; import { WorkflowManagerSurface } from "./workflow-manager"; import { WorkspacesSurface } from "./workspaces-page"; import { useWorkspaces } from "./use-workspaces";
+import { scopeToWorkspace } from "./workspace-scope";
+import { useHistory } from "./history";
+import { showingOf } from "./showing";
+import { workflowsWarned } from "./workflows-warned";
+import { WorkflowManagerSurface } from "./workflow-manager";
+import { WorkspacesSurface } from "./workspaces-page";
+import { useWorkspaces } from "./use-workspaces";
 import type { WorkspacesApi } from "./workspaces-fleet";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
@@ -109,7 +191,16 @@ import { stateOf } from "./state-feed";
 import { shellsOf } from "./job-shell";
 import { usePower } from "./cockpit/boot";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
-import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useLayout, useNarrow, useSurfaceKeys } from "@armada/shell";
+import {
+  askToOpenHelm,
+  Shell,
+  SURFACE,
+  SURFACES,
+  useAtFloor,
+  useLayout,
+  useNarrow,
+  useSurfaceKeys,
+} from "@armada/shell";
 
 /** Re-exported so nothing importing it has to learn a new path. */
 export const WAITING: BridgeState = NOTHING_YET;
@@ -130,11 +221,14 @@ export function App() {
   // A link in a model's text, for every Prose in the window. A pull request opens in the side panel; a refusal is said, never a dead click.
   const openProseLink = useCallback(
     (address: string) =>
-      openAddressInPanel(address) || void openLink(address).then((followed) => {
+      openAddressInPanel(address) ||
+      void openLink(address).then((followed) => {
         const why = whyNotOpenedLink(followed);
         if (why !== null) setTelling(why);
       }),
-    [setTelling],
+    [
+      setTelling,
+    ],
   );
   const asked = useAsked(); // Where the Checks page's requester links sent a person. `checks-surface.tsx`.
   const lands = useLandings(); // The section a pressed notification asked for, and the call an alert did.
@@ -143,7 +237,8 @@ export function App() {
   const [clearing, setClearing] = useState(false);
   // Whether Settings is open — a rail surface since #1089, the sheet it
   // replaced having lost its own opener when the status bar went (#1088).
-  const [settingsShowing, setSettingsShowing] = useState(false); const [modding, setModding] = useState(false);
+  const [settingsShowing, setSettingsShowing] = useState(false);
+  const [modding, setModding] = useState(false);
   // Whether Kit is open — a rail surface since #1275, at `⌘8`. Machine-wide,
   // and the rail's pick is what names its second tier.
   const [kitting, setKitting] = useState(false);
@@ -154,11 +249,23 @@ export function App() {
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
-  const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // The Workflow creator (`workflow-creator.tsx`).
-  const [usaging, setUsaging] = useState(false); const [logbooking, setLogbooking] = useState(false); // Usage, where the tokens went; the Logbook (`logbook.tsx`).
-  const [reviewing, setReviewing] = useState(false); const [issuing, setIssuing] = useState(false); const [projecting, setProjecting] = useState(false); // Reviews, the pull requests waiting on him (`pr-review/`), Issues, a repository's tracker (`issues-tab/`), and Projects, his own lists (`projects-tab/`).
+  const [checking, setChecking] = useState(false);
+  const [doctoring, setDoctoring] = useState(false);
+  const [workflowing, setWorkflowing] = useState(false); // The Workflow creator (`workflow-creator.tsx`).
+  const [usaging, setUsaging] = useState(false);
+  const [logbooking, setLogbooking] = useState(false); // Usage, where the tokens went; the Logbook (`logbook.tsx`).
+  const [reviewing, setReviewing] = useState(false);
+  const [issuing, setIssuing] = useState(false);
+  const [projecting, setProjecting] = useState(false); // Reviews, the pull requests waiting on him (`pr-review/`), Issues, a repository's tracker (`issues-tab/`), and Projects, his own lists (`projects-tab/`).
   // Left off the rail and the palette. The old Jobs tab has no page, so it is never drawn and takes no digit.
-  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(), SURFACE.jobs, ...reviewsHidden(useReviewStore() !== undefined), ...issuesHidden(useIssuesStore() !== undefined), ...projectsHidden(useProjectsStore() !== undefined)];
+  const hidden = [
+    ...hiddenSurfaces(state),
+    ...sessionsHidden(),
+    SURFACE.jobs,
+    ...reviewsHidden(useReviewStore() !== undefined),
+    ...issuesHidden(useIssuesStore() !== undefined),
+    ...projectsHidden(useProjectsStore() !== undefined),
+  ];
   // Whether the Manifest surface is open — Journey 9's *Running one*. It is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with nothing running.
   const [manifesting, setManifesting] = useState(false);
@@ -182,22 +289,27 @@ export function App() {
   const [readingSeen, setReadingSeen] = useState<string | null>(null);
   // Whether the command palette is up.
   const palette = useCommandPalette();
-  const openSetting = (id: string) => openSettingsAt(id, () => {
-    const entry = entryOfSettingsRow(id);
-    if (entry !== undefined) openSystemEntry(entry);
-    goTo(SURFACE.settings);
-  });
+  const openSetting = (id: string) =>
+    openSettingsAt(id, () => {
+      const entry = entryOfSettingsRow(id);
+      if (entry !== undefined) openSystemEntry(entry);
+      goTo(SURFACE.settings);
+    });
   const openModelSetting = () => openSetting("settings:model");
   const titleRow = useTitleRow(openModelSetting);
   // Every command the window can send, and what it holds while one is out. A re-read publishes what came back.
-  const commands = useCommands({ onRead: setState });
+  const commands = useCommands({
+    onRead: setState,
+  });
   // Whether the window is at `--window-floor`, Fleet settings' own reading.
   const floor = useAtFloor();
   const narrow = useNarrow();
   // The left column's own fold, remembered across a restart — Bridge/1088.
   const [fleetOpen, setFleetOpen] = usePanelOpen("fleet");
   // The mock provides a fixture; a real window builds it from what Fleet reported.
-  const fleetBuild = useFleetBuild() ?? fleetBuildOf(state.fleetBuild, (build, adopt) => void changeFleetBuild(build, adopt));
+  const fleetBuild =
+    useFleetBuild() ??
+    fleetBuildOf(state.fleetBuild, (build, adopt) => void changeFleetBuild(build, adopt));
   // The catalogue list's width, remembered the same way the shell's column is.
   const [guideList, resizeGuideList] = useGuideListWidth();
 
@@ -207,7 +319,17 @@ export function App() {
     // `readAt` moves on every poll and is read only to say how stale an unreachable Fleet's picture is, so while Fleet
     // answers the window keeps the one it has: a poll that changed nothing else must not draw the whole window.
     const take = (next: BridgeState) =>
-      setState((was) => share(was, next.connection.state === "connected" && was.readAt !== null && next.readAt !== null ? { ...next, readAt: was.readAt } : next));
+      setState((was) =>
+        share(
+          was,
+          next.connection.state === "connected" && was.readAt !== null && next.readAt !== null
+            ? {
+                ...next,
+                readAt: was.readAt,
+              }
+            : next,
+        ),
+      );
     const source = stateOf(window.armada);
     void source.state().then(take);
     return source.subscribe(take);
@@ -229,13 +351,20 @@ export function App() {
   const studyingOne = studying && openStudio !== null;
   useEffect(() => {
     watchCheckoutRunSheet(manifesting || checking || palette.open || studyingOne);
-  }, [manifesting, checking, palette.open, studyingOne]);
+  }, [
+    manifesting,
+    checking,
+    palette.open,
+    studyingOne,
+  ]);
 
   // Drift is the surface's own free read on opening, and the palette lists
   // nothing off it. Verify is not here: it is only ever pressed.
   useEffect(() => {
     watchManifestDrift(manifesting);
-  }, [manifesting]);
+  }, [
+    manifesting,
+  ]);
 
   // Fleet's health. Held for the life of the window rather than only while
   // Overview is showing — Bridge/1088's Fleet panel draws its Doctor read on
@@ -256,15 +385,48 @@ export function App() {
   const repositories = state.holds.repositories ?? [];
   // The Workspaces the picker lists, each with the roots of the repositories in it. Fleet keeps them; the System page and the picker read the same ones.
   const workspaces = useWorkspaces(workspacesApi, repositories);
-  const pickerWorkspaces = workspaces.workspaces.map((one) => ({ id: one.id, name: one.name, repositories: one.repositories.flatMap((id) => repositories.filter((repo) => repo.manifest?.id === id).map((repo) => repo.root)) }));
+  const pickerWorkspaces = workspaces.workspaces.map((one) => ({
+    id: one.id,
+    name: one.name,
+    repositories: one.repositories.flatMap((id) =>
+      repositories.filter((repo) => repo.manifest?.id === id).map((repo) => repo.root),
+    ),
+  }));
   // The Workspace the window shows, if one is picked: the pages below read its repositories as they read All.
   const [workspaceScope, setWorkspaceScope] = useState<string | null>(null);
   const scopedWorkspace = pickerWorkspaces.find((one) => one.id === workspaceScope) ?? null;
-  const shown = scopedWorkspace === null ? repositories : repositories.filter((one) => scopedWorkspace.repositories.includes(one.root));
-  useEffect(() => scopeToWorkspace(scopedWorkspace === null ? null : shown), [scopedWorkspace?.id, shown.map((one) => one.root).join("\n")]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shownState: BridgeState = scopedWorkspace === null ? state : { ...state, holds: { ...state.holds, repositories: shown } };
+  const shown =
+    scopedWorkspace === null
+      ? repositories
+      : repositories.filter((one) => scopedWorkspace.repositories.includes(one.root));
+  useEffect(
+    () => scopeToWorkspace(scopedWorkspace === null ? null : shown),
+    [
+      scopedWorkspace?.id,
+      shown.map((one) => one.root).join("\n"),
+    ],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
+  const shownState: BridgeState =
+    scopedWorkspace === null
+      ? state
+      : {
+          ...state,
+          holds: {
+            ...state.holds,
+            repositories: shown,
+          },
+        };
   const openWorkspace = (id: string | null) => {
-    workspaces.pick(id === null ? { kind: "new" } : { kind: "workspace", id });
+    workspaces.pick(
+      id === null
+        ? {
+            kind: "new",
+          }
+        : {
+            kind: "workspace",
+            id,
+          },
+    );
     openSystemEntry("kit:workspaces");
     goTo(SURFACE.kit);
   };
@@ -273,7 +435,10 @@ export function App() {
   const projectsStore = useProjectsStore();
   const paletteTasks = usePaletteTasks(repositories); // The palette finds a task by its title: `projects-tab/palette.ts`.
   // A task found by title, or pressed in a Job's rail, opens on the Projects tab, in its project or on All tasks, and its card takes the focus.
-  const showTask = projectsStore === undefined ? undefined : (rowId: string) => (goTo(SURFACE.projects), projectsStore.showRow(rowId));
+  const showTask =
+    projectsStore === undefined
+      ? undefined
+      : (rowId: string) => (goTo(SURFACE.projects), projectsStore.showRow(rowId));
   useShowTaskAsked(showTask);
   const repository = state.repository ?? undefined;
   // Whether Fleet has answered the listing. `models` is what says the holdings were read.
@@ -305,7 +470,11 @@ export function App() {
   // The forms beside it, held here for the same reason. A form edit's pull request the forge would not auto-merge is read off the merge line.
   const merging = useMergeByHand(state, openProseLink);
   const form = useManifestForm({
-    ...(merging.mergeByHand === undefined ? {} : { mergeByHand: merging.mergeByHand }),
+    ...(merging.mergeByHand === undefined
+      ? {}
+      : {
+          mergeByHand: merging.mergeByHand,
+        }),
     repository,
     showing: manifesting,
     reading: state.manifestReading,
@@ -323,7 +492,11 @@ export function App() {
     onWriteProposal: writeManifestProposal,
   });
 
-  const openPull = usePullLinks(() => (setClearing(false), goTo(SURFACE.reviews)), repositories, setTelling);
+  const openPull = usePullLinks(
+    () => (setClearing(false), goTo(SURFACE.reviews)),
+    repositories,
+    setTelling,
+  );
   // A notification pressed, or an alert's call: the Cockpit, the overlays down first.
   useSummoned(
     () => (setClearing(false), goTo(SURFACE.overview)),
@@ -335,25 +508,60 @@ export function App() {
     },
   );
 
-  const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, openSession, openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)) }); // One draft for the Cockpit's bar and the panel grown from the title bar.
+  const live = state.connection.state === "connected";
+  const dispatching = useDispatch({
+    state,
+    repositories,
+    openSession,
+    openAutopilot: (root) => (
+      state.repository !== root && pickRepository(root), goTo(SURFACE.overview)
+    ),
+  }); // One draft for the Cockpit's bar and the panel grown from the title bar.
   const newSession = () => (dispatching.choose("session"), dispatching.openNew()); // A New session entry opens the same panel.
   const sessions = useSessions();
   const helmBox = useHelmBox(state.helm);
-  const refsHost: RefsHostProps = { state, repositories, openSession, openLink: openProseLink };
+  const refsHost: RefsHostProps = {
+    state,
+    repositories,
+    openSession,
+    openLink: openProseLink,
+  };
   const helmRefs = useHelmRefs(refsHost);
   const helmHosted = useHelmHosted({
     manifestId: state.helm.state === "none" ? undefined : state.helm.manifestId,
-    goes: { onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)), onOpenLoadout: asked.setLoadoutFocus },
-    held: { held: state.held, onWant: readHeld },
+    goes: {
+      onGoTo: goTo,
+      onOpenLink: openProseLink,
+      onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)),
+      onOpenLoadout: asked.setLoadoutFocus,
+    },
+    held: {
+      held: state.held,
+      onWant: readHeld,
+    },
     openSession,
     words: helmBox.words,
   });
-  const routing = useThoughtRouting({ state, repositories, dispatching, openSession, sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
-  const oneBar = useOneBar({ live, dispatching, open: palette.open, picked: repositories.find((one) => one.root === state.repository) ?? null, repositories }); // `n`, ⌘N and ⌘K: the title bar's one bar.
+  const routing = useThoughtRouting({
+    state,
+    repositories,
+    dispatching,
+    openSession,
+    sketchesOf: helmBox.sketchesOf,
+    carryOf: helmBox.carryOf,
+  });
+  const oneBar = useOneBar({
+    live,
+    dispatching,
+    open: palette.open,
+    picked: repositories.find((one) => one.root === state.repository) ?? null,
+    repositories,
+  }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   usePasteAndDrop(); // The one listener for a paste or a drop, which a package and then a link claim: `paste-and-drop.ts`.
   const linkRoutes = useLinkRoutes(openPull, repositories); // A pull request's or an issue's link, before any other: `link-routes.ts`.
   useLinkDrop(); // A link pasted or dropped anywhere: `link-drop.tsx`.
-  const firstContact = firstContactOf(state.settings); useUiSounds(state.settings); // Whether a guide opens itself, once Fleet has answered.
+  const firstContact = firstContactOf(state.settings);
+  useUiSounds(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell, raiseBuildFailed } = useRaised(commands.outcome);
@@ -374,7 +582,10 @@ export function App() {
   });
   // The Cockpit powering on: a Fleet coming back holds its banner until the grace is out (`cockpit/boot.ts`).
   const power = usePower(state.connection, state.drawnFromDisk);
-  const guarded ={ bridge: state.bridge, onCopied: setCopied };
+  const guarded = {
+    bridge: state.bridge,
+    onCopied: setCopied,
+  };
 
   /**
    * Go to a place in the rail. **One function, because the rail and the palette
@@ -402,7 +613,10 @@ export function App() {
     setStartingSession(true);
     // The Job cannot read where the configuration is kept, so Bridge does and the message names it.
     void getRunMemoryPlace(root)
-      .then((kept) => (kept.ok ? placeOf(kept.value, []) : undefined), () => undefined)
+      .then(
+        (kept) => (kept.ok ? placeOf(kept.value, []) : undefined),
+        () => undefined,
+      )
       .then((place) => startSetupSession(held, root, setupSessionFleet, said, place))
       .then((answer) => {
         setStartingSession(false);
@@ -410,7 +624,11 @@ export function App() {
         if (answer.id !== undefined) openSession(answer.id);
       });
   }
-  useOpenSessionAsked(openSession); useOpenHolderAsked({ session: openSession }); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
+  useOpenSessionAsked(openSession);
+  useOpenHolderAsked({
+    session: openSession,
+  });
+  useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
   const teachBridge = useTeachBridge();
   useOpenModAsked((kind) => (openSystemEntry(`bridge:${kind}`), goTo(SURFACE.settings))); // A taught entry's mod, opened in Mods.
 
@@ -426,20 +644,34 @@ export function App() {
     // Kit, Mods, Settings, Guides and Workflows are one page now: each opens its entry, and the page is Kit's.
     const entry = entryForSurface(place, systemEntryNow());
     if (entry !== undefined) openSystemEntry(entry);
-    const surfaceId = entry !== undefined ? SURFACE.kit : place === SURFACE.sessions || place === SURFACE.jobs ? SURFACE.overview : place;
-    if (place === SURFACE.sessions) window.requestAnimationFrame(() => focusPanel("list", deckNow().cursor));
+    const surfaceId =
+      entry !== undefined
+        ? SURFACE.kit
+        : place === SURFACE.sessions || place === SURFACE.jobs
+          ? SURFACE.overview
+          : place;
+    if (place === SURFACE.sessions)
+      window.requestAnimationFrame(() => focusPanel("list", deckNow().cursor));
     setClearing(surfaceId === SURFACE.worktrees);
     setManifesting(surfaceId === SURFACE.manifest);
-    setSettingsShowing(surfaceId === SURFACE.settings); setModding(surfaceId === SURFACE.mods);
+    setSettingsShowing(surfaceId === SURFACE.settings);
+    setModding(surfaceId === SURFACE.mods);
     setKitting(surfaceId === SURFACE.kit);
     setAccounting(surfaceId === SURFACE.account);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
-    asked.setMergeFocus(undefined); asked.setCheckFocus(undefined); asked.setLoadoutFocus(undefined);
-    setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks); setDoctoring(surfaceId === SURFACE.doctor);
+    asked.setMergeFocus(undefined);
+    asked.setCheckFocus(undefined);
+    asked.setLoadoutFocus(undefined);
+    setWorkflowing(surfaceId === SURFACE.workflows);
+    setChecking(surfaceId === SURFACE.checks);
+    setDoctoring(surfaceId === SURFACE.doctor);
     setStudying(surfaceId === SURFACE.studios);
-    setReviewing(surfaceId === SURFACE.reviews); setIssuing(surfaceId === SURFACE.issues); setProjecting(surfaceId === SURFACE.projects);
-    setUsaging(surfaceId === SURFACE.usage); setLogbooking(surfaceId === SURFACE.logbook);
+    setReviewing(surfaceId === SURFACE.reviews);
+    setIssuing(surfaceId === SURFACE.issues);
+    setProjecting(surfaceId === SURFACE.projects);
+    setUsaging(surfaceId === SURFACE.usage);
+    setLogbooking(surfaceId === SURFACE.logbook);
     setOpenStudio(null);
     setStudioNode(null);
     if (surfaceId !== SURFACE.manifest) setPicked(null);
@@ -466,15 +698,30 @@ export function App() {
   const all = pickedRepository === null && repositories.length > 0;
   // Worktree Slots follow the pick too.
   const pickedHeld = useMemo(
-    () => (state.held.state === "read" ? { ...state.held, held: scopedWorkspace === null ? heldOfPicked(state.held.held, pickedRepository) : heldOfWorkspace(state.held.held, shown) } : state.held),
-    [state.held, pickedRepository, scopedWorkspace, shown],
+    () =>
+      state.held.state === "read"
+        ? {
+            ...state.held,
+            held:
+              scopedWorkspace === null
+                ? heldOfPicked(state.held.held, pickedRepository)
+                : heldOfWorkspace(state.held.held, shown),
+          }
+        : state.held,
+    [
+      state.held,
+      pickedRepository,
+      scopedWorkspace,
+      shown,
+    ],
   );
   // Where the person is, for Helm — #1075.
   const helmScreen = screenOf({
     clearing,
     manifesting,
     studying,
-    kitting, workflowing,
+    kitting,
+    workflowing,
     settling: settingsShowing,
   });
   const helmContext: HelmContext = contextOf({
@@ -483,24 +730,78 @@ export function App() {
     studio: openStudio?.id ?? null,
     node: studioNode,
   });
-  const shownStudio = state.studio.state === "read" && state.studio.studio.id === openStudio?.id ? state.studio.studio : null;
+  const shownStudio =
+    state.studio.state === "read" && state.studio.studio.id === openStudio?.id
+      ? state.studio.studio
+      : null;
   // Aimed during render rather than in an effect: it is a value this render
   // already knows, and an effect would leave capture a frame behind the Studio.
   const continued =
     openStudio?.editable === true && shownStudio !== null
-      ? { id: shownStudio.id, name: studioName(shownStudio) }
+      ? {
+          id: shownStudio.id,
+          name: studioName(shownStudio),
+        }
       : null;
-  if (continued !== null && (continued.id !== captureAim?.id || continued.name !== captureAim.name)) {
+  if (
+    continued !== null &&
+    (continued.id !== captureAim?.id || continued.name !== captureAim.name)
+  ) {
     setCaptureAim(continued);
   }
   // Helm's dock lists every repository's questions, whatever the pick.
   const asks = useDockCards(state.questions, repositories, commands);
-  const atCockpit = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, workflowing, checking, doctoring, accounting, reviewing, issuing, projecting, usaging, logbooking }) === SURFACE.overview; // Its call is already in front.
-  const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, workflowing, checking, doctoring, accounting, reviewing, issuing, projecting, usaging, logbooking });
+  const atCockpit =
+    showingOf({
+      clearing,
+      manifesting,
+      settingsShowing,
+      modding,
+      kitting,
+      guiding,
+      studying,
+      lining,
+      workflowing,
+      checking,
+      doctoring,
+      accounting,
+      reviewing,
+      issuing,
+      projecting,
+      usaging,
+      logbooking,
+    }) === SURFACE.overview; // Its call is already in front.
+  const showingNow = showingOf({
+    clearing,
+    manifesting,
+    settingsShowing,
+    modding,
+    kitting,
+    guiding,
+    studying,
+    lining,
+    workflowing,
+    checking,
+    doctoring,
+    accounting,
+    reviewing,
+    issuing,
+    projecting,
+    usaging,
+    logbooking,
+  });
   // Back and forward are keys and nothing on screen — `history.ts`.
   const { back, replaceNext } = useHistory(
-    { surface: showingNow, studio: openStudio, studioNode },
-    (place) => { goTo(place.surface); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
+    {
+      surface: showingNow,
+      studio: openStudio,
+      studioNode,
+    },
+    (place) => {
+      goTo(place.surface);
+      setOpenStudio(place.studio);
+      setStudioNode(place.studioNode);
+    },
   );
   // Refresh is a key and a palette row, and nothing on screen.
   useRefreshKey(() => {
@@ -513,334 +814,531 @@ export function App() {
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
       <PointActsProvided>
-      <AttachmentsProvided>
-      <RefsHost.Provider value={refsHost}>
-      <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
-        <SessionsOwnership onOpen={openSession}>
-        <SketchSharing onCopied={setCopied} onSaid={setTelling}>
-        <DispatchingProvider value={dispatching}>
-        <DispatchFailure.Provider value={dispatchFailure}>
-        <Shell
-          connection={state.connection}
-          repositories={repositories}
-          listed={listed}
-          scope={state.repository}
-          onScope={pick}
-          onAddRepository={locate.onOpen}
-          onNewProject={locate.onNew}
-          workspaces={pickerWorkspaces}
-          onOpenWorkspace={openWorkspace}
-          workspaceScope={scopedWorkspace?.id ?? null}
-          onScopeWorkspace={pickWorkspace}
-          onOpenManifest={() => goTo(SURFACE.manifest)}
-          repositoryTrail={repositoryRuns.trailOf}
-          onCompose={() => newSession()}
-          onSearch={palette.onOpen}
-          {...titleRow}
-          {...(teachBridge === undefined ? {} : { onTeach: () => teachBridge("title_bar", "") })}
-          {...(titleRow.sleep === undefined ? {} : { sleep: { ...titleRow.sleep, calling: callingHomes.has(SLEEP_HOME) } })}
-          helmCalling={callingHomes.has(HELM_HOME)}
-          wordmark={<ArmadaMark size={20} title="Armada" />}
-          // The title row's picker, on every surface.
-          repository={scopedWorkspace !== null ? scopedWorkspace.name : pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories)}
-          places={<DeckPlaces state={shownState} picked={pickedRepository} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
-          asking={asks.length}
-          helm={
-            <>
-            <HelmDock
-              asks={asks}
-              routing={routing}
-              {...(helmBox.box === undefined ? {} : { box: helmBox.box })}
-              refs={helmRefs}
-              {...(helmHosted.hosted === undefined ? {} : { hosted: helmHosted.hosted })}
-              helm={state.helm}
-              repositories={repositories}
-              live={live}
-              onAsk={helmBox.asked}
-              outgoing={helmBox.outgoing}
-              context={helmContext}
-              studio={
-                shownStudio === null
-                  ? undefined
-                  : {
-                      name: studioName(shownStudio),
-                      ...(studioNode === null ? {} : { node: nodeNamed(shownStudio, studioNode, { servers: state.servers.servers }) }),
-                    }
-              }
-              onSwitch={(manifestId) => pointHelm(manifestId)}
-              onReadRecord={helmDebugInfo}
-              onCopied={setCopied}
-              onSaid={setTelling}
-            />
-            {helmBox.pad}
-            {helmHosted.sheets}
-            </>
-          }
-          // The dock's head carries this, beside Close — the owner's note of
-          // 18 Sep 2026. It ends the conversation the whole dock is showing, so
-          // it belongs to the dock rather than to the row above the message box,
-          // where three controls wrapped onto a second line at the dock's width.
-          // Held while a turn runs: Stop is the Session's own control for that.
-          helmAction={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void startHelmFresh()}
-              disabled={helmHosted.hosted?.working === true}
+        <AttachmentsProvided>
+          <RefsHost.Provider value={refsHost}>
+            <GuidanceProvider
+              onReadAll={() => goTo(SURFACE.guides)}
+              {...(firstContact === undefined
+                ? {}
+                : {
+                    firstContact,
+                  })}
             >
-              Start fresh
-            </Button>
-          }
-          fleet={{
-            ...fleetPanelClocked(state.connection, statement, state.health, state.readAt),
-            ...(fleetBuild === undefined ? {} : { build: fleetBuild }), onOpenDoctor: () => goTo(SURFACE.doctor),
-            open: fleetOpen,
-            onOpenChange: setFleetOpen,
-          }}
-          onSurface={goTo}
-        >
-          {/* Real CSS, not utilities: nothing Tailwind spells emits a rule in
+              <SessionsOwnership onOpen={openSession}>
+                <SketchSharing onCopied={setCopied} onSaid={setTelling}>
+                  <DispatchingProvider value={dispatching}>
+                    <DispatchFailure.Provider value={dispatchFailure}>
+                      <Shell
+                        connection={state.connection}
+                        repositories={repositories}
+                        listed={listed}
+                        scope={state.repository}
+                        onScope={pick}
+                        onAddRepository={locate.onOpen}
+                        onNewProject={locate.onNew}
+                        workspaces={pickerWorkspaces}
+                        onOpenWorkspace={openWorkspace}
+                        workspaceScope={scopedWorkspace?.id ?? null}
+                        onScopeWorkspace={pickWorkspace}
+                        onOpenManifest={() => goTo(SURFACE.manifest)}
+                        repositoryTrail={repositoryRuns.trailOf}
+                        onCompose={() => newSession()}
+                        onSearch={palette.onOpen}
+                        {...titleRow}
+                        {...(teachBridge === undefined
+                          ? {}
+                          : {
+                              onTeach: () => teachBridge("title_bar", ""),
+                            })}
+                        {...(titleRow.sleep === undefined
+                          ? {}
+                          : {
+                              sleep: {
+                                ...titleRow.sleep,
+                                calling: callingHomes.has(SLEEP_HOME),
+                              },
+                            })}
+                        helmCalling={callingHomes.has(HELM_HOME)}
+                        wordmark={<ArmadaMark size={20} title="Armada" />}
+                        // The title row's picker, on every surface.
+                        repository={
+                          scopedWorkspace !== null
+                            ? scopedWorkspace.name
+                            : pickedRepository === null
+                              ? "All repositories"
+                              : repositoryLabel(pickedRepository, repositories)
+                        }
+                        places={
+                          <DeckPlaces
+                            state={shownState}
+                            picked={pickedRepository}
+                            showing={showingNow}
+                            hidden={hidden}
+                            away={showingNow === SURFACE.overview && !atCockpit}
+                            onGoTo={goTo}
+                            onBack={back}
+                            onReplaceNext={replaceNext}
+                          />
+                        }
+                        asking={asks.length}
+                        helm={
+                          <>
+                            <HelmDock
+                              asks={asks}
+                              routing={routing}
+                              {...(helmBox.box === undefined
+                                ? {}
+                                : {
+                                    box: helmBox.box,
+                                  })}
+                              refs={helmRefs}
+                              {...(helmHosted.hosted === undefined
+                                ? {}
+                                : {
+                                    hosted: helmHosted.hosted,
+                                  })}
+                              helm={state.helm}
+                              repositories={repositories}
+                              live={live}
+                              onAsk={helmBox.asked}
+                              outgoing={helmBox.outgoing}
+                              context={helmContext}
+                              studio={
+                                shownStudio === null
+                                  ? undefined
+                                  : {
+                                      name: studioName(shownStudio),
+                                      ...(studioNode === null
+                                        ? {}
+                                        : {
+                                            node: nodeNamed(shownStudio, studioNode, {
+                                              servers: state.servers.servers,
+                                            }),
+                                          }),
+                                    }
+                              }
+                              onSwitch={(manifestId) => pointHelm(manifestId)}
+                              onReadRecord={helmDebugInfo}
+                              onCopied={setCopied}
+                              onSaid={setTelling}
+                            />
+                            {helmBox.pad}
+                            {helmHosted.sheets}
+                          </>
+                        }
+                        // The dock's head carries this, beside Close — the owner's note of
+                        // 18 Sep 2026. It ends the conversation the whole dock is showing, so
+                        // it belongs to the dock rather than to the row above the message box,
+                        // where three controls wrapped onto a second line at the dock's width.
+                        // Held while a turn runs: Stop is the Session's own control for that.
+                        helmAction={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void startHelmFresh()}
+                            disabled={helmHosted.hosted?.working === true}
+                          >
+                            Start fresh
+                          </Button>
+                        }
+                        fleet={{
+                          ...fleetPanelClocked(
+                            state.connection,
+                            statement,
+                            state.health,
+                            state.readAt,
+                          ),
+                          ...(fleetBuild === undefined
+                            ? {}
+                            : {
+                                build: fleetBuild,
+                              }),
+                          onOpenDoctor: () => goTo(SURFACE.doctor),
+                          open: fleetOpen,
+                          onOpenChange: setFleetOpen,
+                        }}
+                        onSurface={goTo}
+                      >
+                        {/* Real CSS, not utilities: nothing Tailwind spells emits a rule in
               this app, so the class that bounds this box lives in the app's own
               stylesheet where it can be read, and in the components' one so a
               story can check it. `.armada-screen__mounted` says why. */}
-          <div className="armada-screen__mounted">
-            <Standing
-              fleet={power === "standby" || power === "kept" ? null : fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
-              // **Not while the file is on screen**, which draws the same
-              // reading beside the text it is about. Twice at once is two places
-              // to read one refusal and one to dismiss while the other stands.
-              manifestReading={
-                manifesting && editing.view === "file" ? null : state.manifestReading
-              }
-              readingSeen={readingSeen}
-              onReadingSeen={setReadingSeen}
-              onCopied={setCopied}
-              missed={state.missed}
-              acknowledged={acknowledged}
-              onAcknowledged={setAcknowledged}
-              located={<LocatedNotice locating={locate} repositories={repositories} />}
-            />
+                        <div className="armada-screen__mounted">
+                          <Standing
+                            fleet={power === "standby" || power === "kept" ? null : fleet}
+                            connection={state.connection}
+                            bridge={state.bridge}
+                            onRestartFleet={restartFleet}
+                            // **Not while the file is on screen**, which draws the same
+                            // reading beside the text it is about. Twice at once is two places
+                            // to read one refusal and one to dismiss while the other stands.
+                            manifestReading={
+                              manifesting && editing.view === "file" ? null : state.manifestReading
+                            }
+                            readingSeen={readingSeen}
+                            onReadingSeen={setReadingSeen}
+                            onCopied={setCopied}
+                            missed={state.missed}
+                            acknowledged={acknowledged}
+                            onAcknowledged={setAcknowledged}
+                            located={
+                              <LocatedNotice locating={locate} repositories={repositories} />
+                            }
+                          />
 
-            {requesting !== undefined ? (<Boundary region="Requests" {...guarded}><RequestsPanel key={`requests:${requesting.sessionId ?? ""}:${requesting.from ?? ""}`} item={requesting} /></Boundary>) : logbooking ? (<LogbookSurface repository={state.repository} {...guarded} />) : usaging ? (<Boundary region="Usage" {...guarded}><UsageSurface state={state} /></Boundary>) : reviewing ? (<Boundary region="Reviews" {...guarded}><ReviewsSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : issuing ? (<Boundary region="Issues" {...guarded}><IssuesSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : projecting ? (<Boundary region="Projects" {...guarded}><ProjectsSurface picked={pickedRepository} repositories={shown} onOpenLink={openProseLink} onOpenSession={openSession} /></Boundary>) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenSession={openSession} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : clearing ? (
-              /* What Fleet is holding disk for. The half of the reclaim rule that is a person's: Fleet has
+                          {requesting !== undefined ? (
+                            <Boundary region="Requests" {...guarded}>
+                              <RequestsPanel
+                                key={`requests:${requesting.sessionId ?? ""}:${requesting.from ?? ""}`}
+                                item={requesting}
+                              />
+                            </Boundary>
+                          ) : logbooking ? (
+                            <LogbookSurface repository={state.repository} {...guarded} />
+                          ) : usaging ? (
+                            <Boundary region="Usage" {...guarded}>
+                              <UsageSurface state={state} />
+                            </Boundary>
+                          ) : reviewing ? (
+                            <Boundary region="Reviews" {...guarded}>
+                              <ReviewsSurface
+                                picked={pickedRepository}
+                                repositories={shown}
+                                onOpenLink={openProseLink}
+                                onOpenSession={openSession}
+                              />
+                            </Boundary>
+                          ) : issuing ? (
+                            <Boundary region="Issues" {...guarded}>
+                              <IssuesSurface
+                                picked={pickedRepository}
+                                repositories={shown}
+                                onOpenLink={openProseLink}
+                                onOpenSession={openSession}
+                              />
+                            </Boundary>
+                          ) : projecting ? (
+                            <Boundary region="Projects" {...guarded}>
+                              <ProjectsSurface
+                                picked={pickedRepository}
+                                repositories={shown}
+                                onOpenLink={openProseLink}
+                                onOpenSession={openSession}
+                              />
+                            </Boundary>
+                          ) : doctoring ? (
+                            <Boundary region="Doctor" {...guarded}>
+                              <DoctorSurfaceNow
+                                health={state.health}
+                                connection={state.connection}
+                                said={statement.headline}
+                                onCheck={() => watchOverview(true)}
+                              />
+                            </Boundary>
+                          ) : lining ? (
+                            <MergeLineSurface
+                              state={state}
+                              {...guarded}
+                              onOpenLink={openProseLink}
+                              onOpenSession={openSession}
+                              onSendToSession={(id, text) => void commands.sendToSession(id, text)}
+                              {...(asked.mergeFocus === undefined
+                                ? {}
+                                : {
+                                    focus: asked.mergeFocus,
+                                  })}
+                            />
+                          ) : checking ? (
+                            <ChecksSurface
+                              key={state.repository ?? ""}
+                              state={state}
+                              onOpenMergeLine={(branch) => {
+                                goTo(SURFACE.mergeLine);
+                                asked.setMergeFocus(branch);
+                              }}
+                              {...guarded}
+                            />
+                          ) : clearing ? (
+                            /* What Fleet is holding disk for. The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and this is where the rest is
                  given back, one tile at a time. */
-              <Boundary region="Cleanup" {...guarded}>
-                <WorktreesNow
-                  held={pickedHeld}
-                  onWant={readHeld}
-                  onClose={() => setClearing(false)}
-                  onCopied={setCopied}
-                  {...slotActs}
-                />
-              </Boundary>
-            ) : manifesting && all ? (
-              <AskRepository
-                repositories={shown}
-                title="Pick a repository to open its Manifest"
-                next="A Manifest belongs to one repository. Picking it focuses the Cockpit there."
-                onPick={pick}
-              />
-            ) : manifesting ? (
-              /* Everything this repository's Manifest declares, and one press that runs one of them in the
+                            <Boundary region="Cleanup" {...guarded}>
+                              <WorktreesNow
+                                held={pickedHeld}
+                                onWant={readHeld}
+                                onClose={() => setClearing(false)}
+                                onCopied={setCopied}
+                                {...slotActs}
+                              />
+                            </Boundary>
+                          ) : manifesting && all ? (
+                            <AskRepository
+                              repositories={shown}
+                              title="Pick a repository to open its Manifest"
+                              next="A Manifest belongs to one repository. Picking it focuses the Cockpit there."
+                              onPick={pick}
+                            />
+                          ) : manifesting ? (
+                            /* Everything this repository's Manifest declares, and one press that runs one of them in the
                  checkout as it is on disk: a person can run this project's lint with nothing else running. */
-              <Boundary region="the manifest" {...guarded}>
-                <>
-                <ManifestNow
-                  // Another repository is another page: its runs, its allows and a dismissed Verify are not this one's.
-                  key={state.repository ?? ""}
-                  sheet={state.checkoutRunSheet}
-                  followed={state.checkoutRunFollowed}
-                  picked={picked}
-                  onSaid={setTelling}
-                  editing={editing}
-                  form={form}
-                  onObserveRun={observeCheckoutRun}
-                  onStartRun={startCheckoutRun}
-                  drift={state.manifestDrift}
-                  kit={state.holds.repositories?.find((one) => one.root === repository)?.manifest?.kit}
-                  onStartVerify={startCheckoutVerify}
-                  onStopRun={stopCheckoutRun}
-                  onUndoRun={undoCheckoutRun}
-                  onListRuns={listCheckoutRuns}
-                  onGetRunOutput={getCheckoutRunOutput}
-                  onGetRunDiff={getCheckoutRunDiff}
-                  onListRepositoryAllowedCommands={listRepositoryAllowedCommands}
-                  onRemoveRepositoryAllowedCommand={removeRepositoryAllowedCommand}
-                  // No Job means the main checkout.
-                  onStartServer={(name) => startServer(name)}
-                  onStopServer={stopServer}
-                  onOpenServerLink={openServerLink}
-                  settingUp={settingUp}
-                  onSettingUp={setSettingUp}
-                  setUp={repository === undefined || scoped !== undefined}
-                  startingSession={startingSession}
-                  {...(setting.held.state !== "open" || repository === undefined
-                    ? {}
-                    : { onSetUpWithSession: () => setUpWithSession(setting.held, repository) })}
-                  setup={
-                    <SetupNow
-                      setting={setting}
-                      sheet={state.checkoutRunSheet}
-                      onStartVerify={startCheckoutVerify}
-                      onStopRun={stopCheckoutRun}
-                      onOpenEdit={() => {
-                        setSettingUp(false);
-                        editing.onView("form");
-                      }}
-                      floor={floor}
-                    />
-                  }
-                />
-                {merging.panel}
-                </>
-              </Boundary>
-            ) : studying ? (
-              <StudiosSurfaceNow
-                state={shownState}
-                live={live}
-                repositories={shown}
-                manifestId={scoped?.id}
-                all={all}
-                // Nothing set up anywhere: the Manifest surface is where a
-                // repository is picked and Setup is opened from it — so this
-                // hands over to that route rather than cutting a second one
-                // from here.
-                onSetUp={() => goTo(SURFACE.manifest)}
-                open={openStudio}
-                onOpenChange={setOpenStudio}
-                selectedNode={studioNode}
-                onSelectNode={setStudioNode}
-                // A server node reads the live holder and counts its uptime on
-                // the window's one clock — #1345.
-                onCopied={setCopied}
-              />
-            ) : kitting ? (
-              /* System: Kit, Fleet and Bridge in one sidebar, the picked entry beside it. Kit's reading is this
+                            <Boundary region="the manifest" {...guarded}>
+                              <>
+                                <ManifestNow
+                                  // Another repository is another page: its runs, its allows and a dismissed Verify are not this one's.
+                                  key={state.repository ?? ""}
+                                  sheet={state.checkoutRunSheet}
+                                  followed={state.checkoutRunFollowed}
+                                  picked={picked}
+                                  onSaid={setTelling}
+                                  editing={editing}
+                                  form={form}
+                                  onObserveRun={observeCheckoutRun}
+                                  onStartRun={startCheckoutRun}
+                                  drift={state.manifestDrift}
+                                  kit={
+                                    state.holds.repositories?.find((one) => one.root === repository)
+                                      ?.manifest?.kit
+                                  }
+                                  onStartVerify={startCheckoutVerify}
+                                  onStopRun={stopCheckoutRun}
+                                  onUndoRun={undoCheckoutRun}
+                                  onListRuns={listCheckoutRuns}
+                                  onGetRunOutput={getCheckoutRunOutput}
+                                  onGetRunDiff={getCheckoutRunDiff}
+                                  onListRepositoryAllowedCommands={listRepositoryAllowedCommands}
+                                  onRemoveRepositoryAllowedCommand={removeRepositoryAllowedCommand}
+                                  // No Job means the main checkout.
+                                  onStartServer={(name) => startServer(name)}
+                                  onStopServer={stopServer}
+                                  onOpenServerLink={openServerLink}
+                                  settingUp={settingUp}
+                                  onSettingUp={setSettingUp}
+                                  setUp={repository === undefined || scoped !== undefined}
+                                  startingSession={startingSession}
+                                  {...(setting.held.state !== "open" || repository === undefined
+                                    ? {}
+                                    : {
+                                        onSetUpWithSession: () =>
+                                          setUpWithSession(setting.held, repository),
+                                      })}
+                                  setup={
+                                    <SetupNow
+                                      setting={setting}
+                                      sheet={state.checkoutRunSheet}
+                                      onStartVerify={startCheckoutVerify}
+                                      onStopRun={stopCheckoutRun}
+                                      onOpenEdit={() => {
+                                        setSettingUp(false);
+                                        editing.onView("form");
+                                      }}
+                                      floor={floor}
+                                    />
+                                  }
+                                />
+                                {merging.panel}
+                              </>
+                            </Boundary>
+                          ) : studying ? (
+                            <StudiosSurfaceNow
+                              state={shownState}
+                              live={live}
+                              repositories={shown}
+                              manifestId={scoped?.id}
+                              all={all}
+                              // Nothing set up anywhere: the Manifest surface is where a
+                              // repository is picked and Setup is opened from it — so this
+                              // hands over to that route rather than cutting a second one
+                              // from here.
+                              onSetUp={() => goTo(SURFACE.manifest)}
+                              open={openStudio}
+                              onOpenChange={setOpenStudio}
+                              selectedNode={studioNode}
+                              onSelectNode={setStudioNode}
+                              // A server node reads the live holder and counts its uptime on
+                              // the window's one clock — #1345.
+                              onCopied={setCopied}
+                            />
+                          ) : kitting ? (
+                            /* System: Kit, Fleet and Bridge in one sidebar, the picked entry beside it. Kit's reading is this
                  machine's and answers for every repository; the pick only names Kit's second tier. */
-              <SystemSurface
-                // Another repository is another second tier. The machine-wide half is the same; what it resolves to is not.
-                key={state.repository ?? ""}
-                repository={all || pickedRepository === null ? null : repositoryLabel(pickedRepository, repositories)}
-                settings={state.settings}
-                modelChoices={state.holds.models}
-                live={live}
-                guarded={guarded}
-                onReadGuides={() => goTo(SURFACE.guides)}
-                onOpenAccount={() => goTo(SURFACE.account)}
-                workflows={<WorkflowManagerSurface state={state} {...guarded} />}
-                workspaces={<WorkspacesSurface held={workspaces} />}
-                guides={<GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />}
-                warned={workflowsWarned(state.health)}
-                onReadKitInventory={readKitInventory}
-                onRemoveKitAllowedCommand={removeKitAllowedCommand}
-                onListKitServers={listKitServers}
-                onAddKitServer={addKitServer}
-                onForgetKitServer={forgetKitServer}
-                onSetKitServerReach={setKitServerReach}
-                onSetManifestServerReach={setManifestServerReach}
-                onRemoveKitPiece={removeKitPiece}
-                onRestoreKitPiece={restoreKitPiece}
-              />
-            ) : accounting ? (
-              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} onKit={() => goTo(SURFACE.kit)} machine={machineOf(state.settings)} /></Boundary>
-            ) : (
-              <Overview
-                state={shownState}
-                repositories={shown}
-                disconnected={live ? null : statement.headline}
-                power={power}
-                onCopied={setCopied}
-                bring={lands.bringing}
-                onBrought={lands.brought}
-                onOpenLink={openProseLink}
-                onSendToSession={(id, text) => void commands.sendToSession(id, text)}
-                onOpenSession={openSession}
-                onWantHeld={readHeld}
-                onPickRepository={pick}
-                onAddRepository={locate.onOpen}
-                onNewProject={locate.onNew}
-                onGoTo={goTo}
-                onOpenCheck={(sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run))}
-                onOpenLoadout={asked.setLoadoutFocus}
-                onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
-                onRescueSlot={slotActs.onRescueSlot}
-                bayActs={bayActs}
-                onTell={tell}
-              />
-            )}
-          </div>
-        </Shell>
-        {repositoryRuns.layer}
+                            <SystemSurface
+                              // Another repository is another second tier. The machine-wide half is the same; what it resolves to is not.
+                              key={state.repository ?? ""}
+                              repository={
+                                all || pickedRepository === null
+                                  ? null
+                                  : repositoryLabel(pickedRepository, repositories)
+                              }
+                              settings={state.settings}
+                              modelChoices={state.holds.models}
+                              live={live}
+                              guarded={guarded}
+                              onReadGuides={() => goTo(SURFACE.guides)}
+                              onOpenAccount={() => goTo(SURFACE.account)}
+                              workflows={<WorkflowManagerSurface state={state} {...guarded} />}
+                              workspaces={<WorkspacesSurface held={workspaces} />}
+                              guides={
+                                <GuideCatalogue
+                                  narrow={narrow}
+                                  floor={floor}
+                                  listWidth={guideList}
+                                  onResizeList={resizeGuideList}
+                                />
+                              }
+                              warned={workflowsWarned(state.health)}
+                              onReadKitInventory={readKitInventory}
+                              onRemoveKitAllowedCommand={removeKitAllowedCommand}
+                              onListKitServers={listKitServers}
+                              onAddKitServer={addKitServer}
+                              onForgetKitServer={forgetKitServer}
+                              onSetKitServerReach={setKitServerReach}
+                              onSetManifestServerReach={setManifestServerReach}
+                              onRemoveKitPiece={removeKitPiece}
+                              onRestoreKitPiece={restoreKitPiece}
+                            />
+                          ) : accounting ? (
+                            <Boundary region="Account" {...guarded}>
+                              <AccountPage
+                                onSettings={() => goTo(SURFACE.settings)}
+                                onKit={() => goTo(SURFACE.kit)}
+                                machine={machineOf(state.settings)}
+                              />
+                            </Boundary>
+                          ) : (
+                            <Overview
+                              state={shownState}
+                              repositories={shown}
+                              disconnected={live ? null : statement.headline}
+                              power={power}
+                              onCopied={setCopied}
+                              bring={lands.bringing}
+                              onBrought={lands.brought}
+                              onOpenLink={openProseLink}
+                              onSendToSession={(id, text) => void commands.sendToSession(id, text)}
+                              onOpenSession={openSession}
+                              onWantHeld={readHeld}
+                              onPickRepository={pick}
+                              onAddRepository={locate.onOpen}
+                              onNewProject={locate.onNew}
+                              onGoTo={goTo}
+                              onOpenCheck={(sessionId, run) =>
+                                asked.setCheckFocus(sessionCheckId(sessionId, run))
+                              }
+                              onOpenLoadout={asked.setLoadoutFocus}
+                              onReleaseSlot={(manifestId, slot, holder) =>
+                                slotActs.onChangeSlotPool(manifestId, {
+                                  act: "release",
+                                  slot,
+                                  holder,
+                                })
+                              }
+                              onRescueSlot={slotActs.onRescueSlot}
+                              bayActs={bayActs}
+                              onTell={tell}
+                            />
+                          )}
+                        </div>
+                      </Shell>
+                      {repositoryRuns.layer}
 
-        {/* Studio capture — #1290. Last, so its layer paints over every surface
+                      {/* Studio capture — #1290. Last, so its layer paints over every surface
             and every overlay the shell draws under it. */}
-        <CaptureLayer aim={captureAim} onCapture={captureStudioNote} />
+                      <CaptureLayer aim={captureAim} onCapture={captureStudioNote} />
 
-        <Locate locating={locate} />
+                      <Locate locating={locate} />
 
-        <PointMenu />
+                      <PointMenu />
 
-        <DispatchSheet />
-        <TitleDispatchedStrip />
+                      <DispatchSheet />
+                      <TitleDispatchedStrip />
 
-        <PaletteMount
-          open={palette.open} onOpen={palette.onOpen} onClose={palette.onClose} dispatch={oneBar} linkRoutes={linkRoutes} tasks={paletteTasks}
-          shownStudio={shownStudio}
-          surfaces={SURFACES.filter((one) => !hidden.includes(one.id))}
-          checkoutRunSheet={state.checkoutRunSheet}
-          failing={failing}
-          live={live}
-          repositories={repositories.map((one) => ({ root: one.root, label: repositoryLabel(one, repositories) }))}
-          picked={state.repository}
-          showing={showingNow}
-          repoOf={(manifestId) => {
-            const one = repositories.find((held) => jobIdOf(held) === manifestId);
-            return one === undefined ? undefined : repositoryLabel(one, repositories);
-          }}
-          acts={{
-            pickRepository: pick,
-            compose: () => newSession(),
-            surface: goTo,
-            ...(showTask === undefined ? {} : { task: showTask }),
-            run: (entryId) => {
-              goTo(SURFACE.manifest);
-              setPicked(entryId);
-            },
-            copyDebugInfo: () => {
-              if (failing !== null) copyDebugInfoFor(failing, setCopied);
-            },
-            openSetting,
-            refresh: () => void commands.refresh(),
-          }}
-        />
+                      <PaletteMount
+                        open={palette.open}
+                        onOpen={palette.onOpen}
+                        onClose={palette.onClose}
+                        dispatch={oneBar}
+                        linkRoutes={linkRoutes}
+                        tasks={paletteTasks}
+                        shownStudio={shownStudio}
+                        surfaces={SURFACES.filter((one) => !hidden.includes(one.id))}
+                        checkoutRunSheet={state.checkoutRunSheet}
+                        failing={failing}
+                        live={live}
+                        repositories={repositories.map((one) => ({
+                          root: one.root,
+                          label: repositoryLabel(one, repositories),
+                        }))}
+                        picked={state.repository}
+                        showing={showingNow}
+                        repoOf={(manifestId) => {
+                          const one = repositories.find((held) => jobIdOf(held) === manifestId);
+                          return one === undefined ? undefined : repositoryLabel(one, repositories);
+                        }}
+                        acts={{
+                          pickRepository: pick,
+                          compose: () => newSession(),
+                          surface: goTo,
+                          ...(showTask === undefined
+                            ? {}
+                            : {
+                                task: showTask,
+                              }),
+                          run: (entryId) => {
+                            goTo(SURFACE.manifest);
+                            setPicked(entryId);
+                          },
+                          copyDebugInfo: () => {
+                            if (failing !== null) copyDebugInfoFor(failing, setCopied);
+                          },
+                          openSetting,
+                          refresh: () => void commands.refresh(),
+                        }}
+                      />
 
-        <Toasts
-          raised={raised}
-          bridge={state.bridge}
-          onLower={lower}
-          copied={copied}
-          said={telling}
-          onCopied={setCopied}
-          onDispatchSession={dispatchFailure}
-        >
-          <DownshiftAlert choose={openModelSetting} />
-          <ProjectsUndo />
-          <AgentSignInAlert />
-          <ImportPackage repositories={repositories} />
-          <DeckHost state={shownState} picked={pickedRepository} here={atCockpit} hidden={hidden} onGoTo={goTo} onOpenSession={openSession} />
-          {asked.loadoutFocus === undefined ? null : <LoadoutPanel id={asked.loadoutFocus} at={asked.loadoutAt} onClose={() => asked.setLoadoutFocus(undefined)} />}
-          <CallAlerts state={state} picked={pickedRepository} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
-          <DockCount state={state} />
-          <LinkPanelHost />
-        </Toasts>
-        </DispatchFailure.Provider>
-        </DispatchingProvider>
-        </SketchSharing>
-        </SessionsOwnership>
-      </GuidanceProvider>
-      </RefsHost.Provider>
-      </AttachmentsProvided>
+                      <Toasts
+                        raised={raised}
+                        bridge={state.bridge}
+                        onLower={lower}
+                        copied={copied}
+                        said={telling}
+                        onCopied={setCopied}
+                        onDispatchSession={dispatchFailure}
+                      >
+                        <DownshiftAlert choose={openModelSetting} />
+                        <ProjectsUndo />
+                        <AgentSignInAlert />
+                        <ImportPackage repositories={repositories} />
+                        <DeckHost
+                          state={shownState}
+                          picked={pickedRepository}
+                          here={atCockpit}
+                          hidden={hidden}
+                          onGoTo={goTo}
+                          onOpenSession={openSession}
+                        />
+                        {asked.loadoutFocus === undefined ? null : (
+                          <LoadoutPanel
+                            id={asked.loadoutFocus}
+                            at={asked.loadoutAt}
+                            onClose={() => asked.setLoadoutFocus(undefined)}
+                          />
+                        )}
+                        <CallAlerts
+                          state={state}
+                          picked={pickedRepository}
+                          onCockpit={atCockpit}
+                          onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))}
+                        />
+                        <DockCount state={state} />
+                        <LinkPanelHost />
+                      </Toasts>
+                    </DispatchFailure.Provider>
+                  </DispatchingProvider>
+                </SketchSharing>
+              </SessionsOwnership>
+            </GuidanceProvider>
+          </RefsHost.Provider>
+        </AttachmentsProvided>
       </PointActsProvided>
     </ProseLinks.Provider>
   );

@@ -14,7 +14,10 @@ export function pathOf(points: readonly SketchPoint[]): string {
   for (let at = 1; at < points.length - 1; at += 1) {
     const here = points[at]!;
     const next = points[at + 1]!;
-    const mid = { x: (here.x + next.x) / 2, y: (here.y + next.y) / 2 };
+    const mid = {
+      x: (here.x + next.x) / 2,
+      y: (here.y + next.y) / 2,
+    };
     d += ` Q ${String(here.x)} ${String(here.y)} ${String(mid.x)} ${String(mid.y)}`;
   }
   const last = points[points.length - 1]!;

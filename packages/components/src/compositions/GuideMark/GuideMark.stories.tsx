@@ -15,7 +15,12 @@ const meta: Meta<typeof GuideMark> = {
   decorators: [
     (Story) => (
       <GuidanceProvider remembered={false}>
-        <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)" }}>
+        <div
+          style={{
+            padding: "var(--space-6)",
+            background: "var(--surface-canvas)",
+          }}
+        >
           <Story />
         </div>
       </GuidanceProvider>
@@ -31,9 +36,19 @@ type Story = StoryObj<typeof GuideMark>;
  * to ask what it means.
  */
 export const BesideALabel: Story = {
-  args: { guide: GUIDE_MERGE_LINE, onScreen: false },
+  args: {
+    guide: GUIDE_MERGE_LINE,
+    onScreen: false,
+  },
   render: (args) => (
-    <p style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", margin: 0 }}>
+    <p
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-2)",
+        margin: 0,
+      }}
+    >
       <span>Ahead of the line</span>
       <GuideMark {...args} />
     </p>
@@ -45,11 +60,18 @@ export const BesideALabel: Story = {
  * puts that guide on screen, with its number and its title.
  */
 export const OpensItsCard: Story = {
-  args: { guide: GUIDE_MERGE_LINE, onScreen: false },
+  args: {
+    guide: GUIDE_MERGE_LINE,
+    onScreen: false,
+  },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const guide = args.guide;
-    await userEvent.click(canvas.getByRole("button", { name: `Open guide ${guide.number}, ${guide.title}` }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: `Open guide ${guide.number}, ${guide.title}`,
+      }),
+    );
 
     // The layer renders under the provider rather than inside the mark, so it
     // is found on the body and not on the story's own element.
@@ -62,9 +84,15 @@ export const OpensItsCard: Story = {
     await waitFor(() => expect(card).toBeVisible());
     await expect(within(card).getByText(guide.steps[0] as string)).toBeVisible();
 
-    await userEvent.click(within(card).getByRole("button", { name: "Close" }));
+    await userEvent.click(
+      within(card).getByRole("button", {
+        name: "Close",
+      }),
+    );
     await expect(
-      within(document.body).queryByRole("dialog", { name: `Guide ${guide.number}, ${guide.title}` }),
+      within(document.body).queryByRole("dialog", {
+        name: `Guide ${guide.number}, ${guide.title}`,
+      }),
     ).toBeNull();
   },
 };
@@ -75,9 +103,18 @@ export const OpensItsCard: Story = {
  * visit. Four cards in a row is the noise the mark exists to replace.
  */
 export const OnlyOneOpensItself: Story = {
-  args: { guide: GUIDE_MERGE_LINE },
+  args: {
+    guide: GUIDE_MERGE_LINE,
+  },
   render: (args) => (
-    <p style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", margin: 0 }}>
+    <p
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-2)",
+        margin: 0,
+      }}
+    >
       <span>Two pieces, both new</span>
       <GuideMark {...args} />
       <GuideMark guide={GUIDE_WORKFLOW} />
@@ -93,7 +130,11 @@ export const OnlyOneOpensItself: Story = {
 
     // Closed, and nothing takes its place: the second piece keeps its own
     // first contact rather than being spent in the same breath.
-    await userEvent.click(within(first).getByRole("button", { name: "Close" }));
+    await userEvent.click(
+      within(first).getByRole("button", {
+        name: "Close",
+      }),
+    );
     await expect(body.queryAllByRole("dialog")).toHaveLength(0);
   },
 };

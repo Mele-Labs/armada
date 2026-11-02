@@ -7,7 +7,9 @@ import { GuideFigure } from "./GuideFigure";
 const meta: Meta<typeof GuideFigure> = {
   title: "Compositions/Guide figure",
   component: GuideFigure,
-  args: { scale: "panel" },
+  args: {
+    scale: "panel",
+  },
   decorators: [
     (Story) => (
       <div
@@ -32,7 +34,9 @@ type Story = StoryObj<typeof GuideFigure>;
  * with the registry's own words on it. Guides 15 and 19 share it.
  */
 export const WorkflowSteps: Story = {
-  args: { figure: "workflow-steps" },
+  args: {
+    figure: "workflow-steps",
+  },
 };
 
 /**
@@ -41,12 +45,17 @@ export const WorkflowSteps: Story = {
  * and 17 both name.
  */
 export const GroupOrder: Story = {
-  args: { figure: "group-order" },
+  args: {
+    figure: "group-order",
+  },
 };
 
 /** The same drawing in the layer a `?` opens, which is the narrower of the two. */
 export const InTheCard: Story = {
-  args: { figure: "group-order", scale: "card" },
+  args: {
+    figure: "group-order",
+    scale: "card",
+  },
 };
 
 /**
@@ -55,14 +64,20 @@ export const InTheCard: Story = {
  * at is already there: both groups drawn, none arriving.
  */
 export const HeldStill: Story = {
-  args: { figure: "group-order" },
+  args: {
+    figure: "group-order",
+  },
   beforeEach: () => {
     const real = window.matchMedia;
     window.matchMedia = (query: string) => {
       if (!query.includes("prefers-reduced-motion")) return real.call(window, query);
       // A preference that never changes, so nothing is dispatched to a listener.
       const reduced = new EventTarget() as MediaQueryList;
-      return Object.assign(reduced, { matches: true, media: query, onchange: null });
+      return Object.assign(reduced, {
+        matches: true,
+        media: query,
+        onchange: null,
+      });
     };
     return () => {
       window.matchMedia = real;
@@ -70,7 +85,13 @@ export const HeldStill: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const figure = canvas.getByRole("img", { name: /Two groups of a plan/ });
-    await expect(figure.getAnimations({ subtree: true })).toHaveLength(0);
+    const figure = canvas.getByRole("img", {
+      name: /Two groups of a plan/,
+    });
+    await expect(
+      figure.getAnimations({
+        subtree: true,
+      }),
+    ).toHaveLength(0);
   },
 };

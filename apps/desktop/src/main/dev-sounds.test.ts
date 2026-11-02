@@ -12,15 +12,25 @@ function dir(): string {
   return path;
 }
 afterEach(() => {
-  for (const path of made.splice(0)) rmSync(path, { recursive: true, force: true });
+  for (const path of made.splice(0))
+    rmSync(path, {
+      recursive: true,
+      force: true,
+    });
 });
 
 describe("installing the tones for a dev Bridge", () => {
   it("copies the shipped tones, and only the .wav files", () => {
     const into = join(dir(), "Sounds");
     const from = join(__dirname, "../../sounds");
-    expect(installSounds(from, into).sort()).toEqual(["armada-blocked.wav", "armada-waiting.wav"]);
-    expect(readdirSync(into).sort()).toEqual(["armada-blocked.wav", "armada-waiting.wav"]);
+    expect(installSounds(from, into).sort()).toEqual([
+      "armada-blocked.wav",
+      "armada-waiting.wav",
+    ]);
+    expect(readdirSync(into).sort()).toEqual([
+      "armada-blocked.wav",
+      "armada-waiting.wav",
+    ]);
   });
 
   it("writes nothing when the same bytes are already there", () => {
@@ -36,7 +46,9 @@ describe("installing the tones for a dev Bridge", () => {
     const into = dir();
     writeFileSync(join(from, "armada-waiting.wav"), "new");
     writeFileSync(join(into, "armada-waiting.wav"), "old");
-    expect(installSounds(from, into)).toEqual(["armada-waiting.wav"]);
+    expect(installSounds(from, into)).toEqual([
+      "armada-waiting.wav",
+    ]);
     expect(readFileSync(join(into, "armada-waiting.wav"), "utf8")).toBe("new");
   });
 

@@ -12,7 +12,15 @@ import { useActsPlace } from "./job-panes/acts";
 import { useSessionsDraft } from "./sessions-draft";
 import { IN_A_TERMINAL, movedTo } from "./session-moved";
 
-export function SessionRepositoryOf({ session, repositories, onOpen }: { session: Session; repositories: readonly RepositorySummary[]; onOpen: (id: string) => void }): ReactNode {
+export function SessionRepositoryOf({
+  session,
+  repositories,
+  onOpen,
+}: {
+  session: Session;
+  repositories: readonly RepositorySummary[];
+  onOpen: (id: string) => void;
+}): ReactNode {
   const move = useSessionsDraft()?.move;
   // A head with no room for the name draws the repository as its icon alone.
   const { chip } = useActsPlace();
@@ -26,10 +34,36 @@ export function SessionRepositoryOf({ session, repositories, onOpen }: { session
   return (
     <SessionRepository
       name={repositoryLabel(here, repositories)}
-      {...(chip ? { icon: true } : {})}
-      to={moved ? [] : served.filter((one) => one !== here).map((one) => ({ id: one.manifest!.id, name: repositoryLabel(one, repositories) }))}
-      {...(session.terminal === true && session.dead === undefined ? { held: IN_A_TERMINAL } : {})}
-      {...(holds ? { stays: branch === undefined ? {} : { branch } } : {})}
+      {...(chip
+        ? {
+            icon: true,
+          }
+        : {})}
+      to={
+        moved
+          ? []
+          : served
+              .filter((one) => one !== here)
+              .map((one) => ({
+                id: one.manifest!.id,
+                name: repositoryLabel(one, repositories),
+              }))
+      }
+      {...(session.terminal === true && session.dead === undefined
+        ? {
+            held: IN_A_TERMINAL,
+          }
+        : {})}
+      {...(holds
+        ? {
+            stays:
+              branch === undefined
+                ? {}
+                : {
+                    branch,
+                  },
+          }
+        : {})}
       ends={session.dead === undefined}
       onMove={async (manifestId) => {
         const next = await move(session.id, manifestId);

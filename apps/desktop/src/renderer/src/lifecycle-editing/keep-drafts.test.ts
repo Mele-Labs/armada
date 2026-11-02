@@ -10,11 +10,25 @@ import type { PiecesApi, Served } from "./fleet-pieces";
 import { pendingMarks, workspaceDrawn } from "./keep-drafts";
 
 const [web, api] = workspacesLanes.state.holds.repositories ?? [];
-const WEB = { id: web!.manifest!.id, root: web!.root };
-const API = { id: api!.manifest!.id, root: api!.root };
+const WEB = {
+  id: web!.manifest!.id,
+  root: web!.root,
+};
+const API = {
+  id: api!.manifest!.id,
+  root: api!.root,
+};
 const SERVED: Served[] = [
-  { manifestId: WEB.id, name: "store-web", root: WEB.root },
-  { manifestId: API.id, name: "store-api", root: API.root },
+  {
+    manifestId: WEB.id,
+    name: "store-web",
+    root: WEB.root,
+  },
+  {
+    manifestId: API.id,
+    name: "store-api",
+    root: API.root,
+  },
 ];
 
 /** The mock Fleet with the four drafts of `workspaces-pieces-keeps` open for store-web. */
@@ -23,13 +37,26 @@ const fleet = () => lifecycles.api(workspacesPiecesKeeps, {} as never) as unknow
 describe("the drafts of a repository", () => {
   it("are read for the repository the page is on, each as the file its approval would save", async () => {
     const drafts = await readKeepDrafts(fleet(), WEB.id);
-    expect(drafts.map((one) => `${one.kind}:${one.id}`)).toEqual(["rule:progress", "lifecycle:ticket", "rule:to-review", "lifecycle:qa_sign_off"]);
+    expect(drafts.map((one) => `${one.kind}:${one.id}`)).toEqual([
+      "rule:progress",
+      "lifecycle:ticket",
+      "rule:to-review",
+      "lifecycle:qa_sign_off",
+    ]);
     expect(drafts.every((one) => one.text.length > 0)).toBe(true);
   });
 
   it("are none for a repository that has none, and none where the read is refused", async () => {
     expect(await readKeepDrafts(fleet(), API.id)).toEqual([]);
-    const refused = { listKeepDrafts: async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) } as unknown as PiecesApi;
+    const refused = {
+      listKeepDrafts: async () => ({
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      }),
+    } as unknown as PiecesApi;
     expect(await readKeepDrafts(refused, WEB.id)).toEqual([]);
   });
 });
@@ -37,7 +64,10 @@ describe("the drafts of a repository", () => {
 describe("the clock on a piece that waits", () => {
   it("is a keep for each draft, beside the removal of each piece a pull request has open", async () => {
     const drafts = await readKeepDrafts(fleet(), WEB.id);
-    const marks = pendingMarks(drafts, ["rule:close-on-merge", "lifecycle:deploy"]);
+    const marks = pendingMarks(drafts, [
+      "rule:close-on-merge",
+      "lifecycle:deploy",
+    ]);
     expect(Object.fromEntries(marks)).toEqual({
       "rule:progress": "keep",
       "lifecycle:ticket": "keep",
@@ -50,7 +80,11 @@ describe("the clock on a piece that waits", () => {
 
   it("is the removal where one piece has both, since the piece is going", async () => {
     const drafts = await readKeepDrafts(fleet(), WEB.id);
-    expect(pendingMarks(drafts, ["rule:progress"]).get("rule:progress")).toBe("removal");
+    expect(
+      pendingMarks(drafts, [
+        "rule:progress",
+      ]).get("rule:progress"),
+    ).toBe("removal");
   });
 
   it("is none where nothing waits", () => {
@@ -62,8 +96,16 @@ describe("reading the drafts again", () => {
   /** Fleet's `keep_drafts.changed`, told by hand to every one that listens. */
   const told = () => {
     const listeners = new Set<(manifestId: string) => void>();
-    const api = { onKeepDraftsChanged: (on: (manifestId: string) => void) => (listeners.add(on), () => void listeners.delete(on)) } as unknown as PiecesApi;
-    return { api, say: (manifestId: string) => listeners.forEach((on) => on(manifestId)), listening: () => listeners.size };
+    const api = {
+      onKeepDraftsChanged: (on: (manifestId: string) => void) => (
+        listeners.add(on), () => void listeners.delete(on)
+      ),
+    } as unknown as PiecesApi;
+    return {
+      api,
+      say: (manifestId: string) => listeners.forEach((on) => on(manifestId)),
+      listening: () => listeners.size,
+    };
   };
 
   it("happens when Fleet says the drafts of this repository changed, and for no other repository's", () => {
@@ -94,7 +136,10 @@ describe("a lifecycle only a draft holds", () => {
     const mock = fleet();
     const answer = await readPieces(mock, WEB.id, SERVED);
     if (!answer.ok) throw new Error("not read");
-    return { read: answer.read, drafts: await readKeepDrafts(mock, WEB.id) };
+    return {
+      read: answer.read,
+      drafts: await readKeepDrafts(mock, WEB.id),
+    };
   };
 
   it("is drawn with no file that keeps it, so it has no name to change and nothing to delete", async () => {
@@ -107,7 +152,9 @@ describe("a lifecycle only a draft holds", () => {
 
   it("leaves a lifecycle the repository holds as it was, whatever draft waits on it", async () => {
     const { read: held, drafts } = await read();
-    const drawn = workspaceDrawn(held, drafts, WEB.id)!.lifecycles.find((one) => one.id === "ticket");
+    const drawn = workspaceDrawn(held, drafts, WEB.id)!.lifecycles.find(
+      (one) => one.id === "ticket",
+    );
     const without = workspaceDrawn(held, [], WEB.id)!.lifecycles.find((one) => one.id === "ticket");
     expect(drawn?.kept).toBeDefined();
     expect(drawn).toEqual(without);
@@ -115,6 +162,8 @@ describe("a lifecycle only a draft holds", () => {
 
   it("is not drawn once its draft is approved or dismissed and the drafts are read again", async () => {
     const { read: held } = await read();
-    expect(workspaceDrawn(held, [], WEB.id)!.lifecycles.some((one) => one.id === "qa_sign_off")).toBe(false);
+    expect(
+      workspaceDrawn(held, [], WEB.id)!.lifecycles.some((one) => one.id === "qa_sign_off"),
+    ).toBe(false);
   });
 });

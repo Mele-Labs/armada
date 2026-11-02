@@ -10,20 +10,35 @@ import type { ManifestFormProps } from "./ManifestForm";
 /** The registry's words for a policy value, with the file's word beside them. */
 function reads(vocabulary: Readonly<Record<string, Rendering | undefined>>, word: string): string {
   const verb = vocabulary[word]?.verb;
-  return verb === null || verb === undefined ? word : `${verb.charAt(0).toUpperCase()}${verb.slice(1)} · ${word}`;
+  return verb === null || verb === undefined
+    ? word
+    : `${verb.charAt(0).toUpperCase()}${verb.slice(1)} · ${word}`;
 }
 
-export function PolicySection({ draft, onDraft, autoMergeWords, reviewGateWords }: ManifestFormProps) {
+export function PolicySection({
+  draft,
+  onDraft,
+  autoMergeWords,
+  reviewGateWords,
+}: ManifestFormProps) {
   const consequence = AUTO_MERGE[draft.autoMerge]?.hint;
   // Fleet serves no such key yet: a window that holds the registry draws the switch, every other draws none.
   const registry = usePrOwnerRegistry();
   return (
-    <Section title="Policy" says="Who decides a landing and a review here. Across several Manifests, the most cautious wins.">
+    <Section
+      title="Policy"
+      says="Who decides a landing and a review here. Across several Manifests, the most cautious wins."
+    >
       <div className="armada-manifest-form__hinted">
         <Select
           label="Auto merge"
           value={draft.autoMerge}
-          onChange={(event) => onDraft({ ...draft, autoMerge: event.target.value })}
+          onChange={(event) =>
+            onDraft({
+              ...draft,
+              autoMerge: event.target.value,
+            })
+          }
         >
           {autoMergeWords.map((word) => (
             <option key={word} value={word}>
@@ -38,7 +53,12 @@ export function PolicySection({ draft, onDraft, autoMergeWords, reviewGateWords 
       <Select
         label="Review gate"
         value={draft.reviewGate}
-        onChange={(event) => onDraft({ ...draft, reviewGate: event.target.value })}
+        onChange={(event) =>
+          onDraft({
+            ...draft,
+            reviewGate: event.target.value,
+          })
+        }
       >
         {reviewGateWords.map((word) => (
           <option key={word} value={word}>
@@ -46,12 +66,23 @@ export function PolicySection({ draft, onDraft, autoMergeWords, reviewGateWords 
           </option>
         ))}
       </Select>
-      <Switch checked={draft.draftPr} onChange={(event) => onDraft({ ...draft, draftPr: event.target.checked })}>
+      <Switch
+        checked={draft.draftPr}
+        onChange={(event) =>
+          onDraft({
+            ...draft,
+            draftPr: event.target.checked,
+          })
+        }
+      >
         Draft pull requests
       </Switch>
       {registry === undefined ? null : (
         <Tooltip label="Register pull request owners">
-          <Switch checked={registry.registering} onChange={(event) => registry.setRegistering(event.target.checked)}>
+          <Switch
+            checked={registry.registering}
+            onChange={(event) => registry.setRegistering(event.target.checked)}
+          >
             Pull request owners
           </Switch>
         </Tooltip>

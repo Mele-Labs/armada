@@ -15,11 +15,23 @@ export type Fleet = {
   /** Hear every published state. */
   listen: (onState: (state: BridgeState) => void) => () => void;
   /** The pool as acts on it left it, read again after each as main does. */
-  held: { get: () => WorktreesHeld | undefined; set: (held: WorktreesHeld | undefined) => void };
+  held: {
+    get: () => WorktreesHeld | undefined;
+    set: (held: WorktreesHeld | undefined) => void;
+  };
   /** What Kit's allowlist holds on this machine. */
-  kit: { get: () => KitAllowedCommand[]; set: (allowed: KitAllowedCommand[]) => void };
-  refused: (route: string) => { ok: false; outcome: ReturnType<typeof unanswered> };
-  unread: (route: string) => { state: "failed"; outcome: ReturnType<typeof unanswered> };
+  kit: {
+    get: () => KitAllowedCommand[];
+    set: (allowed: KitAllowedCommand[]) => void;
+  };
+  refused: (route: string) => {
+    ok: false;
+    outcome: ReturnType<typeof unanswered>;
+  };
+  unread: (route: string) => {
+    state: "failed";
+    outcome: ReturnType<typeof unanswered>;
+  };
 };
 
 /** The surfaces a fake is composed of, one `shared/api/<name>.ts` each. */
@@ -85,7 +97,9 @@ export type Slice<A, S> = {
 };
 
 /** The fixed answers a read with nothing behind it gives. */
-export const nothing = { state: "none" } as const;
+export const nothing = {
+  state: "none",
+} as const;
 
 /** One window's fleet, over `initial` as the state it opens on. */
 export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
@@ -95,12 +109,19 @@ export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
   let kit: KitAllowedCommand[] = [];
 
   function publish(change: Partial<BridgeState>): void {
-    state = { ...state, ...change };
+    state = {
+      ...state,
+      ...change,
+    };
     const now = state;
     queueMicrotask(() => listeners.forEach((listener) => listener(now)));
   }
 
-  const refused = (route: string) => ({ ok: false, outcome: unanswered(route) }) as const;
+  const refused = (route: string) =>
+    ({
+      ok: false,
+      outcome: unanswered(route),
+    }) as const;
 
   return {
     scenario,
@@ -110,9 +131,19 @@ export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
       listeners.add(onState);
       return () => listeners.delete(onState);
     },
-    held: { get: () => held, set: (next) => void (held = next) },
-    kit: { get: () => kit, set: (next) => void (kit = next) },
+    held: {
+      get: () => held,
+      set: (next) => void (held = next),
+    },
+    kit: {
+      get: () => kit,
+      set: (next) => void (kit = next),
+    },
     refused,
-    unread: (route) => ({ state: "failed", outcome: unanswered(route) }) as const,
+    unread: (route) =>
+      ({
+        state: "failed",
+        outcome: unanswered(route),
+      }) as const,
   };
 }

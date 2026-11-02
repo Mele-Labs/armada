@@ -16,28 +16,100 @@ const asking = (id: string, title: string, items: Session["waitingFor"]): Sessio
   id,
   title,
   manifestId: OWNER,
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(2),
-  rows: [{ id: `${id}-a`, at: "14:00:11", kind: "message", from: { kind: "agent" }, text: "A question before I go on." }],
+  rows: [
+    {
+      id: `${id}-a`,
+      at: "14:00:11",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "A question before I go on.",
+    },
+  ],
   attachments: [],
-  ...(items === undefined ? {} : { waitingFor: items }),
+  ...(items === undefined
+    ? {}
+    : {
+        waitingFor: items,
+      }),
 });
 
 const two = asking("d5da70fd-70f9-4394-85c6-26076c9aa8c8", "Session / Job Progress", [
-  { id: "ask:progress:0", text: "Which ring should a build draw?", since: ago(3), source: "ask_card", options: [{ label: "One ring" }, { label: "A ring a step" }, { label: "None" }] },
-  { id: "ask:progress:1", text: "Where does the ring sit?", since: ago(2), source: "ask_card", options: [{ label: "On the drone" }, { label: "On the bay" }] },
+  {
+    id: "ask:progress:0",
+    text: "Which ring should a build draw?",
+    since: ago(3),
+    source: "ask_card",
+    options: [
+      {
+        label: "One ring",
+      },
+      {
+        label: "A ring a step",
+      },
+      {
+        label: "None",
+      },
+    ],
+  },
+  {
+    id: "ask:progress:1",
+    text: "Where does the ring sit?",
+    since: ago(2),
+    source: "ask_card",
+    options: [
+      {
+        label: "On the drone",
+      },
+      {
+        label: "On the bay",
+      },
+    ],
+  },
 ]);
 const helm: Session = {
-  ...asking("h1", "Helm · armada", [{ id: "ask:helm:0", text: "Which repository should I read first?", since: ago(1), source: "ask_card", options: [{ label: "armada" }, { label: "pocket" }] }]),
+  ...asking("h1", "Helm · armada", [
+    {
+      id: "ask:helm:0",
+      text: "Which repository should I read first?",
+      since: ago(1),
+      source: "ask_card",
+      options: [
+        {
+          label: "armada",
+        },
+        {
+          label: "pocket",
+        },
+      ],
+    },
+  ]),
   helm: true,
 };
 
 function build(): Scenario {
-  const base = holding("cockpit-call-owner", "The flight deck with a Session that asks two questions and Helm's own Session asking one");
+  const base = holding(
+    "cockpit-call-owner",
+    "The flight deck with a Session that asks two questions and Helm's own Session asking one",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: null },
-    draft: { sessions: () => sessionsStore([two, helm]) },
+    state: {
+      ...base.state,
+      repository: null,
+    },
+    draft: {
+      sessions: () =>
+        sessionsStore([
+          two,
+          helm,
+        ]),
+    },
   };
 }
 

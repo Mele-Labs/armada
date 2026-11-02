@@ -19,22 +19,47 @@ import { holderOf } from "./runtime-file";
 const NO_PICK: PickedView = {
   repository: null,
   manifestReading: null,
-  health: { state: "none" },
-  checkoutRunSheet: { state: "none" },
-  checkoutRunFollowed: { state: "none" },
-  manifestDrift: { state: "none" },
+  health: {
+    state: "none",
+  },
+  checkoutRunSheet: {
+    state: "none",
+  },
+  checkoutRunFollowed: {
+    state: "none",
+  },
+  manifestDrift: {
+    state: "none",
+  },
 };
 
 const ARMADA: RepositorySummary = {
   root: "/Users/user/armada",
   records_root: "/records/armada",
-  manifest: { id: "armada", repository: "armada", path: "/Users/user/armada/armada.yml", records_root: "/records/armada", version: 1, checks: [] },
+  manifest: {
+    id: "armada",
+    repository: "armada",
+    path: "/Users/user/armada/armada.yml",
+    records_root: "/records/armada",
+    version: 1,
+    checks: [],
+  },
 };
-const SCRATCH: RepositorySummary = { root: "/Users/user/scratch", records_root: "/records/scratch" };
+const SCRATCH: RepositorySummary = {
+  root: "/Users/user/scratch",
+  records_root: "/records/scratch",
+};
 const STOREFRONT: RepositorySummary = {
   root: "/Users/user/storefront",
   records_root: "/records/storefront",
-  manifest: { id: "storefront", repository: "storefront", path: "/Users/user/storefront/armada.yml", records_root: "/records/storefront", version: 1, checks: [] },
+  manifest: {
+    id: "storefront",
+    repository: "storefront",
+    path: "/Users/user/storefront/armada.yml",
+    records_root: "/records/storefront",
+    version: 1,
+    checks: [],
+  },
 };
 
 const opened: (() => void | Promise<void>)[] = [];
@@ -46,26 +71,36 @@ afterEach(async () => {
 async function fleetServing(listing: RepositorySummary[]) {
   const reads = new Map<string, number>();
   const urls: string[] = [];
-  const stream = new WebSocketServer({ noServer: true });
+  const stream = new WebSocketServer({
+    noServer: true,
+  });
   const server: Server = createServer((request, answer) => {
     const route = request.url ?? "";
     reads.set(route, (reads.get(route) ?? 0) + 1);
     urls.push(route);
     const body: Record<string, unknown> = {
-      "/repositories": { repositories: listing },
+      "/repositories": {
+        repositories: listing,
+      },
       "/workflows": [],
       "/manifests": [],
-      "/models": { choices: [] },
+      "/models": {
+        choices: [],
+      },
     };
     // Setup and the Manifest file: any query answers, so the test below reads back which
     // `manifest_id` or `repository` each window's own call named.
     const scoped = route.startsWith("/manifest/file") || route.startsWith("/repository/scan");
     const found = body[route] ?? (scoped ? {} : undefined);
-    answer.writeHead(found === undefined ? 404 : 200, { "content-type": "application/json" });
+    answer.writeHead(found === undefined ? 404 : 200, {
+      "content-type": "application/json",
+    });
     answer.end(JSON.stringify(found ?? {}));
   });
   server.on("upgrade", (request: IncomingMessage, socket: Socket, head: Buffer) =>
-    stream.handleUpgrade(request, socket, head, (client) => stream.emit("connection", client, request)),
+    stream.handleUpgrade(request, socket, head, (client) =>
+      stream.emit("connection", client, request),
+    ),
   );
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -88,39 +123,81 @@ async function fleetServing(listing: RepositorySummary[]) {
 async function bridgeOn(port: number) {
   const home = await mkdtemp(join(tmpdir(), "bridge-"));
   const dir = join(home, "Library", "Application Support", "Armada");
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, {
+    recursive: true,
+  });
   const held = holderOf(process.pid);
   const startedAt = held.held === true ? held.startedAt : "";
-  await writeFile(join(dir, "fleet.json"), JSON.stringify({ protocol_id: PROTOCOL_ID, pid: process.pid, port, started_at: startedAt }));
+  await writeFile(
+    join(dir, "fleet.json"),
+    JSON.stringify({
+      protocol_id: PROTOCOL_ID,
+      pid: process.pid,
+      port,
+      started_at: startedAt,
+    }),
+  );
   let latest: BridgeState | null = null;
-  const waits: { holds: (state: BridgeState) => boolean; keep: () => void }[] = [];
-  const windows = new Set<number>([1]);
+  const waits: {
+    holds: (state: BridgeState) => boolean;
+    keep: () => void;
+  }[] = [];
+  const windows = new Set<number>([
+    1,
+  ]);
   const views = new Map<number, PickedView>();
-  const viewWaits: { windowId: number; holds: (view: PickedView) => boolean; keep: () => void }[] = [];
+  const viewWaits: {
+    windowId: number;
+    holds: (view: PickedView) => boolean;
+    keep: () => void;
+  }[] = [];
   const connection = new FleetConnection({
     home,
     now: () => 1_757_000_000_000,
     publish: (state) => {
       latest = state;
-      for (const [at, wait] of [...waits.entries()].reverse()) if (wait.holds(state)) waits.splice(at, 1) && wait.keep();
+      for (const [at, wait] of [
+        ...waits.entries(),
+      ].reverse())
+        if (wait.holds(state)) waits.splice(at, 1) && wait.keep();
     },
     publishToWindow: (windowId, change) => {
-      const view = { ...(views.get(windowId) ?? NO_PICK), ...change };
+      const view = {
+        ...(views.get(windowId) ?? NO_PICK),
+        ...change,
+      };
       views.set(windowId, view);
-      for (const [at, wait] of [...viewWaits.entries()].reverse()) {
+      for (const [at, wait] of [
+        ...viewWaits.entries(),
+      ].reverse()) {
         if (wait.windowId === windowId && wait.holds(view)) viewWaits.splice(at, 1) && wait.keep();
       }
     },
-    windowIds: () => [...windows],
+    windowIds: () => [
+      ...windows,
+    ],
   });
   opened.push(() => connection.stop());
   connection.start();
   const until = (holds: (state: BridgeState) => boolean) =>
-    latest !== null && holds(latest) ? Promise.resolve() : new Promise<void>((keep) => waits.push({ holds, keep }));
+    latest !== null && holds(latest)
+      ? Promise.resolve()
+      : new Promise<void>((keep) =>
+          waits.push({
+            holds,
+            keep,
+          }),
+        );
   const untilView = (windowId: number, holds: (view: PickedView) => boolean) =>
     views.has(windowId) && holds(views.get(windowId)!)
       ? Promise.resolve()
-      : new Promise<void>((keep) => viewWaits.push({ windowId, holds, keep }));
+      : new Promise<void>((keep) =>
+          viewWaits.push({
+            windowId,
+            holds,
+            keep,
+          }),
+        );
   return {
     until,
     untilView,
@@ -135,9 +212,24 @@ async function bridgeOn(port: number) {
   };
 }
 
-const resync = JSON.stringify({ message: "resync", protocol_id: PROTOCOL_ID, cursor: 1, jobs: { jobs: [], unreadable: [] } });
+const resync = JSON.stringify({
+  message: "resync",
+  protocol_id: PROTOCOL_ID,
+  cursor: 1,
+  jobs: {
+    jobs: [],
+    unreadable: [],
+  },
+});
 const changed = (repositories: RepositorySummary[]) =>
-  JSON.stringify({ message: "event", cursor: 2, event: { kind: "repositories.changed", repositories } });
+  JSON.stringify({
+    message: "event",
+    cursor: 2,
+    event: {
+      kind: "repositories.changed",
+      repositories,
+    },
+  });
 const rootsOf = (state: BridgeState) => (state.holds.repositories ?? []).map((one) => one.root);
 
 it("lists the first repository added to a Fleet that served none, from the event alone, and stays on All", async () => {
@@ -148,15 +240,23 @@ it("lists the first repository added to a Fleet that served none, from the event
   expect(rootsOf(bridge.latest())).toEqual([]);
   expect(bridge.viewOf(1).repository).toBeNull();
 
-  (await fleet.socket).send(changed([SCRATCH]));
+  (await fleet.socket).send(
+    changed([
+      SCRATCH,
+    ]),
+  );
   await bridge.until((state) => rootsOf(state).length === 1);
-  expect(rootsOf(bridge.latest())).toEqual([SCRATCH.root]);
+  expect(rootsOf(bridge.latest())).toEqual([
+    SCRATCH.root,
+  ]);
   expect(bridge.viewOf(1).repository).toBeNull();
   expect(fleet.read("/repositories")).toBe(1);
 });
 
 it("keeps the pick where it is still served when another repository is added elsewhere", async () => {
-  const fleet = await fleetServing([ARMADA]);
+  const fleet = await fleetServing([
+    ARMADA,
+  ]);
   const bridge = await bridgeOn(fleet.port);
   (await fleet.socket).send(resync);
   await bridge.until((state) => rootsOf(state).length === 1);
@@ -167,15 +267,26 @@ it("keeps the pick where it is still served when another repository is added els
   const read = fleet.read("/repositories");
 
   // Listed ahead of the pick, which would take the first place if the pick were reset.
-  (await fleet.socket).send(changed([SCRATCH, ARMADA]));
+  (await fleet.socket).send(
+    changed([
+      SCRATCH,
+      ARMADA,
+    ]),
+  );
   await bridge.until((state) => rootsOf(state).length === 2);
-  expect(rootsOf(bridge.latest())).toEqual([SCRATCH.root, ARMADA.root]);
+  expect(rootsOf(bridge.latest())).toEqual([
+    SCRATCH.root,
+    ARMADA.root,
+  ]);
   expect(bridge.viewOf(1).repository).toBe(ARMADA.root);
   expect(fleet.read("/repositories")).toBe(read);
 });
 
 it("moves only the window that picks — Open in one leaves another's pick", async () => {
-  const fleet = await fleetServing([ARMADA, SCRATCH]);
+  const fleet = await fleetServing([
+    ARMADA,
+    SCRATCH,
+  ]);
   const bridge = await bridgeOn(fleet.port);
   bridge.open(2);
   (await fleet.socket).send(resync);
@@ -198,7 +309,10 @@ it("moves only the window that picks — Open in one leaves another's pick", asy
 });
 
 it("Setup and a Manifest read act on the window's own pick — Open in one leaves the other's", async () => {
-  const fleet = await fleetServing([ARMADA, STOREFRONT]);
+  const fleet = await fleetServing([
+    ARMADA,
+    STOREFRONT,
+  ]);
   const bridge = await bridgeOn(fleet.port);
   bridge.open(2);
   (await fleet.socket).send(resync);
@@ -215,8 +329,12 @@ it("Setup and a Manifest read act on the window's own pick — Open in one leave
   // B's own Setup and Manifest read still name armada, not the repository A just opened.
   await bridge.editingFor(2).readFile();
   await bridge.editingFor(2).setup.readScan();
-  expect(fleet.urlsFrom("/manifest/file")).toEqual(["/manifest/file?manifest_id=armada"]);
-  expect(fleet.urlsFrom("/repository/scan")).toEqual([`/repository/scan?repository=${encodeURIComponent(ARMADA.root)}`]);
+  expect(fleet.urlsFrom("/manifest/file")).toEqual([
+    "/manifest/file?manifest_id=armada",
+  ]);
+  expect(fleet.urlsFrom("/repository/scan")).toEqual([
+    `/repository/scan?repository=${encodeURIComponent(ARMADA.root)}`,
+  ]);
 
   // A's own Setup and Manifest read name storefront, exactly where it opened Setup.
   await bridge.editingFor(1).readFile();
@@ -233,8 +351,12 @@ it("Setup and a Manifest read act on the window's own pick — Open in one leave
   // B's own Verify and run sheet still name armada, not the repository A opened.
   await bridge.rehearsal.startCheckoutVerify(2);
   await bridge.rehearsal.watchCheckoutRunSheet(2, true);
-  expect(fleet.urlsFrom("/manifest/start_verify")).toEqual(["/manifest/start_verify?manifest_id=armada"]);
-  expect(fleet.urlsFrom("/manifest/run_sheet")).toEqual(["/manifest/run_sheet?manifest_id=armada"]);
+  expect(fleet.urlsFrom("/manifest/start_verify")).toEqual([
+    "/manifest/start_verify?manifest_id=armada",
+  ]);
+  expect(fleet.urlsFrom("/manifest/run_sheet")).toEqual([
+    "/manifest/run_sheet?manifest_id=armada",
+  ]);
 
   // A's own Verify and run sheet name storefront.
   await bridge.rehearsal.startCheckoutVerify(1);

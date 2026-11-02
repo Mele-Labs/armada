@@ -34,17 +34,42 @@ const NOTHING_YET = "This drone has not changed anything yet.";
  * because it evaluates a story only when something renders it.
  */
 const COUNTED: ChangedFile[] = [
-  { path: "packages/settings/src/selectors.ts", change: "modified", added: 61, deleted: 4 },
-  { path: "packages/settings/src/reducer.ts", change: "modified", added: 12, deleted: 27 },
+  {
+    path: "packages/settings/src/selectors.ts",
+    change: "modified",
+    added: 61,
+    deleted: 4,
+  },
+  {
+    path: "packages/settings/src/reducer.ts",
+    change: "modified",
+    added: 12,
+    deleted: 27,
+  },
   // No deletion beside it, as the drawing has it. `−0` measures nothing.
-  { path: "packages/settings/src/index.ts", change: "added", added: 21 },
+  {
+    path: "packages/settings/src/index.ts",
+    change: "added",
+    added: 21,
+  },
 ];
 
 /** The same reading with two paths outside the plan, and one file only deleted. */
 const DRIFTED: ChangedFile[] = [
   ...COUNTED,
-  { path: "packages/tokens/src/status.css", change: "modified", added: 3, deleted: 3, outsidePlan: true },
-  { path: "scripts/legacy-dev", change: "deleted", deleted: 40, outsidePlan: true },
+  {
+    path: "packages/tokens/src/status.css",
+    change: "modified",
+    added: 3,
+    deleted: 3,
+    outsidePlan: true,
+  },
+  {
+    path: "scripts/legacy-dev",
+    change: "deleted",
+    deleted: 40,
+    outsidePlan: true,
+  },
 ];
 
 /** A drone part way through a step, on a step that declared no plan. */
@@ -53,10 +78,22 @@ export const WhatADroneHasTouched: Story = {
     emptyNote: NOTHING_YET,
     note: "Read from the worktree while the drone was working. This step declared no plan, so no row is marked.",
     files: [
-      { path: "crates/api/src/routes.rs", change: "modified" },
-      { path: "crates/ipc/src/history.rs", change: "added" },
-      { path: "crates/ipc/src/lib.rs", change: "modified" },
-      { path: "crates/ipc/src/legacy_events.rs", change: "deleted" },
+      {
+        path: "crates/api/src/routes.rs",
+        change: "modified",
+      },
+      {
+        path: "crates/ipc/src/history.rs",
+        change: "added",
+      },
+      {
+        path: "crates/ipc/src/lib.rs",
+        change: "modified",
+      },
+      {
+        path: "crates/ipc/src/legacy_events.rs",
+        change: "deleted",
+      },
     ],
   },
 };
@@ -71,11 +108,28 @@ export const TwoPathsOutsideThePlan: Story = {
     emptyNote: NOTHING_YET,
     note: "Read from the worktree while the drone was working. 2 of 5 paths are outside the plan this step declared.",
     files: [
-      { path: "packages/screens/src/JobDetail.tsx", change: "modified" },
-      { path: "packages/protocol/src/protocol.ts", change: "modified" },
-      { path: "packages/tokens/src/status.css", change: "modified", outsidePlan: true },
-      { path: "packages/components/src/compositions/ChangedFiles/ChangedFiles.tsx", change: "added" },
-      { path: "scripts/dev", change: "type_changed", outsidePlan: true },
+      {
+        path: "packages/screens/src/JobDetail.tsx",
+        change: "modified",
+      },
+      {
+        path: "packages/protocol/src/protocol.ts",
+        change: "modified",
+      },
+      {
+        path: "packages/tokens/src/status.css",
+        change: "modified",
+        outsidePlan: true,
+      },
+      {
+        path: "packages/components/src/compositions/ChangedFiles/ChangedFiles.tsx",
+        change: "added",
+      },
+      {
+        path: "scripts/dev",
+        change: "type_changed",
+        outsidePlan: true,
+      },
     ],
   },
 };
@@ -93,9 +147,18 @@ export const NoPlanIsRecordedAgainstIt: Story = {
     emptyNote: NOTHING_YET,
     note: "Read from this job's worktree when the job stopped, and kept — so it says the same thing whether or not anyone was watching. No plan is recorded against it, so no path is marked. Either no step declared one, or this job stopped before declarations were kept. An unmarked path here is not a path that was inside a plan.",
     files: [
-      { path: "crates/fleet/src/dispatch.rs", change: "modified" },
-      { path: "crates/fleet/src/footprint.rs", change: "modified" },
-      { path: "crates/ipc/src/work.rs", change: "modified" },
+      {
+        path: "crates/fleet/src/dispatch.rs",
+        change: "modified",
+      },
+      {
+        path: "crates/fleet/src/footprint.rs",
+        change: "modified",
+      },
+      {
+        path: "crates/ipc/src/work.rs",
+        change: "modified",
+      },
     ],
   },
 };
@@ -114,11 +177,26 @@ export const TheKindsThatAreNotAnEdit: Story = {
   args: {
     emptyNote: NOTHING_YET,
     files: [
-      { path: "docs/scope.md", change: "renamed" },
-      { path: "docs/journeys/watch-a-drone.md", change: "copied" },
-      { path: "scripts/dev", change: "type_changed" },
-      { path: "crates/fleet/src/serving.rs", change: "conflicted" },
-      { path: "assets/AppIcon.icns", change: "unreadable" },
+      {
+        path: "docs/scope.md",
+        change: "renamed",
+      },
+      {
+        path: "docs/journeys/watch-a-drone.md",
+        change: "copied",
+      },
+      {
+        path: "scripts/dev",
+        change: "type_changed",
+      },
+      {
+        path: "crates/fleet/src/serving.rs",
+        change: "conflicted",
+      },
+      {
+        path: "assets/AppIcon.icns",
+        change: "unreadable",
+      },
     ],
   },
   play: async ({ canvas }) => {
@@ -126,7 +204,13 @@ export const TheKindsThatAreNotAnEdit: Story = {
     // A copy in the assertion is the second source reading `CHANGE_KIND` exists
     // to be rid of, one file across — and it is the copy that would let this
     // story pass over a column that had stopped following the rows.
-    for (const wire of ["renamed", "copied", "type_changed", "conflicted", "unreadable"]) {
+    for (const wire of [
+      "renamed",
+      "copied",
+      "type_changed",
+      "conflicted",
+      "unreadable",
+    ]) {
       const verb = CHANGE_KIND[wire]?.verb;
       await expect(verb).toBeTruthy();
       await expect(canvas.getByText(verb!)).toBeVisible();
@@ -136,7 +220,9 @@ export const TheKindsThatAreNotAnEdit: Story = {
 
 /** A drone that has written nothing so far. Ordinary, and never an error: **nothing is drawn**. */
 export const NothingChangedYet: Story = {
-  args: { files: [] },
+  args: {
+    files: [],
+  },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.textContent).toBe("");
   },
@@ -156,7 +242,10 @@ export const NothingChangedYet: Story = {
  * left visible rather than quietly dropped from the component.
  */
 export const WithLineCounts: Story = {
-  args: { emptyNote: NOTHING_YET, files: COUNTED },
+  args: {
+    emptyNote: NOTHING_YET,
+    files: COUNTED,
+  },
 };
 
 /**
@@ -174,15 +263,40 @@ export const WithLineCounts: Story = {
  */
 export const TheSummaryOverTheList: Story = {
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-4)",
+      }}
+    >
       {(
         [
-          [COUNTED, true],
-          [DRIFTED, true],
-          [DRIFTED, undefined],
-        ] as [ChangedFile[], boolean | undefined][]
+          [
+            COUNTED,
+            true,
+          ],
+          [
+            DRIFTED,
+            true,
+          ],
+          [
+            DRIFTED,
+            undefined,
+          ],
+        ] as [
+          ChangedFile[],
+          boolean | undefined,
+        ][]
       ).map(([files, planDeclared], at) => (
-        <div key={at} style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        <div
+          key={at}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--space-2)",
+          }}
+        >
           <span className="armada-chapter__meta">{changedFilesSummary(files, planDeclared)}</span>
           <ChangedFiles files={files} emptyNote={NOTHING_YET} />
         </div>

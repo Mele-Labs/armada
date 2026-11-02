@@ -5,15 +5,41 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-import { KitBrowser, KitModels, namesOf, SystemPage, SystemSidebar, useKept } from "@armada/components";
+import {
+  KitBrowser,
+  KitModels,
+  namesOf,
+  SystemPage,
+  SystemSidebar,
+  useKept,
+} from "@armada/components";
 import type { KitKindId, KitPiecesProps, KitRef, KitSetupRead } from "@armada/components";
 import type { ModelChoices, SettingsList } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
-import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
-import { ModList, SettingsSectionsView, taughtOf, useSettingsFile, useTaught, useThemes } from "@armada/settings";
+import {
+  addressReads,
+  addressTyped,
+  useKit,
+  type KitSlice,
+} from "@armada/screens/src/manifest-kit";
+import {
+  ModList,
+  SettingsSectionsView,
+  taughtOf,
+  useSettingsFile,
+  useTaught,
+  useThemes,
+} from "@armada/settings";
 import { Boundary, useLayouts, type BoundaryProps } from "@armada/shell";
 
-import { entryOf, entryOfKind, foundBy, SYSTEM_ENTRIES, SYSTEM_GROUPS, type SystemEntryDef } from "./system-entries";
+import {
+  entryOf,
+  entryOfKind,
+  foundBy,
+  SYSTEM_ENTRIES,
+  SYSTEM_GROUPS,
+  type SystemEntryDef,
+} from "./system-entries";
 import { useKitModels } from "./kit-models";
 import { openLink } from "./commands";
 import { openLinkPanel } from "./link-drop";
@@ -56,22 +82,70 @@ function useWithMods(setup: KitSetupRead | undefined): KitSetupRead | undefined 
   const layouts = useLayouts();
   if (setup === undefined) return undefined;
   const items = [
-    ...themes.mods.map((mod) => ({ name: mod.name.replace(/^built-in:/, ""), source: mod.builtIn === true ? "Armada" : "", mod: { kind: "theme" as const, ...(mod.builtIn === true ? { builtIn: true } : {}) } })),
-    ...layouts.mods.map((mod) => ({ name: mod.name, source: "", mod: { kind: "layout" as const } })),
+    ...themes.mods.map((mod) => ({
+      name: mod.name.replace(/^built-in:/, ""),
+      source: mod.builtIn === true ? "Armada" : "",
+      mod: {
+        kind: "theme" as const,
+        ...(mod.builtIn === true
+          ? {
+              builtIn: true,
+            }
+          : {}),
+      },
+    })),
+    ...layouts.mods.map((mod) => ({
+      name: mod.name,
+      source: "",
+      mod: {
+        kind: "layout" as const,
+      },
+    })),
   ];
-  return { ...setup, kinds: [...setup.kinds.filter((one) => one.kind !== "mods"), { kind: "mods", read: { what: "read", items, unreadable: [] } }] };
+  return {
+    ...setup,
+    kinds: [
+      ...setup.kinds.filter((one) => one.kind !== "mods"),
+      {
+        kind: "mods",
+        read: {
+          what: "read",
+          items,
+          unreadable: [],
+        },
+      },
+    ],
+  };
 }
 
-export function SystemSurface({ repository, settings, modelChoices, live, guarded, onReadGuides, onOpenAccount, workflows, workspaces, guides, warned, ...slice }: SystemSurfaceProps) {
+export function SystemSurface({
+  repository,
+  settings,
+  modelChoices,
+  live,
+  guarded,
+  onReadGuides,
+  onOpenAccount,
+  workflows,
+  workspaces,
+  guides,
+  warned,
+  ...slice
+}: SystemSurfaceProps) {
   const palette = usePaletteTable();
   const read = useKit(slice);
-  const kit = { ...read, setup: useWithMods(read.setup) };
+  const kit = {
+    ...read,
+    setup: useWithMods(read.setup),
+  };
   const [entry, setEntry] = useSystemEntry();
   const [query, setQuery] = useKept("system-search", "");
   const [picks, setPicks] = useState<Partial<Record<KitKindId, string>>>({});
   const [openRefused, setOpenRefused] = useState<string | undefined>(undefined);
   const open = (path: string, how: "editor" | "finder") =>
-    void window.armada.openKitFile(path, how).then((done) => setOpenRefused(done.ok ? undefined : done.detail));
+    void window.armada
+      .openKitFile(path, how)
+      .then((done) => setOpenRefused(done.ok ? undefined : done.detail));
   const models = useKitModels(modelChoices, settings);
   const [model, setModel] = useState<string | undefined>(undefined);
 
@@ -80,7 +154,11 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
     address: addressReads(server.address),
     kind: server.address.transport,
     reachesByDefault: server.drones === "yes",
-    ...(server.manifest === undefined ? {} : { here: server.manifest }),
+    ...(server.manifest === undefined
+      ? {}
+      : {
+          here: server.manifest,
+        }),
     resolves: server.resolves,
   }));
   const names = (kind: KitKindId) => namesOf(kind, kit.setup, servers);
@@ -89,14 +167,34 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
     onRemove: kit.pieces.onRemove,
     trashed: kit.pieces.trashed,
     onUndo: kit.pieces.onUndo,
-    ...(kit.refused === null ? {} : { refused: said(kit.refused) }),
+    ...(kit.refused === null
+      ? {}
+      : {
+          refused: said(kit.refused),
+        }),
   };
 
-  const found = new Map(SYSTEM_ENTRIES.map((one) => [one.id, foundBy(one, query, names, settings)] as const));
+  const found = new Map(
+    SYSTEM_ENTRIES.map(
+      (one) =>
+        [
+          one.id,
+          foundBy(one, query, names, settings),
+        ] as const,
+    ),
+  );
   // Words, Tracker and Fleet are listed once a teaching or a scaffold has made a mod of that kind, and not before.
   const taught = useTaught();
   const made = (id: string) =>
-    id === "bridge:words" ? taughtOf(taught, "words").length > 0 : id === "bridge:tracker" ? taughtOf(taught, "tracker").length > 0 : id === "bridge:fleet" ? taughtOf(taught, "fleet").length > 0 : id === "kit:workspaces" ? workspaces !== undefined : true;
+    id === "bridge:words"
+      ? taughtOf(taught, "words").length > 0
+      : id === "bridge:tracker"
+        ? taughtOf(taught, "tracker").length > 0
+        : id === "bridge:fleet"
+          ? taughtOf(taught, "fleet").length > 0
+          : id === "kit:workspaces"
+            ? workspaces !== undefined
+            : true;
   const visible = SYSTEM_ENTRIES.filter((one) => found.get(one.id) !== null && made(one.id));
   // A search that hides the entry last picked draws the first it found, without forgetting the pick.
   const shown: SystemEntryDef | undefined = visible.find((one) => one.id === entry) ?? visible[0];
@@ -105,7 +203,9 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
   const onModels = shown?.id === "kit:models";
   useEffect(() => {
     if (onModels) void window.armada.askModels();
-  }, [onModels]);
+  }, [
+    onModels,
+  ]);
 
   const groups = SYSTEM_GROUPS.map((group) => ({
     id: group.id,
@@ -114,20 +214,49 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
       .filter((one) => one.group === group.id)
       .map((one) => {
         const alert = one.id === "kit:workflows" ? warned["workflows"] : undefined;
-        return { id: one.id, label: one.label, ...(alert === undefined ? {} : { alert }) };
+        return {
+          id: one.id,
+          label: one.label,
+          ...(alert === undefined
+            ? {}
+            : {
+                alert,
+              }),
+        };
       }),
-    ...(group.id === "kit" ? { act: { label: "Add", name: "Add to Kit", onPress: () => openLinkPanel("") } } : {}),
+    ...(group.id === "kit"
+      ? {
+          act: {
+            label: "Add",
+            name: "Add to Kit",
+            onPress: () => openLinkPanel(""),
+          },
+        }
+      : {}),
   }));
 
   const jump = (to: KitRef) => {
-    setPicks((was) => ({ ...was, [to.kind]: to.id }));
+    setPicks((was) => ({
+      ...was,
+      [to.kind]: to.id,
+    }));
     setEntry(entryOfKind(to.kind));
   };
 
   // The file opens in the side panel where one is drawn, and in the machine's editor where none is.
   const settingsFile = useSettingsFile({
     settings,
-    onOpen: async () => (settings?.path !== undefined && openInPanel({ kind: "file", path: settings.path, from: "settings" }) ? { ok: true } : window.armada.openSettingsFile()),
+    onOpen: async () =>
+      settings?.path !== undefined &&
+      openInPanel({
+        kind: "file",
+        path: settings.path,
+        from: "settings",
+      })
+        ? {
+            ok: true,
+          }
+        : window.armada.openSettingsFile(),
   });
   const settingsFor = (def: SystemEntryDef): ReactNode => (
     <div className="armada-system__pane" data-col="detail">
@@ -146,7 +275,11 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         onOpenAccount={onOpenAccount}
         onReadGuides={onReadGuides}
         palette={palette}
-        {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
+        {...(guarded.onCopied === undefined
+          ? {}
+          : {
+              onCopied: guarded.onCopied,
+            })}
         onOpenPull={openPull}
         onOpenJob={askToOpenSession}
         onOpenMod={openMod}
@@ -154,11 +287,23 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
         under={{
           theme: (
             <>
-              <ModList kind="theme" onOpenPull={openPull} onOpenJob={askToOpenSession} onOpenMod={openMod} />
+              <ModList
+                kind="theme"
+                onOpenPull={openPull}
+                onOpenJob={askToOpenSession}
+                onOpenMod={openMod}
+              />
               <ModList kind="tweak" title="Tweaks" onOpenMod={openMod} />
             </>
           ),
-          layout: <ModList kind="layout" onOpenPull={openPull} onOpenJob={askToOpenSession} onOpenMod={openMod} />,
+          layout: (
+            <ModList
+              kind="layout"
+              onOpenPull={openPull}
+              onOpenJob={askToOpenSession}
+              onOpenMod={openMod}
+            />
+          ),
         }}
       />
       {def.id === "bridge:guides" ? <div className="armada-system__catalogue">{guides}</div> : null}
@@ -177,30 +322,65 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
           keep="system-kit"
           narrow={narrow}
           picked={picks[kind]}
-          onPick={(id) => setPicks((was) => ({ ...was, [kind]: id }))}
+          onPick={(id) =>
+            setPicks((was) => ({
+              ...was,
+              [kind]: id,
+            }))
+          }
           onJump={jump}
           onRemoveAllowed={kit.onRemoveAllowed}
           pieces={pieces}
           onOpenFile={(path) => {
-            if (!openInPanel({ kind: "file", path, from: "kit" })) open(path, "editor");
+            if (
+              !openInPanel({
+                kind: "file",
+                path,
+                from: "kit",
+              })
+            )
+              open(path, "editor");
           }}
-          fileView={({ path, head }) => <FileInline key={path} path={path} from="kit" head={head} />}
+          fileView={({ path, head }) => (
+            <FileInline key={path} path={path} from="kit" head={head} />
+          )}
           onShowInFinder={(path) => open(path, "finder")}
-          {...(openRefused === undefined ? {} : { openRefused })}
+          {...(openRefused === undefined
+            ? {}
+            : {
+                openRefused,
+              })}
           {...(kind !== "servers"
             ? {}
             : {
                 servers: {
                   rows: servers,
                   here: repository,
-                  ...(kit.refused === null ? {} : { refused: said(kit.refused) }),
-                  onAdd: ({ name, kind: transport, address }: { name: string; kind: "stdio" | "http"; address: string }) => {
+                  ...(kit.refused === null
+                    ? {}
+                    : {
+                        refused: said(kit.refused),
+                      }),
+                  onAdd: ({
+                    name,
+                    kind: transport,
+                    address,
+                  }: {
+                    name: string;
+                    kind: "stdio" | "http";
+                    address: string;
+                  }) => {
                     const typed = addressTyped(transport, address);
                     // Fleet refuses the same shapes and says why. What is refused here is an empty field.
-                    if (typed !== null) kit.onAdd({ name, address: typed });
+                    if (typed !== null)
+                      kit.onAdd({
+                        name,
+                        address: typed,
+                      });
                   },
                   onForget: kit.onForget,
-                  onKitReach: (name: string, reaches: boolean) => kit.onKitReach(name, reaches ? "yes" : "no"),
+                  onKitReach: (name: string, reaches: boolean) =>
+                    kit.onKitReach(name, reaches ? "yes" : "no"),
                   onHereReach: kit.onManifestReach,
                 },
               })}
@@ -208,7 +388,16 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
       );
     }
     if (def.id === "kit:models") {
-      return <KitModels models={models.models} keep="system-kit" picked={model} onPick={setModel} onOn={models.setOn} onChoose={models.choose} />;
+      return (
+        <KitModels
+          models={models.models}
+          keep="system-kit"
+          picked={model}
+          onPick={setModel}
+          onOn={models.setOn}
+          onChoose={models.choose}
+        />
+      );
     }
     if (def.id === "kit:workflows") {
       return workflows;
@@ -221,7 +410,17 @@ export function SystemSurface({ repository, settings, modelChoices, live, guarde
 
   return (
     <Boundary region="System" {...guarded}>
-      <SystemPage side={<SystemSidebar groups={groups} value={shown?.id ?? entry} onValue={setEntry} query={query} onQuery={setQuery} />}>
+      <SystemPage
+        side={
+          <SystemSidebar
+            groups={groups}
+            value={shown?.id ?? entry}
+            onValue={setEntry}
+            query={query}
+            onQuery={setQuery}
+          />
+        }
+      >
         {shown === undefined ? null : body(entryOf(shown.id)!)}
       </SystemPage>
     </Boundary>

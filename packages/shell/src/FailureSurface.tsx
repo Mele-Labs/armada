@@ -45,7 +45,13 @@ import { rendererFailure } from "./failures";
  * shared with the control the error treatment draws.
  */
 export function copyDebugInfoFor(failure: Failure, onCopied: (what: string) => void): void {
-  copyDebugInfo({ ...failure.payload, at: new Date().toISOString() }, onCopied);
+  copyDebugInfo(
+    {
+      ...failure.payload,
+      at: new Date().toISOString(),
+    },
+    onCopied,
+  );
 }
 
 /**
@@ -53,7 +59,10 @@ export function copyDebugInfoFor(failure: Failure, onCopied: (what: string) => v
  * The Session writes its own text from it, so it can leave out what a Session cannot use.
  */
 export function payloadAt(failure: Failure): DebugPayload {
-  return { ...failure.payload, at: new Date().toISOString() };
+  return {
+    ...failure.payload,
+    at: new Date().toISOString(),
+  };
 }
 
 /**
@@ -76,7 +85,12 @@ export function payloadAt(failure: Failure): DebugPayload {
 export function filingFor(failure: Failure): Filing {
   return {
     title: failure.payload.message,
-    attached: [envelopeOf({ ...failure.payload, at: new Date().toISOString() })],
+    attached: [
+      envelopeOf({
+        ...failure.payload,
+        at: new Date().toISOString(),
+      }),
+    ],
     withheld: NOT_OFFERED,
   };
 }
@@ -133,7 +147,10 @@ export function FailureBlock({
   onDispatchSession,
 }: FailureBlockProps) {
   const [dispatching, setDispatching] = useState(false);
-  const filing = useFileAnIssue({ compose: () => filingFor(failure), onCopied });
+  const filing = useFileAnIssue({
+    compose: () => filingFor(failure),
+    onCopied,
+  });
   const dispatch = async () => {
     if (onDispatchSession === undefined || dispatching) return;
     setDispatching(true);
@@ -177,20 +194,41 @@ export function FailureBlock({
             ground="sunken"
             size="sm"
             items={[
-              ...(onDispatchSession === undefined ? [] : [{ label: COPY_DEBUG_INFO, onSelect: () => copyDebugInfoFor(failure, onCopied) }]),
+              ...(onDispatchSession === undefined
+                ? []
+                : [
+                    {
+                      label: COPY_DEBUG_INFO,
+                      onSelect: () => copyDebugInfoFor(failure, onCopied),
+                    },
+                  ]),
               // Beside copying, never instead of it. **Copying stays on the
               // machine and filing leaves it**, so the two are different acts
               // and only one of them takes a review: this opens it and sends
               // nothing, and the review is what makes send never one press
               // from the error.
-              { label: FILE_AN_ISSUE, onSelect: filing.open },
+              {
+                label: FILE_AN_ISSUE,
+                onSelect: filing.open,
+              },
               // Bridge and Fleet have independent lifetimes: this drops a
               // window, not a daemon, and the running jobs never notice.
-              ...(reloadable ? [{ label: "Reload Bridge", onSelect: () => window.location.reload() }] : []),
+              ...(reloadable
+                ? [
+                    {
+                      label: "Reload Bridge",
+                      onSelect: () => window.location.reload(),
+                    },
+                  ]
+                : []),
             ]}
             menuLabel="More ways to act on this failure"
             pending={dispatching}
-            onAction={onDispatchSession === undefined ? () => copyDebugInfoFor(failure, onCopied) : () => void dispatch()}
+            onAction={
+              onDispatchSession === undefined
+                ? () => copyDebugInfoFor(failure, onCopied)
+                : () => void dispatch()
+            }
           >
             {onDispatchSession === undefined ? COPY_DEBUG_INFO : "Dispatch job"}
           </SplitButton>
@@ -231,7 +269,13 @@ export type FailureToastProps = {
  * **Esc with focus inside it dismisses it, and nothing else.** A panel open
  * under it keeps its own Esc for every press made outside the toast.
  */
-export function FailureToast({ failure, onCopied, onDismiss, reloadable = false, onDispatchSession }: FailureToastProps) {
+export function FailureToast({
+  failure,
+  onCopied,
+  onDismiss,
+  reloadable = false,
+  onDispatchSession,
+}: FailureToastProps) {
   return (
     <div onKeyDown={(event) => escDismisses(event, onDismiss)}>
       <Toast>
@@ -240,7 +284,11 @@ export function FailureToast({ failure, onCopied, onDismiss, reloadable = false,
           onCopied={onCopied}
           reloadable={reloadable}
           onDismiss={onDismiss}
-          {...(onDispatchSession === undefined ? {} : { onDispatchSession })}
+          {...(onDispatchSession === undefined
+            ? {}
+            : {
+                onDispatchSession,
+              })}
         />
       </Toast>
     </div>
@@ -318,7 +366,11 @@ export function FailureSurface({ caught, region, usable, bridge, onCopied }: Fai
     // The root fallback paints its own ground, because a fallback rendered over
     // nothing is the blank window this exists to stop — the window's background
     // was drawn by the tree that just threw.
-    <div className={usable ? "" : "flex h-full flex-col overflow-y-auto bg-bg-base p-6 text-fg-default"}>
+    <div
+      className={
+        usable ? "" : "flex h-full flex-col overflow-y-auto bg-bg-base p-6 text-fg-default"
+      }
+    >
       {block}
       <ToastRegion>
         <CopiedToast copied={copied} />

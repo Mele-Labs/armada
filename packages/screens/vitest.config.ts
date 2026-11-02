@@ -28,8 +28,14 @@ import { defineConfig } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
 /** Motion on or off for the page a test runs in, where every test starts with it reduced. */
-const motion: BrowserCommand<[on: boolean]> = ({ page }, on) =>
-  page.emulateMedia({ reducedMotion: on ? "no-preference" : "reduce" });
+const motion: BrowserCommand<
+  [
+    on: boolean,
+  ]
+> = ({ page }, on) =>
+  page.emulateMedia({
+    reducedMotion: on ? "no-preference" : "reduce",
+  });
 
 export default defineConfig({
   test: {
@@ -41,13 +47,17 @@ export default defineConfig({
         test: {
           name: "screens",
           environment: "node",
-          include: ["src/**/*.test.ts"],
+          include: [
+            "src/**/*.test.ts",
+          ],
         },
       },
       {
         test: {
           name: "screens (browser)",
-          include: ["src/**/*.test.tsx"],
+          include: [
+            "src/**/*.test.tsx",
+          ],
           browser: {
             enabled: true,
             headless: true,
@@ -56,11 +66,24 @@ export default defineConfig({
             // dialog is in place on its first frame and a press cannot land on
             // one still scaling in. A test whose claim is the motion itself
             // turns it back on with `motion()` in `src/mounted.tsx`.
-            provider: playwright({ contextOptions: { reducedMotion: "reduce" } }),
-            commands: { motion },
-            instances: [{ browser: "chromium" }],
+            provider: playwright({
+              contextOptions: {
+                reducedMotion: "reduce",
+              },
+            }),
+            commands: {
+              motion,
+            },
+            instances: [
+              {
+                browser: "chromium",
+              },
+            ],
             // A desktop window, now that the app's stylesheet lays these out.
-            viewport: { width: 1440, height: 900 },
+            viewport: {
+              width: 1440,
+              height: 900,
+            },
           },
         },
       },

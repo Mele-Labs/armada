@@ -15,7 +15,10 @@ import type { HeldNote, HeldNotes } from "./capture/held-notes";
 import type { CaptureWindows } from "./capture/windows";
 
 /** Nothing reached, because the call named nothing this view holds. */
-const NOT_HELD: Outcome = { ok: false, why: "not_understood" };
+const NOT_HELD: Outcome = {
+  ok: false,
+  why: "not_understood",
+};
 
 /** The element a note is on, as a person names it: its accessible name, else its words, else its tag. */
 function onOf(element: NoteElement): string {
@@ -30,8 +33,21 @@ export function shownOf(held: readonly HeldNote[]): PanelHeldNote[] {
     at,
     said: note.said,
     on: onOf(note.place.element),
-    ...(note.crop === undefined ? {} : { crop: note.crop }),
-    ...(note.crop === undefined || ring === undefined ? {} : { ring: { x: ring.x, y: ring.y, width: ring.width, height: ring.height } }),
+    ...(note.crop === undefined
+      ? {}
+      : {
+          crop: note.crop,
+        }),
+    ...(note.crop === undefined || ring === undefined
+      ? {}
+      : {
+          ring: {
+            x: ring.x,
+            y: ring.y,
+            width: ring.width,
+            height: ring.height,
+          },
+        }),
   }));
 }
 
@@ -39,11 +55,23 @@ export function shownOf(held: readonly HeldNote[]): PanelHeldNote[] {
  * Notes as one turn: each one's picture with its ring burned in, **tagged with its place in the turn**, 1 first, which is the
  * number Fleet's line for it names. A note with no ring goes as it was.
  */
-export function ringed(notes: readonly { note: SessionNote; ring?: Ring | undefined }[], burn: Burn = burnRing): SessionNote[] {
+export function ringed(
+  notes: readonly {
+    note: SessionNote;
+    ring?: Ring | undefined;
+  }[],
+  burn: Burn = burnRing,
+): SessionNote[] {
   return notes.map(({ note, ring }, at) => {
     if (note.crop === undefined || ring === undefined) return note;
     const png = burn(Buffer.from(note.crop.data, "base64"), ring, at + 1);
-    return { ...note, crop: { ...note.crop, data: Buffer.from(png).toString("base64") } };
+    return {
+      ...note,
+      crop: {
+        ...note.crop,
+        data: Buffer.from(png).toString("base64"),
+      },
+    };
   });
 }
 
@@ -51,11 +79,26 @@ export function ringed(notes: readonly { note: SessionNote; ring?: Ring | undefi
  * **The one place a Job's held notes are sent**: every one as one turn, its picture ringed with its number in it, then dropped,
  * those alone. Failure leaves them all held and says why. A Job holding none sends nothing, since Fleet refuses an empty turn.
  */
-export async function sendHeld(store: HeldNotes, sessionId: string, send: (body: SendSessionNotes) => Promise<Outcome>, burn: Burn = burnRing): Promise<Outcome> {
+export async function sendHeld(
+  store: HeldNotes,
+  sessionId: string,
+  send: (body: SendSessionNotes) => Promise<Outcome>,
+  burn: Burn = burnRing,
+): Promise<Outcome> {
   const notes = store.of(sessionId);
-  if (notes.length === 0) return { ok: true };
-  const outcome = await send({ session_id: sessionId, notes: ringed(notes, burn) });
-  if (outcome.ok) store.drop(sessionId, notes.map((one) => one.id));
+  if (notes.length === 0)
+    return {
+      ok: true,
+    };
+  const outcome = await send({
+    session_id: sessionId,
+    notes: ringed(notes, burn),
+  });
+  if (outcome.ok)
+    store.drop(
+      sessionId,
+      notes.map((one) => one.id),
+    );
   return outcome;
 }
 
@@ -67,7 +110,11 @@ type Hosts = {
 };
 
 /** The Job's held notes changed: the panel showing it is told the list, and the bar of the walk on screen is told again. */
-export function tellHeld(store: HeldNotes, captureWindows: CaptureWindows, sessionId: string): void {
+export function tellHeld(
+  store: HeldNotes,
+  captureWindows: CaptureWindows,
+  sessionId: string,
+): void {
   for (const panel of captureWindows.panels()) {
     if (panel.isDestroyed() || captureWindows.panelFrom(panel)?.id !== sessionId) continue;
     panel.send(CHANNELS.walkPanelHeldChanged, shownOf(store.of(sessionId)));
@@ -76,7 +123,8 @@ export function tellHeld(store: HeldNotes, captureWindows: CaptureWindows, sessi
 }
 
 export function handleHeldNotes({ ipc, store, captureWindows, send }: Hosts): void {
-  const job = (event: IpcMainInvokeEvent): string | null => captureWindows.panelFrom(event.sender)?.id ?? null;
+  const job = (event: IpcMainInvokeEvent): string | null =>
+    captureWindows.panelFrom(event.sender)?.id ?? null;
   const named = (value: unknown): value is string => typeof value === "string" && value !== "";
   ipc.handle(CHANNELS.walkPanelHeld, (event) => {
     const sessionId = job(event);
@@ -85,11 +133,24 @@ export function handleHeldNotes({ ipc, store, captureWindows, send }: Hosts): vo
   ipc.handle(CHANNELS.walkPanelEditNote, (event, id: unknown, said: unknown): Outcome => {
     const sessionId = job(event);
     if (sessionId === null || !named(id) || typeof said !== "string") return NOT_HELD;
-    return store.edit(sessionId, id, said) ? { ok: true } : said.trim() === "" ? { ok: false, why: "empty_brief" } : NOT_HELD;
+    return store.edit(sessionId, id, said)
+      ? {
+          ok: true,
+        }
+      : said.trim() === ""
+        ? {
+            ok: false,
+            why: "empty_brief",
+          }
+        : NOT_HELD;
   });
   ipc.handle(CHANNELS.walkPanelRemoveNote, (event, id: unknown): Outcome => {
     const sessionId = job(event);
-    return sessionId !== null && named(id) && store.remove(sessionId, id) ? { ok: true } : NOT_HELD;
+    return sessionId !== null && named(id) && store.remove(sessionId, id)
+      ? {
+          ok: true,
+        }
+      : NOT_HELD;
   });
   ipc.handle(CHANNELS.walkPanelSendNotes, async (event) => {
     const sessionId = job(event);

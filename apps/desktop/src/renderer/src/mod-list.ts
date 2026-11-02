@@ -12,7 +12,8 @@ export function useModList(): readonly ModSummary[] {
   useEffect(() => {
     const feed = withState(window.armada);
     let live = true;
-    const take = (list: readonly ModSummary[] | undefined) => live && setMods((was) => (sameList(was, list ?? []) ? was : (list ?? [])));
+    const take = (list: readonly ModSummary[] | undefined) =>
+      live && setMods((was) => (sameList(was, list ?? []) ? was : (list ?? [])));
     void feed.state().then((state) => take(state.mods?.mods));
     const off = feed.subscribe((state) => take(state.mods?.mods));
     return () => {
@@ -23,4 +24,5 @@ export function useModList(): readonly ModSummary[] {
   return mods;
 }
 
-const sameList = (a: readonly ModSummary[], b: readonly ModSummary[]): boolean => a === b || JSON.stringify(a) === JSON.stringify(b);
+const sameList = (a: readonly ModSummary[], b: readonly ModSummary[]): boolean =>
+  a === b || JSON.stringify(a) === JSON.stringify(b);

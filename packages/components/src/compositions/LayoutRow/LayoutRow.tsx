@@ -24,7 +24,16 @@ export type LayoutRowProps = {
   onDown?: () => void;
 };
 
-export function LayoutRow({ label, icon: Icon, visible, hideable, onVisible, hiddenBy, onUp, onDown }: LayoutRowProps) {
+export function LayoutRow({
+  label,
+  icon: Icon,
+  visible,
+  hideable,
+  onVisible,
+  hiddenBy,
+  onUp,
+  onDown,
+}: LayoutRowProps) {
   return (
     <div className="armada-layout-row" role="group" aria-label={label}>
       <span className="armada-layout-row__mark">
@@ -51,12 +60,24 @@ export function LayoutRow({ label, icon: Icon, visible, hideable, onVisible, hid
       {onUp === undefined && onDown === undefined ? null : (
         <>
           <Tooltip label="Move up">
-            <Button iconOnly variant="ghost" aria-label={`Move ${label} up`} disabled={onUp === undefined} onClick={onUp}>
+            <Button
+              iconOnly
+              variant="ghost"
+              aria-label={`Move ${label} up`}
+              disabled={onUp === undefined}
+              onClick={onUp}
+            >
               <ArrowUp size={16} />
             </Button>
           </Tooltip>
           <Tooltip label="Move down">
-            <Button iconOnly variant="ghost" aria-label={`Move ${label} down`} disabled={onDown === undefined} onClick={onDown}>
+            <Button
+              iconOnly
+              variant="ghost"
+              aria-label={`Move ${label} down`}
+              disabled={onDown === undefined}
+              onClick={onDown}
+            >
               <ArrowDown size={16} />
             </Button>
           </Tooltip>

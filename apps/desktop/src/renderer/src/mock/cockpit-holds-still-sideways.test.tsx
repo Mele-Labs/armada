@@ -11,11 +11,24 @@ unmountAfterEach();
 test("the Cockpit has nothing to scroll sideways with a Job's panes open", async () => {
   mount("thread-head-room");
   await onScreen();
-  await page.getByRole("button", { name: "Retry the slot lease when two Jobs ask for the same bay at once" }).click();
-  await expect.element(page.getByRole("region", { name: "Pane: Thread", exact: true })).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Retry the slot lease when two Jobs ask for the same bay at once",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Pane: Thread",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 
   const screen = document.querySelector<HTMLElement>(".armada-screen__overview");
   const area = document.querySelector<HTMLElement>(".job-panes__area");
-  expect(area!.getBoundingClientRect().right).toBeGreaterThan(screen!.getBoundingClientRect().right);
+  expect(area!.getBoundingClientRect().right).toBeGreaterThan(
+    screen!.getBoundingClientRect().right,
+  );
   expect(screen!.scrollWidth).toBe(screen!.clientWidth);
 });

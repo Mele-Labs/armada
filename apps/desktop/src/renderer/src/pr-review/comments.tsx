@@ -5,7 +5,17 @@
 
 import { useState } from "react";
 import { Ban, Check, ScrollText, SquareTerminal, X } from "lucide-react";
-import { Button, PrConversation, PrMark, Tabs, Textarea, Tooltip, agoOf, forgetKept, mayWrite } from "@armada/components";
+import {
+  Button,
+  PrConversation,
+  PrMark,
+  Tabs,
+  Textarea,
+  Tooltip,
+  agoOf,
+  forgetKept,
+  mayWrite,
+} from "@armada/components";
 
 import type { useSendFindings } from "./acts";
 import { useSessionsDraft } from "../sessions-draft";
@@ -17,18 +27,44 @@ import { BareChanges, ThemeBlock } from "./themes";
 import { isExplained } from "./tools";
 
 const KINDS = [
-  { id: "comment", label: "Comment" },
-  { id: "approve", label: "Approve" },
-  { id: "request_changes", label: "Request changes" },
+  {
+    id: "comment",
+    label: "Comment",
+  },
+  {
+    id: "approve",
+    label: "Approve",
+  },
+  {
+    id: "request_changes",
+    label: "Request changes",
+  },
 ];
 
 const VERDICT = {
-  comment: { Glyph: ScrollText, said: "Commented" },
-  approve: { Glyph: Check, said: "Approved", tone: "success" },
-  request_changes: { Glyph: Ban, said: "Changes requested", tone: "failed" },
+  comment: {
+    Glyph: ScrollText,
+    said: "Commented",
+  },
+  approve: {
+    Glyph: Check,
+    said: "Approved",
+    tone: "success",
+  },
+  request_changes: {
+    Glyph: Ban,
+    said: "Changes requested",
+    tone: "failed",
+  },
 } as const;
 
-export function CommentsView({ pr, send }: { pr: ReviewPr; send: ReturnType<typeof useSendFindings> }) {
+export function CommentsView({
+  pr,
+  send,
+}: {
+  pr: ReviewPr;
+  send: ReturnType<typeof useSendFindings>;
+}) {
   const { work: all } = useReviews();
   const work = all[pr.key] ?? NO_WORK;
   return (
@@ -36,7 +72,16 @@ export function CommentsView({ pr, send }: { pr: ReviewPr; send: ReturnType<type
       <YourReview pr={pr} />
       <PrConversation page={pr.page} description={pr.body} />
       {isExplained(work) ? (
-        pr.explanation.themes.map((theme, at) => <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="comments" send={send} />)
+        pr.explanation.themes.map((theme, at) => (
+          <ThemeBlock
+            key={theme.id}
+            pr={pr}
+            theme={theme}
+            number={at + 1}
+            mode="comments"
+            send={send}
+          />
+        ))
       ) : (
         <BareChanges pr={pr} mode="comments" send={send} />
       )}
@@ -63,12 +108,19 @@ function PendingComment({ pr, draft }: { pr: ReviewPr; draft: Draft }) {
       if (owner !== undefined) store.toggleOpen(pr.key, owner.id);
     }
     window.requestAnimationFrame(() => {
-      card()?.scrollIntoView({ block: "center" });
+      card()?.scrollIntoView({
+        block: "center",
+      });
       card()?.focus();
     });
   };
   return (
-    <button type="button" className="pr-yours__go" aria-label={`Go to your comment on ${where}`} onClick={goTo}>
+    <button
+      type="button"
+      className="pr-yours__go"
+      aria-label={`Go to your comment on ${where}`}
+      onClick={goTo}
+    >
       <span className="pr-yours__where">
         <span className="pr-yours__path">{where}</span>
         {code === undefined ? null : <code className="pr-yours__code">{code}</code>}
@@ -95,7 +147,19 @@ function YourReview({ pr }: { pr: ReviewPr }) {
     const sent = work.drafts.map((one) => `${one.path}: ${one.body}`);
     void store.submit(pr.key, kind, text, told ? holder.title : undefined).then((took) => {
       if (!took) return;
-      if (told) void draft.send(holder.id, { text: [`Changes requested on #${pr.number}`, text.trim(), ...sent].filter((one) => one !== "").join("\n\n"), files: [], sketches: [], tags: [] });
+      if (told)
+        void draft.send(holder.id, {
+          text: [
+            `Changes requested on #${pr.number}`,
+            text.trim(),
+            ...sent,
+          ]
+            .filter((one) => one !== "")
+            .join("\n\n"),
+          files: [],
+          sketches: [],
+          tags: [],
+        });
       forgetKept(keep);
       setText("");
       setKind("comment");
@@ -110,7 +174,13 @@ function YourReview({ pr }: { pr: ReviewPr }) {
             <li key={one.id} className="pr-yours__draft">
               <PendingComment pr={pr} draft={one} />
               <Tooltip label="Remove from the review">
-                <Button variant="ghost" size="sm" iconOnly aria-label="Remove from the review" onClick={() => store.removeDraft(pr.key, one.id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Remove from the review"
+                  onClick={() => store.removeDraft(pr.key, one.id)}
+                >
                   <X size={16} strokeWidth={2} aria-hidden />
                 </Button>
               </Tooltip>
@@ -126,7 +196,13 @@ function YourReview({ pr }: { pr: ReviewPr }) {
           submit();
         }}
       >
-        <Textarea rows={3} keep={keep} aria-label="Summary" value={text} onChange={(event) => setText(event.target.value)} />
+        <Textarea
+          rows={3}
+          keep={keep}
+          aria-label="Summary"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+        />
         <div className="pr-yours__bar">
           <Tabs items={KINDS} value={kind} onChange={(id) => setKind(id as Verdict)} />
           <Button variant="primary" type="submit" disabled={!ready || work.submitting}>
@@ -145,7 +221,15 @@ function YourReview({ pr }: { pr: ReviewPr }) {
             const verdict = VERDICT[one.verdict];
             return (
               <li key={one.at} className="pr-yours__done">
-                <PrMark Glyph={verdict.Glyph} said={verdict.said} {...("tone" in verdict ? { tone: verdict.tone } : {})} />
+                <PrMark
+                  Glyph={verdict.Glyph}
+                  said={verdict.said}
+                  {...("tone" in verdict
+                    ? {
+                        tone: verdict.tone,
+                      }
+                    : {})}
+                />
                 <Tooltip label="Submitted">
                   <span className="pr-yours__ago">{agoOf(one.at)}</span>
                 </Tooltip>

@@ -6,7 +6,13 @@
 // preferences (no preload, sandboxed), held to the same origins as the page is. It closes when the page calls
 // `window.close()`, when the person closes it, and when the walk window does.
 
-import { app, BaseWindow, WebContentsView, type BrowserWindowConstructorOptions, type WebContents } from "electron";
+import {
+  app,
+  BaseWindow,
+  WebContentsView,
+  type BrowserWindowConstructorOptions,
+  type WebContents,
+} from "electron";
 
 import type { CaptureRefusedWhat } from "../../shared/capture-window";
 import { chromeAgent, webOrigin } from "./address";
@@ -29,13 +35,20 @@ export type PopupHold = {
 };
 
 /** The popup, once opened. */
-export type Popup = { contents: WebContents; close: () => void };
+export type Popup = {
+  contents: WebContents;
+  close: () => void;
+};
 
 /**
  * Whether a `window.open` becomes the popup. **A Session's window only, one at a time, and onto an
  * address the window may reach**; anything else is refused as every popup was.
  */
-export function mayOpenPopup(ask: { session: boolean; standing: boolean; allowed: boolean }): boolean {
+export function mayOpenPopup(ask: {
+  session: boolean;
+  standing: boolean;
+  allowed: boolean;
+}): boolean {
   return ask.session && !ask.standing && ask.allowed;
 }
 
@@ -44,12 +57,23 @@ export function mayOpenPopup(ask: { session: boolean; standing: boolean; allowed
  * popup and requires the window to be built on. **Nothing here throws into main**: a popup that cannot
  * be built is closed and refused quietly, as every popup was.
  */
-export function openPopup(hold: PopupHold, options: BrowserWindowConstructorOptions & { webContents?: WebContents }): Popup | null {
+export function openPopup(
+  hold: PopupHold,
+  options: BrowserWindowConstructorOptions & {
+    webContents?: WebContents;
+  },
+): Popup | null {
   const made = options.webContents;
   if (made === undefined) return null;
   let window: BaseWindow | null = null;
   try {
-    window = new BaseWindow({ parent: hold.parent, width: WIDTH, height: HEIGHT, title: "", show: false });
+    window = new BaseWindow({
+      parent: hold.parent,
+      width: WIDTH,
+      height: HEIGHT,
+      title: "",
+      show: false,
+    });
     return build(hold, made, window);
   } catch {
     if (window !== null && !window.isDestroyed()) window.close();
@@ -63,11 +87,18 @@ export function openPopup(hold: PopupHold, options: BrowserWindowConstructorOpti
  * the page's own are, and a window it tries to open in turn is refused outright: one popup is one hop.
  */
 function build(hold: PopupHold, made: WebContents, window: BaseWindow): Popup {
-  const view = new WebContentsView({ webContents: made });
+  const view = new WebContentsView({
+    webContents: made,
+  });
   window.contentView.addChildView(view);
   const fit = (): void => {
     const { width, height } = window.getContentBounds();
-    view.setBounds({ x: 0, y: 0, width, height });
+    view.setBounds({
+      x: 0,
+      y: 0,
+      width,
+      height,
+    });
   };
   fit();
   window.on("resize", fit);
@@ -80,7 +111,9 @@ function build(hold: PopupHold, made: WebContents, window: BaseWindow): Popup {
   contents.setUserAgent(chromeAgent(app.userAgentFallback));
   contents.setWindowOpenHandler(({ url }) => {
     hold.refuse(url, "window");
-    return { action: "deny" };
+    return {
+      action: "deny",
+    };
   });
   contents.on("will-navigate", (event, url) => {
     if (hold.allowed(url)) return;
@@ -113,5 +146,8 @@ function build(hold: PopupHold, made: WebContents, window: BaseWindow): Popup {
   });
 
   window.show();
-  return { contents, close: () => (window.isDestroyed() ? undefined : window.close()) };
+  return {
+    contents,
+    close: () => (window.isDestroyed() ? undefined : window.close()),
+  };
 }

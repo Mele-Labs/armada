@@ -70,7 +70,11 @@ export function itemsWords(count: number): string {
  * reference says nothing, and a frame that is not this row's must not redraw its card.
  */
 function sameProps(was: SessionRetroRowProps, now: SessionRetroRowProps): boolean {
-  return was.onOpen === now.onOpen && was.now === now.now && (was.row === now.row || JSON.stringify(was.row) === JSON.stringify(now.row));
+  return (
+    was.onOpen === now.onOpen &&
+    was.now === now.now &&
+    (was.row === now.row || JSON.stringify(was.row) === JSON.stringify(now.row))
+  );
 }
 
 /** The clock, ticking once a second while `running`, unless a story fixed it. */
@@ -81,7 +85,10 @@ function useNow(running: boolean, fixed: number | undefined): number {
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [running, fixed]);
+  }, [
+    running,
+    fixed,
+  ]);
   return fixed ?? now;
 }
 
@@ -92,14 +99,47 @@ function Waiting({ size }: { size: "title" | "what" | "fix" | "route" }) {
 
 function Settling({ item, last }: { item: RetroRowItem; last: boolean }) {
   return (
-    <li className="armada-session-retro__item" aria-label={item.title ?? "Item being written"} data-writing={last || undefined}>
+    <li
+      className="armada-session-retro__item"
+      aria-label={item.title ?? "Item being written"}
+      data-writing={last || undefined}
+    >
       <div className="armada-session-retro__route">
-        {item.who === undefined && item.landsIn === undefined && last ? <Waiting size="route" /> : <LessonRoute {...(item.who === undefined ? {} : { who: item.who })} {...(item.landsIn === undefined ? {} : { landsIn: item.landsIn })} />}
+        {item.who === undefined && item.landsIn === undefined && last ? (
+          <Waiting size="route" />
+        ) : (
+          <LessonRoute
+            {...(item.who === undefined
+              ? {}
+              : {
+                  who: item.who,
+                })}
+            {...(item.landsIn === undefined
+              ? {}
+              : {
+                  landsIn: item.landsIn,
+                })}
+          />
+        )}
       </div>
-      {item.title === undefined ? last ? <Waiting size="title" /> : null : <h3 className="armada-session-retro__title armada-session-retro__field">{item.title}</h3>}
-      {item.what === undefined ? last ? <Waiting size="what" /> : null : <p className="armada-session-retro__what armada-session-retro__field">{item.what}</p>}
+      {item.title === undefined ? (
+        last ? (
+          <Waiting size="title" />
+        ) : null
+      ) : (
+        <h3 className="armada-session-retro__title armada-session-retro__field">{item.title}</h3>
+      )}
+      {item.what === undefined ? (
+        last ? (
+          <Waiting size="what" />
+        ) : null
+      ) : (
+        <p className="armada-session-retro__what armada-session-retro__field">{item.what}</p>
+      )}
       {item.fix === undefined ? (
-        last ? <Waiting size="fix" /> : null
+        last ? (
+          <Waiting size="fix" />
+        ) : null
       ) : (
         <div className="armada-session-retro__fix armada-session-retro__field">
           <span className="armada-session-retro__fix-label">What would change</span>
@@ -123,13 +163,20 @@ function Settling({ item, last }: { item: RetroRowItem; last: boolean }) {
  * The host passes `onOpen` stable, or the memo is spent. The space a field will fill is held while it is awaited, and under
  * reduced motion a field simply lands.
  */
-export const SessionRetroRow = memo(function SessionRetroRow({ row, onOpen, now }: SessionRetroRowProps) {
+export const SessionRetroRow = memo(function SessionRetroRow({
+  row,
+  onOpen,
+  now,
+}: SessionRetroRowProps) {
   const running = row.stage !== "written" && row.stage !== "failed";
   const clock = useNow(running, now);
-  const elapsed = running && row.stageSince !== undefined ? elapsedWords(clock - row.stageSince) : undefined;
+  const elapsed =
+    running && row.stageSince !== undefined ? elapsedWords(clock - row.stageSince) : undefined;
 
   if (row.stage === "written") {
-    const titled = row.items.map((one) => one.title ?? one.what).filter((one): one is string => one !== undefined && one !== "");
+    const titled = row.items
+      .map((one) => one.title ?? one.what)
+      .filter((one): one is string => one !== undefined && one !== "");
     const count = row.items.length;
     const retro = row.retro;
     return (
@@ -141,7 +188,12 @@ export const SessionRetroRow = memo(function SessionRetroRow({ row, onOpen, now 
             {count === 0 ? "" : ` · ${itemsWords(count)}`}
           </span>
           {retro === undefined || onOpen === undefined ? null : (
-            <Button variant="ghost" size="sm" className="armada-session-retro__open" onClick={() => onOpen(retro)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="armada-session-retro__open"
+              onClick={() => onOpen(retro)}
+            >
               Open retro
             </Button>
           )}
@@ -164,7 +216,9 @@ export const SessionRetroRow = memo(function SessionRetroRow({ row, onOpen, now 
           <Rewind size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-retro__said">The retro was not written</span>
         </div>
-        <Alert tone="escalated">{row.why === undefined || row.why === "" ? "Fleet gave no reason." : row.why}</Alert>
+        <Alert tone="escalated">
+          {row.why === undefined || row.why === "" ? "Fleet gave no reason." : row.why}
+        </Alert>
       </li>
     );
   }
@@ -178,11 +232,17 @@ export const SessionRetroRow = memo(function SessionRetroRow({ row, onOpen, now 
           {STAGE_SAID[row.stage]}
         </span>
         {elapsed === undefined ? null : (
-          <span className="armada-session-retro__elapsed mono" role="timer" aria-label={`${elapsed} in this stage`}>
+          <span
+            className="armada-session-retro__elapsed mono"
+            role="timer"
+            aria-label={`${elapsed} in this stage`}
+          >
             {elapsed}
           </span>
         )}
-        {writing && row.characters > 0 ? <span className="armada-session-retro__hint">{row.characters} characters</span> : null}
+        {writing && row.characters > 0 ? (
+          <span className="armada-session-retro__hint">{row.characters} characters</span>
+        ) : null}
       </div>
       {writing && row.items.length > 0 ? (
         <ol className="armada-session-retro__items" aria-label="Items so far">

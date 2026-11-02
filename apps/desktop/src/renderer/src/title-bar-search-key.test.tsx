@@ -8,7 +8,10 @@ import { page } from "vitest/browser";
 
 import "./styles/index.css";
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
@@ -22,13 +25,26 @@ function bar() {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  roots.push({ root, host });
-  root.render(<TitleBar onSearch={() => {}} fleet={{ state: "running", label: "Running" }} />);
+  roots.push({
+    root,
+    host,
+  });
+  root.render(
+    <TitleBar
+      onSearch={() => {}}
+      fleet={{
+        state: "running",
+        label: "Running",
+      }}
+    />,
+  );
 }
 
 test("a rebound palette key is the one the search shows", async () => {
   bar();
-  const search = page.getByRole("button", { name: /Search, or describe work/ });
+  const search = page.getByRole("button", {
+    name: /Search, or describe work/,
+  });
   await expect.element(search).toHaveTextContent(/K$/);
   act(() => rebind("command_palette", parseSlots("⌘P")));
   await expect.element(search).toHaveTextContent(/P$/);

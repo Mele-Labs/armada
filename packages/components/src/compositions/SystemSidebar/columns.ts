@@ -8,21 +8,31 @@ import type { KeyboardEvent } from "react";
  * **A field keeps its own keys.** Arrows and Enter in a text box, a select or a slider do what
  * they do there, so a form in the last column is never walked out of by typing.
  */
-const OWN_KEYS = "input, textarea, select, [contenteditable='true'], [role='combobox'], [role='slider'], [role='radio'], [role='switch']";
-const REACH = "button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])";
+const OWN_KEYS =
+  "input, textarea, select, [contenteditable='true'], [role='combobox'], [role='slider'], [role='radio'], [role='switch']";
+const REACH =
+  "button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])";
 
-const columnsOf = (root: HTMLElement): HTMLElement[] => [...root.querySelectorAll<HTMLElement>("[data-col]")];
-const rowsOf = (column: HTMLElement): HTMLElement[] => [...column.querySelectorAll<HTMLElement>("[data-nav-item]")];
+const columnsOf = (root: HTMLElement): HTMLElement[] => [
+  ...root.querySelectorAll<HTMLElement>("[data-col]"),
+];
+const rowsOf = (column: HTMLElement): HTMLElement[] => [
+  ...column.querySelectorAll<HTMLElement>("[data-nav-item]"),
+];
 
 /** Where focus goes on entering a column: the row that is picked, else the first row, else the first control. */
 function enter(column: HTMLElement): boolean {
   const rows = rowsOf(column);
-  const picked = rows.find((one) => one.getAttribute("aria-current") !== null || one.getAttribute("aria-selected") === "true");
+  const picked = rows.find(
+    (one) =>
+      one.getAttribute("aria-current") !== null || one.getAttribute("aria-selected") === "true",
+  );
   const first = picked ?? rows[0] ?? column.querySelector<HTMLElement>(REACH);
   if (first === null || first === undefined) return false;
   first.focus();
   // Landing on a row picks it, so the column beside it follows. The last column's rows are acts, not picks.
-  if (picked === undefined && rows[0] === first && column.dataset["col"] !== "detail") first.click();
+  if (picked === undefined && rows[0] === first && column.dataset["col"] !== "detail")
+    first.click();
   return true;
 }
 
@@ -47,7 +57,8 @@ export function columnKeys(event: KeyboardEvent<HTMLElement>, root: HTMLElement 
   const at = row === null ? -1 : rows.indexOf(row);
   const index = columns.indexOf(column);
   const into = (step: 1 | -1): boolean => {
-    for (let i = index + step; i >= 0 && i < columns.length; i += step) if (enter(columns[i]!)) return true;
+    for (let i = index + step; i >= 0 && i < columns.length; i += step)
+      if (enter(columns[i]!)) return true;
     return false;
   };
 

@@ -18,7 +18,13 @@ export type PerformHaptic = (pattern: HapticPattern) => void;
  */
 const Haptics = createContext<PerformHaptic>(() => undefined);
 
-export function HapticsProvider({ perform, children }: { perform: PerformHaptic; children: ReactNode }) {
+export function HapticsProvider({
+  perform,
+  children,
+}: {
+  perform: PerformHaptic;
+  children: ReactNode;
+}) {
   return <Haptics.Provider value={perform}>{children}</Haptics.Provider>;
 }
 

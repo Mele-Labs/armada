@@ -13,23 +13,60 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
-const message = () => page.getByRole("textbox", { name: "Message" });
+const message = () =>
+  page.getByRole("textbox", {
+    name: "Message",
+  });
 
 test("Sessions inline tags: the chip stands in the line, Backspace takes it whole, and a send carries it", async () => {
-  const fleet = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "First one" }), hosted("01SESSIONBBBBBBBBBBBBBBBBB", { title: "The retry loop" })]);
-  mount(fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root })));
+  const fleet = new FakeSessionsFleet([
+    hosted("01SESSIONAAAAAAAAAAAAAAAAA", {
+      title: "First one",
+    }),
+    hosted("01SESSIONBBBBBBBBBBBBBBBBB", {
+      title: "The retry loop",
+    }),
+  ]);
+  mount(
+    fleet.scenario(
+      onBoard({
+        repositories: [
+          ARMADA,
+        ],
+        picked: ARMADA.root,
+      }),
+    ),
+  );
   await onScreen();
   await toSession("First one");
 
   await userEvent.click(message());
   await userEvent.keyboard("What stopped @retry");
-  await userEvent.click(page.getByRole("option", { name: /The retry loop/ }));
+  await userEvent.click(
+    page.getByRole("option", {
+      name: /The retry loop/,
+    }),
+  );
   await userEvent.keyboard("again");
   const chip = message().getByText("The retry loop");
   await expect.element(chip).toBeVisible();
-  await expect.element(page.getByRole("group", { name: "Attached" }).getByText("The retry loop")).not.toBeInTheDocument();
+  await expect
+    .element(
+      page
+        .getByRole("group", {
+          name: "Attached",
+        })
+        .getByText("The retry loop"),
+    )
+    .not.toBeInTheDocument();
 
   // Back over "again" and the space, then one Backspace more: the chip goes in one press.
   await userEvent.keyboard("{Backspace}".repeat("again".length + 1));
@@ -38,10 +75,28 @@ test("Sessions inline tags: the chip stands in the line, Backspace takes it whol
   await expect.element(message().getByText("The retry loop")).not.toBeInTheDocument();
 
   await userEvent.keyboard("@retry");
-  await userEvent.click(page.getByRole("option", { name: /The retry loop/ }));
+  await userEvent.click(
+    page.getByRole("option", {
+      name: /The retry loop/,
+    }),
+  );
   await userEvent.keyboard("again{Enter}");
   await expect.poll(() => fleet.calls.sent.length).toBe(1);
   expect(fleet.calls.sent[0]?.text).toBe("What stopped @The retry loop again");
-  expect(fleet.calls.sent[0]?.mentions).toMatchObject([{ kind: "session", id: "01SESSIONBBBBBBBBBBBBBBBBB", title: "The retry loop" }]);
-  await expect.element(page.getByRole("region", { name: "Thread" }).getByText("The retry loop")).toBeVisible();
+  expect(fleet.calls.sent[0]?.mentions).toMatchObject([
+    {
+      kind: "session",
+      id: "01SESSIONBBBBBBBBBBBBBBBBB",
+      title: "The retry loop",
+    },
+  ]);
+  await expect
+    .element(
+      page
+        .getByRole("region", {
+          name: "Thread",
+        })
+        .getByText("The retry loop"),
+    )
+    .toBeVisible();
 });

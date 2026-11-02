@@ -1,6 +1,20 @@
 import type { LucideIcon } from "lucide-react";
-import { Ban, Check, CircleCheck, CircleX, GitBranch, GitMerge, GitPullRequest, LoaderCircle, UserCheck } from "lucide-react";
-import type { PullRequestMergeable, PullRequestReviewer, PullRequestReviewState } from "@armada/protocol";
+import {
+  Ban,
+  Check,
+  CircleCheck,
+  CircleX,
+  GitBranch,
+  GitMerge,
+  GitPullRequest,
+  LoaderCircle,
+  UserCheck,
+} from "lucide-react";
+import type {
+  PullRequestMergeable,
+  PullRequestReviewer,
+  PullRequestReviewState,
+} from "@armada/protocol";
 
 import { LAND_STATE } from "../../generated/vocabulary";
 import { Button } from "../../primitives/Button/Button";
@@ -13,7 +27,17 @@ import { PullRequestReviewers } from "./PullRequestReviewers";
  * that failed. **Each is drawn only where Fleet served its fact**: a pull request in no queue has
  * no queue plate, and one whose checks have not failed has no failing plate.
  */
-export type PullRequestChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: readonly string[] };
+export type PullRequestChecks =
+  | {
+      state: "pending";
+    }
+  | {
+      state: "passed";
+    }
+  | {
+      state: "failed";
+      failing: readonly string[];
+    };
 
 export type PullRequestPlatesProps = {
   state: "draft" | "open" | "merged";
@@ -41,25 +65,82 @@ type Tone = "running" | "success" | "failed" | "neutral";
 const WAITING = LAND_STATE.waiting?.icon ?? GitMerge;
 
 const CHECKS = {
-  pending: { Glyph: LoaderCircle, said: "Checks running", tone: "running" },
-  passed: { Glyph: CircleCheck, said: "Checks passed", tone: "success" },
-  failed: { Glyph: CircleX, said: "Checks failed", tone: "failed" },
+  pending: {
+    Glyph: LoaderCircle,
+    said: "Checks running",
+    tone: "running",
+  },
+  passed: {
+    Glyph: CircleCheck,
+    said: "Checks passed",
+    tone: "success",
+  },
+  failed: {
+    Glyph: CircleX,
+    said: "Checks failed",
+    tone: "failed",
+  },
 } as const;
 
 const ordinal = (place: number): string => {
   const tail = place % 100;
-  const suffix = tail >= 11 && tail <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[place % 10] ?? "th";
+  const suffix =
+    tail >= 11 && tail <= 13
+      ? "th"
+      : ((
+          {
+            1: "st",
+            2: "nd",
+            3: "rd",
+          } as Record<number, string>
+        )[place % 10] ?? "th");
   return `${place}${suffix}`;
 };
 
 /** What the status plate says, the glyph in its ring and the hue its frame takes. */
-function standing(props: PullRequestPlatesProps, at: number | undefined): { what: string; Glyph: LucideIcon; tone: Tone } {
-  if (props.state === "merged") return { what: "Merged", Glyph: GitMerge, tone: "success" };
-  if (props.queued) return { what: at === undefined ? "In merge queue" : `${ordinal(at)} in the merge queue`, Glyph: WAITING, tone: "running" };
-  if (props.state === "draft") return { what: "Draft", Glyph: GitPullRequest, tone: "neutral" };
-  if (props.checks.state === "failed") return { what: "Checks failed", Glyph: CircleX, tone: "failed" };
-  if (props.checks.state === "passed") return { what: "Ready to merge", Glyph: GitMerge, tone: "success" };
-  return { what: "Checks running", Glyph: LoaderCircle, tone: "running" };
+function standing(
+  props: PullRequestPlatesProps,
+  at: number | undefined,
+): {
+  what: string;
+  Glyph: LucideIcon;
+  tone: Tone;
+} {
+  if (props.state === "merged")
+    return {
+      what: "Merged",
+      Glyph: GitMerge,
+      tone: "success",
+    };
+  if (props.queued)
+    return {
+      what: at === undefined ? "In merge queue" : `${ordinal(at)} in the merge queue`,
+      Glyph: WAITING,
+      tone: "running",
+    };
+  if (props.state === "draft")
+    return {
+      what: "Draft",
+      Glyph: GitPullRequest,
+      tone: "neutral",
+    };
+  if (props.checks.state === "failed")
+    return {
+      what: "Checks failed",
+      Glyph: CircleX,
+      tone: "failed",
+    };
+  if (props.checks.state === "passed")
+    return {
+      what: "Ready to merge",
+      Glyph: GitMerge,
+      tone: "success",
+    };
+  return {
+    what: "Checks running",
+    Glyph: LoaderCircle,
+    tone: "running",
+  };
 }
 
 /**
@@ -67,29 +148,89 @@ function standing(props: PullRequestPlatesProps, at: number | undefined): { what
  * what holds a merge; `none` and an unread page say nothing.
  */
 function reviewFact({ review, approvals = 0 }: PullRequestPlatesProps) {
-  if (review === "changes_requested") return { key: "review", Glyph: Ban, said: "Changes requested", tone: "failed" as const };
-  if (review === "approved" || approvals >= 1) return { key: "review", Glyph: Check, said: "Approved", tone: "success" as const };
-  if (review === "required") return { key: "review", Glyph: UserCheck, said: "Review required", tone: undefined };
+  if (review === "changes_requested")
+    return {
+      key: "review",
+      Glyph: Ban,
+      said: "Changes requested",
+      tone: "failed" as const,
+    };
+  if (review === "approved" || approvals >= 1)
+    return {
+      key: "review",
+      Glyph: Check,
+      said: "Approved",
+      tone: "success" as const,
+    };
+  if (review === "required")
+    return {
+      key: "review",
+      Glyph: UserCheck,
+      said: "Review required",
+      tone: undefined,
+    };
   return undefined;
 }
 
 function conflictFact({ mergeable }: PullRequestPlatesProps) {
-  if (mergeable === "conflicting") return { key: "conflicts", Glyph: GitBranch, said: "Conflicts", tone: "failed" as const };
-  if (mergeable === "mergeable") return { key: "conflicts", Glyph: GitBranch, said: "No conflicts", tone: "success" as const };
+  if (mergeable === "conflicting")
+    return {
+      key: "conflicts",
+      Glyph: GitBranch,
+      said: "Conflicts",
+      tone: "failed" as const,
+    };
+  if (mergeable === "mergeable")
+    return {
+      key: "conflicts",
+      Glyph: GitBranch,
+      said: "No conflicts",
+      tone: "success" as const,
+    };
   return undefined;
 }
 
 export function PullRequestPlates(props: PullRequestPlatesProps) {
-  const { checks, auto, state, place, reviewers, onOpenPullRequest, onSendBack, sentBack = false } = props;
+  const {
+    checks,
+    auto,
+    state,
+    place,
+    reviewers,
+    onOpenPullRequest,
+    onSendBack,
+    sentBack = false,
+  } = props;
   const at = place?.find((row) => row.current === true)?.place;
   const { what, Glyph, tone } = standing(props, at);
   const mark = CHECKS[checks.state];
   const failing = checks.state === "failed" ? checks.failing : [];
   // A fact the status already says is not said twice.
   const facts = [
-    ...(mark.said === what ? [] : [{ key: "checks", Glyph: mark.Glyph, said: mark.said, tone: mark.tone }]),
-    ...(auto && state !== "merged" ? [{ key: "auto", Glyph: GitMerge, said: "Auto-merge on", tone: undefined }] : []),
-    ...[reviewFact(props), conflictFact(props)].filter((one) => one !== undefined),
+    ...(mark.said === what
+      ? []
+      : [
+          {
+            key: "checks",
+            Glyph: mark.Glyph,
+            said: mark.said,
+            tone: mark.tone,
+          },
+        ]),
+    ...(auto && state !== "merged"
+      ? [
+          {
+            key: "auto",
+            Glyph: GitMerge,
+            said: "Auto-merge on",
+            tone: undefined,
+          },
+        ]
+      : []),
+    ...[
+      reviewFact(props),
+      conflictFact(props),
+    ].filter((one) => one !== undefined),
   ];
   return (
     <>
@@ -100,7 +241,9 @@ export function PullRequestPlates(props: PullRequestPlatesProps) {
           </span>
           <span className="armada-pr-status__text">
             <span className="armada-pr-status__what">{what}</span>
-            {failing.length === 0 || state === "merged" ? null : <span className="armada-pr-status__why">{failing.join(", ")}</span>}
+            {failing.length === 0 || state === "merged" ? null : (
+              <span className="armada-pr-status__why">{failing.join(", ")}</span>
+            )}
           </span>
           {at === undefined ? null : (
             <Tooltip label="Place in the merge queue">

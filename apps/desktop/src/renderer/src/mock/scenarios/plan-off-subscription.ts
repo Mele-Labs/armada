@@ -9,12 +9,23 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { onTimePassing } from "../time-passes";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 const REPORTS_AFTER_MS = 4_000;
 
 function build(): Scenario {
-  const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
+  const board = onBoard({
+    repositories: [
+      ARMADA,
+    ],
+    picked: ARMADA.root,
+  });
   return {
     ...board,
     name: "plan-off-subscription",
@@ -24,13 +35,21 @@ function build(): Scenario {
       queueMicrotask(() =>
         onTimePassing(() => {
           setTimeout(() => {
-            const none: PlanUsage = { windows: [], read_at: new Date().toISOString() };
+            const none: PlanUsage = {
+              windows: [],
+              read_at: new Date().toISOString(),
+            };
             heard.forEach((on) => on(none));
           }, REPORTS_AFTER_MS);
         }),
       );
       return {
-        getPlanUsage: async () => ({ ok: true, value: { windows: [] } }),
+        getPlanUsage: async () => ({
+          ok: true,
+          value: {
+            windows: [],
+          },
+        }),
         onPlanUsageChanged: (on) => {
           heard.add(on);
           return () => void heard.delete(on);

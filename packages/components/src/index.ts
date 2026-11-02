@@ -52,7 +52,14 @@ export * from "./compositions/HelmThread/HelmThread";
 export * from "./compositions/HelmComposer/HelmComposer";
 export * from "./compositions/HelmHolds/HelmHolds";
 export * from "./compositions/FleetPanel/FleetPanel";
-export type { FleetBuild, FleetBuildChoice, FleetBuildDrone, FleetBuildLeftOut, FleetBuildPosition, FleetBuildStage } from "./compositions/FleetBuild/FleetBuild";
+export type {
+  FleetBuild,
+  FleetBuildChoice,
+  FleetBuildDrone,
+  FleetBuildLeftOut,
+  FleetBuildPosition,
+  FleetBuildStage,
+} from "./compositions/FleetBuild/FleetBuild";
 export * from "./compositions/DroneTurns/DroneTurns";
 export * from "./compositions/FailureNotice/FailureNotice";
 export * from "./compositions/JobDiffSheet/JobDiffSheet";
@@ -189,16 +196,36 @@ export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./workflow-definition/exports";
 export * from "./compositions/WorkflowManager/WorkflowManager";
 export * from "./compositions/WorkflowManager/types";
-export type { LanePanel, StepsChange, WorkspaceEditing } from "./compositions/WorkflowManager/WorkspaceEditor";
+export type {
+  LanePanel,
+  StepsChange,
+  WorkspaceEditing,
+} from "./compositions/WorkflowManager/WorkspaceEditor";
 export { autonomyRows } from "./compositions/WorkflowManager/Autonomy";
-export type { AutonomyKind, AutonomyLayer, AutonomyLayers } from "./compositions/WorkflowManager/Autonomy";
+export type {
+  AutonomyKind,
+  AutonomyLayer,
+  AutonomyLayers,
+} from "./compositions/WorkflowManager/Autonomy";
 export { WorkspacesPage, layerKey } from "./compositions/WorkspacesPage/WorkspacesPage";
-export type { WorkspaceRow, WorkspacesPageProps, WorkspacesPick } from "./compositions/WorkspacesPage/WorkspacesPage";
+export type {
+  WorkspaceRow,
+  WorkspacesPageProps,
+  WorkspacesPick,
+} from "./compositions/WorkspacesPage/WorkspacesPage";
 export { autonomyOfWire } from "./compositions/WorkflowManager/RuleForm";
 export type { RuleFormLifecycle } from "./compositions/WorkflowManager/RuleForm";
 export { DraftRow } from "./compositions/SessionThread/DraftRow";
 export type { DraftAnswer, DraftThreadRow } from "./compositions/SessionThread/DraftRow";
-export { forRequestsOf, stepsOfDefinition, withLabel, withStepAdded, withStepOrder, withStepRemoved, withWords } from "./compositions/WorkflowManager/definition";
+export {
+  forRequestsOf,
+  stepsOfDefinition,
+  withLabel,
+  withStepAdded,
+  withStepOrder,
+  withStepRemoved,
+  withWords,
+} from "./compositions/WorkflowManager/definition";
 export type { DefinitionStep } from "./compositions/WorkflowManager/definition";
 
 export * from "./compositions/ManifestNotice/ManifestNotice";
@@ -251,7 +278,6 @@ export * from "./compositions/Clamped/Clamped";
 // The Job's pulse, in a few lines. The full reading was the largest thing
 // in the run column and answered a question nobody had asked yet; this says
 // whether anything is wrong, and opens the reading when the answer is yes.
-
 
 // The plan read as the groups it will run in, and the boundary each ends at.
 
@@ -439,9 +465,21 @@ export type { PullRequestComposerProps } from "./compositions/PullRequestPanel/P
 export { PullRequestFilesView } from "./compositions/PullRequestPanel/PullRequestFiles";
 export { agoOf, mayWrite, ranFor } from "./compositions/PullRequestPanel/pull-request-format";
 export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
-export { Conversation as PrConversation, Checks as PrChecks, Commits as PrCommits, Mark as PrMark, DiffSize, COMMENT_READ } from "./compositions/PullRequestPanel/PullRequestTabs";
+export {
+  Conversation as PrConversation,
+  Checks as PrChecks,
+  Commits as PrCommits,
+  Mark as PrMark,
+  DiffSize,
+  COMMENT_READ,
+} from "./compositions/PullRequestPanel/PullRequestTabs";
 export type { EntryTriage } from "./compositions/PullRequestPanel/PullRequestTabs";
-export type { FileReach, FilesReach, ReachSource, ReachTest } from "./compositions/PullRequestPanel/PullRequestReach";
+export type {
+  FileReach,
+  FilesReach,
+  ReachSource,
+  ReachTest,
+} from "./compositions/PullRequestPanel/PullRequestReach";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/ModRules/ModRules";
 export * from "./compositions/LayoutRow/LayoutRow";
@@ -467,8 +505,18 @@ export * from "./loadout";
 export * from "./compositions/UsagePage/UsagePage";
 
 export * from "./compositions/FilePanel/FilePanel";
-export { CodeEditor, languageOf, selectInEditor, typeIntoEditor } from "./compositions/FilePanel/CodeEditor";
-export type { CodeEditorProps, CodeLanguage, CodeLines, CodeNoteMark } from "./compositions/FilePanel/CodeEditor";
+export {
+  CodeEditor,
+  languageOf,
+  selectInEditor,
+  typeIntoEditor,
+} from "./compositions/FilePanel/CodeEditor";
+export type {
+  CodeEditorProps,
+  CodeLanguage,
+  CodeLines,
+  CodeNoteMark,
+} from "./compositions/FilePanel/CodeEditor";
 export * from "./compositions/LinkPanel/LinkPanel";
 export * from "./compositions/LinkPanel/LinkOffer";
 
@@ -482,14 +530,41 @@ export * from "./compositions/LaneCanvas/build";
 export * from "./compositions/LaneCanvas/edit";
 
 // Notes on a sketch, a file or a picture being read, held on it and sent to a Job as one message.
-export { NoteNumber, ViewerNotesFrom, useViewerNotes } from "./compositions/ViewerNotes/ViewerNotes";
-export type { NoteAnchor, NoteMark, ViewerNotes, ViewerNotesHost, ViewerNotesScope } from "./compositions/ViewerNotes/ViewerNotes";
+export {
+  NoteNumber,
+  ViewerNotesFrom,
+  useViewerNotes,
+} from "./compositions/ViewerNotes/ViewerNotes";
+export type {
+  NoteAnchor,
+  NoteMark,
+  ViewerNotes,
+  ViewerNotesHost,
+  ViewerNotesScope,
+} from "./compositions/ViewerNotes/ViewerNotes";
 export { setHeldOn, useHeldOn } from "./compositions/ViewerNotes/held";
 export { NotableImage } from "./compositions/ViewerNotes/NotableImage";
 export { NotedMessage, NotedOpens } from "./compositions/ViewerNotes/NotedMessage";
 export type { NotedOpen } from "./compositions/ViewerNotes/NotedMessage";
-export { aboutSaid, notedOf, notedSaid, notesMessage, onOneLine, shortPath } from "./compositions/ViewerNotes/compose";
-export type { DocumentPlace, DocumentTarget, HeldNote, NoteAbout, NotedBlock, NotedRef, NotePicture, NoteRegion, NotesMessage } from "./compositions/ViewerNotes/compose";
+export {
+  aboutSaid,
+  notedOf,
+  notedSaid,
+  notesMessage,
+  onOneLine,
+  shortPath,
+} from "./compositions/ViewerNotes/compose";
+export type {
+  DocumentPlace,
+  DocumentTarget,
+  HeldNote,
+  NoteAbout,
+  NotedBlock,
+  NotedRef,
+  NotePicture,
+  NoteRegion,
+  NotesMessage,
+} from "./compositions/ViewerNotes/compose";
 export * from "./compositions/Logbook/Logbook";
 export * from "./compositions/AdversarialReview/AdversarialReview";
 export * from "./compositions/AdversarialReview/AnchoredFindings";

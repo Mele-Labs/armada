@@ -8,11 +8,24 @@ import type { VoiceEngine, VoiceWhy } from "../shared/api/voice";
 
 /** One line Armada Voice prints. */
 export type HelperLine =
-  | { kind: "ready" }
-  | { kind: "transcribing" }
-  | { kind: "partial"; text: string }
-  | { kind: "final"; text: string }
-  | { kind: "error"; code: string };
+  | {
+      kind: "ready";
+    }
+  | {
+      kind: "transcribing";
+    }
+  | {
+      kind: "partial";
+      text: string;
+    }
+  | {
+      kind: "final";
+      text: string;
+    }
+  | {
+      kind: "error";
+      code: string;
+    };
 
 /** A line read, or undefined for anything that is not one: a log line, a half-written object. */
 export function readHelperLine(line: string): HelperLine | undefined {
@@ -24,13 +37,31 @@ export function readHelperLine(line: string): HelperLine | undefined {
   }
   if (typeof value !== "object" || value === null) return undefined;
   const { kind, text, code } = value as Record<string, unknown>;
-  if (kind === "ready" || kind === "transcribing") return { kind };
-  if ((kind === "partial" || kind === "final") && typeof text === "string") return { kind, text };
-  if (kind === "error" && typeof code === "string") return { kind, code };
+  if (kind === "ready" || kind === "transcribing")
+    return {
+      kind,
+    };
+  if ((kind === "partial" || kind === "final") && typeof text === "string")
+    return {
+      kind,
+      text,
+    };
+  if (kind === "error" && typeof code === "string")
+    return {
+      kind,
+      code,
+    };
   return undefined;
 }
 
-const HELPER_WHYS: readonly VoiceWhy[] = ["microphone_denied", "microphone_unavailable", "speech_denied", "on_device_unavailable", "recognition_failed", "whisper_failed"];
+const HELPER_WHYS: readonly VoiceWhy[] = [
+  "microphone_denied",
+  "microphone_unavailable",
+  "speech_denied",
+  "on_device_unavailable",
+  "recognition_failed",
+  "whisper_failed",
+];
 
 /** The helper's error code as the renderer reads it; whisper.cpp's own failures are all `whisper_failed`. */
 export function whyOf(code: string): VoiceWhy {
@@ -52,7 +83,12 @@ export class Settled {
   partial(text: string): string[] {
     const words = wordsIn(text);
     let agreed = 0;
-    while (agreed < words.length && agreed < this.last.length && words[agreed] === this.last[agreed]) agreed += 1;
+    while (
+      agreed < words.length &&
+      agreed < this.last.length &&
+      words[agreed] === this.last[agreed]
+    )
+      agreed += 1;
     this.last = words;
     return this.upTo(words, agreed);
   }
@@ -72,8 +108,13 @@ export class Settled {
 
 /** What hearing needs of a child process, so a test can hand it a fake. */
 export type VoiceChild = {
-  stdout: { on: (event: "data", listener: (chunk: Buffer | string) => void) => unknown } | null;
-  stdin: { end: () => unknown; on: (event: "error", listener: (error: Error) => void) => unknown } | null;
+  stdout: {
+    on: (event: "data", listener: (chunk: Buffer | string) => void) => unknown;
+  } | null;
+  stdin: {
+    end: () => unknown;
+    on: (event: "error", listener: (error: Error) => void) => unknown;
+  } | null;
   on(event: "exit", listener: (code: number | null) => void): unknown;
   on(event: "error", listener: (error: Error) => void): unknown;
   kill: () => unknown;
@@ -83,7 +124,10 @@ export type VoiceHosts = {
   /** Armada Voice's executable, or null where this Bridge was built without it. */
   helper: string | null;
   /** Where Install put whisper.cpp and its model, or null before it has. */
-  whisper: () => { library: string; model: string } | null;
+  whisper: () => {
+    library: string;
+    model: string;
+  } | null;
   spawn: (file: string, args: readonly string[]) => VoiceChild;
   /** macOS Dictation, sent to the first responder: `Menu.sendActionToFirstResponder`. */
   dictate: (action: "startDictation:" | "stopDictation:") => void;
@@ -95,13 +139,21 @@ export type VoiceHosts = {
  * How long a released helper has to say its last word before it is killed. Apple's final transcript follows in well
  * under a second; Whisper transcribes everything after the release, up to five minutes of speech.
  */
-export const RELEASE_GRACE_MS: Record<"apple" | "whisper", number> = { apple: 6_000, whisper: 120_000 };
+export const RELEASE_GRACE_MS: Record<"apple" | "whisper", number> = {
+  apple: 6_000,
+  whisper: 120_000,
+};
 
 /**
  * Starts hearing with `engine`. `onWord` gets each word once; `onEnd` is called once, when nothing more will come,
  * with why where it ended early. The returned stop is the release: the helper finishes what it heard and ends.
  */
-export function hear(engine: VoiceEngine, hosts: VoiceHosts, onWord: (word: string) => void, onEnd: (why?: VoiceWhy) => void): () => void {
+export function hear(
+  engine: VoiceEngine,
+  hosts: VoiceHosts,
+  onWord: (word: string) => void,
+  onEnd: (why?: VoiceWhy) => void,
+): () => void {
   let ended = false;
   const end = (why?: VoiceWhy): void => {
     if (ended) return;
@@ -122,14 +174,20 @@ export function hear(engine: VoiceEngine, hosts: VoiceHosts, onWord: (word: stri
     end("helper_missing");
     return () => {};
   }
-  let args: string[] = ["listen"];
+  let args: string[] = [
+    "listen",
+  ];
   if (engine === "whisper") {
     const installed = hosts.whisper();
     if (installed === null) {
       end("whisper_absent");
       return () => {};
     }
-    args = ["whisper", installed.library, installed.model];
+    args = [
+      "whisper",
+      installed.library,
+      installed.model,
+    ];
   }
 
   const child = hosts.spawn(hosts.helper, args);
@@ -173,6 +231,8 @@ export function hear(engine: VoiceEngine, hosts: VoiceHosts, onWord: (word: stri
 
 /** Armada Voice's executable: built beside the sources in development, in `Contents/Helpers` packaged. */
 export function helperPath(packaged: boolean, appPath: string, resourcesPath: string): string {
-  const app = packaged ? join(resourcesPath, "..", "Helpers", "Armada Voice.app") : join(appPath, "native", "voice", "build", "Armada Voice.app");
+  const app = packaged
+    ? join(resourcesPath, "..", "Helpers", "Armada Voice.app")
+    : join(appPath, "native", "voice", "build", "Armada Voice.app");
   return join(app, "Contents", "MacOS", "armada-voice");
 }

@@ -16,15 +16,32 @@ import { ACTION, ACTIONS } from "./generated/actions";
 import type { Action, ActionScope } from "./generated/actions";
 
 /** One key with its modifiers. `key` is a letter in lower case, a digit, a symbol, or a named key. */
-export type Chord = { readonly ctrl: boolean; readonly alt: boolean; readonly shift: boolean; readonly meta: boolean; readonly key: string };
+export type Chord = {
+  readonly ctrl: boolean;
+  readonly alt: boolean;
+  readonly shift: boolean;
+  readonly meta: boolean;
+  readonly key: string;
+};
 
 /** One thing a person can bind: a key, or the modifiers that go with a row of digits. */
 export type Slot =
-  | { readonly kind: "chord"; readonly chord: Chord | null }
-  | { readonly kind: "digits"; readonly mods: Omit<Chord, "key"> | null; readonly from: number; readonly to: number };
+  | {
+      readonly kind: "chord";
+      readonly chord: Chord | null;
+    }
+  | {
+      readonly kind: "digits";
+      readonly mods: Omit<Chord, "key"> | null;
+      readonly from: number;
+      readonly to: number;
+    };
 
 /** A press, as a handler receives it. `code` reads a key by place when Option has changed what it types. */
-export type Press = Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey"> & { readonly shiftKey?: boolean; readonly code?: string };
+export type Press = Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey"> & {
+  readonly shiftKey?: boolean;
+  readonly code?: string;
+};
 
 const NAMED: Readonly<Record<string, string>> = {
   Escape: "Esc",
@@ -52,10 +69,21 @@ const NAMED: Readonly<Record<string, string>> = {
 };
 
 /** Keys that are only ever half a chord. Pressing one alone binds nothing. */
-const MODIFIER_KEYS = new Set(["Meta", "Control", "Alt", "Shift", "CapsLock", "Fn", "OS", "Hyper", "Super"]);
+const MODIFIER_KEYS = new Set([
+  "Meta",
+  "Control",
+  "Alt",
+  "Shift",
+  "CapsLock",
+  "Fn",
+  "OS",
+  "Hyper",
+  "Super",
+]);
 
 const isLetter = (key: string): boolean => /^[a-z]$/i.test(key);
-const isNamed = (key: string): boolean => Object.values(NAMED).includes(key) || /^F\d{1,2}$/.test(key);
+const isNamed = (key: string): boolean =>
+  Object.values(NAMED).includes(key) || /^F\d{1,2}$/.test(key);
 
 /**
  * Shift is part of a letter's chord and of a named key's, and never of a symbol's: `?` is shift and
@@ -82,15 +110,46 @@ export function parseChord(text: string): Chord | null {
   }
   if (rest === "") return null;
   const named = NAMED[rest];
-  if (named !== undefined) return { ctrl, alt, shift, meta, key: named };
-  if (/^F\d{1,2}$/.test(rest)) return { ctrl, alt, shift, meta, key: rest };
-  if ([...rest].length !== 1) return null;
+  if (named !== undefined)
+    return {
+      ctrl,
+      alt,
+      shift,
+      meta,
+      key: named,
+    };
+  if (/^F\d{1,2}$/.test(rest))
+    return {
+      ctrl,
+      alt,
+      shift,
+      meta,
+      key: rest,
+    };
+  if (
+    [
+      ...rest,
+    ].length !== 1
+  )
+    return null;
   if (isLetter(rest)) {
     // Bare, an upper-case letter is the shifted one (`B`); beside ⌘, ⌃ or ⌥ it is only how it is drawn.
     const bare = !ctrl && !alt && !meta;
-    return { ctrl, alt, meta, shift: shift || (bare && rest !== rest.toLowerCase()), key: rest.toLowerCase() };
+    return {
+      ctrl,
+      alt,
+      meta,
+      shift: shift || (bare && rest !== rest.toLowerCase()),
+      key: rest.toLowerCase(),
+    };
   }
-  return { ctrl, alt, meta, shift: shiftCounts(rest) ? shift : false, key: rest };
+  return {
+    ctrl,
+    alt,
+    meta,
+    shift: shiftCounts(rest) ? shift : false,
+    key: rest,
+  };
 }
 
 /** The modifiers, in the order the registry draws them. */
@@ -115,13 +174,28 @@ export function parseSlots(text: string): Slot[] {
   const range = /^(\D*?)(\d)–(?:\D*?)(\d)$/.exec(text.trim());
   if (range !== null) {
     const probe = parseChord(`${range[1] ?? ""}${range[2]}`);
-    return [{ kind: "digits", mods: probe === null ? null : withoutKey(probe), from: Number(range[2]), to: Number(range[3]) }];
+    return [
+      {
+        kind: "digits",
+        mods: probe === null ? null : withoutKey(probe),
+        from: Number(range[2]),
+        to: Number(range[3]),
+      },
+    ];
   }
   const parts = text.includes(" / ") ? text.split(" / ") : text.split(" ");
-  return parts.map((part) => ({ kind: "chord", chord: part.trim() === "" ? null : parseChord(part) }));
+  return parts.map((part) => ({
+    kind: "chord",
+    chord: part.trim() === "" ? null : parseChord(part),
+  }));
 }
 
-const withoutKey = ({ ctrl, alt, shift, meta }: Chord): Omit<Chord, "key"> => ({ ctrl, alt, shift, meta });
+const withoutKey = ({ ctrl, alt, shift, meta }: Chord): Omit<Chord, "key"> => ({
+  ctrl,
+  alt,
+  shift,
+  meta,
+});
 
 /** One slot in the registry's spelling, or `""` where nothing is bound. */
 export function formatSlot(slot: Slot): string {
@@ -142,11 +216,30 @@ const SLASHED = new Set(ACTIONS.filter((one) => one.shortcut.includes(" / ")).ma
 
 /** What each slot of a many-key act does, where one row of keys is more than one motion. */
 export const SLOT_NAMES: Readonly<Record<string, readonly string[] | undefined>> = {
-  history: ["Back", "Forward"],
-  move_focus: ["Down", "Up", "Down", "Up"],
-  deck_reorder: ["Up", "Down"],
-  projects_reorder: ["Up", "Down"],
-  finding_move: ["Down", "Up", "Down", "Up"],
+  history: [
+    "Back",
+    "Forward",
+  ],
+  move_focus: [
+    "Down",
+    "Up",
+    "Down",
+    "Up",
+  ],
+  deck_reorder: [
+    "Up",
+    "Down",
+  ],
+  projects_reorder: [
+    "Up",
+    "Down",
+  ],
+  finding_move: [
+    "Down",
+    "Up",
+    "Down",
+    "Up",
+  ],
 };
 
 // ---- What this person has changed ------------------------------------------------------------
@@ -195,7 +288,14 @@ export function rebind(id: string, slots: readonly Slot[]): void {
   const spelled = slots.map(formatSlot);
   const shipped = defaultSlotsOf(id).map(formatSlot);
   const { [id]: _was, ...rest } = overrides;
-  keep(JSON.stringify(spelled) === JSON.stringify(shipped) ? rest : { ...rest, [id]: spelled });
+  keep(
+    JSON.stringify(spelled) === JSON.stringify(shipped)
+      ? rest
+      : {
+          ...rest,
+          [id]: spelled,
+        },
+  );
 }
 
 /** Put one act's keys back to what the registry ships. */
@@ -213,7 +313,12 @@ export function resetAllBindings(): void {
 
 /** The text Fleet keeps. Empty where nothing has changed, which takes the preference back. */
 export function serializeKeyBindings(bindings: KeyBindings): string {
-  return Object.keys(bindings).length === 0 ? "" : JSON.stringify({ version: 1, bindings });
+  return Object.keys(bindings).length === 0
+    ? ""
+    : JSON.stringify({
+        version: 1,
+        bindings,
+      });
 }
 
 /**
@@ -224,12 +329,27 @@ export function parseKeyBindings(text: string): KeyBindings {
   if (text.trim() === "") return {};
   try {
     const raw: unknown = JSON.parse(text);
-    if (typeof raw !== "object" || raw === null || (raw as { version?: unknown }).version !== 1) return {};
-    const bindings = (raw as { bindings?: unknown }).bindings ?? {};
+    if (
+      typeof raw !== "object" ||
+      raw === null ||
+      (
+        raw as {
+          version?: unknown;
+        }
+      ).version !== 1
+    )
+      return {};
+    const bindings =
+      (
+        raw as {
+          bindings?: unknown;
+        }
+      ).bindings ?? {};
     if (typeof bindings !== "object" || bindings === null || Array.isArray(bindings)) return {};
     const out: Record<string, readonly string[]> = {};
     for (const [id, keys] of Object.entries(bindings)) {
-      if (!Array.isArray(keys) || keys.length > 8 || !keys.every((one) => typeof one === "string")) return {};
+      if (!Array.isArray(keys) || keys.length > 8 || !keys.every((one) => typeof one === "string"))
+        return {};
       out[id] = keys as string[];
     }
     return out;
@@ -271,11 +391,23 @@ export function slotsOf(id: string): Slot[] {
     const text = saved[at];
     if (text === undefined) return slot;
     if (slot.kind === "digits") {
-      if (text === "") return { ...slot, mods: null };
+      if (text === "")
+        return {
+          ...slot,
+          mods: null,
+        };
       const read = parseSlots(text)[0];
-      return read?.kind === "digits" ? { ...slot, mods: read.mods } : slot;
+      return read?.kind === "digits"
+        ? {
+            ...slot,
+            mods: read.mods,
+          }
+        : slot;
     }
-    return { kind: "chord", chord: text === "" ? null : parseChord(text) };
+    return {
+      kind: "chord",
+      chord: text === "" ? null : parseChord(text),
+    };
   });
 }
 
@@ -315,13 +447,20 @@ function keyOf(press: Press): string {
 export function chordOf(press: Press): Chord | null {
   if (MODIFIER_KEYS.has(press.key) || press.key === "Unidentified") return null;
   // Option makes some letters a dead key (⌥E, ⌥U, ⌥N on a US Mac); with it held, the key's place still names the chord.
-  if (press.key === "Dead" && !(press.altKey && /^(Key[A-Z]|Digit\d)$/.test(press.code ?? ""))) return null;
+  if (press.key === "Dead" && !(press.altKey && /^(Key[A-Z]|Digit\d)$/.test(press.code ?? "")))
+    return null;
   const key = keyOf(press);
   // An upper-case letter is a shifted one whatever the flag says — Caps Lock types it too, and
   // `B` has always answered to the letter typed rather than to the key held.
   const upper = isLetter(press.key) && press.key !== press.key.toLowerCase();
   const shift = shiftCounts(key) && (press.shiftKey === true || upper);
-  return { ctrl: press.ctrlKey, alt: press.altKey, meta: press.metaKey, shift, key };
+  return {
+    ctrl: press.ctrlKey,
+    alt: press.altKey,
+    meta: press.metaKey,
+    shift,
+    key,
+  };
 }
 
 /**
@@ -330,7 +469,8 @@ export function chordOf(press: Press): Chord | null {
  * keyboard without the key.
  */
 function same(chord: Chord, press: Chord): boolean {
-  if (chord.key !== press.key || chord.alt !== press.alt || chord.shift !== press.shift) return false;
+  if (chord.key !== press.key || chord.alt !== press.alt || chord.shift !== press.shift)
+    return false;
   if (chord.meta && !chord.ctrl) return (press.meta || press.ctrl) && !(press.meta && press.ctrl);
   return chord.meta === press.meta && chord.ctrl === press.ctrl;
 }
@@ -353,7 +493,9 @@ export function pressedSlot(id: string, press: Press): number {
   if (recording) return -1;
   const chord = chordOf(press);
   if (chord === null) return -1;
-  return slotsOf(id).findIndex((slot) => slot.kind === "chord" && slot.chord !== null && same(slot.chord, chord));
+  return slotsOf(id).findIndex(
+    (slot) => slot.kind === "chord" && slot.chord !== null && same(slot.chord, chord),
+  );
 }
 
 /** Whether a press is one of the keys an act answers now. */
@@ -367,8 +509,18 @@ export function pressedDigit(id: string, press: Press): number | null {
   if (chord === null || !/^\d$/.test(chord.key)) return null;
   const digit = Number(chord.key);
   for (const slot of slotsOf(id)) {
-    if (slot.kind !== "digits" || slot.mods === null || digit < slot.from || digit > slot.to) continue;
-    if (same({ ...slot.mods, key: chord.key }, chord)) return digit;
+    if (slot.kind !== "digits" || slot.mods === null || digit < slot.from || digit > slot.to)
+      continue;
+    if (
+      same(
+        {
+          ...slot.mods,
+          key: chord.key,
+        },
+        chord,
+      )
+    )
+      return digit;
   }
   return null;
 }
@@ -376,7 +528,14 @@ export function pressedDigit(id: string, press: Press): number | null {
 /** The spelling of one digit of an act's row — `⌘3` — for drawing beside the thing it reaches. */
 export function digitKeyFor(id: string, digit: number): string | undefined {
   const slot = slotsOf(id).find((one) => one.kind === "digits");
-  if (slot === undefined || slot.kind !== "digits" || slot.mods === null || digit < slot.from || digit > slot.to) return undefined;
+  if (
+    slot === undefined ||
+    slot.kind !== "digits" ||
+    slot.mods === null ||
+    digit < slot.from ||
+    digit > slot.to
+  )
+    return undefined;
   return `${modsText(slot.mods)}${digit}`;
 }
 
@@ -387,52 +546,111 @@ export function digitKeyFor(id: string, digit: number): string | undefined {
  * the list and the output on a Job, and those are never the same screen.
  */
 const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
-  anywhere: ["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "report", "projects", "plan", "thread"],
+  anywhere: [
+    "board",
+    "detail",
+    "studio",
+    "dashboard",
+    "deck",
+    "review",
+    "call",
+    "logbook",
+    "issues",
+    "report",
+    "projects",
+    "plan",
+    "thread",
+  ],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
   // The Reviews list is not here: it moves by `j`, `k` and `Enter` as a list does, but its `r` goes to the reader, where a
   // list's `r` reviews a Job, and a pull request in it has none.
-  list: ["board", "dashboard", "deck"],
-  "list and detail": ["board", "detail", "dashboard"],
-  "open studio": ["studio"],
+  list: [
+    "board",
+    "dashboard",
+    "deck",
+  ],
+  "list and detail": [
+    "board",
+    "detail",
+    "dashboard",
+  ],
+  "open studio": [
+    "studio",
+  ],
   // `w` and `?` are the Dashboard's and the deck reads them too.
-  dashboard: ["dashboard", "deck"],
+  dashboard: [
+    "dashboard",
+    "deck",
+  ],
   // The deck's own panel, tile and page keys. A call pane in front takes the bare digits and letters it
   // names while it is up, and the deck's handlers stand down for it: that is a state of the deck, which
   // the keymap's places do not hold, so `call` and `deck` do not overlap here.
-  deck: ["deck"],
+  deck: [
+    "deck",
+  ],
   // The Reviews tab is a tab of the places bar, not the deck, so its letters do not meet the deck's.
-  review: ["review"],
+  review: [
+    "review",
+  ],
   // The Issues tab is a tab of the places bar too, so its letters meet neither the deck's nor Reviews'.
-  issues: ["issues"],
+  issues: [
+    "issues",
+  ],
   // A reported bug's row or its reader holds focus while these keys are pressed, and they take `D` from the tab's describe key there.
   // It is a place of its own so the two are not flagged as one key bound twice.
-  report: ["report"],
+  report: [
+    "report",
+  ],
   // The Projects tab is a tab of the places bar too, so its letters meet neither the deck's nor Issues'.
-  projects: ["projects"],
-  call: ["call"],
+  projects: [
+    "projects",
+  ],
+  call: [
+    "call",
+  ],
   // The Logbook is a tab of the places bar too, and its letters meet no other scope's.
-  logbook: ["logbook"],
+  logbook: [
+    "logbook",
+  ],
   // A plan card or the plan in full holds focus while its keys are pressed, and takes them before the page it sits on.
-  plan: ["plan"],
+  plan: [
+    "plan",
+  ],
   // The cards waiting in a Job's thread and on its composer. The `⌥` keys answer from anywhere in the Job's view, the message box
   // included, and meet the global keys there; a hand off band's letters answer only inside the band, so they meet neither a plan's nor a list's.
-  thread: ["thread"],
+  thread: [
+    "thread",
+  ],
 };
 
-const overlaps = (a: ActionScope, b: ActionScope): boolean => PLACES[a].some((place) => PLACES[b].includes(place));
+const overlaps = (a: ActionScope, b: ActionScope): boolean =>
+  PLACES[a].some((place) => PLACES[b].includes(place));
 
 /** The chords a slot covers: one for a key, one per digit for a row of them. */
 function chordsIn(slot: Slot): Chord[] {
-  if (slot.kind === "chord") return slot.chord === null ? [] : [slot.chord];
+  if (slot.kind === "chord")
+    return slot.chord === null
+      ? []
+      : [
+          slot.chord,
+        ];
   if (slot.mods === null) return [];
   const all: Chord[] = [];
-  for (let digit = slot.from; digit <= slot.to; digit += 1) all.push({ ...slot.mods, key: String(digit) });
+  for (let digit = slot.from; digit <= slot.to; digit += 1)
+    all.push({
+      ...slot.mods,
+      key: String(digit),
+    });
   return all;
 }
 
 const sameChord = (a: Chord, b: Chord): boolean =>
-  a.key === b.key && a.alt === b.alt && a.shift === b.shift && a.meta === b.meta && a.ctrl === b.ctrl;
+  a.key === b.key &&
+  a.alt === b.alt &&
+  a.shift === b.shift &&
+  a.meta === b.meta &&
+  a.ctrl === b.ctrl;
 
 /**
  * The other acts that answer the same key as this slot, somewhere both are listening.
@@ -450,7 +668,9 @@ export function conflictsOf(id: string, slot: Slot): Action[] {
       other.id !== id &&
       other.unbuilt === null &&
       overlaps(act.scope, other.scope) &&
-      slotsOf(other.id).some((theirs) => chordsIn(theirs).some((chord) => mine.some((one) => sameChord(one, chord)))),
+      slotsOf(other.id).some((theirs) =>
+        chordsIn(theirs).some((chord) => mine.some((one) => sameChord(one, chord))),
+      ),
   );
 }
 
@@ -461,27 +681,92 @@ export function sameKey(a: Chord, b: Chord): boolean {
 
 /** The built act that answers this chord somewhere, in any scope: a key kept for a row has to be free everywhere. */
 export function actOnChord(chord: Chord): Action | undefined {
-  return ACTIONS.find((other) => other.unbuilt === null && slotsOf(other.id).some((slot) => chordsIn(slot).some((held) => sameKey(held, chord))));
+  return ACTIONS.find(
+    (other) =>
+      other.unbuilt === null &&
+      slotsOf(other.id).some((slot) => chordsIn(slot).some((held) => sameKey(held, chord))),
+  );
 }
 
 // ---- How Settings groups them -------------------------------------------------------------------
 
 /** One heading in Settings → Keyboard, and the scopes under it. */
-export type KeymapGroup = { readonly title: string; readonly scopes: readonly ActionScope[] };
+export type KeymapGroup = {
+  readonly title: string;
+  readonly scopes: readonly ActionScope[];
+};
 
 /** Where a person finds an act: by the place they would be standing when they press it. */
 export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
-  { title: "Anywhere", scopes: ["anywhere"] },
-  { title: "Lists", scopes: ["list", "list and detail"] },
-  { title: "Dashboard", scopes: ["dashboard", "deck"] },
-  { title: "Calls", scopes: ["call"] },
-  { title: "Reviews", scopes: ["review"] },
-  { title: "Logbook", scopes: ["logbook"] },
-  { title: "Plans", scopes: ["plan"] },
-  { title: "Job thread", scopes: ["thread"] },
-  { title: "Issues", scopes: ["issues", "report"] },
-  { title: "Projects", scopes: ["projects"] },
-  { title: "Studios", scopes: ["open studio"] },
+  {
+    title: "Anywhere",
+    scopes: [
+      "anywhere",
+    ],
+  },
+  {
+    title: "Lists",
+    scopes: [
+      "list",
+      "list and detail",
+    ],
+  },
+  {
+    title: "Dashboard",
+    scopes: [
+      "dashboard",
+      "deck",
+    ],
+  },
+  {
+    title: "Calls",
+    scopes: [
+      "call",
+    ],
+  },
+  {
+    title: "Reviews",
+    scopes: [
+      "review",
+    ],
+  },
+  {
+    title: "Logbook",
+    scopes: [
+      "logbook",
+    ],
+  },
+  {
+    title: "Plans",
+    scopes: [
+      "plan",
+    ],
+  },
+  {
+    title: "Job thread",
+    scopes: [
+      "thread",
+    ],
+  },
+  {
+    title: "Issues",
+    scopes: [
+      "issues",
+      "report",
+    ],
+  },
+  {
+    title: "Projects",
+    scopes: [
+      "projects",
+    ],
+  },
+  {
+    title: "Studios",
+    scopes: [
+      "open studio",
+    ],
+  },
 ];
 
 /** The acts under one heading, in registry order. Every act is under exactly one. */

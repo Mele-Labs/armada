@@ -9,7 +9,10 @@ export const timeline: Slice<TimelineApi, Record<string, never>> = {
   name: "timeline",
   state: {},
   api: () => ({
-    getFleetTimeline: async () => ({ ok: false, outcome: unanswered("/timeline") }),
+    getFleetTimeline: async () => ({
+      ok: false,
+      outcome: unanswered("/timeline"),
+    }),
     onTimelineAppended: () => () => {},
   }),
 };

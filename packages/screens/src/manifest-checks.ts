@@ -7,7 +7,14 @@
 // started. No new read, no new wire shape.
 
 import type { ReactNode } from "react";
-import { requesterOf, type CheckoutRunRecord, type CheckoutRunSheet, type LandCheckAt, type MergeLine, type Requester } from "@armada/protocol";
+import {
+  requesterOf,
+  type CheckoutRunRecord,
+  type CheckoutRunSheet,
+  type LandCheckAt,
+  type MergeLine,
+  type Requester,
+} from "@armada/protocol";
 import type { CheckDetail, CheckListRow, CheckListStatus } from "@armada/components";
 
 import { instant, lasting } from "./duration";
@@ -36,7 +43,14 @@ export type CheckEntry = {
 };
 
 /** The filter row's choices, in the order it draws them. */
-export const CHECK_FILTERS = ["all", "active", "waiting", "completed", "passed", "failed"] as const;
+export const CHECK_FILTERS = [
+  "all",
+  "active",
+  "waiting",
+  "completed",
+  "passed",
+  "failed",
+] as const;
 export type CheckFilter = (typeof CHECK_FILTERS)[number];
 
 export const CHECK_FILTER_LABEL: Record<CheckFilter, string> = {
@@ -93,12 +107,21 @@ export function checkEntriesOf(
   // The line's own come off a read that does not need the sheet, so they stand without it.
   if (sheet === undefined) return byRequested(land);
   const declared = new Set(sheet.checks.map((one) => one.name));
-  const isCheck = (run: { name: string; workspace?: string }) => run.workspace === undefined && declared.has(run.name);
+  const isCheck = (run: { name: string; workspace?: string }) =>
+    run.workspace === undefined && declared.has(run.name);
 
   const out = new Map<string, CheckEntry>();
   const running = sheet.running;
   if (running !== undefined && isCheck(running)) {
-    out.set(running.id, { id: running.id, name: running.name, status: "running", command: running.command, runId: running.id, startedAt: running.started_at, requester: requesterOf(running) });
+    out.set(running.id, {
+      id: running.id,
+      name: running.name,
+      status: "running",
+      command: running.command,
+      runId: running.id,
+      startedAt: running.started_at,
+      requester: requesterOf(running),
+    });
   }
   const waiting: CheckEntry[] = [];
   const verify = sheet.verify;
@@ -107,15 +130,39 @@ export function checkEntriesOf(
   for (const step of verify?.steps ?? []) {
     if (step.group !== "checks") continue;
     if (step.state === "waiting") {
-      waiting.push({ id: `${verify!.id}:${step.name}`, name: step.name, status: "waiting", command: step.run, requestedAt: verify!.started_at, requester: requesterOf(verify!) });
+      waiting.push({
+        id: `${verify!.id}:${step.name}`,
+        name: step.name,
+        status: "waiting",
+        command: step.run,
+        requestedAt: verify!.started_at,
+        requester: requesterOf(verify!),
+      });
     } else if (step.state === "running" && !out.has(step.run_id)) {
-      out.set(step.run_id, { id: step.run_id, name: step.name, status: "running", command: step.run, runId: step.run_id, requestedAt: verify!.started_at, requester: requesterOf(verify!) });
+      out.set(step.run_id, {
+        id: step.run_id,
+        name: step.name,
+        status: "running",
+        command: step.run,
+        runId: step.run_id,
+        requestedAt: verify!.started_at,
+        requester: requesterOf(verify!),
+      });
     } else if (step.state === "ran" && !finished.has(step.record.id)) {
       finished.set(step.record.id, step.record);
     }
   }
-  const ended = [...finished.values()].filter((record) => !out.has(record.id)).map(entryOfRecord);
-  return byRequested([...out.values(), ...waiting, ...land, ...ended]);
+  const ended = [
+    ...finished.values(),
+  ]
+    .filter((record) => !out.has(record.id))
+    .map(entryOfRecord);
+  return byRequested([
+    ...out.values(),
+    ...waiting,
+    ...land,
+    ...ended,
+  ]);
 }
 
 /**
@@ -130,7 +177,11 @@ export function requestedOf(entry: CheckEntry): number {
 /** Newest request first; equal times keep the order they were gathered in. */
 function byRequested(entries: CheckEntry[]): CheckEntry[] {
   return entries
-    .map((entry, at) => ({ entry, at, when: requestedOf(entry) }))
+    .map((entry, at) => ({
+      entry,
+      at,
+      when: requestedOf(entry),
+    }))
     .sort((one, two) => (two.when === one.when ? one.at - two.at : two.when > one.when ? 1 : -1))
     .map((one) => one.entry);
 }
@@ -149,12 +200,29 @@ function entryOfRecord(record: CheckoutRunRecord): CheckEntry {
 }
 
 /** What a merge line Check's own state maps onto, and what the mark says where the wire is finer. */
-const LAND_STATE: Record<string, { status: CheckListStatus; says?: string }> = {
-  waiting: { status: "waiting" },
-  running: { status: "running" },
-  passed: { status: "passed" },
-  failed: { status: "failed" },
-  timed_out: { status: "failed", says: "timed out" },
+const LAND_STATE: Record<
+  string,
+  {
+    status: CheckListStatus;
+    says?: string;
+  }
+> = {
+  waiting: {
+    status: "waiting",
+  },
+  running: {
+    status: "running",
+  },
+  passed: {
+    status: "passed",
+  },
+  failed: {
+    status: "failed",
+  },
+  timed_out: {
+    status: "failed",
+    says: "timed out",
+  },
 };
 
 /**
@@ -163,21 +231,53 @@ const LAND_STATE: Record<string, { status: CheckListStatus; says?: string }> = {
  */
 function landEntriesOf(lines: readonly MergeLine[]): CheckEntry[] {
   return lines.flatMap((one) =>
-    [...one.line, ...one.sent_back, ...one.landed, ...one.off].flatMap((row) =>
+    [
+      ...one.line,
+      ...one.sent_back,
+      ...one.landed,
+      ...one.off,
+    ].flatMap((row) =>
       (row.checks ?? []).map((check, _at, all): CheckEntry => {
         // A Check not started has no time of its own: it was asked with the turn, so it takes the
         // latest start among its branch's other Checks. With none, `requestedOf` puts it on top.
-        const turn = all.flatMap((one) => (one.started_at === undefined ? [] : [one.started_at])).sort().at(-1);
-        const held = LAND_STATE[check.state] ?? { status: "waiting" as const };
+        const turn = all
+          .flatMap((one) =>
+            one.started_at === undefined
+              ? []
+              : [
+                  one.started_at,
+                ],
+          )
+          .sort()
+          .at(-1);
+        const held = LAND_STATE[check.state] ?? {
+          status: "waiting" as const,
+        };
         return {
           id: `land:${one.root}:${row.branch}:${check.name}`,
           name: check.name,
           status: held.status,
           command: "",
           requester: requesterOf(check),
-          land: { root: one.root, branch: row.branch, check: check.name },
-          ...(check.started_at === undefined ? (turn === undefined ? {} : { requestedAt: turn }) : { startedAt: check.started_at }),
-          ...(held.says === undefined ? {} : { says: held.says }),
+          land: {
+            root: one.root,
+            branch: row.branch,
+            check: check.name,
+          },
+          ...(check.started_at === undefined
+            ? turn === undefined
+              ? {}
+              : {
+                  requestedAt: turn,
+                }
+            : {
+                startedAt: check.started_at,
+              }),
+          ...(held.says === undefined
+            ? {}
+            : {
+                says: held.says,
+              }),
         };
       }),
     ),
@@ -185,26 +285,49 @@ function landEntriesOf(lines: readonly MergeLine[]): CheckEntry[] {
 }
 
 /** Where a press on who asked goes: the merge line at a branch. */
-export type AskerOpens = { to: "merge-line"; branch?: string };
+export type AskerOpens = {
+  to: "merge-line";
+  branch?: string;
+};
 
 /**
  * Who asked, as one line of bare facts, and where pressing it goes. **Only the merge line opens its requester**,
  * at the branch. Absent `opens` is plain text: a Session, and `outside`.
  */
-export type Asker = { label: string; opens?: AskerOpens };
+export type Asker = {
+  label: string;
+  opens?: AskerOpens;
+};
 
 export function askerOf(requester: Requester): Asker {
   const { kind, branch } = requester;
-  const said = (...parts: (string | undefined)[]) => parts.filter((one): one is string => one !== undefined).join(" · ");
+  const said = (...parts: (string | undefined)[]) =>
+    parts.filter((one): one is string => one !== undefined).join(" · ");
   switch (kind) {
     case "merge_line":
-      return { label: said("Merge line", branch), opens: { to: "merge-line", ...(branch === undefined ? {} : { branch }) } };
+      return {
+        label: said("Merge line", branch),
+        opens: {
+          to: "merge-line",
+          ...(branch === undefined
+            ? {}
+            : {
+                branch,
+              }),
+        },
+      };
     case "session":
-      return { label: "Job" };
+      return {
+        label: "Job",
+      };
     case "outside":
-      return { label: "Started outside a Job" };
+      return {
+        label: "Started outside a Job",
+      };
     default:
-      return { label: said(kind, branch) };
+      return {
+        label: said(kind, branch),
+      };
   }
 }
 
@@ -222,8 +345,16 @@ export function checkRowOf(entry: CheckEntry): CheckListRow {
     status: entry.status,
     says: entry.says ?? SAYS[entry.status],
     by: askerOf(entry.requester).label,
-    ...(entry.startedAt === undefined ? {} : { startedAt: entry.startedAt }),
-    ...(record === undefined ? {} : { duration: lasting(record.duration_ms) }),
+    ...(entry.startedAt === undefined
+      ? {}
+      : {
+          startedAt: entry.startedAt,
+        }),
+    ...(record === undefined
+      ? {}
+      : {
+          duration: lasting(record.duration_ms),
+        }),
   };
 }
 
@@ -231,20 +362,60 @@ export function checkRowOf(entry: CheckEntry): CheckListRow {
 export function checkDetailsOf(entry: CheckEntry, requestedBy?: ReactNode): CheckDetail[] {
   const { record } = entry;
   const details: CheckDetail[] = [];
-  if (entry.command !== "") details.push({ label: "Command", value: entry.command, mono: true });
-  if (requestedBy !== undefined) details.push({ label: "Requested by", value: requestedBy });
-  if (entry.land !== undefined) details.push({ label: "Branch", value: entry.land.branch, mono: true });
-  if (entry.requestedAt !== undefined) details.push({ label: "Requested", at: entry.requestedAt });
-  if (entry.startedAt !== undefined) details.push({ label: "Started", at: entry.startedAt });
+  if (entry.command !== "")
+    details.push({
+      label: "Command",
+      value: entry.command,
+      mono: true,
+    });
+  if (requestedBy !== undefined)
+    details.push({
+      label: "Requested by",
+      value: requestedBy,
+    });
+  if (entry.land !== undefined)
+    details.push({
+      label: "Branch",
+      value: entry.land.branch,
+      mono: true,
+    });
+  if (entry.requestedAt !== undefined)
+    details.push({
+      label: "Requested",
+      at: entry.requestedAt,
+    });
+  if (entry.startedAt !== undefined)
+    details.push({
+      label: "Started",
+      at: entry.startedAt,
+    });
   if (record !== undefined) {
-    details.push({ label: "Ended", at: record.ended_at });
-    details.push({ label: "Took", value: lasting(record.duration_ms) });
+    details.push({
+      label: "Ended",
+      at: record.ended_at,
+    });
+    details.push({
+      label: "Took",
+      value: lasting(record.duration_ms),
+    });
     details.push(
       record.exit_code === undefined
-        ? { label: "Ended by", value: record.ended }
-        : { label: "Exit", value: `${record.exit_code}, expects ${record.expect_exit_code}`, mono: true },
+        ? {
+            label: "Ended by",
+            value: record.ended,
+          }
+        : {
+            label: "Exit",
+            value: `${record.exit_code}, expects ${record.expect_exit_code}`,
+            mono: true,
+          },
     );
-    if (record.required.length > 0) details.push({ label: "Ran after", value: record.required.join(", "), mono: true });
+    if (record.required.length > 0)
+      details.push({
+        label: "Ran after",
+        value: record.required.join(", "),
+        mono: true,
+      });
     if (record.changed.length > 0) {
       details.push({
         label: "Changed",
@@ -253,6 +424,11 @@ export function checkDetailsOf(entry: CheckEntry, requestedBy?: ReactNode): Chec
       });
     }
   }
-  if (entry.runId !== undefined) details.push({ label: "Run", value: entry.runId, mono: true });
+  if (entry.runId !== undefined)
+    details.push({
+      label: "Run",
+      value: entry.runId,
+      mono: true,
+    });
   return details;
 }

@@ -4,7 +4,14 @@
 // divided by a hairline; there is no card inside the panel.
 
 import { useState, type ReactNode } from "react";
-import { Clock, GitMerge, GitPullRequest, GitPullRequestArrow, Link, type LucideIcon } from "lucide-react";
+import {
+  Clock,
+  GitMerge,
+  GitPullRequest,
+  GitPullRequestArrow,
+  Link,
+  type LucideIcon,
+} from "lucide-react";
 import { Button, PullRequestChecksMark, Tooltip } from "@armada/components";
 import type { PullRequestAct, Session } from "@armada/screens/src/draft/sessions";
 
@@ -17,7 +24,15 @@ import { checksOf, openPrPanel, type PullRequest } from "./IssuesBlock";
 import "./ledger-row.css";
 
 /** A glyph that names itself on hover. */
-export function Glyphed({ Glyph, said, state }: { Glyph: LucideIcon; said: string; state?: string }) {
+export function Glyphed({
+  Glyph,
+  said,
+  state,
+}: {
+  Glyph: LucideIcon;
+  said: string;
+  state?: string;
+}) {
   return (
     <Tooltip asChild label={said}>
       <span className="sv-ledger__glyph" role="img" aria-label={said} data-state={state}>
@@ -28,10 +43,28 @@ export function Glyphed({ Glyph, said, state }: { Glyph: LucideIcon; said: strin
 }
 
 /** A fact on the second line: its glyph, which carries the tooltip, and its word. */
-export function Fact({ Glyph, said, word, state }: { Glyph: LucideIcon; said: string; word: string; state?: string }) {
+export function Fact({
+  Glyph,
+  said,
+  word,
+  state,
+}: {
+  Glyph: LucideIcon;
+  said: string;
+  word: string;
+  state?: string;
+}) {
   return (
     <span className="sv-ledger__fact" data-state={state}>
-      <Glyphed Glyph={Glyph} said={said} {...(state === undefined ? {} : { state })} />
+      <Glyphed
+        Glyph={Glyph}
+        said={said}
+        {...(state === undefined
+          ? {}
+          : {
+              state,
+            })}
+      />
       {word}
     </span>
   );
@@ -59,12 +92,29 @@ type LedgerRowProps = {
   /** A pull request's state, which frames the row in its hue: open, draft, merged, closed, or failed where its Checks refused. */
   tone?: string;
   /** A stacked pull request's lane: a gutter beside the row whose line joins the rows of one stack. */
-  lane?: { first: boolean; last: boolean };
+  lane?: {
+    first: boolean;
+    last: boolean;
+  };
   /** Names the row's pull request number, so a chip elsewhere can find it. */
   anchor?: number;
 };
 
-export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu, kind, tone, lane, anchor }: LedgerRowProps) {
+export function LedgerRow({
+  lead,
+  num,
+  title,
+  meta,
+  act,
+  onOpen,
+  label,
+  on,
+  menu,
+  kind,
+  tone,
+  lane,
+  anchor,
+}: LedgerRowProps) {
   const inside = (
     <>
       {lead}
@@ -82,7 +132,14 @@ export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu
           {inside}
         </div>
       ) : (
-        <button {...on} type="button" className="sv-ledger__main" data-layer-row="" aria-label={label} onClick={onOpen}>
+        <button
+          {...on}
+          type="button"
+          className="sv-ledger__main"
+          data-layer-row=""
+          aria-label={label}
+          onClick={onOpen}
+        >
           {inside}
         </button>
       )}
@@ -90,46 +147,117 @@ export function LedgerRow({ lead, num, title, meta, act, onOpen, label, on, menu
       {menu}
     </>
   );
-  const data = { "data-acts": act === undefined ? undefined : "", "data-kind": kind, "data-tone": tone };
+  const data = {
+    "data-acts": act === undefined ? undefined : "",
+    "data-kind": kind,
+    "data-tone": tone,
+  };
   // A stacked row is the lane beside a card, so the item holds both and the card is no longer the list item.
   // The stack's root stands flush left and the line starts under it; only what is stacked on it is drawn in from the lane.
-  if (lane === undefined) return <li className="sv-ledger" data-pr={anchor} {...data}>{body}</li>;
+  if (lane === undefined)
+    return (
+      <li className="sv-ledger" data-pr={anchor} {...data}>
+        {body}
+      </li>
+    );
   return (
     <li className="sv-stack-item" data-pr={anchor} data-root={lane.first ? "" : undefined}>
-      {lane.first ? null : <span className="sv-lane" aria-hidden="true" data-last={lane.last ? "" : undefined} />}
-      <div className="sv-ledger" {...data}>{body}</div>
+      {lane.first ? null : (
+        <span className="sv-lane" aria-hidden="true" data-last={lane.last ? "" : undefined} />
+      )}
+      <div className="sv-ledger" {...data}>
+        {body}
+      </div>
     </li>
   );
 }
 
 /** Where the pull request stands on its way in: a draft, the merge queue or auto-merge. A merged one says so by its lead glyph and its frame alone. */
-function standingOf(pr: PullRequest): { Glyph: LucideIcon; said: string; word: string; state?: string } | null {
-  if (pr.state === "draft") return { Glyph: GitPullRequest, said: "Draft, not ready for review", word: "Draft", state: "draft" };
-  if (pr.queued === true) return { Glyph: Clock, said: "In the merge queue, merges when its turn comes", word: "Queued", state: "queued" };
-  if (pr.checks.state === "pending" && pr.auto) return { Glyph: GitMerge, said: "Auto-merge on, merges when every Check has passed", word: "Auto-merge", state: "queued" };
+function standingOf(pr: PullRequest): {
+  Glyph: LucideIcon;
+  said: string;
+  word: string;
+  state?: string;
+} | null {
+  if (pr.state === "draft")
+    return {
+      Glyph: GitPullRequest,
+      said: "Draft, not ready for review",
+      word: "Draft",
+      state: "draft",
+    };
+  if (pr.queued === true)
+    return {
+      Glyph: Clock,
+      said: "In the merge queue, merges when its turn comes",
+      word: "Queued",
+      state: "queued",
+    };
+  if (pr.checks.state === "pending" && pr.auto)
+    return {
+      Glyph: GitMerge,
+      said: "Auto-merge on, merges when every Check has passed",
+      word: "Auto-merge",
+      state: "queued",
+    };
   return null;
 }
 
 /** The icon button that moves a pull request on, where one fits. */
-function actOf(pr: PullRequest, pending: PullRequestAct | undefined, press: (act: PullRequestAct) => void): ReactNode {
+function actOf(
+  pr: PullRequest,
+  pending: PullRequestAct | undefined,
+  press: (act: PullRequestAct) => void,
+): ReactNode {
   const button = (which: PullRequestAct, Glyph: LucideIcon, name: string, said: string) => (
     <Tooltip label={said}>
-      <Button variant="ghost" size="sm" iconOnly aria-label={`${name} #${pr.number}`} pending={pending === which} disabled={pending !== undefined} onClick={() => press(which)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
+        aria-label={`${name} #${pr.number}`}
+        pending={pending === which}
+        disabled={pending !== undefined}
+        onClick={() => press(which)}
+      >
         <Glyph size={16} aria-hidden="true" />
       </Button>
     </Tooltip>
   );
   if (pr.state === "merged" || pr.queued === true) return null;
-  if (pr.state === "draft") return button("ready", GitPullRequestArrow, "Ready for review", "Marks the pull request ready for review");
-  if (pr.checks.state === "passed") return button("merge", GitMerge, "Merge", "Merges it now, every Check has passed");
-  if (pr.checks.state === "pending" && !pr.auto) return button("auto_merge", GitMerge, "Enable auto-merge", "Enable auto-merge, merges it when every Check has passed");
+  if (pr.state === "draft")
+    return button(
+      "ready",
+      GitPullRequestArrow,
+      "Ready for review",
+      "Marks the pull request ready for review",
+    );
+  if (pr.checks.state === "passed")
+    return button("merge", GitMerge, "Merge", "Merges it now, every Check has passed");
+  if (pr.checks.state === "pending" && !pr.auto)
+    return button(
+      "auto_merge",
+      GitMerge,
+      "Enable auto-merge",
+      "Enable auto-merge, merges it when every Check has passed",
+    );
   return null;
 }
 
-const CHECK_WORD = { passed: "Passed", running: "Running", failed: "Failed" } as const;
+const CHECK_WORD = {
+  passed: "Passed",
+  running: "Running",
+  failed: "Failed",
+} as const;
 
 /** Names the pull request this one sits on. It lives inside the row's own button, so it is a link role, not a second button. */
-function StackChip({ parent, onJump }: { parent: number; onJump: ((number: number) => void) | undefined }) {
+function StackChip({
+  parent,
+  onJump,
+}: {
+  parent: number;
+  onJump: ((number: number) => void) | undefined;
+}) {
   const go = (event: { stopPropagation: () => void }) => {
     event.stopPropagation();
     onJump?.(parent);
@@ -154,7 +282,26 @@ function StackChip({ parent, onJump }: { parent: number; onJump: ((number: numbe
 }
 
 /** A pull request as a row, in Landing and in the Artifacts layer alike. */
-export function PullRow({ session, pr, from, lane, rootBase, chip, onJump }: { session: Session; pr: PullRequest; /** The Job the pull request came from, where it is not the Job whose list this is. */ from?: string; lane?: { first: boolean; last: boolean }; rootBase?: string; chip?: number; onJump?: (number: number) => void }) {
+export function PullRow({
+  session,
+  pr,
+  from,
+  lane,
+  rootBase,
+  chip,
+  onJump,
+}: {
+  session: Session;
+  pr: PullRequest /** The Job the pull request came from, where it is not the Job whose list this is. */;
+  from?: string;
+  lane?: {
+    first: boolean;
+    last: boolean;
+  };
+  rootBase?: string;
+  chip?: number;
+  onJump?: (number: number) => void;
+}) {
   const draft = useSessionsDraft();
   const judging = useJudgeApi() !== undefined;
   const [pending, setPending] = useState<PullRequestAct | undefined>(undefined);
@@ -168,20 +315,53 @@ export function PullRow({ session, pr, from, lane, rootBase, chip, onJump }: { s
   const standing = standingOf(pr);
   return (
     <LedgerRow
-      tone={pr.state !== "merged" && pr.state !== "draft" && checks === "failed" ? "failed" : pr.state}
-      lead={<Glyphed Glyph={pr.state === "merged" ? GitMerge : GitPullRequest} said={pr.state === "merged" ? "Merged" : pr.state === "draft" ? "Draft" : "Open"} state={pr.state} />}
+      tone={
+        pr.state !== "merged" && pr.state !== "draft" && checks === "failed" ? "failed" : pr.state
+      }
+      lead={
+        <Glyphed
+          Glyph={pr.state === "merged" ? GitMerge : GitPullRequest}
+          said={pr.state === "merged" ? "Merged" : pr.state === "draft" ? "Draft" : "Open"}
+          state={pr.state}
+        />
+      }
       num={`#${pr.number}`}
       title={pr.title}
       label={`Pull request #${pr.number} ${pr.title}`}
       onOpen={() => openPrPanel(pr)}
       on={on}
       menu={menu}
-      act={judging ? <>{actOf(pr, pending, press)}<JudgeAct job={session.id} artifact={{ kind: "pull_request", id: String(pr.number), title: `#${pr.number}` }} label={`Judge #${pr.number}`} /></> : actOf(pr, pending, press)}
+      act={
+        judging ? (
+          <>
+            {actOf(pr, pending, press)}
+            <JudgeAct
+              job={session.id}
+              artifact={{
+                kind: "pull_request",
+                id: String(pr.number),
+                title: `#${pr.number}`,
+              }}
+              label={`Judge #${pr.number}`}
+            />
+          </>
+        ) : (
+          actOf(pr, pending, press)
+        )
+      }
       anchor={pr.number}
-      {...(lane === undefined ? {} : { lane })}
+      {...(lane === undefined
+        ? {}
+        : {
+            lane,
+          })}
       meta={
         <>
-          {rootBase === undefined ? null : <span className="sv-ledger__word" data-base="">base: {rootBase}</span>}
+          {rootBase === undefined ? null : (
+            <span className="sv-ledger__word" data-base="">
+              base: {rootBase}
+            </span>
+          )}
           {chip === undefined ? null : <StackChip parent={chip} onJump={onJump} />}
           {from === undefined ? null : <span className="sv-ledger__word">{from}</span>}
           <code className="sv-ledger__sub">{pr.branch}</code>

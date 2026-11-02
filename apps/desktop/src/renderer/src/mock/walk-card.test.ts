@@ -2,9 +2,20 @@ import { describe, expect, test } from "vitest";
 
 import { keepInside, placeCard } from "./walk-card";
 
-const view = { width: 1440, height: 900 };
-const size = { width: 340, height: 200 };
-const box = (left: number, top: number, width: number, height: number) => ({ left, top, right: left + width, bottom: top + height });
+const view = {
+  width: 1440,
+  height: 900,
+};
+const size = {
+  width: 340,
+  height: 200,
+};
+const box = (left: number, top: number, width: number, height: number) => ({
+  left,
+  top,
+  right: left + width,
+  bottom: top + height,
+});
 
 describe("where the walk's card rests", () => {
   test("at the bottom while the ring is clear of it", () => {
@@ -28,7 +39,31 @@ describe("where the walk's card rests", () => {
 
 describe("a dragged card", () => {
   test("stays inside the window", () => {
-    expect(keepInside({ x: -50, y: 2000 }, size, view)).toEqual({ x: 0, y: 700 });
-    expect(keepInside({ x: 300, y: 300 }, size, view)).toEqual({ x: 300, y: 300 });
+    expect(
+      keepInside(
+        {
+          x: -50,
+          y: 2000,
+        },
+        size,
+        view,
+      ),
+    ).toEqual({
+      x: 0,
+      y: 700,
+    });
+    expect(
+      keepInside(
+        {
+          x: 300,
+          y: 300,
+        },
+        size,
+        view,
+      ),
+    ).toEqual({
+      x: 300,
+      y: 300,
+    });
   });
 });

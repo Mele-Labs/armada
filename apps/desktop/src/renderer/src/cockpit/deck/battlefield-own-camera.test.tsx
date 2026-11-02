@@ -10,16 +10,74 @@ import { Battlefield } from "./Battlefield";
 import type { DroneIn, RepoIn } from "./layout";
 import { camera } from "./store";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const NONE = new Map();
-const repos: RepoIn[] = [{ root: "/r", name: "r", pads: [], goal: false, areas: [{ dir: "crates", kids: [["fleet", 40], ["store", 20]] }, { dir: "apps", kids: [["desktop", 60]] }] }];
-const drones: DroneIn[] = [{ key: "session:a", kind: "session", title: "a", root: "/r", said: "Working", hue: "calm", spin: false, hover: true, ping: false, stuck: false, flare: false, working: false, touches: [], shown: true }];
+const repos: RepoIn[] = [
+  {
+    root: "/r",
+    name: "r",
+    pads: [],
+    goal: false,
+    areas: [
+      {
+        dir: "crates",
+        kids: [
+          [
+            "fleet",
+            40,
+          ],
+          [
+            "store",
+            20,
+          ],
+        ],
+      },
+      {
+        dir: "apps",
+        kids: [
+          [
+            "desktop",
+            60,
+          ],
+        ],
+      },
+    ],
+  },
+];
+const drones: DroneIn[] = [
+  {
+    key: "session:a",
+    kind: "session",
+    title: "a",
+    root: "/r",
+    said: "Working",
+    hue: "calm",
+    spin: false,
+    hover: true,
+    ping: false,
+    stuck: false,
+    flare: false,
+    working: false,
+    touches: [],
+    shown: true,
+  },
+];
 
 /** The pane the Field is drawn in, in pixels. */
-const PANE = { width: 640, height: 360 };
+const PANE = {
+  width: 640,
+  height: 360,
+};
 
-const mounted: { root: Root; host: HTMLElement }[] = [];
+const mounted: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   for (const { root, host } of mounted.splice(0)) {
     act(() => root.unmount());
@@ -38,12 +96,35 @@ function draw(own: string | undefined) {
   const render = (key: string | undefined) =>
     act(() =>
       root.render(
-        <Battlefield repos={repos} drones={drones} pads={NONE} goals={NONE} prs={[]} trails={NONE} plays={[]} facts={NONE} calls={NONE} clashes={[]} selected={undefined} own={key} onSelect={() => undefined} onPad={() => undefined} onGoal={() => undefined} onPr={() => undefined} />,
+        <Battlefield
+          repos={repos}
+          drones={drones}
+          pads={NONE}
+          goals={NONE}
+          prs={[]}
+          trails={NONE}
+          plays={[]}
+          facts={NONE}
+          calls={NONE}
+          clashes={[]}
+          selected={undefined}
+          own={key}
+          onSelect={() => undefined}
+          onPad={() => undefined}
+          onGoal={() => undefined}
+          onPr={() => undefined}
+        />,
       ),
     );
   render(own);
-  mounted.push({ root, host });
-  return { host, render };
+  mounted.push({
+    root,
+    host,
+  });
+  return {
+    host,
+    render,
+  };
 }
 
 const seen = (host: HTMLElement) => {
@@ -58,7 +139,12 @@ test("a Field opens on the whole floor, whatever camera the window kept", async 
   await settle();
   const whole = seen(fresh.host);
 
-  camera.current = { x: 9000, y: 9000, eye: 2.4, tilt: true };
+  camera.current = {
+    x: 9000,
+    y: 9000,
+    eye: 2.4,
+    tilt: true,
+  };
   const stale = draw("a");
   await settle();
   expect(seen(stale.host)).toBe(whole);
@@ -75,7 +161,16 @@ test("a zoom stays until the Field is given another Session, and then it is the 
   const whole = seen(field.host);
 
   act(() => {
-    field.host.querySelector(".bf")!.dispatchEvent(new WheelEvent("wheel", { deltaY: -240, ctrlKey: true, clientX: PANE.width / 2, clientY: PANE.height / 2, bubbles: true, cancelable: true }));
+    field.host.querySelector(".bf")!.dispatchEvent(
+      new WheelEvent("wheel", {
+        deltaY: -240,
+        ctrlKey: true,
+        clientX: PANE.width / 2,
+        clientY: PANE.height / 2,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   });
   await settle();
   const zoomed = seen(field.host);

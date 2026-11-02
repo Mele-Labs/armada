@@ -12,7 +12,10 @@ import { PaletteMount, type PaletteMountProps } from "./PaletteMount";
 import { forgetPaletteMemory, PALETTE_KEY, seedPaletteMemory } from "./palette-memory";
 import { setKnownRows } from "./palette-known";
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
@@ -24,7 +27,13 @@ afterEach(() => {
   forgetPaletteMemory();
 });
 
-beforeEach(() => seedPaletteMemory({ hotkeys: { "nav:reviews": "⇧⌘J" } }));
+beforeEach(() =>
+  seedPaletteMemory({
+    hotkeys: {
+      "nav:reviews": "⇧⌘J",
+    },
+  }),
+);
 
 /** The palette mounted and down, over a window with a Reviews page. */
 function mountClosed(open = false) {
@@ -32,20 +41,37 @@ function mountClosed(open = false) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   const props: PaletteMountProps = {
     open,
     onClose: () => {},
     shownStudio: null,
-    surfaces: [{ id: "reviews", label: "Reviews", icon: Eye }],
+    surfaces: [
+      {
+        id: "reviews",
+        label: "Reviews",
+        icon: Eye,
+      },
+    ],
     checkoutRunSheet: NOTHING_YET.checkoutRunSheet,
     failing: null,
     live: true,
     repositories: [],
     picked: null,
-    acts: { surface } as unknown as PaletteMountProps["acts"],
-    dispatch: { kind: "session", onDispatch: () => {} },
-    linkRoutes: { kindOf: () => null, open: () => false },
+    acts: {
+      surface,
+    } as unknown as PaletteMountProps["acts"],
+    dispatch: {
+      kind: "session",
+      onDispatch: () => {},
+    },
+    linkRoutes: {
+      kindOf: () => null,
+      open: () => false,
+    },
   };
   root.render(<PaletteMount {...props} />);
   return surface;

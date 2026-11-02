@@ -40,18 +40,39 @@ function sessionFor(manifestId: string | null): Session {
   const agent = chromeAgent(app.userAgentFallback);
   part.setUserAgent(agent);
   // A popup's first request left with Electron's agent in the owner's walk: the header is set on every request too.
-  part.webRequest.onBeforeSendHeaders(({ requestHeaders }, done) => done({ requestHeaders: { ...requestHeaders, "User-Agent": agent } }));
+  part.webRequest.onBeforeSendHeaders(({ requestHeaders }, done) =>
+    done({
+      requestHeaders: {
+        ...requestHeaders,
+        "User-Agent": agent,
+      },
+    }),
+  );
   // `permission` is compared as a string: Electron sends "local-network-access", which its typed union omits.
   part.setPermissionRequestHandler((contents, permission: string, decide, details) => {
     const own = deciderOf(contents);
     if (own === undefined) decide(granted(permission, details.requestingUrl, may(contents)));
-    else void own.request(permission, details.requestingUrl, "mediaTypes" in details ? details : {}).then(decide);
+    else
+      void own
+        .request(permission, details.requestingUrl, "mediaTypes" in details ? details : {})
+        .then(decide);
   });
   part.setPermissionCheckHandler((contents, permission: string, requestingOrigin, details) => {
     const own = deciderOf(contents);
-    return own === undefined ? granted(permission, requestingOrigin, may(contents)) : own.check(permission, requestingOrigin, { mediaTypes: details.mediaType === "video" || details.mediaType === "audio" ? [details.mediaType] : [] });
+    return own === undefined
+      ? granted(permission, requestingOrigin, may(contents))
+      : own.check(permission, requestingOrigin, {
+          mediaTypes:
+            details.mediaType === "video" || details.mediaType === "audio"
+              ? [
+                  details.mediaType,
+                ]
+              : [],
+        });
   });
-  part.setDisplayMediaRequestHandler(() => {}, { useSystemPicker: false });
+  part.setDisplayMediaRequestHandler(() => {}, {
+    useSystemPicker: false,
+  });
   part.on("will-download", (event, item, contents) => {
     const own = deciderOf(contents);
     if (own === undefined) event.preventDefault();
@@ -103,7 +124,9 @@ function bridgeView(): WebContentsView {
     },
   });
   // Bridge's own window's rule holds over every Bridge document.
-  view.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  view.webContents.setWindowOpenHandler(() => ({
+    action: "deny",
+  }));
   view.webContents.on("will-navigate", (event) => event.preventDefault());
   return view;
 }
@@ -123,6 +146,13 @@ export function barView(): WebContentsView {
  */
 export function panelView(subject: PanelSubject | null): WebContentsView {
   const view = bridgeView();
-  void view.webContents.loadFile(join(__dirname, "../renderer/walk-panel.html"), subject === null ? {} : { query: panelQuery(subject) });
+  void view.webContents.loadFile(
+    join(__dirname, "../renderer/walk-panel.html"),
+    subject === null
+      ? {}
+      : {
+          query: panelQuery(subject),
+        },
+  );
   return view;
 }

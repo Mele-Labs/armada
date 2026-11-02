@@ -6,12 +6,20 @@ import { buildChangeOf, restartOf } from "./build-change";
 
 describe("a restart command read as the build switch", () => {
   it("reads the preview restart as Refresh preview", () => {
-    expect(buildChangeOf("scripts/preview --restart")).toEqual({ build: "preview", adopt: false, label: "Refresh preview" });
+    expect(buildChangeOf("scripts/preview --restart")).toEqual({
+      build: "preview",
+      adopt: false,
+      label: "Refresh preview",
+    });
   });
 
   it("carries --adopt, in either order", () => {
     expect(buildChangeOf("scripts/preview --adopt --restart")?.adopt).toBe(true);
-    expect(buildChangeOf("  ./scripts/restart --main --adopt ")).toEqual({ build: "main", adopt: true, label: "Update to main" });
+    expect(buildChangeOf("  ./scripts/restart --main --adopt ")).toEqual({
+      build: "main",
+      adopt: true,
+      label: "Update to main",
+    });
   });
 
   it("reads a script named by its full path", () => {
@@ -36,18 +44,71 @@ describe("a restart command read as the build switch", () => {
 
 describe("a waiting item's act read as the build switch", () => {
   it("reads a run of a restart, whichever script", () => {
-    expect(restartOf({ kind: "run", target: "scripts/preview --restart" })?.label).toBe("Refresh preview");
-    expect(restartOf({ kind: "run", target: "scripts/restart --main" })).toEqual({ build: "main", adopt: false, label: "Update to main" });
-    expect(restartOf({ kind: "run", target: "/abs/path/scripts/preview --restart --adopt" })).toEqual({ build: "preview", adopt: true, label: "Refresh preview" });
+    expect(
+      restartOf({
+        kind: "run",
+        target: "scripts/preview --restart",
+      })?.label,
+    ).toBe("Refresh preview");
+    expect(
+      restartOf({
+        kind: "run",
+        target: "scripts/restart --main",
+      }),
+    ).toEqual({
+      build: "main",
+      adopt: false,
+      label: "Update to main",
+    });
+    expect(
+      restartOf({
+        kind: "run",
+        target: "/abs/path/scripts/preview --restart --adopt",
+      }),
+    ).toEqual({
+      build: "preview",
+      adopt: true,
+      label: "Refresh preview",
+    });
   });
 
   it("leaves any other run, any other act and no act alone", () => {
-    expect(restartOf({ kind: "run", target: "scripts/restart" })).toBeUndefined();
-    expect(restartOf({ kind: "run", target: "scripts/preview --restart --dry-run" })).toBeUndefined();
-    expect(restartOf({ kind: "run", target: "echo scripts/preview --restart" })).toBeUndefined();
-    expect(restartOf({ kind: "run", target: "kill $(lsof -ti tcp:5788) && scripts/preview --restart --adopt" })).toBeUndefined();
-    expect(restartOf({ kind: "run", target: "/land 2109" })).toBeUndefined();
-    expect(restartOf({ kind: "walk", target: "scripts/preview --restart" })).toBeUndefined();
+    expect(
+      restartOf({
+        kind: "run",
+        target: "scripts/restart",
+      }),
+    ).toBeUndefined();
+    expect(
+      restartOf({
+        kind: "run",
+        target: "scripts/preview --restart --dry-run",
+      }),
+    ).toBeUndefined();
+    expect(
+      restartOf({
+        kind: "run",
+        target: "echo scripts/preview --restart",
+      }),
+    ).toBeUndefined();
+    expect(
+      restartOf({
+        kind: "run",
+        target: "kill $(lsof -ti tcp:5788) && scripts/preview --restart --adopt",
+      }),
+    ).toBeUndefined();
+    expect(
+      restartOf({
+        kind: "run",
+        target: "/land 2109",
+      }),
+    ).toBeUndefined();
+    expect(
+      restartOf({
+        kind: "walk",
+        target: "scripts/preview --restart",
+      }),
+    ).toBeUndefined();
     expect(restartOf(undefined)).toBeUndefined();
   });
 });

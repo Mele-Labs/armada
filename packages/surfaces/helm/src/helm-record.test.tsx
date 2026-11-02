@@ -15,7 +15,12 @@ import { MANIFEST_ID, repository, workflow } from "@armada/screens/src/fixtures/
 unmountAfterEach();
 
 // Core and Helm only: what the dock reads is its own slice's.
-const SLICES = { slices: ["core", "helm"] } as const;
+const SLICES = {
+  slices: [
+    "core",
+    "helm",
+  ],
+} as const;
 
 const RECORD: HelmDebugInfo = {
   manifest_id: MANIFEST_ID,
@@ -24,11 +29,25 @@ const RECORD: HelmDebugInfo = {
   model: "a-model",
   note: "You are Helm, in Armada.",
   door: "armada-fleet",
-  tools: ["list_jobs", "get_events_since"],
+  tools: [
+    "list_jobs",
+    "get_events_since",
+  ],
   session: "a-session",
   thread: [
-    { at: "2026-09-17T14:29:40.000Z", line: "asked", text: { text: "why did you refuse that" } },
-    { at: "2026-09-17T14:29:46.000Z", line: "refused", tool: "Read", because: "the person refused it" },
+    {
+      at: "2026-09-17T14:29:40.000Z",
+      line: "asked",
+      text: {
+        text: "why did you refuse that",
+      },
+    },
+    {
+      at: "2026-09-17T14:29:46.000Z",
+      line: "refused",
+      tool: "Read",
+      because: "the person refused it",
+    },
   ],
   cut: 0,
   run_id: "01K5RJ0F5H7TZ8QK6M9R1V2WXY",
@@ -42,10 +61,25 @@ function talking(): Scenario {
     name: "helm-record",
     says: "Helm pointed at a repository, with a job to report",
     state: {
-      ...connected([workflow()], [repository()]),
-      helm: { state: "pointed", manifestId: MANIFEST_ID },
+      ...connected(
+        [
+          workflow(),
+        ],
+        [
+          repository(),
+        ],
+      ),
+      helm: {
+        state: "pointed",
+        manifestId: MANIFEST_ID,
+      },
     },
-    behaves: () => ({ helmDebugInfo: async () => ({ ok: true, record: RECORD }) }),
+    behaves: () => ({
+      helmDebugInfo: async () => ({
+        ok: true,
+        record: RECORD,
+      }),
+    }),
   };
 }
 
@@ -54,22 +88,38 @@ test("one press in the dock copies the record, and the reading beside it is the 
   // `navigator.clipboard` is a getter, so the write is replaced rather than the object.
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
-    value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+    value: {
+      writeText: (text: string) => (written.push(text), Promise.resolve()),
+    },
   });
   mount(talking(), SLICES);
   await openHelm();
 
   // One press, with no sheet in the way: this is reached when Helm has just
   // answered badly and somebody wants to carry it now.
-  await page.getByRole("button", { name: "Copy debug info" }).click();
+  await page
+    .getByRole("button", {
+      name: "Copy debug info",
+    })
+    .click();
   await expect.poll(() => written).toHaveLength(1);
   await expect.element(page.getByText("The debug info is on the clipboard.")).toBeVisible();
 
   // The reading is behind the split button's caret since 18 Sep 2026 — the
   // composer's head had no width for both acts side by side.
-  await page.getByRole("button", { name: "More ways to report this answer" }).click();
-  await page.getByRole("menuitem", { name: "Details" }).click();
-  const sheet = page.getByRole("dialog", { name: "Job record" });
+  await page
+    .getByRole("button", {
+      name: "More ways to report this answer",
+    })
+    .click();
+  await page
+    .getByRole("menuitem", {
+      name: "Details",
+    })
+    .click();
+  const sheet = page.getByRole("dialog", {
+    name: "Job record",
+  });
   await entered(sheet);
 
   // What decided the answer, on screen before anything leaves the machine.
@@ -82,7 +132,12 @@ test("one press in the dock copies the record, and the reading beside it is the 
 
   // The same string the dock already copied, which is what one producer buys.
   expect(written[0]).toBe(text);
-  await page.getByRole("button", { name: "Copy debug info" }).nth(1).click();
+  await page
+    .getByRole("button", {
+      name: "Copy debug info",
+    })
+    .nth(1)
+    .click();
   await expect.poll(() => written).toHaveLength(2);
   expect(written[1]).toBe(text);
 });
@@ -90,8 +145,26 @@ test("one press in the dock copies the record, and the reading beside it is the 
 test("Helm pointed at no repository offers neither control, because there is no session to report", async () => {
   mount("empty-store", SLICES);
   await openHelm();
-  expect(page.getByRole("button", { name: "Copy debug info" }).query()).toBeNull();
-  expect(page.getByRole("button", { name: "Details" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("button", {
+        name: "Copy debug info",
+      })
+      .query(),
+  ).toBeNull();
+  expect(
+    page
+      .getByRole("button", {
+        name: "Details",
+      })
+      .query(),
+  ).toBeNull();
   // Not the caret either: with neither act there is no control to split.
-  expect(page.getByRole("button", { name: "More ways to report this answer" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("button", {
+        name: "More ways to report this answer",
+      })
+      .query(),
+  ).toBeNull();
 });

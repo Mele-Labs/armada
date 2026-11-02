@@ -5,35 +5,120 @@ import type { TimelineEvent } from "@armada/protocol";
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import { expect, test } from "vitest";
 
-import { reportBrief, reportFacts, reportLists, transcriptOf, type ReportFrom } from "./report-brief";
+import {
+  reportBrief,
+  reportFacts,
+  reportLists,
+  transcriptOf,
+  type ReportFrom,
+} from "./report-brief";
 
 const ID = "6f2b9c1e-3d47-4a8b-9e10-5c7d2a4b8f31";
-const message = (n: number, from: "you" | "agent"): SessionRow => ({ id: `m${n}`, at: `13:0${n}:00`, kind: "message", from: { kind: from }, text: `said ${n}` });
-const tool = (n: number): SessionRow => ({ id: `t${n}`, at: `14:0${n}:00`, kind: "tool", text: `Bash step ${n}` });
+const message = (n: number, from: "you" | "agent"): SessionRow => ({
+  id: `m${n}`,
+  at: `13:0${n}:00`,
+  kind: "message",
+  from: {
+    kind: from,
+  },
+  text: `said ${n}`,
+});
+const tool = (n: number): SessionRow => ({
+  id: `t${n}`,
+  at: `14:0${n}:00`,
+  kind: "tool",
+  text: `Bash step ${n}`,
+});
 
-const bare: Session = { id: ID, title: "Pin the store clock", manifestId: "m", turn: { state: "idle" }, rows: [], attachments: [] } as unknown as Session;
+const bare: Session = {
+  id: ID,
+  title: "Pin the store clock",
+  manifestId: "m",
+  turn: {
+    state: "idle",
+  },
+  rows: [],
+  attachments: [],
+} as unknown as Session;
 
 const full: Session = {
   ...bare,
   cwd: "/Users/user/repo",
   model: "opus",
   effort: "high",
-  context: { tokens: 142_000, window: 200_000 },
-  rows: [...Array.from({ length: 8 }, (_, n) => message(n, n % 2 === 0 ? "you" : "agent")), ...Array.from({ length: 7 }, (_, n) => tool(n))],
-  attachments: [
-    { kind: "branch", name: "fix/pin-store-clock", slot: 4 },
-    { kind: "pull_request", number: 1861, title: "Pin the store clock", branch: "fix/pin-store-clock", address: "https://git.example/pull/1861", checks: { state: "failed", failing: "desktop_test" }, state: "open", auto: false },
+  context: {
+    tokens: 142_000,
+    window: 200_000,
+  },
+  rows: [
+    ...Array.from(
+      {
+        length: 8,
+      },
+      (_, n) => message(n, n % 2 === 0 ? "you" : "agent"),
+    ),
+    ...Array.from(
+      {
+        length: 7,
+      },
+      (_, n) => tool(n),
+    ),
   ],
-  waitingFor: [{ id: "q", text: "Revert the push to main, or leave it?", since: "2026-10-15T19:25:00.000Z", source: "agent" }],
+  attachments: [
+    {
+      kind: "branch",
+      name: "fix/pin-store-clock",
+      slot: 4,
+    },
+    {
+      kind: "pull_request",
+      number: 1861,
+      title: "Pin the store clock",
+      branch: "fix/pin-store-clock",
+      address: "https://git.example/pull/1861",
+      checks: {
+        state: "failed",
+        failing: "desktop_test",
+      },
+      state: "open",
+      auto: false,
+    },
+  ],
+  waitingFor: [
+    {
+      id: "q",
+      text: "Revert the push to main, or leave it?",
+      since: "2026-10-15T19:25:00.000Z",
+      source: "agent",
+    },
+  ],
 } as unknown as Session;
 
 const event = (id: number, subject: string, says: string): TimelineEvent =>
-  ({ id, at: `2026-10-15T19:0${id}:00.000Z`, kind: "session.turn", tone: "neutral", says, subject: { kind: "session", id: subject } }) as unknown as TimelineEvent;
+  ({
+    id,
+    at: `2026-10-15T19:0${id}:00.000Z`,
+    kind: "session.turn",
+    tone: "neutral",
+    says,
+    subject: {
+      kind: "session",
+      id: subject,
+    },
+  }) as unknown as TimelineEvent;
 
-const from = (change: Partial<ReportFrom> = {}): ReportFrom => ({ at: new Date("2026-10-15T19:30:00.000Z"), screen: "Cockpit, flight controls", root: "/Users/user/repo", events: [], ...change });
+const from = (change: Partial<ReportFrom> = {}): ReportFrom => ({
+  at: new Date("2026-10-15T19:30:00.000Z"),
+  screen: "Cockpit, flight controls",
+  root: "/Users/user/repo",
+  events: [],
+  ...change,
+});
 
 test("the transcript is under the working directory with every non-alphanumeric as a dash", () => {
-  expect(transcriptOf("/Users/a.b/my repo", "s1")).toBe("~/.claude/projects/-Users-a-b-my-repo/s1.jsonl");
+  expect(transcriptOf("/Users/a.b/my repo", "s1")).toBe(
+    "~/.claude/projects/-Users-a-b-my-repo/s1.jsonl",
+  );
 });
 
 test("the owner's words come first, untouched, then what to do, and the facts follow under Debug info", () => {
@@ -45,7 +130,12 @@ test("the owner's words come first, untouched, then what to do, and the facts fo
 });
 
 test("every fact Bridge holds is a labelled line", () => {
-  const lines = reportFacts(full, from({ repository: "repo" }));
+  const lines = reportFacts(
+    full,
+    from({
+      repository: "repo",
+    }),
+  );
   expect(lines).toEqual(
     expect.arrayContaining([
       `Job: Pin the store clock (${ID})`,
@@ -64,50 +154,170 @@ test("every fact Bridge holds is a labelled line", () => {
 
 test("a fact Bridge does not hold is no line", () => {
   const labels = reportFacts(bare, from()).map((one) => one.split(":")[0]);
-  for (const missing of ["Started in", "Transcript", "Branch", "Slot", "Model", "Context", "Pull request", "Waiting on the owner", "Last Job act Fleet refused"]) expect(labels).not.toContain(missing);
+  for (const missing of [
+    "Started in",
+    "Transcript",
+    "Branch",
+    "Slot",
+    "Model",
+    "Context",
+    "Pull request",
+    "Waiting on the owner",
+    "Last Job act Fleet refused",
+  ])
+    expect(labels).not.toContain(missing);
   expect(reportLists(bare, from())).toEqual([]);
 });
 
 test("an ended Job reads as ended", () => {
-  expect(reportFacts({ ...bare, dead: "ended" } as Session, from())).toContain("State: ended");
+  expect(
+    reportFacts(
+      {
+        ...bare,
+        dead: "ended",
+      } as Session,
+      from(),
+    ),
+  ).toContain("State: ended");
 });
 
 test("an idle turn that Fleet reads as working because a subagent runs says so, with its task", () => {
-  const running = { kind: "subagent", id: "sub-1", task: "Build the Fleet side of Kit's install", state: "running" };
-  const held = { ...bare, standing: "working", attachments: [running] } as unknown as Session;
-  expect(reportFacts(held, from())).toContain("State: idle, a subagent working: Build the Fleet side of Kit's install");
-  expect(reportFacts({ ...bare, standing: "working" } as Session, from())).toContain("State: idle, read by Fleet as working");
+  const running = {
+    kind: "subagent",
+    id: "sub-1",
+    task: "Build the Fleet side of Kit's install",
+    state: "running",
+  };
+  const held = {
+    ...bare,
+    standing: "working",
+    attachments: [
+      running,
+    ],
+  } as unknown as Session;
+  expect(reportFacts(held, from())).toContain(
+    "State: idle, a subagent working: Build the Fleet side of Kit's install",
+  );
+  expect(
+    reportFacts(
+      {
+        ...bare,
+        standing: "working",
+      } as Session,
+      from(),
+    ),
+  ).toContain("State: idle, read by Fleet as working");
 });
 
 test("the lists keep the last messages, tool calls and this Session's own timeline events, oldest first", () => {
-  const events = [event(1, ID, "one"), event(2, "other", "not this"), ...[3, 4, 5, 6, 7, 8].map((n) => event(n, ID, `e${n}`))];
-  const lists = reportLists(full, from({ events }));
+  const events = [
+    event(1, ID, "one"),
+    event(2, "other", "not this"),
+    ...[
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+    ].map((n) => event(n, ID, `e${n}`)),
+  ];
+  const lists = reportLists(
+    full,
+    from({
+      events,
+    }),
+  );
   const after = (head: string) => {
     const rest = lists.slice(lists.indexOf(head) + 1);
     const end = rest.findIndex((one) => !one.startsWith("- "));
     return end === -1 ? rest : rest.slice(0, end);
   };
-  expect(after("Last messages, oldest first:")).toEqual([2, 3, 4, 5, 6, 7].map((n) => `- ${n % 2 === 0 ? "Owner" : "Agent"} at 13:0${n}:00: said ${n}`));
-  expect(after("Last tool calls, oldest first:")).toEqual([2, 3, 4, 5, 6].map((n) => `- 14:0${n}:00 Bash step ${n}`));
-  expect(after("Last timeline events, oldest first:").map((one) => one.split(" session.turn: ")[1])).toEqual(["e4", "e5", "e6", "e7", "e8"]);
+  expect(after("Last messages, oldest first:")).toEqual(
+    [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+    ].map((n) => `- ${n % 2 === 0 ? "Owner" : "Agent"} at 13:0${n}:00: said ${n}`),
+  );
+  expect(after("Last tool calls, oldest first:")).toEqual(
+    [
+      2,
+      3,
+      4,
+      5,
+      6,
+    ].map((n) => `- 14:0${n}:00 Bash step ${n}`),
+  );
+  expect(
+    after("Last timeline events, oldest first:").map((one) => one.split(" session.turn: ")[1]),
+  ).toEqual([
+    "e4",
+    "e5",
+    "e6",
+    "e7",
+    "e8",
+  ]);
 });
 
 test("a Job whose agent did not start says why and carries the agent's error lines in a fence", () => {
-  const held = { ...bare, startFailed: { cause: "The agent exited at once", log: ["error: no such option", "usage: agent [flags]"] } } as unknown as Session;
-  expect(reportLists(held, from())).toEqual(["", "Did not start: The agent exited at once", "", "The agent's last error lines, oldest first:", "```", "error: no such option", "usage: agent [flags]", "```"]);
+  const held = {
+    ...bare,
+    startFailed: {
+      cause: "The agent exited at once",
+      log: [
+        "error: no such option",
+        "usage: agent [flags]",
+      ],
+    },
+  } as unknown as Session;
+  expect(reportLists(held, from())).toEqual([
+    "",
+    "Did not start: The agent exited at once",
+    "",
+    "The agent's last error lines, oldest first:",
+    "```",
+    "error: no such option",
+    "usage: agent [flags]",
+    "```",
+  ]);
 });
 
 test("the fence is longer than any run of backticks in the log, so a line of the agent's own cannot close it", () => {
-  const held = { ...bare, startFailed: { cause: "The agent exited at once", log: ["see `agent --help`", "```", "`````` end"] } } as unknown as Session;
+  const held = {
+    ...bare,
+    startFailed: {
+      cause: "The agent exited at once",
+      log: [
+        "see `agent --help`",
+        "```",
+        "`````` end",
+      ],
+    },
+  } as unknown as Session;
   const lists = reportLists(held, from());
   const fence = "`".repeat(7);
   expect(lists.filter((one) => one === fence)).toHaveLength(2);
   expect(lists.indexOf(fence)).toBeLessThan(lists.indexOf("```"));
   expect(lists.lastIndexOf(fence)).toBe(lists.length - 1);
-  expect(reportBrief("It would not start.", held, from())).toContain("Did not start: The agent exited at once");
+  expect(reportBrief("It would not start.", held, from())).toContain(
+    "Did not start: The agent exited at once",
+  );
 });
 
 test("a Job that did not start with no error lines gets the cause and no fence", () => {
-  const held = { ...bare, startFailed: { cause: "The agent exited at once", log: [] } } as unknown as Session;
-  expect(reportLists(held, from())).toEqual(["", "Did not start: The agent exited at once"]);
+  const held = {
+    ...bare,
+    startFailed: {
+      cause: "The agent exited at once",
+      log: [],
+    },
+  } as unknown as Session;
+  expect(reportLists(held, from())).toEqual([
+    "",
+    "Did not start: The agent exited at once",
+  ]);
 });

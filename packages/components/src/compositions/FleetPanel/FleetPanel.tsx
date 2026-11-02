@@ -48,7 +48,10 @@ export type FleetPanelProps = {
    */
   detail?: ReactNode;
   /** `rows` and `detail` at a time, which the panel asks at its own clock: the up time and the silence move each second. Wins over both. */
-  reading?: (now: number) => { rows?: Figure[] | undefined; detail?: ReactNode };
+  reading?: (now: number) => {
+    rows?: Figure[] | undefined;
+    detail?: ReactNode;
+  };
   doctor?: DoctorLine;
   /**
    * Opens Doctor's own grid. **Present makes the Doctor row a control**, drawn
@@ -100,7 +103,15 @@ export const FLEET_DOT_TONE: Record<FleetState, "success" | "escalated" | "warn"
  * of the dot wherever the dot is drawn. With a `phrase` it is the mark and the
  * phrase under it, for where there is room: the Board's empty card.
  */
-export function FleetStarting({ className, size = 16, phrase }: { className: string; size?: number; phrase?: string }) {
+export function FleetStarting({
+  className,
+  size = 16,
+  phrase,
+}: {
+  className: string;
+  size?: number;
+  phrase?: string;
+}) {
   const mark = <ArmadaMark size={size} className={className} aria-hidden />;
   if (phrase === undefined) return mark;
   return (
@@ -114,7 +125,19 @@ export function FleetStarting({ className, size = 16, phrase }: { className: str
 /** What the Board's card says under the mark while Fleet starts. */
 export const STARTING_PHRASE = "Armada activating";
 
-export function FleetPanel({ state, label, rows: fixedRows, detail: fixedDetail, reading, doctor, onOpenDoctor, build, open, onOpenChange, narrow }: FleetPanelProps) {
+export function FleetPanel({
+  state,
+  label,
+  rows: fixedRows,
+  detail: fixedDetail,
+  reading,
+  doctor,
+  onOpenDoctor,
+  build,
+  open,
+  onOpenChange,
+  narrow,
+}: FleetPanelProps) {
   const now = useNowWhile(reading !== undefined);
   const read = reading?.(now);
   const rows = read === undefined ? fixedRows : read.rows;
@@ -125,11 +148,17 @@ export function FleetPanel({ state, label, rows: fixedRows, detail: fixedDetail,
   // dot beside it already said in colour, one line under a head naming the same
   // subject.
   const said = fleetSaid(label);
-  const figures = rows === undefined || rows.length === 0 ? null : <FigureList figures={rows} column="fit" />;
+  const figures =
+    rows === undefined || rows.length === 0 ? null : <FigureList figures={rows} column="fit" />;
   // A state with no figure, no sentence and no Doctor reading now has an empty
   // body — `reading`, Bridge's first moment. `Panel` draws its head alone
   // rather than a chevron onto an empty box.
-  const bodyless = figures === null && detail === undefined && doctor === undefined && onOpenDoctor === undefined && build === undefined;
+  const bodyless =
+    figures === null &&
+    detail === undefined &&
+    doctor === undefined &&
+    onOpenDoctor === undefined &&
+    build === undefined;
   return (
     <Panel
       label="Fleet"
@@ -137,7 +166,9 @@ export function FleetPanel({ state, label, rows: fixedRows, detail: fixedDetail,
       onOpenChange={onOpenChange}
       narrow={narrow}
       dotTone={FLEET_DOT_TONE[state]}
-      dotMark={state === "starting" ? <FleetStarting className="armada-fleet-starting" /> : undefined}
+      dotMark={
+        state === "starting" ? <FleetStarting className="armada-fleet-starting" /> : undefined
+      }
       dotLabel={said}
       // Against the label rather than at the head's far end — a 6px dot 150px
       // from the word it is about reads as decoration. Photographed at the
@@ -150,7 +181,9 @@ export function FleetPanel({ state, label, rows: fixedRows, detail: fixedDetail,
       // row and the 48px rail, and it stays on the hover here.
       mark={
         <span
-          className={state === "starting" ? "armada-fleet-panel__starting" : "armada-fleet-panel__dot"}
+          className={
+            state === "starting" ? "armada-fleet-panel__starting" : "armada-fleet-panel__dot"
+          }
           data-tone={FLEET_DOT_TONE[state]}
           role="img"
           aria-label={label}
@@ -166,9 +199,20 @@ export function FleetPanel({ state, label, rows: fixedRows, detail: fixedDetail,
           {figures}
           {detail === undefined ? null : <div className="armada-fleet-panel__mono">{detail}</div>}
           {onOpenDoctor !== undefined ? (
-            <button type="button" className="armada-fleet-panel__doctor" data-link onClick={onOpenDoctor} aria-label="Open Doctor">
+            <button
+              type="button"
+              className="armada-fleet-panel__doctor"
+              data-link
+              onClick={onOpenDoctor}
+              aria-label="Open Doctor"
+            >
               <DoctorFace doctor={doctor} />
-              <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-fleet-panel__doctor-go" />
+              <ChevronRight
+                size={12}
+                strokeWidth={2}
+                aria-hidden
+                className="armada-fleet-panel__doctor-go"
+              />
             </button>
           ) : doctor === undefined ? null : (
             <div className="armada-fleet-panel__doctor">

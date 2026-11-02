@@ -56,10 +56,24 @@ export class KitCommands {
    */
   async inventory(): Promise<KitInventoryRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const answer = await ask(port, "GET", "/kit/inventory");
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, setup: answer.body as KitInventory };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      setup: answer.body as KitInventory,
+    };
   }
 
   /**
@@ -69,17 +83,38 @@ export class KitCommands {
    */
   async removeAllowedCommand(run: string): Promise<KitAllowedCommandsRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const body: RemoveKitAllowedCommand = { run };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
+    const body: RemoveKitAllowedCommand = {
+      run,
+    };
     const answer = await ask(port, "POST", "/kit/allowed_commands/remove", body);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, commands: answer.body as KitAllowedCommands };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      commands: answer.body as KitAllowedCommands,
+    };
   }
 
   /** `look_at_kit_source`: what a source is, plugin, skill or neither, before anything runs. Machine-wide. */
   async lookAtKitSource(body: LookAtKitSource): Promise<KitLookRead> {
     const answer = await this.machineWide("/kit/pieces/look", body, LOOK_MS);
-    return answer.ok ? { ok: true, found: answer.body as KitSourceFound } : answer;
+    return answer.ok
+      ? {
+          ok: true,
+          found: answer.body as KitSourceFound,
+        }
+      : answer;
   }
 
   /**
@@ -88,19 +123,34 @@ export class KitCommands {
    */
   async installKitPiece(body: InstallKitPiece): Promise<KitInstallRead> {
     const answer = await this.machineWide("/kit/pieces/install", body, NO_WAIT);
-    return answer.ok ? { ok: true, installed: answer.body as KitPieceInstalled } : answer;
+    return answer.ok
+      ? {
+          ok: true,
+          installed: answer.body as KitPieceInstalled,
+        }
+      : answer;
   }
 
   /** `remove_kit_piece`: a skill to the Trash, or a plugin's uninstall run, which is why it waits as install does. */
   async removeKitPiece(body: RemoveKitPiece): Promise<KitRemoveRead> {
     const answer = await this.machineWide("/kit/pieces/remove", body, NO_WAIT);
-    return answer.ok ? { ok: true, removed: answer.body as KitPieceRemoved } : answer;
+    return answer.ok
+      ? {
+          ok: true,
+          removed: answer.body as KitPieceRemoved,
+        }
+      : answer;
   }
 
   /** `restore_kit_piece`: a skill's folder back out of the Trash, by the place remove answered with. */
   async restoreKitPiece(body: RestoreKitPiece): Promise<KitRestoreRead> {
     const answer = await this.machineWide("/kit/pieces/restore", body);
-    return answer.ok ? { ok: true, setup: answer.body as KitInventory } : answer;
+    return answer.ok
+      ? {
+          ok: true,
+          setup: answer.body as KitInventory,
+        }
+      : answer;
   }
 
   /** Every server in Kit, with what a Drone dispatched here resolves. */
@@ -115,13 +165,18 @@ export class KitCommands {
 
   /** Take one out, and every Manifest's word about it with it. */
   async forget(name: string): Promise<KitServersRead> {
-    const body: ForgetKitServer = { name };
+    const body: ForgetKitServer = {
+      name,
+    };
     return this.read("POST", "/kit/servers/forget", body);
   }
 
   /** Kit's own tier, across every Manifest that has not said otherwise. */
   async setKitReach(name: string, drones: ReachesDrones): Promise<KitServersRead> {
-    const body: SetKitServerReach = { name, drones };
+    const body: SetKitServerReach = {
+      name,
+      drones,
+    };
     return this.read("POST", "/kit/servers/reach", body);
   }
 
@@ -132,7 +187,10 @@ export class KitCommands {
    * without: a dropped key would throw a person's word away and answer 200.
    */
   async setManifestReach(name: string, reach: ManifestReach | null): Promise<KitServersRead> {
-    const body: SetManifestServerReach = { name, reach };
+    const body: SetManifestServerReach = {
+      name,
+      reach,
+    };
     return this.read("POST", "/kit/servers/manifest_reach", body);
   }
 
@@ -140,20 +198,66 @@ export class KitCommands {
     route: string,
     body: unknown,
     waitMs?: number,
-  ): Promise<{ ok: true; body: unknown } | { ok: false; outcome: Outcome }> {
+  ): Promise<
+    | {
+        ok: true;
+        body: unknown;
+      }
+    | {
+        ok: false;
+        outcome: Outcome;
+      }
+  > {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const answer = await ask(port, "POST", route, body, waitMs);
-    return answer.ok === true ? { ok: true, body: answer.body } : { ok: false, outcome: answer.outcome };
+    return answer.ok === true
+      ? {
+          ok: true,
+          body: answer.body,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 
-  private async read(method: "GET" | "POST", route: string, body?: unknown): Promise<KitServersRead> {
+  private async read(
+    method: "GET" | "POST",
+    route: string,
+    body?: unknown,
+  ): Promise<KitServersRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const path = this.picked.manifest(route);
-    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    if (path === null)
+      return {
+        ok: false,
+        outcome: NOT_SET_UP,
+      };
     const answer = await ask(port, method, path, body);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, kit: answer.body as KitServers };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      kit: answer.body as KitServers,
+    };
   }
 }

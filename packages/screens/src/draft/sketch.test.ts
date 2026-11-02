@@ -33,15 +33,29 @@ function note(over: Partial<CaptureStudioNote> = {}): CaptureStudioNote {
   return {
     said: "the tab strip sits too low",
     capture: {
-      element: { tag: "div", text: "Plan" },
+      element: {
+        tag: "div",
+        text: "Plan",
+      },
       selector: "main > div.tabs",
-      markup: "<div class=\"tabs\">Plan</div>",
+      markup: '<div class="tabs">Plan</div>',
       screen: "job-detail",
       location: "/jobs/01J",
-      bounds: { x: 0, y: 0, width: 1440, height: 64 },
-      window: { width: 1440, height: 900 },
+      bounds: {
+        x: 0,
+        y: 0,
+        width: 1440,
+        height: 64,
+      },
+      window: {
+        width: 1440,
+        height: 900,
+      },
     },
-    position: { x: 120, y: 240 },
+    position: {
+      x: 120,
+      y: 240,
+    },
     ...over,
   };
 }
@@ -52,7 +66,11 @@ describe("the sketch on a note", () => {
   });
 
   it("carries the staged path and its dimensions", () => {
-    const sketch = sketchOf(note({ frame }));
+    const sketch = sketchOf(
+      note({
+        frame,
+      }),
+    );
 
     expect(sketch?.staged_path).toBe("/tmp/armada/staged/1.png");
     expect(sketch?.width).toBe(1440);
@@ -60,19 +78,34 @@ describe("the sketch on a note", () => {
   });
 
   it("carries what the person said about it", () => {
-    expect(sketchOf(note({ frame }))?.said).toBe("the tab strip sits too low");
+    expect(
+      sketchOf(
+        note({
+          frame,
+        }),
+      )?.said,
+    ).toBe("the tab strip sits too low");
   });
 });
 
 describe("provenance", () => {
   it("names the node the capture was made from", () => {
-    const sketch = sketchOf(note({ frame, produced_by: "01NODE" }));
+    const sketch = sketchOf(
+      note({
+        frame,
+        produced_by: "01NODE",
+      }),
+    );
 
     expect(sketch?.produced_by).toBe("01NODE");
   });
 
   it("leaves it out for a sketch drawn from nothing, rather than sending a blank", () => {
-    const sketch = sketchOf(note({ frame }));
+    const sketch = sketchOf(
+      note({
+        frame,
+      }),
+    );
 
     expect(sketch && "produced_by" in sketch).toBe(false);
   });
@@ -98,10 +131,26 @@ describe("a frame Bridge just staged, before any note exists", () => {
 function pad(): Drawing {
   return {
     shapes: [
-      { id: "b1", x: 0, y: 0, body: "the stat" },
-      { id: "b2", x: 280, y: 0, body: "the panel it opens" },
+      {
+        id: "b1",
+        x: 0,
+        y: 0,
+        body: "the stat",
+      },
+      {
+        id: "b2",
+        x: 280,
+        y: 0,
+        body: "the panel it opens",
+      },
     ],
-    joins: [{ id: "b1-b2", from: "b1", to: "b2" }],
+    joins: [
+      {
+        id: "b1-b2",
+        from: "b1",
+        to: "b2",
+      },
+    ],
     strokes: [],
     pictures: [],
   };
@@ -110,15 +159,29 @@ function pad(): Drawing {
 /** A line of three points, which is the smallest one worth curving. */
 function line(): Drawing["strokes"][number]["points"] {
   return [
-    { x: 0, y: 0 },
-    { x: 40, y: 20 },
-    { x: 80, y: 0 },
+    {
+      x: 0,
+      y: 0,
+    },
+    {
+      x: 40,
+      y: 20,
+    },
+    {
+      x: 80,
+      y: 0,
+    },
   ];
 }
 
 describe("what is on the pad", () => {
   it("is what the sketch was drawn from", () => {
-    expect(drawingOf({ ...sketchFromFrame(frame, ""), drawn: pad() })).toEqual(pad());
+    expect(
+      drawingOf({
+        ...sketchFromFrame(frame, ""),
+        drawn: pad(),
+      }),
+    ).toEqual(pad());
   });
 
   it("is empty for a sketch carrying none, rather than undefined a caller has to guard", () => {
@@ -144,28 +207,57 @@ describe("the id the next box takes", () => {
   it("is the first one free, so removing and adding does not count up forever", () => {
     expect(nextShapeId(NOTHING_DRAWN)).toBe("b1");
     expect(nextShapeId(pad())).toBe("b3");
-    expect(nextShapeId(withoutShapes(pad(), ["b1"]))).toBe("b1");
+    expect(
+      nextShapeId(
+        withoutShapes(pad(), [
+          "b1",
+        ]),
+      ),
+    ).toBe("b1");
   });
 });
 
 describe("drawing on it", () => {
   it("puts a box down at the end", () => {
-    const next = withShape(pad(), { id: "b3", x: 0, y: 200, body: "" });
+    const next = withShape(pad(), {
+      id: "b3",
+      x: 0,
+      y: 200,
+      body: "",
+    });
 
-    expect(next.shapes.map((one) => one.id)).toEqual(["b1", "b2", "b3"]);
+    expect(next.shapes.map((one) => one.id)).toEqual([
+      "b1",
+      "b2",
+      "b3",
+    ]);
   });
 
   it("replaces a box whose id is already down rather than drawing two", () => {
-    const next = withShape(pad(), { id: "b2", x: 9, y: 9, body: "moved" });
+    const next = withShape(pad(), {
+      id: "b2",
+      x: 9,
+      y: 9,
+      body: "moved",
+    });
 
     expect(next.shapes).toHaveLength(2);
-    expect(next.shapes[1]).toEqual({ id: "b2", x: 9, y: 9, body: "moved" });
+    expect(next.shapes[1]).toEqual({
+      id: "b2",
+      x: 9,
+      y: 9,
+      body: "moved",
+    });
   });
 
   it("takes every join off with the box it hung on", () => {
-    const next = withoutShapes(pad(), ["b2"]);
+    const next = withoutShapes(pad(), [
+      "b2",
+    ]);
 
-    expect(next.shapes.map((one) => one.id)).toEqual(["b1"]);
+    expect(next.shapes.map((one) => one.id)).toEqual([
+      "b1",
+    ]);
     expect(next.joins).toEqual([]);
   });
 
@@ -178,11 +270,21 @@ describe("drawing on it", () => {
 
   it("changes nothing for a box the pad does not hold", () => {
     expect(withBody(pad(), "b9", "nowhere")).toEqual(pad());
-    expect(withPlace(pad(), "b9", { x: 1, y: 1 })).toEqual(pad());
+    expect(
+      withPlace(pad(), "b9", {
+        x: 1,
+        y: 1,
+      }),
+    ).toEqual(pad());
   });
 
   it("puts a box down somewhere new", () => {
-    expect(withPlace(pad(), "b1", { x: 40, y: 80 }).shapes[0]).toEqual({
+    expect(
+      withPlace(pad(), "b1", {
+        x: 40,
+        y: 80,
+      }).shapes[0],
+    ).toEqual({
       id: "b1",
       x: 40,
       y: 80,
@@ -195,18 +297,30 @@ describe("drawing by hand", () => {
   it("puts each line on top of the last, in the order they were drawn", () => {
     const next = withStroke(withStroke(NOTHING_DRAWN, line()), line());
 
-    expect(next.strokes.map((one) => one.points.length)).toEqual([3, 3]);
+    expect(next.strokes.map((one) => one.points.length)).toEqual([
+      3,
+      3,
+    ]);
   });
 
   it("keeps no line of fewer than two points, which is a press that went nowhere", () => {
     expect(withStroke(NOTHING_DRAWN, [])).toEqual(NOTHING_DRAWN);
-    expect(withStroke(NOTHING_DRAWN, [{ x: 4, y: 4 }])).toEqual(NOTHING_DRAWN);
+    expect(
+      withStroke(NOTHING_DRAWN, [
+        {
+          x: 4,
+          y: 4,
+        },
+      ]),
+    ).toEqual(NOTHING_DRAWN);
   });
 
   it("takes back the last line and no other", () => {
     const two = withStroke(withStroke(NOTHING_DRAWN, line()), line());
 
-    expect(withoutLastStroke(two).strokes.map((one) => one.id)).toEqual(["s1"]);
+    expect(withoutLastStroke(two).strokes.map((one) => one.id)).toEqual([
+      "s1",
+    ]);
   });
 
   it("changes nothing where nothing was drawn by hand", () => {
@@ -217,23 +331,44 @@ describe("drawing by hand", () => {
     const drawn = withStroke(pad(), line());
 
     expect(drawn.shapes).toEqual(pad().shapes);
-    expect(withoutShapes(drawn, ["b1", "b2"]).strokes).toHaveLength(1);
+    expect(
+      withoutShapes(drawn, [
+        "b1",
+        "b2",
+      ]).strokes,
+    ).toHaveLength(1);
   });
 
   it("mints the first id free, so drawing and undoing does not count up forever", () => {
     const one = withStroke(NOTHING_DRAWN, line());
     const two = withStroke(one, line());
 
-    expect(two.strokes.map((each) => each.id)).toEqual(["s1", "s2"]);
+    expect(two.strokes.map((each) => each.id)).toEqual([
+      "s1",
+      "s2",
+    ]);
     expect(withStroke(withoutLastStroke(two), line()).strokes[1]?.id).toBe("s2");
   });
 });
 
 describe("joining two boxes", () => {
   it("draws the line in the direction it was made", () => {
-    const next = withJoin({ ...pad(), joins: [] }, "b2", "b1");
+    const next = withJoin(
+      {
+        ...pad(),
+        joins: [],
+      },
+      "b2",
+      "b1",
+    );
 
-    expect(next.joins).toEqual([{ id: "b2-b1", from: "b2", to: "b1" }]);
+    expect(next.joins).toEqual([
+      {
+        id: "b2-b1",
+        from: "b2",
+        to: "b1",
+      },
+    ]);
   });
 
   it("leaves a pair already joined exactly as it was, whichever way round", () => {
@@ -247,7 +382,14 @@ describe("joining two boxes", () => {
 });
 
 /** A screenshot pasted onto the pad, already scaled to sit there. */
-const SHOT = { id: "p1", x: 40, y: 200, width: 360, height: 225, src: "blob:armada/1" };
+const SHOT = {
+  id: "p1",
+  x: 40,
+  y: 200,
+  width: 360,
+  height: 225,
+  src: "blob:armada/1",
+};
 
 describe("a picture pasted onto the pad", () => {
   it("counts as drawn on its own, so a pad holding only a screenshot still attaches", () => {
@@ -260,18 +402,32 @@ describe("a picture pasted onto the pad", () => {
   });
 
   it("moves like a box, and keeps its size", () => {
-    const moved = withPlace(withPicture(pad(), SHOT), "p1", { x: 0, y: 0 });
+    const moved = withPlace(withPicture(pad(), SHOT), "p1", {
+      x: 0,
+      y: 0,
+    });
 
-    expect(moved.pictures[0]).toEqual({ ...SHOT, x: 0, y: 0 });
+    expect(moved.pictures[0]).toEqual({
+      ...SHOT,
+      x: 0,
+      y: 0,
+    });
     expect(moved.shapes).toEqual(pad().shapes);
   });
 
   it("joins to a box, and comes off under Remove with the join that hung on it", () => {
     const joined = withJoin(withPicture(pad(), SHOT), "b1", "p1");
-    expect(joined.joins.map((join) => join.id)).toEqual(["b1-b2", "b1-p1"]);
+    expect(joined.joins.map((join) => join.id)).toEqual([
+      "b1-b2",
+      "b1-p1",
+    ]);
 
-    const gone = withoutShapes(joined, ["p1"]);
+    const gone = withoutShapes(joined, [
+      "p1",
+    ]);
     expect(gone.pictures).toEqual([]);
-    expect(gone.joins.map((join) => join.id)).toEqual(["b1-b2"]);
+    expect(gone.joins.map((join) => join.id)).toEqual([
+      "b1-b2",
+    ]);
   });
 });

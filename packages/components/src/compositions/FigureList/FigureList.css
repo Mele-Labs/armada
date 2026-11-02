@@ -274,5 +274,6 @@
    where the value starts on a figure that is not a press. */
 .armada-figures[data-column="strip"] .armada-figures__press {
   margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
-  padding: calc(var(--space-1) + var(--leading-xs) + var(--space-1) / 2) var(--space-2) var(--space-1);
+  padding: calc(var(--space-1) + var(--leading-xs) + var(--space-1) / 2) var(--space-2)
+    var(--space-1);
 }

@@ -24,12 +24,32 @@ test("Start Job on an Armada item goes to the Cockpit and writes nothing in a me
   await onScreen();
   await toRetros();
 
-  const item = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Start Job" }) }).first();
+  const item = page
+    .getByRole("listitem")
+    .filter({
+      has: page.getByRole("button", {
+        name: "Start Job",
+      }),
+    })
+    .first();
   await expect.element(item).toBeVisible();
-  await userEvent.click(item.getByRole("button", { name: "Start Job" }));
+  await userEvent.click(
+    item.getByRole("button", {
+      name: "Start Job",
+    }),
+  );
 
-  await expect.element(page.getByRole("region", { name: "Jobs", exact: true })).toBeVisible();
-  expect(Object.keys(window.localStorage).filter((one) => one.startsWith("armada:kept:session:"))).toEqual([]);
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Jobs",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  expect(
+    Object.keys(window.localStorage).filter((one) => one.startsWith("armada:kept:session:")),
+  ).toEqual([]);
 });
 
 test("a Kit item offers no Start Job", async () => {
@@ -37,8 +57,27 @@ test("a Kit item offers no Start Job", async () => {
   await onScreen();
   await toRetros();
 
-  await page.getByRole("grid", { name: "Retros" }).getByRole("row", { name: /Walks opened in your browser/ }).click();
-  const kit = page.getByRole("region", { name: "Retro item" }).getByRole("listitem", { name: "Walks opened in your browser" });
+  await page
+    .getByRole("grid", {
+      name: "Retros",
+    })
+    .getByRole("row", {
+      name: /Walks opened in your browser/,
+    })
+    .click();
+  const kit = page
+    .getByRole("region", {
+      name: "Retro item",
+    })
+    .getByRole("listitem", {
+      name: "Walks opened in your browser",
+    });
   await expect.element(kit).toBeVisible();
-  expect(kit.getByRole("button", { name: "Start Job" }).elements()).toHaveLength(0);
+  expect(
+    kit
+      .getByRole("button", {
+        name: "Start Job",
+      })
+      .elements(),
+  ).toHaveLength(0);
 });

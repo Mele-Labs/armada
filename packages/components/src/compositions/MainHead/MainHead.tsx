@@ -21,10 +21,15 @@ import { RegisteredOwner, type RegisteredOwnerRow } from "../RegisteredOwner/Reg
  */
 
 /** A Session, by its id and what it is called. */
-export type HubSession = { id: string; title: string };
+export type HubSession = {
+  id: string;
+  title: string;
+};
 
 /** A Session the work can be sent back to, as a message. */
-export type RecentSession = HubSession & { branch?: string };
+export type RecentSession = HubSession & {
+  branch?: string;
+};
 
 /** What turned main red. */
 export type MainRed = {
@@ -39,7 +44,11 @@ export type MainRed = {
   /** Where the test is, at the merge. Absent draws the test as text. */
   testUrl?: string;
   /** Any other CI job that failed, each as the first is. Absent is the one. */
-  also?: readonly { check: string; unmapped?: true; test?: string }[];
+  also?: readonly {
+    check: string;
+    unmapped?: true;
+    test?: string;
+  }[];
   /** When main first read red, RFC 3339, kept while it stays red. Absent from a Fleet before it carried it. */
   since?: string;
   /** The pull request that merged. Absent where the forge named none, as a direct push does not. */
@@ -62,7 +71,10 @@ export type MainRed = {
  */
 export type HeldElsewhere = {
   machine: string;
-  holder: { kind: "session"; id: string };
+  holder: {
+    kind: "session";
+    id: string;
+  };
   since: string;
 };
 
@@ -70,27 +82,50 @@ export type HeldElsewhere = {
 const STALE_AFTER_MS = 60 * 60_000;
 
 /** A newer commit on main whose CI is still running: its pull request where the forge named one, else the commit. */
-export type MainChecking = { commit: string; number?: number; url?: string };
+export type MainChecking = {
+  commit: string;
+  number?: number;
+  url?: string;
+};
 
 export type MainState =
   /** `checking` non-empty is only checks running on main: the mark says so, and no band is drawn. */
-  | { state: "green"; checking?: readonly MainChecking[] }
+  | {
+      state: "green";
+      checking?: readonly MainChecking[];
+    }
   /**
    * `takenBySession` is the Session working on it: absent until one is. **`checking` non-empty is a held red**: a newer run may already have fixed
    * it, so the band is caution, says so, and offers no way to hand it to a Session. Absent or empty is a
    * red to act on.
    */
-  | { state: "red"; red: MainRed; takenBySession?: HubSession; elsewhere?: HeldElsewhere; checking?: readonly MainChecking[] };
+  | {
+      state: "red";
+      red: MainRed;
+      takenBySession?: HubSession;
+      elsewhere?: HeldElsewhere;
+      checking?: readonly MainChecking[];
+    };
 
 /**
  * What the owner chose: a Session to send it to as a message, or a new Session, which the Dispatch panel
  * starts from this brief. Taking over a claim another machine holds is a new Session as well.
  */
 export type FixChoice =
-  | { kind: "session"; session: string; message: string }
-  | { kind: "newSession"; request: string }
+  | {
+      kind: "session";
+      session: string;
+      message: string;
+    }
+  | {
+      kind: "newSession";
+      request: string;
+    }
   /** Replace the claim another machine holds: the Dispatch panel starts a new Session from this brief. */
-  | { kind: "takeOver"; request: string };
+  | {
+      kind: "takeOver";
+      request: string;
+    };
 
 /**
  * What Fleet said to a press, where the band draws it: the store that holds claims could not be
@@ -130,7 +165,17 @@ export function MainMark({ main }: { main: MainState }) {
         data-checking={(main.state === "green" && checking) || undefined}
         role="img"
         aria-label={said}
-        style={held ? { color: "var(--notice-caution)" } : reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined}
+        style={
+          held
+            ? {
+                color: "var(--notice-caution)",
+              }
+            : reading?.statusToken
+              ? {
+                  color: `var(${reading.statusToken})`,
+                }
+              : undefined
+        }
       >
         <Icon size={MARK} strokeWidth={STROKE} aria-hidden />
       </span>
@@ -158,7 +203,12 @@ export function FixingMainMark({ state, said }: { state: "fixing" | "fixed"; sai
 }
 
 export type MainRedBandProps = {
-  main: Extract<MainState, { state: "red" }>;
+  main: Extract<
+    MainState,
+    {
+      state: "red";
+    }
+  >;
   /** Earlier Sessions, newest first. The culprit's own is drawn first wherever it is among them. Absent is none. */
   recentSessions?: readonly RecentSession[];
   onOpenLink: (url: string) => void;
@@ -175,7 +225,15 @@ export type MainRedBandProps = {
   now?: number;
 };
 
-export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck, onOpenSession, onFix, now }: MainRedBandProps) {
+export function MainRedBand({
+  main,
+  recentSessions = [],
+  onOpenLink,
+  onOpenCheck,
+  onOpenSession,
+  onFix,
+  now,
+}: MainRedBandProps) {
   const { red, takenBySession, elsewhere } = main;
   // A Session holds it here: the acts are moot, and the Fixing row names it.
   const heldHere = takenBySession !== undefined;
@@ -188,15 +246,29 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
   const takesOver = free && elsewhere !== undefined;
   const [asking, setAsking] = useState<"back" | "takeOver" | null>(null);
   // The press Fleet refused, kept so Try again sends the same one.
-  const [refused, setRefused] = useState<{ choice: FixChoice; why: FixRefusal } | null>(null);
+  const [refused, setRefused] = useState<{
+    choice: FixChoice;
+    why: FixRefusal;
+  } | null>(null);
   const send = async (choice: FixChoice) => {
     setRefused(null);
     const why = await onFix?.(choice);
-    if (why === "claim_not_made" || why === "taken_elsewhere") setRefused({ choice, why });
+    if (why === "claim_not_made" || why === "taken_elsewhere")
+      setRefused({
+        choice,
+        why,
+      });
   };
   const claim =
     elsewhere === undefined || heldHere ? null : (
-      <HeldBy held={elsewhere} {...(now === undefined ? {} : { now })}>
+      <HeldBy
+        held={elsewhere}
+        {...(now === undefined
+          ? {}
+          : {
+              now,
+            })}
+      >
         {!takesOver ? null : (
           <Button variant="ghost" size="sm" ground="sunken" onClick={() => setAsking("takeOver")}>
             Take over
@@ -210,7 +282,11 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
   };
   return (
     <div className="armada-main-red" data-held={held || undefined}>
-      <div className="armada-main-red__frame" role="status" aria-label={held ? "New checks are running on main" : "Main is red"}>
+      <div
+        className="armada-main-red__frame"
+        role="status"
+        aria-label={held ? "New checks are running on main" : "Main is red"}
+      >
         <div className="armada-main-red__head">
           {held ? (
             <span className="armada-main-red__title">
@@ -223,7 +299,11 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
                   ) : one.url === undefined ? (
                     <span>#{one.number}</span>
                   ) : (
-                    <a className="armada-main-red__link mono" href={one.url} onClick={link(one.url)}>
+                    <a
+                      className="armada-main-red__link mono"
+                      href={one.url}
+                      onClick={link(one.url)}
+                    >
                       #{one.number}
                     </a>
                   )}
@@ -235,11 +315,26 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
           )}
           {!asks ? null : (
             <span className="armada-main-red__ask">
-              <Button variant="secondary" size="sm" ground="sunken" onClick={() => void send({ kind: "newSession", request: briefOf(red) })}>
+              <Button
+                variant="secondary"
+                size="sm"
+                ground="sunken"
+                onClick={() =>
+                  void send({
+                    kind: "newSession",
+                    request: briefOf(red),
+                  })
+                }
+              >
                 Dispatch a new Job
               </Button>
               {red.merge !== undefined ? null : (
-                <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  ground="sunken"
+                  onClick={() => setAsking("back")}
+                >
                   Send back to…
                 </Button>
               )}
@@ -247,36 +342,50 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
           )}
         </div>
         <dl className="armada-main-red__rows mono">
-          {[{ check: red.check, unmapped: red.unmapped, test: red.test, testUrl: red.testUrl }, ...(red.also ?? [])].map(
-            (job, at) => (
-              <Fragment key={`${job.check}:${at}`}>
-                <dt>{job.unmapped === true ? "CI job" : "Check"}</dt>
-                <dd>
-                  {onOpenCheck === undefined ? (
-                    job.check
-                  ) : (
-                    <button type="button" className="armada-main-red__link mono" onClick={() => onOpenCheck(job.check)}>
-                      {job.check}
-                    </button>
-                  )}
-                </dd>
-                {job.test === undefined ? null : (
-                  <>
-                    <dt>Test</dt>
-                    <dd>
-                      {"testUrl" in job && job.testUrl !== undefined ? (
-                        <a className="armada-main-red__link mono" href={job.testUrl} onClick={link(job.testUrl)}>
-                          {job.test}
-                        </a>
-                      ) : (
-                        job.test
-                      )}
-                    </dd>
-                  </>
+          {[
+            {
+              check: red.check,
+              unmapped: red.unmapped,
+              test: red.test,
+              testUrl: red.testUrl,
+            },
+            ...(red.also ?? []),
+          ].map((job, at) => (
+            <Fragment key={`${job.check}:${at}`}>
+              <dt>{job.unmapped === true ? "CI job" : "Check"}</dt>
+              <dd>
+                {onOpenCheck === undefined ? (
+                  job.check
+                ) : (
+                  <button
+                    type="button"
+                    className="armada-main-red__link mono"
+                    onClick={() => onOpenCheck(job.check)}
+                  >
+                    {job.check}
+                  </button>
                 )}
-              </Fragment>
-            ),
-          )}
+              </dd>
+              {job.test === undefined ? null : (
+                <>
+                  <dt>Test</dt>
+                  <dd>
+                    {"testUrl" in job && job.testUrl !== undefined ? (
+                      <a
+                        className="armada-main-red__link mono"
+                        href={job.testUrl}
+                        onClick={link(job.testUrl)}
+                      >
+                        {job.test}
+                      </a>
+                    ) : (
+                      job.test
+                    )}
+                  </dd>
+                </>
+              )}
+            </Fragment>
+          ))}
           {red.merge === undefined ? null : (
             <>
               <dt>Broke in</dt>
@@ -284,20 +393,40 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
                 {red.merge.url === undefined ? (
                   <span>#{red.merge.number}</span>
                 ) : (
-                  <a className="armada-main-red__link mono" href={red.merge.url} onClick={link(red.merge.url)}>
+                  <a
+                    className="armada-main-red__link mono"
+                    href={red.merge.url}
+                    onClick={link(red.merge.url)}
+                  >
                     #{red.merge.number}
                   </a>
                 )}
                 {red.merge.branch === undefined ? null : red.merge.branchUrl === undefined ? (
                   <span>{red.merge.branch}</span>
                 ) : (
-                  <a className="armada-main-red__link mono" href={red.merge.branchUrl} onClick={link(red.merge.branchUrl)}>
+                  <a
+                    className="armada-main-red__link mono"
+                    href={red.merge.branchUrl}
+                    onClick={link(red.merge.branchUrl)}
+                  >
                     {red.merge.branch}
                   </a>
                 )}
-                <MergeOwner merge={red.merge} {...(onOpenSession === undefined ? {} : { onOpenSession })} />
+                <MergeOwner
+                  merge={red.merge}
+                  {...(onOpenSession === undefined
+                    ? {}
+                    : {
+                        onOpenSession,
+                      })}
+                />
                 {!asks ? null : (
-                  <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    ground="sunken"
+                    onClick={() => setAsking("back")}
+                  >
                     {red.merge.session !== undefined ? "Send back" : "Send back to…"}
                   </Button>
                 )}
@@ -309,7 +438,12 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
               <dt>Claim</dt>
               <dd className="armada-main-red__taken">
                 <span>{REFUSED[refused.why]}</span>
-                <Button variant="ghost" size="sm" ground="sunken" onClick={() => void send(refused.choice)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  ground="sunken"
+                  onClick={() => void send(refused.choice)}
+                >
                   Try again
                 </Button>
               </dd>
@@ -326,11 +460,21 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
               <dt>Fixing</dt>
               <dd className="armada-main-red__taken">
                 <Tooltip label="Working on it" asChild>
-                  <span className="armada-fixing-mark" data-state="fixing" role="img" aria-label="Working on it">
+                  <span
+                    className="armada-fixing-mark"
+                    data-state="fixing"
+                    role="img"
+                    aria-label="Working on it"
+                  >
                     <Hammer size={SMALL} strokeWidth={STROKE} aria-hidden />
                   </span>
                 </Tooltip>
-                <OwnerLink kind="Job" Icon={SquareTerminal} one={takenBySession} open={onOpenSession} />
+                <OwnerLink
+                  kind="Job"
+                  Icon={SquareTerminal}
+                  one={takenBySession}
+                  open={onOpenSession}
+                />
               </dd>
             </>
           )}
@@ -339,11 +483,18 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
       {asking !== "takeOver" || elsewhere === undefined ? null : (
         <TakeOverDialog
           held={elsewhere}
-          {...(now === undefined ? {} : { now })}
+          {...(now === undefined
+            ? {}
+            : {
+                now,
+              })}
           onCancel={() => setAsking(null)}
           onConfirm={() => {
             setAsking(null);
-            void send({ kind: "takeOver", request: briefOf(red) });
+            void send({
+              kind: "takeOver",
+              request: briefOf(red),
+            });
           }}
         />
       )}
@@ -363,16 +514,35 @@ export function MainRedBand({ main, recentSessions = [], onOpenLink, onOpenCheck
 }
 
 /** The holder's registry chip, as a pull request's owner is drawn: kind and short id, then `monitor` and the machine's name. */
-const chipOf = (held: HeldElsewhere): RegisteredOwnerRow => ({ kind: held.holder.kind, id: held.holder.id, machine: { name: held.machine, here: false } });
+const chipOf = (held: HeldElsewhere): RegisteredOwnerRow => ({
+  kind: held.holder.kind,
+  id: held.holder.id,
+  machine: {
+    name: held.machine,
+    here: false,
+  },
+});
 
 /** Another machine's claim: who holds it, and for how long. A claim long held reads as stale by its mark and age alone. */
-function HeldBy({ held, now = Date.now(), children }: { held: HeldElsewhere; now?: number; children?: ReactNode }) {
+function HeldBy({
+  held,
+  now = Date.now(),
+  children,
+}: {
+  held: HeldElsewhere;
+  now?: number;
+  children?: ReactNode;
+}) {
   const stale = now - Date.parse(held.since) >= STALE_AFTER_MS;
   return (
     <span className="armada-main-red__held" data-stale={stale || undefined}>
       <RegisteredOwner row={chipOf(held)} />
       {Number.isNaN(Date.parse(held.since)) ? null : (
-        <span className="armada-main-red__age" role="group" aria-label={stale ? "Claimed, stale" : "Claimed"}>
+        <span
+          className="armada-main-red__age"
+          role="group"
+          aria-label={stale ? "Claimed, stale" : "Claimed"}
+        >
           {!stale ? null : <Clock size={SMALL} strokeWidth={STROKE} aria-hidden />}
           <Stamp first="age" at={held.since} now={now} className="mono" />
         </span>
@@ -383,7 +553,17 @@ function HeldBy({ held, now = Date.now(), children }: { held: HeldElsewhere; now
 }
 
 /** Asked once, with the claim's age in it, before another machine's claim is replaced. */
-function TakeOverDialog({ held, now, onCancel, onConfirm }: { held: HeldElsewhere; now?: number; onCancel: () => void; onConfirm: () => void }) {
+function TakeOverDialog({
+  held,
+  now,
+  onCancel,
+  onConfirm,
+}: {
+  held: HeldElsewhere;
+  now?: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
   return (
     <Dialog
       open
@@ -402,7 +582,14 @@ function TakeOverDialog({ held, now, onCancel, onConfirm }: { held: HeldElsewher
       onCancel={onCancel}
       onConfirm={onConfirm}
     >
-      <HeldBy held={held} {...(now === undefined ? {} : { now })} />
+      <HeldBy
+        held={held}
+        {...(now === undefined
+          ? {}
+          : {
+              now,
+            })}
+      />
     </Dialog>
   );
 }
@@ -411,12 +598,30 @@ function TakeOverDialog({ held, now, onCancel, onConfirm }: { held: HeldElsewher
  * Who merged: the Session that owns the pull request, by its registry icon and its title, which
  * opens it. Nobody known draws nothing.
  */
-function MergeOwner({ merge, onOpenSession }: { merge: NonNullable<MainRed["merge"]>; onOpenSession?: (sessionId: string) => void }) {
-  return merge.session === undefined ? null : <OwnerLink kind="Job" Icon={SquareTerminal} one={merge.session} open={onOpenSession} />;
+function MergeOwner({
+  merge,
+  onOpenSession,
+}: {
+  merge: NonNullable<MainRed["merge"]>;
+  onOpenSession?: (sessionId: string) => void;
+}) {
+  return merge.session === undefined ? null : (
+    <OwnerLink kind="Job" Icon={SquareTerminal} one={merge.session} open={onOpenSession} />
+  );
 }
 
 /** A Session by its registry icon and its title, which opens it where something listens. */
-function OwnerLink({ kind, Icon, one, open }: { kind: string; Icon: typeof SquareTerminal; one: HubSession; open: ((id: string) => void) | undefined }) {
+function OwnerLink({
+  kind,
+  Icon,
+  one,
+  open,
+}: {
+  kind: string;
+  Icon: typeof SquareTerminal;
+  one: HubSession;
+  open: ((id: string) => void) | undefined;
+}) {
   return (
     <span className="armada-main-red__owner">
       <Tooltip label={kind} asChild>
@@ -455,7 +660,15 @@ function Attached({ red }: { red: MainRed }) {
       </span>
       {red.merge === undefined ? null : (
         <span role="listitem">
-          <AttachmentChip from="Pull request" filename={[`#${red.merge.number}`, red.merge.branch].filter(Boolean).join(" ")} />
+          <AttachmentChip
+            from="Pull request"
+            filename={[
+              `#${red.merge.number}`,
+              red.merge.branch,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          />
         </span>
       )}
     </div>
@@ -466,15 +679,37 @@ function Attached({ red }: { red: MainRed }) {
 export function briefOf(red: MainRed): string {
   return [
     `${red.check} fails on main.`,
-    ...(red.test === undefined ? [] : [`Test: ${red.test}`]),
-    ...(red.merge === undefined ? [] : [`Merged in #${red.merge.number}${red.merge.branch === undefined ? "" : ` (${red.merge.branch})`}.`]),
+    ...(red.test === undefined
+      ? []
+      : [
+          `Test: ${red.test}`,
+        ]),
+    ...(red.merge === undefined
+      ? []
+      : [
+          `Merged in #${red.merge.number}${red.merge.branch === undefined ? "" : ` (${red.merge.branch})`}.`,
+        ]),
   ].join("\n");
 }
 
 /** The culprit's own Session first, then the rest as they came. */
-export function culpritFirst<T extends { id: string }>(recent: readonly T[], culprit: { id: string } | undefined): T[] {
+export function culpritFirst<
+  T extends {
+    id: string;
+  },
+>(
+  recent: readonly T[],
+  culprit:
+    | {
+        id: string;
+      }
+    | undefined,
+): T[] {
   const own = recent.filter((one) => one.id === culprit?.id);
-  return [...own, ...recent.filter((one) => one.id !== culprit?.id)];
+  return [
+    ...own,
+    ...recent.filter((one) => one.id !== culprit?.id),
+  ];
 }
 
 function FixDialog({
@@ -492,12 +727,25 @@ function FixDialog({
   const sessions = culpritFirst(recentSessions, red.merge?.session);
   // The culprit is chosen before the owner looks: the Session that merged it.
   const [picked, setPicked] = useState<string | null>(() =>
-    red.merge?.session !== undefined && sessions[0]?.id === red.merge.session.id ? red.merge.session.id : null,
+    red.merge?.session !== undefined && sessions[0]?.id === red.merge.session.id
+      ? red.merge.session.id
+      : null,
   );
-  const mark = (id: string, owner: { id: string } | undefined) =>
+  const mark = (
+    id: string,
+    owner:
+      | {
+          id: string;
+        }
+      | undefined,
+  ) =>
     red.merge === undefined || owner === undefined || id !== owner.id ? null : (
       <Tooltip label={`Merged #${red.merge.number}, the pull request that turned main red`} asChild>
-        <span className="armada-main-fix__culprit" role="img" aria-label={`Merged #${red.merge.number}`}>
+        <span
+          className="armada-main-fix__culprit"
+          role="img"
+          aria-label={`Merged #${red.merge.number}`}
+        >
           <GitMerge size={SMALL} strokeWidth={STROKE} aria-hidden />
         </span>
       </Tooltip>
@@ -512,24 +760,44 @@ function FixDialog({
       confirmDisabled={picked === null || request.trim() === ""}
       onCancel={onCancel}
       onConfirm={() => {
-        if (picked !== null) onFix({ kind: "session", session: picked, message: request });
+        if (picked !== null)
+          onFix({
+            kind: "session",
+            session: picked,
+            message: request,
+          });
       }}
     >
       <Attached red={red} />
       {sessions.length === 0 ? null : (
         <RadioGroup label="Jobs">
           {sessions.map((one) => (
-            <Radio key={one.id} name="main-fix-session" value={one.id} checked={picked === one.id} onChange={() => setPicked(one.id)}>
+            <Radio
+              key={one.id}
+              name="main-fix-session"
+              value={one.id}
+              checked={picked === one.id}
+              onChange={() => setPicked(one.id)}
+            >
               <span className="armada-main-fix__job">
                 <span>{one.title}</span>
-                {one.branch === undefined ? null : <span className="mono armada-main-fix__branch">{one.branch}</span>}
+                {one.branch === undefined ? null : (
+                  <span className="mono armada-main-fix__branch">{one.branch}</span>
+                )}
                 {mark(one.id, red.merge?.session)}
               </span>
             </Radio>
           ))}
         </RadioGroup>
       )}
-      {picked !== null ? <Textarea label="Message" rows={5} value={request} onChange={(event) => setRequest(event.target.value)} /> : null}
+      {picked !== null ? (
+        <Textarea
+          label="Message"
+          rows={5}
+          value={request}
+          onChange={(event) => setRequest(event.target.value)}
+        />
+      ) : null}
     </Dialog>
   );
 }

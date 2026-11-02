@@ -17,7 +17,10 @@ function read(): LedgerView {
 }
 
 /** The view and its setter. A blocked store only forgets it. */
-export function useLedgerView(): [LedgerView, (view: LedgerView) => void] {
+export function useLedgerView(): [
+  LedgerView,
+  (view: LedgerView) => void,
+] {
   const view = useSyncExternalStore(
     (listener) => (hear.add(listener), () => void hear.delete(listener)),
     read,
@@ -30,7 +33,10 @@ export function useLedgerView(): [LedgerView, (view: LedgerView) => void] {
     }
     hear.forEach((one) => one());
   }, []);
-  return [view, set];
+  return [
+    view,
+    set,
+  ];
 }
 
 /** Flips the view; the key for it (`story.ts`) calls this. */

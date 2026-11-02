@@ -14,13 +14,22 @@ import { pullRequestPages } from "../session-pr-pages";
 const PULL = "https://github.com/mele-labs/armada/pull/";
 
 function line(): MergeLine {
-  const pull = (number: number, title: string, branch: string, position: number, state: string) => ({
+  const pull = (
+    number: number,
+    title: string,
+    branch: string,
+    position: number,
+    state: string,
+  ) => ({
     number,
     title,
     branch,
     url: `${PULL}${number}`,
     ci: "passed",
-    queue: { state, position },
+    queue: {
+      state,
+      position,
+    },
   });
   return {
     root: repository().root,
@@ -31,27 +40,62 @@ function line(): MergeLine {
     hub: {
       pull_requests: [
         pull(2201, "Repair the failing check", "fix/repair-the-check", 1, "mergeable"),
-        pull(2204, "Keep the dispatch bar under Helm", "fix/dispatch-bar-under-helm", 2, "awaiting_checks"),
+        pull(
+          2204,
+          "Keep the dispatch bar under Helm",
+          "fix/dispatch-bar-under-helm",
+          2,
+          "awaiting_checks",
+        ),
         pull(2209, "Open pull requests in Armada", "claude/pr-panel-redesign", 3, "queued"),
         pull(2211, "Settings: per-repo merge method", "feat/merge-method", 4, "queued"),
         pull(2212, "Tidy the verdict sheet", "chore/verdict-sheet", 5, "queued"),
         pull(2215, "Wire Cockpit holds", "feat/cockpit-holds", 6, "queued"),
         pull(2216, "Spike 031 notes", "docs/spike-031", 7, "queued"),
-        { number: 2210, title: "Show the merge line in a Session", branch: "feat/session-merge-line", url: `${PULL}2210` },
-        { number: 2213, title: "Read write clashes from Fleet", branch: "feat/write-clash-read", url: `${PULL}2213` },
-        { number: 2214, title: "Read the forge again when it answers empty", branch: "fix/forge-read-again", url: `${PULL}2214` },
+        {
+          number: 2210,
+          title: "Show the merge line in a Session",
+          branch: "feat/session-merge-line",
+          url: `${PULL}2210`,
+        },
+        {
+          number: 2213,
+          title: "Read write clashes from Fleet",
+          branch: "feat/write-clash-read",
+          url: `${PULL}2213`,
+        },
+        {
+          number: 2214,
+          title: "Read the forge again when it answers empty",
+          branch: "fix/forge-read-again",
+          url: `${PULL}2214`,
+        },
       ],
     },
   };
 }
 
-const attached = (number: number, title: string, branch: string, rest: Partial<Extract<SessionAttachment, { kind: "pull_request" }>>): SessionAttachment => ({
+const attached = (
+  number: number,
+  title: string,
+  branch: string,
+  rest: Partial<
+    Extract<
+      SessionAttachment,
+      {
+        kind: "pull_request";
+      }
+    >
+  >,
+): SessionAttachment => ({
   kind: "pull_request",
   number,
   title,
   branch,
   address: `${PULL}${number}`,
-  checks: { state: "passed" },
+  checks: {
+    state: "passed",
+  },
   state: "open",
   auto: false,
   ...rest,
@@ -64,7 +108,15 @@ const holder = () => {
     // A model links its pull request the markdown way; the link is one link, opening where `#2210` does.
     rows: [
       ...one.rows,
-      { id: "s3-2", at: "12:21:05", kind: "message" as const, from: { kind: "agent" as const }, text: `[#2210](${PULL}2210) merges into main once its checks pass. The backend agent is still running.` },
+      {
+        id: "s3-2",
+        at: "12:21:05",
+        kind: "message" as const,
+        from: {
+          kind: "agent" as const,
+        },
+        text: `[#2210](${PULL}2210) merges into main once its checks pass. The backend agent is still running.`,
+      },
     ],
     attachments: [
       ...one.attachments.filter((it) => it.kind !== "pull_request"),
@@ -77,7 +129,10 @@ const holder = () => {
       }),
       attached(2213, "Read write clashes from Fleet", "feat/write-clash-read", {
         body: "Two Sessions writing the same file now say so before either merges.\n\nThe clash is read from `git merge-tree`, not guessed from the paths.",
-        checks: { state: "failed", failing: "test · bridge, verify-foundations" },
+        checks: {
+          state: "failed",
+          failing: "test · bridge, verify-foundations",
+        },
       }),
       attached(2214, "Read the forge again when it answers empty", "fix/forge-read-again", {
         state: "draft",
@@ -91,6 +146,19 @@ export const s236SessionPrPanel: Scenario = {
   ...s200Sessions,
   name: "session-pr-panel",
   says: "A Session's pull requests: in the merge queue, ready to merge, checks failed",
-  state: { ...s200Sessions.state, mergeLines: { lines: [line()] } },
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [holder()]), pullRequestPages },
+  state: {
+    ...s200Sessions.state,
+    mergeLines: {
+      lines: [
+        line(),
+      ],
+    },
+  },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        holder(),
+      ]),
+    pullRequestPages,
+  },
 };

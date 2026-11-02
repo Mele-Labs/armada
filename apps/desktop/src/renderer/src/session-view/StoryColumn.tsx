@@ -16,9 +16,21 @@ import { Fragment, isValidElement, useEffect, useRef, useState, type ReactNode }
 import { ListTree, PencilRuler, SkipForward } from "lucide-react";
 import { Button, TaskMark, Tooltip, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
-import { owesOf, type AgentTask, type Session, type SessionTodo, type SessionWork, type SessionWorkActs, type WorkGroup } from "@armada/screens/src/draft/sessions";
+import {
+  owesOf,
+  type AgentTask,
+  type Session,
+  type SessionTodo,
+  type SessionWork,
+  type SessionWorkActs,
+  type WorkGroup,
+} from "@armada/screens/src/draft/sessions";
 
-const TODO_OF: Record<AgentTask["state"], SessionTodo["state"]> = { open: "todo", working: "doing", done: "done" };
+const TODO_OF: Record<AgentTask["state"], SessionTodo["state"]> = {
+  open: "todo",
+  working: "doing",
+  done: "done",
+};
 
 import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { remindLater } from "../cockpit/deck/acts";
@@ -49,7 +61,19 @@ import { routeOf } from "./route";
 import { SubagentsAtWork } from "./SubagentsAtWork";
 import { subagentsAtWork } from "./subagents-at-work";
 import { freshestOf } from "./TaskAge";
-import { AskBeat, DoneGroup, LedgerToggle, MadeList, RouteBeat, StepBeat, WaitBeat, WalkBeat, WalkToCome, WorkBeat, arrowsIn } from "./StoryParts";
+import {
+  AskBeat,
+  DoneGroup,
+  LedgerToggle,
+  MadeList,
+  RouteBeat,
+  StepBeat,
+  WaitBeat,
+  WalkBeat,
+  WalkToCome,
+  WorkBeat,
+  arrowsIn,
+} from "./StoryParts";
 import { JumpHere } from "./StepJump";
 import { SkipStep, skipMenu } from "./StepSkip";
 import { SvPanel, type PanelState } from "./SvPanel";
@@ -63,24 +87,85 @@ import "./story.css";
 import "./story-zones.css";
 
 /** The rule a waiting item is the ask of, and its card in the thread: an item `draft:<card>` that a rule on the Job's lanes left. Absent where no rule did. */
-function ruleOf(session: Session, itemId: string): { rule: string; row: string } | undefined {
+function ruleOf(
+  session: Session,
+  itemId: string,
+):
+  | {
+      rule: string;
+      row: string;
+    }
+  | undefined {
   const row = itemId.startsWith("draft:") ? itemId.slice("draft:".length) : undefined;
-  const fired = row === undefined ? undefined : session.lanes?.job.fired.find((one) => one.needs === row);
-  return row === undefined || fired === undefined ? undefined : { rule: fired.rule, row };
+  const fired =
+    row === undefined ? undefined : session.lanes?.job.fired.find((one) => one.needs === row);
+  return row === undefined || fired === undefined
+    ? undefined
+    : {
+        rule: fired.rule,
+        row,
+      };
 }
 
 /** The one zone a pane draws on its own, as the Job's panes can: Done, Now or Open. Absent, all three stand on the spine. */
 export type StoryZone = "done" | "now" | "next";
-const ZONE_AREAS: Record<StoryZone, readonly string[]> = { done: ["done", "step-done"], now: ["now", "step-now"], next: ["next", "step-next"] };
-const areaOf = (zone: ReactNode): string | undefined => (isValidElement(zone) ? (zone.props as { area?: string }).area : undefined);
+const ZONE_AREAS: Record<StoryZone, readonly string[]> = {
+  done: [
+    "done",
+    "step-done",
+  ],
+  now: [
+    "now",
+    "step-now",
+  ],
+  next: [
+    "next",
+    "step-next",
+  ],
+};
+const areaOf = (zone: ReactNode): string | undefined =>
+  isValidElement(zone)
+    ? (
+        zone.props as {
+          area?: string;
+        }
+      ).area
+    : undefined;
 
-export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, onOpenSketch, onOpenSession, live, only }: { only?: StoryZone | undefined; session: Session; entries: readonly LedgerEntry[]; work: SessionWork; id: string; manifestId: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void; live: LiveOpen | undefined }) {
+export function StoryColumn({
+  session,
+  entries,
+  work,
+  id,
+  manifestId,
+  acts,
+  ed,
+  onOpenSketch,
+  onOpenSession,
+  live,
+  only,
+}: {
+  only?: StoryZone | undefined;
+  session: Session;
+  entries: readonly LedgerEntry[];
+  work: SessionWork;
+  id: string;
+  manifestId: string | undefined;
+  acts: SessionWorkActs | undefined;
+  ed: PlanEditing | undefined;
+  onOpenSketch: (sketch: string) => void;
+  onOpenSession: (id: string) => void;
+  live: LiveOpen | undefined;
+}) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const layout = useLayout("job.panels").all;
   const [view, setView] = useLedgerView();
   const everything = useWhole(id);
-  const flow = work.workflow?.steps ?? acts?.workflows.find((one) => one.id === work.proposal?.workflow)?.steps ?? [];
+  const flow =
+    work.workflow?.steps ??
+    acts?.workflows.find((one) => one.id === work.proposal?.workflow)?.steps ??
+    [];
   const at = work.workflow?.at;
   // With a workflow whose step the Job is at, the zones are its steps (finished, current, to come); without one, or with workflows off, they are Done, Now and Open.
   const stepped = work.railOff !== true && flow.length > 0 && at !== undefined;
@@ -92,7 +177,12 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const nextFold = useFold(session, "next");
   // A finished step opened or shut by itself; ⌥1 sets them all and clears these.
   const [own, setOwn] = useState<Record<number, boolean>>({});
-  useEffect(() => setOwn({}), [doneFold.open]);
+  useEffect(
+    () => setOwn({}),
+    [
+      doneFold.open,
+    ],
+  );
   const mods = useModsMade(id).mods;
   const kind = landingOf(session);
 
@@ -111,41 +201,101 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const now = detected === undefined ? accountNowOf(session) : undefined;
   // With no calls to read, the agent row names what the Job waits on rather than the bare word.
   const idleState = jobStateOf(session);
-  const waitingOn = detected === undefined && ["waiting", "held", "limited", "stuck", "failing", "after"].includes(idleState.state) ? idleState.said : undefined;
+  const waitingOn =
+    detected === undefined &&
+    [
+      "waiting",
+      "held",
+      "limited",
+      "stuck",
+      "failing",
+      "after",
+    ].includes(idleState.state)
+      ? idleState.said
+      : undefined;
   const groups = planned ? viewOf(plan, ed.marks) : [];
   const steps = stepsOf(groups, approved, workingGroup, inHandOf(sessions, session));
   // A Job started outside the plan is work in hand in Now until it finishes, then something made in Done.
   const outside = looseChildrenOf(sessions, session);
   const running = outside.filter((child) => !finishedChild(child));
-  const by = (step: "done" | "current" | "upcoming") => (editing ? [] : groups.filter((group) => steps.get(group.id) === step));
+  const by = (step: "done" | "current" | "upcoming") =>
+    editing ? [] : groups.filter((group) => steps.get(group.id) === step);
   const finished = by("done");
   // The group with the freshest mark in progress leads; groups with no age keep the plan's order.
-  const working = by("current").sort((a, b) => (freshestOf(a) === freshestOf(b) ? 0 : freshestOf(b) > freshestOf(a) ? 1 : -1));
+  const working = by("current").sort((a, b) =>
+    freshestOf(a) === freshestOf(b) ? 0 : freshestOf(b) > freshestOf(a) ? 1 : -1,
+  );
   const upcoming = by("upcoming");
-  const broke = approved && groups.some((group) => group.tasks.some((task) => task.state === "failed"));
+  const broke =
+    approved && groups.some((group) => group.tasks.some((task) => task.state === "failed"));
 
   const workflowDone = at === undefined ? [] : flow.filter((_, i) => i < at);
   const workflowNow = at === undefined ? undefined : flow[at];
   const workflowNext = flow.filter((_, i) => at === undefined || i > at);
 
-  const made = madeOf(session, entries, { landing: kind, mods: mods.length, onOpenSketch, jobs: { children: outside.filter(finishedChild), open: onOpenSession } });
-  const doc = kind === "report" ? reportOf(session, entries) !== undefined : artifactsOf(session, entries).some((group) => group.id === "doc");
-  const route = routeOf(session, kind, { doc, mods });
+  const made = madeOf(session, entries, {
+    landing: kind,
+    mods: mods.length,
+    onOpenSketch,
+    jobs: {
+      children: outside.filter(finishedChild),
+      open: onOpenSession,
+    },
+  });
+  const doc =
+    kind === "report"
+      ? reportOf(session, entries) !== undefined
+      : artifactsOf(session, entries).some((group) => group.id === "doc");
+  const route = routeOf(session, kind, {
+    doc,
+    mods,
+  });
   // A step of the route the workflow already names is that step, not a second row.
   const named = (label: string) => flow.some((name) => name.toLowerCase() === label.toLowerCase());
   const ahead = route.filter((one) => one.state === "open" && !named(one.label));
-  const underway = route.filter((one) => (one.state === "working" || one.state === "failed") && one.label !== "Check" && !named(one.label));
+  const underway = route.filter(
+    (one) =>
+      (one.state === "working" || one.state === "failed") &&
+      one.label !== "Check" &&
+      !named(one.label),
+  );
   const checks = session.rows.filter((one) => one.kind === "check");
   const lastCheck = checks[checks.length - 1];
   const checking = checks.filter((one) => one.kind === "check" && one.state === "running");
-  const failedCheck = lastCheck !== undefined && lastCheck.kind === "check" && lastCheck.state === "failed" ? lastCheck : undefined;
+  const failedCheck =
+    lastCheck !== undefined && lastCheck.kind === "check" && lastCheck.state === "failed"
+      ? lastCheck
+      : undefined;
   // A page shown again adds a row for the same address; only the newest of each stands as the walk.
-  const walks = session.rows.filter((one, i, rows) => one.kind === "window" && one.ended === undefined && !rows.slice(i + 1).some((later) => later.kind === "window" && later.ended === undefined && later.url === one.url));
+  const walks = session.rows.filter(
+    (one, i, rows) =>
+      one.kind === "window" &&
+      one.ended === undefined &&
+      !rows
+        .slice(i + 1)
+        .some(
+          (later) => later.kind === "window" && later.ended === undefined && later.url === one.url,
+        ),
+  );
   // A walk shown to him is drawn from its page's row, which opens it, and not a second time from the item Fleet holds for it.
-  const walkUrls = new Set(walks.flatMap((one) => (one.kind === "window" ? [one.url] : [])));
-  const owed = owesOf(session).filter((one) => !(drafting && one.source === "plan") && !(one.source === "walk" && one.act?.kind === "walk" && walkUrls.has(one.act.target)));
+  const walkUrls = new Set(
+    walks.flatMap((one) =>
+      one.kind === "window"
+        ? [
+            one.url,
+          ]
+        : [],
+    ),
+  );
+  const owed = owesOf(session).filter(
+    (one) =>
+      !(drafting && one.source === "plan") &&
+      !(one.source === "walk" && one.act?.kind === "walk" && walkUrls.has(one.act.target)),
+  );
   // A question the agent is held on is a call on him as well; it is asked in the thread, and here it is the lamp.
-  const asking = session.asked?.questions?.[0]?.question ?? (session.asked === undefined ? undefined : session.asked.command);
+  const asking =
+    session.asked?.questions?.[0]?.question ??
+    (session.asked === undefined ? undefined : session.asked.command);
   const atWork = planned ? [] : subagentsAtWork(session);
   const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
   const brief = briefOf(session);
@@ -155,15 +305,32 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   // The agent's own list stays when the turn ends. An item Fleet matched to a plan task is that task's row already, so it is not drawn twice.
   // Fleet holds the live list in memory only; after a restart the build record's copy stands in until the agent next changes it.
   const reported = session.activity?.todos ?? [];
-  const todos = reported.length > 0 ? reported.filter((one) => one.task === undefined) : (work.tasks ?? []).map((one): SessionTodo => ({ text: one.subject, state: TODO_OF[one.state] }));
+  const todos =
+    reported.length > 0
+      ? reported.filter((one) => one.task === undefined)
+      : (work.tasks ?? []).map(
+          (one): SessionTodo => ({
+            text: one.subject,
+            state: TODO_OF[one.state],
+          }),
+        );
   const list = todos.length === 0 ? null : <AgentTasks todos={todos} working={working_} />;
   // With a workflow and a plan group being worked, the list follows the plan's tasks; otherwise it stands under the Agent row.
   const afterPlan = stepped && working.length > 0;
 
   const prs = made.filter((one) => one.shape === "pr");
-  const landed = prs.length > 0 && prs.every((one) => one.shape === "pr" && one.pr.state === "merged");
+  const landed =
+    prs.length > 0 && prs.every((one) => one.shape === "pr" && one.pr.state === "merged");
   const asks = owed.length > 0 || walks.length > 0 || asking !== undefined;
-  const nowState: PanelState | undefined = asks ? "asks" : broke || failedCheck !== undefined ? "failed" : drafting ? "draft" : working_ || working.length > 0 ? "live" : undefined;
+  const nowState: PanelState | undefined = asks
+    ? "asks"
+    : broke || failedCheck !== undefined
+      ? "failed"
+      : drafting
+        ? "draft"
+        : working_ || working.length > 0
+          ? "live"
+          : undefined;
   const doneState: PanelState | undefined = landed ? "done" : undefined;
 
   // The step each made thing stands under in By step: a finished group takes its own issue and pull requests, a finished workflow step takes what it made (`stepOf`).
@@ -176,7 +343,13 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const sketchButton =
     sketchOf === undefined || !drafting ? null : (
       <Tooltip label="Sketch">
-        <Button variant="ghost" size="sm" iconOnly aria-label="Sketch" onClick={() => onOpenSketch(sketchOf.id)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label="Sketch"
+          onClick={() => onOpenSketch(sketchOf.id)}
+        >
           <PencilRuler size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
@@ -185,37 +358,65 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const switcher = <LedgerToggle view={view} onChange={setView} />;
 
   // A zone with nothing in it is its band alone: an empty slot stays empty.
-  const hasDone = view === "step" ? workflowDone.length > 0 || finished.length > 0 || loose.length > 0 : made.length > 0;
+  const hasDone =
+    view === "step"
+      ? workflowDone.length > 0 || finished.length > 0 || loose.length > 0
+      : made.length > 0;
   const done = (
-    <SvPanel label="Done" area="done" place="side" state={doneState} acts={switcher} fold={doneFold} keycap={bandKeyFor("done")}>
+    <SvPanel
+      label="Done"
+      area="done"
+      place="side"
+      state={doneState}
+      acts={switcher}
+      fold={doneFold}
+      keycap={bandKeyFor("done")}
+    >
       {!hasDone ? undefined : (
-      <div className="sv-nav" onKeyDown={arrowsIn}>
-        {view === "step" ? (
-          <ol className="sv-beats" aria-label="By step">
-            {workflowDone.map((name) => {
-              const list = made.filter((one) => underStep(one) === name);
-              return <StepBeat key={name} name={name} state="done" {...(list.length === 0 ? {} : { under: <MadeList session={session} list={list} newest="last" /> })} />;
-            })}
-            {finished.map((group) => (
-              <DoneGroup key={group.id} group={group} open={all} session={session} onOpenSession={onOpenSession} />
-            ))}
-            {loose.length === 0 ? null : (
-              <li className="sv-beat sv-beat--made">
-                <MadeList session={session} list={loose} newest="last" />
-              </li>
-            )}
-          </ol>
-        ) : (
-          <>
-            {byKind(made).map(({ id: bucket, label, made: list }) => (
-              <section key={bucket} className="sv-kind" aria-label={label}>
-                <h4 className="sv-kind__label">{label}</h4>
-                <MadeList session={session} list={list} newest="first" />
-              </section>
-            ))}
-          </>
-        )}
-      </div>
+        <div className="sv-nav" onKeyDown={arrowsIn}>
+          {view === "step" ? (
+            <ol className="sv-beats" aria-label="By step">
+              {workflowDone.map((name) => {
+                const list = made.filter((one) => underStep(one) === name);
+                return (
+                  <StepBeat
+                    key={name}
+                    name={name}
+                    state="done"
+                    {...(list.length === 0
+                      ? {}
+                      : {
+                          under: <MadeList session={session} list={list} newest="last" />,
+                        })}
+                  />
+                );
+              })}
+              {finished.map((group) => (
+                <DoneGroup
+                  key={group.id}
+                  group={group}
+                  open={all}
+                  session={session}
+                  onOpenSession={onOpenSession}
+                />
+              ))}
+              {loose.length === 0 ? null : (
+                <li className="sv-beat sv-beat--made">
+                  <MadeList session={session} list={loose} newest="last" />
+                </li>
+              )}
+            </ol>
+          ) : (
+            <>
+              {byKind(made).map(({ id: bucket, label, made: list }) => (
+                <section key={bucket} className="sv-kind" aria-label={label}>
+                  <h4 className="sv-kind__label">{label}</h4>
+                  <MadeList session={session} list={list} newest="first" />
+                </section>
+              ))}
+            </>
+          )}
+        </div>
       )}
     </SvPanel>
   );
@@ -226,7 +427,14 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
       <AskUpdate subject={`session:${id}`} />
       {!approved ? null : (
         <Tooltip label="Whole plan" shortcut={WHOLE_KEY.cap}>
-          <Button variant="ghost" size="sm" iconOnly aria-label="Whole plan" aria-pressed={whole} onClick={everything.toggle}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Whole plan"
+            aria-pressed={whole}
+            onClick={everything.toggle}
+          >
             <ListTree size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
@@ -236,7 +444,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
 
   // The workflow heads the story, at the top of the spine.
   const head =
-    work.railOff !== true && (work.workflow !== undefined || (work.proposal !== undefined && acts !== undefined)) ? <WorkflowHead work={work} acts={acts} id={id} manifestId={manifestId} /> : null;
+    work.railOff !== true &&
+    (work.workflow !== undefined || (work.proposal !== undefined && acts !== undefined)) ? (
+      <WorkflowHead work={work} acts={acts} id={id} manifestId={manifestId} />
+    ) : null;
 
   const nowBody = (
     <div className="sv-nav" onKeyDown={arrowsIn}>
@@ -246,10 +457,40 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           const rule = ruleOf(session, one.id);
           // A document waiting on him opens over the Job, where it is answered.
           const page = one.source === "document" ? one.id.replace(/^document:/, "") : undefined;
-          const open = rule !== undefined ? () => openInPanel({ kind: "rule", sessionId: session.id, ...rule }) : page !== undefined ? () => showLayer(session.id, "document", page) : undefined;
-          return <AskBeat key={one.id} said="Waiting on you" text={one.text} {...(open === undefined ? {} : { onOpen: open })} />;
+          const open =
+            rule !== undefined
+              ? () =>
+                  openInPanel({
+                    kind: "rule",
+                    sessionId: session.id,
+                    ...rule,
+                  })
+              : page !== undefined
+                ? () => showLayer(session.id, "document", page)
+                : undefined;
+          return (
+            <AskBeat
+              key={one.id}
+              said="Waiting on you"
+              text={one.text}
+              {...(open === undefined
+                ? {}
+                : {
+                    onOpen: open,
+                  })}
+            />
+          );
         })}
-        {walks.map((one) => (one.kind === "window" ? <WalkBeat key={one.id} title={one.title} takes={one.takes} onOpen={() => draft?.openWindow?.(id, one.url)} /> : null))}
+        {walks.map((one) =>
+          one.kind === "window" ? (
+            <WalkBeat
+              key={one.id}
+              title={one.title}
+              takes={one.takes}
+              onOpen={() => draft?.openWindow?.(id, one.url)}
+            />
+          ) : null,
+        )}
         <WorkBeat
           mark={<TaskMark state={working_ ? "working" : "open"} />}
           name={detected ?? waitingOn ?? "Agent"}
@@ -263,8 +504,14 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         {underway.map((step) => (
           <RouteBeat key={step.key} step={step} />
         ))}
-        {checking.map((one) => (one.kind === "check" ? <WorkBeat key={one.id} mark={<Mark state="working" />} name={one.name} system /> : null))}
-        {failedCheck === undefined ? null : <WorkBeat mark={<Mark state="failed" />} name={failedCheck.name} system />}
+        {checking.map((one) =>
+          one.kind === "check" ? (
+            <WorkBeat key={one.id} mark={<Mark state="working" />} name={one.name} system />
+          ) : null,
+        )}
+        {failedCheck === undefined ? null : (
+          <WorkBeat mark={<Mark state="failed" />} name={failedCheck.name} system />
+        )}
       </ul>
       {afterPlan ? null : list}
       {atWork.length === 0 ? null : <SubagentsAtWork rows={atWork} />}
@@ -273,7 +520,17 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           <TurnAccountBlock session={session} live={live} />
         </div>
       )}
-      {working.length === 0 ? null : <FlightRows all={all} groups={working} workingGroup={workingGroup} now={now} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
+      {working.length === 0 ? null : (
+        <FlightRows
+          all={all}
+          groups={working}
+          workingGroup={workingGroup}
+          now={now}
+          session={session}
+          manifestId={manifestId}
+          onOpenSession={onOpenSession}
+        />
+      )}
       {running.length === 0 ? null : (
         <ul className="sv-flight__groups" aria-label="Jobs">
           {running.map((child) => (
@@ -286,11 +543,32 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
       {afterPlan ? list : null}
       {!editing ? null : (
         <div className="sv-plan" data-drafting={drafting || undefined}>
-          {drafting && plan.summary !== undefined ? <p className="sv-blueprint__summary">{plan.summary}</p> : null}
+          {drafting && plan.summary !== undefined ? (
+            <p className="sv-blueprint__summary">{plan.summary}</p>
+          ) : null}
           <div className="sv-plan__groups">
             {groups.map((group) => {
               const step = steps.get(group.id);
-              return <Group key={group.id} group={group} {...(drafting && step !== undefined ? { step, opened: true } : group.id === workingGroup && now !== undefined ? { now } : {})} ed={ed} parent={session} manifestId={manifestId} onOpenSession={onOpenSession} />;
+              return (
+                <Group
+                  key={group.id}
+                  group={group}
+                  {...(drafting && step !== undefined
+                    ? {
+                        step,
+                        opened: true,
+                      }
+                    : group.id === workingGroup && now !== undefined
+                      ? {
+                          now,
+                        }
+                      : {})}
+                  ed={ed}
+                  parent={session}
+                  manifestId={manifestId}
+                  onOpenSession={onOpenSession}
+                />
+              );
             })}
           </div>
           <div className="sv-plan__foot">
@@ -313,34 +591,76 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   );
 
   const now_ = (
-    <SvPanel label="Now" area="now" place="side" state={nowState} acts={nowActs} fold={nowFold} keycap={bandKeyFor("now")}>
+    <SvPanel
+      label="Now"
+      area="now"
+      place="side"
+      state={nowState}
+      acts={nowActs}
+      fold={nowFold}
+      keycap={bandKeyFor("now")}
+    >
       {nowBody}
     </SvPanel>
   );
 
-  const hasNext = upcoming.length > 0 || workflowNext.length > 0 || ahead.length > 0 || kept.length > 0;
+  const hasNext =
+    upcoming.length > 0 || workflowNext.length > 0 || ahead.length > 0 || kept.length > 0;
   const next = (
     <SvPanel label="Open" area="next" place="side" fold={nextFold} keycap={bandKeyFor("next")}>
       {!hasNext ? undefined : (
-      <div className="sv-nav" onKeyDown={arrowsIn}>
-        {upcoming.length === 0 ? null : <FlightRows calm all={all} groups={upcoming} workingGroup={undefined} now={undefined} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
-        {workflowNext.length === 0 && ahead.length === 0 ? null : (
-          <ol className="sv-beats" aria-label="Ahead">
-            {workflowNext.map((name) => (
-              <StepBeat key={name} name={name} state="next" {...(WALK_STEP.test(name) && walks.length === 0 ? { under: <WalkToCome /> } : {})} />
-            ))}
-            {ahead.map((step) => (
-              <RouteBeat key={step.key} step={step} />
-            ))}
-          </ol>
-        )}
-        {kept.length === 0 ? null : <LaterBlock later={kept} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />}
-      </div>
+        <div className="sv-nav" onKeyDown={arrowsIn}>
+          {upcoming.length === 0 ? null : (
+            <FlightRows
+              calm
+              all={all}
+              groups={upcoming}
+              workingGroup={undefined}
+              now={undefined}
+              session={session}
+              manifestId={manifestId}
+              onOpenSession={onOpenSession}
+            />
+          )}
+          {workflowNext.length === 0 && ahead.length === 0 ? null : (
+            <ol className="sv-beats" aria-label="Ahead">
+              {workflowNext.map((name) => (
+                <StepBeat
+                  key={name}
+                  name={name}
+                  state="next"
+                  {...(WALK_STEP.test(name) && walks.length === 0
+                    ? {
+                        under: <WalkToCome />,
+                      }
+                    : {})}
+                />
+              ))}
+              {ahead.map((step) => (
+                <RouteBeat key={step.key} step={step} />
+              ))}
+            </ol>
+          )}
+          {kept.length === 0 ? null : (
+            <LaterBlock
+              later={kept}
+              issues={[]}
+              manifestId={manifestId}
+              onRemind={(sentence) => void remindLater(draft, id, sentence)}
+              onConfirm={(one) => draft?.confirmLater?.(id, one.id)}
+              onDrop={(one) => draft?.dropLater?.(id, one.id, true)}
+            />
+          )}
+        </div>
       )}
     </SvPanel>
   );
 
-  const zones: Record<string, ReactNode> = { done, now: now_, next };
+  const zones: Record<string, ReactNode> = {
+    done,
+    now: now_,
+    next,
+  };
   const drawn = layout.map((one) => <Fragment key={one.id}>{zones[one.id]}</Fragment>);
 
   // ---- Zones as the workflow's steps ----
@@ -351,51 +671,134 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const stepOfTime = (when: string | undefined): number => {
     if (when === undefined || visits === undefined) return lastDone;
     const time = Date.parse(when);
-    const hit = visits.reduce((found, one) => (Date.parse(one.since) <= time ? one.step : found), -1);
+    const hit = visits.reduce(
+      (found, one) => (Date.parse(one.since) <= time ? one.step : found),
+      -1,
+    );
     return hit < 0 ? 0 : Math.min(hit, lastDone);
   };
-  const groupTime = (group: WorkGroup) => group.tasks.reduce<string | undefined>((latest, one) => (one.changedAt !== undefined && (latest === undefined || one.changedAt > latest) ? one.changedAt : latest), undefined);
+  const groupTime = (group: WorkGroup) =>
+    group.tasks.reduce<string | undefined>(
+      (latest, one) =>
+        one.changedAt !== undefined && (latest === undefined || one.changedAt > latest)
+          ? one.changedAt
+          : latest,
+      undefined,
+    );
   const madeTime = (one: Made): string | undefined => {
     if (one.shape === "pr") return session.trail?.opened?.[one.pr.number];
     if (one.shape === "job") return one.child.lastTurnAt;
     if (one.shape === "row" && one.key.startsWith("walk:")) {
-      const shown = session.rows.find((row) => row.kind === "window" && `walk:${row.id}` === one.key);
+      const shown = session.rows.find(
+        (row) => row.kind === "window" && `walk:${row.id}` === one.key,
+      );
       return shown?.kind === "window" ? shown.ended : undefined;
     }
     return undefined;
   };
   // A pull request not yet merged and an issue not yet closed are work in hand, so they never stand under a finished step.
-  const stillOpen = (one: Made) => (one.shape === "pr" && one.pr.state !== "merged") || (one.shape === "issue" && one.issue.state === "open");
+  const stillOpen = (one: Made) =>
+    (one.shape === "pr" && one.pr.state !== "merged") ||
+    (one.shape === "issue" && one.issue.state === "open");
   // A group of a plan being edited or drafted draws its own issue and that issue's pull requests under its title, and a Job's card, a placeholder or the Job it was handed to,
   // carries its group's issue as a chip until the group is done, so Open leaves them out: each is drawn once. A shut row of an approved plan draws no issue, so Open keeps one
   // whose group is that, finished, or none.
   const handed = new Set(childrenOf(sessions, session).map((one) => one.group));
-  const drawnByGroup = new Set(groups.filter((group) => (editing && !handed.has(group.id)) || ((group.ownJob === true || handed.has(group.id)) && steps.get(group.id) !== "done")).map((group) => group.id));
-  const openMade = made.filter((one) => stillOpen(one) && !(one.group !== undefined && drawnByGroup.has(one.group)));
-  const keptBlock = kept.length === 0 ? null : <LaterBlock later={kept} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />;
-  type Done = { time: string | undefined; group: (typeof finished)[number] } | { time: string | undefined; made: Made };
+  const drawnByGroup = new Set(
+    groups
+      .filter(
+        (group) =>
+          (editing && !handed.has(group.id)) ||
+          ((group.ownJob === true || handed.has(group.id)) && steps.get(group.id) !== "done"),
+      )
+      .map((group) => group.id),
+  );
+  const openMade = made.filter(
+    (one) => stillOpen(one) && !(one.group !== undefined && drawnByGroup.has(one.group)),
+  );
+  const keptBlock =
+    kept.length === 0 ? null : (
+      <LaterBlock
+        later={kept}
+        issues={[]}
+        manifestId={manifestId}
+        onRemind={(sentence) => void remindLater(draft, id, sentence)}
+        onConfirm={(one) => draft?.confirmLater?.(id, one.id)}
+        onDrop={(one) => draft?.dropLater?.(id, one.id, true)}
+      />
+    );
+  type Done =
+    | {
+        time: string | undefined;
+        group: (typeof finished)[number];
+      }
+    | {
+        time: string | undefined;
+        made: Made;
+      };
   const finishedThings: Done[] = [
-    ...finished.map((group): Done => ({ time: groupTime(group), group })),
-    ...made.filter((one) => !underGroup(one) && !stillOpen(one)).map((one): Done => ({ time: madeTime(one), made: one })),
+    ...finished.map(
+      (group): Done => ({
+        time: groupTime(group),
+        group,
+      }),
+    ),
+    ...made
+      .filter((one) => !underGroup(one) && !stillOpen(one))
+      .map(
+        (one): Done => ({
+          time: madeTime(one),
+          made: one,
+        }),
+      ),
   ];
   const doneIn = (step: number): Done[] =>
-    finishedThings.filter((one) => stepOfTime(one.time) === step).sort((a, b) => (a.time === undefined || b.time === undefined ? 0 : a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+    finishedThings
+      .filter((one) => stepOfTime(one.time) === step)
+      .sort((a, b) =>
+        a.time === undefined || b.time === undefined
+          ? 0
+          : a.time < b.time
+            ? -1
+            : a.time > b.time
+              ? 1
+              : 0,
+      );
   const underDone = (list: Done[]) => {
     const rows: ReactNode[] = [];
     let run: Made[] = [];
     const flush = () => {
-      if (run.length > 0) rows.push(<li key={`made-${run[0]!.key}`} className="sv-beat sv-beat--made"><MadeList session={session} list={run} newest="last" /></li>);
+      if (run.length > 0)
+        rows.push(
+          <li key={`made-${run[0]!.key}`} className="sv-beat sv-beat--made">
+            <MadeList session={session} list={run} newest="last" />
+          </li>,
+        );
       run = [];
     };
     for (const one of list) {
       if ("made" in one) run.push(one.made);
       else {
         flush();
-        rows.push(<DoneGroup key={one.group.id} group={one.group} open={all} session={session} onOpenSession={onOpenSession} />);
+        rows.push(
+          <DoneGroup
+            key={one.group.id}
+            group={one.group}
+            open={all}
+            session={session}
+            onOpenSession={onOpenSession}
+          />,
+        );
       }
     }
     flush();
-    return <div className="sv-nav" onKeyDown={arrowsIn}><ol className="sv-beats" aria-label="Done">{rows}</ol></div>;
+    return (
+      <div className="sv-nav" onKeyDown={arrowsIn}>
+        <ol className="sv-beats" aria-label="Done">
+          {rows}
+        </ol>
+      </div>
+    );
   };
 
   // What Open held about landing: the route's outputs still to be made and the follow-ups not yet settled. It stands under the last step. The follow-ups stand here only
@@ -411,14 +814,24 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
             ))}
           </ol>
         )}
-        {keptHere.length === 0 ? null : <LaterBlock later={keptHere} issues={[]} manifestId={manifestId} onRemind={(sentence) => void remindLater(draft, id, sentence)} onConfirm={(one) => draft?.confirmLater?.(id, one.id)} onDrop={(one) => draft?.dropLater?.(id, one.id, true)} />}
+        {keptHere.length === 0 ? null : (
+          <LaterBlock
+            later={keptHere}
+            issues={[]}
+            manifestId={manifestId}
+            onRemind={(sentence) => void remindLater(draft, id, sentence)}
+            onConfirm={(one) => draft?.confirmLater?.(id, one.id)}
+            onDrop={(one) => draft?.dropLater?.(id, one.id, true)}
+          />
+        )}
       </div>
     );
 
   // A step the person skipped stays on the spine, muted, with its Undo. Skip is offered on the current step and the ones to come, never on the last,
   // which delivers, nor on one finished.
   const skippedSteps = new Set(work.workflow?.skipped ?? []);
-  const skipOf = (i: number, skipped: boolean) => (acts?.skip === undefined ? undefined : () => acts.skip?.(id, i, !skipped));
+  const skipOf = (i: number, skipped: boolean) =>
+    acts?.skip === undefined ? undefined : () => acts.skip?.(id, i, !skipped);
   // Jump here sits left of Skip on a step to come, the last included, where an empty slot holds Skip's place so the icons line up down the spine.
   const jumpOf = (i: number) => (acts?.jump === undefined ? undefined : () => acts.jump?.(id, i));
   const skippedMark = (
@@ -439,10 +852,25 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
         // Fleet moves the current step past a skipped one; were it ever at one, it is drawn as current, with its Undo.
         if (isSkipped && state !== "now") {
           return (
-            <SvPanel key={`${i}-${name}`} label={name} area={state === "done" ? "step-done" : "step-next"} place="side" marker={skippedMark} skipped acts={press === undefined ? undefined : <SkipStep skipped onPress={press} />} menu={press === undefined ? undefined : skipMenu(true, press)} />
+            <SvPanel
+              key={`${i}-${name}`}
+              label={name}
+              area={state === "done" ? "step-done" : "step-next"}
+              place="side"
+              marker={skippedMark}
+              skipped
+              acts={press === undefined ? undefined : <SkipStep skipped onPress={press} />}
+              menu={press === undefined ? undefined : skipMenu(true, press)}
+            />
           );
         }
-        const skipping = press === undefined || state === "done" ? undefined : { acts: <SkipStep skipped={isSkipped} onPress={press} />, menu: skipMenu(isSkipped, press) };
+        const skipping =
+          press === undefined || state === "done"
+            ? undefined
+            : {
+                acts: <SkipStep skipped={isSkipped} onPress={press} />,
+                menu: skipMenu(isSkipped, press),
+              };
         if (state === "done") {
           const list = doneIn(i);
           const open = own[i] ?? doneFold.open;
@@ -455,7 +883,23 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
             </Tooltip>
           );
           return (
-            <SvPanel key={`${i}-${name}`} label={name} area="step-done" place="side" marker={marker} fold={{ open, toggle: () => setOwn((was) => ({ ...was, [i]: !open })), current: false }} keycap={bandKeyFor("done")}>
+            <SvPanel
+              key={`${i}-${name}`}
+              label={name}
+              area="step-done"
+              place="side"
+              marker={marker}
+              fold={{
+                open,
+                toggle: () =>
+                  setOwn((was) => ({
+                    ...was,
+                    [i]: !open,
+                  })),
+                current: false,
+              }}
+              keycap={bandKeyFor("done")}
+            >
               {list.length === 0 ? undefined : underDone(list)}
             </SvPanel>
           );
@@ -464,13 +908,38 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           // Before the first step is reached nothing is finished under another step, so what is finished stands here.
           const early = lastDone < 0 ? finishedThings : [];
           return (
-            <SvPanel key={`${i}-${name}`} label={name} area="step-now" place="side" state={nowState} acts={<>{nowActs}{skipping?.acts}</>} menu={skipping?.menu} skipped={isSkipped} fold={nowFold} keycap={bandKeyFor("now")}>
+            <SvPanel
+              key={`${i}-${name}`}
+              label={name}
+              area="step-now"
+              place="side"
+              state={nowState}
+              acts={
+                <>
+                  {nowActs}
+                  {skipping?.acts}
+                </>
+              }
+              menu={skipping?.menu}
+              skipped={isSkipped}
+              fold={nowFold}
+              keycap={bandKeyFor("now")}
+            >
               <>
                 {early.length === 0 ? null : underDone(early)}
                 {nowBody}
                 {upcoming.length === 0 ? null : (
                   <div className="sv-nav" onKeyDown={arrowsIn}>
-                    <FlightRows calm all={all} groups={upcoming} workingGroup={undefined} now={undefined} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />
+                    <FlightRows
+                      calm
+                      all={all}
+                      groups={upcoming}
+                      workingGroup={undefined}
+                      now={undefined}
+                      session={session}
+                      manifestId={manifestId}
+                      onOpenSession={onOpenSession}
+                    />
                   </div>
                 )}
                 {/* Open work stands here only while the pinned Open group is hidden, so it is drawn once. */}
@@ -489,9 +958,26 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
           );
         }
         const jump = jumpOf(i);
-        const nextActs = jump === undefined ? skipping?.acts : <><JumpHere onPress={jump} />{skipping?.acts ?? <span className="sv-panel__slot" aria-hidden="true" />}</>;
+        const nextActs =
+          jump === undefined ? (
+            skipping?.acts
+          ) : (
+            <>
+              <JumpHere onPress={jump} />
+              {skipping?.acts ?? <span className="sv-panel__slot" aria-hidden="true" />}
+            </>
+          );
         return (
-          <SvPanel key={`${i}-${name}`} label={name} area="step-next" place="side" acts={nextActs} menu={skipping?.menu} fold={nextFold} keycap={bandKeyFor("next")}>
+          <SvPanel
+            key={`${i}-${name}`}
+            label={name}
+            area="step-next"
+            place="side"
+            acts={nextActs}
+            menu={skipping?.menu}
+            fold={nextFold}
+            keycap={bandKeyFor("next")}
+          >
             {!last && !(WALK_STEP.test(name) && walks.length === 0) ? undefined : (
               <>
                 {WALK_STEP.test(name) && walks.length === 0 ? <WalkToCome /> : null}
@@ -505,7 +991,17 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   const pinned =
     !stepped || !openShown || (openMade.length === 0 && kept.length === 0) ? null : (
       <OpenGroupMenu>
-        <SvPanel label="Open" area="step-next" place="side" fold={{ open: openOpen, toggle: () => setOpenOpen((was) => !was), current: false }} keycap={bandKeyFor("next")}>
+        <SvPanel
+          label="Open"
+          area="step-next"
+          place="side"
+          fold={{
+            open: openOpen,
+            toggle: () => setOpenOpen((was) => !was),
+            current: false,
+          }}
+          keycap={bandKeyFor("next")}
+        >
           <div className="sv-nav" onKeyDown={arrowsIn}>
             <MadeList session={session} list={openMade} newest="last" />
             {keptBlock}
@@ -526,7 +1022,15 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
   return (
     <Spine session={session}>
       {head === null ? null : <div className="sv-story__head">{head}</div>}
-      {brief === undefined ? null : <BriefZone key={session.id} session={session} work={work} text={brief} onOpenSession={onOpenSession} />}
+      {brief === undefined ? null : (
+        <BriefZone
+          key={session.id}
+          session={session}
+          work={work}
+          text={brief}
+          onOpenSession={onOpenSession}
+        />
+      )}
       {stepped ? stepZones : drawn}
       {pinned}
     </Spine>
@@ -537,7 +1041,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
 export function placeZone(zone: HTMLElement, behavior: ScrollBehavior = "auto"): boolean {
   const column = zone.closest<HTMLElement>(".sv-spine");
   if (column === null) return false;
-  column.scrollTo({ top: Math.max(0, zone.offsetTop - parseFloat(getComputedStyle(column).paddingTop)), behavior });
+  column.scrollTo({
+    top: Math.max(0, zone.offsetTop - parseFloat(getComputedStyle(column).paddingTop)),
+    behavior,
+  });
   return true;
 }
 
@@ -545,9 +1052,13 @@ export function placeZone(zone: HTMLElement, behavior: ScrollBehavior = "auto"):
 function Spine({ session, children }: { session: Session; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const now = box.current?.querySelector<HTMLElement>('[data-area="now"], [data-area="step-now"]');
+    const now = box.current?.querySelector<HTMLElement>(
+      '[data-area="now"], [data-area="step-now"]',
+    );
     if (now !== null && now !== undefined) placeZone(now);
-  }, [session.id]);
+  }, [
+    session.id,
+  ]);
   return (
     <div ref={box} className="sv-spine">
       {children}

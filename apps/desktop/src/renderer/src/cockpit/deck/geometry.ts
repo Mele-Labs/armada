@@ -8,7 +8,12 @@ import { CAM, SLAB } from "./layout";
  * to the wrong one, so a drone flies with the foot of that box clear of every slab and ground beneath it (`FOOT`), plus a margin for a
  * slab that rises when something touches it.
  */
-export const BOX = { x: -68, y: -58, w: 136, h: 96 };
+export const BOX = {
+  x: -68,
+  y: -58,
+  w: 136,
+  h: 96,
+};
 export const FOOT = 0.81 * (BOX.y + BOX.h);
 export const MARGIN = 10;
 /** The least height a pull request flies at: its picture clear of every slab. */
@@ -20,13 +25,30 @@ export const COS = Math.cos((CAM.wide * Math.PI) / 180);
 export function bracketsOf(w: number, top: number, bottom: number): string {
   const leg = 9;
   return [
-    [-1, top, 1],
-    [1, top, 1],
-    [1, bottom, -1],
-    [-1, bottom, -1],
+    [
+      -1,
+      top,
+      1,
+    ],
+    [
+      1,
+      top,
+      1,
+    ],
+    [
+      1,
+      bottom,
+      -1,
+    ],
+    [
+      -1,
+      bottom,
+      -1,
+    ],
   ]
     .map(([sx, y, sy]) => `M${sx! * w},${y! + sy! * leg} V${y} H${sx! * (w - leg)}`)
     .join(" ");
 }
 
-export const short = (title: string, room: number) => (title.length > room ? `${title.slice(0, room - 1)}…` : title);
+export const short = (title: string, room: number) =>
+  title.length > room ? `${title.slice(0, room - 1)}…` : title;

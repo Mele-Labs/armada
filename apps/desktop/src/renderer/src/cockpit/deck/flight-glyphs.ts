@@ -179,7 +179,8 @@ export const GLYPHS: Readonly<Record<string, LucideIcon>> = {
 };
 
 /** The glyph by name, or the fallback's where the name is not one Bridge draws (a file written by hand). */
-export const glyphOf = (name: string | undefined, fallback: string): LucideIcon => (name === undefined ? undefined : GLYPHS[name]) ?? GLYPHS[fallback] ?? Zap;
+export const glyphOf = (name: string | undefined, fallback: string): LucideIcon =>
+  (name === undefined ? undefined : GLYPHS[name]) ?? GLYPHS[fallback] ?? Zap;
 
 /** Every name, in the order the picker lists them. */
 export const GLYPH_NAMES: readonly string[] = Object.keys(GLYPHS);

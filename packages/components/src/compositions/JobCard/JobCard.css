@@ -28,21 +28,70 @@
   cursor: pointer;
 }
 
-.armada-job-card[data-tone="ask"] { --hue: var(--status-awaiting-review); }
-.armada-job-card[data-tone="wait"] { --hue: var(--status-handed-in); }
-.armada-job-card[data-tone="live"] { --hue: var(--status-running); }
+.armada-job-card[data-tone="ask"] {
+  --hue: var(--status-awaiting-review);
+}
+.armada-job-card[data-tone="wait"] {
+  --hue: var(--status-handed-in);
+}
+.armada-job-card[data-tone="live"] {
+  --hue: var(--status-running);
+}
 
-.armada-job-card:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
-.armada-job-card:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-job-card:hover {
+  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
+}
+.armada-job-card:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
 /* What is open is lit in the accent round the frame; the state keeps its edge. */
-.armada-job-card[data-selected] { box-shadow: inset 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
+.armada-job-card[data-selected] {
+  box-shadow:
+    inset 0 0 0 var(--border-width) var(--accent),
+    var(--shadow-card);
+}
 
-.armada-job-card__kind { grid-column: 1; grid-row: 1 / 3; display: inline-flex; align-self: center; color: var(--fg-muted); }
-.armada-job-card__title { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
-.armada-job-card[data-tone="calm"] .armada-job-card__title { font-weight: var(--weight-medium); }
-.armada-job-card__mark { grid-column: 3; grid-row: 1; display: inline-flex; justify-self: end; color: var(--hue); }
-.armada-job-card[data-tone="calm"] .armada-job-card__mark { color: var(--fg-muted); }
-.armada-job-card__says { grid-column: 2; grid-row: 2; min-width: 0; min-height: var(--leading-xs); overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.armada-job-card__kind {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  display: inline-flex;
+  align-self: center;
+  color: var(--fg-muted);
+}
+.armada-job-card__title {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--weight-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.armada-job-card[data-tone="calm"] .armada-job-card__title {
+  font-weight: var(--weight-medium);
+}
+.armada-job-card__mark {
+  grid-column: 3;
+  grid-row: 1;
+  display: inline-flex;
+  justify-self: end;
+  color: var(--hue);
+}
+.armada-job-card[data-tone="calm"] .armada-job-card__mark {
+  color: var(--fg-muted);
+}
+.armada-job-card__says {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: var(--leading-xs);
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* The issue it works, ahead of the line: the ticket glyph and its key, as compact as a pull request chip. */
 .armada-job-card__issue {
   display: inline-flex;
@@ -57,13 +106,40 @@
   font: inherit;
   vertical-align: middle;
 }
-.armada-job-card__issue > code { font-family: var(--font-mono); font-size: var(--text-2xs); }
-.armada-job-card__issue[data-closed] { color: var(--fg-muted); }
-button.armada-job-card__issue { cursor: pointer; }
-button.armada-job-card__issue:hover { border-color: var(--accent); }
-button.armada-job-card__issue:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.armada-job-card__at { grid-column: 3; grid-row: 2; justify-self: end; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.armada-job-card__repository { grid-column: 1 / -1; grid-row: 3; display: flex; min-width: 0; margin-top: var(--space-1); }
+.armada-job-card__issue > code {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+.armada-job-card__issue[data-closed] {
+  color: var(--fg-muted);
+}
+button.armada-job-card__issue {
+  cursor: pointer;
+}
+button.armada-job-card__issue:hover {
+  border-color: var(--accent);
+}
+button.armada-job-card__issue:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.armada-job-card__at {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: end;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.armada-job-card__repository {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  min-width: 0;
+  margin-top: var(--space-1);
+}
 
 /* Not started yet: the same card with the outline dashed in the quiet border and no fill, the bot glyph muted, as a pull request not opened yet is. It is read, never pressed. */
 .armada-job-card[data-placeholder] {
@@ -73,5 +149,9 @@ button.armada-job-card__issue:focus-visible { outline: var(--focus-ring); outlin
   box-shadow: none;
   cursor: default;
 }
-.armada-job-card[data-placeholder]:hover { background: none; }
-.armada-job-card[data-placeholder] .armada-job-card__kind { color: var(--fg-subtle); }
+.armada-job-card[data-placeholder]:hover {
+  background: none;
+}
+.armada-job-card[data-placeholder] .armada-job-card__kind {
+  color: var(--fg-subtle);
+}

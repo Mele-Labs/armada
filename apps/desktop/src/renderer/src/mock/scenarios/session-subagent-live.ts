@@ -13,13 +13,41 @@ const more: Session[] = [
     id: "s13",
     terminal: true,
     title: "Read the CI history",
-    turn: { state: "idle" },
-    work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
+    turn: {
+      state: "idle",
+    },
+    work: {
+      workflow: {
+        name: "Feature",
+        steps: [
+          "Plan the change",
+          "Implement",
+          "Review the change",
+        ],
+        at: 1,
+      },
+    },
     rows: [],
     attachments: [
-      { kind: "branch", name: "fix/ci-history", slot: 2 },
-      { kind: "subagent", id: "live1", task: "Read the CI history of store_flaky", state: "running", agentType: "general-purpose" },
-      { kind: "subagent", id: "done1", task: "Find other tests that read the wall clock", state: "done", agentType: "rust-engineer" },
+      {
+        kind: "branch",
+        name: "fix/ci-history",
+        slot: 2,
+      },
+      {
+        kind: "subagent",
+        id: "live1",
+        task: "Read the CI history of store_flaky",
+        state: "running",
+        agentType: "general-purpose",
+      },
+      {
+        kind: "subagent",
+        id: "done1",
+        task: "Find other tests that read the wall clock",
+        state: "done",
+        agentType: "rust-engineer",
+      },
     ],
   },
 ];
@@ -28,5 +56,7 @@ export const s204SessionSubagentLive: Scenario = {
   ...s200Sessions,
   name: "session-subagent-live",
   says: "A running subagent's own thread, drawn live beside its Session, and a finished one's ending on its report",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, more) },
+  draft: {
+    sessions: (board) => s200Sessions.draft!.sessions!(board, more),
+  },
 };

@@ -114,6 +114,9 @@ export function useStillWaiting(pending: boolean, after = STILL_WAITING_AFTER_MS
     if (!pending) return;
     const timer = setTimeout(() => setLong(true), after);
     return () => clearTimeout(timer);
-  }, [pending, after]);
+  }, [
+    pending,
+    after,
+  ]);
   return pending && long;
 }

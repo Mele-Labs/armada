@@ -16,17 +16,33 @@ export type ReachFolderListProps = {
 };
 
 const STATE = {
-  allowed: { Mark: Folder, said: "Always allowed" },
-  blocked: { Mark: Ban, said: "Always blocked" },
+  allowed: {
+    Mark: Folder,
+    said: "Always allowed",
+  },
+  blocked: {
+    Mark: Ban,
+    said: "Always blocked",
+  },
 } as const;
 
 export function ReachFolderList({ allowed, blocked, onRemove, disabled }: ReachFolderListProps) {
   const rows = [
-    ...blocked.map((folder) => ({ folder, state: "blocked" as const })),
-    ...allowed.map((folder) => ({ folder, state: "allowed" as const })),
+    ...blocked.map((folder) => ({
+      folder,
+      state: "blocked" as const,
+    })),
+    ...allowed.map((folder) => ({
+      folder,
+      state: "allowed" as const,
+    })),
   ];
   if (rows.length === 0) {
-    return <p className="armada-reach-folders__none">No folders. Always allow or Always block on a job's card adds one.</p>;
+    return (
+      <p className="armada-reach-folders__none">
+        No folders. Always allow or Always block on a job's card adds one.
+      </p>
+    );
   }
   return (
     <ul className="armada-reach-folders" aria-label="Folders jobs reach">
@@ -40,7 +56,14 @@ export function ReachFolderList({ allowed, blocked, onRemove, disabled }: ReachF
               </span>
             </Tooltip>
             <code className="armada-reach-folders__path">{folder}</code>
-            <Button size="sm" variant="secondary" ground="card" disabled={disabled} aria-label={`Remove ${folder}`} onClick={() => onRemove(folder)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              ground="card"
+              disabled={disabled}
+              aria-label={`Remove ${folder}`}
+              onClick={() => onRemove(folder)}
+            >
               Remove
             </Button>
           </li>

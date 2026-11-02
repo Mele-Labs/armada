@@ -13,16 +13,24 @@ import { Toast } from "@armada/components";
 /** How long a copy confirmation stands. Long enough to read, short enough to ignore. */
 const TOAST_MS = 2400;
 
-export function useCopied(): [string | null, (value: string) => void] {
+export function useCopied(): [
+  string | null,
+  (value: string) => void,
+] {
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     if (copied === null) return undefined;
     const clear = setTimeout(() => setCopied(null), TOAST_MS);
     return () => clearTimeout(clear);
-  }, [copied]);
+  }, [
+    copied,
+  ]);
 
-  return [copied, setCopied];
+  return [
+    copied,
+    setCopied,
+  ];
 }
 
 /**
@@ -43,16 +51,24 @@ export function CopiedToast({ copied }: { copied: string | null }) {
  * each is its own sentence — `renderer/src/opening.ts` writes them — and
  * "`.armada/briefs/…` is on the clipboard" is not one of them.
  */
-export function useSaid(): [string | null, (sentence: string) => void] {
+export function useSaid(): [
+  string | null,
+  (sentence: string) => void,
+] {
   const [said, setSaid] = useState<string | null>(null);
 
   useEffect(() => {
     if (said === null) return undefined;
     const clear = setTimeout(() => setSaid(null), TOAST_MS);
     return () => clearTimeout(clear);
-  }, [said]);
+  }, [
+    said,
+  ]);
 
-  return [said, setSaid];
+  return [
+    said,
+    setSaid,
+  ];
 }
 
 /**

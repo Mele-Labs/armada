@@ -4,10 +4,12 @@
 
 export function same(a: unknown, b: unknown, depth = 0): boolean {
   if (Object.is(a, b)) return true;
-  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null || depth > 40) return false;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null || depth > 40)
+    return false;
   if (a instanceof Map) {
     if (!(b instanceof Map) || a.size !== b.size) return false;
-    for (const [key, value] of a) if (!b.has(key) || !same(value, b.get(key), depth + 1)) return false;
+    for (const [key, value] of a)
+      if (!b.has(key) || !same(value, b.get(key), depth + 1)) return false;
     return true;
   }
   if (a instanceof Set) {
@@ -16,8 +18,16 @@ export function same(a: unknown, b: unknown, depth = 0): boolean {
     return true;
   }
   if (Array.isArray(a) !== Array.isArray(b)) return false;
-  const [ka, kb] = [Object.keys(a), Object.keys(b)];
+  const [ka, kb] = [
+    Object.keys(a),
+    Object.keys(b),
+  ];
   if (ka.length !== kb.length) return false;
-  for (const key of ka) if (key !== "now" && !same((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key], depth + 1)) return false;
+  for (const key of ka)
+    if (
+      key !== "now" &&
+      !same((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key], depth + 1)
+    )
+      return false;
   return true;
 }

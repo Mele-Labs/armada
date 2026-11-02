@@ -4,7 +4,16 @@
 import type { IssueList, IssueRead, MergeLines, PullRequestState } from "@armada/protocol";
 
 import type { IssuesApi } from "../../../../shared/api/issues";
-import type { IssuesSource, QueryToSave, Read, SavedQuery, Ticket, TicketRead, Tracker, WrittenQuery } from "../../issues-tab/model";
+import type {
+  IssuesSource,
+  QueryToSave,
+  Read,
+  SavedQuery,
+  Ticket,
+  TicketRead,
+  Tracker,
+  WrittenQuery,
+} from "../../issues-tab/model";
 import type { Slice } from "../fake-context";
 import { unanswered } from "../moment";
 import type { ReviewSeed } from "../review-seed";
@@ -16,7 +25,12 @@ const forge = (number: number): string => `#${number}`;
 
 function listed(manifestId: string): IssueList {
   const own = REPOSITORY_ISSUES[manifestId];
-  if (own !== undefined) return { manifest_id: manifestId, fetched_at: "2026-10-11T12:00:00Z", issues: own };
+  if (own !== undefined)
+    return {
+      manifest_id: manifestId,
+      fetched_at: "2026-10-11T12:00:00Z",
+      issues: own,
+    };
   return {
     manifest_id: manifestId,
     fetched_at: "2026-10-11T12:00:00Z",
@@ -25,7 +39,9 @@ function listed(manifestId: string): IssueList {
         reference: forge(412),
         title: "The log reader drops the last line",
         url: "https://forge.invalid/storefront/issues/412",
-        labels: ["bug"],
+        labels: [
+          "bug",
+        ],
         assignees: [],
         updated_at: "2026-10-11T11:40:00Z",
         excerpt: "A file that ends without a newline loses its last line in the viewer.",
@@ -39,7 +55,9 @@ function listed(manifestId: string): IssueList {
         title: "Checkout button stays disabled after a failed card",
         url: "https://forge.invalid/storefront/issues/398",
         labels: [],
-        assignees: ["nick"],
+        assignees: [
+          "nick",
+        ],
         updated_at: "2026-10-10T09:12:00Z",
         excerpt: "",
         linked_pull_request: true,
@@ -51,7 +69,9 @@ function listed(manifestId: string): IssueList {
         reference: forge(405),
         title: "Coupon field accepts an expired code",
         url: "https://forge.invalid/storefront/issues/405",
-        labels: ["bug"],
+        labels: [
+          "bug",
+        ],
         assignees: [],
         updated_at: "2026-10-10T16:20:00Z",
         excerpt: "",
@@ -78,24 +98,90 @@ function listed(manifestId: string): IssueList {
 }
 
 /** An open pull request the merge lines hold, as `get_pull_request` states it. */
-function openOn(manifestId: string, number: number, lines: MergeLines | null): PullRequestState | undefined {
-  const one = (lines?.lines ?? []).flatMap((line) => line.hub?.pull_requests ?? []).find((pr) => pr.number === number);
+function openOn(
+  manifestId: string,
+  number: number,
+  lines: MergeLines | null,
+): PullRequestState | undefined {
+  const one = (lines?.lines ?? [])
+    .flatMap((line) => line.hub?.pull_requests ?? [])
+    .find((pr) => pr.number === number);
   if (one === undefined) return undefined;
-  const checks: PullRequestState["checks"] = one.ci === "failed" ? { state: "failed", failing: [] } : one.ci === "passed" ? { state: "passed" } : { state: "pending" };
-  return { manifest_id: manifestId, number, state: "open", auto_merge: false, ...(one.queue === undefined ? {} : { queued: true }), checks, title: one.title, branch: one.branch, address: one.url };
+  const checks: PullRequestState["checks"] =
+    one.ci === "failed"
+      ? {
+          state: "failed",
+          failing: [],
+        }
+      : one.ci === "passed"
+        ? {
+            state: "passed",
+          }
+        : {
+            state: "pending",
+          };
+  return {
+    manifest_id: manifestId,
+    number,
+    state: "open",
+    auto_merge: false,
+    ...(one.queue === undefined
+      ? {}
+      : {
+          queued: true,
+        }),
+    checks,
+    title: one.title,
+    branch: one.branch,
+    address: one.url,
+  };
 }
 
 /** An open pull request the scenario's review forge holds, as `get_pull_request` states it: a link pasted before Reviews has read its lists. */
-function reviewed(seed: ReviewSeed | undefined, manifestId: string, number: number): PullRequestState | undefined {
+function reviewed(
+  seed: ReviewSeed | undefined,
+  manifestId: string,
+  number: number,
+): PullRequestState | undefined {
   const one = seed?.prs.find((pr) => pr.number === number);
   if (one === undefined) return undefined;
-  return { manifest_id: manifestId, number, state: "open", auto_merge: false, checks: { state: one.checks === "failed" ? "failed" : one.checks === "passed" ? "passed" : "pending", ...(one.checks === "failed" ? { failing: [] } : {}) } as PullRequestState["checks"], title: one.title, branch: one.branch, address: one.address };
+  return {
+    manifest_id: manifestId,
+    number,
+    state: "open",
+    auto_merge: false,
+    checks: {
+      state: one.checks === "failed" ? "failed" : one.checks === "passed" ? "passed" : "pending",
+      ...(one.checks === "failed"
+        ? {
+            failing: [],
+          }
+        : {}),
+    } as PullRequestState["checks"],
+    title: one.title,
+    branch: one.branch,
+    address: one.address,
+  };
 }
 
 function issueRead(manifestId: string, number: number): IssueRead | undefined {
   const one = issueOfNumber(manifestId, number);
   if (one === undefined) return undefined;
-  return { reference: one.reference, title: one.title, url: one.url, state: "open", body: one.excerpt, author: "", opened_at: one.updated_at, labels: one.labels, assignees: one.assignees, comments: [], linked_pull_requests: [], fields: [], holders: [] };
+  return {
+    reference: one.reference,
+    title: one.title,
+    url: one.url,
+    state: "open",
+    body: one.excerpt,
+    author: "",
+    opened_at: one.updated_at,
+    labels: one.labels,
+    assignees: one.assignees,
+    comments: [],
+    linked_pull_requests: [],
+    fields: [],
+    holders: [],
+  };
 }
 
 /** An issue the side panel's fixtures hold, a tracker's key among them, as Fleet would answer it. */
@@ -110,10 +196,21 @@ function panelIssue(reference: string): IssueRead | undefined {
     body: one.body,
     author: one.author,
     opened_at: one.openedAt,
-    labels: [...one.labels],
-    assignees: [...one.assignees],
-    comments: [...one.comments],
-    linked_pull_requests: one.linked.map((pr) => ({ number: pr.number, title: pr.title, url: pr.address, state: pr.state })),
+    labels: [
+      ...one.labels,
+    ],
+    assignees: [
+      ...one.assignees,
+    ],
+    comments: [
+      ...one.comments,
+    ],
+    linked_pull_requests: one.linked.map((pr) => ({
+      number: pr.number,
+      title: pr.title,
+      url: pr.address,
+      state: pr.state,
+    })),
     fields: [],
     holders: [],
   };
@@ -123,27 +220,79 @@ export const issues: Slice<IssuesApi, Record<string, never>> = {
   name: "issues",
   state: {},
   api: (scenario, fleet) => ({
-    listIssues: async (manifestId) => ({ ok: true, value: listed(manifestId) }),
+    listIssues: async (manifestId) => ({
+      ok: true,
+      value: listed(manifestId),
+    }),
     // `#` reads these through `mock/numbered.ts` here; the side panel reads the same fixtures, as a Fleet's answers.
     getIssue: async (manifestId, reference) => {
-      const one = issueRead(manifestId, Number(reference.replace(/^#/, ""))) ?? panelIssue(reference.replace(/^#/, ""));
-      return one === undefined ? { ok: false, outcome: unanswered("/issues") } : { ok: true, value: one };
+      const one =
+        issueRead(manifestId, Number(reference.replace(/^#/, ""))) ??
+        panelIssue(reference.replace(/^#/, ""));
+      return one === undefined
+        ? {
+            ok: false,
+            outcome: unanswered("/issues"),
+          }
+        : {
+            ok: true,
+            value: one,
+          };
     },
     // The tab's tracker is the scenario's own (`issuesTabSource`), so the routes under it have nothing here to answer.
-    searchIssues: async () => ({ ok: false, outcome: unanswered("/issue_queries/search") }),
-    listIssueQueries: async () => ({ ok: false, outcome: unanswered("/issue_queries") }),
-    writeIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries/write") }),
-    saveIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries") }),
-    forgetIssueQuery: async () => ({ ok: false, outcome: unanswered("/issue_queries/forget") }),
-    installIssueTool: async () => ({ ok: false, outcome: unanswered("/issue_queries/install_tool") }),
+    searchIssues: async () => ({
+      ok: false,
+      outcome: unanswered("/issue_queries/search"),
+    }),
+    listIssueQueries: async () => ({
+      ok: false,
+      outcome: unanswered("/issue_queries"),
+    }),
+    writeIssueQuery: async () => ({
+      ok: false,
+      outcome: unanswered("/issue_queries/write"),
+    }),
+    saveIssueQuery: async () => ({
+      ok: false,
+      outcome: unanswered("/issue_queries"),
+    }),
+    forgetIssueQuery: async () => ({
+      ok: false,
+      outcome: unanswered("/issue_queries/forget"),
+    }),
+    installIssueTool: async () => ({
+      ok: false,
+      outcome: unanswered("/issue_queries/install_tool"),
+    }),
     getPullRequest: async (manifestId, number) => {
-      const one = openOn(manifestId, number, fleet.state().mergeLines) ?? finishedPullRequest(manifestId, number) ?? reviewed(scenario.draft?.prReview, manifestId, number);
-      return one === undefined ? { ok: false, outcome: unanswered("/pull_requests") } : { ok: true, value: one };
+      const one =
+        openOn(manifestId, number, fleet.state().mergeLines) ??
+        finishedPullRequest(manifestId, number) ??
+        reviewed(scenario.draft?.prReview, manifestId, number);
+      return one === undefined
+        ? {
+            ok: false,
+            outcome: unanswered("/pull_requests"),
+          }
+        : {
+            ok: true,
+            value: one,
+          };
     },
     // A forge that has not moved since the line was read: the refresh answers what a read would, and nothing changes.
     refreshPullRequest: async (manifestId, number) => {
-      const one = openOn(manifestId, number, fleet.state().mergeLines) ?? finishedPullRequest(manifestId, number);
-      return one === undefined ? { ok: false, outcome: unanswered("/pull_requests/refresh") } : { ok: true, value: one };
+      const one =
+        openOn(manifestId, number, fleet.state().mergeLines) ??
+        finishedPullRequest(manifestId, number);
+      return one === undefined
+        ? {
+            ok: false,
+            outcome: unanswered("/pull_requests/refresh"),
+          }
+        : {
+            ok: true,
+            value: one,
+          };
     },
   }),
 };
@@ -165,16 +314,25 @@ export type IssuesSeedRepository = {
   /** What the model writes, whatever the words. */
   writes?: WrittenQuery;
   /** A program the tracker lacks: every search is refused naming it until an install succeeds, or `fails` says why it will not. */
-  lacks?: { tool: string; fails?: string };
+  lacks?: {
+    tool: string;
+    fails?: string;
+  };
   /** What Fleet never answers: the trackers' read (any repository holding it stalls the whole read) or this repository's searches, so the list stays in its pending state. */
   unanswered?: "tracker" | "run";
 };
 
 export type IssuesSeed = readonly IssuesSeedRepository[];
 
-const plain = (text: string) => text.toLowerCase().replace(/[\s_-]/g, "").replace(/s$/, "");
-const valuesOf = (ticket: Ticket, name: string): string[] => ticket.fields.find((one) => plain(one.name) === plain(name))?.values ?? [];
-const has = (values: readonly string[], wanted: string) => values.some((one) => one.toLowerCase() === wanted.toLowerCase());
+const plain = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[\s_-]/g, "")
+    .replace(/s$/, "");
+const valuesOf = (ticket: Ticket, name: string): string[] =>
+  ticket.fields.find((one) => plain(one.name) === plain(name))?.values ?? [];
+const has = (values: readonly string[], wanted: string) =>
+  values.some((one) => one.toLowerCase() === wanted.toLowerCase());
 const unquote = (text: string) => text.trim().replace(/^"(.*)"$/, "$1");
 
 /** GitHub's and a mod's `key:value` terms, quoted values whole. A bare word is looked for in the title. */
@@ -188,10 +346,16 @@ function byTerms(query: string, me: string): (ticket: Ticket) => boolean {
       const value = unquote(rest.join(":"));
       const holds = (() => {
         if (rest.length === 0) return ticket.title.toLowerCase().includes(term.toLowerCase());
-        if (key === "is") return value === "open" || value === "closed" ? ticket.state === value : true;
-        if (key === "no") return value === "assignee" || value === "owner" ? ticket.assignees.length === 0 : valuesOf(ticket, value).length === 0;
-        if (key === "assignee" || key === "owner") return has(ticket.assignees, value === "@me" ? me : value);
-        if (key === "author" || key === "reporter") return ticket.author?.toLowerCase() === value.toLowerCase();
+        if (key === "is")
+          return value === "open" || value === "closed" ? ticket.state === value : true;
+        if (key === "no")
+          return value === "assignee" || value === "owner"
+            ? ticket.assignees.length === 0
+            : valuesOf(ticket, value).length === 0;
+        if (key === "assignee" || key === "owner")
+          return has(ticket.assignees, value === "@me" ? me : value);
+        if (key === "author" || key === "reporter")
+          return ticket.author?.toLowerCase() === value.toLowerCase();
         return has(valuesOf(ticket, key), value);
       })();
       return negated ? !holds : holds;
@@ -205,15 +369,26 @@ function byJql(query: string, me: string): (ticket: Ticket) => boolean {
     clauses.every((clause) => {
       const one = /^\s*(\w+)\s*(!=|=|not in|in|is not|is)\s*(.+?)\s*$/i.exec(clause);
       if (one === null) return true;
-      const [, field, op, rawValue] = one as unknown as [string, string, string, string];
+      const [, field, op, rawValue] = one as unknown as [
+        string,
+        string,
+        string,
+        string,
+      ];
       const operator = op.toLowerCase();
       const name = field.toLowerCase();
-      if (name === "statuscategory") return (unquote(rawValue) === "Done") === (operator === "=") ? ticket.state === "closed" : ticket.state === "open";
-      if (name === "assignee" && /currentUser\(\)/i.test(rawValue)) return has(ticket.assignees, me) === (operator === "=");
+      if (name === "statuscategory")
+        return (unquote(rawValue) === "Done") === (operator === "=")
+          ? ticket.state === "closed"
+          : ticket.state === "open";
+      if (name === "assignee" && /currentUser\(\)/i.test(rawValue))
+        return has(ticket.assignees, me) === (operator === "=");
       const values = name === "assignee" ? ticket.assignees : valuesOf(ticket, field);
       if (/openSprints\(\)/i.test(rawValue)) return values.length > 0 && operator === "in";
       if (/^EMPTY$/i.test(rawValue)) return (values.length === 0) === (operator === "is");
-      const wanted = /^\((.*)\)$/.exec(rawValue)?.[1]?.split(",").map(unquote) ?? [unquote(rawValue)];
+      const wanted = /^\((.*)\)$/.exec(rawValue)?.[1]?.split(",").map(unquote) ?? [
+        unquote(rawValue),
+      ];
       const any = wanted.some((it) => has(values, it));
       return operator === "=" || operator === "in" ? any : !any;
     });
@@ -221,7 +396,15 @@ function byJql(query: string, me: string): (ticket: Ticket) => boolean {
 
 /** The tab's tracker over a scenario's seed, built per window, so what is saved is gone with the window. */
 export function issuesTabSource(seed: IssuesSeed): IssuesSource {
-  const repositories = new Map(seed.map((one) => [one.tracker.manifestId, { ...one, tracker: structuredClone(one.tracker) }]));
+  const repositories = new Map(
+    seed.map((one) => [
+      one.tracker.manifestId,
+      {
+        ...one,
+        tracker: structuredClone(one.tracker),
+      },
+    ]),
+  );
   const of = (manifestId: string) => repositories.get(manifestId);
   const saved = (manifestId: string): SavedQuery[] => {
     const tracker = of(manifestId)?.tracker;
@@ -229,49 +412,122 @@ export function issuesTabSource(seed: IssuesSeed): IssuesSource {
   };
   const keep = (manifestId: string, next: SavedQuery[]) => {
     const one = of(manifestId);
-    if (one !== undefined && one.tracker.state === "read") one.tracker = { ...one.tracker, saved: next };
+    if (one !== undefined && one.tracker.state === "read")
+      one.tracker = {
+        ...one.tracker,
+        saved: next,
+      };
     return next;
   };
-  const stamped = (manifestId: string, one: Ticket): Ticket => ({ ...one, holders: of(manifestId)?.held?.[one.reference] ?? [] });
-  const refused = <T,>(manifestId: string): Read<T> => ({ ok: false, said: `No tracker is read for ${manifestId}.` });
+  const stamped = (manifestId: string, one: Ticket): Ticket => ({
+    ...one,
+    holders: of(manifestId)?.held?.[one.reference] ?? [],
+  });
+  const refused = <T>(manifestId: string): Read<T> => ({
+    ok: false,
+    said: `No tracker is read for ${manifestId}.`,
+  });
   return {
     trackers: async (manifestIds) => {
-      if (manifestIds.some((id) => of(id)?.unanswered === "tracker")) return new Promise<never>(() => {});
-      return { ok: true, value: [...repositories.values()].map((one) => one.tracker).filter((one) => manifestIds.includes(one.manifestId)) };
+      if (manifestIds.some((id) => of(id)?.unanswered === "tracker"))
+        return new Promise<never>(() => {});
+      return {
+        ok: true,
+        value: [
+          ...repositories.values(),
+        ]
+          .map((one) => one.tracker)
+          .filter((one) => manifestIds.includes(one.manifestId)),
+      };
     },
     run: async (manifestId, query) => {
       const one = of(manifestId);
       if (one?.unanswered === "run") return new Promise<never>(() => {});
       if (one === undefined || one.tracker.state !== "read") return refused(manifestId);
-      if (one.lacks !== undefined) return { ok: false, said: `searching the issues did not happen: ${one.lacks.tool} is not installed`, missing: one.lacks.tool };
+      if (one.lacks !== undefined)
+        return {
+          ok: false,
+          said: `searching the issues did not happen: ${one.lacks.tool} is not installed`,
+          missing: one.lacks.tool,
+        };
       const matches = (one.language === "jql" ? byJql : byTerms)(query, one.me ?? "");
-      return { ok: true, value: (one.tickets ?? []).filter(matches).map((ticket) => stamped(manifestId, ticket)) };
+      return {
+        ok: true,
+        value: (one.tickets ?? []).filter(matches).map((ticket) => stamped(manifestId, ticket)),
+      };
     },
     read: async (manifestId, reference) => {
       const ticket = of(manifestId)?.tickets?.find((it) => it.reference === reference);
-      return ticket === undefined ? { ok: false, said: `${reference} is not an issue of this repository.` } : { ok: true, value: { ...ticket, ...stamped(manifestId, ticket) } };
+      return ticket === undefined
+        ? {
+            ok: false,
+            said: `${reference} is not an issue of this repository.`,
+          }
+        : {
+            ok: true,
+            value: {
+              ...ticket,
+              ...stamped(manifestId, ticket),
+            },
+          };
     },
     install: async (manifestId, tool) => {
       const one = of(manifestId);
       // Homebrew takes a moment; the walk sees the working state.
       await new Promise((done) => setTimeout(done, 600));
-      if (one?.lacks?.tool !== tool) return { ok: false, said: `${tool} is not something Armada installs.` };
-      if (one.lacks.fails !== undefined) return { ok: false, said: one.lacks.fails };
+      if (one?.lacks?.tool !== tool)
+        return {
+          ok: false,
+          said: `${tool} is not something Armada installs.`,
+        };
+      if (one.lacks.fails !== undefined)
+        return {
+          ok: false,
+          said: one.lacks.fails,
+        };
       delete one.lacks;
-      return { ok: true, value: undefined };
+      return {
+        ok: true,
+        value: undefined,
+      };
     },
     write: async (manifestId, _words) => {
       const writes = of(manifestId)?.writes;
       // A model takes a moment; the walk sees the query being written.
       await new Promise((done) => setTimeout(done, 600));
-      return writes === undefined ? refused(manifestId) : { ok: true, value: writes };
+      return writes === undefined
+        ? refused(manifestId)
+        : {
+            ok: true,
+            value: writes,
+          };
     },
     save: async (manifestId, query: QueryToSave) => {
       const was = saved(manifestId);
       const at = was.findIndex((one) => one.id === query.id);
-      const kept: SavedQuery = { ...query, id: query.id ?? `${query.name}:${Date.now()}` };
-      return { ok: true, value: keep(manifestId, at < 0 ? [...was, kept] : was.map((one, i) => (i === at ? kept : one))) };
+      const kept: SavedQuery = {
+        ...query,
+        id: query.id ?? `${query.name}:${Date.now()}`,
+      };
+      return {
+        ok: true,
+        value: keep(
+          manifestId,
+          at < 0
+            ? [
+                ...was,
+                kept,
+              ]
+            : was.map((one, i) => (i === at ? kept : one)),
+        ),
+      };
     },
-    remove: async (manifestId, id) => ({ ok: true, value: keep(manifestId, saved(manifestId).filter((one) => one.id !== id)) }),
+    remove: async (manifestId, id) => ({
+      ok: true,
+      value: keep(
+        manifestId,
+        saved(manifestId).filter((one) => one.id !== id),
+      ),
+    }),
   };
 }

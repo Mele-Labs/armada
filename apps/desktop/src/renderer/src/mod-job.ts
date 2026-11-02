@@ -27,14 +27,21 @@ export async function startModJob(element: Element, named?: string): Promise<voi
   const fleet = window.armada;
   if (fleet === undefined) return;
   const note = capture(element, new Date());
-  const started = await fleet.startModSession({ title: `Mod ${named ?? nameOf(note)}`, note: annotationNote(note, window.location.href, null) });
+  const started = await fleet.startModSession({
+    title: `Mod ${named ?? nameOf(note)}`,
+    note: annotationNote(note, window.location.href, null),
+  });
   if (!started.ok) return askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
-  if (started.value.send_failed !== undefined) askToTell(`Mod Job not told what was pointed at: ${started.value.send_failed}`);
+  if (started.value.send_failed !== undefined)
+    askToTell(`Mod Job not told what was pointed at: ${started.value.send_failed}`);
   askToOpenSessionInCockpit(started.value.session_id);
 }
 
 /** What an empty Mod Job starts with: what it aims at, and the words its box opens on. */
-export type ModStart = { aim: ModAim; said: string };
+export type ModStart = {
+  aim: ModAim;
+  said: string;
+};
 
 /**
  * Start an empty Mod Job, with nothing said and nothing pointed at, and open it on the Cockpit with the caret in its box. Given `start`, the

@@ -38,7 +38,9 @@ export class HelmConnection {
   /** A Session a request answered with, handed to the Sessions host. */
   private readonly folded: (record: SessionRecord) => void;
   private repositories: readonly RepositorySummary[] = [];
-  private aimed: HelmAim = { state: "none" };
+  private aimed: HelmAim = {
+    state: "none",
+  };
   /**
    * The most recent explicit act — a pick to a specific repository, or a
    * point ("Discuss with Helm", the dock's own switch) — whichever came
@@ -50,7 +52,18 @@ export class HelmConnection {
    * pick a repository, look at All, and find Helm still on the one they
    * picked, and what lets Discuss survive the rail moving under it.
    */
-  private explicit: { kind: "picked"; root: string } | { kind: "pointed"; manifestId: string } | { kind: "none" } = {
+  private explicit:
+    | {
+        kind: "picked";
+        root: string;
+      }
+    | {
+        kind: "pointed";
+        manifestId: string;
+      }
+    | {
+        kind: "none";
+      } = {
     kind: "none",
   };
   /** The last repository a message was actually sent to. In memory for this run of Bridge —
@@ -78,19 +91,28 @@ export class HelmConnection {
 
   /** The rail's own pick moved. `null` is All repositories, which names nothing to point at. */
   onPicked(root: string | null): void {
-    if (root !== null) this.explicit = { kind: "picked", root };
+    if (root !== null)
+      this.explicit = {
+        kind: "picked",
+        root,
+      };
     this.retarget();
   }
 
   /** "Discuss with Helm" on a card, or the dock's own switch. The rail's pick does not move. */
   point(manifestId: string): void {
-    this.explicit = { kind: "pointed", manifestId };
+    this.explicit = {
+      kind: "pointed",
+      manifestId,
+    };
     this.retarget();
   }
 
   /** The connection came back: say again which repository Helm answers for. */
   reconnected(_port: number): void {
-    this.publish({ helm: this.aimed });
+    this.publish({
+      helm: this.aimed,
+    });
   }
 
   /**
@@ -100,33 +122,80 @@ export class HelmConnection {
   async askHelm(text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> {
     const manifestId = this.targetManifestId();
     const port = this.port();
-    if (manifestId === null || port === null) return { ok: false, why: "not_connected" };
+    if (manifestId === null || port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
     const attachments = carry?.attachments ?? [];
     const mentions = carry?.mentions ?? [];
     // Words may be blank when the message carries something; with neither it is not sent.
-    if (text.trim() === "" && attachments.length === 0 && mentions.length === 0) return { ok: false, why: "empty_brief" };
+    if (text.trim() === "" && attachments.length === 0 && mentions.length === 0)
+      return {
+        ok: false,
+        why: "empty_brief",
+      };
     const body: AskHelm = {
       text,
-      ...(context === undefined ? {} : { context }),
-      ...(attachments.length === 0 ? {} : { attachments }),
-      ...(mentions.length === 0 ? {} : { mentions }),
-      ...(carry?.model === undefined ? {} : { model: carry.model }),
-      ...(carry?.effort === undefined ? {} : { effort: carry.effort }),
+      ...(context === undefined
+        ? {}
+        : {
+            context,
+          }),
+      ...(attachments.length === 0
+        ? {}
+        : {
+            attachments,
+          }),
+      ...(mentions.length === 0
+        ? {}
+        : {
+            mentions,
+          }),
+      ...(carry?.model === undefined
+        ? {}
+        : {
+            model: carry.model,
+          }),
+      ...(carry?.effort === undefined
+        ? {}
+        : {
+            effort: carry.effort,
+          }),
     };
-    const answer = await ask(port, "POST", `/helm/ask?manifest_id=${encodeURIComponent(manifestId)}`, body);
+    const answer = await ask(
+      port,
+      "POST",
+      `/helm/ask?manifest_id=${encodeURIComponent(manifestId)}`,
+      body,
+    );
     if (answer.ok !== true) return answer.outcome;
     this.lastTalked = manifestId;
     this.folded(answer.body as SessionRecord);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /** `POST /helm/start_fresh`. The Session ends, whatever it was doing, and the next message starts a new one. */
   async startFresh(): Promise<Outcome> {
     const manifestId = this.targetManifestId();
     const port = this.port();
-    if (manifestId === null || port === null) return { ok: false, why: "not_connected" };
-    const answer = await ask(port, "POST", `/helm/start_fresh?manifest_id=${encodeURIComponent(manifestId)}`);
-    return answer.ok === true ? { ok: true } : answer.outcome;
+    if (manifestId === null || port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
+    const answer = await ask(
+      port,
+      "POST",
+      `/helm/start_fresh?manifest_id=${encodeURIComponent(manifestId)}`,
+    );
+    return answer.ok === true
+      ? {
+          ok: true,
+        }
+      : answer.outcome;
   }
 
   /**
@@ -135,31 +204,70 @@ export class HelmConnection {
    */
   async readThought(text: string): Promise<ThoughtRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const body: ReadThought = { text };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
+    const body: ReadThought = {
+      text,
+    };
     // A model call is inside the request, and Fleet answers `question` at its own 20 s budget.
     const answer = await ask(port, "POST", "/helm/read_thought", body, MODEL_CALL_MS);
     return answer.ok === true
-      ? { ok: true, reading: answer.body as ThoughtReading }
-      : { ok: false, outcome: answer.outcome };
+      ? {
+          ok: true,
+          reading: answer.body as ThoughtReading,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 
   /** `POST /helm/thought_sent`. Said after the words were delivered; the `sent` row arrives as a row of the Helm Session. */
-  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
+  async recordThoughtSent(
+    manifestId: string,
+    text: string,
+    target: ThoughtTarget,
+    carry?: HelmCarry,
+  ): Promise<Outcome> {
     const port = this.port();
-    if (port === null) return { ok: false, why: "not_connected" };
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
     const attachments = carry?.attachments ?? [];
     const mentions = carry?.mentions ?? [];
     const body: ThoughtSent = {
       text,
       target,
-      ...(attachments.length === 0 ? {} : { attachments }),
-      ...(mentions.length === 0 ? {} : { mentions }),
+      ...(attachments.length === 0
+        ? {}
+        : {
+            attachments,
+          }),
+      ...(mentions.length === 0
+        ? {}
+        : {
+            mentions,
+          }),
     };
-    const answer = await ask(port, "POST", `/helm/thought_sent?manifest_id=${encodeURIComponent(manifestId)}`, body);
+    const answer = await ask(
+      port,
+      "POST",
+      `/helm/thought_sent?manifest_id=${encodeURIComponent(manifestId)}`,
+      body,
+    );
     if (answer.ok !== true) return answer.outcome;
     this.folded(answer.body as SessionRecord);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /**
@@ -171,11 +279,28 @@ export class HelmConnection {
   async debugInfo(): Promise<HelmDebugRead> {
     const manifestId = this.targetManifestId();
     const port = this.port();
-    if (manifestId === null || port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const answer = await ask(port, "GET", `/helm/debug?manifest_id=${encodeURIComponent(manifestId)}`);
+    if (manifestId === null || port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
+    const answer = await ask(
+      port,
+      "GET",
+      `/helm/debug?manifest_id=${encodeURIComponent(manifestId)}`,
+    );
     return answer.ok === true
-      ? { ok: true, record: answer.body as HelmDebugInfo }
-      : { ok: false, outcome: answer.outcome };
+      ? {
+          ok: true,
+          record: answer.body as HelmDebugInfo,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 
   /** The repository Helm answers for right now, for the dock to name. `null` where nothing is servable yet. */
@@ -185,10 +310,23 @@ export class HelmConnection {
 
   private retarget(): void {
     const manifestId = this.targetManifestId();
-    const same = manifestId === null ? this.aimed.state === "none" : this.aimed.state === "pointed" && this.aimed.manifestId === manifestId;
+    const same =
+      manifestId === null
+        ? this.aimed.state === "none"
+        : this.aimed.state === "pointed" && this.aimed.manifestId === manifestId;
     if (same) return;
-    this.aimed = manifestId === null ? { state: "none" } : { state: "pointed", manifestId };
-    this.publish({ helm: this.aimed });
+    this.aimed =
+      manifestId === null
+        ? {
+            state: "none",
+          }
+        : {
+            state: "pointed",
+            manifestId,
+          };
+    this.publish({
+      helm: this.aimed,
+    });
   }
 
   private targetManifestId(): string | null {

@@ -3,21 +3,50 @@
 
 import { button, deckRow, inside, region, text, walk } from "../walk";
 
-const landing = region("Open", { exact: true });
+const landing = region("Open", {
+  exact: true,
+});
 const later = inside(landing, button("Deferred"));
 const remind = inside(landing, button(/^Remind/));
 const drop = inside(landing, button(/^Not deferred/));
 
 const laterKept = walk("later-kept", [
-  { press: deckRow("Read the Studio registry on start"), say: "The Job said it was done" },
-  { press: inside(region("Fleet turn"), button(/Fleet notice/)), say: "Fleet's notice is folded in the thread. A press opens it" },
-  { look: text("all_done refused. Still open under Later:"), say: "Fleet refused. Two items were open" },
-  { press: later, say: "One is settled. One is left" },
-  { hover: remind, say: "Remind" },
-  { press: remind, say: "Remind sends it to the Job" },
-  { look: text(/You said: .The Studio icon tooltip is still owed\./), say: "It arrives in the thread" },
-  { press: drop, say: "Thumbs down takes it off the list" },
-  { look: landing, say: "Deferred is gone from Open" },
+  {
+    press: deckRow("Read the Studio registry on start"),
+    say: "The Job said it was done",
+  },
+  {
+    press: inside(region("Fleet turn"), button(/Fleet notice/)),
+    say: "Fleet's notice is folded in the thread. A press opens it",
+  },
+  {
+    look: text("all_done refused. Still open under Later:"),
+    say: "Fleet refused. Two items were open",
+  },
+  {
+    press: later,
+    say: "One is settled. One is left",
+  },
+  {
+    hover: remind,
+    say: "Remind",
+  },
+  {
+    press: remind,
+    say: "Remind sends it to the Job",
+  },
+  {
+    look: text(/You said: .The Studio icon tooltip is still owed\./),
+    say: "It arrives in the thread",
+  },
+  {
+    press: drop,
+    say: "Thumbs down takes it off the list",
+  },
+  {
+    look: landing,
+    say: "Deferred is gone from Open",
+  },
 ]);
 
 export { laterKept as "later-kept" };

@@ -15,17 +15,27 @@ test("showTile asks for the nearest edge, so a tile already in view does not mov
   tile.scrollIntoView = scroll;
   showTile(tile);
   expect(scroll).toHaveBeenCalledOnce();
-  expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ block: "nearest", inline: "nearest" }));
+  expect(scroll).toHaveBeenCalledWith(
+    expect.objectContaining({
+      block: "nearest",
+      inline: "nearest",
+    }),
+  );
 });
 
 test("showTile scrolls a tile past the row's edge only as far as that edge, and leaves one in view where it is", () => {
   const row = document.createElement("div");
   row.style.cssText = "display: flex; width: 100px; overflow-x: auto; scroll-behavior: auto";
-  const tiles = Array.from({ length: 5 }, () => {
-    const one = document.createElement("button");
-    one.style.cssText = "flex: none; width: 60px; height: 20px";
-    return one;
-  });
+  const tiles = Array.from(
+    {
+      length: 5,
+    },
+    () => {
+      const one = document.createElement("button");
+      one.style.cssText = "flex: none; width: 60px; height: 20px";
+      return one;
+    },
+  );
   row.append(...tiles);
   document.body.append(row);
 

@@ -9,7 +9,10 @@ const entry = (id: number, says = "Started"): TimelineEvent => ({
   id,
   at: "2026-10-13T10:00:00Z",
   kind: "session.started",
-  subject: { kind: "session", id: "s-1" },
+  subject: {
+    kind: "session",
+    id: "s-1",
+  },
   tone: "run",
   says,
   live: true,
@@ -28,15 +31,45 @@ function fleet(window: TimelineEvent[], kept: TimelineEvent[] = []) {
   return {
     asks,
     listening: () => listening,
-    connect: () => ((up = true), connection({ connection: { state: "connected" } as BridgeState["connection"] })),
+    connect: () => (
+      (up = true),
+      connection({
+        connection: {
+          state: "connected",
+        } as BridgeState["connection"],
+      })
+    ),
     append: (event: TimelineEvent) => appended(event),
     api: {
-      state: async () => ({ connection: { state: "connecting" } as BridgeState["connection"] }),
+      state: async () => ({
+        connection: {
+          state: "connecting",
+        } as BridgeState["connection"],
+      }),
       subscribe: (on: typeof connection) => ((connection = on), () => {}),
       getFleetTimeline: async (ask?: TimelineAsk) => {
         asks.push(ask);
-        if (up) return { ok: true as const, value: { events: window } };
-        return kept.length === 0 ? { ok: false as const, outcome: { ok: false as const, why: "not_connected" as const } } : { ok: true as const, value: { events: kept } };
+        if (up)
+          return {
+            ok: true as const,
+            value: {
+              events: window,
+            },
+          };
+        return kept.length === 0
+          ? {
+              ok: false as const,
+              outcome: {
+                ok: false as const,
+                why: "not_connected" as const,
+              },
+            }
+          : {
+              ok: true as const,
+              value: {
+                events: kept,
+              },
+            };
       },
       onTimelineAppended: (on: typeof appended) => {
         appended = on;
@@ -51,33 +84,64 @@ function fleet(window: TimelineEvent[], kept: TimelineEvent[] = []) {
 
 describe("the Cockpit's timeline over Fleet", () => {
   it("reads the last two hours once Fleet is connected, and holds nothing before", async () => {
-    const held = fleet([entry(1), entry(2)]);
+    const held = fleet([
+      entry(1),
+      entry(2),
+    ]);
     const source = createFleetTimeline(held.api, () => NOW);
     source.subscribe(() => {});
     expect(source.get()).toEqual([]);
 
     held.connect();
     await settle();
-    const ask = { since: new Date(NOW - TIMELINE_WINDOW_MS).toISOString(), limit: 2000 };
+    const ask = {
+      since: new Date(NOW - TIMELINE_WINDOW_MS).toISOString(),
+      limit: 2000,
+    };
     // Once at once, which main answers with what it kept (nothing here), and once Fleet is connected.
-    expect(held.asks).toEqual([ask, ask]);
-    expect(source.get().map((one) => one.id)).toEqual([1, 2]);
+    expect(held.asks).toEqual([
+      ask,
+      ask,
+    ]);
+    expect(source.get().map((one) => one.id)).toEqual([
+      1,
+      2,
+    ]);
   });
 
   it("draws what main kept on disk before Fleet answers, and lets Fleet's own read land over it", async () => {
-    const held = fleet([entry(2), entry(3)], [entry(1), entry(2)]);
+    const held = fleet(
+      [
+        entry(2),
+        entry(3),
+      ],
+      [
+        entry(1),
+        entry(2),
+      ],
+    );
     const source = createFleetTimeline(held.api, () => NOW);
     source.subscribe(() => {});
     await settle();
-    expect(source.get().map((one) => one.id)).toEqual([1, 2]);
+    expect(source.get().map((one) => one.id)).toEqual([
+      1,
+      2,
+    ]);
 
     held.connect();
     await settle();
-    expect(source.get().map((one) => one.id)).toEqual([1, 2, 3]);
+    expect(source.get().map((one) => one.id)).toEqual([
+      1,
+      2,
+      3,
+    ]);
   });
 
   it("adds each entry Fleet appends, and never draws one twice that the read and an append both carry", async () => {
-    const held = fleet([entry(1), entry(2)]);
+    const held = fleet([
+      entry(1),
+      entry(2),
+    ]);
     const source = createFleetTimeline(held.api, () => NOW);
     const heard: number[] = [];
     source.subscribe(() => heard.push(source.get().length));
@@ -86,7 +150,11 @@ describe("the Cockpit's timeline over Fleet", () => {
 
     held.append(entry(3, "Scope passed"));
     held.append(entry(2));
-    expect(source.get().map((one) => one.id)).toEqual([1, 2, 3]);
+    expect(source.get().map((one) => one.id)).toEqual([
+      1,
+      2,
+      3,
+    ]);
     // The readers are told at the end of the tick the read opened.
     await new Promise((resolve) => setTimeout(resolve, TICK_MS + 50));
     expect(heard.at(-1)).toBe(3);
@@ -117,7 +185,8 @@ describe("the Cockpit's timeline over Fleet", () => {
 
       expect(told.length).toBeGreaterThan(1);
       expect(told.length).toBeLessThanOrEqual(5);
-      for (let at = 1; at < told.length; at += 1) expect(told[at]! - told[at - 1]!).toBeGreaterThanOrEqual(TICK_MS);
+      for (let at = 1; at < told.length; at += 1)
+        expect(told[at]! - told[at - 1]!).toBeGreaterThanOrEqual(TICK_MS);
       expect(lastSeen.at(-1)).toBe(200);
       expect(source.get().at(-1)?.id).toBe(200);
     } finally {
@@ -126,17 +195,26 @@ describe("the Cockpit's timeline over Fleet", () => {
   });
 
   it("keeps an entry that arrives while the read is out, in order", async () => {
-    const held = fleet([entry(1), entry(3)]);
+    const held = fleet([
+      entry(1),
+      entry(3),
+    ]);
     const source = createFleetTimeline(held.api, () => NOW);
     source.subscribe(() => {});
     held.append(entry(2));
     held.connect();
     await settle();
-    expect(source.get().map((one) => one.id)).toEqual([1, 2, 3]);
+    expect(source.get().map((one) => one.id)).toEqual([
+      1,
+      2,
+      3,
+    ]);
   });
 
   it("stops listening with the last window to read it, and reads afresh when one returns", async () => {
-    const held = fleet([entry(1)]);
+    const held = fleet([
+      entry(1),
+    ]);
     const source = createFleetTimeline(held.api, () => NOW);
     const off = source.subscribe(() => {});
     expect(held.listening()).toBe(1);

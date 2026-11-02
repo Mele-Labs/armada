@@ -12,7 +12,8 @@ import { askToReport, canReport } from "./report";
 const MOD = "point-mod";
 const REPORT = "point-report";
 
-const inMenu = (target: EventTarget | null): boolean => target instanceof Element && target.closest('[role="menu"]') !== null;
+const inMenu = (target: EventTarget | null): boolean =>
+  target instanceof Element && target.closest('[role="menu"]') !== null;
 
 export function PointActsProvided({ children }: { children: ReactNode }) {
   const pressed = useRef<Element | null>(null);
@@ -41,16 +42,36 @@ export function PointActsProvided({ children }: { children: ReactNode }) {
   }, []);
   const value = useMemo(() => {
     const entries: DropdownMenuEntry[] = [
-      { kind: "item", id: MOD, label: "Mod", icon: Puzzle },
-      ...(canReport() ? [{ kind: "item" as const, id: REPORT, label: "Report", icon: Flag }] : []),
+      {
+        kind: "item",
+        id: MOD,
+        label: "Mod",
+        icon: Puzzle,
+      },
+      ...(canReport()
+        ? [
+            {
+              kind: "item" as const,
+              id: REPORT,
+              label: "Report",
+              icon: Flag,
+            },
+          ]
+        : []),
     ];
     const onSelect = (id: string): void => {
-      const element = [pressed.current, focused.current].find((one) => one?.isConnected === true);
+      const element = [
+        pressed.current,
+        focused.current,
+      ].find((one) => one?.isConnected === true);
       if (element === undefined || element === null) return;
       if (id === MOD) void startModJob(element);
       if (id === REPORT) askToReport(element);
     };
-    return { entries, onSelect };
+    return {
+      entries,
+      onSelect,
+    };
   }, []);
   return <PointActs.Provider value={value}>{children}</PointActs.Provider>;
 }

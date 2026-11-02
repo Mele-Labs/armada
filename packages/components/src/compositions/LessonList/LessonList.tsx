@@ -2,10 +2,24 @@ import { MoveRight } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { isPressed, pressedSlot } from "../../keymap";
-import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+} from "../../primitives/Table/Table";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ageOf } from "../../time-format";
-import { LessonCard, LessonRoute, type LessonAnswers, type LessonEvidence, type LessonSettled, type RetroCite } from "../LessonCard/LessonCard";
+import {
+  LessonCard,
+  LessonRoute,
+  type LessonAnswers,
+  type LessonEvidence,
+  type LessonSettled,
+  type RetroCite,
+} from "../LessonCard/LessonCard";
 import { LandsMark, landsWord, type Lands } from "../LandsMark/LandsMark";
 import { WhoMark, whoWord, type Who } from "../WhoMark/WhoMark";
 
@@ -78,8 +92,13 @@ export function LessonSplit({ rows, onOpen }: LessonListProps) {
   const now = Date.now();
 
   useEffect(() => {
-    if (open !== undefined) document.getElementById(optionId(open.id))?.scrollIntoView({ block: "nearest" });
-  }, [open?.id]);
+    if (open !== undefined)
+      document.getElementById(optionId(open.id))?.scrollIntoView({
+        block: "nearest",
+      });
+  }, [
+    open?.id,
+  ]);
 
   if (rows.length === 0) return null;
 
@@ -91,7 +110,8 @@ export function LessonSplit({ rows, onOpen }: LessonListProps) {
     if (slot !== -1 && inList) {
       event.preventDefault();
       const at = rows.findIndex((row) => row.id === open?.id);
-      const next = rows[Math.min(rows.length - 1, Math.max(0, at + (slot === 0 || slot === 2 ? 1 : -1)))];
+      const next =
+        rows[Math.min(rows.length - 1, Math.max(0, at + (slot === 0 || slot === 2 ? 1 : -1)))];
       if (next !== undefined) setPicked(next.id);
     } else if (isPressed("open_focused", event) && inList) {
       event.preventDefault();
@@ -161,13 +181,25 @@ export function LessonSplit({ rows, onOpen }: LessonListProps) {
           </TableBody>
         </table>
       </div>
-      <section ref={detail} className="armada-logbook__detail armada-lessons-split__detail" aria-label="Retro item" tabIndex={-1}>
+      <section
+        ref={detail}
+        className="armada-logbook__detail armada-lessons-split__detail"
+        aria-label="Retro item"
+        tabIndex={-1}
+      >
         {open === undefined ? null : (
           <div className="armada-logbook__card">
             <div className="armada-logbook__band armada-logbook__head-band">
               <span className="armada-logbook__head-kind">Retro item</span>
               <span className="armada-logbook__head-where">
-                <LessonRoute who={open.who} {...(open.landsIn === undefined ? {} : { landsIn: open.landsIn })} />
+                <LessonRoute
+                  who={open.who}
+                  {...(open.landsIn === undefined
+                    ? {}
+                    : {
+                        landsIn: open.landsIn,
+                      })}
+                />
               </span>
             </div>
             <div className="armada-lessons-split__card">
@@ -188,9 +220,15 @@ export function LessonSplit({ rows, onOpen }: LessonListProps) {
                 </TableHead>
                 <TableBody>
                   <Fact name="Got in the way of">{whoWord(open.who)}</Fact>
-                  <Fact name="Fix lands in">{open.landsIn === undefined ? "Not said" : landsWord(open.landsIn)}</Fact>
+                  <Fact name="Fix lands in">
+                    {open.landsIn === undefined ? "Not said" : landsWord(open.landsIn)}
+                  </Fact>
                   <Fact name="Job">
-                    <button type="button" className="armada-logbook__job" onClick={() => onOpen(open.sessionId, open.id)}>
+                    <button
+                      type="button"
+                      className="armada-logbook__job"
+                      onClick={() => onOpen(open.sessionId, open.id)}
+                    >
                       {open.session}
                     </button>
                   </Fact>
@@ -209,10 +247,22 @@ export function LessonSplit({ rows, onOpen }: LessonListProps) {
   );
 }
 
-const dated = (at: string): string => new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+const dated = (at: string): string =>
+  new Date(at).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
 /** One row of the record: its name, and its value. */
-function Fact({ name, mono = false, children }: { name: string; mono?: boolean; children: ReactNode }) {
+function Fact({
+  name,
+  mono = false,
+  children,
+}: {
+  name: string;
+  mono?: boolean;
+  children: ReactNode;
+}) {
   return (
     <TableRow>
       <th scope="row" className="armada-logbook__fact">
@@ -225,24 +275,60 @@ function Fact({ name, mono = false, children }: { name: string; mono?: boolean; 
 
 function RowCard({ row, onOpen }: { row: LessonRow; onOpen: LessonListProps["onOpen"] }) {
   return (
-        <LessonCard
-          item={{
-            who: row.who,
-            ...(row.landsIn === undefined ? {} : { landsIn: row.landsIn }),
-            statement: row.statement,
-            ...(row.title === undefined ? {} : { title: row.title }),
-            ...(row.what === undefined ? {} : { what: row.what }),
-            ...(row.fix === undefined ? {} : { fix: row.fix }),
-            ...(row.cites === undefined ? {} : { cites: row.cites }),
-          }}
-          {...(row.evidence === undefined ? {} : { evidence: row.evidence })}
-          {...(row.answers === undefined ? {} : { answers: row.answers })}
-          {...(row.settled === undefined ? {} : { settled: row.settled })}
-          from={{
-            label: row.session,
-            ...(row.sessionExact === undefined ? {} : { exact: row.sessionExact }),
-            onOpen: () => onOpen(row.sessionId, row.id),
-          }}
-        />
+    <LessonCard
+      item={{
+        who: row.who,
+        ...(row.landsIn === undefined
+          ? {}
+          : {
+              landsIn: row.landsIn,
+            }),
+        statement: row.statement,
+        ...(row.title === undefined
+          ? {}
+          : {
+              title: row.title,
+            }),
+        ...(row.what === undefined
+          ? {}
+          : {
+              what: row.what,
+            }),
+        ...(row.fix === undefined
+          ? {}
+          : {
+              fix: row.fix,
+            }),
+        ...(row.cites === undefined
+          ? {}
+          : {
+              cites: row.cites,
+            }),
+      }}
+      {...(row.evidence === undefined
+        ? {}
+        : {
+            evidence: row.evidence,
+          })}
+      {...(row.answers === undefined
+        ? {}
+        : {
+            answers: row.answers,
+          })}
+      {...(row.settled === undefined
+        ? {}
+        : {
+            settled: row.settled,
+          })}
+      from={{
+        label: row.session,
+        ...(row.sessionExact === undefined
+          ? {}
+          : {
+              exact: row.sessionExact,
+            }),
+        onOpen: () => onOpen(row.sessionId, row.id),
+      }}
+    />
   );
 }

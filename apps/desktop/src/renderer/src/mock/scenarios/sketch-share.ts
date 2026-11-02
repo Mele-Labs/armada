@@ -18,7 +18,10 @@ export const s248SketchShare: Scenario = {
       saveSketchFile: async (files) => {
         const first = files[0]!;
         showSaved(first);
-        return { saved: true, name: first.name };
+        return {
+          saved: true,
+          name: first.name,
+        };
       },
     };
   },

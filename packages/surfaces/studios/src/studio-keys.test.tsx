@@ -7,7 +7,14 @@ import { describe, expect, it } from "vitest";
 import { addPressOf } from "./studio-keys";
 
 const press = (key: string, over: Partial<Parameters<typeof addPressOf>[0]> = {}) =>
-  addPressOf({ key, metaKey: false, ctrlKey: false, altKey: false, target: null, ...over });
+  addPressOf({
+    key,
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    target: null,
+    ...over,
+  });
 
 describe("the keys on an open Studio", () => {
   it("reads the three kinds off the registry", () => {
@@ -25,16 +32,44 @@ describe("the keys on an open Studio", () => {
   });
 
   it("means another tier where a modifier is down", () => {
-    expect(press("N", { metaKey: true })).toBeNull();
-    expect(press("N", { ctrlKey: true })).toBeNull();
-    expect(press("N", { altKey: true })).toBeNull();
+    expect(
+      press("N", {
+        metaKey: true,
+      }),
+    ).toBeNull();
+    expect(
+      press("N", {
+        ctrlKey: true,
+      }),
+    ).toBeNull();
+    expect(
+      press("N", {
+        altKey: true,
+      }),
+    ).toBeNull();
   });
 
   // Typing "seven notes" into a note must not open three more fields.
   it("is suppressed while a field holds focus", () => {
-    expect(press("N", { target: document.createElement("textarea") })).toBeNull();
-    expect(press("V", { target: document.createElement("input") })).toBeNull();
-    expect(press("S", { target: document.createElement("select") })).toBeNull();
-    expect(press("N", { target: document.createElement("div") })).toBe("note");
+    expect(
+      press("N", {
+        target: document.createElement("textarea"),
+      }),
+    ).toBeNull();
+    expect(
+      press("V", {
+        target: document.createElement("input"),
+      }),
+    ).toBeNull();
+    expect(
+      press("S", {
+        target: document.createElement("select"),
+      }),
+    ).toBeNull();
+    expect(
+      press("N", {
+        target: document.createElement("div"),
+      }),
+    ).toBe("note");
   });
 });

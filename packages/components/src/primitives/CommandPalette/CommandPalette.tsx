@@ -3,8 +3,31 @@ import type { LucideIcon } from "lucide-react";
 
 import { isPressed } from "../../keymap";
 import { KbdChord } from "../Kbd/Kbd";
-import { ActionsPanel, ResultKeys, actionEntryId, narrowed, pressedChord, type PaletteAction, type PaletteTaking } from "./actions-panel";
-import { ChoiceKeys, DISPATCH_ROW, DispatchKeys, DispatchRow, StepKeys, adds, nextKind, previousKind, readsAsWork, type DrawnChip, type PaletteChip, type PaletteChipOption, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
+import {
+  ActionsPanel,
+  ResultKeys,
+  actionEntryId,
+  narrowed,
+  pressedChord,
+  type PaletteAction,
+  type PaletteTaking,
+} from "./actions-panel";
+import {
+  ChoiceKeys,
+  DISPATCH_ROW,
+  DispatchKeys,
+  DispatchRow,
+  StepKeys,
+  adds,
+  nextKind,
+  previousKind,
+  readsAsWork,
+  type DrawnChip,
+  type PaletteChip,
+  type PaletteChipOption,
+  type PaletteDispatch,
+  type PaletteStep,
+} from "./dispatch-row";
 import { completing, readTokens, withoutTokens } from "./chips";
 import { StateGlyph, Subtitle, type PaletteMeta } from "./row-meta";
 import { usePlace } from "./place";
@@ -17,7 +40,17 @@ export { readsAsPath, type PalettePath } from "./path-row";
 export type { PaletteLink, PaletteLinkKind } from "./link-row";
 export type { PaletteAction } from "./actions-panel";
 export type { PaletteMeta } from "./row-meta";
-export { adds, readsAsWork, type AddKind, type BarKind, type DispatchKind, type PaletteChip, type PaletteChipOption, type PaletteDispatch, type PaletteStep } from "./dispatch-row";
+export {
+  adds,
+  readsAsWork,
+  type AddKind,
+  type BarKind,
+  type DispatchKind,
+  type PaletteChip,
+  type PaletteChipOption,
+  type PaletteDispatch,
+  type PaletteStep,
+} from "./dispatch-row";
 
 /**
  * The palette is a superset of the UI, never a substitute for it, and it is
@@ -155,7 +188,10 @@ export type CommandPaletteProps = {
    * What the palette shows with nothing typed, in place of the full list: Pinned, then Recent. Absent, the empty
    * query shows every row, which is what the setting "Everything" asks for.
    */
-  home?: { sections: readonly PaletteSection[]; entries: readonly PaletteEntry[] };
+  home?: {
+    sections: readonly PaletteSection[];
+    entries: readonly PaletteEntry[];
+  };
   /**
    * What ⌘K opens on a row: its acts, short. An empty list is no panel, and the foot says `⌘K Actions` only
    * where the row under the cursor has some.
@@ -182,20 +218,51 @@ type Hit = {
 };
 
 function hit(entry: PaletteEntry, query: string): Hit | null {
-  if (query === "") return entry.searchOnly === true ? null : { entry, at: null };
+  if (query === "")
+    return entry.searchOnly === true
+      ? null
+      : {
+          entry,
+          at: null,
+        };
   const wanted = query.toLowerCase();
   const label = entry.label.toLowerCase();
-  const aliases = [...(entry.aliases ?? []), ...(entry.meta === undefined ? [] : [entry.meta.number, entry.meta.repo].flatMap((one) => one ?? []))].map((held) => held.toLowerCase());
+  const aliases = [
+    ...(entry.aliases ?? []),
+    ...(entry.meta === undefined
+      ? []
+      : [
+          entry.meta.number,
+          entry.meta.repo,
+        ].flatMap((one) => one ?? [])),
+  ].map((held) => held.toLowerCase());
   const at = label.indexOf(wanted);
-  if (at >= 0) return { entry, at };
-  if (aliases.some((held) => held.includes(wanted))) return { entry, at: null };
+  if (at >= 0)
+    return {
+      entry,
+      at,
+    };
+  if (aliases.some((held) => held.includes(wanted)))
+    return {
+      entry,
+      at: null,
+    };
   // **Words, in any order.** "fix palette" finds "Palette search fix": every word has to begin a word
   // of the label or an alias, and nothing is marked, since no one span matched. Beginning one, because
   // "expand and" must not find "expand the column" on the "and" inside "expand".
   const words = wanted.split(/\s+/).filter((word) => word !== "");
-  const starts = [label, ...aliases].flatMap((held) => held.split(/[^a-z0-9]+/));
-  const every = words.length > 1 && words.every((word) => starts.some((start) => start.startsWith(word)));
-  return every ? { entry, at: null } : null;
+  const starts = [
+    label,
+    ...aliases,
+  ].flatMap((held) => held.split(/[^a-z0-9]+/));
+  const every =
+    words.length > 1 && words.every((word) => starts.some((start) => start.startsWith(word)));
+  return every
+    ? {
+        entry,
+        at: null,
+      }
+    : null;
 }
 
 export function CommandPalette({
@@ -226,19 +293,36 @@ export function CommandPalette({
   const active = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   // The chip whose list Tab put up, and the option under the cursor in it; and the cursor in a typed token's completions.
-  const [chipOpen, setChipOpen] = useState<{ id: string; at: number } | null>(null);
+  const [chipOpen, setChipOpen] = useState<{
+    id: string;
+    at: number;
+  } | null>(null);
   const [pickAt, setPickAt] = useState(0);
   // The words a kind is filing and the step listing where they can go, while that step is up.
-  const [stepping, setStepping] = useState<{ words: string; step: PaletteStep } | null>(null);
+  const [stepping, setStepping] = useState<{
+    words: string;
+    step: PaletteStep;
+  } | null>(null);
   // The row whose acts are up, and the one of them under the cursor.
-  const [acting, setActing] = useState<{ entry: PaletteEntry; at: number } | null>(null);
+  const [acting, setActing] = useState<{
+    entry: PaletteEntry;
+    at: number;
+  } | null>(null);
   const actionRow = useRef<HTMLDivElement>(null);
   // What is typed in the actions panel's own field, which narrows its acts.
   const [actionQuery, setActionQuery] = useState("");
   // The act that is taking its answer in that field, in place of the search.
   const [taking, setTaking] = useState<PaletteTaking | null>(null);
   const bare = query.trim() === "";
-  const listed = stepping !== null ? withWord(stepping.step, query) : home !== undefined && bare ? home : { entries, sections };
+  const listed =
+    stepping !== null
+      ? withWord(stepping.step, query)
+      : home !== undefined && bare
+        ? home
+        : {
+            entries,
+            sections,
+          };
 
   // Grouped by section in the caller's order, and in the caller's order inside
   // each. Nothing is ranked: the contract fixes what comes first, and a
@@ -247,8 +331,20 @@ export function CommandPalette({
     const found = listed.entries.flatMap((entry) => hit(entry, query) ?? []);
     // **A word he gave a row, typed whole, puts that row first**, ahead of the sections, under no head of its own.
     const typed = query.trim().toLowerCase();
-    const named = typed === "" ? [] : found.filter((held) => held.entry.alias?.toLowerCase() === typed);
-    const first = named.length === 0 ? [] : [{ section: { id: "alias", title: "" }, hits: named }];
+    const named =
+      typed === "" ? [] : found.filter((held) => held.entry.alias?.toLowerCase() === typed);
+    const first =
+      named.length === 0
+        ? []
+        : [
+            {
+              section: {
+                id: "alias",
+                title: "",
+              },
+              hits: named,
+            },
+          ];
     return [
       ...first,
       ...listed.sections
@@ -258,65 +354,141 @@ export function CommandPalette({
         }))
         .filter((group) => group.hits.length > 0),
     ];
-  }, [listed, query]);
+  }, [
+    listed,
+    query,
+  ]);
 
-  const hits = useMemo(() => grouped.flatMap((group) => group.hits), [grouped]);
+  const hits = useMemo(
+    () => grouped.flatMap((group) => group.hits),
+    [
+      grouped,
+    ],
+  );
   // The dispatch row, once something is typed: first where nothing else matches or the words are a
   // link, so ↵ sends them; last otherwise, so ↵ still opens what was searched
   // for. ⌘↵ always sends. A kind that adds to his projects puts it first whatever matches: Tab chose it.
   const offered = dispatch !== undefined && query.trim() !== "" && stepping === null;
   const leading = offered && (hits.length === 0 || readsAsWork(query) || adds(dispatch.kind));
   const typedPath = path === undefined || stepping !== null ? null : readsAsPath(query);
-  const rest: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
+  const rest: (Hit | "dispatch")[] = !offered
+    ? hits
+    : leading
+      ? [
+          "dispatch",
+          ...hits,
+        ]
+      : [
+          ...hits,
+          "dispatch",
+        ];
   const typedKind = link === undefined || stepping !== null ? null : link.kindOf(query.trim());
-  const flat: (Hit | "dispatch" | "path" | "link")[] = [...(typedKind === null ? [] : ["link" as const]), ...(typedPath === null ? [] : ["path" as const]), ...rest];
+  const flat: (Hit | "dispatch" | "path" | "link")[] = [
+    ...(typedKind === null
+      ? []
+      : [
+          "link" as const,
+        ]),
+    ...(typedPath === null
+      ? []
+      : [
+          "path" as const,
+        ]),
+    ...rest,
+  ];
   // The row's chips: each one's choice is a token typed in the words where there is one, else what its list holds.
   const chips: readonly PaletteChip[] = offered ? (dispatch.chips ?? []) : [];
   const tokens = chips.length === 0 ? undefined : readTokens(query, chips);
   const choiceOf = (chip: PaletteChip): string => tokens?.chosen[chip.id] ?? chip.chosen;
   const openChip = chipOpen === null ? undefined : chips.find((one) => one.id === chipOpen.id);
-  const completion = chips.length === 0 || openChip !== undefined ? undefined : completing(query, chips);
-  const drawn: DrawnChip[] = chips.map((chip) => ({ chip, label: chip.options.find((one) => one.id === choiceOf(chip))?.label ?? "", open: chip === openChip }));
+  const completion =
+    chips.length === 0 || openChip !== undefined ? undefined : completing(query, chips);
+  const drawn: DrawnChip[] = chips.map((chip) => ({
+    chip,
+    label: chip.options.find((one) => one.id === choiceOf(chip))?.label ?? "",
+    open: chip === openChip,
+  }));
   /** The chips Tab steps through: those with a list. */
   const tabbed = chips.filter((one) => one.options.length > 1);
   // A chip's list, or a typed token's completions, stands in place of the results while it is up.
-  const picking: { chip: PaletteChip; options: readonly PaletteChipOption[]; at: number } | undefined =
+  const picking:
+    | {
+        chip: PaletteChip;
+        options: readonly PaletteChipOption[];
+        at: number;
+      }
+    | undefined =
     openChip !== undefined && chipOpen !== null
-      ? { chip: openChip, options: openChip.options, at: chipOpen.at }
+      ? {
+          chip: openChip,
+          options: openChip.options,
+          at: chipOpen.at,
+        }
       : completion === undefined
         ? undefined
-        : { chip: completion.chip, options: completion.options, at: Math.min(pickAt, completion.options.length - 1) };
+        : {
+            chip: completion.chip,
+            options: completion.options,
+            at: Math.min(pickAt, completion.options.length - 1),
+          };
   const pickId = (chip: PaletteChip, option: PaletteChipOption) => `chip-${chip.id}-${option.id}`;
   const place = usePlace(open, anchor, panel);
   // The row under the cursor and what ⌘K would open on it.
   const under = flat[at];
   const underEntry = typeof under === "object" ? under.entry : undefined;
-  const underActions = underEntry === undefined || actionsOf === undefined || stepping !== null ? [] : actionsOf(underEntry);
+  const underActions =
+    underEntry === undefined || actionsOf === undefined || stepping !== null
+      ? []
+      : actionsOf(underEntry);
 
   // **The first row is always active**, so a query narrowed to one result is a
   // two-key act. Reset on every change to the query rather than clamped: a
   // cursor left at position four in a list that now has two is a cursor
   // somewhere the person did not put it.
-  useEffect(() => (setAt(0), setRefused(null), setChipOpen(null), setPickAt(0)), [query]);
+  useEffect(
+    () => (setAt(0), setRefused(null), setChipOpen(null), setPickAt(0)),
+    [
+      query,
+    ],
+  );
   // Closed, it forgets what was typed: the one bar reopens empty rather than holding words `n` could send.
-  useEffect(() => void (open || (setQuery(defaultQuery), setStepping(null), setActing(null), setChipOpen(null))), [open, defaultQuery]);
+  useEffect(
+    () =>
+      void (
+        open || (setQuery(defaultQuery), setStepping(null), setActing(null), setChipOpen(null))
+      ),
+    [
+      open,
+      defaultQuery,
+    ],
+  );
   // Tab to a kind that adds makes its row the active one, so Enter adds.
   const kind = dispatch?.kind;
   useEffect(() => {
     setChipOpen(null);
     if (kind !== undefined && adds(kind)) setAt(typedPath === null ? 0 : 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind]);
+  }, [
+    kind,
+  ]);
 
   useEffect(() => {
     if (open) input.current?.focus();
-  }, [open]);
+  }, [
+    open,
+  ]);
   useEffect(() => {
     if (open && opensOn !== undefined) {
-      setStepping({ words: "", step: opensOn });
+      setStepping({
+        words: "",
+        step: opensOn,
+      });
       setQuery("");
     }
-  }, [open, opensOn]);
+  }, [
+    open,
+    opensOn,
+  ]);
 
   // Esc closes the palette and stops there, wherever focus went. On `window` in the capture phase
   // for the reason `Popover` is: a field-only handler goes deaf once a click blurs the field, and
@@ -355,7 +527,14 @@ export function CommandPalette({
     }
     window.addEventListener("keydown", onEscape, true);
     return () => window.removeEventListener("keydown", onEscape, true);
-  }, [open, onClose, stepping, acting, taking, chipOpen]);
+  }, [
+    open,
+    onClose,
+    stepping,
+    acting,
+    taking,
+    chipOpen,
+  ]);
 
   // ⌘K opens the acts of the row under the cursor, and closes them again. The press is marked handled so
   // the binding that toggles the palette leaves it up; on a row with no acts it is not, and closes it as ever.
@@ -372,11 +551,20 @@ export function CommandPalette({
       }
       if (underEntry === undefined || underActions.length === 0) return;
       event.preventDefault();
-      setActing({ entry: underEntry, at: 0 });
+      setActing({
+        entry: underEntry,
+        at: 0,
+      });
     }
     window.addEventListener("keydown", onActs, true);
     return () => window.removeEventListener("keydown", onActs, true);
-  }, [open, acting, taking, underEntry, underActions.length]);
+  }, [
+    open,
+    acting,
+    taking,
+    underEntry,
+    underActions.length,
+  ]);
 
   // The panel's field starts empty on every opening, and the palette's own field takes focus back when it goes.
   useEffect(() => {
@@ -384,7 +572,10 @@ export function CommandPalette({
     setTaking(null);
     if (acting === null && open) input.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [acting === null, acting?.entry.id]);
+  }, [
+    acting === null,
+    acting?.entry.id,
+  ]);
 
   // An act's own chord runs it on the row under the cursor, from the results or from the panel, as Raycast's do.
   useEffect(() => {
@@ -394,7 +585,9 @@ export function CommandPalette({
     const acts = actionsOf?.(entry) ?? [];
     function onChord(event: KeyboardEvent) {
       if (event.defaultPrevented || entry === undefined) return;
-      const action = acts.find((one) => one.shortcut !== undefined && pressedChord(one.shortcut, event));
+      const action = acts.find(
+        (one) => one.shortcut !== undefined && pressedChord(one.shortcut, event),
+      );
       if (action === undefined) return;
       event.preventDefault();
       event.stopPropagation();
@@ -409,7 +602,14 @@ export function CommandPalette({
   useEffect(() => {
     if (!open || acting !== null || picking !== undefined) return;
     function onDigit(event: KeyboardEvent) {
-      if (event.defaultPrevented || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return;
+      if (
+        event.defaultPrevented ||
+        !event.metaKey ||
+        event.shiftKey ||
+        event.altKey ||
+        event.ctrlKey
+      )
+        return;
       const digit = /^Digit([1-9])$/.exec(event.code)?.[1];
       if (digit === undefined) return;
       const held = hits[Number(digit) - 1];
@@ -436,14 +636,21 @@ export function CommandPalette({
     }
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
-  }, [open, onClose]);
+  }, [
+    open,
+    onClose,
+  ]);
 
   // The active row is kept in view. `nearest` and not `center`: the list is
   // scrolled past 400px and centering would jump a row that was already
   // visible, which is the moving target the top anchor exists to prevent.
   useEffect(() => {
-    active.current?.scrollIntoView({ block: "nearest" });
-  }, [at]);
+    active.current?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [
+    at,
+  ]);
 
   if (!open) return null;
 
@@ -453,18 +660,37 @@ export function CommandPalette({
     if (words === "") return;
     const step = dispatch.step?.(words, dispatch.kind);
     if (step !== undefined) {
-      setStepping({ words, step });
+      setStepping({
+        words,
+        step,
+      });
       setQuery("");
       return;
     }
     if (chips.length === 0) dispatch.onDispatch(words, dispatch.kind);
-    else dispatch.onDispatch(words, dispatch.kind, Object.fromEntries(chips.map((chip) => [chip.id, choiceOf(chip)])));
+    else
+      dispatch.onDispatch(
+        words,
+        dispatch.kind,
+        Object.fromEntries(
+          chips.map((chip) => [
+            chip.id,
+            choiceOf(chip),
+          ]),
+        ),
+      );
     onClose?.();
   }
 
   /** A chip's list up, on what the chip holds. */
   function openOn(chip: PaletteChip) {
-    setChipOpen({ id: chip.id, at: Math.max(0, chip.options.findIndex((one) => one.id === choiceOf(chip))) });
+    setChipOpen({
+      id: chip.id,
+      at: Math.max(
+        0,
+        chip.options.findIndex((one) => one.id === choiceOf(chip)),
+      ),
+    });
   }
 
   /** An option taken: a chip's choice, which drops any token for it, or a token completed in the words. Either way, back to the words. */
@@ -507,7 +733,10 @@ export function CommandPalette({
     if (stepping !== null) {
       const next = stepping.step.onChoose(held.entry);
       if (next) {
-        setStepping({ words: stepping.words, step: next });
+        setStepping({
+          words: stepping.words,
+          step: next,
+        });
         setQuery("");
         return;
       }
@@ -516,7 +745,10 @@ export function CommandPalette({
     }
     const step = stepOf?.(held.entry);
     if (step !== undefined) {
-      setStepping({ words: query, step });
+      setStepping({
+        words: query,
+        step,
+      });
       setQuery("");
       return;
     }
@@ -531,11 +763,20 @@ export function CommandPalette({
   function runAction(entry: PaletteEntry, action: PaletteAction | undefined) {
     if (action === undefined || action.dormant !== undefined) return;
     if (action.takes !== undefined) {
-      setTaking({ action, value: action.held !== undefined && "word" in action.held ? action.held.word : "", refused: null });
+      setTaking({
+        action,
+        value: action.held !== undefined && "word" in action.held ? action.held.word : "",
+        refused: null,
+      });
       return;
     }
     if (action.destructive === true) {
-      onConfirm?.({ ...entry, id: actionEntryId(entry, action), label: action.label, destructive: true });
+      onConfirm?.({
+        ...entry,
+        id: actionEntryId(entry, action),
+        label: action.label,
+        destructive: true,
+      });
       return;
     }
     onAct?.(entry, action);
@@ -551,8 +792,14 @@ export function CommandPalette({
     if (picking !== undefined) {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
-        const next = (picking.at + (event.key === "ArrowDown" ? 1 : -1) + picking.options.length) % picking.options.length;
-        if (chipOpen !== null) setChipOpen({ ...chipOpen, at: next });
+        const next =
+          (picking.at + (event.key === "ArrowDown" ? 1 : -1) + picking.options.length) %
+          picking.options.length;
+        if (chipOpen !== null)
+          setChipOpen({
+            ...chipOpen,
+            at: next,
+          });
         else setPickAt(next);
         return;
       }
@@ -607,7 +854,10 @@ export function CommandPalette({
     if (acting === null || taking === null) return;
     const refused = onTake?.(acting.entry, taking.action, value);
     if (refused !== undefined) {
-      setTaking({ ...taking, refused });
+      setTaking({
+        ...taking,
+        refused,
+      });
       return;
     }
     setTaking(null);
@@ -620,7 +870,11 @@ export function CommandPalette({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const step = event.key === "ArrowDown" ? 1 : -1;
-      setActing({ ...acting, at: actionList.length === 0 ? 0 : (acting.at + step + actionList.length) % actionList.length });
+      setActing({
+        ...acting,
+        at:
+          actionList.length === 0 ? 0 : (acting.at + step + actionList.length) % actionList.length,
+      });
     } else if (event.key === "Enter") {
       event.preventDefault();
       runAction(acting.entry, actionList[acting.at]);
@@ -635,130 +889,253 @@ export function CommandPalette({
   const current = flat[at];
   const actionList = acting === null ? [] : narrowed(actionsOf?.(acting.entry) ?? [], actionQuery);
   const sendRow = !offered ? null : (
-    <DispatchRow words={tokens?.words ?? query.trim()} kind={dispatch.kind} chips={drawn} onChip={(id) => tabbed.filter((one) => one.id === id).forEach(openOn)} trailing={!leading} active={current === "dispatch" && picking === undefined} ref={current === "dispatch" && picking === undefined ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
+    <DispatchRow
+      words={tokens?.words ?? query.trim()}
+      kind={dispatch.kind}
+      chips={drawn}
+      onChip={(id) => tabbed.filter((one) => one.id === id).forEach(openOn)}
+      trailing={!leading}
+      active={current === "dispatch" && picking === undefined}
+      ref={current === "dispatch" && picking === undefined ? active : undefined}
+      onEnter={() => setAt(flat.indexOf("dispatch"))}
+      onChoose={send}
+    />
   );
 
   return (
     // Its own ⌘ listener: the palette is mounted beside the shell, outside the one `TheShell` holds.
     <ShortcutRevealProvider>
-    <div className="armada-palette-layer" data-anchored={place.style === undefined ? undefined : ""}>
-      {/* The window's middle lines, drawn only while the palette is dragged onto one. */}
-      {place.snapped?.across === true ? <div className="armada-palette__guide armada-palette__guide--across" aria-hidden /> : null}
-      {place.snapped?.down === true ? <div className="armada-palette__guide armada-palette__guide--down" aria-hidden /> : null}
       <div
-        ref={panel}
-        className="armada-palette"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command palette"
-        data-acting={acting === null ? undefined : ""}
-        data-moving={place.snapped === null ? undefined : ""}
-        style={place.style}
-        onPointerDown={place.onPointerDown}
-        onDoubleClick={place.onDoubleClick}
+        className="armada-palette-layer"
+        data-anchored={place.style === undefined ? undefined : ""}
       >
-        <div className="armada-palette__field">
-        {stepping?.step.of === undefined ? null : <span className="armada-palette__of">{stepping.step.of}</span>}
-        <input
-          ref={input}
-          className="armada-palette__input"
-          type="text"
-          role="combobox"
-          aria-expanded="true"
-          aria-controls="armada-palette-list"
-          aria-activedescendant={acting !== null ? undefined : picking !== undefined ? rowId({ id: pickId(picking.chip, picking.options[picking.at]!), section: picking.chip.id, label: "" }) : current === undefined ? undefined : current === "link" ? LINK_ROW : current === "path" ? PATH_ROW : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
-          aria-label={stepping?.step.title ?? placeholder}
-          placeholder={stepping === null ? placeholder : stepping.step.of === undefined ? "" : stepping.step.title}
-          value={query}
-          readOnly={acting !== null}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={onKey}
-        />
-        </div>
-        <div className="armada-palette__list" id="armada-palette-list" role="listbox">
-          {stepping === null || stepping.step.of !== undefined ? null : <p className="armada-palette__step">{stepping.step.title}</p>}
-          {typedKind === null ? null : <LinkRow kind={typedKind} link={query.trim()} active={current === "link"} ref={current === "link" ? active : undefined} onEnter={() => setAt(0)} onChoose={openLink} />}
-          {typedPath === null ? null : <PathRow path={typedPath} active={current === "path"} ref={current === "path" ? active : undefined} onEnter={() => setAt(typedKind === null ? 0 : 1)} onChoose={openPath} />}
-          {refused === null ? null : <p className="armada-palette__empty" role="alert">{refused}</p>}
-          {leading ? sendRow : null}
-          {picking === undefined ? null : (
-            <div className="armada-palette__group">
-              <div className="armada-palette__section">{picking.chip.name}</div>
-              {picking.options.map((option, index) => (
-                <Row
-                  key={option.id}
-                  quick={undefined}
-                  hit={{ entry: { id: pickId(picking.chip, option), section: picking.chip.id, label: option.label, ...(option.detail === undefined ? {} : { detail: option.detail }) }, at: null }}
-                  query=""
-                  active={index === picking.at}
-                  ref={index === picking.at ? active : undefined}
-                  onEnter={() => (chipOpen !== null ? setChipOpen({ ...chipOpen, at: index }) : setPickAt(index))}
-                  onChoose={() => pick(option)}
-                />
-              ))}
-            </div>
-          )}
-          {picking !== undefined ? null : hits.length === 0 && typedPath === null && typedKind === null && !(stepping?.step.word === true && query.trim() === "") ? (
-            /* **Names the query, in one short line** (the owner, 30 Oct 2026): the list of what was searched read as a paragraph
-               under the add row. No suggestions and no did-you-mean. */
-            <p className="armada-palette__empty">{`Nothing matches “${query.trim()}”.`}</p>
-          ) : null}
-          {picking !== undefined ? null : grouped.map((group) => (
-            <div key={group.section.id} className="armada-palette__group">
-              {/* Section heads are what stop four kinds of result reading as
-                  one list. Drawn only where the section has a hit. */}
-              {group.section.title === "" ? null : <div className="armada-palette__section">{group.section.title}</div>}
-              {group.hits.map((held) => {
-                n += 1;
-                quick += 1;
-                const where = n;
-                const digit = quick;
-                return (
-                  <Row
-                    key={held.entry.id}
-                    quick={digit <= 9 ? digit : undefined}
-                    hit={held}
-                    query={query}
-                    active={where === at}
-                    ref={where === at ? active : undefined}
-                    onEnter={() => setAt(where)}
-                    onChoose={() => choose(held)}
-                  />
-                );
-              })}
-            </div>
-          ))}
-          {offered && !leading ? sendRow : null}
-        </div>
-        {acting === null ? null : (
-          <ActionsPanel
-            entry={acting.entry}
-            actions={actionList}
-            at={acting.at}
-            query={actionQuery}
-            active={actionRow}
-            onQuery={(typed) => (setActionQuery(typed), setActing({ ...acting, at: 0 }))}
-            onKey={onPanelKey}
-            onEnter={(next) => setActing({ ...acting, at: next })}
-            onChoose={(action) => runAction(acting.entry, action)}
-            taking={taking}
-            onTakeWord={(value) => setTaking((was) => (was === null ? was : { ...was, value, refused: null }))}
-            onTake={take}
-          />
-        )}
-        {acting !== null ? (
-          <ResultKeys />
-        ) : picking !== undefined ? (
-          <ChoiceKeys open={openChip !== undefined} />
-        ) : offered && dispatch !== undefined ? (
-          <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} acts={underActions.length > 0} />
-        ) : stepping !== null ? (
-          <StepKeys {...(stepping.step.act === undefined ? {} : { act: stepping.step.act })} />
-        ) : underActions.length > 0 ? (
-          <ResultKeys />
+        {/* The window's middle lines, drawn only while the palette is dragged onto one. */}
+        {place.snapped?.across === true ? (
+          <div className="armada-palette__guide armada-palette__guide--across" aria-hidden />
         ) : null}
+        {place.snapped?.down === true ? (
+          <div className="armada-palette__guide armada-palette__guide--down" aria-hidden />
+        ) : null}
+        <div
+          ref={panel}
+          className="armada-palette"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Command palette"
+          data-acting={acting === null ? undefined : ""}
+          data-moving={place.snapped === null ? undefined : ""}
+          style={place.style}
+          onPointerDown={place.onPointerDown}
+          onDoubleClick={place.onDoubleClick}
+        >
+          <div className="armada-palette__field">
+            {stepping?.step.of === undefined ? null : (
+              <span className="armada-palette__of">{stepping.step.of}</span>
+            )}
+            <input
+              ref={input}
+              className="armada-palette__input"
+              type="text"
+              role="combobox"
+              aria-expanded="true"
+              aria-controls="armada-palette-list"
+              aria-activedescendant={
+                acting !== null
+                  ? undefined
+                  : picking !== undefined
+                    ? rowId({
+                        id: pickId(picking.chip, picking.options[picking.at]!),
+                        section: picking.chip.id,
+                        label: "",
+                      })
+                    : current === undefined
+                      ? undefined
+                      : current === "link"
+                        ? LINK_ROW
+                        : current === "path"
+                          ? PATH_ROW
+                          : current === "dispatch"
+                            ? DISPATCH_ROW
+                            : rowId(current.entry)
+              }
+              aria-label={stepping?.step.title ?? placeholder}
+              placeholder={
+                stepping === null
+                  ? placeholder
+                  : stepping.step.of === undefined
+                    ? ""
+                    : stepping.step.title
+              }
+              value={query}
+              readOnly={acting !== null}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={onKey}
+            />
+          </div>
+          <div className="armada-palette__list" id="armada-palette-list" role="listbox">
+            {stepping === null || stepping.step.of !== undefined ? null : (
+              <p className="armada-palette__step">{stepping.step.title}</p>
+            )}
+            {typedKind === null ? null : (
+              <LinkRow
+                kind={typedKind}
+                link={query.trim()}
+                active={current === "link"}
+                ref={current === "link" ? active : undefined}
+                onEnter={() => setAt(0)}
+                onChoose={openLink}
+              />
+            )}
+            {typedPath === null ? null : (
+              <PathRow
+                path={typedPath}
+                active={current === "path"}
+                ref={current === "path" ? active : undefined}
+                onEnter={() => setAt(typedKind === null ? 0 : 1)}
+                onChoose={openPath}
+              />
+            )}
+            {refused === null ? null : (
+              <p className="armada-palette__empty" role="alert">
+                {refused}
+              </p>
+            )}
+            {leading ? sendRow : null}
+            {picking === undefined ? null : (
+              <div className="armada-palette__group">
+                <div className="armada-palette__section">{picking.chip.name}</div>
+                {picking.options.map((option, index) => (
+                  <Row
+                    key={option.id}
+                    quick={undefined}
+                    hit={{
+                      entry: {
+                        id: pickId(picking.chip, option),
+                        section: picking.chip.id,
+                        label: option.label,
+                        ...(option.detail === undefined
+                          ? {}
+                          : {
+                              detail: option.detail,
+                            }),
+                      },
+                      at: null,
+                    }}
+                    query=""
+                    active={index === picking.at}
+                    ref={index === picking.at ? active : undefined}
+                    onEnter={() =>
+                      chipOpen !== null
+                        ? setChipOpen({
+                            ...chipOpen,
+                            at: index,
+                          })
+                        : setPickAt(index)
+                    }
+                    onChoose={() => pick(option)}
+                  />
+                ))}
+              </div>
+            )}
+            {picking !== undefined ? null : hits.length === 0 &&
+              typedPath === null &&
+              typedKind === null &&
+              !(stepping?.step.word === true && query.trim() === "") ? (
+              /* **Names the query, in one short line** (the owner, 30 Oct 2026): the list of what was searched read as a paragraph
+               under the add row. No suggestions and no did-you-mean. */
+              <p className="armada-palette__empty">{`Nothing matches “${query.trim()}”.`}</p>
+            ) : null}
+            {picking !== undefined
+              ? null
+              : grouped.map((group) => (
+                  <div key={group.section.id} className="armada-palette__group">
+                    {/* Section heads are what stop four kinds of result reading as
+                  one list. Drawn only where the section has a hit. */}
+                    {group.section.title === "" ? null : (
+                      <div className="armada-palette__section">{group.section.title}</div>
+                    )}
+                    {group.hits.map((held) => {
+                      n += 1;
+                      quick += 1;
+                      const where = n;
+                      const digit = quick;
+                      return (
+                        <Row
+                          key={held.entry.id}
+                          quick={digit <= 9 ? digit : undefined}
+                          hit={held}
+                          query={query}
+                          active={where === at}
+                          ref={where === at ? active : undefined}
+                          onEnter={() => setAt(where)}
+                          onChoose={() => choose(held)}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
+            {offered && !leading ? sendRow : null}
+          </div>
+          {acting === null ? null : (
+            <ActionsPanel
+              entry={acting.entry}
+              actions={actionList}
+              at={acting.at}
+              query={actionQuery}
+              active={actionRow}
+              onQuery={(typed) => (
+                setActionQuery(typed),
+                setActing({
+                  ...acting,
+                  at: 0,
+                })
+              )}
+              onKey={onPanelKey}
+              onEnter={(next) =>
+                setActing({
+                  ...acting,
+                  at: next,
+                })
+              }
+              onChoose={(action) => runAction(acting.entry, action)}
+              taking={taking}
+              onTakeWord={(value) =>
+                setTaking((was) =>
+                  was === null
+                    ? was
+                    : {
+                        ...was,
+                        value,
+                        refused: null,
+                      },
+                )
+              }
+              onTake={take}
+            />
+          )}
+          {acting !== null ? (
+            <ResultKeys />
+          ) : picking !== undefined ? (
+            <ChoiceKeys open={openChip !== undefined} />
+          ) : offered && dispatch !== undefined ? (
+            <DispatchKeys
+              dispatch={dispatch}
+              sends={current === "dispatch"}
+              acts={underActions.length > 0}
+            />
+          ) : stepping !== null ? (
+            <StepKeys
+              {...(stepping.step.act === undefined
+                ? {}
+                : {
+                    act: stepping.step.act,
+                  })}
+            />
+          ) : underActions.length > 0 ? (
+            <ResultKeys />
+          ) : null}
+        </div>
       </div>
-    </div>
     </ShortcutRevealProvider>
   );
 }
@@ -767,7 +1144,23 @@ export function CommandPalette({
 function withWord(step: PaletteStep, query: string): Pick<PaletteStep, "sections" | "entries"> {
   const word = query.trim();
   if (step.word !== true || word === "") return step;
-  return { sections: [...step.sections, { id: "word", title: "" }], entries: [...step.entries, { id: `word:${word}`, section: "word", label: word }] };
+  return {
+    sections: [
+      ...step.sections,
+      {
+        id: "word",
+        title: "",
+      },
+    ],
+    entries: [
+      ...step.entries,
+      {
+        id: `word:${word}`,
+        section: "word",
+        label: word,
+      },
+    ],
+  };
 }
 
 /** The dom id of a row, so `aria-activedescendant` can name it. */
@@ -825,13 +1218,22 @@ function Row({
           section with two icons and six blanks still reads as a column. A
           Job's state is its glyph. */}
       <span className="armada-palette__glyph">
-        {entry.meta?.state !== undefined ? <StateGlyph state={entry.meta.state} /> : Glyph === undefined ? null : <Glyph size={16} strokeWidth={2} aria-hidden />}
+        {entry.meta?.state !== undefined ? (
+          <StateGlyph state={entry.meta.state} />
+        ) : Glyph === undefined ? null : (
+          <Glyph size={16} strokeWidth={2} aria-hidden />
+        )}
       </span>
       <span className="armada-palette__label">
         <span className="armada-palette__title">
           <Marked label={entry.label} query={query} at={held.at} />
         </span>
-        <Subtitle meta={entry.meta} detail={entry.detail} value={entry.value} dormant={entry.dormant} />
+        <Subtitle
+          meta={entry.meta}
+          detail={entry.detail}
+          value={entry.value}
+          dormant={entry.dormant}
+        />
       </span>
       {/* What the row is, flush right. While ⌘ is held its digit sits over the
           kind, which blurs behind it, as Raycast draws it (the owner, 27 Oct 2026). */}
@@ -844,11 +1246,18 @@ function Row({
 function Kind({ kind, quick }: { kind: string | undefined; quick: number | undefined }) {
   const revealing = useShortcutReveal();
   return (
-    <span className="armada-palette__kind" data-revealing={revealing && quick !== undefined ? "" : undefined}>
+    <span
+      className="armada-palette__kind"
+      data-revealing={revealing && quick !== undefined ? "" : undefined}
+    >
       <span className="armada-palette__kind-word">{kind}</span>
       {revealing && quick !== undefined ? (
         <span className="armada-palette__quick" aria-hidden>
-          <KbdChord keys={[String(quick)]} />
+          <KbdChord
+            keys={[
+              String(quick),
+            ]}
+          />
         </span>
       ) : null}
     </span>

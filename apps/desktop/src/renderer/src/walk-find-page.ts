@@ -11,7 +11,12 @@ import type { Seeking } from "./walk-find";
 import { snapshotOf } from "./job-browser/snapshot";
 
 /** A box in the page's viewport, in CSS pixels. */
-export type Seen = { x: number; y: number; width: number; height: number };
+export type Seen = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 /** What the held element is, for the keys that must reach it. */
 export type Kind = "field" | "select" | "other";
@@ -26,7 +31,12 @@ function onScreen(element: HTMLElement): Seen | null {
   const right = Math.min(window.innerWidth, box.right);
   const bottom = Math.min(window.innerHeight, box.bottom);
   if (right <= left || bottom <= top) return null;
-  return { x: Math.round(left), y: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) };
+  return {
+    x: Math.round(left),
+    y: Math.round(top),
+    width: Math.round(right - left),
+    height: Math.round(bottom - top),
+  };
 }
 
 export const finder = {
@@ -44,13 +54,28 @@ export const finder = {
   /** Give the held element the keyboard, without pressing it, and say what it is. */
   focus(): Kind | null {
     if (held === null || !held.isConnected) return null;
-    held.focus({ preventScroll: true });
+    held.focus({
+      preventScroll: true,
+    });
     if (held instanceof HTMLSelectElement) return "select";
-    return held instanceof HTMLInputElement || held instanceof HTMLTextAreaElement || held.isContentEditable ? "field" : "other";
+    return held instanceof HTMLInputElement ||
+      held instanceof HTMLTextAreaElement ||
+      held.isContentEditable
+      ? "field"
+      : "other";
   },
 
   /** Where `words` start and end inside the held element, for a pointer to drag across. Null: not there. */
-  words(words: string): { from: { x: number; y: number }; to: { x: number; y: number } } | null {
+  words(words: string): {
+    from: {
+      x: number;
+      y: number;
+    };
+    to: {
+      x: number;
+      y: number;
+    };
+  } | null {
     if (held === null || !held.isConnected) return null;
     const nodes = document.createTreeWalker(held, NodeFilter.SHOW_TEXT);
     for (let node = nodes.nextNode(); node !== null; node = nodes.nextNode()) {
@@ -59,13 +84,21 @@ export const finder = {
       const range = document.createRange();
       range.setStart(node, at);
       range.setEnd(node, at + words.length);
-      const rects = [...range.getClientRects()].filter((one) => one.width > 0 && one.height > 0);
+      const rects = [
+        ...range.getClientRects(),
+      ].filter((one) => one.width > 0 && one.height > 0);
       const first = rects[0];
       const last = rects[rects.length - 1];
       if (first === undefined || last === undefined) return null;
       return {
-        from: { x: Math.round(first.left + 1), y: Math.round(first.top + first.height / 2) },
-        to: { x: Math.round(last.right - 1), y: Math.round(last.top + last.height / 2) },
+        from: {
+          x: Math.round(first.left + 1),
+          y: Math.round(first.top + first.height / 2),
+        },
+        to: {
+          x: Math.round(last.right - 1),
+          y: Math.round(last.top + last.height / 2),
+        },
       };
     }
     return null;

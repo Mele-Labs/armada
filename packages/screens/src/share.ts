@@ -2,8 +2,10 @@
 // what the window already holds wherever the two are equal, so a record that did not change is the same
 // object it was and everything keyed on identity (a memo, React's bail-out) can tell.
 
-const plain = (one: unknown): one is Record<string, unknown> => typeof one === "object" && one !== null && Object.getPrototypeOf(one) === Object.prototype;
-const idOf = (one: unknown): string | undefined => (plain(one) && typeof one["id"] === "string" ? one["id"] : undefined);
+const plain = (one: unknown): one is Record<string, unknown> =>
+  typeof one === "object" && one !== null && Object.getPrototypeOf(one) === Object.prototype;
+const idOf = (one: unknown): string | undefined =>
+  plain(one) && typeof one["id"] === "string" ? one["id"] : undefined;
 
 /**
  * `now`, with every part that equals the same part of `was` replaced by `was`'s. Plain objects and arrays are

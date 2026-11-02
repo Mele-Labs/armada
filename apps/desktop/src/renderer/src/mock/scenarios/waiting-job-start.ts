@@ -21,11 +21,29 @@ const sketch: Session = {
   title: "Sketch Approval Needs You",
   manifestId: OWNER,
   cwd: ROOT,
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   lastTurnAt: ago(2),
   standing: "working",
-  rows: [{ id: "w-1", at: "13:50:00", kind: "message", from: { kind: "you" }, text: "Make a sketch approval need the owner." }],
-  attachments: [{ kind: "branch", name: "armada/sketch-approval", slot: 1 }],
+  rows: [
+    {
+      id: "w-1",
+      at: "13:50:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Make a sketch approval need the owner.",
+    },
+  ],
+  attachments: [
+    {
+      kind: "branch",
+      name: "armada/sketch-approval",
+      slot: 1,
+    },
+  ],
 };
 
 const document: Session = {
@@ -33,19 +51,49 @@ const document: Session = {
   title: "Document Approval",
   manifestId: OWNER,
   cwd: ROOT,
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(1),
   standing: "idle",
   rows: [],
   attachments: [],
-  waits: { on: { id: SKETCH, title: sketch.title! }, when: "lands", base: "main", needs: "", brief: "Do the same for a document approval.", by: "you" },
+  waits: {
+    on: {
+      id: SKETCH,
+      title: sketch.title!,
+    },
+    when: "lands",
+    base: "main",
+    needs: "",
+    brief: "Do the same for a document approval.",
+    by: "you",
+  },
 };
 
 // The workflows a Job may follow, which the Workflow select offers; nothing here acts on them.
 const work = {
   workflows: [
-    { id: "feature", name: "Feature", steps: ["Plan", "Build", "Pull request"], manifestId: OWNER },
-    { id: "bug", name: "Bug", steps: ["Reproduce", "Fix", "Pull request"], manifestId: OWNER },
+    {
+      id: "feature",
+      name: "Feature",
+      steps: [
+        "Plan",
+        "Build",
+        "Pull request",
+      ],
+      manifestId: OWNER,
+    },
+    {
+      id: "bug",
+      name: "Bug",
+      steps: [
+        "Reproduce",
+        "Fix",
+        "Pull request",
+      ],
+      manifestId: OWNER,
+    },
   ],
   choose: () => {},
   unpick: () => {},
@@ -54,11 +102,34 @@ const work = {
 } satisfies SessionWorkActs;
 
 function build(): Scenario {
-  const base = holding("waiting-job-start", "A Job that waits on another: what it does when its condition is met, and the workflow, model and effort it starts on");
+  const base = holding(
+    "waiting-job-start",
+    "A Job that waits on another: what it does when its condition is met, and the workflow, model and effort it starts on",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: ROOT },
-    draft: { sessions: () => ({ ...sessionsStore([sketch, document], [], new Map([[ROOT, OWNER]])), work }) },
+    state: {
+      ...base.state,
+      repository: ROOT,
+    },
+    draft: {
+      sessions: () => ({
+        ...sessionsStore(
+          [
+            sketch,
+            document,
+          ],
+          [],
+          new Map([
+            [
+              ROOT,
+              OWNER,
+            ],
+          ]),
+        ),
+        work,
+      }),
+    },
   };
 }
 

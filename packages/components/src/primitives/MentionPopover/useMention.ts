@@ -42,7 +42,9 @@ export function useMention(
   /** One row's id, which the field points `aria-activedescendant` at. */
   optionId: (index: number) => string;
   /** What the field spreads onto itself. Empty while the popup is closed. */
-  fieldAria: AriaAttributes & { role?: "combobox" };
+  fieldAria: AriaAttributes & {
+    role?: "combobox";
+  };
   onHover: (index: number) => void;
   onFieldChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   onFieldKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -82,9 +84,17 @@ export function useMention(
     return () => {
       live = false;
     };
-  }, [mention, search]);
+  }, [
+    mention,
+    search,
+  ]);
 
-  useEffect(() => setActive(0), [results]);
+  useEffect(
+    () => setActive(0),
+    [
+      results,
+    ],
+  );
 
   function evaluate(el: HTMLTextAreaElement): void {
     const cursor = el.selectionStart ?? el.value.length;
@@ -101,7 +111,10 @@ export function useMention(
       setMention(null);
       return;
     }
-    setMention({ at, query: upToCursor.slice(at + 1) });
+    setMention({
+      at,
+      query: upToCursor.slice(at + 1),
+    });
   }
 
   function onFieldChange(event: ChangeEvent<HTMLTextAreaElement>): void {
@@ -175,7 +188,9 @@ export function useMention(
   // combobox rather than as the multi-line field it mostly is.
   // `CommandPalette`'s input carries the role permanently because searching is
   // the only thing that input does.
-  const fieldAria: AriaAttributes & { role?: "combobox" } =
+  const fieldAria: AriaAttributes & {
+    role?: "combobox";
+  } =
     mention === null
       ? {}
       : {

@@ -26,13 +26,16 @@ export const agedAt = (task: ViewGroup["tasks"][number]): number | undefined => 
 };
 
 /** The group's marks in progress, the freshest change first; a group with none carries no age. */
-export const freshestOf = (group: ViewGroup): number => Math.max(-Infinity, ...group.tasks.flatMap((task) => agedAt(task) ?? []));
+export const freshestOf = (group: ViewGroup): number =>
+  Math.max(-Infinity, ...group.tasks.flatMap((task) => agedAt(task) ?? []));
 
 export function TaskAge({ since }: { since: number }) {
   const now = useNow(5_000);
   return (
     <Tooltip asChild label="Since the agent last updated this task">
-      <Readout fixed className="sv-group__task-age">{idleText(now - since)}</Readout>
+      <Readout fixed className="sv-group__task-age">
+        {idleText(now - since)}
+      </Readout>
     </Tooltip>
   );
 }

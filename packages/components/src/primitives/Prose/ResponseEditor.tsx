@@ -57,17 +57,30 @@ export function ResponseEditor({ response, keep, onSave, onRemove, onClose }: Re
   };
   // The grid is one stop in the tab order; the arrows move within it.
   const onGridKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    const by = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -COLUMNS, ArrowDown: COLUMNS }[event.key];
+    const by = {
+      ArrowLeft: -1,
+      ArrowRight: 1,
+      ArrowUp: -COLUMNS,
+      ArrowDown: COLUMNS,
+    }[event.key];
     if (by === undefined) return;
     event.preventDefault();
-    const cells = [...(grid.current?.querySelectorAll<HTMLElement>("button") ?? [])];
+    const cells = [
+      ...(grid.current?.querySelectorAll<HTMLElement>("button") ?? []),
+    ];
     const at = cells.indexOf(document.activeElement as HTMLElement);
     cells[Math.min(cells.length - 1, Math.max(0, at + by))]?.focus();
   };
   const current = REACTIONS.findIndex((one) => one.emoji === emoji);
   return (
     <div className="armada-response-editor" data-escape-own onKeyDown={onKeyDown}>
-      <div ref={grid} className="armada-response-editor__grid" role="group" aria-label="Reactions" onKeyDown={onGridKey}>
+      <div
+        ref={grid}
+        className="armada-response-editor__grid"
+        role="group"
+        aria-label="Reactions"
+        onKeyDown={onGridKey}
+      >
         {REACTIONS.map((one, at) => (
           <Tooltip key={one.emoji} label={one.name}>
             <Button
@@ -83,7 +96,9 @@ export function ResponseEditor({ response, keep, onSave, onRemove, onClose }: Re
                 if (!typed.current || name.trim() === "") setName(one.name);
               }}
             >
-              <span className="armada-response-editor__emoji" aria-hidden>{one.emoji}</span>
+              <span className="armada-response-editor__emoji" aria-hidden>
+                {one.emoji}
+              </span>
             </Button>
           </Tooltip>
         ))}
@@ -97,10 +112,15 @@ export function ResponseEditor({ response, keep, onSave, onRemove, onClose }: Re
           invalid={emoji !== "" && !isEmoji(emoji)}
           onChange={(event) => setEmoji(firstOne(event.currentTarget.value))}
         />
-        <Input label="Name" autoComplete="off" value={name} onChange={(event) => {
+        <Input
+          label="Name"
+          autoComplete="off"
+          value={name}
+          onChange={(event) => {
             typed.current = true;
             setName(event.currentTarget.value);
-          }} />
+          }}
+        />
       </div>
       <div className="armada-response-editor__acts">
         {onRemove === undefined ? null : (
@@ -124,9 +144,25 @@ export function ResponseEditor({ response, keep, onSave, onRemove, onClose }: Re
  * The editor as a floating layer over the hover bar: above it where there is room, otherwise under the line, right-aligned to the
  * bar. A press outside puts it away.
  */
-export function ResponseEditorLayer({ bar, line, label, onClose, ...editor }: ResponseEditorProps & { bar: RefObject<HTMLElement | null>; line: RefObject<HTMLElement | null>; label: string }) {
+export function ResponseEditorLayer({
+  bar,
+  line,
+  label,
+  onClose,
+  ...editor
+}: ResponseEditorProps & {
+  bar: RefObject<HTMLElement | null>;
+  line: RefObject<HTMLElement | null>;
+  label: string;
+}) {
   const panel = useRef<HTMLDivElement>(null);
-  const [at, setAt] = useState<{ left: number; top: number } | undefined>(undefined);
+  const [at, setAt] = useState<
+    | {
+        left: number;
+        top: number;
+      }
+    | undefined
+  >(undefined);
   useLayoutEffect(() => {
     const box = panel.current?.getBoundingClientRect();
     const near = bar.current?.getBoundingClientRect();
@@ -136,18 +172,36 @@ export function ResponseEditorLayer({ bar, line, label, onClose, ...editor }: Re
     const above = near.top - box.height - 4;
     setAt({
       left: Math.max(edge, Math.min(near.right - box.width, window.innerWidth - box.width - edge)),
-      top: above >= edge ? above : Math.min(under.bottom + 4, window.innerHeight - box.height - edge),
+      top:
+        above >= edge ? above : Math.min(under.bottom + 4, window.innerHeight - box.height - edge),
     });
-  }, [bar, line]);
+  }, [
+    bar,
+    line,
+  ]);
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
       if (!panel.current?.contains(event.target as Node)) onClose();
     };
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
-  }, [onClose]);
+  }, [
+    onClose,
+  ]);
   return createPortal(
-    <div ref={panel} className="armada-response-editor-layer" role="dialog" aria-label={label} style={at === undefined ? { visibility: "hidden" } : at}>
+    <div
+      ref={panel}
+      className="armada-response-editor-layer"
+      role="dialog"
+      aria-label={label}
+      style={
+        at === undefined
+          ? {
+              visibility: "hidden",
+            }
+          : at
+      }
+    >
       <ResponseEditor {...editor} onClose={onClose} />
     </div>,
     document.body,

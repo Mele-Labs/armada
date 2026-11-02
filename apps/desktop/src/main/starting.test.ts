@@ -35,10 +35,16 @@ afterEach(async () => {
 });
 
 /** What this process's own start time says, as `ps` spelled it and as a clock reads it. */
-function born(): { text: string; ms: number } {
+function born(): {
+  text: string;
+  ms: number;
+} {
   const held = holderOf(process.pid);
   if (held.held !== true) throw new Error("this process holds its own pid");
-  return { text: held.startedAt, ms: Date.parse(held.startedAt) };
+  return {
+    text: held.startedAt,
+    ms: Date.parse(held.startedAt),
+  };
 }
 
 /**
@@ -51,8 +57,14 @@ async function binding(how: "holds" | "refuses" | "answers" = "holds"): Promise<
   port: number;
   serve: () => void;
 }> {
-  const sockets = new WebSocketServer({ noServer: true });
-  const held: { request: IncomingMessage; socket: Socket; head: Buffer }[] = [];
+  const sockets = new WebSocketServer({
+    noServer: true,
+  });
+  const held: {
+    request: IncomingMessage;
+    socket: Socket;
+    head: Buffer;
+  }[] = [];
   const answer = ({ request, socket, head }: (typeof held)[number]): void => {
     sockets.handleUpgrade(request, socket, head, (client) => {
       client.send(
@@ -60,13 +72,18 @@ async function binding(how: "holds" | "refuses" | "answers" = "holds"): Promise<
           message: "resync",
           protocol_id: PROTOCOL_ID,
           cursor: 1,
-          jobs: { jobs: [], unreadable: [] },
+          jobs: {
+            jobs: [],
+            unreadable: [],
+          },
         }),
       );
     });
   };
   const server = createServer((_request, answer) => {
-    answer.writeHead(404, { "content-type": "application/json" });
+    answer.writeHead(404, {
+      "content-type": "application/json",
+    });
     answer.end("{}");
   });
   server.on("upgrade", (request: IncomingMessage, socket: Socket, head: Buffer) => {
@@ -74,7 +91,11 @@ async function binding(how: "holds" | "refuses" | "answers" = "holds"): Promise<
       socket.destroy();
       return;
     }
-    const one = { request, socket, head };
+    const one = {
+      request,
+      socket,
+      head,
+    };
     if (how === "answers") answer(one);
     else held.push(one);
   });
@@ -99,7 +120,9 @@ async function binding(how: "holds" | "refuses" | "answers" = "holds"): Promise<
 async function runtimeFile(port: number): Promise<string> {
   const home = await mkdtemp(join(tmpdir(), "bridge-"));
   const dir = join(home, "Library", "Application Support", "Armada");
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, {
+    recursive: true,
+  });
   await writeFile(
     join(dir, "fleet.json"),
     JSON.stringify({
@@ -115,12 +138,17 @@ async function runtimeFile(port: number): Promise<string> {
 /** Every state main published, and a wait for the one a case is about. */
 function publishing() {
   const seen: BridgeState[] = [];
-  const wanted: { holds: (state: BridgeState) => boolean; keep: () => void }[] = [];
+  const wanted: {
+    holds: (state: BridgeState) => boolean;
+    keep: () => void;
+  }[] = [];
   return {
     seen: () => seen.map((state) => state.connection.state),
     publish(state: BridgeState): void {
       seen.push(state);
-      for (const [at, want] of [...wanted.entries()].reverse()) {
+      for (const [at, want] of [
+        ...wanted.entries(),
+      ].reverse()) {
         if (!want.holds(state)) continue;
         wanted.splice(at, 1);
         want.keep();
@@ -132,7 +160,12 @@ function publishing() {
     },
     until(holds: (state: BridgeState) => boolean): Promise<void> {
       if (seen.some(holds)) return Promise.resolve();
-      return new Promise((keep) => wanted.push({ holds, keep }));
+      return new Promise((keep) =>
+        wanted.push({
+          holds,
+          keep,
+        }),
+      );
     },
     latest(): BridgeState {
       const last = seen[seen.length - 1];
@@ -143,7 +176,12 @@ function publishing() {
 }
 
 /** Bridge, opened against the Fleet a case built, with the clock the case chose. */
-async function opening(port: number, clock: { at: number }) {
+async function opening(
+  port: number,
+  clock: {
+    at: number;
+  },
+) {
   const home = await runtimeFile(port);
   const published = publishing();
   const connection = new FleetConnection({
@@ -152,7 +190,10 @@ async function opening(port: number, clock: { at: number }) {
     publishToWindow: (id, change) => published.publishToWindow(id, change),
     windowIds: () => published.windowIds(),
     now: () => clock.at,
-    timing: { graceMs: GRACE_MS, bootMs: BOOT_MS },
+    timing: {
+      graceMs: GRACE_MS,
+      bootMs: BOOT_MS,
+    },
   });
   opened.push(() => connection.stop());
   connection.start();
@@ -161,7 +202,9 @@ async function opening(port: number, clock: { at: number }) {
 
 it("says a young Fleet is starting while its socket goes unanswered, and connects once it serves", async () => {
   const fleet = await binding();
-  const published = await opening(fleet.port, { at: born().ms + 4_000 });
+  const published = await opening(fleet.port, {
+    at: born().ms + 4_000,
+  });
 
   await published.until((state) => state.connection.state === "starting");
   expect(published.seen()).not.toContain("unreachable");
@@ -172,7 +215,9 @@ it("says a young Fleet is starting while its socket goes unanswered, and connect
 
 it("says unreachable once a Fleet has been starting for longer than a boot takes", async () => {
   const fleet = await binding();
-  const clock = { at: born().ms + BOOT_MS - 150 };
+  const clock = {
+    at: born().ms + BOOT_MS - 150,
+  };
   const published = await opening(fleet.port, clock);
 
   await published.until((state) => state.connection.state === "starting");
@@ -191,7 +236,9 @@ it("says unreachable once a Fleet has been starting for longer than a boot takes
 
 it("never says starting for a Fleet that has been up, however long its socket is silent", async () => {
   const fleet = await binding();
-  const published = await opening(fleet.port, { at: born().ms + 3 * BOOT_MS });
+  const published = await opening(fleet.port, {
+    at: born().ms + 3 * BOOT_MS,
+  });
 
   await published.until((state) => state.connection.state === "unreachable");
   expect(published.seen()).not.toContain("starting");
@@ -199,7 +246,9 @@ it("never says starting for a Fleet that has been up, however long its socket is
 
 it("never says starting for a socket Fleet refused", async () => {
   const fleet = await binding("refuses");
-  const published = await opening(fleet.port, { at: born().ms + 4_000 });
+  const published = await opening(fleet.port, {
+    at: born().ms + 4_000,
+  });
 
   await published.until((state) => state.connection.state === "unreachable");
   expect(published.seen()).not.toContain("starting");
@@ -207,7 +256,9 @@ it("never says starting for a socket Fleet refused", async () => {
 
 it("says only connecting, and then connected, for a Fleet that answers at once", async () => {
   const fleet = await binding("answers");
-  const published = await opening(fleet.port, { at: born().ms + 4_000 });
+  const published = await opening(fleet.port, {
+    at: born().ms + 4_000,
+  });
   await published.until((state) => state.connection.state === "connected");
 
   expect(published.seen()).not.toContain("starting");

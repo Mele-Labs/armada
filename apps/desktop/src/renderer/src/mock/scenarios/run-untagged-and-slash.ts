@@ -42,18 +42,45 @@ const running: Session[] = [
     id: "s14",
     title: "Clean up the merged slot",
     terminal: true,
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     lastTurnAt: minutesAgo(1),
     rows: [
-      { id: "r1", at: "14:39:50", kind: "message", from: { kind: "you" }, text: "That branch merged. What do I do now?" },
-      { id: "r2", at: "14:40:02", kind: "message", from: { kind: "agent" }, text: TEXT },
+      {
+        id: "r1",
+        at: "14:39:50",
+        kind: "message",
+        from: {
+          kind: "you",
+        },
+        text: "That branch merged. What do I do now?",
+      },
+      {
+        id: "r2",
+        at: "14:40:02",
+        kind: "message",
+        from: {
+          kind: "agent",
+        },
+        text: TEXT,
+      },
     ],
     attachments: [],
     // What the terminal lists: `/tmp` is not one, so it is drawn as plain code.
     commands: [
-      { name: "update-armada", says: "Move Fleet, Bridge and the mod onto latest main" },
-      { name: "reload-plugins", says: "Reload the plugins" },
-      { name: "model", says: "Set the model" },
+      {
+        name: "update-armada",
+        says: "Move Fleet, Bridge and the mod onto latest main",
+      },
+      {
+        name: "reload-plugins",
+        says: "Reload the plugins",
+      },
+      {
+        name: "model",
+        says: "Set the model",
+      },
     ],
   },
 ];
@@ -62,5 +89,7 @@ export const s206RunUntaggedAndSlash: Scenario = {
   ...s200Sessions,
   name: "run-untagged-and-slash",
   says: "A terminal Session whose message holds an untagged shell block, a code block, a diagram, and slash commands",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, running) },
+  draft: {
+    sessions: (board) => s200Sessions.draft!.sessions!(board, running),
+  },
 };

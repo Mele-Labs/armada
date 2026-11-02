@@ -22,6 +22,16 @@ export const pagesLook: Scenario = {
   retros,
   lessons,
   // The pool is read for the picked repository, so every slot is that repository's.
-  held: { ...pool, slots: pool.slots?.map((one) => ({ ...one, manifest_id: repository().manifest!.id })) },
-  state: { ...board.state, repository: studied.state.repository, health: doctoring().state.health },
+  held: {
+    ...pool,
+    slots: pool.slots?.map((one) => ({
+      ...one,
+      manifest_id: repository().manifest!.id,
+    })),
+  },
+  state: {
+    ...board.state,
+    repository: studied.state.repository,
+    health: doctoring().state.health,
+  },
 };

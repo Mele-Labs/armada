@@ -46,7 +46,11 @@ export const EveryGuide: Story = {
     }
     const first = GUIDES[0];
     if (first === undefined) throw new Error("no guides");
-    await expect(canvas.getByRole("heading", { name: first.title })).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", {
+        name: first.title,
+      }),
+    ).toBeVisible();
     await expect(canvas.getByRole("button", rowFor(first))).toHaveAttribute("aria-current", "true");
   },
 };
@@ -82,12 +86,18 @@ export const OpensWhatWasPressed: Story = {
  * card already does.
  */
 export const ArrivesOnOne: Story = {
-  args: { arriveAt: 18 },
+  args: {
+    arriveAt: 18,
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const guide = GUIDES.find((one) => one.number === 18);
     if (guide === undefined) throw new Error("no guide 18");
-    await expect(canvas.getByRole("heading", { name: guide.title })).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", {
+        name: guide.title,
+      }),
+    ).toBeVisible();
     await expect(canvas.getByRole("button", rowFor(guide))).toHaveAttribute("aria-current", "true");
   },
 };
@@ -113,7 +123,9 @@ export const Resizable: Story = {
   render: (args) => <Resizing {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const handle = canvas.getByRole("separator", { name: "Resize the list of guides" });
+    const handle = canvas.getByRole("separator", {
+      name: "Resize the list of guides",
+    });
     const at = () => Number(handle.getAttribute("aria-valuenow"));
     const min = Number(handle.getAttribute("aria-valuemin"));
     const max = Number(handle.getAttribute("aria-valuemax"));
@@ -151,7 +163,10 @@ export const Resizable: Story = {
  * caller passing the props does not conjure one.
  */
 export const Narrow: Story = {
-  args: { narrow: true, onResizeList: () => {} },
+  args: {
+    narrow: true,
+    onResizeList: () => {},
+  },
   decorators: [
     (Story) => (
       <div
@@ -180,10 +195,16 @@ export const Narrow: Story = {
     await expect(canvas.queryByRole("separator")).toBeNull();
     await userEvent.click(canvas.getByRole("button", rowFor(guide)));
 
-    const sheet = canvas.getByRole("dialog", { name: guide.title });
+    const sheet = canvas.getByRole("dialog", {
+      name: guide.title,
+    });
     await expect(within(sheet).getByText(line)).toBeVisible();
 
-    await userEvent.click(within(sheet).getByRole("button", { name: /Close/ }));
+    await userEvent.click(
+      within(sheet).getByRole("button", {
+        name: /Close/,
+      }),
+    );
     await expect(canvas.queryByRole("dialog")).toBeNull();
     // The choice outlives the sheet, so widening the window draws this guide.
     await expect(canvas.getByRole("button", rowFor(guide))).toHaveAttribute("aria-current", "true");
@@ -192,7 +213,9 @@ export const Narrow: Story = {
 
 /** One group, to see a section on its own. The list is the same shape at any length. */
 export const OneGroup: Story = {
-  args: { guides: GUIDES.filter((guide) => guide.group === "run") },
+  args: {
+    guides: GUIDES.filter((guide) => guide.group === "run"),
+  },
 };
 
 /** Every group draws its own count, and the counts are the guides filed under it. */
@@ -203,14 +226,22 @@ export const GroupCounts: Story = {
       const filed = GUIDES.filter((guide) => guide.group === group.id).length;
       // A group no guide is filed under draws no section, count or otherwise.
       if (filed === 0) {
-        await expect(canvas.queryByRole("region", { name: group.title })).toBeNull();
+        await expect(
+          canvas.queryByRole("region", {
+            name: group.title,
+          }),
+        ).toBeNull();
         continue;
       }
-      const section = canvas.getByRole("region", { name: group.title });
+      const section = canvas.getByRole("region", {
+        name: group.title,
+      });
       // The count and a guide's own number are both bare digits, so the query
       // names the count itself rather than the first digit in the section.
       await expect(
-        within(section).getByText(String(filed), { selector: ".armada-guides__count" }),
+        within(section).getByText(String(filed), {
+          selector: ".armada-guides__count",
+        }),
       ).toBeVisible();
     }
   },

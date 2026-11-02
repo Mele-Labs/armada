@@ -13,12 +13,35 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).
 const lapsed: Session = {
   id: "s50",
   title: "Book the table",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: minutesAgo(20),
   rows: [
-    { id: "l1", at: "18:40:10", kind: "message", from: { kind: "you" }, text: "Book a table for the team dinner." },
-    { id: "l2", at: "18:41:02", kind: "message", from: { kind: "agent" }, text: "I need the night and the place before I can book." },
-    { id: "l3", at: "18:55:03", kind: "tool", text: "AskUserQuestion: no answer" },
+    {
+      id: "l1",
+      at: "18:40:10",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Book a table for the team dinner.",
+    },
+    {
+      id: "l2",
+      at: "18:41:02",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "I need the night and the place before I can book.",
+    },
+    {
+      id: "l3",
+      at: "18:55:03",
+      kind: "tool",
+      text: "AskUserQuestion: no answer",
+    },
   ],
   attachments: [],
   lapsed: {
@@ -29,8 +52,14 @@ const lapsed: Session = {
         header: "Night",
         multi_select: false,
         options: [
-          { label: "Thursday", description: "The quiet night" },
-          { label: "Friday", description: "Busier, the kitchen stays open late" },
+          {
+            label: "Thursday",
+            description: "The quiet night",
+          },
+          {
+            label: "Friday",
+            description: "Busier, the kitchen stays open late",
+          },
         ],
       },
     ],
@@ -40,11 +69,26 @@ const lapsed: Session = {
 const skipped: Session = {
   id: "s52",
   title: "Pick the venue",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: minutesAgo(8),
   rows: [
-    { id: "v1", at: "19:15:00", kind: "message", from: { kind: "you" }, text: "Find a venue for Friday." },
-    { id: "v2", at: "19:20:41", kind: "tool", text: "AskUserQuestion: refused" },
+    {
+      id: "v1",
+      at: "19:15:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Find a venue for Friday.",
+    },
+    {
+      id: "v2",
+      at: "19:20:41",
+      kind: "tool",
+      text: "AskUserQuestion: refused",
+    },
   ],
   attachments: [],
   lapsed: {
@@ -55,8 +99,14 @@ const skipped: Session = {
         header: "Place",
         multi_select: false,
         options: [
-          { label: "Harbour", description: "Close to the station" },
-          { label: "Old town", description: "Quieter, further out" },
+          {
+            label: "Harbour",
+            description: "Close to the station",
+          },
+          {
+            label: "Old town",
+            description: "Quieter, further out",
+          },
         ],
       },
     ],
@@ -66,11 +116,29 @@ const skipped: Session = {
 const options: Session = {
   id: "s51",
   title: "Tidy the fixtures",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: minutesAgo(4),
   rows: [
-    { id: "o1", at: "19:05:30", kind: "message", from: { kind: "you" }, text: "Tidy the store fixtures." },
-    { id: "o2", at: "19:10:12", kind: "message", from: { kind: "agent" }, text: "One fixture is unused. It is your call." },
+    {
+      id: "o1",
+      at: "19:05:30",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Tidy the store fixtures.",
+    },
+    {
+      id: "o2",
+      at: "19:10:12",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "One fixture is unused. It is your call.",
+    },
   ],
   attachments: [],
   waitingFor: [
@@ -80,8 +148,14 @@ const options: Session = {
       since: minutesAgo(4),
       source: "agent",
       options: [
-        { label: "Keep", description: "Leave the file as it is" },
-        { label: "Drop", description: "Delete the file and the tests that read it" },
+        {
+          label: "Keep",
+          description: "Leave the file as it is",
+        },
+        {
+          label: "Drop",
+          description: "Delete the file and the tests that read it",
+        },
       ],
     },
   ],
@@ -91,5 +165,12 @@ export const s241LapsedQuestion: Scenario = {
   ...s200Sessions,
   name: "lapsed-question",
   says: "A question that lapsed, still answerable under the thread, and a waiting item with choices drawn as a deck",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [lapsed, skipped, options]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        lapsed,
+        skipped,
+        options,
+      ]),
+  },
 };

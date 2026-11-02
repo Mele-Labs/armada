@@ -6,9 +6,18 @@ import { deckRow, walk } from "../walk";
 
 const lapsedQuestionRail = walk("lapsed-question", [
   toSessions,
-  { look: deckRow(/Book the table/), say: "Its question timed out: the row pulses, Waiting on you" },
-  { hover: deckRow(/Book the table/), say: "The mark names it" },
-  { press: deckRow(/Book the table/), say: "Opening it opens the question" },
+  {
+    look: deckRow(/Book the table/),
+    say: "Its question timed out: the row pulses, Waiting on you",
+  },
+  {
+    hover: deckRow(/Book the table/),
+    say: "The mark names it",
+  },
+  {
+    press: deckRow(/Book the table/),
+    say: "Opening it opens the question",
+  },
 ]);
 
 export { lapsedQuestionRail };

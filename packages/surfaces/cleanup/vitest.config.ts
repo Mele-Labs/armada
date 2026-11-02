@@ -10,10 +10,14 @@ export default defineConfig({
         test: {
           name: "cleanup",
           environment: "node",
-          include: ["src/**/*.test.ts"],
+          include: [
+            "src/**/*.test.ts",
+          ],
         },
       },
-      browserProject("cleanup (browser)", ["src/**/*.test.tsx"]),
+      browserProject("cleanup (browser)", [
+        "src/**/*.test.tsx",
+      ]),
     ],
   },
 });

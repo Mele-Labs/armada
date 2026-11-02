@@ -11,14 +11,26 @@ export default meta;
 
 type Story = StoryObj<typeof TaskMark>;
 
-export const Open: Story = { args: { state: "open" } };
-export const Working: Story = { args: { state: "working" } };
+export const Open: Story = {
+  args: {
+    state: "open",
+  },
+};
+export const Working: Story = {
+  args: {
+    state: "working",
+  },
+};
 
 /** Done by the agent's list with no edit seen for it: the done check and a faint corner mark. */
 export const HandedIn: Story = {
-  args: { state: "handed_in" },
+  args: {
+    state: "handed_in",
+  },
   play: async ({ canvas, userEvent }) => {
-    const mark = canvas.getByRole("img", { name: "Done, no edit seen" });
+    const mark = canvas.getByRole("img", {
+      name: "Done, no edit seen",
+    });
     await userEvent.hover(mark);
     await waitFor(() => expect(canvas.getByText("Done, no edit seen")).toBeVisible());
   },
@@ -30,34 +42,63 @@ export const HandedIn: Story = {
  * registry's own word.
  */
 export const Done: Story = {
-  args: { state: "done" },
+  args: {
+    state: "done",
+  },
   play: async ({ canvas, userEvent }) => {
-    const mark = canvas.getByRole("img", { name: "Done" });
+    const mark = canvas.getByRole("img", {
+      name: "Done",
+    });
     await expect(canvas.getByText("Done")).not.toBeVisible();
     await userEvent.hover(mark);
     await waitFor(() => expect(canvas.getByText("Done")).toBeVisible());
   },
 };
-export const Failed: Story = { args: { state: "failed" } };
-export const Dropped: Story = { args: { state: "dropped" } };
+export const Failed: Story = {
+  args: {
+    state: "failed",
+  },
+};
+export const Dropped: Story = {
+  args: {
+    state: "dropped",
+  },
+};
 
 /** Fleet set the state itself: the same mark, and hovering names the proof under the state word. */
 export const MarkedByFleet: Story = {
-  args: { state: "done", marked: "commit 1a2b3c4 names it" },
+  args: {
+    state: "done",
+    marked: "commit 1a2b3c4 names it",
+  },
   play: async ({ canvas, userEvent }) => {
-    const mark = canvas.getByRole("img", { name: "Done. Marked by Fleet: commit 1a2b3c4 names it" });
+    const mark = canvas.getByRole("img", {
+      name: "Done. Marked by Fleet: commit 1a2b3c4 names it",
+    });
     await userEvent.hover(mark);
-    await waitFor(() => expect(canvas.getByText("Marked by Fleet: commit 1a2b3c4 names it")).toBeVisible());
+    await waitFor(() =>
+      expect(canvas.getByText("Marked by Fleet: commit 1a2b3c4 names it")).toBeVisible(),
+    );
   },
 };
 
 /** In progress and left behind: the mark dimmed, and hovering names why and how long. */
 export const Stale: Story = {
-  args: { state: "working", stale: { why: "edits went to Bridge", since: new Date(Date.now() - 12 * 60_000).toISOString() } },
+  args: {
+    state: "working",
+    stale: {
+      why: "edits went to Bridge",
+      since: new Date(Date.now() - 12 * 60_000).toISOString(),
+    },
+  },
   play: async ({ canvas, userEvent }) => {
-    const mark = canvas.getByRole("img", { name: "Working. Stale: edits went to Bridge, 12m ago" });
+    const mark = canvas.getByRole("img", {
+      name: "Working. Stale: edits went to Bridge, 12m ago",
+    });
     await expect(mark).toHaveAttribute("data-stale");
     await userEvent.hover(mark);
-    await waitFor(() => expect(canvas.getByText("Stale: edits went to Bridge, 12m ago")).toBeVisible());
+    await waitFor(() =>
+      expect(canvas.getByText("Stale: edits went to Bridge, 12m ago")).toBeVisible(),
+    );
   },
 };

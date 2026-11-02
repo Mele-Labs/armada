@@ -50,7 +50,6 @@
   outline-offset: calc(var(--focus-ring-offset) * -1);
 }
 
-
 /* The tools band has nothing to press on its band but the cross that puts it away. */
 .armada-needs-panel[data-kind="tools"] .armada-needs-panel__trigger {
   cursor: default;
@@ -185,13 +184,17 @@
   display: grid;
   grid-template-rows: 0fr;
   visibility: hidden;
-  transition: grid-template-rows var(--duration-sheet) var(--ease), visibility 0s linear var(--duration-sheet);
+  transition:
+    grid-template-rows var(--duration-sheet) var(--ease),
+    visibility 0s linear var(--duration-sheet);
 }
 
 .armada-needs-panel__reveal[data-open="true"] {
   grid-template-rows: 1fr;
   visibility: visible;
-  transition: grid-template-rows var(--duration-sheet) var(--ease), visibility 0s;
+  transition:
+    grid-template-rows var(--duration-sheet) var(--ease),
+    visibility 0s;
 }
 
 .armada-needs-panel__shell {
@@ -235,7 +238,8 @@
   transition: opacity var(--duration-sheet) var(--ease);
 }
 
-.armada-session-frame__centre:has(.armada-needs-panel[data-open="true"]) .armada-session-thread__stage::after {
+.armada-session-frame__centre:has(.armada-needs-panel[data-open="true"])
+  .armada-session-thread__stage::after {
   opacity: 1;
   pointer-events: auto;
 }
@@ -322,7 +326,9 @@
 }
 
 @keyframes armada-needs-panel-spin {
-  to { transform: rotate(1turn); }
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -362,21 +368,24 @@
   min-height: 0;
 }
 
-.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) :is(
-  .armada-needs-panel__content,
-  .armada-session-thread__ask,
-  .armada-question-deck,
-  .armada-question-deck__stack,
-  .armada-question-deck__card,
-  .armada-question-deck__body
-) {
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat])
+  :is(
+    .armada-needs-panel__content,
+    .armada-session-thread__ask,
+    .armada-question-deck,
+    .armada-question-deck__stack,
+    .armada-question-deck__card,
+    .armada-question-deck__body
+  ) {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.armada-needs-panel__detail:has(.armada-question-deck[data-flat]) .armada-question-deck__body > :not(.armada-question-deck__answers) {
+.armada-needs-panel__detail:has(.armada-question-deck[data-flat])
+  .armada-question-deck__body
+  > :not(.armada-question-deck__answers) {
   flex: none;
 }
 

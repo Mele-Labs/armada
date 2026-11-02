@@ -26,16 +26,24 @@ export type SessionBays = {
 };
 
 /** The Bays key is lit: a bay is wrong. A write clash is its glyph on the key, and does not light it. */
-export const baysLit = (held: SessionBays): boolean => held.bays.some((one) => one.wrong !== undefined);
+export const baysLit = (held: SessionBays): boolean =>
+  held.bays.some((one) => one.wrong !== undefined);
 
 /** The slot numbers the Session names, from its slots and its branches. */
 function namedSlots(session: Session): Set<number> {
-  const named = [...attachmentsOf(session, "slot").map((one) => one.slot), ...attachmentsOf(session, "branch").map((one) => one.slot)];
+  const named = [
+    ...attachmentsOf(session, "slot").map((one) => one.slot),
+    ...attachmentsOf(session, "branch").map((one) => one.slot),
+  ];
   return new Set(named.filter((one): one is number => one !== undefined && one !== 0));
 }
 
 /** The pool's slots this Session holds, or held last before they stranded, in slot order. */
-export function baysOf(session: Session, slots: readonly WorktreeSlot[], clashes: readonly WriteClash[]): SessionBays {
+export function baysOf(
+  session: Session,
+  slots: readonly WorktreeSlot[],
+  clashes: readonly WriteClash[],
+): SessionBays {
   const named = namedSlots(session);
   const branches = attachmentsOf(session, "branch");
   const bays = slots
@@ -43,17 +51,43 @@ export function baysOf(session: Session, slots: readonly WorktreeSlot[], clashes
     .filter(
       (one) =>
         named.has(one.slot) ||
-        ((one.held.state === "hosted_session" || one.held.state === "session") && one.held.session_id === session.id) ||
-        (one.stranded?.last_holder?.kind === "session" && one.stranded.last_holder.id === session.id),
+        ((one.held.state === "hosted_session" || one.held.state === "session") &&
+          one.held.session_id === session.id) ||
+        (one.stranded?.last_holder?.kind === "session" &&
+          one.stranded.last_holder.id === session.id),
     )
     .sort((a, b) => a.slot - b.slot)
     .map((slot): HeldBay => {
       const branch = branches.find((one) => one.slot === slot.slot)?.name ?? slot.branch;
       const named = `Slot ${slot.slot}`;
-      if (slot.held.state === "stranded") return { slot, branch, wrong: "stranded", said: `${named} is stranded` };
-      if ((slot.behind ?? 0) >= BEHIND_FROM) return { slot, branch, wrong: "behind", said: `${named} is ${slot.behind} commits behind ${slot.base}` };
-      return { slot, branch, wrong: undefined, said: undefined };
+      if (slot.held.state === "stranded")
+        return {
+          slot,
+          branch,
+          wrong: "stranded",
+          said: `${named} is stranded`,
+        };
+      if ((slot.behind ?? 0) >= BEHIND_FROM)
+        return {
+          slot,
+          branch,
+          wrong: "behind",
+          said: `${named} is ${slot.behind} commits behind ${slot.base}`,
+        };
+      return {
+        slot,
+        branch,
+        wrong: undefined,
+        said: undefined,
+      };
     });
-  const mine = clashes.filter((one) => (one.one.kind === "session" && one.one.id === session.id) || (one.other.kind === "session" && one.other.id === session.id));
-  return { bays, clashes: mine };
+  const mine = clashes.filter(
+    (one) =>
+      (one.one.kind === "session" && one.one.id === session.id) ||
+      (one.other.kind === "session" && one.other.id === session.id),
+  );
+  return {
+    bays,
+    clashes: mine,
+  };
 }

@@ -16,7 +16,6 @@ import { BoardEmptyState, Button } from "@armada/components";
 import { Studios, type OpenStudio } from "@armada/studios";
 import { Boundary, repositoryLabel } from "@armada/shell";
 
-
 import type { BridgeState } from "../../shared/bridge";
 import {
   addStudioNode,
@@ -66,22 +65,45 @@ export type StudiosSurfaceProps = {
 };
 
 export function StudiosSurface(props: StudiosSurfaceProps) {
-  const { state, live, repositories, manifestId, all, open, onOpenChange, selectedNode, onSelectNode } = props;
+  const {
+    state,
+    live,
+    repositories,
+    manifestId,
+    all,
+    open,
+    onOpenChange,
+    selectedNode,
+    onSelectNode,
+  } = props;
   const openId = open?.id ?? null;
 
   // On All repositories every repository that has a Manifest is read. The ids are joined so the effect
   // runs when the set changes and not on each new array.
-  const served = repositories.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest.id]));
+  const served = repositories.flatMap((one) =>
+    one.manifest === undefined
+      ? []
+      : [
+          one.manifest.id,
+        ],
+  );
   const reading = all ? served.join("\n") : null;
   useEffect(() => {
-    watchStudios(reading !== null ? (reading === "" ? [] : reading.split("\n")) : (manifestId ?? null));
+    watchStudios(
+      reading !== null ? (reading === "" ? [] : reading.split("\n")) : (manifestId ?? null),
+    );
     return () => watchStudios(null);
-  }, [manifestId, reading]);
+  }, [
+    manifestId,
+    reading,
+  ]);
 
   useEffect(() => {
     watchStudio(openId);
     return () => watchStudio(null);
-  }, [openId]);
+  }, [
+    openId,
+  ]);
 
   // What this repository's checkout declares, so a Studio can start one of it —
   // #1345. **The Manifest surface's own read**, held open only while a Studio
@@ -89,7 +111,9 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
   useEffect(() => {
     watchCheckoutRunSheet(openId !== null);
     return () => watchCheckoutRunSheet(false);
-  }, [openId]);
+  }, [
+    openId,
+  ]);
 
   if (all) {
     // Nothing set up, so nothing to read: one line saying what is true, and the one act
@@ -115,7 +139,9 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
     }
   }
   if (!all && manifestId === undefined) {
-    return <p className="text-fg-muted">This repository has no Manifest yet, so it keeps no Studios.</p>;
+    return (
+      <p className="text-fg-muted">This repository has no Manifest yet, so it keeps no Studios.</p>
+    );
   }
 
   return (
@@ -130,9 +156,18 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         onOpen={(studioId) => {
           // Reopened read-only: rereading is not editing, and Continue is what makes it editable.
           onSelectNode(null);
-          onOpenChange({ id: studioId, editable: false });
+          onOpenChange({
+            id: studioId,
+            editable: false,
+          });
         }}
-        onContinue={() => open !== null && onOpenChange({ ...open, editable: true })}
+        onContinue={() =>
+          open !== null &&
+          onOpenChange({
+            ...open,
+            editable: true,
+          })
+        }
         nameOf={(id) => {
           const one = repositories.find((repository) => repository.manifest?.id === id);
           return one === undefined ? id : repositoryLabel(one, repositories);
@@ -140,16 +175,26 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
         onCreate={async (inRepository) => {
           const answer = await createStudio(inRepository ?? manifestId ?? "");
           // A Studio a person has just started is theirs to work in.
-          if (answer.ok) onOpenChange({ id: answer.studio.id, editable: true });
+          if (answer.ok)
+            onOpenChange({
+              id: answer.studio.id,
+              editable: true,
+            });
           return answer;
         }}
         onRename={(studioId, name) => renameStudio(studioId, name)}
-        onAddNode={(node, position, within) => addStudioNode(openId ?? "", node, position, within ?? null)}
+        onAddNode={(node, position, within) =>
+          addStudioNode(openId ?? "", node, position, within ?? null)
+        }
         pathOfFile={pathOfFile}
         onAddPicture={(bytes, position) => addStudioPicture(openId ?? "", bytes, position)}
-        onAddSketch={(drawing, position, within) => addStudioSketch(openId ?? "", drawing, position, within ?? null)}
+        onAddSketch={(drawing, position, within) =>
+          addStudioSketch(openId ?? "", drawing, position, within ?? null)
+        }
         onSaveSketch={(nodeId, drawing) => saveStudioSketch(openId ?? "", nodeId, drawing)}
-        onMoveNode={(nodeId, position, within) => moveStudioNode(openId ?? "", nodeId, position, within)}
+        onMoveNode={(nodeId, position, within) =>
+          moveStudioNode(openId ?? "", nodeId, position, within)
+        }
         onRemoveNodes={(nodeIds) => removeStudioNodes(openId ?? "", nodeIds)}
         onDecideEdge={(edgeId, accepted) => decideStudioEdge(openId ?? "", edgeId, accepted)}
         onReadFrame={readStudioFrame}

@@ -6,5 +6,8 @@ export const CURSOR = ".armada-bay__name, .armada-bay__add";
 
 /** Focus the tile at `key`, the one whose panel just closed, so the keyboard carries on from it. */
 export function focusTile(root: ParentNode, key: string): void {
-  root.querySelector<HTMLElement>(`.armada-bay[data-tile="${CSS.escape(key)}"]`)?.querySelector<HTMLElement>(CURSOR)?.focus();
+  root
+    .querySelector<HTMLElement>(`.armada-bay[data-tile="${CSS.escape(key)}"]`)
+    ?.querySelector<HTMLElement>(CURSOR)
+    ?.focus();
 }

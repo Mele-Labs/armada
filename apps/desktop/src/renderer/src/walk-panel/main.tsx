@@ -21,11 +21,25 @@ import { withState } from "../state-feed";
 // **It reads what Bridge's window reads**, published by main to every Bridge document, and draws it
 // with the components Bridge's window draws it with. Its subject is the Job of the walk on screen, which main pushes as the window moves between walks.
 
-const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
+const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, {
+  builtIn: BUILT_IN_SWATCHES,
+  ofMod: modSwatch,
+});
 /** The Job of the walk on screen, followed as main moves the window between walks. */
 function Followed() {
   const id = useWalkSubject();
-  return <Panel subject={id === undefined ? null : { kind: "session", id }} />;
+  return (
+    <Panel
+      subject={
+        id === undefined
+          ? null
+          : {
+              kind: "session",
+              id,
+            }
+      }
+    />
+  );
 }
 
 function Root() {

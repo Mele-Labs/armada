@@ -6,11 +6,7 @@
 // **Both error classes appear here and nowhere else.** The line falls exactly where the pid check
 // falls; each declaration argues its own.
 
-import type {
-  BridgeCode,
-  DebugField,
-  FailureDetail,
-} from "@armada/components";
+import type { BridgeCode, DebugField, FailureDetail } from "@armada/components";
 
 import type { BridgeIdentity } from "@armada/protocol";
 import type { Connection } from "@armada/protocol";
@@ -111,7 +107,10 @@ export function fleetFailure(
       code,
       message: statement.headline,
       fields: [
-        { key: "connection", value: connection.state },
+        {
+          key: "connection",
+          value: connection.state,
+        },
         ...fields,
         ...logField(bridge),
       ],
@@ -123,26 +122,56 @@ export function fleetFailure(
     case "not_running": {
       const absence = connection.absence;
       const details: FailureDetail[] = [
-        { label: "Answer", value: absence.why },
-        { label: "Runtime file", value: absence.path },
+        {
+          label: "Answer",
+          value: absence.why,
+        },
+        {
+          label: "Runtime file",
+          value: absence.path,
+        },
       ];
       if (absence.why === "pid_dead" || absence.why === "pid_held_by_another") {
-        details.push({ label: "Pid", value: String(absence.pid) });
+        details.push({
+          label: "Pid",
+          value: String(absence.pid),
+        });
       }
       if (absence.why === "pid_held_by_another") {
-        details.push({ label: "File wrote", value: absence.wrote });
-        details.push({ label: "Holder started", value: absence.holder });
+        details.push({
+          label: "File wrote",
+          value: absence.wrote,
+        });
+        details.push({
+          label: "Holder started",
+          value: absence.holder,
+        });
       }
       const absent: DebugField[] = [
-        { key: "why", value: absence.why },
-        { key: "runtime_file", value: absence.path },
+        {
+          key: "why",
+          value: absence.why,
+        },
+        {
+          key: "runtime_file",
+          value: absence.path,
+        },
       ];
       if (absence.why === "pid_dead" || absence.why === "pid_held_by_another") {
-        absent.push({ key: "pid", value: String(absence.pid) });
+        absent.push({
+          key: "pid",
+          value: String(absence.pid),
+        });
       }
       if (absence.why === "pid_held_by_another") {
-        absent.push({ key: "file_wrote", value: absence.wrote });
-        absent.push({ key: "holder_started", value: absence.holder });
+        absent.push({
+          key: "file_wrote",
+          value: absence.wrote,
+        });
+        absent.push({
+          key: "holder_started",
+          value: absence.holder,
+        });
       }
       return {
         ...base,
@@ -162,20 +191,48 @@ export function fleetFailure(
         ...base,
         kind: "fault",
         payload: facts(FLEET_RUNTIME_FILE_REFUSED, [
-          { key: "why", value: connection.fault.why },
-          { key: "runtime_file", value: connection.fault.path },
-          { key: "detail", value: connection.fault.detail },
+          {
+            key: "why",
+            value: connection.fault.why,
+          },
+          {
+            key: "runtime_file",
+            value: connection.fault.path,
+          },
+          {
+            key: "detail",
+            value: connection.fault.detail,
+          },
           ...(connection.fault.why === "probe_failed"
-            ? [{ key: "pid", value: String(connection.fault.pid) }]
+            ? [
+                {
+                  key: "pid",
+                  value: String(connection.fault.pid),
+                },
+              ]
             : []),
         ]),
         detailsLabel: "What the read answered",
         details: [
-          { label: "Answer", value: connection.fault.why },
-          { label: "Runtime file", value: connection.fault.path },
-          { label: "Detail", value: connection.fault.detail },
+          {
+            label: "Answer",
+            value: connection.fault.why,
+          },
+          {
+            label: "Runtime file",
+            value: connection.fault.path,
+          },
+          {
+            label: "Detail",
+            value: connection.fault.detail,
+          },
           ...(connection.fault.why === "probe_failed"
-            ? [{ label: "Pid", value: String(connection.fault.pid) }]
+            ? [
+                {
+                  label: "Pid",
+                  value: String(connection.fault.pid),
+                },
+              ]
             : []),
         ],
         // Not folded into "not running": the read failed, and calling that a
@@ -188,17 +245,41 @@ export function fleetFailure(
         ...base,
         kind: "degraded",
         payload: facts(FLEET_UNREACHABLE, [
-          { key: "pid", value: String(connection.fleet.pid) },
-          { key: "port", value: String(connection.fleet.port) },
-          { key: "silent_for", value: elapsed(now - connection.sinceMs) },
-          { key: "detail", value: connection.detail },
+          {
+            key: "pid",
+            value: String(connection.fleet.pid),
+          },
+          {
+            key: "port",
+            value: String(connection.fleet.port),
+          },
+          {
+            key: "silent_for",
+            value: elapsed(now - connection.sinceMs),
+          },
+          {
+            key: "detail",
+            value: connection.detail,
+          },
         ]),
         detailsLabel: "What the connection answered",
         details: [
-          { label: "Pid", value: String(connection.fleet.pid) },
-          { label: "Port", value: String(connection.fleet.port) },
-          { label: "Silent for", value: elapsed(now - connection.sinceMs) },
-          { label: "Detail", value: connection.detail },
+          {
+            label: "Pid",
+            value: String(connection.fleet.pid),
+          },
+          {
+            label: "Port",
+            value: String(connection.fleet.port),
+          },
+          {
+            label: "Silent for",
+            value: elapsed(now - connection.sinceMs),
+          },
+          {
+            label: "Detail",
+            value: connection.detail,
+          },
         ],
         note: "Bridge is retrying every 2 seconds. Jobs keep progressing either way.",
       };
@@ -213,16 +294,37 @@ export function fleetFailure(
           // socket said. A Fleet restarted under a live connection is not the
           // one the file described, and the two disagreeing is the whole
           // finding.
-          { key: "fleet_speaks", value: spoken(connection.speaks) },
-          { key: "pid", value: String(connection.fleet.pid) },
-          { key: "port", value: String(connection.fleet.port) },
+          {
+            key: "fleet_speaks",
+            value: spoken(connection.speaks),
+          },
+          {
+            key: "pid",
+            value: String(connection.fleet.pid),
+          },
+          {
+            key: "port",
+            value: String(connection.fleet.port),
+          },
         ]),
         detailsLabel: "What each side speaks",
         details: [
-          { label: "Fleet", value: spoken(connection.speaks) },
-          { label: "Bridge", value: spoken(connection.expected) },
-          { label: "Pid", value: String(connection.fleet.pid) },
-          { label: "Port", value: String(connection.fleet.port) },
+          {
+            label: "Fleet",
+            value: spoken(connection.speaks),
+          },
+          {
+            label: "Bridge",
+            value: spoken(connection.expected),
+          },
+          {
+            label: "Pid",
+            value: String(connection.fleet.pid),
+          },
+          {
+            label: "Port",
+            value: String(connection.fleet.port),
+          },
         ],
         note: "Bridge did not connect. Jobs keep running.",
       };

@@ -325,10 +325,28 @@
 
 /* Pending: bars where the names and the item's words will be. Each wrapper takes the line its text takes, so a row is
    the height it will be when the read lands. The pending row is no button: no hover, no pointer. */
-.armada-kit-browser__row[data-pending] { cursor: default; }
-.armada-kit-browser__row[data-pending]:hover { background: transparent; }
-.armada-kit-browser__skel { display: flex; align-items: center; min-height: var(--leading-xs); }
-.armada-kit-browser__skel[data-says] { min-height: var(--leading-sm); }
-.armada-kit-browser__skel[data-title] { min-height: var(--leading-sm); }
-.armada-kit-browser [data-pending].armada-kit-browser__item-detail { display: flex; flex-direction: column; gap: var(--space-3); }
-.armada-kit-browser [data-pending] { --skeleton-fill: var(--bg-sunken); }
+.armada-kit-browser__row[data-pending] {
+  cursor: default;
+}
+.armada-kit-browser__row[data-pending]:hover {
+  background: transparent;
+}
+.armada-kit-browser__skel {
+  display: flex;
+  align-items: center;
+  min-height: var(--leading-xs);
+}
+.armada-kit-browser__skel[data-says] {
+  min-height: var(--leading-sm);
+}
+.armada-kit-browser__skel[data-title] {
+  min-height: var(--leading-sm);
+}
+.armada-kit-browser [data-pending].armada-kit-browser__item-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.armada-kit-browser [data-pending] {
+  --skeleton-fill: var(--bg-sunken);
+}

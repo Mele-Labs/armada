@@ -23,10 +23,7 @@ export function GuidesSetting({ onReadGuides }: GuidesSettingProps) {
   const { off, onOff } = useGuidance();
   return (
     <div className="armada-guides-setting">
-      <Switch
-        checked={!off}
-        onChange={(event) => onOff(!event.currentTarget.checked)}
-      >
+      <Switch checked={!off} onChange={(event) => onOff(!event.currentTarget.checked)}>
         Open a guide the first time I meet a piece
       </Switch>
       {onReadGuides === undefined ? null : (

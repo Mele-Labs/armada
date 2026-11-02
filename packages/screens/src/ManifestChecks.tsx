@@ -11,7 +11,14 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { Button, CheckDetails, CheckList, ConsoleOutput, Tabs, type ConsoleRow } from "@armada/components";
+import {
+  Button,
+  CheckDetails,
+  CheckList,
+  ConsoleOutput,
+  Tabs,
+  type ConsoleRow,
+} from "@armada/components";
 import type {
   CheckoutRunFollowed,
   CheckoutRunListRead,
@@ -65,11 +72,20 @@ export type ManifestChecksProps = {
 };
 
 /** The filter row, a panel's filters as filled tabs. All on opening, no figure on any. */
-function CheckFilters({ value, onChange }: { value: CheckFilter; onChange: (filter: CheckFilter) => void }) {
+function CheckFilters({
+  value,
+  onChange,
+}: {
+  value: CheckFilter;
+  onChange: (filter: CheckFilter) => void;
+}) {
   return (
     <Tabs
       compact
-      items={CHECK_FILTERS.map((id) => ({ id, label: CHECK_FILTER_LABEL[id] }))}
+      items={CHECK_FILTERS.map((id) => ({
+        id,
+        label: CHECK_FILTER_LABEL[id],
+      }))}
       value={value}
       onChange={(id) => onChange(id as CheckFilter)}
     />
@@ -98,16 +114,36 @@ export function ManifestChecks(props: ManifestChecksProps) {
     return () => {
       current = false;
     };
-  }, [onListRuns, runningId, verifyId, verifyEnded]);
+  }, [
+    onListRuns,
+    runningId,
+    verifyId,
+    verifyEnded,
+  ]);
 
   const { focus } = props;
-  const entries = useMemo(() => checkEntriesOf(data, runs, lines), [data, runs, lines]);
+  const entries = useMemo(
+    () => checkEntriesOf(data, runs, lines),
+    [
+      data,
+      runs,
+      lines,
+    ],
+  );
   useEffect(() => {
     if (focus === undefined) return;
     setFilter("all");
     setOpenId(focus);
-  }, [focus]);
-  const shown = useMemo(() => entries.filter((one) => heldBy(filter, one)), [entries, filter]);
+  }, [
+    focus,
+  ]);
+  const shown = useMemo(
+    () => entries.filter((one) => heldBy(filter, one)),
+    [
+      entries,
+      filter,
+    ],
+  );
   // **Only the panel**, over the surface it was pressed from: a Session's Check opens here and
   // closing it leaves the person where they were (owner, 8 Oct 2026).
   const only = props.only === true;
@@ -120,19 +156,24 @@ export function ManifestChecks(props: ManifestChecksProps) {
 
   // Panel-only takes no room of its own: the sheet floats over the surface that asked, and the
   // page around it would be laid out beside that surface and squeeze it.
-  if (only) return <>{open === undefined ? null : open.land !== undefined ? (
-        <LandCheckLogSheet
-          key={open.id}
-          at={open.land}
-          followed={props.landFollowed}
-          onFollow={props.onFollowLand}
-          bands={bands}
-          floor={floor}
-          onClose={close}
-        />
-      ) : (
-        <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={close} />
-      )}</>;
+  if (only)
+    return (
+      <>
+        {open === undefined ? null : open.land !== undefined ? (
+          <LandCheckLogSheet
+            key={open.id}
+            at={open.land}
+            followed={props.landFollowed}
+            onFollow={props.onFollowLand}
+            bands={bands}
+            floor={floor}
+            onClose={close}
+          />
+        ) : (
+          <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={close} />
+        )}
+      </>
+    );
   return (
     <div className="armada-screen__overview">
       <CheckList
@@ -168,13 +209,31 @@ export function ManifestChecks(props: ManifestChecksProps) {
 }
 
 /** The Check's facts, with who asked as a link where a route to them exists. */
-function FactsOf({ entry, onOpenMergeLine }: ManifestChecksProps & { entry: CheckEntry }) {
+function FactsOf({
+  entry,
+  onOpenMergeLine,
+}: ManifestChecksProps & {
+  entry: CheckEntry;
+}) {
   const asker = askerOf(entry.requester);
-  return <CheckDetails details={checkDetailsOf(entry, <RequestedBy asker={asker} onOpenMergeLine={onOpenMergeLine} />)} />;
+  return (
+    <CheckDetails
+      details={checkDetailsOf(
+        entry,
+        <RequestedBy asker={asker} onOpenMergeLine={onOpenMergeLine} />,
+      )}
+    />
+  );
 }
 
 /** Who asked, pressable where the requester is the merge line, which has a row to open. */
-function RequestedBy({ asker, onOpenMergeLine }: { asker: Asker; onOpenMergeLine: ManifestChecksProps["onOpenMergeLine"] }): ReactNode {
+function RequestedBy({
+  asker,
+  onOpenMergeLine,
+}: {
+  asker: Asker;
+  onOpenMergeLine: ManifestChecksProps["onOpenMergeLine"];
+}): ReactNode {
   const { opens, label } = asker;
   if (opens === undefined || opens.to !== "merge-line") return label;
   return (
@@ -204,7 +263,10 @@ function CheckLogPanel({
 }) {
   const { runId, status } = entry;
   const running = status === "running";
-  const [kept, setKept] = useState<{ runId: string; rows: ConsoleRow[] } | null>(null);
+  const [kept, setKept] = useState<{
+    runId: string;
+    rows: ConsoleRow[];
+  } | null>(null);
   const [wrap, setWrap] = useState(false);
   // What was last drawn, so a Check that ends with its panel open keeps its lines until the whole
   // log has been read, rather than emptying in between.
@@ -221,16 +283,33 @@ function CheckLogPanel({
     void onGetRunOutput(runId).then((read) => {
       if (!current || !read.ok) return;
       const { output } = read;
-      setKept({ runId, rows: output.lines.map((text, at) => ({ row: "line" as const, at: output.from_line + at, text })) });
+      setKept({
+        runId,
+        rows: output.lines.map((text, at) => ({
+          row: "line" as const,
+          at: output.from_line + at,
+          text,
+        })),
+      });
     });
     return () => {
       current = false;
     };
-  }, [runId, running, onObserveRun, onGetRunOutput]);
+  }, [
+    runId,
+    running,
+    onObserveRun,
+    onGetRunOutput,
+  ]);
 
   const ours = followed.state === "following" && followed.runId === runId ? followed : undefined;
   let rows: ConsoleRow[];
-  if (running) rows = (ours?.lines ?? []).map((text, at) => ({ row: "line" as const, at: ours!.fromLine + at, text }));
+  if (running)
+    rows = (ours?.lines ?? []).map((text, at) => ({
+      row: "line" as const,
+      at: ours!.fromLine + at,
+      text,
+    }));
   else if (kept !== null && kept.runId === runId) rows = kept.rows;
   else rows = drawn.current;
   drawn.current = rows;
@@ -244,7 +323,10 @@ function CheckLogPanel({
       live={live}
       grows={rows.length}
       bleed
-      wrap={{ wrap, onToggle: () => setWrap((was) => !was) }}
+      wrap={{
+        wrap,
+        onToggle: () => setWrap((was) => !was),
+      }}
       bands={bands}
       floor={floor}
       onClose={onClose}

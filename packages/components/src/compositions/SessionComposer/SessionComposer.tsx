@@ -1,5 +1,12 @@
 import { useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
+import type {
+  ClipboardEvent,
+  DragEvent,
+  FormEvent,
+  KeyboardEvent,
+  MouseEvent,
+  ReactNode,
+} from "react";
 import { Cpu, File, Lightbulb, Mic, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -18,7 +25,22 @@ import { QuickBar, quickLines } from "./QuickBar";
 import type { QuickAct, QuickPhrase } from "../ThreadSettings/thread-look";
 import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
-import { addressOf, backspaceInBlock, beforeCaret, caretOffset, caretToEnd, CHIP, decorate, drawnAsText, enterInBlock, readDom, redraw, sentText, tagNode, writeDom } from "./message-dom";
+import {
+  addressOf,
+  backspaceInBlock,
+  beforeCaret,
+  caretOffset,
+  caretToEnd,
+  CHIP,
+  decorate,
+  drawnAsText,
+  enterInBlock,
+  readDom,
+  redraw,
+  sentText,
+  tagNode,
+  writeDom,
+} from "./message-dom";
 
 /**
  * A Session's message box, with what a terminal session's has, in **one box
@@ -55,7 +77,10 @@ export type SentFromComposer = {
  * An issue or a pull request `#` offers, as a tag. `standing` is set on one that is not open (`Merged`,
  * `Closed`), which only a lookup by number turns up.
  */
-export type NumberedHit = { tag: ComposerTag; standing?: string };
+export type NumberedHit = {
+  tag: ComposerTag;
+  standing?: string;
+};
 
 /**
  * What `#` reads. **`open` is the repository's open issues and pull requests**, in any order. `find` looks
@@ -71,15 +96,27 @@ const NUMBERED_ROWS = 6;
 const LOOKUP_MS = 150;
 
 /** What each kind is called, on the glyph that leads a `#` row. */
-const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue", report: "Reported bug" };
+const KIND_SAID: Record<ComposerTag["kind"], string> = {
+  session: "Job",
+  pull_request: "Pull request",
+  branch: "Branch",
+  issue: "Issue",
+  report: "Reported bug",
+};
 
 /**
  * The kinds `@` offers as chips, in the order it groups them, each named for the group's label. Files
  * follow them, so Sessions carry the weight; pull requests and branches are `#`'s and the
  * ledger's, not `@`'s.
  */
-const TAG_KINDS: { kind: ComposerTag["kind"]; label: string }[] = [
-  { kind: "session", label: "Jobs" },
+const TAG_KINDS: {
+  kind: ComposerTag["kind"];
+  label: string;
+}[] = [
+  {
+    kind: "session",
+    label: "Jobs",
+  },
 ];
 
 /** How many file rows `@` offers under the Sessions. */
@@ -88,11 +125,31 @@ const FILE_ROWS = 5;
 /** The permission modes, as the terminal's: ask, auto, accept edits, plan. */
 export type ComposerMode = "ask" | "auto" | "accept_edits" | "plan";
 
-const MODES: { id: ComposerMode; label: string; says: string }[] = [
-  { id: "ask", label: "Ask", says: "Asks before it edits or runs anything" },
-  { id: "auto", label: "Auto", says: "Runs on its own, and asks before a push or anything destructive" },
-  { id: "accept_edits", label: "Accept edits", says: "Edits files without asking, and asks before running a command" },
-  { id: "plan", label: "Plan", says: "Reads and plans, and changes nothing" },
+const MODES: {
+  id: ComposerMode;
+  label: string;
+  says: string;
+}[] = [
+  {
+    id: "ask",
+    label: "Ask",
+    says: "Asks before it edits or runs anything",
+  },
+  {
+    id: "auto",
+    label: "Auto",
+    says: "Runs on its own, and asks before a push or anything destructive",
+  },
+  {
+    id: "accept_edits",
+    label: "Accept edits",
+    says: "Edits files without asking, and asks before running a command",
+  },
+  {
+    id: "plan",
+    label: "Plan",
+    says: "Reads and plans, and changes nothing",
+  },
 ];
 
 export type SessionComposerProps = {
@@ -114,13 +171,19 @@ export type SessionComposerProps = {
   efforts: readonly string[];
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
   /** A value the proposer picked and the person has not changed: a glyph beside it says so, and goes once he changes it. */
-  proposed?: { model?: boolean; effort?: boolean };
+  proposed?: {
+    model?: boolean;
+    effort?: boolean;
+  };
   /** Send's word where it is not Send: a held Job's Start. The glyph stays. */
   sendLabel?: string;
   /** Send works on an empty box: a held Job whose Fleet gave no first message starts on its press alone. */
   sendEmpty?: boolean;
   /** What `/` offers. */
-  commands: readonly { name: string; says: string }[];
+  commands: readonly {
+    name: string;
+    says: string;
+  }[];
   /** What `@` offers as chips, grouped by kind: other Sessions. */
   taggable: readonly ComposerTag[];
   /**
@@ -152,7 +215,10 @@ export type SessionComposerProps = {
   /** Below the layout breakpoint: the selects are a glyph and a value, named on hover. */
   compact?: boolean;
   /** Sketches drawn for this message and waiting to go. */
-  drawn: readonly { id: string; title: string }[];
+  drawn: readonly {
+    id: string;
+    title: string;
+  }[];
   /** Opens the pad. */
   onDraw: () => void;
   onRemoveDrawn: (id: string) => void;
@@ -181,25 +247,52 @@ export type SessionComposerProps = {
    * The `draftKey` whose box takes focus, with the caret after what it holds, when it shows: a fork opens on its quote.
    * **A key alone asks once**; `{ key, at }` asks again each time `at` changes, for a box already in view.
    */
-  focusFor?: string | { key: string; at: number };
+  focusFor?:
+    | string
+    | {
+        key: string;
+        at: number;
+      };
   /**
    * Replies one press away, in a row over the box: the agent's question's `asked` answers, then his own `phrases`. A press or
    * ⌘1 to ⌘9 sends one, ⇧ puts it in the box; `onSave` keeps what the box holds as a saved line. **While the box has the
    * focus ⌘1 to ⌘9 are the bar's**, not the tabs'. Absent draws no bar.
    */
-  quick?: { asked: readonly string[]; phrases: readonly QuickPhrase[]; onSave: (text: string) => void; onAct?: (act: QuickAct) => void; /** Puts the bar away, for this Job or for all Jobs. Absent, the bar has no hide act. */ onHide?: (scope: "job" | "all") => void; };
+  quick?: {
+    asked: readonly string[];
+    phrases: readonly QuickPhrase[];
+    onSave: (text: string) => void;
+    onAct?: (
+      act: QuickAct,
+    ) => void /** Puts the bar away, for this Job or for all Jobs. Absent, the bar has no hide act. */;
+    onHide?: (scope: "job" | "all") => void;
+  };
   /** Talk: a press, or ⌥Space held in the box, listens, and each word heard joins the box. Nothing is sent by it. Absent draws no Talk. */
-  talk?: { listen: (onWord: (word: string) => void) => () => void };
+  talk?: {
+    listen: (onWord: (word: string) => void) => () => void;
+  };
 };
 
 /** The message: its text holds a CHIP where each tag stands, and `tags` lists them in order. */
-type Draft = { text: string; tags: ComposerTag[]; files: ComposerFile[] };
-const BLANK: Draft = { text: "", tags: [], files: [] };
+type Draft = {
+  text: string;
+  tags: ComposerTag[];
+  files: ComposerFile[];
+};
+const BLANK: Draft = {
+  text: "",
+  tags: [],
+  files: [],
+};
 
 /** A draft as storage held it: text and tags, never files. */
 function reviveDraft(raw: unknown): Draft {
   const one = raw as Partial<Draft> | null;
-  return { text: typeof one?.text === "string" ? one.text : "", tags: Array.isArray(one?.tags) ? one.tags : [], files: [] };
+  return {
+    text: typeof one?.text === "string" ? one.text : "",
+    tags: Array.isArray(one?.tags) ? one.tags : [],
+    files: [],
+  };
 }
 
 /**
@@ -211,7 +304,18 @@ const seededFrom = (text: string): string => (text.endsWith("\n") ? text.slice(0
 /** Puts `text` in the box kept for a Session, as though it had been typed there and not sent. */
 export function seedDraft(draftKey: string, text: string): void {
   const seeded = seededFrom(text);
-  writeKept<Draft>(`session:${draftKey}`, { text: seeded, tags: [], files: [] }, { text: seeded, tags: [] });
+  writeKept<Draft>(
+    `session:${draftKey}`,
+    {
+      text: seeded,
+      tags: [],
+      files: [],
+    },
+    {
+      text: seeded,
+      tags: [],
+    },
+  );
 }
 
 /**
@@ -223,21 +327,48 @@ export function quoteIntoDraft(draftKey: string, quote: string): void {
   const was = readKept<Draft>(key, reviveDraft) ?? BLANK;
   const before = was.text.replace(/\n+$/, "");
   const seeded = seededFrom(before === "" ? quote : `${before}\n\n${quote}`);
-  writeKept<Draft>(key, { ...was, text: seeded }, { text: seeded, tags: was.tags });
+  writeKept<Draft>(
+    key,
+    {
+      ...was,
+      text: seeded,
+    },
+    {
+      text: seeded,
+      tags: was.tags,
+    },
+  );
 }
 
 /** Words put after what the box holds, a space between. */
-const joined = (text: string, words: string): string => (text.trim() === "" ? words : `${text.replace(/\s+$/, "")} ${words}`);
+const joined = (text: string, words: string): string =>
+  text.trim() === "" ? words : `${text.replace(/\s+$/, "")} ${words}`;
 
 /** The commands a `/` query keeps: names that start with it first, then names that hold it. */
-function matching<T extends { name: string }>(commands: readonly T[], query: string): T[] {
+function matching<
+  T extends {
+    name: string;
+  },
+>(commands: readonly T[], query: string): T[] {
   const wanted = query.toLowerCase();
   const starts = commands.filter((one) => one.name.toLowerCase().startsWith(wanted));
-  const holds = commands.filter((one) => !one.name.toLowerCase().startsWith(wanted) && one.name.toLowerCase().includes(wanted));
-  return [...starts, ...holds];
+  const holds = commands.filter(
+    (one) => !one.name.toLowerCase().startsWith(wanted) && one.name.toLowerCase().includes(wanted),
+  );
+  return [
+    ...starts,
+    ...holds,
+  ];
 }
 
-type Item = { id: string; name: string; says?: string; standing?: string; tag?: ComposerTag; file?: string };
+type Item = {
+  id: string;
+  name: string;
+  says?: string;
+  standing?: string;
+  tag?: ComposerTag;
+  file?: string;
+};
 
 const isNumber = (id: string): boolean => /^\d+$/.test(id);
 
@@ -249,26 +380,63 @@ const numberedRow = (hit: NumberedHit): Item => ({
   id: `${hit.tag.kind}${hit.tag.id}`,
   name: referenceOf(hit.tag),
   says: titleWithoutReference(hit.tag),
-  ...(hit.standing === undefined ? {} : { standing: hit.standing }),
+  ...(hit.standing === undefined
+    ? {}
+    : {
+        standing: hit.standing,
+      }),
   tag: hit.tag,
 });
 
 /** A file's row: its name, then the folder it is in. */
 function fileRow(path: string): Item {
   const cut = path.lastIndexOf("/");
-  return { id: `file:${path}`, name: path.slice(cut + 1), ...(cut < 0 ? {} : { says: path.slice(0, cut) }), file: path };
+  return {
+    id: `file:${path}`,
+    name: path.slice(cut + 1),
+    ...(cut < 0
+      ? {}
+      : {
+          says: path.slice(0, cut),
+        }),
+    file: path,
+  };
 }
 
 /** What the caret is in: a `/` at the start of the message, or an `@` or a `#` at the start of a word. */
-function tokenAt(text: string, caret: number): { trigger: "/" | "@" | "#"; query: string; from: number } | undefined {
+function tokenAt(
+  text: string,
+  caret: number,
+):
+  | {
+      trigger: "/" | "@" | "#";
+      query: string;
+      from: number;
+    }
+  | undefined {
   const head = text.slice(0, caret);
   const slash = /^\/(\S*)$/.exec(head);
-  if (slash !== null) return { trigger: "/", query: slash[1] ?? "", from: 0 };
+  if (slash !== null)
+    return {
+      trigger: "/",
+      query: slash[1] ?? "",
+      from: 0,
+    };
   const at = /(^|\s)@(\S*)$/.exec(head);
-  if (at !== null) return { trigger: "@", query: at[2] ?? "", from: head.length - (at[2]?.length ?? 0) - 1 };
+  if (at !== null)
+    return {
+      trigger: "@",
+      query: at[2] ?? "",
+      from: head.length - (at[2]?.length ?? 0) - 1,
+    };
   // Digits, or a key's letters and then its number: `#22`, `#ops`, `#OPS-7`.
   const hash = /(^|\s)#(\d*|[A-Za-z][A-Za-z0-9_]*(?:-\d*)?)$/.exec(head);
-  if (hash !== null) return { trigger: "#", query: hash[2] ?? "", from: head.length - (hash[2]?.length ?? 0) - 1 };
+  if (hash !== null)
+    return {
+      trigger: "#",
+      query: hash[2] ?? "",
+      from: head.length - (hash[2]?.length ?? 0) - 1,
+    };
   return undefined;
 }
 
@@ -284,16 +452,35 @@ function matchesTyped(tag: ComposerTag, query: string): boolean {
   return !isNumber(tag.id) && referenceOf(tag).toLowerCase().startsWith(query.toLowerCase());
 }
 
-function numberedItems(numbered: ComposerNumbered | undefined, query: string, looked: NumberedHit | undefined, held: readonly ComposerTag[]): Item[] {
+function numberedItems(
+  numbered: ComposerNumbered | undefined,
+  query: string,
+  looked: NumberedHit | undefined,
+  held: readonly ComposerTag[],
+): Item[] {
   if (numbered === undefined) return [];
   const has = (tag: ComposerTag) => held.some((had) => had.kind === tag.kind && had.id === tag.id);
   const hits = [
-    ...(looked === undefined ? [] : [looked]),
+    ...(looked === undefined
+      ? []
+      : [
+          looked,
+        ]),
     ...numbered.open
-      .filter((one) => matchesTyped(one.tag, query) && (looked === undefined || one.tag.id !== looked.tag.id))
-      .sort((a, b) => (isNumber(a.tag.id) ? 1 : 0) - (isNumber(b.tag.id) ? 1 : 0) || (isNumber(a.tag.id) ? Number(b.tag.id) - Number(a.tag.id) : 0)),
+      .filter(
+        (one) =>
+          matchesTyped(one.tag, query) && (looked === undefined || one.tag.id !== looked.tag.id),
+      )
+      .sort(
+        (a, b) =>
+          (isNumber(a.tag.id) ? 1 : 0) - (isNumber(b.tag.id) ? 1 : 0) ||
+          (isNumber(a.tag.id) ? Number(b.tag.id) - Number(a.tag.id) : 0),
+      ),
   ];
-  return hits.filter((one) => !has(one.tag)).slice(0, NUMBERED_ROWS).map(numberedRow);
+  return hits
+    .filter((one) => !has(one.tag))
+    .slice(0, NUMBERED_ROWS)
+    .map(numberedRow);
 }
 
 export function SessionComposer({
@@ -338,15 +525,30 @@ export function SessionComposer({
   // The selected option's own words, once a turn has resolved its model: "Opus 5.5" where the id is of the alias's family.
   const resolvedSaid = resolvedModel === undefined ? undefined : modelSaid(resolvedModel);
   const resolvedSaidFor = (alias: string | undefined): string | undefined =>
-    resolvedSaid !== undefined && alias !== undefined && alias.toLowerCase().includes((resolvedSaid.split(" ")[0] ?? "").toLowerCase()) ? resolvedSaid : undefined;
-  const [draft, setDraft, forget] = useKept<Draft>(draftKey === undefined ? undefined : `session:${draftKey}`, BLANK, {
-    stored: (one) => ({ text: one.text, tags: one.tags }),
-    revive: reviveDraft,
-  });
+    resolvedSaid !== undefined &&
+    alias !== undefined &&
+    alias.toLowerCase().includes((resolvedSaid.split(" ")[0] ?? "").toLowerCase())
+      ? resolvedSaid
+      : undefined;
+  const [draft, setDraft, forget] = useKept<Draft>(
+    draftKey === undefined ? undefined : `session:${draftKey}`,
+    BLANK,
+    {
+      stored: (one) => ({
+        text: one.text,
+        tags: one.tags,
+      }),
+      revive: reviveDraft,
+    },
+  );
   const { text, files } = draft;
   // A bare box is a text-only one, drawn on a single row.
   const textOnly = textOnlyAsked || bare;
-  const setFiles = (next: (was: ComposerFile[]) => ComposerFile[]) => setDraft((was) => ({ ...was, files: next(was.files) }));
+  const setFiles = (next: (was: ComposerFile[]) => ComposerFile[]) =>
+    setDraft((was) => ({
+      ...was,
+      files: next(was.files),
+    }));
   const editor = useRef<HTMLDivElement>(null);
   const yesWaits = useThreadYesWaits();
   const openLink = useContext(ProseLinks);
@@ -359,26 +561,46 @@ export function SessionComposer({
   const token = tokenAt(head, head.length);
   const wanted = token?.trigger === "#" && isNumber(token.query) ? Number(token.query) : undefined;
   // A number that is not open is looked up once it has rested, and offered first when it resolves.
-  const [found, setFound] = useState<{ number: number; hit: NumberedHit } | undefined>();
+  const [found, setFound] = useState<
+    | {
+        number: number;
+        hit: NumberedHit;
+      }
+    | undefined
+  >();
   const source = useRef(numbered);
   source.current = numbered;
   useEffect(() => {
     const reads = source.current;
-    if (wanted === undefined || reads === undefined || reads.open.some((one) => Number(one.tag.id) === wanted)) {
+    if (
+      wanted === undefined ||
+      reads === undefined ||
+      reads.open.some((one) => Number(one.tag.id) === wanted)
+    ) {
       setFound(undefined);
       return;
     }
     let live = true;
     const timer = window.setTimeout(() => {
       void reads.find(wanted).then((hit) => {
-        if (live) setFound(hit === undefined ? undefined : { number: wanted, hit });
+        if (live)
+          setFound(
+            hit === undefined
+              ? undefined
+              : {
+                  number: wanted,
+                  hit,
+                },
+          );
       });
     }, LOOKUP_MS);
     return () => {
       live = false;
       window.clearTimeout(timer);
     };
-  }, [wanted]);
+  }, [
+    wanted,
+  ]);
   // `@` and something after it asks for files once it has rested. The last answer stays until the next
   // arrives, so the list does not close between keystrokes, and one that comes back late is dropped.
   const fileQuery = token?.trigger === "@" && token.query !== "" ? token.query : undefined;
@@ -401,22 +623,46 @@ export function SessionComposer({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [fileQuery]);
+  }, [
+    fileQuery,
+  ]);
   const items: Item[] =
     token === undefined
       ? []
       : token.trigger === "/"
-        ? matching(commands, token.query).map((one) => ({ id: one.name, name: `/${one.name}`, ...(one.says === "" ? {} : { says: one.says }) }))
+        ? matching(commands, token.query).map((one) => ({
+            id: one.name,
+            name: `/${one.name}`,
+            ...(one.says === ""
+              ? {}
+              : {
+                  says: one.says,
+                }),
+          }))
         : token.trigger === "#"
-          ? numberedItems(numbered, token.query, wanted === undefined || found?.number !== wanted ? undefined : found.hit, draft.tags)
+          ? numberedItems(
+              numbered,
+              token.query,
+              wanted === undefined || found?.number !== wanted ? undefined : found.hit,
+              draft.tags,
+            )
           : [
-            ...TAG_KINDS.flatMap(({ kind }) =>
-              taggable
-                .filter((one) => one.kind === kind && !draft.tags.some((had) => had.kind === kind && had.id === one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
-                .map((one) => ({ id: `${kind}${one.id}`, name: one.title, tag: one })),
-            ),
-            ...(fileQuery === undefined ? [] : foundFiles.slice(0, FILE_ROWS).map(fileRow)),
-          ];
+              ...TAG_KINDS.flatMap(({ kind }) =>
+                taggable
+                  .filter(
+                    (one) =>
+                      one.kind === kind &&
+                      !draft.tags.some((had) => had.kind === kind && had.id === one.id) &&
+                      one.title.toLowerCase().includes(token.query.toLowerCase()),
+                  )
+                  .map((one) => ({
+                    id: `${kind}${one.id}`,
+                    name: one.title,
+                    tag: one,
+                  })),
+              ),
+              ...(fileQuery === undefined ? [] : foundFiles.slice(0, FILE_ROWS).map(fileRow)),
+            ];
   const open = items.length > 0;
   // The list hangs above the box, where a box at the foot of its window has the room. In Helm's dock a box
   // with no thread over it has none, and the dock clips what leaves it: then it hangs below.
@@ -426,12 +672,19 @@ export function SessionComposer({
     const box = form.current;
     if (!open || box === null) return;
     let clip: HTMLElement | null = box.parentElement;
-    while (clip !== null && getComputedStyle(clip).overflowY === "visible") clip = clip.parentElement;
-    const bound = clip?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight };
+    while (clip !== null && getComputedStyle(clip).overflowY === "visible")
+      clip = clip.parentElement;
+    const bound = clip?.getBoundingClientRect() ?? {
+      top: 0,
+      bottom: window.innerHeight,
+    };
     const at = box.getBoundingClientRect();
     const needs = Math.min(items.length, 6) * 28 + 16;
     setBelow(at.top - bound.top < needs && bound.bottom - at.bottom > at.top - bound.top);
-  }, [open, items.length]);
+  }, [
+    open,
+    items.length,
+  ]);
   const current = Math.min(active, Math.max(items.length - 1, 0));
 
   // The box is drawn from the draft, and only when the box does not already say what the draft does:
@@ -440,10 +693,17 @@ export function SessionComposer({
     const box = editor.current;
     if (box === null) return;
     const now = readDom(box);
-    if (now.text === draft.text && now.tags.map((one) => one.id).join() === draft.tags.map((one) => one.id).join()) return;
+    if (
+      now.text === draft.text &&
+      now.tags.map((one) => one.id).join() === draft.tags.map((one) => one.id).join()
+    )
+      return;
     writeDom(box, draft.text, draft.tags);
     if (document.activeElement === box) caretToEnd(box);
-  }, [draft.text, draft.tags]);
+  }, [
+    draft.text,
+    draft.tags,
+  ]);
 
   const askedKey = typeof focusFor === "object" ? focusFor.key : focusFor;
   const askedAt = typeof focusFor === "object" ? focusFor.at : 0;
@@ -453,7 +713,11 @@ export function SessionComposer({
     if (box === null || askedKey === undefined || askedKey !== draftKey) return;
     box.focus();
     caretToEnd(box);
-  }, [askedKey, askedAt, draftKey]);
+  }, [
+    askedKey,
+    askedAt,
+    draftKey,
+  ]);
 
   // The box takes the most of half the panel it sits in, then scrolls.
   useLayoutEffect(() => {
@@ -464,16 +728,29 @@ export function SessionComposer({
     const thread = box.closest<HTMLElement>(".armada-session-frame__body");
     let bound = thread ?? form?.parentElement ?? null;
     // A wrapper no taller than the box is its content's height, which halving would shrink again at each line: the panel is the first one taller.
-    while (thread === null && grows === "panel" && form != null && bound?.parentElement != null && bound.clientHeight <= form.offsetHeight + 1) bound = bound.parentElement;
-    if (grows === "scroller") while (bound !== null && !/auto|scroll|hidden/.test(getComputedStyle(bound).overflowY)) bound = bound.parentElement;
+    while (
+      thread === null &&
+      grows === "panel" &&
+      form != null &&
+      bound?.parentElement != null &&
+      bound.clientHeight <= form.offsetHeight + 1
+    )
+      bound = bound.parentElement;
+    if (grows === "scroller")
+      while (bound !== null && !/auto|scroll|hidden/.test(getComputedStyle(bound).overflowY))
+        bound = bound.parentElement;
     box.style.maxHeight = bound ? `${bound.clientHeight / 2}px` : "";
-  }, [draft.text, grows]);
+  }, [
+    draft.text,
+    grows,
+  ]);
 
   // The caret moves by key, by press and by what is typed; the typeahead follows it.
   useEffect(() => {
     const follow = () => {
       const box = editor.current;
-      if (box !== null && box.contains(window.getSelection()?.anchorNode ?? null)) setHead(beforeCaret(box)?.head ?? "");
+      if (box !== null && box.contains(window.getSelection()?.anchorNode ?? null))
+        setHead(beforeCaret(box)?.head ?? "");
     };
     document.addEventListener("selectionchange", follow);
     return () => document.removeEventListener("selectionchange", follow);
@@ -483,12 +760,25 @@ export function SessionComposer({
   useEffect(() => {
     if (tags.length === 0) return;
     setDraft((was) => {
-      const fresh = tags.filter((one) => !was.tags.some((had) => had.kind === one.kind && had.id === one.id));
-      return fresh.length === 0 ? was : { ...was, text: `${was.text}${was.text === "" || was.text.endsWith(" ") ? "" : " "}${fresh.map(() => CHIP).join(" ")} `, tags: [...was.tags, ...fresh] };
+      const fresh = tags.filter(
+        (one) => !was.tags.some((had) => had.kind === one.kind && had.id === one.id),
+      );
+      return fresh.length === 0
+        ? was
+        : {
+            ...was,
+            text: `${was.text}${was.text === "" || was.text.endsWith(" ") ? "" : " "}${fresh.map(() => CHIP).join(" ")} `,
+            tags: [
+              ...was.tags,
+              ...fresh,
+            ],
+          };
     });
     onTags([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tags]);
+  }, [
+    tags,
+  ]);
 
   const read = () => {
     const box = editor.current;
@@ -498,7 +788,13 @@ export function SessionComposer({
     setDraft((was) => ({
       ...was,
       text: now.text,
-      tags: now.tags.map((one) => [...was.tags, ...taggable].find((known) => known.kind === one.kind && known.id === one.id) ?? one),
+      tags: now.tags.map(
+        (one) =>
+          [
+            ...was.tags,
+            ...taggable,
+          ].find((known) => known.kind === one.kind && known.id === one.id) ?? one,
+      ),
     }));
     setActive(0);
   };
@@ -511,7 +807,11 @@ export function SessionComposer({
         id: `f${(counter.current += 1)}`,
         name: file.name === "" ? "Pasted file" : file.name,
         file,
-        ...(file.type.startsWith("image/") ? { src: URL.createObjectURL(file) } : {}),
+        ...(file.type.startsWith("image/")
+          ? {
+              src: URL.createObjectURL(file),
+            }
+          : {}),
       })),
     ]);
   };
@@ -570,8 +870,14 @@ export function SessionComposer({
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     // ⌘1 to ⌘9 reach the quick bar's lines while the box has the focus; stopped here, so the tabs do not move too.
-    const digit = quick === undefined || !event.metaKey || event.ctrlKey || event.altKey ? undefined : /^Digit([1-9])$/.exec(event.nativeEvent.code)?.[1];
-    const line = digit === undefined || quick === undefined ? undefined : quickLines(quick.asked, quick.phrases)[Number(digit) - 1];
+    const digit =
+      quick === undefined || !event.metaKey || event.ctrlKey || event.altKey
+        ? undefined
+        : /^Digit([1-9])$/.exec(event.nativeEvent.code)?.[1];
+    const line =
+      digit === undefined || quick === undefined
+        ? undefined
+        : quickLines(quick.asked, quick.phrases)[Number(digit) - 1];
     if (line !== undefined) {
       event.preventDefault();
       event.stopPropagation();
@@ -580,13 +886,24 @@ export function SessionComposer({
       return;
     }
     // ⌥Space held listens, and its release stops.
-    if (talk !== undefined && event.altKey && !event.metaKey && !event.ctrlKey && event.nativeEvent.code === "Space") {
+    if (
+      talk !== undefined &&
+      event.altKey &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      event.nativeEvent.code === "Space"
+    ) {
       event.preventDefault();
       if (!event.repeat) startTalk(true);
       return;
     }
     const box = editor.current;
-    const typing = box !== null && !event.nativeEvent.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey;
+    const typing =
+      box !== null &&
+      !event.nativeEvent.isComposing &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey;
     if (typing && event.key === "Backspace" && backspaceInBlock(box)) {
       event.preventDefault();
       read();
@@ -616,7 +933,11 @@ export function SessionComposer({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       setActive((current + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length);
-    } else if (event.key === "Enter" && token?.trigger === "/" && items[current]!.id === token.query) {
+    } else if (
+      event.key === "Enter" &&
+      token?.trigger === "/" &&
+      items[current]!.id === token.query
+    ) {
       // A command typed whole has nothing left to complete, so Enter sends it.
       event.preventDefault();
       send();
@@ -631,17 +952,26 @@ export function SessionComposer({
 
   const onPaste = (event: ClipboardEvent) => {
     event.preventDefault();
-    const pasted = textOnly ? [] : [...event.clipboardData.files];
+    const pasted = textOnly
+      ? []
+      : [
+          ...event.clipboardData.files,
+        ];
     const words = event.clipboardData.getData("text/plain");
     if (pasted.length > 0) add(pasted);
-    else if (!textOnly && isLargePaste(words)) add([snippetOf(words, files.filter((one) => one.name.startsWith("pasted-snippet-")).length + 1)]);
+    else if (!textOnly && isLargePaste(words))
+      add([
+        snippetOf(words, files.filter((one) => one.name.startsWith("pasted-snippet-")).length + 1),
+      ]);
     else document.execCommand("insertText", false, words);
   };
 
   const onDrop = (event: DragEvent) => {
     event.preventDefault();
     if (disabled || textOnly) return;
-    add([...event.dataTransfer.files]);
+    add([
+      ...event.dataTransfer.files,
+    ]);
   };
 
   const held = files.length + drawn.length > 0;
@@ -649,12 +979,19 @@ export function SessionComposer({
   const send = () => {
     if (disabled || (text.trim() === "" && !held && !sendEmpty)) return;
     const sent = draft;
-    const done = onSend({ text: sentText(text, draft.tags).trim(), files, tags: draft.tags });
+    const done = onSend({
+      text: sentText(text, draft.tags).trim(),
+      files,
+      tags: draft.tags,
+    });
     forget();
     setHead("");
     // A refused message comes back, unless something new has been typed since.
     void done?.then((went) => {
-      if (!went) setDraft((now) => (now.text === "" && now.tags.length === 0 && now.files.length === 0 ? sent : now));
+      if (!went)
+        setDraft((now) =>
+          now.text === "" && now.tags.length === 0 && now.files.length === 0 ? sent : now,
+        );
     });
   };
 
@@ -665,11 +1002,19 @@ export function SessionComposer({
 
   /** A quick line goes as it is, whatever the box holds, and the box keeps it. */
   const sendLine = (line: string) => {
-    if (!disabled) void onSend({ text: line, files: [], tags: [] });
+    if (!disabled)
+      void onSend({
+        text: line,
+        files: [],
+        tags: [],
+      });
   };
   /** A quick line put after what the box holds, to finish before sending. */
   const dropLine = (line: string) => {
-    setDraft((was) => ({ ...was, text: joined(was.text, line) }));
+    setDraft((was) => ({
+      ...was,
+      text: joined(was.text, line),
+    }));
     const box = editor.current;
     if (box === null) return;
     box.focus();
@@ -696,7 +1041,12 @@ export function SessionComposer({
       box.focus();
       caretToEnd(box);
     }
-    stopTalk.current = talk.listen((word) => setDraft((was) => ({ ...was, text: joined(was.text, word) })));
+    stopTalk.current = talk.listen((word) =>
+      setDraft((was) => ({
+        ...was,
+        text: joined(was.text, word),
+      })),
+    );
   };
   useEffect(() => {
     if (!listening) return;
@@ -706,33 +1056,98 @@ export function SessionComposer({
     window.addEventListener("keyup", release);
     return () => window.removeEventListener("keyup", release);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listening]);
+  }, [
+    listening,
+  ]);
   useEffect(() => () => stopTalk.current?.(), []);
 
   const chips = (
     <div className="armada-session-composer__chips" role="group" aria-label="Attached">
       {files.map((one) => (
-        <AttachmentChip key={one.id} filename={one.name} {...(one.src === undefined ? {} : { preview: one.src })} onRemove={() => setFiles((was) => was.filter((f) => f.id !== one.id))} />
+        <AttachmentChip
+          key={one.id}
+          filename={one.name}
+          {...(one.src === undefined
+            ? {}
+            : {
+                preview: one.src,
+              })}
+          onRemove={() => setFiles((was) => was.filter((f) => f.id !== one.id))}
+        />
       ))}
       {drawn.map((one) => (
-        <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
+        <AttachmentChip
+          key={one.id}
+          filename={one.title}
+          from="Sketch"
+          onRemove={() => onRemoveDrawn(one.id)}
+        />
       ))}
     </div>
   );
   const sendButton = (
-    <Button type="submit" variant={sendWeight} size="sm" {...(slim ? { "aria-label": sendLabel } : {})} disabled={disabled || (text.trim() === "" && !held && !sendEmpty)}>
+    <Button
+      type="submit"
+      variant={sendWeight}
+      size="sm"
+      {...(slim
+        ? {
+            "aria-label": sendLabel,
+          }
+        : {})}
+      disabled={disabled || (text.trim() === "" && !held && !sendEmpty)}
+    >
       <Send size={12} strokeWidth={2} aria-hidden />
       {slim ? null : sendLabel}
     </Button>
   );
   const said = MODES.find((one) => one.id === mode)!.says;
   const box = (
-    <form ref={form} className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+    <form
+      ref={form}
+      className="armada-session-composer"
+      data-bare={bare || undefined}
+      onSubmit={submit}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={onDrop}
+    >
       {!open ? null : (
-        <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Job or a file"} data-numbered={token?.trigger === "#" ? "" : undefined}>
+        <div
+          className="armada-mention armada-session-composer__offer"
+          data-below={below ? "" : undefined}
+          id={listId}
+          role="listbox"
+          aria-label={
+            token?.trigger === "/"
+              ? "Skills and commands"
+              : token?.trigger === "#"
+                ? "Tag an issue or pull request"
+                : "Tag a Job or a file"
+          }
+          data-numbered={token?.trigger === "#" ? "" : undefined}
+        >
           {token?.trigger === "/" || token?.trigger === "#"
-            ? items.map((item, index) => <Row key={item.id} item={item} on={index === current} onHover={() => setActive(index)} onChoose={() => choose(item)} />)
-            : [...TAG_KINDS.map(({ kind, label }) => ({ key: kind, label, rows: items.filter((one) => one.tag?.kind === kind) })), { key: "file", label: "Files", rows: items.filter((one) => one.file !== undefined) }].map(({ key, label, rows }) => {
+            ? items.map((item, index) => (
+                <Row
+                  key={item.id}
+                  item={item}
+                  on={index === current}
+                  onHover={() => setActive(index)}
+                  onChoose={() => choose(item)}
+                />
+              ))
+            : [
+                ...TAG_KINDS.map(({ kind, label }) => ({
+                  key: kind,
+                  label,
+                  rows: items.filter((one) => one.tag?.kind === kind),
+                })),
+                {
+                  key: "file",
+                  label: "Files",
+                  rows: items.filter((one) => one.file !== undefined),
+                },
+              ].map(({ key, label, rows }) => {
                 if (rows.length === 0) return null;
                 return (
                   <div key={key} role="group" aria-label={label}>
@@ -740,7 +1155,13 @@ export function SessionComposer({
                       {label}
                     </p>
                     {rows.map((item) => (
-                      <Row key={item.id} item={item} on={items.indexOf(item) === current} onHover={() => setActive(items.indexOf(item))} onChoose={() => choose(item)} />
+                      <Row
+                        key={item.id}
+                        item={item}
+                        on={items.indexOf(item) === current}
+                        onHover={() => setActive(items.indexOf(item))}
+                        onChoose={() => choose(item)}
+                      />
                     ))}
                   </div>
                 );
@@ -749,7 +1170,24 @@ export function SessionComposer({
       )}
       {/* Inside the box's own border, so a band over the box frames the bar and the box as one. */}
       {quick === undefined ? null : (
-        <QuickBar asked={quick.asked} phrases={quick.phrases} onSend={sendLine} onDrop={dropLine} canSave={text.trim() !== ""} onSave={() => quick.onSave(sentText(text, draft.tags).trim())} {...(quick.onAct === undefined ? {} : { onAct: quick.onAct })} {...(quick.onHide === undefined ? {} : { onHide: quick.onHide })} />
+        <QuickBar
+          asked={quick.asked}
+          phrases={quick.phrases}
+          onSend={sendLine}
+          onDrop={dropLine}
+          canSave={text.trim() !== ""}
+          onSave={() => quick.onSave(sentText(text, draft.tags).trim())}
+          {...(quick.onAct === undefined
+            ? {}
+            : {
+                onAct: quick.onAct,
+              })}
+          {...(quick.onHide === undefined
+            ? {}
+            : {
+                onHide: quick.onHide,
+              })}
+        />
       )}
       <div className="armada-session-composer__field">
         <div
@@ -771,8 +1209,17 @@ export function SessionComposer({
       {compact && held ? <div className="armada-session-composer__held">{chips}</div> : null}
       <div className="armada-session-composer__bar">
         {modeHidden || bare || onMode === undefined ? null : (
-          <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
-            <Select aria-label="Permission mode" disabled={modeLocked} value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
+          <Pick
+            Glyph={Shield}
+            compact={compact}
+            label={modeLocked ? `${said} The terminal holds it.` : said}
+          >
+            <Select
+              aria-label="Permission mode"
+              disabled={modeLocked}
+              value={mode}
+              onChange={(event) => onMode(event.target.value as ComposerMode)}
+            >
               {MODES.map((one) => (
                 <option key={one.id} value={one.id}>
                   {one.label}
@@ -785,26 +1232,63 @@ export function SessionComposer({
           <>
             {attachOnly ? null : (
               <>
-              <Pick Glyph={Cpu} compact={compact} proposed={proposed?.model === true} label="The model the next turn runs on">
-                <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
-                  <option value="">{defaultModel === undefined ? (compact ? "Auto" : "Model") : compact ? (resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel) : `${resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel} · default`}</option>
-                  {models.map((one) => (
-                    <option key={one} value={one}>
-                      {resolvedSaidFor(model === one ? one : undefined) ?? one}
+                <Pick
+                  Glyph={Cpu}
+                  compact={compact}
+                  proposed={proposed?.model === true}
+                  label="The model the next turn runs on"
+                >
+                  <Select
+                    aria-label="Model"
+                    value={model ?? ""}
+                    onChange={(event) =>
+                      onTune({
+                        model: event.target.value === "" ? null : event.target.value,
+                        effort,
+                      })
+                    }
+                  >
+                    <option value="">
+                      {defaultModel === undefined
+                        ? compact
+                          ? "Auto"
+                          : "Model"
+                        : compact
+                          ? (resolvedSaidFor(model === null ? defaultModel : undefined) ??
+                            defaultModel)
+                          : `${resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel} · default`}
                     </option>
-                  ))}
-                </Select>
-              </Pick>
-              <Pick Glyph={Zap} compact={compact} proposed={proposed?.effort === true} label="The effort the next turn takes">
-                <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
-                  <option value="">{compact ? "Auto" : "Effort"}</option>
-                  {efforts.map((one) => (
-                    <option key={one} value={one}>
-                      {one}
-                    </option>
-                  ))}
-                </Select>
-              </Pick>
+                    {models.map((one) => (
+                      <option key={one} value={one}>
+                        {resolvedSaidFor(model === one ? one : undefined) ?? one}
+                      </option>
+                    ))}
+                  </Select>
+                </Pick>
+                <Pick
+                  Glyph={Zap}
+                  compact={compact}
+                  proposed={proposed?.effort === true}
+                  label="The effort the next turn takes"
+                >
+                  <Select
+                    aria-label="Effort"
+                    value={effort ?? ""}
+                    onChange={(event) =>
+                      onTune({
+                        model,
+                        effort: event.target.value === "" ? null : event.target.value,
+                      })
+                    }
+                  >
+                    <option value="">{compact ? "Auto" : "Effort"}</option>
+                    {efforts.map((one) => (
+                      <option key={one} value={one}>
+                        {one}
+                      </option>
+                    ))}
+                  </Select>
+                </Pick>
               </>
             )}
             <input
@@ -814,18 +1298,32 @@ export function SessionComposer({
               hidden
               aria-label="Files to attach"
               onChange={(event) => {
-                add([...(event.target.files ?? [])]);
+                add([
+                  ...(event.target.files ?? []),
+                ]);
                 event.target.value = "";
               }}
             />
             <Tooltip label="Attach a file or a picture">
-              <Button type="button" variant="ghost" size="sm" aria-label="Attach file" onClick={() => picker.current?.click()}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Attach file"
+                onClick={() => picker.current?.click()}
+              >
                 <Paperclip size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
             {attachOnly ? null : (
               <Tooltip label="Draw a sketch to send with the message">
-                <Button type="button" variant="ghost" size="sm" aria-label="Draw sketch" onClick={onDraw}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Draw sketch"
+                  onClick={onDraw}
+                >
                   <PencilRuler size={16} strokeWidth={2} aria-hidden />
                 </Button>
               </Tooltip>
@@ -834,8 +1332,25 @@ export function SessionComposer({
         )}
         {bare || (compact && held) ? null : chips}
         {talk === undefined ? null : (
-          <Tooltip label={<>Talk <Kbd>⌥Space</Kbd></>}>
-            <Button type="button" variant="ghost" size="sm" aria-label="Talk" aria-pressed={listening} aria-keyshortcuts="Alt+Space" className="armada-session-composer__talk" data-listening={listening || undefined} disabled={disabled} onClick={() => (listening ? endTalk() : startTalk(false))}>
+          <Tooltip
+            label={
+              <>
+                Talk <Kbd>⌥Space</Kbd>
+              </>
+            }
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label="Talk"
+              aria-pressed={listening}
+              aria-keyshortcuts="Alt+Space"
+              className="armada-session-composer__talk"
+              data-listening={listening || undefined}
+              disabled={disabled}
+              onClick={() => (listening ? endTalk() : startTalk(false))}
+            >
               <Mic size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
@@ -848,17 +1363,32 @@ export function SessionComposer({
 }
 
 /** One row of a typeahead. A tag's row leads with its kind's glyph. */
-function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover: () => void; onChoose: () => void }) {
-  const Glyph = item.file !== undefined ? File : item.tag === undefined ? undefined : TAG_GLYPH[item.tag.kind];
+function Row({
+  item,
+  on,
+  onHover,
+  onChoose,
+}: {
+  item: Item;
+  on: boolean;
+  onHover: () => void;
+  onChoose: () => void;
+}) {
+  const Glyph =
+    item.file !== undefined ? File : item.tag === undefined ? undefined : TAG_GLYPH[item.tag.kind];
   // A `#` row's glyph is the only word for its kind, so it is named on hover.
-  const kind = item.tag !== undefined && item.name.startsWith("#") ? KIND_SAID[item.tag.kind] : undefined;
+  const kind =
+    item.tag !== undefined && item.name.startsWith("#") ? KIND_SAID[item.tag.kind] : undefined;
   return (
     <div
       role="option"
       aria-selected={on}
       className={on ? "armada-mention__row armada-mention__row--active" : "armada-mention__row"}
       ref={(node) => {
-        if (on) node?.scrollIntoView?.({ block: "nearest" });
+        if (on)
+          node?.scrollIntoView?.({
+            block: "nearest",
+          });
       }}
       onMouseEnter={onHover}
       onMouseDown={(event) => {
@@ -876,8 +1406,12 @@ function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover
         </Tooltip>
       )}
       <span className="armada-session-composer__name">{item.name}</span>
-      {item.says === undefined ? null : <span className="armada-session-composer__says">{item.says}</span>}
-      {item.standing === undefined ? null : <span className="armada-session-composer__standing">{item.standing}</span>}
+      {item.says === undefined ? null : (
+        <span className="armada-session-composer__says">{item.says}</span>
+      )}
+      {item.standing === undefined ? null : (
+        <span className="armada-session-composer__standing">{item.standing}</span>
+      )}
     </div>
   );
 }
@@ -886,15 +1420,43 @@ function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover
  * A select with its tooltip, and below the breakpoint a glyph in front of it
  * naming what it sets, so the row is a glyph and a value and not a label.
  */
-export function Pick({ Glyph, compact, label, proposed = false, mark, children }: { Glyph: LucideIcon; compact: boolean; label: string; proposed?: boolean; mark?: { Glyph: LucideIcon; label: string }; children: ReactNode }) {
+export function Pick({
+  Glyph,
+  compact,
+  label,
+  proposed = false,
+  mark,
+  children,
+}: {
+  Glyph: LucideIcon;
+  compact: boolean;
+  label: string;
+  proposed?: boolean;
+  mark?: {
+    Glyph: LucideIcon;
+    label: string;
+  };
+  children: ReactNode;
+}) {
   return (
     <Tooltip label={label}>
       <span className="armada-session-composer__pick" data-compact={compact || undefined}>
-        {compact ? <Glyph size={12} strokeWidth={2} aria-hidden className="armada-session-composer__pick-glyph" /> : null}
+        {compact ? (
+          <Glyph
+            size={12}
+            strokeWidth={2}
+            aria-hidden
+            className="armada-session-composer__pick-glyph"
+          />
+        ) : null}
         {children}
         {proposed ? (
           <Tooltip label="Picked by the proposer">
-            <span className="armada-session-composer__proposed" role="img" aria-label="Picked by the proposer">
+            <span
+              className="armada-session-composer__proposed"
+              role="img"
+              aria-label="Picked by the proposer"
+            >
               <Lightbulb size={12} strokeWidth={2} aria-hidden />
             </span>
           </Tooltip>

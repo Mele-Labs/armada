@@ -14,7 +14,13 @@ const PULSE = 400;
 /** The page in a frame of its own, once it has loaded. */
 async function open(): Promise<Document> {
   const page = sketchHtml({
-    svg: sketchSvg({ scene: HUB, geometry: geometryOf(HUB), tokens: TOKENS, title: "How data moves", standalone: false }),
+    svg: sketchSvg({
+      scene: HUB,
+      geometry: geometryOf(HUB),
+      tokens: TOKENS,
+      title: "How data moves",
+      standalone: false,
+    }),
     title: "How data moves",
     tokens: TOKENS,
     steps: stepPlan(HUB),
@@ -25,7 +31,11 @@ async function open(): Promise<Document> {
   frame.style.blockSize = "700px";
   frame.srcdoc = page;
   document.body.append(frame);
-  await new Promise<void>((done) => frame.addEventListener("load", () => done(), { once: true }));
+  await new Promise<void>((done) =>
+    frame.addEventListener("load", () => done(), {
+      once: true,
+    }),
+  );
   return frame.contentDocument!;
 }
 
@@ -37,10 +47,15 @@ const waitUntil = async (check: () => boolean) => {
 test("it plays by itself: a step lights its box, stands the rest back, and a dot crosses its arrow", async () => {
   await motion();
   const doc = await open();
-  const lit = () => [...doc.querySelectorAll("[data-node][data-current]")].map((one) => one.getAttribute("data-node"));
+  const lit = () =>
+    [
+      ...doc.querySelectorAll("[data-node][data-current]"),
+    ].map((one) => one.getAttribute("data-node"));
   await waitUntil(() => lit().length === 1);
   expect(doc.querySelector("svg")!.hasAttribute("data-playing")).toBe(true);
-  expect(doc.querySelector("[data-node='check']")!.hasAttribute("data-dim")).toBe(lit()[0] !== "check");
+  expect(doc.querySelector("[data-node='check']")!.hasAttribute("data-dim")).toBe(
+    lit()[0] !== "check",
+  );
   // The group is the ground the steps happen on, and does not stand back.
   expect(doc.querySelector("[data-node='g']")!.hasAttribute("data-dim")).toBe(false);
 
@@ -48,7 +63,11 @@ test("it plays by itself: a step lights its box, stands the rest back, and a dot
   await waitUntil(() => doc.querySelector("[data-edge='e1'] .sk-edge__dot") !== null);
   const dot = doc.querySelector("[data-edge='e1'] .sk-edge__dot")!;
   expect((dot as SVGElement).style.offsetPath).toContain("path(");
-  const travelling = doc.getAnimations().filter((one) => (one as CSSAnimation).animationName === "sk-travel" && one.playState === "running");
+  const travelling = doc
+    .getAnimations()
+    .filter(
+      (one) => (one as CSSAnimation).animationName === "sk-travel" && one.playState === "running",
+    );
   expect(travelling.length).toBe(1);
   expect(doc.querySelector("[data-edge='e1']")!.hasAttribute("data-active")).toBe(true);
 

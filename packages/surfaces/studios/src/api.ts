@@ -69,7 +69,11 @@ export type StudiosApi = {
    * **Bytes in, never a path**: main stages them and names the staged file to
    * Fleet, so the renderer cannot point Fleet at a file of its choosing.
    */
-  addStudioPicture: (studioId: string, bytes: Uint8Array, position: StudioPosition) => Promise<Outcome>;
+  addStudioPicture: (
+    studioId: string,
+    bytes: Uint8Array,
+    position: StudioPosition,
+  ) => Promise<Outcome>;
   /**
    * Put a Sketch drawn on the pad on a Studio, and keep a Sketch's drawing as it
    * was left — 1 Oct 2026. **Bytes in for a new picture, never a path**, a
@@ -87,7 +91,12 @@ export type StudiosApi = {
    * board, and its spot from that frame's corner. Nothing else about a node is
    * written. `within` since protocol 23.0, #1620.
    */
-  moveStudioNode: (studioId: string, nodeId: string, position: StudioPosition, within: string | null) => Promise<Outcome>;
+  moveStudioNode: (
+    studioId: string,
+    nodeId: string,
+    position: StudioPosition,
+    within: string | null,
+  ) => Promise<Outcome>;
   /**
    * Delete everything picked, and every edge on it, as one write — #1411. A
    * person's act, and only from the Studios surface.
@@ -257,15 +266,34 @@ export type PanelHeldNote = {
 };
 
 /** A box on a note's picture, in that picture's pixels. */
-export type NoteRing = { x: number; y: number; width: number; height: number };
+export type NoteRing = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 /** Where a press in the panel's Job view lands on Bridge's window: a surface, a link, one of the Job's Checks or its Loadout, or another Job. */
 export type PanelGo =
-  | { kind: "surface"; id: string }
-  | { kind: "link"; address: string }
-  | { kind: "check"; run: number }
-  | { kind: "loadout" }
-  | { kind: "session"; id: string };
+  | {
+      kind: "surface";
+      id: string;
+    }
+  | {
+      kind: "link";
+      address: string;
+    }
+  | {
+      kind: "check";
+      run: number;
+    }
+  | {
+      kind: "loadout";
+    }
+  | {
+      kind: "session";
+      id: string;
+    };
 
 export type StudiosState = {
   /**
@@ -278,8 +306,12 @@ export type StudiosState = {
 };
 
 export const STUDIOS_NOTHING_YET: StudiosState = {
-  studios: { state: "none" },
-  studio: { state: "none" },
+  studios: {
+    state: "none",
+  },
+  studio: {
+    state: "none",
+  },
 };
 
 export const STUDIOS_CHANNELS = {

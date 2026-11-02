@@ -10,7 +10,14 @@
 import type { JobCopyChange } from "./job-copy";
 
 /** Where a lifecycle or a rule applies, as its file says it. Every repository, or one Workspace or repository by id. */
-export type PieceScope = { kind: "everywhere" } | { kind: "within"; id: string };
+export type PieceScope =
+  | {
+      kind: "everywhere";
+    }
+  | {
+      kind: "within";
+      id: string;
+    };
 
 /** How a piece ranks against another of its id: the scope first, then the place, then whether it came from a Workspace's home. */
 export type PieceRank = {
@@ -34,7 +41,11 @@ export type PieceKept = {
 };
 
 /** A file set aside, and the sentence a person reads for it. `source` is `armada`, `kit` or `repository`. */
-export type PieceLeftOut = { source: string; path: string; said: string };
+export type PieceLeftOut = {
+  source: string;
+  path: string;
+  said: string;
+};
 
 /** A set of repositories that build one product, as one repository sees it. */
 export type WorkspaceOfRepositories = {
@@ -74,13 +85,25 @@ export type AllWorkspaces = {
 /** How a state is read, by the source that knows. */
 export type StateReadFrom =
   /** The tracker's own words for it. None is allowed, and every value is then unmapped. */
-  | { source: "tracker"; words: string[] }
+  | {
+      source: "tracker";
+      words: string[];
+    }
   /** What the forge shows of a pull request: `draft`, `ready`, `reviewers_on`, `in_review`, `approved`, `merged` or `closed`. */
-  | { source: "forge"; fact: string }
+  | {
+      source: "forge";
+      fact: string;
+    }
   /** The state a watch's command printed: `waiting`, `running`, `passed` or `failed`. */
-  | { source: "watch"; state: string }
+  | {
+      source: "watch";
+      state: string;
+    }
   /** What Fleet knows without asking: `started`, `step_entered:<step id>`, `pull_request_opened`, `landed` or `ended`. */
-  | { source: "fleet"; fact: string };
+  | {
+      source: "fleet";
+      fact: string;
+    };
 
 export type LifecycleStateDefinition = {
   id: string;
@@ -90,7 +113,10 @@ export type LifecycleStateDefinition = {
 };
 
 /** A move a lifecycle expects. Expected, not permitted: a state is read and never set. */
-export type LifecycleTransition = { from: string; to: string };
+export type LifecycleTransition = {
+  from: string;
+  to: string;
+};
 
 /** A lifecycle: the states one kind of thing passes through, the moves expected between them and the states that end it. */
 export type LifecycleDefinition = {
@@ -104,7 +130,10 @@ export type LifecycleDefinition = {
 };
 
 /** A lifecycle that applies to a repository, and where it was kept. */
-export type AppliedLifecycle = { lifecycle: LifecycleDefinition; kept: PieceKept };
+export type AppliedLifecycle = {
+  lifecycle: LifecycleDefinition;
+  kept: PieceKept;
+};
 
 /** `list_lifecycles` (`GET /lifecycles?manifest_id=`): what applies to one repository, and the files set aside. */
 export type RepositoryLifecycles = {
@@ -117,50 +146,141 @@ export type RepositoryLifecycles = {
 /** Which instances a rule looks at or acts on. */
 export type RuleAmong =
   /** The instance whose entering a state set the rule off. */
-  | { kind: "entered" }
+  | {
+      kind: "entered";
+    }
   /** What the entered instance came from and the Job holds, of one lifecycle. */
-  | { kind: "linked_from"; lifecycle: string }
+  | {
+      kind: "linked_from";
+      lifecycle: string;
+    }
   /** What came from the entered instance and the Job holds, of one lifecycle. */
-  | { kind: "linking_to"; lifecycle: string }
+  | {
+      kind: "linking_to";
+      lifecycle: string;
+    }
   /** Every instance of one lifecycle the Job holds. */
-  | { kind: "held"; lifecycle: string };
+  | {
+      kind: "held";
+      lifecycle: string;
+    };
 
 /** The instances an act is done to: those `among` selects, standing in `in_state` where one is given. */
-export type RuleTarget = { among: RuleAmong; in_state?: string };
+export type RuleTarget = {
+  among: RuleAmong;
+  in_state?: string;
+};
 
 /** The moment a rule is for. `job`'s `event` is `started`, `pull_request_opened`, `landed` or `ended`. */
 export type RuleWhen =
-  | { kind: "enters"; lifecycle: string; state: string }
-  | { kind: "step_starts"; step: string }
-  | { kind: "step_ends"; step: string }
-  | { kind: "job"; event: string };
+  | {
+      kind: "enters";
+      lifecycle: string;
+      state: string;
+    }
+  | {
+      kind: "step_starts";
+      step: string;
+    }
+  | {
+      kind: "step_ends";
+      step: string;
+    }
+  | {
+      kind: "job";
+      event: string;
+    };
 
 /** One thing a rule asks. All of a rule's conditions must hold. `instances`' `quantity` is `every`, `any` or `no`. */
 export type RuleCondition =
-  | { kind: "instances"; among: RuleAmong; quantity: string; in_state: string }
-  | { kind: "workflow"; workflow: string }
-  | { kind: "at_step"; step: string }
-  | { kind: "pull_request_opened" };
+  | {
+      kind: "instances";
+      among: RuleAmong;
+      quantity: string;
+      in_state: string;
+    }
+  | {
+      kind: "workflow";
+      workflow: string;
+    }
+  | {
+      kind: "at_step";
+      step: string;
+    }
+  | {
+      kind: "pull_request_opened";
+    };
 
 /** What a rule does. */
 export type RuleAct =
-  | { act: "tracker_assign"; to: string; target: RuleTarget }
+  | {
+      act: "tracker_assign";
+      to: string;
+      target: RuleTarget;
+    }
   /** Move to a state of the ticket's lifecycle: the state, and not the tracker's word for it. */
-  | { act: "tracker_move"; to: string; target: RuleTarget }
-  | { act: "tracker_close"; target: RuleTarget }
-  | { act: "forge_request_reviewers"; from: string[]; target: RuleTarget }
-  | { act: "forge_mark_ready"; target: RuleTarget }
-  | { act: "forge_merge"; target: RuleTarget }
-  | { act: "forge_auto_merge"; target: RuleTarget }
+  | {
+      act: "tracker_move";
+      to: string;
+      target: RuleTarget;
+    }
+  | {
+      act: "tracker_close";
+      target: RuleTarget;
+    }
+  | {
+      act: "forge_request_reviewers";
+      from: string[];
+      target: RuleTarget;
+    }
+  | {
+      act: "forge_mark_ready";
+      target: RuleTarget;
+    }
+  | {
+      act: "forge_merge";
+      target: RuleTarget;
+    }
+  | {
+      act: "forge_auto_merge";
+      target: RuleTarget;
+    }
   /** A message from a template, left on `target`. */
-  | { act: "draft"; template: string; target: RuleTarget }
-  | { act: "start_job"; workflow?: string; prompt: string }
-  | { act: "start_watch"; recipe: string; values: Record<string, string>; deploy?: string }
-  | { act: "tell"; message: string }
-  | { act: "wake" }
-  | { act: "run_command"; command: string }
-  | { act: "run_skill"; skill: string }
-  | { act: "run_drone"; prompt: string };
+  | {
+      act: "draft";
+      template: string;
+      target: RuleTarget;
+    }
+  | {
+      act: "start_job";
+      workflow?: string;
+      prompt: string;
+    }
+  | {
+      act: "start_watch";
+      recipe: string;
+      values: Record<string, string>;
+      deploy?: string;
+    }
+  | {
+      act: "tell";
+      message: string;
+    }
+  | {
+      act: "wake";
+    }
+  | {
+      act: "run_command";
+      command: string;
+    }
+  | {
+      act: "run_skill";
+      skill: string;
+    }
+  | {
+      act: "run_drone";
+      prompt: string;
+    };
 
 /** One act of a rule, and how far it goes on its own. */
 export type RuleDoing = {
@@ -194,7 +314,10 @@ export type LifecycleRule = {
 };
 
 /** A rule that applies to a repository, and where it was kept. */
-export type AppliedRule = { rule: LifecycleRule; kept: PieceKept };
+export type AppliedRule = {
+  rule: LifecycleRule;
+  kept: PieceKept;
+};
 
 /** `list_lifecycle_rules` (`GET /lifecycles/rules?manifest_id=`): what applies to one repository, and the files set aside. Armada carries none. */
 export type RepositoryLifecycleRules = {
@@ -204,7 +327,10 @@ export type RepositoryLifecycleRules = {
 };
 
 /** What one kind of act is set to. `kind` is `tracker_write`, `forge_write`, `draft`, `start_job`, `start_watch`, `tell_agent`, `run_command` or `run_agent`; `autonomy` is `acts`, `asks` or `off`. */
-export type ActKindDefault = { kind: string; autonomy: string };
+export type ActKindDefault = {
+  kind: string;
+  autonomy: string;
+};
 
 /** One file of autonomy defaults that applies to a repository: its layer, where it was kept, and only the kinds it set. */
 export type AutonomyLayer = {
@@ -231,10 +357,24 @@ export type RepositoryAutonomy = {
 };
 
 /** Where an instance stands, as a source's last reading left it. `unmapped` is kept as the source said it and is not an end. */
-export type InstanceStanding = { kind: "unread" } | { kind: "in"; state: string } | { kind: "unmapped"; said: string };
+export type InstanceStanding =
+  | {
+      kind: "unread";
+    }
+  | {
+      kind: "in";
+      state: string;
+    }
+  | {
+      kind: "unmapped";
+      said: string;
+    };
 
 /** An instance another is linked to. */
-export type InstanceLink = { lifecycle: string; key: string };
+export type InstanceLink = {
+  lifecycle: string;
+  key: string;
+};
 
 /** One thing a Job holds: a ticket, a pull request, a deploy, or a Job it started. */
 export type HeldInstance = {

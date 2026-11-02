@@ -22,14 +22,20 @@ const CSS_IDENT = /^[A-Za-z_][\w-]*$/;
 
 /** A BEM class from the component library, which is what a search of the code finds. */
 function sourceClasses(node: NodeLike): string[] {
-  return [...node.classList].filter((c) => c.startsWith("armada-") && CSS_IDENT.test(c));
+  return [
+    ...node.classList,
+  ].filter((c) => c.startsWith("armada-") && CSS_IDENT.test(c));
 }
 
 const quote = (value: string): string => `"${value.replace(/["\\]/g, "\\$&")}"`;
 
 /** One step: tag, its `armada-` classes, and an accessible name or role if it has one. */
 function step(node: NodeLike): string {
-  let part = node.tagName.toLowerCase() + sourceClasses(node).map((c) => `.${c}`).join("");
+  let part =
+    node.tagName.toLowerCase() +
+    sourceClasses(node)
+      .map((c) => `.${c}`)
+      .join("");
   const label = node.getAttribute("aria-label");
   if (label !== null && label !== "" && label.length <= 60) part += `[aria-label=${quote(label)}]`;
   else {

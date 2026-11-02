@@ -38,7 +38,14 @@ import type {
 } from "@armada/screens/src/manifest-kit";
 
 /** What Open in editor and Show in Finder answered: done, or why not in the row's voice. */
-export type KitFileOpened = { ok: true } | { ok: false; detail: string };
+export type KitFileOpened =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      detail: string;
+    };
 
 export type ManifestApi = {
   // The same rehearsal in the main checkout — Journey 9's *Running one*, the
@@ -211,9 +218,15 @@ export type ManifestState = {
 
 export const MANIFEST_NOTHING_YET: ManifestState = {
   manifestReading: null,
-  checkoutRunSheet: { state: "none" },
-  checkoutRunFollowed: { state: "none" },
-  manifestDrift: { state: "none" },
+  checkoutRunSheet: {
+    state: "none",
+  },
+  checkoutRunFollowed: {
+    state: "none",
+  },
+  manifestDrift: {
+    state: "none",
+  },
 };
 
 export const MANIFEST_CHANNELS = {

@@ -5,30 +5,108 @@
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 
 // The workflow is Draft, Build, Present, Verify, Pull request, and the Job starts at Build, then moves to Present when it shows its walk. Each step is a zone of the story.
-const build = region("Build", { exact: true });
-const present = region("Present", { exact: true });
+const build = region("Build", {
+  exact: true,
+});
+const present = region("Present", {
+  exact: true,
+});
 // The real Job has no workflow, so its story keeps Now.
-const now = region("Now", { exact: true });
-const thread = region("Thread", { exact: true });
-const workflow = button("Workflow Feature", { exact: true });
-const theWalk = inside(present, button("Audit files in System", { exact: true }));
+const now = region("Now", {
+  exact: true,
+});
+const thread = region("Thread", {
+  exact: true,
+});
+const workflow = button("Workflow Feature", {
+  exact: true,
+});
+const theWalk = inside(
+  present,
+  button("Audit files in System", {
+    exact: true,
+  }),
+);
 
 export const jobWalkOnTheSpine = walk("job-walk-on-the-spine", [
-  { press: deckRow("Rotate the audit log"), say: "Open a Job. The spine sits on dim glass, so the right column carries weight like the left" },
-  { look: region("Draft", { exact: true }), say: "A finished step is a zone folded to a check, and opens to what the step made: issues, pull requests, documents and sketches" },
-  { press: workflow, say: "The workflow's name is a readout at the head of the story. A press opens the old dropdown" },
-  { key: "Escape", on: workflow, say: "Close it" },
-  { look: button("Bays", { exact: true }), say: "A write clash is a dot in the Bays button's corner, clear of its icon" },
-  { look: inside(build, text("Editing audit.rs")), say: "Now leads with what the Job is doing, worked out from its calls and not from its task marks" },
-  { look: thread, say: "In the thread, each run of calls reads as one line: Read multiple files, Ran 3 checks, Watched deploy. Open one for its calls" },
-  { key: "Alt+m", on: thread, say: "⌥M from anywhere in the Job" },
-  { look: role("textbox", "Message", { exact: true }), say: "puts you in its message box" },
-  { later: build, say: "The Job finishes Build and shows its walk" },
-  { look: theWalk, say: "Now it is a call on you, with a tick for each take. A press opens it" },
-  { look: region("Field", { exact: true }), say: "Field has no picker. It follows the Job you select" },
-  { look: region("Jobs", { exact: true }), say: "The dots are gone from the rows. A row that needs you keeps its tint and pulses" },
-  { press: deckRow("Issues tab beside Reviews"), say: "A real Job: the Issues tab, at call 396 of 676. Its plan, task marks and calls are its own" },
-  { look: inside(now, text("Running multiple commands")), say: "Now leads with what its calls show it doing" },
-  { hover: inside(now, text(/^\d+ h/)), say: "Ten marks say in progress. One nobody has changed for an hour dims, and the time says since when" },
-  { look: inside(now, text("Full key map for the tab")), say: "Each mark in progress shows, with its own time" },
+  {
+    press: deckRow("Rotate the audit log"),
+    say: "Open a Job. The spine sits on dim glass, so the right column carries weight like the left",
+  },
+  {
+    look: region("Draft", {
+      exact: true,
+    }),
+    say: "A finished step is a zone folded to a check, and opens to what the step made: issues, pull requests, documents and sketches",
+  },
+  {
+    press: workflow,
+    say: "The workflow's name is a readout at the head of the story. A press opens the old dropdown",
+  },
+  {
+    key: "Escape",
+    on: workflow,
+    say: "Close it",
+  },
+  {
+    look: button("Bays", {
+      exact: true,
+    }),
+    say: "A write clash is a dot in the Bays button's corner, clear of its icon",
+  },
+  {
+    look: inside(build, text("Editing audit.rs")),
+    say: "Now leads with what the Job is doing, worked out from its calls and not from its task marks",
+  },
+  {
+    look: thread,
+    say: "In the thread, each run of calls reads as one line: Read multiple files, Ran 3 checks, Watched deploy. Open one for its calls",
+  },
+  {
+    key: "Alt+m",
+    on: thread,
+    say: "⌥M from anywhere in the Job",
+  },
+  {
+    look: role("textbox", "Message", {
+      exact: true,
+    }),
+    say: "puts you in its message box",
+  },
+  {
+    later: build,
+    say: "The Job finishes Build and shows its walk",
+  },
+  {
+    look: theWalk,
+    say: "Now it is a call on you, with a tick for each take. A press opens it",
+  },
+  {
+    look: region("Field", {
+      exact: true,
+    }),
+    say: "Field has no picker. It follows the Job you select",
+  },
+  {
+    look: region("Jobs", {
+      exact: true,
+    }),
+    say: "The dots are gone from the rows. A row that needs you keeps its tint and pulses",
+  },
+  {
+    press: deckRow("Issues tab beside Reviews"),
+    say: "A real Job: the Issues tab, at call 396 of 676. Its plan, task marks and calls are its own",
+  },
+  {
+    look: inside(now, text("Running multiple commands")),
+    say: "Now leads with what its calls show it doing",
+  },
+  {
+    hover: inside(now, text(/^\d+ h/)),
+    say: "Ten marks say in progress. One nobody has changed for an hour dims, and the time says since when",
+  },
+  {
+    look: inside(now, text("Full key map for the tab")),
+    say: "Each mark in progress shows, with its own time",
+  },
 ]);

@@ -8,7 +8,11 @@ import type { WireError } from "./protocol";
 import type { Outcome } from "./reads";
 
 /** The request an unreadable answer names, so the fault can say which. */
-export type AskedRoute = { method: "GET" | "POST"; path: string; sent?: Record<string, string> };
+export type AskedRoute = {
+  method: "GET" | "POST";
+  path: string;
+  sent?: Record<string, string>;
+};
 
 /**
  * What an answer outside 2xx comes to.
@@ -24,9 +28,17 @@ export function refusedWith(status: number, text: string, asked: AskedRoute): Ou
         ok: false,
         why: "transport",
         detail: `Fleet answered ${status}`,
-        fault: { ...asked, why: "unanswerable", status },
+        fault: {
+          ...asked,
+          why: "unanswerable",
+          status,
+        },
       }
-    : { ok: false, why: "refused", error };
+    : {
+        ok: false,
+        why: "refused",
+        error,
+      };
 }
 
 /**

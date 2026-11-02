@@ -5,9 +5,18 @@ import type { IpcMain } from "electron";
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
 
-type Hosts = { ipc: IpcMain; connection: () => FleetConnection | null };
+type Hosts = {
+  ipc: IpcMain;
+  connection: () => FleetConnection | null;
+};
 
-const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
+const unsent = {
+  ok: false,
+  outcome: {
+    ok: false,
+    why: "not_connected",
+  },
+} as const;
 
 export function handlePlanUsage({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.getPlanUsage, () => connection()?.planUsage.get() ?? unsent);

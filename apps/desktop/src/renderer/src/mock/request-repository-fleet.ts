@@ -22,15 +22,27 @@ const KNOWN_AS: Record<string, RegExp> = {
 const escaped = (word: string) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** The set-up repositories ranked as Fleet ranks them: those the words name first, then by name. */
-export function requestRepositoryRead(words: string, repositories: readonly RepositorySummary[]): RequestRepositoryRead {
+export function requestRepositoryRead(
+  words: string,
+  repositories: readonly RepositorySummary[],
+): RequestRepositoryRead {
   const ranked = repositories
     .flatMap((one) => {
       if (one.manifest === undefined) return [];
       const name = repositoryLabel(one, repositories);
       const known = KNOWN_AS[name.toLowerCase()] ?? new RegExp(`\\b${escaped(name)}\\b`, "i");
-      return [{ id: one.manifest.id, name, named: known.test(words) }];
+      return [
+        {
+          id: one.manifest.id,
+          name,
+          named: known.test(words),
+        },
+      ];
     })
     .sort((a, b) => Number(b.named) - Number(a.named) || a.name.localeCompare(b.name));
   const named = ranked.filter((one) => one.named);
-  return { manifest_id: named.length === 1 ? named[0]!.id : null, likely: ranked.map((one) => one.id) };
+  return {
+    manifest_id: named.length === 1 ? named[0]!.id : null,
+    likely: ranked.map((one) => one.id),
+  };
 }

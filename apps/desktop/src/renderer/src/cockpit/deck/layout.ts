@@ -14,9 +14,20 @@ import { gridOf, pillRect, type PillGrid } from "./pills";
 import type { Pr, Subject } from "./ship";
 import type { Clash, Touch } from "./touches";
 
-export type Rect = { x: number; y: number; w: number; h: number };
-export type Size = { width: number; height: number };
-export type Point = { x: number; y: number };
+export type Rect = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+export type Size = {
+  width: number;
+  height: number;
+};
+export type Point = {
+  x: number;
+  y: number;
+};
 
 // ---- A drone, read off the Session it is --------------------------------------------------------
 
@@ -73,7 +84,16 @@ export type DroneIn = {
   job?: string;
 };
 
-export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string | undefined; file?: string | undefined; shown: boolean; touches?: readonly Touch[] }): DroneIn {
+export function droneOf(
+  subject: Subject,
+  owed: boolean,
+  extra: {
+    slot?: string | undefined;
+    file?: string | undefined;
+    shown: boolean;
+    touches?: readonly Touch[];
+  },
+): DroneIn {
   const parked = subject.paused === true;
   const stuck = subject.kind === "session" && subject.phase === "held" && subject.alarm;
   const failing = !stuck && !parked && (subject.alarm || subject.mark.tone === "bad");
@@ -92,11 +112,23 @@ export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string 
     stuck,
     flare: failing,
     working,
-    ...(extra.slot === undefined ? {} : { slot: extra.slot }),
-    ...(extra.file === undefined ? {} : { file: extra.file }),
+    ...(extra.slot === undefined
+      ? {}
+      : {
+          slot: extra.slot,
+        }),
+    ...(extra.file === undefined
+      ? {}
+      : {
+          file: extra.file,
+        }),
     shown: extra.shown,
     touches: extra.touches ?? [],
-    ...(parked ? { paused: true as const } : {}),
+    ...(parked
+      ? {
+          paused: true as const,
+        }
+      : {}),
   };
 }
 
@@ -104,10 +136,20 @@ export function droneOf(subject: Subject, owed: boolean, extra: { slot?: string 
 
 const MARGIN = 14;
 
-type Box = { l: number; t: number; r: number; b: number };
+type Box = {
+  l: number;
+  t: number;
+  r: number;
+  b: number;
+};
 /** A margin kept round what a drone must stay clear of. */
 const EXCLUDE = 16;
-const boxOf = (l: number, t: number, r: number, b: number, pad: number): Box => ({ l: l - pad, t: t - pad, r: r + pad, b: b + pad });
+const boxOf = (l: number, t: number, r: number, b: number, pad: number): Box => ({
+  l: l - pad,
+  t: t - pad,
+  r: r + pad,
+  b: b + pad,
+});
 /** How far above its ground point a drone is drawn, and the height and arc a pull request flies at: where each lands on the screen. */
 const DRONE_UP = 50;
 const ROUTE_UP = 52;
@@ -124,36 +166,98 @@ export function rand(key: string, salt: number): number {
 }
 
 /** Split a rect among weighted parts, along its longer side, so each part's area follows its weight. */
-function slice(parts: readonly { id: string; weight: number }[], rect: Rect, into: Map<string, Rect>, gap: number): void {
+function slice(
+  parts: readonly {
+    id: string;
+    weight: number;
+  }[],
+  rect: Rect,
+  into: Map<string, Rect>,
+  gap: number,
+): void {
   if (parts.length === 0) return;
   if (parts.length === 1) {
     into.set(parts[0]!.id, rect);
     return;
   }
-  const sorted = [...parts].sort((a, b) => b.weight - a.weight || a.id.localeCompare(b.id));
+  const sorted = [
+    ...parts,
+  ].sort((a, b) => b.weight - a.weight || a.id.localeCompare(b.id));
   const total = sorted.reduce((sum, one) => sum + one.weight, 0);
   let take = 0;
   let sum = 0;
-  while (take < sorted.length - 1 && (take === 0 || sum + sorted[take]!.weight / 2 <= total / 2)) sum += sorted[take++]!.weight;
+  while (take < sorted.length - 1 && (take === 0 || sum + sorted[take]!.weight / 2 <= total / 2))
+    sum += sorted[take++]!.weight;
   const first = sorted.slice(0, take);
   const rest = sorted.slice(take);
   const share = sum / total;
   if (rect.w >= rect.h) {
     const left = (rect.w - gap) * share;
-    slice(first, { x: rect.x, y: rect.y, w: left, h: rect.h }, into, gap);
-    slice(rest, { x: rect.x + left + gap, y: rect.y, w: rect.w - left - gap, h: rect.h }, into, gap);
+    slice(
+      first,
+      {
+        x: rect.x,
+        y: rect.y,
+        w: left,
+        h: rect.h,
+      },
+      into,
+      gap,
+    );
+    slice(
+      rest,
+      {
+        x: rect.x + left + gap,
+        y: rect.y,
+        w: rect.w - left - gap,
+        h: rect.h,
+      },
+      into,
+      gap,
+    );
   } else {
     const top = (rect.h - gap) * share;
-    slice(first, { x: rect.x, y: rect.y, w: rect.w, h: top }, into, gap);
-    slice(rest, { x: rect.x, y: rect.y + top + gap, w: rect.w, h: rect.h - top - gap }, into, gap);
+    slice(
+      first,
+      {
+        x: rect.x,
+        y: rect.y,
+        w: rect.w,
+        h: top,
+      },
+      into,
+      gap,
+    );
+    slice(
+      rest,
+      {
+        x: rect.x,
+        y: rect.y + top + gap,
+        w: rect.w,
+        h: rect.h - top - gap,
+      },
+      into,
+      gap,
+    );
   }
 }
 
-export type Pad = { key: string; x: number; y: number };
+export type Pad = {
+  key: string;
+  x: number;
+  y: number;
+};
 
 /** A plot of the battlefield: one directory, drawn to the area its files take. */
 /** A plot, and the pills that fill it: one for each file its directory holds, where Fleet counted them. */
-export type Tile = { path: string; top: string; rect: Rect; cx: number; cy: number; pills?: PillGrid };
+export type Tile = {
+  path: string;
+  top: string;
+  rect: Rect;
+  cx: number;
+  cy: number;
+  pills?: PillGrid;
+};
 
 export type Territory = {
   root: string;
@@ -162,36 +266,76 @@ export type Territory = {
   /** A Job's pad, in the strip between the plots and the base, right of the base: where its drone lands to run checks. A Job's Field only. */
   pad?: Rect;
   /** The top directories, each the rect of its tiles, for the border that groups them. */
-  groups: { dir: string; rect: Rect }[];
+  groups: {
+    dir: string;
+    rect: Rect;
+  }[];
   tiles: Tile[];
   /** The base: the centre of its compound, and how wide it is. */
-  base: { x: number; y: number; w: number };
+  base: {
+    x: number;
+    y: number;
+    w: number;
+  };
   pads: Pad[];
   /** The objective, where this repository has a main. */
   goal: Point | undefined;
 };
 
-export type Placed = { x: number; y: number; s: number; root: string };
+export type Placed = {
+  x: number;
+  y: number;
+  s: number;
+  root: string;
+};
 
 /** A pull request as the battlefield draws it: where it stands and which drone, if any, it belongs to. */
-export type PrIn = { key: string; number: number; stage: Pr["stage"]; root: string; owner?: string };
+export type PrIn = {
+  key: string;
+  number: number;
+  stage: Pr["stage"];
+  root: string;
+  owner?: string;
+};
 
 /** What is being done to a file: made, changed or taken away. None is a file at rest. */
 export type FileAct = "write" | "edit" | "remove";
 
 /** A file of a repository, drawn as a small bar on the plot of its directory. */
-export type FileIn = { path: string; act?: FileAct };
+export type FileIn = {
+  path: string;
+  act?: FileAct;
+};
 
 /** A file's bar as laid out: where it lies on its plot, in the layout's own units. A file with a pill is lit on it, and `pill` is which. */
-export type Bar = { path: string; act: FileAct | undefined; rect: Rect; cx: number; cy: number; tile: Tile; pill?: number };
+export type Bar = {
+  path: string;
+  act: FileAct | undefined;
+  rect: Rect;
+  cx: number;
+  cy: number;
+  tile: Tile;
+  pill?: number;
+};
 
-export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean; areas: Areas; files?: readonly FileIn[]; /** Draw a Job's pad at the near edge. */ pad?: boolean };
+export type RepoIn = {
+  root: string;
+  name: string;
+  pads: readonly string[];
+  goal: boolean;
+  areas: Areas;
+  files?: readonly FileIn[] /** Draw a Job's pad at the near edge. */;
+  pad?: boolean;
+};
 
 /** The files a top directory is drawn for when it lists no directories inside it and Fleet has not counted. */
 const BARE_FILES = 8;
 
 /** The least a lit pill is drawn, so a file in a crowded plot can still be seen. */
-const LIT = { w: 7, h: 2.6 };
+const LIT = {
+  w: 7,
+  h: 2.6,
+};
 
 export type Layout = {
   territories: Territory[];
@@ -199,12 +343,19 @@ export type Layout = {
   /** The files drawn as bars, by path. */
   bars: Map<string, Bar>;
   /** The plots each drone touches, the biggest share first. */
-  over: Map<string, { tile: Tile; w: number }[]>;
+  over: Map<
+    string,
+    {
+      tile: Tile;
+      w: number;
+    }[]
+  >;
   clashes: Clash[];
 };
 
 /** How large a drone is drawn in a field of this size: larger where there is room, smaller where there is not. */
-export const bigOf = (size: Size): number => Math.min(1.55, Math.max(1.05, Math.min(size.width / 1000, size.height / 700) * 1.3));
+export const bigOf = (size: Size): number =>
+  Math.min(1.55, Math.max(1.05, Math.min(size.width / 1000, size.height / 700) * 1.3));
 
 /**
  * The territories across the whole field, sized by what they hold. Each is the repository's own directories as a
@@ -217,17 +368,49 @@ export function layoutOf(
   drones: readonly DroneIn[],
   size: Size,
   big: number,
-  prs: readonly { root: string; owner?: string | undefined; stage: Pr["stage"] }[] = [],
+  prs: readonly {
+    root: string;
+    owner?: string | undefined;
+    stage: Pr["stage"];
+  }[] = [],
   clashed: readonly Clash[] = [],
 ): Layout {
   const rects = new Map<string, Rect>();
-  const filesOf = (repo: RepoIn) => repo.areas.reduce((sum, area) => sum + (area.kids.length === 0 ? (area.files ?? BARE_FILES) : area.kids.reduce((s, k) => s + k[1], 0)), 0);
-  const weights = repos.map((repo) => ({ id: repo.root, weight: 3 + drones.filter((one) => one.root === repo.root).length + 0.35 * Math.sqrt(filesOf(repo)) }));
-  slice(weights, { x: MARGIN, y: MARGIN, w: Math.max(120, size.width - MARGIN * 2), h: Math.max(120, size.height - MARGIN * 2) }, rects, 14);
+  const filesOf = (repo: RepoIn) =>
+    repo.areas.reduce(
+      (sum, area) =>
+        sum +
+        (area.kids.length === 0
+          ? (area.files ?? BARE_FILES)
+          : area.kids.reduce((s, k) => s + k[1], 0)),
+      0,
+    );
+  const weights = repos.map((repo) => ({
+    id: repo.root,
+    weight:
+      3 + drones.filter((one) => one.root === repo.root).length + 0.35 * Math.sqrt(filesOf(repo)),
+  }));
+  slice(
+    weights,
+    {
+      x: MARGIN,
+      y: MARGIN,
+      w: Math.max(120, size.width - MARGIN * 2),
+      h: Math.max(120, size.height - MARGIN * 2),
+    },
+    rects,
+    14,
+  );
 
   const territories: Territory[] = [];
   const at = new Map<string, Placed>();
-  const over = new Map<string, { tile: Tile; w: number }[]>();
+  const over = new Map<
+    string,
+    {
+      tile: Tile;
+      w: number;
+    }[]
+  >();
   const clashes: Clash[] = [];
   const bars = new Map<string, Bar>();
   const want = new Map<string, Point>();
@@ -243,50 +426,143 @@ export function layoutOf(
     const bx = rect.x + rect.w / 2;
     const by = rect.y + rect.h - baseH * 0.52;
     const left = bx - baseW / 2;
-    const pads = repo.pads.map((key, i) => ({ key, x: left + hangar + 24 + i * spacing, y: by + 2 }));
+    const pads = repo.pads.map((key, i) => ({
+      key,
+      x: left + hangar + 24 + i * spacing,
+      y: by + 2,
+    }));
     // The strip above the base where a drone with nothing touched stands, and the flag's band above the plots.
     const strip = 64 + 22 * big;
-    const plots: Rect = { x: rect.x + 8, y: rect.y + 98, w: rect.w - 16, h: Math.max(60, by - strip - (rect.y + 98)) };
-    const goal = repo.goal ? { x: rect.x + rect.w / 2, y: rect.y + 84 } : undefined;
+    const plots: Rect = {
+      x: rect.x + 8,
+      y: rect.y + 98,
+      w: rect.w - 16,
+      h: Math.max(60, by - strip - (rect.y + 98)),
+    };
+    const goal = repo.goal
+      ? {
+          x: rect.x + rect.w / 2,
+          y: rect.y + 84,
+        }
+      : undefined;
     // Clear of the base's hangar and of the reach of a drone over it, and inside the band a drone may stand in.
     const padW = 120;
-    const jobPad: Rect | undefined = repo.pad === true ? { x: Math.min(bx + baseW / 2 + 40, rect.x + rect.w - 30 - padW), y: by - strip * 0.78, w: padW, h: strip * 0.45 } : undefined;
+    const jobPad: Rect | undefined =
+      repo.pad === true
+        ? {
+            x: Math.min(bx + baseW / 2 + 40, rect.x + rect.w - 30 - padW),
+            y: by - strip * 0.78,
+            w: padW,
+            h: strip * 0.45,
+          }
+        : undefined;
 
     // Top directories by their files, then the directories inside each.
-    const sizeOf = (area: RepoIn["areas"][number]) => (area.kids.length === 0 ? (area.files ?? BARE_FILES) : area.kids.reduce((sum, k) => sum + k[1], 0));
+    const sizeOf = (area: RepoIn["areas"][number]) =>
+      area.kids.length === 0
+        ? (area.files ?? BARE_FILES)
+        : area.kids.reduce((sum, k) => sum + k[1], 0);
     const tops = new Map<string, Rect>();
-    slice(repo.areas.map((area) => ({ id: area.dir, weight: sizeOf(area) })), plots, tops, 6);
+    slice(
+      repo.areas.map((area) => ({
+        id: area.dir,
+        weight: sizeOf(area),
+      })),
+      plots,
+      tops,
+      6,
+    );
     const tiles: Tile[] = [];
     const groups: Territory["groups"] = [];
     // A plot, with a pill for each file it holds: the named ones first, then those past the names Fleet gave.
-    const plot = (path: string, top: string, rect: Rect, files: number, names: readonly string[]): Tile => {
+    const plot = (
+      path: string,
+      top: string,
+      rect: Rect,
+      files: number,
+      names: readonly string[],
+    ): Tile => {
       const grid = gridOf(rect, Math.max(files, names.length), names, FLAT);
-      return { path, top, rect, cx: rect.x + rect.w / 2, cy: rect.y + rect.h / 2, ...(grid === undefined ? {} : { pills: grid }) };
+      return {
+        path,
+        top,
+        rect,
+        cx: rect.x + rect.w / 2,
+        cy: rect.y + rect.h / 2,
+        ...(grid === undefined
+          ? {}
+          : {
+              pills: grid,
+            }),
+      };
     };
     for (const area of repo.areas) {
       const box = tops.get(area.dir);
       if (box === undefined) continue;
-      groups.push({ dir: area.dir, rect: box });
+      groups.push({
+        dir: area.dir,
+        rect: box,
+      });
       if (area.kids.length === 0) {
-        tiles.push(plot(area.dir, area.dir, box, area.names === undefined ? 0 : (area.files ?? area.names.length), area.names ?? []));
+        tiles.push(
+          plot(
+            area.dir,
+            area.dir,
+            box,
+            area.names === undefined ? 0 : (area.files ?? area.names.length),
+            area.names ?? [],
+          ),
+        );
         continue;
       }
       const inner = new Map<string, Rect>();
-      slice(area.kids.map(([name, files]) => ({ id: name, weight: files })), { x: box.x + 3, y: box.y + 3, w: box.w - 6, h: box.h - 6 }, inner, 3);
+      slice(
+        area.kids.map(([name, files]) => ({
+          id: name,
+          weight: files,
+        })),
+        {
+          x: box.x + 3,
+          y: box.y + 3,
+          w: box.w - 6,
+          h: box.h - 6,
+        },
+        inner,
+        3,
+      );
       for (const [name, files, names] of area.kids) {
         const r = inner.get(name);
-        if (r !== undefined) tiles.push(plot(`${area.dir}/${name}`, area.dir, r, files, names ?? []));
+        if (r !== undefined)
+          tiles.push(plot(`${area.dir}/${name}`, area.dir, r, files, names ?? []));
       }
     }
     // A touched path belongs to the plot with the longest path that begins it.
-    const tileOf = (path: string) => tiles.filter((t) => path === t.path || path.startsWith(`${t.path}/`)).sort((a, b) => b.path.length - a.path.length)[0];
+    const tileOf = (path: string) =>
+      tiles
+        .filter((t) => path === t.path || path.startsWith(`${t.path}/`))
+        .sort((a, b) => b.path.length - a.path.length)[0];
 
     // A file a plot has a pill for is lit on it. Any other is a bar in rows across the plot, in the order the repository lists them, each as wide as the plot allows.
     for (const tile of tiles) {
       const touched = (repo.files ?? []).filter((one) => tileOf(one.path) === tile);
       if (touched.length === 0) continue;
       const grid = tile.pills;
-      const place = new Map<string, number>(grid === undefined ? [] : grid.names.map((name, i): [string, number] => [`${tile.path}/${name}`, i]));
+      const place = new Map<string, number>(
+        grid === undefined
+          ? []
+          : grid.names.map(
+              (
+                name,
+                i,
+              ): [
+                string,
+                number,
+              ] => [
+                `${tile.path}/${name}`,
+                i,
+              ],
+            ),
+      );
       const mine: FileIn[] = [];
       for (const one of touched) {
         const i = place.get(one.path);
@@ -296,9 +572,28 @@ export function layoutOf(
         }
         // Lit larger than a fine pill so it can be seen, about the pill's middle.
         const r = pillRect(grid, i);
-        const [w, h] = [Math.max(r.w, LIT.w), Math.max(r.h, LIT.h)];
-        const [cx, cy] = [r.x + r.w / 2, r.y + r.h / 2];
-        bars.set(one.path, { path: one.path, act: one.act, rect: { x: cx - w / 2, y: cy - h / 2, w, h }, cx, cy, tile, pill: i });
+        const [w, h] = [
+          Math.max(r.w, LIT.w),
+          Math.max(r.h, LIT.h),
+        ];
+        const [cx, cy] = [
+          r.x + r.w / 2,
+          r.y + r.h / 2,
+        ];
+        bars.set(one.path, {
+          path: one.path,
+          act: one.act,
+          rect: {
+            x: cx - w / 2,
+            y: cy - h / 2,
+            w,
+            h,
+          },
+          cx,
+          cy,
+          tile,
+          pill: i,
+        });
       }
       if (mine.length === 0) continue;
       const bw = Math.max(8, Math.min(22, (tile.rect.w - 10) / 3.2));
@@ -307,7 +602,19 @@ export function layoutOf(
       mine.forEach((one, i) => {
         const x = tile.rect.x + 5 + (i % cols) * (bw + 3);
         const y = tile.rect.y + 12 + Math.floor(i / cols) * (bh + 4);
-        bars.set(one.path, { path: one.path, act: one.act, rect: { x, y, w: bw, h: bh }, cx: x + bw / 2, cy: y + bh / 2, tile });
+        bars.set(one.path, {
+          path: one.path,
+          act: one.act,
+          rect: {
+            x,
+            y,
+            w: bw,
+            h: bh,
+          },
+          cx: x + bw / 2,
+          cy: y + bh / 2,
+          tile,
+        });
       });
     }
 
@@ -318,45 +625,141 @@ export function layoutOf(
         const tile = tileOf(touch.path);
         if (tile !== undefined) share.set(tile, (share.get(tile) ?? 0) + touch.w);
       }
-      const list = [...share].map(([tile, w]) => ({ tile, w })).sort((a, b) => b.w - a.w || a.tile.path.localeCompare(b.tile.path));
+      const list = [
+        ...share,
+      ]
+        .map(([tile, w]) => ({
+          tile,
+          w,
+        }))
+        .sort((a, b) => b.w - a.w || a.tile.path.localeCompare(b.tile.path));
       over.set(one.key, list);
       const bar = one.file === undefined ? undefined : bars.get(one.file);
       if (jobPad !== undefined && (one.off === "pad" || one.off === "walk")) {
-        want.set(one.key, { x: jobPad.x + jobPad.w / 2, y: jobPad.y + jobPad.h / 2 });
+        want.set(one.key, {
+          x: jobPad.x + jobPad.w / 2,
+          y: jobPad.y + jobPad.h / 2,
+        });
       } else if (bar !== undefined) {
-        want.set(one.key, { x: bar.cx, y: bar.cy });
+        want.set(one.key, {
+          x: bar.cx,
+          y: bar.cy,
+        });
       } else if (list.length > 0) {
         const total = list.reduce((sum, one) => sum + one.w, 0);
-        want.set(one.key, { x: list.reduce((sum, one) => sum + one.tile.cx * one.w, 0) / total, y: list.reduce((sum, one) => sum + one.tile.cy * one.w, 0) / total });
+        want.set(one.key, {
+          x: list.reduce((sum, one) => sum + one.tile.cx * one.w, 0) / total,
+          y: list.reduce((sum, one) => sum + one.tile.cy * one.w, 0) / total,
+        });
       } else {
         // Near its pad, or the base's middle, spread along the strip so two do not stand on each other.
         const pad = one.slot === undefined ? undefined : pads.find((p) => p.key === one.slot);
-        want.set(one.key, { x: pad?.x ?? bx + (order % 5 - 2) * 56 * big, y: by - strip * 0.5 - 8 });
+        want.set(one.key, {
+          x: pad?.x ?? bx + ((order % 5) - 2) * 56 * big,
+          y: by - strip * 0.5 - 8,
+        });
       }
-      bounds.set(one.key, { x: rect.x + 30, y: plots.y + 14, w: rect.w - 60, h: by - 26 - strip * 0.2 - (plots.y + 14) });
+      bounds.set(one.key, {
+        x: rect.x + 30,
+        y: plots.y + 14,
+        w: rect.w - 60,
+        h: by - 26 - strip * 0.2 - (plots.y + 14),
+      });
     });
     // A clash is Fleet's, from git: it marks the plot of the area it names, where the repository draws one.
-    for (const clash of clashed) if (clash.root === repo.root && tileOf(clash.path) !== undefined) clashes.push(clash);
+    for (const clash of clashed)
+      if (clash.root === repo.root && tileOf(clash.path) !== undefined) clashes.push(clash);
 
-    territories.push({ root: repo.root, name: repo.name, rect, groups, tiles, base: { x: bx, y: by, w: baseW }, pads, goal, ...(jobPad === undefined ? {} : { pad: jobPad }) });
+    territories.push({
+      root: repo.root,
+      name: repo.name,
+      rect,
+      groups,
+      tiles,
+      base: {
+        x: bx,
+        y: by,
+        w: baseW,
+      },
+      pads,
+      goal,
+      ...(jobPad === undefined
+        ? {}
+        : {
+            pad: jobPad,
+          }),
+    });
   }
 
   // Held apart by rule, not by hope: no two drones' hit boxes or label strips meet, and no drone stands over a flag, a pad, a crate or
   // a route that is not its own. Rects are in the layout's own units, a drone's lifted to where it is drawn.
-  const keys = [...want.keys()].sort();
+  const keys = [
+    ...want.keys(),
+  ].sort();
   const ghosts = new Set(drones.filter((one) => one.ghost === true).map((one) => one.key));
-  const place = new Map(keys.map((key) => [key, { ...want.get(key)! }]));
-  const goals = new Map(territories.flatMap((one) => (one.goal === undefined ? [] : [[one.root, one.goal] as const])));
-  const homes = new Map(territories.map((one) => [one.root, { x: one.base.x - one.base.w / 2 + 36, y: one.base.y + 8 }] as const));
+  const place = new Map(
+    keys.map((key) => [
+      key,
+      {
+        ...want.get(key)!,
+      },
+    ]),
+  );
+  const goals = new Map(
+    territories.flatMap((one) =>
+      one.goal === undefined
+        ? []
+        : [
+            [
+              one.root,
+              one.goal,
+            ] as const,
+          ],
+    ),
+  );
+  const homes = new Map(
+    territories.map(
+      (one) =>
+        [
+          one.root,
+          {
+            x: one.base.x - one.base.w / 2 + 36,
+            y: one.base.y + 8,
+          },
+        ] as const,
+    ),
+  );
   const free = prs.filter((pr) => pr.stage !== "landed");
   const statics: Box[] = [
-    ...territories.flatMap((one) => (one.goal === undefined ? [] : [boxOf(one.goal.x - 34, one.goal.y - 92, one.goal.x + 96, one.goal.y + 8, EXCLUDE)])),
-    ...territories.flatMap((one) => one.pads.map((pad) => boxOf(pad.x - 17, pad.y - 17, pad.x + 17, pad.y + 17, EXCLUDE))),
-    ...territories.map((one) => boxOf(one.base.x - one.base.w / 2, one.base.y - 30, one.base.x + one.base.w / 2, one.base.y + 40, 0)),
+    ...territories.flatMap((one) =>
+      one.goal === undefined
+        ? []
+        : [
+            boxOf(one.goal.x - 34, one.goal.y - 92, one.goal.x + 96, one.goal.y + 8, EXCLUDE),
+          ],
+    ),
+    ...territories.flatMap((one) =>
+      one.pads.map((pad) => boxOf(pad.x - 17, pad.y - 17, pad.x + 17, pad.y + 17, EXCLUDE)),
+    ),
+    ...territories.map((one) =>
+      boxOf(
+        one.base.x - one.base.w / 2,
+        one.base.y - 30,
+        one.base.x + one.base.w / 2,
+        one.base.y + 40,
+        0,
+      ),
+    ),
   ];
   /** Where a pull request's crate and route lie, for the drones that are not its own. */
-  const routesOf = (): { by: string | undefined; box: Box }[] => {
-    const out: { by: string | undefined; box: Box }[] = [];
+  const routesOf = (): {
+    by: string | undefined;
+    box: Box;
+  }[] => {
+    const out: {
+      by: string | undefined;
+      box: Box;
+    }[] = [];
     for (const pr of free) {
       const end = goals.get(pr.root);
       if (end === undefined) continue;
@@ -367,7 +770,10 @@ export function layoutOf(
         const t = i / steps;
         const x = from.x + (end.x - from.x) * t;
         const y = from.y + (end.y - from.y) * t - 0.81 * (ROUTE_UP + 4 * ROUTE_ARC * t * (1 - t));
-        out.push({ by: pr.owner, box: boxOf(x - 14, y - 14, x + 14, y + 14, EXCLUDE) });
+        out.push({
+          by: pr.owner,
+          box: boxOf(x - 14, y - 14, x + 14, y + 14, EXCLUDE),
+        });
       }
     }
     return out;
@@ -398,9 +804,13 @@ export function layoutOf(
       const a = place.get(keys[i]!)!;
       for (let j = i + 1; j < keys.length; j += 1) {
         const b = place.get(keys[j]!)!;
-        if (Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1) a.x += (rand(keys[i]! + keys[j]!, 3) - 0.5) * 6;
+        if (Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1)
+          a.x += (rand(keys[i]! + keys[j]!, 3) - 0.5) * 6;
         // A faded drone gives way to a Job's own, which stays over its file.
-        const [ga, gb] = [ghosts.has(keys[i]!), ghosts.has(keys[j]!)];
+        const [ga, gb] = [
+          ghosts.has(keys[i]!),
+          ghosts.has(keys[j]!),
+        ];
         if (ga === gb) push(reach(a), reach(b), a, b);
         else if (ga) push(reach(a), reach(b), a);
         else push(reach(b), reach(a), b);
@@ -422,31 +832,62 @@ export function layoutOf(
   for (const key of keys) {
     const p = place.get(key)!;
     const root = drones.find((one) => one.key === key)!.root;
-    at.set(key, { x: p.x, y: p.y, s: 1, root });
+    at.set(key, {
+      x: p.x,
+      y: p.y,
+      s: 1,
+      root,
+    });
   }
-  return { territories, at, bars, over, clashes };
+  return {
+    territories,
+    at,
+    bars,
+    over,
+    clashes,
+  };
 }
 
 // ---- The camera, the ground's height and the curves above it --------------------------------------------
 
 /** The camera in degrees: its pitch over the whole field and closer to a drone, and a slight yaw. `fit` trims how far the ground is stretched toward the viewer. */
-export const CAM = { wide: 54, near: 60, yaw: 5, fit: 0.94 };
+export const CAM = {
+  wide: 54,
+  near: 60,
+  yaw: 5,
+  fit: 0.94,
+};
 
 /** The layout is drawn as if seen from the viewer; the ground is tilted away, so it is stretched by this to read the same height. */
 export const FLAT = CAM.fit / Math.cos((CAM.wide * Math.PI) / 180);
 
 /** A point on the ground plane, and how high above it. */
-export type P3 = { x: number; y: number; z: number };
+export type P3 = {
+  x: number;
+  y: number;
+  z: number;
+};
 
 /** The point `t` of the way from a to b, rising `lift` at the middle. */
 export function alongOf(a: P3, b: P3, lift: number, t: number): P3 {
-  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t + 4 * lift * t * (1 - t) };
+  return {
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+    z: a.z + (b.z - a.z) * t + 4 * lift * t * (1 - t),
+  };
 }
 
 /** How tall each plot stands: low where it is quiet, taller where drones work over it and where a Check or a turn has just touched it, the tallest where two clash. */
-export const SLAB = { low: 3, high: 30 };
+export const SLAB = {
+  low: 3,
+  high: 30,
+};
 
-export function heightsOf(layout: Layout, drones: readonly DroneIn[], plays: readonly Play[]): Map<string, number> {
+export function heightsOf(
+  layout: Layout,
+  drones: readonly DroneIn[],
+  plays: readonly Play[],
+): Map<string, number> {
   const busy = new Map<string, number>();
   const add = (path: string, amount: number) => busy.set(path, (busy.get(path) ?? 0) + amount);
   for (const drone of drones) {
@@ -460,7 +901,11 @@ export function heightsOf(layout: Layout, drones: readonly DroneIn[], plays: rea
     if (writing !== undefined) add(writing.tile.path, 0.5);
   }
   for (const play of plays) {
-    if (play.key === undefined || (play.kind !== "sweep" && play.kind !== "tracer" && play.kind !== "launch")) continue;
+    if (
+      play.key === undefined ||
+      (play.kind !== "sweep" && play.kind !== "tracer" && play.kind !== "launch")
+    )
+      continue;
     for (const { tile } of layout.over.get(play.key) ?? []) add(tile.path, 0.35);
   }
   const out = new Map<string, number>();
@@ -472,7 +917,7 @@ export function heightsOf(layout: Layout, drones: readonly DroneIn[], plays: rea
       tallest = Math.max(tallest, height);
     }
   }
-  for (const clash of layout.clashes) out.set(clash.path, Math.min(SLAB.high, Math.max(tallest + 4, 24)));
+  for (const clash of layout.clashes)
+    out.set(clash.path, Math.min(SLAB.high, Math.max(tallest + 4, 24)));
   return out;
 }
-

@@ -34,7 +34,14 @@ function shot(fill: string, said: string): string {
 
 function Row({ children }: { children: ReactNode }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-4)", alignItems: "flex-start" }}>
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "var(--space-4)",
+        alignItems: "flex-start",
+      }}
+    >
       {children}
     </div>
   );
@@ -44,19 +51,57 @@ function Row({ children }: { children: ReactNode }) {
 export const Run: Story = {
   render: () => (
     <Row>
-      <StudioNode kind="run" state="running" title="pnpm test" facts={["test", "1m 12s"]} />
-      <StudioNode kind="run" state="passed" title="cargo xtask verify-foundations" facts={["exit 0", "48s"]} />
-      <StudioNode kind="run" state="failed" title="pnpm -C packages/components test" facts={["exit 1", "2m 04s"]} />
-      <StudioNode kind="run" state="stopped" title="pnpm dev" facts={["6m 40s"]} />
+      <StudioNode
+        kind="run"
+        state="running"
+        title="pnpm test"
+        facts={[
+          "test",
+          "1m 12s",
+        ]}
+      />
+      <StudioNode
+        kind="run"
+        state="passed"
+        title="cargo xtask verify-foundations"
+        facts={[
+          "exit 0",
+          "48s",
+        ]}
+      />
+      <StudioNode
+        kind="run"
+        state="failed"
+        title="pnpm -C packages/components test"
+        facts={[
+          "exit 1",
+          "2m 04s",
+        ]}
+      />
+      <StudioNode
+        kind="run"
+        state="stopped"
+        title="pnpm dev"
+        facts={[
+          "6m 40s",
+        ]}
+      />
     </Row>
   ),
   play: async ({ canvas }) => {
     // Only the running one is still working, and it says so to a screen reader.
     const busy = canvas.getByText("pnpm test").closest("[aria-busy]");
     await expect(busy).not.toBeNull();
-    await expect(canvas.getByText("cargo xtask verify-foundations").closest("[aria-busy]")).toBeNull();
+    await expect(
+      canvas.getByText("cargo xtask verify-foundations").closest("[aria-busy]"),
+    ).toBeNull();
     // A run reads as a run.
-    for (const words of ["running", "passed", "failed", "stopped"]) {
+    for (const words of [
+      "running",
+      "passed",
+      "failed",
+      "stopped",
+    ]) {
       await expect(canvas.getByText(words)).toBeVisible();
     }
     await expect(canvas.queryByText("done")).toBeNull();
@@ -71,16 +116,51 @@ export const Run: Story = {
 export const Server: Story = {
   render: () => (
     <Row>
-      <StudioNode kind="run" state="starting" title="storybook_dev" facts={["pnpm storybook dev -p 41207"]} />
-      <StudioNode kind="run" state="serving" title="storybook_dev" facts={["up 5m 00s", "localhost:41207"]} />
-      <StudioNode kind="run" state="failed" title="storybook_dev" facts={["pnpm storybook dev", "exit 7", "up 1.2s"]} />
-      <StudioNode kind="run" state="stopped" title="mock" facts={["pnpm dev --port 6006", "up 41m 10s"]} />
+      <StudioNode
+        kind="run"
+        state="starting"
+        title="storybook_dev"
+        facts={[
+          "pnpm storybook dev -p 41207",
+        ]}
+      />
+      <StudioNode
+        kind="run"
+        state="serving"
+        title="storybook_dev"
+        facts={[
+          "up 5m 00s",
+          "localhost:41207",
+        ]}
+      />
+      <StudioNode
+        kind="run"
+        state="failed"
+        title="storybook_dev"
+        facts={[
+          "pnpm storybook dev",
+          "exit 7",
+          "up 1.2s",
+        ]}
+      />
+      <StudioNode
+        kind="run"
+        state="stopped"
+        title="mock"
+        facts={[
+          "pnpm dev --port 6006",
+          "up 41m 10s",
+        ]}
+      />
     </Row>
   ),
   play: async ({ canvas }) => {
     // **Both halves of being up pulse.** A server Armada is holding is Armada
     // working, from the moment it is asked for to the moment it goes.
-    for (const words of ["starting", "serving"]) {
+    for (const words of [
+      "starting",
+      "serving",
+    ]) {
       await expect(canvas.getByText(words).closest("[aria-busy]")).not.toBeNull();
     }
     await expect(canvas.queryByText("passed")).toBeNull();
@@ -92,7 +172,10 @@ export const Note: Story = {
   args: {
     kind: "note",
     title: "The legend under the step bar is unreadable at this width",
-    facts: ["Board", "JobRowStacked"],
+    facts: [
+      "Board",
+      "JobRowStacked",
+    ],
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Note")).toBeVisible();
@@ -112,20 +195,28 @@ export const NoteFrames: Story = {
       <StudioNode
         kind="note"
         title="The legend under the step bar is unreadable at this width"
-        frame={{ src: shot("darkslategray", "Job Board") }}
+        frame={{
+          src: shot("darkslategray", "Job Board"),
+        }}
       />
       <StudioNode kind="note" title="It wraps at 720 wide" frame={{}} />
       <StudioNode
         kind="note"
         title="Queued and preparing read the same at a glance"
-        frame={{ why: "This frame is on the Note and no longer on disk." }}
+        frame={{
+          why: "This frame is on the Note and no longer on disk.",
+        }}
       />
       <StudioNode kind="note" title="No picture was taken for this one" />
     </Row>
   ),
   play: async ({ canvas }) => {
     // The picture is named by what it is, not by a description of what it shows.
-    await expect(canvas.getByRole("img", { name: /captured from/ })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: /captured from/,
+      }),
+    ).toBeVisible();
     // A read in flight says so; a settled absence says why instead.
     await expect(canvas.getByText("reading…")).toBeVisible();
     await expect(canvas.getByText(/no longer on disk/)).toBeVisible();
@@ -142,18 +233,34 @@ export const NoteFrames: Story = {
 export const Picture: Story = {
   render: () => (
     <Row>
-      <StudioNode kind="picture" title="" frame={{ src: shot("darkslategray", "Job Board") }} />
+      <StudioNode
+        kind="picture"
+        title=""
+        frame={{
+          src: shot("darkslategray", "Job Board"),
+        }}
+      />
       <StudioNode kind="picture" title="" frame={{}} />
     </Row>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "The picture pasted onto this Studio" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: "The picture pasted onto this Studio",
+      }),
+    ).toBeVisible();
     await expect(canvas.getByText("reading…")).toBeVisible();
   },
 };
 
 export const Cluster: Story = {
-  args: { kind: "cluster", title: "The Board's legend is illegible", facts: ["3 notes"] },
+  args: {
+    kind: "cluster",
+    title: "The Board's legend is illegible",
+    facts: [
+      "3 notes",
+    ],
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Cluster")).toBeVisible();
     await expect(canvas.getByText("3 notes")).toBeVisible();
@@ -167,9 +274,31 @@ export const Cluster: Story = {
 export const Finding: Story = {
   render: () => (
     <Row>
-      <StudioNode kind="finding" state="proposed" title="What writes the runtime file?" facts={["about $0.40"]} />
-      <StudioNode kind="finding" state="gathering" title="Where the legend's colours come from" facts={["$0.12", "14 files read"]} />
-      <StudioNode kind="finding" title="Fleet writes fleet.json once, at start" facts={["$0.31", "22 files read"]} />
+      <StudioNode
+        kind="finding"
+        state="proposed"
+        title="What writes the runtime file?"
+        facts={[
+          "about $0.40",
+        ]}
+      />
+      <StudioNode
+        kind="finding"
+        state="gathering"
+        title="Where the legend's colours come from"
+        facts={[
+          "$0.12",
+          "14 files read",
+        ]}
+      />
+      <StudioNode
+        kind="finding"
+        title="Fleet writes fleet.json once, at start"
+        facts={[
+          "$0.31",
+          "22 files read",
+        ]}
+      />
     </Row>
   ),
   play: async ({ canvas }) => {
@@ -185,15 +314,57 @@ export const Finding: Story = {
 export const Contradiction: Story = {
   render: () => (
     <Row>
-      <StudioNode kind="contradiction" state="reported" title="bridge.md and react.md disagree on the pulse" facts={["bridge.md", "react.md"]} />
-      <StudioNode kind="contradiction" state="issue_draft" title="The runtime file's path" facts={["2 sources"]} />
-      <StudioNode kind="contradiction" state="deferral" title="Who owns the log's tail" facts={["2 sources"]} />
-      <StudioNode kind="contradiction" state="not_a_problem" title="Width on the Board" facts={["2 sources"]} />
-      <StudioNode kind="contradiction" state="resolved_here" title="Where Run colours are declared" facts={["2 sources"]} />
+      <StudioNode
+        kind="contradiction"
+        state="reported"
+        title="bridge.md and react.md disagree on the pulse"
+        facts={[
+          "bridge.md",
+          "react.md",
+        ]}
+      />
+      <StudioNode
+        kind="contradiction"
+        state="issue_draft"
+        title="The runtime file's path"
+        facts={[
+          "2 sources",
+        ]}
+      />
+      <StudioNode
+        kind="contradiction"
+        state="deferral"
+        title="Who owns the log's tail"
+        facts={[
+          "2 sources",
+        ]}
+      />
+      <StudioNode
+        kind="contradiction"
+        state="not_a_problem"
+        title="Width on the Board"
+        facts={[
+          "2 sources",
+        ]}
+      />
+      <StudioNode
+        kind="contradiction"
+        state="resolved_here"
+        title="Where Run colours are declared"
+        facts={[
+          "2 sources",
+        ]}
+      />
     </Row>
   ),
   play: async ({ canvas }) => {
-    for (const words of ["reported", "issue draft", "deferral", "not a problem", "resolved here"]) {
+    for (const words of [
+      "reported",
+      "issue draft",
+      "deferral",
+      "not a problem",
+      "resolved here",
+    ]) {
       await expect(canvas.getByText(words)).toBeVisible();
     }
   },
@@ -210,10 +381,26 @@ export const Sketch: Story = {
     title: "",
     drawing: {
       boxes: [
-        { id: "b1", x: 0, y: 0, body: "The rail" },
-        { id: "b2", x: 360, y: 40, body: "The board" },
+        {
+          id: "b1",
+          x: 0,
+          y: 0,
+          body: "The rail",
+        },
+        {
+          id: "b2",
+          x: 360,
+          y: 40,
+          body: "The board",
+        },
       ],
-      lines: [{ id: "b1-b2", from: "b1", to: "b2" }],
+      lines: [
+        {
+          id: "b1-b2",
+          from: "b1",
+          to: "b2",
+        },
+      ],
       strokes: [],
       pictures: [],
     },
@@ -221,7 +408,11 @@ export const Sketch: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Sketch")).toBeVisible();
     await expect(canvas.queryByText("frozen")).toBeNull();
-    await expect(canvas.getByRole("img", { name: "The sketch drawn on this Studio" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: "The sketch drawn on this Studio",
+      }),
+    ).toBeVisible();
     await expect(canvas.getByText("The rail")).toBeInTheDocument();
   },
 };
@@ -261,7 +452,11 @@ export const LinkWithNoLine: Story = {
     <Row>
       <StudioNode kind="link" address={SHORT_ADDRESS} title={SHORT_ADDRESS} />
       <StudioNode kind="link" address={LONG_ADDRESS} title={LONG_ADDRESS} />
-      <StudioNode kind="link" address={LONG_ADDRESS} title="Where the review comments on the retry land" />
+      <StudioNode
+        kind="link"
+        address={LONG_ADDRESS}
+        title="Where the review comments on the retry land"
+      />
     </Row>
   ),
   play: async ({ canvas }) => {
@@ -271,7 +466,8 @@ export const LinkWithNoLine: Story = {
   },
 };
 
-const LONG_PATH = "/Users/user/Development/armada/packages/components/src/compositions/StudioNode/StudioNode.tsx";
+const LONG_PATH =
+  "/Users/user/Development/armada/packages/components/src/compositions/StudioNode/StudioNode.tsx";
 
 /**
  * A path a person pasted, kept as pasted — absolute, under home, or from the
@@ -281,7 +477,11 @@ const LONG_PATH = "/Users/user/Development/armada/packages/components/src/compos
 export const File: Story = {
   render: () => (
     <Row>
-      <StudioNode kind="file" path="crates/fleet/src/briefing.rs" title="crates/fleet/src/briefing.rs" />
+      <StudioNode
+        kind="file"
+        path="crates/fleet/src/briefing.rs"
+        title="crates/fleet/src/briefing.rs"
+      />
       <StudioNode kind="file" path="~/Desktop/notes.md" title="~/Desktop/notes.md" />
       <StudioNode kind="file" path={LONG_PATH} title={LONG_PATH} />
     </Row>
@@ -297,7 +497,8 @@ export const File: Story = {
     const line = path.getBoundingClientRect();
     await expect(drawn.width).toBeGreaterThan(0);
     await expect(drawn.right).toBeLessThanOrEqual(line.right);
-    await expect(drawn.left).toBeGreaterThanOrEqual(line.left);  },
+    await expect(drawn.left).toBeGreaterThanOrEqual(line.left);
+  },
 };
 
 /**
@@ -316,15 +517,29 @@ export const OnAForge: Story = {
         kind="issue"
         address={SHORT_ADDRESS}
         title="An issue, a pull request and an epic are Links with rules bolted on"
-        facts={["#1394", "Open"]}
+        facts={[
+          "#1394",
+          "Open",
+        ]}
       />
       <StudioNode
         kind="pull_request"
         address={SHORT_ADDRESS}
         title="Dispatch an issue from its node"
-        facts={["#1391", "Merged"]}
+        facts={[
+          "#1391",
+          "Merged",
+        ]}
       />
-      <StudioNode kind="epic" address={SHORT_ADDRESS} title="Studio" facts={["#17", "12 of 30 issues"]} />
+      <StudioNode
+        kind="epic"
+        address={SHORT_ADDRESS}
+        title="Studio"
+        facts={[
+          "#17",
+          "12 of 30 issues",
+        ]}
+      />
     </Row>
   ),
   play: async ({ canvas }) => {
@@ -343,7 +558,14 @@ export const OnAForge: Story = {
 export const Deferral: Story = {
   render: () => (
     <Row>
-      <StudioNode kind="deferral" state="open" title="Does a Studio need a Workspace?" facts={["blocks 1"]} />
+      <StudioNode
+        kind="deferral"
+        state="open"
+        title="Does a Studio need a Workspace?"
+        facts={[
+          "blocks 1",
+        ]}
+      />
       <StudioNode kind="deferral" state="answered" title="Does a scout read uncommitted changes?" />
     </Row>
   ),
@@ -356,7 +578,14 @@ export const Deferral: Story = {
 export const Outline: Story = {
   render: () => (
     <Row>
-      <StudioNode kind="outline" state="draft" title="Run colours, then the pulse" facts={["4 parts"]} />
+      <StudioNode
+        kind="outline"
+        state="draft"
+        title="Run colours, then the pulse"
+        facts={[
+          "4 parts",
+        ]}
+      />
     </Row>
   ),
   play: async ({ canvas }) => {
@@ -367,7 +596,11 @@ export const Outline: Story = {
 };
 
 export const IssueDraft: Story = {
-  args: { kind: "issue_draft", state: "draft", title: "A failed run and a passed one look the same" },
+  args: {
+    kind: "issue_draft",
+    state: "draft",
+    title: "A failed run and a passed one look the same",
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Issue draft")).toBeVisible();
     await expect(canvas.getByText("draft")).toBeVisible();
@@ -387,7 +620,8 @@ export const RunNotRead: Story = {
 };
 
 /** What `Studios.tsx` passes while #1293 is unbuilt. */
-const READ_IN_UNBUILT = "Reading an address in is not built yet. Keep the link, and read it in when it is.";
+const READ_IN_UNBUILT =
+  "Reading an address in is not built yet. Keep the link, and read it in when it is.";
 
 const noop = () => undefined;
 
@@ -401,13 +635,32 @@ export const Draft: Story = {
   render: () => (
     <Row>
       <StudioNodeDraft kind="note">
-        <StudioAddNode inPlace adding="note" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} />
+        <StudioAddNode
+          inPlace
+          adding="note"
+          onAdding={noop}
+          onAdd={noop}
+          readIn={READ_IN_UNBUILT}
+        />
       </StudioNodeDraft>
       <StudioNodeDraft kind="link">
-        <StudioAddNode inPlace adding="link" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} />
+        <StudioAddNode
+          inPlace
+          adding="link"
+          onAdding={noop}
+          onAdd={noop}
+          readIn={READ_IN_UNBUILT}
+        />
       </StudioNodeDraft>
       <StudioNodeDraft kind="note" pending>
-        <StudioAddNode inPlace adding="note" onAdding={noop} onAdd={noop} readIn={READ_IN_UNBUILT} saving />
+        <StudioAddNode
+          inPlace
+          adding="note"
+          onAdding={noop}
+          onAdd={noop}
+          readIn={READ_IN_UNBUILT}
+          saving
+        />
       </StudioNodeDraft>
     </Row>
   ),

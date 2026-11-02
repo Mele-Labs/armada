@@ -17,7 +17,12 @@ export function HandoffMark() {
 export function EarlierMark({ onOpen }: { onOpen: () => void }) {
   return (
     <Tooltip label="Earlier Job" asChild>
-      <button type="button" className="armada-earlier-mark" aria-label="Earlier Job" onClick={onOpen}>
+      <button
+        type="button"
+        className="armada-earlier-mark"
+        aria-label="Earlier Job"
+        onClick={onOpen}
+      >
         <Layers size={12} strokeWidth={2} aria-hidden />
       </button>
     </Tooltip>

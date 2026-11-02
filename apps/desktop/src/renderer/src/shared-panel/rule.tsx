@@ -16,33 +16,89 @@ import { closePanel } from "./store";
 import type { PanelItem } from "./store";
 
 /** How an act stands, as Fleet keeps it: the glyph the rule's chip uses for the same, and the word. */
-const STANDING: Readonly<Record<string, { Glyph: LucideIcon; said: string }>> = {
-  planned: { Glyph: Clock, said: "Planned" },
-  asked: { Glyph: MessageCircleQuestion, said: "Asked" },
-  stuck: { Glyph: MessageCircleQuestion, said: "Stuck" },
-  done: { Glyph: Check, said: "Done" },
-  skipped: { Glyph: Ban, said: "Skipped" },
-  told: { Glyph: Check, said: "Told the agent" },
-  not_carried: { Glyph: Clock, said: "Not carried" },
+const STANDING: Readonly<
+  Record<
+    string,
+    {
+      Glyph: LucideIcon;
+      said: string;
+    }
+  >
+> = {
+  planned: {
+    Glyph: Clock,
+    said: "Planned",
+  },
+  asked: {
+    Glyph: MessageCircleQuestion,
+    said: "Asked",
+  },
+  stuck: {
+    Glyph: MessageCircleQuestion,
+    said: "Stuck",
+  },
+  done: {
+    Glyph: Check,
+    said: "Done",
+  },
+  skipped: {
+    Glyph: Ban,
+    said: "Skipped",
+  },
+  told: {
+    Glyph: Check,
+    said: "Told the agent",
+  },
+  not_carried: {
+    Glyph: Clock,
+    said: "Not carried",
+  },
 };
 
 /** What a rule did on each instance, from what the Job's rules kept. */
-function ActsPanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
+function ActsPanel({
+  item,
+}: {
+  item: Extract<
+    PanelItem,
+    {
+      kind: "rule";
+    }
+  >;
+}) {
   const session = useSessions().find((one) => one.id === item.sessionId);
   const back = useBack();
   const job = session?.lanes?.job;
   const rule = job?.copy.rules.find((one) => one.id === item.rule);
-  const done = (job?.fired ?? []).filter((one) => one.rule === item.rule && (one.acts?.length ?? 0) > 0);
-  if (session === undefined || job === undefined || rule === undefined || done.length === 0) return null;
+  const done = (job?.fired ?? []).filter(
+    (one) => one.rule === item.rule && (one.acts?.length ?? 0) > 0,
+  );
+  if (session === undefined || job === undefined || rule === undefined || done.length === 0)
+    return null;
   return (
-    <SidePanel title={`Rule: ${rule.label}`} heading={rule.label} crumb="Rule" back={back} onClose={closePanel}>
+    <SidePanel
+      title={`Rule: ${rule.label}`}
+      heading={rule.label}
+      crumb="Rule"
+      back={back}
+      onClose={closePanel}
+    >
       <div className="sv-lanes__acts">
         {done.map((one) => (
-          <section key={one.instance} className="sv-lanes__triage" aria-label={job.instances.find((each) => each.id === one.instance)?.label ?? rule.label}>
-            <h4 className="sv-lanes__triage-head">{job.instances.find((each) => each.id === one.instance)?.label ?? rule.label}</h4>
+          <section
+            key={one.instance}
+            className="sv-lanes__triage"
+            aria-label={job.instances.find((each) => each.id === one.instance)?.label ?? rule.label}
+          >
+            <h4 className="sv-lanes__triage-head">
+              {job.instances.find((each) => each.id === one.instance)?.label ?? rule.label}
+            </h4>
             <ul className="sv-lanes__comments">
               {(one.acts ?? []).map((act, at) => {
-                const { Glyph, said } = STANDING[act.standing] ?? { Glyph: Clock, said: act.standing };
+                const { Glyph, said } = STANDING[act.standing] ?? {
+                  Glyph: Clock,
+                  said: act.standing,
+                };
                 return (
                   <li key={at} className="sv-lanes__item">
                     <div className="sv-lanes__act" data-standing={act.standing}>
@@ -52,9 +108,13 @@ function ActsPanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
                       </span>
                       <span className="sv-lanes__words">
                         <span className="sv-lanes__text">{act.text}</span>
-                        {act.said === undefined ? null : <span className="sv-lanes__why">{act.said}</span>}
+                        {act.said === undefined ? null : (
+                          <span className="sv-lanes__why">{act.said}</span>
+                        )}
                       </span>
-                      <span className="sv-lanes__course">{act.course === "asks" ? "Asks" : "Acts"}</span>
+                      <span className="sv-lanes__course">
+                        {act.course === "asks" ? "Asks" : "Acts"}
+                      </span>
                       <Tooltip asChild label="Time">
                         <span className="sv-lanes__at">{act.at}</span>
                       </Tooltip>
@@ -70,26 +130,67 @@ function ActsPanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
   );
 }
 
-export function RulePanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
+export function RulePanel({
+  item,
+}: {
+  item: Extract<
+    PanelItem,
+    {
+      kind: "rule";
+    }
+  >;
+}) {
   const session = useSessions().find((one) => one.id === item.sessionId);
   const draft = useSessionsDraft();
   const back = useBack();
   const rule = session?.lanes?.job.copy.rules.find((one) => one.id === item.rule);
-  const found = item.row === undefined ? undefined : session?.rows.find((one) => one.id === item.row);
+  const found =
+    item.row === undefined ? undefined : session?.rows.find((one) => one.id === item.row);
   // **Sending leaves the panel as it is**: the card settles to what was sent, and the way back stays. The last card read is held, so a read that comes a beat late never takes the panel away.
-  const held = useRef<{ row: Extract<NonNullable<typeof found>, { kind: "draft" }>; title: string } | undefined>(undefined);
-  if (found !== undefined && found.kind === "draft") held.current = { row: found, title: rule?.label ?? found.title };
+  const held = useRef<
+    | {
+        row: Extract<
+          NonNullable<typeof found>,
+          {
+            kind: "draft";
+          }
+        >;
+        title: string;
+      }
+    | undefined
+  >(undefined);
+  if (found !== undefined && found.kind === "draft")
+    held.current = {
+      row: found,
+      title: rule?.label ?? found.title,
+    };
   if (item.row === undefined) return <ActsPanel item={item} />;
   if (session === undefined || held.current === undefined) return null;
   const { row, title } = held.current;
   return (
-    <SidePanel title={`Rule: ${title}`} heading={title} crumb="Rule" back={back} onClose={closePanel}>
+    <SidePanel
+      title={`Rule: ${title}`}
+      heading={title}
+      crumb="Rule"
+      back={back}
+      onClose={closePanel}
+    >
       <ul className="sv-lanes__ask" aria-label="Waiting on you">
         <DraftRow
           row={row}
           keep={`draft:${session.id}:${row.id}`}
-          {...(draft?.answerWaiting === undefined ? {} : { onAnswer: (rowId: string, answer: DraftAnswer) => void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer) })}
-          {...(draft?.answerWaiting === undefined ? {} : { onWithdraw: (rowId: string, reason?: string) => void dismissWaiting(session.id, `draft:${rowId}`, reason) })}
+          {...(draft?.answerWaiting === undefined
+            ? {}
+            : {
+                onAnswer: (rowId: string, answer: DraftAnswer) =>
+                  void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer),
+              })}
+          {...(draft?.answerWaiting === undefined
+            ? {}
+            : {
+                onWithdraw: (rowId: string, reason?: string) =>
+                  void dismissWaiting(session.id, `draft:${rowId}`, reason),
+              })}
         />
       </ul>
     </SidePanel>

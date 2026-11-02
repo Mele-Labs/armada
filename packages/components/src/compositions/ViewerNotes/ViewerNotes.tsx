@@ -1,5 +1,15 @@
 import { X } from "lucide-react";
-import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { forgetKept } from "../../keep";
@@ -9,7 +19,13 @@ import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMe
 import { Kbd, KbdBinding } from "../../primitives/Kbd/Kbd";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { aboutSaid, notesMessage, type HeldNote, type NoteAbout, type NotesMessage } from "./compose";
+import {
+  aboutSaid,
+  notesMessage,
+  type HeldNote,
+  type NoteAbout,
+  type NotesMessage,
+} from "./compose";
 import { setHeldOn, useHeldOn } from "./held";
 
 /**
@@ -21,21 +37,36 @@ import { setHeldOn, useHeldOn } from "./held";
 
 /** Where notes go: the live Jobs a viewer outside one may pick, and the send. Absent, no viewer offers notes. */
 export type ViewerNotesHost = {
-  jobs: readonly { id: string; title: string }[];
+  jobs: readonly {
+    id: string;
+    title: string;
+  }[];
   /** False where the message did not arrive; the notes stay held. */
   send: (job: string, message: NotesMessage) => Promise<boolean> | boolean | void;
 };
 
 const Host = createContext<ViewerNotesHost | undefined>(undefined);
 
-export function ViewerNotesFrom({ host, children }: { host: ViewerNotesHost | undefined; children: ReactNode }) {
+export function ViewerNotesFrom({
+  host,
+  children,
+}: {
+  host: ViewerNotesHost | undefined;
+  children: ReactNode;
+}) {
   return <Host.Provider value={host}>{children}</Host.Provider>;
 }
 
 /** What a viewer is showing: the key its notes are held under, and the Job it was opened in, where it was. */
-export type ViewerNotesScope = { key: string; job?: string };
+export type ViewerNotesScope = {
+  key: string;
+  job?: string;
+};
 
-type Point = { x: number; y: number };
+type Point = {
+  x: number;
+  y: number;
+};
 /** What was pointed at, on screen: the box opens clear of it. */
 export type NoteAnchor = {
   left: number;
@@ -74,7 +105,11 @@ const keep = (event: { stopPropagation: () => void }) => event.stopPropagation()
 /** The outermost fixed layer the viewer is drawn in: a sheet's or a picture's, so the box floats over it. */
 function layerOf(element: HTMLElement | null): HTMLElement {
   let found: HTMLElement | null = null;
-  for (let at = element?.parentElement ?? null; at !== null && at !== document.body; at = at.parentElement) {
+  for (
+    let at = element?.parentElement ?? null;
+    at !== null && at !== document.body;
+    at = at.parentElement
+  ) {
     if (getComputedStyle(at).position === "fixed") found = at;
   }
   return found ?? document.body;
@@ -83,12 +118,21 @@ function layerOf(element: HTMLElement | null): HTMLElement {
 const NO_MARKS: readonly NoteMark[] = [];
 
 /** Where the menu or the box was opened, about what, standing where. */
-type Opened = { at: Point; about: NoteAbout | undefined; anchor: NoteAnchor | undefined };
+type Opened = {
+  at: Point;
+  about: NoteAbout | undefined;
+  anchor: NoteAnchor | undefined;
+};
 
-const sends = (event: { key: string; metaKey: boolean; ctrlKey: boolean }) => event.key === "Enter" && (event.metaKey || event.ctrlKey);
+const sends = (event: { key: string; metaKey: boolean; ctrlKey: boolean }) =>
+  event.key === "Enter" && (event.metaKey || event.ctrlKey);
 
 /** The notes of one viewer. `from` is the viewer, where focus goes back to unless `back` says otherwise. */
-export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObject<HTMLElement | null>, back?: () => void): ViewerNotes {
+export function useViewerNotes(
+  scope: ViewerNotesScope | undefined,
+  from: RefObject<HTMLElement | null>,
+  back?: () => void,
+): ViewerNotes {
   const host = useContext(Host);
   const on = host !== undefined && scope !== undefined;
   const { notes: held, job: picked } = useHeldOn(on ? scope.key : undefined);
@@ -100,7 +144,10 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
   const [settled, setSettled] = useState(0);
   // The menu and the box are drawn in a layer of their own, which a sheet's Esc leaves to them.
   const [layerEl, setLayerEl] = useState<HTMLDivElement | null>(null);
-  const last = useRef<Point>({ x: 0, y: 0 });
+  const last = useRef<Point>({
+    x: 0,
+    y: 0,
+  });
 
   const toViewer = () => (back === undefined ? from.current?.focus() : back());
   const close = () => {
@@ -116,19 +163,38 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
 
   const send = async () => {
     if (!on || sending) return;
-    const writing = box?.about !== undefined && text.trim() !== "" ? [{ about: box.about, text: text.trim() }] : [];
-    const all: HeldNote[] = [...held, ...writing];
+    const writing =
+      box?.about !== undefined && text.trim() !== ""
+        ? [
+            {
+              about: box.about,
+              text: text.trim(),
+            },
+          ]
+        : [];
+    const all: HeldNote[] = [
+      ...held,
+      ...writing,
+    ];
     if (all.length === 0) return;
     // Nowhere to send yet: the box opens on the held notes, with the Job to pick.
     if (job === undefined) {
-      if (box === undefined) setBox({ at: last.current, about: undefined, anchor: undefined });
+      if (box === undefined)
+        setBox({
+          at: last.current,
+          about: undefined,
+          anchor: undefined,
+        });
       return;
     }
     setSending(true);
     const went = await host.send(job, notesMessage(all));
     setSending(false);
     if (went === false) return;
-    setHeldOn(scope.key, (was) => ({ ...was, notes: [] }));
+    setHeldOn(scope.key, (was) => ({
+      ...was,
+      notes: [],
+    }));
     forgetDraft(scope.key);
     setSettled((was) => was + 1);
     close();
@@ -137,7 +203,16 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
   const hold = () => {
     if (!on || box?.about === undefined || text.trim() === "") return;
     const about = box.about;
-    setHeldOn(scope.key, (was) => ({ ...was, notes: [...was.notes, { about, text: text.trim() }] }));
+    setHeldOn(scope.key, (was) => ({
+      ...was,
+      notes: [
+        ...was.notes,
+        {
+          about,
+          text: text.trim(),
+        },
+      ],
+    }));
     forgetDraft(scope.key);
     setSettled((was) => was + 1);
     close();
@@ -148,15 +223,49 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
   const writingAbout = box?.about;
   const marks = useMemo<NoteMark[]>(
     () => [
-      ...held.map((one, at) => ({ n: at + 1, about: one.about, text: one.text, writing: false })),
-      ...(writingAbout === undefined ? [] : [{ n: held.length + 1, about: writingAbout, text: "", writing: true }]),
+      ...held.map((one, at) => ({
+        n: at + 1,
+        about: one.about,
+        text: one.text,
+        writing: false,
+      })),
+      ...(writingAbout === undefined
+        ? []
+        : [
+            {
+              n: held.length + 1,
+              about: writingAbout,
+              text: "",
+              writing: true,
+            },
+          ]),
     ],
-    [held, writingAbout],
+    [
+      held,
+      writingAbout,
+    ],
   );
 
   const entries: DropdownMenuEntry[] = [
-    ...(menuAt?.about === undefined ? [] : [{ kind: "item" as const, id: "add", label: "Add note" }]),
-    ...(held.length === 0 ? [] : [{ kind: "item" as const, id: "send", label: "Send notes", shortcut: "⌘↵" }]),
+    ...(menuAt?.about === undefined
+      ? []
+      : [
+          {
+            kind: "item" as const,
+            id: "add",
+            label: "Add note",
+          },
+        ]),
+    ...(held.length === 0
+      ? []
+      : [
+          {
+            kind: "item" as const,
+            id: "send",
+            label: "Send notes",
+            shortcut: "⌘↵",
+          },
+        ]),
   ];
 
   const where = layerOf(from.current);
@@ -203,7 +312,12 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
                   onText={setText}
                   onHold={hold}
                   onSend={() => void send()}
-                  onPick={(id) => setHeldOn(scope.key, (was) => ({ ...was, job: id }))}
+                  onPick={(id) =>
+                    setHeldOn(scope.key, (was) => ({
+                      ...was,
+                      job: id,
+                    }))
+                  }
                   onRemove={(at) =>
                     setHeldOn(scope.key, (was) => ({
                       ...was,
@@ -227,7 +341,11 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
       last.current = at;
       if (about === undefined && held.length === 0) return;
       setBox(undefined);
-      setMenuAt({ at, about, anchor });
+      setMenuAt({
+        at,
+        about,
+        anchor,
+      });
     },
     settled,
     send: () => void send(),
@@ -241,9 +359,22 @@ export function useViewerNotes(scope: ViewerNotesScope | undefined, from: RefObj
 }
 
 /** A note's number, as a viewer marks the place it is about and as the box lists it. */
-export function NoteNumber({ n, writing = false, said }: { n: number; writing?: boolean; said?: string }) {
+export function NoteNumber({
+  n,
+  writing = false,
+  said,
+}: {
+  n: number;
+  writing?: boolean;
+  said?: string;
+}) {
   const mark = (
-    <span className="armada-note-number" data-writing={writing || undefined} role="img" aria-label={`Note ${String(n)}`}>
+    <span
+      className="armada-note-number"
+      data-writing={writing || undefined}
+      role="img"
+      aria-label={`Note ${String(n)}`}
+    >
       {n}
     </span>
   );
@@ -311,8 +442,14 @@ function NoteBox({
   useLayoutEffect(() => {
     const el = card.current;
     if (el === null) return;
-    (el.querySelector<HTMLElement>("textarea") ?? el.querySelector<HTMLElement>("button[data-send]") ?? el.querySelector<HTMLElement>("button"))?.focus();
-  }, [about]);
+    (
+      el.querySelector<HTMLElement>("textarea") ??
+      el.querySelector<HTMLElement>("button[data-send]") ??
+      el.querySelector<HTMLElement>("button")
+    )?.focus();
+  }, [
+    about,
+  ]);
 
   // A press outside closes it, as a popover does. The words stay kept for the next open.
   useLayoutEffect(() => {
@@ -324,10 +461,15 @@ function NoteBox({
     };
     window.addEventListener("pointerdown", down);
     return () => window.removeEventListener("pointerdown", down);
-  }, [onClose]);
+  }, [
+    onClose,
+  ]);
 
   const picked = jobs?.find((one) => one.id === job);
-  const canSend = job !== undefined && !sending && (held.length > 0 || (about !== undefined && text.trim() !== ""));
+  const canSend =
+    job !== undefined &&
+    !sending &&
+    (held.length > 0 || (about !== undefined && text.trim() !== ""));
 
   return (
     <div
@@ -340,7 +482,8 @@ function NoteBox({
         event.stopPropagation();
         if (event.key === "Escape") {
           // The Job picker's own menu takes its Esc first.
-          if (event.target instanceof Element && event.target.closest("[role=menu]") !== null) return;
+          if (event.target instanceof Element && event.target.closest("[role=menu]") !== null)
+            return;
           event.preventDefault();
           onClose();
         } else if (sends(event)) {
@@ -357,7 +500,13 @@ function NoteBox({
               <span className="armada-viewer-note__about">{aboutSaid(one.about)}</span>
               <span className="armada-viewer-note__text">{one.text}</span>
               <Tooltip label="Remove">
-                <Button variant="ghost" size="sm" iconOnly aria-label={`Remove note ${String(index + 1)}`} onClick={() => onRemove(index)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label={`Remove note ${String(index + 1)}`}
+                  onClick={() => onRemove(index)}
+                >
                   <X size={16} strokeWidth={2} aria-hidden />
                 </Button>
               </Tooltip>

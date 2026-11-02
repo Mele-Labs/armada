@@ -33,12 +33,24 @@ function CopyCommand({ command }: { command: string }) {
     if (!copied) return;
     const timer = setTimeout(() => setCopied(false), 2000);
     return () => clearTimeout(timer);
-  }, [copied]);
+  }, [
+    copied,
+  ]);
   const said = copied ? "Copied" : "Copy command";
   return (
     <Tooltip label={said}>
-      <Button variant="ghost" size="sm" iconOnly aria-label="Copy command" onClick={() => void navigator.clipboard.writeText(command).then(() => setCopied(true))}>
-        {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
+        aria-label="Copy command"
+        onClick={() => void navigator.clipboard.writeText(command).then(() => setCopied(true))}
+      >
+        {copied ? (
+          <Check size={16} strokeWidth={2} aria-hidden />
+        ) : (
+          <Copy size={16} strokeWidth={2} aria-hidden />
+        )}
       </Button>
     </Tooltip>
   );
@@ -76,8 +88,22 @@ export function PullRequestFix({ command, onRun, said, run, onAgain }: PullReque
         </p>
       )}
       {run === undefined ? null : (
-        <div className="armada-pr-panel__run" {...(run.running ? { "data-keeps-esc": "" } : {})}>
-          <XtermScreen key={run.screen} out={run.out} run={run.screen} running={run.running} write={run.write} onSize={run.onSize} />
+        <div
+          className="armada-pr-panel__run"
+          {...(run.running
+            ? {
+                "data-keeps-esc": "",
+              }
+            : {})}
+        >
+          <XtermScreen
+            key={run.screen}
+            out={run.out}
+            run={run.screen}
+            running={run.running}
+            write={run.write}
+            onSize={run.onSize}
+          />
         </div>
       )}
     </div>

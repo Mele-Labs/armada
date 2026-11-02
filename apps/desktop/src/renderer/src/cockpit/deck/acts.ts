@@ -28,45 +28,83 @@ export type Acts = {
 };
 
 /** What a ring's button, a Session's flight control and the Plan panel ask a Session. A plan ticks only where the task list names its tasks word for word. */
-export const ASK_FOR_UPDATE = "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.";
+export const ASK_FOR_UPDATE =
+  "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.";
 
 /**
  * Asks a Session for an update, through the route its composer sends with. Resolves whether Fleet took it: a refusal is worded by the
  * Sessions draft itself, as for any message, and false is also what an absent draft answers.
  */
-export async function askForUpdate(draft: SessionsDraft | undefined, sessionId: string): Promise<boolean> {
+export async function askForUpdate(
+  draft: SessionsDraft | undefined,
+  sessionId: string,
+): Promise<boolean> {
   if (draft === undefined) return false;
-  return (await draft.send(sessionId, { text: ASK_FOR_UPDATE, files: [], sketches: [], tags: [] })) !== false;
+  return (
+    (await draft.send(sessionId, {
+      text: ASK_FOR_UPDATE,
+      files: [],
+      sketches: [],
+      tags: [],
+    })) !== false
+  );
 }
 
 /** What a Later row's Remind sends: the sentence the agent said it would act on, quoted back, and the three ways to settle it. */
-export const remindText = (sentence: string): string => `You said: "${sentence}" Do it, file it, or drop it with a reason.`;
+export const remindText = (sentence: string): string =>
+  `You said: "${sentence}" Do it, file it, or drop it with a reason.`;
 
 /** Reminds a Session of a follow-up it kept, through the route its composer sends with. Resolves whether Fleet took it, as `askForUpdate` does. */
-export async function remindLater(draft: SessionsDraft | undefined, sessionId: string, sentence: string): Promise<boolean> {
+export async function remindLater(
+  draft: SessionsDraft | undefined,
+  sessionId: string,
+  sentence: string,
+): Promise<boolean> {
   if (draft === undefined) return false;
-  return (await draft.send(sessionId, { text: remindText(sentence), files: [], sketches: [], tags: [] })) !== false;
+  return (
+    (await draft.send(sessionId, {
+      text: remindText(sentence),
+      files: [],
+      sketches: [],
+      tags: [],
+    })) !== false
+  );
 }
 
 /** Parks a Session, or sets a parked one going again. The row menu's Pause and Resume and the palette's all come here. */
-export const toggleSessionPause = (draft: SessionsDraft | undefined, id: string, paused: boolean): Promise<boolean> | undefined => (paused ? draft?.resume : draft?.pause)?.(id);
+export const toggleSessionPause = (
+  draft: SessionsDraft | undefined,
+  id: string,
+  paused: boolean,
+): Promise<boolean> | undefined => (paused ? draft?.resume : draft?.pause)?.(id);
 
 /** Ends a Session's running turn. The flight deck's Stop and the palette's both come here. */
-export const stopSession = (draft: SessionsDraft | undefined, id: string): void => draft?.stop?.(id);
+export const stopSession = (draft: SessionsDraft | undefined, id: string): void =>
+  draft?.stop?.(id);
 
 /** Merges the pull request a Session holds, by number, as Fleet merges it. The flight deck's Merge and the palette's both come here. */
-export const mergeSession = (draft: SessionsDraft | undefined, id: string, number: number): Promise<boolean> | undefined => draft?.act(id, number, "merge");
+export const mergeSession = (
+  draft: SessionsDraft | undefined,
+  id: string,
+  number: number,
+): Promise<boolean> | undefined => draft?.act(id, number, "merge");
 
 /** The acts over what they are made of. Pure, so what each does and does not reach is held by a test. */
 export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
   const { onOpenSession } = hosts;
   const can: Acts["can"] = {
     stop: (subject) => subject.kind === "session" && draft?.stop !== undefined,
-    merge: (subject) => subject.pr !== undefined && subject.kind === "session" && draft !== undefined,
+    merge: (subject) =>
+      subject.pr !== undefined && subject.kind === "session" && draft !== undefined,
   };
   return {
     reply: (subject, text) => {
-      void draft?.send(subject.id, { text, files: [], sketches: [], tags: [] });
+      void draft?.send(subject.id, {
+        text,
+        files: [],
+        sketches: [],
+        tags: [],
+      });
     },
     stop: (subject) => {
       if (subject.kind === "session") stopSession(draft, subject.id);
@@ -87,5 +125,14 @@ export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts): Acts {
 export function useShipActs(props: Hosts): Acts {
   const draft = useSessionsDraft();
   const { onOpenSession } = props;
-  return useMemo(() => actsOf(draft, { onOpenSession }), [draft, onOpenSession]);
+  return useMemo(
+    () =>
+      actsOf(draft, {
+        onOpenSession,
+      }),
+    [
+      draft,
+      onOpenSession,
+    ],
+  );
 }

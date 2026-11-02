@@ -9,13 +9,30 @@ import { LayoutControl } from "./LayoutControl";
 import { forgetPanes, saveLayoutAs, takeLayout, useJobPanes } from "./store";
 
 const JOB = "layout-job";
-let mounted: { root: Root; host: HTMLElement } | undefined;
+let mounted:
+  | {
+      root: Root;
+      host: HTMLElement;
+    }
+  | undefined;
 
 function Control() {
   const { layout, edited, layouts, forAll } = useJobPanes(JOB);
   const [open, setOpen] = useState(true);
   const [naming, setNaming] = useState(false);
-  return <LayoutControl jobId={JOB} layout={layout} edited={edited} layouts={layouts} forAll={forAll} open={open} onOpen={setOpen} naming={naming} onNaming={setNaming} />;
+  return (
+    <LayoutControl
+      jobId={JOB}
+      layout={layout}
+      edited={edited}
+      layouts={layouts}
+      forAll={forAll}
+      open={open}
+      onOpen={setOpen}
+      naming={naming}
+      onNaming={setNaming}
+    />
+  );
 }
 
 beforeEach(() => {
@@ -24,7 +41,10 @@ beforeEach(() => {
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(<Control />));
-  mounted = { root, host };
+  mounted = {
+    root,
+    host,
+  };
   // A second layout to take, saved from the Job's own.
   act(() => saveLayoutAs(JOB, "Review"));
 });
@@ -35,10 +55,21 @@ afterEach(() => {
   forgetPanes();
 });
 
-const row = (name: string | RegExp) => page.getByRole("menuitem", { name });
-const choice = (name: string) => page.getByRole("menuitemradio", { name });
+const row = (name: string | RegExp) =>
+  page.getByRole("menuitem", {
+    name,
+  });
+const choice = (name: string) =>
+  page.getByRole("menuitemradio", {
+    name,
+  });
 const newJobs = () => row(/^New Jobs open on/);
-const reopen = () => page.getByRole("button", { name: /^Layout:/ }).click();
+const reopen = () =>
+  page
+    .getByRole("button", {
+      name: /^Layout:/,
+    })
+    .click();
 
 test("no layout row carries a tag, and the Job's own layout is the one checked", async () => {
   await expect.element(row(/^Default/)).not.toHaveTextContent("new Jobs");

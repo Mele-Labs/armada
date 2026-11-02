@@ -19,14 +19,22 @@ import { execFile } from "node:child_process";
 import type { Connection, FleetRestart } from "@armada/protocol";
 
 /** `launchctl`'s answer to one call. */
-export type Ran = { code: number; stdout: string; stderr: string };
+export type Ran = {
+  code: number;
+  stdout: string;
+  stderr: string;
+};
 export type Run = (args: string[]) => Promise<Ran>;
 
 const launchctl: Run = (args) =>
   new Promise((resolve) => {
     execFile("launchctl", args, (error, stdout, stderr) => {
       const code = error === null ? 0 : typeof error.code === "number" ? error.code : 1;
-      resolve({ code, stdout, stderr: stderr === "" && error !== null ? error.message : stderr });
+      resolve({
+        code,
+        stdout,
+        stderr: stderr === "" && error !== null ? error.message : stderr,
+      });
     });
   });
 
@@ -42,10 +50,17 @@ export async function restartFleet(
   uid: number = process.getuid?.() ?? 0,
 ): Promise<FleetRestart> {
   if (!("fleet" in connection)) {
-    return { ok: false, why: "not_running", detail: "the runtime file names no Fleet" };
+    return {
+      ok: false,
+      why: "not_running",
+      detail: "the runtime file names no Fleet",
+    };
   }
   const service = `gui/${uid}/${labelOf(env)}`;
-  const held = await run(["print", service]);
+  const held = await run([
+    "print",
+    service,
+  ]);
   // The pid launchd holds must be the one the runtime file names, as the
   // restart script requires: otherwise this is a Fleet started by hand, and
   // restarting the job would start a second one beside it.
@@ -54,12 +69,25 @@ export async function restartFleet(
     return {
       ok: false,
       why: "not_started_by_armada",
-      detail: held.code !== 0 ? `${service} is not loaded` : `${service} holds pid ${pid ?? "none"}, the runtime file names ${connection.fleet.pid}`,
+      detail:
+        held.code !== 0
+          ? `${service} is not loaded`
+          : `${service} holds pid ${pid ?? "none"}, the runtime file names ${connection.fleet.pid}`,
     };
   }
-  const kicked = await run(["kickstart", "-k", service]);
+  const kicked = await run([
+    "kickstart",
+    "-k",
+    service,
+  ]);
   if (kicked.code !== 0) {
-    return { ok: false, why: "refused", detail: kicked.stderr.trim() || `launchctl exited ${kicked.code}` };
+    return {
+      ok: false,
+      why: "refused",
+      detail: kicked.stderr.trim() || `launchctl exited ${kicked.code}`,
+    };
   }
-  return { ok: true };
+  return {
+    ok: true,
+  };
 }

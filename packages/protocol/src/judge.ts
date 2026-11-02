@@ -7,10 +7,26 @@
 // carries them. The Judge replaces the old Session judge (concerns in `waiting_for`) and the plan's adversarial review.
 
 /** What kind of thing was read. */
-export type JudgeKind = "job" | "plan" | "pull_request" | "commit" | "file" | "page" | "doc" | "sketch" | "command" | "subagent" | "issue" | "note";
+export type JudgeKind =
+  | "job"
+  | "plan"
+  | "pull_request"
+  | "commit"
+  | "file"
+  | "page"
+  | "doc"
+  | "sketch"
+  | "command"
+  | "subagent"
+  | "issue"
+  | "note";
 
 /** What is read. `id` is the kind's own: a pull request's number, a commit's row, a path, a page's address, the plan's version. One reading is kept per `(kind, id)` of a Job. */
-export type JudgeArtifact = { kind: JudgeKind; id: string; title: string };
+export type JudgeArtifact = {
+  kind: JudgeKind;
+  id: string;
+  title: string;
+};
 
 /** How far a reading has got. `failed` is never a result. */
 export type JudgeState = "reading" | "done" | "failed";
@@ -19,7 +35,10 @@ export type JudgeState = "reading" | "done" | "failed";
 export type JudgeNoteHow = "sent" | "dismissed";
 
 /** A note once settled. Absent while it waits. */
-export type JudgeNoteSettled = { how: JudgeNoteHow; at: string };
+export type JudgeNoteSettled = {
+  how: JudgeNoteHow;
+  at: string;
+};
 
 /** One thing the Judge found. */
 export type JudgeNote = {
@@ -64,13 +83,28 @@ export type JudgeReading = {
  * `ask_judge`'s body (`POST /sessions/judge`). Answers a `JudgeReading` at once, `reading`. A reading already going for the
  * same artifact is answered, not started twice. 404 `fleet.no_such_session`, 409 `fleet.session_closed`.
  */
-export type AskJudge = { session_id: string; artifact: JudgeArtifact; prompt?: string };
+export type AskJudge = {
+  session_id: string;
+  artifact: JudgeArtifact;
+  prompt?: string;
+};
 
 /** `send_judge_note`'s body (`POST /sessions/judge/send`): the note goes to the agent as the person's message. Answers the reading. 404 `fleet.no_such_judge_reading`, `fleet.no_such_judge_note`; a note already settled is answered as it stands. */
-export type SendJudgeNote = { session_id: string; reading: string; note: string };
+export type SendJudgeNote = {
+  session_id: string;
+  reading: string;
+  note: string;
+};
 
 /** `dismiss_judge_note`'s body (`POST /sessions/judge/dismiss`): the note is settled and the agent is told nothing. Answers the reading. The same refusals. */
-export type DismissJudgeNote = { session_id: string; reading: string; note: string };
+export type DismissJudgeNote = {
+  session_id: string;
+  reading: string;
+  note: string;
+};
 
 /** `mark_judge_read`'s body (`POST /sessions/judge/read`): the reading's notes were opened. Answers the reading with `read` true. */
-export type MarkJudgeRead = { session_id: string; reading: string };
+export type MarkJudgeRead = {
+  session_id: string;
+  reading: string;
+};

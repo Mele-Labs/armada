@@ -27,7 +27,9 @@ function Sheet({ dispatching }: { dispatching: Dispatching }) {
     const end = field.current?.value.length ?? 0;
     field.current?.focus();
     field.current?.setSelectionRange(end, end);
-  }, [shown]);
+  }, [
+    shown,
+  ]);
 
   if (!shown) return null;
   return <DispatchPanel fieldRef={field} onDismiss={dispatching.closeSheet} {...panel} />;
@@ -46,7 +48,10 @@ export function TitleDispatchedStrip({ anchor = ONE_BAR }: { anchor?: string }) 
 
   useEffect(() => {
     if (shown) root.current?.focus();
-  }, [shown, sent?.id]);
+  }, [
+    shown,
+    sent?.id,
+  ]);
 
   if (dispatching === undefined || !shown || sent === undefined) return null;
 
@@ -57,7 +62,13 @@ export function TitleDispatchedStrip({ anchor = ONE_BAR }: { anchor?: string }) 
     } else if (event.key === "Enter" && event.target === event.currentTarget) {
       event.preventDefault();
       dispatching.openSent();
-    } else if (event.key.length === 1 && event.key !== " " && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    } else if (
+      event.key.length === 1 &&
+      event.key !== " " &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey
+    ) {
       event.preventDefault();
       dispatching.openSheet(event.key);
     }
@@ -67,7 +78,11 @@ export function TitleDispatchedStrip({ anchor = ONE_BAR }: { anchor?: string }) 
     <DispatchedStrip
       sent={sent}
       rootRef={root}
-      {...(place === undefined ? {} : { style: place })}
+      {...(place === undefined
+        ? {}
+        : {
+            style: place,
+          })}
       onOpen={dispatching.openSent}
       onDismiss={dispatching.dismissSent}
       onKeyDown={keys}

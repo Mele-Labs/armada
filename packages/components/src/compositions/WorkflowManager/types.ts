@@ -88,25 +88,43 @@ export type ManagedWorkflow = {
    * Set on a file Fleet left out: its sentence for why, and the file that names it. Such a copy has no steps
    * to draw, and is found by its file and not by its id.
    */
-  leftOut?: { said: string; file: string };
+  leftOut?: {
+    said: string;
+    file: string;
+  };
 };
 
 /** One workflow copy: the source and the id name it, the Manifest it is read and acted on under, and the file where it was left out. */
-export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source" | "manifestId"> & { file?: string };
+export type WorkflowRef = Pick<ManagedWorkflow, "id" | "source" | "manifestId"> & {
+  file?: string;
+};
 
 /**
  * What names a copy: a row, which carries the file it was left out at under `leftOut`, or a ref, which carries it itself.
  * **A repository's copy is also named by its repository**, since two repositories hold a copy of one id; Armada's
  * and Yours are one copy whichever repository read them.
  */
-export const keyOf = (one: WorkflowRef & { leftOut?: { file: string } }) => {
+export const keyOf = (
+  one: WorkflowRef & {
+    leftOut?: {
+      file: string;
+    };
+  },
+) => {
   const file = one.leftOut?.file ?? one.file;
-  const repository = one.source === "repository" && one.manifestId !== undefined ? `@${one.manifestId}` : "";
+  const repository =
+    one.source === "repository" && one.manifestId !== undefined ? `@${one.manifestId}` : "";
   return `${one.source}${repository}:${one.id}${file === undefined ? "" : `:${file}`}`;
 };
 
 /** A Job Fleet nudged at a step. `jobId` is the Job that Open Job opens. */
-export type DriftedJob = { id: string; jobId: string; job: string; what: string; when: string };
+export type DriftedJob = {
+  id: string;
+  jobId: string;
+  job: string;
+  what: string;
+  when: string;
+};
 
 /** The recent nudges, by workflow id and then step id. */
 export type Drift = Readonly<Record<string, Readonly<Record<string, readonly DriftedJob[]>>>>;
@@ -117,14 +135,39 @@ export type Drift = Readonly<Record<string, Readonly<Record<string, readonly Dri
  * `refused` is Fleet's sentence for an Approve it would not take; `missing` is what Armada lacks, one fact each.
  */
 export type AgentState =
-  | { phase: "idle" }
-  | { phase: "working"; asked?: string }
-  | { phase: "failed"; reason: string; asked?: string }
-  | { phase: "proposed"; before: readonly ManagedStep[]; after: readonly ManagedStep[]; asked?: string; refused?: string; /** A workflow nothing held before: approved or dismissed, never sent back. */ fresh?: true; /** Rules the change adds to the Workspace, drawn on its lanes. */ rules?: readonly Rule[] }
-  | { phase: "cannot"; asked?: string; missing: readonly string[] };
+  | {
+      phase: "idle";
+    }
+  | {
+      phase: "working";
+      asked?: string;
+    }
+  | {
+      phase: "failed";
+      reason: string;
+      asked?: string;
+    }
+  | {
+      phase: "proposed";
+      before: readonly ManagedStep[];
+      after: readonly ManagedStep[];
+      asked?: string;
+      refused?: string /** A workflow nothing held before: approved or dismissed, never sent back. */;
+      fresh?: true /** Rules the change adds to the Workspace, drawn on its lanes. */;
+      rules?: readonly Rule[];
+    }
+  | {
+      phase: "cannot";
+      asked?: string;
+      missing: readonly string[];
+    };
 
 /** New words for a step, and the nudged Jobs they were drawn from. A draft that did not fit has no words and says why. */
-export type Suggestion = { words: string; from: readonly string[]; failed?: string };
+export type Suggestion = {
+  words: string;
+  from: readonly string[];
+  failed?: string;
+};
 
 /** What an act answers with: nothing where it went through, or Fleet's sentence for why it did not. */
 export type WorkflowActAnswer = string | undefined;
@@ -140,6 +183,9 @@ export type WorkflowSwitches = {
   forJobs: boolean;
   onForJobs: (on: boolean) => void;
   machine: readonly string[];
-  repository: { name: string; off: readonly string[] } | null;
+  repository: {
+    name: string;
+    off: readonly string[];
+  } | null;
   onSwitch: (workflowId: string, on: boolean) => void;
 };

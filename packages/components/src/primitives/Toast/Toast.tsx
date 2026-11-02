@@ -32,7 +32,9 @@ export function Toast({ status, children, actionLabel, onAction, onPress }: Toas
       {status ? (
         <span
           className="armada-toast__dot"
-          style={{ background: `var(--status-${status})` }}
+          style={{
+            background: `var(--status-${status})`,
+          }}
           aria-hidden="true"
         />
       ) : null}

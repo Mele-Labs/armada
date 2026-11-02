@@ -6,23 +6,78 @@ import { jumpStep } from "./jump-step";
 
 // Propose, Discuss, Approve plan, Walk, Refine, Deliver: the Job is at Discuss (1).
 const STEPS = 6;
-const at = (now: number | undefined, skipped: number[] = []) => ({ at: now, skipped });
+const at = (now: number | undefined, skipped: number[] = []) => ({
+  at: now,
+  skipped,
+});
 
 describe("jumping to a step", () => {
   it("skips every step from the current one up to the one before the target", () => {
-    expect(jumpStep(at(1), STEPS, 4)).toEqual({ at: 4, skipped: [1, 2, 3] });
+    expect(jumpStep(at(1), STEPS, 4)).toEqual({
+      at: 4,
+      skipped: [
+        1,
+        2,
+        3,
+      ],
+    });
   });
 
   it("keeps the steps skipped before, in order, and lists none twice", () => {
-    expect(jumpStep(at(1, [3, 5]), STEPS, 4)).toEqual({ at: 4, skipped: [1, 2, 3, 5] });
+    expect(
+      jumpStep(
+        at(
+          1,
+          [
+            3,
+            5,
+          ],
+        ),
+        STEPS,
+        4,
+      ),
+    ).toEqual({
+      at: 4,
+      skipped: [
+        1,
+        2,
+        3,
+        5,
+      ],
+    });
   });
 
   it("lifts a skip of the step jumped to", () => {
-    expect(jumpStep(at(1, [3]), STEPS, 3)).toEqual({ at: 3, skipped: [1, 2] });
+    expect(
+      jumpStep(
+        at(
+          1,
+          [
+            3,
+          ],
+        ),
+        STEPS,
+        3,
+      ),
+    ).toEqual({
+      at: 3,
+      skipped: [
+        1,
+        2,
+      ],
+    });
   });
 
   it("may land on the last step", () => {
-    expect(jumpStep(at(1), STEPS, 5)).toEqual({ at: 5, skipped: [1, 2, 3, 4] });
+    expect(jumpStep(at(1), STEPS, 5)).toEqual({
+      at: 5,
+      skipped: [
+        1,
+        2,
+        3,
+        4,
+      ],
+    });
   });
 
   it("refuses the current step, an earlier one, one past the last and a half step", () => {
@@ -37,8 +92,18 @@ describe("jumping to a step", () => {
   });
 
   it("leaves the stand it was given as it was", () => {
-    const stand = at(1, [3]);
+    const stand = at(
+      1,
+      [
+        3,
+      ],
+    );
     jumpStep(stand, STEPS, 4);
-    expect(stand).toEqual({ at: 1, skipped: [3] });
+    expect(stand).toEqual({
+      at: 1,
+      skipped: [
+        3,
+      ],
+    });
   });
 });

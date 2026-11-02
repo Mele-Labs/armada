@@ -9,9 +9,17 @@ import type { ModTracker } from "@armada/components";
 import type { ModSummary } from "@armada/protocol";
 
 /** One thing a mod says: a pattern, an address, a notice, a colour. `from` is where it was found, absent where it was said. */
-export type TaughtFact = { label: string; value: string; code?: boolean; from?: string };
+export type TaughtFact = {
+  label: string;
+  value: string;
+  code?: boolean;
+  from?: string;
+};
 
-export type TaughtPart = { part: string; facts: readonly TaughtFact[] };
+export type TaughtPart = {
+  part: string;
+  facts: readonly TaughtFact[];
+};
 
 /** What a mod changes besides the theme and the layout: how Bridge shows words, what Fleet does with a notice, a shared colour over the theme, an issue tracker Fleet was not built for. */
 export type TaughtKind = "words" | "fleet" | "tweak" | "tracker" | "tab";
@@ -36,7 +44,10 @@ export type TaughtMod = {
 };
 
 /** What a mod was taught on and what it holds, for any kind, a layout mod's included. */
-export type TaughtDetail = { on: string; parts: readonly TaughtPart[] };
+export type TaughtDetail = {
+  on: string;
+  parts: readonly TaughtPart[];
+};
 
 export type TaughtState = {
   mods: readonly TaughtMod[];
@@ -57,23 +68,51 @@ export interface TaughtSource {
   tryIt?(name: string): void;
 }
 
-const NONE: TaughtState = { mods: [], details: {} };
-const LOCAL: TaughtSource = { get: () => NONE, subscribe: () => () => undefined, setEnabled: () => undefined, promote: () => undefined, open: () => undefined };
+const NONE: TaughtState = {
+  mods: [],
+  details: {},
+};
+const LOCAL: TaughtSource = {
+  get: () => NONE,
+  subscribe: () => () => undefined,
+  setEnabled: () => undefined,
+  promote: () => undefined,
+  open: () => undefined,
+};
 const TaughtSourceContext = createContext<TaughtSource>(LOCAL);
 
 export const TaughtSourceProvider = TaughtSourceContext.Provider;
 
 /** The source in force, and its state as it stands. A window with no source has no taught mod. */
-export function useTaught(): TaughtState & { source: TaughtSource } {
+export function useTaught(): TaughtState & {
+  source: TaughtSource;
+} {
   const source = useContext(TaughtSourceContext);
   const state = useSyncExternalStore(source.subscribe, source.get, source.get);
-  return { ...state, source };
+  return {
+    ...state,
+    source,
+  };
 }
 
 /** The taught mods of one kind. */
-export const taughtOf = (state: TaughtState, kind: TaughtKind): readonly TaughtMod[] => state.mods.filter((one) => one.kind === kind);
+export const taughtOf = (state: TaughtState, kind: TaughtKind): readonly TaughtMod[] =>
+  state.mods.filter((one) => one.kind === kind);
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 const dayOf = (at: string) => {
   const day = new Date(at);
   return Number.isNaN(day.getTime()) ? at : `${day.getUTCDate()} ${MONTHS[day.getUTCMonth()]}`;
@@ -90,10 +129,22 @@ export function trackerOf(row: ModSummary): ModTracker {
     tried:
       tried === undefined
         ? row.stale === true
-          ? { state: "stale", words: "Stale" }
-          : { state: "never", words: "Not tried" }
+          ? {
+              state: "stale",
+              words: "Stale",
+            }
+          : {
+              state: "never",
+              words: "Not tried",
+            }
         : tried.passed
-          ? { state: "passed", words: `Tried ${dayOf(tried.at)} on ${tried.manifest_id}` }
-          : { state: "failed", words: `Failed ${dayOf(tried.at)}: ${tried.reason ?? "no reason given"}` },
+          ? {
+              state: "passed",
+              words: `Tried ${dayOf(tried.at)} on ${tried.manifest_id}`,
+            }
+          : {
+              state: "failed",
+              words: `Failed ${dayOf(tried.at)}: ${tried.reason ?? "no reason given"}`,
+            },
   };
 }

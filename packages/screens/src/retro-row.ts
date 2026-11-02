@@ -16,16 +16,37 @@ export type RetroRowDrawn = {
   stage: RetroStage;
   stageSince?: number;
   characters: number;
-  items: readonly { title?: string; what?: string; fix?: string; who?: "drone" | "agent" | "owner" | "fleet"; landsIn?: "armada" | "kit" | "manifest" }[];
+  items: readonly {
+    title?: string;
+    what?: string;
+    fix?: string;
+    who?: "drone" | "agent" | "owner" | "fleet";
+    landsIn?: "armada" | "kit" | "manifest";
+  }[];
   retro?: number;
   why?: string;
 };
 
-const WHO: readonly string[] = ["drone", "agent", "owner", "fleet"];
-const LANDS: readonly string[] = ["armada", "kit", "manifest"];
+const WHO: readonly string[] = [
+  "drone",
+  "agent",
+  "owner",
+  "fleet",
+];
+const LANDS: readonly string[] = [
+  "armada",
+  "kit",
+  "manifest",
+];
 
 /** Where each stage comes in the writing, so a late frame of an earlier one is told from a later. */
-const RANK: Record<RetroStage, number> = { asking_agent: 0, reading_record: 1, writing: 2, written: 3, failed: 3 };
+const RANK: Record<RetroStage, number> = {
+  asking_agent: 0,
+  reading_record: 1,
+  writing: 2,
+  written: 3,
+  failed: 3,
+};
 
 const isRetro = (row: SessionRow): row is RetroRow => row.kind === "retro";
 
@@ -43,7 +64,10 @@ export function retroRowIsNewer(held: RetroRow, incoming: RetroRow): boolean {
   const incomingRank: number = RANK[incoming.stage];
   if (heldRank !== incomingRank) return incomingRank > heldRank;
   // A retro that ended is not changed by another frame of the same ending.
-  if (incomingRank === RANK.written) return held.stage === incoming.stage ? incoming.retro !== held.retro || incoming.why !== held.why : false;
+  if (incomingRank === RANK.written)
+    return held.stage === incoming.stage
+      ? incoming.retro !== held.retro || incoming.why !== held.why
+      : false;
   return incoming.characters >= held.characters && incoming.items.length >= held.items.length;
 }
 
@@ -53,7 +77,11 @@ export function retroRowIsNewer(held: RetroRow, incoming: RetroRow): boolean {
  */
 export function withThreadRow<R extends SessionRow>(rows: readonly R[], row: R): R[] {
   const at = rows.findIndex((one) => one.id === row.id);
-  if (at < 0) return [...rows, row];
+  if (at < 0)
+    return [
+      ...rows,
+      row,
+    ];
   const held = rows[at]!;
   if (isRetro(held) && isRetro(row) && !retroRowIsNewer(held, row)) return rows as R[];
   return rows.map((one, index) => (index === at ? row : one));
@@ -62,11 +90,31 @@ export function withThreadRow<R extends SessionRow>(rows: readonly R[], row: R):
 /** The item as the card draws it. An end of the route Fleet named something Bridge does not know is left off. */
 function itemOf(item: PartialRetroItem): RetroRowDrawn["items"][number] {
   return {
-    ...(item.title === undefined ? {} : { title: item.title }),
-    ...(item.what === undefined ? {} : { what: item.what }),
-    ...(item.fix === undefined ? {} : { fix: item.fix }),
-    ...(item.who !== undefined && WHO.includes(item.who) ? { who: item.who as "drone" | "agent" | "owner" | "fleet" } : {}),
-    ...(item.lands_in !== undefined && LANDS.includes(item.lands_in) ? { landsIn: item.lands_in as "armada" | "kit" | "manifest" } : {}),
+    ...(item.title === undefined
+      ? {}
+      : {
+          title: item.title,
+        }),
+    ...(item.what === undefined
+      ? {}
+      : {
+          what: item.what,
+        }),
+    ...(item.fix === undefined
+      ? {}
+      : {
+          fix: item.fix,
+        }),
+    ...(item.who !== undefined && WHO.includes(item.who)
+      ? {
+          who: item.who as "drone" | "agent" | "owner" | "fleet",
+        }
+      : {}),
+    ...(item.lands_in !== undefined && LANDS.includes(item.lands_in)
+      ? {
+          landsIn: item.lands_in as "armada" | "kit" | "manifest",
+        }
+      : {}),
   };
 }
 
@@ -78,10 +126,22 @@ export function retroRowOf(row: RetroRow, at: string): RetroRowDrawn {
     at,
     kind: "retro",
     stage: row.stage,
-    ...(Number.isNaN(since) ? {} : { stageSince: since }),
+    ...(Number.isNaN(since)
+      ? {}
+      : {
+          stageSince: since,
+        }),
     characters: row.characters,
     items: row.items.map(itemOf),
-    ...(row.retro === undefined ? {} : { retro: row.retro }),
-    ...(row.why === undefined ? {} : { why: row.why }),
+    ...(row.retro === undefined
+      ? {}
+      : {
+          retro: row.retro,
+        }),
+    ...(row.why === undefined
+      ? {}
+      : {
+          why: row.why,
+        }),
   };
 }

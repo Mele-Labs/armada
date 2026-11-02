@@ -6,7 +6,11 @@
 export type SessionTodoState = "done" | "doing" | "todo";
 
 /** One item of the agent's own `TodoWrite` list. `task` is the id of the plan task Fleet matched it to. */
-export type SessionTodo = { text: string; state: SessionTodoState; task?: string };
+export type SessionTodo = {
+  text: string;
+  state: SessionTodoState;
+  task?: string;
+};
 
 /** What one subagent of a hosted session is doing, by the gate's `agent_id` on its calls. */
 export type SubagentActivity = {

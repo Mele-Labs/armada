@@ -4,6 +4,10 @@
 
 import { signInGap } from "../sign-in-gaps";
 
-export const signInNoHome = signInGap("sign-in-no-home", "Signing in with no shared home yet: What syncs greyed on an added profile", {
-  noHome: true,
-});
+export const signInNoHome = signInGap(
+  "sign-in-no-home",
+  "Signing in with no shared home yet: What syncs greyed on an added profile",
+  {
+    noHome: true,
+  },
+);

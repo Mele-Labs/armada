@@ -11,22 +11,84 @@ const issueSearch = role("searchbox", "Search the issues");
 
 function steps(): Step[] {
   return [
-    { press: place("System"), say: "System" },
-    { type: "serv", into: systemSearch, say: "Words" },
-    { look: systemPage("Servers"), say: "The entries that match" },
-    { key: "Escape", on: systemSearch, say: "Esc clears the words" },
-    { look: systemPage("Skills"), say: "Every entry is back" },
-    { press: place("Projects"), say: "Projects" },
-    { key: "/", on: region("Projects", { exact: true }), say: "/ goes to the search" },
-    { type: "pairing", into: taskSearch, say: "Words" },
-    { look: region("Search results"), say: "Every task that matches" },
-    { key: "Escape", on: taskSearch, say: "Esc clears the words" },
-    { press: place("Reviews"), say: "Reviews" },
-    { type: "marta", into: pullSearch, say: "An author" },
-    { look: inside(region("Pull requests"), button(/^#1899 /)), say: "The pull requests by that author" },
-    { press: place("Issues"), say: "Issues" },
-    { type: "socket", into: issueSearch, say: "A word from a title" },
-    { look: inside(region("Issues", { exact: true }), button(/^#2801 /)), say: "The issues that match, in every repository" },
+    {
+      press: place("System"),
+      say: "System",
+    },
+    {
+      type: "serv",
+      into: systemSearch,
+      say: "Words",
+    },
+    {
+      look: systemPage("Servers"),
+      say: "The entries that match",
+    },
+    {
+      key: "Escape",
+      on: systemSearch,
+      say: "Esc clears the words",
+    },
+    {
+      look: systemPage("Skills"),
+      say: "Every entry is back",
+    },
+    {
+      press: place("Projects"),
+      say: "Projects",
+    },
+    {
+      key: "/",
+      on: region("Projects", {
+        exact: true,
+      }),
+      say: "/ goes to the search",
+    },
+    {
+      type: "pairing",
+      into: taskSearch,
+      say: "Words",
+    },
+    {
+      look: region("Search results"),
+      say: "Every task that matches",
+    },
+    {
+      key: "Escape",
+      on: taskSearch,
+      say: "Esc clears the words",
+    },
+    {
+      press: place("Reviews"),
+      say: "Reviews",
+    },
+    {
+      type: "marta",
+      into: pullSearch,
+      say: "An author",
+    },
+    {
+      look: inside(region("Pull requests"), button(/^#1899 /)),
+      say: "The pull requests by that author",
+    },
+    {
+      press: place("Issues"),
+      say: "Issues",
+    },
+    {
+      type: "socket",
+      into: issueSearch,
+      say: "A word from a title",
+    },
+    {
+      look: inside(
+        region("Issues", {
+          exact: true,
+        }),
+        button(/^#2801 /),
+      ),
+      say: "The issues that match, in every repository",
+    },
   ];
 }
 

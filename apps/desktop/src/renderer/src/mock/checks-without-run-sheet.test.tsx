@@ -13,7 +13,21 @@ test("the merge line's Checks list while the run sheet is unread", async () => {
   await onScreen();
 
   await toPageByName("Checks");
-  await expect.element(page.getByRole("button", { name: "desktop_test", exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "desktop_test",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   // The checkout's own Check is the sheet's, and is not drawn.
-  expect(page.getByRole("button", { name: "test", exact: true }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("button", {
+        name: "test",
+        exact: true,
+      })
+      .query(),
+  ).toBeNull();
 });

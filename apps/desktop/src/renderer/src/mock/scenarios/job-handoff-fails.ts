@@ -3,4 +3,8 @@
 import { jobHandoff } from "../job-handoff";
 import type { Scenario } from "../moment";
 
-export const s296JobHandoffFails: Scenario = jobHandoff("job-handoff-fails", "A Job asks to carry on in a new one, and the new Job does not start", true);
+export const s296JobHandoffFails: Scenario = jobHandoff(
+  "job-handoff-fails",
+  "A Job asks to carry on in a new one, and the new Job does not start",
+  true,
+);

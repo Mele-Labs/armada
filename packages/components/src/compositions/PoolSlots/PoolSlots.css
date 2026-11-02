@@ -47,7 +47,9 @@
   overflow: hidden;
 }
 
-.armada-pool-slots__label { flex: 1 1 auto; }
+.armada-pool-slots__label {
+  flex: 1 1 auto;
+}
 
 .armada-pool-slots__band {
   display: flex;
@@ -78,14 +80,12 @@
   list-style: none;
   background:
     linear-gradient(
-      color-mix(in srgb, var(--border-subtle) 55%, transparent)
-        var(--border-width),
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
       transparent var(--border-width)
     ),
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--border-subtle) 55%, transparent)
-        var(--border-width),
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
       transparent var(--border-width)
     );
   background-size: var(--space-6) var(--space-6);
@@ -99,8 +99,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: calc(var(--h-row-unit) * 3);
-  border: var(--border-width) solid
-    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-inset, var(--radius-md));
   background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
   overflow: hidden;
@@ -160,8 +159,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  border-bottom: var(--border-width) solid
-    color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
+  border-bottom: var(--border-width) solid color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
   background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
   color: var(--hue);
 }
@@ -250,8 +248,7 @@
   gap: var(--space-3);
   margin-top: auto;
   padding-top: var(--space-2);
-  border-top: var(--border-width) solid
-    color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
+  border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
   font-family: var(--font-mono);
   color: var(--fg-muted);
 }
@@ -490,7 +487,9 @@
 }
 
 @keyframes armada-pool-slots-spin {
-  to { transform: rotate(1turn); }
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -634,7 +633,9 @@
 }
 
 @keyframes armada-finding-reading {
-  50% { opacity: 0.35; }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -644,5 +645,10 @@
 }
 
 /* Pending: bays with bars where the band and the body will be, until the pool has been read. */
-.armada-bay[data-bay="pending"] { --skeleton-fill: var(--bg-hover); }
-.armada-bay[data-bay="pending"] .armada-bay__band { min-height: var(--leading-xs); padding-block: var(--space-2); }
+.armada-bay[data-bay="pending"] {
+  --skeleton-fill: var(--bg-hover);
+}
+.armada-bay[data-bay="pending"] .armada-bay__band {
+  min-height: var(--leading-xs);
+  padding-block: var(--space-2);
+}

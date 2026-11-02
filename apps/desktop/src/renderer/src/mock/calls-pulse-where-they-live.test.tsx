@@ -9,9 +9,18 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const queue = () => page.getByRole("region", { name: "Merge queue" });
-const main = () => queue().getByRole("button", { name: /^Main is red/ });
-const chip = (number: number) => queue().getByRole("button", { name: new RegExp(`^#${number}`) });
+const queue = () =>
+  page.getByRole("region", {
+    name: "Merge queue",
+  });
+const main = () =>
+  queue().getByRole("button", {
+    name: /^Main is red/,
+  });
+const chip = (number: number) =>
+  queue().getByRole("button", {
+    name: new RegExp(`^#${number}`),
+  });
 const calling = (one: { element: () => Element }) => one.element().matches("[data-calling]");
 
 test("main red marks main's light, a failed pull request marks its chip, and a passed one stays quiet", async () => {

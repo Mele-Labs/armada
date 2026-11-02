@@ -9,12 +9,42 @@ const PEAK = 10 ** (-30 / 20);
 const GAP_MS = 25;
 
 /** A sine pluck falling from `from` to `to` over `ms`, under a band-passed noise burst at `hz` that is its attack. */
-type Voice = { ms: number; from: number; to: number; noise: { hz: number; q: number; ms: number; level: number } };
+type Voice = {
+  ms: number;
+  from: number;
+  to: number;
+  noise: {
+    hz: number;
+    q: number;
+    ms: number;
+    level: number;
+  };
+};
 
 /** The press is a touch lower and longer than the move. */
 const VOICES: Record<Kind, Voice> = {
-  move: { ms: 12, from: 1600, to: 1400, noise: { hz: 4000, q: 1.4, ms: 2, level: 0.4 } },
-  press: { ms: 16, from: 1300, to: 1100, noise: { hz: 3200, q: 1.2, ms: 2, level: 0.4 } },
+  move: {
+    ms: 12,
+    from: 1600,
+    to: 1400,
+    noise: {
+      hz: 4000,
+      q: 1.4,
+      ms: 2,
+      level: 0.4,
+    },
+  },
+  press: {
+    ms: 16,
+    from: 1300,
+    to: 1100,
+    noise: {
+      hz: 3200,
+      q: 1.2,
+      ms: 2,
+      level: 0.4,
+    },
+  },
 };
 
 /** One voice as samples, peak at 1. Seeded, so it sounds the same every time it plays. */
@@ -68,7 +98,8 @@ const buffers = new Map<Kind, AudioBuffer>();
 
 /** Created on the first sound, which is always inside a press or a key, so the browser lets it start. */
 function audio(): AudioContext | null {
-  if (context === undefined) context = typeof AudioContext === "undefined" ? null : new AudioContext();
+  if (context === undefined)
+    context = typeof AudioContext === "undefined" ? null : new AudioContext();
   return context;
 }
 
@@ -104,25 +135,59 @@ export function setUiSounds(on: boolean): void {
 
 const PRESSABLE = 'button, [role="button"], [role="switch"], [role="tab"], input[type="checkbox"]';
 /** What a list marks its selected row with. Several elements match at once (the open Place's tab, say), so the whole set is compared. */
-const MARKS = '[aria-selected="true"], [aria-current]:not([aria-current="false"]), [data-selected], [data-cursor]';
-const MOVES = new Set(["j", "k", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
-const PLAIN_INPUTS = new Set(["checkbox", "radio", "button", "submit", "reset", "range", "image", "file", "color"]);
+const MARKS =
+  '[aria-selected="true"], [aria-current]:not([aria-current="false"]), [data-selected], [data-cursor]';
+const MOVES = new Set([
+  "j",
+  "k",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+]);
+const PLAIN_INPUTS = new Set([
+  "checkbox",
+  "radio",
+  "button",
+  "submit",
+  "reset",
+  "range",
+  "image",
+  "file",
+  "color",
+]);
 
 /** Somewhere a key is a letter or a caret move: j types there, and ← → move the caret. */
 function typingIn(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
+  if (
+    target.isContentEditable ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  )
+    return true;
   return target instanceof HTMLInputElement && !PLAIN_INPUTS.has(target.type);
 }
 
-type Seen = { focus: Element | null; marks: Element[] };
+type Seen = {
+  focus: Element | null;
+  marks: Element[];
+};
 
 /** Where focus is and what is marked, read the same way before and after a key. A text box keeps focus, so only its marks count. */
 function look(typing: boolean): Seen {
-  return { focus: typing ? null : document.activeElement, marks: [...document.querySelectorAll(MARKS)] };
+  return {
+    focus: typing ? null : document.activeElement,
+    marks: [
+      ...document.querySelectorAll(MARKS),
+    ],
+  };
 }
 
-const same = (a: Seen, b: Seen) => a.focus === b.focus && a.marks.length === b.marks.length && a.marks.every((one, at) => one === b.marks[at]);
+const same = (a: Seen, b: Seen) =>
+  a.focus === b.focus &&
+  a.marks.length === b.marks.length &&
+  a.marks.every((one, at) => one === b.marks[at]);
 
 function onClick(event: MouseEvent): void {
   if (!enabled || !(event.target instanceof Element)) return;

@@ -16,28 +16,54 @@ async function band() {
   const app = mount("dismiss-a-needs-you-row");
   await onScreen();
   await toSession(/Docs for the pairing screen/);
-  const held = page.getByRole("region", { name: "Needs you" });
-  await userEvent.click(held.getByRole("button", { name: /^Needs you/ }));
-  const row = (text: RegExp) => held.getByRole("listitem", { name: text });
+  const held = page.getByRole("region", {
+    name: "Needs you",
+  });
+  await userEvent.click(
+    held.getByRole("button", {
+      name: /^Needs you/,
+    }),
+  );
+  const row = (text: RegExp) =>
+    held.getByRole("listitem", {
+      name: text,
+    });
   await expect.element(row(WALK)).toBeVisible();
-  return { app, row };
+  return {
+    app,
+    row,
+  };
 }
 
 test("a walk row is dismissed in one press, on Fleet, with no reason box", async () => {
   const { app, row } = await band();
   const dismiss = vi.spyOn(app.api, "dismissWaiting");
 
-  await userEvent.click(row(WALK).getByRole("button", { name: /^Dismiss/ }));
+  await userEvent.click(
+    row(WALK).getByRole("button", {
+      name: /^Dismiss/,
+    }),
+  );
   await expect.element(row(WALK)).not.toBeInTheDocument();
   await expect.element(row(PR)).toBeVisible();
-  expect(dismiss).toHaveBeenCalledWith({ session_id: "s22", item_id: "walk:https://git.example/pairing" });
+  expect(dismiss).toHaveBeenCalledWith({
+    session_id: "s22",
+    item_id: "walk:https://git.example/pairing",
+  });
 });
 
 test("a pull request row read from the reply is dismissed the same way", async () => {
   const { app, row } = await band();
   const dismiss = vi.spyOn(app.api, "dismissWaiting");
 
-  await userEvent.click(row(PR).getByRole("button", { name: /^Dismiss/ }));
+  await userEvent.click(
+    row(PR).getByRole("button", {
+      name: /^Dismiss/,
+    }),
+  );
   await expect.element(row(PR)).not.toBeInTheDocument();
-  expect(dismiss).toHaveBeenCalledWith({ session_id: "s22", item_id: "replied:pairing-pr" });
+  expect(dismiss).toHaveBeenCalledWith({
+    session_id: "s22",
+    item_id: "replied:pairing-pr",
+  });
 });

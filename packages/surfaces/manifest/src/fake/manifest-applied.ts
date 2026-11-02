@@ -10,52 +10,120 @@ function keyed<K extends keyof ManifestDeclared>(
   value: ManifestDeclared[K] | null,
 ): ManifestDeclared {
   const { [key]: _dropped, ...rest } = declared;
-  const gone = value === null || value === undefined || (Array.isArray(value) && value.length === 0);
-  return (gone ? rest : { ...rest, [key]: value }) as ManifestDeclared;
+  const gone =
+    value === null || value === undefined || (Array.isArray(value) && value.length === 0);
+  return (
+    gone
+      ? rest
+      : {
+          ...rest,
+          [key]: value,
+        }
+  ) as ManifestDeclared;
 }
 
-function evidenceWith(declared: ManifestDeclared, change: Partial<Record<keyof EvidenceDraft, unknown>>): ManifestDeclared {
+function evidenceWith(
+  declared: ManifestDeclared,
+  change: Partial<Record<keyof EvidenceDraft, unknown>>,
+): ManifestDeclared {
   if (declared.evidence === undefined) return declared;
-  const merged = Object.entries({ ...declared.evidence, ...change }).filter(
-    ([, value]) => value !== null && !(Array.isArray(value) && value.length === 0),
-  );
-  return { ...declared, evidence: Object.fromEntries(merged) as EvidenceDraft };
+  const merged = Object.entries({
+    ...declared.evidence,
+    ...change,
+  }).filter(([, value]) => value !== null && !(Array.isArray(value) && value.length === 0));
+  return {
+    ...declared,
+    evidence: Object.fromEntries(merged) as EvidenceDraft,
+  };
 }
 
-export function appliedTo(declared: ManifestDeclared, edits: readonly ManifestEdit[]): ManifestDeclared {
+export function appliedTo(
+  declared: ManifestDeclared,
+  edits: readonly ManifestEdit[],
+): ManifestDeclared {
   let next = declared;
-  const checked = (name: string, change: (check: ManifestDeclared["checks"][number]["check"]) => object) => ({
+  const checked = (
+    name: string,
+    change: (check: ManifestDeclared["checks"][number]["check"]) => object,
+  ) => ({
     ...next,
-    checks: next.checks.map((one) => (one.name === name ? { ...one, check: { ...one.check, ...change(one.check) } } : one)),
+    checks: next.checks.map((one) =>
+      one.name === name
+        ? {
+            ...one,
+            check: {
+              ...one.check,
+              ...change(one.check),
+            },
+          }
+        : one,
+    ),
   });
   for (const edit of edits) {
     switch (edit.edit) {
       case "add_check":
-        next = { ...next, checks: [...next.checks, { name: edit.name, check: edit.check }] };
+        next = {
+          ...next,
+          checks: [
+            ...next.checks,
+            {
+              name: edit.name,
+              check: edit.check,
+            },
+          ],
+        };
         break;
       case "remove_check":
-        next = { ...next, checks: next.checks.filter((one) => one.name !== edit.name) };
+        next = {
+          ...next,
+          checks: next.checks.filter((one) => one.name !== edit.name),
+        };
         break;
       case "set_check_run":
-        next = checked(edit.name, () => ({ run: edit.run }));
+        next = checked(edit.name, () => ({
+          run: edit.run,
+        }));
         break;
       case "set_check_expect_exit_code":
-        next = checked(edit.name, () => ({ expect_exit_code: edit.expect_exit_code }));
+        next = checked(edit.name, () => ({
+          expect_exit_code: edit.expect_exit_code,
+        }));
         break;
       case "add_command":
-        next = { ...next, commands: [...next.commands, { name: edit.name, command: edit.command }] };
+        next = {
+          ...next,
+          commands: [
+            ...next.commands,
+            {
+              name: edit.name,
+              command: edit.command,
+            },
+          ],
+        };
         break;
       case "remove_command":
-        next = { ...next, commands: next.commands.filter((one) => one.name !== edit.name) };
+        next = {
+          ...next,
+          commands: next.commands.filter((one) => one.name !== edit.name),
+        };
         break;
       case "set_cost_cap_micros_per_job":
         next = keyed(next, "cost_cap_micros_per_job", edit.cost_cap_micros_per_job);
         break;
       case "set_review_gate":
-        next = { ...next, review_gate: { ...next.review_gate, written: edit.review_gate ?? "human_always" } };
+        next = {
+          ...next,
+          review_gate: {
+            ...next.review_gate,
+            written: edit.review_gate ?? "human_always",
+          },
+        };
         break;
       case "set_freeze":
-        next = { ...next, freeze: edit.freeze };
+        next = {
+          ...next,
+          freeze: edit.freeze,
+        };
         break;
       case "set_pr_mode":
         next = keyed(next, "pr_mode", edit.pr_mode);
@@ -70,19 +138,29 @@ export function appliedTo(declared: ManifestDeclared, edits: readonly ManifestEd
         next = keyed(next, "evidence", null);
         break;
       case "set_evidence_serve":
-        next = evidenceWith(next, { serve: edit.serve });
+        next = evidenceWith(next, {
+          serve: edit.serve,
+        });
         break;
       case "set_evidence_ready":
-        next = evidenceWith(next, { ready: edit.ready });
+        next = evidenceWith(next, {
+          ready: edit.ready,
+        });
         break;
       case "set_evidence_run":
-        next = evidenceWith(next, { run: edit.run });
+        next = evidenceWith(next, {
+          run: edit.run,
+        });
         break;
       case "set_evidence_frames":
-        next = evidenceWith(next, { frames: edit.frames });
+        next = evidenceWith(next, {
+          frames: edit.frames,
+        });
         break;
       case "set_evidence_never":
-        next = evidenceWith(next, { never: edit.never });
+        next = evidenceWith(next, {
+          never: edit.never,
+        });
         break;
       case "set_after_merge_checks":
         next = keyed(next, "after_merge_checks", edit.checks);

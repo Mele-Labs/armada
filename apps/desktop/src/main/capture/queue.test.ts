@@ -16,7 +16,10 @@ const item = (url: string, since: string, source: WaitingItem["source"] = "walk"
   text: `Walk ${url}`,
   since,
   source,
-  act: { kind: "walk", target: url },
+  act: {
+    kind: "walk",
+    target: url,
+  },
 });
 
 const record = (id: string, ...waiting: WaitingItem[]): SessionRecord => ({
@@ -38,12 +41,20 @@ it("lists the walks of several Jobs oldest shown first, whichever Job listed the
     record("b", item("https://b.example.com/", at("01"))),
     record("c", item("https://c.example.com/", at("03"))),
   ]);
-  expect(walks.map((one) => one.sessionId)).toEqual(["b", "c", "a"]);
+  expect(walks.map((one) => one.sessionId)).toEqual([
+    "b",
+    "c",
+    "a",
+  ]);
 });
 
 it("holds two walks of one Job as two entries, each in its own place among the others", () => {
   const walks = standingWalks([
-    record("a", item("https://a.example.com/one", at("05")), item("https://a.example.com/two", at("02"))),
+    record(
+      "a",
+      item("https://a.example.com/one", at("05")),
+      item("https://a.example.com/two", at("02")),
+    ),
     record("b", item("https://b.example.com/", at("03"))),
   ]);
   expect(walks.map((one) => one.key)).toEqual([
@@ -59,9 +70,16 @@ it("leaves out what is not a walk standing on a web address", () => {
       "a",
       item("https://a.example.com/", at("01"), "window_ask"),
       item("ftp://files.example.com/", at("02")),
-      { id: "ask", text: "Which?", since: at("03"), source: "agent" },
+      {
+        id: "ask",
+        text: "Which?",
+        since: at("03"),
+        source: "agent",
+      },
       item("https://a.example.com/real", at("04")),
     ),
   ]);
-  expect(walks.map((one) => one.url)).toEqual(["https://a.example.com/real"]);
+  expect(walks.map((one) => one.url)).toEqual([
+    "https://a.example.com/real",
+  ]);
 });

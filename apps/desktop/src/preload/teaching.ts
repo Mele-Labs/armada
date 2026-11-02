@@ -8,5 +8,6 @@ import { CHANNELS } from "../shared/bridge";
 export const teachingPreload: TeachingApi = {
   readTeaching: (read) => ipcRenderer.invoke(CHANNELS.readTeaching, read),
   saveTeaching: (save) => ipcRenderer.invoke(CHANNELS.saveTeaching, save),
-  listWordRules: (repository, sessionId) => ipcRenderer.invoke(CHANNELS.listWordRules, repository, sessionId),
+  listWordRules: (repository, sessionId) =>
+    ipcRenderer.invoke(CHANNELS.listWordRules, repository, sessionId),
 };

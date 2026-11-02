@@ -10,21 +10,48 @@ import type { Session, SessionMode, SessionWork } from "@armada/screens/src/draf
 
 import { askToShowTask, useTasksHeld, type HeldTask } from "../projects-tab/held";
 
-const DELIVERY: Record<DeliveryChoice, string> = { auto_land: "Auto land", open_pr: "Open PR only", keep_local: "Keep local" };
-const MODE: Record<SessionMode, string> = { ask: "Ask", auto: "Auto", accept_edits: "Accept edits", plan: "Plan" };
+const DELIVERY: Record<DeliveryChoice, string> = {
+  auto_land: "Auto land",
+  open_pr: "Open PR only",
+  keep_local: "Keep local",
+};
+const MODE: Record<SessionMode, string> = {
+  ask: "Ask",
+  auto: "Auto",
+  accept_edits: "Accept edits",
+  plan: "Plan",
+};
 
-type Row = { label: string; value: string };
+type Row = {
+  label: string;
+  value: string;
+};
 
 /** How the Job started, one row for each thing it holds a value for. */
 export function startedRows(session: Session, work: SessionWork): Row[] {
   const from = session.started;
   const delivery = from?.delivery ?? session.start?.picked?.choice;
   const rows: (Row | undefined)[] = [
-    { label: "Workflow", value: from?.workflow ?? work.workflow?.name ?? "" },
-    { label: "Delivery", value: delivery === undefined ? "" : DELIVERY[delivery] },
-    { label: "Model", value: from?.model ?? session.model ?? "" },
-    { label: "Effort", value: from?.effort ?? session.effort ?? "" },
-    { label: "Mode", value: (from?.mode ?? session.mode) === undefined ? "" : MODE[(from?.mode ?? session.mode)!] },
+    {
+      label: "Workflow",
+      value: from?.workflow ?? work.workflow?.name ?? "",
+    },
+    {
+      label: "Delivery",
+      value: delivery === undefined ? "" : DELIVERY[delivery],
+    },
+    {
+      label: "Model",
+      value: from?.model ?? session.model ?? "",
+    },
+    {
+      label: "Effort",
+      value: from?.effort ?? session.effort ?? "",
+    },
+    {
+      label: "Mode",
+      value: (from?.mode ?? session.mode) === undefined ? "" : MODE[(from?.mode ?? session.mode)!],
+    },
   ];
   return rows.filter((one): one is Row => one !== undefined && one.value !== "");
 }
@@ -40,7 +67,12 @@ function HeldTasks({ tasks }: { tasks: readonly HeldTask[] }) {
           <ul className="sv-brief__tasks" aria-label={label}>
             {tasks.map((task) => (
               <li key={task.id}>
-                <TaskChip title={task.title} project={task.project} state={task.state} onOpen={() => askToShowTask(task.id)} />
+                <TaskChip
+                  title={task.title}
+                  project={task.project}
+                  state={task.state}
+                  onOpen={() => askToShowTask(task.id)}
+                />
               </li>
             ))}
           </ul>
@@ -50,7 +82,17 @@ function HeldTasks({ tasks }: { tasks: readonly HeldTask[] }) {
   );
 }
 
-export function BriefZone({ session, work, text, onOpenSession }: { session: Session; work: SessionWork; text: string; onOpenSession: (id: string) => void }) {
+export function BriefZone({
+  session,
+  work,
+  text,
+  onOpenSession,
+}: {
+  session: Session;
+  work: SessionWork;
+  text: string;
+  onOpenSession: (id: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const rows = startedRows(session, work);
   const by = session.started?.by;
@@ -59,7 +101,14 @@ export function BriefZone({ session, work, text, onOpenSession }: { session: Ses
   return (
     <section className="sv-panel" data-area="brief" data-place="side" aria-label="Brief">
       <header className="sv-panel__band">
-        <button type="button" className="sv-brief__press" aria-label="Brief" aria-expanded={open} aria-controls={body} onClick={() => setOpen(!open)}>
+        <button
+          type="button"
+          className="sv-brief__press"
+          aria-label="Brief"
+          aria-expanded={open}
+          aria-controls={body}
+          onClick={() => setOpen(!open)}
+        >
           <span className="sv-panel__label">Brief</span>
           {open ? null : <span className="sv-brief__excerpt">{text}</span>}
           <ChevronDown className="sv-brief__caret" size={14} strokeWidth={2} aria-hidden />
@@ -81,7 +130,11 @@ export function BriefZone({ session, work, text, onOpenSession }: { session: Ses
                   <div className="sv-brief__row">
                     <dt>Started by</dt>
                     <dd>
-                      <button type="button" className="sv-brief__by" onClick={() => onOpenSession(by.job)}>
+                      <button
+                        type="button"
+                        className="sv-brief__by"
+                        onClick={() => onOpenSession(by.job)}
+                      >
                         {by.title}
                       </button>
                     </dd>

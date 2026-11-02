@@ -6,13 +6,23 @@ import type { MockDraft, Scenario } from "./moment";
 import { onboardingHome } from "./scenarios/onboarding-home";
 
 /** `onboarding-home` under another name, signing in as it does but for what `account` changes. */
-export function signInGap(name: string, says: string, account: Partial<NonNullable<MockDraft["account"]>>): Scenario {
+export function signInGap(
+  name: string,
+  says: string,
+  account: Partial<NonNullable<MockDraft["account"]>>,
+): Scenario {
   const base = onboardingHome.draft?.account;
   if (base === undefined) throw new Error("onboarding-home carries no account");
   return {
     ...onboardingHome,
     name,
     says,
-    draft: { ...(onboardingHome.draft ?? {}), account: { ...base, ...account } },
+    draft: {
+      ...(onboardingHome.draft ?? {}),
+      account: {
+        ...base,
+        ...account,
+      },
+    },
   };
 }

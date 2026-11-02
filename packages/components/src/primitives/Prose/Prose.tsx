@@ -1,4 +1,12 @@
-import { Children, cloneElement, createContext, isValidElement, memo, useContext, type ReactNode } from "react";
+import {
+  Children,
+  cloneElement,
+  createContext,
+  isValidElement,
+  memo,
+  useContext,
+  type ReactNode,
+} from "react";
 import { FileText } from "lucide-react";
 import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
@@ -10,13 +18,26 @@ import { Tooltip } from "../Tooltip/Tooltip";
 import { commandOf, CopyAct, ProseRunner, RunnableBlock } from "./RunnableBlock";
 import { isSlashCommand, ProseCommand, SlashCommand } from "./SlashCommand";
 import { InPickLine, lineText, PickLine, type LineNode } from "./PickLine";
-import { AttachedImage, AttachedVideo, isForgeAddress, isVideoAddress, ProseAttachments } from "./ProseAttachments";
+import {
+  AttachedImage,
+  AttachedVideo,
+  isForgeAddress,
+  isVideoAddress,
+  ProseAttachments,
+} from "./ProseAttachments";
 export { ProseAttachments } from "./ProseAttachments";
 export { ProsePick } from "./PickLine";
 export type { ProsePicker } from "./PickLine";
 export { ResponseEditor } from "./ResponseEditor";
 export type { ResponseEditorProps } from "./ResponseEditor";
-export { DEFAULT_RESPONSES, MAX_RESPONSES, actOnResponses, isEmoji, readResponse, responseMessage } from "./responses";
+export {
+  DEFAULT_RESPONSES,
+  MAX_RESPONSES,
+  actOnResponses,
+  isEmoji,
+  readResponse,
+  responseMessage,
+} from "./responses";
 export type { QuickResponse, ResponseAct } from "./responses";
 export type { AttachmentBytes } from "./ProseAttachments";
 export type { CodePhase, CodeRun, CodeRunEvent, CodeRunner, TerminalSize } from "./RunnableBlock";
@@ -62,7 +83,11 @@ export const ProseWalk = createContext<((address: string) => void) | null>(null)
 function isWalkLink(address: string): boolean {
   try {
     const url = new URL(address);
-    return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.searchParams.has("walk");
+    return (
+      url.protocol === "http:" &&
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+      url.searchParams.has("walk")
+    );
   } catch {
     return false;
   }
@@ -81,7 +106,14 @@ export type ProseReference = {
 };
 
 /** What each kind is called, in the tooltip that leads a reference's title. */
-export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_request: "Pull request", issue: "Issue", session: "Job", file: "File", document: "Document", link: "Link" };
+export const REFERENCE_KIND: Record<ProseReference["kind"], string> = {
+  pull_request: "Pull request",
+  issue: "Issue",
+  session: "Job",
+  file: "File",
+  document: "Document",
+  link: "Link",
+};
 
 /**
  * Where a reference is found and where it goes. Provided by the one surface that wants its words linked,
@@ -89,7 +121,11 @@ export const REFERENCE_KIND: Record<ProseReference["kind"], string> = { pull_req
  * `text` that name something, in any order.
  */
 export type ProseReferences = {
-  scan: (text: string) => readonly { from: number; to: number; ref: ProseReference }[];
+  scan: (text: string) => readonly {
+    from: number;
+    to: number;
+    ref: ProseReference;
+  }[];
   open: (ref: ProseReference) => void;
 };
 export const ProseRefs = createContext<ProseReferences | null>(null);
@@ -98,9 +134,11 @@ export const ProseRefs = createContext<ProseReferences | null>(null);
 const REF = "armada-ref:";
 
 /** A part of an address, with the brackets a markdown link would end on written out too. */
-const escaped = (part: string): string => encodeURIComponent(part).replace(/[()]/g, (one) => `%${one.charCodeAt(0).toString(16)}`);
+const escaped = (part: string): string =>
+  encodeURIComponent(part).replace(/[()]/g, (one) => `%${one.charCodeAt(0).toString(16)}`);
 
-const addressOf = (ref: ProseReference): string => `${REF}${ref.kind}/${escaped(ref.id)}?t=${escaped(ref.title)}`;
+const addressOf = (ref: ProseReference): string =>
+  `${REF}${ref.kind}/${escaped(ref.id)}?t=${escaped(ref.title)}`;
 
 /** A link a model wrote, `[words](address)`. */
 const WRITTEN = /(!?\[(?:\\.|[^\[\]\\\n])*\]\([^()\s]*\))/;
@@ -115,7 +153,19 @@ function linked(text: string, refs: ProseReferences): string {
     .map((part, at) => {
       if (at % 2 === 1) {
         const inner = part.startsWith("```") ? "" : part.slice(1, -1);
-        const whole = inner === "" ? undefined : refs.scan(inner).find((one) => one.from === 0 && one.to === inner.length && (one.ref.kind === "session" || one.ref.kind === "file" || one.ref.kind === "document"));
+        const whole =
+          inner === ""
+            ? undefined
+            : refs
+                .scan(inner)
+                .find(
+                  (one) =>
+                    one.from === 0 &&
+                    one.to === inner.length &&
+                    (one.ref.kind === "session" ||
+                      one.ref.kind === "file" ||
+                      one.ref.kind === "document"),
+                );
         return whole === undefined ? part : `[${part}](${addressOf(whole.ref)})`;
       }
       // A link a model wrote is one link, and a reference in its words would be a link inside it, which markdown
@@ -125,8 +175,17 @@ function linked(text: string, refs: ProseReferences): string {
         .map((piece, index) => {
           if (index % 2 === 0) return words(piece, refs);
           const address = piece.slice(piece.lastIndexOf("](") + 2, -1);
-          const whole = refs.scan(address).find((one) => one.from === 0 && one.to === address.length && (one.ref.kind === "pull_request" || one.ref.kind === "issue"));
-          return whole === undefined || piece.startsWith("!") ? piece : `${piece.slice(0, piece.length - address.length - 1)}${addressOf(whole.ref)})`;
+          const whole = refs
+            .scan(address)
+            .find(
+              (one) =>
+                one.from === 0 &&
+                one.to === address.length &&
+                (one.ref.kind === "pull_request" || one.ref.kind === "issue"),
+            );
+          return whole === undefined || piece.startsWith("!")
+            ? piece
+            : `${piece.slice(0, piece.length - address.length - 1)}${addressOf(whole.ref)})`;
         })
         .join("");
     })
@@ -138,7 +197,11 @@ function words(part: string, refs: ProseReferences): string {
   // A path in a sentence is only words; a page's title in one names the page.
   const found = refs
     .scan(part)
-    .filter((one) => one.ref.kind !== "file" && (one.ref.kind !== "document" || part.slice(one.from, one.to) === one.ref.title))
+    .filter(
+      (one) =>
+        one.ref.kind !== "file" &&
+        (one.ref.kind !== "document" || part.slice(one.from, one.to) === one.ref.title),
+    )
     .sort((a, b) => a.from - b.from);
   let out = "";
   let from = 0;
@@ -156,11 +219,21 @@ function referenceOf(href: string | undefined): ProseReference | null {
   const [path = "", query = ""] = href.slice(REF.length).split("?t=");
   const [kind = "", id = ""] = path.split("/");
   if (!(kind in REFERENCE_KIND)) return null;
-  return { kind: kind as ProseReference["kind"], id: decodeURIComponent(id), title: decodeURIComponent(query) };
+  return {
+    kind: kind as ProseReference["kind"],
+    id: decodeURIComponent(id),
+    title: decodeURIComponent(query),
+  };
 }
 
 /** A reference drawn as the link every other is, named on hover: its kind, then its title. A document draws as its title, not its path. */
-export function ReferenceLink({ reference, children }: { reference: ProseReference; children: ReactNode }) {
+export function ReferenceLink({
+  reference,
+  children,
+}: {
+  reference: ProseReference;
+  children: ReactNode;
+}) {
   const refs = useContext(ProseRefs);
   if (refs === null) return <>{children}</>;
   return (
@@ -195,7 +268,9 @@ export function ReferenceLink({ reference, children }: { reference: ProseReferen
 export function RefText({ text }: { text: string }) {
   const refs = useContext(ProseRefs);
   if (refs === null) return <>{text}</>;
-  const spans = [...refs.scan(text)].sort((a, b) => a.from - b.from);
+  const spans = [
+    ...refs.scan(text),
+  ].sort((a, b) => a.from - b.from);
   if (spans.length === 0) return <>{text}</>;
   const out: ReactNode[] = [];
   let at = 0;
@@ -225,24 +300,52 @@ export const Prose = memo(function Prose({ text, lines = false }: ProseProps) {
   if (text.trim() === "") return null;
   return (
     <div className="armada-prose">
-      <Markdown remarkPlugins={lines ? LINED_PLUGINS : PLUGINS} components={lines ? LINED : DRAWN} urlTransform={keepRef}>
+      <Markdown
+        remarkPlugins={lines ? LINED_PLUGINS : PLUGINS}
+        components={lines ? LINED : DRAWN}
+        urlTransform={keepRef}
+      >
         {refs === null ? text : linked(text, refs)}
       </Markdown>
     </div>
   );
 });
 
-const PLUGINS = [remarkGfm, remarkBreaks];
+const PLUGINS = [
+  remarkGfm,
+  remarkBreaks,
+];
 
 /** Writes the line each top-level block starts on onto it, where `react-markdown` hands it to the component as `data-line`. */
 function markLines() {
-  return (tree: { children: { position?: { start: { line: number } }; data?: { hProperties?: Record<string, unknown> } }[] }) => {
+  return (tree: {
+    children: {
+      position?: {
+        start: {
+          line: number;
+        };
+      };
+      data?: {
+        hProperties?: Record<string, unknown>;
+      };
+    }[];
+  }) => {
     for (const block of tree.children) {
-      if (block.position !== undefined) block.data = { ...block.data, hProperties: { ...block.data?.hProperties, "data-line": block.position.start.line } };
+      if (block.position !== undefined)
+        block.data = {
+          ...block.data,
+          hProperties: {
+            ...block.data?.hProperties,
+            "data-line": block.position.start.line,
+          },
+        };
     }
   };
 }
-const LINED_PLUGINS = [...PLUGINS, markLines];
+const LINED_PLUGINS = [
+  ...PLUGINS,
+  markLines,
+];
 
 /** The address if it is one this app hands to a browser, else `null`. */
 function web(href: string | undefined): string | null {
@@ -276,18 +379,39 @@ function Addressed({ text, open }: { text: string; open: ((address: string) => v
     );
     from = one.index + one[0].length;
   }
-  return <>{parts.length === 0 ? text : [...parts, text.slice(from)]}</>;
+  return (
+    <>
+      {parts.length === 0
+        ? text
+        : [
+            ...parts,
+            text.slice(from),
+          ]}
+    </>
+  );
 }
 
 /** A web address drawn as a link; a walk link opens in the Session's walk window and says so. */
-function WebLink({ address, open, children }: { address: string; open: (address: string) => void; children: ReactNode }) {
+function WebLink({
+  address,
+  open,
+  children,
+}: {
+  address: string;
+  open: (address: string) => void;
+  children: ReactNode;
+}) {
   const walk = useContext(ProseWalk);
   const inWindow = walk !== null && isWalkLink(address);
   const link = (
     <a
       className="armada-prose__link"
       href={address}
-      {...(inWindow ? {} : { title: address })}
+      {...(inWindow
+        ? {}
+        : {
+            title: address,
+          })}
       onClick={(event) => {
         // No surface navigates: design-system.md, hard rule 2.
         event.preventDefault();
@@ -312,10 +436,16 @@ function Link({ href, children }: { href: string | undefined; children: ReactNod
   const open = useContext(ProseLinks);
   const walk = useContext(ProseWalk);
   const reference = referenceOf(href);
-  if (reference !== null) return <InLink.Provider value><ReferenceLink reference={reference}>{children}</ReferenceLink></InLink.Provider>;
+  if (reference !== null)
+    return (
+      <InLink.Provider value>
+        <ReferenceLink reference={reference}>{children}</ReferenceLink>
+      </InLink.Provider>
+    );
   const address = web(href);
   // A walk link needs the Session's window, not the browser, so it draws where only that is provided.
-  if (address === null || (open === null && !(walk !== null && isWalkLink(address)))) return <>{children}</>;
+  if (address === null || (open === null && !(walk !== null && isWalkLink(address))))
+    return <>{children}</>;
   return (
     <InLink.Provider value>
       <WebLink address={address} open={open ?? walk!}>
@@ -335,9 +465,22 @@ function Code({ children }: { children?: ReactNode }) {
   const open = useContext(ProseLinks);
   const walk = useContext(ProseWalk);
   const commands = useContext(ProseCommand);
-  if (inBlock || commands === null || typeof children !== "string" || !isSlashCommand(children, commands.names)) {
+  if (
+    inBlock ||
+    commands === null ||
+    typeof children !== "string" ||
+    !isSlashCommand(children, commands.names)
+  ) {
     // A web address is a link in code too; a `#12` in a block is a comment, so only an address is.
-    return <code className="armada-prose__code">{inLink || typeof children !== "string" || (open === null && walk === null) ? children : <Addressed text={children} open={open} />}</code>;
+    return (
+      <code className="armada-prose__code">
+        {inLink || typeof children !== "string" || (open === null && walk === null) ? (
+          children
+        ) : (
+          <Addressed text={children} open={open} />
+        )}
+      </code>
+    );
   }
   return <SlashCommand text={children} send={commands.send} />;
 }
@@ -346,13 +489,25 @@ function Code({ children }: { children?: ReactNode }) {
 function Block({ children }: { children?: ReactNode }) {
   const runner = useContext(ProseRunner);
   const code = Children.toArray(children)[0];
-  const language = isValidElement<{ className?: string }>(code) ? /language-(\S+)/.exec(code.props.className ?? "")?.[1] : undefined;
-  const source = isValidElement<{ children?: ReactNode }>(code) && typeof code.props.children === "string" ? code.props.children : null;
+  const language = isValidElement<{
+    className?: string;
+  }>(code)
+    ? /language-(\S+)/.exec(code.props.className ?? "")?.[1]
+    : undefined;
+  const source =
+    isValidElement<{
+      children?: ReactNode;
+    }>(code) && typeof code.props.children === "string"
+      ? code.props.children
+      : null;
   const command = runner === null || source === null ? null : commandOf(language, source);
   // The block leaves room for the acts drawn over its corner: one, or two where Run sits beside Copy.
   const pre = (
     <InBlock.Provider value>
-      <pre className="armada-prose__block" data-acts={source === null ? undefined : command === null ? 1 : 2}>
+      <pre
+        className="armada-prose__block"
+        data-acts={source === null ? undefined : command === null ? 1 : 2}
+      >
         {children}
       </pre>
     </InBlock.Provider>
@@ -395,18 +550,32 @@ function Paragraph({ node, children }: { node?: LineNode; children?: ReactNode }
   const attachments = useContext(ProseAttachments);
   const inLine = useContext(InPickLine);
   // A paragraph in a list item is part of the item's line; one on its own is a line where a thread asks to answer lines.
-  const line = (body: ReactNode) => (inLine ? <p className="armada-prose__paragraph">{body}</p> : <PickLine as="p" className="armada-prose__paragraph" text={lineText(node)}>{body}</PickLine>);
+  const line = (body: ReactNode) =>
+    inLine ? (
+      <p className="armada-prose__paragraph">{body}</p>
+    ) : (
+      <PickLine as="p" className="armada-prose__paragraph" text={lineText(node)}>
+        {body}
+      </PickLine>
+    );
   if (attachments === null) return line(children);
   const parts = Children.toArray(children);
   const bare = (part: ReactNode): string | null => {
-    if (!isValidElement<{ href?: string; children?: ReactNode }>(part)) return null;
+    if (
+      !isValidElement<{
+        href?: string;
+        children?: ReactNode;
+      }>(part)
+    )
+      return null;
     const { href, children: text } = part.props;
     return typeof href === "string" && text === href && isVideoAddress(href) ? href : null;
   };
   const isBreak = (part: ReactNode) => isValidElement(part) && part.type === "br";
   const out = parts.map((part, at) => {
     const address = bare(part);
-    const alone = (at === 0 || isBreak(parts[at - 1])) && (at === parts.length - 1 || isBreak(parts[at + 1]));
+    const alone =
+      (at === 0 || isBreak(parts[at - 1])) && (at === parts.length - 1 || isBreak(parts[at + 1]));
     return address !== null && alone ? <AttachedVideo key={at} address={address} /> : part;
   });
   return line(out);
@@ -465,12 +634,24 @@ const DRAWN: Components = {
 };
 
 /** The parts of an mdast node `proseText` reads. */
-type Node = { type: string; value?: string; alt?: string | null; children?: Node[] };
+type Node = {
+  type: string;
+  value?: string;
+  alt?: string | null;
+  children?: Node[];
+};
 
 const PARSER = unified().use(remarkParse).use(remarkGfm);
 
 /** Nodes whose end is a gap between words: blocks, cells, and a hard line break. */
-const APART = new Set(["paragraph", "heading", "listItem", "tableCell", "code", "break"]);
+const APART = new Set([
+  "paragraph",
+  "heading",
+  "listItem",
+  "tableCell",
+  "code",
+  "break",
+]);
 
 /**
  * Model-written markdown as the plain words `Prose` would draw, for a place that
@@ -495,7 +676,11 @@ const LINED: Components = Object.fromEntries(
     (props: Record<string, unknown>) => {
       const drawn = (Drawn as (props: Record<string, unknown>) => ReactNode)(props);
       const line = props["data-line"];
-      return line === undefined || !isValidElement(drawn) ? drawn : cloneElement(drawn as React.ReactElement<Record<string, unknown>>, { "data-line": line });
+      return line === undefined || !isValidElement(drawn)
+        ? drawn
+        : cloneElement(drawn as React.ReactElement<Record<string, unknown>>, {
+            "data-line": line,
+          });
     },
   ]),
 );

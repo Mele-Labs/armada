@@ -5,7 +5,10 @@ import type { Outcome, SleepState } from "@armada/protocol";
 import type { SleepActed } from "../shared/api/sleep";
 import { ask } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 export class SleepHost {
   private readonly port: () => number | null;
@@ -30,22 +33,40 @@ export class SleepHost {
   }
 
   async set(on: boolean): Promise<SleepActed> {
-    return await this.act("POST", "/sleep", { on });
+    return await this.act("POST", "/sleep", {
+      on,
+    });
   }
 
   async override(id: string, text: string): Promise<SleepActed> {
-    return await this.act("POST", "/sleep/override", { id, text });
+    return await this.act("POST", "/sleep/override", {
+      id,
+      text,
+    });
   }
 
   async review(id: string): Promise<SleepActed> {
-    return await this.act("POST", "/sleep/review", { id });
+    return await this.act("POST", "/sleep/review", {
+      id,
+    });
   }
 
   private async act(method: "GET" | "POST", path: string, body?: unknown): Promise<SleepActed> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, method, path, body);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, value: answer.body as SleepState };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      value: answer.body as SleepState,
+    };
   }
 }

@@ -8,7 +8,13 @@ import { KbdCmd } from "../../primitives/Kbd/Kbd";
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
 import { HelmSheet } from "./HelmSheet";
 import { useMarking, type Mark } from "../../marking";
-import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } from "../../dock-handle";
+import {
+  DockHandle,
+  clampToRange,
+  defaultDockWidth,
+  dockWidthRange,
+  tokenPx,
+} from "../../dock-handle";
 
 /**
  * The shell: the title row, the panel the work mounts in, and Helm's dock. **There is no left column.** The places are the title
@@ -127,19 +133,55 @@ export function TheShell({
     <ShortcutRevealProvider>
       <div className="armada-shell">
         <TitleBar
-          {...(menu === undefined ? {} : { menu })}
-          {...(repositoryMenu === undefined ? {} : { repositoryMenu })}
+          {...(menu === undefined
+            ? {}
+            : {
+                menu,
+              })}
+          {...(repositoryMenu === undefined
+            ? {}
+            : {
+                repositoryMenu,
+              })}
           onSearch={onSearch}
           onDispatch={onDispatch}
           dispatchDisabled={dispatchDisabled}
           helm={helmButtonOf(dock)}
-          {...(sleep === undefined ? {} : { sleep })}
-          {...(planUsage === undefined ? {} : { planUsage })}
-          {...(onTeach === undefined ? {} : { onTeach })}
-          {...(places === undefined ? {} : { places })}
-          {...(wordmark === undefined ? {} : { wordmark })}
-          {...(repository === undefined ? {} : { repository })}
-          fleet={{ state: fleet.state, label: fleet.label, panel: <FleetInAPopover {...fleet} /> }}
+          {...(sleep === undefined
+            ? {}
+            : {
+                sleep,
+              })}
+          {...(planUsage === undefined
+            ? {}
+            : {
+                planUsage,
+              })}
+          {...(onTeach === undefined
+            ? {}
+            : {
+                onTeach,
+              })}
+          {...(places === undefined
+            ? {}
+            : {
+                places,
+              })}
+          {...(wordmark === undefined
+            ? {}
+            : {
+                wordmark,
+              })}
+          {...(repository === undefined
+            ? {}
+            : {
+                repository,
+              })}
+          fleet={{
+            state: fleet.state,
+            label: fleet.label,
+            panel: <FleetInAPopover {...fleet} />,
+          }}
         />
         <div className="armada-shell__body">
           <div className="armada-shell__work">
@@ -174,7 +216,10 @@ const DOCK_TITLE = "Helm";
  * **The arithmetic did not move when the dock did** (#1583). `--w-work-min`
  * was the panel's floor beside the dock; it is what stays uncovered under it.
  */
-function dockWidthBounds(availableWidth: number): { min: number; max: number } {
+function dockWidthBounds(availableWidth: number): {
+  min: number;
+  max: number;
+} {
   return dockWidthRange(availableWidth - 4 * tokenPx("--space-4"));
 }
 
@@ -207,7 +252,12 @@ export function clampDockWidth(width: number, availableWidth: number): number {
 }
 
 /** `TheShell.css` gives the shell Helm's glow while a dock is drawn. */
-const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
+const DOCKED: readonly Mark[] = [
+  {
+    of: ".armada-shell",
+    as: "data-dock",
+  },
+];
 
 function Dock({
   open,
@@ -250,10 +300,18 @@ function Dock({
         <aside
           className="armada-shell__dock armada-glass"
           aria-label={DOCK_TITLE}
-          style={width === undefined ? undefined : { width: `${restingWidth}px` }}
+          style={
+            width === undefined
+              ? undefined
+              : {
+                  width: `${restingWidth}px`,
+                }
+          }
         >
           <div className="armada-shell__dock-head">
-            <span className="armada-shell__dock-chip" aria-hidden><MessageSquare size={16} strokeWidth={2} /></span>
+            <span className="armada-shell__dock-chip" aria-hidden>
+              <MessageSquare size={16} strokeWidth={2} />
+            </span>
             <h2 className="armada-shell__dock-title">{DOCK_TITLE}</h2>
             {action}
             <Button variant="secondary" size="sm" ground="card" onClick={() => onOpen(false)}>
@@ -293,15 +351,28 @@ function Dock({
  * folded, open or shut, and while closed outright: it is the one way back to
  * Helm at every width, since no edge strip is drawn at any.
  */
-function helmButtonOf(
-  dock: TheShellDock | undefined,
-): { questions: number; calling?: boolean; binding?: string; onOpen: () => void } | undefined {
+function helmButtonOf(dock: TheShellDock | undefined):
+  | {
+      questions: number;
+      calling?: boolean;
+      binding?: string;
+      onOpen: () => void;
+    }
+  | undefined {
   if (dock === undefined) return undefined;
   if (dock.open && dock.folded !== true) return undefined;
   return {
     questions: dock.questions ?? 0,
-    ...(dock.calling === true ? { calling: true } : {}),
-    ...(dock.binding === undefined ? {} : { binding: dock.binding }),
+    ...(dock.calling === true
+      ? {
+          calling: true,
+        }
+      : {}),
+    ...(dock.binding === undefined
+      ? {}
+      : {
+          binding: dock.binding,
+        }),
     onOpen: () => dock.onOpen(true),
   };
 }

@@ -5,16 +5,32 @@
 export type SketchSaveKind = "html" | "png" | "svg";
 
 /** One rendering of the sketch. `name` is a file name and never a path: where it goes is the person's pick in a dialog main opens. */
-export type SketchSaveFile = { kind: SketchSaveKind; name: string; bytes: Uint8Array };
+export type SketchSaveFile = {
+  kind: SketchSaveKind;
+  name: string;
+  bytes: Uint8Array;
+};
 
 /** What a save came to. A dialog closed without a place is not a failure. */
-export type SketchSaved = { saved: true; name: string } | { saved: false; why: "cancelled" | "failed" };
+export type SketchSaved =
+  | {
+      saved: true;
+      name: string;
+    }
+  | {
+      saved: false;
+      why: "cancelled" | "failed";
+    };
 
 /** What a Job's document is saved as. */
 export type DocumentSaveKind = "html" | "pdf";
 
 /** One document: the self-contained page the renderer built, and the format it is to be written as. `name` is a file name and never a path. */
-export type DocumentSaveRequest = { kind: DocumentSaveKind; name: string; html: string };
+export type DocumentSaveRequest = {
+  kind: DocumentSaveKind;
+  name: string;
+  html: string;
+};
 
 export type SketchShareApi = {
   /**

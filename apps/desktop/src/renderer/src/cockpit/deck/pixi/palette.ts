@@ -4,7 +4,12 @@
 // a redraw, which the stage makes when the page's `data-theme` changes.
 
 /** Red, green, blue and alpha, each 0 to 1. */
-export type Rgba = readonly [number, number, number, number];
+export type Rgba = readonly [
+  number,
+  number,
+  number,
+  number,
+];
 
 export type Palette = {
   base: Rgba;
@@ -39,7 +44,9 @@ let scratch: CanvasRenderingContext2D | undefined;
 
 /** A computed CSS colour, whatever syntax it came back in, as 0 to 1 channels. */
 function rgbaOf(css: string): Rgba {
-  scratch ??= document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+  scratch ??= document.createElement("canvas").getContext("2d", {
+    willReadFrequently: true,
+  })!;
   scratch.canvas.width = 1;
   scratch.canvas.height = 1;
   scratch.clearRect(0, 0, 1, 1);
@@ -49,10 +56,23 @@ function rgbaOf(css: string): Rgba {
   const [r, g, b, a] = scratch.getImageData(0, 0, 1, 1).data;
   // The canvas keeps colour premultiplied, so a translucent token reads back darker; undo it.
   const alpha = a! / 255;
-  return alpha === 0 ? [0, 0, 0, 0] : [r! / 255 / alpha, g! / 255 / alpha, b! / 255 / alpha, alpha];
+  return alpha === 0
+    ? [
+        0,
+        0,
+        0,
+        0,
+      ]
+    : [
+        r! / 255 / alpha,
+        g! / 255 / alpha,
+        b! / 255 / alpha,
+        alpha,
+      ];
 }
 
-const seconds = (css: string): number => (css.endsWith("ms") ? parseFloat(css) : parseFloat(css) * 1000);
+const seconds = (css: string): number =>
+  css.endsWith("ms") ? parseFloat(css) : parseFloat(css) * 1000;
 
 export function readPalette(host: HTMLElement): Palette {
   const probe = document.createElement("span");
@@ -97,13 +117,24 @@ export function readPalette(host: HTMLElement): Palette {
 }
 
 /** `color-mix(in srgb, a (1 - t), b t)`: the same blend the stylesheet writes. */
-export const mix = (a: Rgba, b: Rgba, t: number): Rgba => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t];
+export const mix = (a: Rgba, b: Rgba, t: number): Rgba => [
+  a[0] + (b[0] - a[0]) * t,
+  a[1] + (b[1] - a[1]) * t,
+  a[2] + (b[2] - a[2]) * t,
+  a[3] + (b[3] - a[3]) * t,
+];
 
 /** The colour at `t` of the way from the ground to `over`, opaque: how the CSS lays `color-mix(over t%, base)`. */
 export const onGround = (p: Palette, over: Rgba, t: number): Rgba => mix(p.base, over, t);
 
 /** The same colour at a fraction of its alpha: `color-mix(c t%, transparent)`. */
-export const fade = (c: Rgba, t: number): Rgba => [c[0], c[1], c[2], c[3] * t];
+export const fade = (c: Rgba, t: number): Rgba => [
+  c[0],
+  c[1],
+  c[2],
+  c[3] * t,
+];
 
 /** A colour for a Pixi display object: 0xRRGGBB. */
-export const hex = (c: Rgba): number => (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) << 8) | Math.round(c[2] * 255);
+export const hex = (c: Rgba): number =>
+  (Math.round(c[0] * 255) << 16) | (Math.round(c[1] * 255) << 8) | Math.round(c[2] * 255);

@@ -9,10 +9,18 @@
 import { useSyncExternalStore } from "react";
 
 /** The three switches. Each one adds to the stamp, so the sample beside them is always the whole answer. */
-export type TimeFormat = { hour12: boolean; seconds: boolean; date: boolean };
+export type TimeFormat = {
+  hour12: boolean;
+  seconds: boolean;
+  date: boolean;
+};
 
 /** What ships: the thread's own look, a 24-hour clock to the second with no date. */
-export const DEFAULT_TIME_FORMAT: TimeFormat = { hour12: false, seconds: true, date: false };
+export const DEFAULT_TIME_FORMAT: TimeFormat = {
+  hour12: false,
+  seconds: true,
+  date: false,
+};
 
 let current: TimeFormat = DEFAULT_TIME_FORMAT;
 let saver: ((text: string) => void) | null = null;
@@ -25,7 +33,12 @@ export function timeFormat(): TimeFormat {
 
 /** Take Fleet's answer, on a read or after a save. Identical values draw nothing. */
 export function setTimeFormat(next: TimeFormat): void {
-  if (next.hour12 === current.hour12 && next.seconds === current.seconds && next.date === current.date) return;
+  if (
+    next.hour12 === current.hour12 &&
+    next.seconds === current.seconds &&
+    next.date === current.date
+  )
+    return;
   current = next;
   listeners.forEach((on) => on());
 }
@@ -47,8 +60,13 @@ export function parseTimeFormat(text: string): TimeFormat {
     const raw: unknown = JSON.parse(text);
     if (typeof raw !== "object" || raw === null) return DEFAULT_TIME_FORMAT;
     const { hour12, seconds, date } = raw as Record<string, unknown>;
-    if (typeof hour12 !== "boolean" || typeof seconds !== "boolean" || typeof date !== "boolean") return DEFAULT_TIME_FORMAT;
-    return { hour12, seconds, date };
+    if (typeof hour12 !== "boolean" || typeof seconds !== "boolean" || typeof date !== "boolean")
+      return DEFAULT_TIME_FORMAT;
+    return {
+      hour12,
+      seconds,
+      date,
+    };
   } catch {
     return DEFAULT_TIME_FORMAT;
   }
@@ -69,7 +87,10 @@ export function useTimeFormat(): TimeFormat {
 // One formatter per combination, built once: `toLocaleTimeString` builds a fresh Intl formatter on each
 // call, which was most of the time a Sessions message took to read (see `stampOf`).
 const TIMES = new Map<string, Intl.DateTimeFormat>();
-const DATE = new Intl.DateTimeFormat([], { month: "short", day: "numeric" });
+const DATE = new Intl.DateTimeFormat([], {
+  month: "short",
+  day: "numeric",
+});
 
 function timeOf(format: TimeFormat): Intl.DateTimeFormat {
   const key = `${format.hour12}:${format.seconds}`;
@@ -78,7 +99,11 @@ function timeOf(format: TimeFormat): Intl.DateTimeFormat {
     one = new Intl.DateTimeFormat([], {
       hour: format.hour12 ? "numeric" : "2-digit",
       minute: "2-digit",
-      ...(format.seconds ? { second: "2-digit" } : {}),
+      ...(format.seconds
+        ? {
+            second: "2-digit",
+          }
+        : {}),
       hour12: format.hour12,
     });
     TIMES.set(key, one);
@@ -89,7 +114,11 @@ function timeOf(format: TimeFormat): Intl.DateTimeFormat {
 function sameDay(a: number, b: number): boolean {
   const one = new Date(a);
   const other = new Date(b);
-  return one.getFullYear() === other.getFullYear() && one.getMonth() === other.getMonth() && one.getDate() === other.getDate();
+  return (
+    one.getFullYear() === other.getFullYear() &&
+    one.getMonth() === other.getMonth() &&
+    one.getDate() === other.getDate()
+  );
 }
 
 /**
@@ -107,7 +136,11 @@ export function stampOf(ms: number, format: TimeFormat, now: number = Date.now()
  * sit. Text that is not an instant comes back as it came. A component calls `useTimeFormat()` and passes what it got,
  * so the words move when the format does.
  */
-export function timeSaid(at: string | number, format: TimeFormat = current, now: number = Date.now()): string {
+export function timeSaid(
+  at: string | number,
+  format: TimeFormat = current,
+  now: number = Date.now(),
+): string {
   const ms = typeof at === "number" ? at : Date.parse(at);
   return Number.isNaN(ms) ? String(at) : stampOf(ms, format, now);
 }

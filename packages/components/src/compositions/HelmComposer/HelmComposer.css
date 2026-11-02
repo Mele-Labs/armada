@@ -74,14 +74,20 @@
    brightens only the border to --helm, so the text keeps the contrast it was measured at.
    Disabled, pending and an answer keep Button's own renderings, which is why this skips them.
    Focus stays Button's --accent ring. */
-.armada-helm-composer .armada-session-composer__bar .armada-button[type="submit"]:not(:disabled):not([data-pending]) {
+.armada-helm-composer
+  .armada-session-composer__bar
+  .armada-button[type="submit"]:not(:disabled):not([data-pending]) {
   background: var(--helm-muted);
   border-color: var(--helm-edge);
   color: var(--helm);
   box-shadow: none;
 }
 
-.armada-helm-composer .armada-session-composer__bar .armada-button[type="submit"]:hover:not(:disabled):not([data-pending]),
-.armada-helm-composer .armada-session-composer__bar .armada-button[type="submit"][data-preview-hover]:not(:disabled):not([data-pending]) {
+.armada-helm-composer
+  .armada-session-composer__bar
+  .armada-button[type="submit"]:hover:not(:disabled):not([data-pending]),
+.armada-helm-composer
+  .armada-session-composer__bar
+  .armada-button[type="submit"][data-preview-hover]:not(:disabled):not([data-pending]) {
   border-color: var(--helm);
 }

@@ -5,7 +5,22 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { SheetBack } from "@armada/components";
 import { Badge, Button, PrConversation, PrMark, Tooltip, agoOf, ranFor } from "@armada/components";
-import { CircleCheck, CircleDot, DoorClosedLocked, DoorOpen, ExternalLink, Ghost, GitMerge, KeyRound, GitPullRequest, GitPullRequestClosed, LoaderCircle, ShieldCheck, ShieldX, SquareTerminal } from "lucide-react";
+import {
+  CircleCheck,
+  CircleDot,
+  DoorClosedLocked,
+  DoorOpen,
+  ExternalLink,
+  Ghost,
+  GitMerge,
+  KeyRound,
+  GitPullRequest,
+  GitPullRequestClosed,
+  LoaderCircle,
+  ShieldCheck,
+  ShieldX,
+  SquareTerminal,
+} from "lucide-react";
 import type { PullRequestEntry } from "@armada/protocol";
 import { issueLabel } from "@armada/screens/src/draft/sessions";
 
@@ -18,13 +33,30 @@ import { askToOpenSession } from "../open-session";
 import { BayManage } from "@armada/cleanup";
 import { bayActs } from "../commands";
 
-type Of<K extends PanelItem["kind"]> = Extract<PanelItem, { kind: K }>;
+type Of<K extends PanelItem["kind"]> = Extract<
+  PanelItem,
+  {
+    kind: K;
+  }
+>;
 
-export function Open({ address, onOpenLink }: { address: string; onOpenLink: (address: string) => void }) {
+export function Open({
+  address,
+  onOpenLink,
+}: {
+  address: string;
+  onOpenLink: (address: string) => void;
+}) {
   return (
     <span className="armada-pr-panel__open">
       <Tooltip label="Open in browser">
-        <Button variant="ghost" size="sm" iconOnly aria-label="Open in browser" onClick={() => onOpenLink(address)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label="Open in browser"
+          onClick={() => onOpenLink(address)}
+        >
           <ExternalLink size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
@@ -33,10 +65,26 @@ export function Open({ address, onOpenLink }: { address: string; onOpenLink: (ad
 }
 
 /** A row that opens something in this same panel. */
-function Press({ columns, label, onPress, children }: { columns: "link" | "run"; label: string; onPress: () => void; children: ReactNode }) {
+function Press({
+  columns,
+  label,
+  onPress,
+  children,
+}: {
+  columns: "link" | "run";
+  label: string;
+  onPress: () => void;
+  children: ReactNode;
+}) {
   return (
     <li className="armada-pr-row" data-press>
-      <button type="button" className="armada-pr-row__button side-row" data-columns={columns} aria-label={label} onClick={onPress}>
+      <button
+        type="button"
+        className="armada-pr-row__button side-row"
+        data-columns={columns}
+        aria-label={label}
+        onClick={onPress}
+      >
         {children}
       </button>
     </li>
@@ -46,22 +94,80 @@ function Press({ columns, label, onPress, children }: { columns: "link" | "run";
 /** The way back to the item this one was opened from, where it was opened from another. */
 export function useBack(): SheetBack | undefined {
   const was = usePanel().back;
-  return was === undefined ? undefined : { label: `Back to ${nameOf(was)}`, tooltip: `Back to ${nameOf(was)}`, onBack: panelBack };
+  return was === undefined
+    ? undefined
+    : {
+        label: `Back to ${nameOf(was)}`,
+        tooltip: `Back to ${nameOf(was)}`,
+        onBack: panelBack,
+      };
 }
 
-const nameOf = (item: PanelItem): string => (item.kind === "pr" ? `#${item.number}` : item.kind === "issue" ? issueLabel(item.number) : item.kind === "bay" ? `slot-${item.slot}` : item.kind === "file" ? (item.path.split("/").pop() ?? item.path) : item.kind === "requests" ? "Requests" : item.kind === "watch" || item.kind === "mod" ? (item.kind === "mod" ? item.title : item.name) : item.kind === "run" ? "Terminal" : item.kind === "teach" ? "Teach" : item.kind === "lane" ? item.heading : item.kind === "lanes" ? "Workflow" : item.kind === "rule" ? "Rule" : (item.name ?? "Check"));
+const nameOf = (item: PanelItem): string =>
+  item.kind === "pr"
+    ? `#${item.number}`
+    : item.kind === "issue"
+      ? issueLabel(item.number)
+      : item.kind === "bay"
+        ? `slot-${item.slot}`
+        : item.kind === "file"
+          ? (item.path.split("/").pop() ?? item.path)
+          : item.kind === "requests"
+            ? "Requests"
+            : item.kind === "watch" || item.kind === "mod"
+              ? item.kind === "mod"
+                ? item.title
+                : item.name
+              : item.kind === "run"
+                ? "Terminal"
+                : item.kind === "teach"
+                  ? "Teach"
+                  : item.kind === "lane"
+                    ? item.heading
+                    : item.kind === "lanes"
+                      ? "Workflow"
+                      : item.kind === "rule"
+                        ? "Rule"
+                        : (item.name ?? "Check");
 
 // ---- An issue -----------------------------------------------------------------------------------------
 
-const LINKED = { open: { Glyph: GitPullRequest, said: "Open" }, merged: { Glyph: GitMerge, said: "Merged" }, closed: { Glyph: GitPullRequestClosed, said: "Closed" } } as const;
+const LINKED = {
+  open: {
+    Glyph: GitPullRequest,
+    said: "Open",
+  },
+  merged: {
+    Glyph: GitMerge,
+    said: "Merged",
+  },
+  closed: {
+    Glyph: GitPullRequestClosed,
+    said: "Closed",
+  },
+} as const;
 
-export function IssuePanel({ item, onOpenLink }: { item: Of<"issue">; onOpenLink: (address: string) => void }) {
+export function IssuePanel({
+  item,
+  onOpenLink,
+}: {
+  item: Of<"issue">;
+  onOpenLink: (address: string) => void;
+}) {
   const reads = usePanelReads();
   const [tab, setTab] = useState("conversation");
   const back = useBack();
-  const read = useRead<IssueRead>(() => reads?.issue(item) ?? Promise.resolve(undefined), `${item.root ?? ""}#${item.number}`);
+  const read = useRead<IssueRead>(
+    () => reads?.issue(item) ?? Promise.resolve(undefined),
+    `${item.root ?? ""}#${item.number}`,
+  );
   if (read === undefined) return null;
-  const entries: PullRequestEntry[] = read.comments.map((one) => ({ kind: "comment", author: one.author, at: one.at, body: one.body }));
+  const entries: PullRequestEntry[] = read.comments.map((one) => ({
+    kind: "comment",
+    author: one.author,
+    at: one.at,
+    body: one.body,
+  }));
   return (
     <SidePanel
       title={`Issue ${issueLabel(read.number)}`}
@@ -90,16 +196,46 @@ export function IssuePanel({ item, onOpenLink }: { item: Of<"issue">; onOpenLink
       }
       acts={<Open address={read.address} onOpenLink={onOpenLink} />}
       tabs={[
-        { id: "conversation", label: "Conversation" },
-        { id: "linked", label: "Pull requests" },
+        {
+          id: "conversation",
+          label: "Conversation",
+        },
+        {
+          id: "linked",
+          label: "Pull requests",
+        },
       ]}
       tab={tab}
       onTab={setTab}
       back={back}
       onClose={closePanel}
     >
-      {tab === "conversation" ? <PrConversation page={{ author: read.author, created_at: read.openedAt, conversation: entries, checks: [], files: [], commits: [] }} description={read.body} /> : null}
-      {tab === "linked" ? <LinkedPullRequests linked={read.linked} onPress={(one) => openInPanel({ kind: "pr", number: one.number, address: one.address, title: one.title })} /> : null}
+      {tab === "conversation" ? (
+        <PrConversation
+          page={{
+            author: read.author,
+            created_at: read.openedAt,
+            conversation: entries,
+            checks: [],
+            files: [],
+            commits: [],
+          }}
+          description={read.body}
+        />
+      ) : null}
+      {tab === "linked" ? (
+        <LinkedPullRequests
+          linked={read.linked}
+          onPress={(one) =>
+            openInPanel({
+              kind: "pr",
+              number: one.number,
+              address: one.address,
+              title: one.title,
+            })
+          }
+        />
+      ) : null}
     </SidePanel>
   );
 }
@@ -107,19 +243,37 @@ export function IssuePanel({ item, onOpenLink }: { item: Of<"issue">; onOpenLink
 /** Whether an issue is open or closed, as its badge. */
 export function IssueState({ state }: { state: IssueRead["state"] }) {
   return (
-    <Badge status={state === "open" ? "running" : "completed-success"} icon={state === "open" ? CircleDot : CircleCheck}>
+    <Badge
+      status={state === "open" ? "running" : "completed-success"}
+      icon={state === "open" ? CircleDot : CircleCheck}
+    >
       {state === "open" ? "Open" : "Closed"}
     </Badge>
   );
 }
 
 /** The pull requests that name an issue, each a row that opens it. */
-function LinkedPullRequests({ linked, onPress }: { linked: IssueRead["linked"]; onPress: (one: IssueRead["linked"][number]) => void }) {
+function LinkedPullRequests({
+  linked,
+  onPress,
+}: {
+  linked: IssueRead["linked"];
+  onPress: (one: IssueRead["linked"][number]) => void;
+}) {
   return (
     <ul className="armada-pr-list armada-pr-rows" aria-label="Pull requests">
       {linked.map((one) => (
-        <Press key={one.number} columns="link" label={`Pull request #${one.number} ${one.title}`} onPress={() => onPress(one)}>
-          <PrMark Glyph={LINKED[one.state].Glyph} said={LINKED[one.state].said} tone={one.state === "merged" ? "success" : undefined} />
+        <Press
+          key={one.number}
+          columns="link"
+          label={`Pull request #${one.number} ${one.title}`}
+          onPress={() => onPress(one)}
+        >
+          <PrMark
+            Glyph={LINKED[one.state].Glyph}
+            said={LINKED[one.state].said}
+            tone={one.state === "merged" ? "success" : undefined}
+          />
           <span className="armada-pr-row__name">{`#${one.number} ${one.title}`}</span>
           <span />
         </Press>
@@ -131,28 +285,81 @@ function LinkedPullRequests({ linked, onPress }: { linked: IssueRead["linked"]; 
 // ---- A bay ----------------------------------------------------------------------------------------------
 
 const BAY = {
-  leased: { status: "running", Glyph: KeyRound },
-  free: { status: "completed-success", Glyph: DoorOpen },
-  stranded: { status: "awaiting-review", Glyph: Ghost },
-  closed: { status: "not-started", Glyph: DoorClosedLocked },
+  leased: {
+    status: "running",
+    Glyph: KeyRound,
+  },
+  free: {
+    status: "completed-success",
+    Glyph: DoorOpen,
+  },
+  stranded: {
+    status: "awaiting-review",
+    Glyph: Ghost,
+  },
+  closed: {
+    status: "not-started",
+    Glyph: DoorClosedLocked,
+  },
 } as const;
 
 export function BayPanel({ item }: { item: Of<"bay"> }) {
   const reads = usePanelReads();
   const [tab, setTab] = useState("facts");
   const back = useBack();
-  const read = useRead<BayRead>(() => reads?.bay(item) ?? Promise.resolve(undefined), `${item.manifestId}/${item.slot}`);
+  const read = useRead<BayRead>(
+    () => reads?.bay(item) ?? Promise.resolve(undefined),
+    `${item.manifestId}/${item.slot}`,
+  );
   if (read === undefined) return null;
-  const facts: readonly (readonly [string, ReactNode, boolean?])[] = [
-    ["Holder", read.holder === undefined ? undefined : <HolderLink id={read.holder.id} title={read.holder.title} />],
-    ["Branch", read.branch, true],
-    ["Held for", read.heldFor],
-    ["Base", read.base, true],
-    ["Behind", read.behind > 0 ? `${read.behind} commits` : undefined],
-    ["Checkout", read.warm ? "Warm" : "Cold"],
-    ["Uncommitted", read.uncommitted.length === 0 ? undefined : read.uncommitted.join("\n"), true],
-    ["Unpushed", read.unpushed.length === 0 ? undefined : read.unpushed.join("\n"), true],
-    ["Path", read.path, true],
+  const facts: readonly (readonly [
+    string,
+    ReactNode,
+    boolean?,
+  ])[] = [
+    [
+      "Holder",
+      read.holder === undefined ? undefined : (
+        <HolderLink id={read.holder.id} title={read.holder.title} />
+      ),
+    ],
+    [
+      "Branch",
+      read.branch,
+      true,
+    ],
+    [
+      "Held for",
+      read.heldFor,
+    ],
+    [
+      "Base",
+      read.base,
+      true,
+    ],
+    [
+      "Behind",
+      read.behind > 0 ? `${read.behind} commits` : undefined,
+    ],
+    [
+      "Checkout",
+      read.warm ? "Warm" : "Cold",
+    ],
+    [
+      "Uncommitted",
+      read.uncommitted.length === 0 ? undefined : read.uncommitted.join("\n"),
+      true,
+    ],
+    [
+      "Unpushed",
+      read.unpushed.length === 0 ? undefined : read.unpushed.join("\n"),
+      true,
+    ],
+    [
+      "Path",
+      read.path,
+      true,
+    ],
   ];
   return (
     <SidePanel
@@ -165,8 +372,14 @@ export function BayPanel({ item }: { item: Of<"bay"> }) {
         </Badge>
       }
       tabs={[
-        { id: "facts", label: "Facts" },
-        { id: "history", label: "History" },
+        {
+          id: "facts",
+          label: "Facts",
+        },
+        {
+          id: "history",
+          label: "History",
+        },
       ]}
       tab={tab}
       onTab={setTab}
@@ -174,8 +387,17 @@ export function BayPanel({ item }: { item: Of<"bay"> }) {
       onClose={closePanel}
     >
       {tab === "facts" && read.slot !== undefined ? (
-        <div className="deck-slot__manage" data-bay={read.slot.closed === true ? "closed" : read.state}>
-          <BayManage key={`${read.slot.manifest_id}/${read.slot.slot}`} slot={read.slot} now={Date.now()} onChange={bayActs.onChange} onRescue={bayActs.onRescue} />
+        <div
+          className="deck-slot__manage"
+          data-bay={read.slot.closed === true ? "closed" : read.state}
+        >
+          <BayManage
+            key={`${read.slot.manifest_id}/${read.slot.slot}`}
+            slot={read.slot}
+            now={Date.now()}
+            onChange={bayActs.onChange}
+            onRescue={bayActs.onRescue}
+          />
         </div>
       ) : null}
       {tab === "facts" ? (
@@ -198,7 +420,11 @@ export function BayPanel({ item }: { item: Of<"bay"> }) {
                 <span className="armada-pr-row__sha mono">{one.span}</span>
               </Tooltip>
               <span className="armada-pr-row__name">{one.who}</span>
-              {one.branch === undefined ? <span /> : <span className="armada-pr-row__author mono">{one.branch}</span>}
+              {one.branch === undefined ? (
+                <span />
+              ) : (
+                <span className="armada-pr-row__author mono">{one.branch}</span>
+              )}
             </li>
           ))}
         </ul>
@@ -209,7 +435,12 @@ export function BayPanel({ item }: { item: Of<"bay"> }) {
 
 export function HolderLink({ id, title }: { id: string; title: string }) {
   return (
-    <Button variant="ghost" size="sm" aria-label={`Job: ${title}`} onClick={() => (closePanel(), askToOpenSession(id))}>
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-label={`Job: ${title}`}
+      onClick={() => (closePanel(), askToOpenSession(id))}
+    >
       <SquareTerminal size={16} strokeWidth={2} aria-hidden />
       {title}
     </Button>
@@ -219,9 +450,24 @@ export function HolderLink({ id, title }: { id: string; title: string }) {
 // ---- A Check --------------------------------------------------------------------------------------------
 
 const CHECK = {
-  passed: { Glyph: ShieldCheck, said: "Passed", tone: "success", status: "completed-success" },
-  failed: { Glyph: ShieldX, said: "Failed", tone: "failed", status: "completed-failed" },
-  running: { Glyph: LoaderCircle, said: "Running", tone: "running", status: "running" },
+  passed: {
+    Glyph: ShieldCheck,
+    said: "Passed",
+    tone: "success",
+    status: "completed-success",
+  },
+  failed: {
+    Glyph: ShieldX,
+    said: "Failed",
+    tone: "failed",
+    status: "completed-failed",
+  },
+  running: {
+    Glyph: LoaderCircle,
+    said: "Running",
+    tone: "running",
+    status: "running",
+  },
 } as const;
 
 export function CheckPanel({ item }: { item: Of<"check"> }) {
@@ -230,15 +476,26 @@ export function CheckPanel({ item }: { item: Of<"check"> }) {
   const back = useBack();
   // A running Check is read again every two seconds, so its runs and its log move as it does.
   const [again, setAgain] = useState(0);
-  const read = useRead<CheckRead>(() => reads?.check(item) ?? Promise.resolve(undefined), item.id, again + (reads?.followed ?? 0));
+  const read = useRead<CheckRead>(
+    () => reads?.check(item) ?? Promise.resolve(undefined),
+    item.id,
+    again + (reads?.followed ?? 0),
+  );
   const running = read?.state === "running";
   useEffect(() => {
     if (!running) return;
     const timer = window.setInterval(() => setAgain((one) => one + 1), 2000);
     return () => window.clearInterval(timer);
-  }, [running]);
+  }, [
+    running,
+  ]);
   const leave = reads?.leaveCheck;
-  useEffect(() => () => leave?.(), [leave]);
+  useEffect(
+    () => () => leave?.(),
+    [
+      leave,
+    ],
+  );
   if (read === undefined) return null;
   const now = CHECK[read.state];
   return (
@@ -252,8 +509,14 @@ export function CheckPanel({ item }: { item: Of<"check"> }) {
         </Badge>
       }
       tabs={[
-        { id: "runs", label: "Runs" },
-        { id: "log", label: "Log" },
+        {
+          id: "runs",
+          label: "Runs",
+        },
+        {
+          id: "log",
+          label: "Log",
+        },
       ]}
       tab={tab}
       onTab={setTab}
@@ -268,7 +531,18 @@ export function CheckPanel({ item }: { item: Of<"check"> }) {
                 <RunCells run={one} />
               </li>
             ) : (
-              <Press key={`${at}:${one.on}`} columns="run" label={`Pull request #${one.pull.number}`} onPress={() => openInPanel({ kind: "pr", number: one.pull!.number, address: one.pull!.address })}>
+              <Press
+                key={`${at}:${one.on}`}
+                columns="run"
+                label={`Pull request #${one.pull.number}`}
+                onPress={() =>
+                  openInPanel({
+                    kind: "pr",
+                    number: one.pull!.number,
+                    address: one.pull!.address,
+                  })
+                }
+              >
                 <RunCells run={one} />
               </Press>
             ),
@@ -290,7 +564,11 @@ function RunCells({ run }: { run: CheckRead["runs"][number] }) {
     <>
       <PrMark Glyph={state.Glyph} said={state.said} tone={state.tone} />
       <span className="armada-pr-row__name mono">{run.on}</span>
-      {run.seconds === undefined ? <span /> : <span className="armada-pr-row__figure mono">{ranFor(run.seconds)}</span>}
+      {run.seconds === undefined ? (
+        <span />
+      ) : (
+        <span className="armada-pr-row__figure mono">{ranFor(run.seconds)}</span>
+      )}
       <span className="armada-pr-row__figure">{run.ago}</span>
     </>
   );

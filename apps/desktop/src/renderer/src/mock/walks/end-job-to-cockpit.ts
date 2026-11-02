@@ -11,13 +11,34 @@ const callout = region("Nothing left to do");
 
 const endJobToCockpit = walk("session-all-done", [
   toSessions,
-  { press: deckRow("Release notes script"), say: "A Job open on the stage" },
-  { press: inside(role("region", /^Job: /), button("More")), say: "End job is behind the three dots" },
-  { press: role("menuitem", "End job"), say: "The pane leaves and the stage is the timeline, with no Job selected. The row reads ended a moment after" },
-  { look: timeline, say: "Nothing is open" },
-  { press: deckRow("Pin the store clock"), say: "A Job whose agent has nothing left to do" },
-  { press: inside(callout, button("End job")), say: "The same exit from the band" },
-  { look: timeline, say: "Nothing is open" },
+  {
+    press: deckRow("Release notes script"),
+    say: "A Job open on the stage",
+  },
+  {
+    press: inside(role("region", /^Job: /), button("More")),
+    say: "End job is behind the three dots",
+  },
+  {
+    press: role("menuitem", "End job"),
+    say: "The pane leaves and the stage is the timeline, with no Job selected. The row reads ended a moment after",
+  },
+  {
+    look: timeline,
+    say: "Nothing is open",
+  },
+  {
+    press: deckRow("Pin the store clock"),
+    say: "A Job whose agent has nothing left to do",
+  },
+  {
+    press: inside(callout, button("End job")),
+    say: "The same exit from the band",
+  },
+  {
+    look: timeline,
+    say: "Nothing is open",
+  },
 ]);
 
 export { endJobToCockpit as "end-job-to-cockpit" };

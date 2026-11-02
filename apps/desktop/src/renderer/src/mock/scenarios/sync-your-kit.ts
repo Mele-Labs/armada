@@ -4,7 +4,15 @@
 
 import { signInGap } from "../sign-in-gaps";
 
-export const syncYourKit = signInGap("sync-your-kit", "Account: the three steps to a second machine, the next one carrying its button", {
-  noHome: true,
-  orgs: { nickmele: ["mele-labs"] },
-});
+export const syncYourKit = signInGap(
+  "sync-your-kit",
+  "Account: the three steps to a second machine, the next one carrying its button",
+  {
+    noHome: true,
+    orgs: {
+      nickmele: [
+        "mele-labs",
+      ],
+    },
+  },
+);

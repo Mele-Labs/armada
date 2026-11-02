@@ -36,7 +36,9 @@ export function handleRehearsal({ ipc, connection, windowIdOf }: Hosts): void {
   ipc.handle(CHANNELS.undoCheckoutRun, (event, runId: string) =>
     connection()?.rehearsal.undoCheckoutRun(windowIdOf(event), runId),
   );
-  ipc.handle(CHANNELS.listCheckoutRuns, (event) => connection()?.rehearsal.listCheckoutRuns(windowIdOf(event)));
+  ipc.handle(CHANNELS.listCheckoutRuns, (event) =>
+    connection()?.rehearsal.listCheckoutRuns(windowIdOf(event)),
+  );
   ipc.handle(CHANNELS.getCheckoutRunOutput, (event, runId: string) =>
     connection()?.rehearsal.getCheckoutRunOutput(windowIdOf(event), runId),
   );
@@ -49,6 +51,9 @@ export function handleRehearsal({ ipc, connection, windowIdOf }: Hosts): void {
     connection()?.rehearsal.watchManifestDrift(windowIdOf(event), want),
   );
   ipc.handle(CHANNELS.startCheckoutVerify, (event, workspace: unknown) =>
-    connection()?.rehearsal.startCheckoutVerify(windowIdOf(event), typeof workspace === "string" ? workspace : undefined),
+    connection()?.rehearsal.startCheckoutVerify(
+      windowIdOf(event),
+      typeof workspace === "string" ? workspace : undefined,
+    ),
   );
 }

@@ -7,8 +7,14 @@
  * Check's log, and opening another replaces the first.
  */
 export type FollowedLog =
-  | { state: "none" }
-  | { state: "opening"; jobId: string; kept: string }
+  | {
+      state: "none";
+    }
+  | {
+      state: "opening";
+      jobId: string;
+      kept: string;
+    }
   | {
       state: "following";
       jobId: string;
@@ -27,4 +33,9 @@ export type FollowedLog =
        */
       ended?: string;
     }
-  | { state: "failed"; jobId: string; kept: string; detail: string };
+  | {
+      state: "failed";
+      jobId: string;
+      kept: string;
+      detail: string;
+    };

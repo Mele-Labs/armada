@@ -1,19 +1,61 @@
 // A repository's open issues, read through Fleet from its tracker. #91, `docs/concepts/tracker.md`.
 // A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { InstalledTool, IssueList, IssueQueries, IssueRead, Outcome, PullRequestState, SaveIssueQuery, SavedIssueQuery, WrittenIssueQuery } from "@armada/protocol";
+import type {
+  InstalledTool,
+  IssueList,
+  IssueQueries,
+  IssueRead,
+  Outcome,
+  PullRequestState,
+  SaveIssueQuery,
+  SavedIssueQuery,
+  WrittenIssueQuery,
+} from "@armada/protocol";
 
 /** What a read came to: the list as Fleet answered it, or the refusal to word. */
-export type IssuesRead = { ok: true; value: IssueList } | { ok: false; outcome: Outcome };
+export type IssuesRead =
+  | {
+      ok: true;
+      value: IssueList;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** One issue by reference, as Fleet answered it, or the refusal to word. */
-export type IssueNumberRead = { ok: true; value: IssueRead } | { ok: false; outcome: Outcome };
+export type IssueNumberRead =
+  | {
+      ok: true;
+      value: IssueRead;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** One pull request by number, whatever its standing, or the refusal to word. */
-export type PullRequestNumberRead = { ok: true; value: PullRequestState } | { ok: false; outcome: Outcome };
+export type PullRequestNumberRead =
+  | {
+      ok: true;
+      value: PullRequestState;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** What a tracker query act came to: the thing Fleet answered with, or the refusal to word. A tracker's own words for refusing a query ride in the outcome. */
-export type IssueQueryActed<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+export type IssueQueryActed<T> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type IssuesApi = {
   /**
@@ -28,9 +70,15 @@ export type IssuesApi = {
   /** What the repository's tracker's query language offers, and the queries saved for it. */
   listIssueQueries: (manifestId: string) => Promise<IssueQueryActed<IssueQueries>>;
   /** One model call turns his words into a query, which Fleet runs before it answers. **This spends.** Nothing is kept. */
-  writeIssueQuery: (manifestId: string, words: string) => Promise<IssueQueryActed<WrittenIssueQuery>>;
+  writeIssueQuery: (
+    manifestId: string,
+    words: string,
+  ) => Promise<IssueQueryActed<WrittenIssueQuery>>;
   /** Keeps a query on this Mac, or edits the saved one its `id` names. No model is called. */
-  saveIssueQuery: (manifestId: string, save: SaveIssueQuery) => Promise<IssueQueryActed<SavedIssueQuery>>;
+  saveIssueQuery: (
+    manifestId: string,
+    save: SaveIssueQuery,
+  ) => Promise<IssueQueryActed<SavedIssueQuery>>;
   /** Drops a saved query. Answers what is left. */
   forgetIssueQuery: (manifestId: string, id: string) => Promise<IssueQueryActed<IssueQueries>>;
   /**

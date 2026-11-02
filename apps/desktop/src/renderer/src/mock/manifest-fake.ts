@@ -12,4 +12,5 @@ import type { Scenario } from "./moment";
 
 export * from "@armada/manifest/fake";
 
-export const manifesting = (options: Manifesting = {}): Scenario => manifestingOver<BridgeState, BridgeApi>(NOTHING_YET, options);
+export const manifesting = (options: Manifesting = {}): Scenario =>
+  manifestingOver<BridgeState, BridgeApi>(NOTHING_YET, options);

@@ -14,14 +14,45 @@ import { mount, rerender, unmount } from "./mounted";
 
 afterEach(unmount);
 
-type State = { state: "fetching" } | { state: "got"; text: string } | { state: "absent" };
+type State =
+  | {
+      state: "fetching";
+    }
+  | {
+      state: "got";
+      text: string;
+    }
+  | {
+      state: "absent";
+    };
 
-const SETTLE = (text: string): State => ({ state: "got", text });
-const ASKING: State = { state: "fetching" };
-const FAILED: State = { state: "absent" };
+const SETTLE = (text: string): State => ({
+  state: "got",
+  text,
+});
+const ASKING: State = {
+  state: "fetching",
+};
+const FAILED: State = {
+  state: "absent",
+};
 
-function Probe({ read, jobId, keys }: { read: (jobId: string, key: string) => Promise<string>; jobId: string; keys: string[] }) {
-  const held = useHeldReads({ read, jobId, settle: SETTLE, asking: ASKING, failed: FAILED });
+function Probe({
+  read,
+  jobId,
+  keys,
+}: {
+  read: (jobId: string, key: string) => Promise<string>;
+  jobId: string;
+  keys: string[];
+}) {
+  const held = useHeldReads({
+    read,
+    jobId,
+    settle: SETTLE,
+    asking: ASKING,
+    failed: FAILED,
+  });
   useEffect(() => {
     for (const key of keys) held.fetch(key);
   });
@@ -31,7 +62,8 @@ function Probe({ read, jobId, keys }: { read: (jobId: string, key: string) => Pr
         const state = held.of(key);
         return (
           <li key={key}>
-            {key}: {state === undefined ? "unasked" : state.state === "got" ? state.text : state.state}
+            {key}:{" "}
+            {state === undefined ? "unasked" : state.state === "got" ? state.text : state.state}
           </li>
         );
       })}
@@ -41,21 +73,61 @@ function Probe({ read, jobId, keys }: { read: (jobId: string, key: string) => Pr
 
 test("asks once per key, however often it is rendered", async () => {
   const read = vi.fn(async (_job: string, key: string) => `read ${key}`);
-  mount(<Probe read={read} jobId="01JOB" keys={["a"]} />);
+  mount(
+    <Probe
+      read={read}
+      jobId="01JOB"
+      keys={[
+        "a",
+      ]}
+    />,
+  );
   await expect.element(page.getByText("a: read a")).toBeInTheDocument();
 
-  rerender(<Probe read={read} jobId="01JOB" keys={["a"]} />);
-  rerender(<Probe read={read} jobId="01JOB" keys={["a"]} />);
+  rerender(
+    <Probe
+      read={read}
+      jobId="01JOB"
+      keys={[
+        "a",
+      ]}
+    />,
+  );
+  rerender(
+    <Probe
+      read={read}
+      jobId="01JOB"
+      keys={[
+        "a",
+      ]}
+    />,
+  );
   await expect.element(page.getByText("a: read a")).toBeInTheDocument();
   expect(read).toHaveBeenCalledTimes(1);
 });
 
 test("reads as nothing under the next Job, and asks again for it", async () => {
   const read = vi.fn(async (job: string, key: string) => `${job} ${key}`);
-  mount(<Probe read={read} jobId="01JOB" keys={["a"]} />);
+  mount(
+    <Probe
+      read={read}
+      jobId="01JOB"
+      keys={[
+        "a",
+      ]}
+    />,
+  );
   await expect.element(page.getByText("a: 01JOB a")).toBeInTheDocument();
 
-  rerender(<Probe read={read} jobId="01NEXT" keys={["a"]} />);
+  rerender(
+    <Probe
+      read={read}
+      jobId="01NEXT"
+      keys={[
+        "a",
+      ]}
+    />,
+  );
   await expect.element(page.getByText("a: 01NEXT a")).toBeInTheDocument();
   expect(read).toHaveBeenCalledTimes(2);
 });
@@ -69,10 +141,26 @@ test("drops an answer that lands after its Job was replaced", async () => {
         })
       : new Promise<string>(() => {}),
   );
-  mount(<Probe read={read} jobId="01JOB" keys={["a"]} />);
+  mount(
+    <Probe
+      read={read}
+      jobId="01JOB"
+      keys={[
+        "a",
+      ]}
+    />,
+  );
   await expect.element(page.getByText("a: fetching")).toBeInTheDocument();
 
-  rerender(<Probe read={read} jobId="01NEXT" keys={["a"]} />);
+  rerender(
+    <Probe
+      read={read}
+      jobId="01NEXT"
+      keys={[
+        "a",
+      ]}
+    />,
+  );
   await expect.element(page.getByText("a: fetching")).toBeInTheDocument();
 
   // The first Job's answer arrives now, and it is not the next Job's to draw.
@@ -85,6 +173,14 @@ test("holds a rejected round trip as the failure, not as still asking", async ()
   const read = vi.fn(async () => {
     throw new Error("main is gone");
   });
-  mount(<Probe read={read} jobId="01JOB" keys={["a"]} />);
+  mount(
+    <Probe
+      read={read}
+      jobId="01JOB"
+      keys={[
+        "a",
+      ]}
+    />,
+  );
   await expect.element(page.getByText("a: absent")).toBeInTheDocument();
 });

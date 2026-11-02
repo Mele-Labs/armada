@@ -11,34 +11,145 @@ const BUSY = "one-view-3";
 /** Twelve minutes before the scenario loads, which is when the stale task was last touched. */
 const TOUCHED = new Date(Date.now() - 12 * 60_000).toISOString();
 
-const group = (id: string, agent: string, title: string, paths: string[], tasks: WorkTask[]): WorkGroup => ({ id, agent, title, paths, tasks });
+const group = (
+  id: string,
+  agent: string,
+  title: string,
+  paths: string[],
+  tasks: WorkTask[],
+): WorkGroup => ({
+  id,
+  agent,
+  title,
+  paths,
+  tasks,
+});
 
 const GROUPS: readonly WorkGroup[] = [
-  group("t1", "rust-engineer", "Rotate at midnight", ["crates/store"], [
-    { id: "A1", text: "Rotate the log file at midnight", state: "done", seen: true },
-    { id: "A2", text: "Keep seven files", state: "done", seen: true, marked: "commit 1a2b3c4 names it" },
-  ]),
-  group("t2", "protocol-engineer", "Report the rotation", ["packages/protocol"], [
-    { id: "B1", text: "Add rotated_at to the audit reply", state: "working", seen: true },
-    { id: "B2", text: "Mirror it in the TypeScript types", state: "working", seen: true, stale: { why: "edits went to Bridge", since: TOUCHED } },
-  ]),
-  group("t3", "bridge-engineer", "Show the rotation", ["apps/desktop"], [
-    { id: "C1", text: "List rotated files in System", state: "working", seen: true },
-    { id: "C2", text: "Open a rotated file from the list", state: "open" },
-  ]),
+  group(
+    "t1",
+    "rust-engineer",
+    "Rotate at midnight",
+    [
+      "crates/store",
+    ],
+    [
+      {
+        id: "A1",
+        text: "Rotate the log file at midnight",
+        state: "done",
+        seen: true,
+      },
+      {
+        id: "A2",
+        text: "Keep seven files",
+        state: "done",
+        seen: true,
+        marked: "commit 1a2b3c4 names it",
+      },
+    ],
+  ),
+  group(
+    "t2",
+    "protocol-engineer",
+    "Report the rotation",
+    [
+      "packages/protocol",
+    ],
+    [
+      {
+        id: "B1",
+        text: "Add rotated_at to the audit reply",
+        state: "working",
+        seen: true,
+      },
+      {
+        id: "B2",
+        text: "Mirror it in the TypeScript types",
+        state: "working",
+        seen: true,
+        stale: {
+          why: "edits went to Bridge",
+          since: TOUCHED,
+        },
+      },
+    ],
+  ),
+  group(
+    "t3",
+    "bridge-engineer",
+    "Show the rotation",
+    [
+      "apps/desktop",
+    ],
+    [
+      {
+        id: "C1",
+        text: "List rotated files in System",
+        state: "working",
+        seen: true,
+      },
+      {
+        id: "C2",
+        text: "Open a rotated file from the list",
+        state: "open",
+      },
+    ],
+  ),
 ];
 
 const STORE = "crates/store/src/";
 const SYSTEM = "apps/desktop/src/renderer/src/system/";
 
-const FILES: readonly WorkFile[] = [{ path: STORE + "rotate.rs", act: "write" }, { path: STORE + "audit.rs" }, { path: SYSTEM + "AuditFiles.tsx", act: "write" }, { path: SYSTEM + "System.tsx" }];
+const FILES: readonly WorkFile[] = [
+  {
+    path: STORE + "rotate.rs",
+    act: "write",
+  },
+  {
+    path: STORE + "audit.rs",
+  },
+  {
+    path: SYSTEM + "AuditFiles.tsx",
+    act: "write",
+  },
+  {
+    path: SYSTEM + "System.tsx",
+  },
+];
 
 const building = (one: Session): Session => ({
   ...one,
   work: {
-    workflow: { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"], at: 1 },
-    plan: { scope: ["crates/store", "packages/protocol", "apps/desktop"], approved: true, groups: GROUPS },
-    field: [{ id: "bridge", agent: "bridge-engineer", task: "List rotated files in System", path: "apps/desktop", doing: "write", file: SYSTEM + "AuditFiles.tsx" }],
+    workflow: {
+      name: "Feature",
+      steps: [
+        "Plan",
+        "Build",
+        "Verify",
+        "Pull request",
+      ],
+      at: 1,
+    },
+    plan: {
+      scope: [
+        "crates/store",
+        "packages/protocol",
+        "apps/desktop",
+      ],
+      approved: true,
+      groups: GROUPS,
+    },
+    field: [
+      {
+        id: "bridge",
+        agent: "bridge-engineer",
+        task: "List rotated files in System",
+        path: "apps/desktop",
+        doing: "write",
+        file: SYSTEM + "AuditFiles.tsx",
+      },
+    ],
     files: FILES,
   },
 });

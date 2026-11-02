@@ -19,15 +19,28 @@ import { Layer, type LayerFleet } from "./Layer";
 import type { Sink } from "./sink";
 
 /** The owner's window in the screenshot, and a short one. */
-const OWNER = { width: 1324, height: 922 };
-const SHORT = { width: 1324, height: 700 };
+const OWNER = {
+  width: 1324,
+  height: 922,
+};
+const SHORT = {
+  width: 1324,
+  height: 700,
+};
 
 /** Notes the layer reads, saves back to and deletes from, held in memory. */
 function sinkOf(notes: Annotation[] = [], shots = new Map<string, ArrayBuffer>()): Sink {
-  const held = new Map(notes.map((note) => [note.id, note]));
+  const held = new Map(
+    notes.map((note) => [
+      note.id,
+      note,
+    ]),
+  );
   return {
     via: "dev server",
-    list: async () => [...held.values()],
+    list: async () => [
+      ...held.values(),
+    ],
     save: async (note) => {
       held.set(note.id, note);
     },
@@ -49,7 +62,10 @@ function sinkOf(notes: Annotation[] = [], shots = new Map<string, ArrayBuffer>()
 
 const sink = sinkOf();
 
-let mounted: { root: Root; host: HTMLElement }[] = [];
+let mounted: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(async () => {
   for (const one of mounted) {
@@ -64,17 +80,55 @@ afterEach(async () => {
 });
 
 /** The layer already on, as it comes up after ⌥⌘A and a reload. */
-async function annotating(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void, tell?: (sentence: string) => void, held?: readonly Session[]): Promise<void> {
+async function annotating(
+  sink: Sink,
+  fleet?: LayerFleet,
+  openSession?: (id: string) => void,
+  tell?: (sentence: string) => void,
+  held?: readonly Session[],
+): Promise<void> {
   sessionStorage.setItem("armada.annotate.on", "1");
   const host = document.createElement("div");
   host.setAttribute("data-armada-annotate", "");
   document.body.append(host);
   const root = createRoot(host);
-  const layer = <Layer sink={sink} {...(fleet === undefined ? {} : { fleet })} {...(openSession === undefined ? {} : { openSession })} {...(tell === undefined ? {} : { tell })} />;
+  const layer = (
+    <Layer
+      sink={sink}
+      {...(fleet === undefined
+        ? {}
+        : {
+            fleet,
+          })}
+      {...(openSession === undefined
+        ? {}
+        : {
+            openSession,
+          })}
+      {...(tell === undefined
+        ? {}
+        : {
+            tell,
+          })}
+    />
+  );
   // The Sessions the window holds, as the layer's own root is given them: a sent note's Job card reads them.
-  const draft = held === undefined ? undefined : ({ get: () => held, subscribe: () => () => undefined } as unknown as SessionsDraft);
-  root.render(<StrictMode>{draft === undefined ? layer : <SessionsFrom held={draft}>{layer}</SessionsFrom>}</StrictMode>);
-  mounted.push({ root, host });
+  const draft =
+    held === undefined
+      ? undefined
+      : ({
+          get: () => held,
+          subscribe: () => () => undefined,
+        } as unknown as SessionsDraft);
+  root.render(
+    <StrictMode>
+      {draft === undefined ? layer : <SessionsFrom held={draft}>{layer}</SessionsFrom>}
+    </StrictMode>,
+  );
+  mounted.push({
+    root,
+    host,
+  });
   await expect.element(page.getByRole("status")).toBeVisible();
 }
 
@@ -106,18 +160,43 @@ function insideTheWindow(what: string, rect: DOMRect): void {
   expect(rect.height, `${what}: drawn at all`).toBeGreaterThan(0);
 }
 
-async function cardOnTheTallSheet(size: { width: number; height: number }, wide = false) {
+async function cardOnTheTallSheet(
+  size: {
+    width: number;
+    height: number;
+  },
+  wide = false,
+) {
   await page.viewport(size.width, size.height);
   await annotating(sink);
   tallSheet(wide).click();
-  const card = page.getByRole("dialog", { name: "New note" });
+  const card = page.getByRole("dialog", {
+    name: "New note",
+  });
   await expect.element(card).toBeVisible();
   // The layer re-places the card off a measurement it takes each frame.
   await new Promise((settled) => requestAnimationFrame(() => requestAnimationFrame(settled)));
   return card;
 }
 
-for (const [size, wide] of [[OWNER, false], [SHORT, false], [OWNER, true], [SHORT, true]] as const) {
+for (const [size, wide] of [
+  [
+    OWNER,
+    false,
+  ],
+  [
+    SHORT,
+    false,
+  ],
+  [
+    OWNER,
+    true,
+  ],
+  [
+    SHORT,
+    true,
+  ],
+] as const) {
   test(`a note on an element as tall as a ${size.width}×${size.height} window${wide ? " and as wide" : ""} is drawn whole inside it`, async () => {
     const card = await cardOnTheTallSheet(size, wide);
     const rect = rectOf(card);
@@ -125,13 +204,24 @@ for (const [size, wide] of [[OWNER, false], [SHORT, false], [OWNER, true], [SHOR
 
     // What the owner could not see: the text box he was typing into, and the
     // two buttons, which were clipped at the top edge of the window.
-    for (const name of ["Cancel", "Save note"]) {
-      const button = rectOf(card.getByRole("button", { name }));
+    for (const name of [
+      "Cancel",
+      "Save note",
+    ]) {
+      const button = rectOf(
+        card.getByRole("button", {
+          name,
+        }),
+      );
       insideTheWindow(name, button);
       expect(button.top).toBeGreaterThanOrEqual(rect.top);
       expect(button.bottom).toBeLessThanOrEqual(rect.bottom);
     }
-    const box = rectOf(card.getByRole("textbox", { name: "Note" }));
+    const box = rectOf(
+      card.getByRole("textbox", {
+        name: "Note",
+      }),
+    );
     insideTheWindow("the text box", box);
     expect(box.top).toBeGreaterThanOrEqual(rect.top);
     expect(box.bottom).toBeLessThanOrEqual(rect.bottom);
@@ -158,28 +248,57 @@ test("a note on a sheet across the whole window has no side to go to, and covers
 });
 
 test("a window too short for the card gives it its own scroll rather than an edge to fall off", async () => {
-  const card = await cardOnTheTallSheet({ width: 1324, height: 260 });
+  const card = await cardOnTheTallSheet({
+    width: 1324,
+    height: 260,
+  });
   const rect = rectOf(card);
   insideTheWindow("card", rect);
 
   const element = card.element() as HTMLElement;
   expect(element.scrollHeight).toBeGreaterThan(element.clientHeight);
   element.scrollTop = element.scrollHeight;
-  expect(rectOf(card.getByRole("button", { name: "Save note" })).bottom).toBeLessThanOrEqual(rect.bottom);
+  expect(
+    rectOf(
+      card.getByRole("button", {
+        name: "Save note",
+      }),
+    ).bottom,
+  ).toBeLessThanOrEqual(rect.bottom);
 
   // The placement settles: a card capped by the window must not flip between
   // two sides frame after frame as it is measured, capped, and measured again.
   await new Promise((settled) => requestAnimationFrame(() => requestAnimationFrame(settled)));
   const again = rectOf(card);
-  expect([again.x, again.y, again.width, again.height]).toEqual([rect.x, rect.y, rect.width, rect.height]);
+  expect([
+    again.x,
+    again.y,
+    again.width,
+    again.height,
+  ]).toEqual([
+    rect.x,
+    rect.y,
+    rect.width,
+    rect.height,
+  ]);
 });
 
 test("a capped card keeps Cancel and Save note in reach before anything is scrolled", async () => {
-  const card = await cardOnTheTallSheet({ width: 1324, height: 260 });
+  const card = await cardOnTheTallSheet({
+    width: 1324,
+    height: 260,
+  });
   const rect = rectOf(card);
   expect((card.element() as HTMLElement).scrollTop).toBe(0);
-  for (const name of ["Cancel", "Save note"]) {
-    const button = rectOf(card.getByRole("button", { name }));
+  for (const name of [
+    "Cancel",
+    "Save note",
+  ]) {
+    const button = rectOf(
+      card.getByRole("button", {
+        name,
+      }),
+    );
     expect(button.top).toBeGreaterThanOrEqual(rect.top);
     expect(button.bottom).toBeLessThanOrEqual(rect.bottom);
   }
@@ -209,27 +328,50 @@ function note(name: string, status: AnnotationStatus, at: string, top: number): 
     status,
     text: `${name}: what the owner said`,
     component: "JobRowStacked",
-    owners: ["ActiveJobsList", "Board"],
+    owners: [
+      "ActiveJobsList",
+      "Board",
+    ],
     ownersFrom: "parent",
     selector: noted(name, top),
-    element: { tag: "button", text: name, label: null },
+    element: {
+      tag: "button",
+      text: name,
+      label: null,
+    },
     screen: "Job Board",
     layer: null,
     location: "/",
     scenario: null,
-    box: { x: 0, y: top, width: 0, height: 0 },
-    window: { width: 1440, height: 900 },
+    box: {
+      x: 0,
+      y: top,
+      width: 0,
+      height: 0,
+    },
+    window: {
+      width: 1440,
+      height: 900,
+    },
     createdAt: `2026-09-1${at}T10:00:00.000Z`,
     updatedAt: `2026-09-1${at}T10:00:00.000Z`,
   };
 }
 
 /** Every pin drawn, as a person reads it: its number, or nothing where it has none. */
-function pinned(): { name: string; reads: string }[] {
+function pinned(): {
+  name: string;
+  reads: string;
+}[] {
   return page
-    .getByRole("button", { name: /^(Note \d+, open|Done note)/ })
+    .getByRole("button", {
+      name: /^(Note \d+, open|Done note)/,
+    })
     .elements()
-    .map((one) => ({ name: one.getAttribute("aria-label") ?? "", reads: one.textContent ?? "" }));
+    .map((one) => ({
+      name: one.getAttribute("aria-label") ?? "",
+      reads: one.textContent ?? "",
+    }));
 }
 
 /** Three notes, the middle one already fixed by an agent, on three live elements. */
@@ -241,17 +383,36 @@ const batch = (): Annotation[] => [
 
 /** ⌥⌘A, which is how the layer is put away and brought back. */
 async function pressToggle(): Promise<void> {
-  window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyA", metaKey: true, altKey: true, bubbles: true }));
+  window.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      code: "KeyA",
+      metaKey: true,
+      altKey: true,
+      bubbles: true,
+    }),
+  );
   await new Promise((settled) => setTimeout(settled, 0));
 }
 
 test("a note marked done draws no pin, and the open ones are numbered 1 to n with no gap", async () => {
   await annotating(sinkOf(batch()));
 
-  await expect.element(page.getByRole("button", { name: /^Note 1, open/ })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: /^Note 1, open/,
+      }),
+    )
+    .toBeVisible();
   expect(pinned()).toEqual([
-    { name: "Note 1, open: first: what the owner said", reads: "1" },
-    { name: "Note 2, open: third: what the owner said", reads: "2" },
+    {
+      name: "Note 1, open: first: what the owner said",
+      reads: "1",
+    },
+    {
+      name: "Note 2, open: third: what the owner said",
+      reads: "2",
+    },
   ]);
 
   // The count is still said, because the file is still there.
@@ -264,22 +425,51 @@ test("the Done tab shows the done notes again, unnumbered, and their cards still
 
   await countOf().click();
   await tabOf("Done").click();
-  const back = page.getByRole("button", { name: /^Done note/ });
+  const back = page.getByRole("button", {
+    name: /^Done note/,
+  });
   await expect.element(back).toBeVisible();
   expect(pinned()).toEqual([
-    { name: "Note 1, open: first: what the owner said", reads: "1" },
-    { name: "Done note: second: what the owner said", reads: "" },
-    { name: "Note 2, open: third: what the owner said", reads: "2" },
+    {
+      name: "Note 1, open: first: what the owner said",
+      reads: "1",
+    },
+    {
+      name: "Done note: second: what the owner said",
+      reads: "",
+    },
+    {
+      name: "Note 2, open: third: what the owner said",
+      reads: "2",
+    },
   ]);
 
   // The card opens off the pin, and reopening from it puts the note back into
   // the numbering — at 2, where it was written, not at the end.
   await back.click();
-  const card = page.getByRole("dialog", { name: "Note" });
+  const card = page.getByRole("dialog", {
+    name: "Note",
+  });
   await expect.element(card).toHaveTextContent("second: what the owner said");
-  await expect.element(card.getByRole("button", { name: "Delete" })).toBeVisible();
-  await card.getByRole("button", { name: "Reopen" }).click();
-  await expect.element(page.getByRole("button", { name: /^Note 2, open: second/ })).toBeVisible();
+  await expect
+    .element(
+      card.getByRole("button", {
+        name: "Delete",
+      }),
+    )
+    .toBeVisible();
+  await card
+    .getByRole("button", {
+      name: "Reopen",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: /^Note 2, open: second/,
+      }),
+    )
+    .toBeVisible();
   await expect.element(bar).toHaveTextContent("3 open, 0 done");
 });
 
@@ -290,13 +480,31 @@ test("putting the layer away puts the done notes away with it, and looking wrote
 
   await countOf().click();
   await tabOf("Done").click();
-  await expect.element(page.getByRole("button", { name: /^Done note/ })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: /^Done note/,
+      }),
+    )
+    .toBeVisible();
   await tabOf("Open").click();
-  expect(page.getByRole("button", { name: /^Done note/ }).elements()).toHaveLength(0);
+  expect(
+    page
+      .getByRole("button", {
+        name: /^Done note/,
+      })
+      .elements(),
+  ).toHaveLength(0);
 
   // Left on the Done tab, then put away: the look is over with the layer.
   await tabOf("Done").click();
-  await expect.element(page.getByRole("button", { name: /^Done note/ })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: /^Done note/,
+      }),
+    )
+    .toBeVisible();
 
   // ⌥⌘A off and on again, which is how the notes are read from the files a
   // second time: the layer comes up on the open notes, as it did the first time.
@@ -304,13 +512,29 @@ test("putting the layer away puts the done notes away with it, and looking wrote
   await expect.element(bar).not.toBeInTheDocument();
   await pressToggle();
   await expect.element(page.getByRole("status")).toBeVisible();
-  expect(page.getByRole("button", { name: /^Done note/ }).elements()).toHaveLength(0);
+  expect(
+    page
+      .getByRole("button", {
+        name: /^Done note/,
+      })
+      .elements(),
+  ).toHaveLength(0);
   await countOf().click();
   await expect.element(tabOf("Open")).toHaveAttribute("aria-selected", "true");
-  expect(page.getByRole("button", { name: /^Done note/ }).elements()).toHaveLength(0);
+  expect(
+    page
+      .getByRole("button", {
+        name: /^Done note/,
+      })
+      .elements(),
+  ).toHaveLength(0);
 
   // Nothing about a note was written by looking: the files say what they said.
-  expect((await held.list()).map((one) => one.status)).toEqual(["open", "done", "open"]);
+  expect((await held.list()).map((one) => one.status)).toEqual([
+    "open",
+    "done",
+    "open",
+  ]);
 });
 
 // What the owner saw on 1 Oct 2026: one note saved twice at once, and the bar
@@ -331,15 +555,29 @@ test("a note pressed to save twice while its save is out is saved once", async (
   };
   await annotating(slow);
   document.querySelector<HTMLElement>(noted("target", 20))?.click();
-  const card = page.getByRole("dialog", { name: "New note" });
-  const text = card.getByRole("textbox", { name: "Note" });
+  const card = page.getByRole("dialog", {
+    name: "New note",
+  });
+  const text = card.getByRole("textbox", {
+    name: "Note",
+  });
   await text.fill("Save me once");
 
-  const save = card.getByRole("button", { name: "Save note" });
+  const save = card.getByRole("button", {
+    name: "Save note",
+  });
   await save.click();
   await save.click();
-  (text.element() as HTMLElement).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", metaKey: true, bubbles: true }));
-  expect(saved.map((one) => one.text)).toEqual(["Save me once"]);
+  (text.element() as HTMLElement).dispatchEvent(
+    new KeyboardEvent("keydown", {
+      key: "Enter",
+      metaKey: true,
+      bubbles: true,
+    }),
+  );
+  expect(saved.map((one) => one.text)).toEqual([
+    "Save me once",
+  ]);
 
   answer();
   await expect.element(card).not.toBeInTheDocument();
@@ -349,23 +587,67 @@ test("a note pressed to save twice while its save is out is saved once", async (
 // The picture a note keeps, taken once as it is saved, of the app under the layer.
 
 /** The eight bytes a PNG starts with, and one more: what a capture answers here. */
-const PNG = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0]).buffer;
+const PNG = Uint8Array.from([
+  137,
+  80,
+  78,
+  71,
+  13,
+  10,
+  26,
+  10,
+  0,
+]).buffer;
 
 /** A sink in Bridge, which captures, keeping its pictures in `shots`. */
-const capturing = (shots: Map<string, ArrayBuffer>, capture: Sink["capture"] = async () => PNG): Sink => ({ ...sinkOf([], shots), via: "main", capture });
+const capturing = (
+  shots: Map<string, ArrayBuffer>,
+  capture: Sink["capture"] = async () => PNG,
+): Sink => ({
+  ...sinkOf([], shots),
+  via: "main",
+  capture,
+});
 
 async function writeOn(target: string, text: string): Promise<void> {
   document.querySelector<HTMLElement>(target)?.click();
-  const card = page.getByRole("dialog", { name: "New note" });
-  await card.getByRole("textbox", { name: "Note" }).fill(text);
-  await card.getByRole("button", { name: "Save note" }).click();
+  const card = page.getByRole("dialog", {
+    name: "New note",
+  });
+  await card
+    .getByRole("textbox", {
+      name: "Note",
+    })
+    .fill(text);
+  await card
+    .getByRole("button", {
+      name: "Save note",
+    })
+    .click();
   await expect.element(card).not.toBeInTheDocument();
 }
 
 /** A PNG's signature and header, `width` by `height`, which is all the layer reads of a picture. */
 function headerOf(width: number, height: number): ArrayBuffer {
   const bytes = new Uint8Array(24);
-  bytes.set([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  bytes.set([
+    137,
+    80,
+    78,
+    71,
+    13,
+    10,
+    26,
+    10,
+    0,
+    0,
+    0,
+    13,
+    0x49,
+    0x48,
+    0x44,
+    0x52,
+  ]);
   new DataView(bytes.buffer).setUint32(16, width);
   new DataView(bytes.buffer).setUint32(20, height);
   return bytes.buffer;
@@ -385,13 +667,28 @@ test("a note's first save captures the whole window and keeps it beside the note
   expect(saved?.screenshot).toBe(`${saved?.id}.png`);
   expect(shots.get(saved!.id)).toBe(picture);
   expect(capture).toHaveBeenCalledTimes(1);
-  expect(capture).toHaveBeenCalledWith({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
+  expect(capture).toHaveBeenCalledWith({
+    x: 0,
+    y: 0,
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
   const rect = document.querySelector(target)!.getBoundingClientRect();
-  expect(saved?.ring).toEqual({ x: Math.round(rect.x * 2), y: Math.round(rect.y * 2), width: Math.round(rect.width * 2), height: Math.round(rect.height * 2), scale: 2 });
+  expect(saved?.ring).toEqual({
+    x: Math.round(rect.x * 2),
+    y: Math.round(rect.y * 2),
+    width: Math.round(rect.width * 2),
+    height: Math.round(rect.height * 2),
+    scale: 2,
+  });
 
   // Marking it done rewrites the file and keeps the picture it named, taking no other.
   await countOf().click();
-  await rowOf("Keep a picture of me").getByRole("button", { name: "Mark done" }).click();
+  await rowOf("Keep a picture of me")
+    .getByRole("button", {
+      name: "Mark done",
+    })
+    .click();
   await vi.waitFor(async () => expect((await held.list())[0]?.status).toBe("done"));
   expect((await held.list())[0]?.screenshot).toBe(`${saved?.id}.png`);
   expect(capture).toHaveBeenCalledTimes(1);
@@ -399,7 +696,10 @@ test("a note's first save captures the whole window and keeps it beside the note
 
 test("a note whose picture is not kept is told, and saved without one", async () => {
   const told = vi.fn();
-  const held: Sink = { ...capturing(new Map()), saveShot: async () => Promise.reject(new Error("disk full")) };
+  const held: Sink = {
+    ...capturing(new Map()),
+    saveShot: async () => Promise.reject(new Error("disk full")),
+  };
   await annotating(held, undefined, undefined, told);
   await writeOn(noted("target", 20), "Save me anyway");
   expect(told).toHaveBeenCalledWith("Saving the screenshot failed through main: disk full");
@@ -410,7 +710,10 @@ test("a note whose picture is not kept is told, and saved without one", async ()
 
 test("in a browser, where nothing captures, a note is saved with no picture and none is asked for", async () => {
   const capture = vi.fn(async () => null);
-  const held: Sink = { ...sinkOf(), capture };
+  const held: Sink = {
+    ...sinkOf(),
+    capture,
+  };
   await annotating(held);
   await writeOn(noted("target", 20), "No picture here");
   expect(capture).not.toHaveBeenCalled();
@@ -426,12 +729,25 @@ async function strayPixels(png: Blob): Promise<number> {
   const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height);
   let stray = 0;
   for (let at = 0; at < data.length; at += 4) {
-    if (Math.abs(data[at]! - 0) > 8 || Math.abs(data[at + 1]! - 128) > 8 || Math.abs(data[at + 2]! - 0) > 8) stray += 1;
+    if (
+      Math.abs(data[at]! - 0) > 8 ||
+      Math.abs(data[at + 1]! - 128) > 8 ||
+      Math.abs(data[at + 2]! - 0) > 8
+    )
+      stray += 1;
   }
   return stray;
 }
 
-const pngOf = (base64: string): Blob => new Blob([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], { type: "image/png" });
+const pngOf = (base64: string): Blob =>
+  new Blob(
+    [
+      Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)),
+    ],
+    {
+      type: "image/png",
+    },
+  );
 
 // A real screenshot of the page stands in for main's capturePage, which shoots the window as
 // painted, the layer with it. The app is one flat colour under the card and the bar, so a
@@ -442,21 +758,51 @@ test("the picture kept at save is of the app under the note, with none of the la
   app.setAttribute("data-noted", "app");
   app.style.cssText = "position:fixed;inset:0;background:rgb(0,128,0)";
   document.body.append(app);
-  const shot = async (): Promise<ArrayBuffer> => (await pngOf(await page.screenshot({ element: app, save: false })).arrayBuffer());
+  const shot = async (): Promise<ArrayBuffer> =>
+    await pngOf(
+      await page.screenshot({
+        element: app,
+        save: false,
+      }),
+    ).arrayBuffer();
   const shots = new Map<string, ArrayBuffer>();
   await annotating(capturing(shots, shot));
 
   app.click();
-  const card = page.getByRole("dialog", { name: "New note" });
-  await card.getByRole("textbox", { name: "Note" }).fill("The whole window is wrong");
+  const card = page.getByRole("dialog", {
+    name: "New note",
+  });
+  await card
+    .getByRole("textbox", {
+      name: "Note",
+    })
+    .fill("The whole window is wrong");
   // The same shot with the layer up holds the card, the outline and the bar: the check can see them.
-  expect(await strayPixels(new Blob([await shot()]))).toBeGreaterThan(1000);
+  expect(
+    await strayPixels(
+      new Blob([
+        await shot(),
+      ]),
+    ),
+  ).toBeGreaterThan(1000);
 
-  await card.getByRole("button", { name: "Save note" }).click();
+  await card
+    .getByRole("button", {
+      name: "Save note",
+    })
+    .click();
   await expect.element(card).not.toBeInTheDocument();
-  const [kept] = [...shots.values()];
+  const [kept] = [
+    ...shots.values(),
+  ];
   expect(kept).toBeDefined();
-  expect(await strayPixels(new Blob([kept!]))).toBe(0);
+  expect(
+    await strayPixels(
+      new Blob([
+        kept!,
+      ]),
+    ),
+  ).toBe(0);
   // And the layer is back once it is taken.
   await expect.element(page.getByRole("status")).toBeVisible();
   expect(getComputedStyle(document.querySelector(".armada-annotate")!).opacity).toBe("1");
@@ -464,40 +810,108 @@ test("the picture kept at save is of the app under the note, with none of the la
 
 // The bar's send: the notes as a message to a Session.
 
-const sendable = (notes: Annotation[], shots?: Map<string, ArrayBuffer>): Sink => ({ ...sinkOf(notes, shots), via: "main", root: async () => "/Users/user/armada" });
+const sendable = (notes: Annotation[], shots?: Map<string, ArrayBuffer>): Sink => ({
+  ...sinkOf(notes, shots),
+  via: "main",
+  root: async () => "/Users/user/armada",
+});
 
 const record = (id: string, title: string | undefined, change: object = {}) =>
-  ({ id, title, state: "live", origin: "bridge", ...change }) as never;
+  ({
+    id,
+    title,
+    state: "live",
+    origin: "bridge",
+    ...change,
+  }) as never;
 
 /** A Fleet serving three Sessions, one from a terminal and one ended, and answering every send. `sent` is every note, each with its turn's Session; `rings` each note's ring. */
 function served(refuse = false) {
   const sent: SendSessionNote[] = [];
-  const rings: (RingedNotes["notes"][number]["ring"])[] = [];
+  const rings: RingedNotes["notes"][number]["ring"][] = [];
   const fleet = {
-    startSession: vi.fn(async (title?: string) => ({ ok: true, value: record("01NEWSESSION0000", title) }) as never),
-    sendSessionMessage: vi.fn(async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } }) as never),
+    startSession: vi.fn(
+      async (title?: string) =>
+        ({
+          ok: true,
+          value: record("01NEWSESSION0000", title),
+        }) as never,
+    ),
+    sendSessionMessage: vi.fn(
+      async () =>
+        ({
+          ok: false,
+          outcome: {
+            ok: false,
+            why: "not_connected",
+          },
+        }) as never,
+    ),
     sendSessionNotes: vi.fn(async (send: RingedNotes) => {
       for (const one of send.notes) {
-        sent.push({ session_id: send.session_id, ...one.note });
+        sent.push({
+          session_id: send.session_id,
+          ...one.note,
+        });
         rings.push(one.ring);
       }
-      return refuse ? ({ ok: false, outcome: { ok: false, why: "not_connected" } } as never) : ({ ok: true, value: { session: record(send.session_id, "x"), candidates: send.notes.map(() => []) } } as never);
+      return refuse
+        ? ({
+            ok: false,
+            outcome: {
+              ok: false,
+              why: "not_connected",
+            },
+          } as never)
+        : ({
+            ok: true,
+            value: {
+              session: record(send.session_id, "x"),
+              candidates: send.notes.map(() => []),
+            },
+          } as never);
     }),
-    state: vi.fn(async () => ({
-      sessions: {
-        state: "read",
-        sessions: [record("01HOSTEDAAAAAAAA", "Fix the flaky store test", { hosted: {} }), record("01TERMINALBBBBBB", "Release notes script", { origin: "terminal", terminal: { listening: true } }), record("01ENDEDCCCCCCCC", "Old one", { state: "ended" })],
-      },
-    }) as never),
+    state: vi.fn(
+      async () =>
+        ({
+          sessions: {
+            state: "read",
+            sessions: [
+              record("01HOSTEDAAAAAAAA", "Fix the flaky store test", {
+                hosted: {},
+              }),
+              record("01TERMINALBBBBBB", "Release notes script", {
+                origin: "terminal",
+                terminal: {
+                  listening: true,
+                },
+              }),
+              record("01ENDEDCCCCCCCC", "Old one", {
+                state: "ended",
+              }),
+            ],
+          },
+        }) as never,
+    ),
     subscribe: () => () => undefined,
   } satisfies LayerFleet;
-  return { fleet, sent, rings };
+  return {
+    fleet,
+    sent,
+    rings,
+  };
 }
 
 test("the bar offers Start job in place of Send to Fleet", async () => {
   await annotating(sendable(batch()), served().fleet);
   const bar = page.getByRole("status");
-  await expect.element(bar.getByRole("button", { name: "Start job" })).toBeVisible();
+  await expect
+    .element(
+      bar.getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .toBeVisible();
   expect(bar.element().textContent).not.toContain("Send");
 });
 
@@ -506,17 +920,42 @@ test("Start job starts a Job, sends its notes to it as one turn, marks them sent
   const held = sendable(batch());
   const opened = vi.fn();
   await annotating(held, fleet, opened);
-  await page.getByRole("status").getByRole("button", { name: "Start job" }).click();
+  await page
+    .getByRole("status")
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
   await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
   expect(fleet.startSession).toHaveBeenCalledTimes(1);
   expect(fleet.sendSessionNotes).toHaveBeenCalledTimes(1);
-  expect(sent.map((one) => [one.session_id, one.said])).toEqual([
-    ["01NEWSESSION0000", "first: what the owner said"],
-    ["01NEWSESSION0000", "third: what the owner said"],
+  expect(
+    sent.map((one) => [
+      one.session_id,
+      one.said,
+    ]),
+  ).toEqual([
+    [
+      "01NEWSESSION0000",
+      "first: what the owner said",
+    ],
+    [
+      "01NEWSESSION0000",
+      "third: what the owner said",
+    ],
   ]);
-  expect(sent.every((one) => one.note_id !== undefined && one.address === window.location.href)).toBe(true);
+  expect(
+    sent.every((one) => one.note_id !== undefined && one.address === window.location.href),
+  ).toBe(true);
   const saved = (await held.list()).filter((one) => one.sent !== undefined);
-  expect(saved.map((one) => one.sent)).toEqual([expect.objectContaining({ sessionId: "01NEWSESSION0000" }), expect.objectContaining({ sessionId: "01NEWSESSION0000" })]);
+  expect(saved.map((one) => one.sent)).toEqual([
+    expect.objectContaining({
+      sessionId: "01NEWSESSION0000",
+    }),
+    expect.objectContaining({
+      sessionId: "01NEWSESSION0000",
+    }),
+  ]);
 });
 
 test("the dropdown lists every live Session by title, and a pick sends to it", async () => {
@@ -524,32 +963,100 @@ test("the dropdown lists every live Session by title, and a pick sends to it", a
   const held = sendable(batch());
   const opened = vi.fn();
   await annotating(held, fleet, opened);
-  await page.getByRole("button", { name: "Send to a Job" }).click();
-  const menu = page.getByRole("menu", { name: "Send to a Job" });
-  await expect.element(menu.getByRole("menuitem", { name: "Fix the flaky store test" })).toBeVisible();
-  await expect.element(menu.getByRole("menuitem", { name: "Release notes script" })).toBeVisible();
-  await expect.element(menu.getByRole("menuitem", { name: "Old one" })).not.toBeInTheDocument();
-  await menu.getByRole("menuitem", { name: "Release notes script" }).click();
+  await page
+    .getByRole("button", {
+      name: "Send to a Job",
+    })
+    .click();
+  const menu = page.getByRole("menu", {
+    name: "Send to a Job",
+  });
+  await expect
+    .element(
+      menu.getByRole("menuitem", {
+        name: "Fix the flaky store test",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      menu.getByRole("menuitem", {
+        name: "Release notes script",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      menu.getByRole("menuitem", {
+        name: "Old one",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await menu
+    .getByRole("menuitem", {
+      name: "Release notes script",
+    })
+    .click();
   await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01TERMINALBBBBBB"));
   expect(fleet.startSession).not.toHaveBeenCalled();
   expect(sent[0]!.session_id).toBe("01TERMINALBBBBBB");
   const saved = (await held.list()).filter((one) => one.sent !== undefined);
-  expect(saved[0]!.sent).toEqual(expect.objectContaining({ sessionId: "01TERMINALBBBBBB", title: "Release notes script" }));
+  expect(saved[0]!.sent).toEqual(
+    expect.objectContaining({
+      sessionId: "01TERMINALBBBBBB",
+      title: "Release notes script",
+    }),
+  );
 });
 
 test("the dropdown leaves out a terminal Session that is not listening, as the Jobs list does", async () => {
   const { fleet } = served();
-  const quiet = record("01QUIETDDDDDDDDD", "Task: explain ONE changed file", { origin: "terminal", terminal: { listening: false } });
+  const quiet = record("01QUIETDDDDDDDDD", "Task: explain ONE changed file", {
+    origin: "terminal",
+    terminal: {
+      listening: false,
+    },
+  });
   const before = fleet.state;
   fleet.state = vi.fn(async () => {
-    const state = (await before()) as unknown as { sessions: { sessions: unknown[] } };
-    return { sessions: { ...state.sessions, sessions: [...state.sessions.sessions, quiet] } } as never;
+    const state = (await before()) as unknown as {
+      sessions: {
+        sessions: unknown[];
+      };
+    };
+    return {
+      sessions: {
+        ...state.sessions,
+        sessions: [
+          ...state.sessions.sessions,
+          quiet,
+        ],
+      },
+    } as never;
   });
   await annotating(sendable(batch()), fleet);
-  await page.getByRole("button", { name: "Send to a Job" }).click();
-  const menu = page.getByRole("menu", { name: "Send to a Job" });
-  await expect.element(menu.getByRole("menuitem", { name: "Fix the flaky store test" })).toBeVisible();
-  await expect.element(menu.getByRole("menuitem", { name: "Task: explain ONE changed file" })).not.toBeInTheDocument();
+  await page
+    .getByRole("button", {
+      name: "Send to a Job",
+    })
+    .click();
+  const menu = page.getByRole("menu", {
+    name: "Send to a Job",
+  });
+  await expect
+    .element(
+      menu.getByRole("menuitem", {
+        name: "Fix the flaky store test",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      menu.getByRole("menuitem", {
+        name: "Task: explain ONE changed file",
+      }),
+    )
+    .not.toBeInTheDocument();
 });
 
 test("a Session Fleet refuses leaves the notes unsent and tells why in a toast, not on the bar", async () => {
@@ -558,8 +1065,17 @@ test("a Session Fleet refuses leaves the notes unsent and tells why in a toast, 
   const opened = vi.fn();
   const told = vi.fn();
   await annotating(held, fleet, opened, told);
-  await page.getByRole("status").getByRole("button", { name: "Start job" }).click();
-  await vi.waitFor(() => expect(told).toHaveBeenCalledWith('Notes not sent to "first: what the owner said": Fleet is not connected. Nothing was sent.'));
+  await page
+    .getByRole("status")
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
+  await vi.waitFor(() =>
+    expect(told).toHaveBeenCalledWith(
+      'Notes not sent to "first: what the owner said": Fleet is not connected. Nothing was sent.',
+    ),
+  );
   expect(page.getByRole("status").element().textContent).not.toContain("Not sent");
   expect(opened).not.toHaveBeenCalled();
   expect((await held.list()).some((one) => one.sent !== undefined)).toBe(false);
@@ -567,33 +1083,95 @@ test("a Session Fleet refuses leaves the notes unsent and tells why in a toast, 
 
 test("a refusal with no copy of its own still tells what failed", async () => {
   const { fleet } = served();
-  fleet.startSession.mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.x", message: "" } } } as never);
+  fleet.startSession.mockResolvedValueOnce({
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "refused",
+      error: {
+        code: "fleet.x",
+        message: "",
+      },
+    },
+  } as never);
   const held = sendable(batch());
   const told = vi.fn();
   await annotating(held, fleet, undefined, told);
-  await page.getByRole("status").getByRole("button", { name: "Start job" }).click();
+  await page
+    .getByRole("status")
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
   await vi.waitFor(() => expect(told).toHaveBeenCalledWith("Job not started: Fleet refused it"));
   expect((await held.list()).some((one) => one.sent !== undefined)).toBe(false);
 });
 
 test("a note sent to a Session says which, on its card", async () => {
   const sent = note("sent", "open", "5", 15);
-  await annotating(sendable([{ ...sent, sent: { sessionId: "01HOSTEDAAAAAAAA", title: "Fix the flaky store test", at: sent.createdAt } }]), served().fleet);
-  await page.getByRole("button", { name: /sent as Fix the flaky store test/ }).click();
-  await expect.element(page.getByRole("dialog", { name: "Note" })).toHaveTextContent("Sent to Job Fix the flaky store test");
+  await annotating(
+    sendable([
+      {
+        ...sent,
+        sent: {
+          sessionId: "01HOSTEDAAAAAAAA",
+          title: "Fix the flaky store test",
+          at: sent.createdAt,
+        },
+      },
+    ]),
+    served().fleet,
+  );
+  await page
+    .getByRole("button", {
+      name: /sent as Fix the flaky store test/,
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "Note",
+      }),
+    )
+    .toHaveTextContent("Sent to Job Fix the flaky store test");
 });
 
 test("a saved note stays up in its card, with the acts its panel row has", async () => {
   await annotating(sendable([]), served().fleet);
   (document.querySelector(noted("fresh", 15)) as HTMLElement).click();
-  const draft = page.getByRole("dialog", { name: "New note" });
-  await draft.getByRole("textbox", { name: "Note" }).fill("The row should say which step it is on");
-  await draft.getByRole("button", { name: "Save note" }).click();
+  const draft = page.getByRole("dialog", {
+    name: "New note",
+  });
+  await draft
+    .getByRole("textbox", {
+      name: "Note",
+    })
+    .fill("The row should say which step it is on");
+  await draft
+    .getByRole("button", {
+      name: "Save note",
+    })
+    .click();
 
-  const card = page.getByRole("dialog", { name: "Note", exact: true });
+  const card = page.getByRole("dialog", {
+    name: "Note",
+    exact: true,
+  });
   await expect.element(card).toHaveTextContent("The row should say which step it is on");
-  for (const name of ["Start job", "Send to a Job", "Mark done", "Delete"]) {
-    await expect.element(card.getByRole("button", { name, exact: true })).toBeVisible();
+  for (const name of [
+    "Start job",
+    "Send to a Job",
+    "Mark done",
+    "Delete",
+  ]) {
+    await expect
+      .element(
+        card.getByRole("button", {
+          name,
+          exact: true,
+        }),
+      )
+      .toBeVisible();
   }
 });
 
@@ -602,11 +1180,24 @@ test("a card's Start job sends its note alone and opens the Session", async () =
   const held = sendable(batch());
   const opened = vi.fn();
   await annotating(held, fleet, opened);
-  await page.getByRole("button", { name: /^Note 2, open/ }).click();
-  await page.getByRole("dialog", { name: "Note" }).getByRole("button", { name: "Start job" }).click();
+  await page
+    .getByRole("button", {
+      name: /^Note 2, open/,
+    })
+    .click();
+  await page
+    .getByRole("dialog", {
+      name: "Note",
+    })
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
 
   await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
-  expect(sent.map((one) => one.said)).toEqual(["third: what the owner said"]);
+  expect(sent.map((one) => one.said)).toEqual([
+    "third: what the owner said",
+  ]);
 });
 
 // The all-notes panel, opened from the bar's count. What it does, held as the owner approved it.
@@ -615,16 +1206,39 @@ test("a card's Start job sends its note alone and opens the Session", async () =
 function away(name: string, at: string, change: Partial<Annotation> = {}): Annotation {
   const one = note(name, "open", at, 60);
   document.querySelector(one.selector)?.remove();
-  return { ...one, selector: `[data-noted="${name}-is-elsewhere"]`, ...change };
+  return {
+    ...one,
+    selector: `[data-noted="${name}-is-elsewhere"]`,
+    ...change,
+  };
 }
 
-const panel = () => page.getByRole("complementary", { name: "All notes" });
-const countOf = () => page.getByRole("status").getByRole("button", { name: /open, \d+ done/ });
-const rowOf = (text: string) => panel().getByRole("listitem").filter({ hasText: text });
+const panel = () =>
+  page.getByRole("complementary", {
+    name: "All notes",
+  });
+const countOf = () =>
+  page.getByRole("status").getByRole("button", {
+    name: /open, \d+ done/,
+  });
+const rowOf = (text: string) =>
+  panel().getByRole("listitem").filter({
+    hasText: text,
+  });
 // A heading is the fold button: the screen's name, then how many notes it holds.
-const headings = () => panel().getByRole("heading").elements().map((one) => one.querySelector("span")?.textContent);
-const tabOf = (name: string) => panel().getByRole("tab", { name: new RegExp(`^${name}\\b`) });
-const screened = (one: Annotation, screen: string | null): Annotation => ({ ...one, screen });
+const headings = () =>
+  panel()
+    .getByRole("heading")
+    .elements()
+    .map((one) => one.querySelector("span")?.textContent);
+const tabOf = (name: string) =>
+  panel().getByRole("tab", {
+    name: new RegExp(`^${name}\\b`),
+  });
+const screened = (one: Annotation, screen: string | null): Annotation => ({
+  ...one,
+  screen,
+});
 
 test("the status text opens the panel and closes it again", async () => {
   await annotating(sinkOf(batch()));
@@ -652,15 +1266,33 @@ test("the panel groups notes by screen, in name order, with No screen last", asy
   );
   await countOf().click();
   await expect.element(panel()).toBeVisible();
-  expect(headings()).toEqual(["Job Board", "Overview", "No screen"]);
+  expect(headings()).toEqual([
+    "Job Board",
+    "Overview",
+    "No screen",
+  ]);
 
   expect(panel().getByRole("region").elements()).toHaveLength(3);
-  const overview = panel().getByRole("region", { name: "Overview" });
+  const overview = panel().getByRole("region", {
+    name: "Overview",
+  });
   await expect.element(overview).toHaveTextContent("second: what the owner said");
   await expect.element(overview).toHaveTextContent("fourth: what the owner said");
   await expect.element(overview).not.toHaveTextContent("third: what the owner said");
-  await expect.element(panel().getByRole("region", { name: "Job Board" })).toHaveTextContent("third: what the owner said");
-  await expect.element(panel().getByRole("region", { name: "No screen" })).toHaveTextContent("first: what the owner said");
+  await expect
+    .element(
+      panel().getByRole("region", {
+        name: "Job Board",
+      }),
+    )
+    .toHaveTextContent("third: what the owner said");
+  await expect
+    .element(
+      panel().getByRole("region", {
+        name: "No screen",
+      }),
+    )
+    .toHaveTextContent("first: what the owner said");
 });
 
 test("a done note is listed on the Done tab and not on the Open one", async () => {
@@ -671,7 +1303,14 @@ test("a done note is listed on the Done tab and not on the Open one", async () =
 
   await tabOf("Done").click();
   await expect.element(rowOf("second:")).toBeVisible();
-  expect(panel().getByRole("listitem").elements().map((one) => one.getAttribute("data-status"))).toEqual(["done"]);
+  expect(
+    panel()
+      .getByRole("listitem")
+      .elements()
+      .map((one) => one.getAttribute("data-status")),
+  ).toEqual([
+    "done",
+  ]);
 
   await tabOf("Open").click();
   await expect.element(rowOf("first:")).toBeVisible();
@@ -679,13 +1318,28 @@ test("a done note is listed on the Done tab and not on the Open one", async () =
 });
 
 test("a screen holding only done notes has no heading until the Done tab is chosen", async () => {
-  await annotating(sinkOf([screened(note("first", "open", "5", 15), "Overview"), screened(note("second", "done", "6", 30), "Job Board")]));
+  await annotating(
+    sinkOf([
+      screened(note("first", "open", "5", 15), "Overview"),
+      screened(note("second", "done", "6", 30), "Job Board"),
+    ]),
+  );
   await countOf().click();
   await expect.element(panel()).toBeVisible();
-  expect(headings()).toEqual(["Overview"]);
+  expect(headings()).toEqual([
+    "Overview",
+  ]);
   await tabOf("Done").click();
-  await expect.element(panel().getByRole("heading", { name: /Job Board/ })).toBeVisible();
-  expect(headings()).toEqual(["Job Board"]);
+  await expect
+    .element(
+      panel().getByRole("heading", {
+        name: /Job Board/,
+      }),
+    )
+    .toBeVisible();
+  expect(headings()).toEqual([
+    "Job Board",
+  ]);
 });
 
 test("a row's Start job sends that note alone to a new Session, and marks only it sent", async () => {
@@ -694,12 +1348,22 @@ test("a row's Start job sends that note alone to a new Session, and marks only i
   const opened = vi.fn();
   await annotating(held, fleet, opened);
   await countOf().click();
-  await rowOf("third:").getByRole("button", { name: "Start job" }).click();
+  await rowOf("third:")
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
 
   await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
   expect(fleet.startSession).toHaveBeenCalledTimes(1);
-  expect(sent.map((one) => one.said)).toEqual(["third: what the owner said"]);
-  expect((await held.list()).filter((one) => one.sent !== undefined).map((one) => one.text)).toEqual(["third: what the owner said"]);
+  expect(sent.map((one) => one.said)).toEqual([
+    "third: what the owner said",
+  ]);
+  expect(
+    (await held.list()).filter((one) => one.sent !== undefined).map((one) => one.text),
+  ).toEqual([
+    "third: what the owner said",
+  ]);
 });
 
 test("a sent note and a done note offer no send, and an open unsent one does", async () => {
@@ -707,25 +1371,71 @@ test("a sent note and a done note offer no send, and an open unsent one does", a
   const forwarded = note("second", "open", "6", 30);
   const finished = note("third", "done", "7", 45);
   await annotating(
-    sendable([unsent, { ...forwarded, sent: { sessionId: "01S", title: "Release notes", at: forwarded.createdAt } }, finished]),
+    sendable([
+      unsent,
+      {
+        ...forwarded,
+        sent: {
+          sessionId: "01S",
+          title: "Release notes",
+          at: forwarded.createdAt,
+        },
+      },
+      finished,
+    ]),
     served().fleet,
   );
   await countOf().click();
   await expect.element(rowOf("second:")).toBeVisible();
 
-  await expect.element(rowOf("first:").getByRole("button", { name: "Start job" })).toBeVisible();
-  expect(rowOf("second:").getByRole("button", { name: "Start job" }).elements()).toHaveLength(0);
+  await expect
+    .element(
+      rowOf("first:").getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .toBeVisible();
+  expect(
+    rowOf("second:")
+      .getByRole("button", {
+        name: "Start job",
+      })
+      .elements(),
+  ).toHaveLength(0);
   // What stays on every row is what a person does to a note, sent or not.
-  await expect.element(rowOf("second:").getByRole("button", { name: "Mark done" })).toBeVisible();
+  await expect
+    .element(
+      rowOf("second:").getByRole("button", {
+        name: "Mark done",
+      }),
+    )
+    .toBeVisible();
 
   await tabOf("Done").click();
   await expect.element(rowOf("third:")).toBeVisible();
-  expect(rowOf("third:").getByRole("button", { name: "Start job" }).elements()).toHaveLength(0);
-  await expect.element(rowOf("third:").getByRole("button", { name: "Reopen" })).toBeVisible();
+  expect(
+    rowOf("third:")
+      .getByRole("button", {
+        name: "Start job",
+      })
+      .elements(),
+  ).toHaveLength(0);
+  await expect
+    .element(
+      rowOf("third:").getByRole("button", {
+        name: "Reopen",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a row opens its card when the element is on screen, and does nothing when it is not", async () => {
-  await annotating(sinkOf([note("here", "open", "5", 15), away("gone", "6")]));
+  await annotating(
+    sinkOf([
+      note("here", "open", "5", 15),
+      away("gone", "6"),
+    ]),
+  );
   await countOf().click();
   await expect.element(rowOf("gone:")).toBeVisible();
   const there = rowOf("gone:").element() as HTMLElement;
@@ -735,50 +1445,144 @@ test("a row opens its card when the element is on screen, and does nothing when 
   // A DOM click: the row is aria-disabled, which the pointer-level click waits on forever.
   (there.querySelector(".armada-annotate__row-main") as HTMLElement).click();
   await new Promise((settled) => requestAnimationFrame(() => requestAnimationFrame(settled)));
-  expect(page.getByRole("dialog", { name: "Note" }).elements()).toHaveLength(0);
+  expect(
+    page
+      .getByRole("dialog", {
+        name: "Note",
+      })
+      .elements(),
+  ).toHaveLength(0);
 
-  await rowOf("here:").getByRole("button", { name: /here: what the owner said/ }).click();
-  await expect.element(page.getByRole("dialog", { name: "Note" })).toHaveTextContent("here: what the owner said");
+  await rowOf("here:")
+    .getByRole("button", {
+      name: /here: what the owner said/,
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "Note",
+      }),
+    )
+    .toHaveTextContent("here: what the owner said");
 });
 
 test("a note off this screen sent to a Session goes without a screenshot", async () => {
   const { fleet, sent } = served();
-  const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
-  const held = { ...sendable([away("gone", "6")]), capture };
+  const capture = vi.fn(
+    async () =>
+      new Uint8Array([
+        137,
+        80,
+        78,
+        71,
+      ]).buffer,
+  );
+  const held = {
+    ...sendable([
+      away("gone", "6"),
+    ]),
+    capture,
+  };
   await annotating(held, fleet);
   await countOf().click();
 
-  await rowOf("gone:").getByRole("button", { name: "Start job" }).click();
+  await rowOf("gone:")
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
   await vi.waitFor(() => expect(sent).toHaveLength(1));
   expect(capture).not.toHaveBeenCalled();
   expect(sent[0]).not.toHaveProperty("crop");
 });
 
 test("a row off this screen says on Start job that it goes without a screenshot", async () => {
-  await annotating(sendable([note("here", "open", "5", 15), away("gone", "6")]), served().fleet);
+  await annotating(
+    sendable([
+      note("here", "open", "5", 15),
+      away("gone", "6"),
+    ]),
+    served().fleet,
+  );
   await countOf().click();
   const fact = "No screenshot: on another screen";
 
-  await expect.element(rowOf("gone:").getByRole("button", { name: "Start job" })).toHaveAccessibleDescription(fact);
-  await expect.element(rowOf("here:").getByRole("button", { name: "Start job" })).not.toHaveAccessibleDescription(expect.stringContaining("screenshot"));
+  await expect
+    .element(
+      rowOf("gone:").getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .toHaveAccessibleDescription(fact);
+  await expect
+    .element(
+      rowOf("here:").getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .not.toHaveAccessibleDescription(expect.stringContaining("screenshot"));
 });
 
 /** A note off this screen that kept its picture as it was saved, and the store holding it. */
-function keptAway(name: string, at: string): { note: Annotation; shots: Map<string, ArrayBuffer> } {
+function keptAway(
+  name: string,
+  at: string,
+): {
+  note: Annotation;
+  shots: Map<string, ArrayBuffer>;
+} {
   const one = away(name, at);
-  return { note: { ...one, screenshot: `${one.id}.png` }, shots: new Map([[one.id, PNG]]) };
+  return {
+    note: {
+      ...one,
+      screenshot: `${one.id}.png`,
+    },
+    shots: new Map([
+      [
+        one.id,
+        PNG,
+      ],
+    ]),
+  };
 }
 
 test("a note that kept its picture is sent with it from another screen, and its row says nothing is missing", async () => {
   const { fleet, sent } = served();
-  const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
+  const capture = vi.fn(
+    async () =>
+      new Uint8Array([
+        137,
+        80,
+        78,
+        71,
+      ]).buffer,
+  );
   const kept = keptAway("kept", "6");
-  const held = { ...sendable([kept.note], kept.shots), capture };
+  const held = {
+    ...sendable(
+      [
+        kept.note,
+      ],
+      kept.shots,
+    ),
+    capture,
+  };
   await annotating(held, fleet);
   await countOf().click();
 
-  await expect.element(rowOf("kept:").getByRole("button", { name: "Start job" })).not.toHaveAccessibleDescription(expect.stringContaining("screenshot"));
-  await rowOf("kept:").getByRole("button", { name: "Start job" }).click();
+  await expect
+    .element(
+      rowOf("kept:").getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .not.toHaveAccessibleDescription(expect.stringContaining("screenshot"));
+  await rowOf("kept:")
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
   await vi.waitFor(() => expect(sent).toHaveLength(1));
   expect(sent[0]!.note_id).toBe(kept.note.id);
   expect(sent[0]!.crop?.media_type).toBe("image/png");
@@ -792,11 +1596,25 @@ test("a screenshot taken at send, of an older note on this screen, is taken with
     seen.push(document.querySelector(".armada-annotate")!.hasAttribute("data-shooting"));
     return PNG;
   });
-  await annotating({ ...sendable([note("here", "open", "5", 15)]), capture }, fleet);
+  await annotating(
+    {
+      ...sendable([
+        note("here", "open", "5", 15),
+      ]),
+      capture,
+    },
+    fleet,
+  );
   await countOf().click();
-  await rowOf("here:").getByRole("button", { name: "Start job" }).click();
+  await rowOf("here:")
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
   await vi.waitFor(() => expect(sent).toHaveLength(1));
-  expect(seen).toEqual([true]);
+  expect(seen).toEqual([
+    true,
+  ]);
   expect(document.querySelector(".armada-annotate")!.hasAttribute("data-shooting")).toBe(false);
 });
 
@@ -812,17 +1630,36 @@ const four = (): Annotation[] => [
   note("fourth", "open", "8", 60),
 ];
 
-const selection = () => panel().getByRole("group", { name: "Selected notes" });
-const tickOf = (text: string) => panel().getByRole("checkbox", { name: `Select ${text}` });
+const selection = () =>
+  panel().getByRole("group", {
+    name: "Selected notes",
+  });
+const tickOf = (text: string) =>
+  panel().getByRole("checkbox", {
+    name: `Select ${text}`,
+  });
 const ticked = () =>
   panel()
-    .getByRole("checkbox", { name: /^Select (?!all)/ })
+    .getByRole("checkbox", {
+      name: /^Select (?!all)/,
+    })
     .elements()
     .filter((one) => (one as HTMLInputElement).checked)
-    .map((one) => (one.getAttribute("aria-label") ?? "").replace(/^Select /, "").replace(/: what the owner said$/, ""));
-const textsOf = async (sink: Sink, which: (one: Annotation) => boolean) => (await sink.list()).filter(which).map((one) => one.text.replace(/: what the owner said$/, ""));
+    .map((one) =>
+      (one.getAttribute("aria-label") ?? "")
+        .replace(/^Select /, "")
+        .replace(/: what the owner said$/, ""),
+    );
+const textsOf = async (sink: Sink, which: (one: Annotation) => boolean) =>
+  (await sink.list()).filter(which).map((one) => one.text.replace(/: what the owner said$/, ""));
 
-async function panelOn(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void, tell?: (sentence: string) => void, held?: readonly Session[]): Promise<void> {
+async function panelOn(
+  sink: Sink,
+  fleet?: LayerFleet,
+  openSession?: (id: string) => void,
+  tell?: (sentence: string) => void,
+  held?: readonly Session[],
+): Promise<void> {
   await annotating(sink, fleet, openSession, tell, held);
   await countOf().click();
   await expect.element(panel()).toBeVisible();
@@ -831,59 +1668,164 @@ async function panelOn(sink: Sink, fleet?: LayerFleet, openSession?: (id: string
 test("ticking rows selects them, and the head says how many with the acts on them", async () => {
   await panelOn(sendable(four()), served().fleet);
   // Nothing is ticked, so the head offers Select all and a Start job with nothing to send, and no other act.
-  await expect.element(selection().getByRole("checkbox", { name: "Select all" })).not.toBeChecked();
-  await expect.element(selection().getByRole("button", { name: "Start job" })).toBeDisabled();
-  for (const name of ["Mark done", "Reopen", "Delete"]) expect(selection().getByRole("button", { name, exact: true }).elements()).toHaveLength(0);
+  await expect
+    .element(
+      selection().getByRole("checkbox", {
+        name: "Select all",
+      }),
+    )
+    .not.toBeChecked();
+  await expect
+    .element(
+      selection().getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .toBeDisabled();
+  for (const name of [
+    "Mark done",
+    "Reopen",
+    "Delete",
+  ])
+    expect(
+      selection()
+        .getByRole("button", {
+          name,
+          exact: true,
+        })
+        .elements(),
+    ).toHaveLength(0);
 
   await tickOf("first:").click();
   await tickOf("third:").click();
-  expect(ticked()).toEqual(["first", "third"]);
+  expect(ticked()).toEqual([
+    "first",
+    "third",
+  ]);
   await expect.element(selection()).toHaveTextContent("2 selected");
-  for (const name of ["Start job", "Mark done", "Delete"]) {
-    await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
+  for (const name of [
+    "Start job",
+    "Mark done",
+    "Delete",
+  ]) {
+    await expect
+      .element(
+        selection().getByRole("button", {
+          name,
+          exact: true,
+        }),
+      )
+      .toBeVisible();
   }
   expect(rowOf("first:").element().hasAttribute("data-selected")).toBe(true);
   expect(rowOf("second:").element().hasAttribute("data-selected")).toBe(false);
 
   await tickOf("first:").click();
-  expect(ticked()).toEqual(["third"]);
+  expect(ticked()).toEqual([
+    "third",
+  ]);
   await expect.element(selection()).toHaveTextContent("1 selected");
 });
 
 test("Select all ticks every listed note, and pressed again clears them", async () => {
   await panelOn(sendable(four()), served().fleet);
-  const all = selection().getByRole("checkbox", { name: "Select all" });
+  const all = selection().getByRole("checkbox", {
+    name: "Select all",
+  });
   await all.click();
-  expect(ticked()).toEqual(["first", "second", "third", "fourth"]);
+  expect(ticked()).toEqual([
+    "first",
+    "second",
+    "third",
+    "fourth",
+  ]);
   await expect.element(all).toBeChecked();
   await all.click();
   expect(ticked()).toEqual([]);
-  for (const name of ["Mark done", "Delete"]) expect(selection().getByRole("button", { name, exact: true }).elements()).toHaveLength(0);
-  await expect.element(selection().getByRole("button", { name: "Start job" })).toBeDisabled();
+  for (const name of [
+    "Mark done",
+    "Delete",
+  ])
+    expect(
+      selection()
+        .getByRole("button", {
+          name,
+          exact: true,
+        })
+        .elements(),
+    ).toHaveLength(0);
+  await expect
+    .element(
+      selection().getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .toBeDisabled();
 });
 
 test("Select all takes only what the tab lists: the Open tab leaves the done note out, and the Done tab takes it alone", async () => {
   await panelOn(sendable(batch()), served().fleet);
-  await selection().getByRole("checkbox", { name: "Select all" }).click();
-  expect(ticked()).toEqual(["first", "third"]);
+  await selection()
+    .getByRole("checkbox", {
+      name: "Select all",
+    })
+    .click();
+  expect(ticked()).toEqual([
+    "first",
+    "third",
+  ]);
   await expect.element(selection()).toHaveTextContent("2 selected");
 
   // The two ticked stay ticked behind the tab, and are neither counted nor acted on from it.
   await tabOf("Done").click();
-  await expect.element(selection().getByRole("checkbox", { name: "Select all" })).not.toBeChecked();
+  await expect
+    .element(
+      selection().getByRole("checkbox", {
+        name: "Select all",
+      }),
+    )
+    .not.toBeChecked();
   expect(selection().element().textContent).not.toContain("selected");
-  await selection().getByRole("checkbox", { name: "Select all" }).click();
-  expect(ticked()).toEqual(["second"]);
+  await selection()
+    .getByRole("checkbox", {
+      name: "Select all",
+    })
+    .click();
+  expect(ticked()).toEqual([
+    "second",
+  ]);
   await expect.element(selection()).toHaveTextContent("1 selected");
-  expect(selection().getByRole("button", { name: "Mark done", exact: true }).elements()).toHaveLength(0);
-  await expect.element(selection().getByRole("button", { name: "Reopen", exact: true })).toBeVisible();
+  expect(
+    selection()
+      .getByRole("button", {
+        name: "Mark done",
+        exact: true,
+      })
+      .elements(),
+  ).toHaveLength(0);
+  await expect
+    .element(
+      selection().getByRole("button", {
+        name: "Reopen",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a shift-press ticks every row between it and the last one ticked", async () => {
   await panelOn(sendable(four()), served().fleet);
   await tickOf("first:").click();
-  await tickOf("third:").click({ modifiers: ["Shift"] });
-  expect(ticked()).toEqual(["first", "second", "third"]);
+  await tickOf("third:").click({
+    modifiers: [
+      "Shift",
+    ],
+  });
+  expect(ticked()).toEqual([
+    "first",
+    "second",
+    "third",
+  ]);
 });
 
 test("Start job on the selection sends the ticked notes alone, each on its own, and clears the selection", async () => {
@@ -893,11 +1835,21 @@ test("Start job on the selection sends the ticked notes alone, each on its own, 
   await panelOn(held, fleet, opened);
   await tickOf("first:").click();
   await tickOf("third:").click();
-  await selection().getByRole("button", { name: "Start job" }).click();
+  await selection()
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
 
   await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
-  expect(sent.map((one) => one.said)).toEqual(["first: what the owner said", "third: what the owner said"]);
-  expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["first", "third"]);
+  expect(sent.map((one) => one.said)).toEqual([
+    "first: what the owner said",
+    "third: what the owner said",
+  ]);
+  expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual([
+    "first",
+    "third",
+  ]);
   await vi.waitFor(() => expect(ticked()).toEqual([]));
 });
 
@@ -906,14 +1858,31 @@ test("the selection's caret sends the ticked notes to a live Session", async () 
   const held = sendable(four());
   await panelOn(held, fleet, vi.fn());
   await tickOf("fourth:").click();
-  await selection().getByRole("button", { name: "Send to a Job" }).click();
-  await page.getByRole("menu", { name: "Send to a Job" }).getByRole("menuitem", { name: "Fix the flaky store test" }).click();
+  await selection()
+    .getByRole("button", {
+      name: "Send to a Job",
+    })
+    .click();
+  await page
+    .getByRole("menu", {
+      name: "Send to a Job",
+    })
+    .getByRole("menuitem", {
+      name: "Fix the flaky store test",
+    })
+    .click();
 
   await vi.waitFor(() => expect(sent).toHaveLength(1));
   expect(fleet.startSession).not.toHaveBeenCalled();
   expect(sent[0]!.session_id).toBe("01HOSTEDAAAAAAAA");
-  expect(sent.map((one) => one.said)).toEqual(["fourth: what the owner said"]);
-  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["fourth"]));
+  expect(sent.map((one) => one.said)).toEqual([
+    "fourth: what the owner said",
+  ]);
+  await vi.waitFor(async () =>
+    expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual([
+      "fourth",
+    ]),
+  );
 });
 
 test("Mark done and Reopen on the selection change the ticked notes alone", async () => {
@@ -921,18 +1890,42 @@ test("Mark done and Reopen on the selection change the ticked notes alone", asyn
   await panelOn(held);
   await tickOf("second:").click();
   await tickOf("third:").click();
-  await selection().getByRole("button", { name: "Mark done" }).click();
+  await selection()
+    .getByRole("button", {
+      name: "Mark done",
+    })
+    .click();
 
-  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.status === "done")).toEqual(["second", "third"]));
+  await vi.waitFor(async () =>
+    expect(await textsOf(held, (one) => one.status === "done")).toEqual([
+      "second",
+      "third",
+    ]),
+  );
   await expect.element(page.getByRole("status")).toHaveTextContent("2 open, 2 done");
   expect(ticked()).toEqual([]);
 
   await tabOf("Done").click();
   await tickOf("third:").click();
   // A done note: Reopen is offered, and Mark done is not.
-  expect(selection().getByRole("button", { name: "Mark done", exact: true }).elements()).toHaveLength(0);
-  await selection().getByRole("button", { name: "Reopen" }).click();
-  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.status === "done")).toEqual(["second"]));
+  expect(
+    selection()
+      .getByRole("button", {
+        name: "Mark done",
+        exact: true,
+      })
+      .elements(),
+  ).toHaveLength(0);
+  await selection()
+    .getByRole("button", {
+      name: "Reopen",
+    })
+    .click();
+  await vi.waitFor(async () =>
+    expect(await textsOf(held, (one) => one.status === "done")).toEqual([
+      "second",
+    ]),
+  );
   expect(ticked()).toEqual([]);
 });
 
@@ -941,13 +1934,25 @@ test("Delete on the selection asks once for the batch, then deletes the ticked n
   await panelOn(held);
   await tickOf("first:").click();
   await tickOf("fourth:").click();
-  const remove = selection().getByRole("button", { name: "Delete" });
+  const remove = selection().getByRole("button", {
+    name: "Delete",
+  });
   await remove.click();
   await expect.element(remove).toHaveTextContent("Press again to delete");
-  expect(await textsOf(held, () => true)).toEqual(["first", "second", "third", "fourth"]);
+  expect(await textsOf(held, () => true)).toEqual([
+    "first",
+    "second",
+    "third",
+    "fourth",
+  ]);
 
   await remove.click();
-  await vi.waitFor(async () => expect(await textsOf(held, () => true)).toEqual(["second", "third"]));
+  await vi.waitFor(async () =>
+    expect(await textsOf(held, () => true)).toEqual([
+      "second",
+      "third",
+    ]),
+  );
   expect(rowOf("first:").elements()).toHaveLength(0);
   expect(ticked()).toEqual([]);
   expect(selection().getByRole("button").elements()).toHaveLength(0);
@@ -956,83 +1961,255 @@ test("Delete on the selection asks once for the batch, then deletes the ticked n
 test("a change to the selection takes back an armed Delete", async () => {
   await panelOn(sinkOf(four()));
   await tickOf("first:").click();
-  await selection().getByRole("button", { name: "Delete" }).click();
-  await expect.element(selection().getByRole("button", { name: "Press again to delete" })).toBeVisible();
+  await selection()
+    .getByRole("button", {
+      name: "Delete",
+    })
+    .click();
+  await expect
+    .element(
+      selection().getByRole("button", {
+        name: "Press again to delete",
+      }),
+    )
+    .toBeVisible();
   await tickOf("second:").click();
-  await expect.element(selection().getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+  await expect
+    .element(
+      selection().getByRole("button", {
+        name: "Delete",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a ticked note deleted from its own row leaves the selection", async () => {
   await panelOn(sinkOf(four()));
   await tickOf("first:").click();
   await tickOf("second:").click();
-  const remove = rowOf("first:").getByRole("button", { name: "Delete" });
+  const remove = rowOf("first:").getByRole("button", {
+    name: "Delete",
+  });
   await remove.click();
-  await rowOf("first:").getByRole("button", { name: "Press again to delete" }).click();
+  await rowOf("first:")
+    .getByRole("button", {
+      name: "Press again to delete",
+    })
+    .click();
   await expect.element(rowOf("first:")).not.toBeInTheDocument();
-  expect(ticked()).toEqual(["second"]);
+  expect(ticked()).toEqual([
+    "second",
+  ]);
   await expect.element(selection()).toHaveTextContent("1 selected");
 });
 
 test("a selection holding a sent note sends only the open unsent ones, and says how many it leaves out", async () => {
   const { fleet, sent } = served();
   const forwarded = note("second", "open", "6", 30);
-  const held = sendable([note("first", "open", "5", 15), { ...forwarded, sent: { sessionId: "01OLD", title: "Old one", at: forwarded.createdAt } }, note("third", "done", "7", 45)]);
+  const held = sendable([
+    note("first", "open", "5", 15),
+    {
+      ...forwarded,
+      sent: {
+        sessionId: "01OLD",
+        title: "Old one",
+        at: forwarded.createdAt,
+      },
+    },
+    note("third", "done", "7", 45),
+  ]);
   await panelOn(held, fleet);
-  await selection().getByRole("checkbox", { name: "Select all" }).click();
-  await expect.element(selection()).toHaveTextContent("2 selected. Sends leave out 1: 1 already sent");
+  await selection()
+    .getByRole("checkbox", {
+      name: "Select all",
+    })
+    .click();
+  await expect
+    .element(selection())
+    .toHaveTextContent("2 selected. Sends leave out 1: 1 already sent");
 
-  await selection().getByRole("button", { name: "Start job" }).click();
+  await selection()
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
   await vi.waitFor(() => expect(sent).toHaveLength(1));
   expect(fleet.startSession).toHaveBeenCalledTimes(1);
-  expect(sent.map((one) => one.said)).toEqual(["first: what the owner said"]);
+  expect(sent.map((one) => one.said)).toEqual([
+    "first: what the owner said",
+  ]);
   await vi.waitFor(() => expect(ticked()).toEqual([]));
 });
 
 test("a selection of only sent or only done notes has nothing to send, and still offers the rest", async () => {
   const forwarded = note("second", "open", "6", 30);
-  await panelOn(sendable([{ ...forwarded, sent: { sessionId: "01OLD", title: "Old one", at: forwarded.createdAt } }, note("third", "done", "7", 45)]), served().fleet);
-  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await panelOn(
+    sendable([
+      {
+        ...forwarded,
+        sent: {
+          sessionId: "01OLD",
+          title: "Old one",
+          at: forwarded.createdAt,
+        },
+      },
+      note("third", "done", "7", 45),
+    ]),
+    served().fleet,
+  );
+  await selection()
+    .getByRole("checkbox", {
+      name: "Select all",
+    })
+    .click();
   await expect.element(selection()).toHaveTextContent("1 selected");
   expect(selection().element().textContent).not.toContain("Sends leave out");
-  await expect.element(selection().getByRole("button", { name: "Start job" })).toBeDisabled();
-  for (const name of ["Mark done", "Delete"]) await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
+  await expect
+    .element(
+      selection().getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .toBeDisabled();
+  for (const name of [
+    "Mark done",
+    "Delete",
+  ])
+    await expect
+      .element(
+        selection().getByRole("button", {
+          name,
+          exact: true,
+        }),
+      )
+      .toBeVisible();
 
   await tabOf("Done").click();
-  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await selection()
+    .getByRole("checkbox", {
+      name: "Select all",
+    })
+    .click();
   await expect.element(selection()).toHaveTextContent("1 selected");
-  await expect.element(selection().getByRole("button", { name: "Start job" })).toBeDisabled();
-  for (const name of ["Reopen", "Delete"]) await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
+  await expect
+    .element(
+      selection().getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .toBeDisabled();
+  for (const name of [
+    "Reopen",
+    "Delete",
+  ])
+    await expect
+      .element(
+        selection().getByRole("button", {
+          name,
+          exact: true,
+        }),
+      )
+      .toBeVisible();
 });
 
 test("where sending is not possible, the selection offers no Start job", async () => {
   await panelOn(sinkOf(four()));
   await tickOf("first:").click();
-  expect(selection().getByRole("button", { name: "Start job" }).elements()).toHaveLength(0);
+  expect(
+    selection()
+      .getByRole("button", {
+        name: "Start job",
+      })
+      .elements(),
+  ).toHaveLength(0);
 });
 
 test("a selection reaching off this screen is sent, and its acts say how many go without a screenshot", async () => {
   const { fleet, sent } = served();
-  const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
-  const held = { ...sendable([note("here", "open", "5", 15), away("gone", "6")]), capture };
+  const capture = vi.fn(
+    async () =>
+      new Uint8Array([
+        137,
+        80,
+        78,
+        71,
+      ]).buffer,
+  );
+  const held = {
+    ...sendable([
+      note("here", "open", "5", 15),
+      away("gone", "6"),
+    ]),
+    capture,
+  };
   await panelOn(held, fleet, vi.fn());
   await tickOf("here:").click();
   await tickOf("gone:").click();
-  await expect.element(selection().getByRole("button", { name: "Start job" })).toHaveAccessibleDescription("No screenshot for 1 of 2: on another screen");
+  await expect
+    .element(
+      selection().getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .toHaveAccessibleDescription("No screenshot for 1 of 2: on another screen");
 
-  await selection().getByRole("button", { name: "Start job" }).click();
+  await selection()
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
   await vi.waitFor(() => expect(sent).toHaveLength(2));
   // One screenshot, of the note on this screen.
   expect(capture).toHaveBeenCalledTimes(1);
-  expect(sent.map((one) => [one.said, one.crop !== undefined])).toEqual([["here: what the owner said", true], ["gone: what the owner said", false]]);
-  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["here", "gone"]));
+  expect(
+    sent.map((one) => [
+      one.said,
+      one.crop !== undefined,
+    ]),
+  ).toEqual([
+    [
+      "here: what the owner said",
+      true,
+    ],
+    [
+      "gone: what the owner said",
+      false,
+    ],
+  ]);
+  await vi.waitFor(async () =>
+    expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual([
+      "here",
+      "gone",
+    ]),
+  );
 });
 
 test("a selection counts as going without a screenshot only the notes off this screen that kept none", async () => {
   const kept = keptAway("kept", "7");
-  await panelOn(sendable([note("here", "open", "5", 15), away("gone", "6"), kept.note], kept.shots), served().fleet);
-  await selection().getByRole("checkbox", { name: "Select all" }).click();
-  await expect.element(selection().getByRole("button", { name: "Start job" })).toHaveAccessibleDescription("No screenshot for 1 of 3: on another screen");
+  await panelOn(
+    sendable(
+      [
+        note("here", "open", "5", 15),
+        away("gone", "6"),
+        kept.note,
+      ],
+      kept.shots,
+    ),
+    served().fleet,
+  );
+  await selection()
+    .getByRole("checkbox", {
+      name: "Select all",
+    })
+    .click();
+  await expect
+    .element(
+      selection().getByRole("button", {
+        name: "Start job",
+      }),
+    )
+    .toHaveAccessibleDescription("No screenshot for 1 of 3: on another screen");
 });
 
 test("turning the layer off and on again comes back with nothing selected", async () => {
@@ -1048,17 +2225,41 @@ test("turning the layer off and on again comes back with nothing selected", asyn
 // The panel's head: search, the four tabs and their counts, folding a screen, and what Select all and Start job take.
 
 /** A note with its own words, screen and component, so a search finds it by one and not the others. */
-const writtenAs = (name: string, text: string, screen: string | null, component: string, status: AnnotationStatus = "open"): Annotation => ({
+const writtenAs = (
+  name: string,
+  text: string,
+  screen: string | null,
+  component: string,
+  status: AnnotationStatus = "open",
+): Annotation => ({
   ...note(name, status, String(name.charCodeAt(0) - 92), 10 + (name.charCodeAt(0) - 97) * 12),
   text,
   screen,
   component,
 });
-const sentTo = (one: Annotation, sessionId: string, title: string): Annotation => ({ ...one, sent: { sessionId, title, at: one.createdAt } });
+const sentTo = (one: Annotation, sessionId: string, title: string): Annotation => ({
+  ...one,
+  sent: {
+    sessionId,
+    title,
+    at: one.createdAt,
+  },
+});
 
-const searching = () => panel().getByRole("searchbox", { name: "Search notes" });
-const listedTexts = () => panel().getByRole("listitem").elements().map((one) => one.querySelector(".armada-annotate__row-text")?.textContent);
-const tabsSaid = () => panel().getByRole("tab").elements().map((one) => one.textContent);
+const searching = () =>
+  panel().getByRole("searchbox", {
+    name: "Search notes",
+  });
+const listedTexts = () =>
+  panel()
+    .getByRole("listitem")
+    .elements()
+    .map((one) => one.querySelector(".armada-annotate__row-text")?.textContent);
+const tabsSaid = () =>
+  panel()
+    .getByRole("tab")
+    .elements()
+    .map((one) => one.textContent);
 
 /** Three notes, each findable by what only it says. */
 const searchable = (): Annotation[] => [
@@ -1069,10 +2270,16 @@ const searchable = (): Annotation[] => [
 
 test("searching finds a note by its text, whatever the case", async () => {
   await panelOn(sinkOf(searchable()));
-  await expect.poll(listedTexts).toEqual(["Title is cut off", "Badge overlaps", "Ring is missing"]);
+  await expect.poll(listedTexts).toEqual([
+    "Title is cut off",
+    "Badge overlaps",
+    "Ring is missing",
+  ]);
 
   await searching().fill("BADGE over");
-  await expect.poll(listedTexts).toEqual(["Badge overlaps"]);
+  await expect.poll(listedTexts).toEqual([
+    "Badge overlaps",
+  ]);
 
   await searching().fill("");
   await expect.poll(listedTexts).toHaveLength(3);
@@ -1081,14 +2288,20 @@ test("searching finds a note by its text, whatever the case", async () => {
 test("searching finds a note by the screen it was written on", async () => {
   await panelOn(sinkOf(searchable()));
   await searching().fill("settings");
-  await expect.poll(listedTexts).toEqual(["Ring is missing"]);
-  expect(headings()).toEqual(["Settings"]);
+  await expect.poll(listedTexts).toEqual([
+    "Ring is missing",
+  ]);
+  expect(headings()).toEqual([
+    "Settings",
+  ]);
 });
 
 test("searching finds a note by the component it is pinned on", async () => {
   await panelOn(sinkOf(searchable()));
   await searching().fill("themepicker");
-  await expect.poll(listedTexts).toEqual(["Ring is missing"]);
+  await expect.poll(listedTexts).toEqual([
+    "Ring is missing",
+  ]);
 });
 
 test("a search that finds nothing says so, and drops the select head with the rows", async () => {
@@ -1101,7 +2314,12 @@ test("a search that finds nothing says so, and drops the select head with the ro
 
 test("the tabs say how many notes each holds, and a tab holding none says no figure", async () => {
   await panelOn(sinkOf(batch()));
-  expect(tabsSaid()).toEqual(["Open 2", "No job 2", "Has job", "Done 1"]);
+  expect(tabsSaid()).toEqual([
+    "Open 2",
+    "No job 2",
+    "Has job",
+    "Done 1",
+  ]);
   await expect.element(tabOf("Open")).toHaveAttribute("aria-selected", "true");
 });
 
@@ -1116,99 +2334,232 @@ test("the Open, No job, Has job and Done tabs each list what they hold", async (
       sent(writtenAs("e", "Done sent", "Overview", "Deck", "done"), "01S2"),
     ]),
   );
-  expect(tabsSaid()).toEqual(["Open 3", "No job 2", "Has job 1", "Done 2"]);
+  expect(tabsSaid()).toEqual([
+    "Open 3",
+    "No job 2",
+    "Has job 1",
+    "Done 2",
+  ]);
   const held = async (tab: string, texts: string[]) => {
     await tabOf(tab).click();
     await expect.element(tabOf(tab)).toHaveAttribute("aria-selected", "true");
     await expect.poll(listedTexts).toEqual(texts);
   };
-  await held("Open", ["Unsent one", "Unsent two", "Sent open"]);
-  await held("No job", ["Unsent one", "Unsent two"]);
-  await held("Has job", ["Sent open"]);
-  await held("Done", ["Done unsent", "Done sent"]);
+  await held("Open", [
+    "Unsent one",
+    "Unsent two",
+    "Sent open",
+  ]);
+  await held("No job", [
+    "Unsent one",
+    "Unsent two",
+  ]);
+  await held("Has job", [
+    "Sent open",
+  ]);
+  await held("Done", [
+    "Done unsent",
+    "Done sent",
+  ]);
 });
 
 test("a search narrows whichever tab is chosen, and the counts stay what the tab holds", async () => {
-  await panelOn(sinkOf([...searchable(), writtenAs("d", "Badge is done", "Sessions", "RowBadge", "done")]));
+  await panelOn(
+    sinkOf([
+      ...searchable(),
+      writtenAs("d", "Badge is done", "Sessions", "RowBadge", "done"),
+    ]),
+  );
   await searching().fill("badge");
-  await expect.poll(listedTexts).toEqual(["Badge overlaps"]);
+  await expect.poll(listedTexts).toEqual([
+    "Badge overlaps",
+  ]);
   await tabOf("Done").click();
-  await expect.poll(listedTexts).toEqual(["Badge is done"]);
-  expect(tabsSaid()).toEqual(["Open 3", "No job 3", "Has job", "Done 1"]);
+  await expect.poll(listedTexts).toEqual([
+    "Badge is done",
+  ]);
+  expect(tabsSaid()).toEqual([
+    "Open 3",
+    "No job 3",
+    "Has job",
+    "Done 1",
+  ]);
 });
 
 test("a screen's group folds on its heading and opens again, and its count stays", async () => {
-  await panelOn(sinkOf([writtenAs("a", "Overview one", "Overview", "Deck"), writtenAs("b", "Overview two", "Overview", "Deck"), writtenAs("c", "Sessions one", "Sessions", "Deck")]));
-  const fold = panel().getByRole("heading").getByRole("button", { name: /Overview/ });
+  await panelOn(
+    sinkOf([
+      writtenAs("a", "Overview one", "Overview", "Deck"),
+      writtenAs("b", "Overview two", "Overview", "Deck"),
+      writtenAs("c", "Sessions one", "Sessions", "Deck"),
+    ]),
+  );
+  const fold = panel()
+    .getByRole("heading")
+    .getByRole("button", {
+      name: /Overview/,
+    });
   await expect.element(fold).toHaveAttribute("aria-expanded", "true");
   await expect.element(fold).toHaveTextContent("2");
 
   await fold.click();
   await expect.element(fold).toHaveAttribute("aria-expanded", "false");
-  await expect.poll(listedTexts).toEqual(["Sessions one"]);
+  await expect.poll(listedTexts).toEqual([
+    "Sessions one",
+  ]);
   await expect.element(fold).toHaveTextContent("2");
 
   await fold.click();
-  await expect.poll(listedTexts).toEqual(["Overview one", "Overview two", "Sessions one"]);
+  await expect.poll(listedTexts).toEqual([
+    "Overview one",
+    "Overview two",
+    "Sessions one",
+  ]);
 });
 
 test("a folded screen is put back, open, when the layer comes on again", async () => {
-  await panelOn(sinkOf([writtenAs("a", "Overview one", "Overview", "Deck")]));
-  await panel().getByRole("heading").getByRole("button", { name: /Overview/ }).click();
+  await panelOn(
+    sinkOf([
+      writtenAs("a", "Overview one", "Overview", "Deck"),
+    ]),
+  );
+  await panel()
+    .getByRole("heading")
+    .getByRole("button", {
+      name: /Overview/,
+    })
+    .click();
   expect(listedTexts()).toEqual([]);
   await pressToggle();
   await pressToggle();
   await countOf().click();
-  await expect.poll(listedTexts).toEqual(["Overview one"]);
+  await expect.poll(listedTexts).toEqual([
+    "Overview one",
+  ]);
 });
 
 test("Select all ticks every listed note, those in a folded screen too, and Start job sends them all", async () => {
   const { fleet, sent } = served();
-  await panelOn(sendable([writtenAs("a", "Overview one", "Overview", "Deck"), writtenAs("b", "Overview two", "Overview", "Deck"), writtenAs("c", "Sessions one", "Sessions", "Deck")]), fleet, vi.fn());
-  await panel().getByRole("heading").getByRole("button", { name: /Overview/ }).click();
-  expect(listedTexts()).toEqual(["Sessions one"]);
+  await panelOn(
+    sendable([
+      writtenAs("a", "Overview one", "Overview", "Deck"),
+      writtenAs("b", "Overview two", "Overview", "Deck"),
+      writtenAs("c", "Sessions one", "Sessions", "Deck"),
+    ]),
+    fleet,
+    vi.fn(),
+  );
+  await panel()
+    .getByRole("heading")
+    .getByRole("button", {
+      name: /Overview/,
+    })
+    .click();
+  expect(listedTexts()).toEqual([
+    "Sessions one",
+  ]);
 
-  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await selection()
+    .getByRole("checkbox", {
+      name: "Select all",
+    })
+    .click();
   await expect.element(selection()).toHaveTextContent("3 selected");
-  await expect.element(selection().getByRole("checkbox", { name: "Select all" })).toBeChecked();
+  await expect
+    .element(
+      selection().getByRole("checkbox", {
+        name: "Select all",
+      }),
+    )
+    .toBeChecked();
   // Opened again, the notes that were folded away are ticked.
-  await panel().getByRole("heading").getByRole("button", { name: /Overview/ }).click();
+  await panel()
+    .getByRole("heading")
+    .getByRole("button", {
+      name: /Overview/,
+    })
+    .click();
   await expect.poll(() => ticked().length).toBe(3);
 
-  await selection().getByRole("button", { name: "Start job" }).click();
+  await selection()
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
   await vi.waitFor(() => expect(sent).toHaveLength(3));
-  expect(sent.map((one) => one.said)).toEqual(["Overview one", "Overview two", "Sessions one"]);
+  expect(sent.map((one) => one.said)).toEqual([
+    "Overview one",
+    "Overview two",
+    "Sessions one",
+  ]);
 });
 
 test("Select all takes only what the search leaves, and a note it hides is neither counted nor sent", async () => {
   const { fleet, sent } = served();
-  await panelOn(sendable([writtenAs("a", "Alpha first", "Overview", "Deck"), writtenAs("b", "Beta second", "Overview", "Deck"), writtenAs("c", "Beta third", "Overview", "Deck")]), fleet, vi.fn());
+  await panelOn(
+    sendable([
+      writtenAs("a", "Alpha first", "Overview", "Deck"),
+      writtenAs("b", "Beta second", "Overview", "Deck"),
+      writtenAs("c", "Beta third", "Overview", "Deck"),
+    ]),
+    fleet,
+    vi.fn(),
+  );
   await tickOf("Alpha first").click();
   await searching().fill("beta");
-  await expect.poll(listedTexts).toEqual(["Beta second", "Beta third"]);
+  await expect.poll(listedTexts).toEqual([
+    "Beta second",
+    "Beta third",
+  ]);
   // The note ticked before the search is out of view: it is not in the count.
   expect(selection().element().textContent).not.toContain("selected");
 
-  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await selection()
+    .getByRole("checkbox", {
+      name: "Select all",
+    })
+    .click();
   await expect.element(selection()).toHaveTextContent("2 selected");
-  await selection().getByRole("button", { name: "Start job" }).click();
+  await selection()
+    .getByRole("button", {
+      name: "Start job",
+    })
+    .click();
   await vi.waitFor(() => expect(sent).toHaveLength(2));
-  expect(sent.map((one) => one.said)).toEqual(["Beta second", "Beta third"]);
+  expect(sent.map((one) => one.said)).toEqual([
+    "Beta second",
+    "Beta third",
+  ]);
 });
 
 test("Select all on a search ticks nothing the search hides, which are there when the search is cleared", async () => {
   await panelOn(sinkOf(searchable()));
   await searching().fill("deck");
-  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await selection()
+    .getByRole("checkbox", {
+      name: "Select all",
+    })
+    .click();
   await searching().fill("");
-  await expect.poll(ticked).toEqual(["Title is cut off"]);
+  await expect.poll(ticked).toEqual([
+    "Title is cut off",
+  ]);
 });
 
 test("Start job in the head is held until a note it can send is ticked, and sends the ticked ones", async () => {
   const { fleet, sent } = served();
   const forwarded = sentTo(writtenAs("b", "Already sent", "Overview", "Deck"), "01OLD", "Old one");
-  await panelOn(sendable([writtenAs("a", "Not sent", "Overview", "Deck"), forwarded]), fleet, vi.fn());
-  const start = selection().getByRole("button", { name: "Start job" });
+  await panelOn(
+    sendable([
+      writtenAs("a", "Not sent", "Overview", "Deck"),
+      forwarded,
+    ]),
+    fleet,
+    vi.fn(),
+  );
+  const start = selection().getByRole("button", {
+    name: "Start job",
+  });
   await expect.element(start).toBeDisabled();
 
   // A note that already went to a Job gives it nothing to send.
@@ -1220,25 +2571,73 @@ test("Start job in the head is held until a note it can send is ticked, and send
   await expect.element(start).toBeEnabled();
   await start.click();
   await vi.waitFor(() => expect(sent).toHaveLength(1));
-  expect(sent.map((one) => one.said)).toEqual(["Not sent"]);
+  expect(sent.map((one) => one.said)).toEqual([
+    "Not sent",
+  ]);
 });
 
 // A sent note's row draws the Job it went to as the shared Job card.
 
-const held = (id: string, title: string): Session => ({ id, title, attachments: [], rows: [], turn: { state: "working" } }) as unknown as Session;
-const cardOf = (text: string, title: string) => rowOf(text).getByRole("button", { name: `Job ${title}`, exact: true });
+const held = (id: string, title: string): Session =>
+  ({
+    id,
+    title,
+    attachments: [],
+    rows: [],
+    turn: {
+      state: "working",
+    },
+  }) as unknown as Session;
+const cardOf = (text: string, title: string) =>
+  rowOf(text).getByRole("button", {
+    name: `Job ${title}`,
+    exact: true,
+  });
 
 test("a note sent to a Job this window holds draws that Job as its card, and a press opens it", async () => {
   const opened = vi.fn();
-  const forwarded = sentTo(writtenAs("a", "Sent note", "Overview", "Deck"), "01HELD", "Title the note kept");
-  await panelOn(sendable([forwarded, writtenAs("b", "Unsent note", "Overview", "Deck")]), undefined, opened, undefined, [held("01HELD", "Row badge spacing")]);
+  const forwarded = sentTo(
+    writtenAs("a", "Sent note", "Overview", "Deck"),
+    "01HELD",
+    "Title the note kept",
+  );
+  await panelOn(
+    sendable([
+      forwarded,
+      writtenAs("b", "Unsent note", "Overview", "Deck"),
+    ]),
+    undefined,
+    opened,
+    undefined,
+    [
+      held("01HELD", "Row badge spacing"),
+    ],
+  );
 
   const card = cardOf("Sent note", "Row badge spacing");
   await expect.element(card).toBeVisible();
   // The Job's live state, and the title the Job has now, not the one the note kept.
-  await expect.element(card.getByRole("img", { name: "Working" })).toBeVisible();
-  expect(rowOf("Sent note").getByRole("button", { name: "Job Title the note kept" }).elements()).toHaveLength(0);
-  expect(rowOf("Unsent note").getByRole("button", { name: /^Job / }).elements()).toHaveLength(0);
+  await expect
+    .element(
+      card.getByRole("img", {
+        name: "Working",
+      }),
+    )
+    .toBeVisible();
+  expect(
+    rowOf("Sent note")
+      .getByRole("button", {
+        name: "Job Title the note kept",
+      })
+      .elements(),
+  ).toHaveLength(0);
+  expect(
+    rowOf("Unsent note")
+      .getByRole("button", {
+        name: /^Job /,
+      })
+      .elements(),
+  ).toHaveLength(0);
 
   await card.click();
   expect(opened).toHaveBeenCalledWith("01HELD");
@@ -1246,12 +2645,32 @@ test("a note sent to a Job this window holds draws that Job as its card, and a p
 
 test("a note sent to a Job this window does not hold draws the card with the title the note kept, in no state", async () => {
   const opened = vi.fn();
-  const forwarded = sentTo(writtenAs("a", "Sent note", "Overview", "Deck"), "01GONE", "Title the note kept");
-  await panelOn(sendable([forwarded]), undefined, opened, undefined, [held("01OTHER", "Some other Job")]);
+  const forwarded = sentTo(
+    writtenAs("a", "Sent note", "Overview", "Deck"),
+    "01GONE",
+    "Title the note kept",
+  );
+  await panelOn(
+    sendable([
+      forwarded,
+    ]),
+    undefined,
+    opened,
+    undefined,
+    [
+      held("01OTHER", "Some other Job"),
+    ],
+  );
 
   const card = cardOf("Sent note", "Title the note kept");
   await expect.element(card).toBeVisible();
-  await expect.element(card.getByRole("img", { name: "Not held by this window" })).toBeVisible();
+  await expect
+    .element(
+      card.getByRole("img", {
+        name: "Not held by this window",
+      }),
+    )
+    .toBeVisible();
 
   await card.click();
   expect(opened).toHaveBeenCalledWith("01GONE");
@@ -1261,14 +2680,21 @@ test("a note sent to a Job this window does not hold draws the card with the tit
 
 test("the layer reads its notes again each time Fleet says a note file changed, and stops listening when it is put away", async () => {
   const listeners = new Set<() => void>();
-  window.armadaDev = { onChanged: (listener: () => void) => (listeners.add(listener), () => void listeners.delete(listener)) } as unknown as typeof window.armadaDev;
+  window.armadaDev = {
+    onChanged: (listener: () => void) => (
+      listeners.add(listener), () => void listeners.delete(listener)
+    ),
+  } as unknown as typeof window.armadaDev;
   const files = sinkOf(batch());
   await panelOn(files);
   await expect.element(countOf()).toHaveTextContent("2 open, 1 done");
 
   // Fleet marks the first note done, in its file. The layer holds what it read until told.
   const [first] = await files.list();
-  await files.save({ ...first!, status: "done" });
+  await files.save({
+    ...first!,
+    status: "done",
+  });
   await new Promise((settled) => setTimeout(settled, 50));
   await expect.element(countOf()).toHaveTextContent("2 open, 1 done");
 
@@ -1285,7 +2711,11 @@ test("the layer reads its notes again each time Fleet says a note file changed, 
 /** A sink that also keeps example pictures, and says which it was asked to write and remove. */
 function pictured(notes: Annotation[] = []) {
   const files = new Map<string, ArrayBuffer>();
-  const asked = { saved: [] as string[], removed: [] as string[], read: [] as string[] };
+  const asked = {
+    saved: [] as string[],
+    removed: [] as string[],
+    read: [] as string[],
+  };
   const sink: Sink = {
     ...sinkOf(notes),
     saveExample: async (_id, name, png) => {
@@ -1301,7 +2731,11 @@ function pictured(notes: Annotation[] = []) {
       asked.removed.push(name);
     },
   };
-  return { sink, files, asked };
+  return {
+    sink,
+    files,
+    asked,
+  };
 }
 
 /** An element to note, with an id so the selector the layer takes of it finds it again and no other. */
@@ -1311,18 +2745,42 @@ function identified(name: string, top: number): string {
   return `#${name}-element`;
 }
 
-const draftCard = () => page.getByRole("dialog", { name: "New note" });
-const savedCard = () => page.getByRole("dialog", { name: "Note", exact: true });
-const sizeOf = (selector: string): string => getComputedStyle(document.querySelector(selector)!).fontSize;
+const draftCard = () =>
+  page.getByRole("dialog", {
+    name: "New note",
+  });
+const savedCard = () =>
+  page.getByRole("dialog", {
+    name: "Note",
+    exact: true,
+  });
+const sizeOf = (selector: string): string =>
+  getComputedStyle(document.querySelector(selector)!).fontSize;
 /** What `--text-lg` is in this window, which is the Size the tests pick. */
-const LARGE = (): string => getComputedStyle(document.documentElement).getPropertyValue("--text-lg").trim();
+const LARGE = (): string =>
+  getComputedStyle(document.documentElement).getPropertyValue("--text-lg").trim();
 
 async function pickSize(card: ReturnType<typeof draftCard>): Promise<void> {
-  await card.getByRole("button", { name: "Size", exact: true }).click();
-  await card.getByRole("button", { name: "--text-lg" }).click();
+  await card
+    .getByRole("button", {
+      name: "Size",
+      exact: true,
+    })
+    .click();
+  await card
+    .getByRole("button", {
+      name: "--text-lg",
+    })
+    .click();
 }
 
-const escape = (): boolean => document.querySelector(".armada-annotate")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+const escape = (): boolean =>
+  document.querySelector(".armada-annotate")!.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+    }),
+  );
 
 test("a note saved after a Size pick keeps the change on the note, and the element shows it only while the card is up", async () => {
   const held = sinkOf();
@@ -1336,12 +2794,28 @@ test("a note saved after a Size pick keeps the change on the note, and the eleme
   await pickSize(draftCard());
   // At once, in the draft's own card.
   expect(sizeOf(target)).toBe(LARGE());
-  await draftCard().getByRole("textbox", { name: "Note" }).fill("Make me larger");
-  await draftCard().getByRole("button", { name: "Save note" }).click();
+  await draftCard()
+    .getByRole("textbox", {
+      name: "Note",
+    })
+    .fill("Make me larger");
+  await draftCard()
+    .getByRole("button", {
+      name: "Save note",
+    })
+    .click();
   await expect.element(draftCard()).not.toBeInTheDocument();
 
   const [saved] = await held.list();
-  expect(saved?.changes).toEqual([{ kind: "size", property: "font-size", before, after: LARGE(), token: "--text-lg" }]);
+  expect(saved?.changes).toEqual([
+    {
+      kind: "size",
+      property: "font-size",
+      before,
+      after: LARGE(),
+      token: "--text-lg",
+    },
+  ]);
   // The saved note stays up in its card, with the change still on the page.
   await expect.element(savedCard()).toBeVisible();
   expect(sizeOf(target)).toBe(LARGE());
@@ -1352,8 +2826,18 @@ test("a note saved after a Size pick keeps the change on the note, and the eleme
   expect(sizeOf(target)).toBe(before);
 
   // Opening the note again puts its change back on, and lists it.
-  await page.getByRole("button", { name: /^Note 1, open/ }).click();
-  await expect.element(savedCard().getByRole("list", { name: "Changes" })).toHaveTextContent(`${before} → ${LARGE()}`);
+  await page
+    .getByRole("button", {
+      name: /^Note 1, open/,
+    })
+    .click();
+  await expect
+    .element(
+      savedCard().getByRole("list", {
+        name: "Changes",
+      }),
+    )
+    .toHaveTextContent(`${before} → ${LARGE()}`);
   expect(sizeOf(target)).toBe(LARGE());
 });
 
@@ -1375,7 +2859,11 @@ test("a card cancelled gives the element back, and nothing is written", async ()
   await expect.element(draftCard()).toBeVisible();
   await pickSize(draftCard());
   expect(sizeOf(target)).toBe(LARGE());
-  await draftCard().getByRole("button", { name: "Cancel" }).click();
+  await draftCard()
+    .getByRole("button", {
+      name: "Cancel",
+    })
+    .click();
   expect(sizeOf(target)).toBe(before);
   expect(await held.list()).toEqual([]);
 });
@@ -1389,7 +2877,13 @@ test("a draft holding only a change is not thrown away by a click on something e
   await pickSize(draftCard());
   document.querySelector<HTMLElement>(second)!.click();
   await new Promise((settled) => requestAnimationFrame(() => requestAnimationFrame(settled)));
-  await expect.element(draftCard().getByRole("list", { name: "Changes" })).toBeVisible();
+  await expect
+    .element(
+      draftCard().getByRole("list", {
+        name: "Changes",
+      }),
+    )
+    .toBeVisible();
   expect(sizeOf(first)).toBe(LARGE());
 });
 
@@ -1397,13 +2891,34 @@ test("a change made on a saved note is written a beat after, and undoing the las
   const name = "kept";
   const element = noted(name, 20);
   const before = sizeOf(element);
-  const open: Annotation = { ...note(name, "open", "5", 20), changes: [{ kind: "size", property: "font-size", before, after: LARGE(), token: "--text-lg" }] };
-  const held = sinkOf([open]);
+  const open: Annotation = {
+    ...note(name, "open", "5", 20),
+    changes: [
+      {
+        kind: "size",
+        property: "font-size",
+        before,
+        after: LARGE(),
+        token: "--text-lg",
+      },
+    ],
+  };
+  const held = sinkOf([
+    open,
+  ]);
   await annotating(held);
-  await page.getByRole("button", { name: /^Note 1, open/ }).click();
+  await page
+    .getByRole("button", {
+      name: /^Note 1, open/,
+    })
+    .click();
   expect(sizeOf(element)).toBe(LARGE());
 
-  await savedCard().getByRole("button", { name: "Undo Size" }).click();
+  await savedCard()
+    .getByRole("button", {
+      name: "Undo Size",
+    })
+    .click();
   expect(sizeOf(element)).toBe(before);
   await vi.waitFor(async () => expect((await held.list())[0]).not.toHaveProperty("changes"));
 });
@@ -1413,17 +2928,43 @@ test("a picture pasted on a draft's card is shown, and is kept beside the note w
   await annotating(sink);
   document.querySelector<HTMLElement>(identified("target", 20))!.click();
   await expect.element(draftCard()).toBeVisible();
-  await pasteOn(draftCard(), [new File([PNG], "shot.png", { type: "image/png" })]);
+  await pasteOn(draftCard(), [
+    new File(
+      [
+        PNG,
+      ],
+      "shot.png",
+      {
+        type: "image/png",
+      },
+    ),
+  ]);
 
-  await expect.element(draftCard().getByRole("list", { name: "Pictures" })).toBeVisible();
+  await expect
+    .element(
+      draftCard().getByRole("list", {
+        name: "Pictures",
+      }),
+    )
+    .toBeVisible();
   // Held, not written, until the note is.
   expect(asked.saved).toEqual([]);
-  await draftCard().getByRole("textbox", { name: "Note" }).fill("Like this");
-  await draftCard().getByRole("button", { name: "Save note" }).click();
+  await draftCard()
+    .getByRole("textbox", {
+      name: "Note",
+    })
+    .fill("Like this");
+  await draftCard()
+    .getByRole("button", {
+      name: "Save note",
+    })
+    .click();
   await expect.element(draftCard()).not.toBeInTheDocument();
 
   const [saved] = await sink.list();
-  expect(saved?.examples).toEqual([`${saved?.id}-example-1.png`]);
+  expect(saved?.examples).toEqual([
+    `${saved?.id}-example-1.png`,
+  ]);
   expect(asked.saved).toEqual(saved!.examples);
   expect(new Uint8Array(files.get(saved!.examples![0]!)!)).toEqual(new Uint8Array(PNG));
 });
@@ -1433,11 +2974,39 @@ test("a picture removed from the draft before it is saved is never written", asy
   await annotating(sink);
   document.querySelector<HTMLElement>(identified("target", 20))!.click();
   await expect.element(draftCard()).toBeVisible();
-  await pasteOn(draftCard(), [new File([PNG], "shot.png", { type: "image/png" })]);
-  await draftCard().getByRole("button", { name: /^Remove .*-example-1\.png$/ }).click();
-  await expect.element(draftCard().getByRole("list", { name: "Pictures" })).not.toBeInTheDocument();
-  await draftCard().getByRole("textbox", { name: "Note" }).fill("No picture after all");
-  await draftCard().getByRole("button", { name: "Save note" }).click();
+  await pasteOn(draftCard(), [
+    new File(
+      [
+        PNG,
+      ],
+      "shot.png",
+      {
+        type: "image/png",
+      },
+    ),
+  ]);
+  await draftCard()
+    .getByRole("button", {
+      name: /^Remove .*-example-1\.png$/,
+    })
+    .click();
+  await expect
+    .element(
+      draftCard().getByRole("list", {
+        name: "Pictures",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await draftCard()
+    .getByRole("textbox", {
+      name: "Note",
+    })
+    .fill("No picture after all");
+  await draftCard()
+    .getByRole("button", {
+      name: "Save note",
+    })
+    .click();
   await expect.element(draftCard()).not.toBeInTheDocument();
   const [saved] = await sink.list();
   expect(saved).not.toHaveProperty("examples");
@@ -1447,35 +3016,113 @@ test("a picture removed from the draft before it is saved is never written", asy
 test("a picture dropped on a saved note's card is written beside it at once, numbered after the last, and taken off by its press", async () => {
   const name = "kept";
   noted(name, 20);
-  const { sink, asked } = pictured([note(name, "open", "5", 20)]);
+  const { sink, asked } = pictured([
+    note(name, "open", "5", 20),
+  ]);
   await annotating(sink);
-  await page.getByRole("button", { name: /^Note 1, open/ }).click();
+  await page
+    .getByRole("button", {
+      name: /^Note 1, open/,
+    })
+    .click();
   const id = (await sink.list())[0]!.id;
 
-  await dropOn(savedCard(), [new File([PNG], "one.png", { type: "image/png" })]);
-  await vi.waitFor(async () => expect((await sink.list())[0]?.examples).toEqual([`${id}-example-1.png`]));
-  await dropOn(savedCard(), [new File([PNG], "two.png", { type: "image/png" })]);
-  await vi.waitFor(async () => expect((await sink.list())[0]?.examples).toEqual([`${id}-example-1.png`, `${id}-example-2.png`]));
-  expect(asked.saved).toEqual([`${id}-example-1.png`, `${id}-example-2.png`]);
+  await dropOn(savedCard(), [
+    new File(
+      [
+        PNG,
+      ],
+      "one.png",
+      {
+        type: "image/png",
+      },
+    ),
+  ]);
+  await vi.waitFor(async () =>
+    expect((await sink.list())[0]?.examples).toEqual([
+      `${id}-example-1.png`,
+    ]),
+  );
+  await dropOn(savedCard(), [
+    new File(
+      [
+        PNG,
+      ],
+      "two.png",
+      {
+        type: "image/png",
+      },
+    ),
+  ]);
+  await vi.waitFor(async () =>
+    expect((await sink.list())[0]?.examples).toEqual([
+      `${id}-example-1.png`,
+      `${id}-example-2.png`,
+    ]),
+  );
+  expect(asked.saved).toEqual([
+    `${id}-example-1.png`,
+    `${id}-example-2.png`,
+  ]);
 
-  await savedCard().getByRole("button", { name: `Remove ${id}-example-1.png` }).click();
-  await vi.waitFor(async () => expect((await sink.list())[0]?.examples).toEqual([`${id}-example-2.png`]));
-  expect(asked.removed).toEqual([`${id}-example-1.png`]);
+  await savedCard()
+    .getByRole("button", {
+      name: `Remove ${id}-example-1.png`,
+    })
+    .click();
+  await vi.waitFor(async () =>
+    expect((await sink.list())[0]?.examples).toEqual([
+      `${id}-example-2.png`,
+    ]),
+  );
+  expect(asked.removed).toEqual([
+    `${id}-example-1.png`,
+  ]);
   // The next is numbered after the highest, so no name is used twice.
-  await dropOn(savedCard(), [new File([PNG], "three.png", { type: "image/png" })]);
-  await vi.waitFor(async () => expect((await sink.list())[0]?.examples).toEqual([`${id}-example-2.png`, `${id}-example-3.png`]));
+  await dropOn(savedCard(), [
+    new File(
+      [
+        PNG,
+      ],
+      "three.png",
+      {
+        type: "image/png",
+      },
+    ),
+  ]);
+  await vi.waitFor(async () =>
+    expect((await sink.list())[0]?.examples).toEqual([
+      `${id}-example-2.png`,
+      `${id}-example-3.png`,
+    ]),
+  );
 });
 
 test("a note's pictures are read back from beside it when it is opened", async () => {
   const name = "kept";
   noted(name, 20);
   const { sink, files, asked } = pictured();
-  const withPicture: Annotation = { ...note(name, "open", "5", 20), examples: [`${note(name, "open", "5", 20).id}-example-1.png`] };
+  const withPicture: Annotation = {
+    ...note(name, "open", "5", 20),
+    examples: [
+      `${note(name, "open", "5", 20).id}-example-1.png`,
+    ],
+  };
   await sink.save(withPicture);
   files.set(withPicture.examples![0]!, PNG);
   await annotating(sink);
-  await page.getByRole("button", { name: /^Note 1, open/ }).click();
-  await expect.element(savedCard().getByRole("img", { name: withPicture.examples![0]! })).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: /^Note 1, open/,
+    })
+    .click();
+  await expect
+    .element(
+      savedCard().getByRole("img", {
+        name: withPicture.examples![0]!,
+      }),
+    )
+    .toBeVisible();
   expect(asked.read).toEqual(withPicture.examples);
 });
 
@@ -1485,14 +3132,48 @@ test("what is pasted that is not a picture goes on as a paste, and a file that s
   await annotating(sink, undefined, undefined, tell);
   document.querySelector<HTMLElement>(identified("target", 20))!.click();
   await expect.element(draftCard()).toBeVisible();
-  const plain = await pasteOn(draftCard(), [new File(["words"], "a.txt", { type: "text/plain" })]);
+  const plain = await pasteOn(draftCard(), [
+    new File(
+      [
+        "words",
+      ],
+      "a.txt",
+      {
+        type: "text/plain",
+      },
+    ),
+  ]);
   expect(plain.defaultPrevented).toBe(false);
-  await expect.element(draftCard().getByRole("list", { name: "Pictures" })).not.toBeInTheDocument();
+  await expect
+    .element(
+      draftCard().getByRole("list", {
+        name: "Pictures",
+      }),
+    )
+    .not.toBeInTheDocument();
 
-  const broken = await pasteOn(draftCard(), [new File(["not a picture"], "bad.png", { type: "image/png" })]);
+  const broken = await pasteOn(draftCard(), [
+    new File(
+      [
+        "not a picture",
+      ],
+      "bad.png",
+      {
+        type: "image/png",
+      },
+    ),
+  ]);
   expect(broken.defaultPrevented).toBe(true);
-  await vi.waitFor(() => expect(tell).toHaveBeenCalledWith("Picture not added: bad.png is not an image"));
-  await expect.element(draftCard().getByRole("list", { name: "Pictures" })).not.toBeInTheDocument();
+  await vi.waitFor(() =>
+    expect(tell).toHaveBeenCalledWith("Picture not added: bad.png is not an image"),
+  );
+  await expect
+    .element(
+      draftCard().getByRole("list", {
+        name: "Pictures",
+      }),
+    )
+    .not.toBeInTheDocument();
   expect(asked.saved).toEqual([]);
 });
 
@@ -1500,7 +3181,11 @@ test("what is pasted that is not a picture goes on as a paste, and a file that s
 async function pasteOn(card: ReturnType<typeof draftCard>, files: File[]): Promise<ClipboardEvent> {
   const data = new DataTransfer();
   for (const file of files) data.items.add(file);
-  const event = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true });
+  const event = new ClipboardEvent("paste", {
+    clipboardData: data,
+    bubbles: true,
+    cancelable: true,
+  });
   (card.element() as HTMLElement).querySelector("textarea")!.dispatchEvent(event);
   await new Promise((settled) => setTimeout(settled, 0));
   return event;
@@ -1510,6 +3195,12 @@ async function pasteOn(card: ReturnType<typeof draftCard>, files: File[]): Promi
 async function dropOn(card: ReturnType<typeof draftCard>, files: File[]): Promise<void> {
   const data = new DataTransfer();
   for (const file of files) data.items.add(file);
-  (card.element() as HTMLElement).dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
+  (card.element() as HTMLElement).dispatchEvent(
+    new DragEvent("drop", {
+      dataTransfer: data,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
   await new Promise((settled) => setTimeout(settled, 0));
 }

@@ -29,7 +29,9 @@ export function Provenance({ source, file, at }: ProvenanceProps) {
         <span className="armada-provenance__file">{at === undefined ? file : `${file} ${at}`}</span>
       ) : null}
       {source === "read" ? null : (
-        <span className="armada-provenance__word">{WORDS[source] ?? source.replaceAll("_", " ")}</span>
+        <span className="armada-provenance__word">
+          {WORDS[source] ?? source.replaceAll("_", " ")}
+        </span>
       )}
     </span>
   );

@@ -42,7 +42,15 @@ import { useDockWidth } from "./dock-width";
 // two cannot answer a resize a pixel apart.
 import { useNarrow } from "./floor";
 import { useRecentRepositories } from "./recent-repositories";
-import { ADD, ALL, NEW, NEW_WORKSPACE, WORKSPACE, repositoryEntries, rootOf } from "./repository-entries";
+import {
+  ADD,
+  ALL,
+  NEW,
+  NEW_WORKSPACE,
+  WORKSPACE,
+  repositoryEntries,
+  rootOf,
+} from "./repository-entries";
 import type { PickerWorkspace } from "./repository-entries";
 import { SURFACE, SURFACES } from "./surfaces";
 
@@ -98,7 +106,15 @@ export type ShellProps = {
   /** The title row's read-only name of the picked repository. See `TheShell`. */
   repository?: TheShellProps["repository"];
   /** The mark on a repository's row in the title row's list, and the act → runs on it. Bridge builds it: the places runs are kept are the app's to read. */
-  repositoryTrail?: (root: string, label: string) => { node: ReactNode; open: () => void } | undefined;
+  repositoryTrail?: (
+    root: string,
+    label: string,
+  ) =>
+    | {
+        node: ReactNode;
+        open: () => void;
+      }
+    | undefined;
   /** Goes to a surface, by its id in `surfaces.ts`: the menu's Settings. */
   onSurface?: (surfaceId: string) => void;
   /**
@@ -164,11 +180,20 @@ export function Shell({
   const [recent, remember] = useRecentRepositories();
   const pickerEntries = repositoryEntries(repositories, {
     scope,
-    all: repositories.length === 0 ? (listed ? "Nothing set up yet" : "No repository read yet") : "All repositories",
+    all:
+      repositories.length === 0
+        ? listed
+          ? "Nothing set up yet"
+          : "No repository read yet"
+        : "All repositories",
     add: onAddRepository !== undefined,
     create: onNewProject !== undefined,
     recent,
-    ...(workspaces === undefined ? {} : { workspaces }),
+    ...(workspaces === undefined
+      ? {}
+      : {
+          workspaces,
+        }),
     newWorkspace: onOpenWorkspace !== undefined,
     workspaceScope,
   });
@@ -184,30 +209,51 @@ export function Shell({
 
   return (
     <TheShell
-      {...(places === undefined ? {} : { places })}
-      {...(wordmark === undefined ? {} : { wordmark })}
-      {...(repository === undefined ? {} : { repository })}
+      {...(places === undefined
+        ? {}
+        : {
+            places,
+          })}
+      {...(wordmark === undefined
+        ? {}
+        : {
+            wordmark,
+          })}
+      {...(repository === undefined
+        ? {}
+        : {
+            repository,
+          })}
       dock={{
         ...dock,
         // The breakpoint alone: the dock folds to its sheet where the title row has no room for its button.
         folded: narrow,
         binding: keyFor("helm"),
         questions: asking,
-        ...(helmCalling ? { calling: true } : {}),
+        ...(helmCalling
+          ? {
+              calling: true,
+            }
+          : {}),
         width: dockWidth,
         onResize: resizeDock,
         action: helmAction,
-        children: (
-          <>
-            {helm}
-          </>
-        ),
+        children: <>{helm}</>,
       }}
       repositoryMenu={{
         entries: pickerEntries,
         onSelect: pick,
-        ...(onOpenWorkspace === undefined ? {} : { onOpenWorkspace }),
-        ...(repositoryTrail === undefined ? {} : { trailOf: (id: string, label: string) => (rootOf(id) === ALL ? undefined : repositoryTrail(rootOf(id), label)) }),
+        ...(onOpenWorkspace === undefined
+          ? {}
+          : {
+              onOpenWorkspace,
+            }),
+        ...(repositoryTrail === undefined
+          ? {}
+          : {
+              trailOf: (id: string, label: string) =>
+                rootOf(id) === ALL ? undefined : repositoryTrail(rootOf(id), label),
+            }),
         ...(onOpenManifest === undefined
           ? {}
           : {
@@ -220,17 +266,41 @@ export function Shell({
             }),
       }}
       menu={{
-        ...(account === undefined ? {} : { account: { onOpen: openAccount } }),
+        ...(account === undefined
+          ? {}
+          : {
+              account: {
+                onOpen: openAccount,
+              },
+            }),
         settings: {
           onOpen: () => onSurface?.(SURFACE.settings),
-          ...(SETTINGS_SURFACE?.shortcut === undefined ? {} : { shortcut: SETTINGS_SURFACE.shortcut }),
+          ...(SETTINGS_SURFACE?.shortcut === undefined
+            ? {}
+            : {
+                shortcut: SETTINGS_SURFACE.shortcut,
+              }),
         },
-        doctor: { onOpen: () => onSurface?.(SURFACE.doctor) },
+        doctor: {
+          onOpen: () => onSurface?.(SURFACE.doctor),
+        },
       }}
       onSearch={onSearch}
-      {...(sleep === undefined ? {} : { sleep })}
-      {...(planUsage === undefined ? {} : { planUsage })}
-      {...(onTeach === undefined ? {} : { onTeach })}
+      {...(sleep === undefined
+        ? {}
+        : {
+            sleep,
+          })}
+      {...(planUsage === undefined
+        ? {}
+        : {
+            planUsage,
+          })}
+      {...(onTeach === undefined
+        ? {}
+        : {
+            onTeach,
+          })}
       onDispatch={onCompose}
       dispatchDisabled={!live}
       fleet={fleet}
@@ -267,7 +337,10 @@ export function askToOpenHelm(): void {
  * arranged around it; over the content it covers what is being read, so Bridge
  * opens with the screen and Helm is a press away.
  */
-function useDock(folded: boolean): { open: boolean; onOpen: (open: boolean) => void } {
+function useDock(folded: boolean): {
+  open: boolean;
+  onOpen: (open: boolean) => void;
+} {
   // A Helm Session opened from the Sessions list opens the dock by this event.
   const [beside, setBeside] = useState(false);
   const [sheet, setSheet] = useState(false);
@@ -275,7 +348,9 @@ function useDock(folded: boolean): { open: boolean; onOpen: (open: boolean) => v
   // A sheet left open would cover the work again the next time the window narrows.
   useEffect(() => {
     if (!folded) setSheet(false);
-  }, [folded]);
+  }, [
+    folded,
+  ]);
 
   const open = folded ? sheet : beside;
   const onOpen = folded ? setSheet : setBeside;
@@ -299,6 +374,8 @@ function useDock(folded: boolean): { open: boolean; onOpen: (open: boolean) => v
     return () => window.removeEventListener("keydown", pressed);
   }, []);
 
-  return { open, onOpen };
+  return {
+    open,
+    onOpen,
+  };
 }
-

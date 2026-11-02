@@ -39,7 +39,17 @@ export type TileSheetProps = {
 };
 
 /** A value that gets pasted into a shell: a path, a branch. */
-function Copied({ Glyph, said, value, onCopied }: { Glyph: typeof Folder; said: string; value: string; onCopied?: (value: string) => void }) {
+function Copied({
+  Glyph,
+  said,
+  value,
+  onCopied,
+}: {
+  Glyph: typeof Folder;
+  said: string;
+  value: string;
+  onCopied?: (value: string) => void;
+}) {
   const inner = (
     <>
       <Glyph size={12} strokeWidth={2} aria-hidden />
@@ -53,18 +63,36 @@ function Copied({ Glyph, said, value, onCopied }: { Glyph: typeof Folder; said: 
       type="button"
       className="armada-tile-sheet__value"
       aria-label={`Copy ${said}`}
-      onClick={() => void navigator.clipboard.writeText(value).then(() => onCopied(value), () => onCopied(value))}
+      onClick={() =>
+        void navigator.clipboard.writeText(value).then(
+          () => onCopied(value),
+          () => onCopied(value),
+        )
+      }
     >
       {inner}
     </button>
   );
 }
 
-export function TileSheet({ row, floor, onAct, onRescue, onRelease, onCopied, onClose }: TileSheetProps) {
+export function TileSheet({
+  row,
+  floor,
+  onAct,
+  onRescue,
+  onRelease,
+  onCopied,
+  onClose,
+}: TileSheetProps) {
   const { slot } = row;
   const state = stateOf(row);
   const { path, branch } = slot;
-  const { body, foot } = useTileManage({ row, onAct, onRescue, onRelease });
+  const { body, foot } = useTileManage({
+    row,
+    onAct,
+    onRescue,
+    onRelease,
+  });
 
   return (
     <Sheet
@@ -82,14 +110,38 @@ export function TileSheet({ row, floor, onAct, onRescue, onRelease, onCopied, on
       }
       closeLabel="Close panel"
       closeBinding="Esc"
-      {...(foot === undefined ? {} : { footer: foot })}
+      {...(foot === undefined
+        ? {}
+        : {
+            footer: foot,
+          })}
       onClose={onClose}
     >
       <div className="armada-tile-sheet__body">
         {body}
         <div className="armada-tile-sheet__where">
-          <Copied Glyph={Folder} said="path" value={path} {...(onCopied === undefined ? {} : { onCopied })} />
-          {branch === undefined ? null : <Copied Glyph={GitBranch} said="branch" value={branch} {...(onCopied === undefined ? {} : { onCopied })} />}
+          <Copied
+            Glyph={Folder}
+            said="path"
+            value={path}
+            {...(onCopied === undefined
+              ? {}
+              : {
+                  onCopied,
+                })}
+          />
+          {branch === undefined ? null : (
+            <Copied
+              Glyph={GitBranch}
+              said="branch"
+              value={branch}
+              {...(onCopied === undefined
+                ? {}
+                : {
+                    onCopied,
+                  })}
+            />
+          )}
         </div>
       </div>
     </Sheet>

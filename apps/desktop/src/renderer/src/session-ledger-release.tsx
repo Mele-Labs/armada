@@ -11,7 +11,10 @@ import { ReleaseRowDialog } from "./cockpit/deck/ReleaseHolds";
 import { heldKey, heldOfAttachment, type Held } from "./cockpit/deck/session-tiles";
 
 /** A row released from here: as it stood when pressed, and Fleet's why where it kept it. */
-type Released = { attachment: SessionAttachment; kept?: string };
+type Released = {
+  attachment: SessionAttachment;
+  kept?: string;
+};
 
 const NONE: ReadonlyMap<string, Released> = new Map();
 
@@ -19,19 +22,36 @@ export type LedgerRelease = {
   /** The Session with each row given back from here added again, so the ledger still draws it. */
   shown: Session;
   /** What a row's entry carries: Release, or what came of it. */
-  rowOf: (one: SessionAttachment, entry: Omit<LedgerEntry, "card">) => Pick<LedgerEntry, "release" | "released">;
+  rowOf: (
+    one: SessionAttachment,
+    entry: Omit<LedgerEntry, "card">,
+  ) => Pick<LedgerEntry, "release" | "released">;
   /** The confirm, while one is open. */
   dialog: ReactNode;
 };
 
-export function useLedgerRelease(session: Session, draft: SessionsDraft | undefined): LedgerRelease {
+export function useLedgerRelease(
+  session: Session,
+  draft: SessionsDraft | undefined,
+): LedgerRelease {
   const [asking, setAsking] = useState<Held | undefined>();
-  const [released, setReleased] = useState<{ id: string; rows: ReadonlyMap<string, Released> } | undefined>();
+  const [released, setReleased] = useState<
+    | {
+        id: string;
+        rows: ReadonlyMap<string, Released>;
+      }
+    | undefined
+  >();
   const rows = released?.id === session.id ? released.rows : NONE;
   const send = draft?.releaseHolds;
   const release = async (one: Held): Promise<boolean> => {
     const before = session.attachments;
-    const answer = await send?.(session.id, undefined, [{ kind: one.kind, target: one.target }]);
+    const answer = await send?.(session.id, undefined, [
+      {
+        kind: one.kind,
+        target: one.target,
+      },
+    ]);
     if (answer === undefined) return false;
     const at = (row: { kind: string; target: string }) =>
       before.find((it) => {
@@ -43,13 +63,23 @@ export function useLedgerRelease(session: Session, draft: SessionsDraft | undefi
       // A slot takes its branch with it, so `moved` can name more than the one row pressed.
       for (const row of answer.moved) {
         const attachment = at(row);
-        if (attachment !== undefined) next.set(heldKey(row), { attachment });
+        if (attachment !== undefined)
+          next.set(heldKey(row), {
+            attachment,
+          });
       }
       for (const row of answer.kept) {
         const attachment = at(row);
-        if (attachment !== undefined) next.set(heldKey(row), { attachment, kept: row.why });
+        if (attachment !== undefined)
+          next.set(heldKey(row), {
+            attachment,
+            kept: row.why,
+          });
       }
-      return { id: session.id, rows: next };
+      return {
+        id: session.id,
+        rows: next,
+      };
     });
     setAsking(undefined);
     return true;
@@ -59,24 +89,71 @@ export function useLedgerRelease(session: Session, draft: SessionsDraft | undefi
     if (one.kind !== "branch" || one.slot === undefined) return undefined;
     const slot = session.attachments.find((it) => it.kind === "slot" && it.slot === one.slot);
     const held = slot === undefined ? undefined : heldOfAttachment(slot);
-    return held === undefined ? undefined : { ...held, name: `${one.name} in ${held.name}` };
+    return held === undefined
+      ? undefined
+      : {
+          ...held,
+          name: `${one.name} in ${held.name}`,
+        };
   };
-  const live = new Set(session.attachments.map((one) => heldOfAttachment(one)).flatMap((one) => (one === undefined ? [] : [heldKey(one)])));
-  const gone = [...rows.entries()].filter(([key, one]) => one.kept === undefined && !live.has(key)).map(([, one]) => one.attachment);
+  const live = new Set(
+    session.attachments
+      .map((one) => heldOfAttachment(one))
+      .flatMap((one) =>
+        one === undefined
+          ? []
+          : [
+              heldKey(one),
+            ],
+      ),
+  );
+  const gone = [
+    ...rows.entries(),
+  ]
+    .filter(([key, one]) => one.kept === undefined && !live.has(key))
+    .map(([, one]) => one.attachment);
   return {
-    shown: gone.length === 0 ? session : { ...session, attachments: [...session.attachments, ...gone] },
+    shown:
+      gone.length === 0
+        ? session
+        : {
+            ...session,
+            attachments: [
+              ...session.attachments,
+              ...gone,
+            ],
+          },
     rowOf: (one, entry) => {
       const held = heldOfAttachment(one);
       if (held === undefined) return {};
       const asked = carriedSlot(one) ?? held;
       const was = rows.get(heldKey(held)) ?? rows.get(heldKey(asked));
-      if (was !== undefined && was.kept === undefined) return { released: {} };
+      if (was !== undefined && was.kept === undefined)
+        return {
+          released: {},
+        };
       const offered = send !== undefined && session.dead !== "ended" && entry.finished !== true;
       return {
-        ...(offered ? { release: { name: held.name, onPress: () => setAsking(asked) } } : {}),
-        ...(was?.kept === undefined ? {} : { released: { kept: was.kept } }),
+        ...(offered
+          ? {
+              release: {
+                name: held.name,
+                onPress: () => setAsking(asked),
+              },
+            }
+          : {}),
+        ...(was?.kept === undefined
+          ? {}
+          : {
+              released: {
+                kept: was.kept,
+              },
+            }),
       };
     },
-    dialog: asking === undefined ? null : <ReleaseRowDialog held={asking} send={release} onCancel={() => setAsking(undefined)} />,
+    dialog:
+      asking === undefined ? null : (
+        <ReleaseRowDialog held={asking} send={release} onCancel={() => setAsking(undefined)} />
+      ),
   };
 }

@@ -5,19 +5,58 @@ import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { SessionThreadRow } from "./SessionThread";
 
-const EVENT: Record<Extract<SessionThreadRow, { kind: "linked" }>["event"], { Glyph: LucideIcon; said: string }> = {
-  needs: { Glyph: Eye, said: "Needs you" },
-  done: { Glyph: Power, said: "Done" },
-  merged: { Glyph: GitMerge, said: "Merged" },
-  started: { Glyph: CircleDot, said: "Started" },
+const EVENT: Record<
+  Extract<
+    SessionThreadRow,
+    {
+      kind: "linked";
+    }
+  >["event"],
+  {
+    Glyph: LucideIcon;
+    said: string;
+  }
+> = {
+  needs: {
+    Glyph: Eye,
+    said: "Needs you",
+  },
+  done: {
+    Glyph: Power,
+    said: "Done",
+  },
+  merged: {
+    Glyph: GitMerge,
+    said: "Merged",
+  },
+  started: {
+    Glyph: CircleDot,
+    said: "Started",
+  },
 };
 
 /** A Session this one follows needs the person, started, finished or merged. The agent was told in the same moment, so the row stands in the thread where it happened. */
-export function LinkedRow({ row, onOpen }: { row: Extract<SessionThreadRow, { kind: "linked" }>; onOpen: (sessionId: string) => void }) {
+export function LinkedRow({
+  row,
+  onOpen,
+}: {
+  row: Extract<
+    SessionThreadRow,
+    {
+      kind: "linked";
+    }
+  >;
+  onOpen: (sessionId: string) => void;
+}) {
   const { Glyph, said } = EVENT[row.event];
   return (
     <li className="armada-session-linked" data-event={row.event}>
-      <button type="button" className="armada-session-linked__press" aria-label={`${row.session.title}, ${said}`} onClick={() => onOpen(row.session.id)}>
+      <button
+        type="button"
+        className="armada-session-linked__press"
+        aria-label={`${row.session.title}, ${said}`}
+        onClick={() => onOpen(row.session.id)}
+      >
         <Tooltip label="Linked Job">
           <span className="armada-session-linked__link" role="img" aria-label="Linked Job">
             <Link size={12} strokeWidth={2} aria-hidden />

@@ -3,12 +3,29 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { Outcome, Preferences, SavePreference } from "@armada/protocol";
-import { DEFAULT_TIME_FORMAT, saveTimeFormat, setTimeFormat, setTimeFormatSaver, timeFormat } from "@armada/components";
+import {
+  DEFAULT_TIME_FORMAT,
+  saveTimeFormat,
+  setTimeFormat,
+  setTimeFormatSaver,
+  timeFormat,
+} from "@armada/components";
 
 import { wireFleetTimeFormat, type FleetTimeFormat } from "./fleet-time-format";
 
-const prefs = (time_format?: string): { preferences: Preferences } => ({
-  preferences: { where_things_are_open: false, ...(time_format === undefined ? {} : { time_format }) },
+const prefs = (
+  time_format?: string,
+): {
+  preferences: Preferences;
+} => ({
+  preferences: {
+    where_things_are_open: false,
+    ...(time_format === undefined
+      ? {}
+      : {
+          time_format,
+        }),
+  },
 });
 
 function fleet(start: string | undefined, answer: Outcome) {
@@ -21,11 +38,19 @@ function fleet(start: string | undefined, answer: Outcome) {
     savePreference: async (save) => (saved.push(save), answer),
   };
   wireFleetTimeFormat(api, (sentence) => told.push(sentence));
-  return { saved, told, publish: (text?: string) => hear(prefs(text)) };
+  return {
+    saved,
+    told,
+    publish: (text?: string) => hear(prefs(text)),
+  };
 }
 
 const settle = () => new Promise((done) => setTimeout(done, 0));
-const TWELVE = { hour12: true, seconds: false, date: true };
+const TWELVE = {
+  hour12: true,
+  seconds: false,
+  date: true,
+};
 
 afterEach(() => {
   setTimeFormatSaver(null);
@@ -34,7 +59,9 @@ afterEach(() => {
 
 describe("time format over Fleet", () => {
   it("draws in what Fleet holds, and follows what it publishes", async () => {
-    const one = fleet(JSON.stringify(TWELVE), { ok: true });
+    const one = fleet(JSON.stringify(TWELVE), {
+      ok: true,
+    });
     await settle();
     expect(timeFormat()).toEqual(TWELVE);
     one.publish("");
@@ -42,14 +69,25 @@ describe("time format over Fleet", () => {
   });
 
   it("saves a change as the time_format preference", async () => {
-    const one = fleet(undefined, { ok: true });
+    const one = fleet(undefined, {
+      ok: true,
+    });
     await settle();
     saveTimeFormat(TWELVE);
-    expect(one.saved).toEqual([{ name: "time_format", value: false, text: JSON.stringify(TWELVE) }]);
+    expect(one.saved).toEqual([
+      {
+        name: "time_format",
+        value: false,
+        text: JSON.stringify(TWELVE),
+      },
+    ]);
   });
 
   it("puts Fleet's format back and says why when the save is refused", async () => {
-    const refused: Outcome = { ok: false, why: "not_connected" };
+    const refused: Outcome = {
+      ok: false,
+      why: "not_connected",
+    };
     const one = fleet(undefined, refused);
     await settle();
     saveTimeFormat(TWELVE);

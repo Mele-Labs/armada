@@ -10,24 +10,51 @@ import { mount, toSystemPage, unmountAfterEach } from "./testing";
 unmountAfterEach();
 
 test("Studios draws on core and its own slice, and a call of another slice is unanswered", async () => {
-  const { api } = mount("default", { slices: ["studios"] });
+  const { api } = mount("default", {
+    slices: [
+      "studios",
+    ],
+  });
   await toSystemPage("Studios");
-  await expect.element(page.getByRole("cell", { name: "Every kind of node and edge", exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("cell", {
+        name: "Every kind of node and edge",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 
   const asked = await api.readWorkflows();
-  expect(asked).toMatchObject({ ok: false, outcome: { ok: false, why: "transport" } });
+  expect(asked).toMatchObject({
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "transport",
+    },
+  });
   // A slice left out holds its state empty, and one kept keeps the scenario's.
-  expect((await api.state()).sessions).toEqual({ state: "none" });
+  expect((await api.state()).sessions).toEqual({
+    state: "none",
+  });
   expect((await api.state()).holds.repositories?.length).toBeGreaterThan(0);
 });
 
 test("every slice but Studios answers a call it owns as unanswered", async () => {
-  const { api } = mount("default", { slices: ["studios"] });
-  expect(await api.readHeld(true)).toMatchObject({ ok: false });
+  const { api } = mount("default", {
+    slices: [
+      "studios",
+    ],
+  });
+  expect(await api.readHeld(true)).toMatchObject({
+    ok: false,
+  });
   expect(SLICES.map((one) => one.name)).toHaveLength(26);
 });
 
 test("no slice list mounts every slice, as before", async () => {
   const { api } = mount("default");
-  expect(await api.readWorkflows()).toMatchObject({ ok: true });
+  expect(await api.readWorkflows()).toMatchObject({
+    ok: true,
+  });
 });

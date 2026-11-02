@@ -11,8 +11,23 @@ const BUSY = "one-view-3";
 
 const reopened = (one: SessionAttachment): SessionAttachment => {
   if (one.kind !== "pull_request") return one;
-  if (one.number === 3012) return { ...one, state: "draft", auto: false, checks: { state: "failed", failing: "ci" }, closes: one.closes ?? [] };
-  if (one.number === 3013) return { ...one, state: "open", auto: false };
+  if (one.number === 3012)
+    return {
+      ...one,
+      state: "draft",
+      auto: false,
+      checks: {
+        state: "failed",
+        failing: "ci",
+      },
+      closes: one.closes ?? [],
+    };
+  if (one.number === 3013)
+    return {
+      ...one,
+      state: "open",
+      auto: false,
+    };
   return one;
 };
 
@@ -29,7 +44,14 @@ export const s336OpenWorkStaysVisible: Scenario = {
         (one): Session => ({
           ...one,
           attachments: one.attachments.map(reopened),
-          later: [...(one.later ?? []), { id: "later-1", text: "Fold the saved-query migration into the next release", at: "10:15:00" }],
+          later: [
+            ...(one.later ?? []),
+            {
+              id: "later-1",
+              text: "Fold the saved-query migration into the next release",
+              at: "10:15:00",
+            },
+          ],
         }),
       );
       return store;

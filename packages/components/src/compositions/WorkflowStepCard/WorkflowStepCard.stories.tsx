@@ -9,7 +9,12 @@ const meta: Meta<typeof WorkflowStepCard> = {
   component: WorkflowStepCard,
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -54,21 +59,50 @@ export const RunningItsChecks: Story = {
     current: true,
     line: "55m · 1 Drone",
     track: [
-      { phase: "drone", name: "Drones", label: "Drones done", state: "done" },
-      { phase: "checks", name: "Checks", label: "Checks running", state: "now" },
-      { phase: "judge", name: "Judge", label: "Judge next", state: "next" },
+      {
+        phase: "drone",
+        name: "Drones",
+        label: "Drones done",
+        state: "done",
+      },
+      {
+        phase: "checks",
+        name: "Checks",
+        label: "Checks running",
+        state: "now",
+      },
+      {
+        phase: "judge",
+        name: "Judge",
+        label: "Judge next",
+        state: "next",
+      },
     ],
     onOpen: fn(),
   },
-  parameters: { motion: "on" },
+  parameters: {
+    motion: "on",
+  },
   play: async ({ canvas, canvasElement }) => {
-    await expect(canvas.getByRole("button", { name: "Implement, running, Checks running" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Implement, running, Checks running",
+      }),
+    ).toBeVisible();
     await expect(canvasElement.querySelector(".armada-wf-card__sweep")).toBeNull();
   },
 };
 
 /** The plan's four groups as the step at work's bar: two passed, one working, one to come. */
-const FOUR_GROUPS = { groups: ["done", "done", "working", "open"], label: "2 of 4 groups done" } as const;
+const FOUR_GROUPS = {
+  groups: [
+    "done",
+    "done",
+    "working",
+    "open",
+  ],
+  label: "2 of 4 groups done",
+} as const;
 
 /**
  * The step the Job is on — edged, washed and swept, the live phase's own three
@@ -93,20 +127,34 @@ export const Running: Story = {
     onOpen: fn(),
   },
   // The loop is the claim; the test run otherwise emulates reduced motion.
-  parameters: { motion: "on" },
+  parameters: {
+    motion: "on",
+  },
   play: async ({ canvas, canvasElement }) => {
     const card = canvasElement.querySelector(".armada-wf-card")!;
     const sweep = card.querySelector(".armada-wf-card__sweep");
     await expect(sweep).not.toBeNull();
     // The bar itself is a pseudo-element, so the loop is read off the subtree.
-    await expect(sweep!.getAnimations({ subtree: true }).length).toBeGreaterThan(0);
+    await expect(
+      sweep!.getAnimations({
+        subtree: true,
+      }).length,
+    ).toBeGreaterThan(0);
     // And nothing else on the card loops: the mark that pulses on a card with
     // no sweep holds still under one.
     await expect(card.querySelector(".armada-step-mark[data-pulsing]")).toBeNull();
-    await expect(canvas.getByRole("img", { name: "2 of 4 groups done" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("img", {
+        name: "2 of 4 groups done",
+      }),
+    ).toBeInTheDocument();
     // The line beside it carries how long and the Drones, and no count.
     await expect(canvas.getByText("55m · 2 Drones")).toBeVisible();
-    await expect(canvas.queryByText(/groups/, { selector: ".armada-wf-card__line" })).toBeNull();
+    await expect(
+      canvas.queryByText(/groups/, {
+        selector: ".armada-wf-card__line",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -115,8 +163,21 @@ export const RunningWithAFailedCheck: Story = {
   args: {
     ...Running.args,
     line: "1h 02m",
-    needs: [{ says: "screens_test failed", tone: "failed" }],
-    bar: { groups: ["done", "done", "failed", "open"], label: "2 of 4 groups done" },
+    needs: [
+      {
+        says: "screens_test failed",
+        tone: "failed",
+      },
+    ],
+    bar: {
+      groups: [
+        "done",
+        "done",
+        "failed",
+        "open",
+      ],
+      label: "2 of 4 groups done",
+    },
   } as Story["args"],
 };
 
@@ -133,17 +194,28 @@ export const WaitingOnYou: Story = {
     said: "needs review",
     ordinal: 4,
     current: true,
-    needs: [{ says: "Waiting on you", tone: "waiting" }],
+    needs: [
+      {
+        says: "Waiting on you",
+        tone: "waiting",
+      },
+    ],
     line: "12m",
     gate: "will ask you",
     onOpen: fn(),
   },
   // Under reduced motion nothing moves anyway, so holding still would prove nothing.
-  parameters: { motion: "on" },
+  parameters: {
+    motion: "on",
+  },
   play: async ({ canvasElement }) => {
     const card = canvasElement.querySelector(".armada-wf-card")!;
     await expect(card.querySelector(".armada-wf-card__sweep")).toBeNull();
-    await expect(card.getAnimations({ subtree: true })).toHaveLength(0);
+    await expect(
+      card.getAnimations({
+        subtree: true,
+      }),
+    ).toHaveLength(0);
   },
 };
 
@@ -168,7 +240,12 @@ export const Stopped: Story = {
     activity: "stopped",
     said: "stopped",
     ordinal: 2,
-    needs: [{ says: "typecheck failed", tone: "failed" }],
+    needs: [
+      {
+        says: "typecheck failed",
+        tone: "failed",
+      },
+    ],
     line: "48m · attempt 3",
     onOpen: fn(),
   },
@@ -181,7 +258,14 @@ export const Group: Story = {
     name: "Group 3",
     activity: "running",
     said: "checking",
-    facts: [{ value: "2 tasks" }, { value: "7 checks" }],
+    facts: [
+      {
+        value: "2 tasks",
+      },
+      {
+        value: "7 checks",
+      },
+    ],
     onOpen: fn(),
   },
 };
@@ -197,13 +281,27 @@ export const GroupWithItsOwnMark: Story = {
     kind: "group",
     name: "Group 2",
     activity: "retrying",
-    mark: { icon: GROUP_STATE.retrying!.icon!, token: GROUP_STATE.retrying!.statusToken! },
+    mark: {
+      icon: GROUP_STATE.retrying!.icon!,
+      token: GROUP_STATE.retrying!.statusToken!,
+    },
     said: GROUP_STATE.retrying!.verb!,
-    facts: [{ value: "3 tasks" }, { value: "run again 1 time" }],
+    facts: [
+      {
+        value: "3 tasks",
+      },
+      {
+        value: "run again 1 time",
+      },
+    ],
     onOpen: fn(),
   },
   play: async ({ canvas, canvasElement }) => {
-    await expect(canvas.getByRole("button", { name: "Group 2, retrying" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Group 2, retrying",
+      }),
+    ).toBeVisible();
     const mark = canvasElement.querySelector(".armada-wf-card__mark")!;
     await expect(mark).not.toBeNull();
     // The registry's hue, not the activity's: no `data-activity` to key one off.
@@ -226,7 +324,10 @@ export const TaskHandedIn: Story = {
     kind: "task",
     name: "Draw what is running, in four lists",
     activity: "not_started",
-    mark: { icon: TASK_STATE.handed_in!.icon!, token: TASK_STATE.handed_in!.statusToken! },
+    mark: {
+      icon: TASK_STATE.handed_in!.icon!,
+      token: TASK_STATE.handed_in!.statusToken!,
+    },
     said: TASK_STATE.handed_in!.verb!,
     line: "Done, no edit seen",
     onOpen: fn(),
@@ -238,7 +339,9 @@ export const TaskHandedIn: Story = {
     await expect(line.scrollWidth).toBeLessThanOrEqual(line.clientWidth);
     await expect(getComputedStyle(line).textOverflow).not.toBe("ellipsis");
     const mark = canvasElement.querySelector(".armada-wf-card__mark") as HTMLElement;
-    await expect(mark.style.getPropertyValue("--armada-wf-card-mark")).toBe(`var(${TASK_STATE.handed_in!.statusToken!})`);
+    await expect(mark.style.getPropertyValue("--armada-wf-card-mark")).toBe(
+      `var(${TASK_STATE.handed_in!.statusToken!})`,
+    );
   },
 };
 
@@ -249,14 +352,27 @@ export const Task: Story = {
     name: "Draw what is running, in four lists",
     activity: "running",
     said: "working",
-    facts: [{ value: "T5" }, { value: "1 file" }, { value: "14 turns" }],
+    facts: [
+      {
+        value: "T5",
+      },
+      {
+        value: "1 file",
+      },
+      {
+        value: "14 turns",
+      },
+    ],
     onOpen: fn(),
   },
 };
 
 /** The one being read. */
 export const Open: Story = {
-  args: { ...Group.args, selected: true } as Story["args"],
+  args: {
+    ...Group.args,
+    selected: true,
+  } as Story["args"],
 };
 
 /**
@@ -276,7 +392,11 @@ export const NotAControl: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button")).toBeNull();
-    await expect(canvas.getByRole("group", { name: "Summarise, not started" })).toBeVisible();
+    await expect(
+      canvas.getByRole("group", {
+        name: "Summarise, not started",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -296,11 +416,14 @@ async function drawnWhole(name: HTMLElement, title: string) {
   await expect(style.overflow).toBe("visible");
   await expect(style.whiteSpace).toBe("normal");
   // Several lines tall, and none of it past the box: nothing is cut off.
-  await expect(name.getBoundingClientRect().height).toBeGreaterThan(parseFloat(style.lineHeight) * 2.5);
+  await expect(name.getBoundingClientRect().height).toBeGreaterThan(
+    parseFloat(style.lineHeight) * 2.5,
+  );
   await expect(name.scrollHeight).toBeLessThanOrEqual(name.clientHeight + 1);
 }
 
-const LONG_TITLE = "Rewrite the store's retry policy so that a stalled write is not repeated for ever";
+const LONG_TITLE =
+  "Rewrite the store's retry policy so that a stalled write is not repeated for ever";
 
 /** A task whose title is longer than two lines: the card is as tall as the words make it. */
 export const LongTaskTitle: Story = {
@@ -309,7 +432,14 @@ export const LongTaskTitle: Story = {
     name: LONG_TITLE,
     activity: "not_started",
     said: "not started",
-    facts: [{ value: "T5" }, { value: "2 files" }],
+    facts: [
+      {
+        value: "T5",
+      },
+      {
+        value: "2 files",
+      },
+    ],
   },
   play: async ({ canvas }) => {
     await drawnWhole(canvas.getByText(LONG_TITLE), LONG_TITLE);
@@ -337,11 +467,17 @@ export const LongUnbrokenTitle: Story = {
     name: "crates/store/src/retry/backoff_policy_with_jitter.rs",
     activity: "not_started",
     said: "not started",
-    facts: [{ value: "T6" }],
+    facts: [
+      {
+        value: "T6",
+      },
+    ],
   },
   play: async ({ canvas, args }) => {
     const name = canvas.getByText(args.name!);
     await expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth + 1);
-    await expect(name.getBoundingClientRect().height).toBeGreaterThan(parseFloat(getComputedStyle(name).lineHeight) * 1.5);
+    await expect(name.getBoundingClientRect().height).toBeGreaterThan(
+      parseFloat(getComputedStyle(name).lineHeight) * 1.5,
+    );
   },
 };

@@ -27,14 +27,25 @@ export class Questions {
   helmAsking(waiting: HelmCallInFlight): void {
     const held = this.wiring.current().questions;
     const others = held.filter((question) => question.call.call !== waiting.call);
-    this.wiring.publish({ questions: [...others, { kind: "helm", call: waiting }] });
+    this.wiring.publish({
+      questions: [
+        ...others,
+        {
+          kind: "helm",
+          call: waiting,
+        },
+      ],
+    });
   }
 
   /** `helm.call_answered`, and the answer a person's own press came back with. */
   helmAnswered(call: string): void {
     const held = this.wiring.current().questions;
     const kept = held.filter((question) => question.call.call !== call);
-    if (kept.length !== held.length) this.wiring.publish({ questions: kept });
+    if (kept.length !== held.length)
+      this.wiring.publish({
+        questions: kept,
+      });
   }
 
   /** Every Helm call waiting, on a resync or a Refresh. A failed read keeps what is held. */
@@ -45,6 +56,11 @@ export class Questions {
     // A body that is not a list is a fleet that does not serve this yet. Held
     // calls stay as they are rather than being cleared by a 404's shape.
     if (!Array.isArray(waiting)) return;
-    this.wiring.publish({ questions: waiting.map((call) => ({ kind: "helm" as const, call })) });
+    this.wiring.publish({
+      questions: waiting.map((call) => ({
+        kind: "helm" as const,
+        call,
+      })),
+    });
   }
 }

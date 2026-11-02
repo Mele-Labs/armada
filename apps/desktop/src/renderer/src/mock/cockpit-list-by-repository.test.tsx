@@ -9,14 +9,29 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs", exact: true });
-const headings = () => [...document.querySelectorAll(".deck-list__head")].map((one) => one.textContent);
+const list = () =>
+  page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
+const headings = () =>
+  [
+    ...document.querySelectorAll(".deck-list__head"),
+  ].map((one) => one.textContent);
 const drawn = (heading: string) => {
-  const band = [...document.querySelectorAll(".deck-list__band")].find((one) => one.querySelector(".deck-list__head")?.textContent === heading);
-  return [...(band?.querySelectorAll("[data-row]") ?? [])].map((one) => one.getAttribute("aria-label"));
+  const band = [
+    ...document.querySelectorAll(".deck-list__band"),
+  ].find((one) => one.querySelector(".deck-list__head")?.textContent === heading);
+  return [
+    ...(band?.querySelectorAll("[data-row]") ?? []),
+  ].map((one) => one.getAttribute("aria-label"));
 };
-const keys = () => [...document.querySelectorAll(".deck-list [data-row]")].map((one) => one.getAttribute("data-row")!);
-const rowOf = (key: string) => document.querySelector<HTMLElement>(`.deck-list [data-row="${CSS.escape(key)}"]`)!;
+const keys = () =>
+  [
+    ...document.querySelectorAll(".deck-list [data-row]"),
+  ].map((one) => one.getAttribute("data-row")!);
+const rowOf = (key: string) =>
+  document.querySelector<HTMLElement>(`.deck-list [data-row="${CSS.escape(key)}"]`)!;
 
 async function onAll() {
   mount("cockpit-list-by-repository");
@@ -27,9 +42,27 @@ async function onAll() {
 
 test("All heads the list by repository, in the listing's order, each with its own rows", async () => {
   await onAll();
-  expect(headings()).toEqual(["armada", "storefront"]);
-  expect([...drawn("armada")].sort()).toEqual(["Draft the migration notes", "Fix the flaky store test", "Prune the stale branches"]);
-  expect([...drawn("storefront")].sort()).toEqual(["Lay out the invoice PDF", "Round the cart totals"]);
+  expect(headings()).toEqual([
+    "armada",
+    "storefront",
+  ]);
+  expect(
+    [
+      ...drawn("armada"),
+    ].sort(),
+  ).toEqual([
+    "Draft the migration notes",
+    "Fix the flaky store test",
+    "Prune the stale branches",
+  ]);
+  expect(
+    [
+      ...drawn("storefront"),
+    ].sort(),
+  ).toEqual([
+    "Lay out the invoice PDF",
+    "Round the cart totals",
+  ]);
 });
 
 test("the cursor steps from the last row of one group to the first of the next", async () => {
@@ -44,12 +77,41 @@ test("the cursor steps from the last row of one group to the first of the next",
 
 test("one repository picked draws the list with no heading and only its Sessions", async () => {
   await onAll();
-  await userEvent.click(page.getByRole("button", { name: "Repository", exact: true }));
-  await userEvent.click(page.getByRole("menuitem", { name: "storefront" }));
-  await expect.element(list().getByRole("button", { name: "Round the cart totals" })).toBeVisible();
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Repository",
+      exact: true,
+    }),
+  );
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "storefront",
+    }),
+  );
+  await expect
+    .element(
+      list().getByRole("button", {
+        name: "Round the cart totals",
+      }),
+    )
+    .toBeVisible();
   expect(headings()).toEqual([]);
-  await expect.element(list().getByRole("button", { name: "Prune the stale branches" })).not.toBeInTheDocument();
-  await expect.element(list().getByRole("button", { name: "Lay out the invoice PDF" })).toBeVisible();
+  await expect
+    .element(
+      list().getByRole("button", {
+        name: "Prune the stale branches",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await expect
+    .element(
+      list().getByRole("button", {
+        name: "Lay out the invoice PDF",
+      }),
+    )
+    .toBeVisible();
   // The rows sit straight in the one list, as they did before.
-  expect(document.querySelectorAll(".deck-list__rows > .deck-list__item")).toHaveLength(keys().length);
+  expect(document.querySelectorAll(".deck-list__rows > .deck-list__item")).toHaveLength(
+    keys().length,
+  );
 });

@@ -14,7 +14,9 @@ import { Picked } from "./picked";
 
 const LESSON: Lesson = {
   id: "01K7LESSON",
-  session: { id: "s-01J8ZQ4M" },
+  session: {
+    id: "s-01J8ZQ4M",
+  },
   handle: "3-retire-guides",
   at: "2026-10-02T22:05:00Z",
   who: "fleet",
@@ -34,9 +36,19 @@ afterEach(async () => {
   await new Promise<void>((done) => server.close(() => done()));
 });
 
-type Asked = { method: string; path: string; body: string; caller: string };
+type Asked = {
+  method: string;
+  path: string;
+  body: string;
+  caller: string;
+};
 
-async function fleetAnswering(status: number, body: unknown, into: Asked[], hold?: Promise<void>): Promise<number> {
+async function fleetAnswering(
+  status: number,
+  body: unknown,
+  into: Asked[],
+  hold?: Promise<void>,
+): Promise<number> {
   const server = createServer((request: IncomingMessage, response) => {
     let text = "";
     request.on("data", (chunk) => (text += String(chunk)));
@@ -48,7 +60,9 @@ async function fleetAnswering(status: number, body: unknown, into: Asked[], hold
         caller: String(request.headers["x-armada-caller"]),
       });
       if (hold !== undefined) await hold;
-      response.writeHead(status, { "content-type": "application/json" });
+      response.writeHead(status, {
+        "content-type": "application/json",
+      });
       response.end(JSON.stringify(body));
     });
   });
@@ -58,7 +72,11 @@ async function fleetAnswering(status: number, body: unknown, into: Asked[], hold
 }
 
 function boardOn(port: number): Board {
-  return { port: () => port, picked: new Picked(), publish: () => {} };
+  return {
+    port: () => port,
+    picked: new Picked(),
+    publish: () => {},
+  };
 }
 
 it("agrees with an item on its own route, as Bridge, with no body", async () => {
@@ -68,23 +86,54 @@ it("agrees with an item on its own route, as Bridge, with no body", async () => 
 
   const answer = await commands.agreeLesson(LESSON.id);
 
-  expect(answer).toEqual({ ok: true, lesson: LESSON });
-  expect(asked).toEqual([{ method: "POST", path: "/lessons/01K7LESSON/agree", body: "", caller: "bridge" }]);
+  expect(answer).toEqual({
+    ok: true,
+    lesson: LESSON,
+  });
+  expect(asked).toEqual([
+    {
+      method: "POST",
+      path: "/lessons/01K7LESSON/agree",
+      body: "",
+      caller: "bridge",
+    },
+  ]);
 });
 
 it("disagrees with an item on its own route, with no body", async () => {
   const asked: Asked[] = [];
-  const port = await fleetAnswering(200, { ...LESSON, state: "discarded" }, asked);
+  const port = await fleetAnswering(
+    200,
+    {
+      ...LESSON,
+      state: "discarded",
+    },
+    asked,
+  );
   const commands = new Commands(boardOn(port));
 
   const answer = await commands.disagreeLesson(LESSON.id);
 
   expect(answer.ok).toBe(true);
-  expect(asked).toEqual([{ method: "POST", path: "/lessons/01K7LESSON/disagree", body: "", caller: "bridge" }]);
+  expect(asked).toEqual([
+    {
+      method: "POST",
+      path: "/lessons/01K7LESSON/disagree",
+      body: "",
+      caller: "bridge",
+    },
+  ]);
 });
 
 it("answers a refused agree as the refusal", async () => {
-  const port = await fleetAnswering(404, { code: "lesson_not_found", message: "no such lesson" }, []);
+  const port = await fleetAnswering(
+    404,
+    {
+      code: "lesson_not_found",
+      message: "no such lesson",
+    },
+    [],
+  );
   const commands = new Commands(boardOn(port));
 
   const answer = await commands.agreeLesson("01K7GONE");
@@ -102,32 +151,71 @@ it("refuses a second press on one item while the first is out, and sends it once
   const first = commands.agreeLesson(LESSON.id);
   await expect.poll(() => asked.length).toBe(1);
   const second = await commands.disagreeLesson(LESSON.id);
-  expect(second).toEqual({ ok: false, outcome: { ok: false, why: "already_answering_lesson" } });
+  expect(second).toEqual({
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "already_answering_lesson",
+    },
+  });
   release();
   await first;
   expect(asked).toHaveLength(1);
 });
 
 it("sends nothing where no Fleet is connected", async () => {
-  const board = { ...boardOn(0), port: () => null };
+  const board = {
+    ...boardOn(0),
+    port: () => null,
+  };
   const answer = await new Commands(board).agreeLesson(LESSON.id);
-  expect(answer).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+  expect(answer).toEqual({
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "not_connected",
+    },
+  });
 });
 
 it("starts a Session for an item on its own route, with no body", async () => {
   const asked: Asked[] = [];
-  const started = { lesson: { ...LESSON, session_proposed: "s-01J8ZQ4M" }, session_id: "s-01J8ZQ4M", brief: "Compare against origin/main." };
+  const started = {
+    lesson: {
+      ...LESSON,
+      session_proposed: "s-01J8ZQ4M",
+    },
+    session_id: "s-01J8ZQ4M",
+    brief: "Compare against origin/main.",
+  };
   const port = await fleetAnswering(200, started, asked);
   const commands = new Commands(boardOn(port));
 
   const answer = await commands.startLessonSession(LESSON.id);
 
-  expect(answer).toEqual({ ok: true, started });
-  expect(asked).toEqual([{ method: "POST", path: "/lessons/01K7LESSON/session", body: "", caller: "bridge" }]);
+  expect(answer).toEqual({
+    ok: true,
+    started,
+  });
+  expect(asked).toEqual([
+    {
+      method: "POST",
+      path: "/lessons/01K7LESSON/session",
+      body: "",
+      caller: "bridge",
+    },
+  ]);
 });
 
 it("answers a refused Session start as the refusal", async () => {
-  const port = await fleetAnswering(422, { code: "fleet.lesson_session_nothing_to_work_on", message: "Kit is no repository." }, []);
+  const port = await fleetAnswering(
+    422,
+    {
+      code: "fleet.lesson_session_nothing_to_work_on",
+      message: "Kit is no repository.",
+    },
+    [],
+  );
   const answer = await new Commands(boardOn(port)).startLessonSession(LESSON.id);
   expect(answer.ok).toBe(false);
 });
@@ -142,7 +230,13 @@ it("sends one answer per item at a time, a Session start included", async () => 
   const first = commands.startLessonSession(LESSON.id);
   await expect.poll(() => asked.length).toBe(1);
   const second = await commands.agreeLesson(LESSON.id);
-  expect(second).toEqual({ ok: false, outcome: { ok: false, why: "already_answering_lesson" } });
+  expect(second).toEqual({
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "already_answering_lesson",
+    },
+  });
   release();
   await first;
   expect(asked).toHaveLength(1);

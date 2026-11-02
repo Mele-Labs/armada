@@ -3,13 +3,28 @@
 
 import { deckRow, inside, region, role, walk } from "../walk";
 
-const landing = region("Done", { exact: true });
+const landing = region("Done", {
+  exact: true,
+});
 
 const stackedPullRequests = walk("stacked-pull-requests", [
-  { press: deckRow("Split the export into steps"), say: "Six pull requests, one merged and five stacked on one another" },
-  { key: "Alt+1", on: landing, say: "Done is folded until pressed: ⌥1 opens it" },
-  { look: inside(landing, role("list", "Pull requests")), say: "The stack reads parent first under one lane. The root says what it is based on, and the second child of the root names it in a chip" },
-  { press: inside(landing, role("link", "Stacked on pull request #3102")), say: "The chip finds the parent's row" },
+  {
+    press: deckRow("Split the export into steps"),
+    say: "Six pull requests, one merged and five stacked on one another",
+  },
+  {
+    key: "Alt+1",
+    on: landing,
+    say: "Done is folded until pressed: ⌥1 opens it",
+  },
+  {
+    look: inside(landing, role("list", "Pull requests")),
+    say: "The stack reads parent first under one lane. The root says what it is based on, and the second child of the root names it in a chip",
+  },
+  {
+    press: inside(landing, role("link", "Stacked on pull request #3102")),
+    say: "The chip finds the parent's row",
+  },
 ]);
 
 export { stackedPullRequests as "stacked-pull-requests" };

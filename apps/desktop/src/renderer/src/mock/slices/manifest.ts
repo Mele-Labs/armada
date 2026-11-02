@@ -11,6 +11,17 @@ import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "../ma
 export const manifest: Slice<ManifestApi, ManifestState> = {
   name: "manifest",
   state: MANIFEST_NOTHING_YET,
-  scenarios: () => [manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }), checking(), checkingWithoutRunSheet()],
+  scenarios: () => [
+    manifesting({
+      alwaysAllowed: [
+        GH_ISSUE_VIEW,
+      ],
+      drift: DRIFT_GONE,
+      kitServers: KIT_SERVERS,
+      runs: RUNS,
+    }),
+    checking(),
+    checkingWithoutRunSheet(),
+  ],
   api: (_scenario, fleet) => manifestApi(fleet),
 };

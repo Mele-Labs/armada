@@ -4,7 +4,12 @@ import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { SessionThreadRow } from "./SessionThread";
 
-type Disputed = Extract<SessionThreadRow, { kind: "disputed" }>;
+type Disputed = Extract<
+  SessionThreadRow,
+  {
+    kind: "disputed";
+  }
+>;
 
 export const DISPUTED = "Disputed";
 
@@ -25,7 +30,13 @@ export function DisputedMark() {
 }
 
 /** The agent disputed a notice of Fleet's: one line in Fleet's voice, with the review Job as a press where one was started. */
-export function DisputedRow({ row, onOpen }: { row: Disputed; onOpen: (sessionId: string) => void }) {
+export function DisputedRow({
+  row,
+  onOpen,
+}: {
+  row: Disputed;
+  onOpen: (sessionId: string) => void;
+}) {
   const { review } = row;
   return (
     <li className="armada-session-disputed" role="region" aria-label="Notice disputed">
@@ -33,7 +44,12 @@ export function DisputedRow({ row, onOpen }: { row: Disputed; onOpen: (sessionId
       <span className="armada-session-disputed__why">{row.why}</span>
       <span className="armada-session-disputed__spotted">{SPOTTED[row.spotted]}</span>
       {review === undefined ? null : (
-        <button type="button" className="armada-session-disputed__review" aria-label="Open the review job" onClick={() => onOpen(review)}>
+        <button
+          type="button"
+          className="armada-session-disputed__review"
+          aria-label="Open the review job"
+          onClick={() => onOpen(review)}
+        >
           Review job
           <ChevronRight size={12} strokeWidth={2} aria-hidden />
         </button>

@@ -7,7 +7,9 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 /** The line for the run of tool calls that ends the thread, while the turn runs. Nothing when the thread does not end in calls. */
 export function detectedOf(session: Session): string | undefined {
   if (session.dead !== undefined || session.turn.state !== "working") return undefined;
-  const run: { text: string }[] = [];
+  const run: {
+    text: string;
+  }[] = [];
   for (let at = session.rows.length - 1; at >= 0; at--) {
     const row = session.rows[at]!;
     if (row.kind === "tool") run.unshift(row);

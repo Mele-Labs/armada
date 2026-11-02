@@ -8,10 +8,19 @@
 import type { PartialRetroItem, RetroRow } from "@armada/protocol";
 
 /** One frame, and whether a walk holds on it. `at` and `stage_since` are the player's to stamp. */
-export type RetroFrame = { pause: boolean; row: Pick<RetroRow, "stage" | "characters" | "items" | "retro" | "why"> };
+export type RetroFrame = {
+  pause: boolean;
+  row: Pick<RetroRow, "stage" | "characters" | "items" | "retro" | "why">;
+};
 
 /** The order the model writes an item's fields in, and the sentence each is. */
-const ORDER = ["who", "lands_in", "title", "what", "fix"] as const;
+const ORDER = [
+  "who",
+  "lands_in",
+  "title",
+  "what",
+  "fix",
+] as const;
 
 /**
  * The frames of a retro of `items`. The two stages before the writing each hold; the writing holds
@@ -20,8 +29,22 @@ const ORDER = ["who", "lands_in", "title", "what", "fix"] as const;
  */
 export function retroFrames(items: readonly PartialRetroItem[], retro: number): RetroFrame[] {
   const frames: RetroFrame[] = [
-    { pause: true, row: { stage: "asking_agent", characters: 0, items: [] } },
-    { pause: true, row: { stage: "reading_record", characters: 0, items: [] } },
+    {
+      pause: true,
+      row: {
+        stage: "asking_agent",
+        characters: 0,
+        items: [],
+      },
+    },
+    {
+      pause: true,
+      row: {
+        stage: "reading_record",
+        characters: 0,
+        items: [],
+      },
+    },
   ];
   let characters = 0;
   items.forEach((item, at) => {
@@ -30,16 +53,35 @@ export function retroFrames(items: readonly PartialRetroItem[], retro: number): 
     for (const field of ORDER) {
       const value = item[field];
       if (value === undefined) continue;
-      Object.assign(fields, { [field]: value });
+      Object.assign(fields, {
+        [field]: value,
+      });
       characters += value.length + 18;
       const whole = field === ORDER[ORDER.length - 1];
       const headline = field === "title";
       frames.push({
         pause: (at === 0 && whole) || (at === 1 && headline) || (at === items.length - 1 && whole),
-        row: { stage: "writing", characters, items: [...done, { ...fields }] },
+        row: {
+          stage: "writing",
+          characters,
+          items: [
+            ...done,
+            {
+              ...fields,
+            },
+          ],
+        },
       });
     }
   });
-  frames.push({ pause: true, row: { stage: "written", characters, items: [], retro } });
+  frames.push({
+    pause: true,
+    row: {
+      stage: "written",
+      characters,
+      items: [],
+      retro,
+    },
+  });
   return frames;
 }

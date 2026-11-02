@@ -14,21 +14,52 @@ import { lessonsOf, retroOf } from "./request";
 const SET_UP: RepositorySummary = {
   root: "/Users/user/store",
   records_root: "/records/store",
-  manifest: { id: "store-01", repository: "store", path: "/Users/user/store/armada.yml", records_root: "/records/store", version: 1, checks: [] },
+  manifest: {
+    id: "store-01",
+    repository: "store",
+    path: "/Users/user/store/armada.yml",
+    records_root: "/records/store",
+    version: 1,
+    checks: [],
+  },
 };
-const NOT_SET_UP: RepositorySummary = { root: "/Users/user/scratch", records_root: "/records/scratch" };
+const NOT_SET_UP: RepositorySummary = {
+  root: "/Users/user/scratch",
+  records_root: "/records/scratch",
+};
 
 const RETRO: Retro = {
-  session: { id: "s-01J8ZQ4M" },
+  session: {
+    id: "s-01J8ZQ4M",
+  },
   state: "written",
-  items: [{ id: "01K7I", who: "drone", statement: "The armada.yml edit was refused.", evidence: ["refusal:1"] }],
-  record: { refusals: [{ cite: "refusal:1", at: "2026-10-02T10:00:00Z", tool: "write_file" }] },
+  items: [
+    {
+      id: "01K7I",
+      who: "drone",
+      statement: "The armada.yml edit was refused.",
+      evidence: [
+        "refusal:1",
+      ],
+    },
+  ],
+  record: {
+    refusals: [
+      {
+        cite: "refusal:1",
+        at: "2026-10-02T10:00:00Z",
+        tool: "write_file",
+      },
+    ],
+  },
 };
 const LESSONS: Lessons = {
   lessons: [
     {
       id: "01K7L",
-      session: { id: "s-01J8ZQ4M" },
+      session: {
+        id: "s-01J8ZQ4M",
+      },
       handle: "fix",
       at: "2026-10-02T11:00:00Z",
       who: "owner",
@@ -51,7 +82,9 @@ afterEach(async () => {
 async function fleet(into: string[], body: unknown, status = 200): Promise<number> {
   const server = createServer((request, response) => {
     into.push(`${request.url ?? ""} ${String(request.headers["x-armada-caller"])}`);
-    response.writeHead(status, { "content-type": "application/json" });
+    response.writeHead(status, {
+      "content-type": "application/json",
+    });
     response.end(JSON.stringify(body));
   });
   listening = server;
@@ -62,7 +95,10 @@ async function fleet(into: string[], body: unknown, status = 200): Promise<numbe
 
 function pickedAt(root: string | null): Picked {
   const picked = new Picked();
-  picked.hold([SET_UP, NOT_SET_UP]);
+  picked.hold([
+    SET_UP,
+    NOT_SET_UP,
+  ]);
   picked.pick(root);
   return picked;
 }
@@ -71,24 +107,70 @@ describe("retro and lessons reads", () => {
   it("reads a Session's retro off the Session's route, the newest without n and a numbered one with it", async () => {
     const asked: string[] = [];
     const port = await fleet(asked, RETRO);
-    expect(await retroOf(port, { kind: "session", id: "s-01J8ZQ4M" })).toEqual({ ok: true, retro: RETRO });
-    expect(await retroOf(port, { kind: "session", id: "s-01J8ZQ4M", n: 2 })).toEqual({ ok: true, retro: RETRO });
-    expect(asked).toEqual(["/sessions/s-01J8ZQ4M/retro bridge", "/sessions/s-01J8ZQ4M/retro?n=2 bridge"]);
+    expect(
+      await retroOf(port, {
+        kind: "session",
+        id: "s-01J8ZQ4M",
+      }),
+    ).toEqual({
+      ok: true,
+      retro: RETRO,
+    });
+    expect(
+      await retroOf(port, {
+        kind: "session",
+        id: "s-01J8ZQ4M",
+        n: 2,
+      }),
+    ).toEqual({
+      ok: true,
+      retro: RETRO,
+    });
+    expect(asked).toEqual([
+      "/sessions/s-01J8ZQ4M/retro bridge",
+      "/sessions/s-01J8ZQ4M/retro?n=2 bridge",
+    ]);
   });
 
   it("answers a refused retro as the refusal", async () => {
     const asked: string[] = [];
-    const port = await fleet(asked, { code: "session_retro_not_found", message: "no such retro" }, 404);
-    expect((await retroOf(port, { kind: "session", id: "s-01J8ZQ4M", n: 9 })).ok).toBe(false);
-    expect(asked).toEqual(["/sessions/s-01J8ZQ4M/retro?n=9 bridge"]);
+    const port = await fleet(
+      asked,
+      {
+        code: "session_retro_not_found",
+        message: "no such retro",
+      },
+      404,
+    );
+    expect(
+      (
+        await retroOf(port, {
+          kind: "session",
+          id: "s-01J8ZQ4M",
+          n: 9,
+        })
+      ).ok,
+    ).toBe(false);
+    expect(asked).toEqual([
+      "/sessions/s-01J8ZQ4M/retro?n=9 bridge",
+    ]);
   });
 
   it("reads every repository's lessons on All, and the pick's alone on a pick", async () => {
     const asked: string[] = [];
     const port = await fleet(asked, LESSONS);
-    expect(await lessonsOf(port, pickedAt(null))).toEqual({ ok: true, lessons: LESSONS.lessons });
-    expect(await lessonsOf(port, pickedAt(SET_UP.root))).toEqual({ ok: true, lessons: LESSONS.lessons });
-    expect(asked).toEqual(["/lessons bridge", "/lessons?manifest_id=store-01 bridge"]);
+    expect(await lessonsOf(port, pickedAt(null))).toEqual({
+      ok: true,
+      lessons: LESSONS.lessons,
+    });
+    expect(await lessonsOf(port, pickedAt(SET_UP.root))).toEqual({
+      ok: true,
+      lessons: LESSONS.lessons,
+    });
+    expect(asked).toEqual([
+      "/lessons bridge",
+      "/lessons?manifest_id=store-01 bridge",
+    ]);
   });
 
   it("asks for the saved items with state=accepted, and for the open ones with no state at all", async () => {
@@ -107,7 +189,10 @@ describe("retro and lessons reads", () => {
   it("asks nothing for a repository with no Manifest, which has no Sessions to have lessons", async () => {
     const asked: string[] = [];
     const port = await fleet(asked, LESSONS);
-    expect(await lessonsOf(port, pickedAt(NOT_SET_UP.root))).toEqual({ ok: true, lessons: [] });
+    expect(await lessonsOf(port, pickedAt(NOT_SET_UP.root))).toEqual({
+      ok: true,
+      lessons: [],
+    });
     expect(asked).toEqual([]);
   });
 });

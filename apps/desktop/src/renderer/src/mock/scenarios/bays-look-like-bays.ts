@@ -16,13 +16,20 @@ function build(): Scenario {
     base: "main",
     warm: true,
     behind: 0,
-    held: { state: "free" },
+    held: {
+      state: "free",
+    },
   };
   return {
     ...ship,
     name: "bays-look-like-bays",
     says: "The Cockpit's Bays panel drawn as bays, a bay in each state: held, free warm and cold, stranded, closed",
-    held: { slots: [...(ship.held?.slots ?? []), warm] },
+    held: {
+      slots: [
+        ...(ship.held?.slots ?? []),
+        warm,
+      ],
+    },
   };
 }
 

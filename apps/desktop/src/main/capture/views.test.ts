@@ -4,27 +4,51 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 type Headers = Record<string, string>;
-type BeforeSend = (details: { requestHeaders: Headers }, done: (answer: { requestHeaders: Headers }) => void) => void;
+type BeforeSend = (
+  details: {
+    requestHeaders: Headers;
+  },
+  done: (answer: { requestHeaders: Headers }) => void,
+) => void;
 
-type FakeContents = { id: number; on: (event: string, fn: () => void) => void; fire: (event: string) => void };
+type FakeContents = {
+  id: number;
+  on: (event: string, fn: () => void) => void;
+  fire: (event: string) => void;
+};
 
 const world = vi.hoisted(() => ({
   partitions: new Map<string, Record<string, unknown>>(),
-  views: [] as { webPreferences: Record<string, unknown>; background?: string; webContents: FakeContents }[],
+  views: [] as {
+    webPreferences: Record<string, unknown>;
+    background?: string;
+    webContents: FakeContents;
+  }[],
   next: 0,
 }));
 
 vi.mock("electron", () => {
   class WebContentsView {
     webContents: FakeContents;
-    constructor(public options: { webPreferences: Record<string, unknown> }) {
+    constructor(
+      public options: {
+        webPreferences: Record<string, unknown>;
+      },
+    ) {
       const handlers = new Map<string, (() => void)[]>();
       const webContents = {
         id: ++world.next,
-        on: (event: string, fn: () => void) => void handlers.set(event, [...(handlers.get(event) ?? []), fn]),
+        on: (event: string, fn: () => void) =>
+          void handlers.set(event, [
+            ...(handlers.get(event) ?? []),
+            fn,
+          ]),
         fire: (event: string) => (handlers.get(event) ?? []).forEach((fn) => fn()),
       };
-      world.views.push({ webPreferences: options.webPreferences, webContents });
+      world.views.push({
+        webPreferences: options.webPreferences,
+        webContents,
+      });
       this.webContents = webContents;
     }
     setBackgroundColor(colour: string): void {
@@ -40,7 +64,9 @@ vi.mock("electron", () => {
         agent: null as string | null,
         beforeSend: null as BeforeSend | null,
         setUserAgent: (agent: string) => void (part["agent"] = agent),
-        webRequest: { onBeforeSendHeaders: (handler: BeforeSend) => void (part["beforeSend"] = handler) },
+        webRequest: {
+          onBeforeSendHeaders: (handler: BeforeSend) => void (part["beforeSend"] = handler),
+        },
         setPermissionRequestHandler: (handler: unknown) => void (part["permission"] = handler),
         setPermissionCheckHandler: (handler: unknown) => void (part["check"] = handler),
         setDisplayMediaRequestHandler: () => {},
@@ -73,9 +99,11 @@ const pin = (manifestId: string | null, through: string[] = []): Pinned => ({
   manifestId,
   through,
 });
-const pageView = (manifestId: string | null, through: string[] = []) => view(pin(manifestId, through));
+const pageView = (manifestId: string | null, through: string[] = []) =>
+  view(pin(manifestId, through));
 
-const CHROME = "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+const CHROME =
+  "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
 
 beforeEach(() => {
   world.views = [];
@@ -88,10 +116,18 @@ it("sends Chrome's agent from the partition, for the page's own string and the h
 
   let sent: Headers | null = null;
   (part["beforeSend"] as BeforeSend)(
-    { requestHeaders: { "User-Agent": "Mozilla/5.0 (Macintosh) Chrome/144.0.0.0 Electron/40.10.6 Safari/537.36", Accept: "text/html" } },
+    {
+      requestHeaders: {
+        "User-Agent": "Mozilla/5.0 (Macintosh) Chrome/144.0.0.0 Electron/40.10.6 Safari/537.36",
+        Accept: "text/html",
+      },
+    },
     (answer) => void (sent = answer.requestHeaders),
   );
-  expect(sent).toEqual({ "User-Agent": CHROME, Accept: "text/html" });
+  expect(sent).toEqual({
+    "User-Agent": CHROME,
+    Accept: "text/html",
+  });
 });
 
 it("sets it once for a partition two windows share, and on a partition of its own for another repository", () => {
@@ -108,34 +144,63 @@ it("withholds every permission, and gives the page no preload", () => {
   pageView(null);
   const part = world.partitions.get("persist:armada-capture-unnamed")!;
   const decided: boolean[] = [];
-  (part["permission"] as Ask)(null, "media", (granted) => decided.push(granted), { requestingUrl: "https://app.example.com/" });
-  expect(decided).toEqual([false]);
+  (part["permission"] as Ask)(null, "media", (granted) => decided.push(granted), {
+    requestingUrl: "https://app.example.com/",
+  });
+  expect(decided).toEqual([
+    false,
+  ]);
   expect((part["check"] as Check)(null, "media", "https://app.example.com")).toBe(false);
-  expect(world.views[0]?.webPreferences).toMatchObject({ sandbox: true, contextIsolation: true, nodeIntegration: false });
+  expect(world.views[0]?.webPreferences).toMatchObject({
+    sandbox: true,
+    contextIsolation: true,
+    nodeIntegration: false,
+  });
   expect(world.views[0]?.webPreferences).not.toHaveProperty("preload");
 });
 
 it("paints the page Bridge's ground until it draws, never white", () => {
   pageView(null);
-  expect(world.views[0]?.background).toBe(tokens.tokens.find((one) => one.name === "--bg-base")?.value);
+  expect(world.views[0]?.background).toBe(
+    tokens.tokens.find((one) => one.name === "--bg-base")?.value,
+  );
   expect(world.views[0]?.background).toMatch(/^#[0-9A-Fa-f]{6}$/);
 });
 
-type Ask = (contents: unknown, permission: string, decide: (granted: boolean) => void, details: { requestingUrl: string }) => void;
+type Ask = (
+  contents: unknown,
+  permission: string,
+  decide: (granted: boolean) => void,
+  details: {
+    requestingUrl: string;
+  },
+) => void;
 type Check = (contents: unknown, permission: string, requestingOrigin: string) => boolean;
 
 const LOCAL = "local-network-access";
-const THROUGH = ["https://login.example.com"];
+const THROUGH = [
+  "https://login.example.com",
+];
 
-function asked(part: Record<string, unknown>, contents: unknown, permission: string, requestingUrl: string): boolean {
+function asked(
+  part: Record<string, unknown>,
+  contents: unknown,
+  permission: string,
+  requestingUrl: string,
+): boolean {
   const decided: boolean[] = [];
-  (part["permission"] as Ask)(contents, permission, (granted) => decided.push(granted), { requestingUrl });
+  (part["permission"] as Ask)(contents, permission, (granted) => decided.push(granted), {
+    requestingUrl,
+  });
   return decided[0]!;
 }
 
 function walkPage() {
   pageView("01ARMADA", THROUGH);
-  return { part: world.partitions.get("persist:armada-capture-01ARMADA")!, contents: world.views.at(-1)!.webContents };
+  return {
+    part: world.partitions.get("persist:armada-capture-01ARMADA")!,
+    contents: world.views.at(-1)!.webContents,
+  };
 }
 
 it("gives a sign-in provider's page, and the page's own, local network access", () => {
@@ -153,16 +218,42 @@ it("gives local network access to no origin the window may not reach", () => {
 
 it("gives no other permission, even to the origin the Session named", () => {
   const { part, contents } = walkPage();
-  for (const permission of ["media", "notifications", "clipboard-read"]) {
-    expect(asked(part, contents, permission, "https://login.example.com/sso"), permission).toBe(false);
-    expect((part["check"] as Check)(contents, permission, "https://login.example.com"), permission).toBe(false);
+  for (const permission of [
+    "media",
+    "notifications",
+    "clipboard-read",
+  ]) {
+    expect(asked(part, contents, permission, "https://login.example.com/sso"), permission).toBe(
+      false,
+    );
+    expect(
+      (part["check"] as Check)(contents, permission, "https://login.example.com"),
+      permission,
+    ).toBe(false);
   }
 });
 
 it("gives nothing to contents the window did not register, or to a check with none", () => {
   const { part } = walkPage();
-  expect(asked(part, { id: 9999 }, LOCAL, "https://login.example.com/sso")).toBe(false);
-  expect((part["check"] as Check)({ id: 9999 }, LOCAL, "https://login.example.com")).toBe(false);
+  expect(
+    asked(
+      part,
+      {
+        id: 9999,
+      },
+      LOCAL,
+      "https://login.example.com/sso",
+    ),
+  ).toBe(false);
+  expect(
+    (part["check"] as Check)(
+      {
+        id: 9999,
+      },
+      LOCAL,
+      "https://login.example.com",
+    ),
+  ).toBe(false);
   expect((part["check"] as Check)(null, LOCAL, "https://login.example.com")).toBe(false);
 });
 

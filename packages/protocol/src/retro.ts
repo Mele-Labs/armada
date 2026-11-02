@@ -62,7 +62,10 @@ export type RetroItem = {
  * A change to Kit a retro item carries, which `agree_lesson` applies. Since
  * 23.35. Tagged on `kind`; `allow_command` is the only kind.
  */
-export type RetroChange = { kind: "allow_command"; command: string };
+export type RetroChange = {
+  kind: "allow_command";
+  command: string;
+};
 
 /** A tool call the agent was refused, or one that errored, with what it tried. */
 export type RecordRefusal = {
@@ -119,10 +122,17 @@ export type RetroRecord = {
 };
 
 /** The Session a retro or an item was written for. */
-export type RetroSession = { id: string; title?: string };
+export type RetroSession = {
+  id: string;
+  title?: string;
+};
 
 /** Whose retro a read asks for: a Session's, on `/sessions/:id/retro?n=`, where `n` names an older retro and absent is the newest. */
-export type RetroSubject = { kind: "session"; id: string; n?: number };
+export type RetroSubject = {
+  kind: "session";
+  id: string;
+  n?: number;
+};
 
 /** `get_session_retro`: `GET /sessions/:session_id/retro?n=`. */
 export type Retro = {
@@ -182,10 +192,26 @@ export type Lessons = {
  * published, because nothing on `/events` says a retro moved — a surface reads
  * it when it opens and again when the window regains focus.
  */
-export type RetroRead = { ok: true; retro: Retro } | { ok: false; outcome: Outcome };
+export type RetroRead =
+  | {
+      ok: true;
+      retro: Retro;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** What the Lessons listing came back as. `RetroRead`'s shape and reasons. */
-export type LessonsRead = { ok: true; lessons: Lesson[] } | { ok: false; outcome: Outcome };
+export type LessonsRead =
+  | {
+      ok: true;
+      lessons: Lesson[];
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /**
  * What `POST /lessons/:id/agree` and `POST /lessons/:id/disagree` came back as:
@@ -193,4 +219,12 @@ export type LessonsRead = { ok: true; lessons: Lesson[] } | { ok: false; outcome
  * item starts a Session (`agreed`, `session_proposed` set);
  * agreeing a Kit item saves it (`accepted`); disagreeing discards it.
  */
-export type LessonAnswer = { ok: true; lesson: Lesson } | { ok: false; outcome: Outcome };
+export type LessonAnswer =
+  | {
+      ok: true;
+      lesson: Lesson;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };

@@ -7,12 +7,36 @@ import { commands } from "vitest/browser";
 import { WalkGuide } from "@armada/components";
 import "../styles/index.css";
 
-const box = { x: 120, y: 200, width: 220, height: 32 };
-const press = { x: 230, y: 216, n: 1 };
+const box = {
+  x: 120,
+  y: 200,
+  width: 220,
+  height: 32,
+};
+const press = {
+  x: 230,
+  y: 216,
+  n: 1,
+};
 
 const draw = (withPress: boolean) => {
   const host = document.body.appendChild(document.createElement("div"));
-  createRoot(host).render(<WalkGuide name="Findings" at={2} of={5} said="Open the menu" box={box} top={72} onFold={() => {}} {...(withPress ? { press } : {})} />);
+  createRoot(host).render(
+    <WalkGuide
+      name="Findings"
+      at={2}
+      of={5}
+      said="Open the menu"
+      box={box}
+      top={72}
+      onFold={() => {}}
+      {...(withPress
+        ? {
+            press,
+          }
+        : {})}
+    />,
+  );
   return host;
 };
 
@@ -35,12 +59,20 @@ test("a press shows a cursor at the target's middle and rings that are gone once
     expect(found).not.toBeNull();
     return found!;
   });
-  const rings = [...host.querySelectorAll<HTMLElement>(".armada-walk-guide__pulse")];
+  const rings = [
+    ...host.querySelectorAll<HTMLElement>(".armada-walk-guide__pulse"),
+  ];
   expect(rings.length).toBeGreaterThan(0);
 
   await settled();
   const tip = cursor.getBoundingClientRect();
-  expect([Math.round(tip.left), Math.round(tip.top)]).toEqual([press.x, press.y]);
+  expect([
+    Math.round(tip.left),
+    Math.round(tip.top),
+  ]).toEqual([
+    press.x,
+    press.y,
+  ]);
   for (const ring of rings) expect(getComputedStyle(ring).opacity).toBe("0");
 });
 

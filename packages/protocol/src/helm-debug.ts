@@ -47,7 +47,9 @@ export type HelmDebugInfo = {
 };
 
 /** One line of the thread, as the record holds it. */
-export type HelmDebugLine = { at: string } & HelmDebugSaid;
+export type HelmDebugLine = {
+  at: string;
+} & HelmDebugSaid;
 
 /**
  * What one line was — a narrowing of the thread's own vocabulary, not a second
@@ -56,12 +58,30 @@ export type HelmDebugLine = { at: string } & HelmDebugSaid;
  * thread has no such rows.
  */
 export type HelmDebugSaid =
-  | { line: "asked"; text: HelmDebugText }
-  | { line: "said"; text: HelmDebugText }
-  | { line: "called"; tool: string; detail: string }
-  | { line: "refused"; tool: string; because: string }
+  | {
+      line: "asked";
+      text: HelmDebugText;
+    }
+  | {
+      line: "said";
+      text: HelmDebugText;
+    }
+  | {
+      line: "called";
+      tool: string;
+      detail: string;
+    }
+  | {
+      line: "refused";
+      tool: string;
+      because: string;
+    }
   /** Words Helm's dock sent to a Session or a Job, and which. Never told to Helm's process. */
-  | { line: "sent"; text: HelmDebugText; to: string };
+  | {
+      line: "sent";
+      text: HelmDebugText;
+      to: string;
+    };
 
 /** A piece of prose, bounded where the record cut it. */
 export type HelmDebugText = {
@@ -74,7 +94,10 @@ export type HelmDebugText = {
 export type HelmDebugPolled = {
   from: number;
   upto: number;
-  kinds: { kind: string; count: number }[];
+  kinds: {
+    kind: string;
+    count: number;
+  }[];
   /** How many events after `from` were dropped before they could be counted. */
   missed?: number;
 };
@@ -85,4 +108,12 @@ export type HelmDebugPolled = {
  * and it is theirs — putting it in `BridgeState` would make one reader's
  * gesture part of what every surface re-renders on.
  */
-export type HelmDebugRead = { ok: true; record: HelmDebugInfo } | { ok: false; outcome: Outcome };
+export type HelmDebugRead =
+  | {
+      ok: true;
+      record: HelmDebugInfo;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };

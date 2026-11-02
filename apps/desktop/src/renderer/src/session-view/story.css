@@ -3,76 +3,287 @@
 
 /* ---- Where the panels stand ------------------------------------------------------------------------------ */
 
-.sv-side > .sv-panel[data-area="blueprint"] { flex: 3 1 0; min-height: calc(var(--space-12) * 4); }
-.sv-side > .sv-panel[data-area="field"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
-.sv-side > .sv-panel[data-area="landing"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+.sv-side > .sv-panel[data-area="blueprint"] {
+  flex: 3 1 0;
+  min-height: calc(var(--space-12) * 4);
+}
+.sv-side > .sv-panel[data-area="field"] {
+  flex: 2 1 0;
+  min-height: calc(var(--space-12) * 3);
+}
+.sv-side > .sv-panel[data-area="landing"] {
+  flex: 2 1 0;
+  min-height: calc(var(--space-12) * 3);
+}
 /* The panels share the column by the weights above, and each scrolls inside where it overflows (`.sv-panel__body`). The panel the stage is at takes
    the larger share. A panel the owner dragged is sized by its kept share instead (`splits.css`). */
-.sv-side > .sv-panel[data-current][data-area] { flex-grow: 5; }
+.sv-side > .sv-panel[data-current][data-area] {
+  flex-grow: 5;
+}
 /* A plan not being drafted is a few rows, so while the stage is at a later panel it takes its own height and that panel has the rest; with none open after it, it grows like the others. */
-.sv-side > .sv-panel[data-area="blueprint"]:not([data-current], :has([data-drafting])):has(~ .sv-panel:not([data-collapsed])) { flex: 0 1 auto; min-height: 0; }
-.sv-side > .sv-panel[data-area="blueprint"]:has(> .sv-panel__body:empty) { flex: 0 0 auto; min-height: 0; }
+.sv-side
+  > .sv-panel[data-area="blueprint"]:not([data-current], :has([data-drafting])):has(
+    ~ .sv-panel:not([data-collapsed])
+  ) {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+.sv-side > .sv-panel[data-area="blueprint"]:has(> .sv-panel__body:empty) {
+  flex: 0 0 auto;
+  min-height: 0;
+}
 
 /* A folded band is one height, whatever the panel holds: the label and the acts centred in it, and nothing under. Stands over each
    panel's own size above, and over the `:has` rules that size an approved Blueprint with nothing in it. */
-.sv-side > .sv-panel[data-collapsed][data-collapsed][data-collapsed][data-collapsed] { flex: 0 0 var(--folded); height: var(--folded); min-height: 0; max-height: var(--folded); }
-.sv-side > .sv-panel[data-collapsed] > .sv-panel__band { height: calc(var(--folded) - var(--border-width) * 2); min-height: 0; border-bottom: 0; }
+.sv-side > .sv-panel[data-collapsed][data-collapsed][data-collapsed][data-collapsed] {
+  flex: 0 0 var(--folded);
+  height: var(--folded);
+  min-height: 0;
+  max-height: var(--folded);
+}
+.sv-side > .sv-panel[data-collapsed] > .sv-panel__band {
+  height: calc(var(--folded) - var(--border-width) * 2);
+  min-height: 0;
+  border-bottom: 0;
+}
 
 /* ---- Blueprint -------------------------------------------------------------------------------------------- */
 
-.sv-blueprint__summary { margin: 0; padding-inline: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); overflow-wrap: anywhere; }
-.sv-plan__acts { display: inline-flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+.sv-blueprint__summary {
+  margin: 0;
+  padding-inline: var(--space-2);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  overflow-wrap: anywhere;
+}
+.sv-plan__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
 /* A drafted group is its whole title over its tasks, not a single line cut short. */
-.sv-plan[data-drafting] .sv-group[data-step] .sv-group__title { overflow: visible; white-space: normal; }
+.sv-plan[data-drafting] .sv-group[data-step] .sv-group__title {
+  overflow: visible;
+  white-space: normal;
+}
 /* A plan being drafted shows every task, so its groups are not the stepper's single quiet lines. */
-.sv-plan[data-drafting] .sv-group[data-step] { border-color: var(--border-subtle); background: var(--bg-raised); }
+.sv-plan[data-drafting] .sv-group[data-step] {
+  border-color: var(--border-subtle);
+  background: var(--bg-raised);
+}
 
 /* An approved plan is read, not edited: the title and its chevron on one line, then a line for each task. */
-.sv-plan:not([data-drafting]) .sv-group__row { flex-direction: row; align-items: center; gap: var(--space-2); }
-.sv-plan:not([data-drafting]) .sv-group__row > .sv-group__title { flex: 1 1 auto; min-width: 0; }
-.sv-plan:not([data-drafting]) .sv-group__head { flex: none; }
-.sv-group__tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; }
-.sv-group__task { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr); column-gap: var(--space-2); align-items: start; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.sv-group__task > .armada-task-mark { display: inline-flex; align-items: center; height: 1lh; }
+.sv-plan:not([data-drafting]) .sv-group__row {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+.sv-plan:not([data-drafting]) .sv-group__row > .sv-group__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sv-plan:not([data-drafting]) .sv-group__head {
+  flex: none;
+}
+.sv-group__tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 var(--space-2) var(--space-2);
+  list-style: none;
+}
+.sv-group__task {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-2);
+  align-items: start;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.sv-group__task > .armada-task-mark {
+  display: inline-flex;
+  align-items: center;
+  height: 1lh;
+}
 /* A task wears its state as a Cockpit row does: done in the done hue, the one being worked on a running tint with a running edge, one that failed on a failed tint with a failed edge. */
-.sv-group__task[data-state="done"], .sv-group__task[data-state="handed_in"] { color: color-mix(in srgb, var(--step-advanced) 40%, var(--fg-muted)); }
-.sv-group__task[data-state="working"] { color: var(--fg-default); }
-.sv-group__task[data-state="failed"] { background: var(--step-failed-bg); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-failed); color: var(--step-failed); font-weight: var(--weight-medium); }
+.sv-group__task[data-state="done"],
+.sv-group__task[data-state="handed_in"] {
+  color: color-mix(in srgb, var(--step-advanced) 40%, var(--fg-muted));
+}
+.sv-group__task[data-state="working"] {
+  color: var(--fg-default);
+}
+.sv-group__task[data-state="failed"] {
+  background: var(--step-failed-bg);
+  box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--step-failed);
+  color: var(--step-failed);
+  font-weight: var(--weight-medium);
+}
 /* The task the turn is on takes the selection's shape: a hairline frame on a raised ground, at the inset radius, with what it is doing on a line of its own under the text. */
-.sv-group__task[data-here] { border-radius: var(--radius-inset, var(--radius-sm)); background: var(--select-ground, var(--bg-hover)); box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default)); color: var(--fg-default); font-weight: var(--weight-medium); }
-.sv-group__task > .sv-issue { grid-column: 2; margin-top: var(--space-1); }
+.sv-group__task[data-here] {
+  border-radius: var(--radius-inset, var(--radius-sm));
+  background: var(--select-ground, var(--bg-hover));
+  box-shadow: var(--select-frame, inset 0 0 0 var(--border-width) var(--fg-default));
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+.sv-group__task > .sv-issue {
+  grid-column: 2;
+  margin-top: var(--space-1);
+}
 /* A mark in progress that reads its age: a third column holds the readout, and the rows under the text span both. An old one dims, in the quiet ink and not a new colour. */
-.sv-group__task[data-aged] { grid-template-columns: var(--space-4) minmax(0, 1fr) auto; }
-.sv-group__task[data-aged] > .sv-issue, .sv-group__task[data-aged] > .sv-group__task-now { grid-column: 2 / -1; }
-.sv-group__task-age { --readout-chars: 4; align-self: start; margin-block-start: calc((1lh - var(--leading-2xs)) / 2); }
-.sv-group__task[data-stale] { color: var(--fg-subtle); }
-.sv-group__task[data-stale] > .armada-task-mark, .sv-group__task[data-stale] > .sv-group__task-age { opacity: 0.6; }
-.sv-group__task-now { grid-column: 2; color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted)); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-body); }
+.sv-group__task[data-aged] {
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
+}
+.sv-group__task[data-aged] > .sv-issue,
+.sv-group__task[data-aged] > .sv-group__task-now {
+  grid-column: 2 / -1;
+}
+.sv-group__task-age {
+  --readout-chars: 4;
+  align-self: start;
+  margin-block-start: calc((1lh - var(--leading-2xs)) / 2);
+}
+.sv-group__task[data-stale] {
+  color: var(--fg-subtle);
+}
+.sv-group__task[data-stale] > .armada-task-mark,
+.sv-group__task[data-stale] > .sv-group__task-age {
+  opacity: 0.6;
+}
+.sv-group__task-now {
+  grid-column: 2;
+  color: color-mix(in srgb, var(--step-running) 70%, var(--fg-muted));
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-body);
+}
 
 /* A group that goes to a Job of its own is the placeholder Job card (`JobCard`) alone, and the card is the frame: the group adds none. */
-.sv-group[data-placeholder] { gap: var(--space-2); border: 0; background: none; box-shadow: none; }
+.sv-group[data-placeholder] {
+  gap: var(--space-2);
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
 
 /* ---- Field: the page the turn is building, over the map -------------------------------------------------------------- */
 
-.sv-field__now { flex: none; padding: var(--space-3); }
+.sv-field__now {
+  flex: none;
+  padding: var(--space-3);
+}
 
 /* ---- Landing: the pull request, the doc, the mods ------------------------------------------------------------ */
 
-.sv-landing__prs { margin: 0; padding: 0; list-style: none; }
-.sv-landing__docs { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.sv-landing__prs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sv-landing__docs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 /* The findings a spike or a document lands in: a framed row in the teal of a handed-in step, its glyph and edge in the same hue. */
-.sv-landing__doc { --hue: var(--status-handed-in); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2) var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-medium); text-align: start; cursor: pointer; }
-.sv-landing__doc:not(:disabled):hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
-.sv-landing__doc:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
-.sv-landing__doc-mark { display: inline-flex; align-items: center; color: var(--hue); }
-.sv-landing__doc-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-landing__doc {
+  --hue: var(--status-handed-in);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
+  box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  text-align: start;
+  cursor: pointer;
+}
+.sv-landing__doc:not(:disabled):hover {
+  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
+}
+.sv-landing__doc:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -1);
+}
+.sv-landing__doc-mark {
+  display: inline-flex;
+  align-items: center;
+  color: var(--hue);
+}
+.sv-landing__doc-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* ---- Landing: a report ------------------------------------------------------------------------------------------ */
 
 /* The report is violet: a framed card with a weighted head and the same hue down its edge. */
-.sv-landing__report { --hue: var(--status-rejected); display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); color: var(--fg-muted); font-family: var(--font-sans); text-align: start; cursor: pointer; }
-.sv-landing__report:hover { background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised)); }
-.sv-landing__report:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
-.sv-landing__report-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
-.sv-landing__report-mark { display: inline-flex; align-items: center; color: var(--hue); }
-.sv-landing__report-lines { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; font-size: var(--text-xs); line-height: var(--leading-xs); overflow-wrap: anywhere; }
+.sv-landing__report {
+  --hue: var(--status-rejected);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
+  box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue);
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  text-align: start;
+  cursor: pointer;
+}
+.sv-landing__report:hover {
+  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
+}
+.sv-landing__report:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -1);
+}
+.sv-landing__report-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+}
+.sv-landing__report-mark {
+  display: inline-flex;
+  align-items: center;
+  color: var(--hue);
+}
+.sv-landing__report-lines {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow-wrap: anywhere;
+}

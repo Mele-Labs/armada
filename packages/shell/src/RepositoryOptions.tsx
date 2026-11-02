@@ -8,7 +8,11 @@ import { repositoryLabel } from "./repository-label";
 export const ALL_REPOSITORIES = "";
 
 /** Set up first, then the rest in a group: the rail clips a long label. */
-export function RepositoryOptions({ repositories }: { repositories: readonly RepositorySummary[] }) {
+export function RepositoryOptions({
+  repositories,
+}: {
+  repositories: readonly RepositorySummary[];
+}) {
   const optionOf = (repository: RepositorySummary) => (
     <option key={repository.root} value={repository.root} title={repository.root}>
       {repositoryLabel(repository, repositories)}

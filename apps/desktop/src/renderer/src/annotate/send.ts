@@ -10,77 +10,129 @@ import { pngSize, ringOn, type Ring } from "../../../shared/ring";
 import type { Sink } from "./sink";
 
 /** Refused partway, `sentIds` are the notes Fleet took before it refused, all to `sent`. */
-export type SendAnswer = { ok: true; sent: Sent } | { ok: false; saying: string; sent?: Sent; sentIds?: string[] };
+export type SendAnswer =
+  | {
+      ok: true;
+      sent: Sent;
+    }
+  | {
+      ok: false;
+      saying: string;
+      sent?: Sent;
+      sentIds?: string[];
+    };
 
 /** What Fleet's refusal says: its coded copy, else the message it sent, else that it refused. */
 export function refusal(outcome: Outcome): string {
   const coded = said(outcome);
   if (coded !== "") return coded;
-  return !outcome.ok && outcome.why === "refused" && outcome.error.message.trim() !== "" ? outcome.error.message.trim() : "Fleet refused it";
+  return !outcome.ok && outcome.why === "refused" && outcome.error.message.trim() !== ""
+    ? outcome.error.message.trim()
+    : "Fleet refused it";
 }
 
 /** A note's picture, the whole window, and where its element is on it. No ring on a whole-window note's. */
-export type Picture = { png: ArrayBuffer; ring: Ring | null };
+export type Picture = {
+  png: ArrayBuffer;
+  ring: Ring | null;
+};
 
 /**
  * The note's picture: the one kept as it was saved, else the window, `shown` in CSS pixels, taken now where its element is on
  * this screen, else none. Only a note saved before pictures were kept, or whose file is gone, falls back.
  */
-export async function pictureOf(note: Annotation, box: Box | null, sink: Sink, shown: Box | null): Promise<Picture | null> {
+export async function pictureOf(
+  note: Annotation,
+  box: Box | null,
+  sink: Sink,
+  shown: Box | null,
+): Promise<Picture | null> {
   if (note.screenshot !== undefined) {
     const kept = await sink.shot(note.id).catch(() => null);
-    if (kept !== null) return { png: kept, ring: note.scope === "window" ? null : (note.ring ?? null) };
+    if (kept !== null)
+      return {
+        png: kept,
+        ring: note.scope === "window" ? null : (note.ring ?? null),
+      };
   }
   // A null box is a note whose element is not on this screen: a shot of the screen would be of the wrong thing.
   if (box === null || shown === null) return null;
   const png = await sink.capture(shown).catch(() => null);
   if (png === null) return null;
   const size = note.scope === "window" ? null : pngSize(new Uint8Array(png));
-  return { png, ring: size === null ? null : ringOn(box, shown.width, size.width) };
+  return {
+    png,
+    ring: size === null ? null : ringOn(box, shown.width, size.width),
+  };
 }
 
 /** A picture sent with a message, as Fleet's seam takes one. */
-type Attachment = { name: string; media_type: string; data: string };
+type Attachment = {
+  name: string;
+  media_type: string;
+  data: string;
+};
 
 /** The example pictures kept beside the note, each as an attachment; one whose file is gone is left out. */
 export async function examplesOf(note: Annotation, sink: Sink): Promise<Attachment[]> {
   const kept: Attachment[] = [];
   for (const name of note.examples ?? []) {
     const png = await sink.example(note.id, name).catch(() => null);
-    if (png !== null) kept.push({ name: `annotation-${name}`, media_type: "image/png", data: base64(png) });
+    if (png !== null)
+      kept.push({
+        name: `annotation-${name}`,
+        media_type: "image/png",
+        data: base64(png),
+      });
   }
   return kept;
 }
 
 /** Why Send is not offered here, or null where it is. */
 export function unsendable(sink: Sink): string | null {
-  return sink.via === "main" ? null : "Sending needs Bridge and its Fleet; in the mock the note stays a file";
+  return sink.via === "main"
+    ? null
+    : "Sending needs Bridge and its Fleet; in the mock the note stays a file";
 }
 
 /** The calls a Session send makes on Fleet's seam. */
-export type SessionSender = Pick<BridgeApi, "startSession" | "sendSessionMessage" | "sendSessionNotes">;
+export type SessionSender = Pick<
+  BridgeApi,
+  "startSession" | "sendSessionMessage" | "sendSessionNotes"
+>;
 
 /** A Session the notes go to, by the title the person knows it by. */
-export type SessionTarget = { id: string; title: string };
+export type SessionTarget = {
+  id: string;
+  title: string;
+};
 
 const base64 = (bytes: ArrayBuffer): string => {
   const view = new Uint8Array(bytes);
   let binary = "";
-  for (let at = 0; at < view.length; at += 0x8000) binary += String.fromCharCode(...view.subarray(at, at + 0x8000));
+  for (let at = 0; at < view.length; at += 0x8000)
+    binary += String.fromCharCode(...view.subarray(at, at + 0x8000));
   return btoa(binary);
 };
 
 /** The Job open in the window when the notes were sent, and its labelled fact lines as its pane gave them (`job-facts.ts`). */
-export type OpenJob = { id: string; facts: readonly string[] };
+export type OpenJob = {
+  id: string;
+  facts: readonly string[];
+};
 
 /** What a whole-window note's message says before the Job's facts: they are background, so the agent starts from the owner's words. */
 const BACKGROUND_LEAD = "Background, not the task: the Job he had open when he pinned this";
 
 /** A new Session's name: the first note's first line, cut short. */
-export const titleOf = (notes: readonly Annotation[]): string => (notes[0]?.text.split("\n")[0] ?? "").trim().slice(0, 60);
+export const titleOf = (notes: readonly Annotation[]): string =>
+  (notes[0]?.text.split("\n")[0] ?? "").trim().slice(0, 60);
 
 /** The page the notes were sent from: its url, and its window's box in CSS pixels, which a picture taken now is of. */
-export type Page = { address: string; window: Box };
+export type Page = {
+  address: string;
+  window: Box;
+};
 
 /**
  * The notes to `target`, or to a Session started for them where `target` is null. **The notes
@@ -92,7 +144,10 @@ export type Page = { address: string; window: Box };
  * **With a Job open** (`open`), its facts ride on the first note sent, after his words, unless they are for the Job the notes are going to, which holds them.
  */
 export async function sendToSession(
-  notes: readonly { note: Annotation; box: Box | null }[],
+  notes: readonly {
+    note: Annotation;
+    box: Box | null;
+  }[],
   target: SessionTarget | null,
   sink: Sink,
   fleet: SessionSender,
@@ -109,25 +164,78 @@ export async function sendToSession(
   if (into === null) {
     // On the notes' repository, which the window's pick may not be: on All repositories it is none.
     const root = await sink.root();
-    if (root === null) return { ok: false, saying: "Job not started: no repository found above Bridge" };
+    if (root === null)
+      return {
+        ok: false,
+        saying: "Job not started: no repository found above Bridge",
+      };
     // Held on its start card: nothing runs until he presses Start. His words ride as the request, so Fleet's proposer reads them now.
-    const request = notes.map((one) => one.note.text.trim()).filter((words) => words !== "").join("\n");
+    const request = notes
+      .map((one) => one.note.text.trim())
+      .filter((words) => words !== "")
+      .join("\n");
     // No title goes up: Fleet names the Job from his words, and the notice falls back to the first line until the record says.
-    const started = await fleet.startSession(undefined, root, request === "" ? undefined : request, undefined, undefined, true);
-    if (!started.ok) return { ok: false, saying: `Job not started: ${refusal(started.outcome)}` };
-    into = { id: started.value.id, title: started.value.title ?? titleOf(notes.map((one) => one.note)) };
+    const started = await fleet.startSession(
+      undefined,
+      root,
+      request === "" ? undefined : request,
+      undefined,
+      undefined,
+      true,
+    );
+    if (!started.ok)
+      return {
+        ok: false,
+        saying: `Job not started: ${refusal(started.outcome)}`,
+      };
+    into = {
+      id: started.value.id,
+      title: started.value.title ?? titleOf(notes.map((one) => one.note)),
+    };
   }
 
-  const sent: Sent = { sessionId: into.id, title: into.title, at: at.toISOString() };
+  const sent: Sent = {
+    sessionId: into.id,
+    title: into.title,
+    at: at.toISOString(),
+  };
   const sentIds: string[] = [];
   // Background for the first thing sent alone: the Job is one fact about all of them.
   const job = open !== undefined && open.id !== into.id ? open.facts : [];
-  const onElements = notes.flatMap(({ note }, index) => (note.scope === "window" ? [] : [{ note, picture: pictures[index] ?? null, examples: examples[index] ?? [] }]));
+  const onElements = notes.flatMap(({ note }, index) =>
+    note.scope === "window"
+      ? []
+      : [
+          {
+            note,
+            picture: pictures[index] ?? null,
+            examples: examples[index] ?? [],
+          },
+        ],
+  );
   const firstOnElement = notes.findIndex(({ note }) => note.scope !== "window");
   // What goes, in the notes' order: each whole-window note, and the turn where its first note stands.
-  type Send = "turn" | { note: Annotation; picture: Picture | null; examples: Attachment[] };
+  type Send =
+    | "turn"
+    | {
+        note: Annotation;
+        picture: Picture | null;
+        examples: Attachment[];
+      };
   const sends = notes.flatMap(({ note }, index): Send[] =>
-    note.scope === "window" ? [{ note, picture: pictures[index] ?? null, examples: examples[index] ?? [] }] : index === firstOnElement ? ["turn"] : [],
+    note.scope === "window"
+      ? [
+          {
+            note,
+            picture: pictures[index] ?? null,
+            examples: examples[index] ?? [],
+          },
+        ]
+      : index === firstOnElement
+        ? [
+            "turn",
+          ]
+        : [],
   );
   for (const [index, one] of sends.entries()) {
     const facts = index === 0 ? job : [];
@@ -136,34 +244,95 @@ export async function sendToSession(
         ? await fleet.sendSessionNotes({
             session_id: into.id,
             notes: onElements.map(({ note, picture }, at) => ({
-              note: annotationNote(note, page.address, picture === null ? null : base64(picture.png), at === 0 ? facts : []),
-              ...(picture === null || picture.ring === null ? {} : { ring: picture.ring }),
+              note: annotationNote(
+                note,
+                page.address,
+                picture === null ? null : base64(picture.png),
+                at === 0 ? facts : [],
+              ),
+              ...(picture === null || picture.ring === null
+                ? {}
+                : {
+                    ring: picture.ring,
+                  }),
             })),
           })
         : await fleet.sendSessionMessage({
             session_id: into.id,
-            text: facts.length > 0 ? [requestOf(one.note), "", BACKGROUND_LEAD, ...facts].join("\n") : requestOf(one.note),
+            text:
+              facts.length > 0
+                ? [
+                    requestOf(one.note),
+                    "",
+                    BACKGROUND_LEAD,
+                    ...facts,
+                  ].join("\n")
+                : requestOf(one.note),
             ...(one.picture === null && one.examples.length === 0
               ? {}
-              : { attachments: [...(one.picture === null ? [] : [{ name: `annotation-${one.note.id}.png`, media_type: "image/png", data: base64(one.picture.png) }]), ...one.examples] }),
+              : {
+                  attachments: [
+                    ...(one.picture === null
+                      ? []
+                      : [
+                          {
+                            name: `annotation-${one.note.id}.png`,
+                            media_type: "image/png",
+                            data: base64(one.picture.png),
+                          },
+                        ]),
+                    ...one.examples,
+                  ],
+                }),
           });
     if (!answer.ok) {
       const saying = `Notes not sent to "${into.title}": ${refusal(answer.outcome)}`;
-      return sentIds.length === 0 ? { ok: false, saying } : { ok: false, saying, sent, sentIds };
+      return sentIds.length === 0
+        ? {
+            ok: false,
+            saying,
+          }
+        : {
+            ok: false,
+            saying,
+            sent,
+            sentIds,
+          };
     }
-    sentIds.push(...(one === "turn" ? onElements.map(({ note }) => note.id) : [one.note.id]));
+    sentIds.push(
+      ...(one === "turn"
+        ? onElements.map(({ note }) => note.id)
+        : [
+            one.note.id,
+          ]),
+    );
     // A pinned note carries one picture, so the pictures he added go just after the turn, in a message of their own:
     // after, so a Job whose first message names it is named by his words.
     const shown = one === "turn" ? onElements.filter((on) => on.examples.length > 0) : [];
     if (shown.length > 0) {
-      const lead = shown.map(({ note, examples: kept }) => `- "${note.text.split("\n")[0]?.trim() ?? ""}" on ${note.selector}: ${kept.map((file) => file.name).join(", ")}`);
+      const lead = shown.map(
+        ({ note, examples: kept }) =>
+          `- "${note.text.split("\n")[0]?.trim() ?? ""}" on ${note.selector}: ${kept.map((file) => file.name).join(", ")}`,
+      );
       const pictured = await fleet.sendSessionMessage({
         session_id: into.id,
-        text: ["Pictures he added to show what he means, for the notes in the last message:", ...lead].join("\n"),
+        text: [
+          "Pictures he added to show what he means, for the notes in the last message:",
+          ...lead,
+        ].join("\n"),
         attachments: shown.flatMap((on) => on.examples),
       });
-      if (!pictured.ok) return { ok: false, saying: `Pictures not sent to "${into.title}": ${refusal(pictured.outcome)}`, sent, sentIds };
+      if (!pictured.ok)
+        return {
+          ok: false,
+          saying: `Pictures not sent to "${into.title}": ${refusal(pictured.outcome)}`,
+          sent,
+          sentIds,
+        };
     }
   }
-  return { ok: true, sent };
+  return {
+    ok: true,
+    sent,
+  };
 }

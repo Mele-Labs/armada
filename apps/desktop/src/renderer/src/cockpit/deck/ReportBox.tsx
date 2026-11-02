@@ -14,11 +14,27 @@ const NONE: readonly never[] = [];
 const NOBODY = () => undefined;
 
 /** `keep` names the draft, so leaving and coming back finds it. `manifestId` is the repository `@` and `#` read. `send` resolves to whether the Session was started and told. */
-export function ReportBox({ keep, manifestId, send, onClose }: { keep: string; manifestId?: string | undefined; send: (sent: SentFromComposer) => Promise<boolean>; onClose: () => void }) {
+export function ReportBox({
+  keep,
+  manifestId,
+  send,
+  onClose,
+}: {
+  keep: string;
+  manifestId?: string | undefined;
+  send: (sent: SentFromComposer) => Promise<boolean>;
+  onClose: () => void;
+}) {
   const numbered = useNumbered(manifestId);
   return (
     <OverTheApp open>
-      <Dialog open tone="neutral" width="wide" title="Report an issue with the Job" onCancel={onClose}>
+      <Dialog
+        open
+        tone="neutral"
+        width="wide"
+        title="Report an issue with the Job"
+        onCancel={onClose}
+      >
         <SessionComposer
           attachOnly
           working={false}
@@ -31,7 +47,11 @@ export function ReportBox({ keep, manifestId, send, onClose }: { keep: string; m
           commands={NONE}
           taggable={NONE}
           searchFiles={(query) => searchFiles(query, manifestId)}
-          {...(numbered === undefined ? {} : { numbered })}
+          {...(numbered === undefined
+            ? {}
+            : {
+                numbered,
+              })}
           tags={NONE}
           onTags={NOBODY}
           drawn={NONE}

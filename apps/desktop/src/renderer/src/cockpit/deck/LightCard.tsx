@@ -23,7 +23,11 @@ export function LightCard({
   /** Attributes the chip's styling reads: main's, or a tone. */
   mark: Record<string, string | true>;
   /** Main's state in the card's band: its glyph, its words and the status token it takes. */
-  state: { Glyph: LucideIcon; said: string; tone: string };
+  state: {
+    Glyph: LucideIcon;
+    said: string;
+    tone: string;
+  };
   /** A call asked for the card to open: it is pinned and focus goes to the part of it `to` names, and `onSummoned` lets go of the ask. */
   summoned?: boolean;
   to?: string;
@@ -35,10 +39,33 @@ export function LightCard({
     <Inspect
       name={said}
       summoned={summoned}
-      {...(to === undefined ? {} : { to })}
-      {...(onSummoned === undefined ? {} : { onSummoned })}
+      {...(to === undefined
+        ? {}
+        : {
+            to,
+          })}
+      {...(onSummoned === undefined
+        ? {}
+        : {
+            onSummoned,
+          })}
       card={({ close }) => (
-        <InspectCard className="deck-main-card" kind={{ Glyph: GitMerge, label: "Main" }} title="main" state={state} keys={[{ key: "Enter", verb: "Keep open" }]} width="wide">
+        <InspectCard
+          className="deck-main-card"
+          kind={{
+            Glyph: GitMerge,
+            label: "Main",
+          }}
+          title="main"
+          state={state}
+          keys={[
+            {
+              key: "Enter",
+              verb: "Keep open",
+            },
+          ]}
+          width="wide"
+        >
           {children(close)}
         </InspectCard>
       )}

@@ -46,7 +46,8 @@ export function useTileManage({ row, onAct, onRescue, onRelease }: TileManagePro
   const reading = rescue?.state === "reading";
   const toContinue =
     rescue?.verdict === "unfinished" ||
-    (rescue?.verdict === undefined && (rescue?.summary !== undefined || (rescue?.items ?? []).length > 0));
+    (rescue?.verdict === undefined &&
+      (rescue?.summary !== undefined || (rescue?.items ?? []).length > 0));
 
   const send = () => {
     setReleasing(false);
@@ -60,9 +61,18 @@ export function useTileManage({ row, onAct, onRescue, onRelease }: TileManagePro
 
   const tips = rescueTipsOf(row);
   const foot =
-    onRescue === undefined || rescue === undefined || scrapping || releasing ? undefined : reading ? (
+    onRescue === undefined ||
+    rescue === undefined ||
+    scrapping ||
+    releasing ? undefined : reading ? (
       <Tooltip label={tips.stop}>
-        <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("stop")}>
+        <Button
+          variant="secondary"
+          size="sm"
+          ground="sunken"
+          disabled={row.acting === true}
+          onClick={() => rescued("stop")}
+        >
           Stop
         </Button>
       </Tooltip>
@@ -70,18 +80,35 @@ export function useTileManage({ row, onAct, onRescue, onRelease }: TileManagePro
       <>
         {toContinue ? (
           <Tooltip label={tips.pick_up}>
-            <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("pick_up")}>
+            <Button
+              variant="secondary"
+              size="sm"
+              ground="sunken"
+              disabled={row.acting === true}
+              onClick={() => rescued("pick_up")}
+            >
               Pick up
             </Button>
           </Tooltip>
         ) : null}
         <Tooltip label={tips.stash}>
-          <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("stash")}>
+          <Button
+            variant="secondary"
+            size="sm"
+            ground="sunken"
+            disabled={row.acting === true}
+            onClick={() => rescued("stash")}
+          >
             Stash
           </Button>
         </Tooltip>
         <Tooltip label={tips.scrap}>
-          <Button variant="destructive" size="sm" disabled={row.acting === true} onClick={() => setScrapping(true)}>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={row.acting === true}
+            onClick={() => setScrapping(true)}
+          >
             Scrap
           </Button>
         </Tooltip>
@@ -95,7 +122,9 @@ export function useTileManage({ row, onAct, onRescue, onRelease }: TileManagePro
         waiting={waiting}
         onAct={onAct}
         onRescue={onRescue}
-        onRelease={releasable(slot) && onRelease !== undefined ? () => setReleasing(true) : undefined}
+        onRelease={
+          releasable(slot) && onRelease !== undefined ? () => setReleasing(true) : undefined
+        }
       />
       {row.refused === undefined ? null : (
         <>
@@ -114,11 +143,23 @@ export function useTileManage({ row, onAct, onRescue, onRelease }: TileManagePro
           <li>{row.said}</li>
         </ul>
       )}
-      {releasing ? <ReleaseConfirm row={row} onSend={send} onCancel={() => setReleasing(false)} /> : null}
+      {releasing ? (
+        <ReleaseConfirm row={row} onSend={send} onCancel={() => setReleasing(false)} />
+      ) : null}
       {rescue === undefined ? null : <SlotFinding slot={slot} />}
-      {scrapping ? <ScrapConfirm slot={slot} onScrap={() => rescued("scrap")} onCancel={() => setScrapping(false)} /> : null}
+      {scrapping ? (
+        <ScrapConfirm
+          slot={slot}
+          onScrap={() => rescued("scrap")}
+          onCancel={() => setScrapping(false)}
+        />
+      ) : null}
     </>
   );
 
-  return { body, foot, reading };
+  return {
+    body,
+    foot,
+    reading,
+  };
 }

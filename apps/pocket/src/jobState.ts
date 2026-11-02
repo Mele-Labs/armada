@@ -21,31 +21,61 @@ import { loadLists, onChange } from "./fleet";
 import type { ForkedBody, JobOnly, PhoneSession } from "./gateway";
 import type { Machine } from "./machines";
 
-export type JobRead = { thread?: WireThread; error?: string };
+export type JobRead = {
+  thread?: WireThread;
+  error?: string;
+};
 
 const one = (id: string) => `/api/sessions/one?session_id=${encodeURIComponent(id)}`;
 
-export function useJob(machine: Machine | undefined, id: string): [JobRead, () => void] {
+export function useJob(
+  machine: Machine | undefined,
+  id: string,
+): [
+  JobRead,
+  () => void,
+] {
   const [read, setRead] = useState<JobRead>({});
   const [epoch, setEpoch] = useState(0);
   useEffect(() => {
     if (machine === undefined) return;
     return onChange((origin, sessionId) => {
-      if (origin === machine.origin && (sessionId === undefined || sessionId === id)) setEpoch((was) => was + 1);
+      if (origin === machine.origin && (sessionId === undefined || sessionId === id))
+        setEpoch((was) => was + 1);
     });
-  }, [machine?.origin, id]);
+  }, [
+    machine?.origin,
+    id,
+  ]);
   useEffect(() => {
     if (machine === undefined) return;
     let gone = false;
     getJson<WireThread>(machine, one(id)).then(
-      (thread) => !gone && setRead({ thread }),
-      (why) => !gone && setRead((was) => ({ ...was, error: refusal(why, machine) })),
+      (thread) =>
+        !gone &&
+        setRead({
+          thread,
+        }),
+      (why) =>
+        !gone &&
+        setRead((was) => ({
+          ...was,
+          error: refusal(why, machine),
+        })),
     );
     return () => {
       gone = true;
     };
-  }, [machine?.origin, machine?.deviceId, id, epoch]);
-  return [read, () => setEpoch((was) => was + 1)];
+  }, [
+    machine?.origin,
+    machine?.deviceId,
+    id,
+    epoch,
+  ]);
+  return [
+    read,
+    () => setEpoch((was) => was + 1),
+  ];
 }
 
 export type Acts = {
@@ -69,7 +99,10 @@ export type Acts = {
 /** The replies, each posted to `machine` and followed by a read of its lists and of the Job. */
 export function actsOn(machine: Machine, reread: () => void): Acts {
   const send = (path: string) => async (body: unknown) => {
-    await call(machine, path, { method: "POST", body });
+    await call(machine, path, {
+      method: "POST",
+      body,
+    });
     reread();
     void loadLists(machine.origin);
   };
@@ -88,7 +121,12 @@ export function actsOn(machine: Machine, reread: () => void): Acts {
     tune: send("/api/sessions/tune"),
     run: send("/api/sessions/run/start"),
     fork: async (body) => {
-      const { session } = (await (await call(machine, "/api/sessions/fork", { method: "POST", body })).json()) as ForkedBody;
+      const { session } = (await (
+        await call(machine, "/api/sessions/fork", {
+          method: "POST",
+          body,
+        })
+      ).json()) as ForkedBody;
       void loadLists(machine.origin);
       return session;
     },
@@ -108,22 +146,55 @@ export async function attempt(act: () => Promise<void>, machine?: Machine): Prom
 /** The style set a sketch's `mock` was drawn with, by the hash its node carries: `/api/sessions/kept_styles`. `undefined` where the Mac did not give it. */
 export async function readKept(machine: Machine, hash: string): Promise<KeptStyles | undefined> {
   try {
-    return await getJson<KeptStyles>(machine, `/api/sessions/kept_styles?hash=${encodeURIComponent(hash)}`);
+    return await getJson<KeptStyles>(
+      machine,
+      `/api/sessions/kept_styles?hash=${encodeURIComponent(hash)}`,
+    );
   } catch {
     return undefined;
   }
 }
 
-export type Shown = { kind: "text"; path: string; text: string } | { kind: "image"; url: string } | { kind: "refused"; says: string };
+export type Shown =
+  | {
+      kind: "text";
+      path: string;
+      text: string;
+    }
+  | {
+      kind: "image";
+      url: string;
+    }
+  | {
+      kind: "refused";
+      says: string;
+    };
 
 /** A file the Job showed, from `/api/sessions/shown`: text, or a picture's bytes. */
 export async function readShown(machine: Machine, id: string, path: string): Promise<Shown> {
   try {
-    const response = await call(machine, `/api/sessions/shown?session_id=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`);
-    if ((response.headers.get("Content-Type") ?? "").startsWith("image/")) return { kind: "image", url: URL.createObjectURL(await response.blob()) };
-    const body = (await response.json()) as { path: string; text: string };
-    return { kind: "text", path: body.path, text: body.text };
+    const response = await call(
+      machine,
+      `/api/sessions/shown?session_id=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`,
+    );
+    if ((response.headers.get("Content-Type") ?? "").startsWith("image/"))
+      return {
+        kind: "image",
+        url: URL.createObjectURL(await response.blob()),
+      };
+    const body = (await response.json()) as {
+      path: string;
+      text: string;
+    };
+    return {
+      kind: "text",
+      path: body.path,
+      text: body.text,
+    };
   } catch (why) {
-    return { kind: "refused", says: refusal(why, machine) };
+    return {
+      kind: "refused",
+      says: refusal(why, machine),
+    };
   }
 }

@@ -22,17 +22,48 @@ test("Overview carries no Dispatch of its own, and the title row's one bar is th
   mount("default");
   await onScreen();
 
-  await expect.element(page.getByRole("button", { name: /^Search, or describe work to dispatch/ })).toBeVisible();
-  expect(page.getByRole("button", { name: "Dispatch", exact: true }).query()).toBeNull();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: /^Search, or describe work to dispatch/,
+      }),
+    )
+    .toBeVisible();
+  expect(
+    page
+      .getByRole("button", {
+        name: "Dispatch",
+        exact: true,
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("the Job Board is gone from the title bar", async () => {
   mount("default");
   await onScreen();
 
-  await expect.element(page.getByRole("navigation", { name: "Places" })).toBeVisible();
-  expect(page.getByRole("tab", { name: "Job Board" }).query()).toBeNull();
-  expect(page.getByRole("button", { name: "Job Board" }).query()).toBeNull();
+  await expect
+    .element(
+      page.getByRole("navigation", {
+        name: "Places",
+      }),
+    )
+    .toBeVisible();
+  expect(
+    page
+      .getByRole("tab", {
+        name: "Job Board",
+      })
+      .query(),
+  ).toBeNull();
+  expect(
+    page
+      .getByRole("button", {
+        name: "Job Board",
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("the Board's old shortcut reaches the Cockpit, which holds the work a digit once named", async () => {
@@ -41,5 +72,11 @@ test("the Board's old shortcut reaches the Cockpit, which holds the work a digit
 
   // `⌘2` was the Board's, then Studios', then Jobs'. The Cockpit holds Sessions alone now.
   await userEvent.keyboard("{Meta>}2{/Meta}");
-  await expect.poll(() => document.querySelector('nav[aria-label="Places"] [role="tab"][aria-selected="true"]')?.textContent).toContain("Cockpit");
+  await expect
+    .poll(
+      () =>
+        document.querySelector('nav[aria-label="Places"] [role="tab"][aria-selected="true"]')
+          ?.textContent,
+    )
+    .toContain("Cockpit");
 });

@@ -33,7 +33,9 @@ export const REQUESTER = {
 } as const;
 
 /** What a row that carries no requester reads as. */
-export const OUTSIDE: Requester = { kind: REQUESTER.outside };
+export const OUTSIDE: Requester = {
+  kind: REQUESTER.outside,
+};
 
 /** The requester a row carries, or `outside` where it carries none. */
 export function requesterOf(row: { requester?: Requester }): Requester {

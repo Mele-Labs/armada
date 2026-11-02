@@ -20,7 +20,13 @@ type Story = StoryObj<typeof FleetPanel>;
  * or a row left with a label and a blank, fails here rather than only on
  * screen.
  */
-async function readsAsRows(canvasElement: HTMLElement, rows: [string, string][]) {
+async function readsAsRows(
+  canvasElement: HTMLElement,
+  rows: [
+    string,
+    string,
+  ][],
+) {
   const canvas = within(canvasElement);
   const labels = canvas.queryAllByRole("term");
   const values = canvas.queryAllByRole("definition");
@@ -37,23 +43,54 @@ export const Running: Story = {
     state: "running",
     label: "Running",
     rows: [
-      { label: "pid", value: "61372" },
-      { label: "port", value: "40000" },
-      { label: "protocol", value: "13.49" },
-      { label: "up", value: "2h 14m" },
+      {
+        label: "pid",
+        value: "61372",
+      },
+      {
+        label: "port",
+        value: "40000",
+      },
+      {
+        label: "protocol",
+        value: "13.49",
+      },
+      {
+        label: "up",
+        value: "2h 14m",
+      },
     ],
-    doctor: { outcome: "pass", checked: "Fleet, SQLite, Manifest, system stats" },
+    doctor: {
+      outcome: "pass",
+      checked: "Fleet, SQLite, Manifest, system stats",
+    },
     open: true,
   },
   play: async ({ canvas, canvasElement }) => {
     // The state is the head's dot now, so it is read as a named graphic rather
     // than as a line of text in the body.
-    await expect(canvas.getByRole("img", { name: "Running" })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Running",
+      }),
+    ).toBeVisible();
     await readsAsRows(canvasElement, [
-      ["pid", "61372"],
-      ["port", "40000"],
-      ["protocol", "13.49"],
-      ["up", "2h 14m"],
+      [
+        "pid",
+        "61372",
+      ],
+      [
+        "port",
+        "40000",
+      ],
+      [
+        "protocol",
+        "13.49",
+      ],
+      [
+        "up",
+        "2h 14m",
+      ],
     ]);
     await expect(canvas.getByText("pass")).toBeVisible();
   },
@@ -69,10 +106,22 @@ export const FleetAhead: Story = {
     state: "running",
     label: "Running",
     rows: [
-      { label: "pid", value: "61372" },
-      { label: "port", value: "40000" },
-      { label: "protocol", value: "13.50" },
-      { label: "up", value: "2h 14m" },
+      {
+        label: "pid",
+        value: "61372",
+      },
+      {
+        label: "port",
+        value: "40000",
+      },
+      {
+        label: "protocol",
+        value: "13.50",
+      },
+      {
+        label: "up",
+        value: "2h 14m",
+      },
     ],
     detail: "Fleet 13.50, Bridge 13.49",
     open: true,
@@ -81,14 +130,20 @@ export const FleetAhead: Story = {
 
 /** **No runtime file, so no pid and no port.** A sentence, and not one labelled blank. */
 export const NotRunning: Story = {
-  args: { state: "not-running", label: "Not running", detail: "no runtime file at ~/.armada/fleet.json", open: true },
+  args: {
+    state: "not-running",
+    label: "Not running",
+    detail: "no runtime file at ~/.armada/fleet.json",
+    open: true,
+  },
   play: async ({ canvas, canvasElement }) => {
     await expect(canvas.getByText("no runtime file at ~/.armada/fleet.json")).toBeVisible();
     await readsAsRows(canvasElement, []);
   },
 };
 
-const MACOS_RUNTIME_FILE = "no runtime file at /Users/user/Library/Application Support/Armada/fleet.json";
+const MACOS_RUNTIME_FILE =
+  "no runtime file at /Users/user/Library/Application Support/Armada/fleet.json";
 
 /**
  * **The whole path, at the left column's narrowest.** The path is what a
@@ -96,10 +151,19 @@ const MACOS_RUNTIME_FILE = "no runtime file at /Users/user/Library/Application S
  * than running past the panel's right edge.
  */
 export const NotRunningAtColumnMinimum: Story = {
-  args: { state: "not-running", label: "Not running", detail: MACOS_RUNTIME_FILE, open: true },
+  args: {
+    state: "not-running",
+    label: "Not running",
+    detail: MACOS_RUNTIME_FILE,
+    open: true,
+  },
   decorators: [
     (Story) => (
-      <div style={{ width: "var(--sidebar-min)" }}>
+      <div
+        style={{
+          width: "var(--sidebar-min)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -112,7 +176,9 @@ export const NotRunningAtColumnMinimum: Story = {
     await expect(panel).not.toBeNull();
     const text = document.createRange();
     text.selectNodeContents(sentence);
-    await expect(text.getBoundingClientRect().right).toBeLessThanOrEqual(panel!.getBoundingClientRect().right);
+    await expect(text.getBoundingClientRect().right).toBeLessThanOrEqual(
+      panel!.getBoundingClientRect().right,
+    );
   },
 };
 
@@ -122,16 +188,28 @@ export const Unreachable: Story = {
     state: "unreachable",
     label: "Unreachable",
     rows: [
-      { label: "pid", value: "4417" },
-      { label: "port", value: "7411" },
+      {
+        label: "pid",
+        value: "4417",
+      },
+      {
+        label: "port",
+        value: "7411",
+      },
     ],
     detail: "alive, no answer for 20s · last read 4s ago",
     open: true,
   },
   play: async ({ canvas, canvasElement }) => {
     await readsAsRows(canvasElement, [
-      ["pid", "4417"],
-      ["port", "7411"],
+      [
+        "pid",
+        "4417",
+      ],
+      [
+        "port",
+        "7411",
+      ],
     ]);
     await expect(canvas.getByText("alive, no answer for 20s · last read 4s ago")).toBeVisible();
   },
@@ -143,8 +221,14 @@ export const Starting: Story = {
     state: "starting",
     label: "Starting",
     rows: [
-      { label: "pid", value: "61372" },
-      { label: "port", value: "40000" },
+      {
+        label: "pid",
+        value: "61372",
+      },
+      {
+        label: "port",
+        value: "40000",
+      },
     ],
     open: true,
   },
@@ -155,10 +239,19 @@ export const DoctorReading: Story = {
     state: "running",
     label: "Running",
     rows: [
-      { label: "pid", value: "61372" },
-      { label: "port", value: "40000" },
+      {
+        label: "pid",
+        value: "61372",
+      },
+      {
+        label: "port",
+        value: "40000",
+      },
     ],
-    doctor: { outcome: "reading", checked: "Fleet, SQLite, Manifest, system stats" },
+    doctor: {
+      outcome: "reading",
+      checked: "Fleet, SQLite, Manifest, system stats",
+    },
     open: true,
   },
 };
@@ -172,13 +265,23 @@ export const OpensDoctor: Story = {
   args: {
     state: "running",
     label: "Running",
-    rows: [{ label: "pid", value: "61372" }],
-    doctor: { outcome: "warn", checked: "System stats: warn" },
+    rows: [
+      {
+        label: "pid",
+        value: "61372",
+      },
+    ],
+    doctor: {
+      outcome: "warn",
+      checked: "System stats: warn",
+    },
     onOpenDoctor: fn(),
     open: true,
   },
   play: async ({ args, canvas }) => {
-    const row = canvas.getByRole("button", { name: "Open Doctor" });
+    const row = canvas.getByRole("button", {
+      name: "Open Doctor",
+    });
     await expect(row).toHaveTextContent("warn");
     await userEvent.click(row);
     await expect(args.onOpenDoctor).toHaveBeenCalledOnce();
@@ -186,7 +289,17 @@ export const OpensDoctor: Story = {
 };
 
 export const Collapsed: Story = {
-  args: { state: "running", label: "Running", rows: [{ label: "pid", value: "61372" }], open: false },
+  args: {
+    state: "running",
+    label: "Running",
+    rows: [
+      {
+        label: "pid",
+        value: "61372",
+      },
+    ],
+    open: false,
+  },
 };
 
 /**
@@ -201,17 +314,29 @@ export const Collapsed: Story = {
  * reads, rather than a second sentence composed here.
  */
 export const Narrow: Story = {
-  args: { state: "running", label: "Running", open: true, narrow: true },
+  args: {
+    state: "running",
+    label: "Running",
+    open: true,
+    narrow: true,
+  },
   play: async ({ args, canvas }) => {
     const said = fleetSaid(args.label);
-    const dot = canvas.getByRole("img", { name: said });
+    const dot = canvas.getByRole("img", {
+      name: said,
+    });
     await expect(dot).toHaveAttribute("title", said);
   },
 };
 
 /** Not running, at the rail: the one thing the dot says is the one thing that changed. */
 export const NarrowNotRunning: Story = {
-  args: { state: "not-running", label: "Not running", open: true, narrow: true },
+  args: {
+    state: "not-running",
+    label: "Not running",
+    open: true,
+    narrow: true,
+  },
   play: Narrow.play,
 };
 
@@ -224,11 +349,31 @@ export const NarrowNotRunning: Story = {
  * label beside it.
  */
 export const ExpandedSaysItWithTheDot: Story = {
-  args: { state: "running", label: "Running", rows: [{ label: "pid", value: "61372" }], open: true },
+  args: {
+    state: "running",
+    label: "Running",
+    rows: [
+      {
+        label: "pid",
+        value: "61372",
+      },
+    ],
+    open: true,
+  },
   play: async ({ args, canvas }) => {
-    await expect(canvas.queryByRole("img", { name: /^Fleet — / })).not.toBeInTheDocument();
-    const dot = canvas.getByRole("img", { name: args.label });
+    await expect(
+      canvas.queryByRole("img", {
+        name: /^Fleet — /,
+      }),
+    ).not.toBeInTheDocument();
+    const dot = canvas.getByRole("img", {
+      name: args.label,
+    });
     await expect(dot).toHaveAttribute("title", fleetSaid(args.label));
-    await expect(canvas.getByRole("button", { name: `Fleet ${args.label}` })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: `Fleet ${args.label}`,
+      }),
+    ).toBeVisible();
   },
 };

@@ -24,13 +24,27 @@ import type { ProposalAnswer } from "@armada/screens/src/setup-reads";
 
 import type { SetupApi, SetupState } from "../api";
 
-const OK = { ok: true } as const;
+const OK = {
+  ok: true,
+} as const;
 const WROTE_AT = "2026-09-12T14:20:03.120Z";
 
 function workspace(dir: string, evidence: string, files: string[]): ScannedWorkspace {
   return {
-    dir, declared_by: [], evidence, manifests: files.map((file) => ({ file, tool: "npm" })), lockfiles: [],
-    runnables: [], tools: [], services: [], ports: [], missing: [], not_read: [],
+    dir,
+    declared_by: [],
+    evidence,
+    manifests: files.map((file) => ({
+      file,
+      tool: "npm",
+    })),
+    lockfiles: [],
+    runnables: [],
+    tools: [],
+    services: [],
+    ports: [],
+    missing: [],
+    not_read: [],
   };
 }
 
@@ -38,18 +52,43 @@ function workspace(dir: string, evidence: string, files: string[]): ScannedWorks
 const SCAN: RepositoryScan = {
   checkout: "/Users/user/storefront",
   workspaces: [
-    workspace(".", "strong", ["package.json", "pnpm-lock.yaml"]),
-    workspace("apps/web", "strong", ["apps/web/package.json"]),
-    workspace("services/api", "strong", ["services/api/package.json"]),
-    workspace("docs", "thin", ["docs/package.json"]),
+    workspace(".", "strong", [
+      "package.json",
+      "pnpm-lock.yaml",
+    ]),
+    workspace("apps/web", "strong", [
+      "apps/web/package.json",
+    ]),
+    workspace("services/api", "strong", [
+      "services/api/package.json",
+    ]),
+    workspace("docs", "thin", [
+      "docs/package.json",
+    ]),
   ],
   not_read: [],
 };
 
-const convention = (file: string, key: string): Provenance => ({ source: "convention", file, key });
+const convention = (file: string, key: string): Provenance => ({
+  source: "convention",
+  file,
+  key,
+});
 const DEFAULTS = [
-  { key: "auto_merge", value: "never", provenance: { source: "default" } },
-  { key: "review_gate", value: "human_always", provenance: { source: "default" } },
+  {
+    key: "auto_merge",
+    value: "never",
+    provenance: {
+      source: "default",
+    },
+  },
+  {
+    key: "review_gate",
+    value: "human_always",
+    provenance: {
+      source: "default",
+    },
+  },
 ];
 
 function proposal(dir: string, checks: string[], commands: string[] = []): ManifestProposal {
@@ -57,13 +96,34 @@ function proposal(dir: string, checks: string[], commands: string[] = []): Manif
   return {
     dir,
     file: dir === "." ? "armada.yml" : `${dir}/armada.yml`,
-    id: { value: dir === "." ? "storefront" : dir.split("/").pop()!, provenance: convention(file, "name") },
+    id: {
+      value: dir === "." ? "storefront" : dir.split("/").pop()!,
+      provenance: convention(file, "name"),
+    },
     ports:
       dir === "services/api"
-        ? [{ name: "db", container: 5432, provenance: { source: "read", file: "compose.yaml", key: "services.db.ports" } }]
+        ? [
+            {
+              name: "db",
+              container: 5432,
+              provenance: {
+                source: "read",
+                file: "compose.yaml",
+                key: "services.db.ports",
+              },
+            },
+          ]
         : [],
-    checks: checks.map((name) => ({ name, run: `pnpm ${name}`, provenance: convention(file, `scripts.${name}`) })),
-    commands: commands.map((name) => ({ name, run: `pnpm ${name}`, provenance: convention(file, `scripts.${name}`) })),
+    checks: checks.map((name) => ({
+      name,
+      run: `pnpm ${name}`,
+      provenance: convention(file, `scripts.${name}`),
+    })),
+    commands: commands.map((name) => ({
+      name,
+      run: `pnpm ${name}`,
+      provenance: convention(file, `scripts.${name}`),
+    })),
     policy: DEFAULTS,
   };
 }
@@ -71,36 +131,106 @@ function proposal(dir: string, checks: string[], commands: string[] = []): Manif
 const PROPOSALS: ManifestProposals = {
   checkout: SCAN.checkout,
   proposals: [
-    { ...proposal(".", ["test"]), present: true },
-    proposal("apps/web", ["test", "lint", "typecheck"], ["dev"]),
-    proposal("services/api", ["test", "typecheck"], ["migrate", "reset"]),
+    {
+      ...proposal(".", [
+        "test",
+      ]),
+      present: true,
+    },
+    proposal(
+      "apps/web",
+      [
+        "test",
+        "lint",
+        "typecheck",
+      ],
+      [
+        "dev",
+      ],
+    ),
+    proposal(
+      "services/api",
+      [
+        "test",
+        "typecheck",
+      ],
+      [
+        "migrate",
+        "reset",
+      ],
+    ),
     proposal("docs", []),
   ],
-  caps: { cost_micros: 5_000_000, turns: 200 },
+  caps: {
+    cost_micros: 5_000_000,
+    turns: 200,
+  },
 };
 
 const NO_ROOT_FILE: ManifestProposals = {
   ...PROPOSALS,
-  proposals: PROPOSALS.proposals.map((one) => (one.dir === "." ? { ...one, present: false } : one)),
+  proposals: PROPOSALS.proposals.map((one) =>
+    one.dir === "."
+      ? {
+          ...one,
+          present: false,
+        }
+      : one,
+  ),
 };
 
 /** One edit, applied as Fleet applies it: a changed line reads edited, a new one added. */
 function applied(one: ManifestProposal, { edit }: EditManifestProposal): ManifestProposal {
-  const edited = { source: "edited_during_setup" };
-  const added = { source: "added_during_setup" };
+  const edited = {
+    source: "edited_during_setup",
+  };
+  const added = {
+    source: "added_during_setup",
+  };
   switch (edit.edit) {
     case "check": {
       const was = one.checks.some((check) => check.name === edit.name);
       const requires = edit.requires ?? [];
-      const line = { name: edit.name, run: edit.run, ...(requires.length === 0 ? {} : { requires }), provenance: was ? edited : added };
-      return { ...one, checks: was ? one.checks.map((check) => (check.name === edit.name ? line : check)) : [...one.checks, line] };
+      const line = {
+        name: edit.name,
+        run: edit.run,
+        ...(requires.length === 0
+          ? {}
+          : {
+              requires,
+            }),
+        provenance: was ? edited : added,
+      };
+      return {
+        ...one,
+        checks: was
+          ? one.checks.map((check) => (check.name === edit.name ? line : check))
+          : [
+              ...one.checks,
+              line,
+            ],
+      };
     }
     case "command": {
       const was = one.commands.some((command) => command.name === edit.name);
-      const line = { name: edit.name, run: edit.run, ...(edit.destructive === true ? { destructive: true } : {}), provenance: was ? edited : added };
+      const line = {
+        name: edit.name,
+        run: edit.run,
+        ...(edit.destructive === true
+          ? {
+              destructive: true,
+            }
+          : {}),
+        provenance: was ? edited : added,
+      };
       return {
         ...one,
-        commands: was ? one.commands.map((command) => (command.name === edit.name ? line : command)) : [...one.commands, line],
+        commands: was
+          ? one.commands.map((command) => (command.name === edit.name ? line : command))
+          : [
+              ...one.commands,
+              line,
+            ],
       };
     }
     case "move": {
@@ -109,18 +239,43 @@ function applied(one: ManifestProposal, { edit }: EditManifestProposal): Manifes
         return {
           ...one,
           checks: one.checks.filter((line) => line !== check),
-          commands: [...one.commands, { name: check.name, run: check.run, provenance: edited }],
+          commands: [
+            ...one.commands,
+            {
+              name: check.name,
+              run: check.run,
+              provenance: edited,
+            },
+          ],
         };
       }
       const command = one.commands.find((line) => line.name === edit.name)!;
       return {
         ...one,
         commands: one.commands.filter((line) => line !== command),
-        checks: [...one.checks, { name: command.name, run: command.run, provenance: edited }],
+        checks: [
+          ...one.checks,
+          {
+            name: command.name,
+            run: command.run,
+            provenance: edited,
+          },
+        ],
       };
     }
     case "policy":
-      return { ...one, policy: one.policy.map((row) => (row.key === edit.key ? { ...row, value: edit.value ?? row.value, provenance: edited } : row)) };
+      return {
+        ...one,
+        policy: one.policy.map((row) =>
+          row.key === edit.key
+            ? {
+                ...row,
+                value: edit.value ?? row.value,
+                provenance: edited,
+              }
+            : row,
+        ),
+      };
     default:
       return one;
   }
@@ -128,7 +283,10 @@ function applied(one: ManifestProposal, { edit }: EditManifestProposal): Manifes
 
 /** The file Write puts down, laid out as Fleet's writer lays out the keys a test reads. */
 function textOf(one: ManifestProposal): string {
-  const lines = ["version: 1", `id: ${one.id.value}`];
+  const lines = [
+    "version: 1",
+    `id: ${one.id.value}`,
+  ];
   if (one.checks.length > 0) lines.push("checks:");
   for (const check of one.checks) {
     lines.push(`  ${check.name}:`, `    run: ${check.run}`);
@@ -148,32 +306,74 @@ function textOf(one: ManifestProposal): string {
  * `more` packages beside the storefront's own four, each proposing the apps' three Checks, and
  * `unreadable` workspaces Scan could not follow, which propose nothing.
  */
-function widened(base: ManifestProposals, more: number, unreadable: readonly string[] = []): { scan: RepositoryScan; proposals: ManifestProposals } {
-  const dirs = Array.from({ length: more }, (_, at) => `packages/pkg-${String(at + 1).padStart(2, "0")}`);
+function widened(
+  base: ManifestProposals,
+  more: number,
+  unreadable: readonly string[] = [],
+): {
+  scan: RepositoryScan;
+  proposals: ManifestProposals;
+} {
+  const dirs = Array.from(
+    {
+      length: more,
+    },
+    (_, at) => `packages/pkg-${String(at + 1).padStart(2, "0")}`,
+  );
   return {
     scan: {
       ...SCAN,
       workspaces: [
         ...SCAN.workspaces,
-        ...dirs.map((dir) => workspace(dir, "strong", [`${dir}/package.json`])),
+        ...dirs.map((dir) =>
+          workspace(dir, "strong", [
+            `${dir}/package.json`,
+          ]),
+        ),
         ...unreadable.map((dir) => workspace(dir, "not_followed", [])),
       ],
     },
     proposals: {
       ...base,
-      proposals: [...base.proposals, ...dirs.map((dir) => proposal(dir, ["test", "lint", "typecheck"])), ...unreadable.map((dir) => proposal(dir, []))],
+      proposals: [
+        ...base.proposals,
+        ...dirs.map((dir) =>
+          proposal(dir, [
+            "test",
+            "lint",
+            "typecheck",
+          ]),
+        ),
+        ...unreadable.map((dir) => proposal(dir, [])),
+      ],
     },
   };
 }
 
 function ran(group: string, name: string, run: string, exit: number, ms: number): VerifyStep {
   const record = {
-    id: `crun_${name}`, name, command: run, required: [],
-    started_at: "2026-09-12T14:11:00Z", ended_at: "2026-09-12T14:11:09Z", duration_ms: ms,
-    exit_code: exit, expect_exit_code: 0, ended: `exited ${exit}`, stopped: false,
-    changed: [], undoable: false, log: `runs/crun_${name}/output.log`,
+    id: `crun_${name}`,
+    name,
+    command: run,
+    required: [],
+    started_at: "2026-09-12T14:11:00Z",
+    ended_at: "2026-09-12T14:11:09Z",
+    duration_ms: ms,
+    exit_code: exit,
+    expect_exit_code: 0,
+    ended: `exited ${exit}`,
+    stopped: false,
+    changed: [],
+    undoable: false,
+    log: `runs/crun_${name}/output.log`,
   };
-  return { group, name, run, state: "ran", record };
+  return {
+    group,
+    name,
+    run,
+    state: "ran",
+    record,
+  };
 }
 
 /** A Verify that ran all four of its steps, one of them failing. */
@@ -190,7 +390,14 @@ export const VERIFY_ENDED: CheckoutVerify = {
 };
 
 /** An empty Verify sheet, read: what Fleet holds for a Manifest nothing has run against. */
-export const SHEET_READ: CheckoutRunSheetRead = { state: "read", sheet: { setup: [], checks: [], commands: [] } };
+export const SHEET_READ: CheckoutRunSheetRead = {
+  state: "read",
+  sheet: {
+    setup: [],
+    checks: [],
+    commands: [],
+  },
+};
 
 /** What the OS folder dialog answers. Nothing native opens. */
 export const CHOSEN = "/Users/user/scratch";
@@ -214,7 +421,9 @@ export type CreateGoesTo = "took" | "occupied" | "unserved";
 const LATE_MS = 800;
 
 /** What main resolves a parent to. `/tmp` is a symlink on macOS, and Fleet clones under its target. */
-const RESOLVED: Record<string, string> = { "/tmp": "/private/tmp" };
+const RESOLVED: Record<string, string> = {
+  "/tmp": "/private/tmp",
+};
 
 export type SettingUp = {
   write?: WriteGoesTo;
@@ -241,7 +450,10 @@ export type SettingUp = {
  * What this Fleet writes beside Setup's own state: the Verify sheet the Manifest surface draws,
  * and the picked repository and the list it holds. Desktop's `BridgeState` has all of them.
  */
-export type SettingUpState = PublishedCore & SetupState & { checkoutRunSheet: CheckoutRunSheetRead };
+export type SettingUpState = PublishedCore &
+  SetupState & {
+    checkoutRunSheet: CheckoutRunSheetRead;
+  };
 
 /** Setup's members, and the two Manifest ones its Verify press reaches. Desktop's `BridgeApi` has all of them. */
 export type SettingUpApi = SetupApi & {
@@ -255,21 +467,43 @@ export function settingUp<S extends SettingUpState, A extends SettingUpApi>(
   nothingYet: S,
   options: SettingUp = {},
 ): Scenario<S, A> {
-  const { write = "took", clone = "took", rootSetUp = true, more = 0, sheet = { state: "none" } } = options;
-  const repositories = options.repositories ?? [repository()];
-  const base = onBoard<S, A>(nothingYet, { repositories, picked: repositories[0]?.root ?? null });
+  const {
+    write = "took",
+    clone = "took",
+    rootSetUp = true,
+    more = 0,
+    sheet = {
+      state: "none",
+    },
+  } = options;
+  const repositories = options.repositories ?? [
+    repository(),
+  ];
+  const base = onBoard<S, A>(nothingYet, {
+    repositories,
+    picked: repositories[0]?.root ?? null,
+  });
   return {
     ...base,
     name: "setting-up",
     says: "A storefront nobody set up, and a Fleet that applies each edit and Write",
     // `S` is the app's whole state; this Fleet writes only the fields `SettingUpState` names.
-    behaves: (fleet) => behaviour(fleet as unknown as FleetHandle<SettingUpState>, { write, clone, rootSetUp, more, sheet, ...options }) as Partial<A>,
+    behaves: (fleet) =>
+      behaviour(fleet as unknown as FleetHandle<SettingUpState>, {
+        write,
+        clone,
+        rootSetUp,
+        more,
+        sheet,
+        ...options,
+      }) as Partial<A>,
   };
 }
 
 function behaviour(
   fleet: FleetHandle<SettingUpState>,
-  options: SettingUp & Required<Pick<SettingUp, "write" | "clone" | "rootSetUp" | "more" | "sheet">>,
+  options: SettingUp &
+    Required<Pick<SettingUp, "write" | "clone" | "rootSetUp" | "more" | "sheet">>,
 ): Partial<SettingUpApi> {
   const listed = (): RepositorySummary[] => fleet.state().holds.repositories ?? [];
   const picked = () => listed().find((one) => one.root === fleet.state().repository);
@@ -279,40 +513,89 @@ function behaviour(
     const known = held.get(root);
     if (known !== undefined) return known;
     const one = listed().find((repo) => repo.root === root);
-    const fresh = widened(options.rootSetUp && one?.manifest !== undefined ? PROPOSALS : NO_ROOT_FILE, options.more, options.unreadable).proposals;
+    const fresh = widened(
+      options.rootSetUp && one?.manifest !== undefined ? PROPOSALS : NO_ROOT_FILE,
+      options.more,
+      options.unreadable,
+    ).proposals;
     held.set(root, fresh);
     return fresh;
   };
-  const answer = (dir: string, change: (one: ManifestProposal) => ManifestProposal): ProposalAnswer => {
+  const answer = (
+    dir: string,
+    change: (one: ManifestProposal) => ManifestProposal,
+  ): ProposalAnswer => {
     const root = fleet.state().repository ?? "";
     const was = proposalsOf(root);
     const next = was.proposals.map((one) => (one.dir === dir ? change(one) : one));
-    held.set(root, { ...was, proposals: next });
-    return { state: "took", proposal: next.find((one) => one.dir === dir)! };
+    held.set(root, {
+      ...was,
+      proposals: next,
+    });
+    return {
+      state: "took",
+      proposal: next.find((one) => one.dir === dir)!,
+    };
   };
   // Fleet serving a folder: listed, published to every window, and answered.
   const served = (root: string, cloned = false): LocateAnswer => {
-    const one = { root, records_root: `/records/${root.split("/").pop()}` };
+    const one = {
+      root,
+      records_root: `/records/${root.split("/").pop()}`,
+    };
     if (!listed().some((repo) => repo.root === root)) {
-      fleet.publish({ holds: { ...fleet.state().holds, repositories: [...listed(), one] } });
+      fleet.publish({
+        holds: {
+          ...fleet.state().holds,
+          repositories: [
+            ...listed(),
+            one,
+          ],
+        },
+      });
     }
     held.set(root, widened(NO_ROOT_FILE, options.more, options.unreadable).proposals);
-    if (cloned) fleet.publish({ located: { repository: one, at: Date.now() } });
-    return { state: "located", repository: one };
+    if (cloned)
+      fleet.publish({
+        located: {
+          repository: one,
+          at: Date.now(),
+        },
+      });
+    return {
+      state: "located",
+      repository: one,
+    };
   };
   return {
-    readRepositoryScan: async () => ({ ok: true, scan: widened(proposalsOf(fleet.state().repository ?? ""), options.more, options.unreadable).scan }),
-    readManifestProposals: async () => ({ ok: true, proposals: proposalsOf(fleet.state().repository ?? "") }),
+    readRepositoryScan: async () => ({
+      ok: true,
+      scan: widened(proposalsOf(fleet.state().repository ?? ""), options.more, options.unreadable)
+        .scan,
+    }),
+    readManifestProposals: async () => ({
+      ok: true,
+      proposals: proposalsOf(fleet.state().repository ?? ""),
+    }),
     editManifestProposal: async (body) => answer(body.dir, (one) => applied(one, body)),
     writeManifestProposal: async ({ dir }) => {
       if (options.write === "refused") {
         return {
           state: "refused",
           saying: `${dir}/armada.yml would not load: 1 fault`,
-          faults: [{ key: "checks.lint.run", fault: "is empty." }],
+          faults: [
+            {
+              key: "checks.lint.run",
+              fault: "is empty.",
+            },
+          ],
         };
       }
-      if (options.write === "appeared") return { state: "appeared", onDisk: "version: 1\nid: web\n" };
+      if (options.write === "appeared")
+        return {
+          state: "appeared",
+          onDisk: "version: 1\nid: web\n",
+        };
       const file = dir === "." ? "armada.yml" : `${dir}/armada.yml`;
       const root = picked();
       if (dir === "." && root !== undefined) {
@@ -326,17 +609,38 @@ function behaviour(
         fleet.publish({
           holds: {
             ...fleet.state().holds,
-            repositories: listed().map((one) => (one.root === root.root ? { ...one, manifest } : one)),
+            repositories: listed().map((one) =>
+              one.root === root.root
+                ? {
+                    ...one,
+                    manifest,
+                  }
+                : one,
+            ),
           },
         });
       }
       return answer(dir, (one) => {
         const text = textOf(one);
         options.onWritten?.(file, text);
-        return { ...one, text, written: { path: file, at: WROTE_AT } };
+        return {
+          ...one,
+          text,
+          written: {
+            path: file,
+            at: WROTE_AT,
+          },
+        };
       });
     },
-    watchCheckoutRunSheet: async (want) => fleet.publish({ checkoutRunSheet: want ? options.sheet : { state: "none" } }),
+    watchCheckoutRunSheet: async (want) =>
+      fleet.publish({
+        checkoutRunSheet: want
+          ? options.sheet
+          : {
+              state: "none",
+            },
+      }),
     startCheckoutVerify: async (workspace) => {
       options.onVerify?.(workspace);
       return OK;
@@ -351,13 +655,22 @@ function behaviour(
       options.onCloned?.(url, parent);
       const into = landsIn(url, RESOLVED[parent] ?? parent)!;
       if (options.clone === "underway") return new Promise(() => {});
-      if (options.clone === "late") return new Promise((done) => setTimeout(() => done(served(into, true)), LATE_MS));
+      if (options.clone === "late")
+        return new Promise((done) => setTimeout(() => done(served(into, true)), LATE_MS));
       if (options.clone === "refused") {
         const saying = `git refused the clone: fatal: repository '${url}' not found`;
-        return Promise.resolve({ state: "refused", code: "fleet.clone_refused", saying });
+        return Promise.resolve({
+          state: "refused",
+          code: "fleet.clone_refused",
+          saying,
+        });
       }
       if (options.clone === "occupied") {
-        return Promise.resolve({ state: "refused", code: "fleet.destination_occupied", saying: `${into} already exists and is not empty` });
+        return Promise.resolve({
+          state: "refused",
+          code: "fleet.destination_occupied",
+          saying: `${into} already exists and is not empty`,
+        });
       }
       return Promise.resolve(served(into, true));
     },
@@ -365,8 +678,18 @@ function behaviour(
       options.onCreated?.(parent, name);
       // Main spells out `~` as the home it knows.
       const into = `${parent.replace(/^~(?=\/|$)/, "/Users/user")}/${name}`;
-      if (options.create === "occupied") return { state: "refused", code: "fleet.destination_occupied", saying: `${into} already exists and is not empty` };
-      if (options.create === "unserved") return { state: "refused", code: "fleet.not_a_repository", saying: `${into} could not be read as a repository` };
+      if (options.create === "occupied")
+        return {
+          state: "refused",
+          code: "fleet.destination_occupied",
+          saying: `${into} already exists and is not empty`,
+        };
+      if (options.create === "unserved")
+        return {
+          state: "refused",
+          code: "fleet.not_a_repository",
+          saying: `${into} could not be read as a repository`,
+        };
       return served(into);
     },
   };

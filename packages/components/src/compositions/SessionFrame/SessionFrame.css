@@ -215,13 +215,27 @@ button.armada-session-frame__context:focus-visible {
   background: var(--tone);
 }
 
-.armada-context-bar > i:nth-child(2) { background: color-mix(in srgb, var(--tone) 80%, transparent); }
-.armada-context-bar > i:nth-child(3) { background: color-mix(in srgb, var(--tone) 65%, transparent); }
-.armada-context-bar > i:nth-child(4) { background: color-mix(in srgb, var(--tone) 50%, transparent); }
-.armada-context-bar > i:nth-child(5) { background: color-mix(in srgb, var(--tone) 40%, transparent); }
-.armada-context-bar > i:nth-child(6) { background: color-mix(in srgb, var(--tone) 30%, transparent); }
-.armada-context-bar > i[data-kind="free"] { background: var(--bg-sunken); }
-.armada-context-bar > i[data-kind="buffer"] { background: var(--border-default); }
+.armada-context-bar > i:nth-child(2) {
+  background: color-mix(in srgb, var(--tone) 80%, transparent);
+}
+.armada-context-bar > i:nth-child(3) {
+  background: color-mix(in srgb, var(--tone) 65%, transparent);
+}
+.armada-context-bar > i:nth-child(4) {
+  background: color-mix(in srgb, var(--tone) 50%, transparent);
+}
+.armada-context-bar > i:nth-child(5) {
+  background: color-mix(in srgb, var(--tone) 40%, transparent);
+}
+.armada-context-bar > i:nth-child(6) {
+  background: color-mix(in srgb, var(--tone) 30%, transparent);
+}
+.armada-context-bar > i[data-kind="free"] {
+  background: var(--bg-sunken);
+}
+.armada-context-bar > i[data-kind="buffer"] {
+  background: var(--border-default);
+}
 
 .armada-session-frame__body {
   display: flex;
@@ -243,11 +257,21 @@ button.armada-session-frame__context:focus-visible {
 
 /* The five buckets, one hue each, wherever the mark is drawn: amber needs him, blue works, teal waits on something
    that is not him, grey is idle and a draft is the dormant grey. */
-.armada-session-mark[data-bucket="needs"] { color: var(--status-awaiting-review); }
-.armada-session-mark[data-bucket="working"] { color: var(--status-running); }
-.armada-session-mark[data-bucket="waiting"] { color: var(--status-handed-in); }
-.armada-session-mark[data-bucket="idle"] { color: var(--fg-muted); }
-.armada-session-mark[data-bucket="draft"] { color: var(--status-not-started); }
+.armada-session-mark[data-bucket="needs"] {
+  color: var(--status-awaiting-review);
+}
+.armada-session-mark[data-bucket="working"] {
+  color: var(--status-running);
+}
+.armada-session-mark[data-bucket="waiting"] {
+  color: var(--status-handed-in);
+}
+.armada-session-mark[data-bucket="idle"] {
+  color: var(--fg-muted);
+}
+.armada-session-mark[data-bucket="draft"] {
+  color: var(--status-not-started);
+}
 
 /* The tools mark as a button: the mark's own look, with a focus ring and a pointer. */
 .armada-tools-mark {
@@ -275,7 +299,9 @@ button.armada-session-frame__context:focus-visible {
 }
 
 @keyframes armada-tools-mark-pulse {
-  50% { opacity: 0.35; }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -339,7 +365,9 @@ button.armada-session-frame__context:focus-visible {
 }
 
 @keyframes armada-tools-menu-spin {
-  to { transform: rotate(1turn); }
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -401,7 +429,8 @@ button.armada-session-frame__context:focus-visible {
   z-index: -1;
   inset-block: 0;
   inset-inline-start: var(--threshold, 100%);
-  border-inline-start: var(--border-width) dotted color-mix(in srgb, var(--fg-subtle) 45%, transparent);
+  border-inline-start: var(--border-width) dotted
+    color-mix(in srgb, var(--fg-subtle) 45%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

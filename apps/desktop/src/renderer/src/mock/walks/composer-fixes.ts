@@ -11,24 +11,71 @@ const MOD = "Mod out of date: run /reload-plugins";
 
 function steps(narrow: boolean): Step[] {
   const { message } = kit(narrow);
-  const sessions = region("Jobs", { exact: true });
+  const sessions = region("Jobs", {
+    exact: true,
+  });
   const header = role("region", /^Job s4/);
   return [
-    { press: inside(sessions, button("CI timeout hunt")), say: "A Job whose mod is older than the repository's" },
-    { hover: inside(header, role("img", MOD)), say: "And in its header, where the mark says what to run" },
-    { type: "/re", into: message, say: "A slash and two letters" },
-    { look: role("listbox", "Skills and commands"), say: "Only what starts with them, then what holds them: one row each, and the list scrolls" },
-    { press: role("option", "/review"), say: "One picked" },
-    { look: message, say: "Written into the message with a space after it" },
-    { press: kit(narrow).rail("Sessions"), say: "Back to the list" },
-    { press: inside(sessions, button("Notes check")), say: "Another terminal Job" },
-    { type: "Draft the notes", into: message, say: "A message for it" },
-    { press: button("Send"), say: "Its terminal is not listening" },
-    { look: role("button", "Copy debug info"), say: "A toast stays, with what to run, and the thread says nothing" },
+    {
+      press: inside(sessions, button("CI timeout hunt")),
+      say: "A Job whose mod is older than the repository's",
+    },
+    {
+      hover: inside(header, role("img", MOD)),
+      say: "And in its header, where the mark says what to run",
+    },
+    {
+      type: "/re",
+      into: message,
+      say: "A slash and two letters",
+    },
+    {
+      look: role("listbox", "Skills and commands"),
+      say: "Only what starts with them, then what holds them: one row each, and the list scrolls",
+    },
+    {
+      press: role("option", "/review"),
+      say: "One picked",
+    },
+    {
+      look: message,
+      say: "Written into the message with a space after it",
+    },
+    {
+      press: kit(narrow).rail("Sessions"),
+      say: "Back to the list",
+    },
+    {
+      press: inside(sessions, button("Notes check")),
+      say: "Another terminal Job",
+    },
+    {
+      type: "Draft the notes",
+      into: message,
+      say: "A message for it",
+    },
+    {
+      press: button("Send"),
+      say: "Its terminal is not listening",
+    },
+    {
+      look: role("button", "Copy debug info"),
+      say: "A toast stays, with what to run, and the thread says nothing",
+    },
   ];
 }
 
-const wide = walk("composer-fixes", [toSessions, ...steps(false)]);
-const narrow = walk("composer-fixes", [toSessions, ...steps(true)], NARROW);
+const wide = walk("composer-fixes", [
+  toSessions,
+  ...steps(false),
+]);
+const narrow = walk(
+  "composer-fixes",
+  [
+    toSessions,
+    ...steps(true),
+  ],
+  NARROW,
+);
 
 export { wide as "composer-fixes", narrow as "composer-fixes-narrow" };

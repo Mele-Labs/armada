@@ -4,7 +4,6 @@
 import { useEffect, useRef } from "react";
 import { isPressed } from "@armada/components";
 
-
 /**
  * Re-read on `⇧⌘R`, from every surface and from inside a field.
  *

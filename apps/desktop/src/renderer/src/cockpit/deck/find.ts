@@ -8,36 +8,61 @@ import { sessionsMatching, type Session } from "@armada/screens/src/draft/sessio
 import { useSessions } from "../../sessions-draft";
 
 /** What a row says about why it matched: short in the row, whole in the tooltip. */
-export type Found = { short: string; whole: string };
+export type Found = {
+  short: string;
+  whole: string;
+};
 
-const NONE: Found = { short: "", whole: "" };
+const NONE: Found = {
+  short: "",
+  whole: "",
+};
 
 function sessionFound(hit: ReturnType<typeof sessionsMatching>[number]): Found {
   const { matched } = hit;
   if (matched === "title" || matched === "id") return NONE;
   switch (matched.kind) {
     case "pull_request":
-      return { short: `#${matched.number}`, whole: `Pull request #${matched.number}` };
+      return {
+        short: `#${matched.number}`,
+        whole: `Pull request #${matched.number}`,
+      };
     case "branch":
-      return { short: matched.name, whole: `Branch ${matched.name}` };
+      return {
+        short: matched.name,
+        whole: `Branch ${matched.name}`,
+      };
     case "slot":
-      return { short: `slot ${matched.slot}`, whole: `Worktree slot ${matched.slot}` };
+      return {
+        short: `slot ${matched.slot}`,
+        whole: `Worktree slot ${matched.slot}`,
+      };
     default:
       return NONE;
   }
 }
 
 /** The rows a search finds, by their list key, or `undefined` for a blank search. */
-export function foundOf(query: string, sessions: readonly Session[]): ReadonlyMap<string, Found> | undefined {
+export function foundOf(
+  query: string,
+  sessions: readonly Session[],
+): ReadonlyMap<string, Found> | undefined {
   const said = query.trim().toLowerCase();
   if (said === "") return undefined;
   const found = new Map<string, Found>();
-  for (const hit of sessionsMatching(sessions, query)) found.set(`session:${hit.session.id}`, sessionFound(hit));
+  for (const hit of sessionsMatching(sessions, query))
+    found.set(`session:${hit.session.id}`, sessionFound(hit));
   return found;
 }
 
 /** The search, read against the Sessions the window holds. */
 export function useFound(query: string): ReadonlyMap<string, Found> | undefined {
   const sessions = useSessions();
-  return useMemo(() => foundOf(query, sessions), [query, sessions]);
+  return useMemo(
+    () => foundOf(query, sessions),
+    [
+      query,
+      sessions,
+    ],
+  );
 }

@@ -11,8 +11,12 @@
   color: var(--status-awaiting-review);
 }
 
-.armada-clash-mark[data-opens] { cursor: pointer; }
-.armada-clash-mark[data-opens]:hover { color: var(--fg-default); }
+.armada-clash-mark[data-opens] {
+  cursor: pointer;
+}
+.armada-clash-mark[data-opens]:hover {
+  color: var(--fg-default);
+}
 
 /* Several clashes on one mark: a line for each other holder, under one heading. */
 .armada-clash-mark__card {
@@ -21,8 +25,17 @@
 }
 
 /* A path that opens its diff: the chip as it is, pressable. */
-.armada-clash-notice__open { display: inline-flex; max-width: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
-.armada-clash-notice__open:hover .armada-path__base { color: var(--accent); }
+.armada-clash-notice__open {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.armada-clash-notice__open:hover .armada-path__base {
+  color: var(--accent);
+}
 
 .armada-clash-notice__paths {
   display: flex;
@@ -35,6 +48,10 @@
 }
 
 /* The chip that folds a long list. A path chip's surface, in the accent a control wears. */
-.armada-clash-notice__fold .armada-path__base { color: var(--accent); }
+.armada-clash-notice__fold .armada-path__base {
+  color: var(--accent);
+}
 .armada-clash-notice__fold:hover .armada-path__base,
-.armada-clash-notice__fold:focus-visible .armada-path__base { color: var(--fg-default); }
+.armada-clash-notice__fold:focus-visible .armada-path__base {
+  color: var(--fg-default);
+}

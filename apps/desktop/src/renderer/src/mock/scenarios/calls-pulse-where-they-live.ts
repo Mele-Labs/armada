@@ -16,12 +16,30 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 const told: Session = {
   id: "t1",
   title: "Pin the store clock",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(10),
   standing: "replied",
   rows: [
-    { id: "t1-u", at: "13:55:00", kind: "message", from: { kind: "you" }, text: "Pin the clock in the store tests." },
-    { id: "t1-a", at: "14:08:09", kind: "message", from: { kind: "agent" }, text: "The clock is pinned in all four store tests and the fixture is gone." },
+    {
+      id: "t1-u",
+      at: "13:55:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Pin the clock in the store tests.",
+    },
+    {
+      id: "t1-a",
+      at: "14:08:09",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "The clock is pinned in all four store tests and the fixture is gone.",
+    },
   ],
   attachments: [],
 };
@@ -31,10 +49,25 @@ const RED: MainStanding = {
   commit: "9f3c1d2e4b5a69788796a5b4c3d2e1f001122334",
   read_at: ago(1),
   red_since: ago(12),
-  failed: [{ name: "desktop_test", check: "desktop_test", tests: ["resize.test.ts > keeps the sidebar width"] }],
+  failed: [
+    {
+      name: "desktop_test",
+      check: "desktop_test",
+      tests: [
+        "resize.test.ts > keeps the sidebar width",
+      ],
+    },
+  ],
 };
 
-const pull = (number: number, title: string, branch: string, ci: string): HubPullRequest => ({ number, title, branch, url: `${FORGE}${number}`, ci, opened_at: ago(40) });
+const pull = (number: number, title: string, branch: string, ci: string): HubPullRequest => ({
+  number,
+  title,
+  branch,
+  url: `${FORGE}${number}`,
+  ci,
+  opened_at: ago(40),
+});
 
 const lines = (): MergeLines => ({
   lines: [
@@ -46,7 +79,10 @@ const lines = (): MergeLines => ({
       sent_back: [],
       hub: {
         main: RED,
-        pull_requests: [pull(1896, "Fix the reconnect wait", "fleet/reconnect-wait", "failed"), pull(1892, "Add the pause marker column", "fleet/pause-marker-column", "passed")],
+        pull_requests: [
+          pull(1896, "Fix the reconnect wait", "fleet/reconnect-wait", "failed"),
+          pull(1892, "Add the pause marker column", "fleet/pause-marker-column", "passed"),
+        ],
         merged: [],
       },
     },
@@ -54,12 +90,26 @@ const lines = (): MergeLines => ({
 });
 
 function build(): Scenario {
-  const base = holding("calls-pulse-where-they-live", "Main red and a failed pull request, each pulsing its place in the merge queue, with no Job calling");
+  const base = holding(
+    "calls-pulse-where-they-live",
+    "Main red and a failed pull request, each pulsing its place in the merge queue, with no Job calling",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: null, mergeLines: lines() },
-    later: [{}],
-    draft: { sessions: () => sessionsStore([told]) },
+    state: {
+      ...base.state,
+      repository: null,
+      mergeLines: lines(),
+    },
+    later: [
+      {},
+    ],
+    draft: {
+      sessions: () =>
+        sessionsStore([
+          told,
+        ]),
+    },
   };
 }
 

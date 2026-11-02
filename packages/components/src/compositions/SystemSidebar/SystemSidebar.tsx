@@ -7,10 +7,23 @@ import { SearchField } from "../SearchField/SearchField";
 import { columnKeys } from "./columns";
 
 /** One page of System, in the sidebar. `alert` draws the needs-you dot, with this as its tooltip. */
-export type SystemEntry = { id: string; label: string; alert?: string };
+export type SystemEntry = {
+  id: string;
+  label: string;
+  alert?: string;
+};
 
 /** A captioned run of entries. `act` is one press beside the caption, `name` its accessible name, since the caption is hidden from the tree; a search hides it. */
-export type SystemGroup = { id: string; label: string; entries: readonly SystemEntry[]; act?: { label: string; name: string; onPress: () => void } };
+export type SystemGroup = {
+  id: string;
+  label: string;
+  entries: readonly SystemEntry[];
+  act?: {
+    label: string;
+    name: string;
+    onPress: () => void;
+  };
+};
 
 /**
  * System as one page: a sidebar of every entry under three captions, and the picked entry beside it.
@@ -39,45 +52,59 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
       </CardHeader>
       <SearchField label="Search System" value={query} onValue={onQuery} />
       <div className="armada-system-side__scroll">
-      {shown.map((group) => (
-        <div key={group.id} role="group" aria-label={group.label} className="armada-system-side__group">
-          <div className="armada-system-side__head">
-            <h3 className="armada-system-side__caption" aria-hidden="true">
-              {group.label}
-            </h3>
-            {/* A search narrows the list to matches, and the act is never one. */}
-            {group.act === undefined || query !== "" ? null : (
-              <Button variant="ghost" size="sm" aria-label={group.act.name} onClick={group.act.onPress}>
-                {group.act.label}
-              </Button>
-            )}
+        {shown.map((group) => (
+          <div
+            key={group.id}
+            role="group"
+            aria-label={group.label}
+            className="armada-system-side__group"
+          >
+            <div className="armada-system-side__head">
+              <h3 className="armada-system-side__caption" aria-hidden="true">
+                {group.label}
+              </h3>
+              {/* A search narrows the list to matches, and the act is never one. */}
+              {group.act === undefined || query !== "" ? null : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={group.act.name}
+                  onClick={group.act.onPress}
+                >
+                  {group.act.label}
+                </Button>
+              )}
+            </div>
+            <ul className="armada-system-side__list">
+              {group.entries.map((entry) => {
+                const on = entry.id === value;
+                return (
+                  <li key={entry.id}>
+                    <button
+                      type="button"
+                      className="armada-system-side__entry"
+                      data-nav-item=""
+                      aria-current={on ? "page" : undefined}
+                      tabIndex={on || (!picked && entry.id === first) ? 0 : -1}
+                      onClick={() => onValue(entry.id)}
+                    >
+                      <span>{entry.label}</span>
+                      {entry.alert === undefined ? null : (
+                        <Tooltip label={entry.alert}>
+                          <span
+                            className="armada-tabs__alert"
+                            role="img"
+                            aria-label={entry.alert}
+                          />
+                        </Tooltip>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <ul className="armada-system-side__list">
-            {group.entries.map((entry) => {
-              const on = entry.id === value;
-              return (
-                <li key={entry.id}>
-                  <button
-                    type="button"
-                    className="armada-system-side__entry"
-                    data-nav-item=""
-                    aria-current={on ? "page" : undefined}
-                    tabIndex={on || (!picked && entry.id === first) ? 0 : -1}
-                    onClick={() => onValue(entry.id)}
-                  >
-                    <span>{entry.label}</span>
-                    {entry.alert === undefined ? null : (
-                      <Tooltip label={entry.alert}>
-                        <span className="armada-tabs__alert" role="img" aria-label={entry.alert} />
-                      </Tooltip>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+        ))}
       </div>
     </nav>
   );
@@ -89,7 +116,11 @@ export function SystemSidebar({ groups, value, onValue, query, onQuery }: System
 export function SystemPage({ side, children }: { side: ReactNode; children: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
   return (
-    <div ref={root} className="armada-system" onKeyDown={(event) => columnKeys(event, root.current)}>
+    <div
+      ref={root}
+      className="armada-system"
+      onKeyDown={(event) => columnKeys(event, root.current)}
+    >
       {side}
       <div className="armada-system__body">{children}</div>
     </div>

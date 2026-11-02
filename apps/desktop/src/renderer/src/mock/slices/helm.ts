@@ -12,6 +12,8 @@ import type { Slice } from "../fake-context";
 export const helm: Slice<HelmApi, HelmState> = {
   name: "helm",
   state: HELM_NOTHING_YET,
-  scenarios: () => [talking<BridgeState, BridgeApi>(NOTHING_YET)],
+  scenarios: () => [
+    talking<BridgeState, BridgeApi>(NOTHING_YET),
+  ],
   api: (_scenario, fleet) => helmApi(fleet),
 };

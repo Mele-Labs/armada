@@ -9,7 +9,21 @@
 // path is only a caption on it. A line is named by its place in `Hunk.lines`, since the diff draws no numbers.
 
 import type { DiffLine } from "@armada/components";
-import type { DiffSide, PullRequestFilePatches, PullRequestPage, PullReviewHolder, PullReviewThread, PullReviewThreadComment, RememberedPlace, ReviewPlace, ReviewRun, ReviewSeverity, ReviewWalk, ReviewWalkState, WalkPlaceFound } from "@armada/protocol";
+import type {
+  DiffSide,
+  PullRequestFilePatches,
+  PullRequestPage,
+  PullReviewHolder,
+  PullReviewThread,
+  PullReviewThreadComment,
+  RememberedPlace,
+  ReviewPlace,
+  ReviewRun,
+  ReviewSeverity,
+  ReviewWalk,
+  ReviewWalkState,
+  WalkPlaceFound,
+} from "@armada/protocol";
 
 /**
  * The lists a pull request can be on. **He is asked to review in two ways**: directly (`requested`), or through a team
@@ -22,25 +36,50 @@ export type PrList = "requested" | "team" | "assigned" | "mine";
 export type ReviewTab = string;
 
 /** A pull request a find turned up, and the one line that says why it matched. */
-export type FindHit = { key: string; reason: string };
+export type FindHit = {
+  key: string;
+  reason: string;
+};
 
 /**
  * What he asked a Drone to look for, in his own words, saved as a list of its own. **Fleet keeps it** under the words, lower cased
  * and single spaced, and `id` is that name behind `search:` so no list can share it. `words` are his own while this window
  * has them, and the kept name after a restart.
  */
-export type Find = { id: string; words: string; run: AgentRun; hits: readonly FindHit[] };
+export type Find = {
+  id: string;
+  words: string;
+  run: AgentRun;
+  hits: readonly FindHit[];
+};
 
 /** One hunk of one file: the evidence for a change. */
-export type Hunk = { path: string; lines: DiffLine[] };
+export type Hunk = {
+  path: string;
+  lines: DiffLine[];
+};
 
 /** One thing done, in the order it was done, and why. `at` is the place the explanation named; its hunk is cut from the file's patch once that is read. */
-export type Change = { id: string; title: string; why: string; hunks: Hunk[]; at?: ReviewPlace };
+export type Change = {
+  id: string;
+  title: string;
+  why: string;
+  hunks: Hunk[];
+  at?: ReviewPlace;
+};
 
 /** A set of changes that make one thing happen. */
-export type Theme = { id: string; title: string; purpose: string; changes: Change[] };
+export type Theme = {
+  id: string;
+  title: string;
+  purpose: string;
+  changes: Change[];
+};
 
-export type Explanation = { summary: string; themes: Theme[] };
+export type Explanation = {
+  summary: string;
+  themes: Theme[];
+};
 
 export type ThreadComment = PullReviewThreadComment;
 
@@ -51,19 +90,39 @@ export type Thread = PullReviewThread;
  * One of his words not yet posted, named by the place it is on: a line of a file, or the file alone. A reply carries the
  * thread it answers. **Drafts leave only with Submit**, all together, which is the forge's own pending review.
  */
-export type Draft = { id: string; path: string; line?: number; side?: DiffSide; body: string; thread?: string };
+export type Draft = {
+  id: string;
+  path: string;
+  line?: number;
+  side?: DiffSide;
+  body: string;
+  thread?: string;
+};
 
 /** Where a review tool's definition came from, as a workflow's does: Armada's, his Kit's, or the repository's. */
 export type ToolSource = "armada" | "kit" | "repository";
 
 /** What a tool or an explanation is drawn with. Armada's eight have a mark each; one anybody adds takes the clipboard. */
-export type ToolMark = "risks" | "bugs" | "breaks" | "walk" | "how" | "impact" | "test" | "why" | "custom";
+export type ToolMark =
+  | "risks"
+  | "bugs"
+  | "breaks"
+  | "walk"
+  | "how"
+  | "impact"
+  | "test"
+  | "why"
+  | "custom";
 
 /** What a definition is for: a tool that finds things, or an explanation that tells him one thing about the pull request. */
 export type DefKind = "tool" | "explanation";
 
 /** A definition file Fleet read and left out, and why. */
-export type LeftOut = { file: string; source: ToolSource; said: string };
+export type LeftOut = {
+  file: string;
+  source: ToolSource;
+  said: string;
+};
 
 /**
  * A review tool: a name and what it checks, as a prompt. **Shared like a skill**: a file in `~/.armada/review-tools/`
@@ -92,20 +151,59 @@ export type ToolDef = {
  * they do not cover a changed area, the nearest docs to the changed code: READMEs and agent files (`AGENTS.md`) up
  * the tree from each changed path, and the docs they point to. A doc is named by its path and opens at its address.
  */
-export type StepSource = { from: "description" } | { from: "doc"; path: string; address: string };
+export type StepSource =
+  | {
+      from: "description";
+    }
+  | {
+      from: "doc";
+      path: string;
+      address: string;
+    };
 
 /**
  * What an explanation says, in the shape that kind of explanation has. How it works is the themes view, built from
  * `ReviewPr.explanation`. The rest are these (`accountOf` in `runs.ts`). A kind a repository adds that has no shape of its own is `text`.
  */
 export type Account =
-  | { shape: "change"; rows: { what: string; before: string; after: string }[] }
-  | { shape: "steps"; steps: { do: string; look: string; code?: string; from?: StepSource }[] }
-  | { shape: "reason"; problem: string; cost: string; links: { label: string; address: string }[] }
-  | { shape: "text"; body: string };
+  | {
+      shape: "change";
+      rows: {
+        what: string;
+        before: string;
+        after: string;
+      }[];
+    }
+  | {
+      shape: "steps";
+      steps: {
+        do: string;
+        look: string;
+        code?: string;
+        from?: StepSource;
+      }[];
+    }
+  | {
+      shape: "reason";
+      problem: string;
+      cost: string;
+      links: {
+        label: string;
+        address: string;
+      }[];
+    }
+  | {
+      shape: "text";
+      body: string;
+    };
 
 /** A question he asked about one pull request, in his own words. It is kept under them, for the commit it read. `answer` is Markdown, once answered. */
-export type Asked = { id: string; words: string; run: AgentRun; answer?: string };
+export type Asked = {
+  id: string;
+  words: string;
+  run: AgentRun;
+  answer?: string;
+};
 
 /** Armada's own note on a place in the change, from a tool he pressed. **Never posted to the forge.** */
 export type Finding = {
@@ -125,13 +223,37 @@ export type Finding = {
 export type Verdict = "comment" | "approve" | "request_changes";
 
 /** `told` is the Session a Request changes went to as well, by title. */
-export type Submission = { verdict: Verdict; body: string; comments: number; at: string; told?: string };
+export type Submission = {
+  verdict: Verdict;
+  body: string;
+  comments: number;
+  at: string;
+  told?: string;
+};
 
 /**
  * A run of an agent: asked for, underway, read, or failed. **A finished run is kept** for the commit it ran on: pressing again shows
  * it with no run, and only Run again spends one. A failed run is never a result: `said` is Fleet's reason.
  */
-export type AgentRun = { state: "idle" } | { state: "running"; since: number } | { state: "done"; at: number; head: string } | { state: "failed"; said: string; at: number; head: string };
+export type AgentRun =
+  | {
+      state: "idle";
+    }
+  | {
+      state: "running";
+      since: number;
+    }
+  | {
+      state: "done";
+      at: number;
+      head: string;
+    }
+  | {
+      state: "failed";
+      said: string;
+      at: number;
+      head: string;
+    };
 
 export type ReviewPr = {
   /** `owner/name#number`. */
@@ -167,23 +289,76 @@ export type ReviewPr = {
 export type View = "explanation" | "files" | "checks" | "commits" | (string & {});
 
 /** What the store holds about one pull request beyond what the forge served. */
-export type PatchRead = { state: "reading" } | { state: "read"; lines: DiffLine[] } | { state: "said"; said: string };
+export type PatchRead =
+  | {
+      state: "reading";
+    }
+  | {
+      state: "read";
+      lines: DiffLine[];
+    }
+  | {
+      state: "said";
+      said: string;
+    };
 
 /** Every file's patch, read together for the Files tab, with the commit they were read on. Fleet's words where it would not. */
 export type PatchesRead =
-  | { state: "unread" }
-  | { state: "reading" }
-  | { state: "read"; head: string; files: PullRequestFilePatches["files"] }
-  | { state: "said"; said: string };
+  | {
+      state: "unread";
+    }
+  | {
+      state: "reading";
+    }
+  | {
+      state: "read";
+      head: string;
+      files: PullRequestFilePatches["files"];
+    }
+  | {
+      state: "said";
+      said: string;
+    };
 
 /** Whether the page of a pull request has been read from the forge, and the words of Fleet's refusal where it would not be. */
-export type PageRead = { state: "unread" } | { state: "reading" } | { state: "read" } | { state: "said"; said: string };
+export type PageRead =
+  | {
+      state: "unread";
+    }
+  | {
+      state: "reading";
+    }
+  | {
+      state: "read";
+    }
+  | {
+      state: "said";
+      said: string;
+    };
 
 /** Where Fleet found the place a change runs: one call that reads the pull request and then what Armada remembers. */
-export type WalkFound = { state: "idle" } | { state: "looking" } | { state: "found"; found: WalkPlaceFound } | { state: "said"; said: string };
+export type WalkFound =
+  | {
+      state: "idle";
+    }
+  | {
+      state: "looking";
+    }
+  | {
+      state: "found";
+      found: WalkPlaceFound;
+    }
+  | {
+      state: "said";
+      said: string;
+    };
 
 /** A note taken in a review's walk window that no Session holds. It stays here and is never a comment on the forge. */
-export type WalkNote = { at: string; text: string; location: string };
+export type WalkNote = {
+  at: string;
+  text: string;
+  location: string;
+};
 
 /**
  * What the Walk tool holds of one pull request beyond its kept run. **The walk itself is the run's result** (`web_walk` or
@@ -241,10 +416,22 @@ export type PrWork = {
 };
 
 /** The sheet that is up for the Walk: asking where this pull request runs, or the places Armada remembers. */
-export type WalkSheet = { kind: "ask"; key: string } | { kind: "places" } | undefined;
+export type WalkSheet =
+  | {
+      kind: "ask";
+      key: string;
+    }
+  | {
+      kind: "places";
+    }
+  | undefined;
 
 /** The places Armada remembers, across the repositories it serves, as Fleet last said them. */
-export type PlacesRead = { state: "unread" | "reading" | "read"; list: readonly RememberedPlace[]; said: string | undefined };
+export type PlacesRead = {
+  state: "unread" | "reading" | "read";
+  list: readonly RememberedPlace[];
+  said: string | undefined;
+};
 
 export type ReviewSnapshot = {
   /** The pull requests as last fetched. Empty until the view is first opened. */

@@ -58,7 +58,11 @@ export type StudioSketchProps = {
   /** A kept picture's `blob:`, once the board has read it, or `undefined` before. */
   srcOf: (nodeId: string, pictureId: string) => string | undefined;
   /** Put a new Sketch on the Studio, where it was placed: in a Zone, or on the board where `within` is `null`. */
-  onAdd: (drawing: SketchToKeep, position: StudioPosition, within: string | null) => Promise<Outcome>;
+  onAdd: (
+    drawing: SketchToKeep,
+    position: StudioPosition,
+    within: string | null,
+  ) => Promise<Outcome>;
   /** Keep a Sketch's drawing as it was left. */
   onSave: (nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
 };
@@ -67,7 +71,14 @@ export type StudioSketch = {
   /** Open the pad blank, for a Sketch placed at `position` — from the corner of the Zone `within`, where it names one. */
   placed: (position: StudioPosition, within?: string | null) => void;
   /** Open the pad on a Sketch already on the Studio. */
-  opened: (node: Extract<StudioNode, { kind: "sketch" }>) => void;
+  opened: (
+    node: Extract<
+      StudioNode,
+      {
+        kind: "sketch";
+      }
+    >,
+  ) => void;
   /** The layer, or `null` with no pad open. */
   sheet: ReactNode;
 };
@@ -77,7 +88,12 @@ async function bytesOf(src: string): Promise<Uint8Array> {
   return new Uint8Array(await (await fetch(src)).arrayBuffer());
 }
 
-export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketchProps): StudioSketch {
+export function useStudioSketch({
+  editable,
+  srcOf,
+  onAdd,
+  onSave,
+}: StudioSketchProps): StudioSketch {
   const [open, setOpen] = useState<Open | null>(null);
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
@@ -89,7 +105,14 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
   }
 
   function draw(change: (drawing: Drawing) => Drawing): void {
-    setOpen((held) => (held === null ? held : { ...held, drawing: change(held.drawing) }));
+    setOpen((held) =>
+      held === null
+        ? held
+        : {
+            ...held,
+            drawing: change(held.drawing),
+          },
+    );
   }
 
   /**
@@ -107,7 +130,9 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
     setRefused(null);
     const { nodeId, position, within, drawing, kept } = open;
     void toKeep(drawing, kept, bytesOf)
-      .then((keeping) => (nodeId === null ? onAdd(keeping, position, within) : onSave(nodeId, keeping)))
+      .then((keeping) =>
+        nodeId === null ? onAdd(keeping, position, within) : onSave(nodeId, keeping),
+      )
       .then((outcome) => {
         setSaving(false);
         if (outcome.ok) setOpen(null);
@@ -120,7 +145,10 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
       ? null
       : open.drawing.pictures.map((one) =>
           open.nodeId !== null && open.kept.has(one.id)
-            ? { ...one, src: srcOf(open.nodeId, one.id) ?? "" }
+            ? {
+                ...one,
+                src: srcOf(open.nodeId, one.id) ?? "",
+              }
             : one,
         );
 
@@ -132,7 +160,11 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
         contained
         size="widest"
         title={STUDIO_NODE_KIND.sketch}
-        {...(saving ? { subtitle: SAVING } : {})}
+        {...(saving
+          ? {
+              subtitle: SAVING,
+            }
+          : {})}
         onClose={close}
         bands={
           refused === null ? null : (
@@ -148,9 +180,25 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
           lines={open.drawing.joins}
           strokes={open.drawing.strokes}
           pictures={shown}
-          onAdd={(at, body) => draw((one) => withShape(one, { id: nextShapeId(one), x: at.x, y: at.y, body }))}
+          onAdd={(at, body) =>
+            draw((one) =>
+              withShape(one, {
+                id: nextShapeId(one),
+                x: at.x,
+                y: at.y,
+                body,
+              }),
+            )
+          }
           onPicture={(picture, at) =>
-            draw((one) => withPicture(one, { id: nextPictureId(one), x: at.x, y: at.y, ...picture }))
+            draw((one) =>
+              withPicture(one, {
+                id: nextPictureId(one),
+                x: at.x,
+                y: at.y,
+                ...picture,
+              }),
+            )
           }
           onBody={(id, body) => draw((one) => withBody(one, id, body))}
           onMove={(id, at) => draw((one) => withPlace(one, id, at))}
@@ -163,7 +211,11 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
                 : {
                     ...held,
                     drawing: withoutShapes(held.drawing, ids),
-                    kept: new Set([...held.kept].filter((id) => !ids.includes(id))),
+                    kept: new Set(
+                      [
+                        ...held.kept,
+                      ].filter((id) => !ids.includes(id)),
+                    ),
                   },
             )
           }
@@ -178,10 +230,24 @@ export function useStudioSketch({ editable, srcOf, onAdd, onSave }: StudioSketch
 
   return {
     placed: (position, within = null) =>
-      start({ nodeId: null, position, within, drawing: NOTHING_DRAWN, kept: new Set(), opened: drawnAs(NOTHING_DRAWN) }),
+      start({
+        nodeId: null,
+        position,
+        within,
+        drawing: NOTHING_DRAWN,
+        kept: new Set(),
+        opened: drawnAs(NOTHING_DRAWN),
+      }),
     opened: (node) => {
       const drawing = padOf(node.drawing);
-      start({ nodeId: node.id, position: node.position, within: null, drawing, kept: keptOf(node.drawing), opened: drawnAs(drawing) });
+      start({
+        nodeId: node.id,
+        position: node.position,
+        within: null,
+        drawing,
+        kept: keptOf(node.drawing),
+        opened: drawnAs(drawing),
+      });
     },
     sheet,
   };

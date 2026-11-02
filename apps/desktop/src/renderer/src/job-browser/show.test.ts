@@ -7,15 +7,32 @@ import { build } from "../job-panes/tree";
 import { viewingNow } from "../cockpit/viewed";
 import { wireJobBrowsers } from "./store";
 
-vi.mock("../job-panes/store", () => ({ jobOpens: vi.fn(), look: vi.fn(), peek: vi.fn() }));
-vi.mock("../cockpit/viewed", () => ({ viewingNow: vi.fn(() => false) }));
+vi.mock("../job-panes/store", () => ({
+  jobOpens: vi.fn(),
+  look: vi.fn(),
+  peek: vi.fn(),
+}));
+vi.mock("../cockpit/viewed", () => ({
+  viewingNow: vi.fn(() => false),
+}));
 
 let show: (sessionId: string) => void;
 
 beforeEach(() => {
   vi.mocked(jobOpens).mockClear();
   vi.mocked(look).mockClear();
-  vi.mocked(peek).mockReturnValue(build({ dir: "row", ratio: 0.5, a: ["thread"], b: ["done"] }));
+  vi.mocked(peek).mockReturnValue(
+    build({
+      dir: "row",
+      ratio: 0.5,
+      a: [
+        "thread",
+      ],
+      b: [
+        "done",
+      ],
+    }),
+  );
   vi.mocked(viewingNow).mockReturnValue(false);
   const api = {
     list: async () => [],
@@ -42,7 +59,19 @@ test("an agent's open for a Job on screen with no Browser tab opens one", () => 
 
 test("an agent's open for a Job on screen with a Browser tab brings the first to the front, and opens no second", () => {
   vi.mocked(viewingNow).mockReturnValue(true);
-  vi.mocked(peek).mockReturnValue(build({ dir: "row", ratio: 0.5, a: ["thread", "browser"], b: ["browser"] }));
+  vi.mocked(peek).mockReturnValue(
+    build({
+      dir: "row",
+      ratio: 0.5,
+      a: [
+        "thread",
+        "browser",
+      ],
+      b: [
+        "browser",
+      ],
+    }),
+  );
   show("near");
   expect(jobOpens).not.toHaveBeenCalled();
   expect(look).toHaveBeenCalledTimes(1);

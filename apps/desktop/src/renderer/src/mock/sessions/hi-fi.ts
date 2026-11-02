@@ -13,7 +13,11 @@ export const TOKENS = "packages/tokens/tokens.css";
 export const BASE = "packages/tokens/src/base.css";
 export const JOB_CARD = "packages/components/src/compositions/JobCard/JobCard.css";
 
-const APP = [TOKENS, BASE, JOB_CARD];
+const APP = [
+  TOKENS,
+  BASE,
+  JOB_CARD,
+];
 
 /** What the parts share that the app's stylesheets do not say: the border box the app's reset sets, the panel round the cards, and the two states the card has no tone for. */
 const PANEL = `
@@ -25,7 +29,15 @@ const PANEL = `
 body { padding: var(--space-4); background: var(--bg-sunken); }
 `;
 
-type Card = { tone?: string; kind?: string; title: string; mark: string; issue?: string; says?: string; age: string };
+type Card = {
+  tone?: string;
+  kind?: string;
+  title: string;
+  mark: string;
+  issue?: string;
+  says?: string;
+  age: string;
+};
 
 const card = (one: Card) => `
 <div class="armada-job-card"${one.tone === undefined ? "" : ` data-tone="${one.tone}"`}>
@@ -36,10 +48,36 @@ const card = (one: Card) => `
   <span class="armada-job-card__at">${one.age}</span>
 </div>`;
 
-const panel = (cards: Card[]) => `<div class="panel"><div class="cards">${cards.map(card).join("")}</div></div>`;
+const panel = (cards: Card[]) =>
+  `<div class="panel"><div class="cards">${cards.map(card).join("")}</div></div>`;
 
-const mock = (id: string, x: number, y: number, w: number, title: string, html: string, css: string, styles: string[] | undefined): SceneNode => ({
-  id, kind: "mock", x, y, w, title, html, ...(css === "" ? {} : { css }), ...(styles === undefined ? {} : { styles }),
+const mock = (
+  id: string,
+  x: number,
+  y: number,
+  w: number,
+  title: string,
+  html: string,
+  css: string,
+  styles: string[] | undefined,
+): SceneNode => ({
+  id,
+  kind: "mock",
+  x,
+  y,
+  w,
+  title,
+  html,
+  ...(css === ""
+    ? {}
+    : {
+        css,
+      }),
+  ...(styles === undefined
+    ? {}
+    : {
+        styles,
+      }),
 });
 
 const ANATOMY = `
@@ -114,29 +152,81 @@ export const ONE_CARD: Scene = scene(
   [
     mock("anatomy", 0, 0, 360, "The card", ANATOMY, ANATOMY_CSS, APP),
     mock(
-      "issues", 520, 0, 320, "Issues",
+      "issues",
+      520,
+      0,
+      320,
+      "Issues",
       panel([
-        { tone: "ask", title: "Walk bar loses Approve after a reload", mark: "circle-alert", issue: "#3131", says: "Drawing the card", age: "12m" },
-        { title: "Skeleton rows jump on the Usage page", mark: "circle", issue: "#3098", age: "2d" },
+        {
+          tone: "ask",
+          title: "Walk bar loses Approve after a reload",
+          mark: "circle-alert",
+          issue: "#3131",
+          says: "Drawing the card",
+          age: "12m",
+        },
+        {
+          title: "Skeleton rows jump on the Usage page",
+          mark: "circle",
+          issue: "#3098",
+          age: "2d",
+        },
       ]),
-      PANEL, APP,
+      PANEL,
+      APP,
     ),
     mock(
-      "prs", 520, 250, 320, "Pull requests",
+      "prs",
+      520,
+      250,
+      320,
+      "Pull requests",
       panel([
-        { tone: "bad", title: "Spell the lengths with tokens", mark: "circle-x", issue: "#3150", age: "4m" },
-        { tone: "good", title: "Fix the joblayouts walk holds", mark: "circle-check", issue: "#3149", age: "1h" },
+        {
+          tone: "bad",
+          title: "Spell the lengths with tokens",
+          mark: "circle-x",
+          issue: "#3150",
+          age: "4m",
+        },
+        {
+          tone: "good",
+          title: "Fix the joblayouts walk holds",
+          mark: "circle-check",
+          issue: "#3149",
+          age: "1h",
+        },
       ]),
-      PANEL, APP,
+      PANEL,
+      APP,
     ),
     mock(
-      "jobs", 520, 500, 320, "Cockpit Jobs: asked first",
-      panel([{ tone: "live", title: "One card for every list", kind: "bot", mark: "circle-dot", says: "Drawing the card", age: "now" }]),
-      PANEL, APP,
+      "jobs",
+      520,
+      500,
+      320,
+      "Cockpit Jobs: asked first",
+      panel([
+        {
+          tone: "live",
+          title: "One card for every list",
+          kind: "bot",
+          mark: "circle-dot",
+          says: "Drawing the card",
+          age: "now",
+        },
+      ]),
+      PANEL,
+      APP,
     ),
     mock("logbook", 960, 0, 360, "Logbook", LOGBOOK, LOGBOOK_CSS, APP),
     mock("rules", 960, 280, 420, "The one rule", RULES, RULES_CSS, APP),
     mock("plain", 0, 420, 240, "Without a sheet", PLAIN, PLAIN_CSS, undefined),
   ],
-  [arrow("anatomy", "issues"), arrow("anatomy", "prs"), arrow("anatomy", "jobs")],
+  [
+    arrow("anatomy", "issues"),
+    arrow("anatomy", "prs"),
+    arrow("anatomy", "jobs"),
+  ],
 );

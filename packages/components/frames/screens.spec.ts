@@ -60,24 +60,41 @@ async function photograph(page: Page, name: string, says: string): Promise<void>
   // Text drawn in a fallback face and text drawn in the real one are different
   // pictures, and which one a frame catches would otherwise be a race.
   await page.evaluate(() => document.fonts.ready.then(() => true));
-  await page.screenshot({ path: `${FRAMES}/${name}.png`, fullPage: true });
+  await page.screenshot({
+    path: `${FRAMES}/${name}.png`,
+    fullPage: true,
+  });
 }
 
 test("the board, as a day's work left it", async ({ page }) => {
-  await page.goto(at("recorded-board"), { waitUntil: "domcontentloaded" });
+  await page.goto(at("recorded-board"), {
+    waitUntil: "domcontentloaded",
+  });
   // `App` opens on Overview; the Board is its rail item.
-  await page.getByRole("button", { name: "Job Board" }).first().click();
+  await page
+    .getByRole("button", {
+      name: "Job Board",
+    })
+    .first()
+    .click();
   await photograph(page, "board-recorded", ON_THE_BOARD);
 });
 
 test("a job that landed, read in full", async ({ page }) => {
-  await page.goto(at("recorded/done-worktree-given-back"), { waitUntil: "domcontentloaded" });
+  await page.goto(at("recorded/done-worktree-given-back"), {
+    waitUntil: "domcontentloaded",
+  });
   await photograph(page, "job-detail-recorded", THE_JOB);
 });
 
 test("the same job at the narrowest window bridge lays out for", async ({ page }) => {
   // `--window-floor`, the narrowest layout tier, in `packages/tokens/src/spacing.css`.
-  await page.setViewportSize({ width: 768, height: 900 });
-  await page.goto(at("recorded/done-worktree-given-back"), { waitUntil: "domcontentloaded" });
+  await page.setViewportSize({
+    width: 768,
+    height: 900,
+  });
+  await page.goto(at("recorded/done-worktree-given-back"), {
+    waitUntil: "domcontentloaded",
+  });
   await photograph(page, "job-detail-recorded-narrow", THE_JOB);
 });

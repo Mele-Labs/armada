@@ -12,21 +12,43 @@ import { KIT_CSS, KIT_HREF } from "./document-kit";
 /** The class of the element a page is drawn in: every selector the page writes is put under it. */
 export const PAGE_ROOT = "armada-doc__page";
 
-export type PageSketch = { title: string; scene: unknown };
+export type PageSketch = {
+  title: string;
+  scene: unknown;
+};
 
 /**
  * A page's sketch scene (as its JSON was read) with each `mock` given the hash Fleet kept its styles under, from `kept`, keyed `<sketch title>#<node id>`.
  * **`kept` is Fleet's and never the page's**: one a page wrote itself is dropped, so a frame is drawn with what Fleet kept and nothing a page names.
  */
-export function sceneWithKept(title: string, scene: unknown, kept: Readonly<Record<string, string>> | undefined): unknown {
-  if (typeof scene !== "object" || scene === null || !("nodes" in scene) || !Array.isArray(scene.nodes)) return scene;
+export function sceneWithKept(
+  title: string,
+  scene: unknown,
+  kept: Readonly<Record<string, string>> | undefined,
+): unknown {
+  if (
+    typeof scene !== "object" ||
+    scene === null ||
+    !("nodes" in scene) ||
+    !Array.isArray(scene.nodes)
+  )
+    return scene;
   const nodes = scene.nodes.map((node: unknown) => {
-    if (typeof node !== "object" || node === null || !("kind" in node) || node.kind !== "mock") return node;
+    if (typeof node !== "object" || node === null || !("kind" in node) || node.kind !== "mock")
+      return node;
     const { kept: _page, ...rest } = node as Record<string, unknown>;
     const hash = typeof rest["id"] === "string" ? kept?.[`${title}#${rest["id"]}`] : undefined;
-    return hash === undefined ? rest : { ...rest, kept: hash };
+    return hash === undefined
+      ? rest
+      : {
+          ...rest,
+          kept: hash,
+        };
   });
-  return { ...scene, nodes };
+  return {
+    ...scene,
+    nodes,
+  };
 }
 
 export type Page = {
@@ -34,7 +56,10 @@ export type Page = {
   /** The first paragraph after the title: the conclusion, as the Landing shows it. */
   lede: string;
   /** The page's h2s, in order, for the contents. */
-  sections: readonly { id: string; title: string }[];
+  sections: readonly {
+    id: string;
+    title: string;
+  }[];
   /** The cleaned page, detached. Cloned into the layer; never drawn as it is. */
   root: HTMLElement;
   /** The page's CSS, kit first, every rule under `PAGE_ROOT`. */
@@ -43,15 +68,36 @@ export type Page = {
 };
 
 const ALLOWED = new Set(
-  "a abbr aside b blockquote br caption cite code col colgroup dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hr i ins kbd li main mark nav ol p pre q s samp section small span strong sub summary sup table tbody td tfoot th thead time tr u ul var".split(" "),
+  "a abbr aside b blockquote br caption cite code col colgroup dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hr i ins kbd li main mark nav ol p pre q s samp section small span strong sub summary sup table tbody td tfoot th thead time tr u ul var".split(
+    " ",
+  ),
 );
 /** Dropped with everything inside them. Any other tag that is not allowed is dropped and what it held is kept. */
-const DROPPED = new Set("script style link meta title head iframe frame frameset object embed applet form input button textarea select option math img picture source audio video canvas template noscript base".split(" "));
-const KEPT_ATTRIBUTES = new Set(["colspan", "rowspan", "scope", "headers", "datetime", "open", "start", "lang", "title", "abbr"]);
+const DROPPED = new Set(
+  "script style link meta title head iframe frame frameset object embed applet form input button textarea select option math img picture source audio video canvas template noscript base".split(
+    " ",
+  ),
+);
+const KEPT_ATTRIBUTES = new Set([
+  "colspan",
+  "rowspan",
+  "scope",
+  "headers",
+  "datetime",
+  "open",
+  "start",
+  "lang",
+  "title",
+  "abbr",
+]);
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** Shapes, text and grouping, enough for a chart. Anything else inside an `svg` is dropped with what it holds; an `a` without an address is unwrapped, and one with an address is dropped. */
-const SVG_ALLOWED = new Set("svg g path rect circle ellipse line polyline polygon text tspan title desc defs clipPath".split(" "));
+const SVG_ALLOWED = new Set(
+  "svg g path rect circle ellipse line polyline polygon text tspan title desc defs clipPath".split(
+    " ",
+  ),
+);
 const SVG_ATTRIBUTES = new Set(
   (
     "viewBox preserveAspectRatio x y width height cx cy r rx ry x1 y1 x2 y2 points d transform dx dy textLength lengthAdjust clipPathUnits role aria-label aria-hidden " +
@@ -70,10 +116,13 @@ const renamed = (selector: string) =>
 function scoped(selector: string): string {
   const one = renamed(selector.trim());
   const root = /^(?:html\s+)?(?:body|html|:root)(?=$|[\s>+~:.[])/.exec(one);
-  const under = root === null ? `.${PAGE_ROOT} ${one}` : `.${PAGE_ROOT}${one.slice(root[0].length)}`;
+  const under =
+    root === null ? `.${PAGE_ROOT} ${one}` : `.${PAGE_ROOT}${one.slice(root[0].length)}`;
   // Not inside a sketch: the page's `p` or `table` styles the page, and Bridge's sketch is drawn by Bridge.
   const pseudo = under.search(/::/);
-  return pseudo < 0 ? `${under}${OUTSIDE}` : `${under.slice(0, pseudo)}${OUTSIDE}${under.slice(pseudo)}`;
+  return pseudo < 0
+    ? `${under}${OUTSIDE}`
+    : `${under.slice(0, pseudo)}${OUTSIDE}${under.slice(pseudo)}`;
 }
 
 function rulesOf(rules: CSSRuleList): string[] {
@@ -83,7 +132,10 @@ function rulesOf(rules: CSSRuleList): string[] {
       const body = rule.style.cssText;
       // An address in a declaration is a request the page could make, and a fixed or sticky box could cover Bridge.
       if (/url\(|image-set\(|expression\(|@import/i.test(body)) continue;
-      const selectors = rule.selectorText.split(/,(?![^(]*\))/).map(scoped).join(", ");
+      const selectors = rule.selectorText
+        .split(/,(?![^(]*\))/)
+        .map(scoped)
+        .join(", ");
       out.push(`${selectors} { ${body} }`);
     } else if (rule instanceof CSSMediaRule) {
       const inner = rulesOf(rule.cssRules);
@@ -100,11 +152,17 @@ export function scopeCss(css: string): string {
   return rulesOf(sheet.cssRules).join("\n");
 }
 
-type Gathered = { sketches: PageSketch[]; headings: number };
+type Gathered = {
+  sketches: PageSketch[];
+  headings: number;
+};
 
 function sketchOf(source: Element, into: Gathered): HTMLElement {
   const title = source.getAttribute("title") ?? "Sketch";
-  const raw = source.querySelector('script[type="application/json"]')?.textContent ?? source.getAttribute("scene") ?? "";
+  const raw =
+    source.querySelector('script[type="application/json"]')?.textContent ??
+    source.getAttribute("scene") ??
+    "";
   let scene: unknown;
   try {
     scene = JSON.parse(raw);
@@ -120,7 +178,10 @@ function sketchOf(source: Element, into: Gathered): HTMLElement {
   const caption = document.createElement("figcaption");
   caption.textContent = title;
   figure.append(mount, caption);
-  into.sketches.push({ title, scene });
+  into.sketches.push({
+    title,
+    scene,
+  });
   return figure;
 }
 
@@ -128,7 +189,12 @@ function copy(from: Element, into: Gathered): HTMLElement {
   const name = from.tagName.toLowerCase();
   const one = document.createElement(name);
   for (const { name: attribute, value } of Array.from(from.attributes)) {
-    if (attribute === "class") one.className = value.split(/\s+/).filter((x) => x !== "").map((x) => `d-${x}`).join(" ");
+    if (attribute === "class")
+      one.className = value
+        .split(/\s+/)
+        .filter((x) => x !== "")
+        .map((x) => `d-${x}`)
+        .join(" ");
     else if (attribute === "id") one.id = `d-${value}`;
     else if (attribute === "href" && name === "a") {
       if (value.startsWith("#")) one.setAttribute("href", `#d-${value.slice(1)}`);
@@ -155,7 +221,15 @@ function svgValue(value: string): string | undefined {
 function svgCopy(from: Element): SVGElement {
   const one = document.createElementNS(SVG_NS, from.localName);
   for (const { name, value } of Array.from(from.attributes)) {
-    if (name === "class") one.setAttribute("class", value.split(/\s+/).filter((x) => x !== "").map((x) => `d-${x}`).join(" "));
+    if (name === "class")
+      one.setAttribute(
+        "class",
+        value
+          .split(/\s+/)
+          .filter((x) => x !== "")
+          .map((x) => `d-${x}`)
+          .join(" "),
+      );
     else if (name === "id") one.setAttribute("id", `d-${value}`);
     else if (SVG_ATTRIBUTES.has(name)) {
       const kept = svgValue(value);
@@ -175,8 +249,8 @@ function svgFill(from: Node, into: Node): void {
     if (!(child instanceof Element)) continue;
     if (child.localName === "a") {
       if (!child.hasAttribute("href") && !child.hasAttribute("xlink:href")) svgFill(child, into);
-    }
-    else if (child.namespaceURI === SVG_NS && SVG_ALLOWED.has(child.localName)) into.appendChild(svgCopy(child));
+    } else if (child.namespaceURI === SVG_NS && SVG_ALLOWED.has(child.localName))
+      into.appendChild(svgCopy(child));
   }
 }
 
@@ -199,18 +273,48 @@ function fill(from: Node, into: Node, gathered: Gathered): void {
 /** The page the HTML is, cleaned, with its title, conclusion, contents and CSS. */
 export function readPage(html: string): Page {
   const parsed = new DOMParser().parseFromString(html, "text/html");
-  const gathered: Gathered = { sketches: [], headings: 0 };
+  const gathered: Gathered = {
+    sketches: [],
+    headings: 0,
+  };
   const root = document.createElement("div");
   fill(parsed.body, root, gathered);
   const h1 = root.querySelector("h1");
-  const title = squeeze(parsed.querySelector("title")?.textContent ?? h1?.textContent ?? "Document");
-  const after = (p: Element) => h1 === null || (h1.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-  const lede = squeeze([...root.querySelectorAll("p")].find((p) => after(p) && squeeze(p.textContent ?? "") !== "")?.textContent ?? "");
-  const kit = [...parsed.querySelectorAll("link")].some((link) => link.getAttribute("rel") === "stylesheet" && link.getAttribute("href") === KIT_HREF);
-  const own = [...parsed.querySelectorAll("style")].map((style) => style.textContent ?? "").join("\n");
+  const title = squeeze(
+    parsed.querySelector("title")?.textContent ?? h1?.textContent ?? "Document",
+  );
+  const after = (p: Element) =>
+    h1 === null || (h1.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+  const lede = squeeze(
+    [
+      ...root.querySelectorAll("p"),
+    ].find((p) => after(p) && squeeze(p.textContent ?? "") !== "")?.textContent ?? "",
+  );
+  const kit = [
+    ...parsed.querySelectorAll("link"),
+  ].some(
+    (link) => link.getAttribute("rel") === "stylesheet" && link.getAttribute("href") === KIT_HREF,
+  );
+  const own = [
+    ...parsed.querySelectorAll("style"),
+  ]
+    .map((style) => style.textContent ?? "")
+    .join("\n");
   const css = scopeCss(`${kit ? KIT_CSS : ""}\n${own}`);
-  const sections = [...root.querySelectorAll("h2")].map((h2) => ({ id: h2.id, title: squeeze(h2.textContent ?? "") }));
-  return { title, lede, sections, root, css, sketches: gathered.sketches };
+  const sections = [
+    ...root.querySelectorAll("h2"),
+  ].map((h2) => ({
+    id: h2.id,
+    title: squeeze(h2.textContent ?? ""),
+  }));
+  return {
+    title,
+    lede,
+    sections,
+    root,
+    css,
+    sketches: gathered.sketches,
+  };
 }
 
 /** The heading of the section an element is in: the last h2 before it, or the page's title above the first. */
@@ -225,4 +329,9 @@ export function sectionOf(root: ParentNode, element: Element, fallback: string):
 }
 
 /** The text of a row of a table, one cell after another, as a note names it. */
-export const rowText = (row: Element): string => [...row.children].map((cell) => onOneLine(cell.textContent ?? "")).join(" | ");
+export const rowText = (row: Element): string =>
+  [
+    ...row.children,
+  ]
+    .map((cell) => onOneLine(cell.textContent ?? ""))
+    .join(" | ");

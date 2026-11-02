@@ -8,5 +8,8 @@ export const s301FirstRunNew: Scenario = {
   ...s300FirstRun,
   name: "first-run-new",
   says: "Fleet serving no repository: a name and a place start a Job in a new folder",
-  behaves: (fleet) => ({ ...s300FirstRun.behaves?.(fleet), chooseFolder: async () => "/Users/user/Developer" }),
+  behaves: (fleet) => ({
+    ...s300FirstRun.behaves?.(fleet),
+    chooseFolder: async () => "/Users/user/Developer",
+  }),
 };

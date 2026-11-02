@@ -5,11 +5,26 @@
 export type DashboardTab = "command-central" | "running" | "done" | "bays";
 
 /** The filters in the order they are drawn. Labels carry no count. */
-export const DASHBOARD_TABS: readonly { id: DashboardTab; label: string }[] = [
-  { id: "command-central", label: "Your move" },
-  { id: "running", label: "Active" },
-  { id: "done", label: "Done" },
-  { id: "bays", label: "Bays" },
+export const DASHBOARD_TABS: readonly {
+  id: DashboardTab;
+  label: string;
+}[] = [
+  {
+    id: "command-central",
+    label: "Your move",
+  },
+  {
+    id: "running",
+    label: "Active",
+  },
+  {
+    id: "done",
+    label: "Done",
+  },
+  {
+    id: "bays",
+    label: "Bays",
+  },
 ];
 
 /** A stored tab, or Command Central where nothing usable was stored. */

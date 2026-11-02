@@ -3,7 +3,21 @@
 
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
-export type SubagentAtWork = { id: string; task: string; agentType: string | undefined };
+export type SubagentAtWork = {
+  id: string;
+  task: string;
+  agentType: string | undefined;
+};
 
 export const subagentsAtWork = (session: Session): SubagentAtWork[] =>
-  attachmentsOf(session, "subagent").flatMap((one) => (one.state === "running" ? [{ id: one.id, task: one.task, agentType: one.agentType }] : []));
+  attachmentsOf(session, "subagent").flatMap((one) =>
+    one.state === "running"
+      ? [
+          {
+            id: one.id,
+            task: one.task,
+            agentType: one.agentType,
+          },
+        ]
+      : [],
+  );

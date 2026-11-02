@@ -25,7 +25,10 @@ type Story = StoryObj<typeof JobLogReference>;
 const LOG = File;
 
 /** An open that worked. Nothing is drawn — the file opened behind the window. */
-const OPENS = { label: "Open the log", go: () => Promise.resolve(null) };
+const OPENS = {
+  label: "Open the log",
+  go: () => Promise.resolve(null),
+};
 
 /**
  * A running job. The log is being written now, and the counts are the reason
@@ -44,7 +47,8 @@ export const OnARunningJob: Story = {
         open: OPENS,
       },
     ],
-    children: "Fleet, the drone and Bridge in one order, keyed on this job. It is being written now.",
+    children:
+      "Fleet, the drone and Bridge in one order, keyed on this job. It is being written now.",
   },
 };
 
@@ -71,7 +75,10 @@ export const OnAFailedJob: Story = {
         iconLabel: "Worktree",
         value: "~/.armada/worktrees/job_91ab",
         copyValue: "~/.armada/worktrees/job_91ab",
-        open: { label: "Open the worktree", go: () => Promise.resolve(null) },
+        open: {
+          label: "Open the worktree",
+          go: () => Promise.resolve(null),
+        },
       },
       {
         icon: LOG,
@@ -200,7 +207,10 @@ export const WhatOpensAndWhatOnlyCopies: Story = {
         iconLabel: "Worktree",
         value: "/Users/user/Development/armada/.armada/worktrees/01JQ8ZK4T7WY3N2VXB6RGM5D9C",
         copyValue: "/Users/user/Development/armada/.armada/worktrees/01JQ8ZK4T7WY3N2VXB6RGM5D9C",
-        open: { label: "Open the worktree", go: () => Promise.resolve(null) },
+        open: {
+          label: "Open the worktree",
+          go: () => Promise.resolve(null),
+        },
       },
       {
         icon: GitBranch,

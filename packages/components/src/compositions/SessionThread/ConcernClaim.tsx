@@ -3,7 +3,15 @@ import { useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../../primitives/Button/Button";
 
 /** What a claim is read from: a judge's concern, or an adversary's finding. `produced` is what was found. */
-export type Claim = { text: string; expected?: string; produced?: string; consequence?: string; impact?: string; cites?: readonly string[]; /** What the cites row is called, where `Cites` is not the word. */ citesLabel?: string };
+export type Claim = {
+  text: string;
+  expected?: string;
+  produced?: string;
+  consequence?: string;
+  impact?: string;
+  cites?: readonly string[] /** What the cites row is called, where `Cites` is not the word. */;
+  citesLabel?: string;
+};
 
 /**
  * A claim to read: the consequence over everything, then what was expected, what was found, who feels it and what it cites, each a label
@@ -15,16 +23,23 @@ export function ConcernClaim({ concern }: { concern: Claim }) {
   if (expected === undefined && produced === undefined && consequence === undefined) {
     return (
       <div className="armada-session-thread__claim">
-        {concern.text.split("\n").filter((line) => line.trim() !== "").map((line, at) => (
-          <p key={at} className="armada-session-thread__claim-text">{line}</p>
-        ))}
+        {concern.text
+          .split("\n")
+          .filter((line) => line.trim() !== "")
+          .map((line, at) => (
+            <p key={at} className="armada-session-thread__claim-text">
+              {line}
+            </p>
+          ))}
         <ConcernCites cites={cites} />
       </div>
     );
   }
   return (
     <div className="armada-session-thread__claim">
-      {consequence === undefined ? null : <p className="armada-session-thread__claim-head">{consequence}</p>}
+      {consequence === undefined ? null : (
+        <p className="armada-session-thread__claim-head">{consequence}</p>
+      )}
       {expected === undefined ? null : <ClaimRow label="Expected" text={expected} />}
       {produced === undefined ? null : <ClaimRow label="Found" text={produced} />}
       {impact === undefined ? null : <ClaimRow label="Impact" text={impact} />}
@@ -52,14 +67,32 @@ function ClaimRow({ label, text }: { label: string; text: string }) {
     const watch = new ResizeObserver(measure);
     watch.observe(one);
     return () => watch.disconnect();
-  }, [text, open]);
+  }, [
+    text,
+    open,
+  ]);
   return (
     <div className="armada-session-thread__claim-row">
       <span className="armada-session-thread__claim-label">{label}</span>
       <div className="armada-session-thread__claim-value">
-        <p ref={value} id={id} className="armada-session-thread__claim-text" data-open={open || undefined}>{text}</p>
+        <p
+          ref={value}
+          id={id}
+          className="armada-session-thread__claim-text"
+          data-open={open || undefined}
+        >
+          {text}
+        </p>
         {clamped || open ? (
-          <Button size="sm" variant="ghost" className="armada-session-thread__claim-more" aria-expanded={open} aria-controls={id} aria-label={`${open ? "Less" : "More"} of ${label.toLowerCase()}`} onClick={() => setOpen(!open)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="armada-session-thread__claim-more"
+            aria-expanded={open}
+            aria-controls={id}
+            aria-label={`${open ? "Less" : "More"} of ${label.toLowerCase()}`}
+            onClick={() => setOpen(!open)}
+          >
             {open ? "Less" : "More"}
           </Button>
         ) : null}

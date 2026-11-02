@@ -7,27 +7,74 @@ import type { ReactNode } from "react";
 
 import "./start-menu.css";
 
-export type Order = { to: "folder" | "new" | "found"; title: string; line: string; off?: string };
+export type Order = {
+  to: "folder" | "new" | "found";
+  title: string;
+  line: string;
+  off?: string;
+};
 
 /** The three starts, in a new user's words. Each line says exactly what happens. */
 export const ORDERS: readonly Order[] = [
-  { to: "folder", title: "Open a project", line: "Work in a folder already on this Mac." },
-  { to: "new", title: "New project", line: "Start from an empty folder." },
-  { to: "found", title: "Import from Claude Code", line: "Bring in the projects you have used Claude Code in." },
+  {
+    to: "folder",
+    title: "Open a project",
+    line: "Work in a folder already on this Mac.",
+  },
+  {
+    to: "new",
+    title: "New project",
+    line: "Start from an empty folder.",
+  },
+  {
+    to: "found",
+    title: "Import from Claude Code",
+    line: "Bring in the projects you have used Claude Code in.",
+  },
 ];
 
 /** The keys that move through the menu, and the ones that pick. */
 function Hints(): ReactNode {
   return (
     <div className="armada-start__hints" aria-hidden="true">
-      <span><KbdChord keys={["j", "k"]} /> Move</span>
-      <span><KbdChord keys={["1", "2", "3"]} /> Pick</span>
-      <span><KbdChord keys={["↵"]} /> Select</span>
+      <span>
+        <KbdChord
+          keys={[
+            "j",
+            "k",
+          ]}
+        />{" "}
+        Move
+      </span>
+      <span>
+        <KbdChord
+          keys={[
+            "1",
+            "2",
+            "3",
+          ]}
+        />{" "}
+        Pick
+      </span>
+      <span>
+        <KbdChord
+          keys={[
+            "↵",
+          ]}
+        />{" "}
+        Select
+      </span>
     </div>
   );
 }
 
-export function StartMenu({ at, last, orders, onPick, onFocus }: {
+export function StartMenu({
+  at,
+  last,
+  orders,
+  onPick,
+  onFocus,
+}: {
   /** The start the focus is on. */
   at: number;
   /** The start to focus when the menu opens: the one last picked. */
@@ -57,18 +104,24 @@ export function StartMenu({ at, last, orders, onPick, onFocus }: {
               onFocus={() => onFocus(i)}
               onMouseEnter={(event) => off === undefined && event.currentTarget.focus()}
             >
-              <span className="armada-start__key" aria-hidden="true">{i + 1}</span>
+              <span className="armada-start__key" aria-hidden="true">
+                {i + 1}
+              </span>
               <span className="armada-start__name">{title}</span>
             </button>
           );
-          return off === undefined ? order : (
+          return off === undefined ? (
+            order
+          ) : (
             <Tooltip key={to} label={off}>
               <span className="armada-start__off">{order}</span>
             </Tooltip>
           );
         })}
       </div>
-      <p className="armada-start__brief" id="armada-start-line">{open?.line}</p>
+      <p className="armada-start__brief" id="armada-start-line">
+        {open?.line}
+      </p>
       <Hints />
     </div>
   );

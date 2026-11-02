@@ -5,23 +5,71 @@
 
 import type { CatalogueTheme } from "@armada/settings";
 
-type Entry = { id: string; title: string; tone: "dark" | "light"; source: string; swatch?: string[] };
+type Entry = {
+  id: string;
+  title: string;
+  tone: "dark" | "light";
+  source: string;
+  swatch?: string[];
+};
 
 // Typed by hand, as `mock/scenario.ts` does: Vite's client types are not loaded here.
 type Globbing = ImportMeta & {
-  glob(pattern: string[], options: { eager?: boolean; query?: string; import?: string }): Record<string, unknown>;
+  glob(
+    pattern: string[],
+    options: {
+      eager?: boolean;
+      query?: string;
+      import?: string;
+    },
+  ): Record<string, unknown>;
 };
 
-const INDEXES = (import.meta as Globbing).glob(["../../../../../packages/tokens/themes/index.json", "../../../../../packages/tokens/themes/more/index.json"], { eager: true, import: "default" }) as Record<string, Entry[]>;
-const FILES = (import.meta as Globbing).glob(["../../../../../packages/tokens/themes/css/*.css", "../../../../../packages/tokens/themes/more/css/*.css"], { query: "?raw", import: "default" }) as Record<string, () => Promise<string>>;
+const INDEXES = (import.meta as Globbing).glob(
+  [
+    "../../../../../packages/tokens/themes/index.json",
+    "../../../../../packages/tokens/themes/more/index.json",
+  ],
+  {
+    eager: true,
+    import: "default",
+  },
+) as Record<string, Entry[]>;
+const FILES = (import.meta as Globbing).glob(
+  [
+    "../../../../../packages/tokens/themes/css/*.css",
+    "../../../../../packages/tokens/themes/more/css/*.css",
+  ],
+  {
+    query: "?raw",
+    import: "default",
+  },
+) as Record<string, () => Promise<string>>;
 
 /** The file for a theme, by the slug its id ends in. */
-const fileOf = (id: string) => Object.entries(FILES).find(([path]) => path.endsWith(`/css/${id.slice("catalogue:".length)}.css`))?.[1];
+const fileOf = (id: string) =>
+  Object.entries(FILES).find(([path]) =>
+    path.endsWith(`/css/${id.slice("catalogue:".length)}.css`),
+  )?.[1];
 
 export const CATALOGUE: readonly CatalogueTheme[] = Object.values(INDEXES)
   .flat()
   .filter((one, at, all) => all.findIndex((other) => other.id === one.id) === at)
   .flatMap((one) => {
     const file = fileOf(one.id);
-    return file === undefined ? [] : [{ id: one.id, title: one.title, tone: one.tone, ...(one.swatch === undefined ? {} : { swatch: one.swatch }), load: file }];
+    return file === undefined
+      ? []
+      : [
+          {
+            id: one.id,
+            title: one.title,
+            tone: one.tone,
+            ...(one.swatch === undefined
+              ? {}
+              : {
+                  swatch: one.swatch,
+                }),
+            load: file,
+          },
+        ];
   });

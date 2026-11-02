@@ -21,19 +21,48 @@ import { DocumentLayer } from "./DocumentLayer";
 import { FieldLayer } from "./FieldLayer";
 import { ViewStrip, useJobViews } from "../cockpit/deck/JobViews";
 import { StoryColumn, placeZone, type StoryZone } from "./StoryColumn";
-import { BrowserBody, BrowserTabsSync, ChangesBody, FilesBody, IssuesBody, JobsBody, LedgerBody, PlanBody, PullsBody, RequestBody, TerminalBody, TerminalSync } from "../job-panes/bodies";
+import {
+  BrowserBody,
+  BrowserTabsSync,
+  ChangesBody,
+  FilesBody,
+  IssuesBody,
+  JobsBody,
+  LedgerBody,
+  PlanBody,
+  PullsBody,
+  RequestBody,
+  TerminalBody,
+  TerminalSync,
+} from "../job-panes/bodies";
 import { CustomBody } from "../job-panes/custom-body";
 import { focusKind, focusLayer } from "../job-panes/focus";
 import { JobPanes } from "../job-panes/JobPanes";
 import type { Tab, TabKind } from "../job-panes/tree";
 import { OverTheApp } from "./OverTheApp";
-import { closeLayer, drawLayersAsTabs, dropLayer, toggleLayer, useLayer, useLayerPage } from "./layers";
+import {
+  closeLayer,
+  drawLayersAsTabs,
+  dropLayer,
+  toggleLayer,
+  useLayer,
+  useLayerPage,
+} from "./layers";
 import { lanesOpenFor } from "../shared-panel/store";
 import { placeLanes, toggleLanes, useWideWindow } from "./lanes-width";
 import type { PlanEditing } from "./PlanEdit";
 import type { LiveOpen } from "./TurnAccountBlock";
 import { Layer, LayerInPane } from "./SessionLayers";
-import { bandOf, isArtifactsKey, isLanesKey, isLedgerKey, isWholeKey, pressBand, pressWhole, type Area } from "./story";
+import {
+  bandOf,
+  isArtifactsKey,
+  isLanesKey,
+  isLedgerKey,
+  isWholeKey,
+  pressBand,
+  pressWhole,
+  type Area,
+} from "./story";
 import { flipLedgerView } from "./ledger-view";
 import type { SessionBays } from "./slot-trouble";
 import "./session-view.css";
@@ -45,9 +74,38 @@ export type Hosts = {
   zones?: readonly StoryZone[];
 };
 
-const BAND_TAB: Partial<Record<Area | "workflow", TabKind>> = { done: "done", now: "now", next: "open", workflow: "workflow" };
+const BAND_TAB: Partial<Record<Area | "workflow", TabKind>> = {
+  done: "done",
+  now: "now",
+  next: "open",
+  workflow: "workflow",
+};
 
-export function SessionWorkspace({ session, entries, repositories, hosts, ed, bays, onOpenSketch, onOpenSession, onOpenCheck, live, children }: { session: Session; ed: PlanEditing | undefined; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; bays: SessionBays | undefined; onOpenSketch: (sketch: string, at?: string) => void; onOpenSession: (id: string) => void; onOpenCheck: (run: number) => void; live?: LiveOpen; children: ReactNode }) {
+export function SessionWorkspace({
+  session,
+  entries,
+  repositories,
+  hosts,
+  ed,
+  bays,
+  onOpenSketch,
+  onOpenSession,
+  onOpenCheck,
+  live,
+  children,
+}: {
+  session: Session;
+  ed: PlanEditing | undefined;
+  entries: readonly LedgerEntry[];
+  repositories: readonly RepositorySummary[];
+  hosts?: Hosts | undefined;
+  bays: SessionBays | undefined;
+  onOpenSketch: (sketch: string, at?: string) => void;
+  onOpenSession: (id: string) => void;
+  onOpenCheck: (run: number) => void;
+  live?: LiveOpen;
+  children: ReactNode;
+}) {
   const draft = useSessionsDraft();
   const { id } = session;
   const open = useLayer(id);
@@ -55,50 +113,98 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   // The Field large draws itself (`FieldLayer.tsx`), and so does the document (`DocumentLayer.tsx`); the other layers are `Layer`'s, Lanes among them on a wide window. A narrower one has Lanes in the app's side panel (`lanes-width.ts`).
   const layer = open === "field" || open === "document" ? undefined : open;
   const lanes = session.lanes;
-  const large = open === "field" ? <FieldLayer session={session} repositories={repositories} /> : null;
+  const large =
+    open === "field" ? <FieldLayer session={session} repositories={repositories} /> : null;
   // A layer belongs to the Session it was opened over.
-  useEffect(() => () => dropLayer(id), [id]);
+  useEffect(
+    () => () => dropLayer(id),
+    [
+      id,
+    ],
+  );
   const work = session.work;
   const side = hosts?.side ?? null;
   // A Job with a story in the Cockpit has its area in panes, thread and story among them, and no column of its own for the story.
-  const paned = hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined;
+  const paned =
+    hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined;
   const story = work !== undefined && draft !== undefined && side !== null;
   // The views a Job's keys open over it are tabs here: Artifacts is the Ledger, Bays and Workflow their own, and none opens a layer.
-  useEffect(() => (paned ? drawLayersAsTabs(id, (one) => focusLayer(id, one)) : undefined), [paned, id]);
+  useEffect(
+    () => (paned ? drawLayersAsTabs(id, (one) => focusLayer(id, one)) : undefined),
+    [
+      paned,
+      id,
+    ],
+  );
   // With a story, every layer opens in the spine under the view strip; without one it covers the stage.
   const aside = story && layer !== undefined;
   const views = useJobViews(session, bays);
   // The document floats over the whole Job in a sheet of its own, drawn on the body, so it needs no place in the deck. `OverTheApp` stays
   // mounted while the Job is, so focus goes back to the opener when the document closes, and not when a dev render mounts it twice.
-  const reading = <OverTheApp open={open === "document"}>{open === "document" ? <DocumentLayer key={page} session={session} /> : null}</OverTheApp>;
-  const layered = layer === undefined ? null : <Layer id={layer} session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+  const reading = (
+    <OverTheApp open={open === "document"}>
+      {open === "document" ? <DocumentLayer key={page} session={session} /> : null}
+    </OverTheApp>
+  );
+  const layered =
+    layer === undefined ? null : (
+      <Layer
+        id={layer}
+        session={session}
+        entries={entries}
+        bays={bays}
+        onOpenCheck={onOpenCheck}
+        onOpenSession={onOpenSession}
+        onOpenSketch={onOpenSketch}
+      />
+    );
   // The Lanes key toggles the view on a Job that has lanes, with or without a story. It is no flight key: the host would press the strip's button as well.
   const hasLanes = lanes !== undefined;
   // Resized across the line, open Lanes go to the place the new width puts them.
   const wide = useWideWindow();
   useEffect(() => {
     if (hasLanes) placeLanes(id);
-  }, [hasLanes, id, wide]);
+  }, [
+    hasLanes,
+    id,
+    wide,
+  ]);
   useEffect(() => {
     if (!hasLanes) return;
     const listen = (event: KeyboardEvent) => {
       // In a text box ⌥ and ⇧ type a character, so the key is left to it.
       // The panel the Lanes are in is itself a dialog, which its own key closes.
-      if (event.defaultPrevented || !isLanesKey(event) || holdsText(event.target) || (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null && !lanesOpenFor(id))) return;
+      if (
+        event.defaultPrevented ||
+        !isLanesKey(event) ||
+        holdsText(event.target) ||
+        (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null &&
+          !lanesOpenFor(id))
+      )
+        return;
       event.preventDefault();
       toggleLanes(id);
     };
     window.addEventListener("keydown", listen);
     return () => window.removeEventListener("keydown", listen);
-  }, [hasLanes, id]);
+  }, [
+    hasLanes,
+    id,
+  ]);
   // A band opens by its key, the Blueprint's whole-plan key swaps its Now view, and the Artifacts key opens the list. A band's key closes the list first: the story is what it asked for.
   useEffect(() => {
     if (!story && !paned) return;
     const listen = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
+      if (
+        event.defaultPrevented ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]') !== null
+      )
+        return;
       // `message_job`: the caret goes to the Job's message box. Option changes the character M types, so the registry's reader takes the key by its place.
       if (isPressed("message_job", event)) {
-        const box = document.querySelector<HTMLElement>('.sv-dock [role="textbox"][aria-label="Message"]');
+        const box = document.querySelector<HTMLElement>(
+          '.sv-dock [role="textbox"][aria-label="Message"]',
+        );
         if (box === null) return;
         event.preventDefault();
         box.focus();
@@ -127,20 +233,31 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
       const tab = paned ? BAND_TAB[band.area] : undefined;
       if (tab !== undefined) return focusKind(id, tab);
       if (layer === "artifacts") closeLayer();
-      if (band.area === "workflow") return document.querySelector<HTMLElement>(".sv-side [data-workflow-pick]")?.focus();
+      if (band.area === "workflow")
+        return document.querySelector<HTMLElement>(".sv-side [data-workflow-pick]")?.focus();
       pressBand(session, band.area);
       window.setTimeout(() => {
-        const header = document.querySelector<HTMLElement>(`[data-area="${band.area}"] > .sv-panel__band`);
+        const header = document.querySelector<HTMLElement>(
+          `[data-area="${band.area}"] > .sv-panel__band`,
+        );
         if (header === null) return;
         // The zones are one scrolling story: the zone comes to the top of it.
         const zone = header.parentElement;
-        header.focus({ preventScroll: true });
+        header.focus({
+          preventScroll: true,
+        });
         if (zone !== null) placeZone(zone, "smooth");
       }, 0);
     };
     window.addEventListener("keydown", listen);
     return () => window.removeEventListener("keydown", listen);
-  }, [story, paned, id, layer, session]);
+  }, [
+    story,
+    paned,
+    id,
+    layer,
+    session,
+  ]);
   if (hosts?.zones !== undefined && story) {
     return (
       <>
@@ -148,7 +265,19 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
         {createPortal(
           hosts.zones.map((only) => (
             <div key={only} className="sv-story-body">
-              <StoryColumn session={session} entries={entries} work={work} id={id} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} only={only} />
+              <StoryColumn
+                session={session}
+                entries={entries}
+                work={work}
+                id={id}
+                manifestId={session.manifestId}
+                acts={draft.work}
+                ed={ed}
+                onOpenSketch={onOpenSketch}
+                onOpenSession={onOpenSession}
+                live={live}
+                only={only}
+              />
             </div>
           )),
           side,
@@ -159,7 +288,19 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   if (paned) {
     const zone = (only?: StoryZone) => (
       <div className="sv-story-body">
-        <StoryColumn session={session} entries={entries} work={work} id={id} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} only={only} />
+        <StoryColumn
+          session={session}
+          entries={entries}
+          work={work}
+          id={id}
+          manifestId={session.manifestId}
+          acts={draft.work}
+          ed={ed}
+          onOpenSketch={onOpenSketch}
+          onOpenSession={onOpenSession}
+          live={live}
+          only={only}
+        />
       </div>
     );
     const bodyOf = (tab: Tab) => {
@@ -195,24 +336,93 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
         case "request":
           return <RequestBody session={session} />;
         case "custom":
-          return <CustomBody tabId={tab.id} jobId={session.id} manifestId={session.manifestId} onOpenSession={onOpenSession} />;
+          return (
+            <CustomBody
+              tabId={tab.id}
+              jobId={session.id}
+              manifestId={session.manifestId}
+              onOpenSession={onOpenSession}
+            />
+          );
         case "subagents":
-          return <Layer id="subagents" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+          return (
+            <Layer
+              id="subagents"
+              session={session}
+              entries={entries}
+              bays={bays}
+              onOpenCheck={onOpenCheck}
+              onOpenSession={onOpenSession}
+              onOpenSketch={onOpenSketch}
+            />
+          );
         case "checks":
-          return <Layer id="checks" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+          return (
+            <Layer
+              id="checks"
+              session={session}
+              entries={entries}
+              bays={bays}
+              onOpenCheck={onOpenCheck}
+              onOpenSession={onOpenSession}
+              onOpenSketch={onOpenSketch}
+            />
+          );
         case "workflow":
-          return <Layer id="lanes" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+          return (
+            <Layer
+              id="lanes"
+              session={session}
+              entries={entries}
+              bays={bays}
+              onOpenCheck={onOpenCheck}
+              onOpenSession={onOpenSession}
+              onOpenSketch={onOpenSketch}
+            />
+          );
         case "system":
-          return <Layer id="system" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+          return (
+            <Layer
+              id="system"
+              session={session}
+              entries={entries}
+              bays={bays}
+              onOpenCheck={onOpenCheck}
+              onOpenSession={onOpenSession}
+              onOpenSketch={onOpenSketch}
+            />
+          );
         case "bays":
-          return <Layer id="slot" session={session} entries={entries} bays={bays} onOpenCheck={onOpenCheck} onOpenSession={onOpenSession} onOpenSketch={onOpenSketch} />;
+          return (
+            <Layer
+              id="slot"
+              session={session}
+              entries={entries}
+              bays={bays}
+              onOpenCheck={onOpenCheck}
+              onOpenSession={onOpenSession}
+              onOpenSketch={onOpenSketch}
+            />
+          );
       }
     };
     return (
       <>
-        <JobPanes jobId={id} body={(tab) => <LayerInPane.Provider value>{bodyOf(tab)}</LayerInPane.Provider>} over={layered} />
+        <JobPanes
+          jobId={id}
+          body={(tab) => <LayerInPane.Provider value>{bodyOf(tab)}</LayerInPane.Provider>}
+          over={layered}
+        />
         {/* The title bar holds only the Layout control while a Job is in panes. The views with a key stay drawn out of sight, so their keys still press them; Subagents and Checks are acts in the Thread head. */}
-        {views === undefined ? null : <div hidden><ViewStrip views={views.filter((one) => one.id === "artifacts" || one.id === "system" || one.id === "slot")} /></div>}
+        {views === undefined ? null : (
+          <div hidden>
+            <ViewStrip
+              views={views.filter(
+                (one) => one.id === "artifacts" || one.id === "system" || one.id === "slot",
+              )}
+            />
+          </div>
+        )}
         <TerminalSync jobId={id} />
         <BrowserTabsSync jobId={id} />
         {large}
@@ -222,7 +432,14 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
   }
   // A Job with no story still has its views: the strip stands in the column, and a view opens under it.
   if (!story) {
-    if (views === undefined || side === null) return <>{children}{layered}{large}</>;
+    if (views === undefined || side === null)
+      return (
+        <>
+          {children}
+          {layered}
+          {large}
+        </>
+      );
     return (
       <>
         {children}
@@ -238,7 +455,20 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, ba
     );
   }
   // The story is three zones in the order a layout gives; each leaves itself out where a layout hides it (`SvPanel`). The workflow's picker stands above them.
-  const right = <StoryColumn session={session} entries={entries} work={work} id={id} manifestId={session.manifestId} acts={draft.work} ed={ed} onOpenSketch={onOpenSketch} onOpenSession={onOpenSession} live={live} />;
+  const right = (
+    <StoryColumn
+      session={session}
+      entries={entries}
+      work={work}
+      id={id}
+      manifestId={session.manifestId}
+      acts={draft.work}
+      ed={ed}
+      onOpenSketch={onOpenSketch}
+      onOpenSession={onOpenSession}
+      live={live}
+    />
+  );
   return (
     <>
       {children}

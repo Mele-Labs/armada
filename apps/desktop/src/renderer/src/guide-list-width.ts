@@ -38,7 +38,10 @@ function write(width: number): void {
  * in case either moved since it was saved; falls back to `--w-guide-list` when
  * nothing was saved yet.
  */
-export function useGuideListWidth(): [number, (width: number) => void] {
+export function useGuideListWidth(): [
+  number,
+  (width: number) => void,
+] {
   const [width, setWidth] = useState(() => clampGuideListWidth(read() ?? defaultGuideListWidth()));
 
   function press(next: number): void {
@@ -47,5 +50,8 @@ export function useGuideListWidth(): [number, (width: number) => void] {
     write(clamped);
   }
 
-  return [width, press];
+  return [
+    width,
+    press,
+  ];
 }

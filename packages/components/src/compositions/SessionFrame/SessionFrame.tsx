@@ -1,7 +1,30 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { WorkingMark } from "../../primitives/WorkingMark/WorkingMark";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { BatteryLow, LoaderCircle, Check, CircleDashed, CircleDot, CirclePause, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug, WandSparkles, X } from "lucide-react";
+import {
+  BatteryLow,
+  LoaderCircle,
+  Check,
+  CircleDashed,
+  CircleDot,
+  CirclePause,
+  Clock,
+  Ellipsis,
+  Eye,
+  GitFork,
+  Link,
+  MessageSquareDashed,
+  MoveRight,
+  Power,
+  Radar,
+  Reply,
+  RotateCw,
+  ShieldX,
+  SquarePen,
+  Unplug,
+  WandSparkles,
+  X,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -27,7 +50,23 @@ import { stampOf, timeFormat } from "../../time-format";
  * paused is a Job the person parked: nothing asks anything of him until he resumes it (`circle-pause`), and held is a Job whose turn ended with nothing asked of the person and a live watch, or its own pull request in the queue or on its Checks, all that keeps it open (`radar`, the watch's own glyph), and unstarted is a Job whose agent process never came up, which nothing but a message from the person will move (`x`, system failure, the reason in its tooltip). `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited" | "after" | "draft" | "held" | "paused" | "unstarted";
+export type SessionState =
+  | "blank"
+  | "working"
+  | "stuck"
+  | "waiting"
+  | "replied"
+  | "done"
+  | "failing"
+  | "idle"
+  | "quiet"
+  | "ended"
+  | "limited"
+  | "after"
+  | "draft"
+  | "held"
+  | "paused"
+  | "unstarted";
 
 /**
  * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
@@ -62,7 +101,14 @@ const MARK: Record<SessionState, LucideIcon> = {
 export type JobBucket = "needs" | "working" | "waiting" | "idle" | "draft";
 
 export function bucketOf(state: SessionState): JobBucket {
-  if (state === "waiting" || state === "done" || state === "unstarted" || state === "stuck" || state === "failing") return "needs";
+  if (
+    state === "waiting" ||
+    state === "done" ||
+    state === "unstarted" ||
+    state === "stuck" ||
+    state === "failing"
+  )
+    return "needs";
   if (state === "working") return "working";
   if (state === "held" || state === "limited" || state === "after") return "waiting";
   if (state === "draft" || state === "blank") return "draft";
@@ -78,8 +124,18 @@ export function SessionMark({ state, said }: { state: SessionState; said: string
   if (state === "limited") return <LimitMark said={said} />;
   return (
     <Tooltip label={said}>
-      <span className="armada-session-mark" role="img" aria-label={said} data-bucket={bucketOf(state)} data-pulsing={state === "working" || undefined}>
-        {state === "working" ? <WorkingMark size={16} /> : <Glyph size={16} strokeWidth={2} aria-hidden />}
+      <span
+        className="armada-session-mark"
+        role="img"
+        aria-label={said}
+        data-bucket={bucketOf(state)}
+        data-pulsing={state === "working" || undefined}
+      >
+        {state === "working" ? (
+          <WorkingMark size={16} />
+        ) : (
+          <Glyph size={16} strokeWidth={2} aria-hidden />
+        )}
       </span>
     </Tooltip>
   );
@@ -89,7 +145,12 @@ export function SessionMark({ state, said }: { state: SessionState; said: string
 export function LimitMark({ said, size = 16 }: { said: string; size?: 12 | 16 }) {
   return (
     <Tooltip label={said}>
-      <span className="armada-session-mark armada-limit-mark" role="img" aria-label={said} data-bucket="waiting">
+      <span
+        className="armada-session-mark armada-limit-mark"
+        role="img"
+        aria-label={said}
+        data-bucket="waiting"
+      >
         <BatteryLow size={size} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>
@@ -121,27 +182,51 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
  * build can; `running` shows the act's button as working, and `error` is the CLI's own words under a row whose act failed.
  * `closes` puts the menu away on the press, for an act that goes on in the Job's terminal.
  */
-export type ToolsFix = { piece: string; said: string; act?: string; running?: boolean; error?: string; closes?: boolean };
+export type ToolsFix = {
+  piece: string;
+  said: string;
+  act?: string;
+  running?: boolean;
+  error?: string;
+  closes?: boolean;
+};
 
 /** Arrow keys move among the menu's acts, as a menu's do. */
 function arrowAmong(event: ReactKeyboardEvent<HTMLElement>): void {
   if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-  const acts = [...event.currentTarget.querySelectorAll<HTMLElement>("button")];
+  const acts = [
+    ...event.currentTarget.querySelectorAll<HTMLElement>("button"),
+  ];
   if (acts.length === 0) return;
   event.preventDefault();
   const at = acts.indexOf(document.activeElement as HTMLElement);
-  const next = event.key === "ArrowDown" ? (at + 1) % acts.length : (at <= 0 ? acts.length : at) - 1;
+  const next =
+    event.key === "ArrowDown" ? (at + 1) % acts.length : (at <= 0 ? acts.length : at) - 1;
   acts[next]?.focus();
 }
 
 /** The menu's body: what the mark's sentence says beyond its pieces (the CLI and its version), then a row for each piece, its act at the row's end. */
-export function ToolsMenu({ said, fixes, onFix, close, focusFirst = true }: { said: string; fixes: readonly ToolsFix[]; onFix: (piece: string) => void; close: () => void; focusFirst?: boolean }) {
+export function ToolsMenu({
+  said,
+  fixes,
+  onFix,
+  close,
+  focusFirst = true,
+}: {
+  said: string;
+  fixes: readonly ToolsFix[];
+  onFix: (piece: string) => void;
+  close: () => void;
+  focusFirst?: boolean;
+}) {
   const body = useRef<HTMLDivElement>(null);
   const head = fixes.reduce((left, one) => left.replace(one.said, ""), said).trim();
   // Opened, it takes focus on the first act, so the arrow keys have somewhere to start.
   useEffect(() => {
     if (focusFirst) body.current?.querySelector<HTMLElement>("button")?.focus();
-  }, [focusFirst]);
+  }, [
+    focusFirst,
+  ]);
   return (
     <div ref={body} className="armada-tools-menu" onKeyDown={arrowAmong}>
       {head === "" ? null : <p className="armada-tools-menu__head">{head}</p>}
@@ -150,10 +235,15 @@ export function ToolsMenu({ said, fixes, onFix, close, focusFirst = true }: { sa
           <li key={one.piece} className="armada-tools-menu__row">
             <span className="armada-tools-menu__said">{one.said}</span>
             {one.act === undefined ? null : (
-              <Button size="sm" ground="sunken" pending={one.running === true} onClick={() => {
+              <Button
+                size="sm"
+                ground="sunken"
+                pending={one.running === true}
+                onClick={() => {
                   onFix(one.piece);
                   if (one.closes === true) close();
-                }}>
+                }}
+              >
                 {one.running === true ? (
                   <span className="armada-tools-menu__working" role="img" aria-label="Working">
                     <LoaderCircle size={12} strokeWidth={2} aria-hidden />
@@ -162,7 +252,9 @@ export function ToolsMenu({ said, fixes, onFix, close, focusFirst = true }: { sa
                 {one.act}
               </Button>
             )}
-            {one.error === undefined ? null : <p className="armada-tools-menu__error">{one.error}</p>}
+            {one.error === undefined ? null : (
+              <p className="armada-tools-menu__error">{one.error}</p>
+            )}
           </li>
         ))}
       </ul>
@@ -174,11 +266,28 @@ export function ToolsMenu({ said, fixes, onFix, close, focusFirst = true }: { sa
  * The agent came up without some of its Armada tools: the mark, and its tooltip is the label. Given `fixes` it is a button, and a press opens
  * a menu of the pieces, each with the act that puts it right (the owner, 29 Oct 2026: "I hate leaving users in a state of error with no way out").
  */
-export function ToolsMark({ said, size = 16, fixes, onFix, apparent }: { said: string; size?: 12 | 16; fixes?: readonly ToolsFix[]; onFix?: (piece: string) => void; apparent?: boolean }) {
+export function ToolsMark({
+  said,
+  size = 16,
+  fixes,
+  onFix,
+  apparent,
+}: {
+  said: string;
+  size?: 12 | 16;
+  fixes?: readonly ToolsFix[];
+  onFix?: (piece: string) => void;
+  apparent?: boolean;
+}) {
   if (fixes === undefined || fixes.length === 0 || onFix === undefined) {
     return (
       <Tooltip label={said}>
-        <span className="armada-session-mark" role="img" aria-label={said} data-apparent={apparent === true ? "" : undefined}>
+        <span
+          className="armada-session-mark"
+          role="img"
+          aria-label={said}
+          data-apparent={apparent === true ? "" : undefined}
+        >
           <Unplug size={size} strokeWidth={2} aria-hidden />
         </span>
       </Tooltip>
@@ -190,7 +299,13 @@ export function ToolsMark({ said, size = 16, fixes, onFix, apparent }: { said: s
       label={said}
       trigger={
         <Tooltip label={said}>
-          <button type="button" className="armada-session-mark armada-tools-mark" aria-label={said} aria-haspopup="dialog" data-apparent={apparent === true ? "" : undefined}>
+          <button
+            type="button"
+            className="armada-session-mark armada-tools-mark"
+            aria-label={said}
+            aria-haspopup="dialog"
+            data-apparent={apparent === true ? "" : undefined}
+          >
             <Unplug size={size} strokeWidth={2} aria-hidden />
           </button>
         </Tooltip>
@@ -222,17 +337,44 @@ const FRESH_ENTRY = "fresh";
 const FRESH_FORK_ENTRY = "fresh-fork";
 
 /** The menu the caller gave, with the fresh start's acts added before its first rule, or last when it has none. */
-function menuWithFresh(menu: SessionFrameProps["menu"], fresh: FreshStart | undefined): SessionFrameProps["menu"] {
+function menuWithFresh(
+  menu: SessionFrameProps["menu"],
+  fresh: FreshStart | undefined,
+): SessionFrameProps["menu"] {
   if (fresh === undefined) return menu;
   const acts: DropdownMenuEntry[] = [
-    { kind: "item", id: FRESH_ENTRY, label: "New Job", icon: MoveRight, hint: "Starts with a short handoff from this one", ...(fresh.busy === true ? { disabled: true } : {}) },
-    ...(fresh.onFork === undefined ? [] : [{ kind: "item", id: FRESH_FORK_ENTRY, label: "Fork", icon: GitFork } as const]),
+    {
+      kind: "item",
+      id: FRESH_ENTRY,
+      label: "New Job",
+      icon: MoveRight,
+      hint: "Starts with a short handoff from this one",
+      ...(fresh.busy === true
+        ? {
+            disabled: true,
+          }
+        : {}),
+    },
+    ...(fresh.onFork === undefined
+      ? []
+      : [
+          {
+            kind: "item",
+            id: FRESH_FORK_ENTRY,
+            label: "Fork",
+            icon: GitFork,
+          } as const,
+        ]),
   ];
   const entries = menu?.entries ?? [];
   const rule = entries.findIndex((one) => one.kind === "separator");
   const at = rule === -1 ? entries.length : rule;
   return {
-    entries: [...entries.slice(0, at), ...acts, ...entries.slice(at)],
+    entries: [
+      ...entries.slice(0, at),
+      ...acts,
+      ...entries.slice(at),
+    ],
     onSelect: (id) => {
       if (id === FRESH_ENTRY) fresh.onFresh();
       else if (id === FRESH_FORK_ENTRY) fresh.onFork?.();
@@ -267,7 +409,10 @@ export type SessionFrameProps = {
   /** What the agent came up without, said as the mark's tooltip: marked beside the state. Absent draws no mark. */
   toolsMissing?: string;
   /** What the mark's menu lists, one row for each piece, and the press on a row's act. Absent draws the mark with no menu. */
-  toolsFixes?: { fixes: readonly ToolsFix[]; onFix: (piece: string) => void };
+  toolsFixes?: {
+    fixes: readonly ToolsFix[];
+    onFix: (piece: string) => void;
+  };
   /** The tools mark pulses in the needs-you hue, as a lamp of a Job that needs the person does. */
   toolsApparent?: boolean;
   /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
@@ -295,7 +440,10 @@ export type SessionFrameProps = {
    * The Session's other acts, behind one three-dots button just before `back`: each an item with its glyph, and a key
    * where it has one. Absent or empty draws no button.
    */
-  menu?: { entries: DropdownMenuEntry[]; onSelect: (id: string) => void };
+  menu?: {
+    entries: DropdownMenuEntry[];
+    onSelect: (id: string) => void;
+  };
   /** The way out, the header's far right item. */
   back?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
@@ -323,14 +471,27 @@ export function SessionToolbelt() {
   const tools = useContext(ToolbeltContext);
   if (tools === null) return null;
   return (
-    <div className="armada-session-frame__toolbelt" role="group" aria-label="Job tools" data-room="">
+    <div
+      className="armada-session-frame__toolbelt"
+      role="group"
+      aria-label="Job tools"
+      data-room=""
+    >
       {tools}
     </div>
   );
 }
 
 /** The title, in place, on one line with the whole of it in a tooltip; a field while it is being changed. */
-function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRename?: (title: string) => void; onNameForMe?: () => Promise<unknown> }) {
+function SessionTitle({
+  title,
+  onRename,
+  onNameForMe,
+}: {
+  title?: string;
+  onRename?: (title: string) => void;
+  onNameForMe?: () => Promise<unknown>;
+}) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
   const [naming, setNaming] = useState(false);
   const wand =
@@ -370,7 +531,13 @@ function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRena
     return (
       <span className="armada-session-frame__title">
         <Tooltip label="Rename">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Rename" onClick={() => setDraft("")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Rename"
+            onClick={() => setDraft("")}
+          >
             <SquarePen size={16} strokeWidth={2} aria-hidden="true" />
           </Button>
         </Tooltip>
@@ -382,7 +549,12 @@ function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRena
     return (
       <span className="armada-session-frame__title">
         <Tooltip label={title}>
-          <button type="button" className="armada-session-frame__title-text" aria-label={`${title}, rename`} onClick={() => setDraft(title ?? "")}>
+          <button
+            type="button"
+            className="armada-session-frame__title-text"
+            aria-label={`${title}, rename`}
+            onClick={() => setDraft(title ?? "")}
+          >
             {title}
           </button>
         </Tooltip>
@@ -415,17 +587,71 @@ function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRena
   );
 }
 
-const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
+const DOCKED: readonly Mark[] = [
+  {
+    of: ".armada-shell",
+    as: "data-dock",
+  },
+];
 
-export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, toolsMissing, toolsFixes, toolsApparent, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, headTake, toolsUnder = false, children }: SessionFrameProps) {
+export function SessionFrame({
+  state,
+  said,
+  id,
+  address,
+  title,
+  onRename,
+  onNameForMe,
+  modOutOfDate = false,
+  toolsMissing,
+  toolsFixes,
+  toolsApparent,
+  checks,
+  onOpenCheck,
+  context,
+  compact,
+  loadout,
+  fresh,
+  repository,
+  actions,
+  menu,
+  back,
+  aside,
+  headViews,
+  headTake,
+  toolsUnder = false,
+  children,
+}: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
   const docked = useMarking(DOCKED);
   const lead = (
     <>
-      <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
-      <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} {...(onNameForMe === undefined ? {} : { onNameForMe })} />
+      <span className="armada-session-frame__state">
+        {state === "quiet" && modOutOfDate ? (
+          <ModMark />
+        ) : (
+          <SessionMark state={state} said={`${said} · ${named}`} />
+        )}
+      </span>
+      <SessionTitle
+        {...(title === undefined
+          ? {}
+          : {
+              title,
+            })}
+        {...(onRename === undefined
+          ? {}
+          : {
+              onRename,
+            })}
+        {...(onNameForMe === undefined
+          ? {}
+          : {
+              onNameForMe,
+            })}
+      />
     </>
   );
   const tools = (
@@ -433,38 +659,100 @@ export function SessionFrame({ state, said, id, address, title, onRename, onName
       {repository}
       {headViews}
       {actions}
-      {checks === undefined ? null : <RunningChecks checks={checks} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />}
-      {context === undefined ? null : <ContextFigure fill={context} {...(compact === undefined ? {} : { compact })} />}
+      {checks === undefined ? null : (
+        <RunningChecks
+          checks={checks}
+          {...(onOpenCheck === undefined
+            ? {}
+            : {
+                onOpenCheck,
+              })}
+        />
+      )}
+      {context === undefined ? null : (
+        <ContextFigure
+          fill={context}
+          {...(compact === undefined
+            ? {}
+            : {
+                compact,
+              })}
+        />
+      )}
       {loadout === undefined ? null : <LoadoutMark {...loadout} />}
       <span className="armada-session-frame__marks">
         {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
-        {toolsMissing === undefined ? null : <ToolsMark said={toolsMissing} {...(toolsFixes === undefined ? {} : toolsFixes)} {...(toolsApparent === true ? { apparent: true } : {})} />}
+        {toolsMissing === undefined ? null : (
+          <ToolsMark
+            said={toolsMissing}
+            {...(toolsFixes === undefined ? {} : toolsFixes)}
+            {...(toolsApparent === true
+              ? {
+                  apparent: true,
+                }
+              : {})}
+          />
+        )}
       </span>
     </>
   );
-  const menuButton = more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />;
+  const menuButton =
+    more === undefined || more.entries.length === 0 ? null : (
+      <DropdownMenu
+        align="end"
+        portal
+        icon={Ellipsis}
+        triggerLabel="More"
+        entries={more.entries}
+        onSelect={more.onSelect}
+      />
+    );
   const rowed = headTake === "rows" && !toolsUnder;
   return (
-    <div ref={aside === undefined || aside === null ? undefined : docked} className="armada-session-panels">
-    <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
-      <header className="armada-session-frame__head" {...(headTake === undefined || toolsUnder ? {} : { "data-take": headTake })} {...(headTake === "overflow" && !toolsUnder ? { "data-room": "" } : {})}>
-        {rowed ? (
-          <div className="armada-session-frame__row">
-            {lead}
-            {back}
-          </div>
-        ) : (
-          lead
-        )}
-        {rowed ? <div className="armada-session-frame__row" data-row="tools" data-room="">{tools}{menuButton}</div> : toolsUnder ? null : tools}
-        {rowed ? null : menuButton}
-        {rowed ? null : back}
-      </header>
-      <ToolbeltContext.Provider value={toolsUnder ? tools : null}>
-        <div className="armada-session-frame__body">{children}</div>
-      </ToolbeltContext.Provider>
-    </Card>
-    {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}
+    <div
+      ref={aside === undefined || aside === null ? undefined : docked}
+      className="armada-session-panels"
+    >
+      <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
+        <header
+          className="armada-session-frame__head"
+          {...(headTake === undefined || toolsUnder
+            ? {}
+            : {
+                "data-take": headTake,
+              })}
+          {...(headTake === "overflow" && !toolsUnder
+            ? {
+                "data-room": "",
+              }
+            : {})}
+        >
+          {rowed ? (
+            <div className="armada-session-frame__row">
+              {lead}
+              {back}
+            </div>
+          ) : (
+            lead
+          )}
+          {rowed ? (
+            <div className="armada-session-frame__row" data-row="tools" data-room="">
+              {tools}
+              {menuButton}
+            </div>
+          ) : toolsUnder ? null : (
+            tools
+          )}
+          {rowed ? null : menuButton}
+          {rowed ? null : back}
+        </header>
+        <ToolbeltContext.Provider value={toolsUnder ? tools : null}>
+          <div className="armada-session-frame__body">{children}</div>
+        </ToolbeltContext.Provider>
+      </Card>
+      {aside === undefined || aside === null ? null : (
+        <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>
+      )}
     </div>
   );
 }

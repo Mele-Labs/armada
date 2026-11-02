@@ -191,9 +191,9 @@
   max-width: calc(3 * var(--w-boundary-check));
   display: grid;
   grid-template-columns: repeat(
-    auto-fill,
-    minmax(min(100%, max(var(--w-boundary-check), calc((100% - var(--space-2)) / 2))), 1fr)
-  );
+      auto-fill,
+      minmax(min(100%, max(var(--w-boundary-check), calc((100% - var(--space-2)) / 2))), 1fr)
+    );
   gap: var(--space-1) var(--space-2);
   min-width: 0;
 }

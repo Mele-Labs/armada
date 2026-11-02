@@ -13,8 +13,24 @@ const READ: RepositoryAreas = {
       root: "/Users/user/armada",
       head: "abc",
       areas: [
-        { dir: "crates", files: 7, kids: [{ name: "fleet", files: 4 }, { name: "ipc", files: 3 }] },
-        { dir: "docs", files: 2 },
+        {
+          dir: "crates",
+          files: 7,
+          kids: [
+            {
+              name: "fleet",
+              files: 4,
+            },
+            {
+              name: "ipc",
+              files: 3,
+            },
+          ],
+        },
+        {
+          dir: "docs",
+          files: 2,
+        },
       ],
       omitted: 0,
     },
@@ -23,8 +39,23 @@ const READ: RepositoryAreas = {
 
 test("a repository's areas are its directories with the files of each, as the deck's plots take them", () => {
   expect(areasFromFleet(READ)("/Users/user/armada")).toEqual([
-    { dir: "crates", kids: [["fleet", 4], ["ipc", 3]] },
-    { dir: "docs", kids: [] },
+    {
+      dir: "crates",
+      kids: [
+        [
+          "fleet",
+          4,
+        ],
+        [
+          "ipc",
+          3,
+        ],
+      ],
+    },
+    {
+      dir: "docs",
+      kids: [],
+    },
   ]);
 });
 
@@ -34,6 +65,10 @@ test("a root is found with or without its trailing slash", () => {
 
 test("a repository Fleet named no areas for, and an answer with none, draw no plots", () => {
   expect(areasFromFleet(READ)("/Users/user/other")).toEqual([]);
-  expect(areasFromFleet({ repositories: [] })("/Users/user/armada")).toEqual([]);
+  expect(
+    areasFromFleet({
+      repositories: [],
+    })("/Users/user/armada"),
+  ).toEqual([]);
   expect(noAreas("/Users/user/armada")).toEqual([]);
 });

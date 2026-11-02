@@ -31,47 +31,66 @@ export function SharedPanelHost() {
   const refs = useMemo((): ProseReferences | null => {
     if (reads === undefined) return null;
     return {
-      scan: refScanner({ sessions: [], numbered: reads.numbered }),
+      scan: refScanner({
+        sessions: [],
+        numbered: reads.numbered,
+      }),
       open: (ref) => {
         const hit = reads.numbered.find((one) => one.number === ref.id && one.kind === ref.kind);
-        if (ref.kind === "issue") openInPanel({ kind: "issue", number: ref.id, ...(hit?.url === undefined ? {} : { address: hit.url }) });
-        else if (ref.kind === "pull_request") openInPanel({ kind: "pr", number: Number(ref.id), address: hit?.url ?? "" });
+        if (ref.kind === "issue")
+          openInPanel({
+            kind: "issue",
+            number: ref.id,
+            ...(hit?.url === undefined
+              ? {}
+              : {
+                  address: hit.url,
+                }),
+          });
+        else if (ref.kind === "pull_request")
+          openInPanel({
+            kind: "pr",
+            number: Number(ref.id),
+            address: hit?.url ?? "",
+          });
       },
     };
-  }, [reads]);
+  }, [
+    reads,
+  ]);
   if (reads === undefined) return null;
   const onOpenLink = (address: string) => void openLink(address);
   return (
     <AttachmentsProvided>
-    <ProseRefs.Provider value={refs}>
-    <OverTheApp open={open !== undefined && open.kind !== "requests"}>
-      {open === undefined ? null : open.kind === "pr" ? (
-        <PullRequestSide key={`pr:${open.number}`} item={open} />
-      ) : open.kind === "issue" ? (
-        <IssuePanel key={`issue:${open.number}`} item={open} onOpenLink={onOpenLink} />
-      ) : open.kind === "file" ? (
-        <FileSide key={`file:${open.path}`} item={open} />
-      ) : open.kind === "bay" ? (
-        <BayPanel key={`bay:${open.manifestId}/${open.slot}`} item={open} />
-      ) : open.kind === "watch" ? (
-        <WatchPanel key={`watch:${open.sessionId}/${open.id}`} item={open} />
-      ) : open.kind === "mod" ? (
-        <ModPanel key={`mod:${open.name}`} item={open} />
-      ) : open.kind === "run" ? (
-        <RunPanel key={`run:${open.at}`} item={open} />
-      ) : open.kind === "teach" ? (
-        <TeachSide key={`teach:${open.sessionId}:${open.source}:${open.text}`} item={open} />
-      ) : open.kind === "lane" ? (
-        <LaneSide key="lane" item={open} />
-      ) : open.kind === "lanes" ? (
-        <LanesPanel key={`lanes:${open.sessionId}`} item={open} />
-      ) : open.kind === "rule" ? (
-        <RulePanel key={`rule:${open.sessionId}:${open.rule}`} item={open} />
-      ) : open.kind === "check" ? (
-        <CheckPanel key={`check:${open.id}`} item={open} />
-      ) : null}
-    </OverTheApp>
-    </ProseRefs.Provider>
+      <ProseRefs.Provider value={refs}>
+        <OverTheApp open={open !== undefined && open.kind !== "requests"}>
+          {open === undefined ? null : open.kind === "pr" ? (
+            <PullRequestSide key={`pr:${open.number}`} item={open} />
+          ) : open.kind === "issue" ? (
+            <IssuePanel key={`issue:${open.number}`} item={open} onOpenLink={onOpenLink} />
+          ) : open.kind === "file" ? (
+            <FileSide key={`file:${open.path}`} item={open} />
+          ) : open.kind === "bay" ? (
+            <BayPanel key={`bay:${open.manifestId}/${open.slot}`} item={open} />
+          ) : open.kind === "watch" ? (
+            <WatchPanel key={`watch:${open.sessionId}/${open.id}`} item={open} />
+          ) : open.kind === "mod" ? (
+            <ModPanel key={`mod:${open.name}`} item={open} />
+          ) : open.kind === "run" ? (
+            <RunPanel key={`run:${open.at}`} item={open} />
+          ) : open.kind === "teach" ? (
+            <TeachSide key={`teach:${open.sessionId}:${open.source}:${open.text}`} item={open} />
+          ) : open.kind === "lane" ? (
+            <LaneSide key="lane" item={open} />
+          ) : open.kind === "lanes" ? (
+            <LanesPanel key={`lanes:${open.sessionId}`} item={open} />
+          ) : open.kind === "rule" ? (
+            <RulePanel key={`rule:${open.sessionId}:${open.rule}`} item={open} />
+          ) : open.kind === "check" ? (
+            <CheckPanel key={`check:${open.id}`} item={open} />
+          ) : null}
+        </OverTheApp>
+      </ProseRefs.Provider>
     </AttachmentsProvided>
   );
 }

@@ -21,11 +21,21 @@
 }
 
 /* The mark of who drives is the toggle. The person driving is the state worth seeing from across the room. */
-.job-browser__head .armada-button[data-driver="you"] { color: var(--accent); }
+.job-browser__head .armada-button[data-driver="you"] {
+  color: var(--accent);
+}
 
-.job-browser__head > .armada-input-field { flex: 1 1 0; min-width: 0; }
+.job-browser__head > .armada-input-field {
+  flex: 1 1 0;
+  min-width: 0;
+}
 
-.job-browser__acts { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); }
+.job-browser__acts {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
 
 .job-browser__page {
   position: relative;
@@ -35,12 +45,26 @@
   background: var(--bg-base);
 }
 /* The agent's page takes no press from the person until he takes it over or annotates. */
-.job-browser__page[data-driver="agent"]:not([data-annotating]) > :not(.job-browser__pin, .job-browser__note) { pointer-events: none; }
-.job-browser__page[data-annotating] { cursor: crosshair; }
-.job-browser__page[data-annotating] > :not(.job-browser__pin, .job-browser__note) :hover { outline: var(--border-width) dashed var(--accent); }
+.job-browser__page[data-driver="agent"]:not([data-annotating])
+  > :not(.job-browser__pin, .job-browser__note) {
+  pointer-events: none;
+}
+.job-browser__page[data-annotating] {
+  cursor: crosshair;
+}
+.job-browser__page[data-annotating] > :not(.job-browser__pin, .job-browser__note) :hover {
+  outline: var(--border-width) dashed var(--accent);
+}
 
 /* Under Capture, the page's picture in its place: main hides the page's view, and a press picks the part under the pointer. */
-.job-browser__picture { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
+.job-browser__picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
 
 /* Under Capture, the ring on the part under the pointer, drawn as the app annotation layer draws its own. */
 .job-browser__ring {
@@ -57,7 +81,10 @@
   border-radius: var(--radius-sm);
   background: var(--accent-faint);
 }
-.job-browser__pin[data-writing] { border-style: dashed; pointer-events: none; }
+.job-browser__pin[data-writing] {
+  border-style: dashed;
+  pointer-events: none;
+}
 
 .job-browser__note {
   position: absolute;
@@ -73,7 +100,11 @@
   background: var(--bg-raised);
   box-shadow: var(--shadow-overlay);
 }
-.job-browser__note-acts { display: flex; justify-content: flex-end; gap: var(--space-1); }
+.job-browser__note-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
 
 /* The reminder in the thread: what the Job reached for, and the press that shows its own browser. */
 .job-browser-reminder {
@@ -87,11 +118,20 @@
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
 }
-.job-browser-reminder__said { flex: 1 1 0; min-width: 0; }
-.job-browser-reminder > .armada-button { flex: none; }
-.job-browser-reminder__sent { flex: none; }
+.job-browser-reminder__said {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.job-browser-reminder > .armada-button {
+  flex: none;
+}
+.job-browser-reminder__sent {
+  flex: none;
+}
 
-.job-browser__document { display: contents; }
+.job-browser__document {
+  display: contents;
+}
 
 /* In a window of its own: the page, and the Job beside it on the right, as the walk window draws its Job. */
 .job-browser-window {
@@ -101,16 +141,57 @@
   gap: var(--space-2);
   min-height: 0;
 }
-.job-browser-window__page { display: flex; min-width: 0; min-height: 0; overflow: hidden; border-radius: var(--radius-sm); }
-.job-browser-window__job { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border-radius: var(--radius-sm); }
+.job-browser-window__page {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+.job-browser-window__job {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
 
 /* Site settings: the lock before the address, its popover of seven rows, and the page's ask under it. */
-.job-browser__site { position: relative; display: inline-flex; flex: none; }
-.job-browser__site-panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: calc(var(--space-12) * 7); }
-.job-browser__site-host { color: var(--fg-muted); font-family: var(--font-mono); }
-.job-browser__permissions { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.job-browser__permission { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
-.job-browser__permission-label { flex: 1 1 0; min-width: 0; color: var(--fg-default); }
+.job-browser__site {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.job-browser__site-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: calc(var(--space-12) * 7);
+}
+.job-browser__site-host {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+.job-browser__permissions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.job-browser__permission {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-muted);
+}
+.job-browser__permission-label {
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--fg-default);
+}
 
 .job-browser__segments {
   display: inline-flex;
@@ -130,9 +211,18 @@
   font: inherit;
   cursor: pointer;
 }
-.job-browser__segment[aria-checked="true"] { background: var(--bg-raised); color: var(--fg-default); }
-.job-browser__segment:focus-visible { outline: calc(var(--border-width) * 2) solid var(--accent); outline-offset: calc(var(--border-width) * -2); }
-.job-browser__segment:disabled { cursor: default; opacity: 0.5; }
+.job-browser__segment[aria-checked="true"] {
+  background: var(--bg-raised);
+  color: var(--fg-default);
+}
+.job-browser__segment:focus-visible {
+  outline: calc(var(--border-width) * 2) solid var(--accent);
+  outline-offset: calc(var(--border-width) * -2);
+}
+.job-browser__segment:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
 
 .job-browser__ask {
   position: absolute;
@@ -152,4 +242,8 @@
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
 }
-.job-browser__ask-acts { display: flex; justify-content: flex-end; gap: var(--space-1); }
+.job-browser__ask-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}

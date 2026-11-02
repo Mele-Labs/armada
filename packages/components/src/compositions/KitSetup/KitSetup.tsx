@@ -35,8 +35,15 @@ export type KitSetupKindWord =
 export type KitSetupKind = {
   kind: KitSetupKindWord;
   read:
-    | { what: "read"; items: KitSetupItem[]; unreadable: KitSetupUnreadable[] }
-    | { what: "not_read"; why: string };
+    | {
+        what: "read";
+        items: KitSetupItem[];
+        unreadable: KitSetupUnreadable[];
+      }
+    | {
+        what: "not_read";
+        why: string;
+      };
 };
 
 export type KitSetupItem = {
@@ -52,7 +59,10 @@ export type KitSetupItem = {
   /** A plugin's: the command Remove runs, as Fleet spells it. */
   uninstall?: string;
   /** Mods only: what the mod changes, and whether Armada ships it. */
-  mod?: { kind: "theme" | "layout"; builtIn?: boolean };
+  mod?: {
+    kind: "theme" | "layout";
+    builtIn?: boolean;
+  };
 };
 
 export type KitSetupStyle = {
@@ -87,16 +97,40 @@ const KIND_LABEL: Record<KitSetupKindWord, string> = {
 export const KIT_KIND_LABEL = KIND_LABEL;
 
 /** One row of a kind's list: the thing read, or the thing only the home has, and how it stands against the home. */
-type Line = { item: KitSetupItem; row?: SharedRow | undefined };
+type Line = {
+  item: KitSetupItem;
+  row?: SharedRow | undefined;
+};
 
 /** What is read, then what only the home has. Where a kind has no home, every line is just what was read. */
-export function linesOf(kind: KitSetupKindWord, items: KitSetupItem[], shared: SharedHome | undefined): Line[] {
+export function linesOf(
+  kind: KitSetupKindWord,
+  items: KitSetupItem[],
+  shared: SharedHome | undefined,
+): Line[] {
   const rows = shared?.rows.filter((row) => row.kind === kind) ?? [];
-  const read = items.map((item) => ({ item, row: rows.find((row) => row.name === item.name) }));
+  const read = items.map((item) => ({
+    item,
+    row: rows.find((row) => row.name === item.name),
+  }));
   const apart = rows
     .filter((row) => !items.some((item) => item.name === row.name))
-    .map((row) => ({ item: { name: row.name, ...(row.says === undefined ? {} : { says: row.says }), source: row.source ?? "" }, row }));
-  return [...read, ...apart];
+    .map((row) => ({
+      item: {
+        name: row.name,
+        ...(row.says === undefined
+          ? {}
+          : {
+              says: row.says,
+            }),
+        source: row.source ?? "",
+      },
+      row,
+    }));
+  return [
+    ...read,
+    ...apart,
+  ];
 }
 
 /**

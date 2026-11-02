@@ -52,8 +52,8 @@ export const Neutral: Story = {
     icon: <Stethoscope size={16} strokeWidth={2} aria-hidden="true" />,
     children: (
       <span>
-        Doctor: 1 of 6 modules failing — <span className="mono">toolchain</span>, node 20 missing
-        on this machine. Jobs still dispatch.
+        Doctor: 1 of 6 modules failing — <span className="mono">toolchain</span>, node 20 missing on
+        this machine. Jobs still dispatch.
       </span>
     ),
     action: (

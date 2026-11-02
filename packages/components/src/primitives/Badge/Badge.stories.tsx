@@ -56,11 +56,19 @@ type Story = StoryObj<typeof Badge>;
 const NO_GLYPH_IN_REGISTRY = undefined as unknown as LucideIcon;
 
 export const NotStarted: Story = {
-  args: { status: "not-started", icon: NO_GLYPH_IN_REGISTRY, children: "Not started" },
+  args: {
+    status: "not-started",
+    icon: NO_GLYPH_IN_REGISTRY,
+    children: "Not started",
+  },
 };
 
 export const Queued: Story = {
-  args: { status: "not-started", icon: Clock, children: "Queued" },
+  args: {
+    status: "not-started",
+    icon: Clock,
+    children: "Queued",
+  },
 };
 
 /**
@@ -69,19 +77,35 @@ export const Queued: Story = {
  * falling through unrendered.
  */
 export const QueuedOutOfHeadroom: Story = {
-  args: { status: "not-started", icon: Cpu, children: "Waiting on resources" },
+  args: {
+    status: "not-started",
+    icon: Cpu,
+    children: "Waiting on resources",
+  },
 };
 
 export const QueuedBlockedByDependency: Story = {
-  args: { status: "not-started", icon: Link, children: "Blocked by a dependency" },
+  args: {
+    status: "not-started",
+    icon: Link,
+    children: "Blocked by a dependency",
+  },
 };
 
 export const AwaitingApproval: Story = {
-  args: { status: "awaiting-approval", icon: UserCheck, children: "Awaiting approval" },
+  args: {
+    status: "awaiting-approval",
+    icon: UserCheck,
+    children: "Awaiting approval",
+  },
 };
 
 export const Running: Story = {
-  args: { status: "running", icon: CircleDot, children: "Running" },
+  args: {
+    status: "running",
+    icon: CircleDot,
+    children: "Running",
+  },
 };
 
 /**
@@ -90,19 +114,36 @@ export const Running: Story = {
  * Every running row takes it, and never where a rail carries a more specific mark.
  */
 export const RunningPulsing: Story = {
-  args: { status: "running", icon: CircleDot, children: "Running", pulsing: true },
+  args: {
+    status: "running",
+    icon: CircleDot,
+    children: "Running",
+    pulsing: true,
+  },
 };
 
 export const Piloted: Story = {
-  args: { status: "piloted", icon: Terminal, children: "Piloted" },
+  args: {
+    status: "piloted",
+    icon: Terminal,
+    children: "Piloted",
+  },
 };
 
 export const AwaitingReview: Story = {
-  args: { status: "awaiting-review", icon: Eye, children: "Needs review" },
+  args: {
+    status: "awaiting-review",
+    icon: Eye,
+    children: "Needs review",
+  },
 };
 
 export const AwaitingAttestation: Story = {
-  args: { status: "awaiting-attestation", icon: Stamp, children: "Needs attestation" },
+  args: {
+    status: "awaiting-attestation",
+    icon: Stamp,
+    children: "Needs attestation",
+  },
 };
 
 /**
@@ -112,7 +153,11 @@ export const AwaitingAttestation: Story = {
  * the whole of Iconography rule 4 working or not working.
  */
 export const AwaitingRepair: Story = {
-  args: { status: "awaiting-repair", icon: Wrench, children: "Needs repair" },
+  args: {
+    status: "awaiting-repair",
+    icon: Wrench,
+    children: "Needs repair",
+  },
 };
 
 /**
@@ -121,27 +166,51 @@ export const AwaitingRepair: Story = {
  * `queued` has above.
  */
 export const Escalated: Story = {
-  args: { status: "escalated", icon: Megaphone, children: "Needs you" },
+  args: {
+    status: "escalated",
+    icon: Megaphone,
+    children: "Needs you",
+  },
 };
 
 export const CompletedSuccess: Story = {
-  args: { status: "completed-success", icon: Check, children: "Completed" },
+  args: {
+    status: "completed-success",
+    icon: Check,
+    children: "Completed",
+  },
 };
 
 export const CompletedFailed: Story = {
-  args: { status: "completed-failed", icon: X, children: "Failed" },
+  args: {
+    status: "completed-failed",
+    icon: X,
+    children: "Failed",
+  },
 };
 
 export const Rejected: Story = {
-  args: { status: "rejected", icon: Ban, children: "Rejected" },
+  args: {
+    status: "rejected",
+    icon: Ban,
+    children: "Rejected",
+  },
 };
 
 export const Killed: Story = {
-  args: { status: "killed", icon: Power, children: "Killed" },
+  args: {
+    status: "killed",
+    icon: Power,
+    children: "Killed",
+  },
 };
 
 export const Superseded: Story = {
-  args: { status: "superseded", icon: Archive, children: "Superseded" },
+  args: {
+    status: "superseded",
+    icon: Archive,
+    children: "Superseded",
+  },
 };
 
 /**
@@ -149,11 +218,19 @@ export const Superseded: Story = {
  * 2026), with the two glyphs minted for it.
  */
 export const PullRequestMerged: Story = {
-  args: { status: "completed-success", icon: GitMerge, children: "Merged" },
+  args: {
+    status: "completed-success",
+    icon: GitMerge,
+    children: "Merged",
+  },
 };
 
 export const PullRequestClosed: Story = {
-  args: { status: "not-started", icon: GitPullRequestClosed, children: "Closed without merging" },
+  args: {
+    status: "not-started",
+    icon: GitPullRequestClosed,
+    children: "Closed without merging",
+  },
 };
 
 /**
@@ -168,7 +245,14 @@ export const PullRequestClosed: Story = {
  */
 export const EscalationReasons: StoryObj = {
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "var(--space-2)" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: "var(--space-2)",
+      }}
+    >
       <Badge status="escalated" icon={OctagonAlert}>
         Stalled
       </Badge>

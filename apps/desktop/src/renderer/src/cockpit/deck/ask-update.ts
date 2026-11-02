@@ -16,28 +16,71 @@ export type UpdateApi = {
   draft: SessionsDraft | undefined;
 };
 
-export type Asked = { ok: true } | { ok: false; said: string };
+export type Asked =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      said: string;
+    };
 
 /** Sends the message to the Session a ring belongs to: `session:<id>`. Anything else is not built. */
 export async function askRing(key: string, api: UpdateApi): Promise<Asked> {
-  const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
-  if (kind === "session") return (await askForUpdate(api.draft, id)) ? { ok: true } : { ok: false, said: "Update not sent" };
-  return { ok: false, said: "Not implemented" };
+  const [kind, id] = [
+    key.slice(0, key.indexOf(":")),
+    key.slice(key.indexOf(":") + 1),
+  ];
+  if (kind === "session")
+    return (await askForUpdate(api.draft, id))
+      ? {
+          ok: true,
+        }
+      : {
+          ok: false,
+          said: "Update not sent",
+        };
+  return {
+    ok: false,
+    said: "Not implemented",
+  };
 }
 
 /** How many times the message is in a thread, sent by the person. */
-export const askedIn = (rows: readonly SessionRow[]): number => rows.filter((row) => row.kind === "message" && row.from.kind === "you" && row.text === ASK_FOR_UPDATE).length;
+export const askedIn = (rows: readonly SessionRow[]): number =>
+  rows.filter(
+    (row) => row.kind === "message" && row.from.kind === "you" && row.text === ASK_FOR_UPDATE,
+  ).length;
 
 /** The agent has spoken since the message was sent: it is in the thread more often than `before`, and a message of the agent's follows the last. */
 export function repliedSince(rows: readonly SessionRow[], before: number): boolean {
   if (askedIn(rows) <= before) return false;
-  const asks = rows.flatMap((row, at) => (row.kind === "message" && row.from.kind === "you" && row.text === ASK_FOR_UPDATE ? [at] : []));
-  return rows.slice((asks.at(-1) ?? -1) + 1).some((row) => row.kind === "message" && row.from.kind === "agent");
+  const asks = rows.flatMap((row, at) =>
+    row.kind === "message" && row.from.kind === "you" && row.text === ASK_FOR_UPDATE
+      ? [
+          at,
+        ]
+      : [],
+  );
+  return rows
+    .slice((asks.at(-1) ?? -1) + 1)
+    .some((row) => row.kind === "message" && row.from.kind === "agent");
 }
 
 // ---- What the button holds between presses ------------------------------------------------------------------
 
-export type Held = { state: "sending" } | { state: "sent"; before: number } | { state: "refused"; said: string };
+export type Held =
+  | {
+      state: "sending";
+    }
+  | {
+      state: "sent";
+      before: number;
+    }
+  | {
+      state: "refused";
+      said: string;
+    };
 
 const held = new Map<string, Held>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -59,26 +102,54 @@ export function forget(key: string): void {
 export async function press(key: string, api: UpdateApi, before = 0): Promise<boolean> {
   const was = held.get(key);
   if (was !== undefined && was.state !== "refused") return false;
-  held.set(key, { state: "sending" });
+  held.set(key, {
+    state: "sending",
+  });
   change();
   const done = await askRing(key, api);
   if (!done.ok) {
-    held.set(key, { state: "refused", said: done.said });
+    held.set(key, {
+      state: "refused",
+      said: done.said,
+    });
   } else {
-    held.set(key, { state: "sent", before });
-    timers.set(key, setTimeout(() => forget(key), SENT_FOR_MS));
+    held.set(key, {
+      state: "sent",
+      before,
+    });
+    timers.set(
+      key,
+      setTimeout(() => forget(key), SENT_FOR_MS),
+    );
   }
   change();
   return true;
 }
 
 /** What the button for `key` shows, and the press. A Session's reply is read off its thread, which clears the sent mark. */
-export function useUpdateAsk(key: string): { held: Held | undefined; press: () => void } {
+export function useUpdateAsk(key: string): {
+  held: Held | undefined;
+  press: () => void;
+} {
   const now = useSyncExternalStore(subscribe, () => held.get(key));
   const draft = useSessionsDraft();
   const rows = useSessions().find((one) => `session:${one.id}` === key)?.rows;
   useEffect(() => {
     if (now?.state === "sent" && rows !== undefined && repliedSince(rows, now.before)) forget(key);
-  }, [now, rows, key]);
-  return { held: now, press: () => void press(key, { draft }, rows === undefined ? 0 : askedIn(rows)) };
+  }, [
+    now,
+    rows,
+    key,
+  ]);
+  return {
+    held: now,
+    press: () =>
+      void press(
+        key,
+        {
+          draft,
+        },
+        rows === undefined ? 0 : askedIn(rows),
+      ),
+  };
 }

@@ -21,7 +21,11 @@
  */
 
 /** The fields, in the order the contract lists them. */
-export const JUDGE_FINDING = ["expected", "produced", "consequence"] as const;
+export const JUDGE_FINDING = [
+  "expected",
+  "produced",
+  "consequence",
+] as const;
 
 export type JudgeFindingField = (typeof JUDGE_FINDING)[number];
 

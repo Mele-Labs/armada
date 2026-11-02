@@ -2,7 +2,15 @@
 // caller answers with Fleet's sentence, and the keys that reach it. The wiring to Fleet is `mock/workflows-wired.test.tsx`.
 
 import { WorkflowManager, forgetAllKept } from "@armada/components";
-import type { AgentState, Drift, ManagedStep, ManagedWorkflow, Suggestions, WorkflowManagerProps, WorkflowRef } from "@armada/components";
+import type {
+  AgentState,
+  Drift,
+  ManagedStep,
+  ManagedWorkflow,
+  Suggestions,
+  WorkflowManagerProps,
+  WorkflowRef,
+} from "@armada/components";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
@@ -10,7 +18,10 @@ import { page, userEvent } from "vitest/browser";
 
 import "./styles/index.css";
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
@@ -20,29 +31,99 @@ afterEach(() => {
   forgetAllKept();
 });
 
-const step = (id: string, label: string, words: string, over: Partial<ManagedStep> = {}): ManagedStep => ({ id, label, ends: `${label} ends`, words, ...over });
+const step = (
+  id: string,
+  label: string,
+  words: string,
+  over: Partial<ManagedStep> = {},
+): ManagedStep => ({
+  id,
+  label,
+  ends: `${label} ends`,
+  words,
+  ...over,
+});
 
-const ARMADA_STEPS = [step("propose", "Propose", "Say what you took it to mean."), step("walk", "Walk", "Build the mock.", { passedOver: "nothing would be seen" })];
-const COPY_STEPS = [step("propose", "Propose", "Say what you took it to mean."), step("walk", "Walk", "Build the mock. Write no tests yet.")];
+const ARMADA_STEPS = [
+  step("propose", "Propose", "Say what you took it to mean."),
+  step("walk", "Walk", "Build the mock.", {
+    passedOver: "nothing would be seen",
+  }),
+];
+const COPY_STEPS = [
+  step("propose", "Propose", "Say what you took it to mean."),
+  step("walk", "Walk", "Build the mock. Write no tests yet."),
+];
 
 const WORKFLOWS: readonly ManagedWorkflow[] = [
-  { id: "feature", source: "armada", forRequests: "adding something", steps: ARMADA_STEPS },
-  { id: "bug", source: "armada", forRequests: "something broke", steps: [step("fix", "Fix", "Fix it.")] },
-  { id: "feature", source: "repository", forRequests: "adding something", steps: COPY_STEPS },
-  { id: "docs_only", source: "yours", forRequests: "words only", steps: [step("draft", "Draft", "Write it.")] },
-  { id: "hotfix", source: "yours", forRequests: "", steps: [], leftOut: { said: "Names a check this repository does not declare", file: "~/.armada/workflows/hotfix.json" } },
+  {
+    id: "feature",
+    source: "armada",
+    forRequests: "adding something",
+    steps: ARMADA_STEPS,
+  },
+  {
+    id: "bug",
+    source: "armada",
+    forRequests: "something broke",
+    steps: [
+      step("fix", "Fix", "Fix it."),
+    ],
+  },
+  {
+    id: "feature",
+    source: "repository",
+    forRequests: "adding something",
+    steps: COPY_STEPS,
+  },
+  {
+    id: "docs_only",
+    source: "yours",
+    forRequests: "words only",
+    steps: [
+      step("draft", "Draft", "Write it."),
+    ],
+  },
+  {
+    id: "hotfix",
+    source: "yours",
+    forRequests: "",
+    steps: [],
+    leftOut: {
+      said: "Names a check this repository does not declare",
+      file: "~/.armada/workflows/hotfix.json",
+    },
+  },
 ];
 
 const DRIFT: Drift = {
-  feature: { walk: [{ id: "7", jobId: "job-7", job: "Cockpit timeline rail", what: "a test before the walk was approved", when: "2h ago" }] },
+  feature: {
+    walk: [
+      {
+        id: "7",
+        jobId: "job-7",
+        job: "Cockpit timeline rail",
+        what: "a test before the walk was approved",
+        when: "2h ago",
+      },
+    ],
+  },
 };
 
 type Acts = {
-  [K in keyof WorkflowManagerProps as WorkflowManagerProps[K] extends (...args: never[]) => unknown ? K : never]: ReturnType<typeof vi.fn>;
+  [K in keyof WorkflowManagerProps as WorkflowManagerProps[K] extends (...args: never[]) => unknown
+    ? K
+    : never]: ReturnType<typeof vi.fn>;
 };
 
 /** The manager over fixed props, every act a spy that goes through; `over` replaces props and spies. */
-function draw(over: Partial<WorkflowManagerProps> = {}, first: WorkflowRef = { id: "feature", source: "repository" }): Acts {
+function draw(
+  over: Partial<WorkflowManagerProps> = {},
+  first: WorkflowRef = {
+    id: "feature",
+    source: "repository",
+  },
+): Acts {
   const done = async () => undefined;
   const acts = {
     onMakeCopy: vi.fn(done),
@@ -70,14 +151,19 @@ function draw(over: Partial<WorkflowManagerProps> = {}, first: WorkflowRef = { i
         workflows={WORKFLOWS}
         drift={DRIFT}
         picked={picked}
-        agent={{ phase: "idle" }}
+        agent={{
+          phase: "idle",
+        }}
         suggestions={{}}
         suggesting={null}
         {...acts}
         {...over}
         onPick={(one) => {
           acts.onPick(one);
-          setPicked({ id: one.id, source: one.source });
+          setPicked({
+            id: one.id,
+            source: one.source,
+          });
         }}
       />
     );
@@ -85,78 +171,281 @@ function draw(over: Partial<WorkflowManagerProps> = {}, first: WorkflowRef = { i
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   act(() => root.render(<Page />));
   return acts as unknown as Acts;
 }
 
-const step_ = (name: string) => page.getByRole("group", { name, exact: true });
-const words = (name: string) => step_(name).getByRole("textbox", { name: "Words" });
+const step_ = (name: string) =>
+  page.getByRole("group", {
+    name,
+    exact: true,
+  });
+const words = (name: string) =>
+  step_(name).getByRole("textbox", {
+    name: "Words",
+  });
 
 test("workflows are grouped by where they come from, the repository's by its name, a copy marked with what it replaces", async () => {
   draw();
-  for (const name of ["Armada", "armada repository", "Yours"]) await expect.element(page.getByRole("group", { name, exact: true })).toBeVisible();
-  await expect.element(page.getByRole("group", { name: "Armada", exact: true }).getByRole("button", { name: "bug", exact: true })).toBeVisible();
-  await expect.element(page.getByRole("group", { name: "armada repository", exact: true }).getByRole("button", { name: "feature", exact: true })).toBeVisible();
-  await expect.element(page.getByRole("img", { name: "This repository's copy replaces Armada's" })).toBeVisible();
+  for (const name of [
+    "Armada",
+    "armada repository",
+    "Yours",
+  ])
+    await expect
+      .element(
+        page.getByRole("group", {
+          name,
+          exact: true,
+        }),
+      )
+      .toBeVisible();
+  await expect
+    .element(
+      page
+        .getByRole("group", {
+          name: "Armada",
+          exact: true,
+        })
+        .getByRole("button", {
+          name: "bug",
+          exact: true,
+        }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page
+        .getByRole("group", {
+          name: "armada repository",
+          exact: true,
+        })
+        .getByRole("button", {
+          name: "feature",
+          exact: true,
+        }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("img", {
+        name: "This repository's copy replaces Armada's",
+      }),
+    )
+    .toBeVisible();
   // Armada's row has nothing to replace.
-  expect(page.getByRole("img", { name: /replaces/ }).elements()).toHaveLength(1);
+  expect(
+    page
+      .getByRole("img", {
+        name: /replaces/,
+      })
+      .elements(),
+  ).toHaveLength(1);
 });
 
 test("a file Fleet left out shows with its reason, and has no steps to edit", async () => {
-  draw({}, { id: "hotfix", source: "yours", file: "~/.armada/workflows/hotfix.json" });
-  await expect.element(page.getByRole("img", { name: "Left out" })).toBeVisible();
-  await expect.element(page.getByRole("paragraph")).toHaveTextContent("Names a check this repository does not declare");
-  await expect.element(page.getByRole("button", { name: "Delete" })).toBeVisible();
-  expect(page.getByRole("textbox", { name: "Words" }).elements()).toHaveLength(0);
+  draw(
+    {},
+    {
+      id: "hotfix",
+      source: "yours",
+      file: "~/.armada/workflows/hotfix.json",
+    },
+  );
+  await expect
+    .element(
+      page.getByRole("img", {
+        name: "Left out",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("paragraph"))
+    .toHaveTextContent("Names a check this repository does not declare");
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Delete",
+      }),
+    )
+    .toBeVisible();
+  expect(
+    page
+      .getByRole("textbox", {
+        name: "Words",
+      })
+      .elements(),
+  ).toHaveLength(0);
 });
 
 test("the find box narrows the list, and Esc clears it", async () => {
   draw();
-  await userEvent.fill(page.getByRole("searchbox", { name: "Search workflows" }), "docs");
-  await expect.element(page.getByRole("button", { name: "docs_only", exact: true })).toBeVisible();
-  expect(page.getByRole("button", { name: "bug", exact: true }).elements()).toHaveLength(0);
+  await userEvent.fill(
+    page.getByRole("searchbox", {
+      name: "Search workflows",
+    }),
+    "docs",
+  );
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "docs_only",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  expect(
+    page
+      .getByRole("button", {
+        name: "bug",
+        exact: true,
+      })
+      .elements(),
+  ).toHaveLength(0);
   await userEvent.keyboard("{Escape}");
-  await expect.element(page.getByRole("button", { name: "bug", exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "bug",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("Armada's steps are read-only, and Make my copy and Propose hand the workflow to their callers", async () => {
-  const acts = draw({}, { id: "feature", source: "armada" });
-  expect(page.getByRole("textbox", { name: "Words" }).elements()).toHaveLength(0);
-  await page.getByRole("button", { name: "Make my copy" }).click();
-  expect(acts.onMakeCopy).toHaveBeenCalledWith({ id: "feature", source: "armada" });
-  await page.getByRole("button", { name: "Propose to Armada" }).click();
-  expect(acts.onPropose).toHaveBeenCalledWith({ id: "feature", source: "armada" });
-  await expect.element(page.getByText("Sent. A Job started on the Armada repository")).toBeVisible();
+  const acts = draw(
+    {},
+    {
+      id: "feature",
+      source: "armada",
+    },
+  );
+  expect(
+    page
+      .getByRole("textbox", {
+        name: "Words",
+      })
+      .elements(),
+  ).toHaveLength(0);
+  await page
+    .getByRole("button", {
+      name: "Make my copy",
+    })
+    .click();
+  expect(acts.onMakeCopy).toHaveBeenCalledWith({
+    id: "feature",
+    source: "armada",
+  });
+  await page
+    .getByRole("button", {
+      name: "Propose to Armada",
+    })
+    .click();
+  expect(acts.onPropose).toHaveBeenCalledWith({
+    id: "feature",
+    source: "armada",
+  });
+  await expect
+    .element(page.getByText("Sent. A Job started on the Armada repository"))
+    .toBeVisible();
 });
 
 test("a proposal shows the Job it started, with a way to open it", async () => {
-  const acts = draw({ onPropose: vi.fn(async () => ({ jobId: "job-9" })) }, { id: "feature", source: "armada" });
-  await page.getByRole("button", { name: "Propose to Armada" }).click();
-  await page.getByRole("status").getByRole("button", { name: "Open Job" }).click();
-  expect(acts.onOpenJob).toHaveBeenCalledWith({ id: "feature", source: "armada" }, "job-9");
+  const acts = draw(
+    {
+      onPropose: vi.fn(async () => ({
+        jobId: "job-9",
+      })),
+    },
+    {
+      id: "feature",
+      source: "armada",
+    },
+  );
+  await page
+    .getByRole("button", {
+      name: "Propose to Armada",
+    })
+    .click();
+  await page
+    .getByRole("status")
+    .getByRole("button", {
+      name: "Open Job",
+    })
+    .click();
+  expect(acts.onOpenJob).toHaveBeenCalledWith(
+    {
+      id: "feature",
+      source: "armada",
+    },
+    "job-9",
+  );
 });
 
 test("words edited in place show Save and Discard; Save hands the words over and Discard puts them back", async () => {
   const acts = draw();
   await userEvent.fill(words("Propose"), "Say it twice.");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  expect(acts.onSaveWords).toHaveBeenCalledWith({ id: "feature", source: "repository" }, "propose", "Say it twice.");
-  await expect.element(page.getByRole("button", { name: "Save", exact: true })).not.toBeInTheDocument();
+  await page
+    .getByRole("button", {
+      name: "Save",
+      exact: true,
+    })
+    .click();
+  expect(acts.onSaveWords).toHaveBeenCalledWith(
+    {
+      id: "feature",
+      source: "repository",
+    },
+    "propose",
+    "Say it twice.",
+  );
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Save",
+        exact: true,
+      }),
+    )
+    .not.toBeInTheDocument();
 
   await userEvent.fill(words("Walk"), "Something else.");
-  await page.getByRole("button", { name: "Discard" }).click();
+  await page
+    .getByRole("button", {
+      name: "Discard",
+    })
+    .click();
   await expect.element(words("Walk")).toHaveValue("Build the mock. Write no tests yet.");
   expect(acts.onSaveWords).toHaveBeenCalledTimes(1);
 });
 
 test("a save Fleet refused is said as Fleet said it, and the words typed stay", async () => {
-  draw({ onSaveWords: vi.fn(async () => "Names a check this repository does not declare") });
+  draw({
+    onSaveWords: vi.fn(async () => "Names a check this repository does not declare"),
+  });
   await userEvent.fill(words("Propose"), "Say it twice.");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect.element(page.getByRole("alert")).toHaveTextContent("Names a check this repository does not declare");
+  await page
+    .getByRole("button", {
+      name: "Save",
+      exact: true,
+    })
+    .click();
+  await expect
+    .element(page.getByRole("alert"))
+    .toHaveTextContent("Names a check this repository does not declare");
   await expect.element(words("Propose")).toHaveValue("Say it twice.");
-  await expect.element(page.getByRole("button", { name: "Save", exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Save",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("E in a focused step goes into its words", async () => {
@@ -170,65 +459,190 @@ test("F reaches the find box from a page with nothing focused", async () => {
   draw();
   (document.activeElement as HTMLElement | null)?.blur();
   await userEvent.keyboard("f");
-  await expect.poll(() => document.activeElement).toBe(page.getByRole("searchbox", { name: "Search workflows" }).element());
+  await expect
+    .poll(() => document.activeElement)
+    .toBe(
+      page
+        .getByRole("searchbox", {
+          name: "Search workflows",
+        })
+        .element(),
+    );
 });
 
 test("Compare with Armada's marks the step that differs and sets its words beside Armada's", async () => {
   draw();
-  expect(page.getByRole("group", { name: "Compared with Armada's" }).elements()).toHaveLength(0);
-  await page.getByRole("button", { name: "Compare with Armada's" }).click();
-  await expect.element(step_("Walk").getByRole("group", { name: "Compared with Armada's" })).toBeVisible();
-  await expect.element(step_("Walk").getByRole("img", { name: "Differs from Armada's" })).toBeVisible();
+  expect(
+    page
+      .getByRole("group", {
+        name: "Compared with Armada's",
+      })
+      .elements(),
+  ).toHaveLength(0);
+  await page
+    .getByRole("button", {
+      name: "Compare with Armada's",
+    })
+    .click();
+  await expect
+    .element(
+      step_("Walk").getByRole("group", {
+        name: "Compared with Armada's",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      step_("Walk").getByRole("img", {
+        name: "Differs from Armada's",
+      }),
+    )
+    .toBeVisible();
   expect(step_("Propose").getByRole("img").elements()).toHaveLength(0);
 });
 
 test("Reset to Armada's hands the copy over and says it matches", async () => {
   const acts = draw();
-  await page.getByRole("button", { name: "Reset to Armada's" }).click();
-  expect(acts.onReset).toHaveBeenCalledWith({ id: "feature", source: "repository" });
+  await page
+    .getByRole("button", {
+      name: "Reset to Armada's",
+    })
+    .click();
+  expect(acts.onReset).toHaveBeenCalledWith({
+    id: "feature",
+    source: "repository",
+  });
   await expect.element(page.getByText("Matches Armada's")).toBeVisible();
 });
 
 test("a reset Fleet refused says why and does not say it matches", async () => {
-  draw({ onReset: vi.fn(async () => "Armada's does not fit here") });
-  await page.getByRole("button", { name: "Reset to Armada's" }).click();
+  draw({
+    onReset: vi.fn(async () => "Armada's does not fit here"),
+  });
+  await page
+    .getByRole("button", {
+      name: "Reset to Armada's",
+    })
+    .click();
   await expect.element(page.getByRole("alert")).toHaveTextContent("Armada's does not fit here");
   expect(page.getByText("Matches Armada's").elements()).toHaveLength(0);
 });
 
 test("Delete hands the copy to its caller", async () => {
-  const acts = draw({}, { id: "docs_only", source: "yours" });
-  await page.getByRole("button", { name: "Delete" }).click();
-  expect(acts.onDelete).toHaveBeenCalledWith({ id: "docs_only", source: "yours" });
+  const acts = draw(
+    {},
+    {
+      id: "docs_only",
+      source: "yours",
+    },
+  );
+  await page
+    .getByRole("button", {
+      name: "Delete",
+    })
+    .click();
+  expect(acts.onDelete).toHaveBeenCalledWith({
+    id: "docs_only",
+    source: "yours",
+  });
 });
 
 test("a Job Fleet nudged opens from its row, or by O, and Not a drift takes it by the button or by N", async () => {
   const acts = draw();
-  await page.getByRole("button", { name: "Open Job" }).click();
-  expect(acts.onOpenJob).toHaveBeenCalledWith({ id: "feature", source: "repository" }, "job-7");
+  await page
+    .getByRole("button", {
+      name: "Open Job",
+    })
+    .click();
+  expect(acts.onOpenJob).toHaveBeenCalledWith(
+    {
+      id: "feature",
+      source: "repository",
+    },
+    "job-7",
+  );
 
-  const row = page.getByRole("group", { name: "Cockpit timeline rail, a test before the walk was approved" });
+  const row = page.getByRole("group", {
+    name: "Cockpit timeline rail, a test before the walk was approved",
+  });
   row.element().focus();
   await userEvent.keyboard("o");
   expect(acts.onOpenJob).toHaveBeenCalledTimes(2);
   await userEvent.keyboard("n");
-  expect(acts.onNotDrift).toHaveBeenCalledWith({ id: "feature", source: "repository" }, "walk", "7");
-  await page.getByRole("button", { name: "Not a drift" }).click();
+  expect(acts.onNotDrift).toHaveBeenCalledWith(
+    {
+      id: "feature",
+      source: "repository",
+    },
+    "walk",
+    "7",
+  );
+  await page
+    .getByRole("button", {
+      name: "Not a drift",
+    })
+    .click();
   expect(acts.onNotDrift).toHaveBeenCalledTimes(2);
 });
 
-const SUGGESTED: Suggestions = { feature: { walk: { words: "Build the mock. Write no tests yet. Wait for the walk.", from: ["7"] } } };
+const SUGGESTED: Suggestions = {
+  feature: {
+    walk: {
+      words: "Build the mock. Write no tests yet. Wait for the walk.",
+      from: [
+        "7",
+      ],
+    },
+  },
+};
 
 test("a suggested change shows before and after; Approve and Dismiss hand it back, and so do ⌘Enter and Esc", async () => {
-  const acts = draw({ suggestions: SUGGESTED });
-  const card = step_("Walk").getByRole("group", { name: "Suggested change" });
-  await expect.element(card.getByRole("group", { name: "Before and after" })).toBeVisible();
-  await expect.element(step_("Walk").getByRole("img", { name: "In the suggested change" })).toBeVisible();
+  const acts = draw({
+    suggestions: SUGGESTED,
+  });
+  const card = step_("Walk").getByRole("group", {
+    name: "Suggested change",
+  });
+  await expect
+    .element(
+      card.getByRole("group", {
+        name: "Before and after",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      step_("Walk").getByRole("img", {
+        name: "In the suggested change",
+      }),
+    )
+    .toBeVisible();
 
-  await card.getByRole("button", { name: "Approve", exact: true }).click();
-  expect(acts.onApproveSuggestion).toHaveBeenCalledWith({ id: "feature", source: "repository" }, "walk");
-  await card.getByRole("button", { name: "Dismiss" }).click();
-  expect(acts.onDismissSuggestion).toHaveBeenCalledWith({ id: "feature", source: "repository" }, "walk");
+  await card
+    .getByRole("button", {
+      name: "Approve",
+      exact: true,
+    })
+    .click();
+  expect(acts.onApproveSuggestion).toHaveBeenCalledWith(
+    {
+      id: "feature",
+      source: "repository",
+    },
+    "walk",
+  );
+  await card
+    .getByRole("button", {
+      name: "Dismiss",
+    })
+    .click();
+  expect(acts.onDismissSuggestion).toHaveBeenCalledWith(
+    {
+      id: "feature",
+      source: "repository",
+    },
+    "walk",
+  );
 
   card.element().focus();
   await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
@@ -240,37 +654,110 @@ test("a suggested change shows before and after; Approve and Dismiss hand it bac
 });
 
 test("an Approve Fleet refused on a suggestion is said on the card", async () => {
-  draw({ suggestions: SUGGESTED, onApproveSuggestion: vi.fn(async () => "The file changed since the draft was made") });
-  const card = step_("Walk").getByRole("group", { name: "Suggested change" });
-  await card.getByRole("button", { name: "Approve", exact: true }).click();
-  await expect.element(card.getByRole("alert")).toHaveTextContent("The file changed since the draft was made");
+  draw({
+    suggestions: SUGGESTED,
+    onApproveSuggestion: vi.fn(async () => "The file changed since the draft was made"),
+  });
+  const card = step_("Walk").getByRole("group", {
+    name: "Suggested change",
+  });
+  await card
+    .getByRole("button", {
+      name: "Approve",
+      exact: true,
+    })
+    .click();
+  await expect
+    .element(card.getByRole("alert"))
+    .toHaveTextContent("The file changed since the draft was made");
 });
 
 test("a step with drift and no suggestion offers Suggest a change, and shows the agent working while one is drawn", async () => {
   const acts = draw();
-  await page.getByRole("button", { name: "Suggest a change" }).click();
-  expect(acts.onSuggest).toHaveBeenCalledWith({ id: "feature", source: "repository" }, "walk");
+  await page
+    .getByRole("button", {
+      name: "Suggest a change",
+    })
+    .click();
+  expect(acts.onSuggest).toHaveBeenCalledWith(
+    {
+      id: "feature",
+      source: "repository",
+    },
+    "walk",
+  );
 
-  draw({ suggesting: "feature/walk" });
-  await expect.element(page.getByRole("img", { name: "The agent is working" })).toBeVisible();
+  draw({
+    suggesting: "feature/walk",
+  });
+  await expect
+    .element(
+      page.getByRole("img", {
+        name: "The agent is working",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a draft that did not fit is said with Fleet's reason, and can be dismissed", async () => {
-  const acts = draw({ suggestions: { feature: { walk: { words: "", from: [], failed: "The drafted workflow is the same as the one it was made from" } } } });
-  const card = step_("Walk").getByRole("group", { name: "Suggested change" });
-  await expect.element(card).toHaveTextContent("The drafted workflow is the same as the one it was made from");
-  expect(card.getByRole("button", { name: "Approve", exact: true }).elements()).toHaveLength(0);
-  await card.getByRole("button", { name: "Dismiss" }).click();
+  const acts = draw({
+    suggestions: {
+      feature: {
+        walk: {
+          words: "",
+          from: [],
+          failed: "The drafted workflow is the same as the one it was made from",
+        },
+      },
+    },
+  });
+  const card = step_("Walk").getByRole("group", {
+    name: "Suggested change",
+  });
+  await expect
+    .element(card)
+    .toHaveTextContent("The drafted workflow is the same as the one it was made from");
+  expect(
+    card
+      .getByRole("button", {
+        name: "Approve",
+        exact: true,
+      })
+      .elements(),
+  ).toHaveLength(0);
+  await card
+    .getByRole("button", {
+      name: "Dismiss",
+    })
+    .click();
   expect(acts.onDismissSuggestion).toHaveBeenCalledOnce();
 });
 
 test("the agent box sends what was typed by the button or ⌘Enter, and keeps it when Fleet refuses", async () => {
   const acts = draw();
-  const box = page.getByRole("textbox", { name: "Tell an agent what to change" });
-  await expect.element(page.getByRole("button", { name: "Send to agent" })).toBeDisabled();
+  const box = page.getByRole("textbox", {
+    name: "Tell an agent what to change",
+  });
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Send to agent",
+      }),
+    )
+    .toBeDisabled();
   await userEvent.fill(box, "split Refine into Wire and Tests");
-  await page.getByRole("button", { name: "Send to agent" }).click();
-  expect(acts.onAsk).toHaveBeenCalledWith({ id: "feature", source: "repository" }, "split Refine into Wire and Tests");
+  await page
+    .getByRole("button", {
+      name: "Send to agent",
+    })
+    .click();
+  expect(acts.onAsk).toHaveBeenCalledWith(
+    {
+      id: "feature",
+      source: "repository",
+    },
+    "split Refine into Wire and Tests",
+  );
   await expect.element(box).toHaveTextContent("");
 
   await userEvent.fill(box, "again");
@@ -280,161 +767,581 @@ test("the agent box sends what was typed by the button or ⌘Enter, and keeps it
 });
 
 test("a request Fleet refused is said and stays typed", async () => {
-  draw({ onAsk: vi.fn(async () => "No model could be asked") });
-  const box = page.getByRole("textbox", { name: "Tell an agent what to change" });
+  draw({
+    onAsk: vi.fn(async () => "No model could be asked"),
+  });
+  const box = page.getByRole("textbox", {
+    name: "Tell an agent what to change",
+  });
   await userEvent.fill(box, "add a step");
-  await page.getByRole("button", { name: "Send to agent" }).click();
+  await page
+    .getByRole("button", {
+      name: "Send to agent",
+    })
+    .click();
   await expect.element(page.getByRole("alert")).toHaveTextContent("No model could be asked");
   await expect.element(box).toHaveTextContent("add a step");
 });
 
-const BEFORE = [step("propose", "Propose", "a"), step("refine", "Refine", "b")];
-const AFTER = [step("propose", "Propose", "a"), step("wire", "Wire", "c"), step("tests", "Tests", "d")];
-const PROPOSED: AgentState = { phase: "proposed", before: BEFORE, after: AFTER, asked: "split Refine into Wire and Tests" };
+const BEFORE = [
+  step("propose", "Propose", "a"),
+  step("refine", "Refine", "b"),
+];
+const AFTER = [
+  step("propose", "Propose", "a"),
+  step("wire", "Wire", "c"),
+  step("tests", "Tests", "d"),
+];
+const PROPOSED: AgentState = {
+  phase: "proposed",
+  before: BEFORE,
+  after: AFTER,
+  asked: "split Refine into Wire and Tests",
+};
 
 test("a drafting change shows what was asked and the agent working", async () => {
-  draw({ agent: { phase: "working", asked: "split Refine into Wire and Tests" } });
-  await expect.element(page.getByRole("img", { name: "The agent is working" })).toBeVisible();
+  draw({
+    agent: {
+      phase: "working",
+      asked: "split Refine into Wire and Tests",
+    },
+  });
+  await expect
+    .element(
+      page.getByRole("img", {
+        name: "The agent is working",
+      }),
+    )
+    .toBeVisible();
   await expect.element(page.getByText("split Refine into Wire and Tests")).toBeVisible();
-  expect(page.getByRole("textbox", { name: "Tell an agent what to change" }).elements()).toHaveLength(0);
+  expect(
+    page
+      .getByRole("textbox", {
+        name: "Tell an agent what to change",
+      })
+      .elements(),
+  ).toHaveLength(0);
 });
 
 test("a ready change draws a card for each step it removes or adds, names the rest, and has Approve, Send back with notes, and Dismiss", async () => {
-  const acts = draw({ agent: PROPOSED });
-  const region = page.getByRole("region", { name: "Proposed change" });
-  await expect.element(region.getByRole("group", { name: "Refine", exact: true }).getByRole("img", { name: "Removed" })).toBeVisible();
-  await expect.element(region.getByRole("group", { name: "Wire", exact: true }).getByRole("img", { name: "Added" })).toBeVisible();
-  await expect.element(region.getByRole("group", { name: "Tests", exact: true }).getByRole("img", { name: "Added" })).toBeVisible();
+  const acts = draw({
+    agent: PROPOSED,
+  });
+  const region = page.getByRole("region", {
+    name: "Proposed change",
+  });
+  await expect
+    .element(
+      region
+        .getByRole("group", {
+          name: "Refine",
+          exact: true,
+        })
+        .getByRole("img", {
+          name: "Removed",
+        }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      region
+        .getByRole("group", {
+          name: "Wire",
+          exact: true,
+        })
+        .getByRole("img", {
+          name: "Added",
+        }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      region
+        .getByRole("group", {
+          name: "Tests",
+          exact: true,
+        })
+        .getByRole("img", {
+          name: "Added",
+        }),
+    )
+    .toBeVisible();
   // Propose is the same on both sides: named on one line, with no card of its own.
-  expect(region.getByRole("group", { name: "Propose", exact: true }).elements()).toHaveLength(0);
+  expect(
+    region
+      .getByRole("group", {
+        name: "Propose",
+        exact: true,
+      })
+      .elements(),
+  ).toHaveLength(0);
   await expect.element(region.getByText("Unchanged")).toBeVisible();
-  await expect.element(region.getByText("Unchanged").element().parentElement as HTMLElement).toHaveTextContent("Propose");
+  await expect
+    .element(region.getByText("Unchanged").element().parentElement as HTMLElement)
+    .toHaveTextContent("Propose");
 
-  await region.getByRole("button", { name: "Approve", exact: true }).click();
-  expect(acts.onApprove).toHaveBeenCalledWith({ id: "feature", source: "repository" });
-  await region.getByRole("button", { name: "Dismiss" }).click();
-  expect(acts.onDismiss).toHaveBeenCalledWith({ id: "feature", source: "repository" });
+  await region
+    .getByRole("button", {
+      name: "Approve",
+      exact: true,
+    })
+    .click();
+  expect(acts.onApprove).toHaveBeenCalledWith({
+    id: "feature",
+    source: "repository",
+  });
+  await region
+    .getByRole("button", {
+      name: "Dismiss",
+    })
+    .click();
+  expect(acts.onDismiss).toHaveBeenCalledWith({
+    id: "feature",
+    source: "repository",
+  });
 
-  await region.getByRole("button", { name: "Send back" }).click();
-  await expect.element(region.getByRole("button", { name: "Send notes" })).toBeDisabled();
-  const notes = region.getByRole("textbox", { name: "Notes for the agent" });
+  await region
+    .getByRole("button", {
+      name: "Send back",
+    })
+    .click();
+  await expect
+    .element(
+      region.getByRole("button", {
+        name: "Send notes",
+      }),
+    )
+    .toBeDisabled();
+  const notes = region.getByRole("textbox", {
+    name: "Notes for the agent",
+  });
   await userEvent.fill(notes, "Keep Refine");
-  await region.getByRole("button", { name: "Send notes" }).click();
-  expect(acts.onSendBack).toHaveBeenCalledWith({ id: "feature", source: "repository" }, "Keep Refine");
+  await region
+    .getByRole("button", {
+      name: "Send notes",
+    })
+    .click();
+  expect(acts.onSendBack).toHaveBeenCalledWith(
+    {
+      id: "feature",
+      source: "repository",
+    },
+    "Keep Refine",
+  );
 
-  await userEvent.fill(region.getByRole("textbox", { name: "Notes for the agent" }), "Keep it, again");
-  region.getByRole("textbox", { name: "Notes for the agent" }).element().focus();
+  await userEvent.fill(
+    region.getByRole("textbox", {
+      name: "Notes for the agent",
+    }),
+    "Keep it, again",
+  );
+  region
+    .getByRole("textbox", {
+      name: "Notes for the agent",
+    })
+    .element()
+    .focus();
   await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
-  expect(acts.onSendBack).toHaveBeenLastCalledWith({ id: "feature", source: "repository" }, "Keep it, again");
+  expect(acts.onSendBack).toHaveBeenLastCalledWith(
+    {
+      id: "feature",
+      source: "repository",
+    },
+    "Keep it, again",
+  );
 });
 
 test("Esc in the notes closes them and leaves the change", async () => {
-  draw({ agent: PROPOSED });
-  const region = page.getByRole("region", { name: "Proposed change" });
-  await region.getByRole("button", { name: "Send back" }).click();
-  region.getByRole("textbox", { name: "Notes for the agent" }).element().focus();
+  draw({
+    agent: PROPOSED,
+  });
+  const region = page.getByRole("region", {
+    name: "Proposed change",
+  });
+  await region
+    .getByRole("button", {
+      name: "Send back",
+    })
+    .click();
+  region
+    .getByRole("textbox", {
+      name: "Notes for the agent",
+    })
+    .element()
+    .focus();
   await userEvent.keyboard("{Escape}");
-  expect(region.getByRole("textbox", { name: "Notes for the agent" }).elements()).toHaveLength(0);
+  expect(
+    region
+      .getByRole("textbox", {
+        name: "Notes for the agent",
+      })
+      .elements(),
+  ).toHaveLength(0);
   await expect.element(region).toBeVisible();
 });
 
 test("an Approve Fleet refused, because the file changed, is drawn as Fleet said it", async () => {
-  draw({ agent: PROPOSED, onApprove: vi.fn(async () => "feature.json changed since the draft was made. Dismiss the draft and ask again") });
-  const region = page.getByRole("region", { name: "Proposed change" });
-  await region.getByRole("button", { name: "Approve", exact: true }).click();
-  await expect.element(region.getByRole("alert")).toHaveTextContent("feature.json changed since the draft was made. Dismiss the draft and ask again");
+  draw({
+    agent: PROPOSED,
+    onApprove: vi.fn(
+      async () => "feature.json changed since the draft was made. Dismiss the draft and ask again",
+    ),
+  });
+  const region = page.getByRole("region", {
+    name: "Proposed change",
+  });
+  await region
+    .getByRole("button", {
+      name: "Approve",
+      exact: true,
+    })
+    .click();
+  await expect
+    .element(region.getByRole("alert"))
+    .toHaveTextContent(
+      "feature.json changed since the draft was made. Dismiss the draft and ask again",
+    );
   await expect.element(region).toBeVisible();
 });
 
 test("a draft that failed says why and can be dismissed", async () => {
-  const acts = draw({ agent: { phase: "failed", reason: "The checks refuse it: names a step twice" } });
-  await expect.element(page.getByRole("alert")).toHaveTextContent("The checks refuse it: names a step twice");
-  await page.getByRole("button", { name: "Dismiss" }).click();
+  const acts = draw({
+    agent: {
+      phase: "failed",
+      reason: "The checks refuse it: names a step twice",
+    },
+  });
+  await expect
+    .element(page.getByRole("alert"))
+    .toHaveTextContent("The checks refuse it: names a step twice");
+  await page
+    .getByRole("button", {
+      name: "Dismiss",
+    })
+    .click();
   expect(acts.onDismiss).toHaveBeenCalledOnce();
 });
 
-const CANNOT: AgentState = { phase: "cannot", asked: "end Walk on any of several approvals", missing: ["A step that ends on any of several approvals", "A way to name the approvals"] };
+const CANNOT: AgentState = {
+  phase: "cannot",
+  asked: "end Walk on any of several approvals",
+  missing: [
+    "A step that ends on any of several approvals",
+    "A way to name the approvals",
+  ],
+};
 
 test("a request Armada can't carry out says so and what is missing, with no Approve; Dismiss and Start a job to build it hand it back", async () => {
-  const acts = draw({ agent: CANNOT });
-  const region = page.getByRole("region", { name: "Proposed change" });
+  const acts = draw({
+    agent: CANNOT,
+  });
+  const region = page.getByRole("region", {
+    name: "Proposed change",
+  });
   await expect.element(region.getByText("end Walk on any of several approvals")).toBeVisible();
   await expect.element(region.getByText("Armada can't do this yet")).toBeVisible();
-  const missing = region.getByRole("list", { name: "Missing" }).getByRole("listitem");
+  const missing = region
+    .getByRole("list", {
+      name: "Missing",
+    })
+    .getByRole("listitem");
   expect(missing.elements()).toHaveLength(2);
-  await expect.element(missing.nth(0)).toHaveTextContent("A step that ends on any of several approvals");
+  await expect
+    .element(missing.nth(0))
+    .toHaveTextContent("A step that ends on any of several approvals");
   await expect.element(missing.nth(1)).toHaveTextContent("A way to name the approvals");
-  expect(region.getByRole("button", { name: "Approve", exact: true }).elements()).toHaveLength(0);
-  expect(region.getByRole("button", { name: "Send back" }).elements()).toHaveLength(0);
+  expect(
+    region
+      .getByRole("button", {
+        name: "Approve",
+        exact: true,
+      })
+      .elements(),
+  ).toHaveLength(0);
+  expect(
+    region
+      .getByRole("button", {
+        name: "Send back",
+      })
+      .elements(),
+  ).toHaveLength(0);
 
-  await region.getByRole("button", { name: "Start a job to build it" }).click();
-  expect(acts.onBuildSupport).toHaveBeenCalledWith({ id: "feature", source: "repository" });
-  await region.getByRole("button", { name: "Dismiss" }).click();
-  expect(acts.onDismiss).toHaveBeenCalledWith({ id: "feature", source: "repository" });
+  await region
+    .getByRole("button", {
+      name: "Start a job to build it",
+    })
+    .click();
+  expect(acts.onBuildSupport).toHaveBeenCalledWith({
+    id: "feature",
+    source: "repository",
+  });
+  await region
+    .getByRole("button", {
+      name: "Dismiss",
+    })
+    .click();
+  expect(acts.onDismiss).toHaveBeenCalledWith({
+    id: "feature",
+    source: "repository",
+  });
 });
 
 test("a job Fleet would not start is said as Fleet said it, on the panel", async () => {
-  draw({ agent: CANNOT, onBuildSupport: vi.fn(async () => "No model could be asked") });
-  const region = page.getByRole("region", { name: "Proposed change" });
-  await region.getByRole("button", { name: "Start a job to build it" }).click();
+  draw({
+    agent: CANNOT,
+    onBuildSupport: vi.fn(async () => "No model could be asked"),
+  });
+  const region = page.getByRole("region", {
+    name: "Proposed change",
+  });
+  await region
+    .getByRole("button", {
+      name: "Start a job to build it",
+    })
+    .click();
   await expect.element(region.getByRole("alert")).toHaveTextContent("No model could be asked");
-  await expect.element(region.getByRole("button", { name: "Start a job to build it" })).toBeVisible();
+  await expect
+    .element(
+      region.getByRole("button", {
+        name: "Start a job to build it",
+      }),
+    )
+    .toBeVisible();
 });
 
-const LONG = Array.from({ length: 40 }, (_, at) => `Sentence number ${at + 1} of the words.`).join(" ");
-const draws = (before: readonly ManagedStep[], after: readonly ManagedStep[]) => draw({ agent: { phase: "proposed", before, after, asked: "change it" } });
-const region = () => page.getByRole("region", { name: "Proposed change" });
+const LONG = Array.from(
+  {
+    length: 40,
+  },
+  (_, at) => `Sentence number ${at + 1} of the words.`,
+).join(" ");
+const draws = (before: readonly ManagedStep[], after: readonly ManagedStep[]) =>
+  draw({
+    agent: {
+      phase: "proposed",
+      before,
+      after,
+      asked: "change it",
+    },
+  });
+const region = () =>
+  page.getByRole("region", {
+    name: "Proposed change",
+  });
 const heads = (name: string) =>
   region()
-    .getByRole("group", { name, exact: true })
+    .getByRole("group", {
+      name,
+      exact: true,
+    })
     .getByRole("columnheader")
     .elements()
     .map((one) => one.textContent);
 
 test("a removed step's card shows only what it was, and an added step's only what it will be", async () => {
-  draws([step("a", "Keep", "k"), step("gone", "Gone", "old words")], [step("a", "Keep", "k"), step("new", "New", "new words")]);
-  await expect.element(region().getByRole("group", { name: "Gone", exact: true })).toBeVisible();
-  expect(heads("Gone")).toEqual(["Field", "Before"]);
-  expect(heads("New")).toEqual(["Field", "After"]);
-  const gone = region().getByRole("group", { name: "Gone", exact: true });
-  await expect.element(gone.getByRole("row", { name: "Words, removed" })).toHaveTextContent("old words");
+  draws(
+    [
+      step("a", "Keep", "k"),
+      step("gone", "Gone", "old words"),
+    ],
+    [
+      step("a", "Keep", "k"),
+      step("new", "New", "new words"),
+    ],
+  );
+  await expect
+    .element(
+      region().getByRole("group", {
+        name: "Gone",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  expect(heads("Gone")).toEqual([
+    "Field",
+    "Before",
+  ]);
+  expect(heads("New")).toEqual([
+    "Field",
+    "After",
+  ]);
+  const gone = region().getByRole("group", {
+    name: "Gone",
+    exact: true,
+  });
+  await expect
+    .element(
+      gone.getByRole("row", {
+        name: "Words, removed",
+      }),
+    )
+    .toHaveTextContent("old words");
   expect(gone.getByText("new words").elements()).toHaveLength(0);
-  const added = region().getByRole("group", { name: "New", exact: true });
-  await expect.element(added.getByRole("row", { name: "Words, added" })).toHaveTextContent("new words");
+  const added = region().getByRole("group", {
+    name: "New",
+    exact: true,
+  });
+  await expect
+    .element(
+      added.getByRole("row", {
+        name: "Words, added",
+      }),
+    )
+    .toHaveTextContent("new words");
   expect(added.getByText("old words").elements()).toHaveLength(0);
 });
 
 test("a changed step's card sets each field before and after, and names the fields that differ", async () => {
-  draws([step("walk", "Walk", "Build the mock.", { ends: "you approve" })], [step("walk", "Walk", "Build the mock. Wait.", { ends: "you approve", passedOver: "nothing is seen" })]);
-  const card = region().getByRole("group", { name: "Walk", exact: true });
+  draws(
+    [
+      step("walk", "Walk", "Build the mock.", {
+        ends: "you approve",
+      }),
+    ],
+    [
+      step("walk", "Walk", "Build the mock. Wait.", {
+        ends: "you approve",
+        passedOver: "nothing is seen",
+      }),
+    ],
+  );
+  const card = region().getByRole("group", {
+    name: "Walk",
+    exact: true,
+  });
   await expect.element(card).toBeVisible();
-  expect(heads("Walk")).toEqual(["Field", "Before", "After"]);
-  await expect.element(card.getByRole("row", { name: "Words, changed" })).toBeVisible();
-  await expect.element(card.getByRole("row", { name: "Passed over when, changed" })).toBeVisible();
-  await expect.element(card.getByRole("row", { name: "Ends when, unchanged" })).toBeVisible();
-  await expect.element(card.getByRole("row", { name: "Name, unchanged" })).toBeVisible();
-  await expect.element(card.getByRole("row", { name: "Place, unchanged" })).toBeVisible();
-  await expect.element(card.getByRole("img", { name: "Changed" })).toBeVisible();
+  expect(heads("Walk")).toEqual([
+    "Field",
+    "Before",
+    "After",
+  ]);
+  await expect
+    .element(
+      card.getByRole("row", {
+        name: "Words, changed",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      card.getByRole("row", {
+        name: "Passed over when, changed",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      card.getByRole("row", {
+        name: "Ends when, unchanged",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      card.getByRole("row", {
+        name: "Name, unchanged",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      card.getByRole("row", {
+        name: "Place, unchanged",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      card.getByRole("img", {
+        name: "Changed",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a step that only moved is a changed card whose Place row is marked and first", async () => {
-  draws([step("talk", "Talk", "Say."), step("walk", "Walk", "Go.")], [step("walk", "Walk", "Go."), step("talk", "Talk", "Say.")]);
-  const card = region().getByRole("group", { name: "Walk", exact: true });
+  draws(
+    [
+      step("talk", "Talk", "Say."),
+      step("walk", "Walk", "Go."),
+    ],
+    [
+      step("walk", "Walk", "Go."),
+      step("talk", "Talk", "Say."),
+    ],
+  );
+  const card = region().getByRole("group", {
+    name: "Walk",
+    exact: true,
+  });
   await expect.element(card).toBeVisible();
-  await expect.element(card.getByRole("row", { name: "Place, changed" })).toBeVisible();
-  await expect.element(card.getByRole("row", { name: "Words, unchanged" })).toBeVisible();
+  await expect
+    .element(
+      card.getByRole("row", {
+        name: "Place, changed",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      card.getByRole("row", {
+        name: "Words, unchanged",
+      }),
+    )
+    .toBeVisible();
   expect(card.getByRole("row").elements()[1]?.getAttribute("aria-label")).toBe("Place, changed");
 });
 
 test("changed words are shown in full, and the words that are the same, or an added step's, stay behind View more", async () => {
   draws(
-    [step("changed", "Rewritten", LONG, { ends: "x" }), step("same", "Retitled", LONG, { ends: "x" }), step("gone", "Gone", LONG)],
-    [step("changed", "Rewritten", `${LONG} Wait for the walk.`, { ends: "x" }), step("same", "Retitled", LONG, { ends: "y" }), step("new", "New", LONG)],
+    [
+      step("changed", "Rewritten", LONG, {
+        ends: "x",
+      }),
+      step("same", "Retitled", LONG, {
+        ends: "x",
+      }),
+      step("gone", "Gone", LONG),
+    ],
+    [
+      step("changed", "Rewritten", `${LONG} Wait for the walk.`, {
+        ends: "x",
+      }),
+      step("same", "Retitled", LONG, {
+        ends: "y",
+      }),
+      step("new", "New", LONG),
+    ],
   );
-  const more = (name: string) => region().getByRole("group", { name, exact: true }).getByRole("button", { name: "View more" }).elements();
-  await expect.element(region().getByRole("group", { name: "Rewritten", exact: true })).toBeVisible();
+  const more = (name: string) =>
+    region()
+      .getByRole("group", {
+        name,
+        exact: true,
+      })
+      .getByRole("button", {
+        name: "View more",
+      })
+      .elements();
+  await expect
+    .element(
+      region().getByRole("group", {
+        name: "Rewritten",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   // The sentence that differs is on the page without a press.
-  await expect.element(region().getByRole("group", { name: "Rewritten", exact: true }).getByText("Wait for the walk.")).toBeVisible();
+  await expect
+    .element(
+      region()
+        .getByRole("group", {
+          name: "Rewritten",
+          exact: true,
+        })
+        .getByText("Wait for the walk."),
+    )
+    .toBeVisible();
   expect(more("Rewritten")).toHaveLength(0);
   expect(more("Retitled")).toHaveLength(2);
   expect(more("Gone")).toHaveLength(1);
@@ -442,7 +1349,33 @@ test("changed words are shown in full, and the words that are the same, or an ad
 });
 
 test("a step with no glyph of its own draws none, and one Fleet gives no end for says no end", async () => {
-  draw({ workflows: [{ id: "custom", source: "yours", forRequests: "", steps: [step("odd", "Odd", "Words.", { ends: "" })] }] }, { id: "custom", source: "yours" });
+  draw(
+    {
+      workflows: [
+        {
+          id: "custom",
+          source: "yours",
+          forRequests: "",
+          steps: [
+            step("odd", "Odd", "Words.", {
+              ends: "",
+            }),
+          ],
+        },
+      ],
+    },
+    {
+      id: "custom",
+      source: "yours",
+    },
+  );
   await expect.element(step_("Odd")).toBeVisible();
-  expect(step_("Odd").getByRole("term").elements().map((one) => one.textContent)).toEqual(["Words"]);
+  expect(
+    step_("Odd")
+      .getByRole("term")
+      .elements()
+      .map((one) => one.textContent),
+  ).toEqual([
+    "Words",
+  ]);
 });

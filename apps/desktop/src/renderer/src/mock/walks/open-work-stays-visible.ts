@@ -3,15 +3,39 @@
 
 import { button, deckRow, inside, region, text, walk } from "../walk";
 
-const propose = region("Propose", { exact: true });
-const approvePlan = region("Approve plan", { exact: true });
-const open = region("Open", { exact: true });
+const propose = region("Propose", {
+  exact: true,
+});
+const approvePlan = region("Approve plan", {
+  exact: true,
+});
+const open = region("Open", {
+  exact: true,
+});
 
 export const openWorkStaysVisible = walk("open-work-stays-visible", [
-  { press: deckRow("Issues tab beside Reviews"), say: "A Job at its fourth step, with a draft pull request and an open one made in earlier steps" },
-  { press: inside(approvePlan, button(/Approve plan/)), say: "A finished step holds only what finished: the merged pull request stays here" },
-  { look: propose, say: "Nothing still open is filed under it" },
-  { look: open, say: "The Open group after the last step lists the open pull requests with the follow-up, so a folded step never hides them" },
-  { look: inside(open, text(/Tracker mods over a CLI/)), say: "It is open to start with, and folds like any step" },
-  { context: open, say: "A right press on the group offers Hide Open group, for every Job. Hidden, the current step lists them instead. Settings, Bridge has it back" },
+  {
+    press: deckRow("Issues tab beside Reviews"),
+    say: "A Job at its fourth step, with a draft pull request and an open one made in earlier steps",
+  },
+  {
+    press: inside(approvePlan, button(/Approve plan/)),
+    say: "A finished step holds only what finished: the merged pull request stays here",
+  },
+  {
+    look: propose,
+    say: "Nothing still open is filed under it",
+  },
+  {
+    look: open,
+    say: "The Open group after the last step lists the open pull requests with the follow-up, so a folded step never hides them",
+  },
+  {
+    look: inside(open, text(/Tracker mods over a CLI/)),
+    say: "It is open to start with, and folds like any step",
+  },
+  {
+    context: open,
+    say: "A right press on the group offers Hide Open group, for every Job. Hidden, the current step lists them instead. Settings, Bridge has it back",
+  },
 ]);

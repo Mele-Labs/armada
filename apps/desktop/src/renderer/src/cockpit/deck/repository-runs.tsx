@@ -15,7 +15,15 @@ import { boundProfile } from "../../run-places";
 
 export type RepositoryRuns = {
   /** The row's glyph and the act that opens its layer, or `undefined` where Fleet has not said where the runs are kept. */
-  trailOf: (root: string, label: string) => { node: ReactNode; open: () => void } | undefined;
+  trailOf: (
+    root: string,
+    label: string,
+  ) =>
+    | {
+        node: ReactNode;
+        open: () => void;
+      }
+    | undefined;
   /** The layer, drawn while one is open. Rendered once, anywhere. */
   layer: ReactNode;
 };
@@ -66,12 +74,18 @@ export function useRepositoryRuns(repositories: readonly RepositorySummary[]): R
   };
 
   const repository = open === null ? undefined : repositories.find((one) => one.root === open);
-  const shown = open === null || repository === undefined ? undefined : book.runsOf(open, repositoryLabel(repository, repositories), boundProfile(account, open));
+  const shown =
+    open === null || repository === undefined
+      ? undefined
+      : book.runsOf(open, repositoryLabel(repository, repositories), boundProfile(account, open));
   const layer =
     open === null || shown === undefined
       ? null
       : createPortal(
-          <div className="deck-runs-layer" onPointerDown={(event) => event.target === event.currentTarget && closeRuns()}>
+          <div
+            className="deck-runs-layer"
+            onPointerDown={(event) => event.target === event.currentTarget && closeRuns()}
+          >
             <RunsAll
               name={shown.repository}
               source={shown.source}
@@ -104,5 +118,8 @@ export function useRepositoryRuns(repositories: readonly RepositorySummary[]): R
           </div>,
           document.body,
         );
-  return { trailOf, layer };
+  return {
+    trailOf,
+    layer,
+  };
 }

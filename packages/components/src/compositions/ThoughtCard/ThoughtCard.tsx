@@ -28,13 +28,27 @@ export type ThoughtCardProps = {
   /** The owner's words, as typed. */
   words: string;
 } & (
-  | { stage: "match"; target: ThoughtTarget; onSend: () => void; onNo: () => void; onAskHelm: () => void }
-  | { stage: "new"; onSession: () => void; onAskHelm: () => void; onDismiss: () => void }
+  | {
+      stage: "match";
+      target: ThoughtTarget;
+      onSend: () => void;
+      onNo: () => void;
+      onAskHelm: () => void;
+    }
+  | {
+      stage: "new";
+      onSession: () => void;
+      onAskHelm: () => void;
+      onDismiss: () => void;
+    }
 );
 
 /** The kind's glyph and the word for it, which are the Session card's own. */
 export const THOUGHT_KIND = {
-  session: { Glyph: SquareTerminal, said: "Job" },
+  session: {
+    Glyph: SquareTerminal,
+    said: "Job",
+  },
 } as const;
 
 /** Where a thought went or may go: the kind's glyph and the title, over the repository. */
@@ -53,7 +67,13 @@ export function ThoughtTargetLine({ target }: { target: ThoughtTarget }) {
   return (
     <div className="armada-thought-target-line">
       {target.kind === "session" && target.slot !== undefined ? (
-        <OwnerChip chip={{ kind: "slot", slot: target.slot }} plain={name}>
+        <OwnerChip
+          chip={{
+            kind: "slot",
+            slot: target.slot,
+          }}
+          plain={name}
+        >
           {name}
         </OwnerChip>
       ) : (
@@ -64,9 +84,25 @@ export function ThoughtTargetLine({ target }: { target: ThoughtTarget }) {
   );
 }
 
-function Act({ label, keys, onPress, tooltip }: { label: string; keys: string[]; onPress: () => void; tooltip?: string }) {
+function Act({
+  label,
+  keys,
+  onPress,
+  tooltip,
+}: {
+  label: string;
+  keys: string[];
+  onPress: () => void;
+  tooltip?: string;
+}) {
   const button = (
-    <Button variant="secondary" size="sm" ground="sunken" onClick={onPress} aria-keyshortcuts={keys.join(" ")}>
+    <Button
+      variant="secondary"
+      size="sm"
+      ground="sunken"
+      onClick={onPress}
+      aria-keyshortcuts={keys.join(" ")}
+    >
       {label}
       <span className="armada-thought-card__keys" aria-hidden>
         {keys.map((key) => (
@@ -82,14 +118,39 @@ export function ThoughtCard(props: ThoughtCardProps) {
   const quote = <p className="armada-thought-card__words">{props.words}</p>;
   if (props.stage === "match") {
     return (
-      <Card className="armada-thought-card" flat role="group" aria-label="Send to" data-stage="match">
+      <Card
+        className="armada-thought-card"
+        flat
+        role="group"
+        aria-label="Send to"
+        data-stage="match"
+      >
         {quote}
         <span className="armada-thought-card__label">Send to</span>
         <ThoughtTargetLine target={props.target} />
         <div className="armada-thought-card__acts" role="group" aria-label="Answers">
-          <Act label="Send" keys={["↵"]} onPress={props.onSend} />
-          <Act label="No" keys={["N"]} onPress={props.onNo} />
-          <Act label="Ask Helm" keys={["H"]} onPress={props.onAskHelm} tooltip="Put the words to Helm as they are" />
+          <Act
+            label="Send"
+            keys={[
+              "↵",
+            ]}
+            onPress={props.onSend}
+          />
+          <Act
+            label="No"
+            keys={[
+              "N",
+            ]}
+            onPress={props.onNo}
+          />
+          <Act
+            label="Ask Helm"
+            keys={[
+              "H",
+            ]}
+            onPress={props.onAskHelm}
+            tooltip="Put the words to Helm as they are"
+          />
         </div>
       </Card>
     );
@@ -100,7 +161,13 @@ export function ThoughtCard(props: ThoughtCardProps) {
       <div className="armada-thought-card__head">
         <span className="armada-thought-card__label">Start new</span>
         <Tooltip label="Dismiss">
-          <Button variant="ghost" size="sm" aria-label="Dismiss" aria-keyshortcuts="Escape" onClick={props.onDismiss}>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Dismiss"
+            aria-keyshortcuts="Escape"
+            onClick={props.onDismiss}
+          >
             <X size={12} strokeWidth={2} aria-hidden />
             <span className="armada-thought-card__keys" aria-hidden>
               <Kbd>Esc</Kbd>
@@ -109,8 +176,21 @@ export function ThoughtCard(props: ThoughtCardProps) {
         </Tooltip>
       </div>
       <div className="armada-thought-card__acts" role="group" aria-label="Answers">
-        <Act label="Job" keys={["S"]} onPress={props.onSession} />
-        <Act label="Ask Helm" keys={["H"]} onPress={props.onAskHelm} tooltip="Put the words to Helm as they are" />
+        <Act
+          label="Job"
+          keys={[
+            "S",
+          ]}
+          onPress={props.onSession}
+        />
+        <Act
+          label="Ask Helm"
+          keys={[
+            "H",
+          ]}
+          onPress={props.onAskHelm}
+          tooltip="Put the words to Helm as they are"
+        />
       </div>
     </Card>
   );

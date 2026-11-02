@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
@@ -17,5 +21,9 @@
     "resolveJsonModule": true
   },
   // The renderer's own globals, since the tests import the app through `@armada/desktop/mock`.
-  "include": ["src", "../../../apps/desktop/src/renderer/src/*.d.ts", "../../../apps/desktop/src/renderer/src/annotate/globals.d.ts"]
+  "include": [
+    "src",
+    "../../../apps/desktop/src/renderer/src/*.d.ts",
+    "../../../apps/desktop/src/renderer/src/annotate/globals.d.ts"
+  ]
 }

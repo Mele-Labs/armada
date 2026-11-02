@@ -6,7 +6,10 @@ import { KIT_SERVERS, manifesting, PLUGIN_KIT_INVENTORY } from "../manifest-fake
 import type { Scenario } from "../moment";
 
 function build(): Scenario {
-  const base = manifesting({ kitInventory: PLUGIN_KIT_INVENTORY, kitServers: KIT_SERVERS });
+  const base = manifesting({
+    kitInventory: PLUGIN_KIT_INVENTORY,
+    kitServers: KIT_SERVERS,
+  });
   return {
     ...base,
     name: "system-sidebar",

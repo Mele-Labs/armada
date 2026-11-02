@@ -20,7 +20,16 @@ import type { PanelItem } from "./store";
 
 type Stage = "writing" | "reading" | "shown";
 
-export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }> }) {
+export function TeachSide({
+  item,
+}: {
+  item: Extract<
+    PanelItem,
+    {
+      kind: "teach";
+    }
+  >;
+}) {
   const floor = useAtFloor();
   const keep = `teach:${item.sessionId}`;
   const [say, setSay] = useState("");
@@ -45,16 +54,44 @@ export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }
     return () => {
       live = false;
     };
-  }, [ruled, item.manifestId]);
+  }, [
+    ruled,
+    item.manifestId,
+  ]);
 
-  const reading = proposal === undefined ? undefined : readingOf(proposal, item.repository, lifecycles);
+  const reading =
+    proposal === undefined ? undefined : readingOf(proposal, item.repository, lifecycles);
   /** The rule, changed in the panel. What Fleet could not test stays as it said. */
-  const changeRule = (next: LifecycleRule) => setProposal((was) => (was?.rule === undefined ? was : { ...was, rule: { ...next, ...(was.rule.untestable === undefined ? {} : { untestable: was.rule.untestable }) } }));
+  const changeRule = (next: LifecycleRule) =>
+    setProposal((was) =>
+      was?.rule === undefined
+        ? was
+        : {
+            ...was,
+            rule: {
+              ...next,
+              ...(was.rule.untestable === undefined
+                ? {}
+                : {
+                    untestable: was.rule.untestable,
+                  }),
+            },
+          },
+    );
 
   useEffect(() => {
-    previewTeaching(stage === "shown" && proposal !== undefined ? previewOf(proposal, reach, item.manifestId) : undefined);
+    previewTeaching(
+      stage === "shown" && proposal !== undefined
+        ? previewOf(proposal, reach, item.manifestId)
+        : undefined,
+    );
     return () => previewTeaching(undefined);
-  }, [stage, proposal, reach, item]);
+  }, [
+    stage,
+    proposal,
+    reach,
+    item,
+  ]);
 
   const teach = () => {
     const mine = (latest.current += 1);
@@ -85,9 +122,28 @@ export function TeachSide({ item }: { item: Extract<PanelItem, { kind: "teach" }
   };
 
   return (
-    <Sheet kind="side-panel" open floating through floor={floor} title="Teach" {...(onBridge ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{item.repository}</span> })} size="panel" closeLabel="Close" closeBinding="Esc" onClose={closePanel}>
+    <Sheet
+      kind="side-panel"
+      open
+      floating
+      through
+      floor={floor}
+      title="Teach"
+      {...(onBridge
+        ? {}
+        : {
+            subtitle: <span className="armada-pr-panel__repository mono">{item.repository}</span>,
+          })}
+      size="panel"
+      closeLabel="Close"
+      closeBinding="Esc"
+      onClose={closePanel}
+    >
       <TeachPanel
-        source={{ kind: item.source, text: item.text }}
+        source={{
+          kind: item.source,
+          text: item.text,
+        }}
         say={say}
         onSay={setSay}
         keep={keep}

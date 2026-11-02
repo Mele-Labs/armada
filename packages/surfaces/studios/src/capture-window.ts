@@ -14,7 +14,12 @@
 import type { CaptureServed } from "@armada/protocol";
 
 /** A rectangle in the page's viewport, in CSS pixels. */
-export type CaptureRect = { x: number; y: number; width: number; height: number };
+export type CaptureRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 /** Which hold refused an address, so the bar can say what was refused rather than that something was. */
 export type CaptureRefusedWhat = "navigation" | "redirect" | "frame" | "window" | "download";
@@ -35,21 +40,33 @@ export type CaptureWindowState = {
   /** The Run, as the Note will record it. */
   served: CaptureServed;
   /** What the bar says of the page: its name and the origin, or no name and the address whole where the window was titled by its address. */
-  shown: { name: string | null; address: string };
+  shown: {
+    name: string | null;
+    address: string;
+  };
   /**
    * The Studio a Note lands on, decided when the window opened. A `null` name
    * is an untitled one. **`null` whole: a server, walked rather than
    * captured** — nothing is armed, because there is nowhere for a Note to land.
    */
-  studio: { id: string; name: string | null } | null;
+  studio: {
+    id: string;
+    name: string | null;
+  } | null;
   /** The Session a note goes to, where it showed this page. */
-  session?: { id: string; title: string };
+  session?: {
+    id: string;
+    title: string;
+  };
   /**
    * A pull request's walk, opened from the Reviews tab. **No Session showed this page**, so a note goes to `holder`, the title of the
    * Session of his that holds the pull request, or stays in Armada where none does. There is no Approve: it is not a page anyone asked
    * to have approved.
    */
-  review?: { title: string; holder?: string };
+  review?: {
+    title: string;
+    holder?: string;
+  };
   /** The panel beside the page: which kind it holds, and whether it is drawn. Absent: a Studio's window, which has none. */
   panel?: CapturePanel;
   /**
@@ -68,7 +85,10 @@ export type CaptureWindowState = {
   /** A question the Session that opened this window asked about a place on its page. Absent: none open. */
   ask?: CaptureAsk;
   /** The takes of one change the Session showed, in the order the bar draws them, and the one on screen. Absent: one page. */
-  variations?: { names: string[]; at: number };
+  variations?: {
+    names: string[];
+    at: number;
+  };
   /** Whether the page is ready to walk, as its Session says. Absent: nobody has said. */
   readiness?: CaptureReadiness;
   /** The walk the page is playing. Absent: the page is not a walk. **Main bounds it; the page said it.** */
@@ -102,7 +122,10 @@ export type CaptureQueued = {
 };
 
 /** The walks in the window, oldest shown first, and the one on screen by its place among them. */
-export type CaptureQueue = { entries: CaptureQueued[]; at: number };
+export type CaptureQueue = {
+  entries: CaptureQueued[];
+  at: number;
+};
 
 /** A key main heard while the page had the keyboard, which the bar acts on as if it was pressed there. */
 export type CaptureQueueKey = "open" | "takes" | "next" | "previous" | "reload" | "approve";
@@ -142,7 +165,11 @@ export type CaptureGuide = {
   /** Autoplay stopped before a step that acts on a page off this machine, and Next is waited on. Absent: it is not. */
   waiting?: true;
   /** The last press the walk made, in the page's viewport. `n` counts them, so the bar plays the cursor once for each. Absent: none yet. */
-  press?: { x: number; y: number; n: number };
+  press?: {
+    x: number;
+    y: number;
+    n: number;
+  };
 };
 
 /** `ready`: done and waiting on the person. `working`: still being changed. */
@@ -156,7 +183,10 @@ export type CaptureAsk = {
   /** The waiting item it settles. */
   id: string;
   question: string;
-  options: { label: string; description?: string }[];
+  options: {
+    label: string;
+    description?: string;
+  }[];
   /** Who asks: the Session's title. */
   from: string;
   /**
@@ -169,13 +199,22 @@ export type CaptureAsk = {
 };
 
 /** The Session's thread beside the page — `capture-window.md`, *The panel beside the page*. */
-export type CapturePanel = { kind: "session"; open: boolean };
+export type CapturePanel = {
+  kind: "session";
+  open: boolean;
+};
 
 /** An answer from the bar: an option by its index, words of the person's own, or both. */
-export type CaptureAnswer = { choice?: number; text?: string };
+export type CaptureAnswer = {
+  choice?: number;
+  text?: string;
+};
 
 /** What the bar draws over the element under the pointer while capture is armed. */
-export type CaptureAimed = { box: CaptureRect; named: string };
+export type CaptureAimed = {
+  box: CaptureRect;
+  named: string;
+};
 
 /**
  * The element a note is being written on. **The capture itself stays in main**:
@@ -183,7 +222,15 @@ export type CaptureAimed = { box: CaptureRect; named: string };
  * the markup, the styles and the selector never leave the process that bounded
  * them.
  */
-export type CaptureHeld = { box: CaptureRect; chain: string };
+export type CaptureHeld = {
+  box: CaptureRect;
+  chain: string;
+};
 
 /** A wheel the bar took while armed, forwarded so the page still scrolls under it. */
-export type CaptureWheel = { x: number; y: number; deltaX: number; deltaY: number };
+export type CaptureWheel = {
+  x: number;
+  y: number;
+  deltaX: number;
+  deltaY: number;
+};

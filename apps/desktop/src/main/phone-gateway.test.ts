@@ -8,41 +8,109 @@ import { afterEach, expect, test } from "vitest";
 import { askGateway, askPhone } from "./phone-gateway";
 
 let server: Server | undefined;
-afterEach(() => new Promise<void>((done) => (server === undefined ? done() : server.close(() => done()))));
+afterEach(
+  () => new Promise<void>((done) => (server === undefined ? done() : server.close(() => done()))),
+);
 
-type Seen = { method?: string; url?: string; headers: IncomingHttpHeaders; body: string };
+type Seen = {
+  method?: string;
+  url?: string;
+  headers: IncomingHttpHeaders;
+  body: string;
+};
 
 /** A Gateway that answers every request with `status` and `text`, and records what it was sent. */
-async function gateway(status: number, text: string): Promise<{ base: string; seen: Seen[] }> {
+async function gateway(
+  status: number,
+  text: string,
+): Promise<{
+  base: string;
+  seen: Seen[];
+}> {
   const seen: Seen[] = [];
   server = createServer((request, response) => {
     let body = "";
     request.on("data", (chunk) => (body += chunk));
     request.on("end", () => {
-      seen.push({ method: request.method, url: request.url, headers: request.headers, body });
+      seen.push({
+        method: request.method,
+        url: request.url,
+        headers: request.headers,
+        body,
+      });
       response.writeHead(status).end(text);
     });
   });
   await new Promise<void>((done) => server!.listen(0, "127.0.0.1", done));
-  return { base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, seen };
+  return {
+    base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    seen,
+  };
 }
 
 test("a call carries no Origin, which the Gateway's admin routes refuse", async () => {
   const { base, seen } = await gateway(204, "");
-  await askGateway({ op: "status" }, base);
+  await askGateway(
+    {
+      op: "status",
+    },
+    base,
+  );
   expect(seen[0]!.headers).not.toHaveProperty("origin");
 });
 
 test("each operation reaches its own route", async () => {
   const { base, seen } = await gateway(200, "[]");
-  await askGateway({ op: "start" }, base);
-  await askGateway({ op: "pending" }, base);
-  await askGateway({ op: "confirm", code: "ab12" }, base);
-  await askGateway({ op: "devices" }, base);
-  await askGateway({ op: "unpair", id: "d 1" }, base);
-  await askGateway({ op: "status" }, base);
-  await askGateway({ op: "setup" }, base);
-  await askGateway({ op: "funnel" }, base);
+  await askGateway(
+    {
+      op: "start",
+    },
+    base,
+  );
+  await askGateway(
+    {
+      op: "pending",
+    },
+    base,
+  );
+  await askGateway(
+    {
+      op: "confirm",
+      code: "ab12",
+    },
+    base,
+  );
+  await askGateway(
+    {
+      op: "devices",
+    },
+    base,
+  );
+  await askGateway(
+    {
+      op: "unpair",
+      id: "d 1",
+    },
+    base,
+  );
+  await askGateway(
+    {
+      op: "status",
+    },
+    base,
+  );
+  await askGateway(
+    {
+      op: "setup",
+    },
+    base,
+  );
+  await askGateway(
+    {
+      op: "funnel",
+    },
+    base,
+  );
   expect(seen.map((one) => `${one.method} ${one.url}`)).toEqual([
     "POST /admin/pair/start",
     "GET /admin/pair/pending",
@@ -53,32 +121,90 @@ test("each operation reaches its own route", async () => {
     "GET /admin/setup",
     "POST /admin/setup/funnel",
   ]);
-  expect(JSON.parse(seen[2]!.body)).toEqual({ code: "ab12" });
+  expect(JSON.parse(seen[2]!.body)).toEqual({
+    code: "ab12",
+  });
 });
 
 test("a good answer is its JSON, and a 204 is null", async () => {
   const good = await gateway(200, '{"code":"c","address":"https://m.ts.net","expires_at":5}');
-  expect(await askGateway({ op: "start" }, good.base)).toEqual({ ok: true, body: { code: "c", address: "https://m.ts.net", expires_at: 5 } });
+  expect(
+    await askGateway(
+      {
+        op: "start",
+      },
+      good.base,
+    ),
+  ).toEqual({
+    ok: true,
+    body: {
+      code: "c",
+      address: "https://m.ts.net",
+      expires_at: 5,
+    },
+  });
   await new Promise<void>((done) => server!.close(() => done()));
   const none = await gateway(204, "");
-  expect(await askGateway({ op: "status" }, none.base)).toEqual({ ok: true, body: null });
+  expect(
+    await askGateway(
+      {
+        op: "status",
+      },
+      none.base,
+    ),
+  ).toEqual({
+    ok: true,
+    body: null,
+  });
 });
 
 test("a refusal is the Gateway's sentence as it came", async () => {
   const { base } = await gateway(503, "Tailscale is not signed in on this Mac.\n");
-  expect(await askGateway({ op: "status" }, base)).toEqual({ ok: false, why: "refused", said: "Tailscale is not signed in on this Mac." });
+  expect(
+    await askGateway(
+      {
+        op: "status",
+      },
+      base,
+    ),
+  ).toEqual({
+    ok: false,
+    why: "refused",
+    said: "Tailscale is not signed in on this Mac.",
+  });
 });
 
 test("a refusal with no sentence names the status", async () => {
   const { base } = await gateway(502, "");
-  expect(await askGateway({ op: "status" }, base)).toEqual({ ok: false, why: "refused", said: "The Gateway answered 502." });
+  expect(
+    await askGateway(
+      {
+        op: "status",
+      },
+      base,
+    ),
+  ).toEqual({
+    ok: false,
+    why: "refused",
+    said: "The Gateway answered 502.",
+  });
 });
 
 test("a refused connection is the Gateway not running", async () => {
   const { base } = await gateway(204, "");
   await new Promise<void>((done) => server!.close(() => done()));
   server = undefined;
-  expect(await askGateway({ op: "status" }, base)).toEqual({ ok: false, why: "unreachable" });
+  expect(
+    await askGateway(
+      {
+        op: "status",
+      },
+      base,
+    ),
+  ).toEqual({
+    ok: false,
+    why: "unreachable",
+  });
 });
 
 /** The port a recording server listens on, standing where Fleet does. */
@@ -86,25 +212,85 @@ const portOf = (base: string) => Number(new URL(base).port);
 
 test("phone access reads and turns Fleet's /phone, naming Bridge and carrying no Origin", async () => {
   const { base, seen } = await gateway(200, '{"on":false,"port":8443,"listening":false}');
-  expect(await askPhone({ op: "access" }, portOf(base))).toEqual({ ok: true, body: { on: false, port: 8443, listening: false } });
-  await askPhone({ op: "turn", on: true }, portOf(base));
-  expect(seen.map((one) => `${one.method} ${one.url}`)).toEqual(["GET /phone", "POST /phone"]);
-  expect(JSON.parse(seen[1]!.body)).toEqual({ on: true });
+  expect(
+    await askPhone(
+      {
+        op: "access",
+      },
+      portOf(base),
+    ),
+  ).toEqual({
+    ok: true,
+    body: {
+      on: false,
+      port: 8443,
+      listening: false,
+    },
+  });
+  await askPhone(
+    {
+      op: "turn",
+      on: true,
+    },
+    portOf(base),
+  );
+  expect(seen.map((one) => `${one.method} ${one.url}`)).toEqual([
+    "GET /phone",
+    "POST /phone",
+  ]);
+  expect(JSON.parse(seen[1]!.body)).toEqual({
+    on: true,
+  });
   expect(seen[1]!.headers["x-armada-caller"]).toBe("bridge");
   expect(seen[1]!.headers).not.toHaveProperty("origin");
 });
 
 test("Fleet refusing phone access is its sentence, and no Fleet is a sentence too", async () => {
-  const { base } = await gateway(400, '{"code":"invalid","message":"The phone switch takes on or off."}');
-  const refused = await askPhone({ op: "turn", on: true }, portOf(base));
-  expect(refused).toEqual({ ok: false, why: "refused", said: "The phone switch takes on or off." });
-  const none = await askPhone({ op: "access" }, null);
-  expect(none).toMatchObject({ ok: false, why: "refused" });
-  expect((none as { said: string }).said).not.toBe("");
+  const { base } = await gateway(
+    400,
+    '{"code":"invalid","message":"The phone switch takes on or off."}',
+  );
+  const refused = await askPhone(
+    {
+      op: "turn",
+      on: true,
+    },
+    portOf(base),
+  );
+  expect(refused).toEqual({
+    ok: false,
+    why: "refused",
+    said: "The phone switch takes on or off.",
+  });
+  const none = await askPhone(
+    {
+      op: "access",
+    },
+    null,
+  );
+  expect(none).toMatchObject({
+    ok: false,
+    why: "refused",
+  });
+  expect(
+    (
+      none as {
+        said: string;
+      }
+    ).said,
+  ).not.toBe("");
 });
 
 test("the Gateway's own operations still go to the Gateway", async () => {
   const { base, seen } = await gateway(200, "[]");
-  await askPhone({ op: "devices" }, null, base);
-  expect(seen.map((one) => `${one.method} ${one.url}`)).toEqual(["GET /admin/devices"]);
+  await askPhone(
+    {
+      op: "devices",
+    },
+    null,
+    base,
+  );
+  expect(seen.map((one) => `${one.method} ${one.url}`)).toEqual([
+    "GET /admin/devices",
+  ]);
 });

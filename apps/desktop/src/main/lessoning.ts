@@ -28,15 +28,35 @@ export class Lessoning {
    */
   async startSession(lessonId: string): Promise<LessonSessionRead> {
     if (this.answering.has(lessonId)) {
-      return { ok: false, outcome: { ok: false, why: "already_answering_lesson" } };
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "already_answering_lesson",
+        },
+      };
     }
     const port = this.board.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     this.answering.add(lessonId);
     try {
       const sent = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/session`);
-      if (sent.ok !== true) return { ok: false, outcome: sent.outcome };
-      return { ok: true, started: sent.body as LessonSessionStarted };
+      if (sent.ok !== true)
+        return {
+          ok: false,
+          outcome: sent.outcome,
+        };
+      return {
+        ok: true,
+        started: sent.body as LessonSessionStarted,
+      };
     } finally {
       this.answering.delete(lessonId);
     }
@@ -48,15 +68,35 @@ export class Lessoning {
    */
   async answer(lessonId: string, answer: "agree" | "disagree"): Promise<LessonAnswer> {
     if (this.answering.has(lessonId)) {
-      return { ok: false, outcome: { ok: false, why: "already_answering_lesson" } };
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "already_answering_lesson",
+        },
+      };
     }
     const port = this.board.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     this.answering.add(lessonId);
     try {
       const sent = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/${answer}`);
-      if (sent.ok !== true) return { ok: false, outcome: sent.outcome };
-      return { ok: true, lesson: sent.body as Lesson };
+      if (sent.ok !== true)
+        return {
+          ok: false,
+          outcome: sent.outcome,
+        };
+      return {
+        ok: true,
+        lesson: sent.body as Lesson,
+      };
     } finally {
       this.answering.delete(lessonId);
     }

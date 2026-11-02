@@ -9,7 +9,15 @@
 
 import { useRef, useState, useSyncExternalStore } from "react";
 
-import { Alert, Button, LessonList, LessonSplit, RetroSheet, Tabs, type LessonRow } from "@armada/components";
+import {
+  Alert,
+  Button,
+  LessonList,
+  LessonSplit,
+  RetroSheet,
+  Tabs,
+  type LessonRow,
+} from "@armada/components";
 
 import { said } from "../copy";
 import {
@@ -38,8 +46,14 @@ import { createReviewHold, type ReviewHold } from "./review-hold";
 
 /** Open and Accepted, the two lists an item can be on. */
 const VIEWS = [
-  { id: "open", label: "Open" },
-  { id: "accepted", label: "Accepted" },
+  {
+    id: "open",
+    label: "Open",
+  },
+  {
+    id: "accepted",
+    label: "Accepted",
+  },
 ];
 
 export type LessonsProps = {
@@ -86,7 +100,11 @@ export type LessonsProps = {
    */
   embedded?: boolean;
   /** A retro to open over the list as the page opens: the one a Session's retro card asked for, by its number, or the newest. */
-  opening?: { id: string; label: string; n?: number };
+  opening?: {
+    id: string;
+    label: string;
+    n?: number;
+  };
 };
 
 export function Lessons({
@@ -118,65 +136,140 @@ export function Lessons({
   const [reads, setReads] = useState(0);
   const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}:${reads}`);
   // A Session's Retro press opens the newest of that Session's retros: `n` absent.
-  const [open, setOpen] = useState<{ subject: RetroSubject; session: string } | null>(
-    opening === undefined ? null : { subject: { kind: "session", id: opening.id, ...(opening.n === undefined ? {} : { n: opening.n }) }, session: opening.label },
+  const [open, setOpen] = useState<{
+    subject: RetroSubject;
+    session: string;
+  } | null>(
+    opening === undefined
+      ? null
+      : {
+          subject: {
+            kind: "session",
+            id: opening.id,
+            ...(opening.n === undefined
+              ? {}
+              : {
+                  n: opening.n,
+                }),
+          },
+          session: opening.label,
+        },
   );
   const sessions = sessionStartsOf(onStartSession, onOpenSession);
   const answered = useAnswers(onAgreeLesson, onDisagreeLesson, sessions);
   const retros = useRetros(onReadRetro);
   // The items whose Evidence was pressed, so a read shared by a retro's cards speaks on the one that asked.
   const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
-  const cited = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, lesson.evidence]));
-  const subjects = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, retroSubjectOf(lesson)]));
+  const cited = new Map(
+    (read?.ok === true ? read.lessons : []).map((lesson) => [
+      lesson.id,
+      lesson.evidence,
+    ]),
+  );
+  const subjects = new Map(
+    (read?.ok === true ? read.lessons : []).map((lesson) => [
+      lesson.id,
+      retroSubjectOf(lesson),
+    ]),
+  );
   const leaveReview = () => {
     reviews.setReviewing(false);
     setReads((was) => was + 1);
   };
-  const rows = underTab(read?.ok === true ? lessonRowsOf(read.lessons) : [], showing).flatMap((row) => {
-    // **The list holds the ids a row cites; its retro holds the rows.** Read once per retro, on the first press.
-    const ids = cited.get(row.id) ?? [];
-    const subject = subjects.get(row.id) ?? { kind: "session" as const, id: row.sessionId };
-    const got = retros.of(subject);
-    let withEvidence: LessonRow = row;
-    if (ids.length > 0 && got?.state === "read") {
-      withEvidence = { ...row, cites: citesOf(got.retro, ids) };
-    } else if (ids.length > 0) {
-      withEvidence = {
-        ...row,
-        evidence: {
-          onAsk: () => {
-            setPressed((was) => new Set(was).add(row.id));
-            retros.ask(subject);
-          },
-          // Only the card that asked shows the wait or the failure, though its retro's other cards share the read.
-          ...(pressed.has(row.id) && got?.state === "pending" ? { pending: true } : {}),
-          ...(pressed.has(row.id) && got?.state === "failed" ? { failure: said(got.outcome) } : {}),
-        },
+  const rows = underTab(read?.ok === true ? lessonRowsOf(read.lessons) : [], showing).flatMap(
+    (row) => {
+      // **The list holds the ids a row cites; its retro holds the rows.** Read once per retro, on the first press.
+      const ids = cited.get(row.id) ?? [];
+      const subject = subjects.get(row.id) ?? {
+        kind: "session" as const,
+        id: row.sessionId,
       };
-    }
-    // A saved item is read and nothing more: the view says it is accepted. One that
-    // updated Kit says so, with the command Fleet applied.
-    if (view === "accepted") {
-      const shown = row.applied === undefined ? undefined : answered(row.id, row.landsIn, { state: "accepted", applied: row.applied });
-      return [{ ...withEvidence, ...(shown?.settled === undefined ? {} : { settled: shown.settled }) }];
-    }
-    const shown = answered(row.id, row.landsIn, {
-      state: "open",
-      ...(row.change === undefined ? {} : { change: row.change }),
-    });
-    if (shown.gone) return [];
-    return [
-      {
-        ...withEvidence,
-        ...(shown.answers === undefined ? {} : { answers: shown.answers }),
-        ...(shown.settled === undefined ? {} : { settled: shown.settled }),
-      },
-    ];
-  });
+      const got = retros.of(subject);
+      let withEvidence: LessonRow = row;
+      if (ids.length > 0 && got?.state === "read") {
+        withEvidence = {
+          ...row,
+          cites: citesOf(got.retro, ids),
+        };
+      } else if (ids.length > 0) {
+        withEvidence = {
+          ...row,
+          evidence: {
+            onAsk: () => {
+              setPressed((was) => new Set(was).add(row.id));
+              retros.ask(subject);
+            },
+            // Only the card that asked shows the wait or the failure, though its retro's other cards share the read.
+            ...(pressed.has(row.id) && got?.state === "pending"
+              ? {
+                  pending: true,
+                }
+              : {}),
+            ...(pressed.has(row.id) && got?.state === "failed"
+              ? {
+                  failure: said(got.outcome),
+                }
+              : {}),
+          },
+        };
+      }
+      // A saved item is read and nothing more: the view says it is accepted. One that
+      // updated Kit says so, with the command Fleet applied.
+      if (view === "accepted") {
+        const shown =
+          row.applied === undefined
+            ? undefined
+            : answered(row.id, row.landsIn, {
+                state: "accepted",
+                applied: row.applied,
+              });
+        return [
+          {
+            ...withEvidence,
+            ...(shown?.settled === undefined
+              ? {}
+              : {
+                  settled: shown.settled,
+                }),
+          },
+        ];
+      }
+      const shown = answered(row.id, row.landsIn, {
+        state: "open",
+        ...(row.change === undefined
+          ? {}
+          : {
+              change: row.change,
+            }),
+      });
+      if (shown.gone) return [];
+      return [
+        {
+          ...withEvidence,
+          ...(shown.answers === undefined
+            ? {}
+            : {
+                answers: shown.answers,
+              }),
+          ...(shown.settled === undefined
+            ? {}
+            : {
+                settled: shown.settled,
+              }),
+        },
+      ];
+    },
+  );
 
   const openRow = (sessionId: string, rowId: string) => {
     const row = rows.find((one) => one.id === rowId);
-    setOpen({ subject: subjects.get(rowId) ?? { kind: "session", id: sessionId }, session: row?.session ?? sessionId });
+    setOpen({
+      subject: subjects.get(rowId) ?? {
+        kind: "session",
+        id: sessionId,
+      },
+      session: row?.session ?? sessionId,
+    });
   };
 
   return (
@@ -201,8 +294,17 @@ export function Lessons({
             onReadRetro={onReadRetro}
             onAgreeLesson={onAgreeLesson}
             onDisagreeLesson={onDisagreeLesson}
-            {...(sessions === undefined ? {} : { sessions })}
-            onOpenRetro={(subject, label) => setOpen({ subject, session: label })}
+            {...(sessions === undefined
+              ? {}
+              : {
+                  sessions,
+                })}
+            onOpenRetro={(subject, label) =>
+              setOpen({
+                subject,
+                session: label,
+              })
+            }
             onList={leaveReview}
             paused={open !== null}
           />
@@ -214,7 +316,9 @@ export function Lessons({
             {/* Where the fix lands, one place a tab. No count on any of them. */}
             {embedded ? null : (
               <Tabs
-                items={[...LESSONS_TABS]}
+                items={[
+                  ...LESSONS_TABS,
+                ]}
                 value={showing}
                 onChange={(id) => {
                   const next = id as LessonsTab;
@@ -239,7 +343,11 @@ export function Lessons({
           </div>
           {/* Before the read answers, and with nothing under the tab, nothing is drawn. */}
           {/* Inside the Logbook the items are a list and the one open beside it, as the entries are. */}
-          {embedded ? <LessonSplit rows={rows} onOpen={openRow} /> : <LessonList rows={rows} onOpen={openRow} />}
+          {embedded ? (
+            <LessonSplit rows={rows} onOpen={openRow} />
+          ) : (
+            <LessonList rows={rows} onOpen={openRow} />
+          )}
         </>
       )}
       {open === null ? null : (
@@ -249,7 +357,11 @@ export function Lessons({
           read={onReadRetro}
           onAgreeLesson={onAgreeLesson}
           onDisagreeLesson={onDisagreeLesson}
-          {...(sessions === undefined ? {} : { sessions })}
+          {...(sessions === undefined
+            ? {}
+            : {
+                sessions,
+              })}
           floor={floor}
           onClose={() => setOpen(null)}
         />
@@ -263,16 +375,27 @@ export function sessionStartsOf(
   start: StartLessonSession | undefined,
   open: ((sessionId: string) => void) | undefined,
 ): SessionStarts | undefined {
-  return start === undefined || open === undefined ? undefined : { start, open };
+  return start === undefined || open === undefined
+    ? undefined
+    : {
+        start,
+        open,
+      };
 }
 
 /** `sessionStartsOf` as a prop to spread, for a host that passes the halves separately. */
 export function withSessions(
   start: StartLessonSession | undefined,
   open: ((sessionId: string) => void) | undefined,
-): { sessions?: SessionStarts } {
+): {
+  sessions?: SessionStarts;
+} {
   const sessions = sessionStartsOf(start, open);
-  return sessions === undefined ? {} : { sessions };
+  return sessions === undefined
+    ? {}
+    : {
+        sessions,
+      };
 }
 
 /**
@@ -306,17 +429,41 @@ export function SessionRetroSheet({
   const status = retro === null ? undefined : statusOf(retro);
   const items = (retro === null ? [] : itemsOf(retro)).flatMap((item) => {
     const shown = answered(item.id ?? "", item.landsIn, {
-      ...(item.state === undefined ? {} : { state: item.state }),
-      ...(item.sessionProposed === undefined ? {} : { sessionProposed: item.sessionProposed }),
-      ...(item.change === undefined ? {} : { change: item.change }),
-      ...(item.applied === undefined ? {} : { applied: item.applied }),
+      ...(item.state === undefined
+        ? {}
+        : {
+            state: item.state,
+          }),
+      ...(item.sessionProposed === undefined
+        ? {}
+        : {
+            sessionProposed: item.sessionProposed,
+          }),
+      ...(item.change === undefined
+        ? {}
+        : {
+            change: item.change,
+          }),
+      ...(item.applied === undefined
+        ? {}
+        : {
+            applied: item.applied,
+          }),
     });
     if (shown.gone) return [];
     return [
       {
         ...item,
-        ...(shown.answers === undefined ? {} : { answers: shown.answers }),
-        ...(shown.settled === undefined ? {} : { settled: shown.settled }),
+        ...(shown.answers === undefined
+          ? {}
+          : {
+              answers: shown.answers,
+            }),
+        ...(shown.settled === undefined
+          ? {}
+          : {
+              settled: shown.settled,
+            }),
       },
     ];
   });
@@ -325,8 +472,16 @@ export function SessionRetroSheet({
       open
       session={session}
       reading={answer === undefined}
-      {...(answer?.ok === false ? { failure: said(answer.outcome) } : {})}
-      {...(status === undefined ? {} : { status })}
+      {...(answer?.ok === false
+        ? {
+            failure: said(answer.outcome),
+          }
+        : {})}
+      {...(status === undefined
+        ? {}
+        : {
+            status,
+          })}
       items={items}
       floor={floor}
       onClose={onClose}

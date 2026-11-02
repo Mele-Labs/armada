@@ -35,7 +35,10 @@ export function jobIdOf(repository: RepositorySummary): string | undefined {
 }
 
 /** A Job's repository, by the Manifest id it carries. One no longer served reads as that id. */
-export function manifestLabel(manifestId: string, repositories: readonly RepositorySummary[]): string {
+export function manifestLabel(
+  manifestId: string,
+  repositories: readonly RepositorySummary[],
+): string {
   const served = repositories.find((one) => jobIdOf(one) === manifestId);
   return served === undefined ? manifestId : repositoryLabel(served, repositories);
 }

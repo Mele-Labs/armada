@@ -14,7 +14,10 @@ import { touchesOfSlots, type Touch } from "./cockpit/deck/touches";
 export const SETTLE_MS = 35_000;
 
 /** What the deck reads of Fleet's territory. A new object whenever either half changed. */
-export type Territory = { areas: AreaSource; touches: ReadonlyMap<string, readonly Touch[]> };
+export type Territory = {
+  areas: AreaSource;
+  touches: ReadonlyMap<string, readonly Touch[]>;
+};
 
 export type TerritorySource = {
   get(): Territory;
@@ -37,9 +40,16 @@ const timer: Later = (run, ms) => {
   return () => clearTimeout(id);
 };
 
-const NO_AREAS: RepositoryAreas = { repositories: [] };
-const NO_TOUCHES: SlotTouches = { repositories: [] };
-const NONE: Territory = { areas: noAreas, touches: new Map() };
+const NO_AREAS: RepositoryAreas = {
+  repositories: [],
+};
+const NO_TOUCHES: SlotTouches = {
+  repositories: [],
+};
+const NONE: Territory = {
+  areas: noAreas,
+  touches: new Map(),
+};
 
 export function createFleetTerritory(fleet: FleetTerritory, later: Later = timer): TerritorySource {
   let territory = NONE;
@@ -56,7 +66,13 @@ export function createFleetTerritory(fleet: FleetTerritory, later: Later = timer
     if (sameAreas && sameTouches) return;
     areas = toAreas;
     touches = toTouches;
-    territory = areas.repositories.length === 0 && touches.repositories.length === 0 ? NONE : { areas: areasFromFleet(areas), touches: touchesOfSlots(touches) };
+    territory =
+      areas.repositories.length === 0 && touches.repositories.length === 0
+        ? NONE
+        : {
+            areas: areasFromFleet(areas),
+            touches: touchesOfSlots(touches),
+          };
     listeners.forEach((on) => on());
   };
   const settle = (): void => {
@@ -67,7 +83,10 @@ export function createFleetTerritory(fleet: FleetTerritory, later: Later = timer
     }, SETTLE_MS);
   };
   const read = (): void => {
-    void Promise.all([fleet.getRepositoryAreas(), fleet.getSlotTouches()]).then(([asked, found]) => {
+    void Promise.all([
+      fleet.getRepositoryAreas(),
+      fleet.getSlotTouches(),
+    ]).then(([asked, found]) => {
       // A half Fleet refused stands as it was: a refusal is not news that a directory or a change is gone.
       set(asked.ok ? asked.value : areas, found.ok ? found.value : touches);
       if (found.ok && found.value.repositories.some((one) => one.holders.length > 0)) settle();

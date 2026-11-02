@@ -5,7 +5,8 @@
 import { useEffect, useRef } from "react";
 
 /** What an open popup leaves on the page: a menu's panel, or the trigger or field of a menu, list or dialog that is showing. */
-const POPUP = '[role="menu"], [aria-haspopup][aria-expanded="true"], [role="combobox"][aria-expanded="true"]';
+const POPUP =
+  '[role="menu"], [aria-haspopup][aria-expanded="true"], [role="combobox"][aria-expanded="true"]';
 
 /**
  * Whether a menu, list or other popup is up, wherever focus is. **Esc closes the innermost thing,

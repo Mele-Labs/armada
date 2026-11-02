@@ -3,7 +3,9 @@ import { expect, test } from "vitest";
 import { commandIn } from "./fix-command";
 
 test("the first backticked span is the command", () => {
-  expect(commandIn("Sign in again with `gh auth refresh -s repo`, then open it again.")).toBe("gh auth refresh -s repo");
+  expect(commandIn("Sign in again with `gh auth refresh -s repo`, then open it again.")).toBe(
+    "gh auth refresh -s repo",
+  );
   expect(commandIn("Run `gh auth login` or `gh auth refresh`.")).toBe("gh auth login");
 });
 

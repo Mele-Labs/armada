@@ -30,7 +30,9 @@ function railAct<Ask>() {
       useEffect(() => {
         said(why);
         return () => said(null);
-      }, [why]);
+      }, [
+        why,
+      ]);
       const latest = useRef(onAsked);
       latest.current = onAsked;
       useEffect(() => {

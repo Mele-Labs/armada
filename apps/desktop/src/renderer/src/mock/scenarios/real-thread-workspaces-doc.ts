@@ -12,5 +12,9 @@ export const s341dRealThreadWorkspacesDoc: Scenario = realThreadScenario({
   branch: "armada/session-0dd18323",
   slot: 10,
   rows: WORKSPACES_DOC_ROWS,
-  asked: ["Yes, on this Mac", "No, with the repo", "Let me look"],
+  asked: [
+    "Yes, on this Mac",
+    "No, with the repo",
+    "Let me look",
+  ],
 });

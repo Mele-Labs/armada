@@ -10,4 +10,13 @@ export const tokensEstimate = (text: string): number => Math.ceil(text.length / 
 export const isLargePaste = (text: string): boolean => tokensEstimate(text) > LARGE_PASTE_TOKENS;
 
 /** The words as a file, named by how many have been kept before: `pasted-snippet-1.txt`. */
-export const snippetOf = (text: string, number: number): File => new File([text], `pasted-snippet-${number}.txt`, { type: "text/plain" });
+export const snippetOf = (text: string, number: number): File =>
+  new File(
+    [
+      text,
+    ],
+    `pasted-snippet-${number}.txt`,
+    {
+      type: "text/plain",
+    },
+  );

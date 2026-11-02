@@ -106,7 +106,9 @@ export function FigureList({ figures, column = "wide", wraps = false }: FigureLi
         const lines = (
           <>
             <span className="armada-figures__reading">{figure.value}</span>
-            {figure.detail === undefined ? null : <span className="armada-figures__detail">{figure.detail}</span>}
+            {figure.detail === undefined ? null : (
+              <span className="armada-figures__detail">{figure.detail}</span>
+            )}
           </>
         );
         const press =
@@ -128,11 +130,15 @@ export function FigureList({ figures, column = "wide", wraps = false }: FigureLi
                 because a detail under it has to clip on its own terms — and a
                 block dropped into a clipping `dd` takes none of its clipping. */}
             <dd className="armada-figures__value" data-words={figure.words || undefined}>
-              {press === null
-                ? lines
-                : figure.pressLabel === undefined
-                  ? press
-                  : <Tooltip label={figure.pressLabel} asChild>{press}</Tooltip>}
+              {press === null ? (
+                lines
+              ) : figure.pressLabel === undefined ? (
+                press
+              ) : (
+                <Tooltip label={figure.pressLabel} asChild>
+                  {press}
+                </Tooltip>
+              )}
             </dd>
           </div>
         );

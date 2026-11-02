@@ -12,11 +12,32 @@ const SKETCH_TITLE = "Lease clock against a Check run";
 
 const CLOCK = scene(
   [
-    box("handed", 0, 0, "Bay handed over", "The Job gets the bay", { icon: "hard-drive", step: 1 }),
-    box("clock", 330, 0, "Lease clock starts", "30 minutes", { icon: "clock", step: 2 }),
-    { ...box("expires", 660, 0, "Lease expires", "The bay is free to lease again", { icon: "lock", step: 4 }), color: "red" as const },
-    box("check", 330, 170, "Check runs", "The Drone waits", { icon: "shield-check", step: 3 }),
-    { ...box("wakes", 660, 170, "Drone wakes", "Its lease is gone", { icon: "bot", step: 5 }), color: "amber" as const },
+    box("handed", 0, 0, "Bay handed over", "The Job gets the bay", {
+      icon: "hard-drive",
+      step: 1,
+    }),
+    box("clock", 330, 0, "Lease clock starts", "30 minutes", {
+      icon: "clock",
+      step: 2,
+    }),
+    {
+      ...box("expires", 660, 0, "Lease expires", "The bay is free to lease again", {
+        icon: "lock",
+        step: 4,
+      }),
+      color: "red" as const,
+    },
+    box("check", 330, 170, "Check runs", "The Drone waits", {
+      icon: "shield-check",
+      step: 3,
+    }),
+    {
+      ...box("wakes", 660, 170, "Drone wakes", "Its lease is gone", {
+        icon: "bot",
+        step: 5,
+      }),
+      color: "amber" as const,
+    },
   ],
   [
     arrow("handed", "clock", undefined, undefined, 1),
@@ -29,17 +50,60 @@ const CLOCK = scene(
 
 const SKETCH = `<armada-sketch title="${SKETCH_TITLE}"><script type="application/json">${JSON.stringify(CLOCK)}</script></armada-sketch>`;
 
-const ROWS: readonly (readonly [job: string, start: string, expired: string, check: string])[] = [
-  ["Retry the slot lease", "Mon 09:12", "09:42", "Yes"],
-  ["Pin the store clock", "Mon 13:05", "13:35", "Yes"],
-  ["Cap the log reader", "Tue 10:20", "10:50", "Yes"],
-  ["Rename the bay tile", "Tue 15:41", "16:11", "No"],
-  ["Trim the pool log", "Wed 08:58", "09:28", "Yes"],
-  ["Show the attempt", "Wed 14:30", "15:00", "Yes"],
-  ["Move the lease sweep", "Thu 11:47", "12:17", "No"],
+const ROWS: readonly (readonly [
+  job: string,
+  start: string,
+  expired: string,
+  check: string,
+])[] = [
+  [
+    "Retry the slot lease",
+    "Mon 09:12",
+    "09:42",
+    "Yes",
+  ],
+  [
+    "Pin the store clock",
+    "Mon 13:05",
+    "13:35",
+    "Yes",
+  ],
+  [
+    "Cap the log reader",
+    "Tue 10:20",
+    "10:50",
+    "Yes",
+  ],
+  [
+    "Rename the bay tile",
+    "Tue 15:41",
+    "16:11",
+    "No",
+  ],
+  [
+    "Trim the pool log",
+    "Wed 08:58",
+    "09:28",
+    "Yes",
+  ],
+  [
+    "Show the attempt",
+    "Wed 14:30",
+    "15:00",
+    "Yes",
+  ],
+  [
+    "Move the lease sweep",
+    "Thu 11:47",
+    "12:17",
+    "No",
+  ],
 ];
 
-const NO_CAUSE = new Set(["Rename the bay tile", "Move the lease sweep"]);
+const NO_CAUSE = new Set([
+  "Rename the bay tile",
+  "Move the lease sweep",
+]);
 
 const table = (second: boolean) => `<table>
   <caption>Early expiries</caption>
@@ -120,18 +184,23 @@ ${r.afterTable}
 const FIRST: Revision = {
   lede: "The pool starts the 30 minute lease clock when it hands a bay over, not when the Job first writes to it, so a Job waiting on a long Check spends its lease before its Drone runs again. Five of the seven early expiries in four days of the pool log had a Check running when the lease ran out. Renewing the lease on each Fleet event for that Job would close the gap and leave the limit as it is.",
   clockNote: "",
-  measured: "Seven leases expired before the Job finished. Five of them had a Check running in the bay at the time. The other two show no cause in the log.",
+  measured:
+    "Seven leases expired before the Job finished. Five of them had a Check running in the bay at the time. The other two show no cause in the log.",
   afterTable: "",
-  notMeasured: "Whether a renewal on every event adds load to the pool. The log holds no figure for it.",
+  notMeasured:
+    "Whether a renewal on every event adds load to the pool. The log holds no figure for it.",
 };
 
 const SECOND: Revision = {
   lede: "The pool starts the 30 minute lease clock when it hands a bay over, not when the Job first writes to it, so a Job waiting on a long Check spends its lease before its Drone runs again. Five of the seven early expiries in four days of the pool log had a Check running when the lease ran out. Renewing the lease on each Fleet event for that Job would close the gap and keep the 30 minute limit. The limit stays because it is what frees a bay when a Drone dies mid turn.",
-  clockNote: "  <p>The clock does not stop while a Check runs. Any Check that outlasts 30 minutes ends the lease before the Drone wakes.</p>",
-  measured: "Seven leases expired before the Job finished. Five of them had a Check running in the bay at the time. The other two had none, and the log shows no cause for either. They are marked in the table.",
+  clockNote:
+    "  <p>The clock does not stop while a Check runs. Any Check that outlasts 30 minutes ends the lease before the Drone wakes.</p>",
+  measured:
+    "Seven leases expired before the Job finished. Five of them had a Check running in the bay at the time. The other two had none, and the log shows no cause for either. They are marked in the table.",
   afterTable: `  <h3>Two with no cause</h3>
   <p>Rename the bay tile and Move the lease sweep. No Check ran in either bay, and the pool log records no other event before the lease ended.</p>`,
-  notMeasured: "Whether a renewal on every event adds load to the pool. The log holds no figure for it. The cause of the two expiries with no Check running is not in the log either.",
+  notMeasured:
+    "Whether a renewal on every event adds load to the pool. The log holds no figure for it. The cause of the two expiries with no Check running is not in the log either.",
 };
 
 /** The document as the Job first wrote it. */
@@ -184,15 +253,36 @@ export const ROLLOUT_DOC = `<!doctype html>
 
 export const VIDEO_SCRIPT_TITLE = "Video script";
 /** Where the Job writes the page, and where Fleet keeps each revision of it. */
-export const VIDEO_SCRIPT_PATH = "/Users/user/armada/.armada/slots/slot-2/.armada/documents/video-script.html";
+export const VIDEO_SCRIPT_PATH =
+  "/Users/user/armada/.armada/slots/slot-2/.armada/documents/video-script.html";
 export const VIDEO_SCRIPT_R1 = "documents/video-script/r1.html";
 export const VIDEO_SCRIPT_R2 = "documents/video-script/r2.html";
 
-const SCENES: readonly (readonly [time: string, shot: string, voice: string])[] = [
-  ["0:00", "The Board, three Jobs running", "Three Jobs run while you read the first one's plan."],
-  ["0:12", "A Job's thread, a plan card", "Each Job says what it will do before it starts."],
-  ["0:25", "A walk window over the app", "When it has something to show, it opens a walk."],
-  ["0:40", "The merge queue, one pull request landing", "What you approve lands on main."],
+const SCENES: readonly (readonly [
+  time: string,
+  shot: string,
+  voice: string,
+])[] = [
+  [
+    "0:00",
+    "The Board, three Jobs running",
+    "Three Jobs run while you read the first one's plan.",
+  ],
+  [
+    "0:12",
+    "A Job's thread, a plan card",
+    "Each Job says what it will do before it starts.",
+  ],
+  [
+    "0:25",
+    "A walk window over the app",
+    "When it has something to show, it opens a walk.",
+  ],
+  [
+    "0:40",
+    "The merge queue, one pull request landing",
+    "What you approve lands on main.",
+  ],
 ];
 
 const script = (closing: string, second: boolean) => `<!doctype html>
@@ -239,7 +329,10 @@ ${SCENES.map(([time, shot, voice]) => `      <tr><td class="when">${time}</td><t
 `;
 
 /** The script as the Job first wrote it. */
-export const VIDEO_SCRIPT_1 = script("Armada runs your agents and checks their work. Try it on your own repository.", false);
+export const VIDEO_SCRIPT_1 = script(
+  "Armada runs your agents and checks their work. Try it on your own repository.",
+  false,
+);
 
 /** The script's second revision, with a shorter close. */
 export const VIDEO_SCRIPT_2 = script("Your agents, checked. Try Armada.", true);

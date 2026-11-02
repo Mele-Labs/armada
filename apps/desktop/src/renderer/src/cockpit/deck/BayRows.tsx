@@ -3,7 +3,16 @@
 // the Session that holds it light each other under the pointer. Nothing is worded beyond the facts and nothing is counted
 // beside the list. The states are the pool's own (`bays.ts`). #2301.
 
-import { ArrowUpFromLine, FilePenLine, Flame, FolderPlus, HardDrive, Mail, Snowflake, Unplug } from "lucide-react";
+import {
+  ArrowUpFromLine,
+  FilePenLine,
+  Flame,
+  FolderPlus,
+  HardDrive,
+  Mail,
+  Snowflake,
+  Unplug,
+} from "lucide-react";
 import { Standby } from "./Standby";
 import { useState, type ReactNode } from "react";
 import { Button, Inspect, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
@@ -27,7 +36,15 @@ function Mark({ said, children }: { said: string; children: ReactNode }) {
 }
 
 /** A piece of text that can be cut short, whole in its tooltip. */
-function Cut({ full, className, children }: { full: string; className: string; children: ReactNode }) {
+function Cut({
+  full,
+  className,
+  children,
+}: {
+  full: string;
+  className: string;
+  children: ReactNode;
+}) {
   return (
     <Tooltip label={full}>
       <span className={className}>{children}</span>
@@ -61,7 +78,8 @@ function Who({ view }: { view: BayView }) {
 
 /** The branch the bay is on now, where there is one to name. */
 function Branch({ view }: { view: BayView }) {
-  if (view.state !== "leased" || view.holder === undefined || view.branch === undefined) return null;
+  if (view.state !== "leased" || view.holder === undefined || view.branch === undefined)
+    return null;
   return (
     <Cut full={view.branch} className="deck-bay__branch">
       {view.branch}
@@ -156,7 +174,15 @@ export function Berth({ view, foot }: { view: BayView; foot?: ReactNode }) {
  * One more slot for a repository's pool, on the heading of its bays: the act and the glyph of Cleanup's add tile, sent the same way.
  * A second press waits for the first. Fleet makes the worktree before it answers, so the wait is on the button (`pending`) and said under the heading; the answer is said there until the next press.
  */
-function AddSlot({ repo, manifest, onAdd }: { repo: string; manifest: string; onAdd: (manifest: string) => Promise<Outcome> }) {
+function AddSlot({
+  repo,
+  manifest,
+  onAdd,
+}: {
+  repo: string;
+  manifest: string;
+  onAdd: (manifest: string) => Promise<Outcome>;
+}) {
   const [adding, setAdding] = useState(false);
   const [refused, setRefused] = useState<string | undefined>();
   const [added, setAdded] = useState(false);
@@ -173,7 +199,15 @@ function AddSlot({ repo, manifest, onAdd }: { repo: string; manifest: string; on
   return (
     <>
       <Tooltip label="Add a slot" asChild>
-        <Button variant="ghost" size="sm" iconOnly className="deck-bays__add" aria-label={`Add a slot to ${repo}`} pending={adding} onClick={() => void press()}>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          className="deck-bays__add"
+          aria-label={`Add a slot to ${repo}`}
+          pending={adding}
+          onClick={() => void press()}
+        >
           <FolderPlus size={14} aria-hidden="true" />
         </Button>
       </Tooltip>
@@ -192,8 +226,33 @@ function AddSlot({ repo, manifest, onAdd }: { repo: string; manifest: string; on
 }
 
 /** The bays panel: every slot of the pool, a bay each, under a heading for its repository. A press selects the slot. */
-export function Bays({ views, repoName, working, selected, hovered, onHover, onSelect, onOpenSlots, onAddSlot }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; hovered: string | undefined; onHover: (holder: string | undefined) => void; onSelect: (key: string) => void; onOpenSlots?: (() => void) | undefined; onAddSlot?: ((manifest: string) => Promise<Outcome>) | undefined }) {
-  const groups = [...new Set(views.map((view) => view.slot.manifest_id))].map((manifest) => ({ manifest, views: views.filter((view) => view.slot.manifest_id === manifest) }));
+export function Bays({
+  views,
+  repoName,
+  working,
+  selected,
+  hovered,
+  onHover,
+  onSelect,
+  onOpenSlots,
+  onAddSlot,
+}: {
+  views: readonly BayView[];
+  repoName: (manifest: string) => string;
+  working: ReadonlySet<string>;
+  selected: string | undefined;
+  hovered: string | undefined;
+  onHover: (holder: string | undefined) => void;
+  onSelect: (key: string) => void;
+  onOpenSlots?: (() => void) | undefined;
+  onAddSlot?: ((manifest: string) => Promise<Outcome>) | undefined;
+}) {
+  const groups = [
+    ...new Set(views.map((view) => view.slot.manifest_id)),
+  ].map((manifest) => ({
+    manifest,
+    views: views.filter((view) => view.slot.manifest_id === manifest),
+  }));
   return (
     <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
       <Standby kind="bays" />
@@ -201,7 +260,13 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
         <span className="deck-band__name">Bays</span>
         {onOpenSlots === undefined ? null : (
           <Tooltip label="Worktree Slots" asChild>
-            <Button variant="ghost" size="sm" iconOnly aria-label="Worktree Slots" onClick={onOpenSlots}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Worktree Slots"
+              onClick={onOpenSlots}
+            >
               <HardDrive size={16} aria-hidden="true" />
             </Button>
           </Tooltip>
@@ -215,31 +280,40 @@ export function Bays({ views, repoName, working, selected, hovered, onHover, onS
             <li key={group.manifest} className="deck-list__band">
               <div className="deck-bays__head">
                 <h3 className="deck-list__repository">{repo}</h3>
-                {onAddSlot === undefined ? null : <AddSlot repo={repo} manifest={group.manifest} onAdd={onAddSlot} />}
+                {onAddSlot === undefined ? null : (
+                  <AddSlot repo={repo} manifest={group.manifest} onAdd={onAddSlot} />
+                )}
               </div>
               <ul className="deck-list__group">
                 {group.views.map((view) => {
-                  const live = view.holder !== undefined && working.has(`${view.holder.kind}:${view.holder.id}`);
+                  const live =
+                    view.holder !== undefined &&
+                    working.has(`${view.holder.kind}:${view.holder.id}`);
                   const holder = holderKeyOf(view);
                   return (
                     <li key={view.key}>
-                      <Inspect card={<BayCard view={view} repo={repo} />} name={`slot-${view.slot.slot}`} side="beside" pin={false}>
-                      <button
-                        type="button"
-                        className="deck-bay"
-                        data-bay={view.state}
-                        data-live={live || undefined}
-                        data-hover={(holder !== undefined && holder === hovered) || undefined}
-                        data-selected={selected === view.key || undefined}
-                        aria-label={`slot-${view.slot.slot}, ${repo}, ${view.word}${view.holder === undefined ? "" : `, ${view.holder.title ?? view.holder.id}`}`}
-                        onClick={() => onSelect(view.key)}
-                        onMouseEnter={() => onHover(holder)}
-                        onMouseLeave={() => onHover(undefined)}
-                        onFocus={() => onHover(holder)}
-                        onBlur={() => onHover(undefined)}
+                      <Inspect
+                        card={<BayCard view={view} repo={repo} />}
+                        name={`slot-${view.slot.slot}`}
+                        side="beside"
+                        pin={false}
                       >
-                        <Berth view={view} />
-                      </button>
+                        <button
+                          type="button"
+                          className="deck-bay"
+                          data-bay={view.state}
+                          data-live={live || undefined}
+                          data-hover={(holder !== undefined && holder === hovered) || undefined}
+                          data-selected={selected === view.key || undefined}
+                          aria-label={`slot-${view.slot.slot}, ${repo}, ${view.word}${view.holder === undefined ? "" : `, ${view.holder.title ?? view.holder.id}`}`}
+                          onClick={() => onSelect(view.key)}
+                          onMouseEnter={() => onHover(holder)}
+                          onMouseLeave={() => onHover(undefined)}
+                          onFocus={() => onHover(holder)}
+                          onBlur={() => onHover(undefined)}
+                        >
+                          <Berth view={view} />
+                        </button>
                       </Inspect>
                     </li>
                   );

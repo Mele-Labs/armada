@@ -104,7 +104,13 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
    * puts an armed kind down inside the Zone that was pressed. A drag is no
    * press, as `onPanePress` says.
    */
-  onNodePress?: (nodeId: string, at: { x: number; y: number }) => void;
+  onNodePress?: (
+    nodeId: string,
+    at: {
+      x: number;
+      y: number;
+    },
+  ) => void;
   /** A kind is armed: the canvas draws a crosshair, which says the next press puts it down. */
   placing?: boolean;
   /**
@@ -134,8 +140,14 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
 
 /** Enough of a placed node to find its centre. Both surfaces hang edges this way. */
 type Placed = {
-  position: { x: number; y: number };
-  measured?: { width?: number; height?: number };
+  position: {
+    x: number;
+    y: number;
+  };
+  measured?: {
+    width?: number;
+    height?: number;
+  };
 };
 
 /**
@@ -154,9 +166,28 @@ export function facingSides(source: Placed | undefined, target: Placed | undefin
   const dy = to.y - from.y;
   const [out, into] =
     Math.abs(dx) >= Math.abs(dy)
-      ? dx >= 0 ? [Position.Right, Position.Left] : [Position.Left, Position.Right]
-      : dy >= 0 ? [Position.Bottom, Position.Top] : [Position.Top, Position.Bottom];
-  return { sourceHandle: `s-${out}`, targetHandle: `t-${into}` };
+      ? dx >= 0
+        ? [
+            Position.Right,
+            Position.Left,
+          ]
+        : [
+            Position.Left,
+            Position.Right,
+          ]
+      : dy >= 0
+        ? [
+            Position.Bottom,
+            Position.Top,
+          ]
+        : [
+            Position.Top,
+            Position.Bottom,
+          ];
+  return {
+    sourceHandle: `s-${out}`,
+    targetHandle: `t-${into}`,
+  };
 }
 
 /** How many times a placement steps on before it gives up and stacks. */
@@ -172,10 +203,19 @@ const MOST_NUDGES = 24;
  * moved the viewport between the two presses. Taking it away uncovered this.
  */
 export function clearOf(
-  taken: readonly { x: number; y: number }[],
-  at: { x: number; y: number },
+  taken: readonly {
+    x: number;
+    y: number;
+  }[],
+  at: {
+    x: number;
+    y: number;
+  },
   step: number,
-): { x: number; y: number } {
+): {
+  x: number;
+  y: number;
+} {
   let { x, y } = at;
   // On top of, rather than beside: corners closer than a step apart in both
   // axes. The walk is bounded — a board that crowded wants a person moving a
@@ -185,25 +225,38 @@ export function clearOf(
     x += step;
     y += step;
   }
-  return { x: Math.round(x), y: Math.round(y) };
+  return {
+    x: Math.round(x),
+    y: Math.round(y),
+  };
 }
 
 /** The four sides a node hangs an edge from. Nothing connects by hand, so none is drawn. */
-export const GRAPH_CANVAS_SIDES = [Position.Left, Position.Right, Position.Top, Position.Bottom] as const;
+export const GRAPH_CANVAS_SIDES = [
+  Position.Left,
+  Position.Right,
+  Position.Top,
+  Position.Bottom,
+] as const;
 
 /** React Flow's default descriptions offer delete, which neither surface ever does. */
 const ARIA = {
-  "node.a11yDescription.default": "Press Enter or Space to select a node, then the arrow keys to move it.",
+  "node.a11yDescription.default":
+    "Press Enter or Space to select a node, then the arrow keys to move it.",
   "node.a11yDescription.keyboardDisabled": "Press Enter or Space to select a node.",
   "edge.a11yDescription.default": "Press Enter or Space to select an edge.",
-  "node.a11yDescription.ariaLiveMessage": ({ direction }: { direction: string }) => `Moved the node ${direction}.`,
+  "node.a11yDescription.ariaLiveMessage": ({ direction }: { direction: string }) =>
+    `Moved the node ${direction}.`,
 };
 
 /** Nothing to draw. A surface hands `undefined` for a slot it has nothing in. */
 const noPanel = (slot: ReactNode): boolean => slot === undefined || slot === null;
 
 /** `−` and `+`, the signs the boards draw. Not glyphs: `iconography.md` defaults to none. */
-const SIGN = { in: "+", out: "−" } as const;
+const SIGN = {
+  in: "+",
+  out: "−",
+} as const;
 
 /** What the view group is, read to somebody who cannot see it. */
 const VIEW_LABEL = "How you are looking at this";
@@ -217,9 +270,29 @@ const VIEW_LABEL = "How you are looking at this";
 function ViewGroup({ fit, home }: { fit: FitViewOptions | undefined; home: Viewport | undefined }) {
   const flow = useReactFlow();
   const acts: GraphCanvasRailAct[] = [
-    { id: "out", name: "Zoom out", sign: SIGN.out, onPress: () => void flow.zoomOut() },
-    { id: "in", name: "Zoom in", sign: SIGN.in, onPress: () => void flow.zoomIn() },
-    { id: "fit", name: "Fit", icon: Maximize, onPress: () => void (home === undefined ? flow.fitView(fit) : flow.setViewport(home, { duration: 200 })) },
+    {
+      id: "out",
+      name: "Zoom out",
+      sign: SIGN.out,
+      onPress: () => void flow.zoomOut(),
+    },
+    {
+      id: "in",
+      name: "Zoom in",
+      sign: SIGN.in,
+      onPress: () => void flow.zoomIn(),
+    },
+    {
+      id: "fit",
+      name: "Fit",
+      icon: Maximize,
+      onPress: () =>
+        void (home === undefined
+          ? flow.fitView(fit)
+          : flow.setViewport(home, {
+              duration: 200,
+            })),
+    },
   ];
   return <GraphCanvasRailGroup label={VIEW_LABEL} acts={acts} />;
 }
@@ -238,13 +311,17 @@ function ViewGroup({ fit, home }: { fit: FitViewOptions | undefined; home: Viewp
 function MeasuresHandles() {
   const lacking = useStore((state) => {
     const ids: string[] = [];
-    for (const node of state.nodeLookup.values()) if (node.internals.handleBounds === undefined && !node.hidden) ids.push(node.id);
+    for (const node of state.nodeLookup.values())
+      if (node.internals.handleBounds === undefined && !node.hidden) ids.push(node.id);
     return ids.join("\n");
   });
   const updateNodeInternals = useUpdateNodeInternals();
   useEffect(() => {
     if (lacking !== "") updateNodeInternals(lacking.split("\n"));
-  }, [lacking, updateNodeInternals]);
+  }, [
+    lacking,
+    updateNodeInternals,
+  ]);
   return null;
 }
 
@@ -286,14 +363,31 @@ function Surface<N extends Node, E extends Edge>({
   // mock, rendered once, drew every step. Keeping the sizes is the part of
   // `applyNodeChanges` such a caller needs; one that applies its own changes
   // hands `measured` back itself and is left alone.
-  const [sizes, setSizes] = useState<ReadonlyMap<string, { width: number; height: number }>>(new Map());
+  const [sizes, setSizes] = useState<
+    ReadonlyMap<
+      string,
+      {
+        width: number;
+        height: number;
+      }
+    >
+  >(new Map());
   const keepSizes = useCallback<OnNodesChange<N>>((changes) => {
     setSizes((held) => {
-      let next: Map<string, { width: number; height: number }> | undefined;
+      let next:
+        | Map<
+            string,
+            {
+              width: number;
+              height: number;
+            }
+          >
+        | undefined;
       for (const change of changes) {
         if (change.type !== "dimensions" || change.dimensions === undefined) continue;
         const was = held.get(change.id);
-        if (was?.width === change.dimensions.width && was.height === change.dimensions.height) continue;
+        if (was?.width === change.dimensions.width && was.height === change.dimensions.height)
+          continue;
         next ??= new Map(held);
         next.set(change.id, change.dimensions);
       }
@@ -306,23 +400,57 @@ function Surface<N extends Node, E extends Edge>({
         ? nodes
         : nodes.map((node) => {
             const measured = sizes.get(node.id);
-            return node.measured !== undefined || measured === undefined ? node : { ...node, measured };
+            return node.measured !== undefined || measured === undefined
+              ? node
+              : {
+                  ...node,
+                  measured,
+                };
           }),
-    [nodes, onNodesChange, sizes],
+    [
+      nodes,
+      onNodesChange,
+      sizes,
+    ],
   );
   const onPaneClick = useCallback(
     (event: { clientX: number; clientY: number }) =>
-      onPanePress?.(flow.screenToFlowPosition({ x: event.clientX, y: event.clientY })),
-    [flow, onPanePress],
+      onPanePress?.(
+        flow.screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        }),
+      ),
+    [
+      flow,
+      onPanePress,
+    ],
   );
   const onNodeClick = useCallback(
-    (event: { clientX: number; clientY: number }, node: N) =>
-      onNodePress?.(node.id, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY })),
-    [flow, onNodePress],
+    (
+      event: {
+        clientX: number;
+        clientY: number;
+      },
+      node: N,
+    ) =>
+      onNodePress?.(
+        node.id,
+        flow.screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        }),
+      ),
+    [
+      flow,
+      onNodePress,
+    ],
   );
   const onPicked = useCallback(
     ({ nodes: picked }: { nodes: N[] }) => onSelectionChange?.(picked.map((node) => node.id)),
-    [onSelectionChange],
+    [
+      onSelectionChange,
+    ],
   );
   // **A canvas that opens empty asks for no fit** — the owner, 28 Sep 2026, on
   // the sketch pad. `fitView` is a queue React Flow arms and only disarms once
@@ -346,11 +474,38 @@ function Surface<N extends Node, E extends Edge>({
       edgeTypes={edgeTypes}
       onNodesChange={onNodesChange ?? keepSizes}
       onSelectionChange={onPicked}
-      {...(onPanePress === undefined ? {} : { onPaneClick })}
-      {...(onNodePress === undefined ? {} : { onNodeClick })}
+      {...(onPanePress === undefined
+        ? {}
+        : {
+            onPaneClick,
+          })}
+      {...(onNodePress === undefined
+        ? {}
+        : {
+            onNodeClick,
+          })}
       nodesConnectable={onConnect !== undefined}
-      {...(onConnect === undefined ? {} : { onConnect })}
-      {...(isValidConnection === undefined ? {} : { isValidConnection: (edge: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) => isValidConnection({ source: edge.source, target: edge.target, sourceHandle: edge.sourceHandle ?? null, targetHandle: edge.targetHandle ?? null }) })}
+      {...(onConnect === undefined
+        ? {}
+        : {
+            onConnect,
+          })}
+      {...(isValidConnection === undefined
+        ? {}
+        : {
+            isValidConnection: (edge: {
+              source: string;
+              target: string;
+              sourceHandle?: string | null;
+              targetHandle?: string | null;
+            }) =>
+              isValidConnection({
+                source: edge.source,
+                target: edge.target,
+                sourceHandle: edge.sourceHandle ?? null,
+                targetHandle: edge.targetHandle ?? null,
+              }),
+          })}
       nodesDraggable={nodesDraggable && !still}
       {...(still
         ? {
@@ -371,11 +526,25 @@ function Surface<N extends Node, E extends Edge>({
       ariaLabelConfig={ARIA}
       fitView={fitsOnOpen}
       fitViewOptions={fitViewOptions}
-      {...(home === undefined ? {} : { defaultViewport: home })}
-      {...(panOnScroll === true ? { panOnScroll: true } : {})}
-      {...(minZoom === undefined ? {} : { minZoom })}
+      {...(home === undefined
+        ? {}
+        : {
+            defaultViewport: home,
+          })}
+      {...(panOnScroll === true
+        ? {
+            panOnScroll: true,
+          }
+        : {})}
+      {...(minZoom === undefined
+        ? {}
+        : {
+            minZoom,
+          })}
       // The attribution is a link out of the app, and no surface may navigate.
-      proOptions={{ hideAttribution: true }}
+      proOptions={{
+        hideAttribution: true,
+      }}
     >
       {/* One corner, because the other one is Helm's dock. */}
       {noPanel(aside) ? null : (

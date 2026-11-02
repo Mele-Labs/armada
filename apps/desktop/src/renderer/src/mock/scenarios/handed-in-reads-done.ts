@@ -13,21 +13,47 @@ const GROUPS: readonly WorkGroup[] = [
     id: "h1",
     agent: "rust-engineer",
     title: "Rotate at midnight",
-    paths: ["crates/store"],
+    paths: [
+      "crates/store",
+    ],
     tasks: [
-      { id: "A1", text: "Read how the store names its files", state: "handed_in" },
-      { id: "A2", text: "Rotate the log file at midnight", state: "done", seen: true },
-      { id: "A3", text: "Run the store tests", state: "handed_in" },
+      {
+        id: "A1",
+        text: "Read how the store names its files",
+        state: "handed_in",
+      },
+      {
+        id: "A2",
+        text: "Rotate the log file at midnight",
+        state: "done",
+        seen: true,
+      },
+      {
+        id: "A3",
+        text: "Run the store tests",
+        state: "handed_in",
+      },
     ],
   },
   {
     id: "h2",
     agent: "bridge-engineer",
     title: "Show the rotation",
-    paths: ["apps/desktop"],
+    paths: [
+      "apps/desktop",
+    ],
     tasks: [
-      { id: "B1", text: "List rotated files in System", state: "working", seen: true },
-      { id: "B2", text: "Open a rotated file from the list", state: "open" },
+      {
+        id: "B1",
+        text: "List rotated files in System",
+        state: "working",
+        seen: true,
+      },
+      {
+        id: "B2",
+        text: "Open a rotated file from the list",
+        state: "open",
+      },
     ],
   },
 ];
@@ -35,14 +61,54 @@ const GROUPS: readonly WorkGroup[] = [
 const STORE = "crates/store/src/";
 const SYSTEM = "apps/desktop/src/renderer/src/system/";
 
-const FILES: readonly WorkFile[] = [{ path: STORE + "rotate.rs", act: "write" }, { path: STORE + "audit.rs" }, { path: SYSTEM + "AuditFiles.tsx", act: "write" }, { path: SYSTEM + "System.tsx" }];
+const FILES: readonly WorkFile[] = [
+  {
+    path: STORE + "rotate.rs",
+    act: "write",
+  },
+  {
+    path: STORE + "audit.rs",
+  },
+  {
+    path: SYSTEM + "AuditFiles.tsx",
+    act: "write",
+  },
+  {
+    path: SYSTEM + "System.tsx",
+  },
+];
 
 const building = (one: Session): Session => ({
   ...one,
   work: {
-    workflow: { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"], at: 1 },
-    plan: { scope: ["crates/store", "apps/desktop"], approved: true, groups: GROUPS },
-    field: [{ id: "bridge", agent: "bridge-engineer", task: "List rotated files in System", path: "apps/desktop", doing: "write", file: SYSTEM + "AuditFiles.tsx" }],
+    workflow: {
+      name: "Feature",
+      steps: [
+        "Plan",
+        "Build",
+        "Verify",
+        "Pull request",
+      ],
+      at: 1,
+    },
+    plan: {
+      scope: [
+        "crates/store",
+        "apps/desktop",
+      ],
+      approved: true,
+      groups: GROUPS,
+    },
+    field: [
+      {
+        id: "bridge",
+        agent: "bridge-engineer",
+        task: "List rotated files in System",
+        path: "apps/desktop",
+        doing: "write",
+        file: SYSTEM + "AuditFiles.tsx",
+      },
+    ],
     files: FILES,
   },
 });

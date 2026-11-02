@@ -5,11 +5,16 @@ import type { Outcome } from "@armada/protocol";
 
 import type { HelmApi, HelmState } from "../api";
 
-const OK: Outcome = { ok: true };
+const OK: Outcome = {
+  ok: true,
+};
 
 /** What Helm's members reach: the conversation they publish, and the refusal a read with no session gives. */
 export type HelmFleet = FleetHandle<HelmState> & {
-  refused: (route: string) => { ok: false; outcome: Outcome };
+  refused: (route: string) => {
+    ok: false;
+    outcome: Outcome;
+  };
 };
 
 export function helmApi({ publish, refused }: HelmFleet): HelmApi {
@@ -21,7 +26,12 @@ export function helmApi({ publish, refused }: HelmFleet): HelmApi {
     helmDebugInfo: async () => refused("/helm/debug"),
     // A mock Fleet reads every message as a question for Helm, at once, so only a scenario about
     // routing a thought changes what a dock does with its words.
-    readThought: async () => ({ ok: true, reading: { kind: "question" } }),
+    readThought: async () => ({
+      ok: true,
+      reading: {
+        kind: "question",
+      },
+    }),
     recordThoughtSent: async () => OK,
     startHelmFresh: async () => OK,
     /**
@@ -32,6 +42,12 @@ export function helmApi({ publish, refused }: HelmFleet): HelmApi {
      * nothing pointed can be reached at all. A scenario that holds a Helm
      * Session answers this itself.
      */
-    pointHelm: async (manifestId) => publish({ helm: { state: "pointed", manifestId } }),
+    pointHelm: async (manifestId) =>
+      publish({
+        helm: {
+          state: "pointed",
+          manifestId,
+        },
+      }),
   };
 }

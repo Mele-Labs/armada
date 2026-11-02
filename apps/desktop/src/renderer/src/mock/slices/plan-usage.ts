@@ -9,7 +9,10 @@ export const planUsage: Slice<PlanUsageApi, Record<string, never>> = {
   name: "planUsage",
   state: {},
   api: () => ({
-    getPlanUsage: async () => ({ ok: false, outcome: unanswered("/plan_usage") }),
+    getPlanUsage: async () => ({
+      ok: false,
+      outcome: unanswered("/plan_usage"),
+    }),
     onPlanUsageChanged: () => () => {},
   }),
 };

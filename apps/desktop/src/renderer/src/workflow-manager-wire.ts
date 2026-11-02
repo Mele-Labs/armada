@@ -2,15 +2,38 @@
 // changes an agent drafted as the box under the steps and the cards on a step. Nothing here asks Fleet.
 
 import { ageOf, glyphOf, keyOf, stepsOfDefinition } from "@armada/components";
-import type { AgentState, DriftedJob, ManagedStep, Suggestion, WorkflowSource } from "@armada/components";
-import type { ChangeStep, LeftOutWorkflow, StepNudge, StepReading, WorkflowChange, WorkflowSummary } from "@armada/protocol";
+import type {
+  AgentState,
+  DriftedJob,
+  ManagedStep,
+  Suggestion,
+  WorkflowSource,
+} from "@armada/components";
+import type {
+  ChangeStep,
+  LeftOutWorkflow,
+  StepNudge,
+  StepReading,
+  WorkflowChange,
+  WorkflowSummary,
+} from "@armada/protocol";
 
 /** Fleet's name for each place the page groups by. */
-export const WIRE_OF: Readonly<Record<WorkflowSource, string>> = { armada: "armada", repository: "repository", yours: "kit" };
+export const WIRE_OF: Readonly<Record<WorkflowSource, string>> = {
+  armada: "armada",
+  repository: "repository",
+  yours: "kit",
+};
 
 /** The page's place for Fleet's `armada`, `repository` or `kit`. */
 export function placeOf(wire: string): WorkflowSource | undefined {
-  return wire === "armada" ? "armada" : wire === "repository" ? "repository" : wire === "kit" ? "yours" : undefined;
+  return wire === "armada"
+    ? "armada"
+    : wire === "repository"
+      ? "repository"
+      : wire === "kit"
+        ? "yours"
+        : undefined;
 }
 
 /** A step Fleet read, or one side of a change it worked out, as the page draws it. */
@@ -19,16 +42,31 @@ export function stepOf(reading: StepReading | ChangeStep): ManagedStep {
   return {
     id: reading.id,
     label: reading.label,
-    ...(glyph === undefined ? {} : { glyph }),
+    ...(glyph === undefined
+      ? {}
+      : {
+          glyph,
+        }),
     ends: reading.ends_when ?? "",
-    ...(reading.ends_any === undefined ? {} : { endsAny: reading.ends_any }),
-    ...(reading.passed_over_when === undefined ? {} : { passedOver: reading.passed_over_when }),
+    ...(reading.ends_any === undefined
+      ? {}
+      : {
+          endsAny: reading.ends_any,
+        }),
+    ...(reading.passed_over_when === undefined
+      ? {}
+      : {
+          passedOver: reading.passed_over_when,
+        }),
     words: reading.instructions ?? "",
   };
 }
 
 /** The Jobs Fleet nudged at each step, by step id. */
-export function driftOf(steps: readonly StepReading[], now: number): Readonly<Record<string, readonly DriftedJob[]>> {
+export function driftOf(
+  steps: readonly StepReading[],
+  now: number,
+): Readonly<Record<string, readonly DriftedJob[]>> {
   const jobOf = (one: StepNudge): DriftedJob => ({
     id: String(one.id),
     jobId: one.job_id,
@@ -36,7 +74,14 @@ export function driftOf(steps: readonly StepReading[], now: number): Readonly<Re
     what: one.fact,
     when: ageOf(Date.parse(one.at), now),
   });
-  return Object.fromEntries(steps.filter((one) => (one.nudges ?? []).length > 0).map((one) => [one.id, (one.nudges ?? []).map(jobOf)]));
+  return Object.fromEntries(
+    steps
+      .filter((one) => (one.nudges ?? []).length > 0)
+      .map((one) => [
+        one.id,
+        (one.nudges ?? []).map(jobOf),
+      ]),
+  );
 }
 
 /** A definition's text as steps. A step the workflow already has keeps what Fleet read of it; one it lacks has no end to say. */
@@ -45,7 +90,15 @@ export function stepsOfText(text: string, known: readonly ManagedStep[]): Manage
     const had = known.find((each) => each.id === one.id);
     const glyph = glyphOf(one.id);
     return {
-      ...(had ?? { id: one.id, ...(glyph === undefined ? {} : { glyph }), ends: "" }),
+      ...(had ?? {
+        id: one.id,
+        ...(glyph === undefined
+          ? {}
+          : {
+              glyph,
+            }),
+        ends: "",
+      }),
       label: one.label,
       words: one.instructions ?? "",
     };
@@ -57,32 +110,75 @@ export const askedChange = (changes: readonly WorkflowChange[]): WorkflowChange 
   changes.find((one) => one.step_id === undefined);
 
 /** The box under the steps, from the open changes. */
-export function agentOf(changes: readonly WorkflowChange[], known: readonly ManagedStep[]): AgentState {
+export function agentOf(
+  changes: readonly WorkflowChange[],
+  known: readonly ManagedStep[],
+): AgentState {
   const one = askedChange(changes);
-  if (one === undefined) return { phase: "idle" };
-  const asked = one.origin.kind === "asked" ? { asked: one.origin.text } : {};
-  if (one.state === "drafting") return { phase: "working", ...asked };
-  if (one.state === "failed") return { phase: "failed", reason: one.reason ?? "", ...asked };
-  if (one.state === "cannot") return { phase: "cannot", missing: one.missing ?? [], ...asked };
+  if (one === undefined)
+    return {
+      phase: "idle",
+    };
+  const asked =
+    one.origin.kind === "asked"
+      ? {
+          asked: one.origin.text,
+        }
+      : {};
+  if (one.state === "drafting")
+    return {
+      phase: "working",
+      ...asked,
+    };
+  if (one.state === "failed")
+    return {
+      phase: "failed",
+      reason: one.reason ?? "",
+      ...asked,
+    };
+  if (one.state === "cannot")
+    return {
+      phase: "cannot",
+      missing: one.missing ?? [],
+      ...asked,
+    };
   if (one.state === "ready" && one.after !== undefined) {
     // Fleet's own reading of each side says what ends a step it adds; the text alone cannot.
     const before = one.before_steps?.map(stepOf) ?? stepsOfText(one.before, known);
     const after = one.after_steps?.map(stepOf) ?? stepsOfText(one.after, known);
-    const fresh = one.origin.kind === "new" ? { fresh: true as const } : {};
-    return { phase: "proposed", before, after, ...asked, ...fresh };
+    const fresh =
+      one.origin.kind === "new"
+        ? {
+            fresh: true as const,
+          }
+        : {};
+    return {
+      phase: "proposed",
+      before,
+      after,
+      ...asked,
+      ...fresh,
+    };
   }
-  return { phase: "idle" };
+  return {
+    phase: "idle",
+  };
 }
 
 /** The change waiting on a step, if one is open. */
-export const changeAt = (changes: readonly WorkflowChange[], stepId: string): WorkflowChange | undefined =>
-  changes.find((one) => one.step_id === stepId);
+export const changeAt = (
+  changes: readonly WorkflowChange[],
+  stepId: string,
+): WorkflowChange | undefined => changes.find((one) => one.step_id === stepId);
 
 /** The cards on the steps, and the step an agent is drawing one up for (`workflow/step`). */
 export function suggestionsOf(
   changes: readonly WorkflowChange[],
   workflow: string,
-): { suggestions: Readonly<Record<string, Suggestion>>; suggesting: string | null } {
+): {
+  suggestions: Readonly<Record<string, Suggestion>>;
+  suggesting: string | null;
+} {
   const suggestions: Record<string, Suggestion> = {};
   let suggesting: string | null = null;
   for (const one of changes) {
@@ -90,13 +186,25 @@ export function suggestionsOf(
     if (stepId === undefined || stepId in suggestions) continue;
     const from = one.origin.kind === "drift" ? one.origin.nudges.map(String) : [];
     if (one.state === "drafting") suggesting ??= `${workflow}/${stepId}`;
-    else if (one.state === "failed") suggestions[stepId] = { words: "", from, failed: one.reason ?? "" };
+    else if (one.state === "failed")
+      suggestions[stepId] = {
+        words: "",
+        from,
+        failed: one.reason ?? "",
+      };
     else if (one.state === "ready" && one.after !== undefined) {
-      const words = stepsOfDefinition(one.after)?.find((each) => each.id === stepId)?.instructions ?? "";
-      suggestions[stepId] = { words, from };
+      const words =
+        stepsOfDefinition(one.after)?.find((each) => each.id === stepId)?.instructions ?? "";
+      suggestions[stepId] = {
+        words,
+        from,
+      };
     }
   }
-  return { suggestions, suggesting };
+  return {
+    suggestions,
+    suggesting,
+  };
 }
 
 /**
@@ -104,7 +212,16 @@ export function suggestionsOf(
  * Manifest it is read and acted on under: a repository's copy has its own, and Armada's and Yours are the same
  * under every one, so theirs is the first that listed them.
  */
-export type Listed = { id: string; source: WorkflowSource; manifestId?: string; leftOut?: { said: string; file: string }; forRequests?: string };
+export type Listed = {
+  id: string;
+  source: WorkflowSource;
+  manifestId?: string;
+  leftOut?: {
+    said: string;
+    file: string;
+  };
+  forRequests?: string;
+};
 
 /**
  * The rows of the list from what Fleet answered: each workflow it runs, a row for each definition of the same id a
@@ -115,7 +232,11 @@ export type Listed = { id: string; source: WorkflowSource; manifestId?: string; 
  * Fleet lists every repository's workflows whichever is picked. **With a repository's Manifest named only its own are
  * kept**; with none (All) Armada's and Yours appear once and each repository's copies stay apart.
  */
-export function listedOf(workflows: readonly WorkflowSummary[], leftOut: readonly LeftOutWorkflow[], repository: string | null = null): Listed[] {
+export function listedOf(
+  workflows: readonly WorkflowSummary[],
+  leftOut: readonly LeftOutWorkflow[],
+  repository: string | null = null,
+): Listed[] {
   const out: Listed[] = [];
   const seen = new Set<string>();
   const add = (one: Listed) => {
@@ -123,19 +244,47 @@ export function listedOf(workflows: readonly WorkflowSummary[], leftOut: readonl
     if (!seen.has(key)) out.push(one);
     seen.add(key);
   };
-  for (const one of repository === null ? workflows : workflows.filter((each) => each.manifest_id === repository)) {
+  for (const one of repository === null
+    ? workflows
+    : workflows.filter((each) => each.manifest_id === repository)) {
     const source = placeOf(one.source ?? "");
     if (source === undefined) continue;
-    add({ id: one.id, source, manifestId: one.manifest_id, ...(one.for_requests === undefined ? {} : { forRequests: one.for_requests }) });
+    add({
+      id: one.id,
+      source,
+      manifestId: one.manifest_id,
+      ...(one.for_requests === undefined
+        ? {}
+        : {
+            forRequests: one.for_requests,
+          }),
+    });
     for (const under of one.overrides ?? []) {
       const lower = placeOf(under.source);
-      if (lower !== undefined) add({ id: one.id, source: lower, manifestId: one.manifest_id });
+      if (lower !== undefined)
+        add({
+          id: one.id,
+          source: lower,
+          manifestId: one.manifest_id,
+        });
     }
   }
   for (const one of leftOut) {
     const source = placeOf(one.source);
     if (source !== undefined) {
-      add({ id: one.id ?? one.file.split("/").pop() ?? one.file, source, ...(repository === null ? {} : { manifestId: repository }), leftOut: { said: one.said, file: one.file } });
+      add({
+        id: one.id ?? one.file.split("/").pop() ?? one.file,
+        source,
+        ...(repository === null
+          ? {}
+          : {
+              manifestId: repository,
+            }),
+        leftOut: {
+          said: one.said,
+          file: one.file,
+        },
+      });
     }
   }
   return out;
@@ -146,4 +295,5 @@ export const armadaOf = (rows: readonly Listed[], id: string): Listed | undefine
   rows.find((one) => one.source === "armada" && one.id === id && one.leftOut === undefined);
 
 /** Whether Armada carries a workflow of this id among the rows. */
-export const armadaCarries = (rows: readonly Listed[], id: string): boolean => armadaOf(rows, id) !== undefined;
+export const armadaCarries = (rows: readonly Listed[], id: string): boolean =>
+  armadaOf(rows, id) !== undefined;

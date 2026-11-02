@@ -11,6 +11,14 @@ import { SCRATCH, SHEET_READ, settingUp } from "../setup-fake";
 export const setup: Slice<SetupApi, SetupState> = {
   name: "setup",
   state: SETUP_NOTHING_YET,
-  scenarios: () => [settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ })],
+  scenarios: () => [
+    settingUp({
+      repositories: [
+        repository(),
+        SCRATCH,
+      ],
+      sheet: SHEET_READ,
+    }),
+  ],
   api: (_scenario, fleet) => setupApi(fleet),
 };

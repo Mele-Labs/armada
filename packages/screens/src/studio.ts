@@ -1,7 +1,11 @@
 // A Studio as the whiteboard draws it, off the wire — #1287. No React: every rule here is a function
 // of the Studio Fleet sent and the Board this window holds, so it is tested as one.
 
-import type { StudioNodeFrame, StudioWhiteboardEdge, StudioWhiteboardNode } from "@armada/components";
+import type {
+  StudioNodeFrame,
+  StudioWhiteboardEdge,
+  StudioWhiteboardNode,
+} from "@armada/components";
 import type {
   EpicRead,
   ScoutSource,
@@ -54,8 +58,15 @@ export function studioName(studio: Pick<StudioSummary, "name">): string {
 function runFacts(kept: StudioRunKept): string[] {
   const took = `${(kept.duration_ms / 1000).toFixed(1)}s`;
   return kept.exit_code === undefined
-    ? [kept.command, took]
-    : [kept.command, `exit ${kept.exit_code} (expects ${kept.expect_exit_code})`, took];
+    ? [
+        kept.command,
+        took,
+      ]
+    : [
+        kept.command,
+        `exit ${kept.exit_code} (expects ${kept.expect_exit_code})`,
+        took,
+      ];
 }
 
 /**
@@ -69,7 +80,16 @@ function runFacts(kept: StudioRunKept): string[] {
  */
 function serverKeptFacts(kept: StudioRunKept): string[] {
   const up = `up ${(kept.duration_ms / 1000).toFixed(1)}s`;
-  return kept.exit_code === undefined ? [kept.command, up] : [kept.command, `exit ${kept.exit_code}`, up];
+  return kept.exit_code === undefined
+    ? [
+        kept.command,
+        up,
+      ]
+    : [
+        kept.command,
+        `exit ${kept.exit_code}`,
+        up,
+      ];
 }
 
 /**
@@ -97,18 +117,33 @@ function serverAddress(instance: ServerState): string {
  * node holding a run nobody read already does.
  */
 function serverCard(
-  node: Extract<StudioNode, { kind: "run" }>,
+  node: Extract<
+    StudioNode,
+    {
+      kind: "run";
+    }
+  >,
   live: StudioLive,
 ): StudioWhiteboardNode["node"] {
   const instance = (live.servers ?? []).find((one) => one.id === node.run_id);
   if (instance !== undefined && instance.phase !== "exited") {
     return instance.phase === "starting"
-      ? { kind: "run", state: "starting", title: instance.name, facts: [instance.serve] }
+      ? {
+          kind: "run",
+          state: "starting",
+          title: instance.name,
+          facts: [
+            instance.serve,
+          ],
+        }
       : {
           kind: "run",
           state: "serving",
           title: instance.name,
-          facts: [upFor(instance, live.now), serverAddress(instance)].filter((fact) => fact !== ""),
+          facts: [
+            upFor(instance, live.now),
+            serverAddress(instance),
+          ].filter((fact) => fact !== ""),
         };
   }
   if (node.kept !== undefined) {
@@ -119,7 +154,13 @@ function serverCard(
       facts: serverKeptFacts(node.kept),
     };
   }
-  return { kind: "run", title: "Not read yet", facts: [node.run_id] };
+  return {
+    kind: "run",
+    title: "Not read yet",
+    facts: [
+      node.run_id,
+    ],
+  };
 }
 
 /** How long it has been up. **Nothing ticks on the wire**, so the window's own
@@ -148,7 +189,12 @@ const SOURCE_READ: Readonly<Record<string, string>> = {
 
 /** The first line of a body, for a node whose title is prose. */
 function firstLine(body: string): string {
-  return body.split("\n").find((line) => line.trim() !== "")?.trim() ?? body;
+  return (
+    body
+      .split("\n")
+      .find((line) => line.trim() !== "")
+      ?.trim() ?? body
+  );
 }
 
 /**
@@ -158,7 +204,13 @@ function firstLine(body: string): string {
  * for a state: a newer Fleet's word said plainly beats no word at all.
  */
 function forgeState(state: string): string {
-  return { open: "Open", closed: "Closed", merged: "Merged" }[state] ?? state;
+  return (
+    {
+      open: "Open",
+      closed: "Closed",
+      merged: "Merged",
+    }[state] ?? state
+  );
 }
 
 /**
@@ -174,16 +226,28 @@ function forgeState(state: string): string {
  * about one rather than claiming it took everything.
  */
 function epicRead(read: EpicRead): string[] {
-  const count = read.issues === read.total ? `${read.total} issues` : `${read.issues} of ${read.total} issues`;
-  if (read.took === undefined) return [count];
+  const count =
+    read.issues === read.total ? `${read.total} issues` : `${read.issues} of ${read.total} issues`;
+  if (read.took === undefined)
+    return [
+      count,
+    ];
   // **One fact each, because a chip is one fact.** A card is 240 wide and a
   // chip that does not fit is clipped, so a sentence written across three of
   // them reads and a sentence written into one does not.
   return [
     count,
     EPIC_TOOK[read.took] ?? read.took,
-    ...(read.left_out ? [`${read.left_out} left out`] : []),
-    ...(read.kept ? [`${read.kept} kept, worked on`] : []),
+    ...(read.left_out
+      ? [
+          `${read.left_out} left out`,
+        ]
+      : []),
+    ...(read.kept
+      ? [
+          `${read.kept} kept, worked on`,
+        ]
+      : []),
   ];
 }
 
@@ -215,7 +279,11 @@ function keptAFrame(node: StudioNode): boolean {
 /** Every frame one node keeps, by `frameKey`: its own, or a Sketch's one per picture. */
 function framesOf(node: StudioNode): string[] {
   if (node.kind === "sketch") return node.drawing.pictures.map((one) => frameKey(node.id, one.id));
-  return keptAFrame(node) ? [node.id] : [];
+  return keptAFrame(node)
+    ? [
+        node.id,
+      ]
+    : [];
 }
 
 /**
@@ -257,19 +325,43 @@ function cardOf(
       // id as a title: the id names the run to Fleet and says nothing to a person, and the run
       // is still Fleet's to read (#1289). It stays as a fact, where an identifier belongs.
       return node.kept === undefined
-        ? { kind: "run", title: "Not read yet", facts: [node.run_id] }
-        : { kind: "run", state: runOutcomeOf(node.kept), title: node.kept.name, facts: runFacts(node.kept) };
+        ? {
+            kind: "run",
+            title: "Not read yet",
+            facts: [
+              node.run_id,
+            ],
+          }
+        : {
+            kind: "run",
+            state: runOutcomeOf(node.kept),
+            title: node.kept.name,
+            facts: runFacts(node.kept),
+          };
     case "note":
       // **The plate is drawn only where the Note kept a picture.** One that was
       // typed, or captured where no frame could be taken, is an ordinary Note.
       return keptAFrame(node)
-        ? { kind: "note", title: node.said, frame: frameOf(node.id) }
-        : { kind: "note", title: node.said };
+        ? {
+            kind: "note",
+            title: node.said,
+            frame: frameOf(node.id),
+          }
+        : {
+            kind: "note",
+            title: node.said,
+          };
     case "cluster":
-      return { kind: "cluster", title: node.title };
+      return {
+        kind: "cluster",
+        title: node.title,
+      };
     // A Zone holds no words: the whiteboard draws it as a frame round what it holds.
     case "zone":
-      return { kind: "zone", title: "" };
+      return {
+        kind: "zone",
+        title: "",
+      };
     case "finding":
       // What it was handed beyond the checkout, and what did not fit. A scout
       // asked about the code alone has none and says nothing about sources.
@@ -277,7 +369,11 @@ function cardOf(
       // `frozen` went on 1 Oct 2026, and Fleet sends a Proposed one's state.
       return {
         kind: "finding",
-        ...(node.state === undefined ? {} : { state: node.state as "proposed" | "gathering" }),
+        ...(node.state === undefined
+          ? {}
+          : {
+              state: node.state as "proposed" | "gathering",
+            }),
         title: node.asked,
         facts: (node.sources ?? []).map(sourceRead),
       };
@@ -288,7 +384,15 @@ function cardOf(
         kind: "contradiction",
         state: stateOf(node, "reported"),
         title: node.first,
-        facts: node.answer === undefined ? [node.second] : [node.second, node.answer],
+        facts:
+          node.answer === undefined
+            ? [
+                node.second,
+              ]
+            : [
+                node.second,
+                node.answer,
+              ],
       };
     case "sketch":
       // The drawing, and no title: a Sketch's words are in its boxes — 1 Oct 2026.
@@ -301,7 +405,22 @@ function cardOf(
           strokes: node.drawing.strokes,
           pictures: node.drawing.pictures.map(({ id, x, y, width, height }) => {
             const { src } = frameOf(frameKey(node.id, id));
-            return src === undefined ? { id, x, y, width, height } : { id, x, y, width, height, src };
+            return src === undefined
+              ? {
+                  id,
+                  x,
+                  y,
+                  width,
+                  height,
+                }
+              : {
+                  id,
+                  x,
+                  y,
+                  width,
+                  height,
+                  src,
+                };
           }),
         },
       };
@@ -310,11 +429,23 @@ function cardOf(
       // learned the source calls itself, then the address** — #1378, #1293.
       // A person's line wins because it is theirs, and the address is drawn
       // under whichever it was, so nothing is said twice.
-      return { kind: "link", address: node.address, title: node.said ?? node.named ?? node.address };
+      return {
+        kind: "link",
+        address: node.address,
+        title: node.said ?? node.named ?? node.address,
+      };
     case "file":
-      return { kind: "file", path: node.path, title: node.path };
+      return {
+        kind: "file",
+        path: node.path,
+        title: node.path,
+      };
     case "picture":
-      return { kind: "picture", title: "", frame: frameOf(node.id) };
+      return {
+        kind: "picture",
+        title: "",
+        frame: frameOf(node.id),
+      };
     // The three kinds a forge address makes — #1394. The title follows a
     // Link's rule, with what the forge calls it where a read-in learned one;
     // everything else the kind holds is a fact rather than a sentence.
@@ -324,21 +455,43 @@ function cardOf(
         kind: node.kind,
         address: node.address,
         title: node.said ?? node.title ?? node.address,
-        facts: [`#${node.number}`, ...(node.state === undefined ? [] : [forgeState(node.state)])],
+        facts: [
+          `#${node.number}`,
+          ...(node.state === undefined
+            ? []
+            : [
+                forgeState(node.state),
+              ]),
+        ],
       };
     case "epic":
       return {
         kind: "epic",
         address: node.address,
         title: node.said ?? node.title ?? node.address,
-        facts: [`#${node.number}`, ...(node.read_in === undefined ? [] : epicRead(node.read_in))],
+        facts: [
+          `#${node.number}`,
+          ...(node.read_in === undefined ? [] : epicRead(node.read_in)),
+        ],
       };
     case "deferral":
-      return { kind: "deferral", state: stateOf(node, "open"), title: node.what };
+      return {
+        kind: "deferral",
+        state: stateOf(node, "open"),
+        title: node.what,
+      };
     case "outline":
-      return { kind: "outline", state: stateOf(node, "draft"), title: firstLine(node.body) };
+      return {
+        kind: "outline",
+        state: stateOf(node, "draft"),
+        title: firstLine(node.body),
+      };
     case "issue_draft":
-      return { kind: "issue_draft", state: "draft", title: node.title };
+      return {
+        kind: "issue_draft",
+        state: "draft",
+        title: node.title,
+      };
     default:
       return null;
   }
@@ -362,8 +515,19 @@ export function whiteboardNodes(
   return studio.nodes.flatMap((node) => {
     const card = cardOf(node, frameOf, live);
     if (card === null) return [];
-    const placed = { id: node.id, position: node.position, node: card };
-    return [node.within === undefined ? placed : { ...placed, within: node.within }];
+    const placed = {
+      id: node.id,
+      position: node.position,
+      node: card,
+    };
+    return [
+      node.within === undefined
+        ? placed
+        : {
+            ...placed,
+            within: node.within,
+          },
+    ];
   });
 }
 
@@ -377,18 +541,31 @@ export function whiteboardNodes(
  * — and one from a Note into the Cluster it sits in, which the Cluster's frame
  * round it already says.
  */
-function drawnAsAFrame(edge: StudioEdge, within: ReadonlyMap<string, string>, produced: ReadonlySet<string>): boolean {
+function drawnAsAFrame(
+  edge: StudioEdge,
+  within: ReadonlyMap<string, string>,
+  produced: ReadonlySet<string>,
+): boolean {
   if (edge.kind !== "produced") return false;
   if (within.get(edge.from) === edge.to) return true;
-  for (let frame = within.get(edge.to), held = 0; frame !== undefined && held < 8; frame = within.get(frame), held += 1) {
+  for (
+    let frame = within.get(edge.to), held = 0;
+    frame !== undefined && held < 8;
+    frame = within.get(frame), held += 1
+  ) {
     if (produced.has(`${edge.from} ${frame}`)) return true;
   }
   return false;
 }
 
-const RELATIONS = ["same_as", "blocks", "answers"] as const;
+const RELATIONS = [
+  "same_as",
+  "blocks",
+  "answers",
+] as const;
 type Relation = (typeof RELATIONS)[number];
-const isRelation = (kind: string): kind is Relation => (RELATIONS as readonly string[]).includes(kind);
+const isRelation = (kind: string): kind is Relation =>
+  (RELATIONS as readonly string[]).includes(kind);
 
 /**
  * Every edge the whiteboard can draw. **An edge kind this build does not know is left off** rather
@@ -399,28 +576,63 @@ const isRelation = (kind: string): kind is Relation => (RELATIONS as readonly st
  */
 export function whiteboardEdges(studio: Studio): StudioWhiteboardEdge[] {
   const within = new Map(
-    studio.nodes.flatMap((node) => (node.within === undefined ? [] : [[node.id, node.within] as const])),
+    studio.nodes.flatMap((node) =>
+      node.within === undefined
+        ? []
+        : [
+            [
+              node.id,
+              node.within,
+            ] as const,
+          ],
+    ),
   );
   const produced = new Set(
-    studio.edges.filter((edge) => edge.kind === "produced").map((edge) => `${edge.from} ${edge.to}`),
+    studio.edges
+      .filter((edge) => edge.kind === "produced")
+      .map((edge) => `${edge.from} ${edge.to}`),
   );
   return studio.edges.flatMap((edge): StudioWhiteboardEdge[] => {
     if (drawnAsAFrame(edge, within, produced)) return [];
-    const ends = { id: edge.id, source: edge.from, target: edge.to };
-    if (edge.kind === "produced") return [{ ...ends, kind: "produced" }];
+    const ends = {
+      id: edge.id,
+      source: edge.from,
+      target: edge.to,
+    };
+    if (edge.kind === "produced")
+      return [
+        {
+          ...ends,
+          kind: "produced",
+        },
+      ];
     if (!isRelation(edge.kind)) return [];
-    if (edge.standing !== "proposed") return [{ ...ends, kind: edge.kind, proposed: false }];
+    if (edge.standing !== "proposed")
+      return [
+        {
+          ...ends,
+          kind: edge.kind,
+          proposed: false,
+        },
+      ];
     const proposer = edge.added_by === undefined ? undefined : PROPOSED_BY[edge.added_by];
-    return [{ ...ends, kind: edge.kind, proposed: true, ...(proposer === undefined ? {} : { proposer }) }];
+    return [
+      {
+        ...ends,
+        kind: edge.kind,
+        proposed: true,
+        ...(proposer === undefined
+          ? {}
+          : {
+              proposer,
+            }),
+      },
+    ];
   });
 }
 
 /** How a node is named in a sentence: its kind, then its title. */
-export function nodeNamed(
-  studio: Studio,
-  nodeId: string,
-  live: StudioLive = {},
-): string {
+export function nodeNamed(studio: Studio, nodeId: string, live: StudioLive = {}): string {
   const node = studio.nodes.find((one) => one.id === nodeId);
   if (node === undefined) return nodeId;
   const card = cardOf(node, NO_FRAME_HELD, live);

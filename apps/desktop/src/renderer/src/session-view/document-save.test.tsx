@@ -10,14 +10,39 @@ import "../styles/index.css";
 import { readPage } from "./document-page";
 import { savedPage, valuesOf, variablesIn } from "./document-save";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const SCENE = {
   nodes: [
-    { id: "a", kind: "box", x: 0, y: 0, title: "Caller", body: "append(batch)" },
-    { id: "b", kind: "box", x: 320, y: 0, title: "Writer", body: "write(batch)" },
+    {
+      id: "a",
+      kind: "box",
+      x: 0,
+      y: 0,
+      title: "Caller",
+      body: "append(batch)",
+    },
+    {
+      id: "b",
+      kind: "box",
+      x: 320,
+      y: 0,
+      title: "Writer",
+      body: "write(batch)",
+    },
   ],
-  edges: [{ id: "a-b", from: "a", to: "b", label: "append" }],
+  edges: [
+    {
+      id: "a-b",
+      from: "a",
+      to: "b",
+      label: "append",
+    },
+  ],
 };
 
 const SOURCE = `<!doctype html><html><head><title>Reads &amp; writes</title><link rel="stylesheet" href="armada-kit.css"><style>.note { color: var(--status-awaiting-review); }</style></head>
@@ -31,7 +56,11 @@ async function drawn(): Promise<string> {
   const host = document.createElement("div");
   host.style.cssText = "inline-size: 900px; block-size: 400px";
   document.body.append(host);
-  const exporter: { current: (() => string | undefined) | null } = { current: null };
+  const exporter: {
+    current: (() => string | undefined) | null;
+  } = {
+    current: null,
+  };
   const root = createRoot(host);
   act(() => root.render(<SketchScene scene={SCENE} title="Flow" exporter={exporter} />));
   let svg: string | undefined;
@@ -50,7 +79,13 @@ test("the saved page holds the sketch as markup and the theme's values, and no s
   const probe = document.createElement("div");
   probe.className = "armada-doc__page";
   document.body.append(probe);
-  const html = savedPage(page, [svg], valuesOf(page, probe));
+  const html = savedPage(
+    page,
+    [
+      svg,
+    ],
+    valuesOf(page, probe),
+  );
   probe.remove();
 
   const saved = new DOMParser().parseFromString(html, "text/html");
@@ -73,18 +108,40 @@ test("the saved page holds the sketch as markup and the theme's values, and no s
   expect(saved.querySelector("link")).toBeNull();
   expect(saved.querySelector("[onclick], [onload]")).toBeNull();
   expect(html).not.toMatch(/steal|<script|\son\w+=|href="http|src=|@import|url\((?!#)/i);
-  expect(saved.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute("content")).toBe("default-src 'none'; style-src 'unsafe-inline'");
+  expect(
+    saved.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute("content"),
+  ).toBe("default-src 'none'; style-src 'unsafe-inline'");
 });
 
 test("a sketch that gave no markup stands as its caption", () => {
   const page = readPage(SOURCE);
-  const saved = new DOMParser().parseFromString(savedPage(page, [undefined], {}), "text/html");
+  const saved = new DOMParser().parseFromString(
+    savedPage(
+      page,
+      [
+        undefined,
+      ],
+      {},
+    ),
+    "text/html",
+  );
   expect(saved.querySelector(".armada-doc__sketch-mount")?.children).toHaveLength(0);
   expect(saved.querySelector("figcaption")?.textContent).toBe("Flow");
 });
 
 const MOCK_SCENE = {
-  nodes: [{ id: "row", kind: "mock", x: 0, y: 0, w: 320, title: "Job row", html: '<div class="lamp" data-part="lamp" onclick="steal()">Needs you<script>steal()</script></div>', css: ".lamp { margin: 0; }" }],
+  nodes: [
+    {
+      id: "row",
+      kind: "mock",
+      x: 0,
+      y: 0,
+      w: 320,
+      title: "Job row",
+      html: '<div class="lamp" data-part="lamp" onclick="steal()">Needs you<script>steal()</script></div>',
+      css: ".lamp { margin: 0; }",
+    },
+  ],
   edges: [],
 };
 const KEPT_CSS = ".lamp { color: rgb(255, 0, 0); }";
@@ -93,10 +150,29 @@ test("a mock is saved as a sealed frame holding its html and the kept rules, wit
   const host = document.createElement("div");
   host.style.cssText = "inline-size: 900px; block-size: 400px";
   document.body.append(host);
-  const exporter: { current: (() => string | undefined) | null } = { current: null };
-  const mockStyles = async () => ({ css: [KEPT_CSS], fonts: [], drawnWith: ["packages/tokens/tokens.css"], root: { "data-theme": "dark" } });
+  const exporter: {
+    current: (() => string | undefined) | null;
+  } = {
+    current: null,
+  };
+  const mockStyles = async () => ({
+    css: [
+      KEPT_CSS,
+    ],
+    fonts: [],
+    drawnWith: [
+      "packages/tokens/tokens.css",
+    ],
+    root: {
+      "data-theme": "dark",
+    },
+  });
   const root = createRoot(host);
-  act(() => root.render(<SketchScene scene={MOCK_SCENE} title="Row" exporter={exporter} mockStyles={mockStyles} />));
+  act(() =>
+    root.render(
+      <SketchScene scene={MOCK_SCENE} title="Row" exporter={exporter} mockStyles={mockStyles} />,
+    ),
+  );
   let svg: string | undefined;
   await vi.waitFor(() => {
     svg = exporter.current?.();
@@ -106,7 +182,13 @@ test("a mock is saved as a sealed frame holding its html and the kept rules, wit
   host.remove();
 
   const page = readPage(SOURCE);
-  const html = savedPage(page, [svg], {});
+  const html = savedPage(
+    page,
+    [
+      svg,
+    ],
+    {},
+  );
   const saved = new DOMParser().parseFromString(html, "text/html");
   const frame = saved.querySelector("iframe");
   // No permission at all: the frame gets an origin of its own and runs nothing.
@@ -118,7 +200,9 @@ test("a mock is saved as a sealed frame holding its html and the kept rules, wit
   expect(inside.body.textContent).toContain("Needs you");
   expect(inside.querySelector('[data-part="lamp"]')).not.toBeNull();
   expect(inside.querySelector("script, [onclick]")).toBeNull();
-  expect(inside.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute("content")).toContain("default-src 'none'");
+  expect(
+    inside.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute("content"),
+  ).toContain("default-src 'none'");
   expect(saved.querySelector("script")).toBeNull();
   expect(html).not.toMatch(/steal|<script|href="http|@import|url\((?!#)/i);
 

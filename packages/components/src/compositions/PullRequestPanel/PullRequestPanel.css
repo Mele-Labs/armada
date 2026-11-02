@@ -110,8 +110,12 @@
 }
 
 @keyframes armada-pr-panel-refresh {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(340%); }
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -205,7 +209,8 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
 }

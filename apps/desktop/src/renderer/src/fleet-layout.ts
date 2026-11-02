@@ -8,7 +8,14 @@
 
 import type { ModChecked, ModSummary, Outcome, SavePreference } from "@armada/protocol";
 import { parseLayout, serializeLayout } from "@armada/shell";
-import type { LayoutFile, LayoutMod, LayoutRegion, LayoutSource, LayoutState, RegionChoice } from "@armada/shell";
+import type {
+  LayoutFile,
+  LayoutMod,
+  LayoutRegion,
+  LayoutSource,
+  LayoutState,
+  RegionChoice,
+} from "@armada/shell";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -27,11 +34,20 @@ export type FleetLayout = {
   savePreference: (save: SavePreference) => Promise<Outcome>;
 };
 
-const NONE: LayoutFile = { regions: {} };
+const NONE: LayoutFile = {
+  regions: {},
+};
 
-type Read = { at: string; file: LayoutFile; problem?: string };
+type Read = {
+  at: string;
+  file: LayoutFile;
+  problem?: string;
+};
 
-export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) => void = askToTell): LayoutSource {
+export function createFleetLayout(
+  fleet: FleetLayout,
+  tell: (sentence: string) => void = askToTell,
+): LayoutSource {
   let rows: readonly ModSummary[] = [];
   // The owner's choices as Fleet last said them, and as he has pressed them since.
   let own: LayoutFile = NONE;
@@ -56,15 +72,25 @@ export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) =
           name: row.name,
           title: row.name,
           enabled: switched.get(row.name) ?? row.enabled,
-          ...(problem === undefined ? {} : { problem }),
+          ...(problem === undefined
+            ? {}
+            : {
+                problem,
+              }),
           ...(row.pull_request === undefined ? promoted.get(row.name) : keptOf(row)),
           file: current?.file ?? NONE,
         };
       });
 
-  let held: LayoutState = { mods: [], own };
+  let held: LayoutState = {
+    mods: [],
+    own,
+  };
   const refresh = () => {
-    held = { mods: modsNow(), own };
+    held = {
+      mods: modsNow(),
+      own,
+    };
     listeners.forEach((on) => on());
   };
 
@@ -73,16 +99,36 @@ export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) =
     for (const row of rows) {
       const at = row.changed_at ?? "";
       const key = `${row.name}@${at}`;
-      if (row.kind !== "layout" || !row.valid || !row.enabled || reads.get(row.name)?.at === at || asking.has(key)) continue;
+      if (
+        row.kind !== "layout" ||
+        !row.valid ||
+        !row.enabled ||
+        reads.get(row.name)?.at === at ||
+        asking.has(key)
+      )
+        continue;
       asking.add(key);
       fleet.validateMod(row.name).then(
         (checked) => {
           asking.delete(key);
           if (checked === null) return;
-          if (!checked.valid || checked.layout === undefined) reads.set(row.name, { at, file: NONE, problem: checked.problems[0] ?? "Did not pass its checks" });
+          if (!checked.valid || checked.layout === undefined)
+            reads.set(row.name, {
+              at,
+              file: NONE,
+              problem: checked.problems[0] ?? "Did not pass its checks",
+            });
           else {
             const parsed = parseLayout(checked.layout);
-            reads.set(row.name, { at, file: parsed.file, ...(parsed.problems.length === 0 ? {} : { problem: parsed.problems[0]! }) });
+            reads.set(row.name, {
+              at,
+              file: parsed.file,
+              ...(parsed.problems.length === 0
+                ? {}
+                : {
+                    problem: parsed.problems[0]!,
+                  }),
+            });
           }
           refresh();
         },
@@ -97,7 +143,11 @@ export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) =
     own = next;
     saving += 1;
     refresh();
-    const outcome = await fleet.savePreference({ name: "layout_choices", value: false, text: serializeLayout(next) });
+    const outcome = await fleet.savePreference({
+      name: "layout_choices",
+      value: false,
+      text: serializeLayout(next),
+    });
     saving -= 1;
     if (outcome.ok) return;
     if (own === next) {
@@ -109,7 +159,10 @@ export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) =
 
   const ingest = (next: Facts) => {
     const choices = next.preferences.layout_choices ?? "";
-    const key = JSON.stringify([next.mods, choices]);
+    const key = JSON.stringify([
+      next.mods,
+      choices,
+    ]);
     if (key === seen) return;
     seen = key;
     rows = next.mods?.mods ?? [];
@@ -143,7 +196,15 @@ export function createFleetLayout(fleet: FleetLayout, tell: (sentence: string) =
     },
     setOwn: (region: LayoutRegion, choice: RegionChoice | undefined) => {
       const { [region]: _was, ...rest } = own.regions;
-      void keep({ regions: choice === undefined ? rest : { ...rest, [region]: choice } });
+      void keep({
+        regions:
+          choice === undefined
+            ? rest
+            : {
+                ...rest,
+                [region]: choice,
+              },
+      });
     },
     toDefaults: () => {
       void keep(NONE);

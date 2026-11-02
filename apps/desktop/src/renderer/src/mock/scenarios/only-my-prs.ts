@@ -18,7 +18,10 @@ const behindMine: HubPullRequest = {
   url: `${FORGE}1901`,
   author: "mia",
   ci: "failed",
-  queue: { state: "queued", position: 2 },
+  queue: {
+    state: "queued",
+    position: 2,
+  },
   opened_at: ago(55),
   mine: false,
 };
@@ -41,7 +44,19 @@ export const s262OnlyMyPrs: Scenario = {
     ...ship.state,
     mergeLines: {
       lines: ship.state.mergeLines!.lines.map((line, at) =>
-        at !== 0 ? line : { ...line, hub: { ...line.hub, pull_requests: [...(line.hub?.pull_requests ?? []), behindMine, outsideTheQueue] } },
+        at !== 0
+          ? line
+          : {
+              ...line,
+              hub: {
+                ...line.hub,
+                pull_requests: [
+                  ...(line.hub?.pull_requests ?? []),
+                  behindMine,
+                  outsideTheQueue,
+                ],
+              },
+            },
       ),
     },
   },

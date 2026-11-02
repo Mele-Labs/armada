@@ -26,11 +26,26 @@ export type GuideGroup = {
  * the picture of both, and last what it costs this machine.
  */
 export const GUIDE_GROUPS: readonly GuideGroup[] = [
-  { id: "job", title: "A job" },
-  { id: "plan", title: "The plan" },
-  { id: "run", title: "The run" },
-  { id: "workflow", title: "The workflow" },
-  { id: "machine", title: "This machine" },
+  {
+    id: "job",
+    title: "A job",
+  },
+  {
+    id: "plan",
+    title: "The plan",
+  },
+  {
+    id: "run",
+    title: "The run",
+  },
+  {
+    id: "workflow",
+    title: "The workflow",
+  },
+  {
+    id: "machine",
+    title: "This machine",
+  },
 ];
 
 /**

@@ -8,13 +8,55 @@ export const AUTO_MERGE_TITLE = "Why a queued pull request still pinged";
 
 export const AUTO_MERGE = scene(
   [
-    box("queues", 0, 0, "Agent queues #2645", "gh pr merge --auto, 02:12", { icon: "git-merge", step: 1 }),
-    box("auto", 320, 0, "Fleet: auto-merge on", "Told once per pull request; the wait is taken off", { icon: "bot", step: 2 }),
-    box("left", 640, 0, "Left the queue", "conflicts, checks failed, 02:23 to 06:36", { icon: "activity", step: 3 }),
-    box("again", 0, 170, "Queues it again", "Agent pushes the fix and states a new wait, 11:32", { icon: "git-merge", step: 4 }),
-    box("reads", 320, 170, "Fleet reads: in the queue, auto-merge null", "pull_notices.rs:219 reads auto_merge only, and the notice is already told: nothing takes the wait off", { icon: "eye", step: 5 }),
-    box("needs", 640, 170, "Needs you shows the row", "Nothing for him to do", { icon: "scale", step: 6 }),
-    box("fix", 320, 340, "Fix", "Queue or auto-merge, at every reading: take the wait off, tell the Session only where something came off; agents never state it", { icon: "wrench", step: 7 }),
+    box("queues", 0, 0, "Agent queues #2645", "gh pr merge --auto, 02:12", {
+      icon: "git-merge",
+      step: 1,
+    }),
+    box(
+      "auto",
+      320,
+      0,
+      "Fleet: auto-merge on",
+      "Told once per pull request; the wait is taken off",
+      {
+        icon: "bot",
+        step: 2,
+      },
+    ),
+    box("left", 640, 0, "Left the queue", "conflicts, checks failed, 02:23 to 06:36", {
+      icon: "activity",
+      step: 3,
+    }),
+    box("again", 0, 170, "Queues it again", "Agent pushes the fix and states a new wait, 11:32", {
+      icon: "git-merge",
+      step: 4,
+    }),
+    box(
+      "reads",
+      320,
+      170,
+      "Fleet reads: in the queue, auto-merge null",
+      "pull_notices.rs:219 reads auto_merge only, and the notice is already told: nothing takes the wait off",
+      {
+        icon: "eye",
+        step: 5,
+      },
+    ),
+    box("needs", 640, 170, "Needs you shows the row", "Nothing for him to do", {
+      icon: "scale",
+      step: 6,
+    }),
+    box(
+      "fix",
+      320,
+      340,
+      "Fix",
+      "Queue or auto-merge, at every reading: take the wait off, tell the Session only where something came off; agents never state it",
+      {
+        icon: "wrench",
+        step: 7,
+      },
+    ),
   ],
   [
     arrow("queues", "auto", undefined, true, 2),

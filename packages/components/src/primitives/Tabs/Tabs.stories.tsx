@@ -19,9 +19,18 @@ export const SectionsOfOneObject: Story = {
   args: {
     defaultValue: "diff",
     items: [
-      { id: "diff", label: "Diff" },
-      { id: "evidence", label: "Evidence" },
-      { id: "log", label: "Log" },
+      {
+        id: "diff",
+        label: "Diff",
+      },
+      {
+        id: "evidence",
+        label: "Evidence",
+      },
+      {
+        id: "log",
+        label: "Log",
+      },
     ],
   },
   /**
@@ -35,14 +44,30 @@ export const SectionsOfOneObject: Story = {
    * items.length` would land on nothing instead.
    */
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("tab", { name: "Diff" }));
-    await expect(canvas.getByRole("tab", { selected: true })).toHaveAccessibleName("Diff");
+    await userEvent.click(
+      canvas.getByRole("tab", {
+        name: "Diff",
+      }),
+    );
+    await expect(
+      canvas.getByRole("tab", {
+        selected: true,
+      }),
+    ).toHaveAccessibleName("Diff");
 
     await userEvent.keyboard("{ArrowRight}");
-    await expect(canvas.getByRole("tab", { selected: true })).toHaveAccessibleName("Evidence");
+    await expect(
+      canvas.getByRole("tab", {
+        selected: true,
+      }),
+    ).toHaveAccessibleName("Evidence");
 
     await userEvent.keyboard("{ArrowLeft}{ArrowLeft}");
-    await expect(canvas.getByRole("tab", { selected: true })).toHaveAccessibleName("Log");
+    await expect(
+      canvas.getByRole("tab", {
+        selected: true,
+      }),
+    ).toHaveAccessibleName("Log");
   },
 };
 
@@ -51,9 +76,18 @@ export const LastActive: Story = {
   args: {
     defaultValue: "log",
     items: [
-      { id: "diff", label: "Diff" },
-      { id: "evidence", label: "Evidence" },
-      { id: "log", label: "Log" },
+      {
+        id: "diff",
+        label: "Diff",
+      },
+      {
+        id: "evidence",
+        label: "Evidence",
+      },
+      {
+        id: "log",
+        label: "Log",
+      },
     ],
   },
 };
@@ -78,23 +112,36 @@ export const WithAHint: Story = {
         label: "Wave 2 · The seam first, then every surface that reads it",
         hint: "The seam first, then every surface that reads it. The roll-up sent the first pass back as too large to review, so the seam lands alone and each surface follows it.",
       },
-      { id: "3", label: "Wave 3" },
+      {
+        id: "3",
+        label: "Wave 3",
+      },
     ],
   },
   play: async ({ canvas, userEvent }) => {
-    const first = canvas.getByRole("tab", { name: "Wave 1 · The seam as one Job" });
+    const first = canvas.getByRole("tab", {
+      name: "Wave 1 · The seam as one Job",
+    });
     await expect(first).toHaveAccessibleDescription(/Every refusal is read in one place/);
-    await expect(canvas.getByRole("tab", { name: "Wave 3" })).not.toHaveAttribute("aria-describedby");
+    await expect(
+      canvas.getByRole("tab", {
+        name: "Wave 3",
+      }),
+    ).not.toHaveAttribute("aria-describedby");
 
     await userEvent.hover(first);
-    await waitFor(() => expect(canvas.getByText(/Every refusal is read in one place/)).toBeVisible());
+    await waitFor(() =>
+      expect(canvas.getByText(/Every refusal is read in one place/)).toBeVisible(),
+    );
 
     // Still a tab strip: the arrows move the selection through a hinted tab.
     await userEvent.click(first);
     await userEvent.keyboard("{ArrowRight}");
-    await expect(canvas.getByRole("tab", { selected: true })).toHaveAccessibleName(
-      "Wave 2 · The seam first, then every surface that reads it",
-    );
+    await expect(
+      canvas.getByRole("tab", {
+        selected: true,
+      }),
+    ).toHaveAccessibleName("Wave 2 · The seam first, then every surface that reads it");
   },
 };
 
@@ -107,16 +154,34 @@ export const WithAnAlert: Story = {
   args: {
     defaultValue: "active",
     items: [
-      { id: "move", label: "Your move", alert: "Needs you" },
-      { id: "active", label: "Active" },
-      { id: "done", label: "Done" },
+      {
+        id: "move",
+        label: "Your move",
+        alert: "Needs you",
+      },
+      {
+        id: "active",
+        label: "Active",
+      },
+      {
+        id: "done",
+        label: "Done",
+      },
     ],
   },
   play: async ({ canvas }) => {
-    const move = canvas.getByRole("tab", { name: /Your move/ });
+    const move = canvas.getByRole("tab", {
+      name: /Your move/,
+    });
     await expect(move.querySelector('[role="img"]')).toHaveAccessibleName("Needs you");
     await expect(move.textContent).not.toMatch(/\d/);
-    await expect(canvas.getByRole("tab", { name: "Active" }).querySelector('[role="img"]')).toBeNull();
+    await expect(
+      canvas
+        .getByRole("tab", {
+          name: "Active",
+        })
+        .querySelector('[role="img"]'),
+    ).toBeNull();
   },
 };
 
@@ -129,23 +194,44 @@ export const IconsOnly: Story = {
     defaultValue: "jobs",
     iconsOnly: true,
     items: [
-      { id: "cockpit", label: "Cockpit", icon: LayoutDashboard },
-      { id: "jobs", label: "Jobs", icon: Box },
-      { id: "retros", label: "Retros" },
+      {
+        id: "cockpit",
+        label: "Cockpit",
+        icon: LayoutDashboard,
+      },
+      {
+        id: "jobs",
+        label: "Jobs",
+        icon: Box,
+      },
+      {
+        id: "retros",
+        label: "Retros",
+      },
     ],
   },
   play: async ({ canvas, userEvent }) => {
-    const cockpit = canvas.getByRole("tab", { name: "Cockpit" });
+    const cockpit = canvas.getByRole("tab", {
+      name: "Cockpit",
+    });
     await expect(cockpit.querySelector("svg")).not.toBeNull();
     // The word is the tooltip's, kept in the document while closed, so it is there and not seen.
     await expect(canvas.getByText("Cockpit")).not.toBeVisible();
-    await expect(canvas.getByRole("tab", { name: "Retros" })).toHaveTextContent("Retros");
+    await expect(
+      canvas.getByRole("tab", {
+        name: "Retros",
+      }),
+    ).toHaveTextContent("Retros");
 
     await userEvent.hover(cockpit);
     await waitFor(() => expect(canvas.getByText("Cockpit")).toBeVisible());
 
     await userEvent.click(cockpit);
     await userEvent.keyboard("{ArrowRight}");
-    await expect(canvas.getByRole("tab", { selected: true })).toHaveAccessibleName("Jobs");
+    await expect(
+      canvas.getByRole("tab", {
+        selected: true,
+      }),
+    ).toHaveAccessibleName("Jobs");
   },
 };

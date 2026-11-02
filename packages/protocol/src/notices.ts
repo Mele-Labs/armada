@@ -41,13 +41,23 @@ export const NOTICES = [
 export type Notice = (typeof NOTICES)[number];
 
 /** Whether a row's `notice` is a word Bridge knows how to mute. */
-export const isNotice = (word: unknown): word is Notice => typeof word === "string" && (NOTICES as readonly string[]).includes(word);
+export const isNotice = (word: unknown): word is Notice =>
+  typeof word === "string" && (NOTICES as readonly string[]).includes(word);
 
 /** What a mute covers. `hour` is one Job for an hour from the press. */
 export type NoticeScope =
-  | { kind: "job"; session_id: string }
-  | { kind: "repo"; manifest_id: string }
-  | { kind: "hour"; session_id: string };
+  | {
+      kind: "job";
+      session_id: string;
+    }
+  | {
+      kind: "repo";
+      manifest_id: string;
+    }
+  | {
+      kind: "hour";
+      session_id: string;
+    };
 
 /**
  * The body and answer of `set_notice_mute` (`POST /notices/mute`). `muted: false` lifts the mute.

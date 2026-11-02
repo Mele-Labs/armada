@@ -34,13 +34,21 @@ const subscribe = (on: () => void) => {
   };
 };
 
-type Held = { models: KitModelsRead; setOn: KitModelsSource["setOn"]; choose: KitModelsSource["choose"] };
+type Held = {
+  models: KitModelsRead;
+  setOn: KitModelsSource["setOn"];
+  choose: KitModelsSource["choose"];
+};
 
 /** The page's models: the window's own source where it provides one, else Fleet's `holds.models` and settings. */
 export function useKitModels(held: ModelChoices | null, settings: SettingsList | null): Held {
   const source = useSyncExternalStore(subscribe, () => provided?.get());
   if (source !== undefined) {
-    return { models: source, setOn: (name, on) => provided?.setOn(name, on), choose: (slot, value) => provided?.choose(slot, value) };
+    return {
+      models: source,
+      setOn: (name, on) => provided?.setOn(name, on),
+      choose: (slot, value) => provided?.choose(slot, value),
+    };
   }
   return {
     models: readKitModels(held, settings),

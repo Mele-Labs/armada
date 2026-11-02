@@ -7,7 +7,10 @@ import { forgetPanes, jobOpens, peek, rearrange } from "./store";
 import { addTab, holderOf, panesOf } from "./tree";
 
 const JOB = "focus-job";
-const terminals = () => panesOf(peek(JOB).root).flatMap((one) => one.tabs).filter((one) => one.kind === "terminal");
+const terminals = () =>
+  panesOf(peek(JOB).root)
+    .flatMap((one) => one.tabs)
+    .filter((one) => one.kind === "terminal");
 
 beforeEach(() => forgetPanes());
 

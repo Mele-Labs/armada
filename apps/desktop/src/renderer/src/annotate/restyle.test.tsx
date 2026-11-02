@@ -26,11 +26,56 @@ afterEach(() => {
   document.documentElement.removeAttribute("style");
 });
 
-const size = (after: string, token?: string): StyleChange => ({ kind: "size", property: "font-size", before: "13px", after, ...(token === undefined ? {} : { token }) });
-const colour = (after: string, token?: string): StyleChange => ({ kind: "colour", property: "color", before: "#FFFFFF", after, ...(token === undefined ? {} : { token }) });
-const fill = (after: string, token?: string): StyleChange => ({ kind: "fill", property: "background-color", before: "transparent", after, ...(token === undefined ? {} : { token }) });
-const padding = (after: string, token?: string): StyleChange => ({ kind: "spacing", property: "padding", before: "0px", after, ...(token === undefined ? {} : { token }) });
-const words = (before: string, after: string): StyleChange => ({ kind: "text", property: "text", before, after });
+const size = (after: string, token?: string): StyleChange => ({
+  kind: "size",
+  property: "font-size",
+  before: "13px",
+  after,
+  ...(token === undefined
+    ? {}
+    : {
+        token,
+      }),
+});
+const colour = (after: string, token?: string): StyleChange => ({
+  kind: "colour",
+  property: "color",
+  before: "#FFFFFF",
+  after,
+  ...(token === undefined
+    ? {}
+    : {
+        token,
+      }),
+});
+const fill = (after: string, token?: string): StyleChange => ({
+  kind: "fill",
+  property: "background-color",
+  before: "transparent",
+  after,
+  ...(token === undefined
+    ? {}
+    : {
+        token,
+      }),
+});
+const padding = (after: string, token?: string): StyleChange => ({
+  kind: "spacing",
+  property: "padding",
+  before: "0px",
+  after,
+  ...(token === undefined
+    ? {}
+    : {
+        token,
+      }),
+});
+const words = (before: string, after: string): StyleChange => ({
+  kind: "text",
+  property: "text",
+  before,
+  after,
+});
 
 describe("asHex", () => {
   it("writes a computed colour as the tokens are, in capitals", () => {
@@ -46,7 +91,13 @@ describe("asHex", () => {
   });
 
   it("returns anything else as it came", () => {
-    for (const value of ["", "transparent", "red", "var(--accent)"]) expect(asHex(value)).toBe(value);
+    for (const value of [
+      "",
+      "transparent",
+      "red",
+      "var(--accent)",
+    ])
+      expect(asHex(value)).toBe(value);
   });
 });
 
@@ -70,7 +121,14 @@ describe("a note's changes on its element", () => {
     document.documentElement.style.setProperty("--bg-raised", "rgb(1, 2, 3)");
     document.documentElement.style.setProperty("--space-4", "16px");
     const element = onPage("<div>words</div>", "padding: 2px");
-    putOn(element, [fill("#010203", "--bg-raised"), padding("16px", "--space-4")], "n1");
+    putOn(
+      element,
+      [
+        fill("#010203", "--bg-raised"),
+        padding("16px", "--space-4"),
+      ],
+      "n1",
+    );
     expect(element.style.getPropertyValue("background-color")).toBe("var(--bg-raised)");
     expect(computed(element, "background-color")).toBe("rgb(1, 2, 3)");
     expect(computed(element, "padding-top")).toBe("16px");
@@ -84,7 +142,13 @@ describe("a note's changes on its element", () => {
 
   it("writes a value as it is where no token was picked", () => {
     const element = onPage("<div>words</div>");
-    putOn(element, [fill("#112233")], "n1");
+    putOn(
+      element,
+      [
+        fill("#112233"),
+      ],
+      "n1",
+    );
     expect(computed(element, "background-color")).toBe("rgb(17, 34, 51)");
     takeOff(element);
     expect(element.style.getPropertyValue("background-color")).toBe("");
@@ -93,7 +157,13 @@ describe("a note's changes on its element", () => {
   it("beats the element's own styling, and puts back the value and the priority it had", () => {
     const element = onPage("<div>words</div>");
     element.style.setProperty("padding", "3px", "important");
-    putOn(element, [padding("20px")], "n1");
+    putOn(
+      element,
+      [
+        padding("20px"),
+      ],
+      "n1",
+    );
     expect(computed(element, "padding-left")).toBe("20px");
     takeOff(element);
     expect(element.style.getPropertyValue("padding")).toBe("3px");
@@ -103,9 +173,18 @@ describe("a note's changes on its element", () => {
   it("makes Size and Colour reach everything inside the element, over what the inside sets itself", () => {
     document.documentElement.style.setProperty("--text-xl", "22px");
     document.documentElement.style.setProperty("--fg-default", "rgb(10, 11, 12)");
-    const element = onPage('<div><span style="font-size: 10px; color: rgb(5, 5, 5)">inner</span><b>bold</b></div>');
+    const element = onPage(
+      '<div><span style="font-size: 10px; color: rgb(5, 5, 5)">inner</span><b>bold</b></div>',
+    );
     const inner = element.querySelector("span")!;
-    putOn(element, [size("22px", "--text-xl"), colour("#0A0B0C", "--fg-default")], "n1");
+    putOn(
+      element,
+      [
+        size("22px", "--text-xl"),
+        colour("#0A0B0C", "--fg-default"),
+      ],
+      "n1",
+    );
     expect(computed(element, "font-size")).toBe("22px");
     expect(computed(inner, "font-size")).toBe("22px");
     expect(computed(inner, "color")).toBe("rgb(10, 11, 12)");
@@ -124,7 +203,13 @@ describe("a note's changes on its element", () => {
   it("follows the theme for a Size picked as a token", () => {
     document.documentElement.style.setProperty("--text-lg", "20px");
     const element = onPage("<div>words</div>");
-    putOn(element, [size("20px", "--text-lg")], "n1");
+    putOn(
+      element,
+      [
+        size("20px", "--text-lg"),
+      ],
+      "n1",
+    );
     expect(computed(element, "font-size")).toBe("20px");
     document.documentElement.style.setProperty("--text-lg", "30px");
     expect(computed(element, "font-size")).toBe("30px");
@@ -132,7 +217,13 @@ describe("a note's changes on its element", () => {
 
   it("changes the words, and puts them back", () => {
     const element = onPage("<div><b>Fix the flaky test</b> now</div>");
-    putOn(element, [words("Fix the flaky test", "Fix the flaky tests")], "n1");
+    putOn(
+      element,
+      [
+        words("Fix the flaky test", "Fix the flaky tests"),
+      ],
+      "n1",
+    );
     expect(element.textContent).toBe("Fix the flaky tests now");
     takeOff(element);
     expect(element.textContent).toBe("Fix the flaky test now");
@@ -140,14 +231,33 @@ describe("a note's changes on its element", () => {
 
   it("leaves an element with no words as it is where Text is asked", () => {
     const element = onPage("<div><span></span></div>");
-    putOn(element, [words("", "hello")], "n1");
+    putOn(
+      element,
+      [
+        words("", "hello"),
+      ],
+      "n1",
+    );
     expect(element.textContent).toBe("");
   });
 
   it("takes what was put on before off first, so a changed list replaces rather than adds", () => {
     const element = onPage("<div>words</div>");
-    putOn(element, [fill("#112233"), size("22px")], "n1");
-    putOn(element, [padding("12px")], "n1");
+    putOn(
+      element,
+      [
+        fill("#112233"),
+        size("22px"),
+      ],
+      "n1",
+    );
+    putOn(
+      element,
+      [
+        padding("12px"),
+      ],
+      "n1",
+    );
     expect(element.style.getPropertyValue("background-color")).toBe("");
     expect(element.hasAttribute(RESTYLED)).toBe(false);
     expect(computed(element, "padding-top")).toBe("12px");
@@ -158,8 +268,20 @@ describe("a note's changes on its element", () => {
   it("keeps two notes' rules apart, and taking one off leaves the other's", () => {
     const one = onPage("<div>one</div>");
     const two = onPage("<div>two</div>");
-    putOn(one, [size("22px")], "n1");
-    putOn(two, [size("24px")], "n2");
+    putOn(
+      one,
+      [
+        size("22px"),
+      ],
+      "n1",
+    );
+    putOn(
+      two,
+      [
+        size("24px"),
+      ],
+      "n2",
+    );
     expect(computed(one, "font-size")).toBe("22px");
     expect(computed(two, "font-size")).toBe("24px");
     takeOff(one);

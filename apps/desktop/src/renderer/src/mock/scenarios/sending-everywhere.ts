@@ -13,10 +13,25 @@ import { s210RouteAThought } from "./route-a-thought";
 
 type Answer = "taken" | "refused";
 
-const refusal = (message: string): Outcome => ({ ok: false, why: "refused", error: { code: "fleet.refused", message, run_id: "", fields: {}, chain: [] } });
+const refusal = (message: string): Outcome => ({
+  ok: false,
+  why: "refused",
+  error: {
+    code: "fleet.refused",
+    message,
+    run_id: "",
+    fields: {},
+    chain: [],
+  },
+});
 
 /** Fleet's answer, once a step lets it go: the next of `outcomes`, and taken where none is left. */
-function slowly<Args extends unknown[], Taken>(held: ReturnType<typeof gate>, outcomes: Answer[], taken: (...args: Args) => Promise<Taken>, refused: Taken): (...args: Args) => Promise<Taken> {
+function slowly<Args extends unknown[], Taken>(
+  held: ReturnType<typeof gate>,
+  outcomes: Answer[],
+  taken: (...args: Args) => Promise<Taken>,
+  refused: Taken,
+): (...args: Args) => Promise<Taken> {
   return async (...args) => {
     await held.wait();
     return outcomes.shift() === "refused" ? refused : taken(...args);
@@ -33,11 +48,31 @@ export const s265SendingEverywhere: Scenario = {
     const held = gate();
     // After the window has registered its own, so a step of the walk lets the oldest wait go.
     queueMicrotask(() => onTimePassing(() => held.release()));
-    const taken = <K extends keyof BridgeApi>(name: K): NonNullable<BridgeApi[K]> => base[name] as NonNullable<BridgeApi[K]>;
+    const taken = <K extends keyof BridgeApi>(name: K): NonNullable<BridgeApi[K]> =>
+      base[name] as NonNullable<BridgeApi[K]>;
     return {
       ...base,
-      askHelm: slowly(held, ["taken", "refused", "taken"], taken("askHelm"), refusal("Fleet did not take it")),
-      sendSessionMessage: slowly(held, ["taken"], taken("sendSessionMessage"), { ok: false, outcome: refusal("Fleet did not take it") }),
+      askHelm: slowly(
+        held,
+        [
+          "taken",
+          "refused",
+          "taken",
+        ],
+        taken("askHelm"),
+        refusal("Fleet did not take it"),
+      ),
+      sendSessionMessage: slowly(
+        held,
+        [
+          "taken",
+        ],
+        taken("sendSessionMessage"),
+        {
+          ok: false,
+          outcome: refusal("Fleet did not take it"),
+        },
+      ),
     };
   },
 };

@@ -8,17 +8,46 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { openInPanel } from "./shared-panel/store";
 
 export function useShownFiles(session: Pick<Session, "id" | "attachments">): void {
-  const seen = useRef<{ id: string; shown: Set<string> } | undefined>(undefined);
+  const seen = useRef<
+    | {
+        id: string;
+        shown: Set<string>;
+      }
+    | undefined
+  >(undefined);
   useEffect(() => {
-    const now = session.attachments.flatMap((one) => (one.kind === "artifact" && one.form === "file" && one.by === "agent" && one.shown !== undefined ? [{ path: one.id, key: `${one.id}@${one.shown}` }] : []));
+    const now = session.attachments.flatMap((one) =>
+      one.kind === "artifact" &&
+      one.form === "file" &&
+      one.by === "agent" &&
+      one.shown !== undefined
+        ? [
+            {
+              path: one.id,
+              key: `${one.id}@${one.shown}`,
+            },
+          ]
+        : [],
+    );
     if (seen.current?.id !== session.id) {
-      seen.current = { id: session.id, shown: new Set(now.map((one) => one.key)) };
+      seen.current = {
+        id: session.id,
+        shown: new Set(now.map((one) => one.key)),
+      };
       return;
     }
     for (const one of now) {
       if (seen.current.shown.has(one.key)) continue;
       seen.current.shown.add(one.key);
-      openInPanel({ kind: "file", path: one.path, from: "session", sessionId: session.id });
+      openInPanel({
+        kind: "file",
+        path: one.path,
+        from: "session",
+        sessionId: session.id,
+      });
     }
-  }, [session.id, session.attachments]);
+  }, [
+    session.id,
+    session.attachments,
+  ]);
 }

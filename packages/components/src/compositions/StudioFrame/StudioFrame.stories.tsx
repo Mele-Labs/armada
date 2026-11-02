@@ -12,7 +12,12 @@ const meta: Meta<typeof StudioFrame> = {
   component: StudioFrame,
   decorators: [
     (Story) => (
-      <div style={{ width: "var(--w-studio-node)", height: "calc(var(--w-studio-node) * 0.75)" }}>
+      <div
+        style={{
+          width: "var(--w-studio-node)",
+          height: "calc(var(--w-studio-node) * 0.75)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -23,16 +28,42 @@ export default meta;
 type Story = StoryObj<typeof StudioFrame>;
 
 /** A Zone: a well, headed by its kind, with no words of its own. */
-export const Zone: Story = { args: { kind: "zone" } };
+export const Zone: Story = {
+  args: {
+    kind: "zone",
+  },
+};
 
 /** A Cluster: a dashed box headed by its title, the way it sits inside a read-in's Zone. */
-export const Cluster: Story = { args: { kind: "cluster", title: "Risks to watch" } };
+export const Cluster: Story = {
+  args: {
+    kind: "cluster",
+    title: "Risks to watch",
+  },
+};
 
 /** Picked on the board. */
-export const Selected: Story = { args: { kind: "zone", selected: true } };
+export const Selected: Story = {
+  args: {
+    kind: "zone",
+    selected: true,
+  },
+};
 
 /** A run's Cluster round a group at work. */
-export const Live: Story = { args: { kind: "cluster", title: "Group 3", tone: "live" } };
+export const Live: Story = {
+  args: {
+    kind: "cluster",
+    title: "Group 3",
+    tone: "live",
+  },
+};
 
 /** A run's Cluster round a group that passed: it recedes. */
-export const Done: Story = { args: { kind: "cluster", title: "Group 1", tone: "done" } };
+export const Done: Story = {
+  args: {
+    kind: "cluster",
+    title: "Group 1",
+    tone: "done",
+  },
+};

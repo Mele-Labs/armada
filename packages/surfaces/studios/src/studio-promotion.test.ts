@@ -20,7 +20,10 @@ const note = (id: string, said: string, x = 0, y = 0): StudioNode => ({
   id,
   kind: "note",
   said,
-  position: { x, y },
+  position: {
+    x,
+    y,
+  },
   created_at: at,
 });
 
@@ -35,8 +38,16 @@ const produced = (from: string, to: string): StudioEdge => ({
 
 describe("what a selection offers", () => {
   test("two Notes cluster; two of anything else only outline", () => {
-    const notes = studio([note("a", "first"), note("b", "second")]);
-    expect(actsOn(notes, ["a", "b"])).toMatchObject({
+    const notes = studio([
+      note("a", "first"),
+      note("b", "second"),
+    ]);
+    expect(
+      actsOn(notes, [
+        "a",
+        "b",
+      ]),
+    ).toMatchObject({
       cluster: true,
       outline: true,
       writeUp: false,
@@ -48,11 +59,19 @@ describe("what a selection offers", () => {
         id: "b",
         kind: "link",
         address: "https://example.invalid",
-        position: { x: 0, y: 0 },
+        position: {
+          x: 0,
+          y: 0,
+        },
         created_at: at,
       },
     ]);
-    expect(actsOn(mixed, ["a", "b"])).toMatchObject({
+    expect(
+      actsOn(mixed, [
+        "a",
+        "b",
+      ]),
+    ).toMatchObject({
       cluster: false,
       outline: true,
     });
@@ -64,11 +83,18 @@ describe("what a selection offers", () => {
         id: "a",
         kind: "link",
         address: "https://example.invalid",
-        position: { x: 0, y: 0 },
+        position: {
+          x: 0,
+          y: 0,
+        },
         created_at: at,
       },
     ]);
-    expect(actsOn(one, ["a"])).toMatchObject({
+    expect(
+      actsOn(one, [
+        "a",
+      ]),
+    ).toMatchObject({
       writeUp: false,
       defer: true,
       // #1378: the line beside the address is the person's to change.
@@ -84,20 +110,50 @@ describe("what a selection offers", () => {
       kind,
       address: `https://example.invalid/o/r/${kind}/7`,
       number: "7",
-      position: { x: 0, y: 0 },
+      position: {
+        x: 0,
+        y: 0,
+      },
       created_at: at,
     });
     const nodes = studio([
       onTheForge("issue"),
       onTheForge("pull_request"),
       onTheForge("epic"),
-      { id: "board", kind: "link", address: "miro://board/uXjVK", position: { x: 0, y: 0 }, created_at: at },
+      {
+        id: "board",
+        kind: "link",
+        address: "miro://board/uXjVK",
+        position: {
+          x: 0,
+          y: 0,
+        },
+        created_at: at,
+      },
     ]);
-    for (const kind of ["issue", "pull_request", "epic"]) {
-      expect(actsOn(nodes, [kind])).toMatchObject({ editLink: true, readIn: true });
+    for (const kind of [
+      "issue",
+      "pull_request",
+      "epic",
+    ]) {
+      expect(
+        actsOn(nodes, [
+          kind,
+        ]),
+      ).toMatchObject({
+        editLink: true,
+        readIn: true,
+      });
     }
     // A Link is an address no adapter recognised, and it is still read in and still takes a line.
-    expect(actsOn(nodes, ["board"])).toMatchObject({ editLink: true, readIn: true });
+    expect(
+      actsOn(nodes, [
+        "board",
+      ]),
+    ).toMatchObject({
+      editLink: true,
+      readIn: true,
+    });
   });
 
   test("an Issue draft is the only kind edited", () => {
@@ -108,11 +164,18 @@ describe("what a selection offers", () => {
         title: "A title",
         body: "A body",
         state: "draft",
-        position: { x: 0, y: 0 },
+        position: {
+          x: 0,
+          y: 0,
+        },
         created_at: at,
       },
     ]);
-    expect(actsOn(draft, ["a"])).toMatchObject({
+    expect(
+      actsOn(draft, [
+        "a",
+      ]),
+    ).toMatchObject({
       edit: true,
       writeUp: false,
       editLink: false,
@@ -128,16 +191,27 @@ describe("what a selection offers", () => {
           first: "one",
           second: "two",
           state,
-          position: { x: 0, y: 0 },
+          position: {
+            x: 0,
+            y: 0,
+          },
           created_at: at,
         },
       ]);
-    expect(actsOn(disagreement("reported"), ["a"])).toMatchObject({
+    expect(
+      actsOn(disagreement("reported"), [
+        "a",
+      ]),
+    ).toMatchObject({
       settle: true,
       writeUp: true,
       defer: true,
     });
-    expect(actsOn(disagreement("resolved_here"), ["a"])).toMatchObject({
+    expect(
+      actsOn(disagreement("resolved_here"), [
+        "a",
+      ]),
+    ).toMatchObject({
       settle: false,
       writeUp: false,
       defer: false,
@@ -145,21 +219,51 @@ describe("what a selection offers", () => {
   });
 
   test("a selection naming a node the Studio no longer holds is not one node", () => {
-    const gone = studio([note("a", "first")]);
+    const gone = studio([
+      note("a", "first"),
+    ]);
     // One of the two is gone, so what is left is one node, and one node's acts are offered.
-    expect(actsOn(gone, ["a", "b"])).toMatchObject({ writeUp: true });
-    expect(actsOn(gone, ["b"])).toMatchObject({ writeUp: false, defer: false });
+    expect(
+      actsOn(gone, [
+        "a",
+        "b",
+      ]),
+    ).toMatchObject({
+      writeUp: true,
+    });
+    expect(
+      actsOn(gone, [
+        "b",
+      ]),
+    ).toMatchObject({
+      writeUp: false,
+      defer: false,
+    });
   });
 });
 
 describe("where a promoted node goes", () => {
   test("to the right of the rightmost it was made from, level with the topmost", () => {
-    const two = studio([note("a", "first", 0, 240), note("b", "second", 480, 80)]);
-    expect(placedBeside(two, ["a", "b"])).toEqual({ x: 800, y: 80 });
+    const two = studio([
+      note("a", "first", 0, 240),
+      note("b", "second", 480, 80),
+    ]);
+    expect(
+      placedBeside(two, [
+        "a",
+        "b",
+      ]),
+    ).toEqual({
+      x: 800,
+      y: 80,
+    });
   });
 
   test("nothing selected is the origin, which no rung reaches", () => {
-    expect(placedBeside(studio([]), [])).toEqual({ x: 0, y: 0 });
+    expect(placedBeside(studio([]), [])).toEqual({
+      x: 0,
+      y: 0,
+    });
   });
 });
 
@@ -169,12 +273,22 @@ describe("the words a rung opens with", () => {
       id: "c",
       kind: "cluster",
       title: "Counts go stale",
-      position: { x: 0, y: 0 },
+      position: {
+        x: 0,
+        y: 0,
+      },
       created_at: at,
     };
     const graph = studio(
-      [note("a", "The chip keeps its count"), note("b", "Overview says three"), cluster],
-      [produced("a", "c"), produced("b", "c")],
+      [
+        note("a", "The chip keeps its count"),
+        note("b", "Overview says three"),
+        cluster,
+      ],
+      [
+        produced("a", "c"),
+        produced("b", "c"),
+      ],
     );
     const written = aWriteUp(graph, cluster);
     expect(written.title).toBe("Counts go stale");
@@ -184,7 +298,14 @@ describe("the words a rung opens with", () => {
 
   test("a write-up of a Note nothing made is that Note's own words", () => {
     const one = note("a", "The chip keeps its count");
-    expect(aWriteUp(studio([one]), one)).toEqual({
+    expect(
+      aWriteUp(
+        studio([
+          one,
+        ]),
+        one,
+      ),
+    ).toEqual({
       title: "The chip keeps its count",
       body: "The chip keeps its count",
     });
@@ -193,23 +314,65 @@ describe("the words a rung opens with", () => {
 
 test("every kind that keeps an address offers Read in, and no other kind does", () => {
   const board = studio([
-    { id: "link", kind: "link", address: "miro://board/uXjVK", position: { x: 0, y: 0 }, created_at: at },
+    {
+      id: "link",
+      kind: "link",
+      address: "miro://board/uXjVK",
+      position: {
+        x: 0,
+        y: 0,
+      },
+      created_at: at,
+    },
     {
       id: "epic",
       kind: "epic",
       address: "https://example.invalid/o/r/milestone/17",
       number: "17",
-      position: { x: 0, y: 400 },
+      position: {
+        x: 0,
+        y: 400,
+      },
       created_at: at,
     },
-    { id: "note", kind: "note", said: "the rail is unreadable", position: { x: 0, y: 200 }, created_at: at },
+    {
+      id: "note",
+      kind: "note",
+      said: "the rail is unreadable",
+      position: {
+        x: 0,
+        y: 200,
+      },
+      created_at: at,
+    },
   ]);
   // **Offered on every node with an address, whatever it is.** Which addresses
   // are sources is Fleet's, and a rule copied here would drift from it — and
   // the Link somebody pasted and the Epic it turned out to be are one node.
-  expect(actsOn(board, ["link"]).readIn).toBe(true);
-  expect(actsOn(board, ["epic"]).readIn).toBe(true);
-  expect(actsOn(board, ["epic"]).editLink).toBe(true);
-  expect(actsOn(board, ["note"]).readIn).toBe(false);
-  expect(actsOn(board, ["link", "note"]).readIn).toBe(false);
+  expect(
+    actsOn(board, [
+      "link",
+    ]).readIn,
+  ).toBe(true);
+  expect(
+    actsOn(board, [
+      "epic",
+    ]).readIn,
+  ).toBe(true);
+  expect(
+    actsOn(board, [
+      "epic",
+    ]).editLink,
+  ).toBe(true);
+  expect(
+    actsOn(board, [
+      "note",
+    ]).readIn,
+  ).toBe(false);
+  expect(
+    actsOn(board, [
+      "link",
+      "note",
+    ]).readIn,
+  ).toBe(false);
 });

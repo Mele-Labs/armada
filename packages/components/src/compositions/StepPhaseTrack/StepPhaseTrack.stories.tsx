@@ -6,10 +6,18 @@ import { StepPhaseTrack, type StepPhasePart } from "./StepPhaseTrack";
 const meta: Meta<typeof StepPhaseTrack> = {
   title: "Compositions/Step phase track",
   component: StepPhaseTrack,
-  parameters: { motion: "on" },
+  parameters: {
+    motion: "on",
+  },
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)", maxWidth: "var(--w-step-panel-min)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+          maxWidth: "var(--w-step-panel-min)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -19,7 +27,12 @@ export default meta;
 
 type Story = StoryObj<typeof StepPhaseTrack>;
 
-const part = (phase: StepPhasePart["phase"], name: string, state: StepPhasePart["state"], label: string): StepPhasePart => ({
+const part = (
+  phase: StepPhasePart["phase"],
+  name: string,
+  state: StepPhasePart["state"],
+  label: string,
+): StepPhasePart => ({
   phase,
   name,
   state,
@@ -52,11 +65,22 @@ export const ChecksNow: Story = {
     ],
   },
   play: async ({ canvas, canvasElement }) => {
-    await expect(canvas.getByRole("img", { name: "Checks running" })).toBeVisible();
-    const moving = [...canvasElement.querySelectorAll(".armada-step-track__part")].filter(
-      (one) => one.getAnimations({ subtree: true }).length > 0,
+    await expect(
+      canvas.getByRole("img", {
+        name: "Checks running",
+      }),
+    ).toBeVisible();
+    const moving = [
+      ...canvasElement.querySelectorAll(".armada-step-track__part"),
+    ].filter(
+      (one) =>
+        one.getAnimations({
+          subtree: true,
+        }).length > 0,
     );
-    await expect(moving.map((one) => one.getAttribute("aria-label"))).toEqual(["Checks running"]);
+    await expect(moving.map((one) => one.getAttribute("aria-label"))).toEqual([
+      "Checks running",
+    ]);
   },
 };
 
@@ -81,9 +105,16 @@ export const WaitingOnYou: Story = {
     ],
   },
   play: async ({ canvasElement }) => {
-    const moving = [...canvasElement.querySelectorAll(".armada-step-track__part")].filter(
-      (one) => one.getAnimations({ subtree: true }).length > 0,
+    const moving = [
+      ...canvasElement.querySelectorAll(".armada-step-track__part"),
+    ].filter(
+      (one) =>
+        one.getAnimations({
+          subtree: true,
+        }).length > 0,
     );
-    await expect(moving.map((one) => one.getAttribute("aria-label"))).toEqual(["Waiting on you"]);
+    await expect(moving.map((one) => one.getAttribute("aria-label"))).toEqual([
+      "Waiting on you",
+    ]);
   },
 };

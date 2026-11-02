@@ -7,7 +7,14 @@
 // profile is signed in or Fleet is not connected.
 
 import type { Profile, SharedHome, SharedRow } from "@armada/components";
-import type { HomeKind, HomeKinds, HomeRow, HomeRowAt, HomeSynced, SharedHomeRead as WireRead } from "@armada/protocol";
+import type {
+  HomeKind,
+  HomeKinds,
+  HomeRow,
+  HomeRowAt,
+  HomeSynced,
+  SharedHomeRead as WireRead,
+} from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { AccountsActed } from "../../shared/api/accounts";
@@ -23,8 +30,15 @@ export type FleetHome = {
   syncSharedHome: (login: string) => Promise<AccountsActed<HomeSynced>>;
   addToSharedHome: (row: HomeRowAt) => Promise<AccountsActed<WireRead>>;
   bringFromSharedHome: (row: HomeRowAt) => Promise<AccountsActed<WireRead>>;
-  chooseSharedHomeSide: (row: HomeRowAt, side: "here" | "there") => Promise<AccountsActed<WireRead>>;
-  setHomeRepository: (login: string, owner: string, name: string) => Promise<AccountsActed<WireRead>>;
+  chooseSharedHomeSide: (
+    row: HomeRowAt,
+    side: "here" | "there",
+  ) => Promise<AccountsActed<WireRead>>;
+  setHomeRepository: (
+    login: string,
+    owner: string,
+    name: string,
+  ) => Promise<AccountsActed<WireRead>>;
   getHomeKinds: (login: string) => Promise<AccountsActed<HomeKinds>>;
   setHomeKind: (login: string, kind: HomeKind, on: boolean) => Promise<AccountsActed<HomeKinds>>;
   setHomeItem: (row: HomeRowAt, on: boolean) => Promise<AccountsActed<HomeKinds>>;
@@ -51,22 +65,55 @@ const rowOf = (wire: HomeRow): SharedRow => ({
   kind: wire.kind,
   name: wire.name,
   state: wire.state,
-  ...(wire.says === undefined ? {} : { says: wire.says }),
-  ...(wire.source === undefined ? {} : { source: wire.source }),
-  ...(wire.key_here === false ? { keyHere: true } : {}),
-  ...(wire.mod_kind === undefined ? {} : { modKind: wire.mod_kind }),
-  ...(wire.here === undefined ? {} : { here: wire.here }),
-  ...(wire.there === undefined ? {} : { there: wire.there }),
+  ...(wire.says === undefined
+    ? {}
+    : {
+        says: wire.says,
+      }),
+  ...(wire.source === undefined
+    ? {}
+    : {
+        source: wire.source,
+      }),
+  ...(wire.key_here === false
+    ? {
+        keyHere: true,
+      }
+    : {}),
+  ...(wire.mod_kind === undefined
+    ? {}
+    : {
+        modKind: wire.mod_kind,
+      }),
+  ...(wire.here === undefined
+    ? {}
+    : {
+        here: wire.here,
+      }),
+  ...(wire.there === undefined
+    ? {}
+    : {
+        there: wire.there,
+      }),
 });
 
-export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, tell: (sentence: string) => void = askToTell): SharedHomeSource {
+export function createFleetSharedHome(
+  fleet: FleetHome,
+  account: AccountSource,
+  tell: (sentence: string) => void = askToTell,
+): SharedHomeSource {
   let login: string | undefined;
   let read: WireRead | undefined;
   // What syncs for the drawn login, read beside the rows.
   let switched: HomeKinds | undefined;
   let syncing = false;
   // A choice of owner and name pressed and not yet answered, drawn as if Fleet had taken it.
-  let chosen: { owner: string; name: string } | undefined;
+  let chosen:
+    | {
+        owner: string;
+        name: string;
+      }
+    | undefined;
   let held: SharedHome | undefined;
   // Each row drawn, back to the wire row it came from: a memory note's act names its repository, which Kit's row does not carry.
   // Kept across reads, so a row a compare sheet still holds names itself as it was drawn.
@@ -80,7 +127,16 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
 
   const atOf = (row: SharedRow, as: string): HomeRowAt => {
     const wire = wires.get(row);
-    return { login: as, kind: (wire?.kind ?? row.kind) as HomeRowAt["kind"], name: wire?.name ?? row.name, ...(wire?.repository === undefined ? {} : { repository: wire.repository }) };
+    return {
+      login: as,
+      kind: (wire?.kind ?? row.kind) as HomeRowAt["kind"],
+      name: wire?.name ?? row.name,
+      ...(wire?.repository === undefined
+        ? {}
+        : {
+            repository: wire.repository,
+          }),
+    };
   };
 
   const build = (): SharedHome | undefined => {
@@ -100,15 +156,44 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
       account: owner ?? place?.account ?? as,
       repository: (open ? chosen?.name : undefined) ?? place?.repository ?? HOME_REPOSITORY,
       login: as,
-      ...(open ? { made: false, owners: profileOf(account)?.orgs ?? [], setHome: (to: string, name: string) => void choose(as, to, name) } : {}),
+      ...(open
+        ? {
+            made: false,
+            owners: profileOf(account)?.orgs ?? [],
+            setHome: (to: string, name: string) => void choose(as, to, name),
+          }
+        : {}),
       rows,
       syncing,
       ...(switched === undefined
         ? {}
         : {
-            syncs: { kinds: switched.kinds.filter((one) => one.on).map((one) => one.kind), items: switched.items.map((one) => ({ kind: one.kind, name: one.name })) },
-            setKind: (kind: string, on: boolean) => void switchTo(as, on, () => fleet.setHomeKind(as, kind as HomeKind, on)),
-            setItem: (item: { kind: string; name: string }, on: boolean) => void switchTo(as, on, () => fleet.setHomeItem({ login: as, kind: item.kind as HomeKind, name: item.name }, on)),
+            syncs: {
+              kinds: switched.kinds.filter((one) => one.on).map((one) => one.kind),
+              items: switched.items.map((one) => ({
+                kind: one.kind,
+                name: one.name,
+              })),
+            },
+            setKind: (kind: string, on: boolean) =>
+              void switchTo(as, on, () => fleet.setHomeKind(as, kind as HomeKind, on)),
+            setItem: (
+              item: {
+                kind: string;
+                name: string;
+              },
+              on: boolean,
+            ) =>
+              void switchTo(as, on, () =>
+                fleet.setHomeItem(
+                  {
+                    login: as,
+                    kind: item.kind as HomeKind,
+                    name: item.name,
+                  },
+                  on,
+                ),
+              ),
           }),
       sync: () => void sync(as),
       add: (row) => void act(as, () => fleet.addToSharedHome(atOf(row, as))),
@@ -123,7 +208,12 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
   };
 
   /** Take an answer for `as`, unless the drawn profile changed or a later answer was taken, and say whether it was taken. A refusal is told, as a press that failed. */
-  const took = (as: string, at: number, answer: AccountsActed<WireRead>, told: boolean): boolean => {
+  const took = (
+    as: string,
+    at: number,
+    answer: AccountsActed<WireRead>,
+    told: boolean,
+  ): boolean => {
     if (as !== login || at <= taken) return false;
     if (!answer.ok) {
       if (told) tell(refusalWords(answer.outcome));
@@ -156,7 +246,11 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
    * Switch a kind or an item. **Switched on, it goes to the home at once**: Sync runs, so there is no second act to
    * add it. Switched off, nothing leaves either side and the rows are read again, since what is drawn follows what syncs.
    */
-  const switchTo = async (as: string, on: boolean, ask: () => Promise<AccountsActed<HomeKinds>>): Promise<void> => {
+  const switchTo = async (
+    as: string,
+    on: boolean,
+    ask: () => Promise<AccountsActed<HomeKinds>>,
+  ): Promise<void> => {
     if (!kindsOf(as, await ask(), true)) return;
     if (on) return sync(as);
     const at = ++issued;
@@ -169,7 +263,10 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
   };
 
   const choose = async (as: string, owner: string, name: string): Promise<void> => {
-    const mine = { owner, name };
+    const mine = {
+      owner,
+      name,
+    };
     chosen = mine;
     publish();
     const at = ++issued;
@@ -190,7 +287,12 @@ export function createFleetSharedHome(fleet: FleetHome, account: AccountSource, 
     // A row the sync could not add stays on this machine, told one by one.
     if (took(as, at, answer, true) && answer.ok) {
       answer.value.left.forEach((one) => tell(one.why));
-      if (switched !== undefined && !switched.kinds.some((one) => one.on) && switched.items.length === 0) tell(NOTHING_SYNCS);
+      if (
+        switched !== undefined &&
+        !switched.kinds.some((one) => one.on) &&
+        switched.items.length === 0
+      )
+        tell(NOTHING_SYNCS);
       // The Account page names the home it made.
       account.refresh?.();
     }

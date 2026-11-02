@@ -4,7 +4,12 @@ import type { ButtonHTMLAttributes } from "react";
 import { Stamp } from "../../primitives/Stamp/Stamp";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { RepositoryChip } from "../RepositoryChip/RepositoryChip";
-import { SessionMark, bucketOf, type JobBucket, type SessionState } from "../SessionFrame/SessionFrame";
+import {
+  SessionMark,
+  bucketOf,
+  type JobBucket,
+  type SessionState,
+} from "../SessionFrame/SessionFrame";
 
 /**
  * The hue a Job's state wears, by its bucket (`bucketOf`): **ask** needs him, **live** is a turn running, **wait** is
@@ -12,7 +17,13 @@ import { SessionMark, bucketOf, type JobBucket, type SessionState } from "../Ses
  */
 export type JobTone = "ask" | "live" | "wait" | "calm";
 
-const TONE: Record<JobBucket, JobTone> = { needs: "ask", working: "live", waiting: "wait", idle: "calm", draft: "calm" };
+const TONE: Record<JobBucket, JobTone> = {
+  needs: "ask",
+  working: "live",
+  waiting: "wait",
+  idle: "calm",
+  draft: "calm",
+};
 
 export const jobToneOf = (state: SessionState): JobTone => TONE[bucketOf(state)];
 
@@ -29,7 +40,10 @@ export type JobCardIssue = {
   onOpen?: () => void;
 };
 
-export type JobCardProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick" | "type" | "title"> &
+export type JobCardProps = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "children" | "onClick" | "type" | "title"
+> &
   (
     | {
         title: string;
@@ -84,22 +98,54 @@ export function JobCard(props: JobCardProps) {
   if (props.placeholder !== undefined) {
     const { placeholder, issue } = props;
     return (
-      <div className="armada-job-card" data-placeholder="" role="group" aria-label={`${placeholder}, ${NOT_STARTED.toLowerCase()}`}>
+      <div
+        className="armada-job-card"
+        data-placeholder=""
+        role="group"
+        aria-label={`${placeholder}, ${NOT_STARTED.toLowerCase()}`}
+      >
         <Tooltip label={NOT_STARTED}>
-          <span className="armada-job-card__kind" role="img" aria-label={`Job, ${NOT_STARTED.toLowerCase()}`}>
+          <span
+            className="armada-job-card__kind"
+            role="img"
+            aria-label={`Job, ${NOT_STARTED.toLowerCase()}`}
+          >
             <Bot size={14} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
         <span className="armada-job-card__title">{placeholder}</span>
         <span className="armada-job-card__mark" />
-        <span className="armada-job-card__says">{issue === undefined ? null : <IssueChip issue={issue} press={issue.onOpen} />}</span>
+        <span className="armada-job-card__says">
+          {issue === undefined ? null : <IssueChip issue={issue} press={issue.onOpen} />}
+        </span>
         <span className="armada-job-card__at" />
       </div>
     );
   }
-  const { title, state, said, says, handedFrom, issue, at, repository, selected = false, onOpen, ...rest } = props;
+  const {
+    title,
+    state,
+    said,
+    says,
+    handedFrom,
+    issue,
+    at,
+    repository,
+    selected = false,
+    onOpen,
+    ...rest
+  } = props;
   return (
-    <button {...rest} type="button" className="armada-job-card" data-tone={jobToneOf(state)} data-selected={selected || undefined} aria-label={`Job ${title}`} aria-current={selected || undefined} onClick={onOpen}>
+    <button
+      {...rest}
+      type="button"
+      className="armada-job-card"
+      data-tone={jobToneOf(state)}
+      data-selected={selected || undefined}
+      aria-label={`Job ${title}`}
+      aria-current={selected || undefined}
+      onClick={onOpen}
+    >
       <Tooltip label="Job">
         <span className="armada-job-card__kind" role="img" aria-label="Job">
           <Bot size={14} strokeWidth={2} aria-hidden />
@@ -113,7 +159,9 @@ export function JobCard(props: JobCardProps) {
         {issue === undefined ? null : <IssueChip issue={issue} />}
         {handedFrom ?? says ?? ""}
       </span>
-      <span className="armada-job-card__at">{at === undefined ? null : <Stamp still first="age" at={at} />}</span>
+      <span className="armada-job-card__at">
+        {at === undefined ? null : <Stamp still first="age" at={at} />}
+      </span>
       {repository === undefined ? null : (
         <span className="armada-job-card__repository">
           <RepositoryChip name={repository} />
@@ -134,11 +182,22 @@ function IssueChip({ issue, press }: { issue: JobCardIssue; press?: (() => void)
   return (
     <Tooltip label={said}>
       {press === undefined ? (
-        <span className="armada-job-card__issue" data-closed={issue.closed || undefined} role="img" aria-label={`Issue ${issue.label} ${said}`}>
+        <span
+          className="armada-job-card__issue"
+          data-closed={issue.closed || undefined}
+          role="img"
+          aria-label={`Issue ${issue.label} ${said}`}
+        >
           {body}
         </span>
       ) : (
-        <button type="button" className="armada-job-card__issue" data-closed={issue.closed || undefined} aria-label={`Issue ${issue.label} ${said}`} onClick={press}>
+        <button
+          type="button"
+          className="armada-job-card__issue"
+          data-closed={issue.closed || undefined}
+          aria-label={`Issue ${issue.label} ${said}`}
+          onClick={press}
+        >
           {body}
         </button>
       )}

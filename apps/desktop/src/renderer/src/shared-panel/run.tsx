@@ -11,7 +11,12 @@ import { closePanel } from "./store";
 import type { PanelItem } from "./store";
 import { useTerminalRun } from "./terminal-run";
 
-type Item = Extract<PanelItem, { kind: "run" }>;
+type Item = Extract<
+  PanelItem,
+  {
+    kind: "run";
+  }
+>;
 
 export function RunPanel({ item }: { item: Item }) {
   const reads = usePanelReads();
@@ -27,8 +32,12 @@ export function RunPanel({ item }: { item: Item }) {
   });
   // The sheet hands its Close the focus as it opens; typing goes to the run, as it does in a Job's shell.
   useEffect(() => {
-    screen.current?.querySelector("textarea")?.focus({ preventScroll: true });
-  }, [run.run?.screen]);
+    screen.current?.querySelector("textarea")?.focus({
+      preventScroll: true,
+    });
+  }, [
+    run.run?.screen,
+  ]);
   const running = run.run?.running === true;
   return (
     <Sheet
@@ -40,15 +49,52 @@ export function RunPanel({ item }: { item: Item }) {
       subtitle={`${item.repository} · ${item.command}`}
       size="panel"
       bleed
-      {...(back === undefined ? {} : { back })}
+      {...(back === undefined
+        ? {}
+        : {
+            back,
+          })}
       closeLabel="Close"
       closeBinding="Esc"
       onClose={closePanel}
     >
-      <ShellPanelPane phase={running || run.run === undefined ? { state: "running" } : { state: "ended" }} onEnd={run.stop} onOpen={() => run.start(item.command)}>
-        <div ref={screen} className="side-terminal" {...(running ? { "data-keeps-esc": "" } : {})}>
-          {run.run === undefined ? null : <XtermScreen key={run.run.screen} out={run.run.out} run={run.run.screen} running={running} write={run.write} onSize={run.sized} />}
-          {run.said === undefined ? null : <p className="armada-pr-panel__said" role="alert">{run.said}</p>}
+      <ShellPanelPane
+        phase={
+          running || run.run === undefined
+            ? {
+                state: "running",
+              }
+            : {
+                state: "ended",
+              }
+        }
+        onEnd={run.stop}
+        onOpen={() => run.start(item.command)}
+      >
+        <div
+          ref={screen}
+          className="side-terminal"
+          {...(running
+            ? {
+                "data-keeps-esc": "",
+              }
+            : {})}
+        >
+          {run.run === undefined ? null : (
+            <XtermScreen
+              key={run.run.screen}
+              out={run.run.out}
+              run={run.run.screen}
+              running={running}
+              write={run.write}
+              onSize={run.sized}
+            />
+          )}
+          {run.said === undefined ? null : (
+            <p className="armada-pr-panel__said" role="alert">
+              {run.said}
+            </p>
+          )}
         </div>
       </ShellPanelPane>
     </Sheet>

@@ -25,7 +25,14 @@ type Props = Omit<Hosts, "onDispatch"> & {
   onDispatch: (rows: readonly ProjectRow[]) => void;
 };
 
-const PENDING_TITLES = ["64%", "48%", "72%", "56%", "42%", "68%"];
+const PENDING_TITLES = [
+  "64%",
+  "48%",
+  "72%",
+  "56%",
+  "42%",
+  "68%",
+];
 
 /** The rows the pane draws before the first read has answered: the loaded row's height and hairline, a mark and a title bar, no text. */
 function PendingRows() {
@@ -45,13 +52,39 @@ function PendingRows() {
   );
 }
 
-export function Pane({ label, title, groups, bands, scope, onDispatch, onOpenSession, onOpenLink }: Props) {
+export function Pane({
+  label,
+  title,
+  groups,
+  bands,
+  scope,
+  onDispatch,
+  onOpenSession,
+  onOpenLink,
+}: Props) {
   const store = useProjectsStore()!;
   const { loose, projects, selected, showDone, pending } = useProjects();
-  const labels = new Map(bands.map((band) => [band.manifestId, band.label]));
-  const { item, dragging } = useCards({ onOpenSession, onOpenLink, onDispatch }, labels);
+  const labels = new Map(
+    bands.map((band) => [
+      band.manifestId,
+      band.label,
+    ]),
+  );
+  const { item, dragging } = useCards(
+    {
+      onOpenSession,
+      onOpenLink,
+      onDispatch,
+    },
+    labels,
+  );
   // The picks stand in any list; a done card hidden is not one.
-  const picks = [loose, ...projects.map((one) => one.rows)].flatMap((rows) => chosenOf(rows, selected)).filter((row) => showDone || !isDone(row));
+  const picks = [
+    loose,
+    ...projects.map((one) => one.rows),
+  ]
+    .flatMap((rows) => chosenOf(rows, selected))
+    .filter((row) => showDone || !isDone(row));
   const many = repositoriesIn(groups).length > 1;
   return (
     <section className="deck-pane projects-pane" aria-label={label} tabIndex={-1}>
@@ -65,8 +98,19 @@ export function Pane({ label, title, groups, bands, scope, onDispatch, onOpenSes
               </Button>
             </Tooltip>
           )}
-          <Tooltip label={showDone ? "Hide done" : "Show done"} shortcut={PROJECTS_KEYS.done} asChild>
-            <button type="button" className="projects-head__act" data-done-toggle data-on={showDone || undefined} aria-label={showDone ? "Hide done" : "Show done"} onClick={() => store.showDone(!showDone)}>
+          <Tooltip
+            label={showDone ? "Hide done" : "Show done"}
+            shortcut={PROJECTS_KEYS.done}
+            asChild
+          >
+            <button
+              type="button"
+              className="projects-head__act"
+              data-done-toggle
+              data-on={showDone || undefined}
+              aria-label={showDone ? "Hide done" : "Show done"}
+              onClick={() => store.showDone(!showDone)}
+            >
               <ListChecks size={16} strokeWidth={2} aria-hidden />
             </button>
           </Tooltip>
@@ -82,23 +126,43 @@ export function Pane({ label, title, groups, bands, scope, onDispatch, onOpenSes
       )}
       <div className="projects-groups" data-reordering={dragging === undefined ? undefined : ""}>
         {pending ? <PendingRows /> : null}
-        {pending ? [] : groups.map((group) => {
-          const rows = (
-            <ul className="projects-rows" aria-label={group.title === undefined ? "Rows" : `Rows of ${group.title}`}>
-              {group.rows.map((row) => item(row, group.key, { movable: group.movable, many }, group.lone?.get(row.id)))}
-            </ul>
-          );
-          return group.title === undefined ? (
-            <div key={group.key} className="projects-group">
-              {rows}
-            </div>
-          ) : (
-            <section key={group.key} className="projects-group" aria-label={group.title} data-group={group.key}>
-              <h3 className="projects-group__title">{group.title}</h3>
-              {rows}
-            </section>
-          );
-        })}
+        {pending
+          ? []
+          : groups.map((group) => {
+              const rows = (
+                <ul
+                  className="projects-rows"
+                  aria-label={group.title === undefined ? "Rows" : `Rows of ${group.title}`}
+                >
+                  {group.rows.map((row) =>
+                    item(
+                      row,
+                      group.key,
+                      {
+                        movable: group.movable,
+                        many,
+                      },
+                      group.lone?.get(row.id),
+                    ),
+                  )}
+                </ul>
+              );
+              return group.title === undefined ? (
+                <div key={group.key} className="projects-group">
+                  {rows}
+                </div>
+              ) : (
+                <section
+                  key={group.key}
+                  className="projects-group"
+                  aria-label={group.title}
+                  data-group={group.key}
+                >
+                  <h3 className="projects-group__title">{group.title}</h3>
+                  {rows}
+                </section>
+              );
+            })}
       </div>
     </section>
   );

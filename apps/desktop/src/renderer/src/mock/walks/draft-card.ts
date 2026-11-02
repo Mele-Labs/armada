@@ -3,46 +3,141 @@
 
 import { button, deckRow, dialog, inside, role, text, walk } from "../walk";
 
-const card = role("article", "Draft: Description for #412", { exact: true });
+const card = role("article", "Draft: Description for #412", {
+  exact: true,
+});
 const WORDS = "A retry resumes from the last part the server confirmed, not from the start";
 const earlier = role("article", "Draft: Description for #412, first try");
-const release = role("article", "Draft: Release note for #412", { exact: true });
+const release = role("article", "Draft: Release note for #412", {
+  exact: true,
+});
 const REASON = "The release notes are written at release time.";
 
 const draftCard = walk("draft-card", [
-  { press: deckRow("Retry dropped uploads"), say: "A Job with a drafted description" },
-  { look: inside(card, role("group", "Answers")), say: "The draft card. Approve, Edit, Note and Withdraw under it" },
-  { press: inside(card, button("Text it replaces")), say: "Text it replaces shows the old description" },
-  { look: inside(card, text("Tested by hand on a slow connection.")), say: "The old description is under the new one" },
-  { select: WORDS, in: inside(card, text(WORDS)), say: "Words selected in the draft" },
-  { context: inside(card, text(WORDS)), say: "A right press on them offers Edit and Add note" },
-  { press: role("menuitem", "Add note"), say: "Add note opens the note with the words quoted" },
-  { press: inside(card, button("Cancel")), say: "Cancel puts the note away" },
-  { select: WORDS, in: inside(card, text(WORDS)), say: "The same words selected again" },
-  { context: inside(card, text(WORDS)), say: "A right press on them" },
-  { press: role("menuitem", "Edit"), say: "Edit opens the draft in a box with those words selected" },
-  { type: ", again", into: inside(card, role("textbox", "Draft text")), say: "A word added at the end of the text" },
-  { press: inside(card, button("Approve with fixes")), say: "Approve with fixes" },
-  { look: inside(card, role("img", "Approved with your fixes")), say: "The card is settled as approved with your fixes" },
-  { look: text("Updated #412 with your text."), say: "The agent's reply is below it" },
-  { look: inside(earlier, role("img", "Sent back")), say: "The earlier draft is settled as sent back, with its note" },
-  { look: inside(release, button("Withdraw")), say: "The release note card has Withdraw last, after Note" },
-  { press: inside(release, button("Note")), say: "Note opens the note box" },
-  { look: inside(release, button("Withdraw")), say: "Withdraw is still last, after Send back and Cancel" },
-  { type: REASON, into: inside(release, role("textbox", "Note")), say: "A reason typed in the note" },
-  { press: inside(release, button("Withdraw")), say: "Withdraw sends the note as the reason" },
-  { look: inside(release, role("img", "Withdrawn")), say: "The release note is settled as withdrawn" },
-  { look: inside(release, text(REASON)), say: "The reason is quoted under it" },
+  {
+    press: deckRow("Retry dropped uploads"),
+    say: "A Job with a drafted description",
+  },
+  {
+    look: inside(card, role("group", "Answers")),
+    say: "The draft card. Approve, Edit, Note and Withdraw under it",
+  },
+  {
+    press: inside(card, button("Text it replaces")),
+    say: "Text it replaces shows the old description",
+  },
+  {
+    look: inside(card, text("Tested by hand on a slow connection.")),
+    say: "The old description is under the new one",
+  },
+  {
+    select: WORDS,
+    in: inside(card, text(WORDS)),
+    say: "Words selected in the draft",
+  },
+  {
+    context: inside(card, text(WORDS)),
+    say: "A right press on them offers Edit and Add note",
+  },
+  {
+    press: role("menuitem", "Add note"),
+    say: "Add note opens the note with the words quoted",
+  },
+  {
+    press: inside(card, button("Cancel")),
+    say: "Cancel puts the note away",
+  },
+  {
+    select: WORDS,
+    in: inside(card, text(WORDS)),
+    say: "The same words selected again",
+  },
+  {
+    context: inside(card, text(WORDS)),
+    say: "A right press on them",
+  },
+  {
+    press: role("menuitem", "Edit"),
+    say: "Edit opens the draft in a box with those words selected",
+  },
+  {
+    type: ", again",
+    into: inside(card, role("textbox", "Draft text")),
+    say: "A word added at the end of the text",
+  },
+  {
+    press: inside(card, button("Approve with fixes")),
+    say: "Approve with fixes",
+  },
+  {
+    look: inside(card, role("img", "Approved with your fixes")),
+    say: "The card is settled as approved with your fixes",
+  },
+  {
+    look: text("Updated #412 with your text."),
+    say: "The agent's reply is below it",
+  },
+  {
+    look: inside(earlier, role("img", "Sent back")),
+    say: "The earlier draft is settled as sent back, with its note",
+  },
+  {
+    look: inside(release, button("Withdraw")),
+    say: "The release note card has Withdraw last, after Note",
+  },
+  {
+    press: inside(release, button("Note")),
+    say: "Note opens the note box",
+  },
+  {
+    look: inside(release, button("Withdraw")),
+    say: "Withdraw is still last, after Send back and Cancel",
+  },
+  {
+    type: REASON,
+    into: inside(release, role("textbox", "Note")),
+    say: "A reason typed in the note",
+  },
+  {
+    press: inside(release, button("Withdraw")),
+    say: "Withdraw sends the note as the reason",
+  },
+  {
+    look: inside(release, role("img", "Withdrawn")),
+    say: "The release note is settled as withdrawn",
+  },
+  {
+    look: inside(release, text(REASON)),
+    say: "The reason is quoted under it",
+  },
 ]);
 
 // A right press on the card, off its words, offers Teach beside Mod and Report.
 const teach = walk("draft-card", [
-  { press: deckRow("Retry dropped uploads"), say: "A Job with a drafted description" },
-  { context: inside(card, role("group", "Answers")), say: "A right press on the card, away from its words" },
-  { look: role("menuitem", "Teach"), say: "Teach is in the menu" },
-  { look: role("menuitem", "Mod"), say: "With Mod and Report after it" },
-  { press: role("menuitem", "Teach"), say: "Teach opens on the draft" },
-  { look: dialog("Teach"), say: "The Teach panel" },
+  {
+    press: deckRow("Retry dropped uploads"),
+    say: "A Job with a drafted description",
+  },
+  {
+    context: inside(card, role("group", "Answers")),
+    say: "A right press on the card, away from its words",
+  },
+  {
+    look: role("menuitem", "Teach"),
+    say: "Teach is in the menu",
+  },
+  {
+    look: role("menuitem", "Mod"),
+    say: "With Mod and Report after it",
+  },
+  {
+    press: role("menuitem", "Teach"),
+    say: "Teach opens on the draft",
+  },
+  {
+    look: dialog("Teach"),
+    say: "The Teach panel",
+  },
 ]);
 
 export { draftCard as "draft-card", teach as "draft-teach" };

@@ -49,13 +49,34 @@ export type JobBrowserApi = {
     thaw: (sessionId: string, tabId: string) => Promise<void>;
     hold: (sessionId: string, tabId: string, x: number, y: number) => Promise<CaptureHeld | null>;
     /** The box of the part at a point of the held picture, for the ring that follows the pointer; null where nothing is held or found. */
-    aim: (sessionId: string, tabId: string, x: number, y: number) => Promise<{ x: number; y: number; width: number; height: number } | null>;
+    aim: (
+      sessionId: string,
+      tabId: string,
+      x: number,
+      y: number,
+    ) => Promise<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null>;
     /** The held part's note, sent to the Job as the owner's. */
     note: (sessionId: string, tabId: string, said: string) => Promise<Outcome>;
     /** A choice for one host, kept for the Job's repository. */
-    choose: (sessionId: string, tabId: string, host: string, permission: SitePermission, choice: Choice) => Promise<void>;
+    choose: (
+      sessionId: string,
+      tabId: string,
+      host: string,
+      permission: SitePermission,
+      choice: Choice,
+    ) => Promise<void>;
     /** A default, for a site with no choice of its own. */
-    setDefault: (sessionId: string, tabId: string, permission: SitePermission, choice: Choice) => Promise<void>;
+    setDefault: (
+      sessionId: string,
+      tabId: string,
+      permission: SitePermission,
+      choice: Choice,
+    ) => Promise<void>;
     /** The person's answer to the waiting request. */
     answer: (sessionId: string, tabId: string, answer: Answer) => Promise<void>;
   };

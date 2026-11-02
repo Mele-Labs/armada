@@ -5,7 +5,9 @@
 import { AutopilotFieldInputs, Input, type AutopilotReading } from "@armada/components";
 
 /** The reading as the panel holds it while the person checks it: Fleet's instruction, and the fields. */
-export type AutopilotRead = AutopilotReading & { instruction: string };
+export type AutopilotRead = AutopilotReading & {
+  instruction: string;
+};
 
 export function AutopilotBody({
   read,
@@ -22,8 +24,27 @@ export function AutopilotBody({
     <div className="armada-dispatch-panel__autopilot">
       {read === undefined ? null : (
         <>
-          <Input label="Instruction" mono value={read.instruction} onChange={(event) => onRead({ ...read, instruction: event.currentTarget.value })} />
-          <AutopilotFieldInputs fields={read.fields} onChange={(fields) => onRead({ ...read, fields })} quoted={read.quoted} />
+          <Input
+            label="Instruction"
+            mono
+            value={read.instruction}
+            onChange={(event) =>
+              onRead({
+                ...read,
+                instruction: event.currentTarget.value,
+              })
+            }
+          />
+          <AutopilotFieldInputs
+            fields={read.fields}
+            onChange={(fields) =>
+              onRead({
+                ...read,
+                fields,
+              })
+            }
+            quoted={read.quoted}
+          />
         </>
       )}
       {refused === undefined ? null : (

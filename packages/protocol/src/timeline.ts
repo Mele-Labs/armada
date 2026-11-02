@@ -83,9 +83,18 @@ export type TimelineTone = "run" | "ask" | "bad" | "ok" | "idle";
 
 /** What it happened to. `main` is the repository's main branch; which one is `manifest_id`. */
 export type TimelineSubject =
-  | { kind: "session"; id: string }
-  | { kind: "pull_request"; number: number; url?: string }
-  | { kind: "main" };
+  | {
+      kind: "session";
+      id: string;
+    }
+  | {
+      kind: "pull_request";
+      number: number;
+      url?: string;
+    }
+  | {
+      kind: "main";
+    };
 
 /** One thing that happened. */
 export type TimelineEvent = {
@@ -141,4 +150,6 @@ export type FleetTimeline = {
 };
 
 /** `timeline.appended`'s body: the entry Fleet just kept. Under `event` because the stream tags its events with `kind`. */
-export type TimelineAppended = { event: TimelineEvent };
+export type TimelineAppended = {
+  event: TimelineEvent;
+};

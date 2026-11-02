@@ -37,7 +37,13 @@ export const Reloaded: Story = {
     reading: {
       path: "armada.yml",
       at: AT,
-      moved: [{ key: "drone.poke_limit", before: "3", after: "5" }],
+      moved: [
+        {
+          key: "drone.poke_limit",
+          before: "3",
+          after: "5",
+        },
+      ],
     },
     onDismiss: () => undefined,
   },
@@ -54,7 +60,12 @@ export const ReloadedFromUnset: Story = {
     reading: {
       path: "armada.yml",
       at: AT,
-      moved: [{ key: "drone.quiet_after_seconds", after: "900" }],
+      moved: [
+        {
+          key: "drone.quiet_after_seconds",
+          after: "900",
+        },
+      ],
     },
     onDismiss: () => undefined,
   },
@@ -74,7 +85,13 @@ export const PolicyReloaded: Story = {
     reading: {
       path: "armada.yml",
       at: AT,
-      moved: [{ key: "auto_merge", before: "never", after: "tests-pass" }],
+      moved: [
+        {
+          key: "auto_merge",
+          before: "never",
+          after: "tests-pass",
+        },
+      ],
     },
     onDismiss: () => undefined,
   },
@@ -99,8 +116,14 @@ export const Refused: Story = {
       refused: {
         summary: "armada.yml was refused; `drone.poke_limit` is not a number",
         faults: [
-          { key: "drone.poke_limit", fault: "is not a number" },
-          { key: "checks.build.run", fault: "is required and absent" },
+          {
+            key: "drone.poke_limit",
+            fault: "is not a number",
+          },
+          {
+            key: "checks.build.run",
+            fault: "is required and absent",
+          },
         ],
       },
     },
@@ -122,7 +145,8 @@ export const RefusedBeforeItParsed: Story = {
       path: "armada.yml",
       at: AT,
       refused: {
-        summary: "armada.yml is not YAML: mapping values are not allowed in this context at line 14 column 18",
+        summary:
+          "armada.yml is not YAML: mapping values are not allowed in this context at line 14 column 18",
       },
     },
     onDismiss: () => undefined,
@@ -142,7 +166,10 @@ export const ChangedUntilRestart: Story = {
     reading: {
       path: "armada.yml",
       at: AT,
-      at_restart: ["checks", "setup"],
+      at_restart: [
+        "checks",
+        "setup",
+      ],
     },
     onDismiss: () => undefined,
   },

@@ -15,7 +15,14 @@ unmountAfterEach();
 // The values a theme says, read out of the files that say them rather than typed again here.
 const AUTHORED = (
   import.meta as ImportMeta & {
-    glob(patterns: string[], options: { eager: true; query: string; import: string }): Record<string, string>;
+    glob(
+      patterns: string[],
+      options: {
+        eager: true;
+        query: string;
+        import: string;
+      },
+    ): Record<string, string>;
   }
 ).glob(
   [
@@ -24,7 +31,11 @@ const AUTHORED = (
     "../../../../../../packages/tokens/themes/css/nord.css",
     "../../../../../../packages/tokens/themes/example-mod/dusk/theme.css",
   ],
-  { eager: true, query: "?raw", import: "default" },
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
 );
 /** What `file` declares `name` as, first declaration. */
 function authored(file: string, name: string): string {
@@ -42,8 +53,17 @@ afterEach(() => window.history.replaceState(null, "", window.location.pathname))
 /** Opens Settings and chooses a theme in the field, by typing its name and pressing its row. */
 async function choose(name: string, typed = name) {
   await toSystemPage("Theme");
-  await page.getByRole("combobox", { name: "Theme" }).fill(typed);
-  await page.getByRole("option", { name, exact: true }).click();
+  await page
+    .getByRole("combobox", {
+      name: "Theme",
+    })
+    .fill(typed);
+  await page
+    .getByRole("option", {
+      name,
+      exact: true,
+    })
+    .click();
 }
 
 test("Light is the real token set: the root takes it, and the aliases read it", async () => {
@@ -73,19 +93,65 @@ test("the field groups themes by tone and narrows as it is typed in", async () =
   mount("mods-themes");
   await onScreen();
   await toSystemPage("Theme");
-  await page.getByRole("combobox", { name: "Theme" }).click();
-  await expect.element(page.getByRole("group", { name: "Dark" })).toBeVisible();
-  await expect.element(page.getByRole("group", { name: "Light" })).toBeVisible();
+  await page
+    .getByRole("combobox", {
+      name: "Theme",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("group", {
+        name: "Dark",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("group", {
+        name: "Light",
+      }),
+    )
+    .toBeVisible();
   // No mod is installed, so the group is not drawn at all.
-  await expect.element(page.getByRole("group", { name: "From mods" })).not.toBeInTheDocument();
-  await page.getByRole("combobox", { name: "Theme" }).fill("latte");
-  await expect.element(page.getByRole("option", { name: "Catppuccin Latte" })).toBeVisible();
-  await expect.element(page.getByRole("option", { name: "Catppuccin Mocha" })).not.toBeInTheDocument();
+  await expect
+    .element(
+      page.getByRole("group", {
+        name: "From mods",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await page
+    .getByRole("combobox", {
+      name: "Theme",
+    })
+    .fill("latte");
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: "Catppuccin Latte",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: "Catppuccin Mocha",
+      }),
+    )
+    .not.toBeInTheDocument();
 });
 
 /** The colours of the strip on the row named `name`, as the browser paints them. */
 const stripOf = (name: string) =>
-  Array.from(page.getByRole("option", { name, exact: true }).element().querySelectorAll(".armada-themepick__cell")).map((cell) => getComputedStyle(cell).backgroundColor);
+  Array.from(
+    page
+      .getByRole("option", {
+        name,
+        exact: true,
+      })
+      .element()
+      .querySelectorAll(".armada-themepick__cell"),
+  ).map((cell) => getComputedStyle(cell).backgroundColor);
 const rgb = (hex: string) => {
   const n = parseInt(hex.slice(1), 16);
   return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`;
@@ -96,8 +162,14 @@ test("each row carries its own theme's strip, from the index and the built-in li
   await onScreen();
   mockThemes.install(DUSK_MOD);
   await toSystemPage("Theme");
-  await page.getByRole("combobox", { name: "Theme" }).click();
-  expect(stripOf("Nord")).toEqual(INDEX.find((one) => one.id === "catalogue:nord")!.swatch.map(rgb));
+  await page
+    .getByRole("combobox", {
+      name: "Theme",
+    })
+    .click();
+  expect(stripOf("Nord")).toEqual(
+    INDEX.find((one) => one.id === "catalogue:nord")!.swatch.map(rgb),
+  );
   expect(stripOf("Dark")).toEqual(BUILT_IN.dark.map(rgb));
   expect(stripOf("Light")).toEqual(BUILT_IN.light.map(rgb));
   // A mod's comes from its checked CSS: Dusk moves the ground off Dark's.
@@ -114,7 +186,13 @@ test("a mod's theme is applied from its CSS, and Dark returns when it is switche
   expect(token("--bg-base")).toBe(authored("theme.css", "--bg-base"));
 
   await toSystemPage("Mods");
-  (page.getByRole("switch", { name: "Dusk" }).element() as HTMLElement).click();
+  (
+    page
+      .getByRole("switch", {
+        name: "Dusk",
+      })
+      .element() as HTMLElement
+  ).click();
   await expect.poll(() => root().dataset["theme"]).toBe("dark");
   expect(token("--bg-base")).toBe(authored("colors.css", "--bg-base"));
 });
@@ -124,9 +202,19 @@ test("Promote puts the mod on a branch and the row says the branch, once", async
   await onScreen();
   mockThemes.install(DUSK_MOD);
   await toSystemPage("Mods");
-  await page.getByRole("button", { name: "Promote Dusk" }).click();
+  await page
+    .getByRole("button", {
+      name: "Promote Dusk",
+    })
+    .click();
   await expect.element(page.getByText(/^armada\/mod-dusk-\d+$/)).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Promote Dusk" })).toBeDisabled();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Promote Dusk",
+      }),
+    )
+    .toBeDisabled();
 });
 
 test("?nomods loads without mods: none in the field, none on the Mods surface, the catalogue still there", async () => {
@@ -135,11 +223,34 @@ test("?nomods loads without mods: none in the field, none on the Mods surface, t
   await onScreen();
   mockThemes.install(DUSK_MOD);
   await toSystemPage("Theme");
-  await page.getByRole("combobox", { name: "Theme" }).click();
-  await expect.element(page.getByRole("option", { name: "Nord", exact: true })).toBeVisible();
-  await expect.element(page.getByRole("option", { name: "Dusk" })).not.toBeInTheDocument();
+  await page
+    .getByRole("combobox", {
+      name: "Theme",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: "Nord",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: "Dusk",
+      }),
+    )
+    .not.toBeInTheDocument();
   await toSystemPage("Mods");
-  await expect.element(page.getByRole("group", { name: "Dusk" })).not.toBeInTheDocument();
+  await expect
+    .element(
+      page.getByRole("group", {
+        name: "Dusk",
+      }),
+    )
+    .not.toBeInTheDocument();
 });
 
 test("a themed element below the root resolves the aliases from its own theme, as a story's wrapper does", () => {

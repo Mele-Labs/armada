@@ -5,7 +5,15 @@
 import type { AgentSignIn, Outcome } from "@armada/protocol";
 
 /** What reading or pressing came to: the state as Fleet holds it now, or the refusal to word. */
-export type AgentSignInRead = { ok: true; value: AgentSignIn } | { ok: false; outcome: Outcome };
+export type AgentSignInRead =
+  | {
+      ok: true;
+      value: AgentSignIn;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type AgentSignInApi = {
   /** Whether the agents' account is signed out, and whether Fleet is signing it in. */

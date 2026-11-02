@@ -90,7 +90,15 @@ function normalizedRect(x1: number, y1: number, x2: number, y2: number): Rect {
   };
 }
 
-function applyRect(box: HTMLDivElement, r: { x: number; y: number; width: number; height: number }): void {
+function applyRect(
+  box: HTMLDivElement,
+  r: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
+): void {
   box.style.left = `${r.x}px`;
   box.style.top = `${r.y}px`;
   box.style.width = `${r.width}px`;
@@ -135,7 +143,13 @@ function removeDragBox(): void {
 // Deepest first: a region's highest-value field is the class list, and the
 // element carrying the real component class is a leaf, not the wrapping div
 // a drag most easily lands on.
-function collectEnclosed(rect: Rect, anchor: Element): { elements: PickedElement[]; elided?: number } {
+function collectEnclosed(
+  rect: Rect,
+  anchor: Element,
+): {
+  elements: PickedElement[];
+  elided?: number;
+} {
   const right = rect.x + rect.width;
   const bottom = rect.y + rect.height;
   const candidates = Array.from(anchor.querySelectorAll("*")).filter((el) => {
@@ -146,7 +160,10 @@ function collectEnclosed(rect: Rect, anchor: Element): { elements: PickedElement
   candidates.sort((a, b) => depthOf(b) - depthOf(a));
   const kept = candidates.slice(0, REGION_CAP);
   const elided = candidates.length - kept.length;
-  return { elements: kept.map((el) => describe(el, anchor)), elided: elided > 0 ? elided : undefined };
+  return {
+    elements: kept.map((el) => describe(el, anchor)),
+    elided: elided > 0 ? elided : undefined,
+  };
 }
 
 function onMouseMove(event: MouseEvent): void {
@@ -159,7 +176,10 @@ function onMouseMove(event: MouseEvent): void {
       drag.dragging = true;
       removeHoverBox();
     }
-    applyRect(ensureDragBox(), normalizedRect(drag.startX, drag.startY, event.clientX, event.clientY));
+    applyRect(
+      ensureDragBox(),
+      normalizedRect(drag.startX, drag.startY, event.clientX, event.clientY),
+    );
     return;
   }
   const el = elementAt(event.clientX, event.clientY);
@@ -168,14 +188,23 @@ function onMouseMove(event: MouseEvent): void {
     return;
   }
   const r = el.getBoundingClientRect();
-  applyRect(ensureHoverBox(), { x: r.left, y: r.top, width: r.width, height: r.height });
+  applyRect(ensureHoverBox(), {
+    x: r.left,
+    y: r.top,
+    width: r.width,
+    height: r.height,
+  });
 }
 
 function onMouseDown(event: MouseEvent): void {
   if (event.button !== 0) return;
   event.preventDefault();
   event.stopPropagation();
-  drag = { startX: event.clientX, startY: event.clientY, dragging: false };
+  drag = {
+    startX: event.clientX,
+    startY: event.clientY,
+    dragging: false,
+  };
 }
 
 function onMouseUp(event: MouseEvent): void {
@@ -218,8 +247,15 @@ function finishElement(event: MouseEvent): void {
   const r = el.getBoundingClientRect();
   const picked: Picked = {
     mode: "element",
-    rect: { x: r.left, y: r.top, width: r.width, height: r.height },
-    elements: [describe(el, anchor)],
+    rect: {
+      x: r.left,
+      y: r.top,
+      width: r.width,
+      height: r.height,
+    },
+    elements: [
+      describe(el, anchor),
+    ],
   };
   emitResult(picked);
 }
@@ -237,7 +273,12 @@ function finishRegion(finished: DragState, event: MouseEvent): void {
     emitCancelled();
     return;
   }
-  const picked: Picked = { mode: "region", rect, elements, elided };
+  const picked: Picked = {
+    mode: "region",
+    rect,
+    elements,
+    elided,
+  };
   emitResult(picked);
 }
 

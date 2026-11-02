@@ -3,7 +3,12 @@ import type { ReactNode } from "react";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { SkeletonText } from "../../primitives/Skeleton/Skeleton";
-import { LessonCard, type LessonAnswers, type LessonCardItem, type LessonSettled } from "../LessonCard/LessonCard";
+import {
+  LessonCard,
+  type LessonAnswers,
+  type LessonCardItem,
+  type LessonSettled,
+} from "../LessonCard/LessonCard";
 
 /**
  * One thing that got in the way. `cites` are the rows the record holds for it:
@@ -62,7 +67,9 @@ export function RetroSheet({
       floating
       floor={floor}
       title="Retro"
-      subtitle={session === undefined ? undefined : <span className="armada-retro__job">{session}</span>}
+      subtitle={
+        session === undefined ? undefined : <span className="armada-retro__job">{session}</span>
+      }
       closeLabel="Close"
       closeBinding="Esc"
       onClose={onClose}
@@ -95,8 +102,16 @@ function Body({
             <LessonCard
               key={item.id ?? at}
               item={item}
-              {...(item.answers === undefined ? {} : { answers: item.answers })}
-              {...(item.settled === undefined ? {} : { settled: item.settled })}
+              {...(item.answers === undefined
+                ? {}
+                : {
+                    answers: item.answers,
+                  })}
+              {...(item.settled === undefined
+                ? {}
+                : {
+                    settled: item.settled,
+                  })}
             />
           ))}
         </ol>

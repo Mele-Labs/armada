@@ -13,7 +13,6 @@
   min-height: 0;
 }
 
-
 /* ---- The list ------------------------------------------------------------------------------- */
 
 .armada-wm__list {
@@ -93,8 +92,12 @@
   border-radius: var(--radius-md);
 }
 /* The wash is the row's, so it runs under the glyph and the switch to the row's edge, as the Cockpit's picked row does. */
-.armada-wm__row:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
-.armada-wm__row:has(> .armada-wm__entry[aria-current="true"]) { background: var(--select-ground, var(--surface-row-selected)); }
+.armada-wm__row:hover {
+  background: color-mix(in srgb, var(--fg-default) 10%, transparent);
+}
+.armada-wm__row:has(> .armada-wm__entry[aria-current="true"]) {
+  background: var(--select-ground, var(--surface-row-selected));
+}
 
 .armada-wm__entry {
   min-width: 0;
@@ -668,7 +671,9 @@
 .armada-wm__new {
   align-self: flex-start;
 }
-:root[data-look="new"] .armada-wm__new .armada-button { border-radius: var(--glass-radius-control); }
+:root[data-look="new"] .armada-wm__new .armada-button {
+  border-radius: var(--glass-radius-control);
+}
 
 /* ---- The Workspace's lanes ------------------------------------------------------------------- */
 
@@ -682,7 +687,10 @@
 .armada-wm-lanes > .armada-lane-canvas {
   flex: none;
   /* Four lanes of the least height each (LaneCanvas `layout.ts`), so the lanes fill it; a lane more makes it taller by that much, so every lane stands in it. */
-  height: max(calc(var(--space-12) * 11), calc(var(--lanes, 4) * var(--lane-min) + var(--border-width) * 2));
+  height: max(
+    calc(var(--space-12) * 11),
+    calc(var(--lanes, 4) * var(--lane-min) + var(--border-width) * 2)
+  );
 }
 /* Where the lanes run: a label, the tabs and, while a repository is picked, a line beside them. One row, so the canvas never moves when a tab is picked. */
 .armada-wm-scope {
@@ -769,7 +777,9 @@
   padding: 0;
   list-style: none;
 }
-.armada-wm-clauses:empty { display: none; }
+.armada-wm-clauses:empty {
+  display: none;
+}
 .armada-wm-clause {
   display: flex;
   flex-wrap: wrap;
@@ -777,10 +787,16 @@
   gap: var(--space-2);
 }
 .armada-wm-clause > .armada-input-field,
-.armada-wm-clause > .armada-textarea-field { flex: 1 1 calc(var(--space-12) * 3); min-width: 0; }
+.armada-wm-clause > .armada-textarea-field {
+  flex: 1 1 calc(var(--space-12) * 3);
+  min-width: 0;
+}
 /* A picker is a word of the sentence: as wide as what it says, so the clause wraps between words and not inside one. */
 .armada-wm-clause > .armada-select-field,
-.armada-wm-clause__led > .armada-select-field { flex: 0 1 auto; min-width: 0; }
+.armada-wm-clause__led > .armada-select-field {
+  flex: 0 1 auto;
+  min-width: 0;
+}
 /* A word and the picker it leads, which a line never breaks between. */
 .armada-wm-clause__led {
   display: inline-flex;
@@ -860,7 +876,8 @@
 }
 .armada-wm-auto__rows > li {
   min-height: calc(var(--h-row) * 1.5);
-  padding: var(--space-1) var(--space-3) var(--space-1) calc(var(--space-4) - var(--border-width) * 3);
+  padding: var(--space-1) var(--space-3) var(--space-1)
+    calc(var(--space-4) - var(--border-width) * 3);
   border-bottom: var(--border-width) solid var(--border-subtle);
   border-inline-start: calc(var(--border-width) * 3) solid transparent;
 }
@@ -940,8 +957,21 @@
 }
 
 /* Pending: bars where the names and switches will be, each wrapper the line the text takes so a row is the height it will be. */
-.armada-wm__group[data-pending] { --skeleton-fill: var(--bg-sunken); }
-.armada-wm__group[data-pending] .armada-wm__row:hover { background: transparent; }
-.armada-wm__skel { display: flex; align-items: center; min-height: var(--leading-xs); }
-.armada-wm__group[data-pending] .armada-wm__caption .armada-skeleton { flex: none; }
-.armada-wm__group[data-pending] .armada-skeleton.armada-wm__skel-switch { width: var(--space-12); height: var(--space-4); }
+.armada-wm__group[data-pending] {
+  --skeleton-fill: var(--bg-sunken);
+}
+.armada-wm__group[data-pending] .armada-wm__row:hover {
+  background: transparent;
+}
+.armada-wm__skel {
+  display: flex;
+  align-items: center;
+  min-height: var(--leading-xs);
+}
+.armada-wm__group[data-pending] .armada-wm__caption .armada-skeleton {
+  flex: none;
+}
+.armada-wm__group[data-pending] .armada-skeleton.armada-wm__skel-switch {
+  width: var(--space-12);
+  height: var(--space-4);
+}

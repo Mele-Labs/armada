@@ -9,29 +9,94 @@ import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { thread } = kit(narrow);
-  const sessions = region("Jobs", { exact: true });
+  const sessions = region("Jobs", {
+    exact: true,
+  });
   return [
-    { press: inside(sessions, button("CI timeout hunt")), say: "A terminal Job" },
-    { look: inside(thread, text("Conversation compacted")), say: "The compaction summary is a quiet row, and not from the person" },
-    { press: inside(thread, text("Conversation compacted")), say: "It opens to its text" },
-    { look: inside(thread, text("/reload-plugins")), say: "A command is one line as typed, with no tags" },
-    { look: inside(thread, text("Ran cat")), say: "Three calls in a row are one closed row saying what they did" },
-    { press: inside(thread, text("Ran cat")), say: "Pressed, it shows each call" },
-    { look: inside(thread, text("Bash cat /private/tmp/store-ci/out.txt")), say: "Every call, in order" },
-    { look: inside(thread, text("Wait on the write instead of sleeping, and keep the test under a second.")), say: "The person's words sit left, on the panel, with no fill" },
-    { look: inside(thread, text("It sleeps 50 ms and then reads the clock. CI is slower than that, so the read lands before the write.")), say: "The agent's the same" },
+    {
+      press: inside(sessions, button("CI timeout hunt")),
+      say: "A terminal Job",
+    },
+    {
+      look: inside(thread, text("Conversation compacted")),
+      say: "The compaction summary is a quiet row, and not from the person",
+    },
+    {
+      press: inside(thread, text("Conversation compacted")),
+      say: "It opens to its text",
+    },
+    {
+      look: inside(thread, text("/reload-plugins")),
+      say: "A command is one line as typed, with no tags",
+    },
+    {
+      look: inside(thread, text("Ran cat")),
+      say: "Three calls in a row are one closed row saying what they did",
+    },
+    {
+      press: inside(thread, text("Ran cat")),
+      say: "Pressed, it shows each call",
+    },
+    {
+      look: inside(thread, text("Bash cat /private/tmp/store-ci/out.txt")),
+      say: "Every call, in order",
+    },
+    {
+      look: inside(
+        thread,
+        text("Wait on the write instead of sleeping, and keep the test under a second."),
+      ),
+      say: "The person's words sit left, on the panel, with no fill",
+    },
+    {
+      look: inside(
+        thread,
+        text(
+          "It sleeps 50 ms and then reads the clock. CI is slower than that, so the read lands before the write.",
+        ),
+      ),
+      say: "The agent's the same",
+    },
   ];
 }
 
 const helm: Step[] = [
-  { press: button("Helm"), say: "Helm, a Job in the dock" },
-  { type: "why did 77 stop", into: inside(role("complementary", "Helm"), role("textbox", "Ask Helm")), say: "A question" },
-  { key: "Enter", on: inside(role("complementary", "Helm"), role("textbox", "Ask Helm")), say: "↵ sends it" },
-  { look: inside(role("complementary", "Helm"), text("why did 77 stop")), say: "Helm's thread: the person's words left aligned, on the panel's ground" },
+  {
+    press: button("Helm"),
+    say: "Helm, a Job in the dock",
+  },
+  {
+    type: "why did 77 stop",
+    into: inside(role("complementary", "Helm"), role("textbox", "Ask Helm")),
+    say: "A question",
+  },
+  {
+    key: "Enter",
+    on: inside(role("complementary", "Helm"), role("textbox", "Ask Helm")),
+    say: "↵ sends it",
+  },
+  {
+    look: inside(role("complementary", "Helm"), text("why did 77 stop")),
+    say: "Helm's thread: the person's words left aligned, on the panel's ground",
+  },
 ];
 
-const wide = walk("session-thread-polish", [toSessions, ...steps(false)]);
-const narrow = walk("session-thread-polish", [toSessions, ...steps(true)], NARROW);
+const wide = walk("session-thread-polish", [
+  toSessions,
+  ...steps(false),
+]);
+const narrow = walk(
+  "session-thread-polish",
+  [
+    toSessions,
+    ...steps(true),
+  ],
+  NARROW,
+);
 const talking = walk("helm-is-a-session", helm);
 
-export { wide as "session-thread-polish", narrow as "session-thread-polish-narrow", talking as "session-thread-polish-helm" };
+export {
+  wide as "session-thread-polish",
+  narrow as "session-thread-polish-narrow",
+  talking as "session-thread-polish-helm",
+};

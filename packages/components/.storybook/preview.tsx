@@ -17,8 +17,14 @@ import { motionFor } from "./motion";
 // Dark is primary. A light story is the secondary case, never the default.
 const preview: Preview = {
   parameters: {
-    backgrounds: { disable: true },
-    controls: { matchers: { color: /(background|color)$/i } },
+    backgrounds: {
+      disable: true,
+    },
+    controls: {
+      matchers: {
+        color: /(background|color)$/i,
+      },
+    },
   },
   // **A `layout: "fullscreen"` story loses `body`'s own padding, in the test
   // run and not only in `storybook dev`.** Storybook's own preview toggles a
@@ -42,7 +48,9 @@ const preview: Preview = {
         if (!fullscreen) return undefined;
         document.body.setAttribute("data-storybook-layout", "fullscreen");
         return () => document.body.removeAttribute("data-storybook-layout");
-      }, [fullscreen]);
+      }, [
+        fullscreen,
+      ]);
       return <Story />;
     },
   ],

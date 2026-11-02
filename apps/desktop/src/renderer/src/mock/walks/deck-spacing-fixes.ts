@@ -5,17 +5,69 @@
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
 const deckSpacingFixes = walk("flight-control", [
-  { look: role("navigation", "Places"), say: "Each place is its icon and its name, smaller. A hairline before the search" },
-  { key: "Meta+2", on: role("navigation", "Places"), say: "⌘2 is the second place drawn: Studios" },
-  { key: "Meta+1", on: role("navigation", "Places"), say: "⌘1, back to the Cockpit" },
-  { look: region("Bays"), say: "Room between the bays" },
-  { look: region("Dispatch controls"), say: "Dispatch is a raised key like the others, its glyph in the accent. Only a pressed key is filled" },
-  { press: deckRow("Tune the flight controls"), say: "A Job open" },
-  { look: region("Field", { exact: true }), say: "Each side panel stands apart, folded or open" },
-  { press: inside(region("Field", { exact: true }), button(/\bField\b/)), say: "Field folds by its band" },
-  { press: inside(region("Field", { exact: true }), button(/\bField\b/)), say: "And opens again" },
-  { press: inside(region("Plan the change", { exact: true }), button(/Plan the change/)), say: "The current step folds by its band too" },
-  { look: role("textbox", "Message"), say: "The composer is two lines tall" },
+  {
+    look: role("navigation", "Places"),
+    say: "Each place is its icon and its name, smaller. A hairline before the search",
+  },
+  {
+    key: "Meta+2",
+    on: role("navigation", "Places"),
+    say: "⌘2 is the second place drawn: Studios",
+  },
+  {
+    key: "Meta+1",
+    on: role("navigation", "Places"),
+    say: "⌘1, back to the Cockpit",
+  },
+  {
+    look: region("Bays"),
+    say: "Room between the bays",
+  },
+  {
+    look: region("Dispatch controls"),
+    say: "Dispatch is a raised key like the others, its glyph in the accent. Only a pressed key is filled",
+  },
+  {
+    press: deckRow("Tune the flight controls"),
+    say: "A Job open",
+  },
+  {
+    look: region("Field", {
+      exact: true,
+    }),
+    say: "Each side panel stands apart, folded or open",
+  },
+  {
+    press: inside(
+      region("Field", {
+        exact: true,
+      }),
+      button(/\bField\b/),
+    ),
+    say: "Field folds by its band",
+  },
+  {
+    press: inside(
+      region("Field", {
+        exact: true,
+      }),
+      button(/\bField\b/),
+    ),
+    say: "And opens again",
+  },
+  {
+    press: inside(
+      region("Plan the change", {
+        exact: true,
+      }),
+      button(/Plan the change/),
+    ),
+    say: "The current step folds by its band too",
+  },
+  {
+    look: role("textbox", "Message"),
+    say: "The composer is two lines tall",
+  },
 ]);
 
 export { deckSpacingFixes as "deck-spacing-fixes" };

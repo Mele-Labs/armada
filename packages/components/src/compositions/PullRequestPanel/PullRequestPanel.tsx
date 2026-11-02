@@ -110,7 +110,9 @@ export type PullRequestPanelProps = {
  * and the stand-ins give way to that sentence.
  */
 export type PullRequestPanelReadingProps = {
-  reading: { said?: string };
+  reading: {
+    said?: string;
+  };
   /** The step the sentence names, drawn under it with a Run and a Copy. Absent where it names none. */
   fix?: PullRequestFixProps;
   number: number;
@@ -127,13 +129,35 @@ export type PullRequestPanelReadingProps = {
 };
 
 const PILL = {
-  merged: { status: "completed-success", Icon: GitMerge, said: "Merged" },
-  queued: { status: "running", Icon: Clock, said: "In merge queue" },
-  draft: { status: "not-started", Icon: GitPullRequest, said: "Draft" },
-  open: { status: "completed-success", Icon: GitPullRequest, said: "Open" },
+  merged: {
+    status: "completed-success",
+    Icon: GitMerge,
+    said: "Merged",
+  },
+  queued: {
+    status: "running",
+    Icon: Clock,
+    said: "In merge queue",
+  },
+  draft: {
+    status: "not-started",
+    Icon: GitPullRequest,
+    said: "Draft",
+  },
+  open: {
+    status: "completed-success",
+    Icon: GitPullRequest,
+    said: "Open",
+  },
 } as const;
 
-type Head = { number: number; repository?: string | undefined; floor: boolean; back?: SheetBack | undefined; onClose: () => void };
+type Head = {
+  number: number;
+  repository?: string | undefined;
+  floor: boolean;
+  back?: SheetBack | undefined;
+  onClose: () => void;
+};
 
 /** The Sheet's head, one for the panel waiting on its read and the panel filled, so nothing in it moves when the read lands. */
 const headOf = ({ number, repository, floor, back, onClose }: Head) => ({
@@ -142,9 +166,17 @@ const headOf = ({ number, repository, floor, back, onClose }: Head) => ({
   floating: true,
   floor,
   title: `Pull request #${number}`,
-  ...(repository === undefined ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{repository}</span> }),
+  ...(repository === undefined
+    ? {}
+    : {
+        subtitle: <span className="armada-pr-panel__repository mono">{repository}</span>,
+      }),
   size: "panel" as const,
-  ...(back === undefined ? {} : { back }),
+  ...(back === undefined
+    ? {}
+    : {
+        back,
+      }),
   closeLabel: "Close",
   closeBinding: "Esc",
   onClose,
@@ -157,14 +189,26 @@ function CopyLink({ address }: { address: string }) {
     if (!copied) return;
     const timer = setTimeout(() => setCopied(false), 2000);
     return () => clearTimeout(timer);
-  }, [copied]);
+  }, [
+    copied,
+  ]);
   if (address === "") return null;
   const said = copied ? "Copied" : "Copy link";
   return (
     <span className="armada-pr-panel__open">
       <Tooltip label={said}>
-        <Button variant="ghost" size="sm" iconOnly aria-label={said} onClick={() => void navigator.clipboard.writeText(address).then(() => setCopied(true))}>
-          {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={said}
+          onClick={() => void navigator.clipboard.writeText(address).then(() => setCopied(true))}
+        >
+          {copied ? (
+            <Check size={16} strokeWidth={2} aria-hidden />
+          ) : (
+            <Copy size={16} strokeWidth={2} aria-hidden />
+          )}
         </Button>
       </Tooltip>
     </span>
@@ -190,7 +234,16 @@ const BrowserSaid = ({ said }: { said: string | undefined }) =>
     </p>
   );
 
-function Reading({ reading, fix, number, address, title, branch, onOpenBrowser, browserSaid }: PullRequestPanelReadingProps) {
+function Reading({
+  reading,
+  fix,
+  number,
+  address,
+  title,
+  branch,
+  onOpenBrowser,
+  browserSaid,
+}: PullRequestPanelReadingProps) {
   const out = reading.said === undefined;
   const named = title !== undefined && title !== "";
   const branched = branch !== undefined && branch !== "";
@@ -215,14 +268,27 @@ function Reading({ reading, fix, number, address, title, branch, onOpenBrowser, 
           )}
         </div>
       ) : null}
-      <div className="armada-pr-panel__acts armada-pr-panel__stand-in" role="group" aria-label="Acts">
+      <div
+        className="armada-pr-panel__acts armada-pr-panel__stand-in"
+        role="group"
+        aria-label="Acts"
+      >
         {out ? <Skeleton width="30%" /> : null}
         <CopyLink address={address} />
         {address === "" ? null : <OpenInBrowser onPress={() => onOpenBrowser(address)} />}
       </div>
       <BrowserSaid said={browserSaid} />
       {out ? (
-        <SkeletonText label={`Reading pull request #${number}`} widths={["100%", "85%", "60%", "90%", "40%"]} />
+        <SkeletonText
+          label={`Reading pull request #${number}`}
+          widths={[
+            "100%",
+            "85%",
+            "60%",
+            "90%",
+            "40%",
+          ]}
+        />
       ) : (
         <p className="armada-pr-panel__said" role="alert">
           {reading.said}
@@ -236,8 +302,16 @@ function Reading({ reading, fix, number, address, title, branch, onOpenBrowser, 
 // Two signatures rather than a union, so `ComponentProps` (and Storybook's args) read the filled panel's, the last.
 export function PullRequestPanel(props: PullRequestPanelReadingProps): ReactNode;
 export function PullRequestPanel(props: PullRequestPanelProps): ReactNode;
-export function PullRequestPanel(props: PullRequestPanelProps | PullRequestPanelReadingProps): ReactNode {
-  const head = headOf({ number: props.number, repository: props.repository, floor: props.floor ?? false, back: props.back, onClose: props.onClose });
+export function PullRequestPanel(
+  props: PullRequestPanelProps | PullRequestPanelReadingProps,
+): ReactNode {
+  const head = headOf({
+    number: props.number,
+    repository: props.repository,
+    floor: props.floor ?? false,
+    back: props.back,
+    onClose: props.onClose,
+  });
   // Held above both returns, so the hooks are the same whether the read is out or in.
   const [ownTab, setOwnTab] = useState("conversation");
   const [current, setCurrent] = useState<string | undefined>(undefined);
@@ -246,11 +320,20 @@ export function PullRequestPanel(props: PullRequestPanelProps | PullRequestPanel
   const filledProps = props.reading === undefined ? props : undefined;
   const tab = filledProps?.tab ?? ownTab;
   const listed = (filledProps?.page?.files.length ?? 0) > 0;
-  const floats = filledProps?.patches !== undefined && tab === "files" && !(filledProps.floor ?? false) && listed;
+  const floats =
+    filledProps?.patches !== undefined &&
+    tab === "files" &&
+    !(filledProps.floor ?? false) &&
+    listed;
   // The list follows the tab rather than being opened, so the tab pressed keeps focus rather than the list's close taking it.
   useEffect(() => {
-    if (floats) body.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
-  }, [floats]);
+    if (floats)
+      body.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({
+        preventScroll: true,
+      });
+  }, [
+    floats,
+  ]);
   // Both returns open on the one Sheet, so React keeps it mounted from one to the other.
   if (props.reading !== undefined)
     return (
@@ -268,10 +351,13 @@ export function PullRequestPanel(props: PullRequestPanelProps | PullRequestPanel
     floats,
     current,
     body,
-    target: (path) => (element) => void (element === null ? sections.current.delete(path) : sections.current.set(path, element)),
+    target: (path) => (element) =>
+      void (element === null ? sections.current.delete(path) : sections.current.set(path, element)),
     onFile: (path) => {
       setCurrent(path);
-      sections.current.get(path)?.scrollIntoView({ block: "start" });
+      sections.current.get(path)?.scrollIntoView({
+        block: "start",
+      });
     },
   });
 }
@@ -287,134 +373,251 @@ type Own = {
   onFile: (path: string) => void;
 };
 
-function filled({
-  number,
-  title,
-  branch,
-  address,
-  repository,
-  state,
-  checks,
-  auto,
-  queued = false,
-  place,
-  floor = false,
-  pending,
-  refreshing = false,
-  onAct,
-  onSendBack,
-  sentBack = false,
-  onOpenLink,
-  onOpenBrowser,
-  browserSaid,
-  onClose,
-  body,
-  page,
-  pageSaid,
-  composer,
-  patches,
-  reach,
-  onTest,
-  more,
-  triage,
-  focused,
-  back,
-  children,
-}: PullRequestPanelProps, { tab, onTab, floats, current, body: bodyRef, target, onFile }: Own) {
+function filled(
+  {
+    number,
+    title,
+    branch,
+    address,
+    repository,
+    state,
+    checks,
+    auto,
+    queued = false,
+    place,
+    floor = false,
+    pending,
+    refreshing = false,
+    onAct,
+    onSendBack,
+    sentBack = false,
+    onOpenLink,
+    onOpenBrowser,
+    browserSaid,
+    onClose,
+    body,
+    page,
+    pageSaid,
+    composer,
+    patches,
+    reach,
+    onTest,
+    more,
+    triage,
+    focused,
+    back,
+    children,
+  }: PullRequestPanelProps,
+  { tab, onTab, floats, current, body: bodyRef, target, onFile }: Own,
+) {
   const pill = PILL[state === "merged" ? "merged" : queued ? "queued" : state];
-  const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(page === undefined ? {} : { review: page.review, approvals: page.approvals, mergeable: page.mergeable, ...(page.reviewers === undefined ? {} : { reviewers: page.reviewers }) })} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} {...(onSendBack === undefined ? {} : { onSendBack })} sentBack={sentBack} />;
+  const plates = (
+    <PullRequestPlates
+      state={state}
+      checks={checks}
+      auto={auto}
+      queued={queued}
+      {...(page === undefined
+        ? {}
+        : {
+            review: page.review,
+            approvals: page.approvals,
+            mergeable: page.mergeable,
+            ...(page.reviewers === undefined
+              ? {}
+              : {
+                  reviewers: page.reviewers,
+                }),
+          })}
+      {...(place === undefined
+        ? {}
+        : {
+            place,
+          })}
+      onOpenPullRequest={onOpenLink}
+      {...(onSendBack === undefined
+        ? {}
+        : {
+            onSendBack,
+          })}
+      sentBack={sentBack}
+    />
+  );
   const description = body?.trim() ?? "";
   const opened = agoOf(page?.created_at);
   // The file list lies where the plates would, so they are not drawn while it is open; at the floor they move into the body.
   const platesInBody = floor;
-  const tone = state === "merged" ? "success" : queued ? "running" : checks.state === "failed" ? "failed" : checks.state === "passed" ? "success" : "neutral";
+  const tone =
+    state === "merged"
+      ? "success"
+      : queued
+        ? "running"
+        : checks.state === "failed"
+          ? "failed"
+          : checks.state === "passed"
+            ? "success"
+            : "neutral";
   return (
     <>
-    <Sheet
-      {...headOf({ number, repository, floor, back, onClose })}
-      under={floats}
-      {...(platesInBody || floats ? {} : { aside: <div className="armada-pr-plates">{plates}</div> })}
-      {...(composer === undefined ? {} : { footer: <PullRequestComposer {...composer} /> })}
-    >
-      <div className="armada-pr-panel" ref={bodyRef}>
-        {refreshing ? <div role="progressbar" aria-label={`Refreshing pull request #${number}`} className="armada-pr-panel__refresh" /> : null}
-        <h3 className="armada-pr-panel__title">{title}</h3>
-        <div className="armada-pr-panel__meta">
-          <Badge status={pill.status} icon={pill.Icon}>
-            {pill.said}
-          </Badge>
-          <Tooltip label={page === undefined ? "Branch" : "Branch and the branch it merges into"}>
-            <span className="armada-pr-panel__branch mono">{page === undefined ? branch : `${branch} \u2192 ${page.base}`}</span>
-          </Tooltip>
-          {page?.author === undefined ? null : (
-            <Tooltip label="Opened by">
-              <span className="armada-pr-panel__who">{page.author}</span>
-            </Tooltip>
-          )}
-          {opened === undefined ? null : (
-            <Tooltip label="Opened">
-              <span className="armada-pr-panel__who">{opened}</span>
-            </Tooltip>
-          )}
-          {page === undefined ? null : <DiffSize additions={page.additions} deletions={page.deletions} />}
-          <RegisteredOwnerOf repository={repository} number={number} />
-        </div>
-        <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
-          <PullRequestActs state={state} checks={checks.state} auto={auto} queued={queued} {...(pending === undefined ? {} : { pending })} onAct={onAct} />
-          <CopyLink address={address} />
-          <OpenInBrowser onPress={() => (onOpenBrowser ?? onOpenLink)(address)} />
-        </div>
-        <BrowserSaid said={browserSaid} />
-        {platesInBody ? <div className="armada-pr-plates">{plates}</div> : null}
-        {children}
-        {pageSaid === undefined || pageSaid === "" ? null : (
-          <p className="armada-pr-panel__said" role="alert">
-            {pageSaid}
-          </p>
-        )}
-        {page === undefined ? null : (
-          <PullRequestTabs
-            page={page}
-            description={description}
-            onOpenLink={onOpenLink}
-            {...(patches === undefined
-              ? {}
-              : {
-                  files: (
-                    <>
-                      {floor ? <FileRows rows={page.files} current={current} onFile={onFile} reach={reach} onTest={onTest} /> : null}
-                      <PatchStack rows={page.files} patches={patches} target={target} />
-                    </>
-                  ),
-                })}
-            reach={reach}
-            onTest={onTest}
-            {...(more === undefined ? {} : { more })}
-            {...(triage === undefined ? {} : { triage })}
-            {...(focused === undefined ? {} : { focused })}
-            tab={tab}
-            onTab={onTab}
-          />
-        )}
-        {page !== undefined || description === "" ? null : (
-          <section className="armada-pr-plate armada-pr-panel__description" data-tone={tone} aria-label="Description">
-            <Tooltip label="Description">
-              <span className="armada-pr-plate__eyebrow" role="img" aria-label="Description">
-                <FileText size={16} strokeWidth={2} aria-hidden />
+      <Sheet
+        {...headOf({
+          number,
+          repository,
+          floor,
+          back,
+          onClose,
+        })}
+        under={floats}
+        {...(platesInBody || floats
+          ? {}
+          : {
+              aside: <div className="armada-pr-plates">{plates}</div>,
+            })}
+        {...(composer === undefined
+          ? {}
+          : {
+              footer: <PullRequestComposer {...composer} />,
+            })}
+      >
+        <div className="armada-pr-panel" ref={bodyRef}>
+          {refreshing ? (
+            <div
+              role="progressbar"
+              aria-label={`Refreshing pull request #${number}`}
+              className="armada-pr-panel__refresh"
+            />
+          ) : null}
+          <h3 className="armada-pr-panel__title">{title}</h3>
+          <div className="armada-pr-panel__meta">
+            <Badge status={pill.status} icon={pill.Icon}>
+              {pill.said}
+            </Badge>
+            <Tooltip label={page === undefined ? "Branch" : "Branch and the branch it merges into"}>
+              <span className="armada-pr-panel__branch mono">
+                {page === undefined ? branch : `${branch} \u2192 ${page.base}`}
               </span>
             </Tooltip>
-            <Prose text={description} />
-          </section>
-        )}
-      </div>
-    </Sheet>
-    {floats && page !== undefined ? (
-      /* Beside the panel, as Plan's task panel holds a file: a second floating sheet to its left that
-         dims nothing. It is the panel's own, so its close and Esc close the panel. */
-      <Sheet open floating beside="pull-request" kind="pull-request-files" size="panel" title="Files" closeBinding="Esc" onClose={onClose}>
-        <FileRows rows={page.files} current={current} onFile={onFile} reach={reach} onTest={onTest} />
+            {page?.author === undefined ? null : (
+              <Tooltip label="Opened by">
+                <span className="armada-pr-panel__who">{page.author}</span>
+              </Tooltip>
+            )}
+            {opened === undefined ? null : (
+              <Tooltip label="Opened">
+                <span className="armada-pr-panel__who">{opened}</span>
+              </Tooltip>
+            )}
+            {page === undefined ? null : (
+              <DiffSize additions={page.additions} deletions={page.deletions} />
+            )}
+            <RegisteredOwnerOf repository={repository} number={number} />
+          </div>
+          <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
+            <PullRequestActs
+              state={state}
+              checks={checks.state}
+              auto={auto}
+              queued={queued}
+              {...(pending === undefined
+                ? {}
+                : {
+                    pending,
+                  })}
+              onAct={onAct}
+            />
+            <CopyLink address={address} />
+            <OpenInBrowser onPress={() => (onOpenBrowser ?? onOpenLink)(address)} />
+          </div>
+          <BrowserSaid said={browserSaid} />
+          {platesInBody ? <div className="armada-pr-plates">{plates}</div> : null}
+          {children}
+          {pageSaid === undefined || pageSaid === "" ? null : (
+            <p className="armada-pr-panel__said" role="alert">
+              {pageSaid}
+            </p>
+          )}
+          {page === undefined ? null : (
+            <PullRequestTabs
+              page={page}
+              description={description}
+              onOpenLink={onOpenLink}
+              {...(patches === undefined
+                ? {}
+                : {
+                    files: (
+                      <>
+                        {floor ? (
+                          <FileRows
+                            rows={page.files}
+                            current={current}
+                            onFile={onFile}
+                            reach={reach}
+                            onTest={onTest}
+                          />
+                        ) : null}
+                        <PatchStack rows={page.files} patches={patches} target={target} />
+                      </>
+                    ),
+                  })}
+              reach={reach}
+              onTest={onTest}
+              {...(more === undefined
+                ? {}
+                : {
+                    more,
+                  })}
+              {...(triage === undefined
+                ? {}
+                : {
+                    triage,
+                  })}
+              {...(focused === undefined
+                ? {}
+                : {
+                    focused,
+                  })}
+              tab={tab}
+              onTab={onTab}
+            />
+          )}
+          {page !== undefined || description === "" ? null : (
+            <section
+              className="armada-pr-plate armada-pr-panel__description"
+              data-tone={tone}
+              aria-label="Description"
+            >
+              <Tooltip label="Description">
+                <span className="armada-pr-plate__eyebrow" role="img" aria-label="Description">
+                  <FileText size={16} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+              <Prose text={description} />
+            </section>
+          )}
+        </div>
       </Sheet>
-    ) : null}
+      {floats && page !== undefined ? (
+        /* Beside the panel, as Plan's task panel holds a file: a second floating sheet to its left that
+         dims nothing. It is the panel's own, so its close and Esc close the panel. */
+        <Sheet
+          open
+          floating
+          beside="pull-request"
+          kind="pull-request-files"
+          size="panel"
+          title="Files"
+          closeBinding="Esc"
+          onClose={onClose}
+        >
+          <FileRows
+            rows={page.files}
+            current={current}
+            onFile={onFile}
+            reach={reach}
+            onTest={onTest}
+          />
+        </Sheet>
+      ) : null}
     </>
   );
 }

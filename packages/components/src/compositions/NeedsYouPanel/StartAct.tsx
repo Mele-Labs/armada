@@ -9,7 +9,13 @@ import type { LedgerEntry } from "../SessionLedger/SessionLedger";
  * Drawn by the Needs you row and by the Started row in its parent's thread, so the two read and press the same. `name` is the button's own name
  * where a bare "Start" would not say which Job.
  */
-export function StartAct({ start, name }: { start: NonNullable<LedgerEntry["start"]>; name?: string }) {
+export function StartAct({
+  start,
+  name,
+}: {
+  start: NonNullable<LedgerEntry["start"]>;
+  name?: string;
+}) {
   return (
     <span className="armada-needs-panel__start">
       {start.starting ? (
@@ -22,7 +28,17 @@ export function StartAct({ start, name }: { start: NonNullable<LedgerEntry["star
           <span aria-hidden>Starting…</span>
         </span>
       ) : (
-        <Button variant="secondary" size="sm" data-aside="" {...(name === undefined ? {} : { "aria-label": name })} onClick={start.onStart}>
+        <Button
+          variant="secondary"
+          size="sm"
+          data-aside=""
+          {...(name === undefined
+            ? {}
+            : {
+                "aria-label": name,
+              })}
+          onClick={start.onStart}
+        >
           Start
         </Button>
       )}

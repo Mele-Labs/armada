@@ -2,7 +2,8 @@
 
 /** Whether the target is the layer's own, or the mock's walk card, which a walk over the layer has to be able to use. */
 export function inLayer(target: EventTarget | null): boolean {
-  const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
+  const element =
+    target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
   return element?.closest("[data-armada-annotate], [data-walk-ui]") != null;
 }
 

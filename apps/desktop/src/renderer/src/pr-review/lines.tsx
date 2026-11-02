@@ -6,7 +6,16 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Check, SquareDashed, X } from "lucide-react";
-import { Button, Prose, PrMark, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
+import {
+  Button,
+  Prose,
+  PrMark,
+  Textarea,
+  Tooltip,
+  agoOf,
+  forgetKept,
+  sendsOn,
+} from "@armada/components";
 
 import type { Draft, Finding, Thread, ToolMark } from "./model";
 import { ArmadaMark, SeverityMark, TOOL_MARK } from "./marks";
@@ -17,7 +26,21 @@ import { ArmadaMark, SeverityMark, TOOL_MARK } from "./marks";
  * The box a comment or a reply is written in. **It adds to the pending review**; nothing is posted from here.
  * Cancel leaves the words where they are, kept under `keep`, so a draft survives putting the box away.
  */
-export function LineComposer({ keep, label, onAdd, onCancel, action = "Add to review", initial = "" }: { keep: string; label: string; onAdd: (body: string) => void; onCancel: () => void; action?: string; initial?: string }) {
+export function LineComposer({
+  keep,
+  label,
+  onAdd,
+  onCancel,
+  action = "Add to review",
+  initial = "",
+}: {
+  keep: string;
+  label: string;
+  onAdd: (body: string) => void;
+  onCancel: () => void;
+  action?: string;
+  initial?: string;
+}) {
   const [text, setText] = useState(initial);
   const ready = text.trim() !== "";
   const add = () => {
@@ -70,7 +93,13 @@ export function DraftCard({ draft, onRemove }: { draft: Draft; onRemove: () => v
         <b className="pr-card__who">You</b>
         <span className="pr-card__act">
           <Tooltip label="Remove from the review">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Remove from the review" onClick={onRemove}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Remove from the review"
+              onClick={onRemove}
+            >
               <X size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
@@ -107,7 +136,11 @@ export function ThreadCard({
 }) {
   const first = thread.comments[0];
   return (
-    <article className="pr-thread" aria-label={`Thread on ${where} by ${first?.author ?? "reviewer"}`} data-resolved={thread.resolved || undefined}>
+    <article
+      className="pr-thread"
+      aria-label={`Thread on ${where} by ${first?.author ?? "reviewer"}`}
+      data-resolved={thread.resolved || undefined}
+    >
       <header className="pr-card__head">
         {thread.resolved ? <PrMark Glyph={Check} said="Resolved" tone="success" /> : null}
         <b className="pr-card__who">{first?.author}</b>
@@ -154,10 +187,26 @@ export function ThreadCard({
  * A finding: pinned to a change, hatched, and the agent's alone. **It is not on the forge**, which the glyph
  * says. Dismiss puts it away; Send to Session is there only where one of his Sessions holds the pull request.
  */
-export function FindingCard({ finding, mark, session, onDismiss, onSend }: { finding: Finding; mark: ToolMark; session: boolean; onDismiss: () => void; onSend: () => void }) {
+export function FindingCard({
+  finding,
+  mark,
+  session,
+  onDismiss,
+  onSend,
+}: {
+  finding: Finding;
+  mark: ToolMark;
+  session: boolean;
+  onDismiss: () => void;
+  onSend: () => void;
+}) {
   const kind = TOOL_MARK[mark];
   return (
-    <article className="pr-finding" aria-label={`Finding: ${finding.title}`} data-finding={finding.id}>
+    <article
+      className="pr-finding"
+      aria-label={`Finding: ${finding.title}`}
+      data-finding={finding.id}
+    >
       <header className="pr-card__head">
         <ArmadaMark />
         <span className="pr-hued" data-tool={mark}>
@@ -167,7 +216,13 @@ export function FindingCard({ finding, mark, session, onDismiss, onSend }: { fin
         <SeverityMark severity={finding.severity} />
         <span className="pr-card__act">
           <Tooltip label="Dismiss">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Dismiss finding" onClick={onDismiss}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Dismiss finding"
+              onClick={onDismiss}
+            >
               <X size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
@@ -181,7 +236,12 @@ export function FindingCard({ finding, mark, session, onDismiss, onSend }: { fin
           {finding.sent ? (
             <PrMark Glyph={Check} said="Sent to the Job" tone="success" />
           ) : (
-            <Button variant="secondary" size="sm" aria-label={`Send to Job: ${finding.title}`} onClick={onSend}>
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label={`Send to Job: ${finding.title}`}
+              onClick={onSend}
+            >
               Send to Job
             </Button>
           )}

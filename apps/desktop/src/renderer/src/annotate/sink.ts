@@ -1,7 +1,13 @@
 // Where the layer's notes are kept: main, over the dev-only preload entry, or a
 // vite dev server when the renderer runs in a browser. Both write the same files.
 
-import { ANNOTATIONS_PATH, STORIES_PATH, type Annotation, type AnnotationsDevApi, type StoryIndex } from "../../../shared/annotations";
+import {
+  ANNOTATIONS_PATH,
+  STORIES_PATH,
+  type Annotation,
+  type AnnotationsDevApi,
+  type StoryIndex,
+} from "../../../shared/annotations";
 import type { StoryModule } from "./story";
 
 export type Sink = AnnotationsDevApi & {
@@ -52,7 +58,8 @@ export function devServerSink(fetcher: Fetch = (url, init) => fetch(url, init)):
     );
   }
   const one = (id: string): string => `${ANNOTATIONS_PATH}/${encodeURIComponent(id)}`;
-  const exampleAt = (id: string, name: string): string => `${one(id)}/examples/${encodeURIComponent(name)}`;
+  const exampleAt = (id: string, name: string): string =>
+    `${one(id)}/examples/${encodeURIComponent(name)}`;
   return {
     via: "dev server",
     list: async () => (await (await ok(await fetcher(ANNOTATIONS_PATH))).json()) as Annotation[],
@@ -66,34 +73,60 @@ export function devServerSink(fetcher: Fetch = (url, init) => fetch(url, init)):
       await ok(
         await fetcher(one(note.id), {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(note),
         }),
       );
     },
     remove: async (id) => {
-      await ok(await fetcher(one(id), { method: "DELETE" }));
+      await ok(
+        await fetcher(one(id), {
+          method: "DELETE",
+        }),
+      );
     },
     // A browser has no Fleet to send to and nothing to capture a window with.
     root: async () => null,
     capture: async () => null,
     // Never called by the layer here, since nothing captures; kept so the routes answer as main does.
     saveShot: async (id, png) => {
-      await ok(await fetcher(one(`${id}.png`), { method: "PUT", headers: { "Content-Type": "image/png" }, body: png }));
+      await ok(
+        await fetcher(one(`${id}.png`), {
+          method: "PUT",
+          headers: {
+            "Content-Type": "image/png",
+          },
+          body: png,
+        }),
+      );
     },
     shot: async (id) => {
       const response = await fetcher(one(`${id}.png`));
       return response.status === 404 ? null : (await ok(response)).arrayBuffer();
     },
     saveExample: async (id, name, png) => {
-      await ok(await fetcher(exampleAt(id, name), { method: "PUT", headers: { "Content-Type": "image/png" }, body: png }));
+      await ok(
+        await fetcher(exampleAt(id, name), {
+          method: "PUT",
+          headers: {
+            "Content-Type": "image/png",
+          },
+          body: png,
+        }),
+      );
     },
     example: async (id, name) => {
       const response = await fetcher(exampleAt(id, name));
       return response.status === 404 ? null : (await ok(response)).arrayBuffer();
     },
     removeExample: async (id, name) => {
-      await ok(await fetcher(exampleAt(id, name), { method: "DELETE" }));
+      await ok(
+        await fetcher(exampleAt(id, name), {
+          method: "DELETE",
+        }),
+      );
     },
   };
 }

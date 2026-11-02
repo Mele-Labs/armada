@@ -10,9 +10,18 @@
 import { BaseSequencer } from "vitest/node";
 import type { TestSpecification } from "vitest/node";
 
-const HEAVY: [RegExp, number][] = [
-  [/walks-\d+of\d+\.test\.tsx$/, 50],
-  [/src\/main\/connection\.test\.ts$/, 15],
+const HEAVY: [
+  RegExp,
+  number,
+][] = [
+  [
+    /walks-\d+of\d+\.test\.tsx$/,
+    50,
+  ],
+  [
+    /src\/main\/connection\.test\.ts$/,
+    15,
+  ],
 ];
 
 function weight(file: TestSpecification): number {
@@ -21,9 +30,22 @@ function weight(file: TestSpecification): number {
 
 export default class WeightedShards extends BaseSequencer {
   override async shard(files: TestSpecification[]): Promise<TestSpecification[]> {
-    const { index, count } = this.ctx.config.shard ?? { index: 1, count: 1 };
-    const shards = Array.from({ length: count }, () => ({ cost: 0, files: [] as TestSpecification[] }));
-    const heaviestFirst = [...files].sort((a, b) => weight(b) - weight(a) || a.moduleId.localeCompare(b.moduleId));
+    const { index, count } = this.ctx.config.shard ?? {
+      index: 1,
+      count: 1,
+    };
+    const shards = Array.from(
+      {
+        length: count,
+      },
+      () => ({
+        cost: 0,
+        files: [] as TestSpecification[],
+      }),
+    );
+    const heaviestFirst = [
+      ...files,
+    ].sort((a, b) => weight(b) - weight(a) || a.moduleId.localeCompare(b.moduleId));
     for (const file of heaviestFirst) {
       const lightest = shards.reduce((least, one) => (one.cost < least.cost ? one : least));
       lightest.files.push(file);

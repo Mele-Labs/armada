@@ -17,18 +17,50 @@ import { forgetPanes, peek, rearrange } from "./store";
 import { addTab, holderOf, panesOf } from "./tree";
 
 // The mod list is Fleet's, read through `window.armada`; no Job here made a mod.
-vi.mock("../mod-list", () => ({ useModList: () => [] }));
+vi.mock("../mod-list", () => ({
+  useModList: () => [],
+}));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 // The views read Fleet through `window.armada`, which holds an empty state and answers that it has nothing else.
-const named: Record<string, unknown> = { syncState: async () => ({ full: { connection: { state: "disconnected" } }, seq: 1 }), subscribeChanges: () => () => undefined, getSessionSystem: async () => ({ ok: false, said: "" }) };
-const armada = new Proxy(named, { get: (them, name) => them[String(name)] ?? (String(name).startsWith("on") ? () => () => undefined : async () => undefined) });
+const named: Record<string, unknown> = {
+  syncState: async () => ({
+    full: {
+      connection: {
+        state: "disconnected",
+      },
+    },
+    seq: 1,
+  }),
+  subscribeChanges: () => () => undefined,
+  getSessionSystem: async () => ({
+    ok: false,
+    said: "",
+  }),
+};
+const armada = new Proxy(named, {
+  get: (them, name) =>
+    them[String(name)] ??
+    (String(name).startsWith("on") ? () => () => undefined : async () => undefined),
+});
 const ID = "keys-s1";
-const roots: { root: Root; host: HTMLElement; side: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+  side: HTMLElement;
+}[] = [];
 beforeEach(() => {
   forgetPanes();
-  (window as unknown as { armada: unknown }).armada = armada;
+  (
+    window as unknown as {
+      armada: unknown;
+    }
+  ).armada = armada;
 });
 afterEach(() => {
   closeLayer();
@@ -43,13 +75,66 @@ afterEach(() => {
 });
 
 const attachments: SessionAttachment[] = [
-  { kind: "pull_request", number: 7, title: "Retry the lease", branch: "armada/retry", address: "https://forge/7", checks: { state: "passed" }, state: "draft", auto: false },
-  { kind: "artifact", form: "page", id: "https://notes/lease", title: "Lease notes" },
+  {
+    kind: "pull_request",
+    number: 7,
+    title: "Retry the lease",
+    branch: "armada/retry",
+    address: "https://forge/7",
+    checks: {
+      state: "passed",
+    },
+    state: "draft",
+    auto: false,
+  },
+  {
+    kind: "artifact",
+    form: "page",
+    id: "https://notes/lease",
+    title: "Lease notes",
+  },
 ];
-const plan = { scope: [], approved: true, groups: [{ id: "g1", title: "Retry the lease", agent: "rust-engineer", paths: [], tasks: [{ id: "t1", text: "Retry once", state: "open" as const }] }] };
-const session = { id: ID, title: "Retry the lease", attachments, rows: [], turn: { state: "idle" }, work: { plan } } as unknown as Session;
-const ed: PlanEditing = { id: ID, plan, marks: [], set: () => undefined, send: () => undefined };
-const held = [session];
+const plan = {
+  scope: [],
+  approved: true,
+  groups: [
+    {
+      id: "g1",
+      title: "Retry the lease",
+      agent: "rust-engineer",
+      paths: [],
+      tasks: [
+        {
+          id: "t1",
+          text: "Retry once",
+          state: "open" as const,
+        },
+      ],
+    },
+  ],
+};
+const session = {
+  id: ID,
+  title: "Retry the lease",
+  attachments,
+  rows: [],
+  turn: {
+    state: "idle",
+  },
+  work: {
+    plan,
+  },
+} as unknown as Session;
+const ed: PlanEditing = {
+  id: ID,
+  plan,
+  marks: [],
+  set: () => undefined,
+  send: () => undefined,
+};
+const held = [
+  session,
+];
 
 function mount() {
   const host = document.createElement("div");
@@ -57,31 +142,76 @@ function mount() {
   const side = document.createElement("div");
   side.className = "sv-side";
   document.body.append(host, side);
-  const draft = { get: () => held, subscribe: () => () => undefined, work: { workflows: [] }, commands: [] } as unknown as SessionsDraft;
+  const draft = {
+    get: () => held,
+    subscribe: () => () => undefined,
+    work: {
+      workflows: [],
+    },
+    commands: [],
+  } as unknown as SessionsDraft;
   const root = createRoot(host);
   act(() =>
     root.render(
       <SessionsFrom held={draft}>
-        <SessionWorkspace session={session} entries={[]} repositories={[]} hosts={{ side }} ed={ed} bays={undefined} onOpenSketch={() => undefined} onOpenSession={() => undefined} onOpenCheck={() => undefined}>
+        <SessionWorkspace
+          session={session}
+          entries={[]}
+          repositories={[]}
+          hosts={{
+            side,
+          }}
+          ed={ed}
+          bays={undefined}
+          onOpenSketch={() => undefined}
+          onOpenSession={() => undefined}
+          onOpenCheck={() => undefined}
+        >
           <div data-thread="" />
         </SessionWorkspace>
       </SessionsFrom>,
     ),
   );
-  roots.push({ root, host, side });
+  roots.push({
+    root,
+    host,
+    side,
+  });
   const unmount = () => {
     act(() => root.unmount());
     host.remove();
     side.remove();
-    roots.splice(roots.findIndex((one) => one.root === root), 1);
+    roots.splice(
+      roots.findIndex((one) => one.root === root),
+      1,
+    );
   };
-  return { host, unmount };
+  return {
+    host,
+    unmount,
+  };
 }
 
-const press = (init: KeyboardEventInit) => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })));
-const tabs = () => [...document.querySelectorAll('[role="tab"]')].map((one) => one.getAttribute("aria-label") ?? one.textContent?.trim() ?? "");
+const press = (init: KeyboardEventInit) =>
+  act(
+    () =>
+      void window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          ...init,
+        }),
+      ),
+  );
+const tabs = () =>
+  [
+    ...document.querySelectorAll('[role="tab"]'),
+  ].map((one) => one.getAttribute("aria-label") ?? one.textContent?.trim() ?? "");
 const kinds = () => panesOf(peek(ID).root).flatMap((one) => one.tabs.map((tab) => tab.kind));
-const front = (kind: string) => panesOf(peek(ID).root).some((one) => one.tabs.some((tab) => tab.id === one.active && tab.kind === kind));
+const front = (kind: string) =>
+  panesOf(peek(ID).root).some((one) =>
+    one.tabs.some((tab) => tab.id === one.active && tab.kind === kind),
+  );
 // A view drawn as a layer over the Job, with the head and Back of one.
 const layers = () => document.querySelectorAll("section.sv-layer:not([data-in-pane])");
 
@@ -92,13 +222,24 @@ test("the story is the Done, Now and Open tabs in order, with no right column or
   expect(at("done")).toBeGreaterThanOrEqual(0);
   expect(at("done")).toBeLessThan(at("now"));
   expect(at("now")).toBeLessThan(at("open"));
-  expect(kinds()).toEqual(expect.arrayContaining(["thread", "done", "now", "open"]));
+  expect(kinds()).toEqual(
+    expect.arrayContaining([
+      "thread",
+      "done",
+      "now",
+      "open",
+    ]),
+  );
   expect(layers()).toHaveLength(0);
 });
 
 test("⇧⌘A brings the Ledger tab forward, or opens one, and again opens neither a second nor a layer", () => {
   mount();
-  press({ metaKey: true, shiftKey: true, code: "KeyA" });
+  press({
+    metaKey: true,
+    shiftKey: true,
+    code: "KeyA",
+  });
   expect(kinds().filter((one) => one === "ledger")).toHaveLength(1);
   expect(front("ledger")).toBe(true);
   expect(layers()).toHaveLength(0);
@@ -107,21 +248,45 @@ test("⇧⌘A brings the Ledger tab forward, or opens one, and again opens neith
   // Another tab in front of it, in its own pane, and the key brings it back without opening a second.
   const pane = holderOf(peek(ID), "ledger")!;
   expect(pane.tabs.length).toBeGreaterThan(0);
-  press({ metaKey: true, shiftKey: true, code: "KeyA" });
+  press({
+    metaKey: true,
+    shiftKey: true,
+    code: "KeyA",
+  });
   expect(kinds().filter((one) => one === "ledger")).toHaveLength(1);
   expect(front("ledger")).toBe(true);
   // Esc is nobody's Back: the tab stays.
-  press({ key: "Escape" });
+  press({
+    key: "Escape",
+  });
   expect(kinds()).toContain("ledger");
 });
 
 test("a band's key brings its tab forward: ⌥1 Done, ⌥2 Now, ⌥3 Open", () => {
   mount();
-  for (const [code, kind] of [["Digit1", "done"], ["Digit2", "now"], ["Digit3", "open"]] as const) {
+  for (const [code, kind] of [
+    [
+      "Digit1",
+      "done",
+    ],
+    [
+      "Digit2",
+      "now",
+    ],
+    [
+      "Digit3",
+      "open",
+    ],
+  ] as const) {
     // A Files tab opens in front of the tab, in its own pane, so the key has something to bring back.
-    act(() => rearrange(ID, (arrangement) => addTab(arrangement, holderOf(arrangement, kind)!.id, "files")));
+    act(() =>
+      rearrange(ID, (arrangement) => addTab(arrangement, holderOf(arrangement, kind)!.id, "files")),
+    );
     expect(front(kind)).toBe(false);
-    press({ altKey: true, code });
+    press({
+      altKey: true,
+      code,
+    });
     expect(front(kind)).toBe(true);
     expect(kinds().filter((one) => one === kind)).toHaveLength(1);
   }
@@ -135,8 +300,17 @@ test("Checks, Subagents, Bays, System and Workflow open as tabs, by the calls th
   showLayer(ID, "slot");
   toggleLayer(ID, "system");
   toggleLanes(ID);
-  for (const kind of ["checks", "subagents", "bays", "system", "workflow"]) {
-    expect(kinds().filter((one) => one === kind), kind).toHaveLength(1);
+  for (const kind of [
+    "checks",
+    "subagents",
+    "bays",
+    "system",
+    "workflow",
+  ]) {
+    expect(
+      kinds().filter((one) => one === kind),
+      kind,
+    ).toHaveLength(1);
   }
   expect(layerOver(ID)).toBeUndefined();
   expect(layers()).toHaveLength(0);
@@ -150,7 +324,11 @@ test("Checks, Subagents, Bays, System and Workflow open as tabs, by the calls th
 
 test("a tab the Job opened is still there when the Job is left and entered again, and a zoom is not", () => {
   const first = mount();
-  press({ metaKey: true, shiftKey: true, code: "KeyA" });
+  press({
+    metaKey: true,
+    shiftKey: true,
+    code: "KeyA",
+  });
   const holder = holderOf(peek(ID), "ledger")!;
   act(() => toggleZoom(ID, holder.id));
   first.unmount();
@@ -163,16 +341,34 @@ test("a tab the Job opened is still there when the Job is left and entered again
 test("the views are tabs a pane offers under +, and a view's tab has no Back and no Esc of its own", () => {
   mount();
   const add = document.querySelector<HTMLElement>('button[aria-label="Add tab"]')!;
-  act(() => add.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 })));
+  act(() =>
+    add.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+      }),
+    ),
+  );
   act(() => add.click());
-  const items = [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent?.trim());
-  for (const name of ["Ledger", "Checks", "Subagents", "System", "Bays"]) expect(items, name).toContain(name);
+  const items = [
+    ...document.querySelectorAll('[role="menuitem"]'),
+  ].map((one) => one.textContent?.trim());
+  for (const name of [
+    "Ledger",
+    "Checks",
+    "Subagents",
+    "System",
+    "Bays",
+  ])
+    expect(items, name).toContain(name);
 
   toggleLayer(ID, "checks");
   const checks = document.querySelector('section.sv-layer[aria-label="Checks"]');
   expect(checks).not.toBeNull();
   expect(checks!.hasAttribute("data-in-pane")).toBe(true);
   expect(checks!.querySelector('button[aria-label="Back"]')).toBeNull();
-  press({ key: "Escape" });
+  press({
+    key: "Escape",
+  });
   expect(document.querySelector('section.sv-layer[aria-label="Checks"]')).not.toBeNull();
 });

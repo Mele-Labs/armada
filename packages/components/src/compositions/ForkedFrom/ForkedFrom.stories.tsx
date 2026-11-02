@@ -13,7 +13,10 @@ export default meta;
 type Story = StoryObj<typeof ForkedFrom>;
 
 export const Closed: Story = {
-  args: { title: "Why the reader drops lines", children: <p>It splits on newlines.</p> },
+  args: {
+    title: "Why the reader drops lines",
+    children: <p>It splits on newlines.</p>,
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByText("Forked from Why the reader drops lines"));

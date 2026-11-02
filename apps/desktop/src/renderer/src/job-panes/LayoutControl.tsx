@@ -5,17 +5,50 @@
 import { PanelsTopLeft } from "lucide-react";
 import { DropdownMenu, Tooltip, useKept, type DropdownMenuEntry } from "@armada/components";
 
-import { nameTaken, resetLayout, saveLayoutAs, setLayoutForAll, takeLayout, updateLayout } from "./store";
+import {
+  nameTaken,
+  resetLayout,
+  saveLayoutAs,
+  setLayoutForAll,
+  takeLayout,
+  updateLayout,
+} from "./store";
 
-type Props = { jobId: string; layout: string; edited: boolean; layouts: readonly string[]; forAll: string; open: boolean; onOpen: (open: boolean) => void; naming: boolean; onNaming: (naming: boolean) => void };
+type Props = {
+  jobId: string;
+  layout: string;
+  edited: boolean;
+  layouts: readonly string[];
+  forAll: string;
+  open: boolean;
+  onOpen: (open: boolean) => void;
+  naming: boolean;
+  onNaming: (naming: boolean) => void;
+};
 
-export function LayoutControl({ jobId, layout, edited, layouts, forAll, open, onOpen, naming, onNaming }: Props) {
+export function LayoutControl({
+  jobId,
+  layout,
+  edited,
+  layouts,
+  forAll,
+  open,
+  onOpen,
+  naming,
+  onNaming,
+}: Props) {
   const [name, setName, clearName] = useKept(`job-layout-name:${jobId}`, "");
   const label = name.trim();
   const taken = label !== "" && nameTaken(label);
 
   const entries: DropdownMenuEntry[] = naming
-    ? [{ kind: "label", id: "naming", label: taken ? "A layout has that name." : "Save as" }]
+    ? [
+        {
+          kind: "label",
+          id: "naming",
+          label: taken ? "A layout has that name." : "Save as",
+        },
+      ]
     : [
         ...layouts.map(
           (one): DropdownMenuEntry => ({
@@ -25,12 +58,45 @@ export function LayoutControl({ jobId, layout, edited, layouts, forAll, open, on
             selected: one === layout,
           }),
         ),
-        { kind: "separator", id: "rule" },
-        { kind: "item", id: "update", label: `Update ${layout}`, act: true, disabled: !edited },
-        { kind: "item", id: "save", label: "Save as…", act: true },
-        { kind: "item", id: "reset", label: "Reset", act: true, disabled: !edited },
-        { kind: "separator", id: "rule-new" },
-        { kind: "item", id: "new", label: "New Jobs open on", detail: forAll, submenu: layouts.map((one) => ({ id: `new:${one}`, label: one, selected: one === forAll })) },
+        {
+          kind: "separator",
+          id: "rule",
+        },
+        {
+          kind: "item",
+          id: "update",
+          label: `Update ${layout}`,
+          act: true,
+          disabled: !edited,
+        },
+        {
+          kind: "item",
+          id: "save",
+          label: "Save as…",
+          act: true,
+        },
+        {
+          kind: "item",
+          id: "reset",
+          label: "Reset",
+          act: true,
+          disabled: !edited,
+        },
+        {
+          kind: "separator",
+          id: "rule-new",
+        },
+        {
+          kind: "item",
+          id: "new",
+          label: "New Jobs open on",
+          detail: forAll,
+          submenu: layouts.map((one) => ({
+            id: `new:${one}`,
+            label: one,
+            selected: one === forAll,
+          })),
+        },
       ];
 
   const choose = (id: string) => {
@@ -73,7 +139,16 @@ export function LayoutControl({ jobId, layout, edited, layouts, forAll, open, on
           open={open}
           onOpenChange={change}
           onSelect={choose}
-          {...(naming ? { searchLabel: "Name", search: { value: name, onChange: setName, onEnter: enter } } : {})}
+          {...(naming
+            ? {
+                searchLabel: "Name",
+                search: {
+                  value: name,
+                  onChange: setName,
+                  onEnter: enter,
+                },
+              }
+            : {})}
         />
         {edited ? <span className="job-layout__mark" aria-hidden="true" /> : null}
       </span>

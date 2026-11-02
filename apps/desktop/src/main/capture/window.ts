@@ -12,7 +12,15 @@
 
 import { BaseWindow, screen, shell, type WebContentsView } from "electron";
 
-import type { Outcome, SendSessionNote, StagedFrame, StudioCapture, WalkStep, WindowPlace, WindowTake } from "@armada/protocol";
+import type {
+  Outcome,
+  SendSessionNote,
+  StagedFrame,
+  StudioCapture,
+  WalkStep,
+  WindowPlace,
+  WindowTake,
+} from "@armada/protocol";
 import type {
   CaptureAimed,
   CaptureAnswer,
@@ -27,9 +35,26 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import { isPinned, loopbackOrigin, offerable, onAnyOrigin, onNamedOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
+import {
+  isPinned,
+  loopbackOrigin,
+  offerable,
+  onAnyOrigin,
+  onNamedOrigin,
+  onOrigin,
+  shown,
+  webOrigin,
+  type Pinned,
+} from "./address";
 import { aimed, bounded, chainOf, readOf, rectOf, type PageRead } from "./bounds";
-import { barRows, panelFor, walkLayout, type LandsOn, type PanelSubject, type ReviewWalkOwner } from "./layout";
+import {
+  barRows,
+  panelFor,
+  walkLayout,
+  type LandsOn,
+  type PanelSubject,
+  type ReviewWalkOwner,
+} from "./layout";
 import { FailedLoads, lookSource, looked } from "./failed";
 import type { Take } from "./session-note";
 import { sessionNoteBody } from "./pinned-note";
@@ -40,7 +65,15 @@ import { PageFinder } from "./finder";
 import { mayOpenPopup, openPopup, type Popup } from "./popup";
 import { FIELD_SOURCE, queueKeyOf } from "./queue";
 import { beginsOn, StepWalk } from "./stepwalk";
-import { StoppedSteps, actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
+import {
+  StoppedSteps,
+  actSource,
+  hostSource,
+  readSource,
+  readWalk,
+  sameWalk,
+  type WalkAct,
+} from "./walk";
 import { barView, pageView, panelView } from "./views";
 import { burnRing } from "./burn";
 import { pngSize, ringOn, type Ring } from "../../shared/ring";
@@ -49,7 +82,12 @@ export type { LandsOn } from "./layout";
 
 /** What the window needs from main: a Note lands, and a frame is staged. */
 export type CaptureBoard = {
-  capture: (studioId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
+  capture: (
+    studioId: string,
+    said: string,
+    capture: StudioCapture,
+    frame: StagedFrame | null,
+  ) => Promise<Outcome>;
   /**
    * A note taken on a page a Job showed, or in a review's walk the Job holds the pull request of: **held on that Job**,
    * not sent, until the owner sends its notes as one turn (`held-notes.ts`).
@@ -82,7 +120,9 @@ function isCaptureBinding(input: Electron.Input): boolean {
   // in this window would otherwise reach the page's own layer and write a note
   // into a worktree nothing reads.
   const chord = input.code === "KeyC" || input.code === "KeyA";
-  return input.type === "keyDown" && chord && input.meta && input.alt && !input.control && !input.shift;
+  return (
+    input.type === "keyDown" && chord && input.meta && input.alt && !input.control && !input.shift
+  );
 }
 
 /** The OS title: the name and the origin, or the address alone where the window has no name of its own. */
@@ -95,7 +135,10 @@ function titled(pin: Pinned): string {
 export type WindowQuestion = {
   id: string;
   question: string;
-  options: { label: string; description?: string }[];
+  options: {
+    label: string;
+    description?: string;
+  }[];
   place: WindowPlace;
 };
 
@@ -115,10 +158,17 @@ const RELOAD_MS = 15_000;
 const SIGN_IN_MS = 15000;
 
 /** How the window is sized, in CSS pixels, from tokens: the bar's row, the panel, and the page's floor beside it. */
-export type WalkSizes = { bar: number; panel: number; floor: number };
+export type WalkSizes = {
+  bar: number;
+  panel: number;
+  floor: number;
+};
 
 /** Whether the panel is drawn, as last left for this kind of window, and where a press on it is kept. */
-export type PanelKept = { open: boolean; keep: (open: boolean) => void };
+export type PanelKept = {
+  open: boolean;
+  keep: (open: boolean) => void;
+};
 
 /**
  * Where a walk of the one walk window draws: **the window, the bar and the panel are the window's, and the page is the
@@ -177,7 +227,10 @@ export class CaptureWindow {
   /** The capture a press is holding, which never leaves this process until it lands. */
   private holding: StudioCapture | null = null;
   /** What the same press read beside it, for a Session's note. Set with `holding`, read only while it is. */
-  private held: PageRead = { nearby: [], selected: [] };
+  private held: PageRead = {
+    nearby: [],
+    selected: [],
+  };
   /** The Session's open question, its place kept here as a capture's selector is. */
   private asked: WindowQuestion | null = null;
   /** Whether the question is drawn over the page, or folded into the bar. */
@@ -245,7 +298,10 @@ export class CaptureWindow {
     if (seat === undefined) {
       this.window = new BaseWindow({
         // The page keeps the width it had before there was a panel, where the screen has room for both.
-        width: Math.min(1280 + (this.subject === null ? 0 : sizes.panel), screen.getPrimaryDisplay().workAreaSize.width),
+        width: Math.min(
+          1280 + (this.subject === null ? 0 : sizes.panel),
+          screen.getPrimaryDisplay().workAreaSize.width,
+        ),
         height: 900,
         // The OS frame and its title, where Bridge's own window is frameless and
         // draws its own: two windows that are not the same kind of thing do not
@@ -287,7 +343,12 @@ export class CaptureWindow {
         if ("review" in landsOn) this.board.reviewClosed(landsOn.review);
         this.stop();
         // A view's document outlives a closed `BaseWindow` unless it is closed with it.
-        for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
+        for (const view of [
+          this.page,
+          this.bar,
+          this.panel,
+        ])
+          if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
       });
     }
     this.layout();
@@ -405,19 +466,27 @@ export class CaptureWindow {
 
   /** The origins a question about a place may be on: the page on screen's, and every take's. */
   get origins(): string[] {
-    return [this.pin.origin, ...this.takes.flatMap((one) => webOrigin(one.url) ?? [])];
+    return [
+      this.pin.origin,
+      ...this.takes.flatMap((one) => webOrigin(one.url) ?? []),
+    ];
   }
 
   /** Whether the window may pass through exactly these origins, so a Session that shows the page again with them is raising it. */
   passes(through: readonly string[]): boolean {
-    return through.length === this.pin.through.length && through.every((one, at) => one === this.pin.through[at]);
+    return (
+      through.length === this.pin.through.length &&
+      through.every((one, at) => one === this.pin.through[at])
+    );
   }
 
   /** Whether this window shows exactly these takes and steps, so a Session that shows them again is raising it. */
   showing(takes: readonly WindowTake[], steps: readonly WalkStep[] = []): boolean {
     return (
       takes.length === this.takes.length &&
-      takes.every((one, at) => one.url === this.takes[at]?.url && one.name === this.takes[at]?.name) &&
+      takes.every(
+        (one, at) => one.url === this.takes[at]?.url && one.name === this.takes[at]?.name,
+      ) &&
       JSON.stringify(steps) === JSON.stringify(this.steps)
     );
   }
@@ -430,9 +499,20 @@ export class CaptureWindow {
   pick(at: number): void {
     const take = this.takes[at];
     const origin = take === undefined ? null : webOrigin(take.url);
-    if (take === undefined || origin === null || at === this.at || !this.serving || this.page.webContents.isDestroyed()) return;
+    if (
+      take === undefined ||
+      origin === null ||
+      at === this.at ||
+      !this.serving ||
+      this.page.webContents.isDestroyed()
+    )
+      return;
     this.at = at;
-    this.pin = { ...this.pin, origin, url: take.url };
+    this.pin = {
+      ...this.pin,
+      origin,
+      url: take.url,
+    };
     this.armed = false;
     this.holding = null;
     this.refusedAddress = undefined;
@@ -454,7 +534,12 @@ export class CaptureWindow {
   /** The take on screen as a note and an Approve name it, or `undefined` where the window shows one page. */
   private taken(): Take | undefined {
     const take = this.takes[this.at];
-    return take === undefined ? undefined : { letter: String.fromCharCode(65 + this.at), name: take.name };
+    return take === undefined
+      ? undefined
+      : {
+          letter: String.fromCharCode(65 + this.at),
+          name: take.name,
+        };
   }
 
   get runId(): string {
@@ -475,7 +560,12 @@ export class CaptureWindow {
 
   /** Whether an IPC call came from this window's own bar and no other document. **A queued walk's only while it is on screen.** */
   owns(contents: Electron.WebContents): boolean {
-    return this.open && this.onScreen() && !this.bar.webContents.isDestroyed() && contents.id === this.bar.webContents.id;
+    return (
+      this.open &&
+      this.onScreen() &&
+      !this.bar.webContents.isDestroyed() &&
+      contents.id === this.bar.webContents.id
+    );
   }
 
   /**
@@ -488,13 +578,16 @@ export class CaptureWindow {
 
   /** Whether an IPC call came from this window's own panel, and what it holds if it did. Never the page or the bar. */
   panelOf(contents: Electron.WebContents): PanelSubject | null {
-    if (this.panel === null || this.panel.webContents.isDestroyed() || !this.onScreen()) return null;
+    if (this.panel === null || this.panel.webContents.isDestroyed() || !this.onScreen())
+      return null;
     return contents.id === this.panel.webContents.id ? this.subject : null;
   }
 
   /** The panel's document, live, to be told what Bridge's own windows are told. */
   get panelContents(): Electron.WebContents | null {
-    return this.panel === null || this.panel.webContents.isDestroyed() ? null : this.panel.webContents;
+    return this.panel === null || this.panel.webContents.isDestroyed()
+      ? null
+      : this.panel.webContents;
   }
 
   /** Draw the panel beside the page or fold it away, from the bar. **Kept for the next window of its kind.** */
@@ -521,21 +614,74 @@ export class CaptureWindow {
 
   state(): CaptureWindowState {
     return {
-      ...(this.seat === null ? {} : { queue: this.seat.queue() }),
-      served: { run: this.pin.run, name: this.pin.name, address: this.pin.origin },
+      ...(this.seat === null
+        ? {}
+        : {
+            queue: this.seat.queue(),
+          }),
+      served: {
+        run: this.pin.run,
+        name: this.pin.name,
+        address: this.pin.origin,
+      },
       shown: shown(this.pin),
       studio: "studio" in this.landsOn ? this.landsOn.studio : null,
-      ...("session" in this.landsOn ? { session: this.landsOn.session } : {}),
-      ...("review" in this.landsOn ? { review: { title: this.landsOn.review.title, ...(this.landsOn.review.holder === undefined ? {} : { holder: this.landsOn.review.holder.title }) } } : {}),
-      ...(this.subject === null ? {} : { panel: { kind: this.subject.kind, open: this.panelOpen } }),
-      ...(this.takes.length === 0 ? {} : { variations: { names: this.takes.map((one) => one.name), at: this.at } }),
-      ...(this.readiness === undefined ? {} : { readiness: this.readiness }),
-      ...(this.walk === null ? {} : { walk: this.walk }),
+      ...("session" in this.landsOn
+        ? {
+            session: this.landsOn.session,
+          }
+        : {}),
+      ...("review" in this.landsOn
+        ? {
+            review: {
+              title: this.landsOn.review.title,
+              ...(this.landsOn.review.holder === undefined
+                ? {}
+                : {
+                    holder: this.landsOn.review.holder.title,
+                  }),
+            },
+          }
+        : {}),
+      ...(this.subject === null
+        ? {}
+        : {
+            panel: {
+              kind: this.subject.kind,
+              open: this.panelOpen,
+            },
+          }),
+      ...(this.takes.length === 0
+        ? {}
+        : {
+            variations: {
+              names: this.takes.map((one) => one.name),
+              at: this.at,
+            },
+          }),
+      ...(this.readiness === undefined
+        ? {}
+        : {
+            readiness: this.readiness,
+          }),
+      ...(this.walk === null
+        ? {}
+        : {
+            walk: this.walk,
+          }),
       serving: this.serving,
       armed: this.armed,
-      ...(this.loading ? { loading: true as const } : {}),
+      ...(this.loading
+        ? {
+            loading: true as const,
+          }
+        : {}),
       framesRefused: this.framesRefused,
-      ...(this.refusedAddress === undefined ? {} : { refused: this.refusedAddress }),
+      ...(this.refusedAddress === undefined
+        ? {}
+        : {
+            refused: this.refusedAddress,
+          }),
       ...(this.asked === null
         ? {}
         : {
@@ -545,7 +691,11 @@ export class CaptureWindow {
               options: this.asked.options,
               from: "session" in this.landsOn ? this.landsOn.session.title : this.pin.name,
               shown: this.askShown,
-              ...(this.askBox === undefined ? {} : { box: this.askBox }),
+              ...(this.askBox === undefined
+                ? {}
+                : {
+                    box: this.askBox,
+                  }),
             },
           }),
       ...this.heldState(),
@@ -554,7 +704,11 @@ export class CaptureWindow {
 
   private heldState(): Pick<CaptureWindowState, "held"> {
     const count = this.notesOn === undefined ? 0 : this.board.heldOn(this.notesOn);
-    return count === 0 ? {} : { held: count === 1 ? "one" : "several" };
+    return count === 0
+      ? {}
+      : {
+          held: count === 1 ? "one" : "several",
+        };
   }
 
   /**
@@ -575,7 +729,9 @@ export class CaptureWindow {
     if (this.asked?.id === question.id || this.settled.has(question.id)) return;
     // A place on another take's origin takes the window to that take first.
     const placed = webOrigin(question.place.url);
-    const there = onOrigin(this.pin.origin, question.place.url) ? -1 : this.takes.findIndex((one) => webOrigin(one.url) === placed);
+    const there = onOrigin(this.pin.origin, question.place.url)
+      ? -1
+      : this.takes.findIndex((one) => webOrigin(one.url) === placed);
     if (there >= 0) this.pick(there);
     this.asked = question;
     this.askShown = true;
@@ -584,7 +740,11 @@ export class CaptureWindow {
     const first = !this.shownAsks.has(question.id);
     this.shownAsks.add(question.id);
     if (forward && first && !this.window.isDestroyed()) this.window.showInactive();
-    if (!this.serving || this.page.webContents.isDestroyed() || !onOrigin(this.pin.origin, question.place.url)) {
+    if (
+      !this.serving ||
+      this.page.webContents.isDestroyed() ||
+      !onOrigin(this.pin.origin, question.place.url)
+    ) {
       void this.locate();
       return;
     }
@@ -604,7 +764,11 @@ export class CaptureWindow {
   /** Answer the open question. **Main names the Session and the item**; the bar sends only what was said. */
   async answerAsk(answer: CaptureAnswer): Promise<Outcome> {
     const asked = this.asked;
-    if (asked === null || !("session" in this.landsOn)) return { ok: false, why: "nothing_held" };
+    if (asked === null || !("session" in this.landsOn))
+      return {
+        ok: false,
+        why: "nothing_held",
+      };
     const outcome = await this.board.answerAsk(this.landsOn.session.id, asked.id, answer);
     if (outcome.ok) {
       this.settled.add(asked.id);
@@ -646,7 +810,10 @@ export class CaptureWindow {
     if (capture === null) return null;
     this.holding = capture;
     this.held = readOf(answer);
-    return { box: rectOf(capture.bounds, this.viewport()), chain: chainOf(capture) };
+    return {
+      box: rectOf(capture.bounds, this.viewport()),
+      chain: chainOf(capture),
+    };
   }
 
   release(): void {
@@ -659,10 +826,18 @@ export class CaptureWindow {
    */
   async save(said: string): Promise<Outcome> {
     const capture = this.holding;
-    if (capture === null) return { ok: false, why: "nothing_held" };
+    if (capture === null)
+      return {
+        ok: false,
+        why: "nothing_held",
+      };
     // The run ended while the note was being written: the capture would name a
     // port that is no longer the Run's.
-    if (!this.serving) return { ok: false, why: "run_ended" };
+    if (!this.serving)
+      return {
+        ok: false,
+        why: "run_ended",
+      };
     const holds = heldOn(this.landsOn, this.pin.url);
     const outcome =
       "studio" in this.landsOn
@@ -671,7 +846,10 @@ export class CaptureWindow {
           ? await this.holdNote(holds.sessionId, holds.address, said, capture)
           : "review" in this.landsOn
             ? await this.board.reviewNote(this.landsOn.review, said, capture)
-            : ({ ok: false, why: "no_owner" } as const);
+            : ({
+                ok: false,
+                why: "no_owner",
+              } as const);
     if (outcome.ok) {
       this.holding = null;
       this.armed = false;
@@ -684,7 +862,12 @@ export class CaptureWindow {
    * A Job's note, with the window, the box it is on, the walk's step and the take on screen it is about, held on the Job until
    * the owner sends it. The ring is burned in at the send, when the note's number in the turn is known.
    */
-  private async holdNote(sessionId: string, address: string, said: string, capture: StudioCapture): Promise<Outcome> {
+  private async holdNote(
+    sessionId: string,
+    address: string,
+    said: string,
+    capture: StudioCapture,
+  ): Promise<Outcome> {
     const shot = await this.shot(capture);
     const take = this.taken();
     const note = sessionNoteBody({
@@ -693,12 +876,18 @@ export class CaptureWindow {
       capture,
       read: this.held,
       address,
-      ...(take === undefined ? {} : { take }),
+      ...(take === undefined
+        ? {}
+        : {
+            take,
+          }),
       walk: this.walk,
       crop: shot === null ? null : shot.png.toString("base64"),
     });
     this.board.holdNote(note, shot?.ring ?? null);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /** The Job this window's notes are held on, where they are held. */
@@ -721,8 +910,13 @@ export class CaptureWindow {
       "session" in this.landsOn
         ? await this.board.sessionApproved(this.landsOn.session.id, this.pin.url, this.taken())
         : "review" in this.landsOn && this.seat !== null
-          ? { ok: true }
-          : { ok: false, why: "no_owner" };
+          ? {
+              ok: true,
+            }
+          : {
+              ok: false,
+              why: "no_owner",
+            };
     if (outcome.ok && this.open) this.seat?.settled(this);
     return outcome;
   }
@@ -778,7 +972,13 @@ export class CaptureWindow {
   /** Whether the ring and caption of the steps Bridge plays are drawn over the page. Not once the walk is over, held on a step, or put away. */
   private guiding(): boolean {
     const guide = this.walk?.guide;
-    return guide !== undefined && !guide.folded && !this.walk?.done && guide.stopped === undefined && guide.signingIn !== true;
+    return (
+      guide !== undefined &&
+      !guide.folded &&
+      !this.walk?.done &&
+      guide.stopped === undefined &&
+      guide.signingIn !== true
+    );
   }
 
   /** Look for the question's place again once the page has settled from a wheel or a resize. */
@@ -799,7 +999,11 @@ export class CaptureWindow {
     const asked = this.asked;
     if (asked === null) return;
     let answer: unknown = null;
-    if (this.serving && !this.page.webContents.isDestroyed() && onOrigin(this.pin.origin, this.page.webContents.getURL())) {
+    if (
+      this.serving &&
+      !this.page.webContents.isDestroyed() &&
+      onOrigin(this.pin.origin, this.page.webContents.getURL())
+    ) {
       const scroll = this.scrolledFor !== asked.id;
       try {
         answer = await this.page.webContents.executeJavaScript(
@@ -812,15 +1016,24 @@ export class CaptureWindow {
       }
     }
     if (this.asked?.id !== asked.id) return;
-    const box = typeof answer === "object" && answer !== null ? (answer as Record<string, unknown>)["box"] : undefined;
+    const box =
+      typeof answer === "object" && answer !== null
+        ? (answer as Record<string, unknown>)["box"]
+        : undefined;
     this.askBox = box === undefined ? null : rectOf(box, this.viewport());
     this.tell();
   }
 
   /** The page's viewport, which every box is clamped to. */
-  private viewport(): { width: number; height: number } {
+  private viewport(): {
+    width: number;
+    height: number;
+  } {
     const bounds = this.page.getBounds();
-    return { width: Math.max(1, bounds.width), height: Math.max(1, bounds.height) };
+    return {
+      width: Math.max(1, bounds.width),
+      height: Math.max(1, bounds.height),
+    };
   }
 
   /** One ask, answered on the promise main created. A page that throws answers nothing. */
@@ -834,7 +1047,12 @@ export class CaptureWindow {
   }
 
   /** A PNG of the whole page and where on it the Note points, or null where none could be taken. */
-  private async shot(capture: StudioCapture): Promise<{ png: Buffer; width: number; height: number; ring: Ring } | null> {
+  private async shot(capture: StudioCapture): Promise<{
+    png: Buffer;
+    width: number;
+    height: number;
+    ring: Ring;
+  } | null> {
     try {
       const viewport = this.viewport();
       const box = rectOf(capture.bounds, viewport);
@@ -844,7 +1062,12 @@ export class CaptureWindow {
       if (png.byteLength === 0) return null;
       // Device pixels, not CSS ones: the box is scaled by how much wider the picture is than the page.
       const size = pngSize(png) ?? image.getSize();
-      return { png, width: size.width, height: size.height, ring: ringOn(box, viewport.width, size.width) };
+      return {
+        png,
+        width: size.width,
+        height: size.height,
+        ring: ringOn(box, viewport.width, size.width),
+      };
     } catch {
       return null;
     }
@@ -873,13 +1096,33 @@ export class CaptureWindow {
     if (this.window.isDestroyed() || !this.open || !this.onScreen()) return;
     const { width, height } = this.window.getContentBounds();
     const folded = this.asked !== null && !this.askShown;
-    const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
+    const said =
+      !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
     const queued = this.seat !== null && this.seat.queue().entries.length > 0;
     const held = this.heldState().held !== undefined;
-    const strip = this.sizes.bar * barRows({ queued, takes: this.takes.length > 0, walk: this.walk !== null, said, held, loading: this.loading });
+    const strip =
+      this.sizes.bar *
+      barRows({
+        queued,
+        takes: this.takes.length > 0,
+        walk: this.walk !== null,
+        said,
+        held,
+        loading: this.loading,
+      });
     // A pull request's walk in the walk window has no Job, so the window's panel is not drawn beside it.
     const shown = this.panel !== null && this.subject !== null && this.panelOpen;
-    const at = walkLayout({ width, height, strip, covered: this.covered(), hang: this.hang ?? 0, panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
+    const at = walkLayout(
+      {
+        width,
+        height,
+        strip,
+        covered: this.covered(),
+        hang: this.hang ?? 0,
+        panel: shown ? this.sizes.panel : 0,
+      },
+      this.sizes.floor,
+    );
     this.page.setBounds(at.page);
     this.bar.setBounds(at.bar);
     if (this.panel === null) return;
@@ -895,7 +1138,11 @@ export class CaptureWindow {
   }
 
   private refuse(address: string, what: CaptureRefusedWhat): void {
-    this.refusedAddress = { address, what, offerable: offerable(address) };
+    this.refusedAddress = {
+      address,
+      what,
+      offerable: offerable(address),
+    };
     this.tell();
   }
 
@@ -914,11 +1161,22 @@ export class CaptureWindow {
     // one or one it named. Any other address, a second popup, and every popup of a Run's page or a Job's
     // are refused, as every popup was.
     contents.setWindowOpenHandler(({ url }) => {
-      if (!mayOpenPopup({ session: "session" in this.landsOn || "review" in this.landsOn, standing: this.popup !== null, allowed: allowed(url) })) {
+      if (
+        !mayOpenPopup({
+          session: "session" in this.landsOn || "review" in this.landsOn,
+          standing: this.popup !== null,
+          allowed: allowed(url),
+        })
+      ) {
         this.refuse(url, "window");
-        return { action: "deny" };
+        return {
+          action: "deny",
+        };
       }
-      return { action: "allow", createWindow: (options) => this.openPopup(allowed, options) };
+      return {
+        action: "allow",
+        createWindow: (options) => this.openPopup(allowed, options),
+      };
     });
     contents.on("will-navigate", (event, url) => {
       if (allowed(url)) {
@@ -950,7 +1208,20 @@ export class CaptureWindow {
     // and nothing here listens for one.
     // The chord arms capture from any of the three views, so it is the same press wherever focus is. The walk window hears
     // its bar and its panel itself, for whichever walk is on screen.
-    const own = this.seat === null ? [this.page, this.bar, ...(this.panel === null ? [] : [this.panel])] : [this.page];
+    const own =
+      this.seat === null
+        ? [
+            this.page,
+            this.bar,
+            ...(this.panel === null
+              ? []
+              : [
+                  this.panel,
+                ]),
+          ]
+        : [
+            this.page,
+          ];
     for (const view of own) {
       view.webContents.on("before-input-event", (event, input) => {
         if (!isCaptureBinding(input)) return;
@@ -985,7 +1256,15 @@ export class CaptureWindow {
     // a provider's page the window passed through, whose words the steps were not written for.
     contents.on("did-finish-load", () => {
       const onShownOrigin = onOrigin(this.pin.origin, contents.getURL());
-      if (this.stepwalk === null || !beginsOn({ begun: this.stepsBegun, signingIn: this.signingIn, onShownOrigin })) return;
+      if (
+        this.stepwalk === null ||
+        !beginsOn({
+          begun: this.stepsBegun,
+          signingIn: this.signingIn,
+          onShownOrigin,
+        })
+      )
+        return;
       this.holdSteps();
     });
     contents.on("did-fail-load", (_event, code, description, address, mainFrame) => {
@@ -998,7 +1277,10 @@ export class CaptureWindow {
     contents.on("did-start-loading", () => {
       this.loadingNow(true);
       // A stalled load has committed no address yet, so the one it was sent to stands in.
-      if (!this.signingIn) this.failures.started(() => contents.isDestroyed() || contents.getURL() === "" ? this.pin.url : contents.getURL());
+      if (!this.signingIn)
+        this.failures.started(() =>
+          contents.isDestroyed() || contents.getURL() === "" ? this.pin.url : contents.getURL(),
+        );
     });
     contents.on("did-stop-loading", () => {
       this.loadingNow(false);
@@ -1023,7 +1305,10 @@ export class CaptureWindow {
    * The popup a provider's sign-in opens, as a child window of this one. **Held to the same origins
    * as the page**, with no preload and the page's own session (`popup.ts`).
    */
-  private openPopup(allowed: (address: string) => boolean, options: Electron.BrowserWindowConstructorOptions): Electron.WebContents {
+  private openPopup(
+    allowed: (address: string) => boolean,
+    options: Electron.BrowserWindowConstructorOptions,
+  ): Electron.WebContents {
     const popup = openPopup(
       {
         parent: this.window,
@@ -1037,7 +1322,12 @@ export class CaptureWindow {
       options,
     );
     // Electron wants the contents it made back whatever happened; a popup that was not built is closed already.
-    if (popup === null) return (options as { webContents: Electron.WebContents }).webContents;
+    if (popup === null)
+      return (
+        options as {
+          webContents: Electron.WebContents;
+        }
+      ).webContents;
     this.popup = popup;
     this.watchSignIn();
     return popup.contents;
@@ -1050,7 +1340,9 @@ export class CaptureWindow {
    */
   private watchSignIn(heading?: string): void {
     if (this.stepwalk === null || this.page.webContents.isDestroyed()) return;
-    this.stepwalk.signIn(this.popup !== null || onNamedOrigin(this.pin, heading ?? this.page.webContents.getURL()));
+    this.stepwalk.signIn(
+      this.popup !== null || onNamedOrigin(this.pin, heading ?? this.page.webContents.getURL()),
+    );
   }
 
   /**
@@ -1059,7 +1351,15 @@ export class CaptureWindow {
    */
   private async lookAtThePage(): Promise<void> {
     // A Studio's window has nobody to tell.
-    if (this.subject === null || this.looking || this.signingIn || this.readiness === "working" || this.page.webContents.isDestroyed() || this.page.webContents.isLoading()) return;
+    if (
+      this.subject === null ||
+      this.looking ||
+      this.signingIn ||
+      this.readiness === "working" ||
+      this.page.webContents.isDestroyed() ||
+      this.page.webContents.isLoading()
+    )
+      return;
     this.looking = true;
     try {
       const address = this.page.webContents.getURL();
@@ -1115,7 +1415,13 @@ export class CaptureWindow {
     const contents = this.page.webContents;
     if (contents.isDestroyed()) return true;
     try {
-      return (await contents.executeJavaScriptInIsolatedWorld(FIELD_WORLD, [{ code: FIELD_SOURCE }])) !== false;
+      return (
+        (await contents.executeJavaScriptInIsolatedWorld(FIELD_WORLD, [
+          {
+            code: FIELD_SOURCE,
+          },
+        ])) !== false
+      );
     } catch {
       return true;
     }
@@ -1124,7 +1430,8 @@ export class CaptureWindow {
   /** One script in the page, or `null` where there is no page to ask. A page that never answers is let go of. */
   private async inPage(source: string): Promise<unknown> {
     const contents = this.page.webContents;
-    if (contents.isDestroyed() || !this.serving || !onOrigin(this.pin.origin, contents.getURL())) return null;
+    if (contents.isDestroyed() || !this.serving || !onOrigin(this.pin.origin, contents.getURL()))
+      return null;
     let giveUp: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([
@@ -1152,7 +1459,8 @@ export class CaptureWindow {
       }
       if (walk !== null) {
         const why = this.stoppedSteps.seen(walk);
-        if (why !== null && this.serving && "session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
+        if (why !== null && this.serving && "session" in this.landsOn)
+          this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
         this.setWalk(walk);
       }
       return walk !== null;
@@ -1181,7 +1489,10 @@ export class CaptureWindow {
     const contents = this.page.webContents;
     return new StepWalk(name, steps, {
       finder: new PageFinder(
-        () => (this.serving && !contents.isDestroyed() && onOrigin(this.pin.origin, contents.getURL()) ? contents : null),
+        () =>
+          this.serving && !contents.isDestroyed() && onOrigin(this.pin.origin, contents.getURL())
+            ? contents
+            : null,
         () => this.viewport(),
       ),
       send: (sent) => {
@@ -1205,7 +1516,8 @@ export class CaptureWindow {
         if (this.stepwalk !== null) this.setWalk(this.stepwalk.state());
       },
       stuck: (why) => {
-        if (this.stepwalk !== null && "session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
+        if (this.stepwalk !== null && "session" in this.landsOn)
+          this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
       },
       open: () => this.open && this.serving,
       guarded: () => loopbackOrigin(this.pin.origin) === null,

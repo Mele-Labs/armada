@@ -2,7 +2,12 @@
 // locating a repository, its always-allows and Kit. Out of `index.ts` for the gate's length.
 
 import { BrowserWindow, dialog, type IpcMain } from "electron";
-import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
+import type {
+  EditManifest,
+  EditManifestProposal,
+  SaveManifestFile,
+  WriteManifestProposal,
+} from "@armada/protocol";
 import type { ProposeToArmada, SendBackWorkflowChange, WorkflowChangeRef } from "@armada/protocol";
 import type {
   ActingOnWorkflowCopy,
@@ -41,14 +46,18 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   // The Manifest file, read and saved, and Setup below it — each window's own, `connection.ts`'s
   // `editingFor`: Fleet resolves the path and guards the write against a file that moved; nothing
   // here composes either.
-  ipc.handle(CHANNELS.readManifestFile, (event) => connection()?.editingFor(windowIdOf(event)).readFile());
+  ipc.handle(CHANNELS.readManifestFile, (event) =>
+    connection()?.editingFor(windowIdOf(event)).readFile(),
+  );
   ipc.handle(CHANNELS.saveManifestFile, (event, body: SaveManifestFile) =>
     connection()?.editingFor(windowIdOf(event)).saveFile(body),
   );
   ipc.handle(CHANNELS.editManifest, (event, body: EditManifest) =>
     connection()?.editingFor(windowIdOf(event)).edit(body),
   );
-  ipc.handle(CHANNELS.readRepositoryScan, (event) => connection()?.editingFor(windowIdOf(event)).setup.readScan());
+  ipc.handle(CHANNELS.readRepositoryScan, (event) =>
+    connection()?.editingFor(windowIdOf(event)).setup.readScan(),
+  );
   ipc.handle(CHANNELS.readManifestProposals, (event) =>
     connection()?.editingFor(windowIdOf(event)).setup.readProposals(),
   );
@@ -60,17 +69,29 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   );
   // `null` is All repositories. Anything but a string or `null` is dropped here; a root Fleet does not list, in `Picked.pick`.
   ipc.handle(CHANNELS.pickRepository, (event, root: unknown) =>
-    typeof root === "string" || root === null ? connection()?.repositories.pick(windowIdOf(event), root) : undefined,
+    typeof root === "string" || root === null
+      ? connection()?.repositories.pick(windowIdOf(event), root)
+      : undefined,
   );
   // Locate. The folder dialog is sheeted to the window that asked, so it cannot be left behind it.
   ipc.handle(CHANNELS.chooseFolder, async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
-    const options: Electron.OpenDialogOptions = { properties: ["openDirectory", "createDirectory"] };
-    const chosen = window === null ? await dialog.showOpenDialog(options) : await dialog.showOpenDialog(window, options);
+    const options: Electron.OpenDialogOptions = {
+      properties: [
+        "openDirectory",
+        "createDirectory",
+      ],
+    };
+    const chosen =
+      window === null
+        ? await dialog.showOpenDialog(options)
+        : await dialog.showOpenDialog(window, options);
     return chosen.canceled ? null : (chosen.filePaths[0] ?? null);
   });
   // A path in, its canonical folder out: the clone preview names what Fleet will. Reads nothing inside it.
-  ipc.handle(CHANNELS.resolveFolder, (_event, path: unknown) => (typeof path === "string" ? resolvedFolder(path) : null));
+  ipc.handle(CHANNELS.resolveFolder, (_event, path: unknown) =>
+    typeof path === "string" ? resolvedFolder(path) : null,
+  );
   ipc.handle(CHANNELS.addRepository, (_event, path: unknown) =>
     typeof path === "string" ? connection()?.repositories.locating.add(path) : undefined,
   );
@@ -102,7 +123,10 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   ipc.handle(CHANNELS.openKitFile, async (event, path: unknown, how: unknown) => {
     const inventory = await connection()?.kitFor(windowIdOf(event)).inventory();
     return inventory === undefined
-      ? { ok: false, detail: "Fleet did not answer." }
+      ? {
+          ok: false,
+          detail: "Fleet did not answer.",
+        }
       : openKitFile(state(), inventory, path, how);
   });
   ipc.handle(CHANNELS.removeKitAllowedCommand, (event, run: string) =>
@@ -132,22 +156,26 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
   ipc.handle(CHANNELS.setKitServerReach, (event, name: string, drones: ReachesDrones) =>
     connection()?.kitFor(windowIdOf(event)).setKitReach(name, drones),
   );
-  ipc.handle(
-    CHANNELS.setManifestServerReach,
-    (event, name: string, reach: ManifestReach | null) =>
-      connection()?.kitFor(windowIdOf(event)).setManifestReach(name, reach),
+  ipc.handle(CHANNELS.setManifestServerReach, (event, name: string, reach: ManifestReach | null) =>
+    connection()?.kitFor(windowIdOf(event)).setManifestReach(name, reach),
   );
   // The Workflow creator's list, one definition, and a save; the Workflows page's steps, two acts on a
   // copy and a nudge marked not a drift.
-  ipc.handle(CHANNELS.readWorkflows, (event) => connection()?.workflowsFor(windowIdOf(event)).list());
-  ipc.handle(CHANNELS.readWorkflowDefinition, (event, workflowId: string, source: string, manifestId: string | null) =>
-    connection()?.workflowsFor(windowIdOf(event)).definition(workflowId, source, manifestId),
+  ipc.handle(CHANNELS.readWorkflows, (event) =>
+    connection()?.workflowsFor(windowIdOf(event)).list(),
+  );
+  ipc.handle(
+    CHANNELS.readWorkflowDefinition,
+    (event, workflowId: string, source: string, manifestId: string | null) =>
+      connection()?.workflowsFor(windowIdOf(event)).definition(workflowId, source, manifestId),
   );
   ipc.handle(CHANNELS.saveWorkflow, (event, saving: SavingWorkflow) =>
     connection()?.workflowsFor(windowIdOf(event)).save(saving.manifestId, saving.body),
   );
-  ipc.handle(CHANNELS.readWorkflowSteps, (event, workflowId: string, source: string, manifestId: string | null) =>
-    connection()?.workflowsFor(windowIdOf(event)).steps(workflowId, source, manifestId),
+  ipc.handle(
+    CHANNELS.readWorkflowSteps,
+    (event, workflowId: string, source: string, manifestId: string | null) =>
+      connection()?.workflowsFor(windowIdOf(event)).steps(workflowId, source, manifestId),
   );
   ipc.handle(CHANNELS.deleteWorkflowCopy, (event, acting: ActingOnWorkflowCopy) =>
     connection()?.workflowsFor(windowIdOf(event)).deleteCopy(acting.manifestId, acting.copy),
@@ -162,10 +190,14 @@ export function handleRepositories({ ipc, connection, state, windowIdOf }: Hosts
     connection()?.workflowsFor(windowIdOf(event)).askChange(asking.manifestId, asking.body),
   );
   ipc.handle(CHANNELS.suggestWorkflowChange, (event, suggesting: SuggestingWorkflowChange) =>
-    connection()?.workflowsFor(windowIdOf(event)).suggestChange(suggesting.manifestId, suggesting.body),
+    connection()
+      ?.workflowsFor(windowIdOf(event))
+      .suggestChange(suggesting.manifestId, suggesting.body),
   );
-  ipc.handle(CHANNELS.readWorkflowChanges, (event, workflowId: string, source: string, manifestId: string | null) =>
-    connection()?.workflowsFor(windowIdOf(event)).changes(workflowId, source, manifestId),
+  ipc.handle(
+    CHANNELS.readWorkflowChanges,
+    (event, workflowId: string, source: string, manifestId: string | null) =>
+      connection()?.workflowsFor(windowIdOf(event)).changes(workflowId, source, manifestId),
   );
   ipc.handle(CHANNELS.approveWorkflowChange, (event, change: number) =>
     connection()?.workflowsFor(windowIdOf(event)).approveChange(change),

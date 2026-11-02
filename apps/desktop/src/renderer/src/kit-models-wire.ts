@@ -44,15 +44,30 @@ const valueOf = (settings: SettingsList | null, key: string): string | undefined
 
 /** `Opus 5.5` is `Opus`: the page draws the version beside it. */
 const familyOf = (offered: OfferedModel): string =>
-  (offered.display ?? "").replace(/\s+\d+(\.\d+)*$/, "") || offered.name.charAt(0).toUpperCase() + offered.name.slice(1);
+  (offered.display ?? "").replace(/\s+\d+(\.\d+)*$/, "") ||
+  offered.name.charAt(0).toUpperCase() + offered.name.slice(1);
 
-export const NOT_ANSWERED: KitModelsRead = { read: "not_read", why: "Fleet did not answer" };
+export const NOT_ANSWERED: KitModelsRead = {
+  read: "not_read",
+  why: "Fleet did not answer",
+};
 
 /** What the page draws: the offered models, and the model each kind of run starts on. */
-export function readKitModels(held: ModelChoices | null, settings: SettingsList | null): KitModelsRead {
+export function readKitModels(
+  held: ModelChoices | null,
+  settings: SettingsList | null,
+): KitModelsRead {
   if (held === null) return NOT_ANSWERED;
-  if (held.read?.what === "not_read") return { read: "not_read", why: held.read.why };
-  if (held.read === undefined || held.offered === undefined) return { read: "not_read", why: "Fleet does not list models yet" };
+  if (held.read?.what === "not_read")
+    return {
+      read: "not_read",
+      why: held.read.why,
+    };
+  if (held.read === undefined || held.offered === undefined)
+    return {
+      read: "not_read",
+      why: "Fleet does not list models yet",
+    };
   const models: KitModel[] = held.offered.map((one) => ({
     name: one.name,
     display: familyOf(one),
@@ -77,25 +92,41 @@ export function readKitModels(held: ModelChoices | null, settings: SettingsList 
     downshift: model("downshift"),
     helmEffort: effort("helmEffort"),
   };
-  return { read: "read", models, choices };
+  return {
+    read: "read",
+    models,
+    choices,
+  };
 }
 
 /**
  * The save for switching one model on or off: the roster, and every setting that names the model being
  * switched off, moved to one still on. `null` when it would leave none on.
  */
-export function saveForSwitch(held: ModelChoices, settings: SettingsList | null, name: string, on: boolean): SaveSettings["changes"] | null {
-  const roster = (held.offered ?? []).filter((one) => (one.name === name ? on : one.on)).map((one) => one.name);
+export function saveForSwitch(
+  held: ModelChoices,
+  settings: SettingsList | null,
+  name: string,
+  on: boolean,
+): SaveSettings["changes"] | null {
+  const roster = (held.offered ?? [])
+    .filter((one) => (one.name === name ? on : one.on))
+    .map((one) => one.name);
   const first = roster[0];
   const last = roster[roster.length - 1];
   if (first === undefined || last === undefined) return null;
-  const changes: SaveSettings["changes"] = { "models.roster": roster };
+  const changes: SaveSettings["changes"] = {
+    "models.roster": roster,
+  };
   for (const [key, falls] of Object.entries(FALLS_TO)) {
     const named = valueOf(settings, key);
-    if (named !== undefined && !roster.includes(named)) changes[key] = falls === "first" ? first : last;
+    if (named !== undefined && !roster.includes(named))
+      changes[key] = falls === "first" ? first : last;
   }
   return changes;
 }
 
 /** The save for choosing a model for a kind of run, or the effort. */
-export const saveForChoice = (slot: KitModelSlot, value: string): SaveSettings["changes"] => ({ [CHOICE_KEY[slot]]: value });
+export const saveForChoice = (slot: KitModelSlot, value: string): SaveSettings["changes"] => ({
+  [CHOICE_KEY[slot]]: value,
+});

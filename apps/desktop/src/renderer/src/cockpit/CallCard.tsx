@@ -5,9 +5,31 @@
 // `Cockpit`'s, on the window; this draws them and takes the press. While an act waits on Fleet the
 // control pressed carries the loop and the rest of the card is held. Mock only, as the Dashboard is.
 
-import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
 import { SquareTerminal } from "lucide-react";
-import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, RemoveAct, RemoveBox, RunnableBlock, SessionThread, Tooltip, actionOf, keyFor } from "@armada/components";
+import {
+  AskAnswer,
+  AskAnswers,
+  AskCard,
+  AskChoices,
+  AskQuestion,
+  Button,
+  Kbd,
+  RemoveAct,
+  RemoveBox,
+  RunnableBlock,
+  SessionThread,
+  Tooltip,
+  actionOf,
+  keyFor,
+} from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { type Hosts, type Item } from "../Dashboard";
@@ -19,10 +41,17 @@ import { CoveredKeycap, Keycap, useCover } from "./consoles";
 import { sessionIdOf } from "./waiting";
 
 /** What `Enter` does where a call has no answer of its own: it opens the thing. */
-const OPENS = (item: Item) => (sessionIdOf(item.key) !== undefined ? "Open Job" : item.key.startsWith("pull:") ? "Open pull request" : "Open");
+const OPENS = (item: Item) =>
+  sessionIdOf(item.key) !== undefined
+    ? "Open Job"
+    : item.key.startsWith("pull:")
+      ? "Open pull request"
+      : "Open";
 
 /** What the keys can say to the card beyond what an answer does. */
-export type CardKeys = Answering & { change?: () => void };
+export type CardKeys = Answering & {
+  change?: () => void;
+};
 
 /** The one word a loop's tooltip says: the control is out with Fleet. */
 const OUT = "Waiting on Fleet";
@@ -32,10 +61,42 @@ const OUT = "Waiting on Fleet";
  * agent where it says. `pending` is the one waiting on Fleet, which keeps its look and sweeps the bar; `held`
  * is every other while one is, which cannot be pressed.
  */
-function AnswerTile({ one, mark, picked, pending, held, onPick }: { one: Answer; mark: string; picked: boolean; pending: boolean; held: boolean; onPick: () => void }) {
+function AnswerTile({
+  one,
+  mark,
+  picked,
+  pending,
+  held,
+  onPick,
+}: {
+  one: Answer;
+  mark: string;
+  picked: boolean;
+  pending: boolean;
+  held: boolean;
+  onPick: () => void;
+}) {
   return (
     <AskAnswer
-      one={{ label: one.label, ...(one.description === undefined ? {} : { description: one.description }), ...(one.recommended === true ? { recommended: true } : {}), ...(one.says === undefined ? {} : { says: one.says }), standing: one.key !== undefined }}
+      one={{
+        label: one.label,
+        ...(one.description === undefined
+          ? {}
+          : {
+              description: one.description,
+            }),
+        ...(one.recommended === true
+          ? {
+              recommended: true,
+            }
+          : {}),
+        ...(one.says === undefined
+          ? {}
+          : {
+              says: one.says,
+            }),
+        standing: one.key !== undefined,
+      }}
       mark={mark}
       picked={picked}
       pending={pending}
@@ -50,7 +111,25 @@ function AnswerTile({ one, mark, picked, pending, held, onPick }: { one: Answer;
 const DRAFTS = new Map<string, string>();
 
 /** A reply in words: the Session's own "type something". Enter sends it, as Send does. */
-function Reply({ label, text, change, send, pending, held, focus, close }: { label: string; text: string; change: (next: string) => void; send: () => void; pending: boolean; held: boolean; focus?: boolean; close?: () => void }) {
+function Reply({
+  label,
+  text,
+  change,
+  send,
+  pending,
+  held,
+  focus,
+  close,
+}: {
+  label: string;
+  text: string;
+  change: (next: string) => void;
+  send: () => void;
+  pending: boolean;
+  held: boolean;
+  focus?: boolean;
+  close?: () => void;
+}) {
   return (
     <label className="armada-callcard__reply" data-pending={pending || undefined}>
       <Kbd>{keyFor("call_reply")}</Kbd>
@@ -82,7 +161,9 @@ function Reply({ label, text, change, send, pending, held, focus, close }: { lab
 function AttachPicker({ attaching }: { attaching: NonNullable<Answering["attaching"]> }) {
   const [filter, setFilter] = useState("");
   const [at, setAt] = useState(0);
-  const shown = attaching.candidates.filter((one) => one.title.toLowerCase().includes(filter.toLowerCase()));
+  const shown = attaching.candidates.filter((one) =>
+    one.title.toLowerCase().includes(filter.toLowerCase()),
+  );
   const here = Math.min(at, Math.max(0, shown.length - 1));
   const field = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => field.current?.focus(), []);
@@ -98,7 +179,8 @@ function AttachPicker({ attaching }: { attaching: NonNullable<Answering["attachi
           const empty = filter === "";
           if (event.key === "ArrowDown" || (empty && event.key === "j")) move(1);
           else if (event.key === "ArrowUp" || (empty && event.key === "k")) move(-1);
-          else if (event.key === "Enter" && shown[here] !== undefined) attaching.choose(shown[here]!);
+          else if (event.key === "Enter" && shown[here] !== undefined)
+            attaching.choose(shown[here]!);
           else if (event.key === "Escape") attaching.close();
           else return;
           event.preventDefault();
@@ -108,7 +190,13 @@ function AttachPicker({ attaching }: { attaching: NonNullable<Answering["attachi
       <ul role="listbox" aria-label="Jobs" className="armada-callcard__candidates">
         {shown.map((one, index) => {
           return (
-            <li key={`${one.kind}:${one.id}`} role="option" aria-selected={index === here} className="armada-callcard__candidate" onClick={() => attaching.choose(one)}>
+            <li
+              key={`${one.kind}:${one.id}`}
+              role="option"
+              aria-selected={index === here}
+              className="armada-callcard__candidate"
+              onClick={() => attaching.choose(one)}
+            >
               <Tooltip label="Job">
                 <span role="img" aria-label="Job">
                   <SquareTerminal size={12} aria-hidden="true" />
@@ -159,7 +247,12 @@ export function CallCard({
   const change = (next: string) => (DRAFTS.set(item.key, next), setText(next));
   // A Sleep decision's text box is hidden until Change asks for it, and stays where words were left in it.
   const [changing, setChanging] = useState(() => text.trim() !== "");
-  const focusReply = () => document.querySelector<HTMLElement>(".armada-callcard__reply textarea, .armada-callcard__composer [role=textbox]")?.focus();
+  const focusReply = () =>
+    document
+      .querySelector<HTMLElement>(
+        ".armada-callcard__reply textarea, .armada-callcard__composer [role=textbox]",
+      )
+      ?.focus();
   // A call that comes from a Session, and takes words, ends in that Session's own box rather than a bare one.
   const sessions = useSessions();
   const sleep = item.sleep;
@@ -178,7 +271,12 @@ export function CallCard({
   const send = words ? () => void sendWords() : answer.send;
   // An item the agent stated is removed with a reason box first, and the agent is told; any other is dismissed outright.
   const [removing, setRemoving] = useState(false);
-  useEffect(() => setRemoving(false), [item.key]);
+  useEffect(
+    () => setRemoving(false),
+    [
+      item.key,
+    ],
+  );
   const removable = answer.remove !== undefined;
   // Whether the done ask on his tasks is the card: Fleet keeps it until he answers, so it is not dismissed.
   const dismissable = item.waiting?.item.source !== "task_done";
@@ -188,7 +286,11 @@ export function CallCard({
     canSend,
     send,
     // t reaches the Session's own box too, which is always there.
-    ...(sleep === undefined && !composed ? {} : { change: openChange }),
+    ...(sleep === undefined && !composed
+      ? {}
+      : {
+          change: openChange,
+        }),
     // A key cannot dismiss for good by itself: the cover lifts first. Removing an item the agent stated opens its reason box instead.
     dismiss: removable ? () => setRemoving(true) : dismissable ? cover.press : () => undefined,
   };
@@ -196,7 +298,10 @@ export function CallCard({
   const sessionId = sessionIdOf(item.key);
   const session = sessions.find((one) => one.id === sessionId);
   // A pull request or red main a Session holds draws that Session's thread under the facts, so he sees what it is doing.
-  const holder = item.ownedBy?.kind === "session" ? sessions.find((one) => one.id === item.ownedBy!.id) : undefined;
+  const holder =
+    item.ownedBy?.kind === "session"
+      ? sessions.find((one) => one.id === item.ownedBy!.id)
+      : undefined;
   const Icon = item.icon;
   const lone = answer.answers.length === 0;
   // An act is a button that does it; an option is a radio, picked and then sent, because a reply can go with it.
@@ -212,11 +317,13 @@ export function CallCard({
   const sendComposed = (words: string) => {
     if (held) return;
     const picked = answer.picked === undefined ? undefined : answer.answers[answer.picked];
-    if (picked !== undefined && picked.once !== true) picked.run(words.trim() === "" ? undefined : words.trim());
+    if (picked !== undefined && picked.once !== true)
+      picked.run(words.trim() === "" ? undefined : words.trim());
     else if (words.trim() !== "") answer.reply?.(words.trim());
   };
 
-  const changeLabel = sleep === undefined ? "Message" : sleep.corrected === undefined ? "Change" : "Change again";
+  const changeLabel =
+    sleep === undefined ? "Message" : sleep.corrected === undefined ? "Change" : "Change again";
   const openLabel = sleep === undefined ? OPENS(item) : "Open the Job";
 
   // A card made only of acts is split: the decision on the left, a quiet group of ghosts on the right.
@@ -229,12 +336,24 @@ export function CallCard({
             const at = answer.answers.indexOf(one);
             const first = actsOnly && answer.picked === at && !words;
             const button = (
-              <Button key={one.id} variant={first ? "primary" : "secondary"} pending={answer.pending === one.id} disabled={held && answer.pending !== one.id} onClick={() => one.run()}>
+              <Button
+                key={one.id}
+                variant={first ? "primary" : "secondary"}
+                pending={answer.pending === one.id}
+                disabled={held && answer.pending !== one.id}
+                onClick={() => one.run()}
+              >
                 {one.label}
                 <Kbd>{first ? "↵" : String(at + 1)}</Kbd>
               </Button>
             );
-            return one.says === undefined ? button : <Tooltip key={one.id} label={one.says}>{button}</Tooltip>;
+            return one.says === undefined ? (
+              button
+            ) : (
+              <Tooltip key={one.id} label={one.says}>
+                {button}
+              </Tooltip>
+            );
           })}
       {sleep === undefined ? null : (
         <Button variant="secondary" disabled={held} onClick={openChange}>
@@ -270,7 +389,12 @@ export function CallCard({
       </Button>
       {removable || !dismissable ? null : (
         <Tooltip label={answer.pending === "dismiss" ? OUT : "Never show this again"}>
-          <Button variant="ghost" pending={answer.pending === "dismiss"} disabled={held} onClick={answer.dismiss}>
+          <Button
+            variant="ghost"
+            pending={answer.pending === "dismiss"}
+            disabled={held}
+            onClick={answer.dismiss}
+          >
             {actionOf("call_dismiss").verb}
             <Kbd>{keyFor("call_dismiss")}</Kbd>
           </Button>
@@ -288,18 +412,60 @@ export function CallCard({
             const at = answer.answers.indexOf(one);
             const first = actsOnly && answer.picked === at && !words;
             return (
-              <Keycap key={one.id} label={one.label} keys={first ? "↵" : String(at + 1)} primary={first} pending={answer.pending === one.id} disabled={held && answer.pending !== one.id} {...(one.says === undefined ? {} : { says: one.says })} onPress={() => one.run()} />
+              <Keycap
+                key={one.id}
+                label={one.label}
+                keys={first ? "↵" : String(at + 1)}
+                primary={first}
+                pending={answer.pending === one.id}
+                disabled={held && answer.pending !== one.id}
+                {...(one.says === undefined
+                  ? {}
+                  : {
+                      says: one.says,
+                    })}
+                onPress={() => one.run()}
+              />
             );
           })}
-      {sleep === undefined ? null : <Keycap label={changeLabel} keys={keyFor("call_reply")} disabled={held} onPress={openChange} />}
-      {actsOnly && !words ? null : <Keycap primary label={lone && !words ? openLabel : "Send"} keys="↵" disabled={!canSend} onPress={send} />}
+      {sleep === undefined ? null : (
+        <Keycap
+          label={changeLabel}
+          keys={keyFor("call_reply")}
+          disabled={held}
+          onPress={openChange}
+        />
+      )}
+      {actsOnly && !words ? null : (
+        <Keycap
+          primary
+          label={lone && !words ? openLabel : "Send"}
+          keys="↵"
+          disabled={!canSend}
+          onPress={send}
+        />
+      )}
     </>
   );
   const navKeys = (
     <>
-      {answer.openWalk === undefined ? null : <Keycap label={actionOf("call_open_walk").verb} keys={keyFor("call_open_walk")} disabled={held} onPress={answer.openWalk} />}
-      {lone || answer.open === undefined ? null : <Keycap label={openLabel} keys={keyFor("open")} disabled={held} onPress={answer.open} />}
-      <Keycap label={actionOf("call_later").verb} keys={keyFor("call_later")} disabled={held} onPress={later} />
+      {answer.openWalk === undefined ? null : (
+        <Keycap
+          label={actionOf("call_open_walk").verb}
+          keys={keyFor("call_open_walk")}
+          disabled={held}
+          onPress={answer.openWalk}
+        />
+      )}
+      {lone || answer.open === undefined ? null : (
+        <Keycap label={openLabel} keys={keyFor("open")} disabled={held} onPress={answer.open} />
+      )}
+      <Keycap
+        label={actionOf("call_later").verb}
+        keys={keyFor("call_later")}
+        disabled={held}
+        onPress={later}
+      />
     </>
   );
   const coveredKey = !dismissable ? null : removable ? (
@@ -324,41 +490,80 @@ export function CallCard({
   );
 
   const card = (
-    <AskCard icon={Icon} kind={item.kind} where={item.where} {...(item.at === undefined ? {} : { at: item.at })} now={now} title={item.title} hue={item.hue} leaving={leaving} from={from}>
-        {session !== undefined ? (
-          <div className="armada-callcard__thread" data-ran={answer.run !== undefined && answer.run.phase.state !== "idle" ? "" : undefined}>
-            <SessionThread sessionId={session.id} rows={threadRowsOf(session)} onAnswer={() => {}} onOpenSession={hosts.onOpenSession} />
-          </div>
-        ) : (
-          <>
-            {answer.owner === undefined ? null : (
-              <p className="armada-callcard__origin" data-owner role="group" aria-label="Owner">
-                <Tooltip label="Job">
-                  <span role="img" aria-label="Job">
-                    <SquareTerminal size={12} aria-hidden="true" />
-                  </span>
-                </Tooltip>
-                Job · {answer.owner.title}
-              </p>
-            )}
-            {origin === "" ? null : <p className="armada-callcard__origin">{origin}</p>}
-            {sleep !== undefined || item.context === undefined || item.context.length === 0 ? null : (
-              <section aria-label={item.contextHead ?? "Why it asks"}>
-                <pre className="armada-callcard__why">{item.context.slice(0, 3).join("\n")}</pre>
-              </section>
-            )}
-            {holder === undefined ? null : (
-              <div className="armada-callcard__thread" role="group" aria-label={`Job ${holder.title ?? holder.id}`}>
-                <SessionThread sessionId={holder.id} rows={threadRowsOf(holder)} working={holder.turn.state === "working"} onAnswer={() => {}} onOpenSession={hosts.onOpenSession} />
-              </div>
-            )}
-          </>
-        )}
-        <AskQuestion quiet={!(item.waiting !== undefined ? item.waiting.item.source !== "permission" : item.hue === "ask")}>
-          {answer.ask}
-        </AskQuestion>
-        {answer.target === undefined ? null : (
-          (() => {
+    <AskCard
+      icon={Icon}
+      kind={item.kind}
+      where={item.where}
+      {...(item.at === undefined
+        ? {}
+        : {
+            at: item.at,
+          })}
+      now={now}
+      title={item.title}
+      hue={item.hue}
+      leaving={leaving}
+      from={from}
+    >
+      {session !== undefined ? (
+        <div
+          className="armada-callcard__thread"
+          data-ran={answer.run !== undefined && answer.run.phase.state !== "idle" ? "" : undefined}
+        >
+          <SessionThread
+            sessionId={session.id}
+            rows={threadRowsOf(session)}
+            onAnswer={() => {}}
+            onOpenSession={hosts.onOpenSession}
+          />
+        </div>
+      ) : (
+        <>
+          {answer.owner === undefined ? null : (
+            <p className="armada-callcard__origin" data-owner role="group" aria-label="Owner">
+              <Tooltip label="Job">
+                <span role="img" aria-label="Job">
+                  <SquareTerminal size={12} aria-hidden="true" />
+                </span>
+              </Tooltip>
+              Job · {answer.owner.title}
+            </p>
+          )}
+          {origin === "" ? null : <p className="armada-callcard__origin">{origin}</p>}
+          {sleep !== undefined || item.context === undefined || item.context.length === 0 ? null : (
+            <section aria-label={item.contextHead ?? "Why it asks"}>
+              <pre className="armada-callcard__why">{item.context.slice(0, 3).join("\n")}</pre>
+            </section>
+          )}
+          {holder === undefined ? null : (
+            <div
+              className="armada-callcard__thread"
+              role="group"
+              aria-label={`Job ${holder.title ?? holder.id}`}
+            >
+              <SessionThread
+                sessionId={holder.id}
+                rows={threadRowsOf(holder)}
+                working={holder.turn.state === "working"}
+                onAnswer={() => {}}
+                onOpenSession={hosts.onOpenSession}
+              />
+            </div>
+          )}
+        </>
+      )}
+      <AskQuestion
+        quiet={
+          !(item.waiting !== undefined
+            ? item.waiting.item.source !== "permission"
+            : item.hue === "ask")
+        }
+      >
+        {answer.ask}
+      </AskQuestion>
+      {answer.target === undefined
+        ? null
+        : (() => {
             const target = (
               <Tooltip label={answer.target}>
                 <code className="armada-callcard__target">{answer.target}</code>
@@ -374,48 +579,88 @@ export function CallCard({
                 </RunnableBlock>
               </div>
             );
-          })()
-        )}
-        {sleep === undefined || item.context === undefined ? null : (
-          <section aria-label={item.contextHead ?? "Chose"}>
-            <pre className="armada-callcard__why">{item.context.slice(0, 1).join("\n")}</pre>
-          </section>
-        )}
-        {answer.attaching === undefined ? null : <AttachPicker attaching={answer.attaching} />}
-        {numbered.length === 0 && standing.length === 0 || answer.attaching !== undefined ? null : (
-          <AskChoices label={answer.ask}>
-            <AskAnswers>
-              {numbered.map((one, index) => (
-                <AnswerTile key={one.id} one={one} mark={String(index + 1)} picked={answer.picked === answer.answers.indexOf(one)} pending={answer.pending === one.id} held={held} onPick={() => answer.pick(answer.answers.indexOf(one))} />
+          })()}
+      {sleep === undefined || item.context === undefined ? null : (
+        <section aria-label={item.contextHead ?? "Chose"}>
+          <pre className="armada-callcard__why">{item.context.slice(0, 1).join("\n")}</pre>
+        </section>
+      )}
+      {answer.attaching === undefined ? null : <AttachPicker attaching={answer.attaching} />}
+      {(numbered.length === 0 && standing.length === 0) || answer.attaching !== undefined ? null : (
+        <AskChoices label={answer.ask}>
+          <AskAnswers>
+            {numbered.map((one, index) => (
+              <AnswerTile
+                key={one.id}
+                one={one}
+                mark={String(index + 1)}
+                picked={answer.picked === answer.answers.indexOf(one)}
+                pending={answer.pending === one.id}
+                held={held}
+                onPick={() => answer.pick(answer.answers.indexOf(one))}
+              />
+            ))}
+          </AskAnswers>
+          {standing.length === 0 ? null : (
+            <AskAnswers standing>
+              {standing.map((one) => (
+                <AnswerTile
+                  key={one.id}
+                  one={one}
+                  mark={one.key!}
+                  picked={answer.picked === answer.answers.indexOf(one)}
+                  pending={answer.pending === one.id}
+                  held={held}
+                  onPick={() => answer.pick(answer.answers.indexOf(one))}
+                />
               ))}
             </AskAnswers>
-            {standing.length === 0 ? null : (
-              <AskAnswers standing>
-                {standing.map((one) => (
-                  <AnswerTile key={one.id} one={one} mark={one.key!} picked={answer.picked === answer.answers.indexOf(one)} pending={answer.pending === one.id} held={held} onPick={() => answer.pick(answer.answers.indexOf(one))} />
-                ))}
-              </AskAnswers>
-            )}
-          </AskChoices>
-        )}
-        {answer.remove === undefined ? null : (
-          <div className="armada-callcard__remove">
-            <RemoveAct name={item.fact} open={removing} onPress={() => setRemoving(!removing)} />
-            {removing ? <RemoveBox name={item.fact} keep={`remove:${item.key}`} onRemove={answer.remove} onClose={() => setRemoving(false)} /> : null}
-          </div>
-        )}
-        {boxed || answer.reply === undefined || (sleep !== undefined && !changing) ? null : (
-          <Reply label={sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} {...(sleep === undefined ? {} : { focus: true, close: () => setChanging(false) })} />
-        )}
-        <div className="armada-callcard__acts" data-split={actsOnly || undefined} data-consoled>
-          {actsOnly ? <div className="armada-callcard__decide">{decide}</div> : decide}
-          {actsOnly ? <div className="armada-callcard__quiet">{quiet}</div> : quiet}
+          )}
+        </AskChoices>
+      )}
+      {answer.remove === undefined ? null : (
+        <div className="armada-callcard__remove">
+          <RemoveAct name={item.fact} open={removing} onPress={() => setRemoving(!removing)} />
+          {removing ? (
+            <RemoveBox
+              name={item.fact}
+              keep={`remove:${item.key}`}
+              onRemove={answer.remove}
+              onClose={() => setRemoving(false)}
+            />
+          ) : null}
         </div>
-        {!composed || home === undefined ? null : (
-          <div className="armada-callcard__composer">
-            <SessionBox session={home} onOpen={hosts.onOpenSession} onSend={sendComposed} onOpenLoadout={hosts.onOpenLoadout} />
-          </div>
-        )}
+      )}
+      {boxed || answer.reply === undefined || (sleep !== undefined && !changing) ? null : (
+        <Reply
+          label={sleep === undefined ? "Type something" : "Change"}
+          text={text}
+          change={change}
+          send={sendWords}
+          pending={answer.pending === "reply"}
+          held={held}
+          {...(sleep === undefined
+            ? {}
+            : {
+                focus: true,
+                close: () => setChanging(false),
+              })}
+        />
+      )}
+      <div className="armada-callcard__acts" data-split={actsOnly || undefined} data-consoled>
+        {actsOnly ? <div className="armada-callcard__decide">{decide}</div> : decide}
+        {actsOnly ? <div className="armada-callcard__quiet">{quiet}</div> : quiet}
+      </div>
+      {!composed || home === undefined ? null : (
+        <div className="armada-callcard__composer">
+          <SessionBox
+            session={home}
+            onOpen={hosts.onOpenSession}
+            onSend={sendComposed}
+            onOpenLoadout={hosts.onOpenLoadout}
+          />
+        </div>
+      )}
     </AskCard>
   );
   return (

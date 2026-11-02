@@ -12,5 +12,9 @@ export const s341cRealThreadHeaderSizes: Scenario = realThreadScenario({
   branch: "armada/session-1923754a",
   slot: 3,
   rows: HEADER_SIZES_ROWS,
-  asked: ["Record the plan", "Keep discussing", "Show size B"],
+  asked: [
+    "Record the plan",
+    "Keep discussing",
+    "Show size B",
+  ],
 });

@@ -47,7 +47,11 @@ export function OverviewSummaryStrip({ items }: OverviewSummaryStripProps) {
             className="armada-overview-summary__item armada-glass"
             data-tone={empty ? undefined : item.tone}
             data-empty={empty || undefined}
-            style={{ "--armada-tile-hue": `var(--status-${item.hue})` } as CSSProperties}
+            style={
+              {
+                "--armada-tile-hue": `var(--status-${item.hue})`,
+              } as CSSProperties
+            }
             aria-label={`${item.count} ${item.label}`}
             onClick={item.onPress}
           >

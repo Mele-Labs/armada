@@ -14,13 +14,27 @@ import { Switch } from "../../primitives/Switch/Switch";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 
 /** One cap, used of its limit. `fill` is 0 to 1; `reached` lights it. `at` is an RFC 3339 instant drawn as a stamp before `value`. */
-export type AutopilotCap = { label: string; value: string; at?: string; fill: number; reached: boolean };
+export type AutopilotCap = {
+  label: string;
+  value: string;
+  at?: string;
+  fill: number;
+  reached: boolean;
+};
 
 /** The four settings as the start form holds them, each a field's text. */
-export type AutopilotFields = { atOnce: string; until: string; spend: string; sessions: string };
+export type AutopilotFields = {
+  atOnce: string;
+  until: string;
+  spend: string;
+  sessions: string;
+};
 
 /** What Fleet read the sentence as: the fields, and the person's own words each was read from, where it said any. */
-export type AutopilotReading = { fields: AutopilotFields; quoted: Readonly<Partial<Record<keyof AutopilotFields, string>>> };
+export type AutopilotReading = {
+  fields: AutopilotFields;
+  quoted: Readonly<Partial<Record<keyof AutopilotFields, string>>>;
+};
 
 export type AutopilotPress = "pause" | "resume" | "stop" | "read" | "start" | "save";
 
@@ -61,23 +75,52 @@ export type AutopilotBarProps = {
   onSave: (fields: AutopilotFields) => void;
 };
 
-const STATE: Record<AutopilotBarProps["state"], string> = { off: "Off", running: "Running", paused: "Paused · started Jobs finish" };
+const STATE: Record<AutopilotBarProps["state"], string> = {
+  off: "Off",
+  running: "Running",
+  paused: "Paused · started Jobs finish",
+};
 
 /** The state as the bar says it: a cap that paused it is named in place of what Pause means. */
-const stateOf = (state: AutopilotBarProps["state"], capped: string | undefined) => (state === "paused" && capped !== undefined ? `Paused · ${capped}` : STATE[state]);
+const stateOf = (state: AutopilotBarProps["state"], capped: string | undefined) =>
+  state === "paused" && capped !== undefined ? `Paused · ${capped}` : STATE[state];
 
-const FIELDS: readonly (readonly [keyof AutopilotFields, string, string])[] = [
-  ["atOnce", "At once", "1"],
-  ["until", "Until", "no time set"],
-  ["spend", "Spend, in dollars", "no cap"],
-  ["sessions", "Jobs", "no cap"],
+const FIELDS: readonly (readonly [
+  keyof AutopilotFields,
+  string,
+  string,
+])[] = [
+  [
+    "atOnce",
+    "At once",
+    "1",
+  ],
+  [
+    "until",
+    "Until",
+    "no time set",
+  ],
+  [
+    "spend",
+    "Spend, in dollars",
+    "no cap",
+  ],
+  [
+    "sessions",
+    "Jobs",
+    "no cap",
+  ],
 ];
 
 function Caps({ caps }: { caps: readonly AutopilotCap[] }) {
   return (
     <dl className="armada-autopilot__caps">
       {caps.map((cap) => (
-        <div key={cap.label} className="armada-autopilot__cap" data-reached={cap.reached || undefined}>
+        <div
+          key={cap.label}
+          className="armada-autopilot__cap"
+          data-reached={cap.reached || undefined}
+        >
           <dt>{cap.label}</dt>
           <dd>
             {cap.at === undefined ? null : <Stamp at={cap.at} />}
@@ -85,7 +128,15 @@ function Caps({ caps }: { caps: readonly AutopilotCap[] }) {
             {cap.value}
             {cap.reached ? <span className="armada-autopilot__reached"> · reached</span> : null}
           </dd>
-          <dd className="armada-autopilot__meter" aria-hidden="true" style={{ ["--fill" as string]: `${Math.round(Math.min(1, Math.max(0, cap.fill)) * 100)}%` } as CSSProperties} />
+          <dd
+            className="armada-autopilot__meter"
+            aria-hidden="true"
+            style={
+              {
+                ["--fill" as string]: `${Math.round(Math.min(1, Math.max(0, cap.fill)) * 100)}%`,
+              } as CSSProperties
+            }
+          />
         </div>
       ))}
     </dl>
@@ -93,13 +144,36 @@ function Caps({ caps }: { caps: readonly AutopilotCap[] }) {
 }
 
 /** The four settings as fields, each with the words it was read from where the form is a reading. */
-function Fields({ fields, onChange, quoted }: { fields: AutopilotFields; onChange: (fields: AutopilotFields) => void; quoted?: AutopilotReading["quoted"] }) {
+function Fields({
+  fields,
+  onChange,
+  quoted,
+}: {
+  fields: AutopilotFields;
+  onChange: (fields: AutopilotFields) => void;
+  quoted?: AutopilotReading["quoted"];
+}) {
   return (
     <span className="armada-autopilot__fields">
       {FIELDS.map(([key, label, placeholder]) => (
         <span key={key} className="armada-autopilot__field">
-          <Input label={label} mono value={fields[key]} placeholder={placeholder} onChange={(event) => onChange({ ...fields, [key]: event.currentTarget.value })} />
-          {quoted === undefined ? null : <span className="armada-autopilot__said">{quoted[key] === undefined ? "not said" : `“${quoted[key]}”`}</span>}
+          <Input
+            label={label}
+            mono
+            value={fields[key]}
+            placeholder={placeholder}
+            onChange={(event) =>
+              onChange({
+                ...fields,
+                [key]: event.currentTarget.value,
+              })
+            }
+          />
+          {quoted === undefined ? null : (
+            <span className="armada-autopilot__said">
+              {quoted[key] === undefined ? "not said" : `“${quoted[key]}”`}
+            </span>
+          )}
         </span>
       ))}
     </span>
@@ -108,10 +182,25 @@ function Fields({ fields, onChange, quoted }: { fields: AutopilotFields; onChang
 
 export { Fields as AutopilotFieldInputs };
 
-function StartForm({ sentence, onSentence, reading, onRead, onStart, pending }: Pick<AutopilotBarProps, "sentence" | "onSentence" | "reading" | "onRead" | "onStart" | "pending">) {
+function StartForm({
+  sentence,
+  onSentence,
+  reading,
+  onRead,
+  onStart,
+  pending,
+}: Pick<
+  AutopilotBarProps,
+  "sentence" | "onSentence" | "reading" | "onRead" | "onStart" | "pending"
+>) {
   const [fields, setFields] = useState<AutopilotFields | undefined>(reading?.fields);
   // A new reading replaces whatever was typed over the last one.
-  useEffect(() => setFields(reading?.fields), [reading]);
+  useEffect(
+    () => setFields(reading?.fields),
+    [
+      reading,
+    ],
+  );
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (fields === undefined) return onRead();
@@ -127,8 +216,16 @@ function StartForm({ sentence, onSentence, reading, onRead, onStart, pending }: 
       />
       {fields === undefined || reading === undefined ? (
         <span className="armada-autopilot__foot">
-          <span>Fleet reads it as settings for you to check. Nothing starts until you press Start.</span>
-          <Button variant="secondary" size="sm" type="submit" disabled={sentence.trim() === ""} pending={pending === "read"}>
+          <span>
+            Fleet reads it as settings for you to check. Nothing starts until you press Start.
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            type="submit"
+            disabled={sentence.trim() === ""}
+            pending={pending === "read"}
+          >
             {pending === "read" ? "Reading…" : "Read it"}
           </Button>
         </span>
@@ -136,14 +233,29 @@ function StartForm({ sentence, onSentence, reading, onRead, onStart, pending }: 
         <>
           <span className="armada-autopilot__read">
             Fleet read this as:
-            <Button variant="ghost" size="sm" onClick={onRead} disabled={sentence.trim() === "" || pending !== undefined} pending={pending === "read"}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRead}
+              disabled={sentence.trim() === "" || pending !== undefined}
+              pending={pending === "read"}
+            >
               Read again
             </Button>
           </span>
           <Fields fields={fields} onChange={setFields} quoted={reading.quoted} />
           <span className="armada-autopilot__foot">
-            <span>Clear picks start on their own. Picks it is unsure of are set aside for you. A cap pauses the next pick, never a Job that is running.</span>
-            <Button variant="primary" size="sm" type="submit" disabled={pending !== undefined && pending !== "start"} pending={pending === "start"}>
+            <span>
+              Clear picks start on their own. Picks it is unsure of are set aside for you. A cap
+              pauses the next pick, never a Job that is running.
+            </span>
+            <Button
+              variant="primary"
+              size="sm"
+              type="submit"
+              disabled={pending !== undefined && pending !== "start"}
+              pending={pending === "start"}
+            >
               Start Autopilot
             </Button>
           </span>
@@ -154,7 +266,15 @@ function StartForm({ sentence, onSentence, reading, onRead, onStart, pending }: 
 }
 
 /** The settings it runs with, in the start form's fields, saved in its state: never a resume. */
-function EditForm({ current, onSave, onEditing, pending, capped }: Pick<AutopilotBarProps, "onSave" | "onEditing" | "pending" | "capped"> & { current: AutopilotFields }) {
+function EditForm({
+  current,
+  onSave,
+  onEditing,
+  pending,
+  capped,
+}: Pick<AutopilotBarProps, "onSave" | "onEditing" | "pending" | "capped"> & {
+  current: AutopilotFields;
+}) {
   const [fields, setFields] = useState(current);
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -164,11 +284,26 @@ function EditForm({ current, onSave, onEditing, pending, capped }: Pick<Autopilo
     <form className="armada-autopilot__start" aria-label="Edit caps" onSubmit={submit}>
       <Fields fields={fields} onChange={setFields} />
       <span className="armada-autopilot__foot">
-        <span>{capped === undefined ? "The new caps hold from its next pick." : "Raise the cap that paused it and save, then resume."}</span>
-        <Button variant="ghost" size="sm" onClick={() => onEditing(false)} disabled={pending === "save"}>
+        <span>
+          {capped === undefined
+            ? "The new caps hold from its next pick."
+            : "Raise the cap that paused it and save, then resume."}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onEditing(false)}
+          disabled={pending === "save"}
+        >
           Cancel
         </Button>
-        <Button variant="primary" size="sm" type="submit" disabled={pending !== undefined && pending !== "save"} pending={pending === "save"}>
+        <Button
+          variant="primary"
+          size="sm"
+          type="submit"
+          disabled={pending !== undefined && pending !== "save"}
+          pending={pending === "save"}
+        >
           Save caps
         </Button>
       </span>
@@ -177,17 +312,39 @@ function EditForm({ current, onSave, onEditing, pending, capped }: Pick<Autopilo
 }
 
 export function AutopilotBar(props: AutopilotBarProps) {
-  const { repository, state, instruction, capped, fault, caps, stopping, pending, refused, onPause, onResume, onStop, starting, onStarting, editing, onEditing, current } = props;
+  const {
+    repository,
+    state,
+    instruction,
+    capped,
+    fault,
+    caps,
+    stopping,
+    pending,
+    refused,
+    onPause,
+    onResume,
+    onStop,
+    starting,
+    onStarting,
+    editing,
+    onEditing,
+    current,
+  } = props;
   const [confirming, setConfirming] = useState(false);
   const on = state !== "off";
   // Stop answered: the question it asked has nothing left to ask.
   useEffect(() => {
     if (!on) setConfirming(false);
-  }, [on]);
+  }, [
+    on,
+  ]);
   const keep = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (confirming) keep.current?.focus();
-  }, [confirming]);
+  }, [
+    confirming,
+  ]);
   const flip = () => (on ? setConfirming(true) : onStarting(!starting));
   return (
     <section className="armada-autopilot" aria-label="Autopilot" data-state={state}>
@@ -197,31 +354,57 @@ export function AutopilotBar(props: AutopilotBarProps) {
             <span className="armada-autopilot__label">
               <Plane size={16} aria-hidden="true" />
               Autopilot
-              {repository === undefined ? null : <span className="armada-autopilot__repository">{repository}</span>}
+              {repository === undefined ? null : (
+                <span className="armada-autopilot__repository">{repository}</span>
+              )}
             </span>
           </Switch>
         </span>
         <span className="armada-autopilot__state" role="status">
           {stateOf(state, capped)}
         </span>
-        {on && instruction !== undefined ? <span className="armada-autopilot__instruction">“{instruction}”</span> : null}
+        {on && instruction !== undefined ? (
+          <span className="armada-autopilot__instruction">“{instruction}”</span>
+        ) : null}
         {on ? (
           <span className="armada-autopilot__acts">
             {editing || current === undefined ? null : (
-              <Button variant="ghost" size="sm" onClick={() => onEditing(true)} disabled={pending !== undefined}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onEditing(true)}
+                disabled={pending !== undefined}
+              >
                 Edit caps
               </Button>
             )}
             {state === "paused" ? (
-              <Button variant="secondary" size="sm" onClick={onResume} disabled={pending !== undefined && pending !== "resume"} pending={pending === "resume"}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onResume}
+                disabled={pending !== undefined && pending !== "resume"}
+                pending={pending === "resume"}
+              >
                 Resume
               </Button>
             ) : (
-              <Button variant="secondary" size="sm" onClick={onPause} disabled={pending !== undefined && pending !== "pause"} pending={pending === "pause"}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onPause}
+                disabled={pending !== undefined && pending !== "pause"}
+                pending={pending === "pause"}
+              >
                 Pause
               </Button>
             )}
-            <Button variant="destructive" size="sm" onClick={() => setConfirming(true)} disabled={pending !== undefined || confirming}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setConfirming(true)}
+              disabled={pending !== undefined || confirming}
+            >
               Stop
             </Button>
           </span>
@@ -243,7 +426,9 @@ export function AutopilotBar(props: AutopilotBarProps) {
           {refused}
         </p>
       )}
-      {on && fault !== undefined ? <p className="armada-autopilot__fault">Its last pass picked nothing. {fault}</p> : null}
+      {on && fault !== undefined ? (
+        <p className="armada-autopilot__fault">Its last pass picked nothing. {fault}</p>
+      ) : null}
       {on ? <Caps caps={caps} /> : null}
       {on && editing && current !== undefined ? <EditForm {...props} current={current} /> : null}
       {!on && starting ? <StartForm {...props} /> : null}

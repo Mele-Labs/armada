@@ -3,4 +3,7 @@
 import { jobHandoff } from "../job-handoff";
 import type { Scenario } from "../moment";
 
-export const s297JobHandoffCard: Scenario = jobHandoff("job-handoff-card", "A Job asks to carry on in a new one, with four answers");
+export const s297JobHandoffCard: Scenario = jobHandoff(
+  "job-handoff-card",
+  "A Job asks to carry on in a new one, with four answers",
+);

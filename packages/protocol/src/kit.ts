@@ -12,8 +12,15 @@
  * which of two optional keys turned up.
  */
 export type ServerAddress =
-  | { transport: "stdio"; command: string; args: string[] }
-  | { transport: "http"; url: string };
+  | {
+      transport: "stdio";
+      command: string;
+      args: string[];
+    }
+  | {
+      transport: "http";
+      url: string;
+    };
 
 /** Kit's own tier for a server: whether a drone gets it where the manifest is silent. */
 export type ReachesDrones = "no" | "yes";
@@ -137,8 +144,15 @@ export type SetupUnreadable = {
  * these* and never *nothing looked*.
  */
 export type WhatWasRead =
-  | { what: "read"; items: SetupItem[]; unreadable: SetupUnreadable[] }
-  | { what: "not_read"; why: string };
+  | {
+      what: "read";
+      items: SetupItem[];
+      unreadable: SetupUnreadable[];
+    }
+  | {
+      what: "not_read";
+      why: string;
+    };
 
 /** Armada's word for one kind of thing, never a harness's. */
 export type SetupKind =
@@ -213,10 +227,30 @@ export type LookAtKitSource = {
  * marketplace, each installed alone by its `name`. `unknown` says why in Fleet's words.
  */
 export type KitSourceFound =
-  | { found: "plugin"; name: string; marketplace: string; repository: string; skills: string[]; commands: string[] }
-  | { found: "skill"; name: string; repository: string; commands: string[] }
-  | { found: "several"; repository: string; kind: KitPieceKind; choices: KitSourceChoice[] }
-  | { found: "unknown"; why: string };
+  | {
+      found: "plugin";
+      name: string;
+      marketplace: string;
+      repository: string;
+      skills: string[];
+      commands: string[];
+    }
+  | {
+      found: "skill";
+      name: string;
+      repository: string;
+      commands: string[];
+    }
+  | {
+      found: "several";
+      repository: string;
+      kind: KitPieceKind;
+      choices: KitSourceChoice[];
+    }
+  | {
+      found: "unknown";
+      why: string;
+    };
 
 /** One of `several`: its name, its own words for itself where it gives any, and what Install runs for it alone. */
 export type KitSourceChoice = {
@@ -242,8 +276,17 @@ export type InstallKitPiece = {
  * where nothing was left behind. `exit_code` is `-1` where the command did not run to an exit of its own.
  */
 export type KitPieceInstalled =
-  | { state: "installed"; setup: KitInventory }
-  | { state: "failed"; command: string; exit_code: number; error: string; taken_back: string[] };
+  | {
+      state: "installed";
+      setup: KitInventory;
+    }
+  | {
+      state: "failed";
+      command: string;
+      exit_code: number;
+      error: string;
+      taken_back: string[];
+    };
 
 /** The body of `remove_kit_piece`. `name` is the item's name as the inventory spells it, `impeccable@impeccable` for a plugin. */
 export type RemoveKitPiece = {

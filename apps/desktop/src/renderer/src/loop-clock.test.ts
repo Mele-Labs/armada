@@ -4,7 +4,16 @@ import { startLoopClock } from "./loop-clock";
 
 /** The parts of a CSS animation the clock touches. */
 function loop(currentTime: number, iterations = Infinity, target = "running"): Animation {
-  return { currentTime, effect: { getComputedTiming: () => ({ iterations }), target }, pause: vi.fn() } as unknown as Animation;
+  return {
+    currentTime,
+    effect: {
+      getComputedTiming: () => ({
+        iterations,
+      }),
+      target,
+    },
+    pause: vi.fn(),
+  } as unknown as Animation;
 }
 
 let now = 1000;
@@ -17,11 +26,19 @@ beforeEach(() => {
   now = 1000;
   marks = new Set();
   vi.stubGlobal("document", {
-    documentElement: { hasAttribute: (name: string) => marks.has(name) },
-    timeline: { get currentTime() { return now; } },
+    documentElement: {
+      hasAttribute: (name: string) => marks.has(name),
+    },
+    timeline: {
+      get currentTime() {
+        return now;
+      },
+    },
     getAnimations: () => animations,
   });
-  vi.stubGlobal("getComputedStyle", (target: string) => ({ animationPlayState: target }));
+  vi.stubGlobal("getComputedStyle", (target: string) => ({
+    animationPlayState: target,
+  }));
 });
 
 afterEach(() => {
@@ -38,7 +55,10 @@ function advance(ms: number): void {
 test("moves every loop on the same tick and keeps each one's phase", () => {
   const first = loop(900);
   const second = loop(300);
-  animations = [first, second];
+  animations = [
+    first,
+    second,
+  ];
   stop = startLoopClock();
 
   advance(100);
@@ -54,7 +74,9 @@ test("moves every loop on the same tick and keeps each one's phase", () => {
 
 test("leaves an animation that ends alone", () => {
   const entrance = loop(50, 1);
-  animations = [entrance];
+  animations = [
+    entrance,
+  ];
   stop = startLoopClock();
 
   advance(300);
@@ -64,7 +86,9 @@ test("leaves an animation that ends alone", () => {
 
 test("moves nothing while the window is still", () => {
   const one = loop(0);
-  animations = [one];
+  animations = [
+    one,
+  ];
   stop = startLoopClock();
   advance(100);
 
@@ -76,7 +100,10 @@ test("moves nothing while the window is still", () => {
 test("holds a loop the idle rules pause, and moves the others", () => {
   const running = loop(0);
   const held = loop(0, Infinity, "paused");
-  animations = [running, held];
+  animations = [
+    running,
+    held,
+  ];
   stop = startLoopClock();
   advance(100);
 

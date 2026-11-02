@@ -59,16 +59,40 @@ const RECORD: HelmDebugInfo = {
   model: "sonnet",
   note: NOTE,
   door: "armada-fleet",
-  tools: ["list_sessions", "get_check_output", "get_diff", "get_events_since"],
+  tools: [
+    "list_sessions",
+    "get_check_output",
+    "get_diff",
+    "get_events_since",
+  ],
   session: "01M2C1TJ8G00HELMSESSION01",
   thread: [
-    { at: "2026-09-10T14:31:06.000Z", line: "asked", text: { text: "why did 77 stop" } },
-    { at: "2026-09-10T14:31:11.000Z", line: "called", tool: "list_sessions", detail: "01M2C1TJ8G0077SESSION0001" },
-    { at: "2026-09-10T14:31:19.000Z", line: "said", text: { text: ANSWER } },
+    {
+      at: "2026-09-10T14:31:06.000Z",
+      line: "asked",
+      text: {
+        text: "why did 77 stop",
+      },
+    },
+    {
+      at: "2026-09-10T14:31:11.000Z",
+      line: "called",
+      tool: "list_sessions",
+      detail: "01M2C1TJ8G0077SESSION0001",
+    },
+    {
+      at: "2026-09-10T14:31:19.000Z",
+      line: "said",
+      text: {
+        text: ANSWER,
+      },
+    },
     {
       at: "2026-09-10T14:33:48.000Z",
       line: "asked",
-      text: { text: "which test is it, and does it fail on main too" },
+      text: {
+        text: "which test is it, and does it fail on main too",
+      },
     },
   ],
   cut: 0,
@@ -76,7 +100,10 @@ const RECORD: HelmDebugInfo = {
     from: 812,
     upto: 851,
     kinds: [
-      { kind: "session.row", count: 3 },
+      {
+        kind: "session.row",
+        count: 3,
+      },
     ],
   },
   run_id: "01M2C1TJ8G00FLEETRUN0001",
@@ -97,15 +124,32 @@ const RECORD: HelmDebugInfo = {
  * field and the thread stands, which is `running-locally.md`'s rule for every
  * other act a Fleet would have to answer.
  */
-export function talking<S extends PublishedCore & HelmState, A extends HelmApi>(nothingYet: S): Scenario<S, A> {
+export function talking<S extends PublishedCore & HelmState, A extends HelmApi>(
+  nothingYet: S,
+): Scenario<S, A> {
   return {
     name: "helm-talking",
     says: "Helm pointed at a repository, with a job to report",
     state: {
-      ...connected(nothingYet, [], [repository()]),
-      helm: { state: "pointed", manifestId: MANIFEST_ID },
+      ...connected(
+        nothingYet,
+        [],
+        [
+          repository(),
+        ],
+      ),
+      helm: {
+        state: "pointed",
+        manifestId: MANIFEST_ID,
+      },
     },
     // `A` is the app's whole API, so the one member this answers is narrowed to it by hand.
-    behaves: () => ({ helmDebugInfo: async () => ({ ok: true, record: RECORD }) }) as Partial<A>,
+    behaves: () =>
+      ({
+        helmDebugInfo: async () => ({
+          ok: true,
+          record: RECORD,
+        }),
+      }) as Partial<A>,
   };
 }

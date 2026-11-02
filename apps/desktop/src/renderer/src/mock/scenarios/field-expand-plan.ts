@@ -3,7 +3,16 @@
 // the Job has made and a walk approved, and a second walk is shown and waiting in Now (`../audit-job.ts`).
 
 import type { Scenario } from "../moment";
-import { AUDIT_FILES, AUDIT_TAKES, BUSY, ROTATION, approved, auditLedger, waitingOn, walkActs } from "../audit-job";
+import {
+  AUDIT_FILES,
+  AUDIT_TAKES,
+  BUSY,
+  ROTATION,
+  approved,
+  auditLedger,
+  waitingOn,
+  walkActs,
+} from "../audit-job";
 import { s261OneSessionView as base } from "./one-session-view";
 
 export const s274FieldExpandPlan: Scenario = {
@@ -14,7 +23,26 @@ export const s274FieldExpandPlan: Scenario = {
     ...base.draft,
     sessions: (control) => {
       const store = base.draft!.sessions!(control);
-      store.edit(BUSY, (one) => auditLedger(one, { steps: ["Draft", "Present", "Build", "Verify", "Pull request"], at: 2 }, [approved(ROTATION, "2026-10-26T13:58:00.000Z"), AUDIT_FILES], waitingOn(AUDIT_FILES)));
+      store.edit(BUSY, (one) =>
+        auditLedger(
+          one,
+          {
+            steps: [
+              "Draft",
+              "Present",
+              "Build",
+              "Verify",
+              "Pull request",
+            ],
+            at: 2,
+          },
+          [
+            approved(ROTATION, "2026-10-26T13:58:00.000Z"),
+            AUDIT_FILES,
+          ],
+          waitingOn(AUDIT_FILES),
+        ),
+      );
       return walkActs(store, BUSY, AUDIT_FILES, AUDIT_TAKES);
     },
   },

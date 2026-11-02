@@ -41,7 +41,10 @@ export function span(from: string, to: string | number): string | null {
  * decides it** for the two surfaces that draw a whole Job's: now while it
  * runs, `ended_at` once it is over.
  */
-export function elapsedSince(startedAt: string | undefined, to: string | number): string | undefined {
+export function elapsedSince(
+  startedAt: string | undefined,
+  to: string | number,
+): string | undefined {
   return startedAt === undefined ? undefined : (span(startedAt, to) ?? undefined);
 }
 

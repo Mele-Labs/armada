@@ -8,11 +8,34 @@ import { afterEach, expect, test, vi } from "vitest";
 import type { KitInventory, Outcome } from "@armada/protocol";
 import { useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const inventory = (...skills: string[]): KitInventory =>
-  ({ harness: "claude", home: "/Users/user/.claude", kinds: [{ kind: "skills", read: { what: "read", items: skills.map((name) => ({ name, says: "", source: `/Users/user/.claude/skills/${name}` })) } }] }) as unknown as KitInventory;
-const REFUSED: Outcome = { ok: false, why: "not_connected" };
+  ({
+    harness: "claude",
+    home: "/Users/user/.claude",
+    kinds: [
+      {
+        kind: "skills",
+        read: {
+          what: "read",
+          items: skills.map((name) => ({
+            name,
+            says: "",
+            source: `/Users/user/.claude/skills/${name}`,
+          })),
+        },
+      },
+    ],
+  }) as unknown as KitInventory;
+const REFUSED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 const TRASHED = "/Users/user/.Trash/humanizer";
 
 let hook: ReturnType<typeof useKit> | undefined;
@@ -21,10 +44,18 @@ function Probe({ slice }: { slice: KitSlice }) {
   return null;
 }
 
-function slice(over: Partial<KitSlice>): KitSlice & { onReadKitInventory: ReturnType<typeof vi.fn> } {
-  const refused = async () => ({ ok: false as const, outcome: REFUSED });
+function slice(over: Partial<KitSlice>): KitSlice & {
+  onReadKitInventory: ReturnType<typeof vi.fn>;
+} {
+  const refused = async () => ({
+    ok: false as const,
+    outcome: REFUSED,
+  });
   return {
-    onReadKitInventory: vi.fn(async () => ({ ok: true as const, setup: inventory("humanizer", "notes") })),
+    onReadKitInventory: vi.fn(async () => ({
+      ok: true as const,
+      setup: inventory("humanizer", "notes"),
+    })),
     onRemoveKitAllowedCommand: refused,
     onListKitServers: refused,
     onAddKitServer: refused,
@@ -34,7 +65,9 @@ function slice(over: Partial<KitSlice>): KitSlice & { onReadKitInventory: Return
     onRemoveKitPiece: refused,
     onRestoreKitPiece: refused,
     ...over,
-  } as KitSlice & { onReadKitInventory: ReturnType<typeof vi.fn> };
+  } as KitSlice & {
+    onReadKitInventory: ReturnType<typeof vi.fn>;
+  };
 }
 
 const roots: Root[] = [];
@@ -52,25 +85,51 @@ async function mount(kit: KitSlice) {
   await flush();
 }
 
-const names = () => hook?.setup?.kinds.flatMap((one) => (one.read.what === "read" ? one.read.items.map((item) => item.name) : []));
+const names = () =>
+  hook?.setup?.kinds.flatMap((one) =>
+    one.read.what === "read" ? one.read.items.map((item) => item.name) : [],
+  );
 
 test("a skill removed draws the inventory Fleet answers with, and Undo puts it back by the place Fleet trashed it", async () => {
-  const restore = vi.fn(async () => ({ ok: true as const, setup: inventory("humanizer", "notes") }));
+  const restore = vi.fn(async () => ({
+    ok: true as const,
+    setup: inventory("humanizer", "notes"),
+  }));
   const kit = slice({
-    onRemoveKitPiece: async () => ({ ok: true, removed: { setup: inventory("notes"), trashed: TRASHED } }),
+    onRemoveKitPiece: async () => ({
+      ok: true,
+      removed: {
+        setup: inventory("notes"),
+        trashed: TRASHED,
+      },
+    }),
     onRestoreKitPiece: restore,
   });
   await mount(kit);
 
-  act(() => hook!.pieces.onRemove({ kind: "skill", name: "humanizer" }));
+  act(() =>
+    hook!.pieces.onRemove({
+      kind: "skill",
+      name: "humanizer",
+    }),
+  );
   await flush();
-  expect(names()).toEqual(["notes"]);
-  expect(hook!.pieces.trashed).toEqual({ name: "humanizer" });
+  expect(names()).toEqual([
+    "notes",
+  ]);
+  expect(hook!.pieces.trashed).toEqual({
+    name: "humanizer",
+  });
 
   act(() => hook!.pieces.onUndo());
   await flush();
-  expect(restore).toHaveBeenCalledWith({ trashed: TRASHED });
-  expect(names()).toEqual(["humanizer", "notes"]);
+  expect(restore).toHaveBeenCalledWith({
+    trashed: TRASHED,
+  });
+  expect(names()).toEqual([
+    "humanizer",
+    "notes",
+  ]);
   expect(hook!.pieces.trashed).toBeNull();
 });
 
@@ -79,16 +138,34 @@ test("a remove Fleet refuses says so and reads the inventory again", async () =>
   await mount(kit);
   expect(kit.onReadKitInventory).toHaveBeenCalledTimes(1);
 
-  act(() => hook!.pieces.onRemove({ kind: "plugin", name: "impeccable@impeccable" }));
+  act(() =>
+    hook!.pieces.onRemove({
+      kind: "plugin",
+      name: "impeccable@impeccable",
+    }),
+  );
   await flush();
   expect(hook!.refused).toEqual(REFUSED);
   expect(kit.onReadKitInventory).toHaveBeenCalledTimes(2);
 });
 
 test("an Undo Fleet refuses says so, reads the inventory again and offers Undo no longer", async () => {
-  const kit = slice({ onRemoveKitPiece: async () => ({ ok: true, removed: { setup: inventory("notes"), trashed: TRASHED } }) });
+  const kit = slice({
+    onRemoveKitPiece: async () => ({
+      ok: true,
+      removed: {
+        setup: inventory("notes"),
+        trashed: TRASHED,
+      },
+    }),
+  });
   await mount(kit);
-  act(() => hook!.pieces.onRemove({ kind: "skill", name: "humanizer" }));
+  act(() =>
+    hook!.pieces.onRemove({
+      kind: "skill",
+      name: "humanizer",
+    }),
+  );
   await flush();
 
   act(() => hook!.pieces.onUndo());

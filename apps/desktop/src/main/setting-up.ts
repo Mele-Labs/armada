@@ -28,22 +28,46 @@ const REFUSALS = [
 
 /** An edit's or a Write's answer. `faults` rides as `[key, fault]` pairs; any other shape is dropped. */
 export function proposalAnswerOf(answer: Answer): ProposalAnswer {
-  if (answer.ok === true) return { state: "took", proposal: answer.body as ManifestProposal };
+  if (answer.ok === true)
+    return {
+      state: "took",
+      proposal: answer.body as ManifestProposal,
+    };
   const outcome = answer.outcome;
-  if (outcome.ok || outcome.why !== "refused") return { state: "failed", outcome };
+  if (outcome.ok || outcome.why !== "refused")
+    return {
+      state: "failed",
+      outcome,
+    };
   const { code, message, fields } = outcome.error;
   if (code === APPEARED) {
     const onDisk = fields["on_disk"];
-    return { state: "appeared", onDisk: typeof onDisk === "string" ? onDisk : null };
+    return {
+      state: "appeared",
+      onDisk: typeof onDisk === "string" ? onDisk : null,
+    };
   }
-  if (!REFUSALS.includes(code)) return { state: "failed", outcome };
+  if (!REFUSALS.includes(code))
+    return {
+      state: "failed",
+      outcome,
+    };
   const pairs = Array.isArray(fields["faults"]) ? (fields["faults"] as unknown[]) : [];
   const faults = pairs.flatMap((pair) =>
     Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "string"
-      ? [{ key: pair[0], fault: pair[1] }]
+      ? [
+          {
+            key: pair[0],
+            fault: pair[1],
+          },
+        ]
       : [],
   );
-  return { state: "refused", saying: message, faults };
+  return {
+    state: "refused",
+    saying: message,
+    faults,
+  };
 }
 
 export class SetupCommands {
@@ -61,40 +85,98 @@ export class SetupCommands {
   /** Every workspace in the checkout, read-only. */
   async readScan(): Promise<RepositoryScanRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const path = this.picked.scan("/repository/scan");
-    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    if (path === null)
+      return {
+        ok: false,
+        outcome: NOT_SET_UP,
+      };
     const answer = await ask(port, "GET", path);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, scan: answer.body as RepositoryScan };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      scan: answer.body as RepositoryScan,
+    };
   }
 
   /** One proposal per workspace, with every edit Fleet holds applied. */
   async readProposals(): Promise<ManifestProposalsRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const path = this.picked.scan("/repository/proposals");
-    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    if (path === null)
+      return {
+        ok: false,
+        outcome: NOT_SET_UP,
+      };
     const answer = await ask(port, "GET", path);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, proposals: answer.body as ManifestProposals };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      proposals: answer.body as ManifestProposals,
+    };
   }
 
   /** One edit to one proposal, held in Fleet's memory. Nothing is written. */
   async edit(body: EditManifestProposal): Promise<ProposalAnswer> {
     const port = this.port();
-    if (port === null) return { state: "failed", outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        state: "failed",
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const path = this.picked.scan("/repository/edit_proposal");
-    if (path === null) return { state: "failed", outcome: NOT_SET_UP };
+    if (path === null)
+      return {
+        state: "failed",
+        outcome: NOT_SET_UP,
+      };
     return proposalAnswerOf(await ask(port, "POST", path, body));
   }
 
   /** Create `armada.yml` for one workspace. **Creates, never replaces**, and stages nothing. */
   async write(body: WriteManifestProposal): Promise<ProposalAnswer> {
     const port = this.port();
-    if (port === null) return { state: "failed", outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        state: "failed",
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const path = this.picked.scan("/repository/write_proposal");
-    if (path === null) return { state: "failed", outcome: NOT_SET_UP };
+    if (path === null)
+      return {
+        state: "failed",
+        outcome: NOT_SET_UP,
+      };
     const answer = proposalAnswerOf(await ask(port, "POST", path, body));
     // Awaited, so the sheet that wrote the root has this repository's Manifest to Verify when it redraws.
     if (answer.state === "took" && body.dir === ".") await this.written(port);

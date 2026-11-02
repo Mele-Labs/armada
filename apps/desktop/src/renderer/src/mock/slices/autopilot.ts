@@ -81,20 +81,44 @@ function capped(manifestId: string): Autopilot {
     spent_micros: 6_300_000,
     sessions_started: 3,
     at_work: 0,
-    picks: [started(1, "The pairing code expires early"), started(2, "Pairing fails offline"), started(3, "The QR code is cut off")],
+    picks: [
+      started(1, "The pairing code expires early"),
+      started(2, "Pairing fails offline"),
+      started(3, "The QR code is cut off"),
+    ],
   };
 }
 
 /** The cap that still holds, in Fleet's words for a Resume past it. Until is left to the mock's own record. */
 function held(autopilot: Autopilot): string | undefined {
-  if (autopilot.session_cap !== undefined && autopilot.sessions_started >= autopilot.session_cap) return "the Session cap is reached. Raise it, then resume";
-  if (autopilot.spend_cap_micros !== undefined && autopilot.spent_micros >= autopilot.spend_cap_micros) return "the spend cap is reached. Raise it, then resume";
+  if (autopilot.session_cap !== undefined && autopilot.sessions_started >= autopilot.session_cap)
+    return "the Session cap is reached. Raise it, then resume";
+  if (
+    autopilot.spend_cap_micros !== undefined &&
+    autopilot.spent_micros >= autopilot.spend_cap_micros
+  )
+    return "the spend cap is reached. Raise it, then resume";
   return undefined;
 }
 
-const refused = (message: string): { ok: false; outcome: Outcome } => ({
+const refused = (
+  message: string,
+): {
+  ok: false;
+  outcome: Outcome;
+} => ({
   ok: false,
-  outcome: { ok: false, why: "refused", error: { code: "fleet.autopilot_capped", message, run_id: "", fields: {}, chain: [] } },
+  outcome: {
+    ok: false,
+    why: "refused",
+    error: {
+      code: "fleet.autopilot_capped",
+      message,
+      run_id: "",
+      fields: {},
+      chain: [],
+    },
+  },
 });
 
 export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
@@ -103,16 +127,30 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
   api: () => {
     const kept = new Map<string, Autopilot>();
     const told = new Set<(autopilot: Autopilot) => void>();
-    const of = (manifestId: string): Autopilot => kept.get(manifestId) ?? (manifestId === "pocket" ? capped(manifestId) : running(manifestId));
+    const of = (manifestId: string): Autopilot =>
+      kept.get(manifestId) ?? (manifestId === "pocket" ? capped(manifestId) : running(manifestId));
     const moved = (manifestId: string, change: Partial<Autopilot>) => {
-      const now = { ...of(manifestId), ...change };
+      const now = {
+        ...of(manifestId),
+        ...change,
+      };
       kept.set(manifestId, now);
       told.forEach((one) => one(now));
-      return { ok: true as const, value: now };
+      return {
+        ok: true as const,
+        value: now,
+      };
     };
     const picked = (manifestId: string, pickId: string, state: "started" | "dismissed") =>
       moved(manifestId, {
-        picks: of(manifestId).picks.map((pick) => (pick.pick_id === pickId ? { ...pick, state } : pick)),
+        picks: of(manifestId).picks.map((pick) =>
+          pick.pick_id === pickId
+            ? {
+                ...pick,
+                state,
+              }
+            : pick,
+        ),
       });
     return {
       proposeAutopilot: async (_manifestId: string, sentence: string) => {
@@ -121,21 +159,66 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
           at_once: 2,
           until: "2026-10-12T11:00:00.000Z",
           spend_cap_micros: 30_000_000,
-          quoted: { instruction: sentence, at_once: "two at a time", until: "until 7am", spend_cap_micros: "$30 max" },
+          quoted: {
+            instruction: sentence,
+            at_once: "two at a time",
+            until: "until 7am",
+            spend_cap_micros: "$30 max",
+          },
         };
-        return { ok: true, value: proposal };
+        return {
+          ok: true,
+          value: proposal,
+        };
       },
       startAutopilot: async (manifestId, settings) =>
-        moved(manifestId, { ...settings, state: "running", picks: [], spent_micros: 0, sessions_started: 0, at_work: 0, ended_at: undefined, capped_by: undefined }),
-      updateAutopilot: async (manifestId, settings) => moved(manifestId, { until: undefined, spend_cap_micros: undefined, session_cap: undefined, ...settings }),
-      pauseAutopilot: async (manifestId) => moved(manifestId, { state: "paused" }),
+        moved(manifestId, {
+          ...settings,
+          state: "running",
+          picks: [],
+          spent_micros: 0,
+          sessions_started: 0,
+          at_work: 0,
+          ended_at: undefined,
+          capped_by: undefined,
+        }),
+      updateAutopilot: async (manifestId, settings) =>
+        moved(manifestId, {
+          until: undefined,
+          spend_cap_micros: undefined,
+          session_cap: undefined,
+          ...settings,
+        }),
+      pauseAutopilot: async (manifestId) =>
+        moved(manifestId, {
+          state: "paused",
+        }),
       resumeAutopilot: async (manifestId) => {
         const holding = held(of(manifestId));
-        return holding === undefined ? moved(manifestId, { state: "running", capped_by: undefined }) : refused(`Autopilot stays paused: ${holding}`);
+        return holding === undefined
+          ? moved(manifestId, {
+              state: "running",
+              capped_by: undefined,
+            })
+          : refused(`Autopilot stays paused: ${holding}`);
       },
-      stopAutopilot: async (manifestId) => moved(manifestId, { state: "stopped", ended_at: "2026-10-12T07:12:00.000Z" }),
-      listAutopilots: async () => ({ ok: true, value: { autopilots: [...kept.values()] } }),
-      getAutopilot: async (manifestId) => ({ ok: true, value: of(manifestId) }),
+      stopAutopilot: async (manifestId) =>
+        moved(manifestId, {
+          state: "stopped",
+          ended_at: "2026-10-12T07:12:00.000Z",
+        }),
+      listAutopilots: async () => ({
+        ok: true,
+        value: {
+          autopilots: [
+            ...kept.values(),
+          ],
+        },
+      }),
+      getAutopilot: async (manifestId) => ({
+        ok: true,
+        value: of(manifestId),
+      }),
       dispatchSetAside: async (manifestId, pickId) => picked(manifestId, pickId, "started"),
       dismissSetAside: async (manifestId, pickId) => picked(manifestId, pickId, "dismissed"),
       onAutopilotChanged: (onChanged) => {

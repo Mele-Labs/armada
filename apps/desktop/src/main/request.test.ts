@@ -23,8 +23,11 @@ afterEach(() => {
 
 /** `setTypeOfService` is Node 24's and is in no `@types/node` this repo has. */
 function setting(socket: Socket): (tos: number) => unknown {
-  const setter = (socket as unknown as { setTypeOfService?: (tos: number) => unknown })
-    .setTypeOfService;
+  const setter = (
+    socket as unknown as {
+      setTypeOfService?: (tos: number) => unknown;
+    }
+  ).setTypeOfService;
   expect(setter, "this Node has no setTypeOfService to guard").toBeTypeOf("function");
   return (tos) => setter?.call(socket, tos);
 }

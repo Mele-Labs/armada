@@ -59,12 +59,28 @@ export type CheckListProps = {
 };
 
 /** The bars a pending tile draws, widths varied so the column does not read as a table. */
-const PENDING = ["5rem", "4rem", "6rem", "4.5rem", "5.5rem", "4rem"];
+const PENDING = [
+  "5rem",
+  "4rem",
+  "6rem",
+  "4.5rem",
+  "5.5rem",
+  "4rem",
+];
 
-export function CheckList({ rows, openRow = null, onOpenRow, controls, pending = false }: CheckListProps) {
+export function CheckList({
+  rows,
+  openRow = null,
+  onOpenRow,
+  controls,
+  pending = false,
+}: CheckListProps) {
   const list = useRef<HTMLElement>(null);
   // One Tab stop for the rows; the arrows and j/k choose one, and Enter or o opens it.
-  useTileGrid(list, { tile: ".armada-check-list__row", cursor: ".armada-check-list__open" });
+  useTileGrid(list, {
+    tile: ".armada-check-list__row",
+    cursor: ".armada-check-list__open",
+  });
   if (rows.length === 0 && controls === undefined && !pending) return null;
   return (
     <section className="armada-check-list" aria-label="Checks" ref={list}>
@@ -77,73 +93,79 @@ export function CheckList({ rows, openRow = null, onOpenRow, controls, pending =
         )}
         <div className="armada-check-list__scroll">
           {rows.length === 0 && !pending ? null : (
-          <Table className="armada-check-list__table">
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="armada-check-list__row"
-                  selected={row.id === openRow}
-                  aria-current={row.id === openRow || undefined}
-                  data-status={row.status}
-                  data-row-id={row.id}
-                  onClick={onOpenRow === undefined ? undefined : () => onOpenRow(row.id)}
-                >
-                  <TableCell className="armada-check-list__state">
-                    <StepActivityMark
-                      activity={ACTIVITY[row.status]}
-                      label={row.says}
-                      says={row.says}
-                      pulsing={row.status === "running"}
-                    />
-                  </TableCell>
-                  <TableCell variant="mono">
-                    {onOpenRow === undefined ? (
-                      row.name
-                    ) : (
-                      // The keyboard's path to the row's act; the press stops
-                      // here or the row answers it twice.
-                      <button
-                        type="button"
-                        className="armada-check-list__open"
-                        aria-expanded={row.id === openRow}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpenRow(row.id);
-                        }}
+            <Table className="armada-check-list__table">
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className="armada-check-list__row"
+                    selected={row.id === openRow}
+                    aria-current={row.id === openRow || undefined}
+                    data-status={row.status}
+                    data-row-id={row.id}
+                    onClick={onOpenRow === undefined ? undefined : () => onOpenRow(row.id)}
+                  >
+                    <TableCell className="armada-check-list__state">
+                      <StepActivityMark
+                        activity={ACTIVITY[row.status]}
+                        label={row.says}
+                        says={row.says}
+                        pulsing={row.status === "running"}
+                      />
+                    </TableCell>
+                    <TableCell variant="mono">
+                      {onOpenRow === undefined ? (
+                        row.name
+                      ) : (
+                        // The keyboard's path to the row's act; the press stops
+                        // here or the row answers it twice.
+                        <button
+                          type="button"
+                          className="armada-check-list__open"
+                          aria-expanded={row.id === openRow}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onOpenRow(row.id);
+                          }}
+                        >
+                          {row.name}
+                        </button>
+                      )}
+                    </TableCell>
+                    <TableCell variant="secondary">{row.by}</TableCell>
+                    <TableCell variant="metadata">
+                      {row.startedAt === undefined ? null : <Stamp at={row.startedAt} />}
+                    </TableCell>
+                    <TableCell variant="metadata">{row.duration}</TableCell>
+                  </TableRow>
+                ))}
+                {pending
+                  ? PENDING.map((name, at) => (
+                      <TableRow
+                        key={`pending-${at}`}
+                        className="armada-check-list__row"
+                        data-status="pending"
                       >
-                        {row.name}
-                      </button>
-                    )}
-                  </TableCell>
-                  <TableCell variant="secondary">{row.by}</TableCell>
-                  <TableCell variant="metadata">{row.startedAt === undefined ? null : <Stamp at={row.startedAt} />}</TableCell>
-                  <TableCell variant="metadata">{row.duration}</TableCell>
-                </TableRow>
-              ))}
-              {pending
-                ? PENDING.map((name, at) => (
-                    <TableRow key={`pending-${at}`} className="armada-check-list__row" data-status="pending">
-                      <TableCell className="armada-check-list__state">
-                        <Skeleton className="armada-check-list__skel-mark" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton width={name} />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton width="12rem" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton width="6.5rem" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton width="2.5rem" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                : null}
-            </TableBody>
-          </Table>
+                        <TableCell className="armada-check-list__state">
+                          <Skeleton className="armada-check-list__skel-mark" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton width={name} />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton width="12rem" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton width="6.5rem" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton width="2.5rem" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  : null}
+              </TableBody>
+            </Table>
           )}
         </div>
       </StampSurface>
@@ -157,9 +179,13 @@ export type CheckDetail = {
   /** A command or a path: machine-derived, so mono. */
   mono?: boolean;
 } & (
-  | { value: ReactNode }
+  | {
+      value: ReactNode;
+    }
   /** An RFC 3339 instant, drawn as a stamp in the owner's time format. */
-  | { at: string }
+  | {
+      at: string;
+    }
 );
 
 /**
@@ -173,7 +199,9 @@ export function CheckDetails({ details }: { details: readonly CheckDetail[] }) {
         {details.map((one) => (
           <div className="armada-check-details__fact" key={one.label}>
             <dt>{one.label}</dt>
-            <dd data-mono={one.mono || undefined}>{"at" in one ? <Stamp at={one.at} /> : one.value}</dd>
+            <dd data-mono={one.mono || undefined}>
+              {"at" in one ? <Stamp at={one.at} /> : one.value}
+            </dd>
           </div>
         ))}
       </dl>

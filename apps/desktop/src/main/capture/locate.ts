@@ -12,7 +12,12 @@
  */
 type PageElement = {
   textContent: string | null;
-  getBoundingClientRect: () => { x: number; y: number; width: number; height: number };
+  getBoundingClientRect: () => {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
   scrollIntoView: (options: { block: "center"; inline: "nearest" }) => void;
 };
 
@@ -34,19 +39,37 @@ export function findsThePlace(selector: string, text: string | null, scroll: boo
     return null;
   }
   const all = Array.from<PageElement>(found);
-  const flat = (said: string | null): string => (said ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  const flat = (said: string | null): string =>
+    (said ?? "").replace(/\s+/g, " ").trim().toLowerCase();
   const wanted = flat(text);
-  const element = (wanted === "" ? undefined : all.find((one) => flat(one.textContent).includes(wanted))) ?? all[0];
+  const element =
+    (wanted === "" ? undefined : all.find((one) => flat(one.textContent).includes(wanted))) ??
+    all[0];
   if (element === undefined) return null;
-  if (scroll) element.scrollIntoView({ block: "center", inline: "nearest" });
+  if (scroll)
+    element.scrollIntoView({
+      block: "center",
+      inline: "nearest",
+    });
   const rect = element.getBoundingClientRect();
   return {
-    box: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
+    box: {
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    },
   };
 }
 
 /** The source of one ask, as main hands it to `executeJavaScript`: an expression whose value is the answer. */
 export function locateSource(selector: string, text: string | null, scroll: boolean): string {
-  const args = [selector, text, scroll].map((value) => JSON.stringify(value)).join(", ");
+  const args = [
+    selector,
+    text,
+    scroll,
+  ]
+    .map((value) => JSON.stringify(value))
+    .join(", ");
   return `(${findsThePlace.toString()})(${args})`;
 }

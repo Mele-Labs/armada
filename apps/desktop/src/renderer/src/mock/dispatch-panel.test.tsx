@@ -17,18 +17,55 @@ const NAMING_BRIDGE = "Show the Drone's branch on each Bridge cockpit tile";
 const NAMING_DOCS = "Add a docs-site page for the retry settings";
 const NAMING_NOTHING = "Clean up the old retry logic";
 
-const frame = () => page.getByRole("region", { name: "Dispatch", exact: true });
-const request = () => page.getByRole("textbox", { name: "Request" });
-const row = () => frame().getByRole("radiogroup", { name: "Repository" });
-const chip = (name: string) => frame().getByRole("radio", { name: `Repository ${name}` });
-const reading = (name: string) => frame().getByRole("img", { name });
-const act = (name: string) => frame().getByRole("button", { name, exact: true });
-const strip = () => page.getByRole("group", { name: "Last dispatch" });
-const palette = () => page.getByRole("dialog", { name: "Command palette" });
-const tile = () => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Dispatch", exact: true });
+const frame = () =>
+  page.getByRole("region", {
+    name: "Dispatch",
+    exact: true,
+  });
+const request = () =>
+  page.getByRole("textbox", {
+    name: "Request",
+  });
+const row = () =>
+  frame().getByRole("radiogroup", {
+    name: "Repository",
+  });
+const chip = (name: string) =>
+  frame().getByRole("radio", {
+    name: `Repository ${name}`,
+  });
+const reading = (name: string) =>
+  frame().getByRole("img", {
+    name,
+  });
+const act = (name: string) =>
+  frame().getByRole("button", {
+    name,
+    exact: true,
+  });
+const strip = () =>
+  page.getByRole("group", {
+    name: "Last dispatch",
+  });
+const palette = () =>
+  page.getByRole("dialog", {
+    name: "Command palette",
+  });
+const tile = () =>
+  page
+    .getByRole("region", {
+      name: "Flight controls",
+    })
+    .getByRole("button", {
+      name: "Dispatch",
+      exact: true,
+    });
 
 /** The chips' names, in the order the row draws them. */
-const names = () => [...row().element().querySelectorAll("[role='radio'] .armada-dispatch-panel__name")].map((one) => one.textContent);
+const names = () =>
+  [
+    ...row().element().querySelectorAll("[role='radio'] .armada-dispatch-panel__name"),
+  ].map((one) => one.textContent);
 
 /** The Cockpit with the sheet open on an empty draft, from the key and nothing else. */
 async function sheet() {
@@ -49,7 +86,13 @@ test("N opens the sheet directly from the Cockpit, the caret in the request and 
   await expect.element(request()).toHaveFocus();
   expect(palette().query()).toBeNull();
   // The kinds are on the band, and every set-up repository is a chip.
-  await expect.element(frame().getByRole("tab", { name: "Session" })).toBeVisible();
+  await expect
+    .element(
+      frame().getByRole("tab", {
+        name: "Session",
+      }),
+    )
+    .toBeVisible();
   await expect.element(row()).toBeVisible();
 });
 
@@ -74,7 +117,12 @@ test("a dispatch row chosen in the palette moves the words into the sheet in one
 
 test("every set-up repository is a chip, ranked as Fleet ranks them, with nothing chosen until one is read or picked", async () => {
   await sheet();
-  expect(names()).toEqual(["armada", "billing", "docs-site", "storefront"]);
+  expect(names()).toEqual([
+    "armada",
+    "billing",
+    "docs-site",
+    "storefront",
+  ]);
   expect(row().element().querySelectorAll("[aria-checked='true']")).toHaveLength(0);
 });
 
@@ -84,7 +132,12 @@ test("the words are read for their repository: it leads the row and is chosen, a
   await expect.element(reading("Repository, finding")).toBeVisible();
   await expect.element(chip("docs-site")).toHaveAttribute("aria-checked", "true");
   // The one the words name comes first, then the rest as Fleet ranks them.
-  expect(names()).toEqual(["docs-site", "armada", "billing", "storefront"]);
+  expect(names()).toEqual([
+    "docs-site",
+    "armada",
+    "billing",
+    "storefront",
+  ]);
 
   await request().fill(NAMING_NOTHING);
   await expect.element(reading("Repository, not found")).toBeVisible();
@@ -101,7 +154,12 @@ test("⌥2 picks the second chip, from inside the request", async () => {
   await expect.element(chip("docs-site")).toHaveAttribute("aria-checked", "false");
   // The caret stays in the request, and the order did not move under the key.
   await expect.element(request()).toHaveFocus();
-  expect(names()).toEqual(["docs-site", "armada", "billing", "storefront"]);
+  expect(names()).toEqual([
+    "docs-site",
+    "armada",
+    "billing",
+    "storefront",
+  ]);
 });
 
 test("pressing the act with nothing chosen gives the row the keys, and a chip picked there starts the Session", async () => {
@@ -112,28 +170,48 @@ test("pressing the act with nothing chosen gives the row the keys, and a chip pi
   // The frame takes the call's hue, the first chip has focus, and nothing was started.
   await expect.element(frame()).toHaveAttribute("data-asking");
   await expect.element(chip("armada")).toHaveFocus();
-  expect(page.getByRole("textbox", { name: "Message" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("textbox", {
+        name: "Message",
+      })
+      .query(),
+  ).toBeNull();
   await userEvent.keyboard("{ArrowRight}");
   await expect.element(chip("billing")).toHaveFocus();
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Message",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("an answer to words that have since changed is let go", async () => {
   const app = await sheet();
   const answers: ((read: { manifest_id: string | null; likely: string[] }) => void)[] = [];
-  const asked = vi.spyOn(app.api, "readRequestRepository").mockImplementation(
-    () => new Promise((resume) => answers.push(resume)),
-  );
+  const asked = vi
+    .spyOn(app.api, "readRequestRepository")
+    .mockImplementation(() => new Promise((resume) => answers.push(resume)));
   await request().fill(NAMING_BRIDGE);
   await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(1));
   await request().fill(NAMING_NOTHING);
   await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(2));
 
   // The second answers first, with no pick; the first, for the old words, answers late with one.
-  answers[1]!({ manifest_id: null, likely: [] });
+  answers[1]!({
+    manifest_id: null,
+    likely: [],
+  });
   await expect.element(reading("Repository, not found")).toBeVisible();
-  answers[0]!({ manifest_id: repository().manifest!.id, likely: [repository().manifest!.id] });
+  answers[0]!({
+    manifest_id: repository().manifest!.id,
+    likely: [
+      repository().manifest!.id,
+    ],
+  });
   await new Promise((resume) => setTimeout(resume, 50));
   await expect.element(reading("Repository, not found")).toBeVisible();
   expect(chip("armada").element().getAttribute("aria-checked")).toBe("false");
@@ -155,12 +233,24 @@ test("a repository picked by hand beats the one read from the words", async () =
 test("a Session on All that names no repository gives the row the keys, and the pick starts it there", async () => {
   await sheet();
   await request().fill(NAMING_NOTHING);
-  await expect.element(frame().getByRole("tab", { name: "Session" })).toHaveAttribute("aria-selected", "true");
+  await expect
+    .element(
+      frame().getByRole("tab", {
+        name: "Session",
+      }),
+    )
+    .toHaveAttribute("aria-selected", "true");
   await expect.element(reading("Repository, not found")).toBeVisible();
   await act("Start").click();
   await expect.element(frame()).toHaveAttribute("data-asking");
   await chip("storefront").click();
-  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Message",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a Session whose words name a repository starts there without asking", async () => {
@@ -168,7 +258,13 @@ test("a Session whose words name a repository starts there without asking", asyn
   await request().fill(NAMING_BRIDGE);
   await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
   await act("Start").click();
-  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Message",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("an Autopilot is read first, and started from what was read", async () => {
@@ -176,10 +272,20 @@ test("an Autopilot is read first, and started from what was read", async () => {
   const read = vi.spyOn(app.api, "proposeAutopilot");
   const start = vi.spyOn(app.api, "startAutopilot");
   await request().fill("Work through the open Bridge bugs until 7am");
-  await frame().getByRole("tab", { name: "Autopilot" }).click();
+  await frame()
+    .getByRole("tab", {
+      name: "Autopilot",
+    })
+    .click();
   await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
   await act("Read it").click();
-  await expect.element(page.getByRole("textbox", { name: "Instruction" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Instruction",
+      }),
+    )
+    .toBeVisible();
   expect(read).toHaveBeenCalledTimes(1);
   expect(read.mock.calls[0]![0]).toBe(repository().manifest!.id);
 
@@ -189,18 +295,40 @@ test("an Autopilot is read first, and started from what was read", async () => {
   expect(start.mock.calls[0]![0]).toBe(repository().manifest!.id);
 
   // Opening it from the strip puts the Cockpit's Autopilot bar up for that repository.
-  expect(page.getByRole("region", { name: "Autopilot lane" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("region", {
+        name: "Autopilot lane",
+      })
+      .query(),
+  ).toBeNull();
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: "Autopilot lane" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Autopilot lane",
+      }),
+    )
+    .toBeVisible();
 });
 
 /** An Autopilot read and started from the sheet, which is what leaves the strip. */
 async function sendAutopilot() {
   await request().fill("Work through the open Bridge bugs until 7am");
-  await frame().getByRole("tab", { name: "Autopilot" }).click();
+  await frame()
+    .getByRole("tab", {
+      name: "Autopilot",
+    })
+    .click();
   await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
   await act("Read it").click();
-  await expect.element(page.getByRole("textbox", { name: "Instruction" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Instruction",
+      }),
+    )
+    .toBeVisible();
   await act("Start Autopilot").click();
   await expect.element(strip()).toBeVisible();
 }
@@ -242,7 +370,13 @@ test("Escape puts the sheet away and N brings the draft back, and a send clears 
   await request().fill(NAMING_BRIDGE);
   await expect.element(chip("armada")).toHaveAttribute("aria-checked", "true");
   await act("Start").click();
-  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Message",
+      }),
+    )
+    .toBeVisible();
   await userEvent.keyboard("{Escape}");
   await userEvent.keyboard("{Meta>}n{/Meta}");
   await expect.element(request()).toHaveValue("");

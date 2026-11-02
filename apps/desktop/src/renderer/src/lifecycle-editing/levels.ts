@@ -4,17 +4,33 @@
 // place Fleet runs neither and the repository reads the default's (`crates/config/src/resolving.rs`).
 
 import { DEFAULT, isWorkspaceLevel, workspaceLevel } from "@armada/components";
-import type { AppliedLifecycle, AppliedRule, LifecycleDefinition, LifecycleRule, PieceKept, PieceScope, WorkspaceOfRepositories } from "@armada/protocol";
+import type {
+  AppliedLifecycle,
+  AppliedRule,
+  LifecycleDefinition,
+  LifecycleRule,
+  PieceKept,
+  PieceScope,
+  WorkspaceOfRepositories,
+} from "@armada/protocol";
 
 /** Everything read for the repository the page is on and the other repositories of its Workspaces. */
 export type PiecesRead = {
   /** The Workspaces that run for the repository the page is on, in the order Fleet lists them. Empty for a repository that is in none. */
   workspaces: readonly WorkspaceOfRepositories[];
-  repositories: readonly { id: string; name: string; lifecycles: readonly AppliedLifecycle[]; rules: readonly AppliedRule[] }[];
+  repositories: readonly {
+    id: string;
+    name: string;
+    lifecycles: readonly AppliedLifecycle[];
+    rules: readonly AppliedRule[];
+  }[];
 };
 
 /** A piece and where it was kept. */
-export type Layer<T> = { piece: T; kept: PieceKept };
+export type Layer<T> = {
+  piece: T;
+  kept: PieceKept;
+};
 
 /** The pieces of one id, by the level each applies at. */
 export type Layers<T> = ReadonlyMap<string, Layer<T>>;
@@ -27,17 +43,35 @@ export function levelOf(scope: PieceScope, read: Pick<PiecesRead, "workspaces">)
 
 /** The scope a piece kept at `level` carries. */
 export function scopeOf(level: string): PieceScope {
-  if (level === DEFAULT) return { kind: "everywhere" };
-  return { kind: "within", id: isWorkspaceLevel(level) ? level.slice(workspaceLevel("").length) : level };
+  if (level === DEFAULT)
+    return {
+      kind: "everywhere",
+    };
+  return {
+    kind: "within",
+    id: isWorkspaceLevel(level) ? level.slice(workspaceLevel("").length) : level,
+  };
 }
 
 /** The levels of the Workspaces that hold a repository, in the order Fleet lists them. */
-const holdersOf = (read: Pick<PiecesRead, "workspaces">, repository: string): string[] => read.workspaces.filter((one) => one.repositories.includes(repository)).map((one) => workspaceLevel(one.id));
+const holdersOf = (read: Pick<PiecesRead, "workspaces">, repository: string): string[] =>
+  read.workspaces
+    .filter((one) => one.repositories.includes(repository))
+    .map((one) => workspaceLevel(one.id));
 
 /** Where Fleet prefers a piece of one id and scope from: the person's own over the repository's over Armada's. */
-const PLACE: Readonly<Record<string, number>> = { kit: 0, repository: 1, armada: 2 };
+const PLACE: Readonly<Record<string, number>> = {
+  kit: 0,
+  repository: 1,
+  armada: 2,
+};
 
-function collect<T extends { id: string; scope: PieceScope }>(all: readonly Layer<T>[], read: PiecesRead): Map<string, Map<string, Layer<T>>> {
+function collect<
+  T extends {
+    id: string;
+    scope: PieceScope;
+  },
+>(all: readonly Layer<T>[], read: PiecesRead): Map<string, Map<string, Layer<T>>> {
   const out = new Map<string, Map<string, Layer<T>>>();
   const seen = new Set<string>();
   for (const one of all) {
@@ -48,7 +82,11 @@ function collect<T extends { id: string; scope: PieceScope }>(all: readonly Laye
     const level = levelOf(one.piece.scope, read);
     const levels = out.get(one.piece.id) ?? new Map<string, Layer<T>>();
     const held = levels.get(level);
-    if (held === undefined || (PLACE[one.kept.rank.source] ?? 9) < (PLACE[held.kept.rank.source] ?? 9)) levels.set(level, one);
+    if (
+      held === undefined ||
+      (PLACE[one.kept.rank.source] ?? 9) < (PLACE[held.kept.rank.source] ?? 9)
+    )
+      levels.set(level, one);
     out.set(one.piece.id, levels);
   }
   return out;
@@ -57,7 +95,14 @@ function collect<T extends { id: string; scope: PieceScope }>(all: readonly Laye
 /** The lifecycles by id, each by level. Armada's four are read without a path and are the default's. */
 export function lifecycleLayers(read: PiecesRead): Map<string, Layers<LifecycleDefinition>> {
   return collect(
-    read.repositories.flatMap((one) => one.lifecycles.map((each): Layer<LifecycleDefinition> => ({ piece: each.lifecycle, kept: each.kept }))),
+    read.repositories.flatMap((one) =>
+      one.lifecycles.map(
+        (each): Layer<LifecycleDefinition> => ({
+          piece: each.lifecycle,
+          kept: each.kept,
+        }),
+      ),
+    ),
     read,
   );
 }
@@ -65,13 +110,28 @@ export function lifecycleLayers(read: PiecesRead): Map<string, Layers<LifecycleD
 /** The rules by id, each by level. */
 export function ruleLayers(read: PiecesRead): Map<string, Layers<LifecycleRule>> {
   return collect(
-    read.repositories.flatMap((one) => one.rules.map((each): Layer<LifecycleRule> => ({ piece: each.rule, kept: each.kept }))),
+    read.repositories.flatMap((one) =>
+      one.rules.map(
+        (each): Layer<LifecycleRule> => ({
+          piece: each.rule,
+          kept: each.kept,
+        }),
+      ),
+    ),
     read,
   );
 }
 
 /** What a level reads where it has no piece of its own: the Workspace level that sets it, or the default's. `clash` is the Workspace levels that set it alike and so are set aside. */
-export type Inherited<T> = { found: { level: string; layer: Layer<T> } | undefined; clash: string[] };
+export type Inherited<T> = {
+  found:
+    | {
+        level: string;
+        layer: Layer<T>;
+      }
+    | undefined;
+  clash: string[];
+};
 
 /** The preference between two layers of one id: the place, then whether it came from the Workspace's home. */
 const better = (a: Layer<unknown>, b: Layer<unknown>): boolean => {
@@ -84,24 +144,70 @@ const better = (a: Layer<unknown>, b: Layer<unknown>): boolean => {
  * keeps neither, so those are set aside, and a repository none else sets reads the default's.
  */
 export function inherited<T>(layers: Layers<T>, level: string, read: PiecesRead): Inherited<T> {
-  if (level === DEFAULT) return { found: undefined, clash: [] };
+  if (level === DEFAULT)
+    return {
+      found: undefined,
+      clash: [],
+    };
   const wider = layers.get(DEFAULT);
-  const above = wider === undefined ? undefined : { level: DEFAULT, layer: wider };
-  if (isWorkspaceLevel(level)) return { found: above, clash: [] };
+  const above =
+    wider === undefined
+      ? undefined
+      : {
+          level: DEFAULT,
+          layer: wider,
+        };
+  if (isWorkspaceLevel(level))
+    return {
+      found: above,
+      clash: [],
+    };
   const setting = holdersOf(read, level).flatMap((held) => {
     const layer = layers.get(held);
-    return layer === undefined ? [] : [{ level: held, layer }];
+    return layer === undefined
+      ? []
+      : [
+          {
+            level: held,
+            layer,
+          },
+        ];
   });
-  const tied = (one: { layer: Layer<T> }) => setting.filter((each) => each.layer.kept.rank.source === one.layer.kept.rank.source && (each.layer.kept.rank.home === true) === (one.layer.kept.rank.home === true));
+  const tied = (one: { layer: Layer<T> }) =>
+    setting.filter(
+      (each) =>
+        each.layer.kept.rank.source === one.layer.kept.rank.source &&
+        (each.layer.kept.rank.home === true) === (one.layer.kept.rank.home === true),
+    );
   const kept = setting.filter((one) => tied(one).length === 1);
-  const winner = kept.reduce<(typeof kept)[number] | undefined>((best, one) => (best === undefined || better(one.layer, best.layer) ? one : best), undefined);
-  return { found: winner ?? above, clash: setting.filter((one) => tied(one).length > 1).map((one) => one.level) };
+  const winner = kept.reduce<(typeof kept)[number] | undefined>(
+    (best, one) => (best === undefined || better(one.layer, best.layer) ? one : best),
+    undefined,
+  );
+  return {
+    found: winner ?? above,
+    clash: setting.filter((one) => tied(one).length > 1).map((one) => one.level),
+  };
 }
 
 /** The piece a level runs: its own, else the one it inherits. */
-export function effective<T>(layers: Layers<T>, level: string, read: PiecesRead): { level: string; layer: Layer<T> } | undefined {
+export function effective<T>(
+  layers: Layers<T>,
+  level: string,
+  read: PiecesRead,
+):
+  | {
+      level: string;
+      layer: Layer<T>;
+    }
+  | undefined {
   const layer = layers.get(level);
-  return layer === undefined ? inherited(layers, level, read).found : { level, layer };
+  return layer === undefined
+    ? inherited(layers, level, read).found
+    : {
+        level,
+        layer,
+      };
 }
 
 /** The Workspace levels a repository's tab sets aside for a piece because two set it alike, as groups; absent where none does. */
@@ -111,8 +217,14 @@ export function clashOf<T>(layers: Layers<T>, read: PiecesRead): string[][] {
     const { clash } = inherited(layers, repository.id, read);
     if (clash.length > 1) groups.set(clash.join(), clash);
   }
-  return [...groups.values()];
+  return [
+    ...groups.values(),
+  ];
 }
 
 /** The levels a Workspace's tabs are, widest first. */
-export const levelsOfRead = (read: PiecesRead): string[] => [DEFAULT, ...read.workspaces.map((one) => workspaceLevel(one.id)), ...read.repositories.map((one) => one.id)];
+export const levelsOfRead = (read: PiecesRead): string[] => [
+  DEFAULT,
+  ...read.workspaces.map((one) => workspaceLevel(one.id)),
+  ...read.repositories.map((one) => one.id),
+];

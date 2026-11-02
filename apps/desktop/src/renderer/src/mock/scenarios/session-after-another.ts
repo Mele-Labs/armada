@@ -23,30 +23,97 @@ const QUIET = "after-migrations";
 const BRANCH = "armada/cockpit-map";
 const PULL = 2388;
 
-const you = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "you" }, text });
-const agent = (id: string, at: string, text: string): SessionRow => ({ id, at, kind: "message", from: { kind: "agent" }, text });
+const you = (id: string, at: string, text: string): SessionRow => ({
+  id,
+  at,
+  kind: "message",
+  from: {
+    kind: "you",
+  },
+  text,
+});
+const agent = (id: string, at: string, text: string): SessionRow => ({
+  id,
+  at,
+  kind: "message",
+  from: {
+    kind: "agent",
+  },
+  text,
+});
 
 const map: Session = {
   id: MAP,
   title: "Cockpit Map",
   manifestId: OWNER,
   cwd: ROOT,
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   lastTurnAt: ago(2),
   standing: "working",
   rows: [
     you("a-1", "13:50:00", "Draw the Cockpit as a map on the Pixi Field."),
-    { id: "a-2", at: "13:58:12", kind: "tool", text: "Edit apps/desktop/src/renderer/src/cockpit/field.ts" },
+    {
+      id: "a-2",
+      at: "13:58:12",
+      kind: "tool",
+      text: "Edit apps/desktop/src/renderer/src/cockpit/field.ts",
+    },
     agent("a-3", "14:00:05", "The Pixi Field draws the Sessions. The overlay is next."),
   ],
-  attachments: [{ kind: "branch", name: BRANCH, slot: 1 }],
+  attachments: [
+    {
+      kind: "branch",
+      name: BRANCH,
+      slot: 1,
+    },
+  ],
   work: {
     plan: {
-      scope: ["apps/desktop"],
+      scope: [
+        "apps/desktop",
+      ],
       approved: true,
       groups: [
-        { id: "g1", agent: "bridge-engineer", title: "Draw the Pixi Field", paths: ["apps/desktop"], tasks: [{ id: "T1", text: "Place each Session on the Field", state: "done", seen: true }, { id: "T2", text: "Draw the roads between them", state: "done", seen: true }] },
-        { id: "g2", agent: "bridge-engineer", title: "Add the overlay", paths: ["apps/desktop"], tasks: [{ id: "T3", text: "Expand the Field into the overlay", state: "working", seen: true }] },
+        {
+          id: "g1",
+          agent: "bridge-engineer",
+          title: "Draw the Pixi Field",
+          paths: [
+            "apps/desktop",
+          ],
+          tasks: [
+            {
+              id: "T1",
+              text: "Place each Session on the Field",
+              state: "done",
+              seen: true,
+            },
+            {
+              id: "T2",
+              text: "Draw the roads between them",
+              state: "done",
+              seen: true,
+            },
+          ],
+        },
+        {
+          id: "g2",
+          agent: "bridge-engineer",
+          title: "Add the overlay",
+          paths: [
+            "apps/desktop",
+          ],
+          tasks: [
+            {
+              id: "T3",
+              text: "Expand the Field into the overlay",
+              state: "working",
+              seen: true,
+            },
+          ],
+        },
       ],
     },
   },
@@ -57,18 +124,48 @@ const quiet: Session = {
   title: "Name the store migrations",
   manifestId: OWNER,
   cwd: ROOT,
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(22),
   standing: "idle",
-  rows: [agent("q-1", "13:41:10", "The migrations are named by their order.")],
-  attachments: [{ kind: "branch", name: "fix/migration-names", slot: 2 }],
+  rows: [
+    agent("q-1", "13:41:10", "The migrations are named by their order."),
+  ],
+  attachments: [
+    {
+      kind: "branch",
+      name: "fix/migration-names",
+      slot: 2,
+    },
+  ],
 };
 
 function sessions(): SessionsStore {
-  const base = sessionsStore([map, quiet], [], new Map([[ROOT, OWNER]]));
+  const base = sessionsStore(
+    [
+      map,
+      quiet,
+    ],
+    [],
+    new Map([
+      [
+        ROOT,
+        OWNER,
+      ],
+    ]),
+  );
   let rowId = 0;
   let moment = 0;
-  const said = (text: string): SessionRow => ({ id: `after-r${(rowId += 1)}`, at: `14:${String(10 + rowId).padStart(2, "0")}:00`, kind: "message", from: { kind: "agent" }, text });
+  const said = (text: string): SessionRow => ({
+    id: `after-r${(rowId += 1)}`,
+    at: `14:${String(10 + rowId).padStart(2, "0")}:00`,
+    kind: "message",
+    from: {
+      kind: "agent",
+    },
+    text,
+  });
   const waiting = () => base.get().find((one) => one.waits?.on.id === MAP);
 
   // What time brings, once a walk lets it pass: the agent of the Session being waited on names its pull request on the waiting one, the
@@ -80,11 +177,50 @@ function sessions(): SessionsStore {
       const address = `https://git.example/armada/pull/${PULL}`;
       base.edit(MAP, (it) => ({
         ...it,
-        rows: [...it.rows, { id: "after-pr", at: "14:14:00", kind: "tool", text: "gh pr create --base main" }, said(`Opened #${PULL} on ${BRANCH}. It lands once its Checks pass.`)],
-        attachments: [...it.attachments, { kind: "pull_request", number: PULL, title: "Cockpit Map", branch: BRANCH, address, checks: { state: "pending" }, state: "open", auto: false }],
+        rows: [
+          ...it.rows,
+          {
+            id: "after-pr",
+            at: "14:14:00",
+            kind: "tool",
+            text: "gh pr create --base main",
+          },
+          said(`Opened #${PULL} on ${BRANCH}. It lands once its Checks pass.`),
+        ],
+        attachments: [
+          ...it.attachments,
+          {
+            kind: "pull_request",
+            number: PULL,
+            title: "Cockpit Map",
+            branch: BRANCH,
+            address,
+            checks: {
+              state: "pending",
+            },
+            state: "open",
+            auto: false,
+          },
+        ],
       }));
-      base.agentChanges(one.id, { when: "lands", pull: { number: PULL, branch: BRANCH } });
-      base.edit(MAP, (it) => ({ ...it, attachments: it.attachments.map((one) => (one.kind === "pull_request" ? { ...one, state: "merged" as const } : one)) }));
+      base.agentChanges(one.id, {
+        when: "lands",
+        pull: {
+          number: PULL,
+          branch: BRANCH,
+        },
+      });
+      base.edit(MAP, (it) => ({
+        ...it,
+        attachments: it.attachments.map((one) =>
+          one.kind === "pull_request"
+            ? {
+                ...one,
+                state: "merged" as const,
+              }
+            : one,
+        ),
+      }));
       base.starts(one.id, `Pull request #${PULL} landed`);
     },
   ];
@@ -96,11 +232,19 @@ function sessions(): SessionsStore {
 }
 
 function build(): Scenario {
-  const base = holding("session-after-another", "A Session dispatched to wait on another: the @ menu and the sentence over the request, its own row in the Work list, the thread of the Session it waits on, and its start");
+  const base = holding(
+    "session-after-another",
+    "A Session dispatched to wait on another: the @ menu and the sentence over the request, its own row in the Work list, the thread of the Session it waits on, and its start",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: ROOT },
-    draft: { sessions },
+    state: {
+      ...base.state,
+      repository: ROOT,
+    },
+    draft: {
+      sessions,
+    },
   };
 }
 

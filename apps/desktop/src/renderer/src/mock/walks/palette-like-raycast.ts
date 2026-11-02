@@ -11,38 +11,168 @@ const bar = inside(dialog("Command palette"), role("combobox"));
 
 function steps(): Step[] {
   return [
-    { key: "Meta+k", on: places, say: "⌘K, with nothing typed: Pinned, then Recent. Each Job row names its repository, with its state as the glyph" },
-    { look: role("option", /^Cache key/), say: "Cache key is pinned, and the glyph says it waits on him" },
-    { drag: text("Pinned"), by: { x: 0, y: 160 }, say: "Drag it by any bare part. It snaps to the window's middle lines and opens where you left it. Double click a bare part to put it back" },
-    { drag: text("Pinned"), by: { x: 0, y: -160 }, say: "Back up" },
-    { look: role("option", /^Cache key/), say: "Hold ⌘: the first nine rows show 1 to 9 over their kind, which blurs. ⌘ and a digit opens that row" },
-    { type: "migration", into: bar, say: "Jobs from both repositories, one at work and one paused. A number or a repository name finds a row as a title does" },
-    { key: "Meta+k", on: bar, say: "⌘K on a row opens its acts inside the palette, and the palette stays up. Esc goes back to the results with the words kept" },
-    { press: role("option", "Pause", { exact: true }), say: "Pause. Stop asks first" },
-    { key: "Meta+k", on: places, say: "⌘K again. The state glyph on that Job is paused now" },
-    { type: "#1899\n", into: bar, say: "# and a number finds the pull request, and Enter opens it in Reviews" },
-    { look: role("region", "Pull request #1899"), say: "Reviews, on #1899" },
-    { key: "Meta+k", on: places, say: "⌘K" },
-    { type: "Check the pin order", into: bar, say: "Words" },
-    { key: "Tab", on: bar, say: "Tab steps Job, Autopilot, Task, Project" },
-    { key: "Tab", on: bar, say: "Task" },
-    { key: "Tab", on: bar, say: "Tab opens the repository chip's list, and Tab again the project's" },
-    { key: "Tab", on: bar, say: "The project's list" },
-    { press: role("option", "Palette", { exact: true }), say: "Palette" },
-    { key: "Enter", on: bar, say: "Enter files it in Palette at once" },
-    { press: place("Projects"), say: "Projects" },
-    { key: "Meta+k", on: places, say: "⌘K on Projects" },
-    { type: "task", into: bar, say: "Projects' own acts head the results, in a block titled with the page. Tasks come after" },
-    { type: "tick a task", into: bar, say: "A task row" },
-    { key: "Meta+k", on: bar, say: "Its acts: Open, Dispatch, Tick and Pin" },
-    { press: role("option", "Pin", { exact: true }), say: "Pin keeps the palette up" },
-    { key: "Escape", on: bar, say: "Esc closes it" },
-    { key: "Meta+k", on: places, say: "Empty again: the task is under Pinned" },
-    { look: role("option", /^Tick a task from the palette/), say: "Pinned" },
-    { type: "security", into: bar, say: "A row from a Commands mod, with its alias and its key" },
-    { key: "Enter", on: bar, say: "Its prompt has a blank, {pr}. The second step asks for the pull request" },
-    { press: role("option", /Bump the manifest icons/), say: "Choose one" },
-    { look: role("textbox", "Request"), say: "The Job's prompt is filled, and the dispatch sheet holds it" },
+    {
+      key: "Meta+k",
+      on: places,
+      say: "⌘K, with nothing typed: Pinned, then Recent. Each Job row names its repository, with its state as the glyph",
+    },
+    {
+      look: role("option", /^Cache key/),
+      say: "Cache key is pinned, and the glyph says it waits on him",
+    },
+    {
+      drag: text("Pinned"),
+      by: {
+        x: 0,
+        y: 160,
+      },
+      say: "Drag it by any bare part. It snaps to the window's middle lines and opens where you left it. Double click a bare part to put it back",
+    },
+    {
+      drag: text("Pinned"),
+      by: {
+        x: 0,
+        y: -160,
+      },
+      say: "Back up",
+    },
+    {
+      look: role("option", /^Cache key/),
+      say: "Hold ⌘: the first nine rows show 1 to 9 over their kind, which blurs. ⌘ and a digit opens that row",
+    },
+    {
+      type: "migration",
+      into: bar,
+      say: "Jobs from both repositories, one at work and one paused. A number or a repository name finds a row as a title does",
+    },
+    {
+      key: "Meta+k",
+      on: bar,
+      say: "⌘K on a row opens its acts inside the palette, and the palette stays up. Esc goes back to the results with the words kept",
+    },
+    {
+      press: role("option", "Pause", {
+        exact: true,
+      }),
+      say: "Pause. Stop asks first",
+    },
+    {
+      key: "Meta+k",
+      on: places,
+      say: "⌘K again. The state glyph on that Job is paused now",
+    },
+    {
+      type: "#1899\n",
+      into: bar,
+      say: "# and a number finds the pull request, and Enter opens it in Reviews",
+    },
+    {
+      look: role("region", "Pull request #1899"),
+      say: "Reviews, on #1899",
+    },
+    {
+      key: "Meta+k",
+      on: places,
+      say: "⌘K",
+    },
+    {
+      type: "Check the pin order",
+      into: bar,
+      say: "Words",
+    },
+    {
+      key: "Tab",
+      on: bar,
+      say: "Tab steps Job, Autopilot, Task, Project",
+    },
+    {
+      key: "Tab",
+      on: bar,
+      say: "Task",
+    },
+    {
+      key: "Tab",
+      on: bar,
+      say: "Tab opens the repository chip's list, and Tab again the project's",
+    },
+    {
+      key: "Tab",
+      on: bar,
+      say: "The project's list",
+    },
+    {
+      press: role("option", "Palette", {
+        exact: true,
+      }),
+      say: "Palette",
+    },
+    {
+      key: "Enter",
+      on: bar,
+      say: "Enter files it in Palette at once",
+    },
+    {
+      press: place("Projects"),
+      say: "Projects",
+    },
+    {
+      key: "Meta+k",
+      on: places,
+      say: "⌘K on Projects",
+    },
+    {
+      type: "task",
+      into: bar,
+      say: "Projects' own acts head the results, in a block titled with the page. Tasks come after",
+    },
+    {
+      type: "tick a task",
+      into: bar,
+      say: "A task row",
+    },
+    {
+      key: "Meta+k",
+      on: bar,
+      say: "Its acts: Open, Dispatch, Tick and Pin",
+    },
+    {
+      press: role("option", "Pin", {
+        exact: true,
+      }),
+      say: "Pin keeps the palette up",
+    },
+    {
+      key: "Escape",
+      on: bar,
+      say: "Esc closes it",
+    },
+    {
+      key: "Meta+k",
+      on: places,
+      say: "Empty again: the task is under Pinned",
+    },
+    {
+      look: role("option", /^Tick a task from the palette/),
+      say: "Pinned",
+    },
+    {
+      type: "security",
+      into: bar,
+      say: "A row from a Commands mod, with its alias and its key",
+    },
+    {
+      key: "Enter",
+      on: bar,
+      say: "Its prompt has a blank, {pr}. The second step asks for the pull request",
+    },
+    {
+      press: role("option", /Bump the manifest icons/),
+      say: "Choose one",
+    },
+    {
+      look: role("textbox", "Request"),
+      say: "The Job's prompt is filled, and the dispatch sheet holds it",
+    },
   ];
 }
 

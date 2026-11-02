@@ -10,7 +10,11 @@ export const canReport = (): boolean => window.armadaDev !== undefined || import
 
 /** Begin a note on `element`, with the layer on or off. */
 export function askToReport(element: Element): void {
-  window.dispatchEvent(new CustomEvent<Element>(REPORT, { detail: element }));
+  window.dispatchEvent(
+    new CustomEvent<Element>(REPORT, {
+      detail: element,
+    }),
+  );
 }
 
 export function useReportAsked(report: (element: Element) => void): void {
@@ -18,7 +22,8 @@ export function useReportAsked(report: (element: Element) => void): void {
   latest.current = report;
   useEffect(() => {
     const asked = (event: Event): void => {
-      if (event instanceof CustomEvent && event.detail instanceof Element) latest.current(event.detail);
+      if (event instanceof CustomEvent && event.detail instanceof Element)
+        latest.current(event.detail);
     };
     window.addEventListener(REPORT, asked);
     return () => window.removeEventListener(REPORT, asked);
@@ -29,7 +34,11 @@ const REPORT_JOB = "armada:report-job";
 
 /** Open the Job's own Report box, the one its flight controls' Report opens, from somewhere outside them. */
 export function askToReportJob(session: string): void {
-  window.dispatchEvent(new CustomEvent<string>(REPORT_JOB, { detail: session }));
+  window.dispatchEvent(
+    new CustomEvent<string>(REPORT_JOB, {
+      detail: session,
+    }),
+  );
 }
 
 export function useJobReportAsked(session: string, open: () => void): void {
@@ -41,5 +50,7 @@ export function useJobReportAsked(session: string, open: () => void): void {
     };
     window.addEventListener(REPORT_JOB, asked);
     return () => window.removeEventListener(REPORT_JOB, asked);
-  }, [session]);
+  }, [
+    session,
+  ]);
 }

@@ -14,14 +14,23 @@ import type { AreaKid, RepositoryArea, RepositoryAreas } from "@armada/protocol"
  * A directory inside a top one: its name, its file count and, where Fleet named them, its first files as git lists them,
  * relative to the kid. Fewer names than the count means the rest were cut, not that they are not there.
  */
-export type Kid = readonly [name: string, files: number, names?: readonly string[]];
+export type Kid = readonly [
+  name: string,
+  files: number,
+  names?: readonly string[],
+];
 
 /**
  * One top directory with the directories inside it, each with a file count. A top directory with no children has none
  * listed, and names its own first files instead (relative to `dir`) with its exact count in `files`; one with children
  * names none.
  */
-export type Area = { dir: string; kids: readonly Kid[]; names?: readonly string[]; files?: number };
+export type Area = {
+  dir: string;
+  kids: readonly Kid[];
+  names?: readonly string[];
+  files?: number;
+};
 
 export type Areas = readonly Area[];
 
@@ -31,14 +40,39 @@ export type AreaSource = (root: string) => Areas;
 /** No areas for any repository: before Fleet has answered, and from a Fleet with no such route. */
 export const noAreas: AreaSource = () => [];
 
-const kidOf = (kid: AreaKid): Kid => (kid.names === undefined ? [kid.name, kid.files] : [kid.name, kid.files, kid.names]);
-const areaFromWire = (area: RepositoryArea): Area => ({ dir: area.dir, kids: (area.kids ?? []).map(kidOf), ...(area.names === undefined ? {} : { names: area.names, files: area.files }) });
+const kidOf = (kid: AreaKid): Kid =>
+  kid.names === undefined
+    ? [
+        kid.name,
+        kid.files,
+      ]
+    : [
+        kid.name,
+        kid.files,
+        kid.names,
+      ];
+const areaFromWire = (area: RepositoryArea): Area => ({
+  dir: area.dir,
+  kids: (area.kids ?? []).map(kidOf),
+  ...(area.names === undefined
+    ? {}
+    : {
+        names: area.names,
+        files: area.files,
+      }),
+});
 
 /** The areas Fleet read, for the root each was read in. A root Fleet named none for has none. */
 export function areasFromFleet(read: RepositoryAreas): AreaSource {
   const bare = (root: string) => root.replace(/\/+$/, "");
   const byRoot = new Map(
-    read.repositories.map((one) => [bare(one.root), one.areas.map(areaFromWire)] as const),
+    read.repositories.map(
+      (one) =>
+        [
+          bare(one.root),
+          one.areas.map(areaFromWire),
+        ] as const,
+    ),
   );
   return (root) => byRoot.get(bare(root)) ?? [];
 }
@@ -59,7 +93,8 @@ const HOME = /^\/(?:Users|home)\/[^/]+\//;
  * A checkout of the repository nested inside it: a Fleet slot, a Fleet worktree, or Claude Code's own. A terminal Job standing at the
  * repository's root names its files under one of these, and the floor draws them at the repository's path.
  */
-const NESTED = /^(?:\.armada\/slots\/slot-\d+|\.armada\/worktrees\/[^/]+|\.claude\/worktrees\/[^/]+)\//;
+const NESTED =
+  /^(?:\.armada\/slots\/slot-\d+|\.armada\/worktrees\/[^/]+|\.claude\/worktrees\/[^/]+)\//;
 
 /**
  * A path as the repository spells it, where it lies under one of these checkouts, in either spelling of the home directory.
@@ -67,14 +102,21 @@ const NESTED = /^(?:\.armada\/slots\/slot-\d+|\.armada\/worktrees\/[^/]+|\.claud
  * somebody else's file and comes back as it came, which no area claims.
  */
 export function relativeTo(path: string, roots: readonly string[]): string {
-  const deepest = [...roots].map((root) => root.replace(/\/+$/, "")).sort((a, b) => b.length - a.length);
+  const deepest = [
+    ...roots,
+  ]
+    .map((root) => root.replace(/\/+$/, ""))
+    .sort((a, b) => b.length - a.length);
   for (const bare of deepest) {
     if (bare === "") continue;
     if (path.startsWith(`${bare}/`)) return path.slice(bare.length + 1).replace(NESTED, "");
     const homed = bare.replace(HOME, "");
-    if (homed !== bare && path.startsWith(`~/${homed}/`)) return path.slice(homed.length + 3).replace(NESTED, "");
+    if (homed !== bare && path.startsWith(`~/${homed}/`))
+      return path.slice(homed.length + 3).replace(NESTED, "");
   }
-  return path.startsWith("/") || path.startsWith("~") ? path : path.replace(/^\.\//, "").replace(NESTED, "");
+  return path.startsWith("/") || path.startsWith("~")
+    ? path
+    : path.replace(/^\.\//, "").replace(NESTED, "");
 }
 
 /**

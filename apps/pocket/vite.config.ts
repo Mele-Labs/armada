@@ -27,17 +27,27 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
     const origin = request.headers.origin;
     if (origin !== undefined) {
       response.setHeader("Access-Control-Allow-Origin", origin);
-      response.setHeader("Access-Control-Allow-Headers", "content-type, x-pocket-device, x-pocket-time, x-pocket-signature");
+      response.setHeader(
+        "Access-Control-Allow-Headers",
+        "content-type, x-pocket-device, x-pocket-time, x-pocket-signature",
+      );
       response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     }
     const ours = target.startsWith("/api/") || target === "/pair";
     if (!ours) return next === undefined ? response.writeHead(404).end() : next();
     if (request.method === "OPTIONS") return response.writeHead(204).end();
     if (process.env["POCKET_FIXTURE_UNPAIRED"] === mac().name && target.startsWith("/api/")) {
-      return response.writeHead(401, { "Content-Type": "text/plain" }).end("This phone is not paired with this Mac. Pair it again from Bridge, Settings, Phone.");
+      return response
+        .writeHead(401, {
+          "Content-Type": "text/plain",
+        })
+        .end("This phone is not paired with this Mac. Pair it again from Bridge, Settings, Phone.");
     }
     if (target.startsWith("/api/live")) {
-      response.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+      response.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      });
       // A first beat at once, as the Gateway sends: the headers leave with it, and the phone reads its lists on connect.
       response.write(": beat\n\n");
       const beat = setInterval(() => response.write(": beat\n\n"), 15_000);
@@ -45,9 +55,26 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
       return;
     }
     const body = await read(request);
-    const said = answer(mac(), posted, request.method ?? "GET", target, body, /^[0-9a-f]{128}$/.test(String(request.headers["x-pocket-signature"] ?? "")));
-    if (posted.length > 0) console.log(`[fixture ${mac().name}] ${JSON.stringify(posted.splice(0))}`);
-    response.writeHead(said.status, said.type === undefined ? {} : { "Content-Type": said.type }).end(said.body);
+    const said = answer(
+      mac(),
+      posted,
+      request.method ?? "GET",
+      target,
+      body,
+      /^[0-9a-f]{128}$/.test(String(request.headers["x-pocket-signature"] ?? "")),
+    );
+    if (posted.length > 0)
+      console.log(`[fixture ${mac().name}] ${JSON.stringify(posted.splice(0))}`);
+    response
+      .writeHead(
+        said.status,
+        said.type === undefined
+          ? {}
+          : {
+              "Content-Type": said.type,
+            },
+      )
+      .end(said.body);
   };
 }
 
@@ -59,7 +86,10 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
  */
 function fixtureGateway(): Plugin {
   const now = Date.now();
-  const macs = fixtureMacs(now, { studio: "studio", laptop: "laptop" });
+  const macs = fixtureMacs(now, {
+    studio: "studio",
+    laptop: "laptop",
+  });
   return {
     name: "pocket-fixture-gateway",
     configureServer(server) {
@@ -67,7 +97,9 @@ function fixtureGateway(): Plugin {
       server.httpServer?.once("listening", () => {
         const { port, address } = server.httpServer!.address() as AddressInfo;
         const beside = createServer(serve(() => macs["laptop"]!, []));
-        beside.listen(port + 1, address, () => console.log(`  fixture laptop Mac on port ${port + 1}`));
+        beside.listen(port + 1, address, () =>
+          console.log(`  fixture laptop Mac on port ${port + 1}`),
+        );
         server.httpServer!.once("close", () => beside.close());
       });
     },
@@ -86,8 +118,20 @@ function precompress(): Plugin {
         const file = join(out, name);
         if (/\.(br|gz)$/.test(name) || statSync(file).size <= 1024) continue;
         const bytes = readFileSync(file);
-        writeFileSync(`${file}.br`, brotliCompressSync(bytes, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 11 } }));
-        writeFileSync(`${file}.gz`, gzipSync(bytes, { level: 9 }));
+        writeFileSync(
+          `${file}.br`,
+          brotliCompressSync(bytes, {
+            params: {
+              [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
+            },
+          }),
+        );
+        writeFileSync(
+          `${file}.gz`,
+          gzipSync(bytes, {
+            level: 9,
+          }),
+        );
       }
     },
   };
@@ -95,6 +139,15 @@ function precompress(): Plugin {
 
 // `appType: "spa"` so `/jobs/<Mac>/<id>` opens directly rather than 404ing.
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss(), precompress(), ...(mode === "fixture" ? [fixtureGateway()] : [])],
+  plugins: [
+    react(),
+    tailwindcss(),
+    precompress(),
+    ...(mode === "fixture"
+      ? [
+          fixtureGateway(),
+        ]
+      : []),
+  ],
   appType: "spa",
 }));

@@ -4,22 +4,53 @@
 
 /* ---- The body's rhythm ------------------------------------------------------------------------------------ */
 
-
-.sv-zone { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.sv-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
 /* A zone's name reads above its rows: full ink and heading weight, where the rows under it are muted. */
-.sv-zone__label { margin: 0; padding-inline: var(--space-2); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); }
+.sv-zone__label {
+  margin: 0;
+  padding-inline: var(--space-2);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+}
 
 /* ---- Now: the turn's account over its page, in a frame of its own ------------------------------------------- */
 
-.sv-account { padding: var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-raised); }
-.sv-account .armada-account__line[data-line="now"] { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium); }
+.sv-account {
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+}
+.sv-account .armada-account__line[data-line="now"] {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+}
 
 /* ---- Plan: a stepper ------------------------------------------------------------------------------------------- */
 
-.sv-plan .sv-plan__groups { gap: var(--space-1); }
+.sv-plan .sv-plan__groups {
+  gap: var(--space-1);
+}
 
-.sv-plan .sv-group[data-step] { position: relative; border-color: transparent; border-radius: var(--radius-lg); background: none; }
-.sv-plan .sv-group[data-step="current"] { border-color: var(--border-subtle); background: var(--bg-raised); }
+.sv-plan .sv-group[data-step] {
+  position: relative;
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  background: none;
+}
+.sv-plan .sv-group[data-step="current"] {
+  border-color: var(--border-subtle);
+  background: var(--bg-raised);
+}
 
 .sv-plan .sv-group[data-step] > .sv-group__row {
   display: grid;
@@ -30,45 +61,123 @@
   padding: var(--space-1) var(--space-2);
   border-radius: calc(var(--radius-lg) - var(--border-width));
 }
-.sv-plan .sv-group[data-step="current"] > .sv-group__row { padding-block: var(--space-2) var(--space-1); }
-.sv-plan .sv-group[data-step] > .sv-group__row > .armada-tooltip { display: inline-flex; align-items: center; justify-content: center; height: var(--leading-sm); }
-.sv-plan .sv-group[data-step] > .sv-group__row:hover { background: var(--bg-hover); }
-.sv-plan .sv-group[data-step="current"] > .sv-group__row:hover { background: none; }
-
-.sv-group__lead { display: inline-flex; color: var(--fg-subtle); }
-.sv-group__lead[data-step="done"] { color: var(--step-advanced); }
-
-/* A line: done the quietest, to come a step above it, the one being worked in full weight and the body's size. */
-.sv-plan .sv-group[data-step] .sv-group__title { grid-column: 2; font-size: var(--text-xs); line-height: var(--leading-sm); font-weight: var(--weight-body); color: var(--fg-muted); }
-.sv-plan .sv-group[data-step="done"] .sv-group__title { color: var(--fg-subtle); }
-.sv-plan .sv-group[data-step="current"] .sv-group__title { font-size: var(--text-sm); font-weight: var(--weight-heading); color: var(--fg-default); }
-.sv-plan .sv-group[data-step]:not([data-open]) .sv-group__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.sv-plan .sv-group[data-step] .sv-group__head { grid-column: 3; grid-row: 1; height: var(--leading-sm); }
-.sv-plan .sv-group[data-step] .sv-group__chevron { margin-left: 0; }
-
-.sv-plan .sv-group[data-step] .sv-group__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
-/* Edits seen is news for the group being worked; on the rest it is noise. */
-.sv-plan .sv-group[data-step]:not([data-step="current"]) .sv-group__seen { display: none; }
-
-/* Under the title, indented to it: the account where the spine holds it, then the paths and the tasks. */
-.sv-plan .sv-group[data-step] .sv-group__body { gap: var(--space-3); padding: var(--space-1) var(--space-3) var(--space-3) calc(var(--space-2) + var(--space-4) + var(--space-2)); }
-.sv-plan .sv-group[data-step] .sv-edit-group { padding: 0; gap: var(--space-2); }
-/* Its own tools (a note, a removal) show on hover, at the foot's end beside the add, so they take no row of their own. */
-.sv-plan .sv-group[data-step] .sv-group__body { position: relative; }
-.sv-plan .sv-group[data-step] .sv-edit-group__head { position: absolute; right: var(--space-3); bottom: var(--space-3); }
-.sv-plan .sv-group[data-step] .sv-group__body:hover .sv-edit-group__head .sv-edit__tools { opacity: 1; }
-/* The pencil opens the title and subagent type above the tasks, in the flow. */
-.sv-plan .sv-group[data-step] .sv-edit-group[data-editing] > .sv-edit-group__head { position: static; }
-.sv-plan .sv-group[data-step] .sv-task { color: var(--fg-muted); }
-.sv-plan .sv-group[data-step] .sv-task[data-state="working"] { color: var(--fg-default); }
-.sv-plan .sv-group[data-step] .sv-task[data-state="done"] { color: var(--fg-subtle); }
-
-/* Opening: the height and the ink come in, 220ms; shutting is at once. */
-.sv-expand { display: grid; grid-template-rows: 1fr; animation: sv-expand var(--duration-sheet) var(--ease); }
-.sv-expand > * { min-height: 0; overflow: hidden; }
-@keyframes sv-expand {
-  from { grid-template-rows: 0fr; opacity: 0; }
-  to { grid-template-rows: 1fr; opacity: 1; }
+.sv-plan .sv-group[data-step="current"] > .sv-group__row {
+  padding-block: var(--space-2) var(--space-1);
+}
+.sv-plan .sv-group[data-step] > .sv-group__row > .armada-tooltip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--leading-sm);
+}
+.sv-plan .sv-group[data-step] > .sv-group__row:hover {
+  background: var(--bg-hover);
+}
+.sv-plan .sv-group[data-step="current"] > .sv-group__row:hover {
+  background: none;
 }
 
+.sv-group__lead {
+  display: inline-flex;
+  color: var(--fg-subtle);
+}
+.sv-group__lead[data-step="done"] {
+  color: var(--step-advanced);
+}
+
+/* A line: done the quietest, to come a step above it, the one being worked in full weight and the body's size. */
+.sv-plan .sv-group[data-step] .sv-group__title {
+  grid-column: 2;
+  font-size: var(--text-xs);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-body);
+  color: var(--fg-muted);
+}
+.sv-plan .sv-group[data-step="done"] .sv-group__title {
+  color: var(--fg-subtle);
+}
+.sv-plan .sv-group[data-step="current"] .sv-group__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+.sv-plan .sv-group[data-step]:not([data-open]) .sv-group__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sv-plan .sv-group[data-step] .sv-group__head {
+  grid-column: 3;
+  grid-row: 1;
+  height: var(--leading-sm);
+}
+.sv-plan .sv-group[data-step] .sv-group__chevron {
+  margin-left: 0;
+}
+
+.sv-plan .sv-group[data-step] .sv-group__row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -1);
+}
+/* Edits seen is news for the group being worked; on the rest it is noise. */
+.sv-plan .sv-group[data-step]:not([data-step="current"]) .sv-group__seen {
+  display: none;
+}
+
+/* Under the title, indented to it: the account where the spine holds it, then the paths and the tasks. */
+.sv-plan .sv-group[data-step] .sv-group__body {
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3) var(--space-3)
+    calc(var(--space-2) + var(--space-4) + var(--space-2));
+}
+.sv-plan .sv-group[data-step] .sv-edit-group {
+  padding: 0;
+  gap: var(--space-2);
+}
+/* Its own tools (a note, a removal) show on hover, at the foot's end beside the add, so they take no row of their own. */
+.sv-plan .sv-group[data-step] .sv-group__body {
+  position: relative;
+}
+.sv-plan .sv-group[data-step] .sv-edit-group__head {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+}
+.sv-plan .sv-group[data-step] .sv-group__body:hover .sv-edit-group__head .sv-edit__tools {
+  opacity: 1;
+}
+/* The pencil opens the title and subagent type above the tasks, in the flow. */
+.sv-plan .sv-group[data-step] .sv-edit-group[data-editing] > .sv-edit-group__head {
+  position: static;
+}
+.sv-plan .sv-group[data-step] .sv-task {
+  color: var(--fg-muted);
+}
+.sv-plan .sv-group[data-step] .sv-task[data-state="working"] {
+  color: var(--fg-default);
+}
+.sv-plan .sv-group[data-step] .sv-task[data-state="done"] {
+  color: var(--fg-subtle);
+}
+
+/* Opening: the height and the ink come in, 220ms; shutting is at once. */
+.sv-expand {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: sv-expand var(--duration-sheet) var(--ease);
+}
+.sv-expand > * {
+  min-height: 0;
+  overflow: hidden;
+}
+@keyframes sv-expand {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}

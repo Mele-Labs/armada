@@ -10,7 +10,15 @@ import type { RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { RunFact, TimelineEvent, WriteClash } from "@armada/protocol";
-import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord, Syncs } from "@armada/components";
+import type {
+  BlankSetting,
+  EndedOutcome,
+  RegisteredOwnerRow,
+  SharedRow,
+  SyncItem,
+  SyncKindWord,
+  Syncs,
+} from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
 import type { ReviewSeed } from "./review-seed";
 import type { PanelReads } from "../shared-panel/reads";
@@ -87,7 +95,11 @@ export type MockDraft = {
     repository: string;
     /** Every row as if every kind synced; `syncs` narrows what is drawn. */
     rows: readonly SharedRow[];
-    staysHere?: readonly { kind: string; name: string; why: string }[];
+    staysHere?: readonly {
+      kind: string;
+      name: string;
+      why: string;
+    }[];
     /** What syncs, switched from Kit. Absent follows the Account page's What syncs and draws no switches. */
     syncs?: Syncs;
   };
@@ -97,16 +109,35 @@ export type MockDraft = {
    * kinds would sync. Mock only.
    */
   account?: {
-    signIn: { login: string; code: string; repository: string };
-    add?: { login: string; code: string; items: Partial<Record<SyncKindWord, readonly SyncItem[]>> };
+    signIn: {
+      login: string;
+      code: string;
+      repository: string;
+    };
+    add?: {
+      login: string;
+      code: string;
+      items: Partial<Record<SyncKindWord, readonly SyncItem[]>>;
+    };
     /**
      * What each attempt at signing in comes to, in turn: ended this way once its code is typed, or refused
      * at once for these blank settings, or signs in (`"signs_in"`). Past the last, an attempt signs in.
      * Absent signs in at once.
      */
-    attempts?: readonly ("signs_in" | { ends: EndedOutcome } | { blank: readonly BlankSetting[] })[];
+    attempts?: readonly (
+      | "signs_in"
+      | {
+          ends: EndedOutcome;
+        }
+      | {
+          blank: readonly BlankSetting[];
+        }
+    )[];
     /** The machine starts signed in to these profiles, the first active, and shows the account already set up. */
-    joined?: readonly { login: string; chosen: boolean }[];
+    joined?: readonly {
+      login: string;
+      chosen: boolean;
+    }[];
     /** Logins whose sign-out leaves a row in the store, because the store is down. */
     storeDown?: readonly string[];
     /** Signing in makes no shared home, and What syncs is drawn this way until one exists. */
@@ -123,8 +154,16 @@ export type MockDraft = {
    * register at all, by root and by `owner/name`. Mock only: Fleet serves neither.
    */
   prOwners?: {
-    repositories: readonly { root: string; name: string; registering: boolean }[];
-    rows: readonly { repository: string; number: number; owner: RegisteredOwnerRow }[];
+    repositories: readonly {
+      root: string;
+      name: string;
+      registering: boolean;
+    }[];
+    rows: readonly {
+      repository: string;
+      number: number;
+      owner: RegisteredOwnerRow;
+    }[];
   };
 };
 
@@ -143,7 +182,11 @@ export function connected(
 
 /** A connected Fleet holding exactly these repositories, for a test that needs a window no named scenario draws. */
 export function onBoard(
-  options: { workflows?: WorkflowSummary[]; repositories?: RepositorySummary[]; picked?: string | null } = {},
+  options: {
+    workflows?: WorkflowSummary[];
+    repositories?: RepositorySummary[];
+    picked?: string | null;
+  } = {},
 ): Scenario {
   return onBoardOver<BridgeState, BridgeApi>(NOTHING_YET, options);
 }

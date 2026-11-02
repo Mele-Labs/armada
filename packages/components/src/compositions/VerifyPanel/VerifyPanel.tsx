@@ -18,10 +18,22 @@ import { FactChip } from "../FactChip/FactChip";
  */
 
 export type VerifyPanelStepState =
-  | { kind: "waiting" }
-  | { kind: "running"; elapsed: ReactNode }
-  | { kind: "ran"; result: ReactNode; duration: ReactNode }
-  | { kind: "not_run"; why: ReactNode };
+  | {
+      kind: "waiting";
+    }
+  | {
+      kind: "running";
+      elapsed: ReactNode;
+    }
+  | {
+      kind: "ran";
+      result: ReactNode;
+      duration: ReactNode;
+    }
+  | {
+      kind: "not_run";
+      why: ReactNode;
+    };
 
 export type VerifyPanelStep = {
   id: string;
@@ -65,8 +77,14 @@ export function VerifyPanel({
   onDismiss,
   titled = true,
 }: VerifyPanelProps) {
-  const groups = [...new Set(steps.map((step) => step.group))].map(
-    (group) => [group, steps.filter((step) => step.group === group)] as const,
+  const groups = [
+    ...new Set(steps.map((step) => step.group)),
+  ].map(
+    (group) =>
+      [
+        group,
+        steps.filter((step) => step.group === group),
+      ] as const,
   );
 
   return (
@@ -87,7 +105,12 @@ export function VerifyPanel({
               Dismiss
             </Button>
           )}
-          <Button variant="secondary" size="sm" disabled={onVerify === undefined} onClick={onVerify}>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={onVerify === undefined}
+            onClick={onVerify}
+          >
             Verify
           </Button>
         </span>

@@ -20,11 +20,17 @@ function read(): string[] {
 
 /** `root` first and each root once, cut to the few the picker leads with. */
 export function remembering(roots: readonly string[], root: string): string[] {
-  return [root, ...roots.filter((one) => one !== root)].slice(0, RECENT_REPOSITORIES);
+  return [
+    root,
+    ...roots.filter((one) => one !== root),
+  ].slice(0, RECENT_REPOSITORIES);
 }
 
 /** The last few roots picked, newest first, and the call that adds one. */
-export function useRecentRepositories(): [readonly string[], (root: string) => void] {
+export function useRecentRepositories(): [
+  readonly string[],
+  (root: string) => void,
+] {
   const [recent, setRecent] = useState<string[]>(read);
   const remember = useCallback((root: string) => {
     setRecent((now) => {
@@ -37,5 +43,8 @@ export function useRecentRepositories(): [readonly string[], (root: string) => v
       return next;
     });
   }, []);
-  return [recent, remember];
+  return [
+    recent,
+    remember,
+  ];
 }

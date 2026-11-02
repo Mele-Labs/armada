@@ -17,14 +17,18 @@ export type CardProps = ComponentProps<"div">;
  * no class of its own to be named by. It is an override and not a style — a
  * card inside a sheet, a dialog or another card is already flat.
  */
-export type CardSurfaceProps = CardProps & { flat?: boolean };
+export type CardSurfaceProps = CardProps & {
+  flat?: boolean;
+};
 
 function joined(base: string, extra?: string) {
   return extra ? `${base} ${extra}` : base;
 }
 
 export function Card({ className, flat, ...rest }: CardSurfaceProps) {
-  return <div className={joined("armada-card", className)} data-flat={flat || undefined} {...rest} />;
+  return (
+    <div className={joined("armada-card", className)} data-flat={flat || undefined} {...rest} />
+  );
 }
 
 /**

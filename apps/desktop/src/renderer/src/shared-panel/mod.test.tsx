@@ -16,5 +16,6 @@ test("the box opens on the change, named by the mod's kind, the caret after the 
     commands: "Change the Dusk Commands: ",
     tab: "Change the Dusk tab: ",
   };
-  for (const [kind, words] of Object.entries(said)) expect(changeWords("Dusk", kind as ModKind)).toBe(words);
+  for (const [kind, words] of Object.entries(said))
+    expect(changeWords("Dusk", kind as ModKind)).toBe(words);
 });

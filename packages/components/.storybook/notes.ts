@@ -50,9 +50,17 @@ function notesFile(worktreeRoot: string): string {
 // git directly, rather than trusting the file, catches the ignore rule being
 // edited or missing in a worktree cut before it existed.
 function assertNotesIgnored(worktreeRoot: string, file: string): void {
-  const result = spawnSync("git", ["check-ignore", "--quiet", file], {
-    cwd: worktreeRoot,
-  });
+  const result = spawnSync(
+    "git",
+    [
+      "check-ignore",
+      "--quiet",
+      file,
+    ],
+    {
+      cwd: worktreeRoot,
+    },
+  );
   if (result.status === 0) return;
   if (result.status === 1) {
     throw new Error(
@@ -96,13 +104,17 @@ function saveShot(worktreeRoot: string, dataUrl: string): string {
   if (bytes.length > SHOT_LIMIT) throw new Error("a screenshot has to be under 15 MB");
   const ext = match[1] === "jpeg" ? "jpg" : (match[1] ?? "png");
   const name = `${new Date().toISOString().replace(/[:.]/g, "-")}.${ext}`;
-  mkdirSync(shotsDir(worktreeRoot), { recursive: true });
+  mkdirSync(shotsDir(worktreeRoot), {
+    recursive: true,
+  });
   writeFileSync(join(shotsDir(worktreeRoot), name), bytes);
   return join(".notes", "shots", name);
 }
 
 function appendNote(file: string, record: NoteRecord): void {
-  mkdirSync(dirname(file), { recursive: true });
+  mkdirSync(dirname(file), {
+    recursive: true,
+  });
   appendFileSync(file, `${JSON.stringify(record)}\n`);
 }
 
@@ -158,7 +170,10 @@ export function notesPlugin(): Plugin {
                 res.end("expected { story, titled, note }");
                 return;
               }
-              const record: NoteRecord = { ...(payload as NotePayload), at: new Date().toISOString() };
+              const record: NoteRecord = {
+                ...(payload as NotePayload),
+                at: new Date().toISOString(),
+              };
               if (typeof shot === "string" && shot !== "") record.shot = saveShot(root, shot);
               appendNote(file, record);
               res.statusCode = 204;

@@ -33,10 +33,21 @@ export type SetupProps = {
   floor?: boolean;
 };
 
-export function Setup({ setting, now, sheet, onStartVerify, onStopRun, onOpenEdit, floor }: SetupProps) {
+export function Setup({
+  setting,
+  now,
+  sheet,
+  onStartVerify,
+  onStopRun,
+  onOpenEdit,
+  floor,
+}: SetupProps) {
   const [dismissed, setDismissed] = useState<string | null>(null);
   // Keyed by workspace, so a refusal on one sheet is not read on another.
-  const [verifyRefused, setVerifyRefused] = useState<{ dir: string; said: string } | null>(null);
+  const [verifyRefused, setVerifyRefused] = useState<{
+    dir: string;
+    said: string;
+  } | null>(null);
   const { held } = setting;
 
   if (held.state === "failed") {
@@ -50,7 +61,8 @@ export function Setup({ setting, now, sheet, onStartVerify, onStopRun, onOpenEdi
   if (held.state === "reading") return null;
 
   const opened = held.proposals.proposals.find((one) => one.dir === held.open);
-  const edit = (change: ProposalEdit | null) => opened !== undefined && change !== null && setting.onEdit(opened.dir, change);
+  const edit = (change: ProposalEdit | null) =>
+    opened !== undefined && change !== null && setting.onEdit(opened.dir, change);
 
   let verify = null;
   if (opened?.written !== undefined) {
@@ -63,10 +75,23 @@ export function Setup({ setting, now, sheet, onStartVerify, onStopRun, onOpenEdi
           now,
           dismissed,
           refused: verifyRefused?.dir === dir ? verifyRefused.said : null,
-          ...(workspace === undefined ? {} : { workspace }),
+          ...(workspace === undefined
+            ? {}
+            : {
+                workspace,
+              }),
           onVerify: () => {
             setVerifyRefused(null);
-            void onStartVerify(workspace).then((outcome) => setVerifyRefused(outcome.ok ? null : { dir, said: said(outcome) }));
+            void onStartVerify(workspace).then((outcome) =>
+              setVerifyRefused(
+                outcome.ok
+                  ? null
+                  : {
+                      dir,
+                      said: said(outcome),
+                    },
+              ),
+            );
           },
           onStopRun: (runId) => void onStopRun(runId),
           onDismiss: setDismissed,
@@ -85,20 +110,69 @@ export function Setup({ setting, now, sheet, onStartVerify, onStopRun, onOpenEdi
           busy={held.busy === opened.dir}
           verify={verify}
           // Only the root's file is the one the Edit tab edits.
-          {...(opened.dir === "." && onOpenEdit !== undefined ? { onEditManifest: onOpenEdit } : {})}
+          {...(opened.dir === "." && onOpenEdit !== undefined
+            ? {
+                onEditManifest: onOpenEdit,
+              }
+            : {})}
           floor={floor}
           onClose={setting.onClose}
-          onEditId={(id) => edit({ edit: "id", id })}
+          onEditId={(id) =>
+            edit({
+              edit: "id",
+              id,
+            })
+          }
           onEditRun={(band, name, run) => edit(runEdit(opened, band, name, run))}
           onRequires={(name, requires) => edit(requiresEdit(opened, name, requires))}
           onDestructive={(name, destructive) => edit(destructiveEdit(opened, name, destructive))}
-          onMove={(_band, name) => edit({ edit: "move", name })}
-          onRemove={(band, name) => edit({ edit: "remove", band, name })}
-          onAdd={(band, name, run) => edit(band === "checks" ? { edit: "check", name, run } : { edit: "command", name, run })}
-          onAddPort={(port) =>
-            edit({ edit: "port", name: port.name, container: Number(port.container), ...(port.env === "" ? {} : { env: port.env }) })
+          onMove={(_band, name) =>
+            edit({
+              edit: "move",
+              name,
+            })
           }
-          onPolicy={(key, value) => edit({ edit: "policy", key, value })}
+          onRemove={(band, name) =>
+            edit({
+              edit: "remove",
+              band,
+              name,
+            })
+          }
+          onAdd={(band, name, run) =>
+            edit(
+              band === "checks"
+                ? {
+                    edit: "check",
+                    name,
+                    run,
+                  }
+                : {
+                    edit: "command",
+                    name,
+                    run,
+                  },
+            )
+          }
+          onAddPort={(port) =>
+            edit({
+              edit: "port",
+              name: port.name,
+              container: Number(port.container),
+              ...(port.env === ""
+                ? {}
+                : {
+                    env: port.env,
+                  }),
+            })
+          }
+          onPolicy={(key, value) =>
+            edit({
+              edit: "policy",
+              key,
+              value,
+            })
+          }
           onWrite={() => setting.onWrite(opened.dir)}
         />
       )}

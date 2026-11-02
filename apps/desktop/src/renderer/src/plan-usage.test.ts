@@ -7,8 +7,15 @@ import { planUsageDrawn } from "./plan-usage";
 
 const USAGE: PlanUsage = {
   windows: [
-    { kind: "five_hour", percent_used: 34, resets_at: "2026-10-12T22:40:00Z" },
-    { kind: "seven_day", percent_used: 61 },
+    {
+      kind: "five_hour",
+      percent_used: 34,
+      resets_at: "2026-10-12T22:40:00Z",
+    },
+    {
+      kind: "seven_day",
+      percent_used: 61,
+    },
   ],
   read_at: "2026-10-12T20:26:00Z",
 };
@@ -16,17 +23,33 @@ const USAGE: PlanUsage = {
 describe("planUsageDrawn", () => {
   it("draws each window's percent_used as percentUsed, leaving resetsAt out where there is none", () => {
     expect(planUsageDrawn(USAGE)).toEqual([
-      { kind: "five_hour", percentUsed: 34, resetsAt: "2026-10-12T22:40:00Z" },
-      { kind: "seven_day", percentUsed: 61 },
+      {
+        kind: "five_hour",
+        percentUsed: 34,
+        resetsAt: "2026-10-12T22:40:00Z",
+      },
+      {
+        kind: "seven_day",
+        percentUsed: 61,
+      },
     ]);
   });
 
   it("draws no windows, so the rings load, for an answer no session has reported to", () => {
-    expect(planUsageDrawn({ windows: [] })).toEqual([]);
+    expect(
+      planUsageDrawn({
+        windows: [],
+      }),
+    ).toEqual([]);
   });
 
   it("draws no rings for a reading of no windows, an account off a subscription", () => {
-    expect(planUsageDrawn({ windows: [], read_at: "2026-10-21T14:59:00Z" })).toBeUndefined();
+    expect(
+      planUsageDrawn({
+        windows: [],
+        read_at: "2026-10-21T14:59:00Z",
+      }),
+    ).toBeUndefined();
   });
 });
 
@@ -37,12 +60,27 @@ describe("the plan's windows over Fleet", () => {
     let reads = 0;
     return {
       reads: () => reads,
-      connect: () => connection({ connection: { state: "connected" } as BridgeState["connection"] }),
+      connect: () =>
+        connection({
+          connection: {
+            state: "connected",
+          } as BridgeState["connection"],
+        }),
       changed: (usage: PlanUsage) => changed(usage),
       api: {
-        state: async () => ({ connection: { state: "connecting" } as BridgeState["connection"] }),
+        state: async () => ({
+          connection: {
+            state: "connecting",
+          } as BridgeState["connection"],
+        }),
         subscribe: (on: typeof connection) => ((connection = on), () => {}),
-        getPlanUsage: async () => ((reads += 1), { ok: true as const, value: reading }),
+        getPlanUsage: async () => (
+          (reads += 1),
+          {
+            ok: true as const,
+            value: reading,
+          }
+        ),
         onPlanUsageChanged: (on: typeof changed) => ((changed = on), () => {}),
       },
     };
@@ -64,14 +102,23 @@ describe("the plan's windows over Fleet", () => {
     expect(held.reads()).toBe(2);
     expect(source.get()).toEqual(USAGE);
 
-    const newer = { windows: [{ kind: "five_hour", percent_used: 86 }] };
+    const newer = {
+      windows: [
+        {
+          kind: "five_hour",
+          percent_used: 86,
+        },
+      ],
+    };
     held.changed(newer);
     expect(source.get()).toEqual(newer);
     expect(heard).toHaveLength(3);
   });
 
   it("holds Fleet's empty answer as no windows once connected, and nothing before, so the title row can tell loading from absent", async () => {
-    const held = fleet({ windows: [] });
+    const held = fleet({
+      windows: [],
+    });
     const source = createFleetPlanUsage(held.api);
     source.subscribe(() => {});
     expect(source.get()).toBeUndefined();
@@ -79,7 +126,9 @@ describe("the plan's windows over Fleet", () => {
     held.connect();
     await new Promise((resolve) => setTimeout(resolve, 0));
     const answered = source.get();
-    expect(answered).toEqual({ windows: [] });
+    expect(answered).toEqual({
+      windows: [],
+    });
     expect(planUsageDrawn(answered!)).toEqual([]);
   });
 });

@@ -32,7 +32,11 @@ export class AgentSignInNotice {
     const since = state.signed_out_since;
     if (since === undefined || since === this.told) return;
     this.told = since;
-    const notice: Notice = { title: "Claude is signed out", body: "", sound: soundOf("blocked") };
+    const notice: Notice = {
+      title: "Claude is signed out",
+      body: "",
+      sound: soundOf("blocked"),
+    };
     this.effects.show(notice);
   }
 }

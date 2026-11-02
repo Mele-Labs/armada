@@ -8,33 +8,94 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const field = () => page.getByRole("region", { name: "Field", exact: true }).first();
-const large = () => page.getByRole("group", { name: "Expanded Field" });
+const field = () =>
+  page
+    .getByRole("region", {
+      name: "Field",
+      exact: true,
+    })
+    .first();
+const large = () =>
+  page.getByRole("group", {
+    name: "Expanded Field",
+  });
 const canvases = () => document.querySelectorAll("canvas").length;
 
 async function open() {
   mount("field-expand-plan");
   await onScreen();
-  await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Rotate the audit log" }).click();
+  await page
+    .getByRole("region", {
+      name: "Jobs",
+      exact: true,
+    })
+    .getByRole("button", {
+      name: "Rotate the audit log",
+    })
+    .click();
   await expect.element(field()).toBeVisible();
 }
 
 test("the large Field carries the plan as a segment for each task, in the marks of the map card, each group named", async () => {
   await open();
-  await expect.element(field().getByRole("group", { name: "Plan" })).not.toBeInTheDocument();
-  await field().getByRole("button", { name: "Expand", exact: true }).click();
-  const plan = large().getByRole("group", { name: "Plan" });
+  await expect
+    .element(
+      field().getByRole("group", {
+        name: "Plan",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await field()
+    .getByRole("button", {
+      name: "Expand",
+      exact: true,
+    })
+    .click();
+  const plan = large().getByRole("group", {
+    name: "Plan",
+  });
   await expect.element(plan).toBeVisible();
-  const segments = [...large().element().querySelectorAll(".sv-fieldplan li")];
-  expect(segments.map((one) => one.getAttribute("data-piece"))).toEqual(["solid", "solid", "solid", "solid", "scaffold", "scaffold", "ghost", "ghost", "ghost", "ghost", "hollow"]);
-  expect(segments.map((one) => one.getAttribute("aria-label"))[4]).toBe("Mirror it in the TypeScript types, Working");
-  await expect.element(plan.getByRole("group", { name: "Show the rotation" })).toBeVisible();
-  await expect.element(plan.getByRole("group", { name: "Prune old files" })).toBeVisible();
+  const segments = [
+    ...large().element().querySelectorAll(".sv-fieldplan li"),
+  ];
+  expect(segments.map((one) => one.getAttribute("data-piece"))).toEqual([
+    "solid",
+    "solid",
+    "solid",
+    "solid",
+    "scaffold",
+    "scaffold",
+    "ghost",
+    "ghost",
+    "ghost",
+    "ghost",
+    "hollow",
+  ]);
+  expect(segments.map((one) => one.getAttribute("aria-label"))[4]).toBe(
+    "Mirror it in the TypeScript types, Working",
+  );
+  await expect
+    .element(
+      plan.getByRole("group", {
+        name: "Show the rotation",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      plan.getByRole("group", {
+        name: "Prune old files",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("the control opens the Field large, names its key from the registry, and Esc puts it back with focus on the control", async () => {
   await open();
-  const control = field().getByRole("button", { name: "Expand", exact: true });
+  const control = field().getByRole("button", {
+    name: "Expand",
+    exact: true,
+  });
   await expect.element(control).toHaveAccessibleDescription("Expand e");
   await control.click();
   await expect.element(large()).toBeVisible();
@@ -50,13 +111,25 @@ test("the control opens the Field large, names its key from the registry, and Es
 
 test("e opens the Field large and e again puts it back, unless a box holds the keys", async () => {
   await open();
-  (field().getByRole("button", { name: "Expand", exact: true }).element() as HTMLElement).focus();
+  (
+    field()
+      .getByRole("button", {
+        name: "Expand",
+        exact: true,
+      })
+      .element() as HTMLElement
+  ).focus();
   await userEvent.keyboard("e");
   await expect.element(large()).toBeVisible();
   await userEvent.keyboard("e");
   await expect.element(large()).not.toBeInTheDocument();
   // In the composer an e is a letter.
-  const box = page.getByRole("region", { name: /^Job: / }).getByRole("textbox").first();
+  const box = page
+    .getByRole("region", {
+      name: /^Job: /,
+    })
+    .getByRole("textbox")
+    .first();
   await box.click();
   await userEvent.keyboard("e");
   await expect.element(large()).not.toBeInTheDocument();

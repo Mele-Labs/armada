@@ -9,11 +9,26 @@ import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
 function goesRed(): Scenario {
-  const base = holding("main-red-hub", "Main green, then red three times, each handed to a Session");
+  const base = holding(
+    "main-red-hub",
+    "Main green, then red three times, each handed to a Session",
+  );
   const { first, later } = mainRed(repository().root);
   // Sessions served, so the Dispatch panel offers a Session.
-  const draft = { ...base.draft, sessions: () => sessionsStore() };
-  return { ...base, state: { ...base.state, ...first }, later, draft, behaves: writingMainsLogs };
+  const draft = {
+    ...base.draft,
+    sessions: () => sessionsStore(),
+  };
+  return {
+    ...base,
+    state: {
+      ...base.state,
+      ...first,
+    },
+    later,
+    draft,
+    behaves: writingMainsLogs,
+  };
 }
 
 export const s180MainRedHub: Scenario = goesRed();

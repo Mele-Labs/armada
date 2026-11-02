@@ -15,8 +15,26 @@ import { sessionsStore } from "../sessions/script";
 const OWNER = repository().manifest!.id;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const said = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "agent" }, text }) as const;
-const asked = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "you" }, text }) as const;
+const said = (id: string, at: string, text: string) =>
+  ({
+    id,
+    at,
+    kind: "message",
+    from: {
+      kind: "agent",
+    },
+    text,
+  }) as const;
+const asked = (id: string, at: string, text: string) =>
+  ({
+    id,
+    at,
+    kind: "message",
+    from: {
+      kind: "you",
+    },
+    text,
+  }) as const;
 
 /** Its turn ended on a message to him, 6 minutes ago. */
 const REPLIED_AT = ago(6);
@@ -26,12 +44,18 @@ const DONE_AT = ago(4);
 const replied: Session = {
   id: "r1",
   title: "Pin the store clock",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: REPLIED_AT,
   standing: "replied",
   rows: [
     asked("r1-u", "14:02:00", "Pin the clock in the store tests."),
-    said("r1-a", "14:12:09", "The clock is pinned in all four store tests and the fixture is gone.\nTwo files changed, and the suite passes."),
+    said(
+      "r1-a",
+      "14:12:09",
+      "The clock is pinned in all four store tests and the fixture is gone.\nTwo files changed, and the suite passes.",
+    ),
   ],
   attachments: [],
 };
@@ -39,16 +63,27 @@ const replied: Session = {
 const done: Session = {
   id: "d1",
   title: "Changelog script",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: DONE_AT,
   standing: "done",
-  done: { since: DONE_AT },
+  done: {
+    since: DONE_AT,
+  },
   rows: [
     asked("d1-u", "14:01:00", "Write the changelog script and merge it."),
     said("d1-a", "14:14:30", "The script is merged. There is nothing left to do."),
   ],
   attachments: [],
-  waitingFor: [{ id: `done:${DONE_AT}`, text: "Done", since: DONE_AT, source: "done" }],
+  waitingFor: [
+    {
+      id: `done:${DONE_AT}`,
+      text: "Done",
+      since: DONE_AT,
+      source: "done",
+    },
+  ],
 };
 
 /** Replied 12 minutes ago in a terminal session; the person answers it there, which the Cockpit is never told. */
@@ -57,7 +92,9 @@ const terminal: Session = {
   id: "t1",
   title: "Retry cap",
   terminal: true,
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: TERMINAL_AT,
   standing: "replied",
   rows: [
@@ -70,12 +107,19 @@ const terminal: Session = {
 const stuck: Session = {
   id: "k1",
   title: "Theme token audit",
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   lastTurnAt: ago(25),
   standing: "stuck",
   rows: [
     asked("k1-u", "13:40:00", "List the tokens no stylesheet reads."),
-    { id: "k1-t", at: "13:50:11", kind: "tool", text: "Grep packages/tokens/src -e --status" },
+    {
+      id: "k1-t",
+      at: "13:50:11",
+      kind: "tool",
+      text: "Grep packages/tokens/src -e --status",
+    },
   ],
   attachments: [],
 };
@@ -83,12 +127,19 @@ const stuck: Session = {
 const working: Session = {
   id: "w1",
   title: "Migration notes",
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   lastTurnAt: ago(1),
   standing: "working",
   rows: [
     asked("w1-u", "14:10:00", "Summarise the migrations since 0042."),
-    { id: "w1-t", at: "14:17:02", kind: "tool", text: "Read crates/store/migrations/0043.sql" },
+    {
+      id: "w1-t",
+      at: "14:17:02",
+      kind: "tool",
+      text: "Read crates/store/migrations/0043.sql",
+    },
   ],
   attachments: [],
 };
@@ -96,7 +147,9 @@ const working: Session = {
 const asking: Session = {
   id: "o1",
   title: "Cache key",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(9),
   standing: "idle",
   rows: [
@@ -104,13 +157,44 @@ const asking: Session = {
     said("o1-a", "14:09:20", "I can key the cache on the manifest hash or on its path."),
   ],
   attachments: [],
-  waitingFor: [{ id: "o1-q", text: "Key the cache on the manifest hash or on its path?", since: ago(9), source: "agent" }],
+  waitingFor: [
+    {
+      id: "o1-q",
+      text: "Key the cache on the manifest hash or on its path?",
+      since: ago(9),
+      source: "agent",
+    },
+  ],
 };
 
 let count = 0;
-const event = (minutes: number, session: Session, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string, live: boolean): TimelineEvent => {
+const event = (
+  minutes: number,
+  session: Session,
+  kind: TimelineEvent["kind"],
+  tone: TimelineEvent["tone"],
+  says: string,
+  live: boolean,
+): TimelineEvent => {
   count += 1;
-  return { id: count, at: ago(minutes), kind, subject: { kind: "session", id: session.id }, title: session.title ?? session.id, tone, says, manifest_id: OWNER, ...(live ? { live: true } : {}) };
+  return {
+    id: count,
+    at: ago(minutes),
+    kind,
+    subject: {
+      kind: "session",
+      id: session.id,
+    },
+    title: session.title ?? session.id,
+    tone,
+    says,
+    manifest_id: OWNER,
+    ...(live
+      ? {
+          live: true,
+        }
+      : {}),
+  };
 };
 
 /** Each Session's last event is a live turn, as Fleet writes one when a turn ends. */
@@ -130,19 +214,43 @@ const EVENTS: TimelineEvent[] = [
 ];
 
 function build(): Scenario {
-  const base = holding("session-standing", "Six Sessions each in the state Fleet read them to be in: replied twice, done, stuck, working and asking");
+  const base = holding(
+    "session-standing",
+    "Six Sessions each in the state Fleet read them to be in: replied twice, done, stuck, working and asking",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: null },
-    later: [{}],
+    state: {
+      ...base.state,
+      repository: null,
+    },
+    later: [
+      {},
+    ],
     draft: {
       events: EVENTS,
       sessions: () => {
-        const store = sessionsStore([terminal, replied, done, stuck, working, asking]);
+        const store = sessionsStore([
+          terminal,
+          replied,
+          done,
+          stuck,
+          working,
+          asking,
+        ]);
         return {
           ...store,
           // He answers Retry cap in its terminal: its turn begins again, and Fleet reads it working and drops the reply.
-          later: () => store.edit("t1", (one) => ({ ...one, turn: { state: "working" }, lastTurnAt: new Date().toISOString(), standing: "working", waitingFor: [] })),
+          later: () =>
+            store.edit("t1", (one) => ({
+              ...one,
+              turn: {
+                state: "working",
+              },
+              lastTurnAt: new Date().toISOString(),
+              standing: "working",
+              waitingFor: [],
+            })),
         };
       },
     },

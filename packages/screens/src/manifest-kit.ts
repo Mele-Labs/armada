@@ -23,25 +23,81 @@ import type {
 } from "@armada/protocol";
 
 /** `GET /kit/servers` and the four acts under it, read into the app. */
-export type KitServersRead = { ok: true; kit: KitServers } | { ok: false; outcome: Outcome };
+export type KitServersRead =
+  | {
+      ok: true;
+      kit: KitServers;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** `GET /kit/inventory`, read into the app. #1491. */
-export type KitInventoryRead = { ok: true; setup: KitInventory } | { ok: false; outcome: Outcome };
+export type KitInventoryRead =
+  | {
+      ok: true;
+      setup: KitInventory;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** `remove_kit_allowed_command`: what the allowlist holds after one is taken out. Since 23.35. */
-export type KitAllowedCommandsRead = { ok: true; commands: KitAllowedCommands } | { ok: false; outcome: Outcome };
+export type KitAllowedCommandsRead =
+  | {
+      ok: true;
+      commands: KitAllowedCommands;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** `look_at_kit_source`, read into the app. */
-export type KitLookRead = { ok: true; found: KitSourceFound } | { ok: false; outcome: Outcome };
+export type KitLookRead =
+  | {
+      ok: true;
+      found: KitSourceFound;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** `install_kit_piece`, read into the app. */
-export type KitInstallRead = { ok: true; installed: KitPieceInstalled } | { ok: false; outcome: Outcome };
+export type KitInstallRead =
+  | {
+      ok: true;
+      installed: KitPieceInstalled;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** `remove_kit_piece`, read into the app. */
-export type KitRemoveRead = { ok: true; removed: KitPieceRemoved } | { ok: false; outcome: Outcome };
+export type KitRemoveRead =
+  | {
+      ok: true;
+      removed: KitPieceRemoved;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** `restore_kit_piece`: the inventory with the skill back. */
-export type KitRestoreRead = { ok: true; setup: KitInventory } | { ok: false; outcome: Outcome };
+export type KitRestoreRead =
+  | {
+      ok: true;
+      setup: KitInventory;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** What the Manifest surface asks of the host for Kit. */
 export type KitSlice = {
@@ -64,7 +120,13 @@ export const kitSourceJobRequest = (source: string): string =>
   `Set up ${source} in my Kit. Find out whether it is a plugin or a skill, install it, and report what it added.`;
 
 /** What a Job started to fix a failed install is asked: the link, the command that failed and what it printed. */
-export function kitInstallFixRequest(source: string, failed: { command: string; error: string }): string {
+export function kitInstallFixRequest(
+  source: string,
+  failed: {
+    command: string;
+    error: string;
+  },
+): string {
   return `Install ${source} in my Kit. Armada ran \`${failed.command}\` and it failed with:\n\n${failed.error}\n\nFind out why, install it, and report what you changed.`;
 }
 
@@ -90,7 +152,9 @@ export function kitChanged(): void {
 export type KitPieces = {
   onRemove: (body: RemoveKitPiece) => void;
   /** The skill last moved to the Trash, while Undo can still bring it back. */
-  trashed: { name: string } | null;
+  trashed: {
+    name: string;
+  } | null;
   onUndo: () => void;
 };
 
@@ -106,15 +170,31 @@ export function addressTyped(transport: "stdio" | "http", typed: string): Server
   const text = typed.trim();
   if (text === "") return null;
   if (transport === "http") {
-    return text.startsWith("http://") || text.startsWith("https://") ? { transport, url: text } : null;
+    return text.startsWith("http://") || text.startsWith("https://")
+      ? {
+          transport,
+          url: text,
+        }
+      : null;
   }
   const [command, ...args] = text.split(/\s+/);
-  return command === undefined ? null : { transport, command, args };
+  return command === undefined
+    ? null
+    : {
+        transport,
+        command,
+        args,
+      };
 }
 
 /** An address, as a row draws it: the program and its arguments, or the URL. */
 export function addressReads(address: ServerAddress): string {
-  return address.transport === "http" ? address.url : [address.command, ...address.args].join(" ");
+  return address.transport === "http"
+    ? address.url
+    : [
+        address.command,
+        ...address.args,
+      ].join(" ");
 }
 
 /**
@@ -139,7 +219,10 @@ export function useKit(slice: KitSlice): {
   const [kit, setKit] = useState<KitServers | undefined>(undefined);
   const [setup, setSetup] = useState<KitInventory | undefined>(undefined);
   const [refused, setRefused] = useState<Outcome | null>(null);
-  const [trashed, setTrashed] = useState<{ name: string; at: string } | null>(null);
+  const [trashed, setTrashed] = useState<{
+    name: string;
+    at: string;
+  } | null>(null);
 
   const took = (read: KitServersRead): void => {
     if (read.ok) {
@@ -174,7 +257,9 @@ export function useKit(slice: KitSlice): {
     return () => {
       changed.delete(again);
     };
-  }, [slice.onReadKitInventory]);
+  }, [
+    slice.onReadKitInventory,
+  ]);
 
   // Folded off the answer, which is what the allowlist holds now: a row Fleet no longer
   // lists goes, and one it still lists stays. A refusal means the window was out of date,
@@ -189,7 +274,13 @@ export function useKit(slice: KitSlice): {
               ...was,
               kinds: was.kinds.map((one) =>
                 one.kind === "allowlist" && one.read.what === "read"
-                  ? { ...one, read: { ...one.read, items: one.read.items.filter((item) => left.has(item.name)) } }
+                  ? {
+                      ...one,
+                      read: {
+                        ...one.read,
+                        items: one.read.items.filter((item) => left.has(item.name)),
+                      },
+                    }
                   : one,
               ),
             },
@@ -216,18 +307,34 @@ export function useKit(slice: KitSlice): {
         if (!read.ok) return refusedPiece(read.outcome);
         setRefused(null);
         setSetup(read.removed.setup);
-        setTrashed(read.removed.trashed === null ? null : { name: body.name, at: read.removed.trashed });
+        setTrashed(
+          read.removed.trashed === null
+            ? null
+            : {
+                name: body.name,
+                at: read.removed.trashed,
+              },
+        );
       }),
-    trashed: trashed === null ? null : { name: trashed.name },
+    trashed:
+      trashed === null
+        ? null
+        : {
+            name: trashed.name,
+          },
     onUndo: () => {
       if (trashed === null) return;
-      void slice.onRestoreKitPiece({ trashed: trashed.at }).then((read) => {
-        // Undo is offered once: a place Fleet will not put back now it will not put back on a second press either.
-        setTrashed(null);
-        if (!read.ok) return refusedPiece(read.outcome);
-        setRefused(null);
-        setSetup(read.setup);
-      });
+      void slice
+        .onRestoreKitPiece({
+          trashed: trashed.at,
+        })
+        .then((read) => {
+          // Undo is offered once: a place Fleet will not put back now it will not put back on a second press either.
+          setTrashed(null);
+          if (!read.ok) return refusedPiece(read.outcome);
+          setRefused(null);
+          setSetup(read.setup);
+        });
     },
   };
 

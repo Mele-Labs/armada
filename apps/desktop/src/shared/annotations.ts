@@ -13,7 +13,10 @@
 import { isRing, type Ring } from "./ring";
 
 /** Where the notes land, from the repository root. One JSON file per note. */
-export const ANNOTATIONS_DIR = [".armada", "annotations"] as const;
+export const ANNOTATIONS_DIR = [
+  ".armada",
+  "annotations",
+] as const;
 
 /** The path a vite dev server answers on, for the renderer in a browser. */
 export const ANNOTATIONS_PATH = "/__armada/annotations";
@@ -25,13 +28,24 @@ export const STORIES_PATH = "/__armada/stories";
 export type StoryArgs = Record<string, string | number | boolean>;
 
 /** One story: its name as exported, its literal args, and the story file it is in, from the repository root. */
-export type IndexedStory = { name: string; args: StoryArgs; file: string };
+export type IndexedStory = {
+  name: string;
+  args: StoryArgs;
+  file: string;
+};
 
 /**
  * The stories that exist, by component name: the component's file from the repository root,
  * the story file's title, and each story's name as exported with its literal args.
  */
-export type StoryIndex = Record<string, { file: string; title: string; stories: IndexedStory[] }>;
+export type StoryIndex = Record<
+  string,
+  {
+    file: string;
+    title: string;
+    stories: IndexedStory[];
+  }
+>;
 
 /**
  * The attribute a development build stamps each element's own JSX onto, as
@@ -79,19 +93,41 @@ export function isExampleOf(id: unknown, name: unknown): name is string {
 /** Larger than a whole Retina window's PNG; a body past it is not a capture. */
 export const SHOT_LIMIT = 32 * 1024 * 1024;
 
-const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
+const PNG_SIGNATURE = [
+  137,
+  80,
+  78,
+  71,
+  13,
+  10,
+  26,
+  10,
+];
 
 /** Whether these bytes start as a PNG does and fit under `SHOT_LIMIT`. Main and the vite plugin write nothing else. */
 export function isPng(bytes: Uint8Array): boolean {
-  return bytes.length > PNG_SIGNATURE.length && bytes.length <= SHOT_LIMIT && PNG_SIGNATURE.every((byte, at) => bytes[at] === byte);
+  return (
+    bytes.length > PNG_SIGNATURE.length &&
+    bytes.length <= SHOT_LIMIT &&
+    PNG_SIGNATURE.every((byte, at) => bytes[at] === byte)
+  );
 }
 
 export type AnnotationStatus = "open" | "done";
 
-export type Box = { x: number; y: number; width: number; height: number };
+export type Box = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 /** Where a note was sent, #1250: the Session it went to as a message. */
-export type Sent = { at: string; sessionId: string; title: string };
+export type Sent = {
+  at: string;
+  sessionId: string;
+  title: string;
+};
 
 /** What a sent note is called where it went: its Session's title. */
 export const sentAs = (sent: Sent): string => sent.title;
@@ -101,29 +137,61 @@ export type AppContext = {
   /** Bridge's connection to Fleet, as its `state` word. */
   connection: string;
   /** Doctor's read: its one-line summary and each module's result. */
-  doctor: { summary: string; rows: { module: string; result: string; detail: string }[] };
+  doctor: {
+    summary: string;
+    rows: {
+      module: string;
+      result: string;
+      detail: string;
+    }[];
+  };
   /** The Session whose page was open, as Fleet last said it. */
-  session?: { id: string; title?: string; state: string; harness: string; cwd: string; endReason?: string };
+  session?: {
+    id: string;
+    title?: string;
+    state: string;
+    harness: string;
+    cwd: string;
+    endReason?: string;
+  };
 };
 
 /** Where an element's JSX is: a path from the repository root, and a line. #1584. */
-export type Source = { file: string; line: number };
+export type Source = {
+  file: string;
+  line: number;
+};
 
 /** Which of the note card's tools made a change. */
 export type ChangeKind = "size" | "colour" | "fill" | "spacing" | "text" | "variant";
 
-export const CHANGE_KINDS: readonly ChangeKind[] = ["size", "colour", "fill", "spacing", "text", "variant"];
+export const CHANGE_KINDS: readonly ChangeKind[] = [
+  "size",
+  "colour",
+  "fill",
+  "spacing",
+  "text",
+  "variant",
+];
 
 /** What `before` reads for a variant swap on a component that had no `data-variant`. */
 export const AS_DRAWN = "as drawn";
 
 /** Where a component is defined: its name, and the file it is in from the repository root. */
-export type Definition = { component: string; file: string };
+export type Definition = {
+  component: string;
+  file: string;
+};
 
 /** The innermost of `names`, nearest first, that the story index knows, and its file. */
 export function definitionOf(names: readonly string[], index: StoryIndex): Definition | undefined {
   const known = names.find((name) => index[name] !== undefined);
-  return known === undefined ? undefined : { component: known, file: index[known]!.file };
+  return known === undefined
+    ? undefined
+    : {
+        component: known,
+        file: index[known]!.file,
+      };
 }
 
 /**
@@ -132,7 +200,14 @@ export function definitionOf(names: readonly string[], index: StoryIndex): Defin
  * he picked, as computed; `token` the design token he picked it as, where he picked one. A `variant`
  * change is a story picked on the page: `after` is its name and `story` the file it is in.
  */
-export type StyleChange = { kind: ChangeKind; property: string; before: string; after: string; token?: string; story?: string };
+export type StyleChange = {
+  kind: ChangeKind;
+  property: string;
+  before: string;
+  after: string;
+  token?: string;
+  story?: string;
+};
 
 /**
  * One note. Written for the agent that reads it, so each field is something a
@@ -174,7 +249,11 @@ export type Annotation = {
   ownersFrom: "owner" | "parent";
   /** A CSS selector the layer found the element by, and finds it by again. */
   selector: string;
-  element: { tag: string; text: string; label: string | null };
+  element: {
+    tag: string;
+    text: string;
+    label: string | null;
+  };
   /** The rail item marked current when the note was written, or null. */
   screen: string | null;
   /** The open dialog or sheet the element sits in, by its accessible name. */
@@ -191,7 +270,10 @@ export type Annotation = {
   context?: AppContext;
   /** The element's box in the window, in CSS pixels. */
   box: Box;
-  window: { width: number; height: number };
+  window: {
+    width: number;
+    height: number;
+  };
   /**
    * The picture of the window taken as the note was saved, the layer left out of it: always
    * `shotName(id)`, beside this file. **Absent** on a note written before pictures were kept, and
@@ -276,13 +358,26 @@ function isContext(v: unknown): v is AppContext {
   return (
     isString(doctor["summary"]) &&
     Array.isArray(doctor["rows"]) &&
-    doctor["rows"].every((row) => isRecord(row) && isString(row["module"]) && isString(row["result"]) && isString(row["detail"])) &&
-    (v["session"] === undefined || (isRecord(v["session"]) && isString(v["session"]["id"]) && isString(v["session"]["state"])))
+    doctor["rows"].every(
+      (row) =>
+        isRecord(row) &&
+        isString(row["module"]) &&
+        isString(row["result"]) &&
+        isString(row["detail"]),
+    ) &&
+    (v["session"] === undefined ||
+      (isRecord(v["session"]) && isString(v["session"]["id"]) && isString(v["session"]["state"])))
   );
 }
 
 function isBox(v: unknown): v is Box {
-  return isRecord(v) && isNumber(v["x"]) && isNumber(v["y"]) && isNumber(v["width"]) && isNumber(v["height"]);
+  return (
+    isRecord(v) &&
+    isNumber(v["x"]) &&
+    isNumber(v["y"]) &&
+    isNumber(v["width"]) &&
+    isNumber(v["height"])
+  );
 }
 
 function isStyleChange(v: unknown): v is StyleChange {
@@ -324,19 +419,25 @@ export function isAnnotation(value: unknown): value is Annotation {
     isNullableString(element["label"]) &&
     isNullableString(value["screen"]) &&
     isNullableString(value["layer"]) &&
-    (value["nearby"] === undefined || (Array.isArray(value["nearby"]) && value["nearby"].every(isString))) &&
+    (value["nearby"] === undefined ||
+      (Array.isArray(value["nearby"]) && value["nearby"].every(isString))) &&
     isString(value["location"]) &&
     isNullableString(value["scenario"]) &&
-    (value["selected"] === undefined || (Array.isArray(value["selected"]) && value["selected"].every(isString))) &&
+    (value["selected"] === undefined ||
+      (Array.isArray(value["selected"]) && value["selected"].every(isString))) &&
     (value["context"] === undefined || isContext(value["context"])) &&
     isBox(value["box"]) &&
     isRecord(window) &&
     isNumber(window["width"]) &&
     isNumber(window["height"]) &&
-    (value["screenshot"] === undefined || value["screenshot"] === shotName(value["id"] as string)) &&
+    (value["screenshot"] === undefined ||
+      value["screenshot"] === shotName(value["id"] as string)) &&
     (value["ring"] === undefined || isRing(value["ring"])) &&
-    (value["changes"] === undefined || (Array.isArray(value["changes"]) && value["changes"].every(isStyleChange))) &&
-    (value["examples"] === undefined || (Array.isArray(value["examples"]) && value["examples"].every((name) => isExampleOf(value["id"], name)))) &&
+    (value["changes"] === undefined ||
+      (Array.isArray(value["changes"]) && value["changes"].every(isStyleChange))) &&
+    (value["examples"] === undefined ||
+      (Array.isArray(value["examples"]) &&
+        value["examples"].every((name) => isExampleOf(value["id"], name)))) &&
     isString(value["createdAt"]) &&
     isString(value["updatedAt"])
   );
@@ -350,29 +451,73 @@ export function serializeAnnotation(note: Annotation): string {
   const ordered: Annotation = {
     id: note.id,
     status: note.status,
-    ...(note.scope === undefined ? {} : { scope: note.scope }),
-    ...(note.sent === undefined ? {} : { sent: note.sent }),
+    ...(note.scope === undefined
+      ? {}
+      : {
+          scope: note.scope,
+        }),
+    ...(note.sent === undefined
+      ? {}
+      : {
+          sent: note.sent,
+        }),
     text: note.text,
     component: note.component,
-    ...(note.source === undefined ? {} : { source: note.source }),
-    ...(note.definition === undefined ? {} : { definition: note.definition }),
+    ...(note.source === undefined
+      ? {}
+      : {
+          source: note.source,
+        }),
+    ...(note.definition === undefined
+      ? {}
+      : {
+          definition: note.definition,
+        }),
     owners: note.owners,
     ownersFrom: note.ownersFrom,
     selector: note.selector,
     element: note.element,
     screen: note.screen,
     layer: note.layer,
-    ...(note.nearby === undefined ? {} : { nearby: note.nearby }),
+    ...(note.nearby === undefined
+      ? {}
+      : {
+          nearby: note.nearby,
+        }),
     location: note.location,
     scenario: note.scenario,
-    ...(note.selected === undefined ? {} : { selected: note.selected }),
-    ...(note.context === undefined ? {} : { context: note.context }),
+    ...(note.selected === undefined
+      ? {}
+      : {
+          selected: note.selected,
+        }),
+    ...(note.context === undefined
+      ? {}
+      : {
+          context: note.context,
+        }),
     box: note.box,
     window: note.window,
-    ...(note.screenshot === undefined ? {} : { screenshot: note.screenshot }),
-    ...(note.ring === undefined ? {} : { ring: note.ring }),
-    ...(note.changes === undefined ? {} : { changes: note.changes }),
-    ...(note.examples === undefined ? {} : { examples: note.examples }),
+    ...(note.screenshot === undefined
+      ? {}
+      : {
+          screenshot: note.screenshot,
+        }),
+    ...(note.ring === undefined
+      ? {}
+      : {
+          ring: note.ring,
+        }),
+    ...(note.changes === undefined
+      ? {}
+      : {
+          changes: note.changes,
+        }),
+    ...(note.examples === undefined
+      ? {}
+      : {
+          examples: note.examples,
+        }),
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
   };
@@ -391,7 +536,10 @@ export function byCreation(a: Annotation, b: Annotation): number {
  */
 export function requestOf(note: Annotation): string {
   if (note.scope === "window") return windowRequestOf(note);
-  const components = [note.component, ...note.owners].filter((name): name is string => name !== null);
+  const components = [
+    note.component,
+    ...note.owners,
+  ].filter((name): name is string => name !== null);
   const lines = [
     note.text,
     "",
@@ -405,16 +553,21 @@ export function requestOf(note: Annotation): string {
   if (note.screen !== null) lines.push(`- Screen: ${note.screen}`);
   if (note.layer !== null) lines.push(`- Inside: ${note.layer}`);
   if (note.scenario !== null) lines.push(`- Mock scenario: ${note.scenario}`);
-  lines.push(`- Window: ${note.window.width}×${note.window.height}`, `- Note file: .armada/annotations/${note.id}.json`);
+  lines.push(
+    `- Window: ${note.window.width}×${note.window.height}`,
+    `- Note file: .armada/annotations/${note.id}.json`,
+  );
   const changed = changeLines(note);
   if (changed.length > 0) lines.push("", ...changed);
   return lines.join("\n");
 }
 
 /** The line naming a component and the file it is defined in. */
-export const definitionLine = (definition: Definition): string => `- Component: ${definition.component} in ${definition.file}`;
+export const definitionLine = (definition: Definition): string =>
+  `- Component: ${definition.component} in ${definition.file}`;
 
-const quoted = (change: StyleChange, value: string): string => (change.kind === "text" ? JSON.stringify(value) : value === "" ? "none" : value);
+const quoted = (change: StyleChange, value: string): string =>
+  change.kind === "text" ? JSON.stringify(value) : value === "" ? "none" : value;
 
 /**
  * What the person changed on the element with the card's tools, to show what he wants: a heading naming
@@ -434,29 +587,54 @@ export function changeLines(note: Pick<Annotation, "selector" | "changes">): str
 }
 
 /** What a whole-window note records of the window. A failure sent to a Session records the same, so both write it with `windowLines`. */
-export type WindowFacts = Pick<Annotation, "screen" | "layer" | "location" | "scenario" | "window" | "context">;
+export type WindowFacts = Pick<
+  Annotation,
+  "screen" | "layer" | "location" | "scenario" | "window" | "context"
+>;
 
 /** A Session as a context records it. */
-export function sessionFacts(session: { id: string; title?: string; state: string; harness: string; cwd: string; end_reason?: string }): NonNullable<AppContext["session"]> {
+export function sessionFacts(session: {
+  id: string;
+  title?: string;
+  state: string;
+  harness: string;
+  cwd: string;
+  end_reason?: string;
+}): NonNullable<AppContext["session"]> {
   return {
     id: session.id,
-    ...(session.title === undefined ? {} : { title: session.title }),
+    ...(session.title === undefined
+      ? {}
+      : {
+          title: session.title,
+        }),
     state: session.state,
     harness: session.harness,
     cwd: session.cwd,
-    ...(session.end_reason === undefined ? {} : { endReason: session.end_reason }),
+    ...(session.end_reason === undefined
+      ? {}
+      : {
+          endReason: session.end_reason,
+        }),
   };
 }
 
 /** The line stating an open Session, labelled by whose it is. */
 export function sessionLine(label: string, session: NonNullable<AppContext["session"]>): string {
-  const facts = [`state ${session.state}`, `harness ${session.harness}`, `cwd ${session.cwd}`, session.endReason === undefined ? null : `ended: ${session.endReason}`];
+  const facts = [
+    `state ${session.state}`,
+    `harness ${session.harness}`,
+    `cwd ${session.cwd}`,
+    session.endReason === undefined ? null : `ended: ${session.endReason}`,
+  ];
   return `- ${label}: ${session.title === undefined ? "" : `"${session.title}" `}(${session.id}) — ${facts.filter((f) => f !== null).join(", ")}`;
 }
 
 /** The page and the state Bridge held, as labelled lines. */
 export function windowLines(note: WindowFacts): string[] {
-  const lines = [`- Screen: ${note.screen ?? "none marked"}`];
+  const lines = [
+    `- Screen: ${note.screen ?? "none marked"}`,
+  ];
   if (note.layer !== null) lines.push(`- Inside: ${note.layer}`);
   lines.push(`- Location: ${note.location}`);
   if (note.scenario !== null) lines.push(`- Mock scenario: ${note.scenario}`);
@@ -466,14 +644,19 @@ export function windowLines(note: WindowFacts): string[] {
     const { session, doctor } = context;
     if (session !== undefined) lines.push(sessionLine("Job open", session));
     lines.push(`- Connection to Fleet: ${context.connection}`, `- Doctor: ${doctor.summary}`);
-    for (const row of doctor.rows) lines.push(`  - ${row.module}: ${row.result}${row.detail === "" ? "" : ` — ${row.detail}`}`);
+    for (const row of doctor.rows)
+      lines.push(`  - ${row.module}: ${row.result}${row.detail === "" ? "" : ` — ${row.detail}`}`);
   }
   return lines;
 }
 
 /** A whole-window note's request: what the person said, the page, and the state Bridge held. */
 function windowRequestOf(note: Annotation): string {
-  const lines = [note.text, "", "This is feedback on the state of Bridge's whole window, left with the annotation layer. The screenshot is the window."];
+  const lines = [
+    note.text,
+    "",
+    "This is feedback on the state of Bridge's whole window, left with the annotation layer. The screenshot is the window.",
+  ];
   lines.push(...windowLines(note), `- Note file: .armada/annotations/${note.id}.json`);
   return lines.join("\n");
 }

@@ -19,66 +19,328 @@ export type SystemEntryDef = {
   sections?: readonly string[];
 };
 
-export const SYSTEM_GROUPS: readonly { id: SystemGroupId; label: string }[] = [
-  { id: "kit", label: "Kit" },
-  { id: "fleet", label: "Fleet" },
-  { id: "mods", label: "Mods" },
-  { id: "bridge", label: "Bridge" },
+export const SYSTEM_GROUPS: readonly {
+  id: SystemGroupId;
+  label: string;
+}[] = [
+  {
+    id: "kit",
+    label: "Kit",
+  },
+  {
+    id: "fleet",
+    label: "Fleet",
+  },
+  {
+    id: "mods",
+    label: "Mods",
+  },
+  {
+    id: "bridge",
+    label: "Bridge",
+  },
 ];
 
 export const SYSTEM_ENTRIES: readonly SystemEntryDef[] = [
-  { id: "kit:skills", label: "Skills", group: "kit", kit: "skills" },
-  { id: "kit:plugins", label: "Plugins", group: "kit", kit: "plugins" },
-  { id: "kit:sub-agents", label: "Sub agents", group: "kit", kit: "sub-agents" },
-  { id: "kit:commands", label: "Commands", group: "kit", kit: "commands" },
-  { id: "kit:servers", label: "Servers", group: "kit", kit: "servers" },
-  { id: "kit:instructions", label: "Instructions", group: "kit", kit: "instructions" },
-  { id: "kit:output-styles", label: "Output styles", group: "kit", kit: "output-styles" },
-  { id: "kit:allowlist", label: "Allowlist", group: "kit", kit: "allowlist" },
-  { id: "kit:mods", label: "Mods", group: "kit", kit: "mods" },
-  { id: "kit:workflows", label: "Workflows", group: "kit" },
-  { id: "kit:workspaces", label: "Workspaces", group: "kit" },
-  { id: "kit:models", label: "Models", group: "kit", sections: ["model", "effort"] },
-  { id: "kit:prompts", label: "Prompts", group: "kit", sections: ["prompts"] },
-  { id: "kit:harness", label: "Harness", group: "kit", sections: ["harness"] },
-  { id: "fleet:limits", label: "Limits", group: "fleet", sections: ["limits"] },
-  { id: "fleet:timeouts", label: "Timeouts", group: "fleet", sections: ["timeouts"] },
-  { id: "fleet:retention", label: "Retention", group: "fleet", sections: ["retention"] },
-  { id: "fleet:plan", label: "Plan", group: "fleet", sections: ["plan"] },
-  { id: "fleet:machine", label: "Machine", group: "fleet", sections: ["machine"] },
-  { id: "fleet:account", label: "Account", group: "fleet", sections: ["account"] },
-  { id: "fleet:store", label: "Store", group: "fleet", sections: ["store"] },
-  { id: "fleet:features", label: "Features", group: "fleet", sections: ["features"] },
-  { id: "bridge:all", label: "All", group: "mods", sections: ["mods-all"] },
-  { id: "bridge:theme", label: "Theme", group: "mods", sections: ["theme"] },
-  { id: "bridge:layout", label: "Layout", group: "mods", sections: ["layout"] },
-  { id: "bridge:words", label: "Words", group: "mods", sections: ["words"] },
-  { id: "bridge:tracker", label: "Tracker", group: "mods", sections: ["trackers"] },
-  { id: "bridge:fleet", label: "Fleet", group: "mods", sections: ["fleet-mods"] },
-  { id: "bridge:spacing", label: "Spacing", group: "bridge", sections: ["spacing"] },
-  { id: "bridge:keyboard", label: "Keyboard shortcuts", group: "bridge", sections: ["keyboard"] },
-  { id: "bridge:palette", label: "Command palette", group: "bridge", sections: ["palette"] },
-  { id: "bridge:thread", label: "Thread", group: "bridge", sections: ["thread"] },
-  { id: "bridge:time", label: "Time", group: "bridge", sections: ["time"] },
-  { id: "bridge:editor", label: "Editor", group: "bridge", sections: ["editor"] },
-  { id: "bridge:terminal", label: "Terminal", group: "bridge", sections: ["terminal"] },
-  { id: "bridge:links", label: "Links", group: "bridge", sections: ["links"] },
-  { id: "bridge:phone", label: "Phone", group: "bridge", sections: ["phone"] },
-  { id: "bridge:guides", label: "Guides", group: "bridge", sections: ["guides"] },
+  {
+    id: "kit:skills",
+    label: "Skills",
+    group: "kit",
+    kit: "skills",
+  },
+  {
+    id: "kit:plugins",
+    label: "Plugins",
+    group: "kit",
+    kit: "plugins",
+  },
+  {
+    id: "kit:sub-agents",
+    label: "Sub agents",
+    group: "kit",
+    kit: "sub-agents",
+  },
+  {
+    id: "kit:commands",
+    label: "Commands",
+    group: "kit",
+    kit: "commands",
+  },
+  {
+    id: "kit:servers",
+    label: "Servers",
+    group: "kit",
+    kit: "servers",
+  },
+  {
+    id: "kit:instructions",
+    label: "Instructions",
+    group: "kit",
+    kit: "instructions",
+  },
+  {
+    id: "kit:output-styles",
+    label: "Output styles",
+    group: "kit",
+    kit: "output-styles",
+  },
+  {
+    id: "kit:allowlist",
+    label: "Allowlist",
+    group: "kit",
+    kit: "allowlist",
+  },
+  {
+    id: "kit:mods",
+    label: "Mods",
+    group: "kit",
+    kit: "mods",
+  },
+  {
+    id: "kit:workflows",
+    label: "Workflows",
+    group: "kit",
+  },
+  {
+    id: "kit:workspaces",
+    label: "Workspaces",
+    group: "kit",
+  },
+  {
+    id: "kit:models",
+    label: "Models",
+    group: "kit",
+    sections: [
+      "model",
+      "effort",
+    ],
+  },
+  {
+    id: "kit:prompts",
+    label: "Prompts",
+    group: "kit",
+    sections: [
+      "prompts",
+    ],
+  },
+  {
+    id: "kit:harness",
+    label: "Harness",
+    group: "kit",
+    sections: [
+      "harness",
+    ],
+  },
+  {
+    id: "fleet:limits",
+    label: "Limits",
+    group: "fleet",
+    sections: [
+      "limits",
+    ],
+  },
+  {
+    id: "fleet:timeouts",
+    label: "Timeouts",
+    group: "fleet",
+    sections: [
+      "timeouts",
+    ],
+  },
+  {
+    id: "fleet:retention",
+    label: "Retention",
+    group: "fleet",
+    sections: [
+      "retention",
+    ],
+  },
+  {
+    id: "fleet:plan",
+    label: "Plan",
+    group: "fleet",
+    sections: [
+      "plan",
+    ],
+  },
+  {
+    id: "fleet:machine",
+    label: "Machine",
+    group: "fleet",
+    sections: [
+      "machine",
+    ],
+  },
+  {
+    id: "fleet:account",
+    label: "Account",
+    group: "fleet",
+    sections: [
+      "account",
+    ],
+  },
+  {
+    id: "fleet:store",
+    label: "Store",
+    group: "fleet",
+    sections: [
+      "store",
+    ],
+  },
+  {
+    id: "fleet:features",
+    label: "Features",
+    group: "fleet",
+    sections: [
+      "features",
+    ],
+  },
+  {
+    id: "bridge:all",
+    label: "All",
+    group: "mods",
+    sections: [
+      "mods-all",
+    ],
+  },
+  {
+    id: "bridge:theme",
+    label: "Theme",
+    group: "mods",
+    sections: [
+      "theme",
+    ],
+  },
+  {
+    id: "bridge:layout",
+    label: "Layout",
+    group: "mods",
+    sections: [
+      "layout",
+    ],
+  },
+  {
+    id: "bridge:words",
+    label: "Words",
+    group: "mods",
+    sections: [
+      "words",
+    ],
+  },
+  {
+    id: "bridge:tracker",
+    label: "Tracker",
+    group: "mods",
+    sections: [
+      "trackers",
+    ],
+  },
+  {
+    id: "bridge:fleet",
+    label: "Fleet",
+    group: "mods",
+    sections: [
+      "fleet-mods",
+    ],
+  },
+  {
+    id: "bridge:spacing",
+    label: "Spacing",
+    group: "bridge",
+    sections: [
+      "spacing",
+    ],
+  },
+  {
+    id: "bridge:keyboard",
+    label: "Keyboard shortcuts",
+    group: "bridge",
+    sections: [
+      "keyboard",
+    ],
+  },
+  {
+    id: "bridge:palette",
+    label: "Command palette",
+    group: "bridge",
+    sections: [
+      "palette",
+    ],
+  },
+  {
+    id: "bridge:thread",
+    label: "Thread",
+    group: "bridge",
+    sections: [
+      "thread",
+    ],
+  },
+  {
+    id: "bridge:time",
+    label: "Time",
+    group: "bridge",
+    sections: [
+      "time",
+    ],
+  },
+  {
+    id: "bridge:editor",
+    label: "Editor",
+    group: "bridge",
+    sections: [
+      "editor",
+    ],
+  },
+  {
+    id: "bridge:terminal",
+    label: "Terminal",
+    group: "bridge",
+    sections: [
+      "terminal",
+    ],
+  },
+  {
+    id: "bridge:links",
+    label: "Links",
+    group: "bridge",
+    sections: [
+      "links",
+    ],
+  },
+  {
+    id: "bridge:phone",
+    label: "Phone",
+    group: "bridge",
+    sections: [
+      "phone",
+    ],
+  },
+  {
+    id: "bridge:guides",
+    label: "Guides",
+    group: "bridge",
+    sections: [
+      "guides",
+    ],
+  },
 ];
 
 export const FIRST_ENTRY = "kit:skills";
 
-export const entryOf = (id: string): SystemEntryDef | undefined => SYSTEM_ENTRIES.find((one) => one.id === id);
+export const entryOf = (id: string): SystemEntryDef | undefined =>
+  SYSTEM_ENTRIES.find((one) => one.id === id);
 
 /** The entry that draws a settings.json category, for a palette row that opens Settings at one. */
-export const entryOfSection = (section: string): string | undefined => SYSTEM_ENTRIES.find((one) => one.sections?.includes(section))?.id;
+export const entryOfSection = (section: string): string | undefined =>
+  SYSTEM_ENTRIES.find((one) => one.sections?.includes(section))?.id;
 
 /** The entry a palette row that opens Settings at a category opens: `settings:keyboard`, or `fleet_settings` for Limits. */
-export const entryOfSettingsRow = (row: string): string | undefined => entryOfSection(row === "fleet_settings" ? "limits" : row.replace(/^settings:/, ""));
+export const entryOfSettingsRow = (row: string): string | undefined =>
+  entryOfSection(row === "fleet_settings" ? "limits" : row.replace(/^settings:/, ""));
 
 /** The entry that lists one kind, as a plugin's row for something it brings leads to it. */
-export const entryOfKind = (kind: KitKindId): string => SYSTEM_ENTRIES.find((one) => one.kit === kind)?.id ?? FIRST_ENTRY;
+export const entryOfKind = (kind: KitKindId): string =>
+  SYSTEM_ENTRIES.find((one) => one.kit === kind)?.id ?? FIRST_ENTRY;
 
 /**
  * The entry a surface the window used to have opens: Mods is Theme, Guides and Workflows are their own, and Kit and
@@ -115,18 +377,37 @@ export function surfaceOfEntry(id: string): string {
  * settings.json, each of those settings' title, key and description. Models draws the harness's list, not those rows.
  */
 function wordsOf(entry: SystemEntryDef, list: SettingsList | null): string {
-  const sections = (entry.sections ?? []).flatMap((id) => SETTINGS_SECTIONS.filter((one) => one.id === id));
-  const rows = list === null || entry.id === "kit:models" ? [] : sections.flatMap((one) => settingsIn(list, one.id).flatMap(settingWords));
-  return [entry.label, ...sections.flatMap((one) => [one.label, one.palette, ...one.settings.flat()]), ...rows].join(" ");
+  const sections = (entry.sections ?? []).flatMap((id) =>
+    SETTINGS_SECTIONS.filter((one) => one.id === id),
+  );
+  const rows =
+    list === null || entry.id === "kit:models"
+      ? []
+      : sections.flatMap((one) => settingsIn(list, one.id).flatMap(settingWords));
+  return [
+    entry.label,
+    ...sections.flatMap((one) => [
+      one.label,
+      one.palette,
+      ...one.settings.flat(),
+    ]),
+    ...rows,
+  ].join(" ");
 }
 
 /**
  * How a search finds an entry: by its name or settings words, by an item in its list (`items`, so its list opens
  * filtered), or not at all.
  */
-export function foundBy(entry: SystemEntryDef, query: string, names: (kind: KitKindId) => string[], list: SettingsList | null = null): "words" | "items" | null {
+export function foundBy(
+  entry: SystemEntryDef,
+  query: string,
+  names: (kind: KitKindId) => string[],
+  list: SettingsList | null = null,
+): "words" | "items" | null {
   if (query.trim() === "") return "words";
   if (holds(wordsOf(entry, list), query)) return "words";
-  if (entry.kit !== undefined && names(entry.kit).some((name) => holds(name, query))) return "items";
+  if (entry.kit !== undefined && names(entry.kit).some((name) => holds(name, query)))
+    return "items";
   return null;
 }

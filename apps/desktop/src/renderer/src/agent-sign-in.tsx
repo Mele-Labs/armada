@@ -8,7 +8,10 @@ import { Toast, Tooltip } from "@armada/components";
 import "./agent-sign-in.css";
 
 /** Where the sign-in stands. `signed_out_since` absent: signed in. */
-export type AgentSignIn = { signed_out_since?: string; signing_in: boolean };
+export type AgentSignIn = {
+  signed_out_since?: string;
+  signing_in: boolean;
+};
 
 export type AgentSignInSource = {
   get(): AgentSignIn;
@@ -20,8 +23,13 @@ export type AgentSignInSource = {
 const AgentSignInContext = createContext<AgentSignInSource | null>(null);
 export const AgentSignInSourceProvider = AgentSignInContext.Provider;
 
-const NO_STATE: AgentSignIn = { signing_in: false };
-const NONE = { get: () => NO_STATE, subscribe: () => () => undefined };
+const NO_STATE: AgentSignIn = {
+  signing_in: false,
+};
+const NONE = {
+  get: () => NO_STATE,
+  subscribe: () => () => undefined,
+};
 
 /** Stays until the sign-in is settled. One act, which goes while the sign-in runs. */
 export function AgentSignInAlert() {

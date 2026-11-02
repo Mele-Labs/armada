@@ -1,23 +1,51 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { STORE, call, toStore, claim, enrolDevice, everythingStoredFor, forgeAnswers, hash, holder, newKeyPair } from "./support";
+import {
+  STORE,
+  call,
+  toStore,
+  claim,
+  enrolDevice,
+  everythingStoredFor,
+  forgeAnswers,
+  hash,
+  holder,
+  newKeyPair,
+} from "./support";
 
 afterEach(() => vi.restoreAllMocks());
 
 const enrol = (body: unknown) =>
-  toStore(`${STORE}/v1/enrol`, { method: "POST", body: JSON.stringify(body) });
+  toStore(`${STORE}/v1/enrol`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 
 describe("enrolling a device", () => {
   it("files it under the forge's numeric id and keeps no token", async () => {
     const token = "device-flow-token-for-this-test";
     const { spki } = await newKeyPair();
-    const logs = (["log", "info", "warn", "error", "debug"] as const).map((level) => vi.spyOn(console, level));
+    const logs = (
+      [
+        "log",
+        "info",
+        "warn",
+        "error",
+        "debug",
+      ] as const
+    ).map((level) => vi.spyOn(console, level));
     const forge = forgeAnswers(424242);
 
-    const answer = await enrol({ token, public_key: spki, machine: "studio" });
+    const answer = await enrol({
+      token,
+      public_key: spki,
+      machine: "studio",
+    });
     const text = await answer.text();
 
     expect(answer.status).toBe(200);
-    const { device } = JSON.parse(text) as { device: string };
+    const { device } = JSON.parse(text) as {
+      device: string;
+    };
     expect(device).toMatch(/^424242\.[0-9a-f]{32}$/);
     expect(text).not.toContain(token);
 
@@ -37,7 +65,11 @@ describe("enrolling a device", () => {
   });
 
   it("puts two machines of one account in one store, and another account's apart", async () => {
-    const [a, b, other] = [await enrolDevice(7001), await enrolDevice(7001), await enrolDevice(7002)];
+    const [a, b, other] = [
+      await enrolDevice(7001),
+      await enrolDevice(7001),
+      await enrolDevice(7002),
+    ];
     expect(a.id.startsWith("7001.")).toBe(true);
     expect(other.id.startsWith("7002.")).toBe(true);
 
@@ -50,10 +82,16 @@ describe("enrolling a device", () => {
     const { spki } = await newKeyPair();
     forgeAnswers(7100, 401);
 
-    const answer = await enrol({ token: "expired-token", public_key: spki, machine: "studio" });
+    const answer = await enrol({
+      token: "expired-token",
+      public_key: spki,
+      machine: "studio",
+    });
 
     expect(answer.status).toBe(401);
-    expect(await answer.json()).toEqual({ error: "forge_refused" });
+    expect(await answer.json()).toEqual({
+      error: "forge_refused",
+    });
     expect(await everythingStoredFor(7100)).not.toContain(spki);
   });
 
@@ -61,15 +99,25 @@ describe("enrolling a device", () => {
     const { spki } = await newKeyPair();
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
 
-    const answer = await enrol({ token: "any-token", public_key: spki, machine: "studio" });
+    const answer = await enrol({
+      token: "any-token",
+      public_key: spki,
+      machine: "studio",
+    });
 
     expect(answer.status).toBe(502);
-    expect(await answer.json()).toEqual({ error: "forge_unreachable" });
+    expect(await answer.json()).toEqual({
+      error: "forge_unreachable",
+    });
   });
 
   it("refuses a key that is not a P-256 public key before it asks the forge", async () => {
     const forge = forgeAnswers(7200);
-    const answer = await enrol({ token: "any-token", public_key: "bm90IGEga2V5", machine: "studio" });
+    const answer = await enrol({
+      token: "any-token",
+      public_key: "bm90IGEga2V5",
+      machine: "studio",
+    });
     expect(answer.status).toBe(400);
     expect(forge).not.toHaveBeenCalled();
   });
@@ -77,16 +125,34 @@ describe("enrolling a device", () => {
   it("refuses a body with a field it does not know", async () => {
     const { spki } = await newKeyPair();
     const forge = forgeAnswers(7300);
-    const answer = await enrol({ token: "any-token", public_key: spki, machine: "studio", login: "someone" });
+    const answer = await enrol({
+      token: "any-token",
+      public_key: spki,
+      machine: "studio",
+      login: "someone",
+    });
     expect(answer.status).toBe(400);
     expect(forge).not.toHaveBeenCalled();
   });
 
   it("refuses an id that is not a positive number", async () => {
     const { spki } = await newKeyPair();
-    for (const id of ["12", 0, -4, 1.5]) {
-      vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ id }));
-      const answer = await enrol({ token: "any-token", public_key: spki, machine: "studio" });
+    for (const id of [
+      "12",
+      0,
+      -4,
+      1.5,
+    ]) {
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+        Response.json({
+          id,
+        }),
+      );
+      const answer = await enrol({
+        token: "any-token",
+        public_key: spki,
+        machine: "studio",
+      });
       expect(answer.status).toBe(502);
       vi.restoreAllMocks();
     }

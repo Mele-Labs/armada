@@ -3,8 +3,20 @@
 // its name in the head. Everything else is the forge's.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, PullRequestPanel, forgetKept, mayWrite, repositoryOfAddress } from "@armada/components";
-import type { DiffFile, EntryTriage, FilesReach, PullRequestComposerProps, ReachTest } from "@armada/components";
+import {
+  Alert,
+  PullRequestPanel,
+  forgetKept,
+  mayWrite,
+  repositoryOfAddress,
+} from "@armada/components";
+import type {
+  DiffFile,
+  EntryTriage,
+  FilesReach,
+  PullRequestComposerProps,
+  ReachTest,
+} from "@armada/components";
 import { placeOf, whyNotOpenedLink } from "@armada/screens";
 import { useAtFloor } from "@armada/shell";
 import type { PullRequestEntry, PullReviewRow, PullRequestPage } from "@armada/protocol";
@@ -29,10 +41,26 @@ import { patchesOf } from "./pull-request-patches";
 import { usePanelReads, useReading } from "./reads";
 import type { PatchesRead, PullRequestRead, PullRequestRefused, Reading } from "./reads";
 
-type Item = Extract<PanelItem, { kind: "pr" }>;
-type Held = Extract<SessionAttachment, { kind: "pull_request" }>;
+type Item = Extract<
+  PanelItem,
+  {
+    kind: "pr";
+  }
+>;
+type Held = Extract<
+  SessionAttachment,
+  {
+    kind: "pull_request";
+  }
+>;
 
-const TABS = ["conversation", "checks", "files", "commits", "review"];
+const TABS = [
+  "conversation",
+  "checks",
+  "files",
+  "commits",
+  "review",
+];
 
 const PATCHES_NOT_READ = "The forge did not answer for this pull request's files.";
 
@@ -47,7 +75,12 @@ function rowOf(read: PullRequestRead, repository: string): PullReviewRow {
     branch: facts.branch,
     address: facts.address,
     draft: facts.state === "draft",
-    checks: facts.checks.state === "failed" ? "failed" : facts.checks.state === "passed" ? "passed" : "running",
+    checks:
+      facts.checks.state === "failed"
+        ? "failed"
+        : facts.checks.state === "passed"
+          ? "passed"
+          : "running",
     review: page.review,
     head: page.head ?? "",
     author: page.author ?? "",
@@ -55,7 +88,10 @@ function rowOf(read: PullRequestRead, repository: string): PullReviewRow {
   };
 }
 
-type Browser = { browserSaid: string | undefined; openBrowser: (address: string) => void };
+type Browser = {
+  browserSaid: string | undefined;
+  openBrowser: (address: string) => void;
+};
 
 /** Open in browser always leaves Armada, and a refusal is said in the panel rather than left a dead press. */
 function useBrowser(): Browser {
@@ -64,7 +100,10 @@ function useBrowser(): Browser {
     setSaid(undefined);
     void openLink(address).then((followed) => setSaid(whyNotOpenedLink(followed) ?? undefined));
   };
-  return { browserSaid, openBrowser };
+  return {
+    browserSaid,
+    openBrowser,
+  };
 }
 
 // The panel is drawn the moment it is pressed: the read is two forge round trips, and one that answers nothing must still say so.
@@ -77,16 +116,43 @@ export function PullRequestSide({ item }: { item: Item }) {
     setSeen(item);
     setAgain((n) => n + 1);
   }
-  const reading = useReading<PullRequestRead | PullRequestRefused>(() => reads?.pullRequest(item) ?? Promise.resolve(undefined), `${item.address}#${item.number}`, again, true);
+  const reading = useReading<PullRequestRead | PullRequestRefused>(
+    () => reads?.pullRequest(item) ?? Promise.resolve(undefined),
+    `${item.address}#${item.number}`,
+    again,
+    true,
+  );
   if (reads === undefined) return null;
-  return <Drawn item={item} reading={reading} onFiles={() => setAgain((n) => n + 1)} onRefresh={() => setAgain((n) => n + 1)} />;
+  return (
+    <Drawn
+      item={item}
+      reading={reading}
+      onFiles={() => setAgain((n) => n + 1)}
+      onRefresh={() => setAgain((n) => n + 1)}
+    />
+  );
 }
 
 /** The forge names a pull request's reviewers a few seconds after it leaves draft, so it is read again at these offsets (ms) from the press. */
-const REVIEWERS_ASKED_AT = [2_000, 5_000, 10_000, 20_000];
+const REVIEWERS_ASKED_AT = [
+  2_000,
+  5_000,
+  10_000,
+  20_000,
+];
 
 // One component whether the read is out or in, so the panel's Sheet stays mounted when it lands.
-function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Reading<PullRequestRead | PullRequestRefused>; onFiles: () => void; onRefresh: () => void }) {
+function Drawn({
+  item,
+  reading,
+  onFiles,
+  onRefresh,
+}: {
+  item: Item;
+  reading: Reading<PullRequestRead | PullRequestRefused>;
+  onFiles: () => void;
+  onRefresh: () => void;
+}) {
   const reads = usePanelReads()!;
   const floor = useAtFloor();
   const draft = useSessionsDraft();
@@ -116,8 +182,12 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
   useTabKeys(TABS, tab, goTo);
 
   // The Job that holds it, as its ledger does: its attachment is the pull request's live state while it does.
-  const owner = sessions.find((one) => one.attachments.some((a) => a.kind === "pull_request" && a.number === item.number));
-  const held: Held | undefined = owner?.attachments.find((a): a is Held => a.kind === "pull_request" && a.number === item.number);
+  const owner = sessions.find((one) =>
+    one.attachments.some((a) => a.kind === "pull_request" && a.number === item.number),
+  );
+  const held: Held | undefined = owner?.attachments.find(
+    (a): a is Held => a.kind === "pull_request" && a.number === item.number,
+  );
   const { sentBack, sendBack } = useSendBack(owner?.id ?? "", draft?.send);
   const back = useBack();
   // What the Job's agent made of each human comment, where this pull request is the one a Job triaged: drawn on the comment with the act that sends it to the Job.
@@ -125,22 +195,53 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
   const sendComment = draft?.sendComment;
   const triaged = (entry: PullRequestEntry): EntryTriage | undefined => {
     if (entry.kind !== "comment" || triage === undefined || owner === undefined) return undefined;
-    const one = triage.comments.find((each) => each.author === entry.author && each.text === entry.body);
+    const one = triage.comments.find(
+      (each) => each.author === entry.author && each.text === entry.body,
+    );
     if (one === undefined) return undefined;
-    return { read: one.read, where: one.where, ...(one.sent === true ? { sent: true } : {}), ...(sendComment === undefined ? {} : { onSend: () => sendComment(owner.id, one.id) }) };
+    return {
+      read: one.read,
+      where: one.where,
+      ...(one.sent === true
+        ? {
+            sent: true,
+          }
+        : {}),
+      ...(sendComment === undefined
+        ? {}
+        : {
+            onSend: () => sendComment(owner.id, one.id),
+          }),
+    };
   };
   const opened = item.comment;
-  const focused = (entry: PullRequestEntry): boolean => opened !== undefined && entry.author === opened.author && entry.body === opened.body;
+  const focused = (entry: PullRequestEntry): boolean =>
+    opened !== undefined && entry.author === opened.author && entry.body === opened.body;
 
   const answer = reading.out ? undefined : reading.value;
   const refusal = answer !== undefined && "refused" in answer ? answer.refused : undefined;
   const read = answer !== undefined && !("refused" in answer) ? answer : undefined;
   // A refusal names the step that fixes it: offered to run in the repository, as a terminal opened there would.
-  const fixing = useTerminalRun(reads.terminalRun, answer !== undefined && "refused" in answer ? answer.root : undefined);
-  const command = refusal === undefined || reads.terminalRun === undefined || answer === undefined || !("root" in answer) ? undefined : commandIn(refusal);
+  const fixing = useTerminalRun(
+    reads.terminalRun,
+    answer !== undefined && "refused" in answer ? answer.root : undefined,
+  );
+  const command =
+    refusal === undefined ||
+    reads.terminalRun === undefined ||
+    answer === undefined ||
+    !("root" in answer)
+      ? undefined
+      : commandIn(refusal);
 
   // Every file's patch, read the first time Files is shown and kept with the head it was read on: another head is another diff.
-  const [patches, setPatches] = useState<{ head: string | undefined; answer: PatchesRead | "reading" } | undefined>(undefined);
+  const [patches, setPatches] = useState<
+    | {
+        head: string | undefined;
+        answer: PatchesRead | "reading";
+      }
+    | undefined
+  >(undefined);
   const readPatches = reads.pullRequestPatches;
   const paged = read !== undefined;
   // What the reads after a press check: reviewers named, so nothing more to wait for.
@@ -149,45 +250,151 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
   const head = read?.page.head;
   const patchesRun = useRef(0);
   useEffect(() => {
-    if (tab !== "files" || !paged || readPatches === undefined || (patches !== undefined && patches.head === head)) return;
+    if (
+      tab !== "files" ||
+      !paged ||
+      readPatches === undefined ||
+      (patches !== undefined && patches.head === head)
+    )
+      return;
     const run = ++patchesRun.current;
     // Dropped, not kept: what is on screen is a diff the branch no longer has.
-    setPatches({ head, answer: "reading" });
+    setPatches({
+      head,
+      answer: "reading",
+    });
     void readPatches(item)
-      .catch((): PatchesRead => ({ ok: false, said: PATCHES_NOT_READ }))
-      .then((answer) => here.current && run === patchesRun.current && setPatches({ head, answer }));
-  }, [tab, paged, head, patches, readPatches, item]);
+      .catch(
+        (): PatchesRead => ({
+          ok: false,
+          said: PATCHES_NOT_READ,
+        }),
+      )
+      .then(
+        (answer) =>
+          here.current &&
+          run === patchesRun.current &&
+          setPatches({
+            head,
+            answer,
+          }),
+      );
+  }, [
+    tab,
+    paged,
+    head,
+    patches,
+    readPatches,
+    item,
+  ]);
 
   // The tests that reach each changed file belong to the same diff, so they are read when its patches are. Nothing back, or no read at all, draws no marks.
-  const [reach, setReach] = useState<{ head: string | undefined; answer: FilesReach | "reading" } | undefined>(undefined);
+  const [reach, setReach] = useState<
+    | {
+        head: string | undefined;
+        answer: FilesReach | "reading";
+      }
+    | undefined
+  >(undefined);
   const readReach = reads.testsReaching;
   const reachRun = useRef(0);
   useEffect(() => {
-    if (tab !== "files" || !paged || readReach === undefined || (reach !== undefined && reach.head === head)) return;
+    if (
+      tab !== "files" ||
+      !paged ||
+      readReach === undefined ||
+      (reach !== undefined && reach.head === head)
+    )
+      return;
     const run = ++reachRun.current;
-    setReach({ head, answer: "reading" });
+    setReach({
+      head,
+      answer: "reading",
+    });
     void readReach(item)
       .catch((): undefined => undefined)
-      .then((answer) => here.current && run === reachRun.current && setReach({ head, answer: answer ?? {} }));
-  }, [tab, paged, head, reach, readReach, item]);
+      .then(
+        (answer) =>
+          here.current &&
+          run === reachRun.current &&
+          setReach({
+            head,
+            answer: answer ?? {},
+          }),
+      );
+  }, [
+    tab,
+    paged,
+    head,
+    reach,
+    readReach,
+    item,
+  ]);
   // Fleet keeps the notes, per Manifest and pull request, once the page has said which Manifest holds it. Only sending them needs a Job that holds it.
   const notesReads = reads.notes;
   const manifestId = read?.page.manifest_id;
-  const noteHandle = useMemo<NoteHandle | undefined>(() => (notesReads === undefined || manifestId === undefined ? undefined : { reads: notesReads, manifestId, number: item.number }), [notesReads, manifestId, item.number]);
+  const noteHandle = useMemo<NoteHandle | undefined>(
+    () =>
+      notesReads === undefined || manifestId === undefined
+        ? undefined
+        : {
+            reads: notesReads,
+            manifestId,
+            number: item.number,
+          },
+    [
+      notesReads,
+      manifestId,
+      item.number,
+    ],
+  );
   const lineNotes = useLineNotes(noteHandle);
   // A Job resolves a note while the panel is open and nothing tells Bridge, so the notes are read again each time Files is entered.
   useEffect(() => {
     if (tab === "files" && noteHandle !== undefined) void loadNotes(noteHandle);
-  }, [tab, noteHandle]);
+  }, [
+    tab,
+    noteHandle,
+  ]);
   const unsent = lineNotes.notes.filter((one) => !one.sent);
   const resolved = lineNotes.notes.filter((one) => one.done).length;
   // What a judge noted on a line of the diff stands under it, beside his own notes.
-  const judged = useDiffUnder(owner?.id ?? "", { kind: "pull_request", id: String(item.number) });
+  const judged = useDiffUnder(owner?.id ?? "", {
+    kind: "pull_request",
+    id: String(item.number),
+  });
   const noted = lineNotes.lines;
-  const lines = useMemo(() => (judged === undefined ? noted : { ...noted, under: (file: DiffFile, index: number) => <>{noted?.under?.(file, index)}{judged(file, index)}</> }), [noted, judged]);
+  const lines = useMemo(
+    () =>
+      judged === undefined
+        ? noted
+        : {
+            ...noted,
+            under: (file: DiffFile, index: number) => (
+              <>
+                {noted?.under?.(file, index)}
+                {judged(file, index)}
+              </>
+            ),
+          },
+    [
+      noted,
+      judged,
+    ],
+  );
   const shownPatches = useMemo(
-    () => (readPatches === undefined ? undefined : patchesOf(patches === undefined || patches.answer === "reading" ? undefined : patches.answer, lines)),
-    [readPatches, patches, lines],
+    () =>
+      readPatches === undefined
+        ? undefined
+        : patchesOf(
+            patches === undefined || patches.answer === "reading" ? undefined : patches.answer,
+            lines,
+          ),
+    [
+      readPatches,
+      patches,
+      lines,
+    ],
   );
   const marks = reach === undefined || reach.answer === "reading" ? undefined : reach.answer;
 
@@ -196,7 +403,13 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
     return (
       <PrOwnersOnTheWire lines={reads.lines}>
         <PullRequestPanel
-          reading={reading.out ? {} : { said: refusal ?? "The forge did not answer for this pull request." }}
+          reading={
+            reading.out
+              ? {}
+              : {
+                  said: refusal ?? "The forge did not answer for this pull request.",
+                }
+          }
           {...(command === undefined
             ? {}
             : {
@@ -204,19 +417,54 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
                   command,
                   onRun: () => fixing.start(command),
                   onAgain: onFiles,
-                  ...(fixing.said === undefined ? {} : { said: fixing.said }),
-                  ...(fixing.run === undefined ? {} : { run: { out: fixing.run.out, screen: fixing.run.screen, running: fixing.run.running, write: fixing.write, onSize: fixing.sized, onStop: fixing.stop } }),
+                  ...(fixing.said === undefined
+                    ? {}
+                    : {
+                        said: fixing.said,
+                      }),
+                  ...(fixing.run === undefined
+                    ? {}
+                    : {
+                        run: {
+                          out: fixing.run.out,
+                          screen: fixing.run.screen,
+                          running: fixing.run.running,
+                          write: fixing.write,
+                          onSize: fixing.sized,
+                          onStop: fixing.stop,
+                        },
+                      }),
                 },
               })}
           number={item.number}
           address={item.address}
-          {...(repository === undefined ? {} : { repository })}
-          {...(item.title === undefined ? {} : { title: item.title })}
-          {...(item.branch === undefined ? {} : { branch: item.branch })}
+          {...(repository === undefined
+            ? {}
+            : {
+                repository,
+              })}
+          {...(item.title === undefined
+            ? {}
+            : {
+                title: item.title,
+              })}
+          {...(item.branch === undefined
+            ? {}
+            : {
+                branch: item.branch,
+              })}
           floor={floor}
-          {...(back === undefined ? {} : { back })}
+          {...(back === undefined
+            ? {}
+            : {
+                back,
+              })}
           onOpenBrowser={openBrowser}
-          {...(browserSaid === undefined ? {} : { browserSaid })}
+          {...(browserSaid === undefined
+            ? {}
+            : {
+                browserSaid,
+              })}
           onClose={closePanel}
         />
       </PrOwnersOnTheWire>
@@ -228,12 +476,26 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
 
   const act = (what: PullRequestAct) => {
     setPressed(what);
-    const done = owner !== undefined && draft !== undefined ? draft.act(owner.id, facts.number, what) : (reads.actOnPullRequest?.(item, what) ?? Promise.resolve(false));
+    const done =
+      owner !== undefined && draft !== undefined
+        ? draft.act(owner.id, facts.number, what)
+        : (reads.actOnPullRequest?.(item, what) ?? Promise.resolve(false));
     // A merge asked for here settles the Job's own item asking for it, and that tells the agent.
-    const asked = (owner?.waitingFor ?? []).find((one) => one.source === "agent" && one.act?.kind === "approve_pr" && one.act.target.replace(/^#/, "") === String(facts.number));
+    const asked = (owner?.waitingFor ?? []).find(
+      (one) =>
+        one.source === "agent" &&
+        one.act?.kind === "approve_pr" &&
+        one.act.target.replace(/^#/, "") === String(facts.number),
+    );
     if (owner !== undefined && asked !== undefined && (what === "merge" || what === "auto_merge"))
       void done.then((accepted) => {
-        if (accepted) draft?.answerWaiting?.(owner.id, asked.id, { text: what === "merge" ? `Merged #${facts.number}` : `Auto-merge is on for #${facts.number}` });
+        if (accepted)
+          draft?.answerWaiting?.(owner.id, asked.id, {
+            text:
+              what === "merge"
+                ? `Merged #${facts.number}`
+                : `Auto-merge is on for #${facts.number}`,
+          });
       });
     // The forge assigns reviewers after the press, not with it: read again until they show or the offsets run out.
     if (what === "ready")
@@ -256,36 +518,106 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
     const body = text.trim();
     setWriting(true);
     setSaid(undefined);
-    void reads.writePullRequest(item, { kind, ...(body === "" ? {} : { body }) }).then((answer) => {
-      setWriting(false);
-      if (!answer.ok) return setSaid(answer.said);
-      forgetKept(keep);
-      setPage(answer.page);
-      setText("");
-      setKind("comment");
-    });
+    void reads
+      .writePullRequest(item, {
+        kind,
+        ...(body === ""
+          ? {}
+          : {
+              body,
+            }),
+      })
+      .then((answer) => {
+        setWriting(false);
+        if (!answer.ok) return setSaid(answer.said);
+        forgetKept(keep);
+        setPage(answer.page);
+        setText("");
+        setKind("comment");
+      });
   };
   const composer: PullRequestComposerProps | undefined =
-    reads.writePullRequest === undefined ? undefined : { kind, onKind: setKind, value: text, onChange: setText, keep, pending: writing, ...(said === undefined ? {} : { said }), onSend: send };
+    reads.writePullRequest === undefined
+      ? undefined
+      : {
+          kind,
+          onKind: setKind,
+          value: text,
+          onChange: setText,
+          keep,
+          pending: writing,
+          ...(said === undefined
+            ? {}
+            : {
+                said,
+              }),
+          onSend: send,
+        };
 
   // A Check's row opens the Check in this same panel; another pull request opens as this one did; the rest is the browser's.
   const onOpenLink = (address: string) => {
     const row = page.checks.find((one) => one.address === address);
     if (row !== undefined) {
       const state = row.state === "skipped" ? "passed" : row.state;
-      return void openInPanel({ kind: "check", id: address, name: row.name, branch: facts.branch, row: { state, ...(row.seconds === undefined ? {} : { seconds: row.seconds }), address } });
+      return void openInPanel({
+        kind: "check",
+        id: address,
+        name: row.name,
+        branch: facts.branch,
+        row: {
+          state,
+          ...(row.seconds === undefined
+            ? {}
+            : {
+                seconds: row.seconds,
+              }),
+          address,
+        },
+      });
     }
     if (!openAddressInPanel(address)) void openLink(address);
   };
 
   // The unsent notes go to the Job as one message the way its own composer sends one, and are recorded as sent to it once it took them.
-  const others = sessions.filter((one) => one.id !== owner?.id && one.dead === undefined && one.older === undefined && one.replacedBy === undefined).map((one) => ({ id: one.id, title: one.title ?? one.address ?? one.id }));
+  const others = sessions
+    .filter(
+      (one) =>
+        one.id !== owner?.id &&
+        one.dead === undefined &&
+        one.older === undefined &&
+        one.replacedBy === undefined,
+    )
+    .map((one) => ({
+      id: one.id,
+      title: one.title ?? one.address ?? one.id,
+    }));
   const holderTitle = owner === undefined ? undefined : (owner.title ?? owner.address ?? owner.id);
   const sendNotes = (to?: string) => {
-    const target = to === undefined ? (owner === undefined ? undefined : { id: owner.id, title: holderTitle ?? owner.id }) : others.find((one) => one.id === to);
-    if (target === undefined || draft === undefined || noteHandle === undefined || unsent.length === 0) return;
+    const target =
+      to === undefined
+        ? owner === undefined
+          ? undefined
+          : {
+              id: owner.id,
+              title: holderTitle ?? owner.id,
+            }
+        : others.find((one) => one.id === to);
+    if (
+      target === undefined ||
+      draft === undefined ||
+      noteHandle === undefined ||
+      unsent.length === 0
+    )
+      return;
     const ids = unsent.map((one) => one.id);
-    void Promise.resolve(draft.send(target.id, { text: messageOf(facts.number, unsent), files: [], sketches: [], tags: [] })).then((went) => {
+    void Promise.resolve(
+      draft.send(target.id, {
+        text: messageOf(facts.number, unsent),
+        files: [],
+        sketches: [],
+        tags: [],
+      }),
+    ).then((went) => {
       if (went !== false) void recordSent(noteHandle, ids, target);
     });
   };
@@ -296,43 +628,125 @@ function Drawn({ item, reading, onFiles, onRefresh }: { item: Item; reading: Rea
   // Named as the forge names it, which is how a registered owner and the Reviews lists key it.
   const forge = item.repository ?? repositoryOfAddress(facts.address) ?? read.repository;
   return (
-    <PrOwnersOnTheWire lines={reads.lines} panel={{ repository: forge, number: facts.number, owner: page.owner }}>
+    <PrOwnersOnTheWire
+      lines={reads.lines}
+      panel={{
+        repository: forge,
+        number: facts.number,
+        owner: page.owner,
+      }}
+    >
       <PullRequestPanel
         number={facts.number}
         title={facts.title}
         branch={facts.branch}
         address={facts.address}
         repository={forge}
-        {...(description === "" ? {} : { body: description })}
+        {...(description === ""
+          ? {}
+          : {
+              body: description,
+            })}
         page={page}
-        {...(composer === undefined ? {} : { composer })}
+        {...(composer === undefined
+          ? {}
+          : {
+              composer,
+            })}
         state={facts.state}
-        checks={facts.checks.state === "failed" || (facts.checks.state === "passed" && facts.checks.red !== undefined) ? { state: "failed", failing } : { state: facts.checks.state }}
+        checks={
+          facts.checks.state === "failed" ||
+          (facts.checks.state === "passed" && facts.checks.red !== undefined)
+            ? {
+                state: "failed",
+                failing,
+              }
+            : {
+                state: facts.checks.state,
+              }
+        }
         auto={facts.auto}
         queued={facts.queued === true}
-        {...(place === undefined ? {} : { place })}
+        {...(place === undefined
+          ? {}
+          : {
+              place,
+            })}
         floor={floor}
-        {...(pressed === undefined ? {} : { pending: pressed })}
+        {...(pressed === undefined
+          ? {}
+          : {
+              pending: pressed,
+            })}
         refreshing={!reading.out && reading.refreshing}
         onAct={act}
-        {...(owner === undefined ? {} : { onSendBack: () => sendBack(facts), sentBack: sentBack(facts) })}
+        {...(owner === undefined
+          ? {}
+          : {
+              onSendBack: () => sendBack(facts),
+              sentBack: sentBack(facts),
+            })}
         onOpenLink={onOpenLink}
         onOpenBrowser={openBrowser}
-        {...(browserSaid === undefined ? {} : { browserSaid })}
+        {...(browserSaid === undefined
+          ? {}
+          : {
+              browserSaid,
+            })}
         onClose={closePanel}
-        {...(back === undefined ? {} : { back })}
+        {...(back === undefined
+          ? {}
+          : {
+              back,
+            })}
         tab={tab}
         onTab={goTo}
-        {...(triage === undefined ? {} : { triage: triaged })}
-        {...(opened === undefined ? {} : { focused })}
-        {...(shownPatches === undefined ? {} : { patches: shownPatches })}
-        {...(marks === undefined ? {} : { reach: marks, onTest: (test: ReachTest) => void openInPanel({ kind: "file", path: read.root === undefined ? test.test : `${read.root}/${test.test}`, from: "session" }) })}
-        more={{ id: "review", label: "Review", body: <ReviewTab row={rowOf(read, forge)} onOpenLink={onOpenLink} /> }}
+        {...(triage === undefined
+          ? {}
+          : {
+              triage: triaged,
+            })}
+        {...(opened === undefined
+          ? {}
+          : {
+              focused,
+            })}
+        {...(shownPatches === undefined
+          ? {}
+          : {
+              patches: shownPatches,
+            })}
+        {...(marks === undefined
+          ? {}
+          : {
+              reach: marks,
+              onTest: (test: ReachTest) =>
+                void openInPanel({
+                  kind: "file",
+                  path: read.root === undefined ? test.test : `${read.root}/${test.test}`,
+                  from: "session",
+                }),
+            })}
+        more={{
+          id: "review",
+          label: "Review",
+          body: <ReviewTab row={rowOf(read, forge)} onOpenLink={onOpenLink} />,
+        }}
       >
         {/* A press the Job made and Fleet refused is said here, where it was pressed; one nobody holds is a toast. */}
-        {owner === undefined || refused === undefined || refused === "" ? null : <Alert tone="escalated">{refused}</Alert>}
-        {unsent.length === 0 || (owner === undefined && others.length === 0) ? null : <NotesBar count={unsent.length} holder={holderTitle} others={others} onSend={sendNotes} />}
-        {resolved === 0 ? null : <ResolvedToggle count={resolved} shown={lineNotes.showResolved} onToggle={lineNotes.toggleResolved} />}
+        {owner === undefined || refused === undefined || refused === "" ? null : (
+          <Alert tone="escalated">{refused}</Alert>
+        )}
+        {unsent.length === 0 || (owner === undefined && others.length === 0) ? null : (
+          <NotesBar count={unsent.length} holder={holderTitle} others={others} onSend={sendNotes} />
+        )}
+        {resolved === 0 ? null : (
+          <ResolvedToggle
+            count={resolved}
+            shown={lineNotes.showResolved}
+            onToggle={lineNotes.toggleResolved}
+          />
+        )}
       </PullRequestPanel>
     </PrOwnersOnTheWire>
   );

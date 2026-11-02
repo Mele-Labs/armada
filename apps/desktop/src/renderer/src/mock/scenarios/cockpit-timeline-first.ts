@@ -11,9 +11,20 @@ import { s207FleetTimeline as base } from "./fleet-timeline";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 /** Pull request #1896, held by the Session `Flaky store test` through the branch it works on (`fix/flaky-store`). */
-const PULL = { kind: "pull_request", number: 1896, url: "https://git.example/armada/pull/1896" } as const;
+const PULL = {
+  kind: "pull_request",
+  number: 1896,
+  url: "https://git.example/armada/pull/1896",
+} as const;
 const TITLE = "Wait on the channel, not the sleep";
-const entry = (id: number, minutes: number, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string, rest: Partial<TimelineEvent> = {}): TimelineEvent => ({
+const entry = (
+  id: number,
+  minutes: number,
+  kind: TimelineEvent["kind"],
+  tone: TimelineEvent["tone"],
+  says: string,
+  rest: Partial<TimelineEvent> = {},
+): TimelineEvent => ({
   id,
   at: ago(minutes),
   kind,
@@ -27,14 +38,26 @@ const entry = (id: number, minutes: number, kind: TimelineEvent["kind"], tone: T
 
 // Ids above every entry `fleet-timeline` numbers.
 const SESSION_PULL: TimelineEvent[] = [
-  entry(1001, 9, "pr.opened", "idle", "Opened", { detail: "fix/flaky-store" }),
-  entry(1002, 6, "pr.checks", "run", "Checks running", { live: true }),
-  entry(1003, 3, "pr.checks", "ok", "Check store passed", { detail: "store" }),
+  entry(1001, 9, "pr.opened", "idle", "Opened", {
+    detail: "fix/flaky-store",
+  }),
+  entry(1002, 6, "pr.checks", "run", "Checks running", {
+    live: true,
+  }),
+  entry(1003, 3, "pr.checks", "ok", "Check store passed", {
+    detail: "store",
+  }),
 ];
 
 export const s242CockpitTimelineFirst: Scenario = {
   ...base,
   name: "cockpit-timeline-first",
   says: "The Cockpit on its timeline: a Session carries its pull request as marks on its own track, and no pull request has a row",
-  draft: { ...base.draft, events: [...(base.draft?.events ?? []), ...SESSION_PULL] },
+  draft: {
+    ...base.draft,
+    events: [
+      ...(base.draft?.events ?? []),
+      ...SESSION_PULL,
+    ],
+  },
 };

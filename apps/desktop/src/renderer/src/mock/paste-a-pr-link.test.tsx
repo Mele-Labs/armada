@@ -12,33 +12,63 @@ unmountAfterEach();
 function paste(text: string) {
   const clipboard = new DataTransfer();
   clipboard.setData("text/plain", text);
-  document.body.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+  document.body.dispatchEvent(
+    new ClipboardEvent("paste", {
+      clipboardData: clipboard,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
 }
 
 test("a pull request's link pasted on the Cockpit opens Reviews on it", async () => {
   mount(s270PasteAPrLink);
   await onScreen();
   paste("https://forge.example/mele-labs/armada/pull/1899");
-  await expect.element(page.getByRole("region", { name: "Pull request #1899" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Pull request #1899",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("an issue's link pasted on the Cockpit opens the side panel on it", async () => {
   mount(s270PasteAPrLink);
   await onScreen();
   paste("https://forge.example/mele-labs/armada/issues/2214");
-  await expect.element(page.getByRole("dialog", { name: "Issue #2214" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "Issue #2214",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a browse link on a host no tracker is served from opens the link panel", async () => {
   mount(s270PasteAPrLink);
   await onScreen();
   paste("https://foreign.example/browse/SHIP-42");
-  await expect.element(page.getByRole("dialog", { name: "Add a link" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "Add a link",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("any other link still opens the link panel", async () => {
   mount(s270PasteAPrLink);
   await onScreen();
   paste("https://impeccable.style/");
-  await expect.element(page.getByRole("dialog", { name: "Add a link" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: "Add a link",
+      }),
+    )
+    .toBeVisible();
 });

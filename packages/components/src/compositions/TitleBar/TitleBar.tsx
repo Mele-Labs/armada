@@ -1,9 +1,37 @@
-import { Activity, BellRing, Check, FolderGit2, FolderPlus, Layers, MessageSquare, Plus, Search, Settings, type LucideIcon } from "lucide-react";
-import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Activity,
+  BellRing,
+  Check,
+  FolderGit2,
+  FolderPlus,
+  Layers,
+  MessageSquare,
+  Plus,
+  Search,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
-import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
+import {
+  FLEET_DOT_TONE,
+  FleetStarting,
+  fleetSaid,
+  type FleetState,
+} from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
-import { DropdownMenu, filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
+import {
+  DropdownMenu,
+  filterEntries,
+  type DropdownMenuEntry,
+} from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
 import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -35,7 +63,12 @@ import { useTeachMenu } from "../TeachPanel/TeachMenu";
  * One limit of the plan, as the mod's `session.measure` carries it. `five_hour` draws as `5h`
  * and `seven_day` as `wk`; any other kind is not drawn. A list with no kind drawn is the rings loading.
  */
-export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string; offer?: LimitOffer };
+export type PlanUsage = {
+  kind: string;
+  percentUsed: number;
+  resetsAt?: string;
+  offer?: LimitOffer;
+};
 
 /**
  * What the owner is being offered on one limit: facts the card states under its own, acts it draws as
@@ -43,17 +76,39 @@ export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string; 
  * draws the card as it was.
  */
 /** One fact under a limit: its term, its value, and whether the value is a figure the system reported. */
-export type LimitFact = readonly [term: string, value: ReactNode, mono?: boolean];
+export type LimitFact = readonly [
+  term: string,
+  value: ReactNode,
+  mono?: boolean,
+];
 
 export type LimitOffer = {
   facts?: readonly LimitFact[];
-  acts?: readonly { label: string; onPress: () => void; /** Keeps the card open after, for an act whose result the card states. Closes it otherwise. */ stays?: boolean; primary?: boolean }[];
+  acts?: readonly {
+    label: string;
+    onPress: () => void /** Keeps the card open after, for an act whose result the card states. Closes it otherwise. */;
+    stays?: boolean;
+    primary?: boolean;
+  }[];
   attention?: string;
 };
 
-const LIMITS: Record<string, { short: string; name: string } | undefined> = {
-  five_hour: { short: "5h", name: "5-hour limit" },
-  seven_day: { short: "wk", name: "Weekly limit" },
+const LIMITS: Record<
+  string,
+  | {
+      short: string;
+      name: string;
+    }
+  | undefined
+> = {
+  five_hour: {
+    short: "5h",
+    name: "5-hour limit",
+  },
+  seven_day: {
+    short: "wk",
+    name: "Weekly limit",
+  },
 };
 
 /** "2h 14m", "2d 17h", "9m": the two largest units left. */
@@ -66,16 +121,43 @@ function countdown(ms: number): string {
   return `${minutes}m`;
 }
 
-type Drawn = { one: PlanUsage; limit: { short: string; name: string } };
+type Drawn = {
+  one: PlanUsage;
+  limit: {
+    short: string;
+    name: string;
+  };
+};
 
 /** One limit in the card: its name and how much is used on one line, then when it resets, any offer's facts and its acts. */
-function LimitSection({ one, limit, close }: Drawn & { close: () => void }) {
+function LimitSection({
+  one,
+  limit,
+  close,
+}: Drawn & {
+  close: () => void;
+}) {
   const percent = Math.round(one.percentUsed);
   const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
   const resets = at !== undefined && !Number.isNaN(at.getTime()) ? at : undefined;
-  const rows: readonly LimitFact[] = [...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])];
+  const rows: readonly LimitFact[] = [
+    ...(resets === undefined
+      ? []
+      : [
+          [
+            "Resets in",
+            countdown(resets.getTime() - Date.now()),
+            true,
+          ] as const,
+        ]),
+    ...(one.offer?.facts ?? []),
+  ];
   return (
-    <section className="armada-title-bar__usage-limit" data-level={usageLevel(percent)} aria-label={limit.name}>
+    <section
+      className="armada-title-bar__usage-limit"
+      data-level={usageLevel(percent)}
+      aria-label={limit.name}
+    >
       <p className="armada-title-bar__usage-head">
         {limit.name}
         <span className="armada-title-bar__usage-percent">{percent}%</span>
@@ -120,10 +202,20 @@ function PlanUsageLoading() {
       <Tooltip label={NO_READING}>
         <span className="armada-title-bar__usage-loading" role="img" aria-label={NO_READING}>
           <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
-            {[9, 5].map((r) => (
+            {[
+              9,
+              5,
+            ].map((r) => (
               <g key={r}>
                 <circle className="armada-title-bar__usage-ring-track" cx="11" cy="11" r={r} />
-                <circle className="armada-title-bar__usage-ring-sweep" cx="11" cy="11" r={r} pathLength={100} strokeDasharray="25 75" />
+                <circle
+                  className="armada-title-bar__usage-ring-sweep"
+                  cx="11"
+                  cy="11"
+                  r={r}
+                  pathLength={100}
+                  strokeDasharray="25 75"
+                />
               </g>
             ))}
           </svg>
@@ -141,23 +233,50 @@ function PlanUsageLoading() {
 function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
   const drawn: readonly Drawn[] = usage.flatMap((one) => {
     const limit = LIMITS[one.kind];
-    return limit === undefined ? [] : [{ one, limit }];
+    return limit === undefined
+      ? []
+      : [
+          {
+            one,
+            limit,
+          },
+        ];
   });
   if (drawn.length === 0) return <PlanUsageLoading />;
-  const attention = drawn.find(({ one }) => one.offer?.attention !== undefined)?.one.offer?.attention;
+  const attention = drawn.find(({ one }) => one.offer?.attention !== undefined)?.one.offer
+    ?.attention;
   return (
     <span className="armada-title-bar__usage">
       <Inspect
         name="Plan limits"
         card={({ close }) => (
-          <InspectCard kind={{ Glyph: Activity, label: "Plan" }} title="Plan limits" keys={[{ key: "Enter", verb: "Keep open" }]} width="wide">
+          <InspectCard
+            kind={{
+              Glyph: Activity,
+              label: "Plan",
+            }}
+            title="Plan limits"
+            keys={[
+              {
+                key: "Enter",
+                verb: "Keep open",
+              },
+            ]}
+            width="wide"
+          >
             {drawn.map(({ one, limit }) => (
               <LimitSection key={one.kind} one={one} limit={limit} close={close} />
             ))}
           </InspectCard>
         )}
       >
-        <button type="button" className="armada-title-bar__usage-meter" aria-label={drawn.map(({ one, limit }) => `${limit.name} ${Math.round(one.percentUsed)}%`).join(", ")}>
+        <button
+          type="button"
+          className="armada-title-bar__usage-meter"
+          aria-label={drawn
+            .map(({ one, limit }) => `${limit.name} ${Math.round(one.percentUsed)}%`)
+            .join(", ")}
+        >
           <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
             {drawn.map(({ one }, i) => {
               const percent = Math.min(100, Math.max(0, Math.round(one.percentUsed)));
@@ -165,7 +284,15 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
               return (
                 <g key={one.kind} data-level={usageLevel(percent)}>
                   <circle className="armada-title-bar__usage-ring-track" cx="11" cy="11" r={r} />
-                  <circle className="armada-title-bar__usage-ring-fill" cx="11" cy="11" r={r} pathLength={100} strokeDasharray={`${percent} 100`} transform="rotate(-90 11 11)" />
+                  <circle
+                    className="armada-title-bar__usage-ring-fill"
+                    cx="11"
+                    cy="11"
+                    r={r}
+                    pathLength={100}
+                    strokeDasharray={`${percent} 100`}
+                    transform="rotate(-90 11 11)"
+                  />
                 </g>
               );
             })}
@@ -216,9 +343,22 @@ export type TitleBarProps = {
     entries: DropdownMenuEntry[];
     onSelect: (id: string) => void;
     /** The Manifest button beside the picker in the full row. */
-    manifest?: { label: string; icon: LucideIcon; disabled?: boolean; onOpen: () => void };
+    manifest?: {
+      label: string;
+      icon: LucideIcon;
+      disabled?: boolean;
+      onOpen: () => void;
+    };
     /** A repository row's trailing mark and the act → runs on it, from the entry's id and label. Absent, or `undefined` for a row, draws none. */
-    trailOf?: (id: string, label: string) => { node: ReactNode; open: () => void } | undefined;
+    trailOf?: (
+      id: string,
+      label: string,
+    ) =>
+      | {
+          node: ReactNode;
+          open: () => void;
+        }
+      | undefined;
     /** Opens a Workspace's page, from the gear on its heading row. Absent draws the heading with no gear. */
     onOpenWorkspace?: (id: string) => void;
   };
@@ -258,10 +398,17 @@ export type TitleBarProps = {
    */
   menu?: {
     /** Opens the account, a page or a panel, from its row. Absent draws no account row. */
-    account?: { onOpen: () => void };
-    settings?: { onOpen: () => void; /** `⌘,` or whichever key the person has it on. */ shortcut?: string };
+    account?: {
+      onOpen: () => void;
+    };
+    settings?: {
+      onOpen: () => void /** `⌘,` or whichever key the person has it on. */;
+      shortcut?: string;
+    };
     /** Opens the Doctor page, from its row. Absent draws no Doctor row. */
-    doctor?: { onOpen: () => void };
+    doctor?: {
+      onOpen: () => void;
+    };
   };
   /**
    * The plan's limits, as two fill meters beside Sleep. **Absent draws nothing; an empty array draws the
@@ -324,28 +471,54 @@ function useRoomForPlaces(on: boolean) {
     if (!on || row === null) return;
     const measure = () => {
       const style = getComputedStyle(row);
-      const inner = row.clientWidth - parseFloat(style.paddingInlineStart) - parseFloat(style.paddingInlineEnd);
+      const inner =
+        row.clientWidth - parseFloat(style.paddingInlineStart) - parseFloat(style.paddingInlineEnd);
       const gap = parseFloat(style.columnGap) || 0;
       const width = (part: HTMLElement | null) => part?.getBoundingClientRect().width ?? 0;
       const trigger = width(search.current);
-      const between = center.current === null ? 0 : parseFloat(getComputedStyle(center.current).columnGap) || 0;
+      const between =
+        center.current === null ? 0 : parseFloat(getComputedStyle(center.current).columnGap) || 0;
       // Drawn, the start clips and the name truncates; what either hides is added back.
       const name = repository.current;
       // `scrollWidth` is rounded, and a name a fraction too narrow draws its ellipsis: a pixel over.
-      const whole = (start.current?.scrollWidth ?? 0) + (name === null ? 0 : name.scrollWidth - name.clientWidth) + 1;
+      const whole =
+        (start.current?.scrollWidth ?? 0) +
+        (name === null ? 0 : name.scrollWidth - name.clientWidth) +
+        1;
       const searching = trigger > 0 ? trigger + between : 0;
       const content = width(places.current) + searching;
       const shown = start.current !== null && start.current.getClientRects().length > 0;
       const left = inner - 2 * gap - width(end.current) - content;
-      row.style.setProperty("--armada-title-start-floor", `${Math.floor(shown ? Math.max(0, Math.min(whole, left)) : content)}px`);
+      row.style.setProperty(
+        "--armada-title-start-floor",
+        `${Math.floor(shown ? Math.max(0, Math.min(whole, left)) : content)}px`,
+      );
       setRoom(Math.floor(inner - 2 * gap - whole - width(end.current) - searching));
     };
     measure();
     const watch = new ResizeObserver(measure);
-    for (const part of [row, start.current, places.current, search.current, end.current]) if (part !== null) watch.observe(part);
+    for (const part of [
+      row,
+      start.current,
+      places.current,
+      search.current,
+      end.current,
+    ])
+      if (part !== null) watch.observe(part);
     return () => watch.disconnect();
-  }, [on]);
-  return { bar, start, repository, center, places, search, end, room };
+  }, [
+    on,
+  ]);
+  return {
+    bar,
+    start,
+    repository,
+    center,
+    places,
+    search,
+    end,
+    room,
+  };
 }
 
 export function TitleBar({
@@ -371,10 +544,17 @@ export function TitleBar({
   const parts = useRoomForPlaces(places !== undefined);
   const teach = useTeachMenu("Title bar", onTeach);
   return (
-    <div ref={parts.bar} className="armada-title-bar" data-places={places === undefined ? undefined : ""} {...teach.on}>
+    <div
+      ref={parts.bar}
+      className="armada-title-bar"
+      data-places={places === undefined ? undefined : ""}
+      {...teach.on}
+    >
       {teach.menu}
       <div ref={parts.start} className="armada-title-bar__start">
-        {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
+        {wordmark === undefined ? null : (
+          <div className="armada-title-bar__wordmark">{wordmark}</div>
+        )}
         {repository === undefined ? null : repositoryMenu === undefined ? (
           // `title`, not `Tooltip`: its bubble sits inside its anchor, and the anchor clips to cut the name.
           <span ref={parts.repository} className="armada-title-bar__repository" title={repository}>
@@ -384,25 +564,36 @@ export function TitleBar({
           // The name is the picker: it opens the repository list, and the Manifest's icon follows it.
           <span ref={parts.repository} className="armada-title-bar__repository" data-picker="">
             <span className="armada-title-bar__repository-chip">
-            <span className="armada-title-bar__repository-glyph" aria-hidden>
-              <FolderGit2 size={16} strokeWidth={2} />
-            </span>
-            <DropdownMenu
-              plain
-              portal
-              align="start"
-              triggerLabel={repository}
-              triggerAriaLabel="Repository"
-              triggerDetail=""
-              searchLabel="Find a repository"
-              panelClass="armada-title-bar__repository-list"
-              entries={listed(repositoryMenu.entries, repositoryMenu.trailOf, repositoryMenu.onOpenWorkspace)}
-              onSelect={repositoryMenu.onSelect}
-            />
+              <span className="armada-title-bar__repository-glyph" aria-hidden>
+                <FolderGit2 size={16} strokeWidth={2} />
+              </span>
+              <DropdownMenu
+                plain
+                portal
+                align="start"
+                triggerLabel={repository}
+                triggerAriaLabel="Repository"
+                triggerDetail=""
+                searchLabel="Find a repository"
+                panelClass="armada-title-bar__repository-list"
+                entries={listed(
+                  repositoryMenu.entries,
+                  repositoryMenu.trailOf,
+                  repositoryMenu.onOpenWorkspace,
+                )}
+                onSelect={repositoryMenu.onSelect}
+              />
             </span>
             {repositoryMenu.manifest === undefined ? null : (
               <Tooltip label={repositoryMenu.manifest.label} asChild>
-                <Button variant="ghost" size="sm" iconOnly aria-label={repositoryMenu.manifest.label} disabled={repositoryMenu.manifest.disabled} onClick={repositoryMenu.manifest.onOpen}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label={repositoryMenu.manifest.label}
+                  disabled={repositoryMenu.manifest.disabled}
+                  onClick={repositoryMenu.manifest.onOpen}
+                >
                   <repositoryMenu.manifest.icon size={16} aria-hidden="true" />
                 </Button>
               </Tooltip>
@@ -426,10 +617,17 @@ export function TitleBar({
             type="button"
             className="armada-title-bar__search"
             onClick={onSearch}
-            {...(places === undefined ? {} : { title: SEARCH_ONLY, "aria-label": SEARCH_ONLY })}
+            {...(places === undefined
+              ? {}
+              : {
+                  title: SEARCH_ONLY,
+                  "aria-label": SEARCH_ONLY,
+                })}
           >
             <Search size={16} strokeWidth={2} aria-hidden />
-            <span className="armada-title-bar__search-label">Search, or describe work to dispatch</span>
+            <span className="armada-title-bar__search-label">
+              Search, or describe work to dispatch
+            </span>
             {searchKey === "" ? null : <KbdBinding binding={searchKey} />}
           </button>
         )}
@@ -503,7 +701,12 @@ export function TitleBar({
               align="end"
               label="Fleet"
               trigger={
-                <button type="button" className="armada-title-bar__fleet-button" aria-label={fleetSaid(fleet.label)} title={fleetSaid(fleet.label)}>
+                <button
+                  type="button"
+                  className="armada-title-bar__fleet-button"
+                  aria-label={fleetSaid(fleet.label)}
+                  title={fleetSaid(fleet.label)}
+                >
                   <FleetDot state={fleet.state} />
                 </button>
               }
@@ -516,10 +719,26 @@ export function TitleBar({
         {/* The row's one menu, at every width: the account, Sleep, Settings and Doctor, and under them, where the
             row is narrow, everything the row above carries. */}
         <TitleMenu
-          {...(sleep === undefined ? {} : { sleep })}
-          {...(menu?.settings === undefined ? {} : { settings: menu.settings })}
-          {...(menu?.doctor === undefined ? {} : { doctor: menu.doctor })}
-          {...(menu?.account === undefined ? {} : { onAccount: menu.account.onOpen })}
+          {...(sleep === undefined
+            ? {}
+            : {
+                sleep,
+              })}
+          {...(menu?.settings === undefined
+            ? {}
+            : {
+                settings: menu.settings,
+              })}
+          {...(menu?.doctor === undefined
+            ? {}
+            : {
+                doctor: menu.doctor,
+              })}
+          {...(menu?.account === undefined
+            ? {}
+            : {
+                onAccount: menu.account.onOpen,
+              })}
           narrow={
             <>
               {repositoryMenu === undefined ? null : <RepositoryRows {...repositoryMenu} />}
@@ -531,7 +750,12 @@ export function TitleBar({
                 </button>
               )}
               {onDispatch === undefined ? null : (
-                <button type="button" className="armada-title-bar__menu-item" onClick={onDispatch} disabled={dispatchDisabled}>
+                <button
+                  type="button"
+                  className="armada-title-bar__menu-item"
+                  onClick={onDispatch}
+                  disabled={dispatchDisabled}
+                >
                   <Plus size={16} strokeWidth={2} aria-hidden />
                   <span>Dispatch</span>
                   <Kbd aria-hidden>{keyFor("new_job")}</Kbd>
@@ -541,7 +765,9 @@ export function TitleBar({
                 <button type="button" className="armada-title-bar__menu-item" onClick={helm.onOpen}>
                   <MessageSquare size={16} strokeWidth={2} aria-hidden />
                   <span>Helm</span>
-                  {helm.questions > 0 ? <span className="armada-title-bar__helm-count">{helm.questions}</span> : null}
+                  {helm.questions > 0 ? (
+                    <span className="armada-title-bar__helm-count">{helm.questions}</span>
+                  ) : null}
                   {helm.binding === undefined ? null : <KbdCmd shortcut={helm.binding} />}
                 </button>
               )}
@@ -562,7 +788,11 @@ function FleetDot({ state }: { state: FleetState }) {
 }
 
 /** The shell's ids for the picker's acts and for All: `repository-entries.ts`, which this package cannot import. */
-const REPOSITORY_ACTS: Readonly<Record<string, LucideIcon>> = { "new-project": FolderPlus, "add-repository": Plus, "new-workspace": Plus };
+const REPOSITORY_ACTS: Readonly<Record<string, LucideIcon>> = {
+  "new-project": FolderPlus,
+  "add-repository": Plus,
+  "new-workspace": Plus,
+};
 
 /** A Workspace's heading row id starts with this, and then the Workspace's id. */
 const WORKSPACE = "workspace:";
@@ -571,46 +801,109 @@ const WORKSPACE = "workspace:";
  * The wide picker's rows told apart: a glyph before each repository (Layers for All), a quiet tag on one that is not set
  * up in place of its heading, and the acts below the rule as verbs with their own glyphs.
  */
-function listed(entries: DropdownMenuEntry[], trailOf: NonNullable<TitleBarProps["repositoryMenu"]>["trailOf"], onOpenWorkspace?: (id: string) => void): DropdownMenuEntry[] {
+function listed(
+  entries: DropdownMenuEntry[],
+  trailOf: NonNullable<TitleBarProps["repositoryMenu"]>["trailOf"],
+  onOpenWorkspace?: (id: string) => void,
+): DropdownMenuEntry[] {
   let loose = false;
   return entries.flatMap((entry): DropdownMenuEntry[] => {
     if (entry.kind === "separator") loose = false;
     if (entry.kind === "label") {
       loose = entry.id === "not-set-up";
-      return loose ? [] : [entry];
+      return loose
+        ? []
+        : [
+            entry,
+          ];
     }
-    if (entry.kind !== "item") return [entry];
+    if (entry.kind !== "item")
+      return [
+        entry,
+      ];
     const act = REPOSITORY_ACTS[entry.id];
-    if (act !== undefined) return [{ ...entry, icon: act, act: true }];
+    if (act !== undefined)
+      return [
+        {
+          ...entry,
+          icon: act,
+          act: true,
+        },
+      ];
     // A Workspace is a heading over its repositories: choosing it scopes the window, and its gear opens its page.
     if (entry.id.startsWith(WORKSPACE)) {
       const id = entry.id.slice(WORKSPACE.length);
       const gear = (
         <Tooltip label={`Open ${entry.label}`}>
-          <span role="button" tabIndex={-1} className="armada-title-bar__workspace-gear" aria-label={`Open ${entry.label}`}>
+          <span
+            role="button"
+            tabIndex={-1}
+            className="armada-title-bar__workspace-gear"
+            aria-label={`Open ${entry.label}`}
+          >
             <Settings size={16} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
       );
-      return [{ ...entry, icon: Layers, ...(onOpenWorkspace === undefined ? {} : { trail: gear, onRight: () => onOpenWorkspace(id) }) }];
+      return [
+        {
+          ...entry,
+          icon: Layers,
+          ...(onOpenWorkspace === undefined
+            ? {}
+            : {
+                trail: gear,
+                onRight: () => onOpenWorkspace(id),
+              }),
+        },
+      ];
     }
     const trail = entry.id === "" ? undefined : trailOf?.(entry.id, entry.label);
-    return [{ ...entry, icon: entry.id === "" ? Layers : FolderGit2, ...(loose ? { detail: "Not set up" } : {}), ...(trail === undefined ? {} : { trail: trail.node, onRight: trail.open }) }];
+    return [
+      {
+        ...entry,
+        icon: entry.id === "" ? Layers : FolderGit2,
+        ...(loose
+          ? {
+              detail: "Not set up",
+            }
+          : {}),
+        ...(trail === undefined
+          ? {}
+          : {
+              trail: trail.node,
+              onRight: trail.open,
+            }),
+      },
+    ];
   });
 }
 
 /** The picker's list, flat: the same entries its dropdown draws, one row each. */
-function RepositoryRows({ entries, onSelect, manifest }: NonNullable<TitleBarProps["repositoryMenu"]>) {
+function RepositoryRows({
+  entries,
+  onSelect,
+  manifest,
+}: NonNullable<TitleBarProps["repositoryMenu"]>) {
   // The wide picker's filter field, in the narrow menu too: a list of twenty is a scroll here as well.
   const [query, setQuery] = useState("");
   const shown = filterEntries(entries, query);
   return (
     <div className="armada-title-bar__menu-repositories" role="group" aria-label="Repositories">
       <div className="armada-title-bar__menu-search">
-        <Input aria-label="Find a repository" role="searchbox" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <Input
+          aria-label="Find a repository"
+          role="searchbox"
+          autoComplete="off"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
       </div>
       {query.trim() !== "" && shown.length === 0 ? (
-        <p className="armada-title-bar__menu-empty" role="status">{`Nothing matches “${query.trim()}”.`}</p>
+        <p
+          className="armada-title-bar__menu-empty"
+          role="status"
+        >{`Nothing matches “${query.trim()}”.`}</p>
       ) : null}
       {shown.map((entry) =>
         entry.kind === "separator" ? (

@@ -125,13 +125,22 @@ const NO_CODE = "none";
  * newline out of a machine value to keep a column tidy is the wrong trade in
  * an artifact that exists to be complete.
  */
-export function aligned(rows: [string, string][], indent: string): string[] {
+export function aligned(
+  rows: [
+    string,
+    string,
+  ][],
+  indent: string,
+): string[] {
   const width = Math.max(...rows.map(([label]) => label.length)) + GAP;
   return rows.map(([label, value]) => {
     const pad = " ".repeat(indent.length + width);
     const [head, ...rest] = value.split("\n");
     const first = `${indent}${label}${" ".repeat(width - label.length)}${head ?? ""}`;
-    return [first, ...rest.map((line) => `${pad}${line}`)].join("\n");
+    return [
+      first,
+      ...rest.map((line) => `${pad}${line}`),
+    ].join("\n");
   });
 }
 
@@ -157,37 +166,85 @@ function ordered(chain: string[]): string[] {
  * can diff.
  */
 export function debugInfo(payload: DebugPayload): string {
-  const guaranteed: [string, string][] = [
-    ["code", payload.code ?? NO_CODE],
-    ["message", payload.message],
+  const guaranteed: [
+    string,
+    string,
+  ][] = [
+    [
+      "code",
+      payload.code ?? NO_CODE,
+    ],
+    [
+      "message",
+      payload.message,
+    ],
   ];
-  if (payload.run_id !== undefined) guaranteed.push(["run_id", payload.run_id]);
-  if (payload.job_id !== undefined) guaranteed.push(["job_id", payload.job_id]);
-  if (payload.drone_id !== undefined) guaranteed.push(["drone_id", payload.drone_id]);
-  if (payload.step_id !== undefined) guaranteed.push(["step_id", payload.step_id]);
+  if (payload.run_id !== undefined)
+    guaranteed.push([
+      "run_id",
+      payload.run_id,
+    ]);
+  if (payload.job_id !== undefined)
+    guaranteed.push([
+      "job_id",
+      payload.job_id,
+    ]);
+  if (payload.drone_id !== undefined)
+    guaranteed.push([
+      "drone_id",
+      payload.drone_id,
+    ]);
+  if (payload.step_id !== undefined)
+    guaranteed.push([
+      "step_id",
+      payload.step_id,
+    ]);
 
-  const blocks: string[][] = [["armada error"], aligned(guaranteed, "")];
+  const blocks: string[][] = [
+    [
+      "armada error",
+    ],
+    aligned(guaranteed, ""),
+  ];
 
   const fields = payload.fields ?? [];
   if (fields.length > 0) {
     blocks.push([
       "fields",
       ...aligned(
-        fields.map((field): [string, string] => [field.key, field.value]),
+        fields.map(
+          (
+            field,
+          ): [
+            string,
+            string,
+          ] => [
+            field.key,
+            field.value,
+          ],
+        ),
         INDENT,
       ),
     ]);
   }
 
   const chain = payload.chain ?? [];
-  if (chain.length > 0) blocks.push(["chain", ...ordered(chain)]);
+  if (chain.length > 0)
+    blocks.push([
+      "chain",
+      ...ordered(chain),
+    ]);
 
   // Appended, never on the wire. Two spaces between them: one reads as a
   // sentence and three as a table, and this is neither.
-  const tail = [`bridge protocol ${payload.bridgeProtocol}`];
+  const tail = [
+    `bridge protocol ${payload.bridgeProtocol}`,
+  ];
   if (payload.fleetProtocol !== undefined) tail.push(`fleet protocol ${payload.fleetProtocol}`);
   tail.push(`taken ${payload.at}`);
-  blocks.push([tail.join("  ")]);
+  blocks.push([
+    tail.join("  "),
+  ]);
 
   return blocks.map((block) => block.join("\n")).join("\n\n");
 }

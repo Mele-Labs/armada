@@ -41,7 +41,13 @@ import { logField, machineLog, versions } from "./notice";
  */
 function fleetRun(runId: string): FailureMachineValue[] {
   if (runId === "") return [];
-  return [{ value: runId, copyValue: runId, meta: "Fleet run" }];
+  return [
+    {
+      value: runId,
+      copyValue: runId,
+      meta: "Fleet run",
+    },
+  ];
 }
 
 /**
@@ -63,17 +69,41 @@ function fleetRun(runId: string): FailureMachineValue[] {
  */
 export function refusalFailure(error: WireError, bridge: BridgeIdentity): Failure {
   const details: FailureDetail[] = [
-    { label: "Code", value: error.code },
-    { label: "Message", value: error.message },
+    {
+      label: "Code",
+      value: error.code,
+    },
+    {
+      label: "Message",
+      value: error.message,
+    },
   ];
-  if (error.job_id !== undefined) details.push({ label: "Job", value: error.job_id });
-  if (error.drone_id !== undefined) details.push({ label: "Drone", value: error.drone_id });
-  if (error.step_id !== undefined) details.push({ label: "Step", value: error.step_id });
+  if (error.job_id !== undefined)
+    details.push({
+      label: "Job",
+      value: error.job_id,
+    });
+  if (error.drone_id !== undefined)
+    details.push({
+      label: "Drone",
+      value: error.drone_id,
+    });
+  if (error.step_id !== undefined)
+    details.push({
+      label: "Step",
+      value: error.step_id,
+    });
   for (const [key, value] of Object.entries(error.fields ?? {})) {
-    details.push({ label: key, value: String(value) });
+    details.push({
+      label: key,
+      value: String(value),
+    });
   }
   if ((error.chain ?? []).length > 0) {
-    details.push({ label: "Chain", value: error.chain.join("\n") });
+    details.push({
+      label: "Chain",
+      value: error.chain.join("\n"),
+    });
   }
 
   return {
@@ -89,9 +119,21 @@ export function refusalFailure(error: WireError, bridge: BridgeIdentity): Failur
       code: error.code,
       message: error.message,
       run_id: error.run_id,
-      ...(error.job_id === undefined ? {} : { job_id: error.job_id }),
-      ...(error.drone_id === undefined ? {} : { drone_id: error.drone_id }),
-      ...(error.step_id === undefined ? {} : { step_id: error.step_id }),
+      ...(error.job_id === undefined
+        ? {}
+        : {
+            job_id: error.job_id,
+          }),
+      ...(error.drone_id === undefined
+        ? {}
+        : {
+            drone_id: error.drone_id,
+          }),
+      ...(error.step_id === undefined
+        ? {}
+        : {
+            step_id: error.step_id,
+          }),
       fields: [
         ...Object.entries(error.fields ?? {}).map(([key, value]) => ({
           key,
@@ -106,7 +148,10 @@ export function refusalFailure(error: WireError, bridge: BridgeIdentity): Failur
     next: "Nothing was sent. Change what the command names, or read the log.",
     detailsLabel: "What Fleet refused",
     details,
-    values: [...machineLog(bridge), ...fleetRun(error.run_id)],
+    values: [
+      ...machineLog(bridge),
+      ...fleetRun(error.run_id),
+    ],
     note: "The run names Fleet's process for this session, not this one failure. It is what joins this to Fleet's log lines.",
   };
 }
@@ -127,7 +172,12 @@ const FLEET_RESTART_FAILED: BridgeCode = "bridge.fleet.restart_failed";
  * there is no run id to quote.
  */
 export function fleetRestartFailure(
-  restart: Extract<FleetRestart, { ok: false }>,
+  restart: Extract<
+    FleetRestart,
+    {
+      ok: false;
+    }
+  >,
   bridge: BridgeIdentity,
 ): Failure {
   const said = {
@@ -158,8 +208,14 @@ export function fleetRestartFailure(
     next: said.next,
     detailsLabel: "What launchd answered",
     details: [
-      { label: "Answer", value: restart.why },
-      { label: "Detail", value: restart.detail },
+      {
+        label: "Answer",
+        value: restart.why,
+      },
+      {
+        label: "Detail",
+        value: restart.detail,
+      },
     ],
     values: machineLog(bridge),
     note: said.note,
@@ -167,8 +223,14 @@ export function fleetRestartFailure(
       code: FLEET_RESTART_FAILED,
       message: said.headline,
       fields: [
-        { key: "why", value: restart.why },
-        { key: "detail", value: restart.detail },
+        {
+          key: "why",
+          value: restart.why,
+        },
+        {
+          key: "detail",
+          value: restart.detail,
+        },
         ...logField(bridge),
       ],
       ...versions(bridge),
@@ -204,7 +266,13 @@ const COMMAND_UNANSWERABLE: BridgeCode = "bridge.command.unanswerable";
  * claim Bridge looked and Fleet sent none.
  */
 export function transportFailure(
-  outcome: Extract<Outcome, { ok: false; why: "transport" }>,
+  outcome: Extract<
+    Outcome,
+    {
+      ok: false;
+      why: "transport";
+    }
+  >,
   bridge: BridgeIdentity,
 ): Failure {
   const fault = outcome.fault;
@@ -229,14 +297,32 @@ export function transportFailure(
     values: machineLog(bridge),
   };
   const fields: DebugField[] = [
-    { key: "why", value: fault.why },
-    { key: "method", value: fault.method },
-    { key: "path", value: fault.path },
-    { key: "detail", value: outcome.detail },
+    {
+      key: "why",
+      value: fault.why,
+    },
+    {
+      key: "method",
+      value: fault.method,
+    },
+    {
+      key: "path",
+      value: fault.path,
+    },
+    {
+      key: "detail",
+      value: outcome.detail,
+    },
   ];
   const details: FailureDetail[] = [
-    { label: "Route", value: asked },
-    { label: "Detail", value: outcome.detail },
+    {
+      label: "Route",
+      value: asked,
+    },
+    {
+      label: "Detail",
+      value: outcome.detail,
+    },
   ];
 
   switch (fault.why) {
@@ -253,10 +339,23 @@ export function transportFailure(
         payload: {
           code: COMMAND_TIMED_OUT,
           message: `Fleet did not answer ${asked} inside ${waited}`,
-          fields: [...fields, { key: "waited_ms", value: String(fault.waitedMs) }, ...logField(bridge)],
+          fields: [
+            ...fields,
+            {
+              key: "waited_ms",
+              value: String(fault.waitedMs),
+            },
+            ...logField(bridge),
+          ],
           ...versions(bridge),
         },
-        details: [...details, { label: "Waited", value: waited }],
+        details: [
+          ...details,
+          {
+            label: "Waited",
+            value: waited,
+          },
+        ],
         note: "The wait is Bridge's, not Fleet's. A route with a model call inside it answers within a budget of its own and a refusal from it would carry a code — an ordinary command has no such budget, so a slow answer here is not necessarily a stuck Fleet. There is no Fleet run id to quote either way: this is Bridge giving up first.",
       };
     }
@@ -272,7 +371,10 @@ export function transportFailure(
         payload: {
           code: COMMAND_UNREACHABLE,
           message: outcome.detail,
-          fields: [...fields, ...logField(bridge)],
+          fields: [
+            ...fields,
+            ...logField(bridge),
+          ],
           ...versions(bridge),
         },
         details,
@@ -289,10 +391,23 @@ export function transportFailure(
         payload: {
           code: COMMAND_UNANSWERABLE,
           message: `Fleet answered ${fault.status} with a body that is not a refusal`,
-          fields: [...fields, { key: "status", value: String(fault.status) }, ...logField(bridge)],
+          fields: [
+            ...fields,
+            {
+              key: "status",
+              value: String(fault.status),
+            },
+            ...logField(bridge),
+          ],
           ...versions(bridge),
         },
-        details: [...details, { label: "Status", value: String(fault.status) }],
+        details: [
+          ...details,
+          {
+            label: "Status",
+            value: String(fault.status),
+          },
+        ],
         // The two protocol versions are already on the payload's tail, and
         // this is the one failure where they are the first thing to look at.
         note: "A status with no refusal under it is the two sides disagreeing about the route, not a job going wrong. The protocol versions on this record are what to check first.",
@@ -332,7 +447,13 @@ const NOT_IMPLEMENTED: BridgeCode = "bridge.not_implemented";
  * — but degraded is a claim about a reading, and nothing here was one.
  */
 function notImplementedFailure(
-  outcome: Extract<Outcome, { ok: false; why: "transport" }>,
+  outcome: Extract<
+    Outcome,
+    {
+      ok: false;
+      why: "transport";
+    }
+  >,
   pending: PendingAsked,
   bridge: BridgeIdentity,
 ): Failure {
@@ -350,26 +471,66 @@ function notImplementedFailure(
     payload: {
       code: NOT_IMPLEMENTED,
       message: `${named} is not served by this Fleet yet. ${link} builds it.`,
-      ...(jobId === undefined ? {} : { job_id: jobId }),
+      ...(jobId === undefined
+        ? {}
+        : {
+            job_id: jobId,
+          }),
       fields: [
-        { key: "issue", value: link },
-        { key: "route", value: named },
-        { key: "act", value: route.act },
-        ...Object.entries(ids).map(([key, value]) => ({ key, value })),
-        ...sent.map(([key, value]) => ({ key, value })),
-        { key: "path", value: outcome.fault.path },
-        { key: "status", value: String(status) },
+        {
+          key: "issue",
+          value: link,
+        },
+        {
+          key: "route",
+          value: named,
+        },
+        {
+          key: "act",
+          value: route.act,
+        },
+        ...Object.entries(ids).map(([key, value]) => ({
+          key,
+          value,
+        })),
+        ...sent.map(([key, value]) => ({
+          key,
+          value,
+        })),
+        {
+          key: "path",
+          value: outcome.fault.path,
+        },
+        {
+          key: "status",
+          value: String(status),
+        },
         ...logField(bridge),
       ],
       ...versions(bridge),
     },
     detailsLabel: "What is not built",
     details: [
-      { label: "Issue", value: link },
-      { label: "Route", value: named },
-      { label: "Act", value: route.act },
-      ...Object.entries(filled).map(([key, value]) => ({ label: SAID[key] ?? key, value })),
-      ...sent.map(([key, value]) => ({ label: SAID[key] ?? key, value })),
+      {
+        label: "Issue",
+        value: link,
+      },
+      {
+        label: "Route",
+        value: named,
+      },
+      {
+        label: "Act",
+        value: route.act,
+      },
+      ...Object.entries(filled).map(([key, value]) => ({
+        label: SAID[key] ?? key,
+        value,
+      })),
+      ...sent.map(([key, value]) => ({
+        label: SAID[key] ?? key,
+        value,
+      })),
     ],
     values: machineLog(bridge),
     note: `Fleet answered ${status}.`,

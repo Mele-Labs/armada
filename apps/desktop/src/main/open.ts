@@ -64,12 +64,26 @@ export async function inEditor(state: BridgeState, path: string): Promise<string
  */
 export async function openSettingsFile(state: BridgeState): Promise<SettingsFileOpened> {
   const path = state.settings?.path;
-  if (path === undefined || path === "") return { ok: false, why: "not_read" };
+  if (path === undefined || path === "")
+    return {
+      ok: false,
+      why: "not_read",
+    };
   try {
-    await writeFile(path, "{}\n", { flag: "wx" });
+    await writeFile(path, "{}\n", {
+      flag: "wx",
+    });
   } catch {
     // Already there, which is the usual case. A directory that cannot be written is the editor's to report.
   }
   const opened = await inEditor(state, path);
-  return opened === null ? { ok: true } : { ok: false, why: "refused", detail: opened };
+  return opened === null
+    ? {
+        ok: true,
+      }
+    : {
+        ok: false,
+        why: "refused",
+        detail: opened,
+      };
 }

@@ -11,7 +11,9 @@ import { UnifiedDiff, type DiffFile } from "../UnifiedDiff/UnifiedDiff";
  */
 export type RunDiffReading =
   /** Fleet has been asked and has not answered. */
-  | { state: "reading" }
+  | {
+      state: "reading";
+    }
   | {
       state: "read";
       /** Every file in the patch, in the order git wrote them. `[]` draws `emptyNote`. */
@@ -25,9 +27,15 @@ export type RunDiffReading =
    * **The snapshot is gone, and nothing stands in for it.** Retention swept the
    * run's record, or none was taken. Never a fallback to `HEAD`.
    */
-  | { state: "gone"; why: ReactNode }
+  | {
+      state: "gone";
+      why: ReactNode;
+    }
   /** Fleet refused, or was not there to ask. */
-  | { state: "failed"; saying: ReactNode };
+  | {
+      state: "failed";
+      saying: ReactNode;
+    };
 
 export type RunDiffSheetProps = {
   open: boolean;
@@ -97,8 +105,8 @@ function RunDiffSheetBody({
       bands={
         undoneAt === undefined ? undefined : (
           <p className="armada-run-diff-sheet__undone" role="note">
-            Undone at <Stamp at={undoneAt} />. The checkout no longer holds these changes. This is what the run did, read
-            from the snapshot Undo restored.
+            Undone at <Stamp at={undoneAt} />. The checkout no longer holds these changes. This is
+            what the run did, read from the snapshot Undo restored.
           </p>
         )
       }
@@ -166,9 +174,17 @@ function Body({
     <UnifiedDiff
       files={reading.files}
       emptyNote={reading.emptyNote}
-      {...(reading.cut === undefined ? {} : { cut: reading.cut })}
+      {...(reading.cut === undefined
+        ? {}
+        : {
+            cut: reading.cut,
+          })}
       note={NOT_HEAD}
-      {...(onCopied === undefined ? {} : { onCopied })}
+      {...(onCopied === undefined
+        ? {}
+        : {
+            onCopied,
+          })}
     />
   );
 }

@@ -26,9 +26,21 @@ const HELD = "scratch/try-ports";
 type CheckState = "waiting" | "running" | "passed" | "failed";
 
 /** A turn's Checks as they stand, in the order it runs them. */
-function checks(...states: CheckState[]): { name: string; state: string }[] {
-  const names = ["build", "typecheck", "screens_test", "desktop_test", "components_test"];
-  return states.map((state, at) => ({ name: names[at]!, state }));
+function checks(...states: CheckState[]): {
+  name: string;
+  state: string;
+}[] {
+  const names = [
+    "build",
+    "typecheck",
+    "screens_test",
+    "desktop_test",
+    "components_test",
+  ];
+  return states.map((state, at) => ({
+    name: names[at]!,
+    state,
+  }));
 }
 
 const row = (place: number, branch: string, over: Partial<MergeLineRow> = {}): MergeLineRow => ({
@@ -41,20 +53,53 @@ const row = (place: number, branch: string, over: Partial<MergeLineRow> = {}): M
 /** The batch's members in one turn, the second one carrying the Checks as a turn's row does. */
 function batch(states: CheckState[]): MergeLineRow[] {
   return [
-    row(1, FIRST, { state: "gating", batch: TURN, doing: "reading verify-foundations against main" }),
-    row(2, CARRIER, { state: "gating", batch: TURN, checks: checks(...states) }),
-    row(3, AT_FAULT, { state: "gating", batch: TURN, doing: "reading verify-foundations against main" }),
+    row(1, FIRST, {
+      state: "gating",
+      batch: TURN,
+      doing: "reading verify-foundations against main",
+    }),
+    row(2, CARRIER, {
+      state: "gating",
+      batch: TURN,
+      checks: checks(...states),
+    }),
+    row(3, AT_FAULT, {
+      state: "gating",
+      batch: TURN,
+      doing: "reading verify-foundations against main",
+    }),
     row(4, WAITING),
   ];
 }
 
 const alone = (branch: string, states: CheckState[], test: string): MergeLineRow =>
-  row(1, branch, { state: "gating", checks: states.map((state, at) => ({ name: ["build", test, "typecheck"][at]!, state })) });
+  row(1, branch, {
+    state: "gating",
+    checks: states.map((state, at) => ({
+      name: [
+        "build",
+        test,
+        "typecheck",
+      ][at]!,
+      state,
+    })),
+  });
 
 type Moment = {
-  armada: { line: MergeLineRow[]; sent_back?: MergeLineRow[]; notice?: MergeLineNotice };
-  notes: { line: MergeLineRow[]; sent_back?: MergeLineRow[]; notice?: MergeLineNotice };
-  scratch: { line: MergeLineRow[]; notice?: MergeLineNotice };
+  armada: {
+    line: MergeLineRow[];
+    sent_back?: MergeLineRow[];
+    notice?: MergeLineNotice;
+  };
+  notes: {
+    line: MergeLineRow[];
+    sent_back?: MergeLineRow[];
+    notice?: MergeLineNotice;
+  };
+  scratch: {
+    line: MergeLineRow[];
+    notice?: MergeLineNotice;
+  };
 };
 
 const SCREENS = "screens_test";
@@ -62,53 +107,175 @@ const SCREENS = "screens_test";
 /** Each moment of the story. The first is what a window opens on. */
 const MOMENTS: Moment[] = [
   {
-    armada: { line: batch(["passed", "passed", "running", "waiting", "waiting"]) },
-    notes: { line: [alone(ALONE, ["passed", "running", "waiting"], "notes_test")] },
-    scratch: { line: [alone(HELD, ["passed", "running", "waiting"], "ports_test")] },
+    armada: {
+      line: batch([
+        "passed",
+        "passed",
+        "running",
+        "waiting",
+        "waiting",
+      ]),
+    },
+    notes: {
+      line: [
+        alone(
+          ALONE,
+          [
+            "passed",
+            "running",
+            "waiting",
+          ],
+          "notes_test",
+        ),
+      ],
+    },
+    scratch: {
+      line: [
+        alone(
+          HELD,
+          [
+            "passed",
+            "running",
+            "waiting",
+          ],
+          "ports_test",
+        ),
+      ],
+    },
   },
   {
     armada: {
-      line: batch(["passed", "passed", "failed", "running", "waiting"]),
-      notice: { kind: "batch", check: SCREENS, branch: CARRIER, branches: [FIRST, CARRIER, AT_FAULT] },
+      line: batch([
+        "passed",
+        "passed",
+        "failed",
+        "running",
+        "waiting",
+      ]),
+      notice: {
+        kind: "batch",
+        check: SCREENS,
+        branch: CARRIER,
+        branches: [
+          FIRST,
+          CARRIER,
+          AT_FAULT,
+        ],
+      },
     },
     notes: {
-      line: [alone(ALONE, ["passed", "failed", "running"], "notes_test")],
-      notice: { kind: "branch", check: "notes_test", branch: ALONE },
+      line: [
+        alone(
+          ALONE,
+          [
+            "passed",
+            "failed",
+            "running",
+          ],
+          "notes_test",
+        ),
+      ],
+      notice: {
+        kind: "branch",
+        check: "notes_test",
+        branch: ALONE,
+      },
     },
     scratch: {
-      line: [alone(HELD, ["passed", "failed", "running"], "ports_test")],
-      notice: { kind: "branch", check: "ports_test", branch: HELD },
+      line: [
+        alone(
+          HELD,
+          [
+            "passed",
+            "failed",
+            "running",
+          ],
+          "ports_test",
+        ),
+      ],
+      notice: {
+        kind: "branch",
+        check: "ports_test",
+        branch: HELD,
+      },
     },
   },
   {
     armada: {
-      line: batch(["passed", "passed", "failed", "passed", "running"]),
-      notice: { kind: "branch", check: SCREENS, branch: AT_FAULT },
+      line: batch([
+        "passed",
+        "passed",
+        "failed",
+        "passed",
+        "running",
+      ]),
+      notice: {
+        kind: "branch",
+        check: SCREENS,
+        branch: AT_FAULT,
+      },
     },
     notes: {
-      line: [alone(ALONE, ["passed", "failed", "passed"], "notes_test")],
-      notice: { kind: "branch", check: "notes_test", branch: ALONE },
+      line: [
+        alone(
+          ALONE,
+          [
+            "passed",
+            "failed",
+            "passed",
+          ],
+          "notes_test",
+        ),
+      ],
+      notice: {
+        kind: "branch",
+        check: "notes_test",
+        branch: ALONE,
+      },
     },
     scratch: {
-      line: [alone(HELD, ["passed", "failed", "waiting"], "ports_test")],
-      notice: { kind: "main", check: "ports_test", branch: HELD },
+      line: [
+        alone(
+          HELD,
+          [
+            "passed",
+            "failed",
+            "waiting",
+          ],
+          "ports_test",
+        ),
+      ],
+      notice: {
+        kind: "main",
+        check: "ports_test",
+        branch: HELD,
+      },
     },
   },
   {
     armada: {
       line: [
-        row(1, FIRST, { state: "preparing", doing: "merging main (c527f60e09) into docs/wire-lock-signed" }),
+        row(1, FIRST, {
+          state: "preparing",
+          doing: "merging main (c527f60e09) into docs/wire-lock-signed",
+        }),
         row(2, WAITING),
       ],
       sent_back: [
         {
           branch: AT_FAULT,
           state: "red",
-          failed: [SCREENS],
+          failed: [
+            SCREENS,
+          ],
           checks: checks("passed", "passed", "failed", "passed", "passed"),
         },
       ],
-      notice: { kind: "sent", check: SCREENS, branch: AT_FAULT },
+      notice: {
+        kind: "sent",
+        check: SCREENS,
+        branch: AT_FAULT,
+      },
     },
     notes: {
       line: [],
@@ -116,19 +283,48 @@ const MOMENTS: Moment[] = [
         {
           branch: ALONE,
           state: "red",
-          failed: ["notes_test"],
+          failed: [
+            "notes_test",
+          ],
           checks: [
-            { name: "build", state: "passed" },
-            { name: "notes_test", state: "failed" },
-            { name: "typecheck", state: "passed" },
+            {
+              name: "build",
+              state: "passed",
+            },
+            {
+              name: "notes_test",
+              state: "failed",
+            },
+            {
+              name: "typecheck",
+              state: "passed",
+            },
           ],
         },
       ],
-      notice: { kind: "sent", check: "notes_test", branch: ALONE },
+      notice: {
+        kind: "sent",
+        check: "notes_test",
+        branch: ALONE,
+      },
     },
     scratch: {
-      line: [alone(HELD, ["passed", "failed", "waiting"], "ports_test")],
-      notice: { kind: "main", check: "ports_test", branch: HELD },
+      line: [
+        alone(
+          HELD,
+          [
+            "passed",
+            "failed",
+            "waiting",
+          ],
+          "ports_test",
+        ),
+      ],
+      notice: {
+        kind: "main",
+        check: "ports_test",
+        branch: HELD,
+      },
     },
   },
 ];
@@ -142,7 +338,11 @@ function linesAt(at: number, roots: TurnRoots): MergeLine[] {
     off: [],
     landed: [],
     sent_back: one.sent_back ?? [],
-    ...(one.notice === undefined ? {} : { notice: one.notice }),
+    ...(one.notice === undefined
+      ? {}
+      : {
+          notice: one.notice,
+        }),
   });
   return [
     line(roots.armada, moment.armada),
@@ -152,7 +352,12 @@ function linesAt(at: number, roots: TurnRoots): MergeLine[] {
   ];
 }
 
-export type TurnRoots = { armada: string; notes: string; scratch: string; bridge: string };
+export type TurnRoots = {
+  armada: string;
+  notes: string;
+  scratch: string;
+  bridge: string;
+};
 
 /**
  * A line whose turn took two of four and left the rest waiting, in the places they joined at: the
@@ -161,21 +366,43 @@ export type TurnRoots = { armada: string; notes: string; scratch: string; bridge
  */
 function queued(root: string): MergeLine {
   const running = (place: number, branch: string, over: Partial<MergeLineRow> = {}) =>
-    row(place, branch, { state: "gating", batch: "canvas/gates-on-the-spine", ...over });
+    row(place, branch, {
+      state: "gating",
+      batch: "canvas/gates-on-the-spine",
+      ...over,
+    });
   const waiting = (place: number, branch: string, why?: string) =>
-    ({ ...row(place, branch), ...(why === undefined ? {} : { why }) }) as MergeLineRow;
+    ({
+      ...row(place, branch),
+      ...(why === undefined
+        ? {}
+        : {
+            why,
+          }),
+    }) as MergeLineRow;
   return {
     root,
     line: [
       waiting(1, "fleet/stranded-slot-rescue", "kept"),
       running(2, "canvas/gates-on-the-spine", {
         checks: [
-          { name: "build", state: "passed" },
-          { name: "typecheck", state: "running" },
-          { name: "desktop_test", state: "waiting" },
+          {
+            name: "build",
+            state: "passed",
+          },
+          {
+            name: "typecheck",
+            state: "running",
+          },
+          {
+            name: "desktop_test",
+            state: "waiting",
+          },
         ],
       }),
-      running(3, "fix/overview-fallback-and-reads", { doing: "reading verify-foundations against main" }),
+      running(3, "fix/overview-fallback-and-reads", {
+        doing: "reading verify-foundations against main",
+      }),
       waiting(4, "fix/dispatch-did-not-answer"),
       waiting(5, "fix/pulse-log-clash", "member"),
       waiting(6, "fix/stale-base-read", "main"),
@@ -188,9 +415,19 @@ function queued(root: string): MergeLine {
 }
 
 /** The state at the first moment, and each moment after as the change a walk publishes. */
-export function failingTurn(roots: TurnRoots): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
-  const at = (n: number): Partial<BridgeState> => ({ mergeLines: { lines: linesAt(n, roots) } });
-  return { first: at(0), later: MOMENTS.slice(1).map((_, n) => at(n + 1)) };
+export function failingTurn(roots: TurnRoots): {
+  first: Partial<BridgeState>;
+  later: Partial<BridgeState>[];
+} {
+  const at = (n: number): Partial<BridgeState> => ({
+    mergeLines: {
+      lines: linesAt(n, roots),
+    },
+  });
+  return {
+    first: at(0),
+    later: MOMENTS.slice(1).map((_, n) => at(n + 1)),
+  };
 }
 
 /** A Check's log, finished: the line the walk opens from the alert, the strip and the row alike. */
@@ -229,9 +466,19 @@ export function writingTheFailedLogs(fleet: FleetHandle): Partial<BridgeApi> {
       const lines = at === null ? undefined : LOGS[at.check];
       const landFollowed: FollowedLandLog =
         at === null || lines === undefined
-          ? { state: "none" }
-          : { state: "following", ...at, fromLine: 1, lines, ended: "finished" };
-      fleet.publish({ landFollowed });
+          ? {
+              state: "none",
+            }
+          : {
+              state: "following",
+              ...at,
+              fromLine: 1,
+              lines,
+              ended: "finished",
+            };
+      fleet.publish({
+        landFollowed,
+      });
     },
   };
 }

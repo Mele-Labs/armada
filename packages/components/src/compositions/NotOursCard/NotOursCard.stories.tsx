@@ -17,7 +17,13 @@ const meta: Meta<typeof NotOursCard> = {
   component: NotOursCard,
   args: {
     watch: "QA deploy",
-    parts: [{ name: "provision", sentence: "A cloud lookup outside this change failed.", error: "Error: cloud lookup for region qa-east returned no account" }],
+    parts: [
+      {
+        name: "provision",
+        sentence: "A cloud lookup outside this change failed.",
+        error: "Error: cloud lookup for region qa-east returned no account",
+      },
+    ],
     link: "https://ci.example.com/runs/7",
     summary: SUMMARY,
     onFixIt: fn(),
@@ -26,7 +32,11 @@ const meta: Meta<typeof NotOursCard> = {
   },
   decorators: [
     (Story) => (
-      <div style={{ width: "calc(var(--space-12) * 10)" }}>
+      <div
+        style={{
+          width: "calc(var(--space-12) * 10)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -39,15 +49,37 @@ type Story = StoryObj<typeof NotOursCard>;
 /** Escalate shows the lines for the owners and one copy control, sends nothing, and leaves Fix it and Ignore to settle it. */
 export const Escalated: Story = {
   play: async ({ canvas, args }) => {
-    await expect(canvas.getByLabelText("provision failed on")).toHaveTextContent("returned no account");
-    await expect(canvas.queryByRole("region", { name: "Summary for the owners" })).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Escalate" }));
-    const summary = canvas.getByRole("region", { name: "Summary for the owners" });
-    await expect(summary).toHaveTextContent("Error: Cloud lookup for region qa-east returned no account.");
-    await expect(canvas.getAllByRole("button", { name: /^Copy/ })).toHaveLength(1);
+    await expect(canvas.getByLabelText("provision failed on")).toHaveTextContent(
+      "returned no account",
+    );
+    await expect(
+      canvas.queryByRole("region", {
+        name: "Summary for the owners",
+      }),
+    ).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Escalate",
+      }),
+    );
+    const summary = canvas.getByRole("region", {
+      name: "Summary for the owners",
+    });
+    await expect(summary).toHaveTextContent(
+      "Error: Cloud lookup for region qa-east returned no account.",
+    );
+    await expect(
+      canvas.getAllByRole("button", {
+        name: /^Copy/,
+      }),
+    ).toHaveLength(1);
     await expect(args.onFixIt).not.toHaveBeenCalled();
     await expect(args.onIgnore).not.toHaveBeenCalled();
-    await userEvent.click(canvas.getByRole("button", { name: "Fix it" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Fix it",
+      }),
+    );
     await expect(args.onFixIt).toHaveBeenCalledOnce();
   },
 };
@@ -56,8 +88,14 @@ export const Escalated: Story = {
 export const TwoParts: Story = {
   args: {
     parts: [
-      { name: "provision", sentence: "A cloud lookup outside this change failed." },
-      { name: "dns", sentence: "The shared zone was being moved." },
+      {
+        name: "provision",
+        sentence: "A cloud lookup outside this change failed.",
+      },
+      {
+        name: "dns",
+        sentence: "The shared zone was being moved.",
+      },
     ],
   },
 };

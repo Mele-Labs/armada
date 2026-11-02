@@ -5,36 +5,102 @@
 // outside the shares and has no handle beside it. The panels are found in the page as drawn, because a Session's panels are
 // portalled into the column by their own hosts and `display: contents` wrappers hold some.
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { clampToRange, tokenPx } from "@armada/components";
 
 import "./splits.css";
 
 type Weights = Record<string, number>;
-type Shares = { size: Weights; natural: Weights };
+type Shares = {
+  size: Weights;
+  natural: Weights;
+};
 type Kept = Record<string, Shares>;
-type Gap = { id: string; column: string; above: string; below: string; label: string; x: number; y: number; w: number; h: number };
+type Gap = {
+  id: string;
+  column: string;
+  above: string;
+  below: string;
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
 
 const KEY = "armada.bridge.deck-splits";
 // The stage is a column inside the middle one: the Job over the Cockpit's docked shell (`ShellPanel`), with the merge queue under them.
-const COLUMNS = [["left", ".deck-left"], ["centre", ".deck-centre"], ["right", ".deck-right"], ["stage", ".deck-centre > .deck-stage"]] as const;
+const COLUMNS = [
+  [
+    "left",
+    ".deck-left",
+  ],
+  [
+    "centre",
+    ".deck-centre",
+  ],
+  [
+    "right",
+    ".deck-right",
+  ],
+  [
+    "stage",
+    ".deck-centre > .deck-stage",
+  ],
+] as const;
 const PANELS = ".deck-panel, .deck-pane, .sv-panel, .deck-stage, .deck-foot";
-const GENERIC = new Set(["deck-panel", "deck-pane", "sv-panel"]);
+const GENERIC = new Set([
+  "deck-panel",
+  "deck-pane",
+  "sv-panel",
+]);
 /** One arrow press, as the column handle moves. */
 const STEP = 16;
 /** Without a minimum of its own a panel keeps room for its band and a row. */
 const FLOOR_UNITS = 2;
-const NAMES: Record<string, string> = { "deck-stage": "Thread", "deck-foot": "Foot" };
+const NAMES: Record<string, string> = {
+  "deck-stage": "Thread",
+  "deck-foot": "Foot",
+};
 
-const keyOf = (panel: HTMLElement) => panel.dataset.area ?? [...panel.classList].find((one) => !GENERIC.has(one)) ?? "panel";
-const nameOf = (panel: HTMLElement) => panel.getAttribute("aria-label") ?? NAMES[keyOf(panel)] ?? keyOf(panel);
+const keyOf = (panel: HTMLElement) =>
+  panel.dataset.area ??
+  [
+    ...panel.classList,
+  ].find((one) => !GENERIC.has(one)) ??
+  "panel";
+const nameOf = (panel: HTMLElement) =>
+  panel.getAttribute("aria-label") ?? NAMES[keyOf(panel)] ?? keyOf(panel);
 // A foot of keys alone is as tall as its keys: a share kept from a taller foot drew it tall with the keys floating in it.
 // A zone of the story's timeline stands on its line and is never sized.
-const fixed = (panel: HTMLElement) => panel.hasAttribute("data-collapsed") || panel.hasAttribute("data-band-only") || panel.closest(".sv-spine") !== null || panel.matches(".deck-foot:not(:has(.sv-panel[data-area='field']))");
+const fixed = (panel: HTMLElement) =>
+  panel.hasAttribute("data-collapsed") ||
+  panel.hasAttribute("data-band-only") ||
+  panel.closest(".sv-spine") !== null ||
+  panel.matches(".deck-foot:not(:has(.sv-panel[data-area='field']))");
 
 function panelsOf(column: HTMLElement): HTMLElement[] {
-  return [...column.querySelectorAll<HTMLElement>(PANELS)]
-    .filter((one) => [null, undefined, column].includes(one.parentElement?.closest<HTMLElement>(PANELS)) && one.offsetHeight > 0)
+  return [
+    ...column.querySelectorAll<HTMLElement>(PANELS),
+  ]
+    .filter(
+      (one) =>
+        [
+          null,
+          undefined,
+          column,
+        ].includes(one.parentElement?.closest<HTMLElement>(PANELS)) && one.offsetHeight > 0,
+    )
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
 }
 
@@ -44,11 +110,13 @@ function minOf(panel: HTMLElement): number {
   return Math.max(Number.isFinite(own) ? own : 0, Number.isFinite(floor) ? floor : 0);
 }
 
-const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value > 0;
+const finite = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
 
 function weights(raw: unknown): Weights {
   const out: Weights = {};
-  if (typeof raw === "object" && raw !== null) for (const [name, value] of Object.entries(raw)) if (finite(value)) out[name] = value;
+  if (typeof raw === "object" && raw !== null)
+    for (const [name, value] of Object.entries(raw)) if (finite(value)) out[name] = value;
   return out;
 }
 
@@ -59,7 +127,10 @@ function load(layout: string): Kept {
     if (typeof parsed === "object" && parsed !== null) {
       for (const [column, shares] of Object.entries(parsed)) {
         const { size, natural } = (shares ?? {}) as Record<string, unknown>;
-        kept[column] = { size: weights(size), natural: weights(natural) };
+        kept[column] = {
+          size: weights(size),
+          natural: weights(natural),
+        };
       }
     }
     return kept;
@@ -96,12 +167,23 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
   const frame = useRef(0);
   const watched = useRef(new Set<Element>());
   const watcher = useRef<ResizeObserver | null>(null);
-  const dragging = useRef<{ pointerId: number; startY: number; column: string; above: HTMLElement; below: HTMLElement; ha: number; hb: number; total: number } | null>(null);
+  const dragging = useRef<{
+    pointerId: number;
+    startY: number;
+    column: string;
+    above: HTMLElement;
+    below: HTMLElement;
+    ha: number;
+    hb: number;
+    total: number;
+  } | null>(null);
 
   const apply = useCallback((name: string, panels: HTMLElement[]) => {
     const size = kept.current[name]?.size ?? {};
     const flexible = panels.filter((one) => !fixed(one));
-    const known = flexible.map((one) => size[keyOf(one)]).filter((one): one is number => one !== undefined);
+    const known = flexible
+      .map((one) => size[keyOf(one)])
+      .filter((one): one is number => one !== undefined);
     if (known.length === 0) return panels.forEach((one) => writeShare(one, undefined));
     const mean = known.reduce((sum, one) => sum + one, 0) / known.length;
     for (const one of panels) writeShare(one, fixed(one) ? undefined : (size[keyOf(one)] ?? mean));
@@ -131,14 +213,27 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
         const top = above.getBoundingClientRect().bottom;
         const space = below.getBoundingClientRect().top - top;
         if (space < 2) continue;
-        next.push({ id: `${name}:${keyOf(above)}|${keyOf(below)}`, column: name, above: keyOf(above), below: keyOf(below), label: `${nameOf(above)} and ${nameOf(below)}`, x: Math.round(box.left - origin.left), y: Math.round(top - origin.top), w: Math.round(box.width), h: Math.round(space) });
+        next.push({
+          id: `${name}:${keyOf(above)}|${keyOf(below)}`,
+          column: name,
+          above: keyOf(above),
+          below: keyOf(below),
+          label: `${nameOf(above)} and ${nameOf(below)}`,
+          x: Math.round(box.left - origin.left),
+          y: Math.round(top - origin.top),
+          w: Math.round(box.width),
+          h: Math.round(space),
+        });
       }
     }
     const said = JSON.stringify(next);
     if (said === shown.current) return;
     shown.current = said;
     setGaps(next);
-  }, [apply, grid]);
+  }, [
+    apply,
+    grid,
+  ]);
 
   // A size can move for a good half second after what moved it (a fold, a card arriving), so the handles follow it a frame at a time.
   const kick = useCallback(() => {
@@ -150,7 +245,9 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
       if (performance.now() < until.current) frame.current = requestAnimationFrame(tick);
     };
     frame.current = requestAnimationFrame(tick);
-  }, [measure]);
+  }, [
+    measure,
+  ]);
 
   useLayoutEffect(() => {
     const element = grid.current;
@@ -159,10 +256,28 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
     watching?.observe(element);
     watcher.current = watching;
     const changes = new MutationObserver((records) => {
-      const relevant = records.some((one) => one.type === "attributes" || [...one.addedNodes, ...one.removedNodes].some((node) => node instanceof Element && (node.matches(PANELS) || node.querySelector(PANELS) !== null)));
+      const relevant = records.some(
+        (one) =>
+          one.type === "attributes" ||
+          [
+            ...one.addedNodes,
+            ...one.removedNodes,
+          ].some(
+            (node) =>
+              node instanceof Element &&
+              (node.matches(PANELS) || node.querySelector(PANELS) !== null),
+          ),
+      );
       if (relevant) kick();
     });
-    changes.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-collapsed"] });
+    changes.observe(element, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: [
+        "data-collapsed",
+      ],
+    });
     kick();
     return () => {
       watching?.disconnect();
@@ -172,12 +287,18 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
       cancelAnimationFrame(frame.current);
       frame.current = 0;
     };
-  }, [grid, kick]);
+  }, [
+    grid,
+    kick,
+  ]);
 
   useLayoutEffect(() => {
     kept.current = load(layout);
     kick();
-  }, [layout, kick]);
+  }, [
+    layout,
+    kick,
+  ]);
 
   useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
@@ -190,13 +311,22 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
     const heights = panels.map((one) => one.getBoundingClientRect().height);
     const total = heights.reduce((sum, one) => sum + one, 0);
     if (total <= 0) return null;
-    const shares = (kept.current[name] ??= { size: {}, natural: {} });
+    const shares = (kept.current[name] ??= {
+      size: {},
+      natural: {},
+    });
     const fresh = Object.keys(shares.size).length === 0;
     panels.forEach((one, at) => {
       shares.size[keyOf(one)] = heights[at]! / total;
-      if (fresh || shares.natural[keyOf(one)] === undefined) shares.natural[keyOf(one)] = heights[at]! / total;
+      if (fresh || shares.natural[keyOf(one)] === undefined)
+        shares.natural[keyOf(one)] = heights[at]! / total;
     });
-    return { panels, heights, total, shares };
+    return {
+      panels,
+      heights,
+      total,
+      shares,
+    };
   };
 
   const begin = (gap: Gap, event: PointerEvent<HTMLElement>) => {
@@ -204,7 +334,16 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
     const above = seeded?.panels.findIndex((one) => keyOf(one) === gap.above) ?? -1;
     const below = seeded?.panels.findIndex((one) => keyOf(one) === gap.below) ?? -1;
     if (seeded === null || above < 0 || below < 0) return;
-    dragging.current = { pointerId: event.pointerId, startY: event.clientY, column: gap.column, above: seeded.panels[above]!, below: seeded.panels[below]!, ha: seeded.heights[above]!, hb: seeded.heights[below]!, total: seeded.total };
+    dragging.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      column: gap.column,
+      above: seeded.panels[above]!,
+      below: seeded.panels[below]!,
+      ha: seeded.heights[above]!,
+      hb: seeded.heights[below]!,
+      total: seeded.total,
+    };
     grid.current?.setAttribute("data-splitting", "");
     setHeld(gap.id);
   };
@@ -214,7 +353,10 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
     if (now === null) return;
     const share = kept.current[now.column];
     if (share === undefined) return;
-    const by_ = clampToRange(by, { min: minOf(now.above) - now.ha, max: now.hb - minOf(now.below) });
+    const by_ = clampToRange(by, {
+      min: minOf(now.above) - now.ha,
+      max: now.hb - minOf(now.below),
+    });
     share.size[keyOf(now.above)] = (now.ha + by_) / now.total;
     share.size[keyOf(now.below)] = (now.hb - by_) / now.total;
     measure();
@@ -248,7 +390,10 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
     if (event.key === "Home") reset(gap);
     else if (by === undefined) return;
     else {
-      begin(gap, { pointerId: 0, clientY: 0 } as PointerEvent<HTMLElement>);
+      begin(gap, {
+        pointerId: 0,
+        clientY: 0,
+      } as PointerEvent<HTMLElement>);
       move(by);
       end();
     }
@@ -264,7 +409,12 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
       aria-label={`Resize ${gap.label}`}
       tabIndex={0}
       data-held={held === gap.id || undefined}
-      style={{ left: gap.x, top: gap.y, width: gap.w, height: gap.h }}
+      style={{
+        left: gap.x,
+        top: gap.y,
+        width: gap.w,
+        height: gap.h,
+      }}
       onDoubleClick={() => reset(gap)}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
@@ -280,7 +430,8 @@ export function useSplits(grid: RefObject<HTMLElement | null>, layout: string): 
         begin(gap, event);
       }}
       onPointerMove={(event) => {
-        if (dragging.current?.pointerId === event.pointerId) move(event.clientY - dragging.current.startY);
+        if (dragging.current?.pointerId === event.pointerId)
+          move(event.clientY - dragging.current.startY);
       }}
       onPointerUp={(event) => {
         if (dragging.current?.pointerId === event.pointerId) end();

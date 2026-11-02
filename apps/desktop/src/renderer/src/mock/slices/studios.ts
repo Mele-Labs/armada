@@ -10,6 +10,11 @@ import { readingNothing, studying, zoneProposing, zoning } from "../studios-fake
 export const studios: Slice<StudiosApi, StudiosState> = {
   name: "studios",
   state: STUDIOS_NOTHING_YET,
-  scenarios: () => [studying().scenario, zoning().scenario, zoneProposing().scenario, readingNothing().scenario],
+  scenarios: () => [
+    studying().scenario,
+    zoning().scenario,
+    zoneProposing().scenario,
+    readingNothing().scenario,
+  ],
   api: (scenario, fleet) => studiosApi(scenario.studios, fleet),
 };

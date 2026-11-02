@@ -35,10 +35,22 @@ const PATCH: DiffFile[] = [
   {
     path: "packages/settings/src/selectors.ts",
     lines: [
-      { kind: "hunk", text: "@@ -14,6 +14,9 @@ import { createSelector } from 'reselect'" },
-      { kind: "context", text: " import type { SettingsState } from './types'" },
-      { kind: "added", text: "+import { selectColumnOrder } from './selectors/columns'" },
-      { kind: "context", text: " export const selectSettings = (s: RootState) => s.settings" },
+      {
+        kind: "hunk",
+        text: "@@ -14,6 +14,9 @@ import { createSelector } from 'reselect'",
+      },
+      {
+        kind: "context",
+        text: " import type { SettingsState } from './types'",
+      },
+      {
+        kind: "added",
+        text: "+import { selectColumnOrder } from './selectors/columns'",
+      },
+      {
+        kind: "context",
+        text: " export const selectSettings = (s: RootState) => s.settings",
+      },
       {
         kind: "removed",
         text: "-export const selectColumns = createSelector([selectSettings], (s) => s.columns)",
@@ -52,16 +64,31 @@ const PATCH: DiffFile[] = [
   {
     path: "packages/settings/src/reducer.ts",
     lines: [
-      { kind: "hunk", text: "@@ -48,7 +51,7 @@ export const selectDensity = …" },
-      { kind: "removed", text: "-  return state.settings.density ?? 'comfortable'" },
-      { kind: "added", text: "+  return state.settings.density ?? DEFAULT_DENSITY" },
+      {
+        kind: "hunk",
+        text: "@@ -48,7 +51,7 @@ export const selectDensity = …",
+      },
+      {
+        kind: "removed",
+        text: "-  return state.settings.density ?? 'comfortable'",
+      },
+      {
+        kind: "added",
+        text: "+  return state.settings.density ?? DEFAULT_DENSITY",
+      },
     ],
   },
   {
     path: "packages/settings/test/useColumnSelectors.test.ts",
     lines: [
-      { kind: "hunk", text: "@@ -0,0 +1,21 @@" },
-      { kind: "added", text: "+import { selectVisibleColumns } from '../src/selectors'" },
+      {
+        kind: "hunk",
+        text: "@@ -0,0 +1,21 @@",
+      },
+      {
+        kind: "added",
+        text: "+import { selectVisibleColumns } from '../src/selectors'",
+      },
     ],
   },
 ];
@@ -94,9 +121,7 @@ export const OpenedAtAStep: Story = {
     files: RAIL,
     selected: PATCH[0]!.path,
     openedAt: "Fix",
-    children: (
-      <UnifiedDiff files={PATCH} emptyNote="This drone has not changed anything yet." />
-    ),
+    children: <UnifiedDiff files={PATCH} emptyNote="This drone has not changed anything yet." />,
     onSelect: fn(),
   },
   /**
@@ -110,22 +135,30 @@ export const OpenedAtAStep: Story = {
    * browser is the most expensive place to check arithmetic.
    */
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: /reducer\.ts/ }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /reducer\.ts/,
+      }),
+    );
     await expect(args.onSelect).toHaveBeenCalledWith("packages/settings/src/reducer.ts");
 
     // Held by the caller, so the rail's selection has not moved — and it is
     // `aria-current` that makes that a thing a play can read rather than a
     // colour on a row.
-    await expect(canvas.getByRole("button", { name: /selectors\.ts/ })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("button", {
+        name: /selectors\.ts/,
+      }),
+    ).toHaveAttribute("aria-current", "true");
   },
 };
 
 /** At `--window-floor`: flush to both edges, a narrower rail, an icon close. */
 export const AtTheFloor: Story = {
-  args: { ...OpenedAtAStep.args, floor: true },
+  args: {
+    ...OpenedAtAStep.args,
+    floor: true,
+  },
 };
 
 /**
@@ -149,12 +182,12 @@ export const MidStepWithNoFootprint: Story = {
     note:
       "Fleet commits once at the end, so the patch is the Job's. Nothing served says which " +
       "step wrote each file.",
-    children: (
-      <UnifiedDiff files={PATCH} emptyNote="This drone has not changed anything yet." />
-    ),
+    children: <UnifiedDiff files={PATCH} emptyNote="This drone has not changed anything yet." />,
   },
   play: async ({ canvas }) => {
-    const sheet = canvas.getByRole("dialog", { name: "Job diff" });
+    const sheet = canvas.getByRole("dialog", {
+      name: "Job diff",
+    });
 
     // The whole of the defect: a count of nothing over a patch full of files.
     await expect(sheet).not.toHaveTextContent("0 files");
@@ -163,7 +196,11 @@ export const MidStepWithNoFootprint: Story = {
     // Every file in the patch, on the rail, and the header's totals are the
     // sum of them rather than a second reading's.
     for (const file of PATCH) {
-      await expect(canvas.getByRole("button", { name: new RegExp(file.path) })).toBeVisible();
+      await expect(
+        canvas.getByRole("button", {
+          name: new RegExp(file.path),
+        }),
+      ).toBeVisible();
     }
     await expect(sheet).toHaveTextContent("+4");
     await expect(sheet).toHaveTextContent("−2");
@@ -202,7 +239,9 @@ export const NoReading: Story = {
     ),
   },
   play: async ({ canvas }) => {
-    const sheet = canvas.getByRole("dialog", { name: "Job diff" });
+    const sheet = canvas.getByRole("dialog", {
+      name: "Job diff",
+    });
 
     // The header states the absence. It never asserts a count, and it drops the
     // clause that says where a patch came from, because there is no patch.
@@ -215,7 +254,11 @@ export const NoReading: Story = {
     await expect(sheet).toHaveTextContent("This job has no worktree");
 
     // No rail rows to select, and the note is still under them.
-    await expect(canvas.queryAllByRole("button", { name: /packages\// })).toHaveLength(0);
+    await expect(
+      canvas.queryAllByRole("button", {
+        name: /packages\//,
+      }),
+    ).toHaveLength(0);
     await expect(sheet).toHaveTextContent("Fleet commits once at the end");
   },
 };
@@ -241,7 +284,9 @@ export const TheWorktreeWasGivenBack: Story = {
     whyNoReading: "the worktree was given back",
   },
   play: async ({ canvas }) => {
-    const sheet = canvas.getByRole("dialog", { name: "Job diff" });
+    const sheet = canvas.getByRole("dialog", {
+      name: "Job diff",
+    });
 
     await expect(sheet).toHaveTextContent("the worktree was given back");
     await expect(sheet).not.toHaveTextContent("no reading");

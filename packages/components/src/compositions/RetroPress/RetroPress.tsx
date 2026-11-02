@@ -18,7 +18,15 @@ export function RetroPress({ writing = false, onPress }: RetroPressProps) {
   const said = writing ? "Writing the retro" : "Retro";
   return (
     <Tooltip label={said}>
-      <Button variant="ghost" size="sm" className="armada-retro-press" aria-label={said} disabled={writing} data-writing={writing || undefined} onClick={onPress}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="armada-retro-press"
+        aria-label={said}
+        disabled={writing}
+        data-writing={writing || undefined}
+        onClick={onPress}
+      >
         <Rewind size={16} strokeWidth={2} aria-hidden />
       </Button>
     </Tooltip>

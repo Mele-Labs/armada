@@ -11,19 +11,41 @@ import { timePasses } from "./time-passes";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs", exact: true });
-const controls = () => page.getByRole("region", { name: "Flight controls" });
-const places = () => page.getByRole("navigation", { name: "Places" });
+const list = () =>
+  page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
+const controls = () =>
+  page.getByRole("region", {
+    name: "Flight controls",
+  });
+const places = () =>
+  page.getByRole("navigation", {
+    name: "Places",
+  });
 const stage = () => document.querySelector(".deck-stage > .deck-pane");
-const needs = () => page.getByRole("region", { name: "Needs you", exact: true });
+const needs = () =>
+  page.getByRole("region", {
+    name: "Needs you",
+    exact: true,
+  });
 const panelOpen = () => document.querySelector('.armada-needs-panel[data-open="true"]') !== null;
 /** The rows that call him: pulsing, and the titles they carry. */
-const hails = () => [...document.querySelectorAll<HTMLElement>(".deck-row[data-calling]")].map((one) => one.getAttribute("aria-label") ?? "");
+const hails = () =>
+  [
+    ...document.querySelectorAll<HTMLElement>(".deck-row[data-calling]"),
+  ].map((one) => one.getAttribute("aria-label") ?? "");
 
 // An open Needs you panel keeps Esc for itself, so the Session is let go of after the panel is folded from its trigger.
 async function leave() {
   if (panelOpen()) {
-    await needs().getByRole("button", { name: "Needs you", exact: true }).click();
+    await needs()
+      .getByRole("button", {
+        name: "Needs you",
+        exact: true,
+      })
+      .click();
     await expect.poll(panelOpen).toBe(false);
   }
   await userEvent.keyboard("{Escape}");
@@ -34,7 +56,11 @@ async function deck() {
   await onScreen();
   await expect.element(list()).toBeVisible();
   // Powering on, the panels' contents are hidden for the least second (`cockpit/boot.ts`), and a test that reads them with no retry would race it.
-  await expect.poll(() => document.querySelector(".deck")?.hasAttribute("data-power"), { timeout: 5000 }).toBe(false);
+  await expect
+    .poll(() => document.querySelector(".deck")?.hasAttribute("data-power"), {
+      timeout: 5000,
+    })
+    .toBe(false);
   return app;
 }
 
@@ -43,13 +69,24 @@ test("a calling row opens its Session, whose question opens in its Needs you pan
   await expect.poll(() => hails().length).toBeGreaterThan(0);
   const asked = hails()[0]!;
   const before = hails().length;
-  await list().getByRole("button", { name: asked, exact: true }).click();
+  await list()
+    .getByRole("button", {
+      name: asked,
+      exact: true,
+    })
+    .click();
 
   // What it is about opens on the stage. While a Session is open its own calls are in its Needs you panel and its row stops calling, so nothing
   // shows twice (`withoutOpenSession`, the owner's ruling of 16 Oct 2026). Seen is not answered, so the question stays asked.
   await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(asked);
   // The question is the only thing waiting, so the panel opens on its card by itself.
-  await expect.element(needs().getByRole("article", { name: "Waiting on you" })).toBeVisible();
+  await expect
+    .element(
+      needs().getByRole("article", {
+        name: "Waiting on you",
+      }),
+    )
+    .toBeVisible();
   expect(hails()).not.toContain(asked);
   expect(hails()).toHaveLength(before - 1);
 
@@ -69,7 +106,12 @@ test("a Session opened from its call is read, so its reply does not call again a
   timePasses();
   await expect.poll(() => hails()).toContain(title);
   const before = Date.now();
-  await list().getByRole("button", { name: title, exact: true }).click();
+  await list()
+    .getByRole("button", {
+      name: title,
+      exact: true,
+    })
+    .click();
 
   await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(title);
   await expect.poll(() => viewedAt("r1")).toBeGreaterThanOrEqual(before);
@@ -90,43 +132,81 @@ test("a Session that waits on him is a calling row", async () => {
 test("the Cockpit tab returns from a page opened from the deck exactly", async () => {
   await deck();
   const label = () => stage()?.getAttribute("aria-label") ?? "";
-  await list().getByRole("button", { name: "Pin the store clock", exact: true }).click();
+  await list()
+    .getByRole("button", {
+      name: "Pin the store clock",
+      exact: true,
+    })
+    .click();
   await expect.poll(label).toContain("Pin the store clock");
   const was = label();
 
   // Studios is a place of its own: the Cockpit under it keeps the Job that was open.
   await userEvent.keyboard("{Meta>}k{/Meta}");
-  await page.getByRole("option", { name: "Studios" }).click();
+  await page
+    .getByRole("option", {
+      name: "Studios",
+    })
+    .click();
   await expect.poll(() => document.querySelector(".deck-list")).toBeNull();
 
-  await places().getByRole("tab", { name: "Cockpit" }).click();
+  await places()
+    .getByRole("tab", {
+      name: "Cockpit",
+    })
+    .click();
   await expect.poll(label).toBe(was);
-  expect(document.querySelector('.deck-row[data-selected]')?.getAttribute("aria-label")).toBe("Pin the store clock");
+  expect(document.querySelector(".deck-row[data-selected]")?.getAttribute("aria-label")).toBe(
+    "Pin the store clock",
+  );
 });
 
 test("Checks filters list, Activity and Stage to subjects running a Check", async () => {
   await deck();
   const kept = "Migration notes";
   const dropped = "Pin the store clock";
-  const rows = () => [...document.querySelectorAll(".deck-list .deck-row")].map((one) => one.getAttribute("aria-label"));
+  const rows = () =>
+    [
+      ...document.querySelectorAll(".deck-list .deck-row"),
+    ].map((one) => one.getAttribute("aria-label"));
   await expect.poll(() => rows().includes(dropped)).toBe(true);
   const whole = rows().length;
   // The stage rests on the map or the timeline, whichever a test before left remembered: this asks for the timeline.
-  await controls().getByRole("button", { name: "Timeline" }).click();
+  await controls()
+    .getByRole("button", {
+      name: "Timeline",
+    })
+    .click();
 
   // The Activity dots and the stage's timeline keep the same subjects and no others: both name it before the filter, neither after.
   // Activity names each event on its dot, in the scope of its bay.
-  const feed = () => [...document.querySelectorAll(".console-scope__graph .armada-tl__dot")].map((one) => one.getAttribute("aria-label")).join("\n");
-  const timeline = () => document.querySelector('.deck-pane[aria-label="Fleet timeline"]')?.textContent ?? "";
+  const feed = () =>
+    [
+      ...document.querySelectorAll(".console-scope__graph .armada-tl__dot"),
+    ]
+      .map((one) => one.getAttribute("aria-label"))
+      .join("\n");
+  const timeline = () =>
+    document.querySelector('.deck-pane[aria-label="Fleet timeline"]')?.textContent ?? "";
   await expect.poll(() => feed().includes(dropped) && timeline().includes(dropped)).toBe(true);
 
-  await controls().getByRole("button", { name: "Checks", exact: true }).click();
+  await controls()
+    .getByRole("button", {
+      name: "Checks",
+      exact: true,
+    })
+    .click();
   await expect.poll(() => rows().includes(dropped)).toBe(false);
   expect(rows()).toContain(kept);
   expect(rows().length).toBeLessThan(whole);
   expect(feed()).not.toContain(dropped);
   expect(timeline()).not.toContain(dropped);
-  await controls().getByRole("button", { name: "Checks", exact: true }).click();
+  await controls()
+    .getByRole("button", {
+      name: "Checks",
+      exact: true,
+    })
+    .click();
   await expect.poll(() => rows().length).toBe(whole);
 });
 
@@ -135,24 +215,37 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
 test("in the deck's lists, o opens the item under the cursor as Enter does", async () => {
   const app = await deck();
   // The Autopilot panel is off until the Features switch turns it on.
-  await app.api.saveSettings({ "features.autopilotPanel": true });
+  await app.api.saveSettings({
+    "features.autopilotPanel": true,
+  });
   await expect.poll(() => document.querySelector('.deck-autopilot [role="switch"]')).not.toBeNull();
   // What the stage is labelled while nothing is picked.
   const AT_REST = "Flight map";
   // A Job opens on the stage; a bay, a pull request and a Check open in the side panel over it.
-  const shown = () => document.querySelector(".armada-sheet")?.getAttribute("aria-label") ?? stage()?.getAttribute("aria-label") ?? "";
+  const shown = () =>
+    document.querySelector(".armada-sheet")?.getAttribute("aria-label") ??
+    stage()?.getAttribute("aria-label") ??
+    "";
   const opened = async (selector: string, key: string) => {
     const item = document.querySelector<HTMLElement>(selector);
     expect(item, selector).not.toBeNull();
     item!.focus();
     await userEvent.keyboard(key);
-    await expect.poll(shown, { message: `${key} on ${selector}` }).toMatch(new RegExp(`^(?!${AT_REST}$).+`));
+    await expect
+      .poll(shown, {
+        message: `${key} on ${selector}`,
+      })
+      .toMatch(new RegExp(`^(?!${AT_REST}$).+`));
     const label = shown();
     await leave();
     await expect.poll(shown).not.toBe(label);
     return label;
   };
-  for (const selector of [".deck-list .deck-row", ".deck-bays .deck-bay", ".deck-queue button.deck-chip"]) {
+  for (const selector of [
+    ".deck-list .deck-row",
+    ".deck-bays .deck-bay",
+    ".deck-queue button.deck-chip",
+  ]) {
     expect(await opened(selector, "o"), selector).toBe(await opened(selector, "{Enter}"));
   }
   // A control is not an item: `o` on the Autopilot switch leaves it as it was.
@@ -171,7 +264,11 @@ test("in the deck's lists, o opens the item under the cursor as Enter does", asy
 // The owner, 15 Oct 2026: nothing could be let go, so the map always held one drone's card.
 test("Esc, and a press on the list or the map away from a row or a drone, let the cursor go", async () => {
   await deck();
-  await controls().getByRole("button", { name: "Map" }).click();
+  await controls()
+    .getByRole("button", {
+      name: "Map",
+    })
+    .click();
   const cursored = () => document.querySelectorAll(".deck-list [data-cursor]").length;
   // Read again each time: the list draws its rows afresh.
   const row = () => document.querySelector<HTMLElement>(".deck-list .deck-row")!;
@@ -183,7 +280,10 @@ test("Esc, and a press on the list or the map away from a row or a drone, let th
   await userEvent.keyboard("{Escape}");
   await expect.poll(cursored).toBe(0);
   expect(stage()?.getAttribute("aria-label")).toBe("Flight map");
-  expect(document.activeElement?.closest(".deck-row"), "focus leaves the row, or it would be the cursor again").toBeNull();
+  expect(
+    document.activeElement?.closest(".deck-row"),
+    "focus leaves the row, or it would be the cursor again",
+  ).toBeNull();
 
   onRow();
   await expect.poll(cursored).toBe(1);
@@ -200,28 +300,57 @@ test("Esc, and a press on the list or the map away from a row or a drone, let th
 // has moved stays where he put it, whatever its state does. ⌥↓ moves the row under the cursor down by one.
 test("an amber row he moved down stays there, and pressing it to open it does not send it back to the top", async () => {
   await deck();
-  const rows = () => [...document.querySelectorAll(".deck-list .deck-row")].map((one) => one.getAttribute("aria-label"));
+  const rows = () =>
+    [
+      ...document.querySelectorAll(".deck-list .deck-row"),
+    ].map((one) => one.getAttribute("aria-label"));
   await expect.poll(() => rows()[0]).toBe("Cache key");
-  list().getByRole("button", { name: "Cache key", exact: true }).element().focus();
+  list()
+    .getByRole("button", {
+      name: "Cache key",
+      exact: true,
+    })
+    .element()
+    .focus();
   await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
   await expect.poll(() => rows().indexOf("Cache key")).toBe(1);
 
-  await list().getByRole("button", { name: "Cache key", exact: true }).click();
-  await expect.element(page.getByRole("region", { name: /^Job: Cache key/ })).toBeVisible();
+  await list()
+    .getByRole("button", {
+      name: "Cache key",
+      exact: true,
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: /^Job: Cache key/,
+      }),
+    )
+    .toBeVisible();
   await new Promise((done) => window.setTimeout(done, 200));
   expect(rows().indexOf("Cache key")).toBe(1);
 });
 
 test("⌥↓ on a row moves it down one, and the order is kept for the next window", async () => {
   await deck();
-  const rows = () => [...document.querySelectorAll(".deck-list .deck-row")].map((one) => one.getAttribute("aria-label"));
+  const rows = () =>
+    [
+      ...document.querySelectorAll(".deck-list .deck-row"),
+    ].map((one) => one.getAttribute("aria-label"));
   const moved = "Migration notes";
   await expect.poll(() => rows().includes(moved)).toBe(true);
   const before = rows();
   const at = before.indexOf(moved);
   const next = before[at + 1];
   expect(next).toBeDefined();
-  list().getByRole("button", { name: moved, exact: true }).element().focus();
+  list()
+    .getByRole("button", {
+      name: moved,
+      exact: true,
+    })
+    .element()
+    .focus();
   await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
 
   await expect.poll(() => rows().indexOf(moved)).toBe(at + 1);
@@ -229,7 +358,10 @@ test("⌥↓ on a row moves it down one, and the order is kept for the next wind
   expect(after[at]).toBe(next);
   expect(after.filter((one) => one !== moved)).toEqual(before.filter((one) => one !== moved));
   // Kept as the list reads now, so a new window starts from it.
-  const key = (title: string) => [...document.querySelectorAll<HTMLElement>(".deck-list .deck-row")].find((one) => one.getAttribute("aria-label") === title)?.dataset.row;
+  const key = (title: string) =>
+    [
+      ...document.querySelectorAll<HTMLElement>(".deck-list .deck-row"),
+    ].find((one) => one.getAttribute("aria-label") === title)?.dataset.row;
   const kept: string[] = JSON.parse(localStorage.getItem("armada.bridge.deck-order") ?? "[]");
   expect(kept.indexOf(key(moved)!)).toBe(kept.indexOf(key(next!)!) + 1);
 });
@@ -240,8 +372,13 @@ test("⌥↓ on a row moves it down one, and the order is kept for the next wind
 test("the merge line's chips keep their rounded corners", async () => {
   await deck();
   const radius = (element: Element) => parseFloat(getComputedStyle(element).borderTopLeftRadius);
-  for (const selector of [".deck-queue .deck-chip", ".deck-queue__track"]) {
+  for (const selector of [
+    ".deck-queue .deck-chip",
+    ".deck-queue__track",
+  ]) {
     const element = document.querySelector(selector)!;
-    expect(radius(element), selector).toBeGreaterThanOrEqual(element.getBoundingClientRect().height / 2 - 1);
+    expect(radius(element), selector).toBeGreaterThanOrEqual(
+      element.getBoundingClientRect().height / 2 - 1,
+    );
   }
 });

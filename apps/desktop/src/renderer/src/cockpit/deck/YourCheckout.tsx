@@ -5,7 +5,16 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { FolderGit2, GitMerge, GitPullRequestArrow, TriangleAlert } from "lucide-react";
-import { Button, Chip, CopyAct, OwnerChip, RunnableBlock, Tooltip, UnifiedDiff, type CodeRunner } from "@armada/components";
+import {
+  Button,
+  Chip,
+  CopyAct,
+  OwnerChip,
+  RunnableBlock,
+  Tooltip,
+  UnifiedDiff,
+  type CodeRunner,
+} from "@armada/components";
 import type { MergeLineView } from "@armada/screens";
 import type { CheckoutDiffRead } from "@armada/screens/src/draft/sessions";
 
@@ -13,11 +22,25 @@ import { checkoutCall, type CheckoutCall, type Fact } from "../checkout";
 import { checkoutDiffOf } from "../checkout-diff";
 import { useRepositoryActs } from "../../sessions-draft";
 
-export type Held = { root: string; name: string; call: CheckoutCall };
+export type Held = {
+  root: string;
+  name: string;
+  call: CheckoutCall;
+};
 
 /** The repositories whose served checkout is held, with what the card says of each. */
 export function heldOf(views: readonly MergeLineView[], nameOf: (root: string) => string): Held[] {
-  return views.flatMap((view) => (view.hub?.checkout === undefined ? [] : [{ root: view.root, name: nameOf(view.root), call: checkoutCall(view.root, view.hub.checkout) }]));
+  return views.flatMap((view) =>
+    view.hub?.checkout === undefined
+      ? []
+      : [
+          {
+            root: view.root,
+            name: nameOf(view.root),
+            call: checkoutCall(view.root, view.hub.checkout),
+          },
+        ],
+  );
 }
 
 /** The command in a block with Copy, and Run where something runs it in the repository. */
@@ -62,30 +85,37 @@ function SendAsPullRequest({ root }: { root: string }) {
   };
   return (
     <span className="deck-checkout__send">
-    <Tooltip label="Commit to a branch, open a pull request, auto-merge on">
-      <Button
-        variant="ghost"
-        size="sm"
-        pending={pending}
-        onClick={() => {
-          setPending(true);
-          // Sent, the button waits for the hold to carry the pull request and the card to swap it for the chip; a refusal, or the send failing afterwards, frees it.
-          stop.current?.();
-          stop.current = failed?.(root, free);
-          void send(root).then((sent) => sent === undefined && free(), free);
-        }}
-      >
-        <GitPullRequestArrow size={12} aria-hidden="true" />
-        Pull request
-      </Button>
-    </Tooltip>
+      <Tooltip label="Commit to a branch, open a pull request, auto-merge on">
+        <Button
+          variant="ghost"
+          size="sm"
+          pending={pending}
+          onClick={() => {
+            setPending(true);
+            // Sent, the button waits for the hold to carry the pull request and the card to swap it for the chip; a refusal, or the send failing afterwards, frees it.
+            stop.current?.();
+            stop.current = failed?.(root, free);
+            void send(root).then((sent) => sent === undefined && free(), free);
+          }}
+        >
+          <GitPullRequestArrow size={12} aria-hidden="true" />
+          Pull request
+        </Button>
+      </Tooltip>
     </span>
   );
 }
 
 /** The pull request opened from the files: its chip, and auto-merge as a glyph that a tooltip names. A row of the facts' own grid. */
-function PullRequestRow({ pullRequest }: { pullRequest: NonNullable<CheckoutCall["pullRequest"]> }) {
-  const chip = { kind: "pull_request", number: pullRequest.number } as const;
+function PullRequestRow({
+  pullRequest,
+}: {
+  pullRequest: NonNullable<CheckoutCall["pullRequest"]>;
+}) {
+  const chip = {
+    kind: "pull_request",
+    number: pullRequest.number,
+  } as const;
   return (
     <>
       <dt>Pull request</dt>
@@ -125,7 +155,15 @@ function Note({ note }: { note: string | undefined }) {
 }
 
 /** An uncommitted path that opens its change under it when pressed, and folds it when pressed again. Read again each time it opens. */
-function Change({ root, line, read }: { root: string; line: Fact["lines"][number]; read: (root: string, path: string) => Promise<CheckoutDiffRead> }) {
+function Change({
+  root,
+  line,
+  read,
+}: {
+  root: string;
+  line: Fact["lines"][number];
+  read: (root: string, path: string) => Promise<CheckoutDiffRead>;
+}) {
   const [open, setOpen] = useState(false);
   const [answer, setAnswer] = useState<CheckoutDiffRead | undefined>(undefined);
   const here = useRef(true);
@@ -145,12 +183,22 @@ function Change({ root, line, read }: { root: string; line: Fact["lines"][number
     return () => {
       current = false;
     };
-  }, [open, read, root, line.text]);
+  }, [
+    open,
+    read,
+    root,
+    line.text,
+  ]);
   return (
     <span className="deck-checkout__change">
       <span className="deck-checkout__line">
         <Tooltip label={open ? "Hide the change" : "Show the change"}>
-          <button type="button" className="deck-checkout__path" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <button
+            type="button"
+            className="deck-checkout__path"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
             {line.text}
           </button>
         </Tooltip>
@@ -167,7 +215,8 @@ function Change({ root, line, read }: { root: string; line: Fact["lines"][number
 
 function Line({ root, fact, line }: { root: string; fact: Fact; line: Fact["lines"][number] }) {
   const read = useRepositoryActs().diffInRepository;
-  if (fact.label === UNCOMMITTED && read !== undefined) return <Change root={root} line={line} read={read} />;
+  if (fact.label === UNCOMMITTED && read !== undefined)
+    return <Change root={root} line={line} read={read} />;
   return (
     <span className="deck-checkout__line">
       {line.text}
@@ -178,9 +227,21 @@ function Line({ root, fact, line }: { root: string; fact: Fact; line: Fact["line
 
 /** A row's lines: all of them, or past `SHOWN` in a box that scrolls inside the card. Clashing lines come first. */
 function Lines({ root, fact }: { root: string; fact: Fact }) {
-  if (fact.lines.length <= SHOWN) return <>{fact.lines.map((line) => <Line key={line.text} root={root} fact={fact} line={line} />)}</>;
+  if (fact.lines.length <= SHOWN)
+    return (
+      <>
+        {fact.lines.map((line) => (
+          <Line key={line.text} root={root} fact={fact} line={line} />
+        ))}
+      </>
+    );
   return (
-    <div className="deck-checkout__files" role="group" aria-label={`${fact.label} files`} tabIndex={0}>
+    <div
+      className="deck-checkout__files"
+      role="group"
+      aria-label={`${fact.label} files`}
+      tabIndex={0}
+    >
       {fact.lines.map((line) => (
         <Line key={line.text} root={root} fact={fact} line={line} />
       ))}
@@ -190,14 +251,20 @@ function Lines({ root, fact }: { root: string; fact: Fact }) {
 
 /** What the chip's mark and the light say of the holds: `Checkout 880 commits behind main`, and the repository after each where there are several. */
 export function checkoutSaid(held: readonly Held[]): string {
-  return held.map((one) => `Checkout ${one.call.title}${held.length > 1 ? ` in ${one.name}` : ""}`).join(", ");
+  return held
+    .map((one) => `Checkout ${one.call.title}${held.length > 1 ? ` in ${one.name}` : ""}`)
+    .join(", ");
 }
 
 /** One repository's section: a band in the warning hue like the red band's, then its reason and rows, then the command. */
 export function YourCheckout({ held, named }: { held: Held; named: boolean }) {
   const { call } = held;
   return (
-    <section className="deck-checkout" aria-label={named ? `Your checkout in ${held.name}` : "Your checkout"} tabIndex={-1}>
+    <section
+      className="deck-checkout"
+      aria-label={named ? `Your checkout in ${held.name}` : "Your checkout"}
+      tabIndex={-1}
+    >
       <div className="deck-checkout__head">
         <span className="deck-checkout__glyph" aria-hidden="true">
           <FolderGit2 size={12} />
@@ -217,7 +284,9 @@ export function YourCheckout({ held, named }: { held: Held; named: boolean }) {
               </dd>
             </Fragment>
           ))}
-          {call.pullRequest === undefined ? null : <PullRequestRow pullRequest={call.pullRequest} />}
+          {call.pullRequest === undefined ? null : (
+            <PullRequestRow pullRequest={call.pullRequest} />
+          )}
         </dl>
       )}
       {call.command === undefined && call.sendable === undefined ? null : (

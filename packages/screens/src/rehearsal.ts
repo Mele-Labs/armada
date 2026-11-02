@@ -24,8 +24,14 @@ export function nameOf(id: string): string {
 }
 
 /** A group's `says`, left off where there is nothing to say. */
-export function saying(says: string | undefined): { says?: string } {
-  return says === undefined ? {} : { says };
+export function saying(says: string | undefined): {
+  says?: string;
+} {
+  return says === undefined
+    ? {}
+    : {
+        says,
+      };
 }
 
 /**
@@ -43,15 +49,29 @@ export function saying(says: string | undefined): { says?: string } {
  * no chosen row yet, which reads as "nothing to compare against" rather than
  * "compare against nothing."
  */
-export function runOutputOf(followed: CheckoutRunFollowed, selectedName?: string): ConsoleOutputProps | undefined {
+export function runOutputOf(
+  followed: CheckoutRunFollowed,
+  selectedName?: string,
+): ConsoleOutputProps | undefined {
   if (followed.state !== "following") return undefined;
   if (selectedName !== undefined && followed.name !== selectedName) return undefined;
   return {
-    rows: followed.lines.map((text, at) => ({ row: "line" as const, at: followed.fromLine + at, text })),
-    region: { says: followed.name, path: followed.path },
+    rows: followed.lines.map((text, at) => ({
+      row: "line" as const,
+      at: followed.fromLine + at,
+      text,
+    })),
+    region: {
+      says: followed.name,
+      path: followed.path,
+    },
     following: followed.ended === undefined,
     // Still running and silent so far: nothing to say. Finished and silent is the fact.
-    ...(followed.ended === undefined ? {} : { emptyNote: "Printed nothing." }),
+    ...(followed.ended === undefined
+      ? {}
+      : {
+          emptyNote: "Printed nothing.",
+        }),
   };
 }
 

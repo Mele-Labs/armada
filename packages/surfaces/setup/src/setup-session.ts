@@ -47,21 +47,40 @@ const READING =
   "Bridge has already scanned this checkout. Start from what it read rather than scanning again. Each workspace, the files it read there, and what Setup proposed:";
 
 function from(provenance: Provenance): string {
-  const where = [provenance.file, provenance.key].filter((part) => part !== undefined).join(" ");
+  const where = [
+    provenance.file,
+    provenance.key,
+  ]
+    .filter((part) => part !== undefined)
+    .join(" ");
   return where === "" ? provenance.source : `${where}, ${provenance.source}`;
 }
 
-const lines = (rows: readonly { name: string; run: string; provenance: Provenance }[]): string =>
-  rows.map((row) => `${row.name} \`${row.run}\` (${from(row.provenance)})`).join("; ");
+const lines = (
+  rows: readonly {
+    name: string;
+    run: string;
+    provenance: Provenance;
+  }[],
+): string => rows.map((row) => `${row.name} \`${row.run}\` (${from(row.provenance)})`).join("; ");
 
 /** One workspace, one line: its files and its state, then why it is thin, then what is proposed. */
 function workspaceLine(held: SetupOpen, proposal: ManifestProposal): string {
   const scanned = held.scan.workspaces.find((one) => one.dir === proposal.dir);
-  const files = scanned === undefined ? [] : [...scanned.manifests, ...scanned.lockfiles].map((one) => one.file);
+  const files =
+    scanned === undefined
+      ? []
+      : [
+          ...scanned.manifests,
+          ...scanned.lockfiles,
+        ].map((one) => one.file);
   const read = files.length === 0 ? "no files read" : `read ${files.join(", ")}`;
-  const parts = [`- \`${proposal.dir}\` (${read}): ${stateOf(proposal, false, held.marks[proposal.dir])}.`];
+  const parts = [
+    `- \`${proposal.dir}\` (${read}): ${stateOf(proposal, false, held.marks[proposal.dir])}.`,
+  ];
   if (scanned?.evidence === "not_followed") parts.push("Nothing here could be read.");
-  else if (scanned?.evidence === "thin") parts.push("No file here names a script, so anything proposed is convention.");
+  else if (scanned?.evidence === "thin")
+    parts.push("No file here names a script, so anything proposed is convention.");
   if (proposal.checks.length > 0) parts.push(`Checks: ${lines(proposal.checks)}.`);
   if (proposal.commands.length > 0) parts.push(`Commands: ${lines(proposal.commands)}.`);
   return parts.join(" ");
@@ -69,22 +88,64 @@ function workspaceLine(held: SetupOpen, proposal: ManifestProposal): string {
 
 /** The Session's first message: what to do and by which rules, then the reading, a line a workspace. `place` is where the repository's configuration is kept, `undefined` where Fleet could not say. */
 export function setupMessageOf(held: SetupOpen, place: RunsPlace | undefined): string {
-  return [instructionOf(place), "", READING, "", ...held.proposals.proposals.map((one) => workspaceLine(held, one))].join("\n");
+  return [
+    instructionOf(place),
+    "",
+    READING,
+    "",
+    ...held.proposals.proposals.map((one) => workspaceLine(held, one)),
+  ].join("\n");
 }
 
 /** What the Session is called: the repository's folder, which is what a person knows it by. */
 export function setupTitleOf(root: string): string {
-  return `Set up ${root.split("/").filter((part) => part !== "").pop() ?? root}`;
+  return `Set up ${
+    root
+      .split("/")
+      .filter((part) => part !== "")
+      .pop() ?? root
+  }`;
 }
 
 /** The two calls a start makes on Fleet's seam. Desktop's `BridgeApi` has both. */
 export type SetupSessionFleet = {
-  startSession: (title?: string, root?: string) => Promise<{ ok: true; value: { id: string } } | { ok: false; outcome: Outcome }>;
-  sendSessionMessage: (send: SendSessionMessage) => Promise<{ ok: true } | { ok: false; outcome: Outcome }>;
+  startSession: (
+    title?: string,
+    root?: string,
+  ) => Promise<
+    | {
+        ok: true;
+        value: {
+          id: string;
+        };
+      }
+    | {
+        ok: false;
+        outcome: Outcome;
+      }
+  >;
+  sendSessionMessage: (send: SendSessionMessage) => Promise<
+    | {
+        ok: true;
+      }
+    | {
+        ok: false;
+        outcome: Outcome;
+      }
+  >;
 };
 
 /** `id` on a refusal is a Session that started and did not take the message: it is still opened. */
-export type SetupSessionAnswer = { ok: true; id: string } | { ok: false; saying: string; id?: string };
+export type SetupSessionAnswer =
+  | {
+      ok: true;
+      id: string;
+    }
+  | {
+      ok: false;
+      saying: string;
+      id?: string;
+    };
 
 /** Start a Session in `root` and send it the message, naming `place`. A refusal at either call comes back as its words. */
 export async function startSetupSession(
@@ -95,9 +156,24 @@ export async function startSetupSession(
   place: RunsPlace | undefined,
 ): Promise<SetupSessionAnswer> {
   const started = await fleet.startSession(setupTitleOf(root), root);
-  if (!started.ok) return { ok: false, saying: `Job not started: ${say(started.outcome) || "Fleet refused it"}` };
+  if (!started.ok)
+    return {
+      ok: false,
+      saying: `Job not started: ${say(started.outcome) || "Fleet refused it"}`,
+    };
   const { id } = started.value;
-  const sent = await fleet.sendSessionMessage({ session_id: id, text: setupMessageOf(held, place) });
-  if (!sent.ok) return { ok: false, id, saying: `Job started, but the reading was not sent: ${say(sent.outcome) || "Fleet refused it"}` };
-  return { ok: true, id };
+  const sent = await fleet.sendSessionMessage({
+    session_id: id,
+    text: setupMessageOf(held, place),
+  });
+  if (!sent.ok)
+    return {
+      ok: false,
+      id,
+      saying: `Job started, but the reading was not sent: ${say(sent.outcome) || "Fleet refused it"}`,
+    };
+  return {
+    ok: true,
+    id,
+  };
 }

@@ -6,7 +6,17 @@
 
 import { useContext, useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { ArrowLeft, ChevronDown, ChevronRight, FolderGit2, Plus, SquareAsterisk, Trash2, TriangleAlert, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronRight,
+  FolderGit2,
+  Plus,
+  SquareAsterisk,
+  Trash2,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import {
   Alert,
   Button,
@@ -31,7 +41,17 @@ import {
   Tooltip,
   requestTimeOf,
 } from "@armada/components";
-import type { Placed, RequestCollection, RequestEnvironmentRead, RequestHeader, Requests, RequestSent, RequestsNotRead, SavedRequest, VariableWrite } from "@armada/protocol";
+import type {
+  Placed,
+  RequestCollection,
+  RequestEnvironmentRead,
+  RequestHeader,
+  Requests,
+  RequestSent,
+  RequestsNotRead,
+  SavedRequest,
+  VariableWrite,
+} from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { repositoryLabel, useAtFloor, useRecentRepositories } from "@armada/shell";
 
@@ -42,53 +62,168 @@ import { useReading, usePanelReads } from "./reads";
 import { InlinePanel, useTabKeys } from "./side";
 import { closePanel } from "./store";
 import type { PanelItem, RequestStart } from "./store";
-import { METHODS, bodyShown, filledOf, historyOf, repositoryToRead, startOf, unreadFileOf, yoursUnread } from "./requests-model";
+import {
+  METHODS,
+  bodyShown,
+  filledOf,
+  historyOf,
+  repositoryToRead,
+  startOf,
+  unreadFileOf,
+  yoursUnread,
+} from "./requests-model";
 import type { RequestedRow } from "./requests-model";
 
-type Item = Extract<PanelItem, { kind: "requests" }>;
+type Item = Extract<
+  PanelItem,
+  {
+    kind: "requests";
+  }
+>;
 
 /** What the Request tab has open: a collection's headers, a saved request, or a request in no collection yet. */
-type Open = { kind: "collection"; id: string } | { kind: "request"; collection: string; request: string } | { kind: "draft"; start: RequestStart | undefined; at: number };
+type Open =
+  | {
+      kind: "collection";
+      id: string;
+    }
+  | {
+      kind: "request";
+      collection: string;
+      request: string;
+    }
+  | {
+      kind: "draft";
+      start: RequestStart | undefined;
+      at: number;
+    };
 
 const openOf = (item: Item): Open | undefined =>
-  item.saved !== undefined ? { kind: "request", ...item.saved } : item.start !== undefined ? { kind: "draft", start: item.start, at: 0 } : undefined;
+  item.saved !== undefined
+    ? {
+        kind: "request",
+        ...item.saved,
+      }
+    : item.start !== undefined
+      ? {
+          kind: "draft",
+          start: item.start,
+          at: 0,
+        }
+      : undefined;
 
 const keyOf = (open: Open): string =>
-  open.kind === "collection" ? `collection:${open.id}` : open.kind === "request" ? `request:${open.collection}/${open.request}` : `draft:${open.at}`;
+  open.kind === "collection"
+    ? `collection:${open.id}`
+    : open.kind === "request"
+      ? `request:${open.collection}/${open.request}`
+      : `draft:${open.at}`;
 
 const said = <T,>(answer: RequestsAnswer<T> | undefined): string | undefined =>
-  answer === undefined ? "Bridge could not reach Fleet" : answer.ok ? undefined : refusalWords(answer.outcome);
+  answer === undefined
+    ? "Bridge could not reach Fleet"
+    : answer.ok
+      ? undefined
+      : refusalWords(answer.outcome);
 
 /** A header as the table holds it. `key` is the row's own, so removing one keeps each field under its row. */
-type HeaderRow = { key: string; name: string; value: string };
+type HeaderRow = {
+  key: string;
+  name: string;
+  value: string;
+};
 
 let added = 0;
-const blankRow = (): HeaderRow => ({ key: `added:${(added += 1)}`, name: "", value: "" });
+const blankRow = (): HeaderRow => ({
+  key: `added:${(added += 1)}`,
+  name: "",
+  value: "",
+});
 
 /** The rows a list of headers starts as, one empty row where it has none. Keyed by place, so a render draws the same rows. */
 const rowsOf = (headers: readonly RequestHeader[]): HeaderRow[] =>
-  headers.length === 0 ? [{ key: "at:0", name: "", value: "" }] : headers.map((one, at) => ({ key: `at:${at}`, name: one.name, value: one.value }));
+  headers.length === 0
+    ? [
+        {
+          key: "at:0",
+          name: "",
+          value: "",
+        },
+      ]
+    : headers.map((one, at) => ({
+        key: `at:${at}`,
+        name: one.name,
+        value: one.value,
+      }));
 
 /** The rows as headers. A row with no name is not sent. */
 const headersFrom = (rows: readonly HeaderRow[]): RequestHeader[] =>
-  rows.filter((one) => one.name.trim() !== "").map((one) => ({ name: one.name.trim(), value: one.value.trim() }));
+  rows
+    .filter((one) => one.name.trim() !== "")
+    .map((one) => ({
+      name: one.name.trim(),
+      value: one.value.trim(),
+    }));
 
 /** The first row whose name holds a space, which no header name can. */
-const badRow = (rows: readonly HeaderRow[]): number => rows.findIndex((one) => /\s/.test(one.name.trim()));
+const badRow = (rows: readonly HeaderRow[]): number =>
+  rows.findIndex((one) => /\s/.test(one.name.trim()));
 
-type Draft = { name: string; collection: string; method: string; url: string; headers: HeaderRow[]; body: string };
+type Draft = {
+  name: string;
+  collection: string;
+  method: string;
+  url: string;
+  headers: HeaderRow[];
+  body: string;
+};
 
-const draftOf = (saved: SavedRequest | undefined, start: RequestStart | undefined, environments: readonly RequestEnvironmentRead[]): Draft => {
+const draftOf = (
+  saved: SavedRequest | undefined,
+  start: RequestStart | undefined,
+  environments: readonly RequestEnvironmentRead[],
+): Draft => {
   // A thread row's address is filled; it reads `{{base}}` again where its environment's base starts it.
-  const from = saved ?? (start === undefined ? undefined : startOf({ ...start, headers: [...start.headers] }, environments));
-  return { name: saved?.name ?? "", collection: "", method: from?.method.toUpperCase() ?? "GET", url: from?.url ?? "", headers: rowsOf(from?.headers ?? []), body: from?.body ?? "" };
+  const from =
+    saved ??
+    (start === undefined
+      ? undefined
+      : startOf(
+          {
+            ...start,
+            headers: [
+              ...start.headers,
+            ],
+          },
+          environments,
+        ));
+  return {
+    name: saved?.name ?? "",
+    collection: "",
+    method: from?.method.toUpperCase() ?? "GET",
+    url: from?.url ?? "",
+    headers: rowsOf(from?.headers ?? []),
+    body: from?.body ?? "",
+  };
 };
 
 /** A plain address slug for a request saved under a new name. */
-const idOf = (name: string): string => name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "request";
+const idOf = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "request";
 
 /** What a send came to: Fleet's answer and whose shared headers went with it, or its refusal in words. */
-type Sent = { answer: RequestSent; from: string | undefined } | { said: string };
+type Sent =
+  | {
+      answer: RequestSent;
+      from: string | undefined;
+    }
+  | {
+      said: string;
+    };
 
 const without = <T,>(record: Readonly<Record<string, T>>, key: string): Record<string, T> => {
   const { [key]: _gone, ...rest } = record;
@@ -106,10 +241,23 @@ export function RequestsPanel({ item }: { item: Item }) {
   const [tab, setTab] = useState("request");
   const [recent, remember] = useRecentRepositories();
   // With no Job open, the repository is picked here, starting where the Cockpit is narrowed to, as it stood at the open.
-  const [places] = useState(() => (item.sessionId === undefined ? reads?.repositories?.() : undefined));
+  const [places] = useState(() =>
+    item.sessionId === undefined ? reads?.repositories?.() : undefined,
+  );
   const listed = places?.listed ?? [];
-  const [repository, setRepository] = useState(() => (places === undefined ? undefined : repositoryToRead(listed.map((one) => one.root), places.filter, recent)));
-  const read = useReading(async () => api?.readRequests(item.sessionId, repository), `requests:${item.sessionId ?? ""}:${repository ?? ""}`);
+  const [repository, setRepository] = useState(() =>
+    places === undefined
+      ? undefined
+      : repositoryToRead(
+          listed.map((one) => one.root),
+          places.filter,
+          recent,
+        ),
+  );
+  const read = useReading(
+    async () => api?.readRequests(item.sessionId, repository),
+    `requests:${item.sessionId ?? ""}:${repository ?? ""}`,
+  );
   const [latest, setLatest] = useState<Requests | undefined>(undefined);
   const now = latest ?? (read.out || read.value?.ok !== true ? undefined : read.value.value);
   // The read is out and nothing has landed: a read that came back refused or with nothing is not pending.
@@ -119,7 +267,13 @@ export function RequestsPanel({ item }: { item: Item }) {
   const [drafts, setDrafts] = useState<Readonly<Record<string, Draft>>>({});
   const [shared, setShared] = useState<Readonly<Record<string, HeaderRow[]>>>({});
   const [sends, setSends] = useState<Readonly<Record<string, Sent>>>({});
-  const [refused, setRefused] = useState<{ key: string; said: string } | undefined>(undefined);
+  const [refused, setRefused] = useState<
+    | {
+        key: string;
+        said: string;
+      }
+    | undefined
+  >(undefined);
   const history = historyOf(session);
   const switchTo = (root: string) => {
     remember(root);
@@ -133,9 +287,30 @@ export function RequestsPanel({ item }: { item: Item }) {
     setSends({});
     setRefused(undefined);
   };
-  const tabs = [{ id: "request", label: "Request" }, { id: "environments", label: "Environments" }, ...(item.sessionId === undefined ? [] : [{ id: "history", label: "History" }])];
+  const tabs = [
+    {
+      id: "request",
+      label: "Request",
+    },
+    {
+      id: "environments",
+      label: "Environments",
+    },
+    ...(item.sessionId === undefined
+      ? []
+      : [
+          {
+            id: "history",
+            label: "History",
+          },
+        ]),
+  ];
   const openFromHistory = (row: RequestedRow) => {
-    setOpen({ kind: "draft", start: startOf(row, now?.environments), at: Date.now() });
+    setOpen({
+      kind: "draft",
+      start: startOf(row, now?.environments),
+      at: Date.now(),
+    });
     if (row.environment !== undefined) setEnvironment(row.environment);
     setTab("request");
   };
@@ -145,25 +320,54 @@ export function RequestsPanel({ item }: { item: Item }) {
   };
 
   const key = open === undefined ? undefined : keyOf(open);
-  const collection = open?.kind === "collection" ? now?.collections.find((one) => one.id === open.id) : undefined;
-  const inCollection = open?.kind === "request" ? now?.collections.find((one) => one.id === open.collection) : undefined;
-  const saved = open?.kind === "request" ? inCollection?.requests.find((one) => one.id === open.request) : undefined;
+  const collection =
+    open?.kind === "collection" ? now?.collections.find((one) => one.id === open.id) : undefined;
+  const inCollection =
+    open?.kind === "request"
+      ? now?.collections.find((one) => one.id === open.collection)
+      : undefined;
+  const saved =
+    open?.kind === "request"
+      ? inCollection?.requests.find((one) => one.id === open.request)
+      : undefined;
   const draft =
     now === undefined || key === undefined || (saved === undefined && open?.kind !== "draft")
       ? undefined
-      : (drafts[key] ?? draftOf(saved, open?.kind === "draft" ? open.start : undefined, now.environments));
-  const rows = collection === undefined ? undefined : (shared[collection.id] ?? rowsOf(collection.headers));
-  const into = saved !== undefined ? inCollection : draft === undefined ? undefined : now?.collections.find((one) => one.id === draft.collection);
+      : (drafts[key] ??
+        draftOf(saved, open?.kind === "draft" ? open.start : undefined, now.environments));
+  const rows =
+    collection === undefined ? undefined : (shared[collection.id] ?? rowsOf(collection.headers));
+  const into =
+    saved !== undefined
+      ? inCollection
+      : draft === undefined
+        ? undefined
+        : now?.collections.find((one) => one.id === draft.collection);
   const onDraft = (patch: Partial<Draft>) => {
     if (key === undefined || draft === undefined) return;
-    setDrafts((was) => ({ ...was, [key]: { ...(was[key] ?? draft), ...patch } }));
+    setDrafts((was) => ({
+      ...was,
+      [key]: {
+        ...(was[key] ?? draft),
+        ...patch,
+      },
+    }));
   };
 
   const keep = async (next: RequestCollection): Promise<Requests | undefined> => {
     if (api === undefined || key === undefined) return undefined;
-    const answer = await api.saveRequestCollection(next, item.sessionId, repository).catch(() => undefined);
+    const answer = await api
+      .saveRequestCollection(next, item.sessionId, repository)
+      .catch(() => undefined);
     const words = said(answer);
-    setRefused(words === undefined ? undefined : { key, said: words });
+    setRefused(
+      words === undefined
+        ? undefined
+        : {
+            key,
+            said: words,
+          },
+    );
     if (answer?.ok !== true) return undefined;
     setLatest(answer.value);
     return answer.value;
@@ -171,25 +375,66 @@ export function RequestsPanel({ item }: { item: Item }) {
   const save = async () => {
     if (collection !== undefined && rows !== undefined) {
       const { place: _place, hides: _hides, ...own } = collection;
-      if ((await keep({ ...own, headers: headersFrom(rows) })) !== undefined) setShared((was) => without(was, collection.id));
+      if (
+        (await keep({
+          ...own,
+          headers: headersFrom(rows),
+        })) !== undefined
+      )
+        setShared((was) => without(was, collection.id));
       return;
     }
     if (draft === undefined || into === undefined || key === undefined) return;
     const id = saved?.id ?? idOf(draft.name);
-    const request: SavedRequest = { id, name: saved?.name ?? draft.name.trim(), method: draft.method, url: draft.url.trim(), headers: headersFrom(draft.headers), ...(draft.body === "" ? {} : { body: draft.body }) };
+    const request: SavedRequest = {
+      id,
+      name: saved?.name ?? draft.name.trim(),
+      method: draft.method,
+      url: draft.url.trim(),
+      headers: headersFrom(draft.headers),
+      ...(draft.body === ""
+        ? {}
+        : {
+            body: draft.body,
+          }),
+    };
     const { place: _place, hides: _hides, ...kept } = into;
-    const requests = kept.requests.some((one) => one.id === id) ? kept.requests.map((one) => (one.id === id ? request : one)) : [...kept.requests, request];
-    if ((await keep({ ...kept, requests })) === undefined) return;
-    const opened: Open = { kind: "request", collection: into.id, request: id };
+    const requests = kept.requests.some((one) => one.id === id)
+      ? kept.requests.map((one) => (one.id === id ? request : one))
+      : [
+          ...kept.requests,
+          request,
+        ];
+    if (
+      (await keep({
+        ...kept,
+        requests,
+      })) === undefined
+    )
+      return;
+    const opened: Open = {
+      kind: "request",
+      collection: into.id,
+      request: id,
+    };
     // What was saved is now the saved request, so its edits go; its answer moves with it.
     setDrafts((was) => without(was, key));
-    setSends((was) => (was[key] === undefined ? was : { ...without(was, key), [keyOf(opened)]: was[key] }));
+    setSends((was) =>
+      was[key] === undefined
+        ? was
+        : {
+            ...without(was, key),
+            [keyOf(opened)]: was[key],
+          },
+    );
     setOpen(opened);
   };
   const savable =
     collection !== undefined && rows !== undefined
       ? badRow(rows) < 0
-      : draft !== undefined && badRow(draft.headers) < 0 && (saved !== undefined || (draft.name.trim() !== "" && into !== undefined));
+      : draft !== undefined &&
+        badRow(draft.headers) < 0 &&
+        (saved !== undefined || (draft.name.trim() !== "" && into !== undefined));
 
   // A save over the person's own file while it will not read is refused, so none is offered.
   const locked = yoursUnread(now) !== undefined;
@@ -197,28 +442,61 @@ export function RequestsPanel({ item }: { item: Item }) {
   const crumb = collection !== undefined ? undefined : into?.name;
   const editing = tab === "request" && (rows !== undefined || draft !== undefined);
   const page = useRef<HTMLDivElement>(null);
-  useTabKeys(tabs.map((one) => one.id), tab, setTab);
+  useTabKeys(
+    tabs.map((one) => one.id),
+    tab,
+    setTab,
+  );
   useEscapeClose();
   // The close takes focus as the page opens, as a sheet's did, so the keys start from the page.
   useEffect(() => {
-    page.current?.querySelector<HTMLElement>('[aria-label="Close"]')?.focus({ preventScroll: true });
+    page.current?.querySelector<HTMLElement>('[aria-label="Close"]')?.focus({
+      preventScroll: true,
+    });
   }, []);
   return (
     <div className="armada-requests" ref={page}>
       {floor ? null : (
-        <section className="armada-requests__panel" data-side="collections" role="dialog" aria-label="Collections">
+        <section
+          className="armada-requests__panel"
+          data-side="collections"
+          role="dialog"
+          aria-label="Collections"
+        >
           <CardHeader>
             <CardTitle>Collections</CardTitle>
             <Tooltip label="New request">
-              <Button variant="ghost" iconOnly aria-label="New request" onClick={() => openFromTree({ kind: "draft", start: undefined, at: Date.now() })}>
+              <Button
+                variant="ghost"
+                iconOnly
+                aria-label="New request"
+                onClick={() =>
+                  openFromTree({
+                    kind: "draft",
+                    start: undefined,
+                    at: Date.now(),
+                  })
+                }
+              >
                 <Plus size={16} aria-hidden="true" />
               </Button>
             </Tooltip>
           </CardHeader>
-          <div className="armada-requests__body">{now !== undefined ? <CollectionTree read={now} open={open} onOpen={openFromTree} stripAct /> : pending ? <PendingTree /> : null}</div>
+          <div className="armada-requests__body">
+            {now !== undefined ? (
+              <CollectionTree read={now} open={open} onOpen={openFromTree} stripAct />
+            ) : pending ? (
+              <PendingTree />
+            ) : null}
+          </div>
         </section>
       )}
-      <section className="armada-requests__panel" data-side="requests" role="dialog" aria-label="Requests">
+      <section
+        className="armada-requests__panel"
+        data-side="requests"
+        role="dialog"
+        aria-label="Requests"
+      >
         <CardHeader>
           <CardTitle>Requests</CardTitle>
           <Tabs compact items={tabs} value={tab} onChange={setTab} />
@@ -238,7 +516,9 @@ export function RequestsPanel({ item }: { item: Item }) {
         <div className="armada-requests__body">
           <div className="armada-pr-panel">
             {crumb === undefined && !editing ? (
-              heading === "" ? null : <h3 className="armada-pr-panel__title">{heading}</h3>
+              heading === "" ? null : (
+                <h3 className="armada-pr-panel__title">{heading}</h3>
+              )
             ) : (
               <div className="side-panel__head">
                 <div className="side-panel__heading">
@@ -246,7 +526,11 @@ export function RequestsPanel({ item }: { item: Item }) {
                   <h3 className="armada-pr-panel__title">{heading}</h3>
                 </div>
                 {!editing ? null : (
-                  <Button variant="secondary" disabled={!savable || locked} onClick={() => void save()}>
+                  <Button
+                    variant="secondary"
+                    disabled={!savable || locked}
+                    onClick={() => void save()}
+                  >
                     Save
                   </Button>
                 )}
@@ -260,7 +544,11 @@ export function RequestsPanel({ item }: { item: Item }) {
             {now === undefined && listed.length === 0 ? null : (
               <div className="side-panel__bar">
                 {listed.length === 0 ? null : (
-                  <Select label="Repository" value={repository ?? ""} onChange={(event) => switchTo(event.currentTarget.value)}>
+                  <Select
+                    label="Repository"
+                    value={repository ?? ""}
+                    onChange={(event) => switchTo(event.currentTarget.value)}
+                  >
                     {listed.map((one) => (
                       <option key={one.root} value={one.root}>
                         {repositoryLabel(one, listed)}
@@ -269,7 +557,11 @@ export function RequestsPanel({ item }: { item: Item }) {
                   </Select>
                 )}
                 {now === undefined ? null : (
-                  <Select label="Environment" value={environment} onChange={(event) => setEnvironment(event.currentTarget.value)}>
+                  <Select
+                    label="Environment"
+                    value={environment}
+                    onChange={(event) => setEnvironment(event.currentTarget.value)}
+                  >
                     <option value="">None</option>
                     {now.environments.map((one) => (
                       <option key={one.name} value={one.name}>
@@ -281,7 +573,12 @@ export function RequestsPanel({ item }: { item: Item }) {
               </div>
             )}
             <div className="armada-pr-tabs">
-              <TabPanel tab={tab} role="tabpanel" aria-label={tabs.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
+              <TabPanel
+                tab={tab}
+                role="tabpanel"
+                aria-label={tabs.find((one) => one.id === tab)?.label}
+                className="armada-pr-tabs__panel"
+              >
                 {api === undefined ? (
                   <Alert tone="caution">Fleet does not serve Requests here.</Alert>
                 ) : !read.out && read.value !== undefined && !read.value.ok ? (
@@ -292,9 +589,25 @@ export function RequestsPanel({ item }: { item: Item }) {
                       <Unread key={one.place} unread={one} />
                     ))}
                     {tab === "request" ? (
-                      <RequestTab tree={floor ? <CollectionTree read={now} open={open} onOpen={openFromTree} /> : undefined}>
+                      <RequestTab
+                        tree={
+                          floor ? (
+                            <CollectionTree read={now} open={open} onOpen={openFromTree} />
+                          ) : undefined
+                        }
+                      >
                         {collection !== undefined && rows !== undefined ? (
-                          <CollectionView collection={collection} rows={rows} onRows={(next) => setShared((was) => ({ ...was, [collection.id]: next }))} refused={refused?.key === key ? refused?.said : undefined} />
+                          <CollectionView
+                            collection={collection}
+                            rows={rows}
+                            onRows={(next) =>
+                              setShared((was) => ({
+                                ...was,
+                                [collection.id]: next,
+                              }))
+                            }
+                            refused={refused?.key === key ? refused?.said : undefined}
+                          />
                         ) : draft !== undefined && key !== undefined ? (
                           <Editor
                             api={api}
@@ -308,14 +621,31 @@ export function RequestsPanel({ item }: { item: Item }) {
                             fresh={saved === undefined}
                             scope={`requests:${item.sessionId ?? repository ?? "none"}:${key}`}
                             sent={sends[key]}
-                            onSent={(sent) => setSends((was) => ({ ...was, [key]: sent }))}
-                            onEditCollection={(id) => setOpen({ kind: "collection", id })}
+                            onSent={(sent) =>
+                              setSends((was) => ({
+                                ...was,
+                                [key]: sent,
+                              }))
+                            }
+                            onEditCollection={(id) =>
+                              setOpen({
+                                kind: "collection",
+                                id,
+                              })
+                            }
                             refused={refused?.key === key ? refused?.said : undefined}
                           />
                         ) : null}
                       </RequestTab>
                     ) : tab === "environments" ? (
-                      <Environments api={api} read={now} sessionId={item.sessionId} repository={repository} locked={locked} onRead={setLatest} />
+                      <Environments
+                        api={api}
+                        read={now}
+                        sessionId={item.sessionId}
+                        repository={repository}
+                        locked={locked}
+                        onRead={setLatest}
+                      />
                     ) : (
                       <History rows={history} onOpen={openFromHistory} />
                     )}
@@ -338,7 +668,12 @@ function useEscapeClose(): void {
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (document.querySelector(".armada-popover__panel, .armada-palette, .armada-dialog, .armada-sheet, [data-holds-esc]") !== null) return;
+      if (
+        document.querySelector(
+          ".armada-popover__panel, .armada-palette, .armada-dialog, .armada-sheet, [data-holds-esc]",
+        ) !== null
+      )
+        return;
       if (document.activeElement?.closest(".armada-toast, [data-keeps-esc]")) return;
       event.preventDefault();
       closePanel();
@@ -359,7 +694,14 @@ function Unread({ unread }: { unread: RequestsNotRead }) {
 }
 
 /** Where a collection or environment is kept, beside its name: the repository's mark, or the words for the person's own hiding it. */
-function PlaceMark({ placed }: { placed: { place: string; hides: boolean } }) {
+function PlaceMark({
+  placed,
+}: {
+  placed: {
+    place: string;
+    hides: boolean;
+  };
+}) {
   if (placed.hides) return <span className="side-requests__hides">Hides the repository's</span>;
   if (placed.place !== "repository") return <span />;
   return (
@@ -382,7 +724,18 @@ function Lead({ lead, children }: { lead: string; children: ReactNode }) {
 }
 
 /** A table of names and values nobody edits here: a collection's headers under a request, a server's variables, an answer's headers. */
-function ReadTable({ label, rows, dimmed = false }: { label: string; rows: readonly { name: string; value: ReactNode }[]; dimmed?: boolean }) {
+function ReadTable({
+  label,
+  rows,
+  dimmed = false,
+}: {
+  label: string;
+  rows: readonly {
+    name: string;
+    value: ReactNode;
+  }[];
+  dimmed?: boolean;
+}) {
   return (
     <Table className="side-table" aria-label={label}>
       <colgroup>
@@ -412,9 +765,27 @@ function ReadTable({ label, rows, dimmed = false }: { label: string; rows: reado
 }
 
 /** Headers as rows of Name and Value, each a field, with Add header under them. */
-function HeaderTable({ label, rows, onRows }: { label: string; rows: readonly HeaderRow[]; onRows: (rows: HeaderRow[]) => void }) {
+function HeaderTable({
+  label,
+  rows,
+  onRows,
+}: {
+  label: string;
+  rows: readonly HeaderRow[];
+  onRows: (rows: HeaderRow[]) => void;
+}) {
   const bad = badRow(rows);
-  const edit = (at: number, patch: Partial<HeaderRow>) => onRows(rows.map((one, i) => (i === at ? { ...one, ...patch } : one)));
+  const edit = (at: number, patch: Partial<HeaderRow>) =>
+    onRows(
+      rows.map((one, i) =>
+        i === at
+          ? {
+              ...one,
+              ...patch,
+            }
+          : one,
+      ),
+    );
   return (
     <div className="side-requests__rows">
       <Table className="side-table" aria-label={label}>
@@ -441,16 +812,40 @@ function HeaderTable({ label, rows, onRows }: { label: string; rows: readonly He
                   placeholder="Content-Type"
                   spellCheck={false}
                   invalid={at === bad}
-                  {...(at === bad ? { message: "A header name has no spaces" } : {})}
-                  onChange={(event) => edit(at, { name: event.currentTarget.value })}
+                  {...(at === bad
+                    ? {
+                        message: "A header name has no spaces",
+                      }
+                    : {})}
+                  onChange={(event) =>
+                    edit(at, {
+                      name: event.currentTarget.value,
+                    })
+                  }
                 />
               </TableCell>
               <TableCell>
-                <Input aria-label={`Header ${at + 1} value`} mono value={one.value} spellCheck={false} onChange={(event) => edit(at, { value: event.currentTarget.value })} />
+                <Input
+                  aria-label={`Header ${at + 1} value`}
+                  mono
+                  value={one.value}
+                  spellCheck={false}
+                  onChange={(event) =>
+                    edit(at, {
+                      value: event.currentTarget.value,
+                    })
+                  }
+                />
               </TableCell>
               <TableCell>
                 <Tooltip label="Remove" asChild>
-                  <Button variant="ghost" size="sm" iconOnly aria-label={`Remove header ${at + 1}`} onClick={() => onRows(rows.filter((_, i) => i !== at))}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label={`Remove header ${at + 1}`}
+                    onClick={() => onRows(rows.filter((_, i) => i !== at))}
+                  >
                     <Trash2 size={16} aria-hidden="true" />
                   </Button>
                 </Tooltip>
@@ -460,7 +855,16 @@ function HeaderTable({ label, rows, onRows }: { label: string; rows: readonly He
         </TableBody>
       </Table>
       <div>
-        <Button variant="ghost" size="sm" onClick={() => onRows([...rows, blankRow()])}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            onRows([
+              ...rows,
+              blankRow(),
+            ])
+          }
+        >
           Add header
         </Button>
       </div>
@@ -480,14 +884,38 @@ function RequestTab({ tree, children }: { tree: ReactNode; children: ReactNode }
 }
 
 /** The collections tree before the read lands: folders and requests as bars, in the rows the tree draws, so the names pop in without a shift. */
-const PENDING_TREE: readonly { dir: boolean; width: string }[] = [
-  { dir: true, width: "7rem" },
-  { dir: false, width: "9rem" },
-  { dir: false, width: "6rem" },
-  { dir: true, width: "5rem" },
-  { dir: false, width: "8rem" },
-  { dir: true, width: "6rem" },
-  { dir: false, width: "7rem" },
+const PENDING_TREE: readonly {
+  dir: boolean;
+  width: string;
+}[] = [
+  {
+    dir: true,
+    width: "7rem",
+  },
+  {
+    dir: false,
+    width: "9rem",
+  },
+  {
+    dir: false,
+    width: "6rem",
+  },
+  {
+    dir: true,
+    width: "5rem",
+  },
+  {
+    dir: false,
+    width: "8rem",
+  },
+  {
+    dir: true,
+    width: "6rem",
+  },
+  {
+    dir: false,
+    width: "7rem",
+  },
 ];
 
 function PendingTree() {
@@ -495,10 +923,30 @@ function PendingTree() {
     <div className="armada-pr-tree side-requests__tree" data-pending="">
       <ul className="armada-pr-list armada-pr-tree__list">
         {PENDING_TREE.map((one, at) => (
-          <li key={at} className="armada-pr-tree__row" style={{ "--depth": one.dir ? 0 : 1 } as CSSProperties}>
-            <div className="armada-pr-tree__item" data-kind={one.dir ? "dir" : "file"} data-nested={one.dir ? undefined : ""}>
-              <span className="side-requests__skel">{one.dir ? <Skeleton className="side-requests__skel-lead" /> : <Skeleton width="2rem" />}</span>
-              <span className="side-requests__skel"><Skeleton width={one.width} /></span>
+          <li
+            key={at}
+            className="armada-pr-tree__row"
+            style={
+              {
+                "--depth": one.dir ? 0 : 1,
+              } as CSSProperties
+            }
+          >
+            <div
+              className="armada-pr-tree__item"
+              data-kind={one.dir ? "dir" : "file"}
+              data-nested={one.dir ? undefined : ""}
+            >
+              <span className="side-requests__skel">
+                {one.dir ? (
+                  <Skeleton className="side-requests__skel-lead" />
+                ) : (
+                  <Skeleton width="2rem" />
+                )}
+              </span>
+              <span className="side-requests__skel">
+                <Skeleton width={one.width} />
+              </span>
               <span />
             </div>
           </li>
@@ -508,15 +956,38 @@ function PendingTree() {
   );
 }
 
-function CollectionTree({ read, open, onOpen, stripAct = false }: { read: Requests; open: Open | undefined; onOpen: (open: Open) => void; stripAct?: boolean }) {
+function CollectionTree({
+  read,
+  open,
+  onOpen,
+  stripAct = false,
+}: {
+  read: Requests;
+  open: Open | undefined;
+  onOpen: (open: Open) => void;
+  stripAct?: boolean;
+}) {
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
-  const step = (depth: number) => ({ "--depth": depth }) as CSSProperties;
+  const step = (depth: number) =>
+    ({
+      "--depth": depth,
+    }) as CSSProperties;
   return (
     <div className="armada-pr-tree side-requests__tree">
       {stripAct ? null : (
         <div className="armada-pr-tree__head">
           <span />
-          <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "draft", start: undefined, at: Date.now() })}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              onOpen({
+                kind: "draft",
+                start: undefined,
+                at: Date.now(),
+              })
+            }
+          >
             New request
           </Button>
         </div>
@@ -543,7 +1014,10 @@ function CollectionTree({ read, open, onOpen, stripAct = false }: { read: Reques
                       else next.delete(one.id);
                       return next;
                     });
-                    onOpen({ kind: "collection", id: one.id });
+                    onOpen({
+                      kind: "collection",
+                      id: one.id,
+                    });
                   }}
                 >
                   <Chevron className="armada-pr-tree__lead" size={16} strokeWidth={2} aria-hidden />
@@ -554,15 +1028,31 @@ function CollectionTree({ read, open, onOpen, stripAct = false }: { read: Reques
               ...(shut
                 ? []
                 : one.requests.map((request) => (
-                    <li key={`${one.id}/${request.id}`} className="armada-pr-tree__row" style={step(1)}>
+                    <li
+                      key={`${one.id}/${request.id}`}
+                      className="armada-pr-tree__row"
+                      style={step(1)}
+                    >
                       <button
                         type="button"
                         className="armada-pr-tree__item"
                         data-kind="file"
                         data-nested
-                        data-on={open?.kind === "request" && open.collection === one.id && open.request === request.id ? "" : undefined}
+                        data-on={
+                          open?.kind === "request" &&
+                          open.collection === one.id &&
+                          open.request === request.id
+                            ? ""
+                            : undefined
+                        }
                         aria-label={`${request.method} ${request.name}`}
-                        onClick={() => onOpen({ kind: "request", collection: one.id, request: request.id })}
+                        onClick={() =>
+                          onOpen({
+                            kind: "request",
+                            collection: one.id,
+                            request: request.id,
+                          })
+                        }
                       >
                         <code className="armada-requested__method">{request.method}</code>
                         <span className="armada-pr-tree__name">{request.name}</span>
@@ -578,10 +1068,26 @@ function CollectionTree({ read, open, onOpen, stripAct = false }: { read: Reques
   );
 }
 
-function CollectionView({ collection, rows, onRows, refused }: { collection: Placed<RequestCollection>; rows: readonly HeaderRow[]; onRows: (rows: HeaderRow[]) => void; refused: string | undefined }) {
+function CollectionView({
+  collection,
+  rows,
+  onRows,
+  refused,
+}: {
+  collection: Placed<RequestCollection>;
+  rows: readonly HeaderRow[];
+  onRows: (rows: HeaderRow[]) => void;
+  refused: string | undefined;
+}) {
   return (
     <section className="side-requests__section" aria-label={`Collection ${collection.name}`}>
-      <Lead lead="Kept">{collection.place === "repository" ? "In the repository" : collection.hides ? "Yours. Hides the repository's" : "Yours"}</Lead>
+      <Lead lead="Kept">
+        {collection.place === "repository"
+          ? "In the repository"
+          : collection.hides
+            ? "Yours. Hides the repository's"
+            : "Yours"}
+      </Lead>
       <div className="side-requests__group">
         <h4 className="side-requests__title">Shared headers</h4>
         <p className="side-request__none">{`Every request in ${collection.name} sends these.`}</p>
@@ -613,7 +1119,9 @@ function SendsTo({ url, picked }: { url: string; picked: RequestEnvironmentRead 
       </Tooltip>
       <span>
         <code className="mono">{names}</code>
-        {picked === undefined ? ` ${has} no value with no environment picked` : ` ${has} no value in this environment`}
+        {picked === undefined
+          ? ` ${has} no value with no environment picked`
+          : ` ${has} no value in this environment`}
       </span>
     </p>
   );
@@ -640,32 +1148,80 @@ type EditorProps = {
   refused: string | undefined;
 };
 
-function Editor({ api, read, sessionId, repository, environment, draft, onDraft, collection, fresh, scope, sent, onSent, onEditCollection, refused }: EditorProps) {
+function Editor({
+  api,
+  read,
+  sessionId,
+  repository,
+  environment,
+  draft,
+  onDraft,
+  collection,
+  fresh,
+  scope,
+  sent,
+  onSent,
+  onEditCollection,
+  refused,
+}: EditorProps) {
   const [part, setPart] = useState("headers");
   const [sending, setSending] = useState(false);
   const picked = read.environments.find((one) => one.name === environment);
   const bad = badRow(draft.headers);
-  const inherited = collection === undefined || collection.headers.length === 0 ? undefined : collection;
+  const inherited =
+    collection === undefined || collection.headers.length === 0 ? undefined : collection;
   const own = headersFrom(draft.headers);
-  const type = [...own, ...(collection?.headers ?? [])].find((one) => one.name.toLowerCase() === "content-type")?.value;
+  const type = [
+    ...own,
+    ...(collection?.headers ?? []),
+  ].find((one) => one.name.toLowerCase() === "content-type")?.value;
 
   const send = async () => {
     if (bad >= 0) return;
     setSending(true);
     const answer = await api
       .sendRequest({
-        ...(sessionId === undefined ? {} : { session_id: sessionId }),
-        ...(repository === undefined ? {} : { repository }),
+        ...(sessionId === undefined
+          ? {}
+          : {
+              session_id: sessionId,
+            }),
+        ...(repository === undefined
+          ? {}
+          : {
+              repository,
+            }),
         method: draft.method,
         url: draft.url.trim(),
-        ...(environment === "" ? {} : { environment }),
-        ...(collection === undefined ? {} : { collection: collection.id }),
+        ...(environment === ""
+          ? {}
+          : {
+              environment,
+            }),
+        ...(collection === undefined
+          ? {}
+          : {
+              collection: collection.id,
+            }),
         headers: own,
-        ...(draft.body === "" ? {} : { body: draft.body }),
+        ...(draft.body === ""
+          ? {}
+          : {
+              body: draft.body,
+            }),
       })
       .catch(() => undefined);
     setSending(false);
-    onSent(answer?.ok === true ? { answer: answer.value, from: inherited?.name } : { said: said(answer) ?? "" });
+    onSent(
+      answer?.ok === true
+        ? {
+            answer: answer.value,
+            from: inherited?.name,
+          }
+        : {
+            said: said(answer) ?? "",
+          },
+    );
   };
 
   return (
@@ -680,8 +1236,25 @@ function Editor({ api, read, sessionId, repository, environment, draft, onDraft,
       >
         {!fresh ? null : (
           <div className="side-request__line" data-even>
-            <Input label="Name" value={draft.name} spellCheck={false} onChange={(event) => onDraft({ name: event.currentTarget.value })} />
-            <Select label="Collection" value={draft.collection} onChange={(event) => onDraft({ collection: event.currentTarget.value })}>
+            <Input
+              label="Name"
+              value={draft.name}
+              spellCheck={false}
+              onChange={(event) =>
+                onDraft({
+                  name: event.currentTarget.value,
+                })
+              }
+            />
+            <Select
+              label="Collection"
+              value={draft.collection}
+              onChange={(event) =>
+                onDraft({
+                  collection: event.currentTarget.value,
+                })
+              }
+            >
               <option value="">None</option>
               {read.collections.map((one) => (
                 <option key={one.id} value={one.id}>
@@ -692,15 +1265,38 @@ function Editor({ api, read, sessionId, repository, environment, draft, onDraft,
           </div>
         )}
         <div className="side-request__send-line">
-          <Select label="Method" value={draft.method} onChange={(event) => onDraft({ method: event.currentTarget.value })}>
+          <Select
+            label="Method"
+            value={draft.method}
+            onChange={(event) =>
+              onDraft({
+                method: event.currentTarget.value,
+              })
+            }
+          >
             {METHODS.map((one) => (
               <option key={one} value={one}>
                 {one}
               </option>
             ))}
           </Select>
-          <Input label="Address" mono value={draft.url} placeholder="{{base}}/path" spellCheck={false} onChange={(event) => onDraft({ url: event.currentTarget.value })} />
-          <Button type="submit" variant="primary" disabled={sending || bad >= 0 || draft.url.trim() === ""}>
+          <Input
+            label="Address"
+            mono
+            value={draft.url}
+            placeholder="{{base}}/path"
+            spellCheck={false}
+            onChange={(event) =>
+              onDraft({
+                url: event.currentTarget.value,
+              })
+            }
+          />
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={sending || bad >= 0 || draft.url.trim() === ""}
+          >
             {sending ? "Sending" : "Send"}
           </Button>
         </div>
@@ -709,37 +1305,85 @@ function Editor({ api, read, sessionId, repository, environment, draft, onDraft,
         <div className="side-request__parts">
           <Tabs
             items={[
-              { id: "headers", label: "Headers" },
-              { id: "body", label: "Body" },
+              {
+                id: "headers",
+                label: "Headers",
+              },
+              {
+                id: "body",
+                label: "Body",
+              },
             ]}
             value={part}
             onChange={setPart}
           />
-          <TabPanel tab={part} role="tabpanel" aria-label={part === "headers" ? "Headers" : "Body"} className="side-requests__section">
+          <TabPanel
+            tab={part}
+            role="tabpanel"
+            aria-label={part === "headers" ? "Headers" : "Body"}
+            className="side-requests__section"
+          >
             {part === "headers" ? (
               <>
                 {inherited === undefined ? null : (
-                  <section className="side-requests__group" role="group" aria-label={`From ${inherited.name}`}>
+                  <section
+                    className="side-requests__group"
+                    role="group"
+                    aria-label={`From ${inherited.name}`}
+                  >
                     <div className="side-requests__group-head">
                       <h5 className="side-requests__subtitle">{`From ${inherited.name}`}</h5>
                       <span className="side-requests__push">
-                        <Button variant="ghost" size="sm" aria-label={`Edit ${inherited.name}`} onClick={() => onEditCollection(inherited.id)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Edit ${inherited.name}`}
+                          onClick={() => onEditCollection(inherited.id)}
+                        >
                           Edit
                         </Button>
                       </span>
                     </div>
-                    <ReadTable label={`Headers from ${inherited.name}`} rows={inherited.headers} dimmed />
+                    <ReadTable
+                      label={`Headers from ${inherited.name}`}
+                      rows={inherited.headers}
+                      dimmed
+                    />
                   </section>
                 )}
                 <section className="side-requests__group" role="group" aria-label="This request">
-                  {inherited === undefined ? null : <h5 className="side-requests__subtitle">This request</h5>}
-                  <HeaderTable label="Headers" rows={draft.headers} onRows={(headers) => onDraft({ headers })} />
+                  {inherited === undefined ? null : (
+                    <h5 className="side-requests__subtitle">This request</h5>
+                  )}
+                  <HeaderTable
+                    label="Headers"
+                    rows={draft.headers}
+                    onRows={(headers) =>
+                      onDraft({
+                        headers,
+                      })
+                    }
+                  />
                 </section>
               </>
             ) : (
               <>
-                <Lead lead="Content type">{type === undefined ? "Not stated" : <span className="mono">{type}</span>}</Lead>
-                <Textarea aria-label="Body" keep={`${scope}:body`} className="mono" rows={6} spellCheck={false} value={draft.body} onChange={(event) => onDraft({ body: event.currentTarget.value })} />
+                <Lead lead="Content type">
+                  {type === undefined ? "Not stated" : <span className="mono">{type}</span>}
+                </Lead>
+                <Textarea
+                  aria-label="Body"
+                  keep={`${scope}:body`}
+                  className="mono"
+                  rows={6}
+                  spellCheck={false}
+                  value={draft.body}
+                  onChange={(event) =>
+                    onDraft({
+                      body: event.currentTarget.value,
+                    })
+                  }
+                />
               </>
             )}
           </TabPanel>
@@ -748,7 +1392,11 @@ function Editor({ api, read, sessionId, repository, environment, draft, onDraft,
       {sent === undefined ? null : (
         <>
           <Separator />
-          {"said" in sent ? <Alert tone="escalated">{sent.said}</Alert> : <Response sent={sent.answer} from={sent.from} />}
+          {"said" in sent ? (
+            <Alert tone="escalated">{sent.said}</Alert>
+          ) : (
+            <Response sent={sent.answer} from={sent.from} />
+          )}
         </>
       )}
     </>
@@ -764,7 +1412,9 @@ function Response({ sent, from }: { sent: RequestSent; from: string | undefined 
       <p className="side-request__summary">
         <span className="side-request__status">
           <RequestMark status={sent.status ?? null} error={sent.error} />
-          <span className="side-request__code">{sent.status === undefined ? "No answer" : sent.status}</span>
+          <span className="side-request__code">
+            {sent.status === undefined ? "No answer" : sent.status}
+          </span>
         </span>
         <span className="mono">{requestTimeOf(sent.ms)}</span>
         {from === undefined ? null : <span>{`With ${from} headers`}</span>}
@@ -775,18 +1425,33 @@ function Response({ sent, from }: { sent: RequestSent; from: string | undefined 
       <div className="side-request__parts">
         <Tabs
           items={[
-            { id: "body", label: "Body" },
-            { id: "headers", label: "Headers" },
+            {
+              id: "body",
+              label: "Body",
+            },
+            {
+              id: "headers",
+              label: "Headers",
+            },
           ]}
           value={part}
           onChange={setPart}
         />
-        <TabPanel tab={part} role="tabpanel" aria-label={part === "body" ? "Response body" : "Response headers"} className="side-requests__section">
+        <TabPanel
+          tab={part}
+          role="tabpanel"
+          aria-label={part === "body" ? "Response body" : "Response headers"}
+          className="side-requests__section"
+        >
           {part === "body" ? (
             sent.body === "" ? (
               <p className="side-request__none">No body.</p>
             ) : (
-              <pre className="side-log__lines mono" role="log" aria-label={shown.json ? "Body, JSON" : "Body"}>
+              <pre
+                className="side-log__lines mono"
+                role="log"
+                aria-label={shown.json ? "Body, JSON" : "Body"}
+              >
                 {shown.text}
               </pre>
             )
@@ -801,13 +1466,25 @@ function Response({ sent, from }: { sent: RequestSent; from: string | undefined 
   );
 }
 
-function History({ rows, onOpen }: { rows: readonly RequestedRow[]; onOpen: (row: RequestedRow) => void }) {
+function History({
+  rows,
+  onOpen,
+}: {
+  rows: readonly RequestedRow[];
+  onOpen: (row: RequestedRow) => void;
+}) {
   if (rows.length === 0) return <p className="side-request__none">No requests in this Job.</p>;
   return (
     <ul className="armada-pr-list armada-pr-rows" aria-label="History">
       {rows.map((row) => (
         <li key={row.id} className="armada-pr-row" data-press>
-          <button type="button" className="armada-pr-row__button side-row" data-columns="request" aria-label={`${row.by === "owner" ? "You" : "Agent"}: ${row.status ?? "No answer"} ${row.method} ${row.url}`} onClick={() => onOpen(row)}>
+          <button
+            type="button"
+            className="armada-pr-row__button side-row"
+            data-columns="request"
+            aria-label={`${row.by === "owner" ? "You" : "Agent"}: ${row.status ?? "No answer"} ${row.method} ${row.url}`}
+            onClick={() => onOpen(row)}
+          >
             <RequestMark status={row.status} error={row.error} />
             <span className="armada-pr-row__name mono">{`${row.method} ${row.url}`}</span>
             <span className="armada-pr-row__figure">{row.by === "owner" ? "You" : "Agent"}</span>
@@ -819,9 +1496,23 @@ function History({ rows, onOpen }: { rows: readonly RequestedRow[]; onOpen: (row
   );
 }
 
-type EnvironmentsProps = { api: RequestsApi; read: Requests; sessionId: string | undefined; repository: string | undefined; locked: boolean; onRead: (read: Requests) => void };
+type EnvironmentsProps = {
+  api: RequestsApi;
+  read: Requests;
+  sessionId: string | undefined;
+  repository: string | undefined;
+  locked: boolean;
+  onRead: (read: Requests) => void;
+};
 
-export function Environments({ api, read, sessionId, repository, locked, onRead }: EnvironmentsProps) {
+export function Environments({
+  api,
+  read,
+  sessionId,
+  repository,
+  locked,
+  onRead,
+}: EnvironmentsProps) {
   const [adding, setAdding] = useState(false);
   const editable = read.environments.filter((one) => one.place !== "server");
   const servers = read.environments.filter((one) => one.place === "server");
@@ -831,11 +1522,30 @@ export function Environments({ api, read, sessionId, repository, locked, onRead 
   };
   return (
     <div className="side-requests__groups">
-      {editable.length === 0 && !adding && read.not_read.length === 0 ? <p className="side-request__none">No environments in this repository.</p> : null}
+      {editable.length === 0 && !adding && read.not_read.length === 0 ? (
+        <p className="side-request__none">No environments in this repository.</p>
+      ) : null}
       {editable.map((one) => (
-        <EnvironmentForm key={`${one.name}:${JSON.stringify(one.variables)}`} api={api} sessionId={sessionId} repository={repository} environment={one} locked={locked} onSaved={saved} />
+        <EnvironmentForm
+          key={`${one.name}:${JSON.stringify(one.variables)}`}
+          api={api}
+          sessionId={sessionId}
+          repository={repository}
+          environment={one}
+          locked={locked}
+          onSaved={saved}
+        />
       ))}
-      {adding ? <EnvironmentForm api={api} sessionId={sessionId} repository={repository} environment={undefined} locked={locked} onSaved={saved} /> : null}
+      {adding ? (
+        <EnvironmentForm
+          api={api}
+          sessionId={sessionId}
+          repository={repository}
+          environment={undefined}
+          locked={locked}
+          onSaved={saved}
+        />
+      ) : null}
       {adding || locked ? null : (
         <div>
           <Button variant="ghost" onClick={() => setAdding(true)}>
@@ -849,7 +1559,13 @@ export function Environments({ api, read, sessionId, repository, locked, onRead 
             <h4 className="side-requests__title mono">{one.name}</h4>
             <span className="side-requests__hides">This Job's server. Read only</span>
           </div>
-          <ReadTable label={`Variables of ${one.name}`} rows={one.variables.map((variable) => ({ name: variable.name, value: variable.secret ? "Set" : variable.value }))} />
+          <ReadTable
+            label={`Variables of ${one.name}`}
+            rows={one.variables.map((variable) => ({
+              name: variable.name,
+              value: variable.secret ? "Set" : variable.value,
+            }))}
+          />
         </section>
       ))}
     </div>
@@ -857,42 +1573,141 @@ export function Environments({ api, read, sessionId, repository, locked, onRead 
 }
 
 /** A variable as the form holds it. A secret already set is drawn as set until Replace opens its field. */
-type Line = { name: string; secret: boolean; value: string; set: boolean; replacing: boolean };
+type Line = {
+  name: string;
+  secret: boolean;
+  value: string;
+  set: boolean;
+  replacing: boolean;
+};
 
-const blankLine = (): Line => ({ name: "", secret: false, value: "", set: false, replacing: false });
+const blankLine = (): Line => ({
+  name: "",
+  secret: false,
+  value: "",
+  set: false,
+  replacing: false,
+});
 const empty = (one: Line): boolean => one.name === "" && one.value === "" && !one.set;
 /** The table always ends with one empty row to type into. */
 const endingEmpty = (lines: Line[]): Line[] => {
   let end = lines.length;
   while (end > 0 && empty(lines[end - 1]!)) end -= 1;
-  return [...lines.slice(0, end), ...(end < lines.length ? [lines[end]!] : [blankLine()])];
+  return [
+    ...lines.slice(0, end),
+    ...(end < lines.length
+      ? [
+          lines[end]!,
+        ]
+      : [
+          blankLine(),
+        ]),
+  ];
 };
 
-type EnvironmentFormProps = { api: RequestsApi; sessionId: string | undefined; repository: string | undefined; environment: Placed<RequestEnvironmentRead> | undefined; locked: boolean; onSaved: (read: Requests) => void };
+type EnvironmentFormProps = {
+  api: RequestsApi;
+  sessionId: string | undefined;
+  repository: string | undefined;
+  environment: Placed<RequestEnvironmentRead> | undefined;
+  locked: boolean;
+  onSaved: (read: Requests) => void;
+};
 
-function EnvironmentForm({ api, sessionId, repository, environment, locked, onSaved }: EnvironmentFormProps) {
+function EnvironmentForm({
+  api,
+  sessionId,
+  repository,
+  environment,
+  locked,
+  onSaved,
+}: EnvironmentFormProps) {
   const [name, setName] = useState(environment?.name ?? "");
   const [lines, setLines] = useState<Line[]>(() =>
     endingEmpty(
-      (environment?.variables ?? []).map((one) => (one.secret ? { name: one.name, secret: true, value: "", set: one.set, replacing: false } : { name: one.name, secret: false, value: one.value, set: false, replacing: false })),
+      (environment?.variables ?? []).map((one) =>
+        one.secret
+          ? {
+              name: one.name,
+              secret: true,
+              value: "",
+              set: one.set,
+              replacing: false,
+            }
+          : {
+              name: one.name,
+              secret: false,
+              value: one.value,
+              set: false,
+              replacing: false,
+            },
+      ),
     ),
   );
   const [refused, setRefused] = useState<string | undefined>(undefined);
   const [deleting, setDeleting] = useState(false);
-  const edit = (at: number, patch: Partial<Line>) => setLines((now) => endingEmpty(now.map((one, i) => (i === at ? { ...one, ...patch } : one))));
+  const edit = (at: number, patch: Partial<Line>) =>
+    setLines((now) =>
+      endingEmpty(
+        now.map((one, i) =>
+          i === at
+            ? {
+                ...one,
+                ...patch,
+              }
+            : one,
+        ),
+      ),
+    );
   const save = async () => {
     const variables: VariableWrite[] = lines
       .filter((one) => one.name.trim() !== "")
-      .map((one) => (one.secret ? { name: one.name.trim(), secret: true, ...(one.value === "" ? {} : { value: one.value }) } : { name: one.name.trim(), secret: false, value: one.value }));
-    const answer = await api.saveRequestEnvironment({ name: name.trim(), variables }, sessionId, repository).catch(() => undefined);
+      .map((one) =>
+        one.secret
+          ? {
+              name: one.name.trim(),
+              secret: true,
+              ...(one.value === ""
+                ? {}
+                : {
+                    value: one.value,
+                  }),
+            }
+          : {
+              name: one.name.trim(),
+              secret: false,
+              value: one.value,
+            },
+      );
+    const answer = await api
+      .saveRequestEnvironment(
+        {
+          name: name.trim(),
+          variables,
+        },
+        sessionId,
+        repository,
+      )
+      .catch(() => undefined);
     // A secret's value goes whether or not Fleet kept it: the field never holds one longer than a press.
-    setLines((now) => now.map((one) => (one.secret ? { ...one, value: "" } : one)));
+    setLines((now) =>
+      now.map((one) =>
+        one.secret
+          ? {
+              ...one,
+              value: "",
+            }
+          : one,
+      ),
+    );
     setRefused(said(answer));
     if (answer?.ok === true) onSaved(answer.value);
   };
   const remove = async () => {
     if (environment === undefined) return;
-    const answer = await api.deleteRequestEnvironment(environment.name, sessionId, repository).catch(() => undefined);
+    const answer = await api
+      .deleteRequestEnvironment(environment.name, sessionId, repository)
+      .catch(() => undefined);
     setDeleting(false);
     setRefused(said(answer));
     if (answer?.ok === true) onSaved(answer.value);
@@ -917,8 +1732,19 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
           </>
         )}
       </div>
-      {environment === undefined ? <Input label="Environment name" value={name} placeholder="test" spellCheck={false} onChange={(event) => setName(event.currentTarget.value)} /> : null}
-      <Table className="side-table" aria-label={`Variables of ${environment?.name ?? "the new environment"}`}>
+      {environment === undefined ? (
+        <Input
+          label="Environment name"
+          value={name}
+          placeholder="test"
+          spellCheck={false}
+          onChange={(event) => setName(event.currentTarget.value)}
+        />
+      ) : null}
+      <Table
+        className="side-table"
+        aria-label={`Variables of ${environment?.name ?? "the new environment"}`}
+      >
         <colgroup>
           <col className="side-table__name" />
           <col />
@@ -937,34 +1763,86 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
           {lines.map((one, at) => (
             <TableRow key={at}>
               <TableCell>
-                <Input aria-label={`Variable ${at + 1}`} mono value={one.name} placeholder="base" spellCheck={false} onChange={(event) => edit(at, { name: event.currentTarget.value })} />
+                <Input
+                  aria-label={`Variable ${at + 1}`}
+                  mono
+                  value={one.name}
+                  placeholder="base"
+                  spellCheck={false}
+                  onChange={(event) =>
+                    edit(at, {
+                      name: event.currentTarget.value,
+                    })
+                  }
+                />
               </TableCell>
               <TableCell>
                 {one.secret && one.set && !one.replacing ? (
                   <span className="side-requests__set">
                     <Tooltip label="Set, in the Keychain">
-                      <span className="side-requests__mark" role="img" aria-label="Set, in the Keychain">
+                      <span
+                        className="side-requests__mark"
+                        role="img"
+                        aria-label="Set, in the Keychain"
+                      >
                         <SquareAsterisk size={12} strokeWidth={2} aria-hidden />
                       </span>
                     </Tooltip>
                     <span>Set</span>
-                    <Button variant="ghost" size="sm" aria-label={`Replace ${one.name}`} onClick={() => edit(at, { replacing: true })}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Replace ${one.name}`}
+                      onClick={() =>
+                        edit(at, {
+                          replacing: true,
+                        })
+                      }
+                    >
                       Replace
                     </Button>
                   </span>
                 ) : (
-                  <Input aria-label={`Value ${at + 1}`} mono={!one.secret} type={one.secret ? "password" : "text"} autoComplete="off" spellCheck={false} value={one.value} onChange={(event) => edit(at, { value: event.currentTarget.value })} />
+                  <Input
+                    aria-label={`Value ${at + 1}`}
+                    mono={!one.secret}
+                    type={one.secret ? "password" : "text"}
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={one.value}
+                    onChange={(event) =>
+                      edit(at, {
+                        value: event.currentTarget.value,
+                      })
+                    }
+                  />
                 )}
               </TableCell>
               <TableCell>
-                <Checkbox aria-label={`Secret ${at + 1}`} checked={one.secret} disabled={one.set} onChange={(event) => edit(at, { secret: event.currentTarget.checked })}>
+                <Checkbox
+                  aria-label={`Secret ${at + 1}`}
+                  checked={one.secret}
+                  disabled={one.set}
+                  onChange={(event) =>
+                    edit(at, {
+                      secret: event.currentTarget.checked,
+                    })
+                  }
+                >
                   {null}
                 </Checkbox>
               </TableCell>
               <TableCell>
                 {at === lines.length - 1 && empty(one) ? null : (
                   <Tooltip label="Remove" asChild>
-                    <Button variant="ghost" size="sm" iconOnly aria-label={`Remove variable ${at + 1}`} disabled={locked} onClick={() => setLines((now) => now.filter((_, i) => i !== at))}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      aria-label={`Remove variable ${at + 1}`}
+                      disabled={locked}
+                      onClick={() => setLines((now) => now.filter((_, i) => i !== at))}
+                    >
                       <Trash2 size={16} aria-hidden="true" />
                     </Button>
                   </Tooltip>
@@ -979,7 +1857,12 @@ function EnvironmentForm({ api, sessionId, repository, environment, locked, onSa
           Save
         </Button>
         {environment?.place === "yours" ? (
-          <Button variant="ghost" size="sm" disabled={locked} onClick={() => (deleting ? void remove() : setDeleting(true))}>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={locked}
+            onClick={() => (deleting ? void remove() : setDeleting(true))}
+          >
             {deleting ? "Press again to delete" : "Delete"}
           </Button>
         ) : null}

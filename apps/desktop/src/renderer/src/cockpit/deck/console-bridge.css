@@ -16,7 +16,9 @@
   --cb-reach: 200px;
   --cb-code: calc(var(--text-2xs) * 0.8);
 
-  & .deck-foot { --cb-dial: calc(var(--tile) * 1.75); }
+  & .deck-foot {
+    --cb-dial: calc(var(--tile) * 1.75);
+  }
 
   /* ---- The bezel: a chamfered frame of steps, a rivet row on each side and a screw at each corner. Only the console wears it; the columns are quiet (below). ---- */
   & .deck-foot > :is(.deck-controls:has(> .console-rack), .deck-dispatch) {
@@ -30,11 +32,22 @@
       inset 0 0 0 calc(var(--border-width) * 7) var(--bg-sunken),
       inset 0 0 0 calc(var(--border-width) * 8) var(--border-subtle);
     clip-path: polygon(
-      0 var(--cb-chamfer), var(--cb-chamfer) 0, var(--cb-chamfer) calc(var(--cb-reach) * -1),
-      calc(100% - var(--cb-chamfer)) calc(var(--cb-reach) * -1), calc(100% - var(--cb-chamfer)) 0, 100% var(--cb-chamfer),
-      calc(100% + var(--cb-reach)) var(--cb-chamfer), calc(100% + var(--cb-reach)) calc(100% - var(--cb-chamfer)), 100% calc(100% - var(--cb-chamfer)),
-      calc(100% - var(--cb-chamfer)) 100%, calc(100% - var(--cb-chamfer)) calc(100% + var(--cb-reach)), var(--cb-chamfer) calc(100% + var(--cb-reach)),
-      var(--cb-chamfer) 100%, 0 calc(100% - var(--cb-chamfer)), calc(var(--cb-reach) * -1) calc(100% - var(--cb-chamfer)), calc(var(--cb-reach) * -1) var(--cb-chamfer)
+      0 var(--cb-chamfer),
+      var(--cb-chamfer) 0,
+      var(--cb-chamfer) calc(var(--cb-reach) * -1),
+      calc(100% - var(--cb-chamfer)) calc(var(--cb-reach) * -1),
+      calc(100% - var(--cb-chamfer)) 0,
+      100% var(--cb-chamfer),
+      calc(100% + var(--cb-reach)) var(--cb-chamfer),
+      calc(100% + var(--cb-reach)) calc(100% - var(--cb-chamfer)),
+      100% calc(100% - var(--cb-chamfer)),
+      calc(100% - var(--cb-chamfer)) 100%,
+      calc(100% - var(--cb-chamfer)) calc(100% + var(--cb-reach)),
+      var(--cb-chamfer) calc(100% + var(--cb-reach)),
+      var(--cb-chamfer) 100%,
+      0 calc(100% - var(--cb-chamfer)),
+      calc(var(--cb-reach) * -1) calc(100% - var(--cb-chamfer)),
+      calc(var(--cb-reach) * -1) var(--cb-chamfer)
     );
     &::after {
       content: "";
@@ -43,16 +56,44 @@
       z-index: 1;
       background-color: var(--fg-subtle);
       pointer-events: none;
-      mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat-x, repeat-x, repeat-y, repeat-y;
-      mask-image: var(--cb-screw), var(--cb-screw), var(--cb-screw), var(--cb-screw), var(--cb-rivet), var(--cb-rivet), var(--cb-rivety), var(--cb-rivety);
-      mask-size: 9px 9px, 9px 9px, 9px 9px, 9px 9px, 12px 3px, 12px 3px, 3px 12px, 3px 12px;
-      mask-position: left 3px top 3px, right 3px top 3px, left 3px bottom 3px, right 3px bottom 3px, 24px top 0, 24px bottom 0, left 0 12px, right 0 12px;
+      mask-repeat:
+        no-repeat, no-repeat, no-repeat, no-repeat, repeat-x, repeat-x, repeat-y, repeat-y;
+      mask-image:
+        var(--cb-screw), var(--cb-screw), var(--cb-screw), var(--cb-screw), var(--cb-rivet),
+        var(--cb-rivet), var(--cb-rivety), var(--cb-rivety);
+      mask-size:
+        9px 9px,
+        9px 9px,
+        9px 9px,
+        9px 9px,
+        12px 3px,
+        12px 3px,
+        3px 12px,
+        3px 12px;
+      mask-position:
+        left 3px top 3px,
+        right 3px top 3px,
+        left 3px bottom 3px,
+        right 3px bottom 3px,
+        24px top 0,
+        24px bottom 0,
+        left 0 12px,
+        right 0 12px;
     }
   }
-  & .deck-foot > :is(.deck-controls:has(> .console-rack), .deck-dispatch) > .deck-band { padding-inline: var(--space-6); }
+  & .deck-foot > :is(.deck-controls:has(> .console-rack), .deck-dispatch) > .deck-band {
+    padding-inline: var(--space-6);
+  }
 
   /* ---- The quiet panel: square, a hairline round it and a heavier one along its head, the console's hood at rest. The Cockpit's columns and every panel of an open Job wear the same one, so moving between them is one ship. ---- */
-  & :is(.deck-right > .deck-bays, .deck-left > .deck-list, .job-pane, .sv-panel:not(.job-pane__body *, .console-calls *), .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])) {
+  &
+    :is(
+      .deck-right > .deck-bays,
+      .deck-left > .deck-list,
+      .job-pane,
+      .sv-panel:not(.job-pane__body *, .console-calls *),
+      .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])
+    ) {
     --edge: var(--border-default);
     --radius-md: var(--border-width);
     --radius-lg: var(--border-width);
@@ -62,17 +103,30 @@
     background: var(--bg-raised);
     box-shadow: none;
   }
-  & .job-pane[data-focused] { --edge: var(--border-strong); border-color: var(--border-strong); }
-  & .job-pane__strip { background: var(--bg-sunken); }
-  & .sv-panel:not(.job-pane__body *, .console-calls *) > .sv-panel__band { background: var(--bg-sunken); border-bottom-color: var(--border-subtle); }
+  & .job-pane[data-focused] {
+    --edge: var(--border-strong);
+    border-color: var(--border-strong);
+  }
+  & .job-pane__strip {
+    background: var(--bg-sunken);
+  }
+  & .sv-panel:not(.job-pane__body *, .console-calls *) > .sv-panel__band {
+    background: var(--bg-sunken);
+    border-bottom-color: var(--border-subtle);
+  }
   /* The Job's tile grid stays a grid, in the columns' strips. */
   & .deck-controls__block[data-subject] .deck-tile {
     border: var(--border-width) solid var(--border-subtle);
     border-radius: 0;
     background: var(--bg-sunken);
     box-shadow: none;
-    &:hover { background: var(--bg-hover); }
-    &:is([aria-pressed="true"], [data-on]) { border-color: var(--accent); background: var(--accent-muted); }
+    &:hover {
+      background: var(--bg-hover);
+    }
+    &:is([aria-pressed="true"], [data-on]) {
+      border-color: var(--accent);
+      background: var(--accent-muted);
+    }
   }
 
   /* ---- The glass: a recess with its stencilled code along the top. ---- */
@@ -110,113 +164,391 @@
     border: calc(var(--border-width) * 2) solid var(--border-strong);
     border-radius: 0;
     background: var(--bg-raised);
-    box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 calc(var(--border-width) * 3) 0 var(--deck-key-lo);
+    box-shadow:
+      inset 0 0 0 var(--border-width) var(--bg-sunken),
+      0 calc(var(--border-width) * 3) 0 var(--deck-key-lo);
     color: var(--fg-muted);
-    &:hover { background: var(--bg-hover); color: var(--fg-default); }
-    &:is([aria-pressed="true"], [data-on], :active) { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 var(--border-width) 0 var(--deck-key-lo); top: calc(var(--border-width) * 2); }
-    &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-    & > svg { position: relative; z-index: 1; width: var(--space-4); height: var(--space-4); }
-    & .deck-tile__text { position: relative; z-index: 1; }
+    &:hover {
+      background: var(--bg-hover);
+      color: var(--fg-default);
+    }
+    &:is([aria-pressed="true"], [data-on], :active) {
+      border-color: var(--accent);
+      background: var(--accent-muted);
+      color: var(--fg-default);
+      box-shadow:
+        inset 0 0 0 var(--border-width) var(--bg-sunken),
+        0 var(--border-width) 0 var(--deck-key-lo);
+      top: calc(var(--border-width) * 2);
+    }
+    &:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
+    }
+    & > svg {
+      position: relative;
+      z-index: 1;
+      width: var(--space-4);
+      height: var(--space-4);
+    }
+    & .deck-tile__text {
+      position: relative;
+      z-index: 1;
+    }
   }
-
-
-
-
 
   /* ---- The Activity graph as a scope: the graph feeds the canvas its dots, and one press stands over all of it. ---- */
   & .console-bay > .console-scope {
     position: relative;
     overflow: hidden;
-    & .armada-tl { position: absolute; inset: 0; display: flex; flex-direction: column; }
-    & .armada-tl__graph { padding: var(--space-4) var(--space-2) var(--space-3); }
-    & :is(.armada-tl__axis-line, .armada-tl__now) { display: none; }
-    & .console-scope__graph { position: absolute; inset: 0; pointer-events: none; }
-    & .console-scope__press { position: absolute; z-index: 3; inset: 0; padding: 0; border: 0; background: none; cursor: pointer; }
-    & .console-scope__press:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-    &:has(.console-scope__press[aria-pressed="true"]) { border-color: var(--accent); }
+    & .armada-tl {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    & .armada-tl__graph {
+      padding: var(--space-4) var(--space-2) var(--space-3);
+    }
+    & :is(.armada-tl__axis-line, .armada-tl__now) {
+      display: none;
+    }
+    & .console-scope__graph {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    & .console-scope__press {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      padding: 0;
+      border: 0;
+      background: none;
+      cursor: pointer;
+    }
+    & .console-scope__press:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: calc(var(--focus-ring-offset) * -1);
+    }
+    &:has(.console-scope__press[aria-pressed="true"]) {
+      border-color: var(--accent);
+    }
   }
 
-
   /* ---- Activity's HUD, projected over the field: hairlines and brackets on thin glass, drawn in pixels by `ConsoleHud`. Hard-edged, and lit where the console is. ---- */
-  & .console-hud { position: fixed; inset: 0; z-index: 20; color: var(--cb-cyan); pointer-events: none; }
-  & .console-hud__beam { position: absolute; inset: 0; width: 100%; height: 100%; animation: cb-hud-beam var(--duration-enter) var(--ease-out) backwards; }
-  & .console-hud__beam-fill { fill: currentColor; fill-opacity: 0.07; }
-  & .console-hud__beam-edge { fill: none; stroke: currentColor; stroke-opacity: 0.6; stroke-width: 1; stroke-dasharray: 2 4; }
-  & .console-hud__beam-collar { fill: none; stroke: currentColor; stroke-width: 3; }
-  & .console-hud__panel { position: absolute; outline: none; pointer-events: auto; animation: cb-hud-open var(--duration-enter) var(--ease-out) backwards; }
-  & .console-hud__panel.console-hud__panel:focus-visible { outline: none; animation-name: cb-hud-open; animation-duration: var(--duration-enter); animation-timing-function: var(--ease-out); animation-fill-mode: backwards; }
-  & .console-hud__frame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-  & .console-hud__glass { fill: var(--bg-base); fill-opacity: 0.62; }
-  & .console-hud__strip { fill: var(--bg-base); fill-opacity: 0.55; }
-  & .console-hud__line { fill: none; stroke: currentColor; stroke-width: 1; }
-  & .console-hud__edge { stroke-opacity: 0.45; }
-  & .console-hud__minor { stroke-opacity: 0.1; }
-  & .console-hud__major { stroke-opacity: 0.24; }
-  & .console-hud__centre { stroke-opacity: 0.5; }
-  & .console-hud__cross { stroke-opacity: 0.8; }
-  & .console-hud__tick { stroke-opacity: 0.6; }
-  & .console-hud__tick-major { stroke-opacity: 1; }
-  & .console-hud__bracket { stroke-width: 2; }
-  & .console-hud__now { stroke: var(--cb-amber); }
-  & .console-hud__now-mark { fill: var(--cb-amber); }
-  & .console-hud__at { fill: currentColor; fill-opacity: 0.85; font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; text-anchor: middle; }
-  & .console-hud__name { position: absolute; top: var(--space-2); left: var(--space-4); margin: 0; font-size: var(--text-sm); line-height: var(--space-6); font-weight: var(--weight-heading); color: var(--fg-default); }
-  & .console-hud__acts { position: absolute; top: var(--space-2); right: var(--space-3); display: flex; align-items: center; gap: var(--space-2); color: var(--fg-default); }
-  & .console-hud__plot { position: absolute; }
-  & .console-hud__plot .armada-tl { position: absolute; inset: 0; display: block; padding: 0; }
-  & .console-hud__plot .armada-tl__plot { position: absolute; inset: 0; }
-  & .console-hud__plot :is(.armada-tl__axis-line, .armada-tl__now) { display: none; }
+  & .console-hud {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    color: var(--cb-cyan);
+    pointer-events: none;
+  }
+  & .console-hud__beam {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    animation: cb-hud-beam var(--duration-enter) var(--ease-out) backwards;
+  }
+  & .console-hud__beam-fill {
+    fill: currentColor;
+    fill-opacity: 0.07;
+  }
+  & .console-hud__beam-edge {
+    fill: none;
+    stroke: currentColor;
+    stroke-opacity: 0.6;
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+  }
+  & .console-hud__beam-collar {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3;
+  }
+  & .console-hud__panel {
+    position: absolute;
+    outline: none;
+    pointer-events: auto;
+    animation: cb-hud-open var(--duration-enter) var(--ease-out) backwards;
+  }
+  & .console-hud__panel.console-hud__panel:focus-visible {
+    outline: none;
+    animation-name: cb-hud-open;
+    animation-duration: var(--duration-enter);
+    animation-timing-function: var(--ease-out);
+    animation-fill-mode: backwards;
+  }
+  & .console-hud__frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+  & .console-hud__glass {
+    fill: var(--bg-base);
+    fill-opacity: 0.62;
+  }
+  & .console-hud__strip {
+    fill: var(--bg-base);
+    fill-opacity: 0.55;
+  }
+  & .console-hud__line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1;
+  }
+  & .console-hud__edge {
+    stroke-opacity: 0.45;
+  }
+  & .console-hud__minor {
+    stroke-opacity: 0.1;
+  }
+  & .console-hud__major {
+    stroke-opacity: 0.24;
+  }
+  & .console-hud__centre {
+    stroke-opacity: 0.5;
+  }
+  & .console-hud__cross {
+    stroke-opacity: 0.8;
+  }
+  & .console-hud__tick {
+    stroke-opacity: 0.6;
+  }
+  & .console-hud__tick-major {
+    stroke-opacity: 1;
+  }
+  & .console-hud__bracket {
+    stroke-width: 2;
+  }
+  & .console-hud__now {
+    stroke: var(--cb-amber);
+  }
+  & .console-hud__now-mark {
+    fill: var(--cb-amber);
+  }
+  & .console-hud__at {
+    fill: currentColor;
+    fill-opacity: 0.85;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    font-variant-numeric: tabular-nums;
+    text-anchor: middle;
+  }
+  & .console-hud__name {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-4);
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: var(--space-6);
+    font-weight: var(--weight-heading);
+    color: var(--fg-default);
+  }
+  & .console-hud__acts {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--fg-default);
+  }
+  & .console-hud__plot {
+    position: absolute;
+  }
+  & .console-hud__plot .armada-tl {
+    position: absolute;
+    inset: 0;
+    display: block;
+    padding: 0;
+  }
+  & .console-hud__plot .armada-tl__plot {
+    position: absolute;
+    inset: 0;
+  }
+  & .console-hud__plot :is(.armada-tl__axis-line, .armada-tl__now) {
+    display: none;
+  }
   /* A dot under the pointer or the keys is taken in a target's corners, and the card hangs off it rather than off the plot. */
   & .console-hud__plot .armada-tl__dot:is(:hover, :focus-visible, [data-lit]) {
     outline: none;
     z-index: 3;
-    &::before { content: ""; position: absolute; inset: calc(var(--space-2) * -1); background: var(--fg-default); mask-image: var(--cb-reticle); mask-size: 100% 100%; pointer-events: none; }
+    &::before {
+      content: "";
+      position: absolute;
+      inset: calc(var(--space-2) * -1);
+      background: var(--fg-default);
+      mask-image: var(--cb-reticle);
+      mask-size: 100% 100%;
+      pointer-events: none;
+    }
   }
-  & .console-hud__plot .armada-tl__dot[data-lit]::before { background: var(--accent); }
-  & .console-hud__plot .armada-tl__dot:is(:hover, :focus-visible) { anchor-name: --console-hud-dot; }
-  & .console-hud__plot .armada-tooltip__bubble[data-beside] { position-anchor: --console-hud-dot; position-area: block-start span-inline-end; margin: var(--space-3); position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline; }
+  & .console-hud__plot .armada-tl__dot[data-lit]::before {
+    background: var(--accent);
+  }
+  & .console-hud__plot .armada-tl__dot:is(:hover, :focus-visible) {
+    anchor-name: --console-hud-dot;
+  }
+  & .console-hud__plot .armada-tooltip__bubble[data-beside] {
+    position-anchor: --console-hud-dot;
+    position-area: block-start span-inline-end;
+    margin: var(--space-3);
+    position-try-fallbacks:
+      flip-inline,
+      flip-block,
+      flip-block flip-inline;
+  }
 
   /* Calls: the Job as it is, a monitor in the frame, on a solid surface and in its quiet panels. */
   /* Where things stand. The card takes the height it needs on the composer, in the column's flow and not over the thread, and the thread has what is left. */
-  & .console-calls { position: absolute; inset: calc(var(--space-12) - var(--space-1)) var(--space-3) var(--space-3); display: grid; grid-template-columns: minmax(0, 1fr) clamp(calc(var(--space-12) * 4), 33%, calc(var(--space-12) * 6.5)); gap: var(--space-3); min-height: 0; }
-  & .console-calls__thread { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-  & .console-calls__thread > .deck-pane { flex: 1 1 0; min-height: 0; animation: none; }
-  & .console-calls__side { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; }
-  & .console-calls__so-far { flex: none; margin: 0; padding: var(--space-3); border-bottom: var(--border-width) solid var(--border-subtle); font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--fg-default); }
-  & .console-calls__now { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; }
-  & .console-calls__now > .sv-story-body { flex: 1 0 auto; padding-block: 0; color: var(--fg-default); }
+  & .console-calls {
+    position: absolute;
+    inset: calc(var(--space-12) - var(--space-1)) var(--space-3) var(--space-3);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(
+        calc(var(--space-12) * 4),
+        33%,
+        calc(var(--space-12) * 6.5)
+      );
+    gap: var(--space-3);
+    min-height: 0;
+  }
+  & .console-calls__thread {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  & .console-calls__thread > .deck-pane {
+    flex: 1 1 0;
+    min-height: 0;
+    animation: none;
+  }
+  & .console-calls__side {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+  }
+  & .console-calls__so-far {
+    flex: none;
+    margin: 0;
+    padding: var(--space-3);
+    border-bottom: var(--border-width) solid var(--border-subtle);
+    font-size: var(--text-sm);
+    line-height: var(--leading-sm);
+    color: var(--fg-default);
+  }
+  & .console-calls__now {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  & .console-calls__now > .sv-story-body {
+    flex: 1 0 auto;
+    padding-block: 0;
+    color: var(--fg-default);
+  }
   /* The thread has what the question leaves. A question too long for the whole height scrolls its options, the card's own way, with Answer and Skip held. */
-  & .console-calls .sv-dock { flex: 0 1 auto; display: flex; flex-direction: column; min-height: 0; margin-block-start: 0; }
-  & .console-calls .sv-bands { position: static; flex: 0 1 auto; min-height: 0; }
-  & .console-calls .sv-bands > .armada-needs-panel { flex: 0 1 auto; min-height: 0; }
-  & .console-calls .armada-needs-panel__band { flex: none; }
-  & .console-calls .armada-needs-panel__reveal { flex: 0 1 auto; min-height: 0; }
-  & .console-calls .armada-needs-panel__shell { display: flex; flex-direction: column; }
-  & .console-calls .armada-needs-panel__body { flex: 0 1 auto; min-height: 0; max-height: none; }
-  & .console-calls .armada-needs-panel__detail:has(.armada-question-deck[data-flat]) .armada-question-deck__answers { flex: 0 1 auto; min-height: calc(var(--space-6) * 2); }
-  & .console-calls .armada-session-composer { flex: none; }
-  & .console-calls .armada-session-composer__editor { min-height: calc(var(--leading-sm) + var(--space-2) * 2); }
+  & .console-calls .sv-dock {
+    flex: 0 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    margin-block-start: 0;
+  }
+  & .console-calls .sv-bands {
+    position: static;
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+  & .console-calls .sv-bands > .armada-needs-panel {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+  & .console-calls .armada-needs-panel__band {
+    flex: none;
+  }
+  & .console-calls .armada-needs-panel__reveal {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+  & .console-calls .armada-needs-panel__shell {
+    display: flex;
+    flex-direction: column;
+  }
+  & .console-calls .armada-needs-panel__body {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+  &
+    .console-calls
+    .armada-needs-panel__detail:has(.armada-question-deck[data-flat])
+    .armada-question-deck__answers {
+    flex: 0 1 auto;
+    min-height: calc(var(--space-6) * 2);
+  }
+  & .console-calls .armada-session-composer {
+    flex: none;
+  }
+  & .console-calls .armada-session-composer__editor {
+    min-height: calc(var(--leading-sm) + var(--space-2) * 2);
+  }
   /* The menus and Send on one row down to the narrowest box the HUD draws. */
   @container (max-width: 480px) {
-    & .console-calls .armada-session-composer__bar { gap: var(--space-1); }
-    & .console-calls .armada-session-composer__pick { min-width: 0; }
-    & .console-calls .armada-session-composer__bar .armada-select { padding-inline: var(--space-2) var(--space-6); }
+    & .console-calls .armada-session-composer__bar {
+      gap: var(--space-1);
+    }
+    & .console-calls .armada-session-composer__pick {
+      min-width: 0;
+    }
+    & .console-calls .armada-session-composer__bar .armada-select {
+      padding-inline: var(--space-2) var(--space-6);
+    }
   }
   /* A short window spends its height on the question and the thread's latest line, not the thread's own tools; Open Job has them. */
   @media (max-height: 800px) {
-    & .console-calls .armada-session-frame__head { display: none; }
+    & .console-calls .armada-session-frame__head {
+      display: none;
+    }
   }
   /* A narrow one gives the thread the width: the question on one line where it can be, and the box's row whole. */
   @media (max-width: 1360px) {
-    & .console-calls { inset-inline: var(--space-2); column-gap: var(--space-2); grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 4); }
-    & .console-calls .armada-question-deck__ask { font-size: var(--text-base); line-height: var(--leading-base); }
+    & .console-calls {
+      inset-inline: var(--space-2);
+      column-gap: var(--space-2);
+      grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 4);
+    }
+    & .console-calls .armada-question-deck__ask {
+      font-size: var(--text-base);
+      line-height: var(--leading-base);
+    }
   }
-  & .console-calls .armada-session-thread__stage::after { display: none; }
+  & .console-calls .armada-session-thread__stage::after {
+    display: none;
+  }
   & .console-calls .armada-session-composer__bar .armada-select-field,
-  & .console-calls .armada-session-composer__pick { flex: none; }
-  & .console-calls .armada-session-composer__bar .armada-select { field-sizing: content; width: auto; }
+  & .console-calls .armada-session-composer__pick {
+    flex: none;
+  }
+  & .console-calls .armada-session-composer__bar .armada-select {
+    field-sizing: content;
+    width: auto;
+  }
 
-  & .console-hud[data-hud="calls"] :is(.console-hud__glass, .console-hud__strip) { fill: var(--bg-sunken); fill-opacity: 1; }
+  & .console-hud[data-hud="calls"] :is(.console-hud__glass, .console-hud__strip) {
+    fill: var(--bg-sunken);
+    fill-opacity: 1;
+  }
   & :is(.console-calls__thread, .console-calls__side) {
     --edge: var(--border-default);
     --radius-md: var(--border-width);
@@ -227,17 +559,51 @@
   }
 
   /* The HUD's head names the Job and closes it, so the thread's own name and way back are not drawn again. */
-  & .console-calls .armada-session-frame__row:first-child { display: none; }
+  & .console-calls .armada-session-frame__row:first-child {
+    display: none;
+  }
 
-  & .console-hud__frame :is(.console-hud__bracket, .console-hud__cross, .console-hud__tick-major, .console-hud__now, .console-hud__now-mark) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
-  & :is(.console-hud__beam-edge, .console-hud__beam-collar) { filter: drop-shadow(0 0 var(--space-1) currentColor); }
-  & .console-hud__plot .armada-tl__dot { box-shadow: 0 0 var(--space-3) var(--tone); }
+  &
+    .console-hud__frame
+    :is(
+      .console-hud__bracket,
+      .console-hud__cross,
+      .console-hud__tick-major,
+      .console-hud__now,
+      .console-hud__now-mark
+    ) {
+    filter: drop-shadow(0 0 var(--space-1) currentColor);
+  }
+  & :is(.console-hud__beam-edge, .console-hud__beam-collar) {
+    filter: drop-shadow(0 0 var(--space-1) currentColor);
+  }
+  & .console-hud__plot .armada-tl__dot {
+    box-shadow: 0 0 var(--space-3) var(--tone);
+  }
   /* ---- Dispatch: a guarded switch. The cover is flipped up on its hinge, a bracket frames the cap, and the arming lamp blinks. ---- */
   & .deck-foot .deck-dispatch .deck-dispatch__block {
     grid-auto-rows: var(--cb-dial);
     justify-items: center;
-    &::before { content: ""; position: absolute; z-index: -1; inset: 0 0 auto; height: var(--space-3); background: var(--cb-amber); mask-image: var(--cb-hazard); mask-size: var(--space-2) 100%; mask-repeat: repeat-x; }
-    &::after { content: ""; position: absolute; z-index: -1; inset: var(--space-3) var(--space-1) var(--space-1); border: calc(var(--border-width) * 3) solid var(--border-strong); border-top: 0; background: var(--bg-sunken); }
+    &::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 auto;
+      height: var(--space-3);
+      background: var(--cb-amber);
+      mask-image: var(--cb-hazard);
+      mask-size: var(--space-2) 100%;
+      mask-repeat: repeat-x;
+    }
+    &::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: var(--space-3) var(--space-1) var(--space-1);
+      border: calc(var(--border-width) * 3) solid var(--border-strong);
+      border-top: 0;
+      background: var(--bg-sunken);
+    }
     & .deck-tile {
       width: calc(var(--cb-dial) - var(--space-4));
       height: calc(var(--cb-dial) - var(--space-4));
@@ -246,14 +612,41 @@
       padding: 0;
       border-radius: 50%;
       border-width: calc(var(--border-width) * 3);
-      box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 calc(var(--border-width) * 4) 0 var(--deck-key-lo), 0 calc(var(--border-width) * 6) 0 var(--border-default);
-      & > svg { width: var(--space-6); height: var(--space-6); }
-      &::before { content: ""; position: absolute; z-index: 1; top: var(--space-2); left: 50%; width: var(--space-2); height: var(--space-1); margin-inline-start: calc(var(--space-1) * -1); background: var(--cb-amber); animation: cb-blink calc(var(--duration-pulse) * 0.75) steps(2) infinite; }
-      &::after { content: ""; position: absolute; z-index: -1; inset: var(--space-1); border: var(--border-width) solid var(--border-strong); border-radius: 50%; }
-      &:is([aria-pressed="true"], :active) { box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 var(--border-width) 0 var(--deck-key-lo); }
+      box-shadow:
+        inset 0 0 0 var(--border-width) var(--bg-sunken),
+        0 calc(var(--border-width) * 4) 0 var(--deck-key-lo),
+        0 calc(var(--border-width) * 6) 0 var(--border-default);
+      & > svg {
+        width: var(--space-6);
+        height: var(--space-6);
+      }
+      &::before {
+        content: "";
+        position: absolute;
+        z-index: 1;
+        top: var(--space-2);
+        left: 50%;
+        width: var(--space-2);
+        height: var(--space-1);
+        margin-inline-start: calc(var(--space-1) * -1);
+        background: var(--cb-amber);
+        animation: cb-blink calc(var(--duration-pulse) * 0.75) steps(2) infinite;
+      }
+      &::after {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        inset: var(--space-1);
+        border: var(--border-width) solid var(--border-strong);
+        border-radius: 50%;
+      }
+      &:is([aria-pressed="true"], :active) {
+        box-shadow:
+          inset 0 0 0 var(--border-width) var(--bg-sunken),
+          0 var(--border-width) 0 var(--deck-key-lo);
+      }
     }
   }
-
 
   /* ---- The rack: open sockets and a tray. ---- */
   & .console-rack {
@@ -261,7 +654,12 @@
     flex-direction: column;
     gap: var(--space-3);
   }
-  & .console-rack__bays { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-3); }
+  & .console-rack__bays {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
   & .console-socket {
     position: relative;
     display: flex;
@@ -274,18 +672,61 @@
     border: calc(var(--border-width) * 2) solid var(--border-strong);
     border-radius: 0;
     background: var(--bg-sunken);
-    box-shadow: inset 0 calc(var(--border-width) * 4) 0 var(--deck-key-seat), inset 0 0 0 var(--space-1) var(--bg-base), inset 0 0 0 calc(var(--space-1) + var(--border-width)) var(--border-default);
+    box-shadow:
+      inset 0 calc(var(--border-width) * 4) 0 var(--deck-key-seat),
+      inset 0 0 0 var(--space-1) var(--bg-base),
+      inset 0 0 0 calc(var(--space-1) + var(--border-width)) var(--border-default);
     color: var(--fg-muted);
     cursor: pointer;
-    &::before { content: "B" attr(data-n) / ""; position: absolute; top: var(--space-2); left: var(--space-2); font-family: var(--font-mono); font-size: var(--cb-code); line-height: 1; letter-spacing: 0.14em; color: var(--fg-subtle); }
-    &:hover { color: var(--fg-default); border-color: var(--fg-subtle); }
-    &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-    &[data-empty] { color: var(--fg-subtle); box-shadow: inset 0 calc(var(--border-width) * 6) 0 var(--deck-key-seat), inset 0 0 0 var(--space-1) var(--bg-sunken), inset 0 0 0 calc(var(--space-1) + var(--border-width)) var(--border-subtle); }
-    &:is([data-armed], [data-over]) { border-color: var(--accent); color: var(--fg-default); }
-    &[data-armed] { animation: cb-blink calc(var(--duration-pulse) * 0.75) steps(2) infinite; }
-    & > .console-socket__code { font-family: var(--font-mono); font-size: var(--cb-code); letter-spacing: 0.14em; }
+    &::before {
+      content: "B" attr(data-n) / "";
+      position: absolute;
+      top: var(--space-2);
+      left: var(--space-2);
+      font-family: var(--font-mono);
+      font-size: var(--cb-code);
+      line-height: 1;
+      letter-spacing: 0.14em;
+      color: var(--fg-subtle);
+    }
+    &:hover {
+      color: var(--fg-default);
+      border-color: var(--fg-subtle);
+    }
+    &:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
+    }
+    &[data-empty] {
+      color: var(--fg-subtle);
+      box-shadow:
+        inset 0 calc(var(--border-width) * 6) 0 var(--deck-key-seat),
+        inset 0 0 0 var(--space-1) var(--bg-sunken),
+        inset 0 0 0 calc(var(--space-1) + var(--border-width)) var(--border-subtle);
+    }
+    &:is([data-armed], [data-over]) {
+      border-color: var(--accent);
+      color: var(--fg-default);
+    }
+    &[data-armed] {
+      animation: cb-blink calc(var(--duration-pulse) * 0.75) steps(2) infinite;
+    }
+    & > .console-socket__code {
+      font-family: var(--font-mono);
+      font-size: var(--cb-code);
+      letter-spacing: 0.14em;
+    }
   }
-  & .console-tray { display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--space-2); padding: var(--space-2); border: calc(var(--border-width) * 2) solid var(--border-default); background: var(--bg-sunken); box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat); }
+  & .console-tray {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border: calc(var(--border-width) * 2) solid var(--border-default);
+    background: var(--bg-sunken);
+    box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat);
+  }
   & .console-tray__item {
     display: flex;
     flex-direction: column;
@@ -301,20 +742,55 @@
     box-shadow: 0 calc(var(--border-width) * 3) 0 var(--deck-key-lo);
     color: var(--fg-muted);
     cursor: grab;
-    &:hover { background: var(--bg-hover); color: var(--fg-default); }
-    &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-    &:active { top: var(--border-width); cursor: grabbing; }
+    &:hover {
+      background: var(--bg-hover);
+      color: var(--fg-default);
+    }
+    &:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
+    }
+    &:active {
+      top: var(--border-width);
+      cursor: grabbing;
+    }
   }
-  & .console-tray__code { font-family: var(--font-mono); font-size: var(--cb-code); line-height: 1; letter-spacing: 0.14em; }
+  & .console-tray__code {
+    font-family: var(--font-mono);
+    font-size: var(--cb-code);
+    line-height: 1;
+    letter-spacing: 0.14em;
+  }
 
   /* ---- The berth rack: the worktree bays as a docking rack, a berth to a row. ---- */
   & .deck-right > .deck-bays {
     flex: 1 1 0;
-    & > .deck-bays__rows { margin: 0; padding: var(--space-2); gap: var(--space-3); }
-    & .deck-list__band { border: 0; margin: 0; }
-    & .deck-bays__head { padding: 0 0 var(--space-1); border-bottom: var(--border-width) solid var(--border-subtle); margin-bottom: var(--space-2); }
-    & .deck-list__repository { --repository-pad: 0; font-family: var(--font-mono); font-size: var(--cb-code); letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-subtle); padding: 0; }
-    & .deck-bays__rows .deck-list__group { gap: var(--space-2); }
+    & > .deck-bays__rows {
+      margin: 0;
+      padding: var(--space-2);
+      gap: var(--space-3);
+    }
+    & .deck-list__band {
+      border: 0;
+      margin: 0;
+    }
+    & .deck-bays__head {
+      padding: 0 0 var(--space-1);
+      border-bottom: var(--border-width) solid var(--border-subtle);
+      margin-bottom: var(--space-2);
+    }
+    & .deck-list__repository {
+      --repository-pad: 0;
+      font-family: var(--font-mono);
+      font-size: var(--cb-code);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--fg-subtle);
+      padding: 0;
+    }
+    & .deck-bays__rows .deck-list__group {
+      gap: var(--space-2);
+    }
   }
   & .deck-bay {
     --lamp: var(--space-2);
@@ -324,36 +800,115 @@
     border-radius: 0;
     background: var(--bg-sunken);
     box-shadow: none;
-    &:hover, &[data-hover] { border-color: var(--border-strong); background: var(--bg-hover); }
-    &[data-selected] { border-color: var(--accent); background: var(--accent-muted); }
+    &:hover,
+    &[data-hover] {
+      border-color: var(--border-strong);
+      background: var(--bg-hover);
+    }
+    &[data-selected] {
+      border-color: var(--accent);
+      background: var(--accent-muted);
+    }
     /* The door: the berth number, its lamp square in the corner. */
-    & .deck-bay__door { width: calc(var(--space-12) + var(--space-1)); border-right: var(--border-width) solid var(--border-subtle); background: none; }
-    & .deck-bay__door::before { top: var(--space-1); inset-inline-start: var(--space-1); width: var(--space-2); height: var(--space-2); border-radius: 0; background: var(--hue); }
-    & .deck-bay__name { font-size: var(--text-lg); line-height: 1; }
-    & .deck-bay__body { justify-content: center; gap: 0; padding: var(--space-1) var(--space-2); }
-    & .deck-bay__branch { color: var(--fg-subtle); }
+    & .deck-bay__door {
+      width: calc(var(--space-12) + var(--space-1));
+      border-right: var(--border-width) solid var(--border-subtle);
+      background: none;
+    }
+    & .deck-bay__door::before {
+      top: var(--space-1);
+      inset-inline-start: var(--space-1);
+      width: var(--space-2);
+      height: var(--space-2);
+      border-radius: 0;
+      background: var(--hue);
+    }
+    & .deck-bay__name {
+      font-size: var(--text-lg);
+      line-height: 1;
+    }
+    & .deck-bay__body {
+      justify-content: center;
+      gap: 0;
+      padding: var(--space-1) var(--space-2);
+    }
+    & .deck-bay__branch {
+      color: var(--fg-subtle);
+    }
     /* Free: a dark, recessed berth with its lamp unlit. */
-    &[data-bay="free"] { background: none; border-style: solid; }
-    &[data-bay="free"] .deck-bay__door { border-right-style: solid; border-right-color: var(--border-subtle); }
-    &[data-bay="free"] .deck-bay__door::before { background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--hue); }
-    &[data-bay="free"] .deck-bay__name { color: var(--fg-subtle); }
+    &[data-bay="free"] {
+      background: none;
+      border-style: solid;
+    }
+    &[data-bay="free"] .deck-bay__door {
+      border-right-style: solid;
+      border-right-color: var(--border-subtle);
+    }
+    &[data-bay="free"] .deck-bay__door::before {
+      background: transparent;
+      box-shadow: inset 0 0 0 var(--border-width) var(--hue);
+    }
+    &[data-bay="free"] .deck-bay__name {
+      color: var(--fg-subtle);
+    }
     /* Closed: shuttered, its slats a scale across the body. */
-    &[data-bay="closed"] { background: none; }
-    &[data-bay="closed"] .deck-bay__door::before { background: var(--border-strong); }
-    &[data-bay="closed"] .deck-bay__body::before { content: ""; position: absolute; inset: var(--space-1) var(--space-2) var(--space-1) calc(var(--space-12) + var(--space-3)); background: var(--border-default); mask-image: var(--cb-slot); mask-size: 100% 6px; mask-repeat: repeat-y; pointer-events: none; }
-    &[data-bay="stranded"] { background: var(--bg-sunken); }
+    &[data-bay="closed"] {
+      background: none;
+    }
+    &[data-bay="closed"] .deck-bay__door::before {
+      background: var(--border-strong);
+    }
+    &[data-bay="closed"] .deck-bay__body::before {
+      content: "";
+      position: absolute;
+      inset: var(--space-1) var(--space-2) var(--space-1) calc(var(--space-12) + var(--space-3));
+      background: var(--border-default);
+      mask-image: var(--cb-slot);
+      mask-size: 100% 6px;
+      mask-repeat: repeat-y;
+      pointer-events: none;
+    }
+    &[data-bay="stranded"] {
+      background: var(--bg-sunken);
+    }
     /* The holder gone: the whole door is hazard. */
-    &:has(.deck-bay__who[data-gone]) .deck-bay__door { background: var(--bg-sunken); }
-    &:has(.deck-bay__who[data-gone]) .deck-bay__door::after { inset: auto 0 0; bottom: 0; height: var(--space-3); background: var(--cb-amber); mask-image: var(--cb-hazard); mask-size: var(--space-2) 100%; mask-repeat: repeat-x; content: ""; position: absolute; }
+    &:has(.deck-bay__who[data-gone]) .deck-bay__door {
+      background: var(--bg-sunken);
+    }
+    &:has(.deck-bay__who[data-gone]) .deck-bay__door::after {
+      inset: auto 0 0;
+      bottom: 0;
+      height: var(--space-3);
+      background: var(--cb-amber);
+      mask-image: var(--cb-hazard);
+      mask-size: var(--space-2) 100%;
+      mask-repeat: repeat-x;
+      content: "";
+      position: absolute;
+    }
   }
 
   /* ---- The Jobs list as a flight-strip board: a plate for each repository, a strip for each Job. Same markup, same presses. ---- */
   & .deck-left > .deck-list {
-    & > .deck-list__rows { margin: 0; padding: var(--space-2); gap: var(--space-3); }
-    & .deck-list__band, & .deck-list .deck-list__band + .deck-list__band { margin: 0; border: 0; }
-    & .deck-list__band + .deck-list__band { margin-top: var(--space-3); }
-    & .deck-list__group { gap: var(--space-1); }
-    & .deck-list__item + .deck-list__item { border-top: 0; }
+    & > .deck-list__rows {
+      margin: 0;
+      padding: var(--space-2);
+      gap: var(--space-3);
+    }
+    & .deck-list__band,
+    & .deck-list .deck-list__band + .deck-list__band {
+      margin: 0;
+      border: 0;
+    }
+    & .deck-list__band + .deck-list__band {
+      margin-top: var(--space-3);
+    }
+    & .deck-list__group {
+      gap: var(--space-1);
+    }
+    & .deck-list__item + .deck-list__item {
+      border-top: 0;
+    }
     /* The plate: stencilled, on a hairline. */
     & .deck-list__head {
       position: relative;
@@ -378,26 +933,67 @@
     border-radius: 0;
     background: var(--bg-sunken);
     box-shadow: none;
-    &::before { content: ""; position: absolute; z-index: 1; inset: 0 auto 0 0; width: var(--space-1); background: var(--lamp-ink); pointer-events: none; }
-    &:hover, &[data-hover], &[data-cursor] { background: var(--bg-hover); }
-    &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-    &[data-lamp="running"] { --lamp-ink: var(--cb-cyan); }
-    &[data-lamp="failed"] { --lamp-ink: var(--status-completed-failed); }
-    &[data-lamp="done"] { --lamp-ink: var(--status-completed-success); }
-    &[data-lamp="idle"] { --lamp-ink: var(--border-strong); }
+    &::before {
+      content: "";
+      position: absolute;
+      z-index: 1;
+      inset: 0 auto 0 0;
+      width: var(--space-1);
+      background: var(--lamp-ink);
+      pointer-events: none;
+    }
+    &:hover,
+    &[data-hover],
+    &[data-cursor] {
+      background: var(--bg-hover);
+    }
+    &:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
+    }
+    &[data-lamp="running"] {
+      --lamp-ink: var(--cb-cyan);
+    }
+    &[data-lamp="failed"] {
+      --lamp-ink: var(--status-completed-failed);
+    }
+    &[data-lamp="done"] {
+      --lamp-ink: var(--status-completed-success);
+    }
+    &[data-lamp="idle"] {
+      --lamp-ink: var(--border-strong);
+    }
     /* Needs him: an amber lamp, and the strip's own pulse. */
-    &[data-lamp="needs"] { --lamp-ink: var(--cb-amber); }
-    &[data-selected] { border-color: var(--accent); background: var(--accent-muted); }
-    &[data-queued] { border-style: dashed; }
-    &[data-queued]::before { display: none; }
+    &[data-lamp="needs"] {
+      --lamp-ink: var(--cb-amber);
+    }
+    &[data-selected] {
+      border-color: var(--accent);
+      background: var(--accent-muted);
+    }
+    &[data-queued] {
+      border-style: dashed;
+    }
+    &[data-queued]::before {
+      display: none;
+    }
   }
   /* A child Job is a sub-strip on a square rail. */
   & .deck-left > .deck-list .deck-list__item:has(> .deck-row[data-linked]) {
-    &::before { border-end-start-radius: 0; border-inline-start-width: calc(var(--border-width) * 2); border-block-end-width: calc(var(--border-width) * 2); border-color: var(--border-default); }
-    & > .deck-row { min-height: calc(var(--space-6) + var(--space-2)); }
+    &::before {
+      border-end-start-radius: 0;
+      border-inline-start-width: calc(var(--border-width) * 2);
+      border-block-end-width: calc(var(--border-width) * 2);
+      border-color: var(--border-default);
+    }
+    & > .deck-row {
+      min-height: calc(var(--space-6) + var(--space-2));
+    }
   }
-  & .deck-left > .deck-list .deck-list__rail { border-inline-start-width: calc(var(--border-width) * 2); border-color: var(--border-default); }
-
+  & .deck-left > .deck-list .deck-list__rail {
+    border-inline-start-width: calc(var(--border-width) * 2);
+    border-color: var(--border-default);
+  }
 
   /* ---- The console: a canvas, and over each projected facet its own button, its place set from `layoutOf`. ---- */
   & .deck-foot > .deck-controls:has(> .console-deck) {
@@ -406,38 +1002,152 @@
     background: none;
     box-shadow: none;
     clip-path: none;
-    &::before, &::after { display: none; }
+    &::before,
+    &::after {
+      display: none;
+    }
     /* Folded, the band is all there is and the way back: it stands as any panel's does. */
-    &:not([data-collapsed]) > .deck-band { position: absolute; top: 0; right: var(--space-4); z-index: 3; min-height: 0; padding: 0; background: none; border: 0; }
-    &:not([data-collapsed]) > .deck-band .deck-band__name { display: none; }
+    &:not([data-collapsed]) > .deck-band {
+      position: absolute;
+      top: 0;
+      right: var(--space-4);
+      z-index: 3;
+      min-height: 0;
+      padding: 0;
+      background: none;
+      border: 0;
+    }
+    &:not([data-collapsed]) > .deck-band .deck-band__name {
+      display: none;
+    }
   }
-  & .console-deck.console-deck { display: block; position: relative; isolation: auto; margin: 0 var(--space-3); padding: 0; border: 0; background: none; box-shadow: none; &::before, &::after { display: none; } }
-  & .console-pixi { position: absolute; inset: 0 auto auto 0; width: 100%; pointer-events: none; }
-  & .console-pixi > canvas { display: block; pointer-events: none; }
-  & .console-bay { position: absolute; display: grid; min-width: 0; min-height: 0; & > :is(.deck-tile, .console-scope, .console-gauges) { min-width: 0; } & > .deck-tile { height: auto; } }
-  & .console-bay__label { position: absolute; z-index: 2; font-family: var(--font-mono); line-height: 1; letter-spacing: 0.02em; white-space: nowrap; color: var(--fg-muted); pointer-events: none; user-select: none; }
-  & .console-bay:is(:hover, :focus-within) > .console-bay__label, & .console-bay:has([aria-pressed="true"]) > .console-bay__label { color: var(--fg-default); }
+  & .console-deck.console-deck {
+    display: block;
+    position: relative;
+    isolation: auto;
+    margin: 0 var(--space-3);
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    &::before,
+    &::after {
+      display: none;
+    }
+  }
+  & .console-pixi {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    pointer-events: none;
+  }
+  & .console-pixi > canvas {
+    display: block;
+    pointer-events: none;
+  }
+  & .console-bay {
+    position: absolute;
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    & > :is(.deck-tile, .console-scope, .console-gauges) {
+      min-width: 0;
+    }
+    & > .deck-tile {
+      height: auto;
+    }
+  }
+  & .console-bay__label {
+    position: absolute;
+    z-index: 2;
+    font-family: var(--font-mono);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    color: var(--fg-muted);
+    pointer-events: none;
+    user-select: none;
+  }
+  & .console-bay:is(:hover, :focus-within) > .console-bay__label,
+  & .console-bay:has([aria-pressed="true"]) > .console-bay__label {
+    color: var(--fg-default);
+  }
   /* The canvas draws the keys, its focus ring among them, so the buttons over it are unseen. */
   & .console-deck:not([data-no-canvas]) {
-    & .console-bay.console-bay .deck-tile.deck-tile, & .console-bay.console-bay .deck-tile.deck-tile:is(:hover, [aria-pressed], [data-on], :active) { width: 100%; height: 100%; padding: 0; border-color: transparent; border-radius: 0; background: transparent; box-shadow: none; color: transparent; top: 0; }
-    & .console-bay.console-bay .deck-tile.deck-tile > :not(.armada-tooltip__bubble) { opacity: 0; }
-    & .console-bay.console-bay .deck-tile.deck-tile::before, & .console-bay.console-bay .deck-tile.deck-tile::after { display: none; }
-    & .console-bay .console-scope .armada-tl__dot { background: transparent; }
-    & .console-bay.console-bay .deck-tile.deck-tile:focus-visible, & .console-bay .console-scope__press:focus-visible { outline: none; }
+    & .console-bay.console-bay .deck-tile.deck-tile,
+    & .console-bay.console-bay .deck-tile.deck-tile:is(:hover, [aria-pressed], [data-on], :active) {
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      border-color: transparent;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      color: transparent;
+      top: 0;
+    }
+    & .console-bay.console-bay .deck-tile.deck-tile > :not(.armada-tooltip__bubble) {
+      opacity: 0;
+    }
+    & .console-bay.console-bay .deck-tile.deck-tile::before,
+    & .console-bay.console-bay .deck-tile.deck-tile::after {
+      display: none;
+    }
+    & .console-bay .console-scope .armada-tl__dot {
+      background: transparent;
+    }
+    & .console-bay.console-bay .deck-tile.deck-tile:focus-visible,
+    & .console-bay .console-scope__press:focus-visible {
+      outline: none;
+    }
   }
   /* No WebGL, so no canvas: the buttons stand where their facets would be, as the deck's plain keys, and a key says its own word. */
   & .console-deck[data-no-canvas] {
-    & .console-bay > .deck-tile { width: 100%; height: 100%; }
-    & .console-bay:has(> .deck-tile) > .console-bay__label { display: none; }
-    & .console-bay > :is(.console-scope, .console-gauges) { border: var(--border-width) solid var(--border-default); background: var(--bg-sunken); }
+    & .console-bay > .deck-tile {
+      width: 100%;
+      height: 100%;
+    }
+    & .console-bay:has(> .deck-tile) > .console-bay__label {
+      display: none;
+    }
+    & .console-bay > :is(.console-scope, .console-gauges) {
+      border: var(--border-width) solid var(--border-default);
+      background: var(--bg-sunken);
+    }
   }
 }
 
-@keyframes cb-hud-open { from { opacity: 0; clip-path: inset(46% -8px 46% -8px); } to { opacity: 1; clip-path: inset(-8px -8px -8px -8px); } }
-@keyframes cb-hud-beam { from { opacity: 0; } }
-@keyframes cb-blink { 50% { opacity: 0.15; } }
-
-@media (prefers-reduced-motion: reduce) {
-  :root:root :is(.deck-tile, .deck-tile::before, .console-socket, .deck-bay__door::before, .console-hud__beam, .console-hud__panel) { animation: none !important; }
+@keyframes cb-hud-open {
+  from {
+    opacity: 0;
+    clip-path: inset(46% -8px 46% -8px);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(-8px -8px -8px -8px);
+  }
+}
+@keyframes cb-hud-beam {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes cb-blink {
+  50% {
+    opacity: 0.15;
+  }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  :root:root
+    :is(
+      .deck-tile,
+      .deck-tile::before,
+      .console-socket,
+      .deck-bay__door::before,
+      .console-hud__beam,
+      .console-hud__panel
+    ) {
+    animation: none !important;
+  }
+}

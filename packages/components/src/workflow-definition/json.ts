@@ -16,18 +16,36 @@
 
 import { load } from "js-yaml";
 
-import { KIT, SOURCE_RANK, type Definition, type Entry, type Gate, type Read, type Source, type Step } from "./def";
+import {
+  KIT,
+  SOURCE_RANK,
+  type Definition,
+  type Entry,
+  type Gate,
+  type Read,
+  type Source,
+  type Step,
+} from "./def";
 
 type Table = Record<string, unknown>;
 
 const table = (value: unknown): Table =>
   typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Table) : {};
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
-const text = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
+const text = (value: unknown): string | undefined =>
+  typeof value === "string" ? value : undefined;
 
 /** The place Fleet spells `armada` is `carried` here, where the editor says what ships with Armada. */
-export const SOURCE_OF_WIRE: Readonly<Record<string, Source>> = { armada: "carried", kit: "kit", repository: "repository" };
-export const WIRE_OF_SOURCE: Readonly<Record<Source, string>> = { carried: "armada", kit: "kit", repository: "repository" };
+export const SOURCE_OF_WIRE: Readonly<Record<string, Source>> = {
+  armada: "carried",
+  kit: "kit",
+  repository: "repository",
+};
+export const WIRE_OF_SOURCE: Readonly<Record<Source, string>> = {
+  carried: "armada",
+  kit: "kit",
+  repository: "repository",
+};
 
 /** A definition file's text as a tree: JSON, or YAML where it is not JSON. */
 export function parse(source: string): unknown {
@@ -61,7 +79,11 @@ function stepOf(raw: Table): Step {
     returnsTo: text(table(raw.verdict_routing).request_changes) ?? "",
     iterationCap: typeof raw.iteration_cap === "number" ? raw.iteration_cap : 5,
     delivers: raw.delivers === true,
-    ...(typeof raw.draft_pr === "boolean" ? { draftPr: raw.draft_pr } : {}),
+    ...(typeof raw.draft_pr === "boolean"
+      ? {
+          draftPr: raw.draft_pr,
+        }
+      : {}),
     carried: raw,
   };
 }
@@ -76,10 +98,17 @@ export function readDefinition(source: string, from: Source, current: string): R
   try {
     value = parse(source);
   } catch (cause) {
-    return { ok: false, said: cause instanceof Error ? cause.message : "Not readable" };
+    return {
+      ok: false,
+      said: cause instanceof Error ? cause.message : "Not readable",
+    };
   }
   const top = table(value);
-  if (!Array.isArray(top.steps)) return { ok: false, said: "No steps" };
+  if (!Array.isArray(top.steps))
+    return {
+      ok: false,
+      said: "No steps",
+    };
   const { workflow_id, steps, ...rest } = top;
   return {
     ok: true,
@@ -94,7 +123,8 @@ export function readDefinition(source: string, from: Source, current: string): R
 
 /** The word `advance_gate` takes for what is ticked, keeping the repository's own rule where the file named one. */
 function gateWord(gate: Gate, was: unknown): string {
-  if (gate.repository) return text(was)?.startsWith("manifest_rule:") ? (was as string) : "manifest_rule:review_gate";
+  if (gate.repository)
+    return text(was)?.startsWith("manifest_rule:") ? (was as string) : "manifest_rule:review_gate";
   if (gate.you) return "human_always";
   return gate.judge ? "auto_if_judge_passes" : "auto";
 }
@@ -102,14 +132,23 @@ function gateWord(gate: Gate, was: unknown): string {
 function stepJson(step: Step): Table {
   const raw = step.carried ?? {};
   const was = stepOf(raw);
-  const out: Table = { ...raw, id: step.id };
+  const out: Table = {
+    ...raw,
+    id: step.id,
+  };
   if (out.label === undefined) out.label = step.id;
   if (out.delivers === undefined) out.delivers = step.delivers === true;
 
   if (step.evidence !== was.evidence) {
-    const evidence = { ...table(raw.evidence) };
+    const evidence = {
+      ...table(raw.evidence),
+    };
     if (step.evidence === "") delete evidence.submitted;
-    else evidence.submitted = { ...table(evidence.submitted), type: step.evidence };
+    else
+      evidence.submitted = {
+        ...table(evidence.submitted),
+        type: step.evidence,
+      };
     if (Object.keys(evidence).length === 0) delete out.evidence;
     else out.evidence = evidence;
   }
@@ -119,7 +158,15 @@ function stepJson(step: Step): Table {
     if (step.gate.checks !== was.gate.checks || step.check !== was.check) {
       const kept = list(raw.mechanical_checks);
       if (!step.gate.checks || step.check === "none") delete out.mechanical_checks;
-      else out.mechanical_checks = [text(table(kept[0]).type) === step.check ? kept[0] : { type: step.check }, ...kept.slice(1)];
+      else
+        out.mechanical_checks = [
+          text(table(kept[0]).type) === step.check
+            ? kept[0]
+            : {
+                type: step.check,
+              },
+          ...kept.slice(1),
+        ];
     }
     if (step.gate.judge !== was.gate.judge || step.judge !== was.judge) {
       const kept = list(raw.judge_checks).map(table);
@@ -128,14 +175,29 @@ function stepJson(step: Step): Table {
         const first = kept[0] ?? {};
         const criteria = list(first.criteria).map(table);
         const lead = criteria[0] ?? {};
-        criteria[0] = { criterion_id: `${step.id}_question`, ...lead, question: step.judge };
-        out.judge_checks = [{ ...first, enabled: true, criteria }, ...kept.slice(1)];
+        criteria[0] = {
+          criterion_id: `${step.id}_question`,
+          ...lead,
+          question: step.judge,
+        };
+        out.judge_checks = [
+          {
+            ...first,
+            enabled: true,
+            criteria,
+          },
+          ...kept.slice(1),
+        ];
       }
     }
   }
   const gate = step.gate;
-  const gateChanged = gate.repository !== was.gate.repository || gate.you !== was.gate.you || gate.judge !== was.gate.judge;
-  if (gateChanged || out.advance_gate === undefined) out.advance_gate = gateWord(gate, raw.advance_gate);
+  const gateChanged =
+    gate.repository !== was.gate.repository ||
+    gate.you !== was.gate.you ||
+    gate.judge !== was.gate.judge;
+  if (gateChanged || out.advance_gate === undefined)
+    out.advance_gate = gateWord(gate, raw.advance_gate);
 
   if (step.retryLimit !== was.retryLimit) out.retry_limit = step.retryLimit;
 
@@ -149,7 +211,10 @@ function stepJson(step: Step): Table {
       delete out.verdict_routing;
       delete out.iteration_cap;
     } else {
-      out.verdict_routing = { ...table(raw.verdict_routing), request_changes: step.returnsTo };
+      out.verdict_routing = {
+        ...table(raw.verdict_routing),
+        request_changes: step.returnsTo,
+      };
       out.iteration_cap = step.iterationCap;
     }
   }
@@ -163,16 +228,36 @@ function stepJson(step: Step): Table {
 export function writeDefinition(def: Definition): string {
   const { version, name, ...rest } = def.carried ?? {};
   return JSON.stringify(
-    { version: version ?? 1, workflow_id: def.id, name: name ?? def.id, ...rest, steps: def.steps.map(stepJson) },
+    {
+      version: version ?? 1,
+      workflow_id: def.id,
+      name: name ?? def.id,
+      ...rest,
+      steps: def.steps.map(stepJson),
+    },
     null,
     2,
   );
 }
 
 /** What Fleet answered for one workflow it holds: the list row and the shadowed definitions beneath it. */
-export type WorkflowRow = { id: string; source?: string; file?: string; overrides?: { source: string; file: string }[]; hides?: string };
+export type WorkflowRow = {
+  id: string;
+  source?: string;
+  file?: string;
+  overrides?: {
+    source: string;
+    file: string;
+  }[];
+  hides?: string;
+};
 /** A definition Fleet left out. */
-export type LeftOutRow = { id?: string; source: string; file: string; said: string };
+export type LeftOutRow = {
+  id?: string;
+  source: string;
+  file: string;
+  said: string;
+};
 
 /**
  * The rows of the list from what Fleet answered: each workflow it runs, a row
@@ -180,16 +265,34 @@ export type LeftOutRow = { id?: string; source: string; file: string; said: stri
  * **A workflow with no `source` or `file` is from a Fleet older than the
  * fields, and draws nothing** rather than a row that cannot be opened.
  */
-export function entriesOf(workflows: readonly WorkflowRow[], leftOut: readonly LeftOutRow[]): Entry[] {
+export function entriesOf(
+  workflows: readonly WorkflowRow[],
+  leftOut: readonly LeftOutRow[],
+): Entry[] {
   const out: Entry[] = [];
   for (const one of workflows) {
     const source = one.source === undefined ? undefined : SOURCE_OF_WIRE[one.source];
     if (source === undefined || one.file === undefined) continue;
-    out.push({ key: `${source}/${one.id}`, id: one.id, source, file: one.file, ...(one.hides === "repository" ? { hides: true as const } : {}) });
+    out.push({
+      key: `${source}/${one.id}`,
+      id: one.id,
+      source,
+      file: one.file,
+      ...(one.hides === "repository"
+        ? {
+            hides: true as const,
+          }
+        : {}),
+    });
     for (const under of one.overrides ?? []) {
       const lower = SOURCE_OF_WIRE[under.source];
       if (lower !== undefined && SOURCE_RANK[lower] < SOURCE_RANK[source]) {
-        out.push({ key: `${lower}/${one.id}`, id: one.id, source: lower, file: under.file });
+        out.push({
+          key: `${lower}/${one.id}`,
+          id: one.id,
+          source: lower,
+          file: under.file,
+        });
       }
     }
   }
@@ -197,7 +300,13 @@ export function entriesOf(workflows: readonly WorkflowRow[], leftOut: readonly L
     const source = SOURCE_OF_WIRE[one.source];
     if (source === undefined) continue;
     const named = one.id ?? one.file.split("/").pop() ?? one.file;
-    out.push({ key: `left/${source}/${one.file}`, id: named, source, file: one.file, leftOut: one.said });
+    out.push({
+      key: `left/${source}/${one.file}`,
+      id: named,
+      source,
+      file: one.file,
+      leftOut: one.said,
+    });
   }
   return out;
 }

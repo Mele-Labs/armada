@@ -16,21 +16,55 @@ function fileOf(picture: NotePicture, at: number): SentFile | undefined {
   const comma = picture.png.indexOf(",");
   if (comma < 0) return undefined;
   const bytes = Uint8Array.from(atob(picture.png.slice(comma + 1)), (one) => one.charCodeAt(0));
-  return { id: `note-${String(Date.now())}-${String(at)}`, name: picture.name, src: picture.png, file: new File([bytes], picture.name, { type: "image/png" }) };
+  return {
+    id: `note-${String(Date.now())}-${String(at)}`,
+    name: picture.name,
+    src: picture.png,
+    file: new File(
+      [
+        bytes,
+      ],
+      picture.name,
+      {
+        type: "image/png",
+      },
+    ),
+  };
 }
 
-export function ViewerNotesOver({ draft, children }: { draft: SessionsDraft | undefined; children: ReactNode }) {
+export function ViewerNotesOver({
+  draft,
+  children,
+}: {
+  draft: SessionsDraft | undefined;
+  children: ReactNode;
+}) {
   const sessions = useSyncExternalStore(draft?.subscribe ?? NONE, draft?.get ?? EMPTY);
   const host = useMemo((): ViewerNotesHost | undefined => {
     if (draft === undefined) return undefined;
     return {
       // The Jobs that can still be told something.
-      jobs: sessions.filter((one) => one.dead === undefined).map((one) => ({ id: one.id, title: one.title ?? one.address ?? one.id })),
+      jobs: sessions
+        .filter((one) => one.dead === undefined)
+        .map((one) => ({
+          id: one.id,
+          title: one.title ?? one.address ?? one.id,
+        })),
       send: async (job, message) => {
         const files = message.pictures.flatMap((one, at) => fileOf(one, at) ?? []);
-        return (await draft.send(job, { text: message.text, files, sketches: [], tags: [] })) !== false;
+        return (
+          (await draft.send(job, {
+            text: message.text,
+            files,
+            sketches: [],
+            tags: [],
+          })) !== false
+        );
       },
     };
-  }, [draft, sessions]);
+  }, [
+    draft,
+    sessions,
+  ]);
   return <ViewerNotesFrom host={host}>{children}</ViewerNotesFrom>;
 }

@@ -6,7 +6,11 @@ import { forgetViewed, markViewed, viewedAt } from "./viewed";
 function windowWith() {
   const store = new Map<string, string>();
   vi.stubGlobal("window", {
-    localStorage: { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => void store.set(key, value), removeItem: (key: string) => void store.delete(key) },
+    localStorage: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
+    },
   });
   return store;
 }
@@ -28,7 +32,10 @@ describe("when he was last in a Session", () => {
     markViewed("s2", 2000);
     expect(viewedAt("s1")).toBe(1000);
     expect(viewedAt("s2")).toBe(2000);
-    expect(JSON.parse(store.get("armada.bridge.session-viewed") ?? "{}")).toEqual({ s1: 1000, s2: 2000 });
+    expect(JSON.parse(store.get("armada.bridge.session-viewed") ?? "{}")).toEqual({
+      s1: 1000,
+      s2: 2000,
+    });
   });
 
   test("never goes back: an earlier mark does not undo a later one", () => {

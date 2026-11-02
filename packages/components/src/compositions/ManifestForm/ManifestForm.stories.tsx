@@ -30,22 +30,55 @@ const DRAFT: ManifestFormDraft = {
       expectExitCode: "",
       requires: [],
       when: "",
-      narrow: { run: "cargo build --locked", each: "-p {}", from: "", under: "crates", except: "" },
+      narrow: {
+        run: "cargo build --locked",
+        each: "-p {}",
+        from: "",
+        under: "crates",
+        except: "",
+      },
     },
-    { name: "bridge_test", run: "pnpm bridge-test", expectExitCode: "", requires: ["bootstrap"], when: "packages/**\napps/**", narrow: null },
+    {
+      name: "bridge_test",
+      run: "pnpm bridge-test",
+      expectExitCode: "",
+      requires: [
+        "bootstrap",
+      ],
+      when: "packages/**\napps/**",
+      narrow: null,
+    },
   ],
   commands: [
-    { name: "bootstrap", run: "pnpm install --frozen-lockfile", destructive: false, serve: "", ready: "", links: [] },
+    {
+      name: "bootstrap",
+      run: "pnpm install --frozen-lockfile",
+      destructive: false,
+      serve: "",
+      ready: "",
+      links: [],
+    },
     {
       name: "storybook_dev",
       run: "",
       destructive: false,
       serve: "pnpm -C packages/components storybook --port ${port.storybook}",
       ready: "curl -sf http://localhost:${port.storybook}",
-      links: [{ url: "http://localhost:${port.storybook}", name: "Storybook" }],
+      links: [
+        {
+          url: "http://localhost:${port.storybook}",
+          name: "Storybook",
+        },
+      ],
     },
   ],
-  ports: [{ name: "storybook", container: "", env: "STORYBOOK_PORT" }],
+  ports: [
+    {
+      name: "storybook",
+      container: "",
+      env: "STORYBOOK_PORT",
+    },
+  ],
   freeze: false,
   autoMerge: "never",
   reviewGate: "human_always",
@@ -59,8 +92,12 @@ const DRAFT: ManifestFormDraft = {
     frames: ".armada/frames",
     never: "/__notes",
   },
-  afterMerge: ["build"],
-  setup: ["bootstrap"],
+  afterMerge: [
+    "build",
+  ],
+  setup: [
+    "bootstrap",
+  ],
   quietAfter: "300",
   pokeLimit: "",
   excludePaths: "",
@@ -69,11 +106,21 @@ const DRAFT: ManifestFormDraft = {
 
 const BASE = {
   path: "/Users/user/armada/armada.yml",
-  identity: { id: "armada", version: 1 },
+  identity: {
+    id: "armada",
+    version: 1,
+  },
   draft: DRAFT,
   onDraft: noop,
-  autoMergeWords: ["never", "checks-pass", "always"],
-  reviewGateWords: ["human_always", "auto_if_judge_passes"],
+  autoMergeWords: [
+    "never",
+    "checks-pass",
+    "always",
+  ],
+  reviewGateWords: [
+    "human_always",
+    "auto_if_judge_passes",
+  ],
   problems: {},
   changed: false,
   onSave: noop,
@@ -86,14 +133,21 @@ export const AtRest: Story = {
   args: BASE,
   // Fleet serves no such key, so without the registry the form draws no switch for it.
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).queryByRole("switch", { name: "Pull request owners" })).toBeNull();
+    await expect(
+      within(canvasElement).queryByRole("switch", {
+        name: "Pull request owners",
+      }),
+    ).toBeNull();
   },
 };
 
 /** A change not yet saved. */
 export const Changed: Story = {
   name: "Changed",
-  args: { ...BASE, changed: true },
+  args: {
+    ...BASE,
+    changed: true,
+  },
 };
 
 /** Fleet refused a result that would not load, and said which key. The draft stays. */
@@ -104,7 +158,12 @@ export const Refused: Story = {
     changed: true,
     refused: {
       saying: "armada.yml would not load after these edits: 1 fault",
-      faults: [{ key: "checks.bridge_test.requires", fault: "names browsers, which no Command declares" }],
+      faults: [
+        {
+          key: "checks.bridge_test.requires",
+          fault: "names browsers, which no Command declares",
+        },
+      ],
     },
   },
   play: async ({ canvasElement }) => {
@@ -119,23 +178,51 @@ export const RegisteringOwners: Story = {
   args: BASE,
   decorators: [
     (Story) => (
-      <PrOwnerRegistryProvider value={{ ownerOf: () => undefined, registering: true, setRegistering: noop }}>
+      <PrOwnerRegistryProvider
+        value={{
+          ownerOf: () => undefined,
+          registering: true,
+          setRegistering: noop,
+        }}
+      >
         <Story />
       </PrOwnerRegistryProvider>
     ),
   ],
   play: async ({ canvasElement }) => {
-    const policy = within(within(canvasElement).getByRole("region", { name: "Policy" }));
-    await expect(policy.getByRole("switch", { name: "Pull request owners" })).toBeChecked();
+    const policy = within(
+      within(canvasElement).getByRole("region", {
+        name: "Policy",
+      }),
+    );
+    await expect(
+      policy.getByRole("switch", {
+        name: "Pull request owners",
+      }),
+    ).toBeChecked();
   },
 };
 
 /** Frozen: the switch reads what the file declares, and turning it off is one change to save. */
 export const Frozen: Story = {
   name: "Frozen",
-  args: { ...BASE, draft: { ...DRAFT, freeze: true } },
+  args: {
+    ...BASE,
+    draft: {
+      ...DRAFT,
+      freeze: true,
+    },
+  },
   play: async ({ canvasElement }) => {
-    const freeze = within(within(canvasElement).getByRole("region", { name: "Freeze" }));
-    await expect(freeze.getByRole("switch", { name: /Freeze this repository/ })).toBeChecked();
+    const freeze = within(
+      within(canvasElement).getByRole("region", {
+        name: "Freeze",
+      }),
+    );
+    await expect(
+      freeze.getByRole("switch", {
+        name: /Freeze this repository/,
+      }),
+    ).toBeChecked();
   },
 };

@@ -2,7 +2,13 @@
 // answers from the scenario's retros and Lessons, and an answer moves the item for the next read.
 
 import type { Lesson, LessonAnswer, RetroItem } from "@armada/protocol";
-import { answered, askedAbout, listed, reviewed, sessionStarted } from "@armada/screens/src/lessons/lessons-fleet";
+import {
+  answered,
+  askedAbout,
+  listed,
+  reviewed,
+  sessionStarted,
+} from "@armada/screens/src/lessons/lessons-fleet";
 
 import type { LessonsApi } from "../../../../shared/api/lessons";
 import type { Slice } from "../fake-context";
@@ -23,7 +29,14 @@ export const lessons: Slice<LessonsApi, Record<string, never>> = {
       // Update Kit adds the command Fleet says it applied, as that retro item's.
       const applied = taken.answer.ok ? taken.answer.lesson.applied : undefined;
       if (applied !== undefined && !kit.get().some((one) => one.run === applied.command)) {
-        kit.set([...kit.get(), { run: applied.command, source: "retro_item", lesson_id: id }]);
+        kit.set([
+          ...kit.get(),
+          {
+            run: applied.command,
+            source: "retro_item",
+            lesson_id: id,
+          },
+        ]);
       }
       return taken.answer;
     }
@@ -31,8 +44,12 @@ export const lessons: Slice<LessonsApi, Record<string, never>> = {
     return {
       readRetro: async (subject) => {
         // A Session's numbered retro is held under `{session}-r{n}`; its newest under the Session's id. An unknown `n` is refused.
-        const retro = scenario.retros?.[subject.n !== undefined ? `${subject.id}-r${subject.n}` : subject.id];
-        if (retro === undefined) return refused(`/sessions/${subject.id}/retro${subject.n === undefined ? "" : `?n=${subject.n}`}`);
+        const retro =
+          scenario.retros?.[subject.n !== undefined ? `${subject.id}-r${subject.n}` : subject.id];
+        if (retro === undefined)
+          return refused(
+            `/sessions/${subject.id}/retro${subject.n === undefined ? "" : `?n=${subject.n}`}`,
+          );
         // Each item stands as the answers left it, as Fleet's `state` says. An old item has none.
         const standing = (item: RetroItem): RetroItem => {
           const now = item.state === undefined ? undefined : held.find((one) => one.id === item.id);
@@ -40,13 +57,30 @@ export const lessons: Slice<LessonsApi, Record<string, never>> = {
           return {
             ...item,
             state: now.state,
-            ...(now.session_proposed === undefined ? {} : { session_proposed: now.session_proposed }),
-            ...(now.applied === undefined ? {} : { applied: now.applied }),
+            ...(now.session_proposed === undefined
+              ? {}
+              : {
+                  session_proposed: now.session_proposed,
+                }),
+            ...(now.applied === undefined
+              ? {}
+              : {
+                  applied: now.applied,
+                }),
           };
         };
-        return { ok: true, retro: { ...retro, items: retro.items?.map(standing) } };
+        return {
+          ok: true,
+          retro: {
+            ...retro,
+            items: retro.items?.map(standing),
+          },
+        };
       },
-      readLessons: async (view) => ({ ok: true, lessons: listed(held, view) }),
+      readLessons: async (view) => ({
+        ok: true,
+        lessons: listed(held, view),
+      }),
       agreeLesson: async (id) => answerLesson(id, "agree"),
       disagreeLesson: async (id) => answerLesson(id, "disagree"),
       startLessonSession: async (id) => {
@@ -55,7 +89,11 @@ export const lessons: Slice<LessonsApi, Record<string, never>> = {
         return taken.read;
       },
       reviewLessons: async () => reviewed(held),
-      askLesson: async (id, question, history) => askedAbout(held, id, { question, history }),
+      askLesson: async (id, question, history) =>
+        askedAbout(held, id, {
+          question,
+          history,
+        }),
     };
   },
 };

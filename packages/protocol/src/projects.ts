@@ -48,7 +48,14 @@ export type ProjectRow =
    * A linked issue: `issue` is the tracker's reference only (`7`, `ABC-12`, `armada-3fz`). `title`
    * and `state` are the tracker's, read when the rows were, and absent where it could not say.
    */
-  | { kind: "issue"; id: string; manifest_id: string; issue: string; title?: string; state?: "open" | "closed" };
+  | {
+      kind: "issue";
+      id: string;
+      manifest_id: string;
+      issue: string;
+      title?: string;
+      state?: "open" | "closed";
+    };
 
 /**
  * An issue linked to a task: the tracker's reference only is kept. `title` and `state` are the tracker's, read when the rows

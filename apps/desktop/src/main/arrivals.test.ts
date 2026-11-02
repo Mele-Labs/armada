@@ -23,76 +23,218 @@ import { Modding } from "./mods";
 import { Questions } from "./questions";
 import { HeldReader } from "./holding";
 
-const FLEET = { protocolId: PROTOCOL_ID, pid: 1, port: 1, startedAt: "" };
+const FLEET = {
+  protocolId: PROTOCOL_ID,
+  pid: 1,
+  port: 1,
+  startedAt: "",
+};
 
 /**
  * A host reaching only what these arms touch: `questions`, real off its own wiring; every other
  * region is never called by the events below, so a cast stands in rather than a working fake of
  * five other classes.
  */
-function fakeHost(
-  questionsOver: BridgeState["questions"] = [],
-): { host: ArrivalHost; questions: Questions; state: () => BridgeState; autopilots: ReturnType<typeof vi.fn> } {
-  let state: BridgeState = { ...NOTHING_YET, questions: questionsOver };
+function fakeHost(questionsOver: BridgeState["questions"] = []): {
+  host: ArrivalHost;
+  questions: Questions;
+  state: () => BridgeState;
+  autopilots: ReturnType<typeof vi.fn>;
+} {
+  let state: BridgeState = {
+    ...NOTHING_YET,
+    questions: questionsOver,
+  };
   const autopilots = vi.fn();
   const questions = new Questions({
     current: () => state,
-    publish: (change) => (state = { ...state, ...change }),
+    publish: (change) =>
+      (state = {
+        ...state,
+        ...change,
+      }),
   });
-  const mods = new Modding((change) => (state = { ...state, ...change }), () => null);
+  const mods = new Modding(
+    (change) =>
+      (state = {
+        ...state,
+        ...change,
+      }),
+    () => null,
+  );
   const host: ArrivalHost = {
     current: () => state,
     now: () => 0,
     repositories: {} as unknown as RepositoryReads,
     rehearsal: {} as unknown as RehearsalConnection,
-    sleep: { changed: () => {} },
-    planUsage: { changed: () => {} },
-    modelDownshift: { changed: () => {}, seed: async () => {} },
-    projects: { changed: () => {} },
-    bugReports: { changed: () => {} },
-    lifecycles: { changed: () => {}, keepDraftsChanged: () => {} },
-    agentSignIn: { changed: () => {}, seed: async () => {} },
-    timeline: { appended: () => {} },
-    acts: { failed: () => {} },
-    reviews: { changed: () => {}, walkChanged: () => {} },
-    issues: { autopilotChanged: autopilots, autopilotsAgain: async () => {} },
+    sleep: {
+      changed: () => {},
+    },
+    planUsage: {
+      changed: () => {},
+    },
+    modelDownshift: {
+      changed: () => {},
+      seed: async () => {},
+    },
+    projects: {
+      changed: () => {},
+    },
+    bugReports: {
+      changed: () => {},
+    },
+    lifecycles: {
+      changed: () => {},
+      keepDraftsChanged: () => {},
+    },
+    agentSignIn: {
+      changed: () => {},
+      seed: async () => {},
+    },
+    timeline: {
+      appended: () => {},
+    },
+    acts: {
+      failed: () => {},
+    },
+    reviews: {
+      changed: () => {},
+      walkChanged: () => {},
+    },
+    issues: {
+      autopilotChanged: autopilots,
+      autopilotsAgain: async () => {},
+    },
     overviewAgain: async () => {},
     questions,
-    helm: { reconnected: () => {} },
-    studios: { again: async () => {}, changed: () => {}, deleted: () => {} },
-    sessions: { again: async () => {}, changed: () => {}, row: () => {}, terminal: () => {}, watchesChanged: () => {}, browser: () => {} },
-    held: { warm: async () => {}, again: async () => {} },
-    fleetBuild: { watch: () => {} },
+    helm: {
+      reconnected: () => {},
+    },
+    studios: {
+      again: async () => {},
+      changed: () => {},
+      deleted: () => {},
+    },
+    sessions: {
+      again: async () => {},
+      changed: () => {},
+      row: () => {},
+      terminal: () => {},
+      watchesChanged: () => {},
+      browser: () => {},
+    },
+    held: {
+      warm: async () => {},
+      again: async () => {},
+    },
+    fleetBuild: {
+      watch: () => {},
+    },
     mods,
-    socket: { close: () => {}, resetUnreachable: () => {} },
-    publish: (change) => (state = { ...state, ...change }),
+    socket: {
+      close: () => {},
+      resetUnreachable: () => {},
+    },
+    publish: (change) =>
+      (state = {
+        ...state,
+        ...change,
+      }),
     settle: () => {},
   };
-  return { host, questions, state: () => state, autopilots };
+  return {
+    host,
+    questions,
+    state: () => state,
+    autopilots,
+  };
 }
 
 describe("the mods on this machine, off `mods.changed`", () => {
-  const row = (name: string, over: Partial<ModSummary> = {}): ModSummary => ({ name, kind: "theme", enabled: true, valid: true, ...over });
-  const changed = (mods: ModSummary[]) => JSON.stringify({ message: "event", cursor: 3, event: { kind: "mods.changed", mods } });
+  const row = (name: string, over: Partial<ModSummary> = {}): ModSummary => ({
+    name,
+    kind: "theme",
+    enabled: true,
+    valid: true,
+    ...over,
+  });
+  const changed = (mods: ModSummary[]) =>
+    JSON.stringify({
+      message: "event",
+      cursor: 3,
+      event: {
+        kind: "mods.changed",
+        mods,
+      },
+    });
 
   it("holds nothing until the list has been read, and replaces it whole after", () => {
     const { host, state } = fakeHost();
     expect(state().mods).toBeNull();
-    applyArrival(host, changed([row("calm"), row("warm")]), FLEET);
-    expect(state().mods?.mods.map((one) => one.name)).toEqual(["calm", "warm"]);
+    applyArrival(
+      host,
+      changed([
+        row("calm"),
+        row("warm"),
+      ]),
+      FLEET,
+    );
+    expect(state().mods?.mods.map((one) => one.name)).toEqual([
+      "calm",
+      "warm",
+    ]);
     // Whole, not folded: a mod that left the folder leaves the list, and a row's new state replaces the old.
-    applyArrival(host, changed([row("warm", { enabled: false, valid: false, reason: "line 3: not a token" })]), FLEET);
-    expect(state().mods?.mods).toEqual([row("warm", { enabled: false, valid: false, reason: "line 3: not a token" })]);
+    applyArrival(
+      host,
+      changed([
+        row("warm", {
+          enabled: false,
+          valid: false,
+          reason: "line 3: not a token",
+        }),
+      ]),
+      FLEET,
+    );
+    expect(state().mods?.mods).toEqual([
+      row("warm", {
+        enabled: false,
+        valid: false,
+        reason: "line 3: not a token",
+      }),
+    ]);
   });
 });
 
 describe("a repository's Autopilot, changed in Fleet", () => {
   it("is told on whole, without its kind", () => {
     const { host, state, autopilots } = fakeHost();
-    const autopilot = { manifest_id: "armada", instruction: "work the backlog", at_once: 2, state: "paused", started_at: "2026-10-12T03:00:00Z", spent_micros: 0, sessions_started: 0, at_work: 0, picks: [] };
-    applyArrival(host, JSON.stringify({ message: "event", cursor: 3, event: { kind: "autopilot.changed", ...autopilot } }), FLEET);
+    const autopilot = {
+      manifest_id: "armada",
+      instruction: "work the backlog",
+      at_once: 2,
+      state: "paused",
+      started_at: "2026-10-12T03:00:00Z",
+      spent_micros: 0,
+      sessions_started: 0,
+      at_work: 0,
+      picks: [],
+    };
+    applyArrival(
+      host,
+      JSON.stringify({
+        message: "event",
+        cursor: 3,
+        event: {
+          kind: "autopilot.changed",
+          ...autopilot,
+        },
+      }),
+      FLEET,
+    );
     expect(autopilots).toHaveBeenCalledWith(autopilot);
-    expect(state().connection).toMatchObject({ state: "connected" });
+    expect(state().connection).toMatchObject({
+      state: "connected",
+    });
   });
 });
 
@@ -100,8 +242,36 @@ describe("a Job's watches, carried whole by their event", () => {
   it("is told on as the Job's list, without its kind", () => {
     const { host } = fakeHost();
     const watchesChanged = vi.fn();
-    const change = { session_id: "s1", watches: [{ id: "w1", session_id: "s1", name: "Staging deploy", state: "running", live: true }] };
-    applyArrival({ ...host, sessions: { ...host.sessions, watchesChanged } }, JSON.stringify({ message: "event", cursor: 4, event: { kind: "watches.changed", ...change } }), FLEET);
+    const change = {
+      session_id: "s1",
+      watches: [
+        {
+          id: "w1",
+          session_id: "s1",
+          name: "Staging deploy",
+          state: "running",
+          live: true,
+        },
+      ],
+    };
+    applyArrival(
+      {
+        ...host,
+        sessions: {
+          ...host.sessions,
+          watchesChanged,
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 4,
+        event: {
+          kind: "watches.changed",
+          ...change,
+        },
+      }),
+      FLEET,
+    );
     expect(watchesChanged).toHaveBeenCalledWith(change);
   });
 });
@@ -110,8 +280,35 @@ describe("an agent's act on its Job browser", () => {
   it("is handed to the Job browser as the request, without its kind", () => {
     const { host } = fakeHost();
     const browser = vi.fn();
-    const request = { session_id: "s1", request_id: "browser-01", act: { kind: "click", target: { role: "button", name: "Save" } } };
-    applyArrival({ ...host, sessions: { ...host.sessions, browser } }, JSON.stringify({ message: "event", cursor: 5, event: { kind: "browser.request", ...request } }), FLEET);
+    const request = {
+      session_id: "s1",
+      request_id: "browser-01",
+      act: {
+        kind: "click",
+        target: {
+          role: "button",
+          name: "Save",
+        },
+      },
+    };
+    applyArrival(
+      {
+        ...host,
+        sessions: {
+          ...host.sessions,
+          browser,
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 5,
+        event: {
+          kind: "browser.request",
+          ...request,
+        },
+      }),
+      FLEET,
+    );
     expect(browser).toHaveBeenCalledWith(request);
   });
 });
@@ -120,8 +317,42 @@ describe("a repository's projects, carried whole by their event", () => {
   it("are passed on as the repository's projects and nothing of the event's kind", () => {
     const { host } = fakeHost();
     const changed = vi.fn();
-    const projects = { projects: [{ id: "p1", name: "Pocket launch", rows: [{ kind: "task", id: "t1", manifest_id: "armada", title: "Pair a phone", notes: "", state: "open" }] }], loose: [] };
-    applyArrival({ ...host, projects: { changed } }, JSON.stringify({ message: "event", cursor: 5, event: { kind: "projects.changed", ...projects } }), FLEET);
+    const projects = {
+      projects: [
+        {
+          id: "p1",
+          name: "Pocket launch",
+          rows: [
+            {
+              kind: "task",
+              id: "t1",
+              manifest_id: "armada",
+              title: "Pair a phone",
+              notes: "",
+              state: "open",
+            },
+          ],
+        },
+      ],
+      loose: [],
+    };
+    applyArrival(
+      {
+        ...host,
+        projects: {
+          changed,
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 5,
+        event: {
+          kind: "projects.changed",
+          ...projects,
+        },
+      }),
+      FLEET,
+    );
     expect(changed).toHaveBeenCalledWith(projects);
   });
 });
@@ -130,8 +361,38 @@ describe("the bugs agents reported, carried whole by their event", () => {
   it("are passed on as the list and nothing of the event's kind", () => {
     const { host } = fakeHost();
     const changed = vi.fn();
-    const reports = { reports: [{ id: "r1", session_id: "s1", job_title: "A Job", title: "A fault", what: "It broke.", steps: [], errors: [], logs: [], at: "2026-10-29T10:00:00Z" }] };
-    applyArrival({ ...host, bugReports: { changed } }, JSON.stringify({ message: "event", cursor: 6, event: { kind: "bug_reports.changed", ...reports } }), FLEET);
+    const reports = {
+      reports: [
+        {
+          id: "r1",
+          session_id: "s1",
+          job_title: "A Job",
+          title: "A fault",
+          what: "It broke.",
+          steps: [],
+          errors: [],
+          logs: [],
+          at: "2026-10-29T10:00:00Z",
+        },
+      ],
+    };
+    applyArrival(
+      {
+        ...host,
+        bugReports: {
+          changed,
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 6,
+        event: {
+          kind: "bug_reports.changed",
+          ...reports,
+        },
+      }),
+      FLEET,
+    );
     expect(changed).toHaveBeenCalledWith(reports);
   });
 });
@@ -140,7 +401,24 @@ describe("the Keep for every Job drafts of a repository, announced by their even
   it("name the repository alone, which is passed on for the windows to read again", () => {
     const { host } = fakeHost();
     const keepDraftsChanged = vi.fn();
-    applyArrival({ ...host, lifecycles: { changed: () => {}, keepDraftsChanged } }, JSON.stringify({ message: "event", cursor: 8, event: { kind: "keep_drafts.changed", manifest_id: "01WEB" } }), FLEET);
+    applyArrival(
+      {
+        ...host,
+        lifecycles: {
+          changed: () => {},
+          keepDraftsChanged,
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 8,
+        event: {
+          kind: "keep_drafts.changed",
+          manifest_id: "01WEB",
+        },
+      }),
+      FLEET,
+    );
     expect(keepDraftsChanged).toHaveBeenCalledWith("01WEB");
   });
 });
@@ -152,10 +430,43 @@ describe("a Job's lifecycles, carried whole by their event", () => {
     const held = {
       session_id: "s1",
       lifecycles: [],
-      instances: [{ lifecycle: "pr", key: "812", label: "PR #812", standing: { kind: "in", state: "in_review" }, links: [{ lifecycle: "ticket", key: "ARM-41" }] }],
+      instances: [
+        {
+          lifecycle: "pr",
+          key: "812",
+          label: "PR #812",
+          standing: {
+            kind: "in",
+            state: "in_review",
+          },
+          links: [
+            {
+              lifecycle: "ticket",
+              key: "ARM-41",
+            },
+          ],
+        },
+      ],
       moves: [],
     };
-    applyArrival({ ...host, lifecycles: { changed, keepDraftsChanged: () => {} } }, JSON.stringify({ message: "event", cursor: 7, event: { kind: "job_lifecycles.changed", ...held } }), FLEET);
+    applyArrival(
+      {
+        ...host,
+        lifecycles: {
+          changed,
+          keepDraftsChanged: () => {},
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 7,
+        event: {
+          kind: "job_lifecycles.changed",
+          ...held,
+        },
+      }),
+      FLEET,
+    );
     expect(changed).toHaveBeenCalledWith(held);
   });
 });
@@ -164,10 +475,30 @@ describe("the default model's step down, carried whole by its event", () => {
   it("is passed on as the state and nothing of the event's kind", () => {
     const { host } = fakeHost();
     const changed = vi.fn();
-    const state = { downshift: { phase: "offered", percent: 83, was: "opus", to: "sonnet" } };
+    const state = {
+      downshift: {
+        phase: "offered",
+        percent: 83,
+        was: "opus",
+        to: "sonnet",
+      },
+    };
     applyArrival(
-      { ...host, modelDownshift: { changed, seed: async () => {} } },
-      JSON.stringify({ message: "event", cursor: 4, event: { kind: "model_downshift.changed", ...state } }),
+      {
+        ...host,
+        modelDownshift: {
+          changed,
+          seed: async () => {},
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 4,
+        event: {
+          kind: "model_downshift.changed",
+          ...state,
+        },
+      }),
       FLEET,
     );
     expect(changed).toHaveBeenCalledWith(state);
@@ -177,8 +508,20 @@ describe("the default model's step down, carried whole by its event", () => {
     const { host } = fakeHost();
     const changed = vi.fn();
     applyArrival(
-      { ...host, modelDownshift: { changed, seed: async () => {} } },
-      JSON.stringify({ message: "event", cursor: 4, event: { kind: "model_downshift.changed" } }),
+      {
+        ...host,
+        modelDownshift: {
+          changed,
+          seed: async () => {},
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 4,
+        event: {
+          kind: "model_downshift.changed",
+        },
+      }),
       FLEET,
     );
     expect(changed).toHaveBeenCalledWith({});
@@ -189,10 +532,26 @@ describe("the agents' sign-in, off `agent_sign_in.changed`", () => {
   it("is passed on as the state and nothing of the event's kind", () => {
     const { host } = fakeHost();
     const changed = vi.fn();
-    const state = { signed_out_since: "2026-10-25T09:00:00Z", signing_in: true };
+    const state = {
+      signed_out_since: "2026-10-25T09:00:00Z",
+      signing_in: true,
+    };
     applyArrival(
-      { ...host, agentSignIn: { changed, seed: async () => {} } },
-      JSON.stringify({ message: "event", cursor: 4, event: { kind: "agent_sign_in.changed", ...state } }),
+      {
+        ...host,
+        agentSignIn: {
+          changed,
+          seed: async () => {},
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 4,
+        event: {
+          kind: "agent_sign_in.changed",
+          ...state,
+        },
+      }),
       FLEET,
     );
     expect(changed).toHaveBeenCalledWith(state);
@@ -202,8 +561,20 @@ describe("the agents' sign-in, off `agent_sign_in.changed`", () => {
     const { host } = fakeHost();
     const changed = vi.fn();
     applyArrival(
-      { ...host, agentSignIn: { changed, seed: async () => {} } },
-      JSON.stringify({ message: "event", cursor: 4, event: { kind: "agent_sign_in.changed" } }),
+      {
+        ...host,
+        agentSignIn: {
+          changed,
+          seed: async () => {},
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 4,
+        event: {
+          kind: "agent_sign_in.changed",
+        },
+      }),
       FLEET,
     );
     expect(changed).toHaveBeenCalledWith({});
@@ -214,10 +585,33 @@ describe("an entry on the Cockpit's timeline, off `timeline.appended`", () => {
   it("is told to the windows whole", () => {
     const { host } = fakeHost();
     const appended = vi.fn();
-    const entry = { id: 7, at: "2026-10-13T10:00:00Z", kind: "session.started", subject: { kind: "session", id: "s1" }, tone: "run", says: "Started", live: true };
+    const entry = {
+      id: 7,
+      at: "2026-10-13T10:00:00Z",
+      kind: "session.started",
+      subject: {
+        kind: "session",
+        id: "s1",
+      },
+      tone: "run",
+      says: "Started",
+      live: true,
+    };
     applyArrival(
-      { ...host, timeline: { appended } },
-      JSON.stringify({ message: "event", cursor: 9, event: { kind: "timeline.appended", event: entry } }),
+      {
+        ...host,
+        timeline: {
+          appended,
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 9,
+        event: {
+          kind: "timeline.appended",
+          event: entry,
+        },
+      }),
       FLEET,
     );
     expect(appended).toHaveBeenCalledWith(entry);
@@ -231,11 +625,29 @@ describe("a background act that failed, off `act.failed`", () => {
     const body = {
       act: "pull_request_press",
       manifest_id: "armada",
-      error: { code: "fleet.merge_refused", message: "The merge was refused", run_id: "run", fields: {}, chain: [] },
+      error: {
+        code: "fleet.merge_refused",
+        message: "The merge was refused",
+        run_id: "run",
+        fields: {},
+        chain: [],
+      },
     };
     applyArrival(
-      { ...host, acts: { failed } },
-      JSON.stringify({ message: "event", cursor: 9, event: { kind: "act.failed", ...body } }),
+      {
+        ...host,
+        acts: {
+          failed,
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 9,
+        event: {
+          kind: "act.failed",
+          ...body,
+        },
+      }),
       FLEET,
     );
     expect(failed).toHaveBeenCalledWith(body);
@@ -246,8 +658,33 @@ describe("a review run, off `review_run.changed`", () => {
   it("is told to the windows whole", () => {
     const { host } = fakeHost();
     const changed = vi.fn();
-    const run = { manifest_id: "armada", number: 7, kind: "tool", name: "risks", head: "abc1234", state: "running", started_at: "2026-10-16T10:00:00Z" };
-    applyArrival({ ...host, reviews: { changed, walkChanged: () => {} } }, JSON.stringify({ message: "event", cursor: 9, event: { kind: "review_run.changed", run } }), FLEET);
+    const run = {
+      manifest_id: "armada",
+      number: 7,
+      kind: "tool",
+      name: "risks",
+      head: "abc1234",
+      state: "running",
+      started_at: "2026-10-16T10:00:00Z",
+    };
+    applyArrival(
+      {
+        ...host,
+        reviews: {
+          changed,
+          walkChanged: () => {},
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 9,
+        event: {
+          kind: "review_run.changed",
+          run,
+        },
+      }),
+      FLEET,
+    );
     expect(changed).toHaveBeenCalledWith(run);
   });
 });
@@ -256,8 +693,32 @@ describe("a held review walk, off `review_walk.changed`", () => {
   it("is told to the windows whole", () => {
     const { host } = fakeHost();
     const walkChanged = vi.fn();
-    const walk = { id: "w1", manifest_id: "armada", number: 7, state: "starting", slot: 3, address: "http://localhost:5173" };
-    applyArrival({ ...host, reviews: { changed: () => {}, walkChanged } }, JSON.stringify({ message: "event", cursor: 10, event: { kind: "review_walk.changed", walk } }), FLEET);
+    const walk = {
+      id: "w1",
+      manifest_id: "armada",
+      number: 7,
+      state: "starting",
+      slot: 3,
+      address: "http://localhost:5173",
+    };
+    applyArrival(
+      {
+        ...host,
+        reviews: {
+          changed: () => {},
+          walkChanged,
+        },
+      },
+      JSON.stringify({
+        message: "event",
+        cursor: 10,
+        event: {
+          kind: "review_walk.changed",
+          walk,
+        },
+      }),
+      FLEET,
+    );
     expect(walkChanged).toHaveBeenCalledWith(walk);
   });
 });
@@ -276,7 +737,9 @@ describe("the models Fleet holds, read again when what sets them moves", () => {
   async function fleetAnswering(answer: { status: number; body: ModelChoices }): Promise<number> {
     server = createServer((request, response) => {
       const models = request.url === "/models";
-      response.writeHead(models ? answer.status : 404, { "content-type": "application/json" });
+      response.writeHead(models ? answer.status : 404, {
+        "content-type": "application/json",
+      });
       response.end(JSON.stringify(models ? answer.body : {}));
       request.resume();
     });
@@ -285,28 +748,75 @@ describe("the models Fleet holds, read again when what sets them moves", () => {
     return (listening.address() as AddressInfo).port;
   }
 
-  const OPUS: ModelChoices = { models: ["opus", "sonnet"], default: "sonnet", session: "opus" };
-  const SONNET: ModelChoices = { ...OPUS, session: "sonnet" };
+  const OPUS: ModelChoices = {
+    models: [
+      "opus",
+      "sonnet",
+    ],
+    default: "sonnet",
+    session: "opus",
+  };
+  const SONNET: ModelChoices = {
+    ...OPUS,
+    session: "sonnet",
+  };
   const event = (kind: "settings.changed" | "model_downshift.changed") =>
-    JSON.stringify({ message: "event", cursor: 5, event: kind === "settings.changed" ? { kind, settings: [] } : { kind } });
+    JSON.stringify({
+      message: "event",
+      cursor: 5,
+      event:
+        kind === "settings.changed"
+          ? {
+              kind,
+              settings: [],
+            }
+          : {
+              kind,
+            },
+    });
 
-  it.each(["settings.changed", "model_downshift.changed"] as const)("follows `models.session` after %s", async (kind) => {
-    const answer = { status: 200, body: OPUS };
+  it.each([
+    "settings.changed",
+    "model_downshift.changed",
+  ] as const)("follows `models.session` after %s", async (kind) => {
+    const answer = {
+      status: 200,
+      body: OPUS,
+    };
     const port = await fleetAnswering(answer);
     const { host, state } = fakeHost();
-    host.publish({ holds: { ...state().holds, models: OPUS } });
+    host.publish({
+      holds: {
+        ...state().holds,
+        models: OPUS,
+      },
+    });
     answer.body = SONNET;
-    applyArrival(host, event(kind), { ...FLEET, port });
+    applyArrival(host, event(kind), {
+      ...FLEET,
+      port,
+    });
     await vi.waitFor(() => expect(state().holds.models?.session).toBe("sonnet"));
     // Only the models moved: the rest of what is held stays.
     expect(state().holds.workflows).toEqual([]);
   });
 
   it("keeps what was held where the read fails", async () => {
-    const port = await fleetAnswering({ status: 500, body: SONNET });
+    const port = await fleetAnswering({
+      status: 500,
+      body: SONNET,
+    });
     const { host, state } = fakeHost();
-    host.publish({ holds: { ...state().holds, models: OPUS } });
-    applyArrival(host, event("settings.changed"), { ...FLEET, port });
+    host.publish({
+      holds: {
+        ...state().holds,
+        models: OPUS,
+      },
+    });
+    applyArrival(host, event("settings.changed"), {
+      ...FLEET,
+      port,
+    });
     // The other reads in the same arm settle on the same server; give them the same moment.
     await new Promise((done) => setTimeout(done, 50));
     expect(state().holds.models).toEqual(OPUS);
@@ -328,17 +838,24 @@ describe("the pool's bays, read again when Fleet says a slot was leased or given
     manifest_id: "armada",
     slot: 4,
     path: "/p/slot-4",
-    held: { state: "hosted_session", session_id: "d02bc3e3-94ce-4972-896c-9df4056ecf28" },
+    held: {
+      state: "hosted_session",
+      session_id: "d02bc3e3-94ce-4972-896c-9df4056ecf28",
+    },
     branch: "armada/session-d02bc3e3",
     since: "2026-10-15T12:05:12Z",
     base: "main",
     warm: true,
   };
-  const pool = (...slots: WorktreeSlot[]): WorktreesHeld => ({ slots });
+  const pool = (...slots: WorktreeSlot[]): WorktreesHeld => ({
+    slots,
+  });
 
   async function poolAnswering(answer: { body: WorktreesHeld }): Promise<number> {
     server = createServer((request, response) => {
-      response.writeHead(request.url === "/worktrees" ? 200 : 404, { "content-type": "application/json" });
+      response.writeHead(request.url === "/worktrees" ? 200 : 404, {
+        "content-type": "application/json",
+      });
       response.end(JSON.stringify(request.url === "/worktrees" ? answer.body : {}));
       request.resume();
     });
@@ -353,14 +870,30 @@ describe("the pool's bays, read again when Fleet says a slot was leased or given
       cursor: 11,
       event: {
         kind: "timeline.appended",
-        event: { id: 12, at: "2026-10-15T12:05:12Z", kind, subject: { kind: "session", id: "d02bc3e3-94ce-4972-896c-9df4056ecf28" }, tone: "idle", says: kind, detail: "slot-4", manifest_id: "armada", live: true },
+        event: {
+          id: 12,
+          at: "2026-10-15T12:05:12Z",
+          kind,
+          subject: {
+            kind: "session",
+            id: "d02bc3e3-94ce-4972-896c-9df4056ecf28",
+          },
+          tone: "idle",
+          says: kind,
+          detail: "slot-4",
+          manifest_id: "armada",
+          live: true,
+        },
       },
     });
 
-  const slotsOf = (one: HeldWorktrees | undefined) => (one?.state === "read" ? one.held.slots : undefined);
+  const slotsOf = (one: HeldWorktrees | undefined) =>
+    one?.state === "read" ? one.held.slots : undefined;
 
   it("draws a slot a Session took after the surface opened, and draws it gone once it is given back", async () => {
-    const answer = { body: pool() };
+    const answer = {
+      body: pool(),
+    };
     const port = await poolAnswering(answer);
     const drawn: HeldWorktrees[] = [];
     const reader = new HeldReader((one) => drawn.push(one));
@@ -369,18 +902,57 @@ describe("the pool's bays, read again when Fleet says a slot was leased or given
     expect(slotsOf(drawn.at(-1))).toEqual([]);
 
     answer.body = pool(taken);
-    applyArrival({ ...host, held: reader }, slotEvent("slot.leased"), { ...FLEET, port });
-    await vi.waitFor(() => expect(slotsOf(drawn.at(-1))).toEqual([taken]));
+    applyArrival(
+      {
+        ...host,
+        held: reader,
+      },
+      slotEvent("slot.leased"),
+      {
+        ...FLEET,
+        port,
+      },
+    );
+    await vi.waitFor(() =>
+      expect(slotsOf(drawn.at(-1))).toEqual([
+        taken,
+      ]),
+    );
 
-    answer.body = pool({ ...taken, held: { state: "free" } });
-    applyArrival({ ...host, held: reader }, slotEvent("slot.released"), { ...FLEET, port });
-    await vi.waitFor(() => expect(slotsOf(drawn.at(-1))?.[0]?.held).toEqual({ state: "free" }));
+    answer.body = pool({
+      ...taken,
+      held: {
+        state: "free",
+      },
+    });
+    applyArrival(
+      {
+        ...host,
+        held: reader,
+      },
+      slotEvent("slot.released"),
+      {
+        ...FLEET,
+        port,
+      },
+    );
+    await vi.waitFor(() =>
+      expect(slotsOf(drawn.at(-1))?.[0]?.held).toEqual({
+        state: "free",
+      }),
+    );
   });
 
   it("reads the pool for a lease or a release and for nothing else on the timeline", () => {
     const again = vi.fn(async () => {});
     const { host } = fakeHost();
-    const told = { ...host, held: { warm: async () => {}, again } };
+    const told = {
+      ...host,
+      held: {
+        warm: async () => {},
+        again,
+      },
+    };
     applyArrival(told, slotEvent("session.started"), FLEET);
     expect(again).not.toHaveBeenCalled();
     applyArrival(told, slotEvent("slot.leased"), FLEET);

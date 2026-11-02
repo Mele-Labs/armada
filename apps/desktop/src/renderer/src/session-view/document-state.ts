@@ -3,18 +3,37 @@
 
 import { useSyncExternalStore } from "react";
 import type { DocumentPlace, DocumentTarget } from "@armada/components";
-import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
+import {
+  attachmentsOf,
+  type Session,
+  type SessionAttachment,
+} from "@armada/screens/src/draft/sessions";
 
 import { showLayer } from "./layers";
 
-export type DocumentVisit = { session: string; place: DocumentPlace; target: DocumentTarget; at: number };
+export type DocumentVisit = {
+  session: string;
+  place: DocumentPlace;
+  target: DocumentTarget;
+  at: number;
+};
 
 let visit: DocumentVisit | undefined;
 const hear = new Set<() => void>();
 
 /** Opens the Job's document over the Job at the place a sent note named. */
-export function openDocumentAt(session: string, place: DocumentPlace, target: DocumentTarget, page?: string): void {
-  visit = { session, place, target, at: Date.now() };
+export function openDocumentAt(
+  session: string,
+  place: DocumentPlace,
+  target: DocumentTarget,
+  page?: string,
+): void {
+  visit = {
+    session,
+    place,
+    target,
+    at: Date.now(),
+  };
   for (const one of hear) one();
   showLayer(session, "document", page);
 }
@@ -38,13 +57,48 @@ export function useDocumentVisit(session: string): DocumentVisit | undefined {
 }
 
 /** A page put to him whose newest revision he has not approved or sent back yet. */
-export const waitsOnHim = (page: Extract<SessionAttachment, { kind: "artifact" }>): boolean => page.asked === true && page.settled === undefined;
+export const waitsOnHim = (
+  page: Extract<
+    SessionAttachment,
+    {
+      kind: "artifact";
+    }
+  >,
+): boolean => page.asked === true && page.settled === undefined;
 
 /**
  * A page a Job wrote as its document: the artifact that names its revisions. Where it holds more than one, `page` is the `id` of the one asked for; absent, the first.
  * `waits` is a newest revision put to him and not answered yet.
  */
-export function documentOf(session: Session, page?: string): { id: string; title: string; revisions: readonly string[]; waits: boolean; keptStyles?: Readonly<Record<string, string>> } | undefined {
-  const found = attachmentsOf(session, "artifact").find((one) => one.revisions !== undefined && one.revisions.length > 0 && (page === undefined || one.id === page));
-  return found?.revisions === undefined ? undefined : { id: found.id, title: found.title, revisions: found.revisions, waits: waitsOnHim(found), ...(found.keptStyles === undefined ? {} : { keptStyles: found.keptStyles }) };
+export function documentOf(
+  session: Session,
+  page?: string,
+):
+  | {
+      id: string;
+      title: string;
+      revisions: readonly string[];
+      waits: boolean;
+      keptStyles?: Readonly<Record<string, string>>;
+    }
+  | undefined {
+  const found = attachmentsOf(session, "artifact").find(
+    (one) =>
+      one.revisions !== undefined &&
+      one.revisions.length > 0 &&
+      (page === undefined || one.id === page),
+  );
+  return found?.revisions === undefined
+    ? undefined
+    : {
+        id: found.id,
+        title: found.title,
+        revisions: found.revisions,
+        waits: waitsOnHim(found),
+        ...(found.keptStyles === undefined
+          ? {}
+          : {
+              keptStyles: found.keptStyles,
+            }),
+      };
 }

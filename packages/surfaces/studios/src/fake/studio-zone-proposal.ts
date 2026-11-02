@@ -24,7 +24,10 @@ const note = (id: string, said: string, column: number, row: number): StudioNode
   kind: "note",
   said,
   within: ZONE,
-  position: { x: INSET + column * ACROSS, y: HEAD + row * DOWN },
+  position: {
+    x: INSET + column * ACROSS,
+    y: HEAD + row * DOWN,
+  },
   created_at: AT,
   added_by: "person",
 });
@@ -38,7 +41,16 @@ export function zoneWithAProposal(): Studio {
     created_at: AT,
     touched_at: AT,
     nodes: [
-      { id: ZONE, kind: "zone", position: { x: 0, y: 0 }, created_at: AT, added_by: "person" },
+      {
+        id: ZONE,
+        kind: "zone",
+        position: {
+          x: 0,
+          y: 0,
+        },
+        created_at: AT,
+        added_by: "person",
+      },
       note("legend-wraps", "The legend wraps at 720 wide", 0, 0),
       note("legend-unreadable", "The step bar's legend is unreadable in View", 1, 0),
       note("legend-ship", "Ship the step bar's new legend", 2, 0),
@@ -59,8 +71,12 @@ export function zoneWithAProposal(): Studio {
 }
 
 /** The `studio-zone-proposal` scenario: that one Studio, and a checkout declaring things to run. */
-export function zoneProposing<S extends StudyingState, A extends StudyingApi>(nothingYet: S): StudioFleet<S, A> {
-  const fleet = studying<S, A>(nothingYet, [zoneWithAProposal()]);
+export function zoneProposing<S extends StudyingState, A extends StudyingApi>(
+  nothingYet: S,
+): StudioFleet<S, A> {
+  const fleet = studying<S, A>(nothingYet, [
+    zoneWithAProposal(),
+  ]);
   return {
     ...fleet,
     scenario: {

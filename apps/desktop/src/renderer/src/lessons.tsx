@@ -7,7 +7,15 @@ import { createReviewHold } from "@armada/screens/src/lessons/review-hold";
 import { Lessons } from "@armada/screens/src/lessons/Lessons";
 import { useAtFloor } from "@armada/shell";
 
-import { agreeLesson, askLesson, disagreeLesson, readLessons, readRetro, reviewLessons, startLessonSession } from "./commands";
+import {
+  agreeLesson,
+  askLesson,
+  disagreeLesson,
+  readLessons,
+  readRetro,
+  reviewLessons,
+  startLessonSession,
+} from "./commands";
 import { takeRetroAsked } from "./open-retro";
 import { askToOpenSession } from "./open-session";
 
@@ -37,7 +45,11 @@ export function ArmadaFixes({ repository }: { repository: string | null }) {
       repository={repository}
       floor={floor}
       hold={reviewHold}
-      {...(asked === undefined ? {} : { opening: asked })}
+      {...(asked === undefined
+        ? {}
+        : {
+            opening: asked,
+          })}
     />
   );
 }

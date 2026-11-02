@@ -6,7 +6,23 @@
 // so the pairing and the reading happen here, once, where a test can hold them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
 import { isNotice } from "@armada/protocol";
-import type { AppliedRule, Attachment, AttachmentHistory, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobLifecycles, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WatchSummary, WorkflowSummary } from "@armada/protocol";
+import type {
+  AppliedRule,
+  Attachment,
+  AttachmentHistory,
+  ContextBreakdown as WireContextBreakdown,
+  HelmCallInFlight,
+  JobLifecycles,
+  ProposedField,
+  SentFile,
+  SessionActivity as WireActivity,
+  SessionRecord,
+  SessionRow as WireRow,
+  SessionTag as WireTag,
+  TimelineEvent,
+  WatchSummary,
+  WorkflowSummary,
+} from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
@@ -33,7 +49,12 @@ export type Beside = {
   /** A picture a message carried, as an address the window can draw, where it has been read. */
   picture: (sessionId: string, fileId: string) => string | undefined;
   /** Sketches this window sent, which the wire holds only as the pictures they were rendered to. */
-  sketches: readonly Extract<SessionAttachment, { kind: "sketch" }>[];
+  sketches: readonly Extract<
+    SessionAttachment,
+    {
+      kind: "sketch";
+    }
+  >[];
   /** Tags chosen and not yet sent. */
   pending: readonly SessionTag[];
   /** A repository as the picker names it, for the place a `sent` row says words went. Absent, the id stands. */
@@ -59,16 +80,25 @@ export type Beside = {
 };
 
 /** A Job this one started, as far as it is read: what it holds, and its record, whose ledger holds the issues it was handed. */
-export type StartedRead = { held: JobLifecycles; record: Pick<SessionRecord, "attachments"> | undefined };
+export type StartedRead = {
+  held: JobLifecycles;
+  record: Pick<SessionRecord, "attachments"> | undefined;
+};
 
 /** The title of each issue a Job and the Jobs it started hold, by key, the started Jobs' over its own. A row with no title yet is no title, and the ticket is drawn by its key. */
-function issueTitles(own: readonly SessionAttachment[], started: Beside["started"], beside: Beside): ReadonlyMap<string, string> {
+function issueTitles(
+  own: readonly SessionAttachment[],
+  started: Beside["started"],
+  beside: Beside,
+): ReadonlyMap<string, string> {
   const titles = new Map<string, string>();
   const take = (attachments: readonly SessionAttachment[]) => {
-    for (const one of attachments) if (one.kind === "issue" && one.title !== "") titles.set(one.number, one.title);
+    for (const one of attachments)
+      if (one.kind === "issue" && one.title !== "") titles.set(one.number, one.title);
   };
   take(own);
-  for (const one of started?.values() ?? []) take(one.record === undefined ? [] : attachmentsOfRecord(one.record, beside));
+  for (const one of started?.values() ?? [])
+    take(one.record === undefined ? [] : attachmentsOfRecord(one.record, beside));
   return titles;
 }
 
@@ -79,26 +109,69 @@ const NO_PICKS: ReadonlySet<ProposedField> = new Set();
 export const addressOf = (id: string): string => `s-${id.slice(0, 8)}`;
 
 /** How the Job started, with the Job that started it under the name the draft gives it. */
-const startedOfWire = (started: NonNullable<SessionRecord["started"]>): NonNullable<Session["started"]> => ({
-  ...(started.workflow === undefined ? {} : { workflow: started.workflow }),
-  ...(started.delivery === undefined ? {} : { delivery: started.delivery }),
-  ...(started.model === undefined ? {} : { model: started.model }),
-  ...(started.effort === undefined ? {} : { effort: started.effort }),
-  ...(started.mode === undefined ? {} : { mode: started.mode }),
-  ...(started.by === undefined ? {} : { by: { job: started.by.id, title: started.by.title } }),
+const startedOfWire = (
+  started: NonNullable<SessionRecord["started"]>,
+): NonNullable<Session["started"]> => ({
+  ...(started.workflow === undefined
+    ? {}
+    : {
+        workflow: started.workflow,
+      }),
+  ...(started.delivery === undefined
+    ? {}
+    : {
+        delivery: started.delivery,
+      }),
+  ...(started.model === undefined
+    ? {}
+    : {
+        model: started.model,
+      }),
+  ...(started.effort === undefined
+    ? {}
+    : {
+        effort: started.effort,
+      }),
+  ...(started.mode === undefined
+    ? {}
+    : {
+        mode: started.mode,
+      }),
+  ...(started.by === undefined
+    ? {}
+    : {
+        by: {
+          job: started.by.id,
+          title: started.by.title,
+        },
+      }),
 });
 
 function checksOf(detail: Record<string, string>): SessionChecks {
   const failing = detail["failing"] ?? "";
   // Fleet words a failure outside the gate as `pending` or `passed` with the names still in `failing`.
-  const red = failing === "" ? {} : { red: failing };
+  const red =
+    failing === ""
+      ? {}
+      : {
+          red: failing,
+        };
   switch (detail["checks"]) {
     case "passed":
-      return { state: "passed", ...red };
+      return {
+        state: "passed",
+        ...red,
+      };
     case "failed":
-      return { state: "failed", failing };
+      return {
+        state: "failed",
+        failing,
+      };
     default:
-      return { state: "pending", ...red };
+      return {
+        state: "pending",
+        ...red,
+      };
   }
 }
 
@@ -108,7 +181,10 @@ function standingOf(detail: Record<string, string>, spent: boolean): SessionPull
 }
 
 /** What a scene that does not validate is drawn as: nothing. Never a partial drawing, never a repaired one. */
-const NO_SCENE: Scene = { nodes: [], edges: [] };
+const NO_SCENE: Scene = {
+  nodes: [],
+  edges: [],
+};
 
 /** A scene as Fleet keeps it, JSON text, or already read. `undefined` is any that `parseScene` would not draw. */
 export function sceneOfWire(value: unknown): Scene | undefined {
@@ -120,7 +196,8 @@ export function sceneOfWire(value: unknown): Scene | undefined {
   }
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const KEPT_HASH = /^[0-9a-f]{32}$/;
 
@@ -133,7 +210,14 @@ export function keptStylesOfDetail(text: string | undefined): Record<string, str
   try {
     const read: unknown = JSON.parse(text);
     if (typeof read !== "object" || read === null || Array.isArray(read)) return undefined;
-    const kept = Object.entries(read).filter((one): one is [string, string] => typeof one[1] === "string" && KEPT_HASH.test(one[1]));
+    const kept = Object.entries(read).filter(
+      (
+        one,
+      ): one is [
+        string,
+        string,
+      ] => typeof one[1] === "string" && KEPT_HASH.test(one[1]),
+    );
     return kept.length === 0 ? undefined : Object.fromEntries(kept);
   } catch {
     return undefined;
@@ -147,14 +231,35 @@ export function keptStylesOfDetail(text: string | undefined): Record<string, str
  */
 export function keptFrom(scene: Scene, held: Scene | undefined): Scene {
   if (held === undefined) return scene;
-  const had = new Map(held.nodes.flatMap((one) => (one.kind === "mock" && one.kept !== undefined ? [[one.id, one] as const] : [])));
+  const had = new Map(
+    held.nodes.flatMap((one) =>
+      one.kind === "mock" && one.kept !== undefined
+        ? [
+            [
+              one.id,
+              one,
+            ] as const,
+          ]
+        : [],
+    ),
+  );
   if (had.size === 0) return scene;
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   return {
     ...scene,
     nodes: scene.nodes.map((one) => {
       const was = had.get(one.id);
-      return was === undefined || one.kind !== "mock" || one.kept !== undefined || one.html !== was.html || one.css !== was.css || !same(one.styles, was.styles) ? one : { ...one, kept: was.kept! };
+      return was === undefined ||
+        one.kind !== "mock" ||
+        one.kept !== undefined ||
+        one.html !== was.html ||
+        one.css !== was.css ||
+        !same(one.styles, was.styles)
+        ? one
+        : {
+            ...one,
+            kept: was.kept!,
+          };
     }),
   };
 }
@@ -179,9 +284,13 @@ function earlierOf(text: string | undefined): Record<string, unknown> | undefine
  */
 function sketchOf(one: Attachment): SessionAttachment {
   const detail: Record<string, string | undefined> = one.detail ?? {};
-  const title = typeof detail["title"] === "string" && detail["title"] !== "" ? detail["title"] : one.target.replace(/^sketch:/, "");
+  const title =
+    typeof detail["title"] === "string" && detail["title"] !== ""
+      ? detail["title"]
+      : one.target.replace(/^sketch:/, "");
   const earlier = earlierOf(detail["against"]);
-  const earlierTitle = earlier !== undefined && typeof earlier["title"] === "string" ? earlier["title"] : undefined;
+  const earlierTitle =
+    earlier !== undefined && typeof earlier["title"] === "string" ? earlier["title"] : undefined;
   const earlierScene = earlier === undefined ? undefined : sceneOfWire(earlier["scene"]);
   const revisions = revisionsOfDetail(detail["revisions"]);
   return {
@@ -190,22 +299,63 @@ function sketchOf(one: Attachment): SessionAttachment {
     title,
     by: "agent",
     drawing: sceneOfWire(detail["scene"]) ?? NO_SCENE,
-    ...(earlierTitle === undefined || earlierScene === undefined ? {} : { against: { title: earlierTitle, drawing: earlierScene } }),
-    ...(detail["asked"] === "true" ? { asked: true as const } : {}),
-    ...(detail["withdrawn"] === "true" ? { withdrawn: true as const } : {}),
-    ...(detail["drawn"] === undefined || detail["drawn"] === "" ? {} : { drawn: detail["drawn"] }),
+    ...(earlierTitle === undefined || earlierScene === undefined
+      ? {}
+      : {
+          against: {
+            title: earlierTitle,
+            drawing: earlierScene,
+          },
+        }),
+    ...(detail["asked"] === "true"
+      ? {
+          asked: true as const,
+        }
+      : {}),
+    ...(detail["withdrawn"] === "true"
+      ? {
+          withdrawn: true as const,
+        }
+      : {}),
+    ...(detail["drawn"] === undefined || detail["drawn"] === ""
+      ? {}
+      : {
+          drawn: detail["drawn"],
+        }),
     ...settledOf(detail),
-    ...(revisions.length === 0 ? {} : { revisions }),
+    ...(revisions.length === 0
+      ? {}
+      : {
+          revisions,
+        }),
   };
 }
 
 /** How he answered a sketch or a document put to him, from `detail.settled` and `detail.settled_at`. A how Fleet does not write reads as open. */
-function settledOf(detail: Record<string, string | undefined>): Pick<Extract<SessionAttachment, { kind: "sketch" }>, "settled"> {
+function settledOf(detail: Record<string, string | undefined>): Pick<
+  Extract<
+    SessionAttachment,
+    {
+      kind: "sketch";
+    }
+  >,
+  "settled"
+> {
   const how = detail["settled"];
   const at = detail["settled_at"];
   if ((how !== "approved" && how !== "sent_back") || at === undefined) return {};
   const words = detail["words"];
-  return { settled: { how, at, ...(words === undefined || words === "" ? {} : { words }) } };
+  return {
+    settled: {
+      how,
+      at,
+      ...(words === undefined || words === ""
+        ? {}
+        : {
+            words,
+          }),
+    },
+  };
 }
 
 /**
@@ -213,13 +363,42 @@ function settledOf(detail: Record<string, string | undefined>): Pick<Extract<Ses
  * record without one is read off the row: `changed_at` until he answers, since nothing else moves the detail, then `since` for revision 1,
  * else the answer's own time. A page kept before Fleet asked carries no `revision` and asks nothing.
  */
-function documentAskOf(one: Attachment, detail: Record<string, string | undefined>): Pick<Extract<SessionAttachment, { kind: "artifact" }>, "asked" | "revision" | "settled" | "kept"> {
+function documentAskOf(
+  one: Attachment,
+  detail: Record<string, string | undefined>,
+): Pick<
+  Extract<
+    SessionAttachment,
+    {
+      kind: "artifact";
+    }
+  >,
+  "asked" | "revision" | "settled" | "kept"
+> {
   const given = detail["revision"];
   const revision = given === undefined || given === "" ? undefined : given;
   const settled = revision === undefined ? undefined : settledOf(detail).settled;
-  const kept = detail["kept_at"] || (settled === undefined ? one.changed_at : revision === "1" ? one.since : settled.at);
-  if (revision === undefined) return { kept };
-  return { ...(detail["asked"] === "true" ? { asked: true as const } : {}), revision, ...(settled === undefined ? {} : { settled }), kept };
+  const kept =
+    detail["kept_at"] ||
+    (settled === undefined ? one.changed_at : revision === "1" ? one.since : settled.at);
+  if (revision === undefined)
+    return {
+      kept,
+    };
+  return {
+    ...(detail["asked"] === "true"
+      ? {
+          asked: true as const,
+        }
+      : {}),
+    revision,
+    ...(settled === undefined
+      ? {}
+      : {
+          settled,
+        }),
+    kept,
+  };
 }
 
 /** The name `show_sketch` is called by, however the harness prefixes a tool of a server. */
@@ -232,9 +411,17 @@ const FILE_CALL = /^(?:\S*__)?show_file\s+(\S.*?)\s*$/;
  * A `show_file` call as the thread's tool row carries it: the tool's name as the transcript gives it, then the path as the
  * agent wrote it, absolute or relative to where the job runs. `undefined` for any row that is not one.
  */
-export function fileCallOf(text: string): { path: string } | undefined {
+export function fileCallOf(text: string):
+  | {
+      path: string;
+    }
+  | undefined {
   const found = FILE_CALL.exec(text);
-  return found === null ? undefined : { path: found[1]! };
+  return found === null
+    ? undefined
+    : {
+        path: found[1]!,
+      };
 }
 
 /**
@@ -242,7 +429,13 @@ export function fileCallOf(text: string): { path: string } | undefined {
  * (`title`, `scene`, and `against`, the title of the sketch it is read against). **`undefined` for any row
  * that is not one, and for one whose scene would not draw**, which stays the plain tool row it was.
  */
-export function sketchCallOf(text: string): { title: string; scene: Scene; against?: string } | undefined {
+export function sketchCallOf(text: string):
+  | {
+      title: string;
+      scene: Scene;
+      against?: string;
+    }
+  | undefined {
   const found = SKETCH_CALL.exec(text);
   if (found === null) return undefined;
   let args: unknown;
@@ -251,11 +444,20 @@ export function sketchCallOf(text: string): { title: string; scene: Scene; again
   } catch {
     return undefined;
   }
-  if (!isRecord(args) || typeof args["title"] !== "string" || args["title"].trim() === "") return undefined;
+  if (!isRecord(args) || typeof args["title"] !== "string" || args["title"].trim() === "")
+    return undefined;
   const scene = sceneOfWire(args["scene"]);
   if (scene === undefined) return undefined;
   const against = args["against"];
-  return { title: args["title"].trim(), scene, ...(typeof against === "string" && against.trim() !== "" ? { against: against.trim() } : {}) };
+  return {
+    title: args["title"].trim(),
+    scene,
+    ...(typeof against === "string" && against.trim() !== ""
+      ? {
+          against: against.trim(),
+        }
+      : {}),
+  };
 }
 
 /**
@@ -266,7 +468,9 @@ export function revisionsOfDetail(kept: string | undefined): string[] {
   if (kept === undefined) return [];
   try {
     const read: unknown = JSON.parse(kept);
-    return Array.isArray(read) && read.every((one) => typeof one === "string" && one !== "") ? (read as string[]) : [];
+    return Array.isArray(read) && read.every((one) => typeof one === "string" && one !== "")
+      ? (read as string[])
+      : [];
   } catch {
     return [];
   }
@@ -276,7 +480,11 @@ export function revisionsOfDetail(kept: string | undefined): string[] {
 function pullRequestOf(one: Attachment): SessionAttachment | undefined {
   if (one.state === "given_back") return undefined;
   const detail = one.detail ?? {};
-  const closes = (detail["closes"] ?? "").split(",").filter((one) => one !== "").map(Number).filter(Number.isInteger);
+  const closes = (detail["closes"] ?? "")
+    .split(",")
+    .filter((one) => one !== "")
+    .map(Number)
+    .filter(Number.isInteger);
   const base = (detail["base"] ?? "").trim();
   return {
     kind: "pull_request",
@@ -284,13 +492,29 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
     title: detail["title"] ?? "",
     branch: detail["branch"] ?? "",
     address: detail["address"] ?? "",
-    ...(detail["body"] === undefined || detail["body"] === "" ? {} : { body: detail["body"] }),
+    ...(detail["body"] === undefined || detail["body"] === ""
+      ? {}
+      : {
+          body: detail["body"],
+        }),
     checks: checksOf(detail),
     state: standingOf(detail, one.state === "spent"),
     auto: detail["auto_merge"] === "true",
-    ...(detail["queued"] === "true" ? { queued: true as const } : {}),
-    ...(closes.length === 0 ? {} : { closes }),
-    ...(base === "" ? {} : { base }),
+    ...(detail["queued"] === "true"
+      ? {
+          queued: true as const,
+        }
+      : {}),
+    ...(closes.length === 0
+      ? {}
+      : {
+          closes,
+        }),
+    ...(base === ""
+      ? {}
+      : {
+          base,
+        }),
   };
 }
 
@@ -299,21 +523,38 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
  * pair here**: the branch takes the slot the session holds in the same repository, so opening either
  * opens the slot's panel. A row Fleet or this build has no screen for is left out rather than guessed at.
  */
-export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, beside: Pick<Beside, "sketches">): SessionAttachment[] {
+export function attachmentsOfRecord(
+  record: Pick<SessionRecord, "attachments">,
+  beside: Pick<Beside, "sketches">,
+): SessionAttachment[] {
   // What a Session made stays on its ledger once it has ended, as a subagent's turn does.
-  const held = record.attachments.filter((one) => one.state !== "given_back" || one.kind === "subagent" || one.kind === "artifact" || one.kind === "background");
+  const held = record.attachments.filter(
+    (one) =>
+      one.state !== "given_back" ||
+      one.kind === "subagent" ||
+      one.kind === "artifact" ||
+      one.kind === "background",
+  );
   const slots = held.filter((one) => one.kind === "slot" && one.state === "standing");
   const out: SessionAttachment[] = [];
   for (const one of held) {
     const detail = one.detail ?? {};
     switch (one.kind) {
       case "slot":
-        if (one.state === "standing") out.push({ kind: "slot", slot: Number(one.target) });
+        if (one.state === "standing")
+          out.push({
+            kind: "slot",
+            slot: Number(one.target),
+          });
         break;
       case "branch": {
         if (one.state !== "standing") break;
         const slot = slots.find((s) => s.manifest_id === one.manifest_id) ?? slots[0];
-        out.push({ kind: "branch", name: one.target, slot: slot === undefined ? 0 : Number(slot.target) });
+        out.push({
+          kind: "branch",
+          name: one.target,
+          slot: slot === undefined ? 0 : Number(slot.target),
+        });
         break;
       }
       case "pr": {
@@ -323,42 +564,92 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
       }
       // Fleet's pull reading fills title, state and address after the row exists, so a fresh row is an open issue with only its number or key.
       case "issue": {
-        const pulls = (detail["pull_requests"] ?? "").split(",").flatMap((part) => (/^[0-9]+$/.test(part.trim()) ? [Number(part.trim())] : []));
+        const pulls = (detail["pull_requests"] ?? "").split(",").flatMap((part) =>
+          /^[0-9]+$/.test(part.trim())
+            ? [
+                Number(part.trim()),
+              ]
+            : [],
+        );
         out.push({
           kind: "issue",
           number: one.target,
           title: detail["title"] ?? "",
           address: detail["address"] ?? "",
           state: detail["state"] === "closed" ? "closed" : "open",
-          ...(pulls.length === 0 ? {} : { pull_requests: pulls }),
-          ...(detail["claimed"] === "true" ? { claimed: true as const } : {}),
+          ...(pulls.length === 0
+            ? {}
+            : {
+                pull_requests: pulls,
+              }),
+          ...(detail["claimed"] === "true"
+            ? {
+                claimed: true as const,
+              }
+            : {}),
         });
         break;
       }
       // The reported bug the Job was started on. A row given back is already out of `held`, so a Job that ended unmerged is no longer the report's.
       case "report":
-        out.push({ kind: "report", id: one.target, title: detail["title"] ?? "" });
+        out.push({
+          kind: "report",
+          id: one.target,
+          title: detail["title"] ?? "",
+        });
         break;
       case "studio":
-        out.push({ kind: "studio", id: one.target, title: detail["title"] ?? "Studio" });
+        out.push({
+          kind: "studio",
+          id: one.target,
+          title: detail["title"] ?? "Studio",
+        });
         break;
       case "forked_to":
       case "forked_from":
         out.push(
           one.kind === "forked_to"
-            ? { kind: "forked_to", id: one.target, ...(detail["moved"] === undefined ? {} : { moved: detail["moved"] }) }
+            ? {
+                kind: "forked_to",
+                id: one.target,
+                ...(detail["moved"] === undefined
+                  ? {}
+                  : {
+                      moved: detail["moved"],
+                    }),
+              }
             : {
                 kind: "forked_from",
                 id: one.target,
-                ...(detail["at"] === undefined ? {} : { at: detail["at"] }),
-                ...(detail["moved"] === undefined ? {} : { moved: detail["moved"] }),
-                ...(detail["branch"] === undefined ? {} : { branch: detail["branch"] }),
+                ...(detail["at"] === undefined
+                  ? {}
+                  : {
+                      at: detail["at"],
+                    }),
+                ...(detail["moved"] === undefined
+                  ? {}
+                  : {
+                      moved: detail["moved"],
+                    }),
+                ...(detail["branch"] === undefined
+                  ? {}
+                  : {
+                      branch: detail["branch"],
+                    }),
               },
         );
         break;
       case "started_to":
       case "started_by":
-        out.push({ kind: one.kind, id: one.target, ...(detail["group"] === undefined || detail["group"] === "" ? {} : { group: detail["group"] }) });
+        out.push({
+          kind: one.kind,
+          id: one.target,
+          ...(detail["group"] === undefined || detail["group"] === ""
+            ? {}
+            : {
+                group: detail["group"],
+              }),
+        });
         break;
       case "subagent":
         out.push({
@@ -366,9 +657,21 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           id: one.target,
           task: detail["task"] ?? detail["description"] ?? "Subagent",
           state: one.state === "standing" ? "running" : "done",
-          ...(detail["report"] === undefined ? {} : { report: detail["report"] }),
-          ...(detail["type"] === undefined || detail["type"] === "" ? {} : { agentType: detail["type"] }),
-          ...(detail["call"] === undefined || detail["call"] === "" ? {} : { call: detail["call"] }),
+          ...(detail["report"] === undefined
+            ? {}
+            : {
+                report: detail["report"],
+              }),
+          ...(detail["type"] === undefined || detail["type"] === ""
+            ? {}
+            : {
+                agentType: detail["type"],
+              }),
+          ...(detail["call"] === undefined || detail["call"] === ""
+            ? {}
+            : {
+                call: detail["call"],
+              }),
         });
         break;
       case "background": {
@@ -377,7 +680,14 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
         const code = Number(detail["exit"]);
         const ended = one.state === "standing" ? undefined : one.changed_at;
         // A task the engine killed, or one whose process went with the Session, has no exit of its own.
-        const state = one.state === "standing" ? "running" : one.state === "given_back" || detail["status"] === "killed" ? "stopped" : detail["status"] === "failed" ? "failed" : "done";
+        const state =
+          one.state === "standing"
+            ? "running"
+            : one.state === "given_back" || detail["status"] === "killed"
+              ? "stopped"
+              : detail["status"] === "failed"
+                ? "failed"
+                : "done";
         out.push({
           kind: "background",
           id: one.target,
@@ -386,9 +696,23 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           command: detail["command"] ?? "",
           started: one.since,
           state,
-          ...(ended === undefined ? {} : { ended }),
-          ...(state === "done" || state === "failed" ? (detail["exit"] === undefined || Number.isNaN(code) ? {} : { exit: code }) : {}),
-          ...(detail["output"] === undefined ? {} : { output: detail["output"] }),
+          ...(ended === undefined
+            ? {}
+            : {
+                ended,
+              }),
+          ...(state === "done" || state === "failed"
+            ? detail["exit"] === undefined || Number.isNaN(code)
+              ? {}
+              : {
+                  exit: code,
+                }
+            : {}),
+          ...(detail["output"] === undefined
+            ? {}
+            : {
+                output: detail["output"],
+              }),
         });
         break;
       }
@@ -401,34 +725,87 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
         if (form === "note") {
           // The same reading as `noteArtifactOf`, which this package cannot import.
           const { note, title, text, tag, status, sent } = detail;
-          if (note === undefined || text === undefined || tag === undefined || sent === undefined) break;
+          if (note === undefined || text === undefined || tag === undefined || sent === undefined)
+            break;
           if (status !== "open" && status !== "done" && status !== "returned") break;
-          const optional = (key: "component" | "screen" | "picture") => (detail[key] === undefined ? {} : { [key]: detail[key] });
-          out.push({ kind: "note", id: note, title: title ?? text, text, tag, ...optional("component"), ...optional("screen"), ...optional("picture"), status, sent });
+          const optional = (key: "component" | "screen" | "picture") =>
+            detail[key] === undefined
+              ? {}
+              : {
+                  [key]: detail[key],
+                };
+          out.push({
+            kind: "note",
+            id: note,
+            title: title ?? text,
+            text,
+            tag,
+            ...optional("component"),
+            ...optional("screen"),
+            ...optional("picture"),
+            status,
+            sent,
+          });
           break;
         }
-        if (form !== "page" && form !== "file" && form !== "image" && form !== "doc" && form !== "document" && form !== "window") break;
+        if (
+          form !== "page" &&
+          form !== "file" &&
+          form !== "image" &&
+          form !== "doc" &&
+          form !== "document" &&
+          form !== "window"
+        )
+          break;
         const revisions = form === "document" ? revisionsOfDetail(detail["revisions"]) : [];
         out.push({
           kind: "artifact",
           form,
           id: one.target,
           title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1),
-          ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined ? { shown: detail["shown"], by: "agent" as const, ...(detail["written"] === "true" ? { written: true as const } : {}) } : {}),
-          ...(revisions.length === 0 ? {} : { revisions }),
+          ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined
+            ? {
+                shown: detail["shown"],
+                by: "agent" as const,
+                ...(detail["written"] === "true"
+                  ? {
+                      written: true as const,
+                    }
+                  : {}),
+              }
+            : {}),
+          ...(revisions.length === 0
+            ? {}
+            : {
+                revisions,
+              }),
           ...(form === "document" ? documentAskOf(one, detail) : {}),
-          ...(form === "document" ? ((kept) => (kept === undefined ? {} : { keptStyles: kept }))(keptStylesOfDetail(detail["kept_styles"])) : {}),
+          ...(form === "document"
+            ? ((kept) =>
+                kept === undefined
+                  ? {}
+                  : {
+                      keptStyles: kept,
+                    })(keptStylesOfDetail(detail["kept_styles"]))
+            : {}),
         });
         break;
       }
       case "link":
-        out.push({ kind: "link", url: one.target, by: detail["by"] === "you" ? "you" : "agent" });
+        out.push({
+          kind: "link",
+          url: one.target,
+          by: detail["by"] === "you" ? "you" : "agent",
+        });
         break;
       default:
         break;
     }
   }
-  return [...out, ...beside.sketches];
+  return [
+    ...out,
+    ...beside.sketches,
+  ];
 }
 
 /**
@@ -437,10 +814,44 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
  */
 export function versionsOfHistory(history: AttachmentHistory): NonNullable<Session["versions"]> {
   return history.versions.flatMap((one) => {
-    const attachment = attachmentsOfRecord({ attachments: [{ ...one, since: one.at, changed_at: one.at }] }, { sketches: [] })[0];
+    const attachment = attachmentsOfRecord(
+      {
+        attachments: [
+          {
+            ...one,
+            since: one.at,
+            changed_at: one.at,
+          },
+        ],
+      },
+      {
+        sketches: [],
+      },
+    )[0];
     if (attachment === undefined) return [];
-    const from = { ...(one.from_message === undefined ? {} : { message: one.from_message }), ...(one.from_task === undefined ? {} : { task: one.from_task }) };
-    return [{ at: one.at, attachment, ...(Object.keys(from).length === 0 ? {} : { from }) }];
+    const from = {
+      ...(one.from_message === undefined
+        ? {}
+        : {
+            message: one.from_message,
+          }),
+      ...(one.from_task === undefined
+        ? {}
+        : {
+            task: one.from_task,
+          }),
+    };
+    return [
+      {
+        at: one.at,
+        attachment,
+        ...(Object.keys(from).length === 0
+          ? {}
+          : {
+              from,
+            }),
+      },
+    ];
   });
 }
 
@@ -452,17 +863,48 @@ export function versionsOfHistory(history: AttachmentHistory): NonNullable<Sessi
 export function trailOfRecord(record: SessionRecord): SessionTrail {
   const bays = record.attachments
     .filter((one) => one.kind === "slot")
-    .map((one) => ({ slot: Number(one.target), from: one.since, ...(one.state === "standing" ? {} : { until: one.changed_at }) }))
+    .map((one) => ({
+      slot: Number(one.target),
+      from: one.since,
+      ...(one.state === "standing"
+        ? {}
+        : {
+            until: one.changed_at,
+          }),
+    }))
     .sort((a, b) => Date.parse(a.from) - Date.parse(b.from));
-  const opened = Object.fromEntries(record.attachments.filter((one) => one.kind === "pr" && !Number.isNaN(Number(one.target))).map((one) => [Number(one.target), one.since]));
-  return { started: record.started_at, ...(bays.length === 0 ? {} : { bays }), ...(Object.keys(opened).length === 0 ? {} : { opened }) };
+  const opened = Object.fromEntries(
+    record.attachments
+      .filter((one) => one.kind === "pr" && !Number.isNaN(Number(one.target)))
+      .map((one) => [
+        Number(one.target),
+        one.since,
+      ]),
+  );
+  return {
+    started: record.started_at,
+    ...(bays.length === 0
+      ? {}
+      : {
+          bays,
+        }),
+    ...(Object.keys(opened).length === 0
+      ? {}
+      : {
+          opened,
+        }),
+  };
 }
 
 const tagOf = (tag: WireTag): SessionTag => ({
   kind: tag.kind,
   id: tag.id,
   title: tag.title,
-  ...(tag.url === undefined ? {} : { url: tag.url }),
+  ...(tag.url === undefined
+    ? {}
+    : {
+        url: tag.url,
+      }),
 });
 
 function askOf(ask: HelmCallInFlight): SessionAsk {
@@ -471,17 +913,38 @@ function askOf(ask: HelmCallInFlight): SessionAsk {
     command: ask.whole ?? (ask.detail === "" ? ask.tool : ask.detail),
     call: ask.call,
     offers: ask.offers,
-    ...(ask.questions === undefined || ask.questions.length === 0 ? {} : { questions: ask.questions }),
-    ...(ask.reaches === undefined ? {} : { reaches: ask.reaches }),
-    ...(ask.reaches_to === undefined ? {} : { reachesTo: ask.reaches_to }),
-    ...(ask.kind === undefined ? {} : { kind: ask.kind }),
+    ...(ask.questions === undefined || ask.questions.length === 0
+      ? {}
+      : {
+          questions: ask.questions,
+        }),
+    ...(ask.reaches === undefined
+      ? {}
+      : {
+          reaches: ask.reaches,
+        }),
+    ...(ask.reaches_to === undefined
+      ? {}
+      : {
+          reachesTo: ask.reaches_to,
+        }),
+    ...(ask.kind === undefined
+      ? {}
+      : {
+          kind: ask.kind,
+        }),
   };
 }
 
 const LAPSE_ANSWER = "Answering your earlier question";
 
 /** What the person says to the agent in place of the answer it did not wait for, a line a question. */
-export const lapsedAnswerText = (answers: readonly { question: string; chosen: readonly string[] }[]): string =>
+export const lapsedAnswerText = (
+  answers: readonly {
+    question: string;
+    chosen: readonly string[];
+  }[],
+): string =>
   answers.map((one) => `${LAPSE_ANSWER} "${one.question}": ${one.chosen.join(", ")}`).join("\n");
 
 /**
@@ -499,9 +962,16 @@ export function lapsedOf(rows: readonly WireRow[]): Session["lapsed"] {
       said = true;
       continue;
     }
-    if (row.kind !== "ask" || row.ask.questions === undefined || row.ask.questions.length === 0) continue;
-    const lapsed = row.state === "kept" || (!said && (row.state === "unanswered" || row.state === "refused"));
-    return lapsed ? { id: row.id, questions: row.ask.questions } : undefined;
+    if (row.kind !== "ask" || row.ask.questions === undefined || row.ask.questions.length === 0)
+      continue;
+    const lapsed =
+      row.state === "kept" || (!said && (row.state === "unanswered" || row.state === "refused"));
+    return lapsed
+      ? {
+          id: row.id,
+          questions: row.ask.questions,
+        }
+      : undefined;
   }
   return undefined;
 }
@@ -523,12 +993,25 @@ const SETTLED: Record<string, string> = {
 function filesOf(sessionId: string, files: readonly SentFile[], picture: Beside["picture"]) {
   return files.map((file) => {
     const src = file.media_type.startsWith("image/") ? picture(sessionId, file.id) : undefined;
-    return { id: file.id, name: file.name, ...(src === undefined ? {} : { src }) };
+    return {
+      id: file.id,
+      name: file.name,
+      ...(src === undefined
+        ? {}
+        : {
+            src,
+          }),
+    };
   });
 }
 
 /** The thread, row by row. **A waiting ask is the card under the thread, so it is no row**; one answered is a line of what was decided. */
-export function rowsOfThread(sessionId: string, rows: readonly WireRow[], picture: Beside["picture"], repository: NonNullable<Beside["repository"]> = (id) => id ?? ""): SessionRow[] {
+export function rowsOfThread(
+  sessionId: string,
+  rows: readonly WireRow[],
+  picture: Beside["picture"],
+  repository: NonNullable<Beside["repository"]> = (id) => id ?? "",
+): SessionRow[] {
   const out: SessionRow[] = [];
   for (const row of rows) {
     const at = row.at;
@@ -540,10 +1023,26 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           kind: "message",
           from: row.from,
           text: row.text,
-          ...(row.files === undefined || row.files.length === 0 ? {} : { files: filesOf(sessionId, row.files, picture) }),
-          ...(row.tags === undefined || row.tags.length === 0 ? {} : { tags: row.tags.map(tagOf) }),
-          ...(isNotice(row.notice) ? { notice: row.notice } : {}),
-          ...(row.queued === true ? { queued: true as const } : {}),
+          ...(row.files === undefined || row.files.length === 0
+            ? {}
+            : {
+                files: filesOf(sessionId, row.files, picture),
+              }),
+          ...(row.tags === undefined || row.tags.length === 0
+            ? {}
+            : {
+                tags: row.tags.map(tagOf),
+              }),
+          ...(isNotice(row.notice)
+            ? {
+                notice: row.notice,
+              }
+            : {}),
+          ...(row.queued === true
+            ? {
+                queued: true as const,
+              }
+            : {}),
         });
         break;
       case "sent":
@@ -553,37 +1052,126 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           at,
           kind: "sent",
           text: row.text,
-          target: { ...row.target, repository: repository(row.target.manifest_id) },
-          ...(row.files === undefined || row.files.length === 0 ? {} : { files: filesOf(sessionId, row.files, picture) }),
-          ...(row.tags === undefined || row.tags.length === 0 ? {} : { tags: row.tags.map(tagOf) }),
+          target: {
+            ...row.target,
+            repository: repository(row.target.manifest_id),
+          },
+          ...(row.files === undefined || row.files.length === 0
+            ? {}
+            : {
+                files: filesOf(sessionId, row.files, picture),
+              }),
+          ...(row.tags === undefined || row.tags.length === 0
+            ? {}
+            : {
+                tags: row.tags.map(tagOf),
+              }),
         });
         break;
       case "tool":
-        out.push({ id: row.id, at, kind: "tool", text: row.text, ...(row.subagent === undefined ? {} : { subagent: row.subagent }) });
+        out.push({
+          id: row.id,
+          at,
+          kind: "tool",
+          text: row.text,
+          ...(row.subagent === undefined
+            ? {}
+            : {
+                subagent: row.subagent,
+              }),
+        });
         break;
       case "command":
-        out.push({ id: row.id, at, kind: "command", text: row.text });
+        out.push({
+          id: row.id,
+          at,
+          kind: "command",
+          text: row.text,
+        });
         break;
       case "compaction":
-        out.push({ id: row.id, at, kind: "compaction", text: row.text });
+        out.push({
+          id: row.id,
+          at,
+          kind: "compaction",
+          text: row.text,
+        });
         break;
       case "browser_reminder":
-        out.push({ id: row.id, at, kind: "browser_reminder", tool: row.tool, ...(row.address === undefined ? {} : { address: row.address }) });
+        out.push({
+          id: row.id,
+          at,
+          kind: "browser_reminder",
+          tool: row.tool,
+          ...(row.address === undefined
+            ? {}
+            : {
+                address: row.address,
+              }),
+        });
         break;
       case "disputed":
-        out.push({ id: row.id, at, kind: "disputed", notice: row.notice, why: row.why, spotted: row.spotted, ...(row.review === undefined ? {} : { review: row.review }) });
+        out.push({
+          id: row.id,
+          at,
+          kind: "disputed",
+          notice: row.notice,
+          why: row.why,
+          spotted: row.spotted,
+          ...(row.review === undefined
+            ? {}
+            : {
+                review: row.review,
+              }),
+        });
         break;
       case "lease":
-        out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
+        out.push({
+          id: row.id,
+          at,
+          kind: "lease",
+          slot: row.slot,
+          branch: row.branch,
+        });
         break;
       case "release":
-        out.push({ id: row.id, at, kind: "release", slot: row.slot, branch: row.branch });
+        out.push({
+          id: row.id,
+          at,
+          kind: "release",
+          slot: row.slot,
+          branch: row.branch,
+        });
         break;
       case "check":
-        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }), ...(row.blame === undefined ? {} : { blame: row.blame }) });
+        out.push({
+          id: row.id,
+          at,
+          kind: "check",
+          name: row.name,
+          run: row.run,
+          state: row.state,
+          ...(row.target === undefined
+            ? {}
+            : {
+                target: row.target,
+              }),
+          ...(row.blame === undefined
+            ? {}
+            : {
+                blame: row.blame,
+              }),
+        });
         break;
       case "ran":
-        out.push({ id: row.id, at, kind: "ran", command: row.command, code: row.code ?? null, tail: row.tail });
+        out.push({
+          id: row.id,
+          at,
+          kind: "ran",
+          command: row.command,
+          code: row.code ?? null,
+          tail: row.tail,
+        });
         break;
       case "requested":
         out.push({
@@ -593,27 +1181,70 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           by: row.by,
           method: row.method,
           url: row.url,
-          ...(row.environment === undefined ? {} : { environment: row.environment }),
+          ...(row.environment === undefined
+            ? {}
+            : {
+                environment: row.environment,
+              }),
           headers: row.headers ?? [],
-          ...(row.body === undefined ? {} : { body: row.body }),
+          ...(row.body === undefined
+            ? {}
+            : {
+                body: row.body,
+              }),
           status: row.status ?? null,
           ms: row.ms,
-          ...(row.error === undefined ? {} : { error: row.error }),
+          ...(row.error === undefined
+            ? {}
+            : {
+                error: row.error,
+              }),
           response: row.response,
           truncated: row.truncated ?? false,
         });
         break;
       case "saved":
-        out.push({ id: row.id, at, kind: "saved", name: row.name, collection: row.collection, collectionId: row.collection_id, request: row.request });
+        out.push({
+          id: row.id,
+          at,
+          kind: "saved",
+          name: row.name,
+          collection: row.collection,
+          collectionId: row.collection_id,
+          request: row.request,
+        });
         break;
       case "window":
-        out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url, ...(row.ended_at === undefined ? {} : { ended: row.ended_at }) });
+        out.push({
+          id: row.id,
+          at,
+          kind: "window",
+          title: row.title,
+          url: row.url,
+          ...(row.ended_at === undefined
+            ? {}
+            : {
+                ended: row.ended_at,
+              }),
+        });
         break;
       case "started":
-        out.push({ id: row.id, at, kind: "started", session: row.session, fork: row.fork });
+        out.push({
+          id: row.id,
+          at,
+          kind: "started",
+          session: row.session,
+          fork: row.fork,
+        });
         break;
       case "linked":
-        out.push({ id: row.id, at, kind: "linked", session: row.session, event: row.event });
+        out.push({
+          id: row.id,
+          at,
+          kind: "linked",
+          session: row.session,
+          event: row.event,
+        });
         break;
       case "waiter":
         out.push({
@@ -622,11 +1253,31 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           kind: "waiter",
           session: row.session,
           event: row.event,
-          ...(row.side === "waiting" ? { waiting: true as const } : {}),
-          ...(row.says === undefined ? {} : { says: row.says }),
-          ...(row.from === undefined ? {} : { from: row.from }),
-          ...(row.to === undefined ? {} : { to: row.to }),
-          ...(row.by === undefined ? {} : { by: row.by }),
+          ...(row.side === "waiting"
+            ? {
+                waiting: true as const,
+              }
+            : {}),
+          ...(row.says === undefined
+            ? {}
+            : {
+                says: row.says,
+              }),
+          ...(row.from === undefined
+            ? {}
+            : {
+                from: row.from,
+              }),
+          ...(row.to === undefined
+            ? {}
+            : {
+                to: row.to,
+              }),
+          ...(row.by === undefined
+            ? {}
+            : {
+                by: row.by,
+              }),
         });
         break;
       case "retro":
@@ -649,13 +1300,30 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           kind: "draft",
           title: row.title,
           text: row.text,
-          ...(row.before === undefined ? {} : { before: row.before }),
-          ...(row.settled === undefined ? {} : { settled: row.settled }),
-          ...(row.change === undefined ? {} : { change: row.change }),
+          ...(row.before === undefined
+            ? {}
+            : {
+                before: row.before,
+              }),
+          ...(row.settled === undefined
+            ? {}
+            : {
+                settled: row.settled,
+              }),
+          ...(row.change === undefined
+            ? {}
+            : {
+                change: row.change,
+              }),
         });
         break;
       case "plan_changes":
-        out.push({ id: row.id, at, kind: "suggest", lines: linesOfWire(row.lines) });
+        out.push({
+          id: row.id,
+          at,
+          kind: "suggest",
+          lines: linesOfWire(row.lines),
+        });
         break;
       case "ask":
         if (row.state !== "waiting") {
@@ -664,7 +1332,11 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
             at,
             kind: "tool",
             text: `${askOf(row.ask).command}: ${SETTLED[row.state] ?? row.state}`,
-            ...(row.via === "phone" ? { fromPhone: true as const } : {}),
+            ...(row.via === "phone"
+              ? {
+                  fromPhone: true as const,
+                }
+              : {}),
           });
         }
         break;
@@ -675,18 +1347,28 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
 
 // The mod's `titleOf` rule (plugins/armada/hooks/facts.ts), applied on read so a title stored before
 // the mod stripped markup shows clean. A title that cleans to nothing is no title.
-const MACHINE_BLOCK = /<((?:local-)?command(?:-\w+)+|system-reminder)(?:\s[^>]*)?>[\s\S]*?(?:<\/\1>|$)/g;
+const MACHINE_BLOCK =
+  /<((?:local-)?command(?:-\w+)+|system-reminder)(?:\s[^>]*)?>[\s\S]*?(?:<\/\1>|$)/g;
 const WRAPPER_TAG = /<\/?[a-z]+(?:-\w+)+(?:\s[^>]*)?>/gi;
 
 /** A stored title without the harness's markup, flattened to one line; nothing where nothing is left. */
 export function cleanTitle(title: string | undefined): string | undefined {
   if (title === undefined) return undefined;
-  const flat = title.replace(MACHINE_BLOCK, "").replace(WRAPPER_TAG, "").replace(/\s+/g, " ").trim();
+  const flat = title
+    .replace(MACHINE_BLOCK, "")
+    .replace(WRAPPER_TAG, "")
+    .replace(/\s+/g, " ")
+    .trim();
   return flat === "" ? undefined : flat;
 }
 
 /** A session, whole. `rows` are the thread where it was opened and none where it was not; `reading` while Fleet has not answered a read of it. */
-export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside, reading = false): Session {
+export function sessionOfRecord(
+  record: SessionRecord,
+  rows: readonly WireRow[] | undefined,
+  beside: Beside,
+  reading = false,
+): Session {
   const hosted = record.hosted;
   const terminal = record.terminal;
   const model = hosted?.model ?? terminal?.model;
@@ -696,117 +1378,470 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const ended = record.state === "ended";
   // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and starts, and what it made, to be read.
   const attachments = attachmentsOfRecord(record, beside).filter(
-    (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact" || one.kind === "link",
+    (one) =>
+      !ended ||
+      one.kind === "forked_to" ||
+      one.kind === "forked_from" ||
+      one.kind === "started_to" ||
+      one.kind === "started_by" ||
+      one.kind === "pull_request" ||
+      one.kind === "artifact" ||
+      one.kind === "link",
   );
   // A Job handed on to a new one. The ledger kinds are `docs/practices/protocol/a-job-hands-off-to-a-new-one.md`; a failed hand off outranks a starting one that was not given back.
-  const replaces = record.attachments.find((one) => one.kind === "replaces" && one.state === "spent")?.target;
-  const replacedBy = record.attachments.find((one) => one.kind === "replaced_by" && one.state === "spent")?.target;
-  const standing = (kind: string) => record.attachments.some((one) => one.kind === kind && one.state === "standing");
+  const replaces = record.attachments.find(
+    (one) => one.kind === "replaces" && one.state === "spent",
+  )?.target;
+  const replacedBy = record.attachments.find(
+    (one) => one.kind === "replaced_by" && one.state === "spent",
+  )?.target;
+  const standing = (kind: string) =>
+    record.attachments.some((one) => one.kind === kind && one.state === "standing");
   // Fleet's bare reason for the failed row: the newest standing one, since each failure writes a row of its own.
-  const failedRows = record.attachments.filter((one) => one.kind === "handoff_failed" && one.state === "standing");
+  const failedRows = record.attachments.filter(
+    (one) => one.kind === "handoff_failed" && one.state === "standing",
+  );
   const handoffReason = ended ? undefined : failedRows[failedRows.length - 1]?.detail?.reason;
-  const handoff = ended ? undefined : standing("handoff_failed") ? ("failed" as const) : standing("handoff_starting") ? ("starting" as const) : undefined;
-  const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
+  const handoff = ended
+    ? undefined
+    : standing("handoff_failed")
+      ? ("failed" as const)
+      : standing("handoff_starting")
+        ? ("starting" as const)
+        : undefined;
+  const dead = ended
+    ? ("ended" as const)
+    : hosted === undefined && terminal?.listening !== true
+      ? ("quiet" as const)
+      : undefined;
   const title = cleanTitle(record.title);
-  const thread = rows === undefined ? [] : withChanges(rowsOfThread(record.id, rows, beside.picture, beside.repository), rows, record.id, beside.events);
+  const thread =
+    rows === undefined
+      ? []
+      : withChanges(
+          rowsOfThread(record.id, rows, beside.picture, beside.repository),
+          rows,
+          record.id,
+          beside.events,
+        );
   const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   const activity = activityOf(record.activity);
   const account = accountOf(record.activity);
-  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true });
+  const work = workOf(record, {
+    workflows: beside.workflows ?? NO_WORKFLOWS,
+    attachments,
+    rows,
+    drawn: thread,
+    unpicked: beside.unpicked ?? NO_PICKS,
+    workflowsOff: beside.workflowsOff === true,
+  });
   const flow = work?.workflow;
   const lanes =
     ended || beside.lifecycles === undefined
       ? undefined
       : lanesOfJob({
           held: beside.lifecycles,
-          ...(beside.started === undefined ? {} : { started: new Map([...beside.started].map(([id, one]) => [id, one.held] as const)), titles: issueTitles(attachments, beside.started, beside) }),
+          ...(beside.started === undefined
+            ? {}
+            : {
+                started: new Map(
+                  [
+                    ...beside.started,
+                  ].map(
+                    ([id, one]) =>
+                      [
+                        id,
+                        one.held,
+                      ] as const,
+                  ),
+                ),
+                titles: issueTitles(attachments, beside.started, beside),
+              }),
           working: hosted?.turn.state === "working",
-          ...(record.workflow_waiting_on === undefined ? {} : { waiting: record.workflow_waiting_on }),
-          ...(beside.lifecycleRules === undefined ? {} : { rules: beside.lifecycleRules }),
+          ...(record.workflow_waiting_on === undefined
+            ? {}
+            : {
+                waiting: record.workflow_waiting_on,
+              }),
+          ...(beside.lifecycleRules === undefined
+            ? {}
+            : {
+                rules: beside.lifecycleRules,
+              }),
           ...(flow === undefined
             ? {}
-            : { workflow: { name: flow.name, steps: stepsWithIds(record, beside.workflows ?? NO_WORKFLOWS), began: (flow.visits ?? []).length > 0, ...(flow.visits === undefined ? {} : { visits: flow.visits }), ...(flow.at === undefined ? {} : { at: flow.at }), ...(flow.skipped === undefined ? {} : { skipped: flow.skipped }) } }),
+            : {
+                workflow: {
+                  name: flow.name,
+                  steps: stepsWithIds(record, beside.workflows ?? NO_WORKFLOWS),
+                  began: (flow.visits ?? []).length > 0,
+                  ...(flow.visits === undefined
+                    ? {}
+                    : {
+                        visits: flow.visits,
+                      }),
+                  ...(flow.at === undefined
+                    ? {}
+                    : {
+                        at: flow.at,
+                      }),
+                  ...(flow.skipped === undefined
+                    ? {}
+                    : {
+                        skipped: flow.skipped,
+                      }),
+                },
+              }),
         });
   return {
     id: record.id,
     address: addressOf(record.id),
-    ...(title === undefined ? {} : { title }),
-    ...(record.manifest_id === undefined ? {} : { manifestId: record.manifest_id }),
-    ...(record.cwd === "" ? {} : { cwd: record.cwd }),
-    ...(hosted === undefined ? { terminal: true as const } : {}),
-    ...(record.helm === true ? { helm: true as const } : {}),
-    ...(record.mod === true ? { mod: true as const } : {}),
-    ...(record.from_job === undefined || record.from_tab === undefined ? {} : { modFor: { job: record.from_job, tab: record.from_tab } }),
-    ...(dead === undefined ? {} : { dead }),
-    ...(handoff === undefined ? {} : { handoff }),
-    ...(handoff !== "failed" || handoffReason === undefined ? {} : { handoffReason }),
-    ...(replacedBy === undefined ? {} : { replacedBy }),
-    ...(replaces === undefined ? {} : { replaces }),
-    ...(hosted?.paused === undefined || ended ? {} : { paused: true as const }),
-    ...(hosted?.start_failed === undefined || ended ? {} : { startFailed: { cause: hosted.start_failed.cause, log: hosted.start_failed.log ?? [] } }),
-    ...(record.auto_land === true && !ended ? { autoLand: true as const } : {}),
+    ...(title === undefined
+      ? {}
+      : {
+          title,
+        }),
+    ...(record.manifest_id === undefined
+      ? {}
+      : {
+          manifestId: record.manifest_id,
+        }),
+    ...(record.cwd === ""
+      ? {}
+      : {
+          cwd: record.cwd,
+        }),
+    ...(hosted === undefined
+      ? {
+          terminal: true as const,
+        }
+      : {}),
+    ...(record.helm === true
+      ? {
+          helm: true as const,
+        }
+      : {}),
+    ...(record.mod === true
+      ? {
+          mod: true as const,
+        }
+      : {}),
+    ...(record.from_job === undefined || record.from_tab === undefined
+      ? {}
+      : {
+          modFor: {
+            job: record.from_job,
+            tab: record.from_tab,
+          },
+        }),
+    ...(dead === undefined
+      ? {}
+      : {
+          dead,
+        }),
+    ...(handoff === undefined
+      ? {}
+      : {
+          handoff,
+        }),
+    ...(handoff !== "failed" || handoffReason === undefined
+      ? {}
+      : {
+          handoffReason,
+        }),
+    ...(replacedBy === undefined
+      ? {}
+      : {
+          replacedBy,
+        }),
+    ...(replaces === undefined
+      ? {}
+      : {
+          replaces,
+        }),
+    ...(hosted?.paused === undefined || ended
+      ? {}
+      : {
+          paused: true as const,
+        }),
+    ...(hosted?.start_failed === undefined || ended
+      ? {}
+      : {
+          startFailed: {
+            cause: hosted.start_failed.cause,
+            log: hosted.start_failed.log ?? [],
+          },
+        }),
+    ...(record.auto_land === true && !ended
+      ? {
+          autoLand: true as const,
+        }
+      : {}),
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
-    blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
+    blank:
+      attachments.length === 0 &&
+      title === undefined &&
+      record.last_turn_at === undefined &&
+      thread.length === 0,
     attachments,
     trail: trailOfRecord(record),
     rows: thread,
     // `[]` is also what an unread thread draws, so the difference from one with no messages is said here.
-    ...(rows === undefined ? { transcript: "unread" as const } : reading ? { transcript: "refreshing" as const } : {}),
+    ...(rows === undefined
+      ? {
+          transcript: "unread" as const,
+        }
+      : reading
+        ? {
+            transcript: "refreshing" as const,
+          }
+        : {}),
     turn:
       hosted?.turn.state === "working"
-        ? { state: "working", ...(hosted.turn.woken_by === undefined ? {} : { wokenBy: hosted.turn.woken_by }) }
-        : { state: "idle" },
-    ...(record.last_turn_at === undefined ? {} : { lastTurnAt: record.last_turn_at }),
-    ...(asked === undefined ? {} : { asked: askOf(asked) }),
-    ...(lapsed === undefined ? {} : { lapsed }),
+        ? {
+            state: "working",
+            ...(hosted.turn.woken_by === undefined
+              ? {}
+              : {
+                  wokenBy: hosted.turn.woken_by,
+                }),
+          }
+        : {
+            state: "idle",
+          },
+    ...(record.last_turn_at === undefined
+      ? {}
+      : {
+          lastTurnAt: record.last_turn_at,
+        }),
+    ...(asked === undefined
+      ? {}
+      : {
+          asked: askOf(asked),
+        }),
+    ...(lapsed === undefined
+      ? {}
+      : {
+          lapsed,
+        }),
     pendingTags: beside.pending,
-    ...(model === undefined ? {} : { model }),
-    ...(hosted?.resolved_model === undefined ? {} : { resolvedModel: hosted.resolved_model }),
-    ...(effort === undefined ? {} : { effort }),
-    ...(mode === undefined ? {} : { mode }),
-    ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
-    ...(record.mod_out_of_date === true ? { modOutOfDate: true as const } : {}),
-    ...(record.tools_missing === undefined || record.tools_missing.missing.length === 0 || ended ? {} : { toolsMissing: record.tools_missing }),
-    ...(record.held_until === undefined || ended ? {} : { limitedUntil: record.held_until }),
-    ...(record.context_breakdown === undefined ? {} : { contextBreakdown: contextBreakdownOf(record.context_breakdown) }),
-    ...(record.loadout_summary === undefined ? {} : { loadout: record.loadout_summary }),
+    ...(model === undefined
+      ? {}
+      : {
+          model,
+        }),
+    ...(hosted?.resolved_model === undefined
+      ? {}
+      : {
+          resolvedModel: hosted.resolved_model,
+        }),
+    ...(effort === undefined
+      ? {}
+      : {
+          effort,
+        }),
+    ...(mode === undefined
+      ? {}
+      : {
+          mode,
+        }),
+    ...(terminal?.commands === undefined
+      ? {}
+      : {
+          commands: terminal.commands,
+        }),
+    ...(record.mod_out_of_date === true
+      ? {
+          modOutOfDate: true as const,
+        }
+      : {}),
+    ...(record.tools_missing === undefined || record.tools_missing.missing.length === 0 || ended
+      ? {}
+      : {
+          toolsMissing: record.tools_missing,
+        }),
+    ...(record.held_until === undefined || ended
+      ? {}
+      : {
+          limitedUntil: record.held_until,
+        }),
+    ...(record.context_breakdown === undefined
+      ? {}
+      : {
+          contextBreakdown: contextBreakdownOf(record.context_breakdown),
+        }),
+    ...(record.loadout_summary === undefined
+      ? {}
+      : {
+          loadout: record.loadout_summary,
+        }),
     ...(record.usage.context_tokens === undefined || record.usage.context_window === undefined
       ? {}
-      : { context: { tokens: record.usage.context_tokens, window: record.usage.context_window } }),
-    ...(activity === undefined ? {} : { activity }),
-    ...(account === undefined ? {} : { account }),
-    ...(record.activity?.live === undefined ? {} : { live: record.activity.live }),
-    ...(ended || record.build === undefined ? {} : { build: record.build }),
-    ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
+      : {
+          context: {
+            tokens: record.usage.context_tokens,
+            window: record.usage.context_window,
+          },
+        }),
+    ...(activity === undefined
+      ? {}
+      : {
+          activity,
+        }),
+    ...(account === undefined
+      ? {}
+      : {
+          account,
+        }),
+    ...(record.activity?.live === undefined
+      ? {}
+      : {
+          live: record.activity.live,
+        }),
+    ...(ended || record.build === undefined
+      ? {}
+      : {
+          build: record.build,
+        }),
+    ...(ended || (record.waiting_for?.length ?? 0) === 0
+      ? {}
+      : {
+          waitingFor: record.waiting_for,
+        }),
     // Kept after the Job ends: Fleet marks each `ended` there, and the owner still finds what he closed.
-    ...((record.closed?.length ?? 0) === 0 ? {} : { closed: record.closed }),
-    ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since, ...(record.done_summary === undefined ? {} : { summary: record.done_summary }) } }),
-    ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
-    ...(ended || hosted?.start === undefined ? {} : { start: { asksDelivery: hosted.start.asks_delivery, ...(hosted.start.picked === undefined ? {} : { picked: hosted.start.picked }), ...(hosted.start.message === undefined ? {} : { message: hosted.start.message }), ...(hosted.start.queued === true ? { queued: true } : {}) } }),
-    ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),
-    ...(ended || (record.later?.length ?? 0) === 0 ? {} : { later: (record.later ?? []).map((one) => ({ id: one.id, text: one.sentence, at: one.said_at, ...(one.confirmed === true ? { confirmed: true } : {}) })) }),
-    ...(ended || (record.held_open_by?.length ?? 0) === 0 ? {} : { heldOpenBy: record.held_open_by }),
-    ...(record.started === undefined ? {} : { started: startedOfWire(record.started) }),
-    ...(beside.watches === undefined || beside.watches.length === 0 ? {} : { watches: beside.watches }),
+    ...((record.closed?.length ?? 0) === 0
+      ? {}
+      : {
+          closed: record.closed,
+        }),
+    ...(ended || record.done_since === undefined
+      ? {}
+      : {
+          done: {
+            since: record.done_since,
+            ...(record.done_summary === undefined
+              ? {}
+              : {
+                  summary: record.done_summary,
+                }),
+          },
+        }),
+    ...(ended || record.standing === undefined
+      ? {}
+      : {
+          standing: record.standing,
+        }),
+    ...(ended || hosted?.start === undefined
+      ? {}
+      : {
+          start: {
+            asksDelivery: hosted.start.asks_delivery,
+            ...(hosted.start.picked === undefined
+              ? {}
+              : {
+                  picked: hosted.start.picked,
+                }),
+            ...(hosted.start.message === undefined
+              ? {}
+              : {
+                  message: hosted.start.message,
+                }),
+            ...(hosted.start.queued === true
+              ? {
+                  queued: true,
+                }
+              : {}),
+          },
+        }),
+    ...(ended || record.waits === undefined
+      ? {}
+      : {
+          waits: waitOfWire(record.waits),
+        }),
+    ...(ended || (record.later?.length ?? 0) === 0
+      ? {}
+      : {
+          later: (record.later ?? []).map((one) => ({
+            id: one.id,
+            text: one.sentence,
+            at: one.said_at,
+            ...(one.confirmed === true
+              ? {
+                  confirmed: true,
+                }
+              : {}),
+          })),
+        }),
+    ...(ended || (record.held_open_by?.length ?? 0) === 0
+      ? {}
+      : {
+          heldOpenBy: record.held_open_by,
+        }),
+    ...(record.started === undefined
+      ? {}
+      : {
+          started: startedOfWire(record.started),
+        }),
+    ...(beside.watches === undefined || beside.watches.length === 0
+      ? {}
+      : {
+          watches: beside.watches,
+        }),
     // Kept after the Job ends, as its artifacts are: a reading is the Judge's answer about one of them.
-    ...((record.judge_readings?.length ?? 0) === 0 ? {} : { judgeReadings: record.judge_readings }),
-    ...(work === undefined ? {} : { work }),
-    ...(lanes === undefined ? {} : { lanes }),
+    ...((record.judge_readings?.length ?? 0) === 0
+      ? {}
+      : {
+          judgeReadings: record.judge_readings,
+        }),
+    ...(work === undefined
+      ? {}
+      : {
+          work,
+        }),
+    ...(lanes === undefined
+      ? {}
+      : {
+          lanes,
+        }),
   };
 }
 
 /** The values the person changed through a panel, which the agent was told of, as rows of the thread where they happened. */
-function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: string, events: readonly TimelineEvent[] | undefined): SessionRow[] {
-  const changes: { at: string; row: SessionRow }[] = [];
+function withChanges(
+  thread: SessionRow[],
+  rows: readonly WireRow[],
+  sessionId: string,
+  events: readonly TimelineEvent[] | undefined,
+): SessionRow[] {
+  const changes: {
+    at: string;
+    row: SessionRow;
+  }[] = [];
   for (const event of events ?? []) {
     if (event.subject.kind !== "session" || event.subject.id !== sessionId) continue;
     const change = changeOfEvent(event.kind, event.says);
-    if (change !== undefined) changes.push({ at: event.at, row: { id: `event:${event.id}`, at: event.at, kind: "change" as const, ...change } });
+    if (change !== undefined)
+      changes.push({
+        at: event.at,
+        row: {
+          id: `event:${event.id}`,
+          at: event.at,
+          kind: "change" as const,
+          ...change,
+        },
+      });
   }
   if (changes.length === 0) return thread;
   changes.sort((a, b) => a.at.localeCompare(b.at));
-  const when = new Map(rows.map((one) => [one.id, one.at]));
-  const out = [...thread];
+  const when = new Map(
+    rows.map((one) => [
+      one.id,
+      one.at,
+    ]),
+  );
+  const out = [
+    ...thread,
+  ];
   for (const change of changes) {
     const at = out.findIndex((one) => (when.get(one.id) ?? "") > change.at);
     out.splice(at < 0 ? out.length : at, 0, change.row);
@@ -823,9 +1858,21 @@ export function activityOf(wire: WireActivity | undefined): SessionActivity | un
   const todos = wire.todos ?? [];
   if (wire.now === undefined && todos.length === 0 && wire.said === undefined) return undefined;
   return {
-    ...(wire.now === undefined ? {} : { now: wire.now }),
-    ...(todos.length === 0 ? {} : { todos }),
-    ...(wire.said === undefined ? {} : { said: wire.said }),
+    ...(wire.now === undefined
+      ? {}
+      : {
+          now: wire.now,
+        }),
+    ...(todos.length === 0
+      ? {}
+      : {
+          todos,
+        }),
+    ...(wire.said === undefined
+      ? {}
+      : {
+          said: wire.said,
+        }),
   };
 }
 
@@ -836,9 +1883,21 @@ function accountOf(wire: WireActivity | undefined): Session["account"] {
   return {
     for: account.for,
     done: account.done ?? [],
-    ...(account.now === undefined ? {} : { now: account.now }),
-    ...(account.next === undefined ? {} : { next: account.next }),
-    ...(account.group === undefined ? {} : { group: account.group }),
+    ...(account.now === undefined
+      ? {}
+      : {
+          now: account.now,
+        }),
+    ...(account.next === undefined
+      ? {}
+      : {
+          next: account.next,
+        }),
+    ...(account.group === undefined
+      ? {}
+      : {
+          group: account.group,
+        }),
     at: account.at,
   };
 }
@@ -851,7 +1910,11 @@ function contextBreakdownOf(wire: WireContextBreakdown): ContextBreakdown {
     mcpTools: wire.mcp_tools,
     totalTokens: wire.total_tokens,
     maxTokens: wire.max_tokens,
-    ...(wire.autocompact_threshold === undefined ? {} : { autocompactThreshold: wire.autocompact_threshold }),
+    ...(wire.autocompact_threshold === undefined
+      ? {}
+      : {
+          autocompactThreshold: wire.autocompact_threshold,
+        }),
   };
 }
 
@@ -877,9 +1940,16 @@ export function sessionsOfRecords(
     const read = reading.includes(one.id);
     const build = (): Session => {
       const session = sessionOfRecord(one, threads[one.id], beside(one.id), read);
-      return old ? { ...session, older: true as const } : session;
+      return old
+        ? {
+            ...session,
+            older: true as const,
+          }
+        : session;
     };
-    return memo === undefined ? build() : memo.of(one, threads[one.id], beside(one.id), old, build, read);
+    return memo === undefined
+      ? build()
+      : memo.of(one, threads[one.id], beside(one.id), old, build, read);
   });
 }
 
@@ -890,13 +1960,45 @@ export function sessionsOfRecords(
  * can with the last build, so a row that did not change is the same object it was.
  */
 export class SessionMemo {
-  private readonly held = new Map<string, { record: SessionRecord; rows: readonly WireRow[] | undefined; beside: Beside; old: boolean; reading: boolean; session: Session }>();
+  private readonly held = new Map<
+    string,
+    {
+      record: SessionRecord;
+      rows: readonly WireRow[] | undefined;
+      beside: Beside;
+      old: boolean;
+      reading: boolean;
+      session: Session;
+    }
+  >();
 
-  of(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside, old: boolean, build: () => Session, reading = false): Session {
+  of(
+    record: SessionRecord,
+    rows: readonly WireRow[] | undefined,
+    beside: Beside,
+    old: boolean,
+    build: () => Session,
+    reading = false,
+  ): Session {
     const last = this.held.get(record.id);
-    if (last !== undefined && last.record === record && last.rows === rows && last.old === old && last.reading === reading && sameBeside(last.beside, beside)) return last.session;
+    if (
+      last !== undefined &&
+      last.record === record &&
+      last.rows === rows &&
+      last.old === old &&
+      last.reading === reading &&
+      sameBeside(last.beside, beside)
+    )
+      return last.session;
     const session = share(last?.session, build());
-    this.held.set(record.id, { record, rows, beside, old, reading, session });
+    this.held.set(record.id, {
+      record,
+      rows,
+      beside,
+      old,
+      reading,
+      session,
+    });
     return session;
   }
 
@@ -907,7 +2009,26 @@ export class SessionMemo {
 }
 
 /** Whether two readings of what the started Jobs hold are the same Jobs read the same times: `beside` builds a map each time, and a Job is drawn again only when one of these changed. */
-const sameStarted = (a: Beside["started"], b: Beside["started"]): boolean => a === b || (a !== undefined && b !== undefined && a.size === b.size && [...a].every(([id, one]) => b.get(id)?.held === one.held && b.get(id)?.record === one.record));
+const sameStarted = (a: Beside["started"], b: Beside["started"]): boolean =>
+  a === b ||
+  (a !== undefined &&
+    b !== undefined &&
+    a.size === b.size &&
+    [
+      ...a,
+    ].every(([id, one]) => b.get(id)?.held === one.held && b.get(id)?.record === one.record));
 
 const sameBeside = (a: Beside, b: Beside): boolean =>
-  a.picture === b.picture && a.sketches === b.sketches && a.pending === b.pending && a.repository === b.repository && a.epoch === b.epoch && a.workflows === b.workflows && a.events === b.events && a.watches === b.watches && a.lifecycles === b.lifecycles && sameStarted(a.started, b.started) && a.lifecycleRules === b.lifecycleRules && a.unpicked === b.unpicked && a.workflowsOff === b.workflowsOff;
+  a.picture === b.picture &&
+  a.sketches === b.sketches &&
+  a.pending === b.pending &&
+  a.repository === b.repository &&
+  a.epoch === b.epoch &&
+  a.workflows === b.workflows &&
+  a.events === b.events &&
+  a.watches === b.watches &&
+  a.lifecycles === b.lifecycles &&
+  sameStarted(a.started, b.started) &&
+  a.lifecycleRules === b.lifecycleRules &&
+  a.unpicked === b.unpicked &&
+  a.workflowsOff === b.workflowsOff;

@@ -32,20 +32,28 @@ export function switchDeepLinks(links: DeepLinks): void {
 }
 
 /** Publish a list, and follow the settings main itself acts on. */
-export function publishSettings(list: SettingsList, publish: (change: { settings: SettingsList }) => void): void {
+export function publishSettings(
+  list: SettingsList,
+  publish: (change: { settings: SettingsList }) => void,
+): void {
   const command = settingOf(list, "timeouts.commandSeconds");
   if (typeof command === "number") followCommandSeconds(command);
   const reconnect = settingOf(list, "timeouts.bridgeReconnectMs");
   if (typeof reconnect === "number") followReconnectMs(reconnect);
   deepLinks?.follow(settingOf(list, "features.deepLinks") !== false);
-  publish({ settings: list });
+  publish({
+    settings: list,
+  });
 }
 
 /**
  * Every setting, once per connection. **A failed read publishes nothing**, `readPreferences`'
  * reason: a list that drew as the shipped defaults on a glitch would hide a person's own values.
  */
-export async function readSettings(port: number, publish: (change: { settings: SettingsList }) => void): Promise<void> {
+export async function readSettings(
+  port: number,
+  publish: (change: { settings: SettingsList }) => void,
+): Promise<void> {
   const answer = await ask(port, "GET", "/settings");
   if (answer.ok === true) publishSettings(answer.body as SettingsList, publish);
 }
@@ -61,16 +69,28 @@ export class Settling {
 
   /** Change settings by key; `null` removes one. Fleet answers every setting, which is published. */
   async save(changes: SaveSettings["changes"]): Promise<Outcome> {
-    if (this.saving) return { ok: false, why: "already_setting" };
+    if (this.saving)
+      return {
+        ok: false,
+        why: "already_setting",
+      };
     const port = this.board.port();
-    if (port === null) return { ok: false, why: "not_connected" };
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
     this.saving = true;
     try {
-      const body: SaveSettings = { changes };
+      const body: SaveSettings = {
+        changes,
+      };
       const answer = await ask(port, "POST", "/settings/save", body);
       if (answer.ok !== true) return answer.outcome;
       publishSettings(answer.body as SettingsList, this.board.publish);
-      return { ok: true };
+      return {
+        ok: true,
+      };
     } finally {
       this.saving = false;
     }

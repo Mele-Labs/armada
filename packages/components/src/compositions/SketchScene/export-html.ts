@@ -8,10 +8,20 @@
 import { tokenDeclarations, xml, type StepPlan } from "./export-svg";
 
 /** The words the page's controls carry: the canvas rail's own, so the two read the same. */
-export const PLAYER_WORDS = { play: "Play the steps", stop: "Stop the steps", next: "Next step", restart: "Restart the steps", steps: "Steps" } as const;
+export const PLAYER_WORDS = {
+  play: "Play the steps",
+  stop: "Stop the steps",
+  next: "Next step",
+  restart: "Restart the steps",
+  steps: "Steps",
+} as const;
 
 /** What the player reads out of the page. */
-export type PlayerData = { pulse: number; steps: StepPlan; words: typeof PLAYER_WORDS };
+export type PlayerData = {
+  pulse: number;
+  steps: StepPlan;
+  words: typeof PLAYER_WORDS;
+};
 
 const PAGE_CSS = `
 * { box-sizing: border-box; }
@@ -104,7 +114,8 @@ const PLAYER = `
 `;
 
 /** JSON that is safe to sit inside a `<script>`: nothing in it can close the tag or open a comment. */
-const inertJson = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+const inertJson = (value: unknown) =>
+  JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
 
 export type SketchHtmlInput = {
   /** From `sketchSvg` with `standalone: false`, so it holds no namespace address. */
@@ -117,7 +128,11 @@ export type SketchHtmlInput = {
 };
 
 export function sketchHtml({ svg, title, tokens, steps, pulse }: SketchHtmlInput): string {
-  const data: PlayerData = { pulse, steps, words: PLAYER_WORDS };
+  const data: PlayerData = {
+    pulse,
+    steps,
+    words: PLAYER_WORDS,
+  };
   const controls =
     steps.length === 0
       ? ""
@@ -129,7 +144,10 @@ export function sketchHtml({ svg, title, tokens, steps, pulse }: SketchHtmlInput
     `<meta charset="utf-8">`,
     `<meta name="viewport" content="width=device-width, initial-scale=1">`,
     `<title>${xml(title)}</title>`,
-    `<style>:root { ${tokenDeclarations({ ...tokens, "--duration-pulse": `${String(pulse)}ms` })} }${PAGE_CSS}</style>`,
+    `<style>:root { ${tokenDeclarations({
+      ...tokens,
+      "--duration-pulse": `${String(pulse)}ms`,
+    })} }${PAGE_CSS}</style>`,
     `</head>`,
     `<body>`,
     `<header class="page-bar"><h1>${xml(title)}</h1>${controls}</header>`,

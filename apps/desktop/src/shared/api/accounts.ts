@@ -2,10 +2,28 @@
 // profile's shared home: Kit's rows against it, the acts that settle a row, and What syncs.
 // A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { Accounts, HomeKind, HomeKinds, HomeRowAt, HomeSide, HomeSynced, Outcome, SharedHomeRead, SignedOut } from "@armada/protocol";
+import type {
+  Accounts,
+  HomeKind,
+  HomeKinds,
+  HomeRowAt,
+  HomeSide,
+  HomeSynced,
+  Outcome,
+  SharedHomeRead,
+  SignedOut,
+} from "@armada/protocol";
 
 /** What an account act came to: the thing Fleet answered with, or the refusal to word. */
-export type AccountsActed<T = Accounts> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+export type AccountsActed<T = Accounts> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type AccountsApi = {
   /** The profiles and the sign-in in flight. Read again while a flow is not idle: Fleet pushes no event for it. */
@@ -32,7 +50,11 @@ export type AccountsApi = {
   /** Switch one item on its own, whatever its kind's switch says. */
   setHomeItem: (row: HomeRowAt, on: boolean) => Promise<AccountsActed<HomeKinds>>;
   /** Where `login`'s shared home is made: the owner (the login or one of its organisations) and the repository name. Answers with the home read again. */
-  setHomeRepository: (login: string, owner: string, name: string) => Promise<AccountsActed<SharedHomeRead>>;
+  setHomeRepository: (
+    login: string,
+    owner: string,
+    name: string,
+  ) => Promise<AccountsActed<SharedHomeRead>>;
 };
 
 export const ACCOUNTS_CHANNELS = {

@@ -3,10 +3,17 @@ import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownM
 import { SplitButton } from "../../primitives/SplitButton/SplitButton";
 import { COPY_DEBUG_INFO } from "../../errors/ErrorNotice/payload";
 import { SessionComposer } from "../SessionComposer/SessionComposer";
-import type { ComposerNumbered, ComposerTag, SentFromComposer } from "../SessionComposer/SessionComposer";
+import type {
+  ComposerNumbered,
+  ComposerTag,
+  SentFromComposer,
+} from "../SessionComposer/SessionComposer";
 
 /** One repository the switch may point Helm at — id is the Manifest id. */
-export type HelmRepositoryOption = { id: string; label: string };
+export type HelmRepositoryOption = {
+  id: string;
+  label: string;
+};
 
 /** A recent row's id prefix: a repository listed twice must not repeat an id, and the prefix says which row. */
 const RECENT = "recent:";
@@ -28,9 +35,16 @@ function switchEntries(
     ...(led.length === 0
       ? []
       : [
-          { kind: "label", id: "recent", label: "Recent" } as const,
+          {
+            kind: "label",
+            id: "recent",
+            label: "Recent",
+          } as const,
           ...led.map((one) => row(one, `${RECENT}${one.id}`)),
-          { kind: "separator", id: "recent-rule" } as const,
+          {
+            kind: "separator",
+            id: "recent-rule",
+          } as const,
         ]),
     ...repositories.map((one) => row(one)),
   ];
@@ -48,7 +62,10 @@ export type HelmBox = {
   efforts: readonly string[];
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
   /** What `/` offers. */
-  commands: readonly { name: string; says: string }[];
+  commands: readonly {
+    name: string;
+    says: string;
+  }[];
   /** What `@` offers: other Sessions, then Jobs. */
   taggable: readonly ComposerTag[];
   /** The files `@` offers under them once something follows it. Absent, it offers none. */
@@ -56,7 +73,10 @@ export type HelmBox = {
   /** What `#` offers for the repository Helm answers for. */
   numbered: ComposerNumbered;
   /** Sketches drawn for this message and waiting to go. */
-  drawn: readonly { id: string; title: string }[];
+  drawn: readonly {
+    id: string;
+    title: string;
+  }[];
   onDraw: () => void;
   onRemoveDrawn: (id: string) => void;
 };
@@ -120,8 +140,14 @@ export type HelmComposerProps = {
 
 const NO_TAGS: readonly ComposerTag[] = [];
 const NO_NAMES: readonly string[] = [];
-const NO_COMMANDS: readonly { name: string; says: string }[] = [];
-const NO_DRAWN: readonly { id: string; title: string }[] = [];
+const NO_COMMANDS: readonly {
+  name: string;
+  says: string;
+}[] = [];
+const NO_DRAWN: readonly {
+  id: string;
+  title: string;
+}[] = [];
 const NOTHING_TO_DO = (): void => undefined;
 
 export function HelmComposer({
@@ -170,15 +196,23 @@ export function HelmComposer({
             // repository* is a lie while it is pointed at none, and since this
             // change that is the switch's commonest moment — every unpointed
             // dock with anything set up draws it, one repository included.
-            triggerAriaLabel={current === undefined ? "Point Helm at a repository" : "Point Helm at a different repository"}
+            triggerAriaLabel={
+              current === undefined
+                ? "Point Helm at a repository"
+                : "Point Helm at a different repository"
+            }
             // Pointed at nothing it stands at an entry of its own, the same words the repository
             // asks elsewhere draw (`AskRepository`), and never at whichever repository is listed
             // first: the switch disagreeing with the chip beside it was the defect a native
             // `<select>` had, since a value matching no `<option>` displays the first one.
-            triggerLabel={repositories.find((one) => one.id === current)?.label ?? "Choose a repository"}
+            triggerLabel={
+              repositories.find((one) => one.id === current)?.label ?? "Choose a repository"
+            }
             searchLabel="Find a repository"
             entries={switchEntries(repositories, recent, current)}
-            onSelect={(picked) => onSwitch(picked.startsWith(RECENT) ? picked.slice(RECENT.length) : picked)}
+            onSelect={(picked) =>
+              onSwitch(picked.startsWith(RECENT) ? picked.slice(RECENT.length) : picked)
+            }
           />
         )}
         {/* The record's two acts as one control — the owner's note of
@@ -198,7 +232,12 @@ export function HelmComposer({
             variant="secondary"
             ground="card"
             size="sm"
-            items={[{ label: "Details", onSelect: onOpenRecord }]}
+            items={[
+              {
+                label: "Details",
+                onSelect: onOpenRecord,
+              },
+            ]}
             menuLabel="More ways to report this answer"
             onAction={onCopyRecord}
           >
@@ -234,8 +273,16 @@ export function HelmComposer({
         onTune={box.onTune ?? NOTHING_TO_DO}
         commands={box.commands ?? NO_COMMANDS}
         taggable={box.taggable ?? NO_TAGS}
-        {...(box.searchFiles === undefined ? {} : { searchFiles: box.searchFiles })}
-        {...(box.numbered === undefined ? {} : { numbered: box.numbered })}
+        {...(box.searchFiles === undefined
+          ? {}
+          : {
+              searchFiles: box.searchFiles,
+            })}
+        {...(box.numbered === undefined
+          ? {}
+          : {
+              numbered: box.numbered,
+            })}
         tags={NO_TAGS}
         onTags={NOTHING_TO_DO}
         drawn={box.drawn ?? NO_DRAWN}

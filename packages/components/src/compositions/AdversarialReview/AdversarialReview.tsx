@@ -31,13 +31,54 @@ function Mark({ said, children }: { said: string; children: ReactNode }) {
 }
 
 /** One finding: the claim, then its two acts in the card's footer. Focusable; its keys are the registry's (`useFindingKeys`). */
-export function FindingRow({ finding, onSend, onDismiss }: { finding: Finding; onSend: () => void; onDismiss: () => void }) {
+export function FindingRow({
+  finding,
+  onSend,
+  onDismiss,
+}: {
+  finding: Finding;
+  onSend: () => void;
+  onDismiss: () => void;
+}) {
   useKeyBindings();
   return (
-    <li onClick={(event) => event.stopPropagation()} className="armada-adversarial__finding" role="group" aria-label={`Finding: ${finding.consequence}`} tabIndex={0} data-finding={finding.id}>
+    <li
+      onClick={(event) => event.stopPropagation()}
+      className="armada-adversarial__finding"
+      role="group"
+      aria-label={`Finding: ${finding.consequence}`}
+      tabIndex={0}
+      data-finding={finding.id}
+    >
       <div className="armada-adversarial__claim">
         <h4 className="armada-adversarial__heading">You should know</h4>
-        <ConcernClaim concern={{ text: finding.consequence, consequence: finding.consequence, ...(finding.expected === undefined ? {} : { expected: finding.expected }), ...(finding.found === undefined ? {} : { produced: finding.found }), ...(finding.impact === undefined ? {} : { impact: finding.impact }), ...(finding.cites === undefined ? {} : { cites: finding.cites, citesLabel: "Where" }) }} />
+        <ConcernClaim
+          concern={{
+            text: finding.consequence,
+            consequence: finding.consequence,
+            ...(finding.expected === undefined
+              ? {}
+              : {
+                  expected: finding.expected,
+                }),
+            ...(finding.found === undefined
+              ? {}
+              : {
+                  produced: finding.found,
+                }),
+            ...(finding.impact === undefined
+              ? {}
+              : {
+                  impact: finding.impact,
+                }),
+            ...(finding.cites === undefined
+              ? {}
+              : {
+                  cites: finding.cites,
+                  citesLabel: "Where",
+                }),
+          }}
+        />
       </div>
       <div className="armada-adversarial__acts" role="group" aria-label="Answers">
         <Tooltip label="Goes to the Job as your message" shortcut={keyFor("judge_note_send")}>
@@ -60,8 +101,19 @@ export function SettledRow({ finding }: { finding: Finding }) {
   const sent = finding.settled === "sent";
   const said = sent ? "Sent" : "Dismissed";
   return (
-    <li onClick={(event) => event.stopPropagation()} className="armada-adversarial__settled" role="group" aria-label={`Finding ${said.toLowerCase()}: ${finding.consequence}`}>
-      <Mark said={said}>{sent ? <ArrowRight size={12} strokeWidth={2} aria-hidden /> : <Ban size={12} strokeWidth={2} aria-hidden />}</Mark>
+    <li
+      onClick={(event) => event.stopPropagation()}
+      className="armada-adversarial__settled"
+      role="group"
+      aria-label={`Finding ${said.toLowerCase()}: ${finding.consequence}`}
+    >
+      <Mark said={said}>
+        {sent ? (
+          <ArrowRight size={12} strokeWidth={2} aria-hidden />
+        ) : (
+          <Ban size={12} strokeWidth={2} aria-hidden />
+        )}
+      </Mark>
       <span className="armada-adversarial__settled-text">{finding.consequence}</span>
     </li>
   );

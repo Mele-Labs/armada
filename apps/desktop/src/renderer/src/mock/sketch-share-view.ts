@@ -49,7 +49,11 @@ function show(label: string, fill: Fill): void {
 const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
 
 /** A file as it opens for the person it is sent to. */
-export function showSaved(file: { kind: "html" | "png" | "svg"; name: string; bytes: Uint8Array }): void {
+export function showSaved(file: {
+  kind: "html" | "png" | "svg";
+  name: string;
+  bytes: Uint8Array;
+}): void {
   show(`What they see when they open ${file.name}`, (panel) => {
     if (file.kind === "html") {
       const page = document.createElement("iframe");
@@ -63,7 +67,16 @@ export function showSaved(file: { kind: "html" | "png" | "svg"; name: string; by
     }
     const picture = document.createElement("img");
     picture.alt = file.name;
-    picture.src = URL.createObjectURL(new Blob([file.bytes as BlobPart], { type: file.kind === "png" ? "image/png" : "image/svg+xml" }));
+    picture.src = URL.createObjectURL(
+      new Blob(
+        [
+          file.bytes as BlobPart,
+        ],
+        {
+          type: file.kind === "png" ? "image/png" : "image/svg+xml",
+        },
+      ),
+    );
     picture.style.maxInlineSize = "100%";
     picture.style.objectFit = "contain";
     panel.append(picture);
@@ -87,6 +100,8 @@ function showCopied(text: string): void {
 export function useWalkClipboard(): void {
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
-    value: { writeText: async (text: string) => showCopied(text) },
+    value: {
+      writeText: async (text: string) => showCopied(text),
+    },
   });
 }

@@ -5,11 +5,21 @@
 // be drawn; the stylesheet itself is asked for at the moment it is applied, so what is injected is
 // what Fleet just checked.
 
-import type { ModChecked, ModList, ModPromoted, ModSummary, Outcome, TrackerTry } from "@armada/protocol";
+import type {
+  ModChecked,
+  ModList,
+  ModPromoted,
+  ModSummary,
+  Outcome,
+  TrackerTry,
+} from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import { ask } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 export class Modding {
   private readonly publish: (change: Partial<BridgeState>) => void;
@@ -29,8 +39,12 @@ export class Modding {
 
   /** The list as `mods.changed` carries it, which replaces what is held. */
   listed(list: ModList): void {
-    this.held = { mods: list.mods };
-    this.publish({ mods: this.held });
+    this.held = {
+      mods: list.mods,
+    };
+    this.publish({
+      mods: this.held,
+    });
   }
 
   /** Fleet's check of one mod. `null` where Fleet cannot be asked or knows no such mod. */
@@ -45,32 +59,49 @@ export class Modding {
   async setEnabled(name: string, enabled: boolean): Promise<Outcome> {
     const port = this.port();
     if (port === null) return NOT_CONNECTED;
-    const answer = await ask(port, "POST", "/mods/enable", { name, enabled });
+    const answer = await ask(port, "POST", "/mods/enable", {
+      name,
+      enabled,
+    });
     if (answer.ok !== true) return answer.outcome;
     this.replaced(answer.body as ModSummary);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /** Put a valid mod on a new branch of the first repository Fleet serves. */
   async promote(name: string): Promise<Outcome> {
     const port = this.port();
     if (port === null) return NOT_CONNECTED;
-    const answer = await ask(port, "POST", "/mods/promote", { name });
+    const answer = await ask(port, "POST", "/mods/promote", {
+      name,
+    });
     if (answer.ok !== true) return answer.outcome;
-    return { ok: true, modPromoted: answer.body as ModPromoted };
+    return {
+      ok: true,
+      modPromoted: answer.body as ModPromoted,
+    };
   }
 
   /** Run a tracker mod's try against the first repository Fleet serves. A try that fails is an answer, so it comes back `ok`; Fleet's `mods.changed` follows. */
   async tryTracker(name: string): Promise<Outcome> {
     const port = this.port();
     if (port === null) return NOT_CONNECTED;
-    const answer = await ask(port, "POST", "/mods/try", { name });
+    const answer = await ask(port, "POST", "/mods/try", {
+      name,
+    });
     if (answer.ok !== true) return answer.outcome;
-    return { ok: true, trackerTried: answer.body as TrackerTry };
+    return {
+      ok: true,
+      trackerTried: answer.body as TrackerTry,
+    };
   }
 
   private replaced(row: ModSummary): void {
     if (this.held === null) return;
-    this.listed({ mods: this.held.mods.map((one) => (one.name === row.name ? row : one)) });
+    this.listed({
+      mods: this.held.mods.map((one) => (one.name === row.name ? row : one)),
+    });
   }
 }

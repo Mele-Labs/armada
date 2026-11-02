@@ -9,7 +9,13 @@ export default meta;
 
 type Story = StoryObj<typeof SelectMark>;
 
-const row = { display: "flex", gap: "var(--space-3)", padding: "var(--space-3)", borderRadius: "var(--radius-md)", background: "var(--bg-raised)" } as const;
+const row = {
+  display: "flex",
+  gap: "var(--space-3)",
+  padding: "var(--space-3)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--bg-raised)",
+} as const;
 
 /** Four corners in `--fg-subtle`; selected, they turn the accent and close on a lit core. */
 export const Default: Story = {

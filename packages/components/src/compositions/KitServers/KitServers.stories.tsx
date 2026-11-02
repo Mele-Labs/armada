@@ -8,12 +8,19 @@ const meta: Meta<typeof KitServerAddForm> = {
   component: KitServerAddForm,
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+        }}
+      >
         <Story />
       </div>
     ),
   ],
-  args: { onAdd: fn() },
+  args: {
+    onAdd: fn(),
+  },
 };
 export default meta;
 
@@ -27,7 +34,15 @@ export const AddingAProgram: Story = {
     const form = within(canvasElement);
     await userEvent.type(form.getByLabelText("Name"), "tracker");
     await userEvent.type(form.getByLabelText("Program"), "npx -y @scope/server");
-    await userEvent.click(form.getByRole("button", { name: "Add" }));
-    await expect(args.onAdd).toHaveBeenCalledWith({ name: "tracker", kind: "stdio", address: "npx -y @scope/server" });
+    await userEvent.click(
+      form.getByRole("button", {
+        name: "Add",
+      }),
+    );
+    await expect(args.onAdd).toHaveBeenCalledWith({
+      name: "tracker",
+      kind: "stdio",
+      address: "npx -y @scope/server",
+    });
   },
 };

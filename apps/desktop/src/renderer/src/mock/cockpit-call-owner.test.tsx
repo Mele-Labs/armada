@@ -9,9 +9,16 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs", exact: true });
+const list = () =>
+  page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
 /** The rows that call him: pulsing, and the titles they carry. */
-const hails = () => [...document.querySelectorAll<HTMLElement>(".deck-row[data-calling]")].map((one) => one.getAttribute("aria-label") ?? "");
+const hails = () =>
+  [
+    ...document.querySelectorAll<HTMLElement>(".deck-row[data-calling]"),
+  ].map((one) => one.getAttribute("aria-label") ?? "");
 /** The call card on the stage. A Session's own pane draws a strip for its call, which is not it. */
 const card = () => document.querySelector('.deck-stage > section.deck-pane[aria-label^="Call: "]');
 
@@ -26,8 +33,19 @@ test("a calling row opens its Session on the stage, not the card", async () => {
   await deck();
   // The Session asked twice, and is one calling row.
   expect(hails().filter((one) => one === "Session / Job Progress").length).toBe(1);
-  await list().getByRole("button", { name: "Session / Job Progress", exact: true }).click();
-  await expect.element(page.getByRole("region", { name: "Job: Session / Job Progress" })).toBeVisible();
+  await list()
+    .getByRole("button", {
+      name: "Session / Job Progress",
+      exact: true,
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Job: Session / Job Progress",
+      }),
+    )
+    .toBeVisible();
   expect(card()).toBeNull();
   // Open, its calls are cards in its thread and its row is quiet.
   expect(hails()).not.toContain("Session / Job Progress");
@@ -38,7 +56,13 @@ test("a call whose Session the deck does not list opens the Session's page, not 
   // It has no row, so the key that brings the next call forward reaches it: the newest call is Helm's.
   await userEvent.keyboard("w");
   // Helm's Session is the dock, which is where a link to it goes.
-  await expect.element(page.getByRole("complementary", { name: "Helm" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("complementary", {
+        name: "Helm",
+      }),
+    )
+    .toBeVisible();
   expect(card()).toBeNull();
 });
 
@@ -49,6 +73,12 @@ test("a call about nothing opens the card", async () => {
   // The first key turns Sleep off, and the decisions arrive as calls; the next brings one forward.
   await userEvent.keyboard("w");
   await userEvent.keyboard("w");
-  await expect.element(page.getByRole("region", { name: /^Call: / })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: /^Call: /,
+      }),
+    )
+    .toBeVisible();
   expect(card()).not.toBeNull();
 });

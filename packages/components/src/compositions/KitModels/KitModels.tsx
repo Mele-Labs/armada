@@ -43,22 +43,66 @@ export type KitModelSlot = keyof KitModelChoices;
 /** Fleet's first effort: passing none, the harness picking. */
 const HARNESS_DEFAULT = "harness default";
 
-export type KitModelsRead = { read: "read"; models: KitModel[]; choices: KitModelChoices } | { read: "not_read"; why: string };
+export type KitModelsRead =
+  | {
+      read: "read";
+      models: KitModel[];
+      choices: KitModelChoices;
+    }
+  | {
+      read: "not_read";
+      why: string;
+    };
 
 /** A model's version as a fact: `opus-5-5` is `5.5`. */
-export const versionOf = (resolved: string): string => /((?:-\d+)+)$/.exec(resolved)?.[1]?.slice(1).replace(/-/g, ".") ?? "";
+export const versionOf = (resolved: string): string =>
+  /((?:-\d+)+)$/.exec(resolved)?.[1]?.slice(1).replace(/-/g, ".") ?? "";
 
 /** One block per run: its model, then its effort, either left out where the run has none. */
-const RUNS: readonly { label: string; model?: KitModelSlot; effort?: KitModelSlot }[] = [
-  { label: "Jobs", model: "jobs" },
-  { label: "Drones", model: "drones", effort: "effort" },
-  { label: "Reviews", model: "reviews" },
-  { label: "Judge", model: "judge", effort: "judgeEffort" },
-  { label: "Proposer", model: "proposer", effort: "proposerEffort" },
-  { label: "Retro", model: "retro" },
-  { label: "Second opinion", model: "secondOpinion" },
-  { label: "Step down to", model: "downshift" },
-  { label: "Helm", effort: "helmEffort" },
+const RUNS: readonly {
+  label: string;
+  model?: KitModelSlot;
+  effort?: KitModelSlot;
+}[] = [
+  {
+    label: "Jobs",
+    model: "jobs",
+  },
+  {
+    label: "Drones",
+    model: "drones",
+    effort: "effort",
+  },
+  {
+    label: "Reviews",
+    model: "reviews",
+  },
+  {
+    label: "Judge",
+    model: "judge",
+    effort: "judgeEffort",
+  },
+  {
+    label: "Proposer",
+    model: "proposer",
+    effort: "proposerEffort",
+  },
+  {
+    label: "Retro",
+    model: "retro",
+  },
+  {
+    label: "Second opinion",
+    model: "secondOpinion",
+  },
+  {
+    label: "Step down to",
+    model: "downshift",
+  },
+  {
+    label: "Helm",
+    effort: "helmEffort",
+  },
 ];
 
 export type KitModelsProps = {
@@ -82,13 +126,25 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
     ...new Set([
       HARNESS_DEFAULT,
       ...on.flatMap((one) => one.effort_levels),
-      ...(read === undefined ? [] : RUNS.flatMap((one) => (one.effort === undefined ? [] : [read.choices[one.effort]]))),
+      ...(read === undefined
+        ? []
+        : RUNS.flatMap((one) =>
+            one.effort === undefined
+              ? []
+              : [
+                  read.choices[one.effort],
+                ],
+          )),
     ]),
   ];
 
   return (
     <div className="armada-kit-browser">
-      <section className="armada-kit-browser__list armada-kit-models__list" aria-label="Models" data-col="list">
+      <section
+        className="armada-kit-browser__list armada-kit-models__list"
+        aria-label="Models"
+        data-col="list"
+      >
         <Input
           type="search"
           aria-label="Filter Models"
@@ -130,7 +186,12 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
                   </button>
                   <Tooltip beside label="Jobs may use it">
                     <span className="armada-kit-models__switch">
-                      <Switch aria-label={`${one.display} may be used`} checked={one.on} disabled={one.on && on.length === 1} onChange={(event) => onOn(one.name, event.target.checked)}>
+                      <Switch
+                        aria-label={`${one.display} may be used`}
+                        checked={one.on}
+                        disabled={one.on && on.length === 1}
+                        onChange={(event) => onOn(one.name, event.target.checked)}
+                      >
                         {""}
                       </Switch>
                     </span>
@@ -147,7 +208,11 @@ export function KitModels({ models, keep, picked, onPick, onOn, onChoose }: KitM
               <div key={label} className="armada-kit-models__run" role="group" aria-label={label}>
                 <span className="armada-kit-models__run-name">{label}</span>
                 {model === undefined ? null : (
-                  <Select aria-label={label} value={read.choices[model]} onChange={(event) => onChoose(model, event.target.value)}>
+                  <Select
+                    aria-label={label}
+                    value={read.choices[model]}
+                    onChange={(event) => onChoose(model, event.target.value)}
+                  >
                     {on.map((one) => (
                       <option key={one.name} value={one.name}>
                         {one.display}

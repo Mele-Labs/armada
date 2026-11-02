@@ -23,42 +23,141 @@ const noticing = "crates/fleet/src/noticing.rs";
 const generated = "crates/fleet/src/generated/schema.rs";
 
 const steps: readonly Step[] = [
-  { look: inside(queue, role("img", `Checkout ${safe}`)), say: "An amber mark on main: the checkout is 880 commits behind main" },
-  { press: light(safe), say: "A press pins main's card" },
-  { look: section(safe), say: "Under main's state, your checkout" },
-  { look: inside(section(safe), text("armada.yml")), say: "One file is uncommitted, and main never changed it" },
-  { press: inside(section(safe), button("armada.yml")), say: "A press on the file opens its change under it" },
-  { look: inside(section(safe), text("+  auto_merge: checks-pass")), say: "One line was added" },
-  { press: inside(section(safe), button("armada.yml")), say: "A second press folds it" },
-  { look: inside(section(safe), text("pull --ff-only --autostash")), say: "A pull that keeps the file is safe" },
-  { look: inside(section(safe), button("Copy")), say: "Copy puts it on the clipboard" },
-  { hover: inside(section(safe), button("Pull request")), say: "Pull request sits beside the command" },
-  { press: inside(section(safe), button("Pull request")), say: "A press sends the file up as a pull request" },
-  { look: inside(section(safe), text("#2402")), say: "The pull request replaces the command, and the file stays listed" },
-  { look: inside(section(safe), role("img", "Auto-merge on")), say: "Auto-merge is on" },
-  { later: places, say: "Fleet reads the hold again, with no pull request" },
-  { press: inside(section(safe), button("Run")), say: "Run plays it and exits 0" },
-  { later: places, say: "Fleet has the checkout level" },
-  { look: inside(queue, role("img", "Main is green")), say: "The mark is gone, and a green main has no card" },
-  { later: places, say: "Main moves on and the checkout is held again" },
-  { press: light(clashing), say: "A press pins the card: two files are uncommitted" },
-  { hover: inside(section(clashing), role("img", "Also changed on main")), say: "A warning marks the file main also changed" },
-  { look: section(clashing), say: "There is no command, because the pull could stop on a conflict" },
-  { later: places, say: "On main, with 2 commits main lacks" },
-  { look: inside(section(diverged), text("2 commits not on main")), say: "The history diverged, so there is no command" },
+  {
+    look: inside(queue, role("img", `Checkout ${safe}`)),
+    say: "An amber mark on main: the checkout is 880 commits behind main",
+  },
+  {
+    press: light(safe),
+    say: "A press pins main's card",
+  },
+  {
+    look: section(safe),
+    say: "Under main's state, your checkout",
+  },
+  {
+    look: inside(section(safe), text("armada.yml")),
+    say: "One file is uncommitted, and main never changed it",
+  },
+  {
+    press: inside(section(safe), button("armada.yml")),
+    say: "A press on the file opens its change under it",
+  },
+  {
+    look: inside(section(safe), text("+  auto_merge: checks-pass")),
+    say: "One line was added",
+  },
+  {
+    press: inside(section(safe), button("armada.yml")),
+    say: "A second press folds it",
+  },
+  {
+    look: inside(section(safe), text("pull --ff-only --autostash")),
+    say: "A pull that keeps the file is safe",
+  },
+  {
+    look: inside(section(safe), button("Copy")),
+    say: "Copy puts it on the clipboard",
+  },
+  {
+    hover: inside(section(safe), button("Pull request")),
+    say: "Pull request sits beside the command",
+  },
+  {
+    press: inside(section(safe), button("Pull request")),
+    say: "A press sends the file up as a pull request",
+  },
+  {
+    look: inside(section(safe), text("#2402")),
+    say: "The pull request replaces the command, and the file stays listed",
+  },
+  {
+    look: inside(section(safe), role("img", "Auto-merge on")),
+    say: "Auto-merge is on",
+  },
+  {
+    later: places,
+    say: "Fleet reads the hold again, with no pull request",
+  },
+  {
+    press: inside(section(safe), button("Run")),
+    say: "Run plays it and exits 0",
+  },
+  {
+    later: places,
+    say: "Fleet has the checkout level",
+  },
+  {
+    look: inside(queue, role("img", "Main is green")),
+    say: "The mark is gone, and a green main has no card",
+  },
+  {
+    later: places,
+    say: "Main moves on and the checkout is held again",
+  },
+  {
+    press: light(clashing),
+    say: "A press pins the card: two files are uncommitted",
+  },
+  {
+    hover: inside(section(clashing), role("img", "Also changed on main")),
+    say: "A warning marks the file main also changed",
+  },
+  {
+    look: section(clashing),
+    say: "There is no command, because the pull could stop on a conflict",
+  },
+  {
+    later: places,
+    say: "On main, with 2 commits main lacks",
+  },
+  {
+    look: inside(section(diverged), text("2 commits not on main")),
+    say: "The history diverged, so there is no command",
+  },
 ];
 
 /** The four holds in turn, the last a long list held by scrolling. */
 export const checkoutHeldBack = walk("checkout-held-back", [
   ...steps,
-  { later: places, say: "An agent left a long list of files uncommitted" },
-  { look: inside(section(loose), role("group", "Uncommitted files")), say: "The list stays inside the card and scrolls there" },
-  { look: inside(section(loose), text(firstClashing)), say: "The files main also changed come first" },
-  { press: inside(section(loose), button(noticing)), say: "A press on a file in the list opens its change inside the list" },
-  { look: inside(section(loose), text("+        if self.seen.last() != Some(&seen) {")), say: "The change scrolls in the list and the card keeps its size" },
-  { press: inside(section(loose), button(noticing)), say: "A second press folds it" },
-  { press: inside(section(loose), button(generated)), say: "A generated file's change is longer than Fleet sends" },
-  { look: inside(section(loose), text("First 1,996 lines")), say: "Fleet sent the start of it, and one line after it says where it ends" },
-  { press: inside(section(loose), button(generated)), say: "A second press folds it" },
-  { look: inside(section(loose), text("7 commits behind main")), say: "There is no command, because the pull could stop on a conflict" },
+  {
+    later: places,
+    say: "An agent left a long list of files uncommitted",
+  },
+  {
+    look: inside(section(loose), role("group", "Uncommitted files")),
+    say: "The list stays inside the card and scrolls there",
+  },
+  {
+    look: inside(section(loose), text(firstClashing)),
+    say: "The files main also changed come first",
+  },
+  {
+    press: inside(section(loose), button(noticing)),
+    say: "A press on a file in the list opens its change inside the list",
+  },
+  {
+    look: inside(section(loose), text("+        if self.seen.last() != Some(&seen) {")),
+    say: "The change scrolls in the list and the card keeps its size",
+  },
+  {
+    press: inside(section(loose), button(noticing)),
+    say: "A second press folds it",
+  },
+  {
+    press: inside(section(loose), button(generated)),
+    say: "A generated file's change is longer than Fleet sends",
+  },
+  {
+    look: inside(section(loose), text("First 1,996 lines")),
+    say: "Fleet sent the start of it, and one line after it says where it ends",
+  },
+  {
+    press: inside(section(loose), button(generated)),
+    say: "A second press folds it",
+  },
+  {
+    look: inside(section(loose), text("7 commits behind main")),
+    say: "There is no command, because the pull could stop on a conflict",
+  },
 ]);

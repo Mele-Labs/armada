@@ -19,7 +19,13 @@ import { usePreviewTweak } from "./teach";
 const TweaksContext = createContext<TweakSource>(NO_TWEAKS);
 
 /** The tweaks this window lays over its theme. A window without a provider lays none. */
-export const TweakSourceProvider = ({ source, children }: { source: TweakSource; children?: ReactNode }) => <TweaksContext.Provider value={source}>{children}</TweaksContext.Provider>;
+export const TweakSourceProvider = ({
+  source,
+  children,
+}: {
+  source: TweakSource;
+  children?: ReactNode;
+}) => <TweaksContext.Provider value={source}>{children}</TweaksContext.Provider>;
 
 const BOOST = ":root:root";
 
@@ -28,7 +34,11 @@ export function tweakSheet(css: string): CSSStyleSheet {
   const sheet = new CSSStyleSheet();
   sheet.replaceSync(css);
   for (const rule of Array.from(sheet.cssRules)) {
-    if (rule instanceof CSSStyleRule) rule.selectorText = rule.selectorText.split(",").map((part) => `${part.trim()}${BOOST}`).join(", ");
+    if (rule instanceof CSSStyleRule)
+      rule.selectorText = rule.selectorText
+        .split(",")
+        .map((part) => `${part.trim()}${BOOST}`)
+        .join(", ");
   }
   return sheet;
 }
@@ -46,17 +56,38 @@ function previewSheet(token: string, now: string): CSSStyleSheet | undefined {
 
 export function TweaksApplied(): null {
   const source = useContext(TweaksContext);
-  const mods: readonly TweakSheet[] = useSyncExternalStore(source.subscribe, source.get, source.get);
+  const mods: readonly TweakSheet[] = useSyncExternalStore(
+    source.subscribe,
+    source.get,
+    source.get,
+  );
   const preview = usePreviewTweak();
-  const key = JSON.stringify([mods, preview]);
+  const key = JSON.stringify([
+    mods,
+    preview,
+  ]);
   useLayoutEffect(() => {
-    const sheets = [...mods.map((one) => tweakSheet(one.css)), ...(preview === undefined ? [] : [previewSheet(preview.token, preview.now)])].filter((one): one is CSSStyleSheet => one !== undefined);
+    const sheets = [
+      ...mods.map((one) => tweakSheet(one.css)),
+      ...(preview === undefined
+        ? []
+        : [
+            previewSheet(preview.token, preview.now),
+          ]),
+    ].filter((one): one is CSSStyleSheet => one !== undefined);
     if (sheets.length === 0) return;
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...sheets];
+    document.adoptedStyleSheets = [
+      ...document.adoptedStyleSheets,
+      ...sheets,
+    ];
     return () => {
-      document.adoptedStyleSheets = document.adoptedStyleSheets.filter((one) => !sheets.includes(one));
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+        (one) => !sheets.includes(one),
+      );
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` holds what `mods` and `preview` hold.
-  }, [key]);
+  }, [
+    key,
+  ]);
   return null;
 }

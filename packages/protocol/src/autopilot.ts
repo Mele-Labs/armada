@@ -58,10 +58,15 @@ export type Autopilot = {
 };
 
 /** `GET /autopilots`: every repository's, stopped ones included. */
-export type AutopilotList = { autopilots: Autopilot[] };
+export type AutopilotList = {
+  autopilots: Autopilot[];
+};
 
 /** `POST /autopilots/:repository/proposal`: the sentence, and the person's own clock with its offset. */
-export type ProposeAutopilot = { sentence: string; local_now?: string };
+export type ProposeAutopilot = {
+  sentence: string;
+  local_now?: string;
+};
 
 /**
  * What one sentence was read as, for the person to confirm or change, and the body of
@@ -93,4 +98,6 @@ export type AutopilotQuoted = {
  * `POST /autopilots/:repository/proposal`'s answer: the settings, flattened in, and the words each
  * was read from. A start sends back the settings alone. #2105.
  */
-export type AutopilotProposal = AutopilotSettings & { quoted: AutopilotQuoted };
+export type AutopilotProposal = AutopilotSettings & {
+  quoted: AutopilotQuoted;
+};

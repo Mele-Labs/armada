@@ -31,15 +31,31 @@ export type PullRequestActsProps = {
   onAct: (act: Act) => void;
 };
 
-export function PullRequestActs({ state, checks, auto, queued = false, pending, onAct }: PullRequestActsProps) {
+export function PullRequestActs({
+  state,
+  checks,
+  auto,
+  queued = false,
+  pending,
+  onAct,
+}: PullRequestActsProps) {
   if (state === "merged") return null;
   const busy = pending !== undefined;
-  const turning = (act: Act) => (pending === act ? <LoaderCircle className="armada-pr-acts__spin" size={16} strokeWidth={2} aria-hidden="true" /> : null);
+  const turning = (act: Act) =>
+    pending === act ? (
+      <LoaderCircle className="armada-pr-acts__spin" size={16} strokeWidth={2} aria-hidden="true" />
+    ) : null;
   return (
     <div className="armada-pr-acts" role="group" aria-label="Pull request acts">
       {state === "draft" ? (
         <Tooltip label="Marks the pull request ready for review">
-          <Button size="sm" variant="primary" pending={pending === "ready"} disabled={busy} onClick={() => onAct("ready")}>
+          <Button
+            size="sm"
+            variant="primary"
+            pending={pending === "ready"}
+            disabled={busy}
+            onClick={() => onAct("ready")}
+          >
             {turning("ready")}
             Ready for review
           </Button>
@@ -52,14 +68,30 @@ export function PullRequestActs({ state, checks, auto, queued = false, pending, 
         </Tooltip>
       ) : checks === "passed" ? (
         <Tooltip label="Merges it now, every Check has passed">
-          <Button size="sm" variant="primary" pending={pending === "merge"} disabled={busy} onClick={() => onAct("merge")}>
+          <Button
+            size="sm"
+            variant="primary"
+            pending={pending === "merge"}
+            disabled={busy}
+            onClick={() => onAct("merge")}
+          >
             {turning("merge")}
             Merge
           </Button>
         </Tooltip>
       ) : checks === "pending" ? (
-        <Tooltip label={auto ? "It merges when every Check has passed" : "Merges it when every Check has passed"}>
-          <Button size="sm" variant="primary" pending={pending === "auto_merge"} disabled={auto || busy} onClick={() => onAct("auto_merge")}>
+        <Tooltip
+          label={
+            auto ? "It merges when every Check has passed" : "Merges it when every Check has passed"
+          }
+        >
+          <Button
+            size="sm"
+            variant="primary"
+            pending={pending === "auto_merge"}
+            disabled={auto || busy}
+            onClick={() => onAct("auto_merge")}
+          >
             {turning("auto_merge")}
             {auto ? "Auto-merge on" : "Enable auto-merge"}
           </Button>

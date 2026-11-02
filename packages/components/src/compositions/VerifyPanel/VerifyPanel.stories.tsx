@@ -19,20 +19,43 @@ export default meta;
 
 type Story = StoryObj<typeof VerifyPanel>;
 
-function step(group: string, name: string, run: string, state: VerifyPanelStep["state"]): VerifyPanelStep {
-  return { id: `${group}:${name}`, group, name, run, state };
+function step(
+  group: string,
+  name: string,
+  run: string,
+  state: VerifyPanelStep["state"],
+): VerifyPanelStep {
+  return {
+    id: `${group}:${name}`,
+    group,
+    name,
+    run,
+    state,
+  };
 }
 
-const ran = (result: string, duration: string): VerifyPanelStep["state"] => ({ kind: "ran", result, duration });
-const waiting: VerifyPanelStep["state"] = { kind: "waiting" };
+const ran = (result: string, duration: string): VerifyPanelStep["state"] => ({
+  kind: "ran",
+  result,
+  duration,
+});
+const waiting: VerifyPanelStep["state"] = {
+  kind: "waiting",
+};
 
 /** **Never automatic**: drawn with nothing pressed, it has run nothing, and one press runs it once. */
 export const AtRest: Story = {
   name: "At rest",
-  args: { onVerify: fn() },
+  args: {
+    onVerify: fn(),
+  },
   play: async ({ args, canvas, userEvent }) => {
     await expect(args.onVerify).not.toHaveBeenCalled();
-    await userEvent.click(canvas.getByRole("button", { name: "Verify" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Verify",
+      }),
+    );
     await expect(args.onVerify).toHaveBeenCalledTimes(1);
   },
 };
@@ -41,17 +64,38 @@ export const AtRest: Story = {
 export const Underway: Story = {
   args: {
     steps: [
-      step("Setup", "bootstrap", "pnpm install --frozen-lockfile", ran("exit 0 (expects 0)", "8.2s")),
-      step("Setup", "browsers", "pnpm -C packages/components exec playwright install chromium --only-shell", ran("exit 0 (expects 0)", "1.4s")),
-      step("Checks", "build", "cargo build --workspace --locked", { kind: "running", elapsed: "0:42" }),
+      step(
+        "Setup",
+        "bootstrap",
+        "pnpm install --frozen-lockfile",
+        ran("exit 0 (expects 0)", "8.2s"),
+      ),
+      step(
+        "Setup",
+        "browsers",
+        "pnpm -C packages/components exec playwright install chromium --only-shell",
+        ran("exit 0 (expects 0)", "1.4s"),
+      ),
+      step("Checks", "build", "cargo build --workspace --locked", {
+        kind: "running",
+        elapsed: "0:42",
+      }),
       step("Checks", "test", "cargo nextest run --workspace --exclude acceptance", waiting),
       step("Checks", "typecheck", "pnpm typecheck", waiting),
     ],
     onStop: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Verify" })).toBeDisabled();
-    await userEvent.click(canvas.getByRole("button", { name: "Stop" }));
+    await expect(
+      canvas.getByRole("button", {
+        name: "Verify",
+      }),
+    ).toBeDisabled();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Stop",
+      }),
+    );
     await expect(args.onStop).toHaveBeenCalledTimes(1);
   },
 };
@@ -61,8 +105,18 @@ export const WithAFailure: Story = {
   name: "With a failure",
   args: {
     steps: [
-      step("Setup", "bootstrap", "pnpm install --frozen-lockfile", ran("exit 0 (expects 0)", "8.2s")),
-      step("Checks", "build", "cargo build --workspace --locked", ran("exit 0 (expects 0)", "41.0s")),
+      step(
+        "Setup",
+        "bootstrap",
+        "pnpm install --frozen-lockfile",
+        ran("exit 0 (expects 0)", "8.2s"),
+      ),
+      step(
+        "Checks",
+        "build",
+        "cargo build --workspace --locked",
+        ran("exit 0 (expects 0)", "41.0s"),
+      ),
       step("Checks", "typecheck", "pnpm typecheck", ran("exit 2 (expects 0)", "9.4s")),
       step("Checks", "format", "cargo fmt --all --check", ran("exit 0 (expects 0)", "1.8s")),
     ],
@@ -77,9 +131,20 @@ export const SetupFailed: Story = {
   name: "Setup failed",
   args: {
     steps: [
-      step("Setup", "bootstrap", "pnpm install --frozen-lockfile", ran("exit 1 (expects 0)", "3.0s")),
-      step("Checks", "build", "cargo build --workspace --locked", { kind: "not_run", why: "setup `bootstrap` exited 1" }),
-      step("Checks", "typecheck", "pnpm typecheck", { kind: "not_run", why: "setup `bootstrap` exited 1" }),
+      step(
+        "Setup",
+        "bootstrap",
+        "pnpm install --frozen-lockfile",
+        ran("exit 1 (expects 0)", "3.0s"),
+      ),
+      step("Checks", "build", "cargo build --workspace --locked", {
+        kind: "not_run",
+        why: "setup `bootstrap` exited 1",
+      }),
+      step("Checks", "typecheck", "pnpm typecheck", {
+        kind: "not_run",
+        why: "setup `bootstrap` exited 1",
+      }),
     ],
     ended: "Ran 1 of 3. 1 ended with a code other than the one it expects. 2 did not run.",
     onVerify: fn(),
@@ -90,5 +155,7 @@ export const SetupFailed: Story = {
 /** A run a person started is out in the checkout, so Verify waits for it rather than refusing later. */
 export const ARunIsOut: Story = {
   name: "A run is out",
-  args: { unavailable: "`fmt` is running in this checkout. Verify can start once it ends." },
+  args: {
+    unavailable: "`fmt` is running in this checkout. Verify can start once it ends.",
+  },
 };

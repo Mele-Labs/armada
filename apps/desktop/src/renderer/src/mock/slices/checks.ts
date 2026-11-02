@@ -9,9 +9,17 @@ export const checks: Slice<ChecksApi, ChecksState> = {
   name: "checks",
   state: CHECKS_NOTHING_YET,
   api: (_scenario, { publish, refused }) => ({
-    followCheckOutput: async () => publish({ followed: nothing }),
-    followLandCheck: async () => publish({ landFollowed: nothing }),
+    followCheckOutput: async () =>
+      publish({
+        followed: nothing,
+      }),
+    followLandCheck: async () =>
+      publish({
+        landFollowed: nothing,
+      }),
     readSessionCheckOutput: async (run) => refused(`/sessions/checks/${run}/output`),
-    stopSessionCheck: async () => ({ ok: true }),
+    stopSessionCheck: async () => ({
+      ok: true,
+    }),
   }),
 };

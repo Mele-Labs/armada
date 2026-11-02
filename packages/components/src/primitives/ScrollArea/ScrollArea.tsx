@@ -33,7 +33,14 @@ export function ScrollArea({
     <div
       className={className ? `armada-scroll-area ${className}` : "armada-scroll-area"}
       data-axis={axis}
-      style={maxHeight ? { ...style, maxHeight } : style}
+      style={
+        maxHeight
+          ? {
+              ...style,
+              maxHeight,
+            }
+          : style
+      }
       {...rest}
     />
   );

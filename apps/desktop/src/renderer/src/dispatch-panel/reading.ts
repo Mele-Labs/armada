@@ -13,20 +13,36 @@ import type { RepositoryChip, RepositoryOption } from "./DispatchPanel";
 export const READ_MS = 250;
 
 /** What Fleet answers when it cannot tell, and what a window with no Fleet to ask answers. */
-const NOTHING_READ = { manifest_id: null, likely: [] };
+const NOTHING_READ = {
+  manifest_id: null,
+  likely: [],
+};
 
-type Answer = { manifest_id: string | null; likely: readonly string[] };
+type Answer = {
+  manifest_id: string | null;
+  likely: readonly string[];
+};
 
 /** Every repository, set up or not, in Fleet's order, then any it did not rank by name. Only the head of a ranking is marked likely. */
-export function optionsFor(repositories: readonly RepositorySummary[], likely: readonly string[]): RepositoryOption[] {
+export function optionsFor(
+  repositories: readonly RepositorySummary[],
+  likely: readonly string[],
+): RepositoryOption[] {
   const place = (one: RepositorySummary) => {
     const at = likely.indexOf(jobIdOf(one) ?? "");
     return at === -1 ? likely.length : at;
   };
   return repositories
-    .map((one) => ({ root: one.root, name: repositoryLabel(one, repositories), at: place(one) }))
+    .map((one) => ({
+      root: one.root,
+      name: repositoryLabel(one, repositories),
+      at: place(one),
+    }))
     .sort((a, b) => a.at - b.at || a.name.localeCompare(b.name))
-    .map(({ at, ...one }) => ({ ...one, likely: at === 0 && likely.length > 0 }));
+    .map(({ at, ...one }) => ({
+      ...one,
+      likely: at === 0 && likely.length > 0,
+    }));
 }
 
 /**
@@ -35,37 +51,118 @@ export function optionsFor(repositories: readonly RepositorySummary[], likely: r
  */
 export function chipsFor(
   options: readonly RepositoryOption[],
-  { scoped, read, chosen, recent }: { scoped?: string | undefined; read?: string | undefined; chosen?: string | undefined; recent: readonly string[] },
+  {
+    scoped,
+    read,
+    chosen,
+    recent,
+  }: {
+    scoped?: string | undefined;
+    read?: string | undefined;
+    chosen?: string | undefined;
+    recent: readonly string[];
+  },
 ): RepositoryChip[] {
-  const lead = [scoped, read, ...recent].filter((root): root is string => root !== undefined);
-  const ahead = [...new Set(lead)].flatMap((root) => options.filter((one) => one.root === root));
+  const lead = [
+    scoped,
+    read,
+    ...recent,
+  ].filter((root): root is string => root !== undefined);
+  const ahead = [
+    ...new Set(lead),
+  ].flatMap((root) => options.filter((one) => one.root === root));
   const rest = options.filter((one) => !ahead.includes(one));
-  return [...ahead, ...rest].map(({ root, name }) => ({ root, name, ...(root === chosen ? { mark: "chosen" as const } : root === read ? { mark: "read" as const } : {}) }));
+  return [
+    ...ahead,
+    ...rest,
+  ].map(({ root, name }) => ({
+    root,
+    name,
+    ...(root === chosen
+      ? {
+          mark: "chosen" as const,
+        }
+      : root === read
+        ? {
+            mark: "read" as const,
+          }
+        : {}),
+  }));
 }
 
-export type Reading = { state: "idle" } | { state: "detecting" } | { state: "unresolved" } | { state: "detected"; manifestId: string };
+export type Reading =
+  | {
+      state: "idle";
+    }
+  | {
+      state: "detecting";
+    }
+  | {
+      state: "unresolved";
+    }
+  | {
+      state: "detected";
+      manifestId: string;
+    };
 
 /** The reading of `words` once they have been still for `READ_MS`, and Fleet's ranking of the repositories. Empty words read nothing. */
-export function useReading(words: string): { reading: Reading; likely: readonly string[] } {
+export function useReading(words: string): {
+  reading: Reading;
+  likely: readonly string[];
+} {
   const said = words.trim();
-  const [answer, setAnswer] = useState<(Answer & { said: string }) | null>(null);
+  const [answer, setAnswer] = useState<
+    | (Answer & {
+        said: string;
+      })
+    | null
+  >(null);
   useEffect(() => {
     if (said === "") return setAnswer(null);
     let stale = false;
     const timer = window.setTimeout(() => {
       // No connection answers `undefined` rather than a reading.
       void window.armada.readRequestRepository(said).then((read) => {
-        if (!stale) setAnswer({ said, ...(read ?? NOTHING_READ) });
+        if (!stale)
+          setAnswer({
+            said,
+            ...(read ?? NOTHING_READ),
+          });
       });
     }, READ_MS);
     return () => {
       stale = true;
       window.clearTimeout(timer);
     };
-  }, [said]);
+  }, [
+    said,
+  ]);
   const mine = answer?.said === said ? answer : null;
   const likely = mine?.likely ?? answer?.likely ?? [];
-  if (said === "") return { reading: { state: "idle" }, likely };
-  if (mine === null) return { reading: { state: "detecting" }, likely };
-  return { reading: mine.manifest_id === null ? { state: "unresolved" } : { state: "detected", manifestId: mine.manifest_id }, likely };
+  if (said === "")
+    return {
+      reading: {
+        state: "idle",
+      },
+      likely,
+    };
+  if (mine === null)
+    return {
+      reading: {
+        state: "detecting",
+      },
+      likely,
+    };
+  return {
+    reading:
+      mine.manifest_id === null
+        ? {
+            state: "unresolved",
+          }
+        : {
+            state: "detected",
+            manifestId: mine.manifest_id,
+          },
+    likely,
+  };
 }

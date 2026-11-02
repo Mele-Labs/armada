@@ -21,7 +21,9 @@ import type { SessionsStore } from "./sessions/script";
 import { onTimePassing } from "./time-passes";
 
 /** Which surfaces a fake answers for. Core is always among them. */
-export type FakeOptions = { slices?: readonly SliceName[] };
+export type FakeOptions = {
+  slices?: readonly SliceName[];
+};
 
 /** The Sessions a window was mounted holding, by the api it talks to. */
 const SESSIONS = new WeakMap<BridgeApi, SessionsStore>();
@@ -38,14 +40,33 @@ export function heldSessions(api: BridgeApi): SessionsStore | undefined {
  */
 export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): BridgeApi {
   const listed = options.slices;
-  const kept = listed === undefined ? SLICES : SLICES.filter((one) => one.name === "core" || listed.includes(one.name));
+  const kept =
+    listed === undefined
+      ? SLICES
+      : SLICES.filter((one) => one.name === "core" || listed.includes(one.name));
   const left = SLICES.filter((one) => !kept.includes(one));
-  const unseeded: BridgeState = left.length === 0 ? scenario.state : { ...scenario.state, ...Object.assign({}, ...left.map((one) => one.state)) };
-  const initial: BridgeState = Object.assign({}, unseeded, ...kept.map((one) => one.seeded?.(unseeded) ?? {}));
+  const unseeded: BridgeState =
+    left.length === 0
+      ? scenario.state
+      : {
+          ...scenario.state,
+          ...Object.assign({}, ...left.map((one) => one.state)),
+        };
+  const initial: BridgeState = Object.assign(
+    {},
+    unseeded,
+    ...kept.map((one) => one.seeded?.(unseeded) ?? {}),
+  );
   const fleet = fleetOf(scenario, initial);
   const api = compose(kept, left, scenario, fleet);
-  const own = scenario.behaves?.({ state: fleet.state, publish: fleet.publish });
-  const fake = { ...api, ...own };
+  const own = scenario.behaves?.({
+    state: fleet.state,
+    publish: fleet.publish,
+  });
+  const fake = {
+    ...api,
+    ...own,
+  };
   let passed = 0;
   // What a Session may do to a bay: take one from the pool.
   const board = {
@@ -53,7 +74,13 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
       get: fleet.held.get,
       set: (held: WorktreesHeld) => {
         fleet.held.set(held);
-        if (fleet.state().held.state === "read") fleet.publish({ held: { state: "read", held } });
+        if (fleet.state().held.state === "read")
+          fleet.publish({
+            held: {
+              state: "read",
+              held,
+            },
+          });
       },
     },
   };
@@ -89,7 +116,12 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
  * answers: each of its calls that returns a promise answers `unanswered` instead, as an outcome and
  * as the `{ ok, outcome }` of a read. Calls that return at once keep the slice's own, which is inert.
  */
-function compose(kept: readonly AnySlice[], left: readonly AnySlice[], scenario: Scenario, fleet: Fleet): BridgeApi {
+function compose(
+  kept: readonly AnySlice[],
+  left: readonly AnySlice[],
+  scenario: Scenario,
+  fleet: Fleet,
+): BridgeApi {
   const unanswering = (slice: AnySlice): Partial<BridgeApi> =>
     Object.fromEntries(
       Object.entries(slice.api(scenario, fleet)).map(([member, real]) => [
@@ -97,10 +129,17 @@ function compose(kept: readonly AnySlice[], left: readonly AnySlice[], scenario:
         typeof real === "function" && real.constructor.name === "AsyncFunction"
           ? async () => {
               const outcome = unanswered(`/${slice.name}/${member}`);
-              return { ...outcome, outcome };
+              return {
+                ...outcome,
+                outcome,
+              };
             }
           : real,
       ]),
     );
-  return Object.assign({}, ...kept.map((one) => one.api(scenario, fleet)), ...left.map(unanswering)) as BridgeApi;
+  return Object.assign(
+    {},
+    ...kept.map((one) => one.api(scenario, fleet)),
+    ...left.map(unanswering),
+  ) as BridgeApi;
 }

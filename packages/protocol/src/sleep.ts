@@ -14,13 +14,26 @@ export type SleepDecided = {
 };
 
 /** Something only the owner can settle. */
-export type SleepBlocked = { id: string; who: string; text: string };
+export type SleepBlocked = {
+  id: string;
+  who: string;
+  text: string;
+};
 
 /** A pull request that merged during the night. */
-export type SleepLanded = { id: string; who: string; title: string; pr: string };
+export type SleepLanded = {
+  id: string;
+  who: string;
+  title: string;
+  pr: string;
+};
 
 /** A walk held for the owner to look at. */
-export type SleepWalk = { id: string; who: string; title: string };
+export type SleepWalk = {
+  id: string;
+  who: string;
+  title: string;
+};
 
 /**
  * `GET /sleep`, what `POST /sleep` and `POST /sleep/override` answer, and `sleep.changed` published
@@ -35,10 +48,17 @@ export type SleepState = {
 };
 
 /** `POST /sleep`: turn the mode on, which starts a new night, or off. */
-export type SetSleep = { on: boolean };
+export type SetSleep = {
+  on: boolean;
+};
 
 /** `POST /sleep/review`: the owner kept one decision as it was. */
-export type ReviewSleep = { id: string };
+export type ReviewSleep = {
+  id: string;
+};
 
 /** `POST /sleep/override`: the owner's correction of one decision, sent to the session it answered. */
-export type OverrideSleep = { id: string; text: string };
+export type OverrideSleep = {
+  id: string;
+  text: string;
+};

@@ -7,10 +7,35 @@ const rail = role("group", "What you can put on this Studio");
 
 export const runOnTheStudioRail = walk("studios", [
   ...toSystemPage("Studios", "This repository's Studios"),
-  { press: role("cell", "The Board's legend", { exact: true }), say: "Opened from the list, it is read-only" },
-  { look: rail, say: "Note, Link, Sketch and Run, all off until Continue" },
-  { press: button("Continue"), say: "Continue makes the Studio editable" },
-  { look: rail, say: "The same four, now on" },
-  { press: inside(rail, button("Run", { exact: true })), say: "Run opens what the checkout declares" },
-  { look: role("menu"), say: "Checks and Commands, then servers" },
+  {
+    press: role("cell", "The Board's legend", {
+      exact: true,
+    }),
+    say: "Opened from the list, it is read-only",
+  },
+  {
+    look: rail,
+    say: "Note, Link, Sketch and Run, all off until Continue",
+  },
+  {
+    press: button("Continue"),
+    say: "Continue makes the Studio editable",
+  },
+  {
+    look: rail,
+    say: "The same four, now on",
+  },
+  {
+    press: inside(
+      rail,
+      button("Run", {
+        exact: true,
+      }),
+    ),
+    say: "Run opens what the checkout declares",
+  },
+  {
+    look: role("menu"),
+    say: "Checks and Commands, then servers",
+  },
 ]);

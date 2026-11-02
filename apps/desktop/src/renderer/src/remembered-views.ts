@@ -25,7 +25,10 @@ export const DECK_ORDER_KEY = "armada.bridge.deck-order";
 export const DECK_SYSTEM_KEY = "armada.bridge.deck-system";
 
 /** What was stored under `key`, on whatever the reader makes of it. A failed read is the default. */
-export function readRemembered<T extends string>(key: string, named: (value: string | null) => T): T {
+export function readRemembered<T extends string>(
+  key: string,
+  named: (value: string | null) => T,
+): T {
   try {
     return named(window.localStorage.getItem(key));
   } catch {

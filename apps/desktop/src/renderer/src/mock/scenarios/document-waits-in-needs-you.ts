@@ -5,4 +5,8 @@
 import type { Scenario } from "../moment";
 import { videoScriptScenario } from "../video-script-job";
 
-export const documentWaitsInNeedsYou: Scenario = videoScriptScenario("document-waits-in-needs-you", "A Job whose video script, revision 1, waits on his Approve", 1);
+export const documentWaitsInNeedsYou: Scenario = videoScriptScenario(
+  "document-waits-in-needs-you",
+  "A Job whose video script, revision 1, waits on his Approve",
+  1,
+);

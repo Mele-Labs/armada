@@ -33,15 +33,26 @@
   animation: armada-skeleton-level 4.8s steps(16, end) infinite;
   animation-delay: var(--skeleton-delay, 0s);
 }
-.armada-skeleton:nth-child(3n + 2) { --skeleton-delay: -1.2s; }
-.armada-skeleton:nth-child(3n) { --skeleton-delay: -2.7s; }
+.armada-skeleton:nth-child(3n + 2) {
+  --skeleton-delay: -1.2s;
+}
+.armada-skeleton:nth-child(3n) {
+  --skeleton-delay: -2.7s;
+}
 @keyframes armada-skeleton-level {
-  0% { transform: translateX(-100%); }
-  65%, 100% { transform: translateX(0); }
+  0% {
+    transform: translateX(-100%);
+  }
+  65%,
+  100% {
+    transform: translateX(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-skeleton::after { display: none; }
+  .armada-skeleton::after {
+    display: none;
+  }
 }
 
 .armada-skeleton-text {

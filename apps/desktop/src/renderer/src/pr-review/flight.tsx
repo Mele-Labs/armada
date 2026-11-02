@@ -7,7 +7,21 @@
 import { useEffect, useRef, useState } from "react";
 import { CircleX, History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
 import { Eclipse } from "lucide-react";
-import { Button, Checkbox, Dialog, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, agoOf, forgetKept } from "@armada/components";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  Input,
+  Kbd,
+  PrMark,
+  Radio,
+  RadioGroup,
+  Sheet,
+  Textarea,
+  Tooltip,
+  agoOf,
+  forgetKept,
+} from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
 import { ReviewKeys } from "./keys";
@@ -19,11 +33,24 @@ import { isWalk, tilesOf, toolsOf } from "./tools";
 import { WalkSheets } from "./walk";
 
 /** What a tile says under its glyph, where the tool's name is long. */
-const SHORT: Record<string, string> = { "api-breaking-changes": "API breaks" };
+const SHORT: Record<string, string> = {
+  "api-breaking-changes": "API breaks",
+};
 
-const WHOSE = { armada: "Armada's", kit: "the Kit's", repository: "the repository's" } as const;
+const WHOSE = {
+  armada: "Armada's",
+  kit: "the Kit's",
+  repository: "the repository's",
+} as const;
 
-const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+const typing = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    [
+      "INPUT",
+      "TEXTAREA",
+      "SELECT",
+    ].includes(target.tagName));
 
 /** The tiles, as a block for a Flight control panel to hold. */
 export function ReviewTools() {
@@ -42,7 +69,8 @@ export function ReviewTools() {
     // The Walk is found a place before it is written, and one already looking, asking or failed to find shows as it stands.
     const finding = isWalk(tool) && work.walk.find.state !== "idle";
     // A kept result opens at once. Only a run that has not happened asks first.
-    if (!tool.agent || finding || (kept !== undefined && kept.state !== "idle")) store.runTool(pr.key, tool);
+    if (!tool.agent || finding || (kept !== undefined && kept.state !== "idle"))
+      store.runTool(pr.key, tool);
     else if (isWalk(tool)) store.spend(tool.name, () => store.findPlace(pr.key));
     else store.spend(tool.name, () => store.runTool(pr.key, tool));
   };
@@ -50,7 +78,16 @@ export function ReviewTools() {
   // The keys 1 to 9 press the tiles, where no box is being typed in.
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || typing(event.target) || adding || sheet !== undefined) return;
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey ||
+        typing(event.target) ||
+        adding ||
+        sheet !== undefined
+      )
+        return;
       const at = Number(event.key) - 1;
       if (!Number.isInteger(at) || at < 0 || at > 8) return;
       if (at < tools.length) press(tools[at]!);
@@ -65,11 +102,21 @@ export function ReviewTools() {
   const count = tools.length + 1;
   return (
     <>
-      <div className="deck-controls__block pr-tools" data-n={count} style={{ "--n": count } as React.CSSProperties}>
+      <div
+        className="deck-controls__block pr-tools"
+        data-n={count}
+        style={
+          {
+            "--n": count,
+          } as React.CSSProperties
+        }
+      >
         {tools.map((tool, at) => {
           const explains = tool.kind === "explanation";
           const run = explains ? work.explains[tool.id] : work.runs[tool.id];
-          const pressed = explains ? work.view === "explanation" && work.kind === tool.id : work.view === tool.id;
+          const pressed = explains
+            ? work.view === "explanation" && work.kind === tool.id
+            : work.view === tool.id;
           const running = run?.state === "running";
           const blocked = pr === undefined;
           const kept = run?.state === "done" && tool.agent ? run : undefined;
@@ -79,8 +126,24 @@ export function ReviewTools() {
           const source = SOURCE_MARK[tool.source];
           return (
             <Tooltip key={tool.id} label={tool.name} shortcut={String(at + 1)} asChild>
-              <button type="button" className="deck-tile pr-tool" aria-label={tool.name} aria-pressed={pressed} aria-disabled={blocked || undefined} aria-busy={running || undefined} data-tool={tool.mark} data-source={tool.source} data-explains={explains || undefined} data-stale={stale || undefined} onClick={() => press(tool)}>
-                {running ? <LoaderCircle size={16} aria-hidden="true" className="pr-tool__spin" /> : <mark.Glyph size={16} aria-hidden="true" />}
+              <button
+                type="button"
+                className="deck-tile pr-tool"
+                aria-label={tool.name}
+                aria-pressed={pressed}
+                aria-disabled={blocked || undefined}
+                aria-busy={running || undefined}
+                data-tool={tool.mark}
+                data-source={tool.source}
+                data-explains={explains || undefined}
+                data-stale={stale || undefined}
+                onClick={() => press(tool)}
+              >
+                {running ? (
+                  <LoaderCircle size={16} aria-hidden="true" className="pr-tool__spin" />
+                ) : (
+                  <mark.Glyph size={16} aria-hidden="true" />
+                )}
                 <span className="deck-tile__text pr-tool__text">{SHORT[tool.id] ?? tool.name}</span>
                 <Kbd className="deck-tile__key" aria-hidden="true">
                   {at + 1}
@@ -94,7 +157,11 @@ export function ReviewTools() {
                   <span className="pr-tool__kept">
                     <PrMark
                       Glyph={stale ? RefreshCw : History}
-                      said={stale ? `Out of date. Ran on ${kept.head.slice(0, 7)}, the pull request is at ${pr!.head.slice(0, 7)}` : `Kept. Ran ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`}
+                      said={
+                        stale
+                          ? `Out of date. Ran on ${kept.head.slice(0, 7)}, the pull request is at ${pr!.head.slice(0, 7)}`
+                          : `Kept. Ran ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`
+                      }
                     />
                   </span>
                 )}
@@ -104,14 +171,26 @@ export function ReviewTools() {
                   </span>
                 )}
                 <span className="pr-tool__source" data-source={tool.source}>
-                  <PrMark Glyph={source.Glyph} said={tool.replaces === undefined ? source.said : `${source.said}. Replaces ${WHOSE[tool.replaces]} ${tool.name}`} />
+                  <PrMark
+                    Glyph={source.Glyph}
+                    said={
+                      tool.replaces === undefined
+                        ? source.said
+                        : `${source.said}. Replaces ${WHOSE[tool.replaces]} ${tool.name}`
+                    }
+                  />
                 </span>
               </button>
             </Tooltip>
           );
         })}
         <Tooltip label="Add a tool" shortcut={String(tools.length + 1)} asChild>
-          <button type="button" className="deck-tile pr-tool" aria-label="Add a tool" onClick={() => setAdding(true)}>
+          <button
+            type="button"
+            className="deck-tile pr-tool"
+            aria-label="Add a tool"
+            onClick={() => setAdding(true)}
+          >
             <SquarePlus size={16} aria-hidden="true" />
             <span className="deck-tile__text pr-tool__text">Add a tool</span>
             <Kbd className="deck-tile__key" aria-hidden="true">
@@ -132,11 +211,25 @@ export function ReviewTools() {
 export function SpendConfirm() {
   const store = useReviewStore()!;
   const { spending } = useReviews();
-  return <SpendDialog spending={spending} onConfirm={(again) => store.confirmSpend(again)} onCancel={() => store.cancelSpend()} />;
+  return (
+    <SpendDialog
+      spending={spending}
+      onConfirm={(again) => store.confirmSpend(again)}
+      onCancel={() => store.cancelSpend()}
+    />
+  );
 }
 
 /** The box itself, for any surface that spends: `spending` names the act while it asks, and `again` is Don't ask again. */
-export function SpendDialog({ spending, onConfirm, onCancel }: { spending: string | undefined; onConfirm: (again: boolean) => void; onCancel: () => void }) {
+export function SpendDialog({
+  spending,
+  onConfirm,
+  onCancel,
+}: {
+  spending: string | undefined;
+  onConfirm: (again: boolean) => void;
+  onCancel: () => void;
+}) {
   const [again, setAgain] = useState(false);
   // Read through a ref, so a host that passes a new function each draw does not put the focus back on the box.
   const confirm = useRef(onConfirm);
@@ -144,14 +237,19 @@ export function SpendDialog({ spending, onConfirm, onCancel }: { spending: strin
   // Focus lands on the box in it. Enter runs from anywhere in it but Cancel, and Space turns the question off where focus is not on a button.
   useEffect(() => {
     if (spending === undefined) return;
-    const frame = window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.armada-dialog input[type="checkbox"]')?.focus());
+    const frame = window.requestAnimationFrame(() =>
+      document.querySelector<HTMLElement>('.armada-dialog input[type="checkbox"]')?.focus(),
+    );
     const listen = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
       if (target === null || target.closest(".armada-dialog") === null) return;
       const onButton = target.closest("button") !== null;
       // In a walk window his Enter is the card's Next; the walk's own Enter on the dialog is the one that runs it.
       if (event.isTrusted && window.__armadaWalk !== undefined && event.key === "Enter") return;
-      if (event.key === "Enter" && !(onButton && target.closest("button")?.textContent?.startsWith("Cancel"))) {
+      if (
+        event.key === "Enter" &&
+        !(onButton && target.closest("button")?.textContent?.startsWith("Cancel"))
+      ) {
         event.preventDefault();
         event.stopPropagation();
         const skip = again;
@@ -167,7 +265,10 @@ export function SpendDialog({ spending, onConfirm, onCancel }: { spending: strin
       window.cancelAnimationFrame(frame);
       window.removeEventListener("keydown", listen, true);
     };
-  }, [spending, again]);
+  }, [
+    spending,
+    again,
+  ]);
   return (
     <Dialog
       open={spending !== undefined}
@@ -206,7 +307,15 @@ export function ReviewFlight() {
   );
 }
 
-function AddTool({ open, pr, onClose }: { open: boolean; pr: ReviewPr | undefined; onClose: () => void }) {
+function AddTool({
+  open,
+  pr,
+  onClose,
+}: {
+  open: boolean;
+  pr: ReviewPr | undefined;
+  onClose: () => void;
+}) {
   const store = useReviewStore()!;
   const floor = useAtFloor();
   const [name, setName] = useState("");
@@ -225,20 +334,37 @@ function AddTool({ open, pr, onClose }: { open: boolean; pr: ReviewPr | undefine
   const save = () => {
     if (!ready) return;
     setSaving(true);
-    void store.addTool({ kind, name, checks, scope, manifestId: pr?.manifestId ?? "" }).then((said) => {
-      setSaving(false);
-      setRefused(said);
-      if (said !== undefined) return;
-      forgetKept(keep);
-      setName("");
-      setChecks("");
-      setScope("kit");
-      setKind("tool");
-      onClose();
-    });
+    void store
+      .addTool({
+        kind,
+        name,
+        checks,
+        scope,
+        manifestId: pr?.manifestId ?? "",
+      })
+      .then((said) => {
+        setSaving(false);
+        setRefused(said);
+        if (said !== undefined) return;
+        forgetKept(keep);
+        setName("");
+        setChecks("");
+        setScope("kit");
+        setKind("tool");
+        onClose();
+      });
   };
   return (
-    <Sheet kind="review-tool" open={open} floating floor={floor} title="Add a tool" closeLabel="Close" closeBinding="Esc" onClose={close}>
+    <Sheet
+      kind="review-tool"
+      open={open}
+      floating
+      floor={floor}
+      title="Add a tool"
+      closeLabel="Close"
+      closeBinding="Esc"
+      onClose={close}
+    >
       <form
         className="pr-add"
         aria-label="New tool"
@@ -255,16 +381,30 @@ function AddTool({ open, pr, onClose }: { open: boolean; pr: ReviewPr | undefine
               </Radio>
             </span>
           </Tooltip>
-          <Tooltip label="Tells him one thing about a pull request, chosen under its description" asChild>
+          <Tooltip
+            label="Tells him one thing about a pull request, chosen under its description"
+            asChild
+          >
             <span className="pr-add__choice">
-              <Radio name="kind" checked={kind === "explanation"} onChange={() => setKind("explanation")}>
+              <Radio
+                name="kind"
+                checked={kind === "explanation"}
+                onChange={() => setKind("explanation")}
+              >
                 Explanation
               </Radio>
             </span>
           </Tooltip>
         </RadioGroup>
         <Input label="Name" value={name} onChange={(event) => setName(event.target.value)} />
-        <Textarea rows={6} keep={keep} aria-label={kind === "tool" ? "What it checks" : "What it explains"} placeholder={kind === "tool" ? "What it checks" : "What it explains"} value={checks} onChange={(event) => setChecks(event.target.value)} />
+        <Textarea
+          rows={6}
+          keep={keep}
+          aria-label={kind === "tool" ? "What it checks" : "What it explains"}
+          placeholder={kind === "tool" ? "What it checks" : "What it explains"}
+          value={checks}
+          onChange={(event) => setChecks(event.target.value)}
+        />
         <RadioGroup label="Save to">
           <Tooltip label="~/.armada/review-tools/, every repository on this machine" asChild>
             <span className="pr-add__choice">
@@ -273,9 +413,16 @@ function AddTool({ open, pr, onClose }: { open: boolean; pr: ReviewPr | undefine
               </Radio>
             </span>
           </Tooltip>
-          <Tooltip label={`.armada/review-tools/ in ${pr?.repository ?? "the repository"}, shared with everyone on it`} asChild>
+          <Tooltip
+            label={`.armada/review-tools/ in ${pr?.repository ?? "the repository"}, shared with everyone on it`}
+            asChild
+          >
             <span className="pr-add__choice">
-              <Radio name="scope" checked={scope === "repository"} onChange={() => setScope("repository")}>
+              <Radio
+                name="scope"
+                checked={scope === "repository"}
+                onChange={() => setScope("repository")}
+              >
                 Repository
               </Radio>
             </span>

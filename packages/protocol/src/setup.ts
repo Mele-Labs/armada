@@ -347,7 +347,14 @@ export type OfferedModel = {
 };
 
 /** Whether the models were asked of the harness. Mirrors `ipc::ModelsRead`; `why` is a sentence. */
-export type ModelsRead = { what: "read" } | { what: "not_read"; why: string };
+export type ModelsRead =
+  | {
+      what: "read";
+    }
+  | {
+      what: "not_read";
+      why: string;
+    };
 
 /** Where a saved definition lives. Since 23.28. */
 export type WorkflowScope = "repository" | "kit";
@@ -455,7 +462,21 @@ export type NotADriftMarked = {
  * Where a workflow change came from: his words, the nudges a step drifted on, or a Job proposing a workflow
  * nothing held before (`new`: `before` is empty, `after` is the definition, `state` is `ready` at once).
  */
-export type ChangeOrigin = { kind: "asked"; text: string } | { kind: "drift"; nudges: number[] } | { kind: "new" } | { kind: "job" };
+export type ChangeOrigin =
+  | {
+      kind: "asked";
+      text: string;
+    }
+  | {
+      kind: "drift";
+      nudges: number[];
+    }
+  | {
+      kind: "new";
+    }
+  | {
+      kind: "job";
+    };
 
 /**
  * Where a change stands. `approved` and `dismissed` are never listed. `cannot` is a request Armada has no way to

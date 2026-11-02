@@ -13,34 +13,89 @@
   cursor: grab;
   touch-action: none;
   overscroll-behavior: contain;
-  background: radial-gradient(ellipse 85% 75% at 50% 40%, color-mix(in srgb, var(--accent) 7%, var(--bg-base)), var(--bg-base) 78%);
+  background: radial-gradient(
+    ellipse 85% 75% at 50% 40%,
+    color-mix(in srgb, var(--accent) 7%, var(--bg-base)),
+    var(--bg-base) 78%
+  );
 }
-.bf[data-grab] { cursor: grabbing; }
-.bf-grain { position: absolute; inset: 0; opacity: 0.04; pointer-events: none; }
+.bf[data-grab] {
+  cursor: grabbing;
+}
+.bf-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  pointer-events: none;
+}
 /* Far haze at the top, and a vignette at the edges. */
 .bf-haze {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(to bottom, var(--bg-base), color-mix(in srgb, var(--bg-base) 70%, transparent) 9%, color-mix(in srgb, var(--accent) 7%, transparent) 20%, transparent 38%),
-    radial-gradient(ellipse 75% 70% at 50% 52%, transparent 58%, color-mix(in srgb, var(--bg-base) 88%, transparent) 100%);
+    linear-gradient(
+      to bottom,
+      var(--bg-base),
+      color-mix(in srgb, var(--bg-base) 70%, transparent) 9%,
+      color-mix(in srgb, var(--accent) 7%, transparent) 20%,
+      transparent 38%
+    ),
+    radial-gradient(
+      ellipse 75% 70% at 50% 52%,
+      transparent 58%,
+      color-mix(in srgb, var(--bg-base) 88%, transparent) 100%
+    );
 }
 
 /* ---- The card and the buttons -------------------------------------------------------------------------- */
 
 /* The callout: a leader and a card, in screen space. Dark glass like the panels, sans throughout, a thin edge in the state's colour. */
-.bf-callout { --tip: var(--accent); position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-.bf-callout[data-hue="ask"] { --tip: var(--status-awaiting-review); }
-.bf-callout[data-hue="bad"] { --tip: var(--status-completed-failed); }
-.bf-callout[data-hue="quiet"] { --tip: var(--fg-muted); }
-.bf-callout[data-hue="good"] { --tip: var(--status-completed-success); }
-.bf-callout:not([data-placed]) { visibility: hidden; }
-.bf-callout__lead { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.bf-callout__lead line { stroke: var(--tip); stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; opacity: 0.9; }
-.bf-callout__lead circle { fill: var(--tip); }
+.bf-callout {
+  --tip: var(--accent);
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.bf-callout[data-hue="ask"] {
+  --tip: var(--status-awaiting-review);
+}
+.bf-callout[data-hue="bad"] {
+  --tip: var(--status-completed-failed);
+}
+.bf-callout[data-hue="quiet"] {
+  --tip: var(--fg-muted);
+}
+.bf-callout[data-hue="good"] {
+  --tip: var(--status-completed-success);
+}
+.bf-callout:not([data-placed]) {
+  visibility: hidden;
+}
+.bf-callout__lead {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.bf-callout__lead line {
+  stroke: var(--tip);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+.bf-callout__lead circle {
+  fill: var(--tip);
+}
 /* Placement moves this; the card inside has its entry animation to itself. */
-.bf-callout__place { position: absolute; inset: 0; pointer-events: none; }
+.bf-callout__place {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 /* The card is the inspect card; this only places it and gives its entry the map's own scale, from the thing it is about. */
 .bf-callout .bf-callout__card {
   position: absolute;
@@ -49,87 +104,313 @@
   transform-origin: var(--ox, 0) var(--oy, 0);
 }
 .bf-callout[data-placed] .bf-callout__card,
-.bf-callout[data-placed] .bf-callout__lead { animation: bf-callout-in 120ms var(--ease) backwards; }
-@keyframes bf-callout-in {
-  from { opacity: 0; scale: 0.55; }
-  to { opacity: 1; scale: 1; }
+.bf-callout[data-placed] .bf-callout__lead {
+  animation: bf-callout-in 120ms var(--ease) backwards;
 }
-.bf-callout__card > .bf-ask { position: absolute; top: var(--space-1); right: var(--space-1); margin: 0; }
-.bf-callout__line { color: var(--fg-muted); }
-.bf-callout__pills { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.bf-callout__pill { display: inline-flex; align-items: center; gap: var(--space-1); max-width: 100%; padding: 0 var(--space-3); border: var(--border-width) solid var(--border-glass); border-radius: calc(var(--radius-lg) * 2); background: color-mix(in srgb, var(--fg-default) 7%, transparent); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bf-callout__pill[data-bay] { color: var(--fg-default); }
-.bf-callout__last { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.bf-callout__last span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bf-callout__last time { flex: none; color: var(--fg-subtle); }
-.bf-callout__call { display: flex; align-items: center; gap: var(--space-2); color: var(--status-awaiting-review); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.bf-callout__call i { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: currentColor; animation: bf-tip calc(var(--duration-pulse) * 0.8) ease-in-out infinite; }
-.bf-callout__ticks { width: 100%; height: var(--space-4); }
-.bf-callout__ticks rect { fill: var(--tip); }
-.bf-callout__ticks rect[data-empty] { opacity: 0.3; }
+@keyframes bf-callout-in {
+  from {
+    opacity: 0;
+    scale: 0.55;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.bf-callout__card > .bf-ask {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  margin: 0;
+}
+.bf-callout__line {
+  color: var(--fg-muted);
+}
+.bf-callout__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bf-callout__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 2);
+  background: color-mix(in srgb, var(--fg-default) 7%, transparent);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bf-callout__pill[data-bay] {
+  color: var(--fg-default);
+}
+.bf-callout__last {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.bf-callout__last span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bf-callout__last time {
+  flex: none;
+  color: var(--fg-subtle);
+}
+.bf-callout__call {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--status-awaiting-review);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.bf-callout__call i {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: currentColor;
+  animation: bf-tip calc(var(--duration-pulse) * 0.8) ease-in-out infinite;
+}
+.bf-callout__ticks {
+  width: 100%;
+  height: var(--space-4);
+}
+.bf-callout__ticks rect {
+  fill: var(--tip);
+}
+.bf-callout__ticks rect[data-empty] {
+  opacity: 0.3;
+}
 /* The callout's line for it. */
-.bf-callout__doing { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.bf-callout__path { min-width: 0; overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.bf-callout__doing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.bf-callout__path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* The card takes the pointer once the pointer has reached it (`Callout.tsx`), so the pointer can stay on it and it blocks no drone
    before then; a step's card, pressed open, can be pressed. */
 .bf-callout[data-reached] .bf-callout__card,
-.bf-callout[data-pinned] .bf-callout__card { pointer-events: auto; }
+.bf-callout[data-pinned] .bf-callout__card {
+  pointer-events: auto;
+}
 /* Floated over the app while the pointer or focus is in a Job's Field: in the window, over the panels, and the map's own unit with it. */
-.bf-callout[data-float] { --bf-u: var(--border-width); position: fixed; z-index: var(--z-tooltip); }
-.bf-callout[data-node] .bf-callout__card { width: max-content; max-width: calc(100% - calc(20 * var(--bf-u))); padding: var(--space-2) var(--space-3) var(--space-3); }
-.bf-callout__node { display: flex; }
-@keyframes bf-tip { 50% { opacity: 0.3; } }
+.bf-callout[data-float] {
+  --bf-u: var(--border-width);
+  position: fixed;
+  z-index: var(--z-tooltip);
+}
+.bf-callout[data-node] .bf-callout__card {
+  width: max-content;
+  max-width: calc(100% - calc(20 * var(--bf-u)));
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+.bf-callout__node {
+  display: flex;
+}
+@keyframes bf-tip {
+  50% {
+    opacity: 0.3;
+  }
+}
 /* A short pane (the Session view's Field) is shorter than the stack: what does not fit starts a second column to the left, so none is cut off. */
-.bf-zoom { position: absolute; top: var(--space-3); right: var(--space-3); z-index: 1; display: flex; flex-flow: column wrap-reverse; gap: var(--space-2); max-height: calc(100% - var(--space-3) * 2); }
-.bf-zoom .armada-button { border: var(--border-width) solid var(--border-glass); border-radius: 50%; background: var(--bg-glass); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card); }
+.bf-zoom {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 1;
+  display: flex;
+  flex-flow: column wrap-reverse;
+  gap: var(--space-2);
+  max-height: calc(100% - var(--space-3) * 2);
+}
+.bf-zoom .armada-button {
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: 50%;
+  background: var(--bg-glass);
+  box-shadow:
+    inset 0 var(--border-width) 0 var(--border-highlight),
+    var(--shadow-card);
+}
 
 /* ---- A call out of the pane ------------------------------------------------------------------------------ */
 
 /* The badge at the border with an arrow toward the drone; amber is owed to him, red is a Check failing. */
-.bf-edge { --tone: var(--status-awaiting-review); }
-.bf-edge[data-tone="bad"] { --tone: var(--status-completed-failed); }
+.bf-edge {
+  --tone: var(--status-awaiting-review);
+}
+.bf-edge[data-tone="bad"] {
+  --tone: var(--status-completed-failed);
+}
 .bf-edge {
   display: grid;
   place-items: center;
   border-radius: 50%;
   background: var(--tone);
   color: var(--bg-base);
-  box-shadow: 0 0 0 calc(2 * var(--bf-u)) var(--bg-base), 0 0 calc(20 * var(--bf-u)) color-mix(in srgb, var(--tone) 70%, transparent);
+  box-shadow:
+    0 0 0 calc(2 * var(--bf-u)) var(--bg-base),
+    0 0 calc(20 * var(--bf-u)) color-mix(in srgb, var(--tone) 70%, transparent);
 }
 .bf-edge:hover,
-.bf-edge:focus-visible { box-shadow: 0 0 0 calc(2 * var(--bf-u)) var(--bg-base), 0 0 0 calc(4 * var(--bf-u)) var(--accent), 0 0 calc(20 * var(--bf-u)) color-mix(in srgb, var(--tone) 70%, transparent); }
-.bf-edge[data-leaving] { animation: bf-call-out calc(var(--duration-pulse) * 0.45) var(--ease) forwards; pointer-events: none; }
-.bf-edge { position: absolute; z-index: 2; translate: -50% -50%; width: calc(30 * var(--bf-u)); height: calc(30 * var(--bf-u)); padding: 0; border: 0; cursor: pointer; outline: none; animation: bf-call-in calc(var(--duration-pulse) * 0.45) var(--ease) backwards; }
-.bf-edge__arrow { position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin: calc(-5 * var(--bf-u)) 0 0 calc(-4 * var(--bf-u)); border: calc(5 * var(--bf-u)) solid transparent; border-left: calc(9 * var(--bf-u)) solid var(--tone); border-right: 0; pointer-events: none; }
-@keyframes bf-call-in { from { opacity: 0; } }
-@keyframes bf-call-out { to { opacity: 0; } }
+.bf-edge:focus-visible {
+  box-shadow:
+    0 0 0 calc(2 * var(--bf-u)) var(--bg-base),
+    0 0 0 calc(4 * var(--bf-u)) var(--accent),
+    0 0 calc(20 * var(--bf-u)) color-mix(in srgb, var(--tone) 70%, transparent);
+}
+.bf-edge[data-leaving] {
+  animation: bf-call-out calc(var(--duration-pulse) * 0.45) var(--ease) forwards;
+  pointer-events: none;
+}
+.bf-edge {
+  position: absolute;
+  z-index: 2;
+  translate: -50% -50%;
+  width: calc(30 * var(--bf-u));
+  height: calc(30 * var(--bf-u));
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  outline: none;
+  animation: bf-call-in calc(var(--duration-pulse) * 0.45) var(--ease) backwards;
+}
+.bf-edge__arrow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  margin: calc(-5 * var(--bf-u)) 0 0 calc(-4 * var(--bf-u));
+  border: calc(5 * var(--bf-u)) solid transparent;
+  border-left: calc(9 * var(--bf-u)) solid var(--tone);
+  border-right: 0;
+  pointer-events: none;
+}
+@keyframes bf-call-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes bf-call-out {
+  to {
+    opacity: 0;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .bf-callout[data-placed] .bf-callout__card,
   .bf-callout[data-placed] .bf-callout__lead,
-  .bf-edge { animation: none; }
-  .bf-edge[data-leaving] { opacity: 0; }
+  .bf-edge {
+    animation: none;
+  }
+  .bf-edge[data-leaving] {
+    opacity: 0;
+  }
 }
 
 /* ---- A Job's Field lens ----------------------------------------------------------------------------------- */
 
 /* The card at the top right, left of the zoom buttons, the dashed line from it to the slab it shows, and the counts over each other
    lifted file (`LensWires.tsx`). Nothing here takes the pointer: the map pans under it. */
-.bf-lens { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
-.bf-lens__wire { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.bf-lens__wire line { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 3; opacity: 0.8; }
-.bf-lens__card { position: absolute; top: var(--space-3); right: calc(var(--space-12) + var(--space-3)); width: min(calc(var(--space-12) * 6), calc(100% - var(--space-12) * 2)); }
+.bf-lens {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.bf-lens__wire {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.bf-lens__wire line {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  opacity: 0.8;
+}
+.bf-lens__card {
+  position: absolute;
+  top: var(--space-3);
+  right: calc(var(--space-12) + var(--space-3));
+  width: min(calc(var(--space-12) * 6), calc(100% - var(--space-12) * 2));
+}
 /* Where a hand has put the card's drone or its slab under the card, it stands at the top left. */
-.bf-lens__card[data-side="left"] { right: auto; left: var(--space-3); }
+.bf-lens__card[data-side="left"] {
+  right: auto;
+  left: var(--space-3);
+}
 /* Floated over the app while the pointer or focus is in a Job's Field: a frame laid over the map's box, and the card in it at the size the
    Field large draws it, reaching past the pane toward the thread. The card takes the pointer there. */
-.bf-lens--float { position: fixed; inset: auto; z-index: var(--z-menu); }
-.bf-lens--float .bf-lens__card { width: calc(var(--space-12) * 6); max-width: calc(100vw - var(--space-3) * 2); pointer-events: auto; }
+.bf-lens--float {
+  position: fixed;
+  inset: auto;
+  z-index: var(--z-menu);
+}
+.bf-lens--float .bf-lens__card {
+  width: calc(var(--space-12) * 6);
+  max-width: calc(100vw - var(--space-3) * 2);
+  pointer-events: auto;
+}
 /* Floated, the card stands beside the map toward the thread, so the map stays in view. */
 .bf-lens--float .bf-lens__card,
-.bf-lens--float .bf-lens__card[data-side="left"] { top: 0; left: auto; right: calc(100% + var(--space-3)); }
+.bf-lens--float .bf-lens__card[data-side="left"] {
+  top: 0;
+  left: auto;
+  right: calc(100% + var(--space-3));
+}
 /* Where the window has no room left of the map, the card stands on its right. */
 .bf-lens--float[data-beside="right"] .bf-lens__card,
-.bf-lens--float[data-beside="right"] .bf-lens__card[data-side="left"] { left: calc(100% + var(--space-3)); right: auto; }
-.bf-lens__counts { margin: 0; padding: 0; list-style: none; }
-.bf-lens__counts li { position: absolute; translate: -50% -100%; padding: 0 var(--space-1); border: var(--border-width) solid var(--border-glass); border-radius: var(--radius-sm); background: var(--bg-glass); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); white-space: nowrap; }
+.bf-lens--float[data-beside="right"] .bf-lens__card[data-side="left"] {
+  left: calc(100% + var(--space-3));
+  right: auto;
+}
+.bf-lens__counts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bf-lens__counts li {
+  position: absolute;
+  translate: -50% -100%;
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  white-space: nowrap;
+}

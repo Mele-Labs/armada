@@ -6,7 +6,12 @@ import type { WaitingItem } from "@armada/protocol";
 import type { SessionRow } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
-import { approveProposedWorkflow, proposeWorkflowChange, settleProposedChange, workflowing } from "../workflows-fleet";
+import {
+  approveProposedWorkflow,
+  proposeWorkflowChange,
+  settleProposedChange,
+  workflowing,
+} from "../workflows-fleet";
 import { s200Sessions } from "./sessions";
 
 const BEAT_MS = 1500;
@@ -28,8 +33,14 @@ const definitionOf = (name: string, words: string) =>
       workflow_id: name,
       for_requests: words,
       steps: [
-        { id: "draft", instructions: "Read the merged pull requests since the last tag and draft the notes." },
-        { id: "deliver", instructions: "Open a pull request with the notes." },
+        {
+          id: "draft",
+          instructions: "Read the merged pull requests since the last tag and draft the notes.",
+        },
+        {
+          id: "deliver",
+          instructions: "Open a pull request with the notes.",
+        },
       ],
     },
     null,
@@ -42,12 +53,25 @@ export const newWorkflow: Scenario = {
   ...s200Sessions,
   name: "new-workflow",
   says: "The Workflows page with New workflow: the Dispatch sheet starts a Job that proposes a workflow, approved from Needs you into the list",
-  state: { ...s200Sessions.state, repository: flow.state.repository, holds: flow.state.holds, health: flow.state.health },
+  state: {
+    ...s200Sessions.state,
+    repository: flow.state.repository,
+    holds: flow.state.holds,
+    health: flow.state.health,
+  },
   behaves: flow.behaves,
   draft: {
     sessions: (board) => {
       const store = s200Sessions.draft!.sessions!(board);
-      const made = new Map<string, { name: string; scope: Scope; text: string; change: number }>();
+      const made = new Map<
+        string,
+        {
+          name: string;
+          scope: Scope;
+          text: string;
+          change: number;
+        }
+      >();
       let changes = 100;
       return {
         ...store,
@@ -59,20 +83,64 @@ export const newWorkflow: Scenario = {
           const name = nameOf(words);
           const item = `draft:${id}-proposal`;
           const change = changes++;
-          made.set(item, { name, scope, text: definitionOf(name, words), change });
-          store.edit(id, (one) => ({ ...one, title: `New workflow: ${name}`, turn: { state: "working" }, standing: "working" }));
+          made.set(item, {
+            name,
+            scope,
+            text: definitionOf(name, words),
+            change,
+          });
+          store.edit(id, (one) => ({
+            ...one,
+            title: `New workflow: ${name}`,
+            turn: {
+              state: "working",
+            },
+            standing: "working",
+          }));
           setTimeout(() => {
             const call: WaitingItem = {
               id: item,
               text: `Workflow ${name}`,
               since: new Date().toISOString(),
               source: "draft",
-              act: { kind: "answer", target: item },
-              options: [{ label: "Approve", description: definitionOf(name, words).replace(/\s+/g, " ") }, { label: "Dismiss" }],
+              act: {
+                kind: "answer",
+                target: item,
+              },
+              options: [
+                {
+                  label: "Approve",
+                  description: definitionOf(name, words).replace(/\s+/g, " "),
+                },
+                {
+                  label: "Dismiss",
+                },
+              ],
             };
-            const proposal: SessionRow = { id: `${id}-proposal`, at: new Date().toISOString(), kind: "draft", title: name, text: `\`\`\`json\n${made.get(item)!.text}\n\`\`\``, change };
+            const proposal: SessionRow = {
+              id: `${id}-proposal`,
+              at: new Date().toISOString(),
+              kind: "draft",
+              title: name,
+              text: `\`\`\`json\n${made.get(item)!.text}\n\`\`\``,
+              change,
+            };
             proposeWorkflowChange(change, name, scope, made.get(item)!.text);
-            store.edit(id, (one) => ({ ...one, turn: { state: "idle" }, standing: "replied", rows: [...one.rows, proposal], waitingFor: [...(one.waitingFor ?? []), call] }));
+            store.edit(id, (one) => ({
+              ...one,
+              turn: {
+                state: "idle",
+              },
+              standing: "replied",
+              rows: [
+                ...one.rows,
+                proposal,
+              ],
+              waitingFor: [
+                ...(one.waitingFor ?? []),
+                call,
+              ],
+            }));
           }, BEAT_MS);
           return sent;
         },
@@ -84,7 +152,17 @@ export const newWorkflow: Scenario = {
           if (approved) approveProposedWorkflow(proposed.name, proposed.scope, proposed.text);
           store.edit(id, (one) => ({
             ...one,
-            rows: one.rows.map((row) => (row.id === itemId.slice("draft:".length) && row.kind === "draft" ? { ...row, settled: { how: approved ? "approved" : "withdrawn", at: new Date().toISOString() } } : row)),
+            rows: one.rows.map((row) =>
+              row.id === itemId.slice("draft:".length) && row.kind === "draft"
+                ? {
+                    ...row,
+                    settled: {
+                      how: approved ? "approved" : "withdrawn",
+                      at: new Date().toISOString(),
+                    },
+                  }
+                : row,
+            ),
             waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId),
           }));
         },

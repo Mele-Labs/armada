@@ -8,7 +8,11 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs", exact: true });
+const list = () =>
+  page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
 const panel = () => document.querySelector<HTMLElement>(".deck-autopilot");
 const KEY = "features.autopilotPanel";
 
@@ -17,26 +21,62 @@ async function deck() {
   await onScreen();
   await expect.element(list()).toBeVisible();
   // The foot is drawn: Flight control stands in it, so an Autopilot panel that is missing is not a foot that has not come.
-  await expect.element(page.getByRole("region", { name: "Flight controls" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Flight controls",
+      }),
+    )
+    .toBeVisible();
   return app;
 }
 
 test("the setting is off by default, and the Cockpit draws no Autopilot panel", async () => {
   const app = await deck();
   const answer = await app.api.syncState!();
-  const row = "full" in answer ? (answer.full as { settings: { settings: { key: string; value: unknown }[] } | null }).settings?.settings.find((one) => one.key === KEY) : undefined;
+  const row =
+    "full" in answer
+      ? (
+          answer.full as {
+            settings: {
+              settings: {
+                key: string;
+                value: unknown;
+              }[];
+            } | null;
+          }
+        ).settings?.settings.find((one) => one.key === KEY)
+      : undefined;
   expect(row?.value).toBe(false);
   expect(panel()).toBeNull();
-  expect(page.getByRole("region", { name: "Autopilot", exact: true }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("region", {
+        name: "Autopilot",
+        exact: true,
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("turned on, the panel appears with no reload, as one row: its name and its switch", async () => {
   const app = await deck();
-  await app.api.saveSettings({ [KEY]: true });
+  await app.api.saveSettings({
+    [KEY]: true,
+  });
   await expect.poll(panel).not.toBeNull();
 
-  const region = page.getByRole("region", { name: "Autopilot", exact: true });
-  await expect.element(region.getByRole("switch", { name: "Autopilot" })).toBeVisible();
+  const region = page.getByRole("region", {
+    name: "Autopilot",
+    exact: true,
+  });
+  await expect
+    .element(
+      region.getByRole("switch", {
+        name: "Autopilot",
+      }),
+    )
+    .toBeVisible();
   // Nothing else is in it: no bar, no button, no repository or state.
   expect(region.getByRole("progressbar").query()).toBeNull();
   expect(region.getByRole("button").query()).toBeNull();
@@ -49,8 +89,12 @@ test("turned on, the panel appears with no reload, as one row: its name and its 
 
 test("turned off again, the panel goes with no reload", async () => {
   const app = await deck();
-  await app.api.saveSettings({ [KEY]: true });
+  await app.api.saveSettings({
+    [KEY]: true,
+  });
   await expect.poll(panel).not.toBeNull();
-  await app.api.saveSettings({ [KEY]: false });
+  await app.api.saveSettings({
+    [KEY]: false,
+  });
   await expect.poll(panel).toBeNull();
 });

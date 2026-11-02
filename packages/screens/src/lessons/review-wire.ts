@@ -14,7 +14,23 @@ export type {
 } from "@armada/protocol";
 
 /** `LessonsRead`'s shape for the review. */
-export type LessonReviewRead = { ok: true; review: LessonReview } | { ok: false; outcome: Outcome };
+export type LessonReviewRead =
+  | {
+      ok: true;
+      review: LessonReview;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** `LessonsRead`'s shape for an answer to a question. */
-export type AskLessonRead = { ok: true; answer: AskLessonAnswer } | { ok: false; outcome: Outcome };
+export type AskLessonRead =
+  | {
+      ok: true;
+      answer: AskLessonAnswer;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };

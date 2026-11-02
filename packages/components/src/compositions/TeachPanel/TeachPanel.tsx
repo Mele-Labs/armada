@@ -14,10 +14,21 @@ import type { RuleFormLifecycle } from "../WorkflowManager/RuleForm";
 export type TeachReach = "repository" | "all";
 
 /** What Teach was pressed on. */
-export type TeachSourceKind = "words" | "command" | "notice" | "task" | "check" | "pull_request" | "ticket" | "panel" | "row" | "title_bar";
+export type TeachSourceKind =
+  | "words"
+  | "command"
+  | "notice"
+  | "task"
+  | "check"
+  | "pull_request"
+  | "ticket"
+  | "panel"
+  | "row"
+  | "title_bar";
 
 /** What Teach is pressed on in Bridge itself, rather than in a Job: nothing to tell agents, and no repository to reach. */
-export const isBridgeSource = (kind: TeachSourceKind): boolean => kind === "panel" || kind === "row" || kind === "title_bar";
+export const isBridgeSource = (kind: TeachSourceKind): boolean =>
+  kind === "panel" || kind === "row" || kind === "title_bar";
 
 /** The name of each, as the panel's first section captions it. */
 export const TEACH_SOURCE: Record<TeachSourceKind, string> = {
@@ -66,7 +77,10 @@ export type TeachReading = {
     rule: LifecycleRule;
     /** What its pickers offer: the lifecycles that apply, and the steps and workflows the rule can name. */
     lifecycles: readonly RuleFormLifecycle[];
-    steps: readonly { id: string; label: string }[];
+    steps: readonly {
+      id: string;
+      label: string;
+    }[];
     workflows: readonly string[];
     /** The one line for what the person named that Fleet cannot test. Absent when there is none. */
     untestable?: string;
@@ -82,12 +96,18 @@ export type TeachReading = {
     places: readonly string[];
   };
   /** A layout change: what is hidden, and where. */
-  layout?: { hides: string; where: string };
+  layout?: {
+    hides: string;
+    where: string;
+  };
 };
 
 export type TeachPanelProps = {
   /** What Teach was pressed on, and its text as it stands there. */
-  source: { kind: TeachSourceKind; text: string };
+  source: {
+    kind: TeachSourceKind;
+    text: string;
+  };
   /** What the person said they are and what Armada should do. */
   say: string;
   onSay: (say: string) => void;
@@ -114,13 +134,37 @@ export type TeachPanelProps = {
  * back what it understood before it keeps anything**, in a section for each of Agents, Bridge, Fleet and Rule that the teaching
  * changes, then Change or Save. ⌘↵ is the forward key in both steps; the stage's one primary button wears it.
  */
-export function TeachPanel({ source, say, onSay, keep, repository, reach, onReach, stage, reading, onTeach, onRule, onChange, onSave }: TeachPanelProps) {
+export function TeachPanel({
+  source,
+  say,
+  onSay,
+  keep,
+  repository,
+  reach,
+  onReach,
+  stage,
+  reading,
+  onTeach,
+  onRule,
+  onChange,
+  onSave,
+}: TeachPanelProps) {
   const body = useRef<HTMLDivElement>(null);
   // A sheet puts focus on its close as it opens. The box, or the stage's forward button, takes it a beat later.
   useEffect(() => {
-    const timer = window.setTimeout(() => body.current?.querySelector<HTMLElement>(stage === "writing" ? "textarea" : stage === "shown" ? "[data-forward]" : "button")?.focus(), 0);
+    const timer = window.setTimeout(
+      () =>
+        body.current
+          ?.querySelector<HTMLElement>(
+            stage === "writing" ? "textarea" : stage === "shown" ? "[data-forward]" : "button",
+          )
+          ?.focus(),
+      0,
+    );
     return () => window.clearTimeout(timer);
-  }, [stage]);
+  }, [
+    stage,
+  ]);
   const ready = say.trim() !== "";
   const forward = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return;
@@ -136,11 +180,24 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
     <div className="armada-teach-panel" ref={body} onKeyDown={forward}>
       <section className="armada-teach-panel__section" aria-label={caption}>
         <h4 className="armada-teach-panel__caption">{caption}</h4>
-        {bare ? null : <p className={`armada-teach-panel__words${source.kind === "words" || source.kind === "notice" || source.kind === "task" || source.kind === "row" ? "" : " mono"}`}>{source.text}</p>}
+        {bare ? null : (
+          <p
+            className={`armada-teach-panel__words${source.kind === "words" || source.kind === "notice" || source.kind === "task" || source.kind === "row" ? "" : " mono"}`}
+          >
+            {source.text}
+          </p>
+        )}
       </section>
 
       {stage === "writing" ? (
-        <Textarea label="Instruction" rows={4} grow keep={keep} value={say} onChange={(event) => onSay(event.target.value)} />
+        <Textarea
+          label="Instruction"
+          rows={4}
+          grow
+          keep={keep}
+          value={say}
+          onChange={(event) => onSay(event.target.value)}
+        />
       ) : (
         <section className="armada-teach-panel__section" aria-label="Instruction">
           <h4 className="armada-teach-panel__caption">Instruction</h4>
@@ -151,8 +208,16 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
       {onBridge ? null : (
         <div className="armada-teach-panel__reach">
           <Tooltip label="Where it applies">
-            <button type="button" className="armada-teach-panel__chip" aria-pressed={everywhere} disabled={stage !== "writing"} onClick={() => onReach(everywhere ? "repository" : "all")}>
-              <span className={everywhere ? undefined : "mono"}>{everywhere ? "Every repository" : repository}</span>
+            <button
+              type="button"
+              className="armada-teach-panel__chip"
+              aria-pressed={everywhere}
+              disabled={stage !== "writing"}
+              onClick={() => onReach(everywhere ? "repository" : "all")}
+            >
+              <span className={everywhere ? undefined : "mono"}>
+                {everywhere ? "Every repository" : repository}
+              </span>
             </button>
           </Tooltip>
         </div>
@@ -160,16 +225,31 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
 
       {stage === "writing" ? (
         <div className="armada-teach-panel__acts">
-          <Button variant="primary" disabled={!ready} onClick={onTeach} aria-keyshortcuts="Meta+Enter">
+          <Button
+            variant="primary"
+            disabled={!ready}
+            onClick={onTeach}
+            aria-keyshortcuts="Meta+Enter"
+          >
             Teach
-            <KbdChord keys={["⌘", "↵"]} aria-hidden />
+            <KbdChord
+              keys={[
+                "⌘",
+                "↵",
+              ]}
+              aria-hidden
+            />
           </Button>
         </div>
       ) : null}
 
       {stage === "reading" ? (
         <Tooltip label="Reading what you wrote">
-          <span className="armada-teach-panel__reading" role="status" aria-label="Reading what you wrote">
+          <span
+            className="armada-teach-panel__reading"
+            role="status"
+            aria-label="Reading what you wrote"
+          >
             <LoaderCircle size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
@@ -193,7 +273,9 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
                   <>
                     <dt className="mono">{reading.bridge.example}</dt>
                     <dd className="mono">{reading.bridge.address}</dd>
-                    {reading.bridge.found === undefined ? null : <dd className="armada-teach-panel__found">{reading.bridge.found}</dd>}
+                    {reading.bridge.found === undefined ? null : (
+                      <dd className="armada-teach-panel__found">{reading.bridge.found}</dd>
+                    )}
                   </>
                 )}
               </dl>
@@ -216,7 +298,9 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
                 <dt>Applies to</dt>
                 <dd>{reading.fleet.scope}</dd>
               </dl>
-              {reading.fleet.untestable === undefined ? null : <p className="armada-teach-panel__untestable">{reading.fleet.untestable}</p>}
+              {reading.fleet.untestable === undefined ? null : (
+                <p className="armada-teach-panel__untestable">{reading.fleet.untestable}</p>
+              )}
             </section>
           )}
           {reading?.rule === undefined ? null : (
@@ -224,10 +308,19 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
               <h4 className="armada-teach-panel__caption">Rule</h4>
               <div className="armada-wm-step">
                 <dl className="armada-wm-step__facts">
-                  <RuleForm rule={reading.rule.rule} lifecycles={reading.rule.lifecycles} steps={reading.rule.steps} workflows={reading.rule.workflows} lands={() => true} onChange={onRule} />
+                  <RuleForm
+                    rule={reading.rule.rule}
+                    lifecycles={reading.rule.lifecycles}
+                    steps={reading.rule.steps}
+                    workflows={reading.rule.workflows}
+                    lands={() => true}
+                    onChange={onRule}
+                  />
                 </dl>
               </div>
-              {reading.rule.untestable === undefined ? null : <p className="armada-teach-panel__untestable">{reading.rule.untestable}</p>}
+              {reading.rule.untestable === undefined ? null : (
+                <p className="armada-teach-panel__untestable">{reading.rule.untestable}</p>
+              )}
             </section>
           )}
           {reading?.tweak === undefined ? null : (
@@ -240,12 +333,24 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
                 <dd className="mono">{reading.tweak.token}</dd>
                 <dt>Was</dt>
                 <dd className="armada-teach-panel__colour">
-                  <span className="armada-teach-panel__chip-colour" style={{ background: reading.tweak.was }} aria-hidden />
+                  <span
+                    className="armada-teach-panel__chip-colour"
+                    style={{
+                      background: reading.tweak.was,
+                    }}
+                    aria-hidden
+                  />
                   <span className="mono">{reading.tweak.was}</span>
                 </dd>
                 <dt>Now</dt>
                 <dd className="armada-teach-panel__colour">
-                  <span className="armada-teach-panel__chip-colour" style={{ background: reading.tweak.now }} aria-hidden />
+                  <span
+                    className="armada-teach-panel__chip-colour"
+                    style={{
+                      background: reading.tweak.now,
+                    }}
+                    aria-hidden
+                  />
                   <span className="mono">{reading.tweak.now}</span>
                 </dd>
               </dl>
@@ -272,9 +377,20 @@ export function TeachPanel({ source, say, onSay, keep, repository, reach, onReac
             <Button variant="secondary" onClick={onChange}>
               Change
             </Button>
-            <Button variant="primary" data-forward="" onClick={onSave} aria-keyshortcuts="Meta+Enter">
+            <Button
+              variant="primary"
+              data-forward=""
+              onClick={onSave}
+              aria-keyshortcuts="Meta+Enter"
+            >
               Save
-              <KbdChord keys={["⌘", "↵"]} aria-hidden />
+              <KbdChord
+                keys={[
+                  "⌘",
+                  "↵",
+                ]}
+                aria-hidden
+              />
             </Button>
           </div>
         </>

@@ -21,8 +21,17 @@ export type BayHolder = {
  * holder that had gone is dated when the next lease took the slot.
  */
 export type BayHistoryEntry =
-  | { kind: "leased"; at: string; holder: BayHolder; branch?: string }
-  | { kind: "released"; at: string; holder: BayHolder }
+  | {
+      kind: "leased";
+      at: string;
+      holder: BayHolder;
+      branch?: string;
+    }
+  | {
+      kind: "released";
+      at: string;
+      holder: BayHolder;
+    }
   | {
       kind: "checkout";
       at: string;
@@ -44,4 +53,7 @@ export type BayHistory = {
 };
 
 /** What `get_slot_history` is asked. */
-export type BayHistoryAsk = { manifest_id: string; slot: number };
+export type BayHistoryAsk = {
+  manifest_id: string;
+  slot: number;
+};

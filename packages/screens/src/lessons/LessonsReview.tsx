@@ -44,7 +44,11 @@ import type { AskLessonRead, AskTurn, LessonReviewRead } from "./review-wire";
 
 /** Ask Fleet for the review of the open items, and put one question about one item. */
 export type ReviewLessons = () => Promise<LessonReviewRead>;
-export type AskLesson = (lessonId: string, question: string, history: AskTurn[]) => Promise<AskLessonRead>;
+export type AskLesson = (
+  lessonId: string,
+  question: string,
+  history: AskTurn[],
+) => Promise<AskLessonRead>;
 
 export type LessonsReviewProps = {
   /** The page's open items as last read; `undefined` before the first answer. */
@@ -67,7 +71,11 @@ export type LessonsReviewProps = {
   paused?: boolean;
 };
 
-const NONE: Thread = { turns: [], draft: "", pending: false };
+const NONE: Thread = {
+  turns: [],
+  draft: "",
+  pending: false,
+};
 /** Re-draw this often so `Reviewed 12 minutes ago` does not stand still while the page is open. */
 const AGE_TICK_MS = 30_000;
 
@@ -92,18 +100,28 @@ export function LessonsReview({
   // ask again on focus: a model call is not free.
   useEffect(() => {
     hold.begin(holdKey, () => latest.current());
-  }, [hold, holdKey]);
+  }, [
+    hold,
+    holdKey,
+  ]);
   const again = () => hold.again(holdKey, () => latest.current());
 
   // Where the person is in the remaining queue, the ones put back, the threads and the duplicates to reject.
-  const made = held?.made ?? { state: "loading" as const };
+  const made = held?.made ?? {
+    state: "loading" as const,
+  };
   const at = held?.at ?? 0;
   const putBack = held?.putBack ?? [];
   const threads = held?.threads ?? {};
   const also: ReadonlySet<string> = new Set(held?.also ?? []);
   const generation = held?.generation;
-  const keep = (change: (was: NonNullable<typeof held>) => NonNullable<typeof held>) => hold.update(holdKey, change, generation);
-  const setAt = (next: number) => keep((was) => ({ ...was, at: next }));
+  const keep = (change: (was: NonNullable<typeof held>) => NonNullable<typeof held>) =>
+    hold.update(holdKey, change, generation);
+  const setAt = (next: number) =>
+    keep((was) => ({
+      ...was,
+      at: next,
+    }));
   const [twinsFailure, setTwinsFailure] = useState<string | undefined>(undefined);
 
   // The age is read off the clock when drawn, so it is drawn again now and then.
@@ -113,21 +131,41 @@ export function LessonsReview({
     return () => window.clearInterval(tick);
   }, []);
 
-  const { queue, aside } = made.state === "ready" ? resolved(made.review, lessons ?? []) : { queue: [], aside: [] };
+  const { queue, aside } =
+    made.state === "ready"
+      ? resolved(made.review, lessons ?? [])
+      : {
+          queue: [],
+          aside: [],
+        };
   const back = putBack.flatMap((id) => {
     const one = aside.find((entry) => entry.lesson.id === id);
     return one === undefined
       ? []
-      : [{ lesson: one.lesson, reason: `The review set this aside: ${one.why}`, merged: [] } satisfies QueueEntry];
+      : [
+          {
+            lesson: one.lesson,
+            reason: `The review set this aside: ${one.why}`,
+            merged: [],
+          } satisfies QueueEntry,
+        ];
   });
-  const entries = [...queue, ...back];
+  const entries = [
+    ...queue,
+    ...back,
+  ];
   const away = aside.filter((one) => !putBack.includes(one.lesson.id));
 
   // Reject on a card that stands for duplicates rejects them too, where the box is ticked and Fleet took the first.
   const alsoRef = useRef(also);
   alsoRef.current = also;
   const twinsRef = useRef(new Map<string, Lesson[]>());
-  twinsRef.current = new Map(entries.map((one) => [one.lesson.id, one.merged]));
+  twinsRef.current = new Map(
+    entries.map((one) => [
+      one.lesson.id,
+      one.merged,
+    ]),
+  );
   const disagree: AnswerLesson = async (id) => {
     const answer = await onDisagreeLesson(id);
     const twins = alsoRef.current.has(id) ? (twinsRef.current.get(id) ?? []) : [];
@@ -147,12 +185,30 @@ export function LessonsReview({
   /** A card's row with its answers and the Evidence control, as the list draws it. */
   const rows = lessonRowsOf(entries.map((one) => one.lesson)).map((row) => {
     const lesson = entries.find((one) => one.lesson.id === row.id)!.lesson;
-    const view = answered(row.id, row.landsIn, { state: "open", ...(row.change === undefined ? {} : { change: row.change }) });
-    return { row: withEvidence(row, lesson, retros, pressed, setPressed), view };
+    const view = answered(row.id, row.landsIn, {
+      state: "open",
+      ...(row.change === undefined
+        ? {}
+        : {
+            change: row.change,
+          }),
+    });
+    return {
+      row: withEvidence(row, lesson, retros, pressed, setPressed),
+      view,
+    };
   });
   const remaining = entries.flatMap((one, place) => {
     const shown = rows[place]!;
-    return shown.view.gone || shown.view.settled !== undefined ? [] : [{ entry: one, shown, place }];
+    return shown.view.gone || shown.view.settled !== undefined
+      ? []
+      : [
+          {
+            entry: one,
+            shown,
+            place,
+          },
+        ];
   });
   const index = Math.min(at, remaining.length);
   const current = remaining[index];
@@ -160,14 +216,31 @@ export function LessonsReview({
   const skip = () => setAt(index + 1);
   const previous = index > 0 ? () => setAt(index - 1) : undefined;
   // Left and Right move; no letter answers anything. A field's own arrows are its own.
-  const moves = useRef({ skip, previous });
-  moves.current = { skip, previous };
+  const moves = useRef({
+    skip,
+    previous,
+  });
+  moves.current = {
+    skip,
+    previous,
+  };
   useEffect(() => {
     if (paused) return;
     const keys = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
+        return;
       const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || /^(input|textarea|select)$/i.test(target.tagName))) return;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || /^(input|textarea|select)$/i.test(target.tagName))
+      )
+        return;
       if (event.key === "ArrowRight") moves.current.skip();
       else if (event.key === "ArrowLeft") moves.current.previous?.();
       else return;
@@ -175,9 +248,12 @@ export function LessonsReview({
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [paused]);
+  }, [
+    paused,
+  ]);
 
-  if (made.state === "loading" || (made.state === "ready" && lessons === undefined)) return <LessonReviewWait />;
+  if (made.state === "loading" || (made.state === "ready" && lessons === undefined))
+    return <LessonReviewWait />;
   if (made.state === "failed") {
     return <LessonReviewWait failure={refusalWords(made.outcome)} onRetry={again} />;
   }
@@ -193,7 +269,14 @@ export function LessonsReview({
         id: one.lesson.id,
         title: one.lesson.title ?? one.lesson.statement,
         why: one.why,
-        onPutBack: () => keep((was) => ({ ...was, putBack: [...was.putBack, one.lesson.id] })),
+        onPutBack: () =>
+          keep((was) => ({
+            ...was,
+            putBack: [
+              ...was.putBack,
+              one.lesson.id,
+            ],
+          })),
       }))}
     />
   );
@@ -214,7 +297,11 @@ export function LessonsReview({
           title={remaining.length === 0 ? "Nothing left to review" : "That was the last one"}
           skipped={remaining.length}
           onAgain={() => setAt(0)}
-          {...(remaining.length === 0 ? {} : { onBack: () => setAt(remaining.length - 1) })}
+          {...(remaining.length === 0
+            ? {}
+            : {
+                onBack: () => setAt(remaining.length - 1),
+              })}
           onList={onList}
         />
         {setAsideList}
@@ -225,19 +312,53 @@ export function LessonsReview({
   const id = current.entry.lesson.id;
   const thread = threads[id] ?? NONE;
   const change = (id: string, next: (was: Thread) => Thread) =>
-    keep((was) => ({ ...was, threads: { ...was.threads, [id]: next(was.threads[id] ?? NONE) } }));
+    keep((was) => ({
+      ...was,
+      threads: {
+        ...was.threads,
+        [id]: next(was.threads[id] ?? NONE),
+      },
+    }));
 
   async function send() {
     const question = thread.draft.trim();
     if (question === "" || thread.pending) return;
-    const history: AskTurn[] = thread.turns.map((turn) => ({ role: turn.role, text: turn.text }));
-    change(id, (was) => ({ turns: [...was.turns, { role: "person", text: question }], draft: "", pending: true }));
+    const history: AskTurn[] = thread.turns.map((turn) => ({
+      role: turn.role,
+      text: turn.text,
+    }));
+    change(id, (was) => ({
+      turns: [
+        ...was.turns,
+        {
+          role: "person",
+          text: question,
+        },
+      ],
+      draft: "",
+      pending: true,
+    }));
     const answer = await onAsk(id, question, history);
     change(id, (was) =>
       answer.ok
-        ? { ...was, pending: false, turns: [...was.turns, { role: "fleet", text: answer.answer.answer }] }
+        ? {
+            ...was,
+            pending: false,
+            turns: [
+              ...was.turns,
+              {
+                role: "fleet",
+                text: answer.answer.answer,
+              },
+            ],
+          }
         : // A refused question is not part of the thread: it goes back to the field to be fixed or sent again.
-          { turns: was.turns.slice(0, -1), draft: question, pending: false, failure: refusalWords(answer.outcome) },
+          {
+            turns: was.turns.slice(0, -1),
+            draft: question,
+            pending: false,
+            failure: refusalWords(answer.outcome),
+          },
     );
   }
 
@@ -254,33 +375,69 @@ export function LessonsReview({
         {...(twins.length === 0
           ? {}
           : {
-              merged: lessonRowsOf(twins).map((one) => ({ id: one.id, label: one.session, title: one.title ?? one.statement })),
+              merged: lessonRowsOf(twins).map((one) => ({
+                id: one.id,
+                label: one.session,
+                title: one.title ?? one.statement,
+              })),
               duplicates: {
                 checked: also.has(id),
                 onChange: (on: boolean) =>
-                  keep((was) => ({ ...was, also: on ? [...new Set([...was.also, id])] : was.also.filter((one) => one !== id) })),
+                  keep((was) => ({
+                    ...was,
+                    also: on
+                      ? [
+                          ...new Set([
+                            ...was.also,
+                            id,
+                          ]),
+                        ]
+                      : was.also.filter((one) => one !== id),
+                  })),
               },
             })}
-        {...(twinsFailure === undefined ? {} : { duplicatesFailure: twinsFailure })}
-        {...(previous === undefined ? {} : { onBack: previous })}
+        {...(twinsFailure === undefined
+          ? {}
+          : {
+              duplicatesFailure: twinsFailure,
+            })}
+        {...(previous === undefined
+          ? {}
+          : {
+              onBack: previous,
+            })}
         onSkip={skip}
         thread={{
           turns: thread.turns,
           draft: thread.draft,
-          onDraft: (text) => change(id, (was) => ({ ...was, draft: text })),
+          onDraft: (text) =>
+            change(id, (was) => ({
+              ...was,
+              draft: text,
+            })),
           onSend: () => void send(),
           pending: thread.pending,
-          ...(thread.failure === undefined ? {} : { failure: thread.failure }),
+          ...(thread.failure === undefined
+            ? {}
+            : {
+                failure: thread.failure,
+              }),
         }}
       >
         <LessonList
           rows={[
             {
               ...current.shown.row,
-              ...(current.shown.view.answers === undefined ? {} : { answers: current.shown.view.answers }),
+              ...(current.shown.view.answers === undefined
+                ? {}
+                : {
+                    answers: current.shown.view.answers,
+                  }),
             },
           ]}
-          onOpen={() => onOpenRetro(retroSubjectOf(current.entry.lesson), current.shown.row.session)}
+          onOpen={() =>
+            onOpenRetro(retroSubjectOf(current.entry.lesson), current.shown.row.session)
+          }
         />
       </LessonReviewStep>
       {setAsideList}
@@ -300,7 +457,11 @@ function withEvidence(
   if (ids.length === 0) return row;
   const subject = retroSubjectOf(lesson);
   const got = retros.of(subject);
-  if (got?.state === "read") return { ...row, cites: citesOf(got.retro, ids) };
+  if (got?.state === "read")
+    return {
+      ...row,
+      cites: citesOf(got.retro, ids),
+    };
   return {
     ...row,
     evidence: {
@@ -308,8 +469,16 @@ function withEvidence(
         setPressed((was) => new Set(was).add(row.id));
         retros.ask(subject);
       },
-      ...(pressed.has(row.id) && got?.state === "pending" ? { pending: true } : {}),
-      ...(pressed.has(row.id) && got?.state === "failed" ? { failure: said(got.outcome) } : {}),
+      ...(pressed.has(row.id) && got?.state === "pending"
+        ? {
+            pending: true,
+          }
+        : {}),
+      ...(pressed.has(row.id) && got?.state === "failed"
+        ? {
+            failure: said(got.outcome),
+          }
+        : {}),
     },
   };
 }

@@ -10,9 +10,15 @@ import type { Session, SessionAnswer } from "@armada/screens/src/draft/sessions"
  * An option as the card draws it. The wire's is a label alone; the agent's own line under it rides
  * only on an item read off the pending ask, and is drawn where it is there.
  */
-export type Described = { label: string; description?: string };
+export type Described = {
+  label: string;
+  description?: string;
+};
 
-export type WaitingCall = { session: Session; item: WaitingItem };
+export type WaitingCall = {
+  session: Session;
+  item: WaitingItem;
+};
 
 /** What a permission offers, as the labels the wire's permission items carry. */
 const PERMISSION: Record<SessionAnswer, string> = {
@@ -24,7 +30,11 @@ const PERMISSION: Record<SessionAnswer, string> = {
   allow_for_session: "Always allow for this job",
   allow_like_this_for_session: "Allow calls like this for this job",
 };
-const PERMISSION_OF: Record<string, SessionAnswer> = { "Allow once": "allow_once", "Allow and remember": "allow_and_remember", Refuse: "refuse" };
+const PERMISSION_OF: Record<string, SessionAnswer> = {
+  "Allow once": "allow_once",
+  "Allow and remember": "allow_and_remember",
+  Refuse: "refuse",
+};
 
 /** The answer a permission option's label stands for, or none where it is not one of the three. */
 export const permissionOf = (label: string): SessionAnswer | undefined => PERMISSION_OF[label];
@@ -35,28 +45,71 @@ export const permissionOf = (label: string): SessionAnswer | undefined => PERMIS
  */
 function startFailedOf(session: Session): WaitingItem[] {
   if (session.startFailed === undefined) return [];
-  return [{ id: "start_failed", text: "Start it again or report it", since: session.lastTurnAt ?? new Date(0).toISOString(), source: "first_message", act: { kind: "message", target: session.id } }];
+  return [
+    {
+      id: "start_failed",
+      text: "Start it again or report it",
+      since: session.lastTurnAt ?? new Date(0).toISOString(),
+      source: "first_message",
+      act: {
+        kind: "message",
+        target: session.id,
+      },
+    },
+  ];
 }
 
 /** The wire's items on the Session where it serves them; the pending ask, read as the same items, where it does not. */
-export const waitingOf = (session: Session): WaitingItem[] => [...startFailedOf(session), ...waitingRead(session)];
+export const waitingOf = (session: Session): WaitingItem[] => [
+  ...startFailedOf(session),
+  ...waitingRead(session),
+];
 
 function waitingRead(session: Session): WaitingItem[] {
-  if (session.waitingFor !== undefined) return [...session.waitingFor];
+  if (session.waitingFor !== undefined)
+    return [
+      ...session.waitingFor,
+    ];
   const asked = session.asked;
   if (asked === undefined) return [];
   const since = session.lastTurnAt ?? new Date(0).toISOString();
   if (asked.questions !== undefined && asked.questions.length > 0) {
-    return asked.questions.map((one, at): WaitingItem => ({
-      id: `ask:${asked.call ?? session.id}:${at}`,
-      text: one.question,
-      since,
-      source: "ask_card",
-      options: one.options.map((option): Described => ({ label: option.label, ...(option.description === "" ? {} : { description: option.description }) })),
-    }));
+    return asked.questions.map(
+      (one, at): WaitingItem => ({
+        id: `ask:${asked.call ?? session.id}:${at}`,
+        text: one.question,
+        since,
+        source: "ask_card",
+        options: one.options.map(
+          (option): Described => ({
+            label: option.label,
+            ...(option.description === ""
+              ? {}
+              : {
+                  description: option.description,
+                }),
+          }),
+        ),
+      }),
+    );
   }
-  const offers = asked.offers ?? (["allow_once", "refuse"] as const);
-  return [{ id: `perm:${asked.call ?? session.id}`, text: asked.command, since, source: "permission", options: offers.map((one) => ({ label: PERMISSION[one] })) }];
+  const offers =
+    asked.offers ??
+    ([
+      "allow_once",
+      "refuse",
+    ] as const);
+  return [
+    {
+      id: `perm:${asked.call ?? session.id}`,
+      text: asked.command,
+      since,
+      source: "permission",
+      options: offers.map((one) => ({
+        label: PERMISSION[one],
+      })),
+    },
+  ];
 }
 
 /**
@@ -69,17 +122,33 @@ function waitingRead(session: Session): WaitingItem[] {
  * and the tasks it holds are waiting on him either way. A `rule_act` is an act a lifecycle rule would do that he has not said yes to: it waits on his
  * word as a draft does, however the turn goes.
  */
-const BLOCKING = new Set(["ask_card", "permission", "window_ask", "plan", "slot_choice", "delivery", "fleet_call", "draft", "sketch", "document", "task_done", "rule_act"]);
+const BLOCKING = new Set([
+  "ask_card",
+  "permission",
+  "window_ask",
+  "plan",
+  "slot_choice",
+  "delivery",
+  "fleet_call",
+  "draft",
+  "sketch",
+  "document",
+  "task_done",
+  "rule_act",
+]);
 
 /** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
 export function lastOwnerMessageAt(session: Session): number {
   let latest = 0;
-  for (const row of session.rows) if (row.kind === "message" && row.from.kind === "you") latest = Math.max(latest, Date.parse(row.at) || 0);
+  for (const row of session.rows)
+    if (row.kind === "message" && row.from.kind === "you")
+      latest = Math.max(latest, Date.parse(row.at) || 0);
   return latest;
 }
 
 /** The last instant he was in the Session: viewing it, or sending it a message, whichever is later. */
-export const touchedAt = (session: Session, viewedAt: (sessionId: string) => number): number => Math.max(viewedAt(session.id), lastOwnerMessageAt(session));
+export const touchedAt = (session: Session, viewedAt: (sessionId: string) => number): number =>
+  Math.max(viewedAt(session.id), lastOwnerMessageAt(session));
 
 /**
  * Every item every live Session waits on, the one that began first leading. A Session at work shows
@@ -90,22 +159,43 @@ export const touchedAt = (session: Session, viewedAt: (sessionId: string) => num
  * **A reply that only tells raises none**: it asks nothing of him, and the lists mark it unread. A reply that asks is a
  * `replied` item and calls like any other.
  */
-export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessionId: string) => number = () => 0): WaitingCall[] {
-  return sessions
-    // A paused Job is parked by him: nothing it waits on calls until he resumes it.
-    .filter((session) => session.dead === undefined && session.paused !== true)
-    .flatMap((session) => {
-      const touched = touchedAt(session, viewedAt);
-      return waitingOf(session)
-        .filter((item) => session.turn.state !== "working" || BLOCKING.has(item.source))
-        .filter((item) => touched === 0 || Date.parse(item.since) > touched)
-        .map((item) => ({ session, item }));
-    })
-    .sort((a, b) => Date.parse(a.item.since) - Date.parse(b.item.since) || a.item.id.localeCompare(b.item.id));
+export function callsFromWaiting(
+  sessions: readonly Session[],
+  viewedAt: (sessionId: string) => number = () => 0,
+): WaitingCall[] {
+  return (
+    sessions
+      // A paused Job is parked by him: nothing it waits on calls until he resumes it.
+      .filter((session) => session.dead === undefined && session.paused !== true)
+      .flatMap((session) => {
+        const touched = touchedAt(session, viewedAt);
+        return waitingOf(session)
+          .filter((item) => session.turn.state !== "working" || BLOCKING.has(item.source))
+          .filter((item) => touched === 0 || Date.parse(item.since) > touched)
+          .map((item) => ({
+            session,
+            item,
+          }));
+      })
+      .sort(
+        (a, b) =>
+          Date.parse(a.item.since) - Date.parse(b.item.since) || a.item.id.localeCompare(b.item.id),
+      )
+  );
 }
 
 /** What a Session's call is called, whichever builder raises it: the item's source decides, so a call keeps its label after the Session has been viewed. */
-export const callKindOf = (source: string): string => (source === "ask_card" || source === "window_ask" ? "Job question" : source === "walk" ? "Job walk" : source === "sketch" ? "Job sketch" : source === "document" ? "Job document" : "Job");
+export const callKindOf = (source: string): string =>
+  source === "ask_card" || source === "window_ask"
+    ? "Job question"
+    : source === "walk"
+      ? "Job walk"
+      : source === "sketch"
+        ? "Job sketch"
+        : source === "document"
+          ? "Job document"
+          : "Job";
 
 /** The Session a key names, whether it is the Session's own tile (`session:<id>`) or one of its calls (`session:<id>:<item>`). */
-export const sessionIdOf = (key: string): string | undefined => (key.startsWith("session:") ? key.split(":")[1] : undefined);
+export const sessionIdOf = (key: string): string | undefined =>
+  key.startsWith("session:") ? key.split(":")[1] : undefined;

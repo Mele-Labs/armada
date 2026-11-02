@@ -77,7 +77,9 @@ export function BoardEmptyState({
         () => onCopied?.(value),
       );
     },
-    [onCopied],
+    [
+      onCopied,
+    ],
   );
 
   return (

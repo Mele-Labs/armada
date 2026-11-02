@@ -13,7 +13,15 @@ import {
   type NodeChange,
   type NodeProps,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
@@ -59,8 +67,14 @@ export type StudioWhiteboardNode = {
    */
   within?: string;
   /** Where the node sits: from its frame's corner, or the board's origin where it is in none. */
-  position: { x: number; y: number };
-  node: StudioNodeOf & { title: string; facts?: readonly string[] };
+  position: {
+    x: number;
+    y: number;
+  };
+  node: StudioNodeOf & {
+    title: string;
+    facts?: readonly string[];
+  };
 };
 
 /**
@@ -73,7 +87,10 @@ export type StudioWhiteboardDraft = {
   /** A fresh id per draft, so a second draft is a fresh field rather than the first one re-kinded. */
   id: string;
   kind: StudioNodeKind;
-  position: { x: number; y: number };
+  position: {
+    x: number;
+    y: number;
+  };
   /** The field. Focused once the board has drawn the card. */
   field: ReactNode;
   pending?: boolean;
@@ -82,7 +99,13 @@ export type StudioWhiteboardDraft = {
    * `position` on the board, where the draft is drawn, and `landed` the Zone
    * it was dropped in and its spot there, as a node's own drop is read.
    */
-  onMoved?: (position: { x: number; y: number }, landed: StudioWhiteboardLanding) => void;
+  onMoved?: (
+    position: {
+      x: number;
+      y: number;
+    },
+    landed: StudioWhiteboardLanding,
+  ) => void;
 };
 
 /**
@@ -98,12 +121,18 @@ export type StudioWhiteboardEdge = {
   source: string;
   target: string;
 } & (
-  | { kind: "produced" }
+  | {
+      kind: "produced";
+    }
   /**
    * Proposed by Helm or a scout, and not yet accepted by a person. `proposer`
    * is who drew it, already said (`Helm proposes`); absent is the bare fact.
    */
-  | { kind: StudioEdgeRelation; proposed: boolean; proposer?: string }
+  | {
+      kind: StudioEdgeRelation;
+      proposed: boolean;
+      proposer?: string;
+    }
 );
 
 export type StudioWhiteboardProps = {
@@ -115,7 +144,14 @@ export type StudioWhiteboardProps = {
    * **Dropped on a Zone it goes in, and dragged off one it comes out**; a Note
    * in a Cluster stays in it. Dragging a frame carries what it holds.
    */
-  onNodeMoved?: (id: string, position: { x: number; y: number }, within: string | null) => void;
+  onNodeMoved?: (
+    id: string,
+    position: {
+      x: number;
+      y: number;
+    },
+    within: string | null,
+  ) => void;
   onSelectionChange?: (ids: readonly string[]) => void;
   /**
    * One node to arrive selected — the board opened *at* something rather than
@@ -149,7 +185,13 @@ export type StudioWhiteboardProps = {
    * it in, as a drop would — the owner, 2 Oct 2026. `GraphCanvas`'s rule: a
    * drag is no press.
    */
-  onPanePress?: (at: { x: number; y: number }, landed: StudioWhiteboardLanding) => void;
+  onPanePress?: (
+    at: {
+      x: number;
+      y: number;
+    },
+    landed: StudioWhiteboardLanding,
+  ) => void;
   /**
    * The kind armed, and the board draws a crosshair. **The kind and not a
    * flag**, because which frame a press lands in is the kind's: a Zone pressed
@@ -162,7 +204,13 @@ export type StudioWhiteboardProps = {
    * middle of the view where it is not. Answers whether it took the paste;
    * one it did not is left to the browser. Absent, a paste does nothing here.
    */
-  onPaste?: (clipboard: DataTransfer, at: { x: number; y: number }) => boolean;
+  onPaste?: (
+    clipboard: DataTransfer,
+    at: {
+      x: number;
+      y: number;
+    },
+  ) => boolean;
   /**
    * What sits over the board's top-right corner — a Studio's Run control.
    * **Never the field behind a rail press**: that is the draft, put down where
@@ -210,10 +258,23 @@ export const STUDIO_EDGE_LABEL: Readonly<Record<StudioEdgeRelation, string>> = {
  * the moment a node is dropped somewhere new: a frame the caller names that
  * differs from the one it named before is the caller moving it.
  */
-type BoardNodeData = StudioWhiteboardNode["node"] & { within?: string };
-type DraftNodeData = { kind: StudioNodeKind; field: ReactNode; pending: boolean };
-type FrameNodeData = { kind: StudioFrameKind; title: string; within?: string };
-type BoardNode = Node<BoardNodeData, "studio"> | Node<DraftNodeData, "draft"> | Node<FrameNodeData, "frame">;
+type BoardNodeData = StudioWhiteboardNode["node"] & {
+  within?: string;
+};
+type DraftNodeData = {
+  kind: StudioNodeKind;
+  field: ReactNode;
+  pending: boolean;
+};
+type FrameNodeData = {
+  kind: StudioFrameKind;
+  title: string;
+  within?: string;
+};
+type BoardNode =
+  | Node<BoardNodeData, "studio">
+  | Node<DraftNodeData, "draft">
+  | Node<FrameNodeData, "frame">;
 /** A proposed relation's card: who drew it, the sentence its buttons are named by, and the answer. */
 type Proposal = {
   proposer: string;
@@ -223,7 +284,12 @@ type Proposal = {
   onDecide?: (edgeId: string, accepted: boolean) => void;
 };
 /** `cards` is every card on the board, which a proposal's dot is kept off. */
-type BoardEdgeData = { label: string | null; proposed: boolean; proposal: Proposal | null; cards: readonly CardBox[] };
+type BoardEdgeData = {
+  label: string | null;
+  proposed: boolean;
+  proposal: Proposal | null;
+  cards: readonly CardBox[];
+};
 type BoardEdge = Edge<BoardEdgeData, "studio">;
 
 /**
@@ -236,11 +302,23 @@ function BoardNodeView({ data, selected }: NodeProps<Node<BoardNodeData, "studio
   return (
     <>
       {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={false} />
+        <Handle
+          key={`t-${side}`}
+          id={`t-${side}`}
+          type="target"
+          position={side}
+          isConnectable={false}
+        />
       ))}
       <StudioNode {...card} selected={selected} />
       {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
+        <Handle
+          key={`s-${side}`}
+          id={`s-${side}`}
+          type="source"
+          position={side}
+          isConnectable={false}
+        />
       ))}
     </>
   );
@@ -251,11 +329,23 @@ function FrameNodeView({ data, selected }: NodeProps<Node<FrameNodeData, "frame"
   return (
     <>
       {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={false} />
+        <Handle
+          key={`t-${side}`}
+          id={`t-${side}`}
+          type="target"
+          position={side}
+          isConnectable={false}
+        />
       ))}
       <StudioFrame kind={data.kind} title={data.title} selected={selected} />
       {GRAPH_CANVAS_SIDES.map((side) => (
-        <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
+        <Handle
+          key={`s-${side}`}
+          id={`s-${side}`}
+          type="source"
+          position={side}
+          isConnectable={false}
+        />
       ))}
     </>
   );
@@ -284,8 +374,12 @@ function DraftNodeView({
   useEffect(() => {
     const card = at.current;
     if (!shown || card === null) return;
-    card.querySelector<HTMLElement>("textarea, input")?.focus({ preventScroll: true });
-  }, [shown]);
+    card.querySelector<HTMLElement>("textarea, input")?.focus({
+      preventScroll: true,
+    });
+  }, [
+    shown,
+  ]);
   useEffect(() => {
     const card = at.current;
     if (!shown || card === null) return;
@@ -293,12 +387,20 @@ function DraftNodeView({
     const box = card.getBoundingClientRect();
     if (board === undefined) return;
     const inView =
-      box.left >= board.left && box.right <= board.right && box.top >= board.top && box.bottom <= board.bottom;
+      box.left >= board.left &&
+      box.right <= board.right &&
+      box.top >= board.top &&
+      box.bottom <= board.bottom;
     if (inView) return;
-    void flow.setCenter(positionAbsoluteX + width / 2, positionAbsoluteY + height / 2, { zoom: flow.getZoom() });
+    void flow.setCenter(positionAbsoluteX + width / 2, positionAbsoluteY + height / 2, {
+      zoom: flow.getZoom(),
+    });
     // When it is drawn and when it grows — a Link's offer arrives with the
     // address — and never otherwise: a person who pans away is not pulled back.
-  }, [shown, height]);
+  }, [
+    shown,
+    height,
+  ]);
   return (
     <div ref={at}>
       <StudioNodeDraft kind={data.kind} pending={data.pending}>
@@ -343,34 +445,34 @@ function ProposalCard({
       <Button variant="ghost" size="sm" iconOnly aria-label={named}>
         <span className="armada-studio-edge__mark" aria-hidden />
       </Button>
-    <Card className="armada-studio-edge__proposal" role="group" aria-label={named}>
-      <span className="armada-studio-edge__proposer">{proposer}</span>
-      <span className="armada-studio-edge__relation">{label}</span>
-      {readOnly ? (
-        <span className="armada-studio-edge__continue">{CONTINUE_TO_ANSWER}</span>
-      ) : onDecide === undefined ? null : (
-        <span className="armada-studio-edge__acts">
-          <Button
-            size="sm"
-            pending={deciding === id}
-            disabled={deciding !== null}
-            aria-label={`Accept: ${said}`}
-            onClick={() => onDecide(id, true)}
-          >
-            Accept
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={deciding !== null}
-            aria-label={`Reject: ${said}`}
-            onClick={() => onDecide(id, false)}
-          >
-            Reject
-          </Button>
-        </span>
-      )}
-    </Card>
+      <Card className="armada-studio-edge__proposal" role="group" aria-label={named}>
+        <span className="armada-studio-edge__proposer">{proposer}</span>
+        <span className="armada-studio-edge__relation">{label}</span>
+        {readOnly ? (
+          <span className="armada-studio-edge__continue">{CONTINUE_TO_ANSWER}</span>
+        ) : onDecide === undefined ? null : (
+          <span className="armada-studio-edge__acts">
+            <Button
+              size="sm"
+              pending={deciding === id}
+              disabled={deciding !== null}
+              aria-label={`Accept: ${said}`}
+              onClick={() => onDecide(id, true)}
+            >
+              Accept
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={deciding !== null}
+              aria-label={`Reject: ${said}`}
+              onClick={() => onDecide(id, false)}
+            >
+              Reject
+            </Button>
+          </span>
+        )}
+      </Card>
     </span>
   );
 }
@@ -380,9 +482,14 @@ function BoardEdgeView(props: EdgeProps<BoardEdge>) {
   const label = props.data?.label ?? null;
   const proposal = props.data?.proposal ?? null;
   // A proposal is a dot, moved along its line off any card; a plain label stays at the middle.
-  const middle = { x: labelX, y: labelY };
+  const middle = {
+    x: labelX,
+    y: labelY,
+  };
   const dot = proposal === null ? middle : dotOnTheLine(path, middle, props.data?.cards ?? []);
-  const at = { transform: `translate(-50%, -50%) translate(${dot.x}px, ${dot.y}px)` };
+  const at = {
+    transform: `translate(-50%, -50%) translate(${dot.x}px, ${dot.y}px)`,
+  };
   return (
     <>
       <BaseEdge
@@ -420,13 +527,27 @@ function BoardEdgeView(props: EdgeProps<BoardEdge>) {
  * element**: React Flow writes this into its own store on every render it sees a new value, and a
  * fresh array each time is an update loop it never leaves.
  */
-const JOINS_THE_SELECTION = ["Meta", "Control"];
+const JOINS_THE_SELECTION = [
+  "Meta",
+  "Control",
+];
 
-const NODE_TYPES = { studio: BoardNodeView, draft: DraftNodeView, frame: FrameNodeView };
-const EDGE_TYPES = { studio: BoardEdgeView };
+const NODE_TYPES = {
+  studio: BoardNodeView,
+  draft: DraftNodeView,
+  frame: FrameNodeView,
+};
+const EDGE_TYPES = {
+  studio: BoardEdgeView,
+};
 
 function toBoardNode({ id, position, node, within }: StudioWhiteboardNode): BoardNode {
-  const held = within === undefined ? {} : { parentId: within };
+  const held =
+    within === undefined
+      ? {}
+      : {
+          parentId: within,
+        };
   if (node.kind === "zone" || node.kind === "cluster") {
     // A Zone holds no words; a Cluster's title is its head.
     const title = node.kind === "cluster" ? node.title : "";
@@ -435,12 +556,36 @@ function toBoardNode({ id, position, node, within }: StudioWhiteboardNode): Boar
       position,
       ...held,
       type: "frame",
-      data: { kind: node.kind, title, ...(within === undefined ? {} : { within }) },
-      ariaLabel: studioFrameLabel({ kind: node.kind, title }),
+      data: {
+        kind: node.kind,
+        title,
+        ...(within === undefined
+          ? {}
+          : {
+              within,
+            }),
+      },
+      ariaLabel: studioFrameLabel({
+        kind: node.kind,
+        title,
+      }),
     };
   }
-  const data = within === undefined ? node : { ...node, within };
-  return { id, position, ...held, type: "studio", data, ariaLabel: studioNodeLabel(node) };
+  const data =
+    within === undefined
+      ? node
+      : {
+          ...node,
+          within,
+        };
+  return {
+    id,
+    position,
+    ...held,
+    type: "studio",
+    data,
+    ariaLabel: studioNodeLabel(node),
+  };
 }
 
 /** The frame the caller last named for a node, off its data. */
@@ -456,7 +601,13 @@ function framed(nodes: BoardNode[]): BoardNode[] {
   const sizes = frameSizes(nodes.map(asFraming));
   return parentsFirst(nodes).map((node) => {
     const size = sizes.get(node.id);
-    return size === undefined ? node : { ...node, width: size.width, height: size.height };
+    return size === undefined
+      ? node
+      : {
+          ...node,
+          width: size.width,
+          height: size.height,
+        };
   });
 }
 
@@ -465,18 +616,36 @@ function asFraming(node: BoardNode) {
     id: node.id,
     kind: node.data.kind,
     position: node.position,
-    ...(node.parentId === undefined ? {} : { parentId: node.parentId }),
-    ...(node.measured === undefined ? {} : { measured: node.measured }),
+    ...(node.parentId === undefined
+      ? {}
+      : {
+          parentId: node.parentId,
+        }),
+    ...(node.measured === undefined
+      ? {}
+      : {
+          measured: node.measured,
+        }),
   };
 }
 
 /** What a draft is read aloud as: the kind, and that it is not on the Studio yet. */
-function toDraftNode({ id, kind, position, field, pending = false }: StudioWhiteboardDraft): BoardNode {
+function toDraftNode({
+  id,
+  kind,
+  position,
+  field,
+  pending = false,
+}: StudioWhiteboardDraft): BoardNode {
   return {
     id,
     position,
     type: "draft",
-    data: { kind, field, pending },
+    data: {
+      kind,
+      field,
+      pending,
+    },
     ariaLabel: `New ${STUDIO_NODE_KIND[kind]}`,
     // Named as every node is, though it takes no focus stop of its own: the field inside is the stop.
     ariaRole: "group",
@@ -509,8 +678,20 @@ function merged(
   draft: StudioWhiteboardDraft | null,
   kept: readonly BoardNode[],
 ): BoardNode[] {
-  const byId = new Map(kept.map((node) => [node.id, node]));
-  const fresh = [...given.map(toBoardNode), ...(draft === null ? [] : [toDraftNode(draft)])];
+  const byId = new Map(
+    kept.map((node) => [
+      node.id,
+      node,
+    ]),
+  );
+  const fresh = [
+    ...given.map(toBoardNode),
+    ...(draft === null
+      ? []
+      : [
+          toDraftNode(draft),
+        ]),
+  ];
   return framed(
     fresh.map((node) => {
       const held = byId.get(node.id);
@@ -518,9 +699,28 @@ function merged(
       const { parentId: _, ...placed } = held;
       const moved = namedWithin(held) !== namedWithin(node);
       const at = moved
-        ? { position: node.position, ...(node.parentId === undefined ? {} : { parentId: node.parentId }) }
-        : { position: held.position, ...(held.parentId === undefined ? {} : { parentId: held.parentId }) };
-      return { ...placed, ...at, data: node.data, ariaLabel: node.ariaLabel } as BoardNode;
+        ? {
+            position: node.position,
+            ...(node.parentId === undefined
+              ? {}
+              : {
+                  parentId: node.parentId,
+                }),
+          }
+        : {
+            position: held.position,
+            ...(held.parentId === undefined
+              ? {}
+              : {
+                  parentId: held.parentId,
+                }),
+          };
+      return {
+        ...placed,
+        ...at,
+        data: node.data,
+        ariaLabel: node.ariaLabel,
+      } as BoardNode;
     }),
   );
 }
@@ -545,13 +745,23 @@ function edgeLabel(edge: StudioWhiteboardEdge, titleOf: (id: string) => string):
  * caller's rather than markup passed down. A node placed at the origin on a
  * board panned somewhere else is a node a person has to go and find.
  */
-export function useStudioPlacement(): () => { x: number; y: number } {
+export function useStudioPlacement(): () => {
+  x: number;
+  y: number;
+} {
   const flow = useReactFlow();
   return useCallback(() => {
     const board = document.querySelector(".armada-studio-whiteboard");
     const at = board?.getBoundingClientRect();
-    if (board === null || at === undefined) return { x: 0, y: 0 };
-    const middle = flow.screenToFlowPosition({ x: at.x + at.width / 2, y: at.y + at.height / 2 });
+    if (board === null || at === undefined)
+      return {
+        x: 0,
+        y: 0,
+      };
+    const middle = flow.screenToFlowPosition({
+      x: at.x + at.width / 2,
+      y: at.y + at.height / 2,
+    });
     // A node is placed by its top-left corner, so half a card back puts the
     // card in the middle rather than starting there. The width is read off the
     // token the card is drawn at rather than restated here.
@@ -561,15 +771,23 @@ export function useStudioPlacement(): () => { x: number; y: number } {
     // otherwise land on one spot with the second hiding the first.
     return clearOf(
       flow.getNodes().map((node) => node.position),
-      { x: middle.x - half, y: middle.y },
+      {
+        x: middle.x - half,
+        y: middle.y,
+      },
       Number.isFinite(wide) ? wide : 0,
     );
-  }, [flow]);
+  }, [
+    flow,
+  ]);
 }
 
 /** A paste aimed at somewhere a person types, which is that field's and not the board's. */
 function typing(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea") !== null);
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.closest("input, textarea") !== null)
+  );
 }
 
 /**
@@ -588,14 +806,27 @@ function BoardPaste({ onPaste }: { onPaste: NonNullable<StudioWhiteboardProps["o
   latest.current = onPaste;
   useEffect(() => {
     if (board === null) return;
-    let pointer: { x: number; y: number } | null = null;
+    let pointer: {
+      x: number;
+      y: number;
+    } | null = null;
     if (!board.hasAttribute("tabindex")) board.tabIndex = -1;
-    const moved = (event: PointerEvent) => void (pointer = { x: event.clientX, y: event.clientY });
+    const moved = (event: PointerEvent) =>
+      void (pointer = {
+        x: event.clientX,
+        y: event.clientY,
+      });
     const left = () => void (pointer = null);
     const pasted = (event: ClipboardEvent) => {
       if (event.clipboardData === null || typing(event.target)) return;
       const at = pointer === null ? middle() : flow.screenToFlowPosition(pointer);
-      if (latest.current(event.clipboardData, { x: Math.round(at.x), y: Math.round(at.y) })) event.preventDefault();
+      if (
+        latest.current(event.clipboardData, {
+          x: Math.round(at.x),
+          y: Math.round(at.y),
+        })
+      )
+        event.preventDefault();
     };
     board.addEventListener("pointermove", moved);
     board.addEventListener("pointerleave", left);
@@ -605,7 +836,11 @@ function BoardPaste({ onPaste }: { onPaste: NonNullable<StudioWhiteboardProps["o
       board.removeEventListener("pointerleave", left);
       board.removeEventListener("paste", pasted);
     };
-  }, [board, flow, middle]);
+  }, [
+    board,
+    flow,
+    middle,
+  ]);
   return null;
 }
 
@@ -634,15 +869,32 @@ function Board({
   // node of a multiple pick came out as the whole of it. The board is keyed by
   // its Studio, so opening another one is a fresh mount and a fresh pick.
   const [kept, setKept] = useState<BoardNode[]>(() =>
-    given.map((entry) => ({ ...toBoardNode(entry), selected: pick !== null && entry.id === pick })),
+    given.map((entry) => ({
+      ...toBoardNode(entry),
+      selected: pick !== null && entry.id === pick,
+    })),
   );
   // **A frame is not picked by the press that places in it**: with a kind
   // armed, that press is the kind's, and a Zone picked under the new card
   // would hang its bar over it.
   const nodes = useMemo(() => {
     const drawn = merged(given, draft, kept);
-    return placing === null ? drawn : drawn.map((node) => (node.type === "frame" ? { ...node, selectable: false } : node));
-  }, [given, draft, kept, placing]);
+    return placing === null
+      ? drawn
+      : drawn.map((node) =>
+          node.type === "frame"
+            ? {
+                ...node,
+                selectable: false,
+              }
+            : node,
+        );
+  }, [
+    given,
+    draft,
+    kept,
+    placing,
+  ]);
   const showing = useRef(nodes);
   showing.current = nodes;
 
@@ -651,12 +903,24 @@ function Board({
       // `dragging: false` is a node put down: a drag ending, or an arrow key.
       // **Where it lands is worked out against the board as it was drawn**, so
       // a frame is measured without the node leaving it.
-      const landed = new Map<string, { position: { x: number; y: number }; within: string | null }>();
+      const landed = new Map<
+        string,
+        {
+          position: {
+            x: number;
+            y: number;
+          };
+          within: string | null;
+        }
+      >();
       for (const change of changes) {
         if (readOnly) break;
         if (change.type === "position" && change.dragging === false && change.position) {
           if (change.id === draft?.id) {
-            draft.onMoved?.(change.position, landing(showing.current.map(asFraming), change.id, change.position));
+            draft.onMoved?.(
+              change.position,
+              landing(showing.current.map(asFraming), change.id, change.position),
+            );
             continue;
           }
           const where = landing(showing.current.map(asFraming), change.id, change.position);
@@ -669,25 +933,51 @@ function Board({
           const where = landed.get(node.id);
           if (where === undefined) return node;
           const { parentId: _, ...placed } = node;
-          return { ...placed, position: where.position, ...(where.within === null ? {} : { parentId: where.within }) };
+          return {
+            ...placed,
+            position: where.position,
+            ...(where.within === null
+              ? {}
+              : {
+                  parentId: where.within,
+                }),
+          };
         }),
       );
     },
-    [given, draft, onNodeMoved, readOnly],
+    [
+      given,
+      draft,
+      onNodeMoved,
+      readOnly,
+    ],
   );
 
   const edges = useMemo<BoardEdge[]>(() => {
-    const titles = new Map(given.map(({ id, node }) => [id, `${STUDIO_NODE_KIND[node.kind]} ${node.title}`.trim()]));
+    const titles = new Map(
+      given.map(({ id, node }) => [
+        id,
+        `${STUDIO_NODE_KIND[node.kind]} ${node.title}`.trim(),
+      ]),
+    );
     const titleOf = (id: string) => titles.get(id) ?? id;
     // Which sides an edge leaves and lands on is read off where both ends sit
     // on the board, not inside whatever frame each is in.
-    const framing = new Map(nodes.map((node) => [node.id, asFraming(node)]));
+    const framing = new Map(
+      nodes.map((node) => [
+        node.id,
+        asFraming(node),
+      ]),
+    );
     const placed = new Map(
       nodes.map((node) => [
         node.id,
         {
           position: onTheBoard(node.id, framing),
-          measured: { width: node.width ?? node.measured?.width, height: node.height ?? node.measured?.height },
+          measured: {
+            width: node.width ?? node.measured?.width,
+            height: node.height ?? node.measured?.height,
+          },
         },
       ]),
     );
@@ -697,8 +987,15 @@ function Board({
       const box = placed.get(node.id);
       const width = box?.measured.width;
       const height = box?.measured.height;
-      if (node.type === "frame" || box === undefined || width === undefined || height === undefined) return [];
-      return [{ ...box.position, width, height }];
+      if (node.type === "frame" || box === undefined || width === undefined || height === undefined)
+        return [];
+      return [
+        {
+          ...box.position,
+          width,
+          height,
+        },
+      ];
     });
     return givenEdges.map((edge) => ({
       id: edge.id,
@@ -707,23 +1004,52 @@ function Board({
       ...facingSides(placed.get(edge.source), placed.get(edge.target)),
       type: "studio",
       ariaLabel: edgeLabel(edge, titleOf),
-      markerEnd: { type: MarkerType.ArrowClosed },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+      },
       data: {
         label: edge.kind === "produced" ? null : STUDIO_EDGE_LABEL[edge.kind],
         proposed: edge.kind !== "produced" && edge.proposed,
         proposal:
           edge.kind === "produced" || !edge.proposed
             ? null
-            : { proposer: edge.proposer ?? PROPOSED, said: edgeSaid(edge, titleOf), readOnly, deciding, onDecide },
+            : {
+                proposer: edge.proposer ?? PROPOSED,
+                said: edgeSaid(edge, titleOf),
+                readOnly,
+                deciding,
+                onDecide,
+              },
         cards,
       },
     }));
-  }, [given, givenEdges, nodes, readOnly, deciding, onDecide]);
+  }, [
+    given,
+    givenEdges,
+    nodes,
+    readOnly,
+    deciding,
+    onDecide,
+  ]);
 
   // Where a press puts the armed kind: the Zone under it, or the board.
   const pressed = (at: { x: number; y: number }) =>
-    onPanePress?.(at, placing === null ? { within: null, position: at } : pressedIn(nodes.map(asFraming), placing, at));
-  const onNodePress = (nodeId: string, at: { x: number; y: number }) => {
+    onPanePress?.(
+      at,
+      placing === null
+        ? {
+            within: null,
+            position: at,
+          }
+        : pressedIn(nodes.map(asFraming), placing, at),
+    );
+  const onNodePress = (
+    nodeId: string,
+    at: {
+      x: number;
+      y: number;
+    },
+  ) => {
     // A press on a card picks it, as it always has. Only a frame's own ground places.
     if (nodes.find((node) => node.id === nodeId)?.type === "frame") pressed(at);
   };
@@ -741,7 +1067,12 @@ function Board({
       nodesDraggable={!readOnly}
       multiSelectionKeyCode={JOINS_THE_SELECTION}
       rail={rail}
-      {...(onPanePress === undefined ? {} : { onPanePress: pressed, onNodePress })}
+      {...(onPanePress === undefined
+        ? {}
+        : {
+            onPanePress: pressed,
+            onNodePress,
+          })}
       placing={placing !== null}
       aside={children}
     >

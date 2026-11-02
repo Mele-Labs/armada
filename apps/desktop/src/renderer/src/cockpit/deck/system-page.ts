@@ -15,7 +15,13 @@ export function opensFor(surface: string, _hidden: readonly string[]): string {
 }
 
 /** What the window leaves off its places: what nothing serves yet, and what a layout hides. The palette still reaches it by name. */
-export const placesOff = (hidden: readonly string[], layout: readonly { id: string; visible: boolean }[]): readonly string[] => [
+export const placesOff = (
+  hidden: readonly string[],
+  layout: readonly {
+    id: string;
+    visible: boolean;
+  }[],
+): readonly string[] => [
   ...hidden,
   ...layout.filter((one) => !one.visible).map((one) => one.id),
 ];

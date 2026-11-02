@@ -76,13 +76,15 @@ export function StudioName({
   const field = useRef<HTMLInputElement>(null);
   const shown = name ?? untitled;
   const naming = typed !== null || asked;
-  const draft = typed ?? (name ?? "");
+  const draft = typed ?? name ?? "";
 
   // The cursor goes where the name was, with what is there selected: the first
   // thing a person does to "Untitled Studio" is replace all of it.
   useEffect(() => {
     if (naming) field.current?.select();
-  }, [naming]);
+  }, [
+    naming,
+  ]);
 
   function shut(): void {
     setTyped(null);
@@ -93,7 +95,9 @@ export function StudioName({
   // with the Studio whole — so nothing here holds a second copy of it open.
   useEffect(() => {
     if (!saving && refused === undefined) shut();
-  }, [name]);
+  }, [
+    name,
+  ]);
 
   function save(): void {
     const settledName = settled(draft);
@@ -129,7 +133,13 @@ export function StudioName({
           onKeyDown={keyed}
         />
         <div className="armada-studio-name__acts">
-          <Button size="sm" variant="primary" pending={saving} disabled={settled(draft) === null} onClick={save}>
+          <Button
+            size="sm"
+            variant="primary"
+            pending={saving}
+            disabled={settled(draft) === null}
+            onClick={save}
+          >
             Save
           </Button>
           <Button size="sm" variant="ghost" disabled={saving} onClick={shut}>
@@ -142,7 +152,11 @@ export function StudioName({
 
   return (
     <div className="armada-studio-name">
-      {drawn({ heading, shown, untitled: name === null })}
+      {drawn({
+        heading,
+        shown,
+        untitled: name === null,
+      })}
       {/* The Rename beside the name is the heading's. A row's is in the row's
           own split button, which opens this through `naming` — two controls for
           one act on one row is what the owner's note took away. */}

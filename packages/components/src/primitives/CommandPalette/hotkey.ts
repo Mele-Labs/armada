@@ -4,10 +4,25 @@
 import { actOnChord, sameKey, parseChord, type Chord } from "../../keymap";
 
 /** Another row's key, with the name it goes by. */
-export type HeldHotkey = { label: string; hotkey: string };
+export type HeldHotkey = {
+  label: string;
+  hotkey: string;
+};
 
 /** What a Mac or a text field already does with these, which no window of Bridge should take. */
-const SYSTEM: readonly string[] = ["⌘C", "⌘V", "⌘X", "⌘A", "⌘Z", "⇧⌘Z", "⌘Q", "⌘W", "⌘M", "⌘H", "⌘,"];
+const SYSTEM: readonly string[] = [
+  "⌘C",
+  "⌘V",
+  "⌘X",
+  "⌘A",
+  "⌘Z",
+  "⇧⌘Z",
+  "⌘Q",
+  "⌘W",
+  "⌘M",
+  "⌘H",
+  "⌘,",
+];
 
 const sameAs = (spelled: string, chord: Chord): boolean => {
   const held = parseChord(spelled);
@@ -20,7 +35,8 @@ const sameAs = (spelled: string, chord: Chord): boolean => {
  */
 export function refuseHotkey(chord: Chord, others: readonly HeldHotkey[]): string | undefined {
   if (!chord.meta && !chord.ctrl) return "Needs ⌘ or ⌃";
-  if (chord.meta && !chord.ctrl && !chord.alt && !chord.shift && /^[1-9]$/.test(chord.key)) return "⌘1 to ⌘9 open results";
+  if (chord.meta && !chord.ctrl && !chord.alt && !chord.shift && /^[1-9]$/.test(chord.key))
+    return "⌘1 to ⌘9 open results";
   const act = actOnChord(chord);
   if (act !== undefined) return `Bound to ${act.verb}`;
   if (SYSTEM.some((one) => sameAs(one, chord))) return "Kept by the system";
@@ -29,7 +45,10 @@ export function refuseHotkey(chord: Chord, others: readonly HeldHotkey[]): strin
 }
 
 /** Another row's alias, with the name it goes by. */
-export type HeldAlias = { label: string; alias: string };
+export type HeldAlias = {
+  label: string;
+  alias: string;
+};
 
 /** Why a word cannot be a row's alias, in a few words, or nothing where it can. It is one word, and no other row has it. */
 export function refuseAlias(word: string, others: readonly HeldAlias[]): string | undefined {

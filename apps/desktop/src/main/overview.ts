@@ -21,7 +21,10 @@ export type OverviewWiring = {
   port: () => number | null;
 };
 
-const NOT_CONNECTED = { ok: false, why: "not_connected" } as const;
+const NOT_CONNECTED = {
+  ok: false,
+  why: "not_connected",
+} as const;
 
 export class OverviewReads {
   private readonly wiring: OverviewWiring;
@@ -37,10 +40,18 @@ export class OverviewReads {
   async watch(want: boolean): Promise<void> {
     this.open = want;
     if (!want) {
-      this.wiring.publish({ health: { state: "none" } });
+      this.wiring.publish({
+        health: {
+          state: "none",
+        },
+      });
       return;
     }
-    this.wiring.publish({ health: { state: "reading" } });
+    this.wiring.publish({
+      health: {
+        state: "reading",
+      },
+    });
     await this.again(this.wiring.port());
   }
 
@@ -50,13 +61,20 @@ export class OverviewReads {
     this.asked += 1;
     const asked = this.asked;
     if (port === null) {
-      this.wiring.publish({ health: { state: "failed", outcome: NOT_CONNECTED } });
+      this.wiring.publish({
+        health: {
+          state: "failed",
+          outcome: NOT_CONNECTED,
+        },
+      });
       return;
     }
     const health = await ask(port, "GET", "/health");
     // The surface closed, or a newer read went out, while this was in flight.
     if (!this.open || this.asked !== asked) return;
-    this.wiring.publish({ health: healthOf(health) });
+    this.wiring.publish({
+      health: healthOf(health),
+    });
   }
 
   /** The read ends with the window. Nothing is published: the surface is gone. */
@@ -67,6 +85,12 @@ export class OverviewReads {
 
 function healthOf(answer: Answer): HealthRead {
   return answer.ok === true
-    ? { state: "read", health: answer.body as FleetHealth }
-    : { state: "failed", outcome: answer.outcome };
+    ? {
+        state: "read",
+        health: answer.body as FleetHealth,
+      }
+    : {
+        state: "failed",
+        outcome: answer.outcome,
+      };
 }

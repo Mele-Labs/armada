@@ -5,17 +5,40 @@ import { expect, fn } from "storybook/test";
 import { AutopilotBar, type AutopilotBarProps } from "./AutopilotBar";
 
 const CAPS: AutopilotBarProps["caps"] = [
-  { label: "At once", value: "2 of 2 running", fill: 1, reached: true },
-  { label: "Spend", value: "$12.40 of $30", fill: 0.41, reached: false },
-  { label: "Sessions", value: "4 started · no cap", fill: 0, reached: false },
-  { label: "Until", at: "2026-10-19T07:00:00Z", value: "5h 41m left", fill: 0.28, reached: false },
+  {
+    label: "At once",
+    value: "2 of 2 running",
+    fill: 1,
+    reached: true,
+  },
+  {
+    label: "Spend",
+    value: "$12.40 of $30",
+    fill: 0.41,
+    reached: false,
+  },
+  {
+    label: "Sessions",
+    value: "4 started · no cap",
+    fill: 0,
+    reached: false,
+  },
+  {
+    label: "Until",
+    at: "2026-10-19T07:00:00Z",
+    value: "5h 41m left",
+    fill: 0.28,
+    reached: false,
+  },
 ];
 
 const BASE: AutopilotBarProps = {
   state: "running",
-  instruction: "Work through the open issues that don't need design decisions. No more than two at a time, until 7am, $30 max.",
+  instruction:
+    "Work through the open issues that don't need design decisions. No more than two at a time, until 7am, $30 max.",
   caps: CAPS,
-  stopping: "Stop ends Autopilot. #1850, picked and not started, is withdrawn. #1820 and #1834 keep going to the end.",
+  stopping:
+    "Stop ends Autopilot. #1850, picked and not started, is withdrawn. #1820 and #1834 keep going to the end.",
   onPause: fn(),
   onResume: fn(),
   onStop: fn(),
@@ -27,14 +50,28 @@ const BASE: AutopilotBarProps = {
   onStart: fn(),
   editing: false,
   onEditing: fn(),
-  current: { atOnce: "2", until: "07:00", spend: "30", sessions: "" },
+  current: {
+    atOnce: "2",
+    until: "07:00",
+    spend: "30",
+    sessions: "",
+  },
   onSave: fn(),
 };
 
 /** Fleet's reading of the sentence below, with the words it read each setting from. Sessions it did not say. */
 const READING: NonNullable<AutopilotBarProps["reading"]> = {
-  fields: { atOnce: "2", until: "07:00", spend: "30", sessions: "" },
-  quoted: { atOnce: "two at a time", until: "until 7am", spend: "$30 max" },
+  fields: {
+    atOnce: "2",
+    until: "07:00",
+    spend: "30",
+    sessions: "",
+  },
+  quoted: {
+    atOnce: "two at a time",
+    until: "until 7am",
+    spend: "$30 max",
+  },
 };
 
 const meta: Meta<typeof AutopilotBar> = {
@@ -55,27 +92,63 @@ export const Running: Story = {};
  */
 export const TurningItOff: Story = {
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("switch", { name: "Autopilot" }));
-    const asked = canvas.getByRole("group", { name: "Stop Autopilot" });
+    await userEvent.click(
+      canvas.getByRole("switch", {
+        name: "Autopilot",
+      }),
+    );
+    const asked = canvas.getByRole("group", {
+      name: "Stop Autopilot",
+    });
     await expect(asked).toHaveTextContent("#1850, picked and not started, is withdrawn");
-    await expect(canvas.getByRole("switch", { name: "Autopilot" })).toBeChecked();
+    await expect(
+      canvas.getByRole("switch", {
+        name: "Autopilot",
+      }),
+    ).toBeChecked();
     await userEvent.keyboard("{Enter}");
     await expect(args.onStop).not.toHaveBeenCalled();
-    await expect(canvas.queryByRole("group", { name: "Stop Autopilot" })).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Stop" }));
-    await userEvent.click(canvas.getByRole("button", { name: "Stop Autopilot" }));
+    await expect(
+      canvas.queryByRole("group", {
+        name: "Stop Autopilot",
+      }),
+    ).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Stop",
+      }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Stop Autopilot",
+      }),
+    );
     await expect(args.onStop).toHaveBeenCalledOnce();
   },
 };
 
 /** Paused: no new picks, and the Sessions it started carry on. */
 export const Paused: Story = {
-  args: { state: "paused", caps: CAPS.map((cap) => ({ ...cap, reached: false })) },
+  args: {
+    state: "paused",
+    caps: CAPS.map((cap) => ({
+      ...cap,
+      reached: false,
+    })),
+  },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getByRole("status")).toHaveTextContent("Paused · started Jobs finish");
-    await userEvent.click(canvas.getByRole("button", { name: "Resume" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Resume",
+      }),
+    );
     await expect(args.onResume).toHaveBeenCalledOnce();
-    await expect(canvas.queryByRole("button", { name: "Pause" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Pause",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -103,26 +176,71 @@ export const PausedByACap: Story = {
   args: {
     state: "paused",
     capped: "Job cap reached",
-    current: { atOnce: "2", until: "07:00", spend: "30", sessions: "6" },
+    current: {
+      atOnce: "2",
+      until: "07:00",
+      spend: "30",
+      sessions: "6",
+    },
     caps: [
-      { label: "At once", value: "1 of 2 running", fill: 0.5, reached: false },
-      { label: "Spend", value: "$18.60 of $30", fill: 0.62, reached: false },
-      { label: "Sessions", value: "6 of 6 started", fill: 1, reached: true },
-      { label: "Until", at: "2026-10-19T07:00:00Z", value: "2h 10m left", fill: 0.7, reached: false },
+      {
+        label: "At once",
+        value: "1 of 2 running",
+        fill: 0.5,
+        reached: false,
+      },
+      {
+        label: "Spend",
+        value: "$18.60 of $30",
+        fill: 0.62,
+        reached: false,
+      },
+      {
+        label: "Sessions",
+        value: "6 of 6 started",
+        fill: 1,
+        reached: true,
+      },
+      {
+        label: "Until",
+        at: "2026-10-19T07:00:00Z",
+        value: "2h 10m left",
+        fill: 0.7,
+        reached: false,
+      },
     ],
   },
   render: (args) => <Capped {...args} />,
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getByRole("status")).toHaveTextContent("Paused · Job cap reached");
     await expect(canvas.getByText("6 of 6 started")).toHaveTextContent("6 of 6 started · reached");
-    await userEvent.click(canvas.getByRole("button", { name: "Edit caps" }));
-    const form = canvas.getByRole("form", { name: "Edit caps" });
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Edit caps",
+      }),
+    );
+    const form = canvas.getByRole("form", {
+      name: "Edit caps",
+    });
     await expect(form).toHaveTextContent("Raise the cap that paused it and save, then resume.");
     await userEvent.clear(canvas.getByLabelText("Jobs"));
     await userEvent.type(canvas.getByLabelText("Jobs"), "10");
-    await userEvent.click(canvas.getByRole("button", { name: "Save caps" }));
-    await expect(args.onSave).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", sessions: "10" });
-    await expect(canvas.queryByRole("form", { name: "Edit caps" })).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Save caps",
+      }),
+    );
+    await expect(args.onSave).toHaveBeenCalledWith({
+      atOnce: "2",
+      until: "07:00",
+      spend: "30",
+      sessions: "10",
+    });
+    await expect(
+      canvas.queryByRole("form", {
+        name: "Edit caps",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -136,21 +254,34 @@ export const ResumeRefusedWhileCapped: Story = {
 
 /** Its last pass picked nothing, and Fleet says why. */
 export const LastPassPickedNothing: Story = {
-  args: { fault: "The tracker did not answer in time." },
+  args: {
+    fault: "The tracker did not answer in time.",
+  },
 };
 
 /** Off, with nothing to say: the switch, and nothing else until it is turned on. */
 export const Off: Story = {
-  args: { state: "off", instruction: undefined },
+  args: {
+    state: "off",
+    instruction: undefined,
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("switch", { name: "Autopilot" }).closest("label")).toHaveAttribute("data-size", "sm");
+    await expect(
+      canvas
+        .getByRole("switch", {
+          name: "Autopilot",
+        })
+        .closest("label"),
+    ).toHaveAttribute("data-size", "sm");
   },
 };
 
 /** The start form, driven as Bridge drives it: a sentence, read by Fleet, checked, then started. */
 function Starting(props: AutopilotBarProps) {
   const [starting, setStarting] = useState(true);
-  const [sentence, setSentence] = useState("Work through the open issues that don't need design decisions. Two at a time, until 7am, $30 max.");
+  const [sentence, setSentence] = useState(
+    "Work through the open issues that don't need design decisions. Two at a time, until 7am, $30 max.",
+  );
   const [read, setRead] = useState(false);
   return (
     <AutopilotBar
@@ -174,18 +305,38 @@ function Starting(props: AutopilotBarProps) {
  * is in the fields.
  */
 export const StartForm: Story = {
-  args: { state: "off", instruction: undefined },
+  args: {
+    state: "off",
+    instruction: undefined,
+  },
   render: (args) => <Starting {...args} />,
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.queryByRole("button", { name: "Start Autopilot" })).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Read it" }));
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Start Autopilot",
+      }),
+    ).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Read it",
+      }),
+    );
     await expect(args.onRead).toHaveBeenCalledOnce();
     await expect(canvas.getByLabelText("At once")).toHaveValue("2");
     await expect(canvas.getByText("“two at a time”")).toBeInTheDocument();
     await expect(canvas.getByText("not said")).toBeInTheDocument();
     await userEvent.type(canvas.getByLabelText("Jobs"), "5");
-    await userEvent.click(canvas.getByRole("button", { name: "Start Autopilot" }));
-    await expect(args.onStart).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", sessions: "5" });
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Start Autopilot",
+      }),
+    );
+    await expect(args.onStart).toHaveBeenCalledWith({
+      atOnce: "2",
+      until: "07:00",
+      spend: "30",
+      sessions: "5",
+    });
   },
 };
 
@@ -195,15 +346,20 @@ export const QuotedStartForm: Story = {
     state: "off",
     instruction: undefined,
     starting: true,
-    sentence: "Work through the open issues that don't need design decisions. No more than two at a time, until 7am, $30 max.",
+    sentence:
+      "Work through the open issues that don't need design decisions. No more than two at a time, until 7am, $30 max.",
     reading: READING,
   },
 };
 
 /** Fleet refused a press: said in the bar, where the press was. */
 export const Refused: Story = {
-  args: { refused: "Not paused: Autopilot is already stopped." },
+  args: {
+    refused: "Not paused: Autopilot is already stopped.",
+  },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Not paused: Autopilot is already stopped.");
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Not paused: Autopilot is already stopped.",
+    );
   },
 };

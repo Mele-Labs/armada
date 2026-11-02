@@ -22,13 +22,26 @@ export type ChangedFile = {
 };
 
 /** `setup.seed` as the Manifest declares it, and where its warm-up stands. Since protocol 13.46. */
-export type DeclaredSeed = { paths: string[]; warmed_by: string[]; warmth: SeedWarmth };
+export type DeclaredSeed = {
+  paths: string[];
+  warmed_by: string[];
+  warmth: SeedWarmth;
+};
 
 /** Whether the seed at the current base commit may be cloned. */
 export type SeedWarmth =
-  | { state: "warm"; commit: string }
-  | { state: "warming"; commit: string }
-  | { state: "cold"; why: string };
+  | {
+      state: "warm";
+      commit: string;
+    }
+  | {
+      state: "warming";
+      commit: string;
+    }
+  | {
+      state: "cold";
+      why: string;
+    };
 
 export type RunEntry = {
   name: string;
@@ -58,10 +71,20 @@ export type RunOutput = {
 };
 
 /** `stop_checkout_run`'s and `undo_checkout_run`'s body. */
-export type NamedRun = { id: string };
+export type NamedRun = {
+  id: string;
+};
 
 /** What `get_checkout_run_output` came back as, answered to the caller rather than held as state. */
-export type RunOutputRead = { ok: true; output: RunOutput } | { ok: false; outcome: Outcome };
+export type RunOutputRead =
+  | {
+      ok: true;
+      output: RunOutput;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** `GET /manifest/run_sheet` — what can be run in the main checkout. */
 export type CheckoutRunSheet = {
@@ -90,12 +113,18 @@ export type CheckoutRunSheet = {
 };
 
 /** One workspace's own Commands. `dir` is relative to the repository root. */
-export type WorkspaceCommands = { dir: string; commands: RunEntry[] };
+export type WorkspaceCommands = {
+  dir: string;
+  commands: RunEntry[];
+};
 
 /**
  * `POST /manifest/start_run`'s body. A name and nothing else.
  */
-export type StartCheckoutRun = { name: string; workspace?: string };
+export type StartCheckoutRun = {
+  name: string;
+  workspace?: string;
+};
 
 /** A checkout run that has started and not finished. */
 export type CheckoutRunUnderway = {
@@ -165,12 +194,18 @@ export type RunDiffReading =
       /** Git's unified diff. Absent where there is nothing in it. */
       patch?: string;
     }
-  | { state: "gone"; why: string };
+  | {
+      state: "gone";
+      why: string;
+    };
 
 /** `GET /manifest/runs` — newest first, and what would not read. */
 export type CheckoutRunList = {
   runs: CheckoutRunRecord[];
-  unreadable: { id: string; why: string }[];
+  unreadable: {
+    id: string;
+    why: string;
+  }[];
 };
 
 /**
@@ -179,10 +214,24 @@ export type CheckoutRunList = {
  * `checkout_run.finished`'s; this carries only what the run printed.
  */
 export type CheckoutRunMessage =
-  | ({ message: "opened" } & CheckoutRunOpened)
-  | ({ message: "lines" } & { lines: string[] })
-  | ({ message: "missed" } & { dropped: number })
-  | ({ message: "closed" } & { because: string });
+  | ({
+      message: "opened";
+    } & CheckoutRunOpened)
+  | ({
+      message: "lines";
+    } & {
+      lines: string[];
+    })
+  | ({
+      message: "missed";
+    } & {
+      dropped: number;
+    })
+  | ({
+      message: "closed";
+    } & {
+      because: string;
+    });
 
 export type CheckoutRunOpened = {
   protocol_id: ProtocolId;
@@ -199,18 +248,33 @@ export type CheckoutRunOpened = {
  * `GET /manifest/run_sheet`, in four states. Bridge-only, not on the wire.
  */
 export type CheckoutRunSheetRead =
-  | { state: "none" }
-  | { state: "reading" }
-  | { state: "read"; sheet: CheckoutRunSheet }
-  | { state: "failed"; outcome: Outcome };
+  | {
+      state: "none";
+    }
+  | {
+      state: "reading";
+    }
+  | {
+      state: "read";
+      sheet: CheckoutRunSheet;
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    };
 
 /**
  * The checkout run a window is watching on `observe_checkout_run`, as main
  * holds it, one run at a time. Bridge-only, not on the wire.
  */
 export type CheckoutRunFollowed =
-  | { state: "none" }
-  | { state: "opening"; runId: string }
+  | {
+      state: "none";
+    }
+  | {
+      state: "opening";
+      runId: string;
+    }
   | {
       state: "following";
       runId: string;
@@ -223,27 +287,45 @@ export type CheckoutRunFollowed =
       /** Why the stream ended, or absent while it is still arriving. */
       ended?: string;
     }
-  | { state: "failed"; runId: string; detail: string };
+  | {
+      state: "failed";
+      runId: string;
+      detail: string;
+    };
 
 /** What `list_checkout_runs` came back as. `RunListRead`'s shape and reason. */
 export type CheckoutRunListRead =
-  | { ok: true; runs: CheckoutRunList }
-  | { ok: false; outcome: Outcome };
+  | {
+      ok: true;
+      runs: CheckoutRunList;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /**
  * What `get_checkout_run_diff` came back as. `RunListRead`'s shape, and asked
  * once by whoever pressed *Open the diff*: a finished run's patch does not move.
  */
 export type CheckoutRunDiffRead =
-  | { ok: true; diff: CheckoutRunDiff }
-  | { ok: false; outcome: Outcome };
+  | {
+      ok: true;
+      diff: CheckoutRunDiff;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 // ---------------------------------------------------------------------------
 // Verify — Journey 9, *Verify*: setup and every Check once, in the checkout.
 // ---------------------------------------------------------------------------
 
 /** `POST /manifest/start_verify`'s body, which may be empty: no `workspace` is the root's Manifest. */
-export type StartCheckoutVerify = { workspace?: string };
+export type StartCheckoutVerify = {
+  workspace?: string;
+};
 
 /**
  * `POST /manifest/start_verify`'s answer, and `CheckoutRunSheet.verify`.
@@ -266,11 +348,26 @@ export type CheckoutVerify = {
 };
 
 /** One step. `group` is `setup` or `checks`, and is rendered as its label. */
-export type VerifyStep = { group: string; name: string; run: string } & VerifyStepState;
+export type VerifyStep = {
+  group: string;
+  name: string;
+  run: string;
+} & VerifyStepState;
 
 /** Where one step has got to. `not_run` says why in a sentence. */
 export type VerifyStepState =
-  | { state: "waiting" }
-  | { state: "running"; run_id: string }
-  | { state: "ran"; record: CheckoutRunRecord }
-  | { state: "not_run"; why: string };
+  | {
+      state: "waiting";
+    }
+  | {
+      state: "running";
+      run_id: string;
+    }
+  | {
+      state: "ran";
+      record: CheckoutRunRecord;
+    }
+  | {
+      state: "not_run";
+      why: string;
+    };

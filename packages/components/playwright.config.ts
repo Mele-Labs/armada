@@ -13,7 +13,11 @@ export default defineConfig({
   outputDir: "../../.armada/playwright",
   // A capture is not a measurement, so nothing retries to stabilise one.
   retries: 0,
-  reporter: [["list"]],
+  reporter: [
+    [
+      "list",
+    ],
+  ],
   use: {
     // The headless shell, named rather than inferred: `browsers` installs
     // `chromium --only-shell`, so asking for the full build asks for a
@@ -21,7 +25,10 @@ export default defineConfig({
     channel: "chromium-headless-shell",
     // A window the app is laid out for. Bridge's floor is narrower and one
     // story asks for it, so this is the wide reading and that one the narrow.
-    viewport: { width: 1440, height: 900 },
+    viewport: {
+      width: 1440,
+      height: 900,
+    },
   },
   // **No `webServer`, and no snapshot comparison.** Armada starts
   // `evidence.serve` and holds it, so a runner booting its own Storybook

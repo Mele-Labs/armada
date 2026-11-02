@@ -14,22 +14,58 @@ test("Preview: pointing at each option in turn leaves the question one height, a
   await onScreen();
   await toSession(/Pick the checks/);
 
-  const ask = page.getByRole("article", { name: "Waiting on you" });
+  const ask = page.getByRole("article", {
+    name: "Waiting on you",
+  });
   const height = () => ask.element().getBoundingClientRect().height;
   const before = height();
 
-  await userEvent.hover(ask.getByRole("radio", { name: "The shared set" }));
-  await expect.element(page.getByRole("region", { name: "Preview" })).toBeVisible();
+  await userEvent.hover(
+    ask.getByRole("radio", {
+      name: "The shared set",
+    }),
+  );
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Preview",
+      }),
+    )
+    .toBeVisible();
   expect(height()).toBe(before);
 
-  await userEvent.hover(ask.getByRole("radio", { name: "None yet" }));
-  await expect.element(page.getByRole("region", { name: "Preview" })).not.toBeInTheDocument();
+  await userEvent.hover(
+    ask.getByRole("radio", {
+      name: "None yet",
+    }),
+  );
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Preview",
+      }),
+    )
+    .not.toBeInTheDocument();
   expect(height()).toBe(before);
 
-  await userEvent.hover(ask.getByRole("radio", { name: "Per service" }));
-  await expect.element(page.getByRole("region", { name: "Preview" })).toBeVisible();
+  await userEvent.hover(
+    ask.getByRole("radio", {
+      name: "Per service",
+    }),
+  );
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Preview",
+      }),
+    )
+    .toBeVisible();
   // Its longest line is drawn whole: the card is as wide as the text, not cut at the panel's edge.
-  const card = page.getByRole("region", { name: "Preview" }).element();
+  const card = page
+    .getByRole("region", {
+      name: "Preview",
+    })
+    .element();
   expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth);
   expect(height()).toBe(before);
 });

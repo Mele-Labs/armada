@@ -17,20 +17,39 @@ const NAME: Record<RunsPlaceId, string> = {
   cloud: "Cloud storage",
 };
 
-export const PLACE_GLYPH: Record<RunsPlaceId, LucideIcon> = { mac: Laptop, repository: FolderGit2, synced: Folder, cloud: Database };
+export const PLACE_GLYPH: Record<RunsPlaceId, LucideIcon> = {
+  mac: Laptop,
+  repository: FolderGit2,
+  synced: Folder,
+  cloud: Database,
+};
 
 /** Where the runs are kept as a phrase: `on this Mac`, `in iCloud Drive`. */
 export function placePhrase(place: RunsPlace): string {
   if (place.id === "mac") return "on this Mac";
   if (place.id === "repository") return "in the repository";
-  return place.detail === undefined ? (place.id === "synced" ? "in a synced folder" : "in cloud storage") : `in ${place.detail}`;
+  return place.detail === undefined
+    ? place.id === "synced"
+      ? "in a synced folder"
+      : "in cloud storage"
+    : `in ${place.detail}`;
 }
 
 const ADDRESS = /^(s3|r2|gs):\/\/\S+$/;
-const PLACES: readonly RunsPlaceId[] = ["mac", "repository", "synced", "cloud"];
+const PLACES: readonly RunsPlaceId[] = [
+  "mac",
+  "repository",
+  "synced",
+  "cloud",
+];
 
 /** One line a row can be: a place, or a choice under the place that asked a second question. */
-type Item = { key: string; place: RunsPlaceId; sub?: "folder" | "profile" | "address"; at?: number };
+type Item = {
+  key: string;
+  place: RunsPlaceId;
+  sub?: "folder" | "profile" | "address";
+  at?: number;
+};
 
 /**
  * The places a repository's runs can be kept, as rows in place: asked when a repository is added, and again from the layer that lists its runs.
@@ -67,10 +86,42 @@ export function RunsPlaces({
   const root = useRef<HTMLDivElement>(null);
 
   const items: Item[] = PLACES.flatMap((place): Item[] => {
-    const head: Item = { key: place, place };
-    if (open !== place) return [head];
-    if (place === "synced") return [head, ...synced.map((_, index): Item => ({ key: `synced:${index}`, place, sub: "folder", at: index }))];
-    return [head, ...profiles.map((_, index): Item => ({ key: `cloud:${index}`, place, sub: "profile", at: index })), { key: "cloud:address", place, sub: "address" }];
+    const head: Item = {
+      key: place,
+      place,
+    };
+    if (open !== place)
+      return [
+        head,
+      ];
+    if (place === "synced")
+      return [
+        head,
+        ...synced.map(
+          (_, index): Item => ({
+            key: `synced:${index}`,
+            place,
+            sub: "folder",
+            at: index,
+          }),
+        ),
+      ];
+    return [
+      head,
+      ...profiles.map(
+        (_, index): Item => ({
+          key: `cloud:${index}`,
+          place,
+          sub: "profile",
+          at: index,
+        }),
+      ),
+      {
+        key: "cloud:address",
+        place,
+        sub: "address",
+      },
+    ];
   });
   const active = Math.min(at, items.length - 1);
 
@@ -79,12 +130,20 @@ export function RunsPlaces({
     root.current?.querySelector<HTMLElement>(`[data-item="${items[active]?.key}"]`)?.focus();
     // The focus follows the row that is active, whatever moved it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, open]);
+  }, [
+    active,
+    open,
+  ]);
 
   const line: Record<RunsPlaceId, string> = {
     mac: "Kept in your Kit. Nothing in the repository.",
     repository: "armada.yml written on the Job's branch, landing with its pull request.",
-    synced: synced.length === 0 ? "A folder a service keeps in sync" : synced.length === 1 ? synced[0]!.path : synced.map((one) => one.label).join(", "),
+    synced:
+      synced.length === 0
+        ? "A folder a service keeps in sync"
+        : synced.length === 1
+          ? synced[0]!.path
+          : synced.map((one) => one.label).join(", "),
     cloud: "Armada's store, or a bucket address",
   };
 
@@ -93,18 +152,45 @@ export function RunsPlaces({
     const item = items[index];
     if (item === undefined) return;
     setAt(index);
-    if (item.sub === "folder") return onPick({ id: "synced", detail: synced[item.at!]!.label });
-    if (item.sub === "profile") return onPick({ id: "cloud", detail: `Armada's store, ${profiles[item.at!]!}` });
-    if (item.sub === "address") return valid ? onPick({ id: "cloud", detail: address.trim() }) : undefined;
+    if (item.sub === "folder")
+      return onPick({
+        id: "synced",
+        detail: synced[item.at!]!.label,
+      });
+    if (item.sub === "profile")
+      return onPick({
+        id: "cloud",
+        detail: `Armada's store, ${profiles[item.at!]!}`,
+      });
+    if (item.sub === "address")
+      return valid
+        ? onPick({
+            id: "cloud",
+            detail: address.trim(),
+          })
+        : undefined;
     if (item.place === "synced" && synced.length === 0 && onFolder !== undefined) {
-      return void onFolder().then((path) => (path === null ? undefined : onPick({ id: "synced", detail: path })));
+      return void onFolder().then((path) =>
+        path === null
+          ? undefined
+          : onPick({
+              id: "synced",
+              detail: path,
+            }),
+      );
     }
-    if (item.place === "synced" && synced.length === 1) return onPick({ id: "synced", detail: synced[0]!.label });
+    if (item.place === "synced" && synced.length === 1)
+      return onPick({
+        id: "synced",
+        detail: synced[0]!.label,
+      });
     if (item.place === "synced" || item.place === "cloud") {
       setOpen(item.place);
       return setAt(index + 1);
     }
-    onPick({ id: item.place });
+    onPick({
+      id: item.place,
+    });
   }
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
@@ -145,14 +231,28 @@ export function RunsPlaces({
   const sub = (key: string, name: string, said: string, mono: boolean) => {
     const index = items.findIndex((one) => one.key === key);
     return (
-      <button key={key} type="button" className="armada-runs__place" data-item={key} data-active={active === index || undefined} onClick={() => choose(index)} onMouseMove={() => setAt(index)}>
+      <button
+        key={key}
+        type="button"
+        className="armada-runs__place"
+        data-item={key}
+        data-active={active === index || undefined}
+        onClick={() => choose(index)}
+        onMouseMove={() => setAt(index)}
+      >
         {words(name, said, mono)}
       </button>
     );
   };
 
   return (
-    <div ref={root} role="group" aria-label="Where Armada configuration is kept" className="armada-runs__places" onKeyDown={keys}>
+    <div
+      ref={root}
+      role="group"
+      aria-label="Where Armada configuration is kept"
+      className="armada-runs__places"
+      onKeyDown={keys}
+    >
       {PLACES.map((place) => {
         const index = items.findIndex((one) => one.key === place);
         const Glyph = PLACE_GLYPH[place];
@@ -177,10 +277,17 @@ export function RunsPlaces({
             </button>
             {open !== place ? null : (
               <div className="armada-runs__sub">
-                {place === "synced" ? synced.map((one, at) => sub(`synced:${at}`, one.label, one.path, true)) : null}
-                {place === "cloud" ? profiles.map((one, at) => sub(`cloud:${at}`, one, "Armada's store", false)) : null}
+                {place === "synced"
+                  ? synced.map((one, at) => sub(`synced:${at}`, one.label, one.path, true))
+                  : null}
+                {place === "cloud"
+                  ? profiles.map((one, at) => sub(`cloud:${at}`, one, "Armada's store", false))
+                  : null}
                 {place !== "cloud" ? null : (
-                  <div className="armada-runs__address" data-active={items[active]?.key === "cloud:address" || undefined}>
+                  <div
+                    className="armada-runs__address"
+                    data-active={items[active]?.key === "cloud:address" || undefined}
+                  >
                     <Input
                       aria-label="Bucket address"
                       data-item="cloud:address"

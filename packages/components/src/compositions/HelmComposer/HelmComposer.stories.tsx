@@ -5,8 +5,14 @@ import { expect, fn, screen, userEvent, within } from "storybook/test";
 import { HelmComposer, type HelmBox, type HelmRepositoryOption } from "./HelmComposer";
 
 const repositories: HelmRepositoryOption[] = [
-  { id: "01M2ARMADA", label: "armada" },
-  { id: "01M2SHOP", label: "shop-01" },
+  {
+    id: "01M2ARMADA",
+    label: "armada",
+  },
+  {
+    id: "01M2SHOP",
+    label: "shop-01",
+  },
 ];
 
 /** The switch's own entry while Helm is pointed at nothing — the word the repository asks elsewhere use. */
@@ -28,10 +34,16 @@ const MORE = "More ways to report this answer";
 async function choose(
   switcher: HTMLElement,
   label: string,
-  events: { click: (target: Element) => Promise<void> },
+  events: {
+    click: (target: Element) => Promise<void>;
+  },
 ): Promise<void> {
   await events.click(switcher);
-  await events.click(await screen.findByRole("menuitem", { name: label }));
+  await events.click(
+    await screen.findByRole("menuitem", {
+      name: label,
+    }),
+  );
 }
 
 /** The dock's own width and glass — every story draws inside it, so a story that
@@ -40,7 +52,11 @@ function InTheDock({ children }: { children: ReactNode }): ReactElement {
   return (
     <div
       className="armada-glass"
-      style={{ width: "var(--w-dock)", borderRadius: "var(--radius-lg)", padding: "var(--space-4)" }}
+      style={{
+        width: "var(--w-dock)",
+        borderRadius: "var(--radius-lg)",
+        padding: "var(--space-4)",
+      }}
     >
       {children}
     </div>
@@ -51,7 +67,10 @@ function InTheDock({ children }: { children: ReactNode }): ReactElement {
 const meta: Meta<typeof HelmComposer> = {
   title: "Compositions/Helm composer",
   component: HelmComposer,
-  args: { onSend: fn(), location: "Job Board" },
+  args: {
+    onSend: fn(),
+    location: "Job Board",
+  },
   render: (args) => (
     <InTheDock>
       <HelmComposer {...args} />
@@ -70,13 +89,19 @@ type Story = StoryObj<typeof HelmComposer>;
 export const AtRest: Story = {
   args: {
     current: repositories[0]!.id,
-    repositories: [repositories[0]!],
+    repositories: [
+      repositories[0]!,
+    ],
     onSwitch: fn(),
     onCopyRecord: fn(),
     onOpenRecord: fn(),
   },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("button", { name: /^Point Helm at a/ })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /^Point Helm at a/,
+      }),
+    ).not.toBeInTheDocument();
     await expect(canvas.getByText(repositories[0]!.label)).toBeInTheDocument();
   },
 };
@@ -91,19 +116,33 @@ export const AtRest: Story = {
 export const RecordCopiedAndRead: Story = {
   args: {
     current: repositories[0]!.id,
-    repositories: [repositories[0]!],
+    repositories: [
+      repositories[0]!,
+    ],
     onCopyRecord: fn(),
     onOpenRecord: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Copy debug info" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Copy debug info",
+      }),
+    );
     await expect(args.onCopyRecord).toHaveBeenCalled();
     await expect(args.onOpenRecord).not.toHaveBeenCalled();
 
     // The reading is behind the caret, which is the whole of what the caret is
     // for: nothing else in this row discloses anything.
-    await userEvent.click(canvas.getByRole("button", { name: MORE }));
-    await userEvent.click(canvas.getByRole("menuitem", { name: "Details" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: MORE,
+      }),
+    );
+    await userEvent.click(
+      canvas.getByRole("menuitem", {
+        name: "Details",
+      }),
+    );
     await expect(args.onOpenRecord).toHaveBeenCalled();
     await expect(args.onCopyRecord).toHaveBeenCalledTimes(1);
   },
@@ -115,10 +154,24 @@ export const RecordCopiedAndRead: Story = {
  * already was — whichever of the two the dock could offer.
  */
 export const OnlyOneActToReportWith: Story = {
-  args: { current: repositories[0]!.id, repositories: [repositories[0]!], onCopyRecord: fn() },
+  args: {
+    current: repositories[0]!.id,
+    repositories: [
+      repositories[0]!,
+    ],
+    onCopyRecord: fn(),
+  },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.queryByRole("button", { name: MORE })).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Copy debug info" }));
+    await expect(
+      canvas.queryByRole("button", {
+        name: MORE,
+      }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Copy debug info",
+      }),
+    );
     await expect(args.onCopyRecord).toHaveBeenCalled();
   },
 };
@@ -128,11 +181,29 @@ export const OnlyOneActToReportWith: Story = {
  * *Details* rather than a face with a dead caret beside it.
  */
 export const OnlyTheReadingToReportWith: Story = {
-  args: { current: repositories[0]!.id, repositories: [repositories[0]!], onOpenRecord: fn() },
+  args: {
+    current: repositories[0]!.id,
+    repositories: [
+      repositories[0]!,
+    ],
+    onOpenRecord: fn(),
+  },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.queryByRole("button", { name: MORE })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("button", { name: "Copy debug info" })).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Details" }));
+    await expect(
+      canvas.queryByRole("button", {
+        name: MORE,
+      }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Copy debug info",
+      }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Details",
+      }),
+    );
     await expect(args.onOpenRecord).toHaveBeenCalled();
   },
 };
@@ -161,9 +232,15 @@ export const HeadHoldsOneLineAtDockWidth: Story = {
       if (!(head instanceof HTMLElement)) throw new Error("the composer drew no head row");
       const row = head.getBoundingClientRect();
       const controls = [
-        canvas.getByRole("button", { name: REPOINT }),
-        canvas.getByRole("button", { name: "Copy debug info" }),
-        canvas.getByRole("button", { name: MORE }),
+        canvas.getByRole("button", {
+          name: REPOINT,
+        }),
+        canvas.getByRole("button", {
+          name: "Copy debug info",
+        }),
+        canvas.getByRole("button", {
+          name: MORE,
+        }),
       ].map((one) => one.getBoundingClientRect());
 
       // One line: the row is no taller than the tallest control standing in it.
@@ -186,7 +263,8 @@ export const HeadHoldsOneLineAtDockWidth: Story = {
     // --w-dock-min, not --w-dock. A row that only holds at rest holds nowhere
     // a person actually drags to.
     const dock = canvasElement.querySelector(".armada-glass");
-    if (!(dock instanceof HTMLElement)) throw new Error("the story drew no dock around the composer");
+    if (!(dock instanceof HTMLElement))
+      throw new Error("the story drew no dock around the composer");
     dock.style.width = "var(--w-dock-min)";
     await onOneLine();
   },
@@ -202,9 +280,17 @@ export const HeadHoldsOneLineAtDockWidth: Story = {
  * own entry with that one repository under it to choose.
  */
 export const UnpointedWithOneRepository: Story = {
-  args: { repositories: [repositories[0]!], onSwitch: fn(), disabled: true },
+  args: {
+    repositories: [
+      repositories[0]!,
+    ],
+    onSwitch: fn(),
+    disabled: true,
+  },
   play: async ({ args, canvas, userEvent }) => {
-    const switcher = canvas.getByRole("button", { name: POINT });
+    const switcher = canvas.getByRole("button", {
+      name: POINT,
+    });
     // Its own entry, not the one repository: Helm is not pointed at that yet,
     // and a switch displaying it would say it was.
     await expect(switcher).toHaveTextContent(UNPOINTED);
@@ -221,20 +307,42 @@ export const UnpointedWithOneRepository: Story = {
 
 /** On All repositories, the dock's own switch — the rail's pick never moves for it. */
 export const SwitchOnAll: Story = {
-  args: { current: repositories[0]!.id, repositories, onSwitch: fn() },
+  args: {
+    current: repositories[0]!.id,
+    repositories,
+    onSwitch: fn(),
+  },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    const switcher = canvas.getByRole("button", { name: REPOINT });
+    const switcher = canvas.getByRole("button", {
+      name: REPOINT,
+    });
     // Pointed at one, the switch stands on it and carries nothing else — the
     // unpointed entry is not a row a pointed switch offers.
     await expect(switcher).toHaveTextContent(repositories[0]!.label);
     await userEvent.click(switcher);
-    await expect(screen.queryByRole("menuitem", { name: UNPOINTED })).not.toBeInTheDocument();
+    await expect(
+      screen.queryByRole("menuitem", {
+        name: UNPOINTED,
+      }),
+    ).not.toBeInTheDocument();
     // The switch searches: focus lands in the filter field, and typing leaves only what matches.
-    await expect(await screen.findByRole("searchbox", { name: "Find a repository" })).toHaveFocus();
+    await expect(
+      await screen.findByRole("searchbox", {
+        name: "Find a repository",
+      }),
+    ).toHaveFocus();
     await userEvent.keyboard("shop");
-    await expect(screen.queryByRole("menuitem", { name: repositories[0]!.label })).not.toBeInTheDocument();
-    await userEvent.click(await screen.findByRole("menuitem", { name: repositories[1]!.label }));
+    await expect(
+      screen.queryByRole("menuitem", {
+        name: repositories[0]!.label,
+      }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      await screen.findByRole("menuitem", {
+        name: repositories[1]!.label,
+      }),
+    );
     await expect(args.onSwitch).toHaveBeenCalledWith(repositories[1]!.id);
   },
 };
@@ -251,9 +359,15 @@ export const SwitchOnAll: Story = {
  * play that only picks the second repository passes either way.
  */
 export const UnpointedStandsAtItsOwnEntry: Story = {
-  args: { repositories, onSwitch: fn(), disabled: true },
+  args: {
+    repositories,
+    onSwitch: fn(),
+    disabled: true,
+  },
   play: async ({ args, canvas, userEvent }) => {
-    const switcher = canvas.getByRole("button", { name: POINT });
+    const switcher = canvas.getByRole("button", {
+      name: POINT,
+    });
     await expect(switcher).toHaveTextContent(UNPOINTED);
     await expect(switcher).not.toHaveTextContent(repositories[0]!.label);
     // Said once: the entry says it and says what to do, so the line does not
@@ -272,16 +386,28 @@ export const UnpointedStandsAtItsOwnEntry: Story = {
  * Helm at nothing is a reason to offer a repository, not to offer none.
  */
 export const NothingToAskYet: Story = {
-  args: { repositories: [], onSwitch: fn(), disabled: true },
+  args: {
+    repositories: [],
+    onSwitch: fn(),
+    disabled: true,
+  },
   play: async ({ args, canvas }) => {
     // No switch is drawn with nothing to point at, so the line is the only
     // place the state can be said, and it says it.
-    await expect(canvas.queryByRole("button", { name: /^Point Helm at a/ })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /^Point Helm at a/,
+      }),
+    ).not.toBeInTheDocument();
     await expect(canvas.getByText("No repository to ask yet")).toBeInTheDocument();
     await expect(canvas.getByRole("textbox")).toHaveAttribute("aria-disabled", "true");
-    const send = canvas.getByRole("button", { name: "Send" });
+    const send = canvas.getByRole("button", {
+      name: "Send",
+    });
     await expect(send).toBeDisabled();
-    await userEvent.click(send, { pointerEventsCheck: 0 });
+    await userEvent.click(send, {
+      pointerEventsCheck: 0,
+    });
     await expect(args.onSend).not.toHaveBeenCalled();
     // A disabled field takes no focus, so the press lands on the document —
     // and nothing else in the tree answers ⌘Enter.
@@ -294,7 +420,9 @@ export const NothingToAskYet: Story = {
 export const FooterNamesTheCursorRow: Story = {
   args: {
     current: repositories[0]!.id,
-    repositories: [repositories[0]!],
+    repositories: [
+      repositories[0]!,
+    ],
     location: "Cockpit · cursor on a Session",
   },
   play: async ({ canvas }) => {
@@ -307,25 +435,65 @@ export const FooterNamesTheCursorRow: Story = {
 const FULL: Partial<HelmBox> = {
   model: null,
   effort: null,
-  models: ["haiku", "sonnet", "opus"],
-  efforts: ["low", "medium", "high"],
+  models: [
+    "haiku",
+    "sonnet",
+    "opus",
+  ],
+  efforts: [
+    "low",
+    "medium",
+    "high",
+  ],
   onTune: fn(),
   // Fleet names the commands and has no sentence for each, so none is drawn.
   commands: [
-    { name: "review", says: "" },
-    { name: "simplify", says: "" },
+    {
+      name: "review",
+      says: "",
+    },
+    {
+      name: "simplify",
+      says: "",
+    },
   ],
   taggable: [
-    { kind: "session", id: "s2", title: "Release notes script" },
+    {
+      kind: "session",
+      id: "s2",
+      title: "Release notes script",
+    },
   ],
   numbered: {
     open: [
-      { tag: { kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" } },
-      { tag: { kind: "pull_request", id: "2219", title: "#2219 Pin the Bridge store clock", url: "https://forge.invalid/pull/2219" } },
+      {
+        tag: {
+          kind: "issue",
+          id: "2214",
+          title: "#2214 Sessions list drops a quiet Session",
+          url: "https://forge.invalid/issues/2214",
+        },
+      },
+      {
+        tag: {
+          kind: "pull_request",
+          id: "2219",
+          title: "#2219 Pin the Bridge store clock",
+          url: "https://forge.invalid/pull/2219",
+        },
+      },
     ],
     find: async (number) =>
       number === 2207
-        ? { tag: { kind: "pull_request", id: "2207", title: "#2207 Stop the Drone count drifting", url: "https://forge.invalid/pull/2207" }, standing: "Merged" }
+        ? {
+            tag: {
+              kind: "pull_request",
+              id: "2207",
+              title: "#2207 Stop the Drone count drifting",
+              url: "https://forge.invalid/pull/2207",
+            },
+            standing: "Merged",
+          }
         : undefined,
   },
   drawn: [],
@@ -333,17 +501,29 @@ const FULL: Partial<HelmBox> = {
   onRemoveDrawn: fn(),
 };
 
-const BOXED: Story["args"] = { current: repositories[0]!.id, repositories: [repositories[0]!], box: FULL };
+const BOXED: Story["args"] = {
+  current: repositories[0]!.id,
+  repositories: [
+    repositories[0]!,
+  ],
+  box: FULL,
+};
 
 /** The dock's box, which sends on Enter and breaks the line on Shift+Enter, as a Session's does. */
 export const EnterSends: Story = {
   args: BOXED,
   play: async ({ args, canvas, userEvent }) => {
-    const field = canvas.getByRole("textbox", { name: "Ask Helm" });
+    const field = canvas.getByRole("textbox", {
+      name: "Ask Helm",
+    });
     await userEvent.type(field, "Why did job 12 stall?{Shift>}{Enter}{/Shift}It ran an hour ago");
     await expect(args.onSend).not.toHaveBeenCalled();
     await userEvent.keyboard("{Enter}");
-    await expect(args.onSend).toHaveBeenCalledWith({ text: "Why did job 12 stall?\nIt ran an hour ago", files: [], tags: [] });
+    await expect(args.onSend).toHaveBeenCalledWith({
+      text: "Why did job 12 stall?\nIt ran an hour ago",
+      files: [],
+      tags: [],
+    });
     await expect(args.onSend).toHaveBeenCalledTimes(1);
     await expect(field).toHaveTextContent("");
   },
@@ -353,13 +533,29 @@ export const EnterSends: Story = {
 export const BlankDoesNotSend: Story = {
   args: BOXED,
   play: async ({ args, canvas, userEvent }) => {
-    const send = canvas.getByRole("button", { name: "Send" });
+    const send = canvas.getByRole("button", {
+      name: "Send",
+    });
     await expect(send).toBeDisabled();
-    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "   {Enter}");
+    await userEvent.type(
+      canvas.getByRole("textbox", {
+        name: "Ask Helm",
+      }),
+      "   {Enter}",
+    );
     await expect(send).toBeDisabled();
     await expect(args.onSend).not.toHaveBeenCalled();
-    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "Why did job 12 stall?");
-    await expect(canvas.getByRole("button", { name: "Send" })).toBeEnabled();
+    await userEvent.type(
+      canvas.getByRole("textbox", {
+        name: "Ask Helm",
+      }),
+      "Why did job 12 stall?",
+    );
+    await expect(
+      canvas.getByRole("button", {
+        name: "Send",
+      }),
+    ).toBeEnabled();
   },
 };
 
@@ -370,9 +566,17 @@ export const BlankDoesNotSend: Story = {
 export const SendIsAGlyphInsideTheBox: Story = {
   args: BOXED,
   play: async ({ canvas, userEvent }) => {
-    const send = () => canvas.getByRole("button", { name: "Send" });
+    const send = () =>
+      canvas.getByRole("button", {
+        name: "Send",
+      });
     await expect(send()).toHaveTextContent("");
-    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "one{Shift>}{Enter}{/Shift}two{Shift>}{Enter}{/Shift}three");
+    await userEvent.type(
+      canvas.getByRole("textbox", {
+        name: "Ask Helm",
+      }),
+      "one{Shift>}{Enter}{/Shift}two{Shift>}{Enter}{/Shift}three",
+    );
     const form = send().closest("form")!.getBoundingClientRect();
     const at = send().getBoundingClientRect();
     await expect(at.left).toBeGreaterThanOrEqual(form.left);
@@ -386,7 +590,16 @@ function GrowingDock(args: Story["args"]): ReactElement {
   return (
     <div
       className="armada-glass"
-      style={{ width: "var(--w-dock)", height: "calc(var(--space-12) * 8)", display: "flex", flexDirection: "column", justifyContent: "flex-end", boxSizing: "border-box", padding: "var(--space-4)", overflowY: "auto" }}
+      style={{
+        width: "var(--w-dock)",
+        height: "calc(var(--space-12) * 8)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+        boxSizing: "border-box",
+        padding: "var(--space-4)",
+        overflowY: "auto",
+      }}
     >
       <HelmComposer {...args} onSend={fn()} />
     </div>
@@ -398,15 +611,22 @@ export const GrowsToHalf: Story = {
   args: BOXED,
   render: (args) => <GrowingDock {...args} />,
   play: async ({ canvas, canvasElement, userEvent }) => {
-    const field = canvas.getByRole("textbox", { name: "Ask Helm" });
+    const field = canvas.getByRole("textbox", {
+      name: "Ask Helm",
+    });
     const dock = canvasElement.querySelector(".armada-glass")!;
     const rest = field.getBoundingClientRect().height;
-    await userEvent.type(field, "one{Shift>}{Enter}{/Shift}two{Shift>}{Enter}{/Shift}three{Shift>}{Enter}{/Shift}four");
+    await userEvent.type(
+      field,
+      "one{Shift>}{Enter}{/Shift}two{Shift>}{Enter}{/Shift}three{Shift>}{Enter}{/Shift}four",
+    );
     const grown = field.getBoundingClientRect().height;
     await expect(grown).toBeGreaterThan(rest);
     await expect(grown).toBeLessThan(dock.clientHeight / 2);
     await userEvent.type(field, "{Shift>}{Enter}{/Shift}m".repeat(14));
-    await expect(field.getBoundingClientRect().height).toBeLessThanOrEqual(dock.clientHeight / 2 + 1);
+    await expect(field.getBoundingClientRect().height).toBeLessThanOrEqual(
+      dock.clientHeight / 2 + 1,
+    );
     await expect(field.scrollHeight).toBeGreaterThan(field.clientHeight);
   },
 };
@@ -415,21 +635,49 @@ export const GrowsToHalf: Story = {
 export const SlashListsTheNames: Story = {
   args: BOXED,
   play: async ({ canvas, userEvent }) => {
-    const field = canvas.getByRole("textbox", { name: "Ask Helm" });
+    const field = canvas.getByRole("textbox", {
+      name: "Ask Helm",
+    });
     await userEvent.type(field, "/sim");
-    await userEvent.click(await canvas.findByRole("option", { name: /\/simplify/ }));
+    await userEvent.click(
+      await canvas.findByRole("option", {
+        name: /\/simplify/,
+      }),
+    );
     await expect(field).toHaveTextContent("/simplify");
-    await expect(canvas.queryByRole("combobox", { name: "Permission mode" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("combobox", {
+        name: "Permission mode",
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 
 /** The model and effort are the conversation's, each with Auto, and a pick is handed up whole. */
 export const ModelAndEffortAreTuned: Story = {
-  args: { ...BOXED, box: { ...FULL, model: "sonnet" } },
+  args: {
+    ...BOXED,
+    box: {
+      ...FULL,
+      model: "sonnet",
+    },
+  },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("combobox", { name: "Model" })).toHaveValue("sonnet");
-    await userEvent.selectOptions(canvas.getByRole("combobox", { name: "Effort" }), "high");
-    await expect(args.box!.onTune).toHaveBeenCalledWith({ model: "sonnet", effort: "high" });
+    await expect(
+      canvas.getByRole("combobox", {
+        name: "Model",
+      }),
+    ).toHaveValue("sonnet");
+    await userEvent.selectOptions(
+      canvas.getByRole("combobox", {
+        name: "Effort",
+      }),
+      "high",
+    );
+    await expect(args.box!.onTune).toHaveBeenCalledWith({
+      model: "sonnet",
+      effort: "high",
+    });
   },
 };
 
@@ -440,16 +688,31 @@ export const ModelAndEffortAreTuned: Story = {
 export const HashTagsAnIssueWithItsAddress: Story = {
   args: BOXED,
   play: async ({ args, canvas, userEvent }) => {
-    const field = canvas.getByRole("textbox", { name: "Ask Helm" });
+    const field = canvas.getByRole("textbox", {
+      name: "Ask Helm",
+    });
     await userEvent.type(field, "see #22");
-    const list = await canvas.findByRole("listbox", { name: "Tag an issue or pull request" });
+    const list = await canvas.findByRole("listbox", {
+      name: "Tag an issue or pull request",
+    });
     await expect(within(list).getAllByRole("option")).toHaveLength(2);
-    await userEvent.click(within(list).getByRole("option", { name: /Sessions list drops a quiet Session/ }));
+    await userEvent.click(
+      within(list).getByRole("option", {
+        name: /Sessions list drops a quiet Session/,
+      }),
+    );
     await userEvent.type(field, "is it this?{Enter}");
     await expect(args.onSend).toHaveBeenCalledWith({
       text: "see @#2214 Sessions list drops a quiet Session is it this?",
       files: [],
-      tags: [{ kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" }],
+      tags: [
+        {
+          kind: "issue",
+          id: "2214",
+          title: "#2214 Sessions list drops a quiet Session",
+          url: "https://forge.invalid/issues/2214",
+        },
+      ],
     });
   },
 };
@@ -458,12 +721,29 @@ export const HashTagsAnIssueWithItsAddress: Story = {
 export const HashLooksANumberUp: Story = {
   args: BOXED,
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "#2207");
-    const merged = await canvas.findByRole("option", { name: /Stop the Drone count drifting/ });
+    await userEvent.type(
+      canvas.getByRole("textbox", {
+        name: "Ask Helm",
+      }),
+      "#2207",
+    );
+    const merged = await canvas.findByRole("option", {
+      name: /Stop the Drone count drifting/,
+    });
     await expect(merged).toHaveTextContent("Merged");
     await userEvent.click(merged);
     await userEvent.keyboard("{Enter}");
-    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ tags: [expect.objectContaining({ kind: "pull_request", id: "2207", url: "https://forge.invalid/pull/2207" })] }));
+    await expect(args.onSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tags: [
+          expect.objectContaining({
+            kind: "pull_request",
+            id: "2207",
+            url: "https://forge.invalid/pull/2207",
+          }),
+        ],
+      }),
+    );
   },
 };
 
@@ -472,13 +752,49 @@ export const AFileAloneSends: Story = {
   args: BOXED,
   play: async ({ args, canvas, userEvent }) => {
     const clipboard = new DataTransfer();
-    clipboard.items.add(new File(["png"], "Screenshot.png", { type: "image/png" }));
-    canvas.getByRole("textbox", { name: "Ask Helm" }).dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+    clipboard.items.add(
+      new File(
+        [
+          "png",
+        ],
+        "Screenshot.png",
+        {
+          type: "image/png",
+        },
+      ),
+    );
+    canvas
+      .getByRole("textbox", {
+        name: "Ask Helm",
+      })
+      .dispatchEvent(
+        new ClipboardEvent("paste", {
+          clipboardData: clipboard,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     // In the narrow box what waits moves to a row of its own above the bar, so it is found by its name.
     await expect(await canvas.findByText("Screenshot.png")).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Send" })).toBeEnabled();
-    await userEvent.click(canvas.getByRole("button", { name: "Send" }));
-    await expect(args.onSend).toHaveBeenCalledWith({ text: "", files: [expect.objectContaining({ name: "Screenshot.png" })], tags: [] });
+    await expect(
+      canvas.getByRole("button", {
+        name: "Send",
+      }),
+    ).toBeEnabled();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Send",
+      }),
+    );
+    await expect(args.onSend).toHaveBeenCalledWith({
+      text: "",
+      files: [
+        expect.objectContaining({
+          name: "Screenshot.png",
+        }),
+      ],
+      tags: [],
+    });
   },
 };
 
@@ -492,31 +808,65 @@ export const RecentLeads: Story = {
     current: "01M2ARMADA",
     repositories: [
       ...repositories,
-      { id: "01M2BILLING", label: "billing-api" },
-      { id: "01M2CHECKOUT", label: "checkout" },
+      {
+        id: "01M2BILLING",
+        label: "billing-api",
+      },
+      {
+        id: "01M2CHECKOUT",
+        label: "checkout",
+      },
     ],
-    recent: ["01M2CHECKOUT", "01M2SHOP"],
+    recent: [
+      "01M2CHECKOUT",
+      "01M2SHOP",
+    ],
     onSwitch: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: REPOINT }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: REPOINT,
+      }),
+    );
     await expect(await screen.findByText("Recent")).toBeVisible();
 
     // Newest first, then the full list with its own copy of each.
     const rows = (await screen.findAllByRole("menuitem")).map((one) => one.textContent);
-    await expect(rows).toEqual(["checkout", "shop-01", "armada", "shop-01", "billing-api", "checkout"]);
+    await expect(rows).toEqual([
+      "checkout",
+      "shop-01",
+      "armada",
+      "shop-01",
+      "billing-api",
+      "checkout",
+    ]);
 
     // A recent row picks the repository by its own id.
-    await userEvent.click((await screen.findAllByRole("menuitem", { name: "checkout" }))[0]!);
+    await userEvent.click(
+      (
+        await screen.findAllByRole("menuitem", {
+          name: "checkout",
+        })
+      )[0]!,
+    );
     await expect(args.onSwitch).toHaveBeenCalledWith("01M2CHECKOUT");
   },
 };
 
 /** No recent list given: no heading, and the rows are just the repositories. */
 export const NoRecentNoHeading: Story = {
-  args: { current: "01M2ARMADA", repositories, onSwitch: fn() },
+  args: {
+    current: "01M2ARMADA",
+    repositories,
+    onSwitch: fn(),
+  },
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: REPOINT }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: REPOINT,
+      }),
+    );
     await expect(await screen.findAllByRole("menuitem")).toHaveLength(repositories.length);
     await expect(screen.queryByText("Recent")).not.toBeInTheDocument();
   },

@@ -10,34 +10,110 @@ import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const here = region(/^Pane: (Thread|zsh)/);
-const pane = inside(here, role("group", "Terminal", { exact: true }));
+const pane = inside(
+  here,
+  role("group", "Terminal", {
+    exact: true,
+  }),
+);
 const typed = role("textbox", "Terminal input");
-const popOut = role("dialog", "Terminal: Deploy the store", { exact: true });
-const inWindow = inside(popOut, role("group", "Terminal", { exact: true }));
+const popOut = role("dialog", "Terminal: Deploy the store", {
+  exact: true,
+});
+const inWindow = inside(
+  popOut,
+  role("group", "Terminal", {
+    exact: true,
+  }),
+);
 const files = text(/CONTRIBUTING\.md/);
 const where = text(/\.armada\/slots\/slot-1/);
 
 const steps: Step[] = [
   toSessions,
-  { press: deckRow("Deploy the store"), say: "Opened" },
-  { press: inside(here, button("Add tab")), say: "+" },
-  { press: role("menuitem", "Terminal"), say: "Terminal" },
-  { look: inside(pane, text(/slot-1 %/)), say: "The shell, in a tab of the pane" },
-  { type: "ls\n", into: typed, say: "ls, Enter" },
-  { look: inside(pane, files), say: "The worktree's files" },
-  { context: inside(here, tab(/^zsh/)), say: "The tab's menu" },
-  { press: role("menuitem", "Move to window"), say: "Move to window" },
-  { look: inside(inWindow, files), say: "The window shows everything the shell printed" },
-  { look: inside(here, button("Move to the pane")), say: "The pane keeps its tab and says where the shell is" },
-  { type: "pwd\n", into: inside(popOut, typed), say: "pwd, Enter, in the window" },
-  { look: inside(inWindow, where), say: "The same shell answers in its window" },
-  { press: inside(here, button("Move to the pane")), say: "Move to the pane" },
-  { look: inside(pane, where), say: "Back in the tab with everything it printed" },
-  { context: inside(here, tab(/^zsh/)), say: "The tab's menu" },
-  { press: role("menuitem", "Move to window"), say: "Move to window again" },
-  { press: inside(popOut, button("Dock", { exact: true })), say: "Dock" },
-  { look: inside(pane, files), say: "Docked again with the files it printed" },
-  { look: inside(pane, where), say: "The pwd output too" },
+  {
+    press: deckRow("Deploy the store"),
+    say: "Opened",
+  },
+  {
+    press: inside(here, button("Add tab")),
+    say: "+",
+  },
+  {
+    press: role("menuitem", "Terminal"),
+    say: "Terminal",
+  },
+  {
+    look: inside(pane, text(/slot-1 %/)),
+    say: "The shell, in a tab of the pane",
+  },
+  {
+    type: "ls\n",
+    into: typed,
+    say: "ls, Enter",
+  },
+  {
+    look: inside(pane, files),
+    say: "The worktree's files",
+  },
+  {
+    context: inside(here, tab(/^zsh/)),
+    say: "The tab's menu",
+  },
+  {
+    press: role("menuitem", "Move to window"),
+    say: "Move to window",
+  },
+  {
+    look: inside(inWindow, files),
+    say: "The window shows everything the shell printed",
+  },
+  {
+    look: inside(here, button("Move to the pane")),
+    say: "The pane keeps its tab and says where the shell is",
+  },
+  {
+    type: "pwd\n",
+    into: inside(popOut, typed),
+    say: "pwd, Enter, in the window",
+  },
+  {
+    look: inside(inWindow, where),
+    say: "The same shell answers in its window",
+  },
+  {
+    press: inside(here, button("Move to the pane")),
+    say: "Move to the pane",
+  },
+  {
+    look: inside(pane, where),
+    say: "Back in the tab with everything it printed",
+  },
+  {
+    context: inside(here, tab(/^zsh/)),
+    say: "The tab's menu",
+  },
+  {
+    press: role("menuitem", "Move to window"),
+    say: "Move to window again",
+  },
+  {
+    press: inside(
+      popOut,
+      button("Dock", {
+        exact: true,
+      }),
+    ),
+    say: "Dock",
+  },
+  {
+    look: inside(pane, files),
+    say: "Docked again with the files it printed",
+  },
+  {
+    look: inside(pane, where),
+    say: "The pwd output too",
+  },
 ];
 
 const shellWindow = walk("session-shell", steps);

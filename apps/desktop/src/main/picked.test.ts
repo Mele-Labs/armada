@@ -13,7 +13,12 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { RepositorySummary } from "@armada/protocol";
-import { CheckoutRunCommands, CheckoutRunSocket, CheckoutSheetReader, DriftReader } from "./checkout-runs";
+import {
+  CheckoutRunCommands,
+  CheckoutRunSocket,
+  CheckoutSheetReader,
+  DriftReader,
+} from "./checkout-runs";
 import { Commands, type Board } from "./command";
 import { ManifestFileCommands } from "./editing";
 import { servedRoot } from "./annotations";
@@ -26,18 +31,39 @@ import { WorkflowCommands } from "./workflows";
 const FIRST: RepositorySummary = {
   root: "/Users/user/armada",
   records_root: "/records/armada",
-  manifest: { id: "armada", repository: "armada", path: "/Users/user/armada/armada.yml", records_root: "/records/armada", version: 1, checks: [] },
+  manifest: {
+    id: "armada",
+    repository: "armada",
+    path: "/Users/user/armada/armada.yml",
+    records_root: "/records/armada",
+    version: 1,
+    checks: [],
+  },
 };
 const SET_UP: RepositorySummary = {
   root: "/Users/user/store front",
   records_root: "/records/store",
-  manifest: { id: "store-01", repository: "store front", path: "/Users/user/store front/armada.yml", records_root: "/records/store", version: 1, checks: [] },
+  manifest: {
+    id: "store-01",
+    repository: "store front",
+    path: "/Users/user/store front/armada.yml",
+    records_root: "/records/store",
+    version: 1,
+    checks: [],
+  },
 };
-const NOT_SET_UP: RepositorySummary = { root: "/Users/user/scratch", records_root: "/records/scratch" };
+const NOT_SET_UP: RepositorySummary = {
+  root: "/Users/user/scratch",
+  records_root: "/records/scratch",
+};
 
 function pickedAt(root: string): Picked {
   const picked = new Picked();
-  picked.hold([FIRST, SET_UP, NOT_SET_UP]);
+  picked.hold([
+    FIRST,
+    SET_UP,
+    NOT_SET_UP,
+  ]);
   picked.pick(root);
   return picked;
 }
@@ -46,19 +72,30 @@ describe("the pick", () => {
   it("opens on All repositories, which names none, and goes bare before any is listed", () => {
     const picked = new Picked();
     expect(picked.manifest("/manifest/file")).toBe("/manifest/file");
-    expect(picked.hold([FIRST, NOT_SET_UP])).toBe(false);
+    expect(
+      picked.hold([
+        FIRST,
+        NOT_SET_UP,
+      ]),
+    ).toBe(false);
     expect(picked.picked).toBeNull();
     expect(picked.manifest("/manifest/files?q=src")).toBeNull();
     expect(picked.checkout("/manifest/run_sheet")).toBeNull();
     expect(picked.scan("/repository/scan")).toBeNull();
     expect(picked.reads("/Users/user/armada/armada.yml")).toBe(false);
     expect(picked.pick(FIRST.root)).toBe(true);
-    expect(picked.manifest("/manifest/files?q=src")).toBe("/manifest/files?q=src&manifest_id=armada");
+    expect(picked.manifest("/manifest/files?q=src")).toBe(
+      "/manifest/files?q=src&manifest_id=armada",
+    );
   });
 
   it("narrows a Fleet-wide read, the retro lessons, to the pick's Manifest, reads every repository on All, and none with no Manifest", () => {
     const all = new Picked();
-    all.hold([FIRST, SET_UP, NOT_SET_UP]);
+    all.hold([
+      FIRST,
+      SET_UP,
+      NOT_SET_UP,
+    ]);
     expect(all.narrowed("/lessons")).toBe("/lessons");
     expect(pickedAt(SET_UP.root).narrowed("/lessons")).toBe("/lessons?manifest_id=store-01");
     expect(pickedAt(NOT_SET_UP.root).narrowed("/lessons")).toBeNull();
@@ -67,13 +104,22 @@ describe("the pick", () => {
   it("ignores a root Fleet does not list, and keeps a pick still served when the list is read again", () => {
     const picked = pickedAt(SET_UP.root);
     expect(picked.pick("/somewhere/else")).toBe(false);
-    expect(picked.hold([FIRST, SET_UP])).toBe(false);
+    expect(
+      picked.hold([
+        FIRST,
+        SET_UP,
+      ]),
+    ).toBe(false);
     expect(picked.picked).toBe(SET_UP.root);
   });
 
   it("goes back to All when the picked repository is no longer served, and when All is picked", () => {
     const picked = pickedAt(SET_UP.root);
-    expect(picked.hold([FIRST])).toBe(true);
+    expect(
+      picked.hold([
+        FIRST,
+      ]),
+    ).toBe(true);
     expect(picked.picked).toBeNull();
     picked.pick(FIRST.root);
     expect(picked.pick(null)).toBe(true);
@@ -82,28 +128,54 @@ describe("the pick", () => {
 
   it("names a repository nobody set up by root for Scan, and refuses a Manifest route for it", () => {
     const picked = pickedAt(NOT_SET_UP.root);
-    expect(picked.scan("/repository/scan")).toBe("/repository/scan?repository=%2FUsers%2Fuser%2Fscratch");
+    expect(picked.scan("/repository/scan")).toBe(
+      "/repository/scan?repository=%2FUsers%2Fuser%2Fscratch",
+    );
     expect(picked.manifest("/manifest/run_sheet")).toBeNull();
   });
 
   it("names the main checkout by root where it has no Manifest, and by id where it has one", () => {
-    expect(pickedAt(NOT_SET_UP.root).checkout("/manifest/start_verify")).toBe("/manifest/start_verify?repository=%2FUsers%2Fuser%2Fscratch");
-    expect(pickedAt(SET_UP.root).checkout("/manifest/run_sheet")).toBe("/manifest/run_sheet?manifest_id=store-01");
+    expect(pickedAt(NOT_SET_UP.root).checkout("/manifest/start_verify")).toBe(
+      "/manifest/start_verify?repository=%2FUsers%2Fuser%2Fscratch",
+    );
+    expect(pickedAt(SET_UP.root).checkout("/manifest/run_sheet")).toBe(
+      "/manifest/run_sheet?manifest_id=store-01",
+    );
   });
 
   it("moves when Write gives the picked repository its Manifest", () => {
     const picked = pickedAt(NOT_SET_UP.root);
-    const written = { ...NOT_SET_UP, manifest: { ...SET_UP.manifest!, id: "scratch" } };
-    expect(picked.hold([FIRST, SET_UP, written])).toBe(true);
-    expect(picked.manifest("/manifest/start_verify")).toBe("/manifest/start_verify?manifest_id=scratch");
+    const written = {
+      ...NOT_SET_UP,
+      manifest: {
+        ...SET_UP.manifest!,
+        id: "scratch",
+      },
+    };
+    expect(
+      picked.hold([
+        FIRST,
+        SET_UP,
+        written,
+      ]),
+    ).toBe(true);
+    expect(picked.manifest("/manifest/start_verify")).toBe(
+      "/manifest/start_verify?manifest_id=scratch",
+    );
   });
 
   it("names a repository by root rather than the pick, for a caller that has been given one", () => {
     const picked = new Picked();
-    picked.hold([FIRST, SET_UP, NOT_SET_UP]);
+    picked.hold([
+      FIRST,
+      SET_UP,
+      NOT_SET_UP,
+    ]);
     // The pick stays on All throughout: `manifestOf` never reads it.
     expect(picked.picked).toBeNull();
-    expect(picked.manifestOf("/sessions/start", SET_UP.root)).toBe("/sessions/start?manifest_id=store-01");
+    expect(picked.manifestOf("/sessions/start", SET_UP.root)).toBe(
+      "/sessions/start?manifest_id=store-01",
+    );
     expect(picked.picked).toBeNull();
     expect(picked.manifestOf("/sessions/start", NOT_SET_UP.root)).toBeNull();
     expect(picked.manifestOf("/sessions/start", "/nowhere")).toBeNull();
@@ -129,8 +201,17 @@ async function recording(into: string[]): Promise<number> {
     into.push(request.url ?? "");
     request.resume();
     request.on("end", () => {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ id: "run-1", steps: [], paths: [], repositories: [] }));
+      response.writeHead(200, {
+        "content-type": "application/json",
+      });
+      response.end(
+        JSON.stringify({
+          id: "run-1",
+          steps: [],
+          paths: [],
+          repositories: [],
+        }),
+      );
     });
   });
   server.on("upgrade", (request, socket) => {
@@ -144,7 +225,11 @@ async function recording(into: string[]): Promise<number> {
 }
 
 function boardOn(port: number, picked: Picked): Board {
-  return { port: () => port, picked, publish: () => {} };
+  return {
+    port: () => port,
+    picked,
+    publish: () => {},
+  };
 }
 
 /** Every per-repository call in `src/main`, sent once. */
@@ -152,38 +237,77 @@ async function everyCall(port: number, picked: Picked): Promise<void> {
   const at = () => port;
   const editing = new ManifestFileCommands(at, picked, async () => {});
   await editing.readFile();
-  await editing.saveFile({ read: "", text: "" });
-  await editing.edit({ read: "", edits: [] });
+  await editing.saveFile({
+    read: "",
+    text: "",
+  });
+  await editing.edit({
+    read: "",
+    edits: [],
+  });
   await editing.setup.readScan();
   await editing.setup.readProposals();
-  await editing.setup.edit({ dir: ".", edit: { edit: "id", id: "x" } });
-  await editing.setup.write({ dir: "." });
+  await editing.setup.edit({
+    dir: ".",
+    edit: {
+      edit: "id",
+      id: "x",
+    },
+  });
+  await editing.setup.write({
+    dir: ".",
+  });
   const allows = new RepositoryAllowsCommands(at, picked);
   await allows.list();
   await allows.remove("git status");
   await new CheckoutSheetReader(() => {}, picked).want(port, true);
   await new DriftReader(() => {}, picked).want(port, true);
-  const runs = new CheckoutRunCommands({ port: at, picked, follow: () => {}, refreshSheet: async () => {} });
-  await runs.startRun({ name: "test" });
+  const runs = new CheckoutRunCommands({
+    port: at,
+    picked,
+    follow: () => {},
+    refreshSheet: async () => {},
+  });
+  await runs.startRun({
+    name: "test",
+  });
   await runs.startVerify();
   await runs.stopRun("run-1");
   await runs.undoRun("run-1");
   await runs.listRuns();
   await runs.getRunOutput("run-1");
   await runs.getRunDiff("run-1");
-  await new ServerCommands({ port: at, picked }).startServer("web");
+  await new ServerCommands({
+    port: at,
+    picked,
+  }).startServer("web");
   const workflows = new WorkflowCommands(at, picked);
   await workflows.list();
   await workflows.definition("bug", "repository", null);
-  await workflows.save(null, { scope: "kit", definition: "{}" });
+  await workflows.save(null, {
+    scope: "kit",
+    definition: "{}",
+  });
   const commands = new Commands(boardOn(port, picked));
   await commands.searchFiles("src");
-  await holdingsOf(port, { workflows: [], manifests: [], models: null }, picked);
+  await holdingsOf(
+    port,
+    {
+      workflows: [],
+      manifests: [],
+      models: null,
+    },
+    picked,
+  );
   await manifestReadingOf(port, picked);
 }
 
 /** The three Fleet-wide holdings reads name nothing. */
-const FLEETWIDE = new Set(["/workflows", "/manifests", "/models"]);
+const FLEETWIDE = new Set([
+  "/workflows",
+  "/manifests",
+  "/models",
+]);
 
 /** What `everyCall` reaches, by path alone — one entry per call. */
 const EVERY_ROUTE = [
@@ -261,15 +385,29 @@ describe("every per-repository call", () => {
       "/repository/scan",
       "/repository/write_proposal",
     ]);
-    const editing = new ManifestFileCommands(() => port, picked, async () => {});
-    expect(await editing.readFile()).toEqual({ ok: false, outcome: { ok: false, why: "not_set_up" } });
+    const editing = new ManifestFileCommands(
+      () => port,
+      picked,
+      async () => {},
+    );
+    expect(await editing.readFile()).toEqual({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_set_up",
+      },
+    });
   });
 
   it("sends none on All repositories: a surface that needs one asks first", async () => {
     const asked: string[] = [];
     const port = await recording(asked);
     const picked = new Picked();
-    picked.hold([FIRST, SET_UP, NOT_SET_UP]);
+    picked.hold([
+      FIRST,
+      SET_UP,
+      NOT_SET_UP,
+    ]);
     await everyCall(port, picked);
     const socket = new CheckoutRunSocket(() => {}, picked);
     socket.open(port, "run-1");
@@ -285,8 +423,14 @@ describe("every per-repository call", () => {
       .flatMap((file) =>
         readFileSync(join(dir, file), "utf8")
           .split("\n")
-          .map((line, index) => ({ at: `${file}:${index + 1}`, line }))
-          .filter(({ line }) => routes.test(line) && !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+          .map((line, index) => ({
+            at: `${file}:${index + 1}`,
+            line,
+          }))
+          .filter(
+            ({ line }) =>
+              routes.test(line) && !line.trim().startsWith("*") && !line.trim().startsWith("//"),
+          )
           .filter(
             ({ line }) =>
               ![
@@ -297,9 +441,7 @@ describe("every per-repository call", () => {
                 "picked.checkout(",
                 "picked.each(",
                 "picked.narrowed(",
-              ].some(
-                (built) => line.includes(built),
-              ),
+              ].some((built) => line.includes(built)),
           ),
       )
       .map(({ at }) => at);
@@ -310,7 +452,11 @@ describe("every per-repository call", () => {
 describe("the workflows list", () => {
   const onAll = () => {
     const picked = new Picked();
-    picked.hold([FIRST, SET_UP, NOT_SET_UP]);
+    picked.hold([
+      FIRST,
+      SET_UP,
+      NOT_SET_UP,
+    ]);
     return picked;
   };
 
@@ -319,14 +465,22 @@ describe("the workflows list", () => {
     const port = await recording(asked);
     const read = await new WorkflowCommands(() => port, onAll()).list();
     expect(read.ok).toBe(true);
-    expect(asked).toEqual(["/workflows"]);
+    expect(asked).toEqual([
+      "/workflows",
+    ]);
   });
 
   it("with a repository that has no Manifest picked still answers not_set_up and asks nothing", async () => {
     const asked: string[] = [];
     const port = await recording(asked);
     const read = await new WorkflowCommands(() => port, pickedAt(NOT_SET_UP.root)).list();
-    expect(read).toEqual({ ok: false, outcome: { ok: false, why: "not_set_up" } });
+    expect(read).toEqual({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_set_up",
+      },
+    });
     expect(asked).toEqual([]);
   });
 
@@ -334,11 +488,18 @@ describe("the workflows list", () => {
     const asked: string[] = [];
     const port = await recording(asked);
     await new WorkflowCommands(() => port, pickedAt(SET_UP.root)).list();
-    expect(asked.sort()).toEqual(["/workflows/left_out?manifest_id=store-01", "/workflows?manifest_id=store-01"]);
+    expect(asked.sort()).toEqual([
+      "/workflows/left_out?manifest_id=store-01",
+      "/workflows?manifest_id=store-01",
+    ]);
   });
 
   it("reads one copy's steps, definition and changes under the Manifest named, whatever is picked", async () => {
-    for (const picked of [onAll(), pickedAt(SET_UP.root), pickedAt(NOT_SET_UP.root)]) {
+    for (const picked of [
+      onAll(),
+      pickedAt(SET_UP.root),
+      pickedAt(NOT_SET_UP.root),
+    ]) {
       const asked: string[] = [];
       const port = await recording(asked);
       const workflows = new WorkflowCommands(() => port, picked);
@@ -352,31 +513,104 @@ describe("the workflows list", () => {
 });
 
 describe("the repository a Session starts on", () => {
-  const one = { root: "/r/armada", manifest: { id: "armada" } } as RepositorySummary;
-  const two = { root: "/r/other", manifest: { id: "other" } } as RepositorySummary;
+  const one = {
+    root: "/r/armada",
+    manifest: {
+      id: "armada",
+    },
+  } as RepositorySummary;
+  const two = {
+    root: "/r/other",
+    manifest: {
+      id: "other",
+    },
+  } as RepositorySummary;
 
   it("is the named root on All repositories, where the pick names none", () => {
     const picked = new Picked();
-    picked.hold([one, two]);
+    picked.hold([
+      one,
+      two,
+    ]);
     expect(picked.picked).toBeNull();
-    expect(repositoryToStart([one, two], picked, "/r/armada")).toBe(one);
+    expect(
+      repositoryToStart(
+        [
+          one,
+          two,
+        ],
+        picked,
+        "/r/armada",
+      ),
+    ).toBe(one);
   });
 
   it("is the named root over a different pick, and none for a root nothing serves", () => {
     const picked = new Picked();
-    picked.hold([one, two]);
+    picked.hold([
+      one,
+      two,
+    ]);
     picked.pick("/r/other");
-    expect(repositoryToStart([one, two], picked, "/r/armada")).toBe(one);
-    expect(repositoryToStart([one, two], picked, "/r/elsewhere")).toBeUndefined();
+    expect(
+      repositoryToStart(
+        [
+          one,
+          two,
+        ],
+        picked,
+        "/r/armada",
+      ),
+    ).toBe(one);
+    expect(
+      repositoryToStart(
+        [
+          one,
+          two,
+        ],
+        picked,
+        "/r/elsewhere",
+      ),
+    ).toBeUndefined();
   });
 
   it("is the pick, or the only repository, where no root is named", () => {
-    expect(repositoryToStart([one, two], new Picked())).toBeUndefined();
-    expect(repositoryToStart([one], new Picked())).toBe(one);
+    expect(
+      repositoryToStart(
+        [
+          one,
+          two,
+        ],
+        new Picked(),
+      ),
+    ).toBeUndefined();
+    expect(
+      repositoryToStart(
+        [
+          one,
+        ],
+        new Picked(),
+      ),
+    ).toBe(one);
   });
 
   it("starts on the served repository where the layer runs from a worktree of it, the preview among them", () => {
-    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-C", cwd, "-c", "user.email=a@b", "-c", "user.name=a", ...args], { stdio: "ignore" });
+    const git = (cwd: string, ...args: string[]) =>
+      execFileSync(
+        "git",
+        [
+          "-C",
+          cwd,
+          "-c",
+          "user.email=a@b",
+          "-c",
+          "user.name=a",
+          ...args,
+        ],
+        {
+          stdio: "ignore",
+        },
+      );
     const dir = realpathSync(mkdtempSync(join(tmpdir(), "armada-served-")));
     try {
       const main = join(dir, "armada");
@@ -384,57 +618,166 @@ describe("the repository a Session starts on", () => {
       git(main, "commit", "-q", "--allow-empty", "-m", "x");
       const preview = join(main, ".armada", "preview");
       git(main, "worktree", "add", "-q", "-b", "preview", preview);
-      const served: RepositorySummary = { root: main, records_root: "/records/armada", manifest: SET_UP.manifest! };
-      expect(repositoryToStart([served], new Picked(), preview)).toBeUndefined();
+      const served: RepositorySummary = {
+        root: main,
+        records_root: "/records/armada",
+        manifest: SET_UP.manifest!,
+      };
+      expect(
+        repositoryToStart(
+          [
+            served,
+          ],
+          new Picked(),
+          preview,
+        ),
+      ).toBeUndefined();
       expect(servedRoot(preview)).toBe(main);
-      expect(repositoryToStart([served], new Picked(), servedRoot(preview))).toBe(served);
+      expect(
+        repositoryToStart(
+          [
+            served,
+          ],
+          new Picked(),
+          servedRoot(preview),
+        ),
+      ).toBe(served);
       expect(servedRoot(main)).toBe(main);
       expect(servedRoot(join(dir, "nowhere"))).toBe(join(dir, "nowhere"));
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, {
+        recursive: true,
+        force: true,
+      });
     }
   });
 });
 
 describe("the start a Session sends", () => {
   it("names the Manifest of a repository that has one, root or none", () => {
-    expect(startOn(SET_UP, "T")).toEqual({ manifest_id: "store-01", title: "T" });
-    expect(startOn(SET_UP, undefined, SET_UP.root)).toEqual({ manifest_id: "store-01" });
+    expect(startOn(SET_UP, "T")).toEqual({
+      manifest_id: "store-01",
+      title: "T",
+    });
+    expect(startOn(SET_UP, undefined, SET_UP.root)).toEqual({
+      manifest_id: "store-01",
+    });
   });
 
   it("carries the words the person dispatched as the request", () => {
-    expect(startOn(SET_UP, undefined, SET_UP.root, "fix the log reader")).toEqual({ manifest_id: "store-01", request: "fix the log reader" });
-    expect(startOn(SET_UP, "T", undefined, "fix it")).toEqual({ manifest_id: "store-01", title: "T", request: "fix it" });
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix the log reader")).toEqual({
+      manifest_id: "store-01",
+      request: "fix the log reader",
+    });
+    expect(startOn(SET_UP, "T", undefined, "fix it")).toEqual({
+      manifest_id: "store-01",
+      title: "T",
+      request: "fix it",
+    });
     // The rows of his projects ride with the start, and none are sent for none.
-    const rows = [{ row: "t1" }];
-    expect(startOn(SET_UP, undefined, undefined, "fix it", undefined, undefined, undefined, rows)).toEqual({ manifest_id: "store-01", request: "fix it", project_rows: rows });
-    expect(startOn(SET_UP, undefined, undefined, "fix it", undefined, undefined, undefined, [])).toEqual({ manifest_id: "store-01", request: "fix it" });
+    const rows = [
+      {
+        row: "t1",
+      },
+    ];
+    expect(
+      startOn(SET_UP, undefined, undefined, "fix it", undefined, undefined, undefined, rows),
+    ).toEqual({
+      manifest_id: "store-01",
+      request: "fix it",
+      project_rows: rows,
+    });
+    expect(
+      startOn(SET_UP, undefined, undefined, "fix it", undefined, undefined, undefined, []),
+    ).toEqual({
+      manifest_id: "store-01",
+      request: "fix it",
+    });
   });
 
   it("carries the model and the effort only where the person picked them, so Fleet's proposer fills in the rest", () => {
-    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {})).toEqual({ manifest_id: "store-01", request: "fix it" });
-    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", { model: "opus" })).toEqual({ manifest_id: "store-01", request: "fix it", model: "opus" });
-    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", { model: "opus", effort: "high" })).toEqual({ manifest_id: "store-01", request: "fix it", model: "opus", effort: "high" });
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {})).toEqual({
+      manifest_id: "store-01",
+      request: "fix it",
+    });
+    expect(
+      startOn(SET_UP, undefined, SET_UP.root, "fix it", {
+        model: "opus",
+      }),
+    ).toEqual({
+      manifest_id: "store-01",
+      request: "fix it",
+      model: "opus",
+    });
+    expect(
+      startOn(SET_UP, undefined, SET_UP.root, "fix it", {
+        model: "opus",
+        effort: "high",
+      }),
+    ).toEqual({
+      manifest_id: "store-01",
+      request: "fix it",
+      model: "opus",
+      effort: "high",
+    });
   });
 
   it("is held only where a request comes with it and it waits on no Session, and never for Setup's start", () => {
-    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {}, undefined, true)).toEqual({ manifest_id: "store-01", request: "fix it", held: true });
-    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {})).toEqual({ manifest_id: "store-01", request: "fix it" });
-    expect(startOn(SET_UP, undefined, SET_UP.root, undefined, {}, undefined, true)).toEqual({ manifest_id: "store-01" });
-    const after = { session: "s1", condition: "done", base: "main" } as unknown as Parameters<typeof startOn>[5];
-    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {}, after, true)).not.toHaveProperty("held");
-    expect(startOn(NOT_SET_UP, undefined, NOT_SET_UP.root, "set it up", {}, undefined, true)).toEqual({ manifest_id: "", root: "/Users/user/scratch", request: "set it up" });
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {}, undefined, true)).toEqual({
+      manifest_id: "store-01",
+      request: "fix it",
+      held: true,
+    });
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {})).toEqual({
+      manifest_id: "store-01",
+      request: "fix it",
+    });
+    expect(startOn(SET_UP, undefined, SET_UP.root, undefined, {}, undefined, true)).toEqual({
+      manifest_id: "store-01",
+    });
+    const after = {
+      session: "s1",
+      condition: "done",
+      base: "main",
+    } as unknown as Parameters<typeof startOn>[5];
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {}, after, true)).not.toHaveProperty(
+      "held",
+    );
+    expect(
+      startOn(NOT_SET_UP, undefined, NOT_SET_UP.root, "set it up", {}, undefined, true),
+    ).toEqual({
+      manifest_id: "",
+      root: "/Users/user/scratch",
+      request: "set it up",
+    });
   });
 
   it("is Setup's, in the root, for a named repository with no Manifest, and none where no root is named", () => {
-    expect(startOn(NOT_SET_UP, "Set up scratch", NOT_SET_UP.root)).toEqual({ manifest_id: "", root: "/Users/user/scratch", title: "Set up scratch" });
+    expect(startOn(NOT_SET_UP, "Set up scratch", NOT_SET_UP.root)).toEqual({
+      manifest_id: "",
+      root: "/Users/user/scratch",
+      title: "Set up scratch",
+    });
     expect(startOn(NOT_SET_UP, "T")).toBeNull();
   });
 
   it("starts a Job on the id Fleet gave a repository with no Manifest, where a request comes with it", () => {
-    const folder: RepositorySummary = { ...NOT_SET_UP, implicit_id: "scratch-01" };
-    expect(startOn(folder, undefined, folder.root, "fix it")).toEqual({ manifest_id: "scratch-01", request: "fix it" });
-    expect(startOn(folder, "T")).toEqual({ manifest_id: "scratch-01", title: "T" });
-    expect(startOn(folder, "Set up scratch", folder.root)).toEqual({ manifest_id: "", root: "/Users/user/scratch", title: "Set up scratch" });
+    const folder: RepositorySummary = {
+      ...NOT_SET_UP,
+      implicit_id: "scratch-01",
+    };
+    expect(startOn(folder, undefined, folder.root, "fix it")).toEqual({
+      manifest_id: "scratch-01",
+      request: "fix it",
+    });
+    expect(startOn(folder, "T")).toEqual({
+      manifest_id: "scratch-01",
+      title: "T",
+    });
+    expect(startOn(folder, "Set up scratch", folder.root)).toEqual({
+      manifest_id: "",
+      root: "/Users/user/scratch",
+      title: "Set up scratch",
+    });
   });
 });

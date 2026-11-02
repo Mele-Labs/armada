@@ -9,7 +9,10 @@ function layer() {
     setAttribute: (name: string) => void attributes.add(name),
     removeAttribute: (name: string) => void attributes.delete(name),
   } as unknown as Element;
-  return { element, out: () => attributes.has(SHOOTING) };
+  return {
+    element,
+    out: () => attributes.has(SHOOTING),
+  };
 }
 
 /** Frames that run only when the test says so. */
@@ -36,7 +39,9 @@ describe("a picture without the layer", () => {
     expect(seen).toEqual([]);
     await paint();
     await taken;
-    expect(seen).toEqual([true]);
+    expect(seen).toEqual([
+      true,
+    ]);
     expect(out()).toBe(false);
   });
 

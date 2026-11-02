@@ -3,11 +3,23 @@
 
 /** What starts a waiting Session. `ends` is the default. */
 export type StartCondition =
-  | { kind: "ends" }
-  | { kind: "group_done"; group: string }
-  | { kind: "task_done"; task: string }
-  | { kind: "pr_pushed" }
-  | { kind: "pr_lands" };
+  | {
+      kind: "ends";
+    }
+  | {
+      kind: "group_done";
+      group: string;
+    }
+  | {
+      kind: "task_done";
+      task: string;
+    }
+  | {
+      kind: "pr_pushed";
+    }
+  | {
+      kind: "pr_lands";
+    };
 
 /** Where a waiting Session starts from: the default branch, or the branch of the pull request of the Session waited on. */
 export type StartBase = "main" | "branch";
@@ -30,11 +42,17 @@ export type StartAfter = {
 };
 
 /** The pull request a `pr_pushed` or `pr_lands` wait is on, once the Session waited on has one. */
-export type WaitPull = { number: number; branch: string };
+export type WaitPull = {
+  number: number;
+  branch: string;
+};
 
 /** On a `SessionRecord` while it waits: absent once it has started. */
 export type SessionWait = {
-  on: { id: string; title: string };
+  on: {
+    id: string;
+    title: string;
+  };
   condition: StartCondition;
   base: StartBase;
   needs?: string;
@@ -54,13 +72,21 @@ export type SessionWait = {
 };
 
 /** `POST /sessions/read_wait`: the proposer reads a brief that tags `session_id` for the wait it names. Answers `WaitReading`. */
-export type ReadSessionWait = { session_id: string; request: string };
+export type ReadSessionWait = {
+  session_id: string;
+  request: string;
+};
 
 /**
  * What the proposer read. A reading that could not be had is `ends`, from `main`, asking nothing. `plain` is set where the brief
  * tags the Session and names no condition: the new Session does not wait on it, and the tag is a reference.
  */
-export type WaitReading = { condition: StartCondition; base: StartBase; needs?: string; plain?: boolean };
+export type WaitReading = {
+  condition: StartCondition;
+  base: StartBase;
+  needs?: string;
+  plain?: boolean;
+};
 
 /**
  * `POST /sessions/change_waiting`: when a waiting Session starts, or where from. The agent of the Session waited on
@@ -79,7 +105,9 @@ export type ChangeWaiting = {
 };
 
 /** `POST /sessions/start_waiting`: start a waiting Session at once, whatever its condition. Answers `SessionRecord`. */
-export type StartWaitingNow = { session_id: string };
+export type StartWaitingNow = {
+  session_id: string;
+};
 
 /** What a `waiter` row says: a Session was dispatched to wait on this one, the condition changed, or it started. */
 export type WaiterEvent = "waits" | "changed" | "started";

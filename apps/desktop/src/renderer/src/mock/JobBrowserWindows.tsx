@@ -15,7 +15,12 @@ function Frame({ sessionId }: { sessionId: string }) {
   if (browser === undefined || session === undefined) return null;
   const title = `Job browser: ${session.title ?? sessionId}`;
   return (
-    <section role="dialog" aria-label={title} className="armada-mock-terminal-window armada-mock-browser-window" data-front="">
+    <section
+      role="dialog"
+      aria-label={title}
+      className="armada-mock-terminal-window armada-mock-browser-window"
+      data-front=""
+    >
       <div className="armada-mock-terminal-window__strip">
         <span>{title}</span>
         <Button variant="secondary" size="sm" onClick={() => closeBrowserWindow(sessionId)}>

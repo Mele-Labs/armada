@@ -11,7 +11,10 @@ import type { Machine } from "./machines";
 import { go } from "./router";
 import { Band, Trouble } from "./ui";
 
-type Choice = { machine: Machine; repository: string };
+type Choice = {
+  machine: Machine;
+  repository: string;
+};
 
 export function Dispatch() {
   const fleet = useFleet();
@@ -25,7 +28,16 @@ export function Dispatch() {
   useEffect(() => {
     let gone = false;
     void Promise.all(
-      paired.map((mac) => getJson<RepositoriesBody>(mac.machine, "/api/repositories").then((names) => names.map((repository) => ({ machine: mac.machine, repository })), () => [])),
+      paired.map((mac) =>
+        getJson<RepositoriesBody>(mac.machine, "/api/repositories").then(
+          (names) =>
+            names.map((repository) => ({
+              machine: mac.machine,
+              repository,
+            })),
+          () => [],
+        ),
+      ),
     ).then((each) => {
       if (gone) return;
       const all = each.flat();
@@ -35,13 +47,21 @@ export function Dispatch() {
     return () => {
       gone = true;
     };
-  }, [paired.map((mac) => mac.machine.origin).join(" ")]);
+  }, [
+    paired.map((mac) => mac.machine.origin).join(" "),
+  ]);
   const send = async () => {
     if (picked === undefined) return;
     setTrouble("");
-    const body: DispatchBody = { text: line.trim(), repository: picked.repository };
+    const body: DispatchBody = {
+      text: line.trim(),
+      repository: picked.repository,
+    };
     try {
-      await call(picked.machine, "/api/sessions", { method: "POST", body });
+      await call(picked.machine, "/api/sessions", {
+        method: "POST",
+        body,
+      });
     } catch (why) {
       setTrouble(refusal(why, picked.machine));
       return;
@@ -54,7 +74,16 @@ export function Dispatch() {
     <section className="pk-screen" aria-label="Dispatch">
       <Band title="Dispatch" onBack={() => go("/")} back="Home" />
       <div className="pk-body">
-        <Textarea keep="pocket:dispatch" rows={3} aria-label="Job" placeholder="Job" value={line} enterKeyHint="send" autoCapitalize="sentences" onChange={(event) => setLine(event.target.value)} />
+        <Textarea
+          keep="pocket:dispatch"
+          rows={3}
+          aria-label="Job"
+          placeholder="Job"
+          value={line}
+          enterKeyHint="send"
+          autoCapitalize="sentences"
+          onChange={(event) => setLine(event.target.value)}
+        />
         <div className="pk-choices" role="radiogroup" aria-label="Repository">
           {choices.map((choice) => (
             <button
@@ -72,7 +101,14 @@ export function Dispatch() {
         <Trouble says={trouble} />
       </div>
       <footer className="pk-bar">
-        <Button variant="primary" className="pk-big" disabled={line.trim() === "" || picked === undefined} onClick={() => void send()}>Dispatch</Button>
+        <Button
+          variant="primary"
+          className="pk-big"
+          disabled={line.trim() === "" || picked === undefined}
+          onClick={() => void send()}
+        >
+          Dispatch
+        </Button>
       </footer>
     </section>
   );

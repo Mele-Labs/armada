@@ -24,13 +24,16 @@ export type StandingWalk = {
 };
 
 /** What a Job's walk is keyed by in the window: the Job, and the address its waiting item names. */
-export const sessionWalkKey = (sessionId: string, url: string): string => `session:${sessionId} ${url}`;
+export const sessionWalkKey = (sessionId: string, url: string): string =>
+  `session:${sessionId} ${url}`;
 
 /** What a pull request's walk is keyed by: neither a Job's nor a server Run's. */
-export const reviewWalkKey = (manifestId: string, number: number): string => `review:${manifestId}#${number}`;
+export const reviewWalkKey = (manifestId: string, number: number): string =>
+  `review:${manifestId}#${number}`;
 
 /** The Job's own name: its title, or its short address where it has none. */
-export const jobName = (record: SessionRecord | undefined, sessionId: string): string => cleanTitle(record?.title) ?? addressOf(sessionId);
+export const jobName = (record: SessionRecord | undefined, sessionId: string): string =>
+  cleanTitle(record?.title) ?? addressOf(sessionId);
 
 /** Every walk standing on a Job's waiting items, oldest shown first. **One entry a walk**: a Job with two is in it twice. */
 export function standingWalks(sessions: readonly SessionRecord[]): StandingWalk[] {
@@ -38,23 +41,47 @@ export function standingWalks(sessions: readonly SessionRecord[]): StandingWalk[
     (record.waiting_for ?? []).flatMap((item): StandingWalk[] => {
       const url = item.act?.kind === "walk" ? item.act.target : undefined;
       if (item.source !== "walk" || url === undefined || webOrigin(url) === null) return [];
-      return [{ key: sessionWalkKey(record.id, url), sessionId: record.id, job: jobName(record, record.id), title: item.text, url, since: item.since }];
+      return [
+        {
+          key: sessionWalkKey(record.id, url),
+          sessionId: record.id,
+          job: jobName(record, record.id),
+          title: item.text,
+          url,
+          since: item.since,
+        },
+      ];
     }),
   );
   return oldestFirst(walks);
 }
 
 /** Oldest first by when each was shown, and in the order given where two say the same moment or one says none. */
-export function oldestFirst<T extends { since: string }>(walks: readonly T[]): T[] {
+export function oldestFirst<
+  T extends {
+    since: string;
+  },
+>(walks: readonly T[]): T[] {
   const at = (one: T): number => {
     const read = Date.parse(one.since);
     return Number.isNaN(read) ? Number.POSITIVE_INFINITY : read;
   };
-  return walks.map((one, place) => ({ one, place })).sort((a, b) => at(a.one) - at(b.one) || a.place - b.place).map(({ one }) => one);
+  return walks
+    .map((one, place) => ({
+      one,
+      place,
+    }))
+    .sort((a, b) => at(a.one) - at(b.one) || a.place - b.place)
+    .map(({ one }) => one);
 }
 
 /** Where a walk goes among `walks`, oldest first: after every one shown at or before it. */
-export function placeOf(walks: readonly { since: string }[], since: string): number {
+export function placeOf(
+  walks: readonly {
+    since: string;
+  }[],
+  since: string,
+): number {
   const shown = Date.parse(since);
   if (Number.isNaN(shown)) return walks.length;
   const after = walks.findIndex((one) => Date.parse(one.since) > shown);
@@ -69,20 +96,36 @@ export function placeOf(walks: readonly { since: string }[], since: string): num
 export function questionOf(
   record: SessionRecord | undefined,
   origins: readonly string[],
-  bound?: { url: string; askedIn: ReadonlyMap<string, string> },
+  bound?: {
+    url: string;
+    askedIn: ReadonlyMap<string, string>;
+  },
 ): WindowQuestion | null {
   for (const item of record?.waiting_for ?? []) {
     if (item.source !== "window_ask" || item.place === undefined) continue;
     if (!origins.includes(webOrigin(item.place.url) ?? "")) continue;
     const window = bound?.askedIn.get(item.id);
     if (bound !== undefined && window !== undefined && window !== bound.url) continue;
-    return { id: item.id, question: item.text, options: item.options ?? [], place: item.place };
+    return {
+      id: item.id,
+      question: item.text,
+      options: item.options ?? [],
+      place: item.place,
+    };
   }
   return null;
 }
 
 /** A key press as Electron reads it, the fields the queue's keys are told apart by. */
-export type KeyInput = { type: string; key: string; code: string; meta: boolean; alt: boolean; control: boolean; shift: boolean };
+export type KeyInput = {
+  type: string;
+  key: string;
+  code: string;
+  meta: boolean;
+  alt: boolean;
+  control: boolean;
+  shift: boolean;
+};
 
 /**
  * Which of the queue's keys a press is: ⌥⌘↓ the walks, ⌥⌘T the takes, ⌥⌘→ and ⌥⌘← the walks after and before, ⌘R Reload and

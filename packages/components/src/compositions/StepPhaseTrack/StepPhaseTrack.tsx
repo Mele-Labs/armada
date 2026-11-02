@@ -34,7 +34,9 @@ const GLYPH: Record<StepPhase, LucideIcon> = {
   waiting: Eye,
 };
 
-export type StepPhaseTrackProps = { parts: readonly StepPhasePart[] };
+export type StepPhaseTrackProps = {
+  parts: readonly StepPhasePart[];
+};
 
 export function StepPhaseTrack({ parts }: StepPhaseTrackProps) {
   return (
@@ -44,7 +46,11 @@ export function StepPhaseTrack({ parts }: StepPhaseTrackProps) {
         return (
           <Fragment key={part.phase}>
             {index === 0 ? null : (
-              <span className="armada-step-track__rule" data-state={part.state} aria-hidden="true" />
+              <span
+                className="armada-step-track__rule"
+                data-state={part.state}
+                aria-hidden="true"
+              />
             )}
             <span role="listitem" className="armada-step-track__item">
               <Tooltip asChild label={part.label}>

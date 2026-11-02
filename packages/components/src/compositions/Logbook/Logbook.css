@@ -15,8 +15,15 @@
   overflow-y: auto;
   container-type: inline-size;
 }
-.armada-logbook > * { width: min(100%, 90rem); align-self: center; flex: none; }
-.armada-logbook > :is(.armada-logbook__page, .armada-logbook__fixes) { flex: 1 1 auto; min-height: 0; }
+.armada-logbook > * {
+  width: min(100%, 90rem);
+  align-self: center;
+  flex: none;
+}
+.armada-logbook > :is(.armada-logbook__page, .armada-logbook__fixes) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
 
 .armada-logbook__page {
   display: grid;
@@ -29,16 +36,44 @@
    armada-allow-off-contract: a container condition cannot read a custom property, and no layout breakpoint token names a container width
    820px is where the log and the open entry both fit — docs/contracts/design-system.md */
 @container (min-width: 820px) {
-  .armada-logbook__page { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; }
+  .armada-logbook__page {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    height: 100%;
+  }
   /* Under `.armada-logbook__page`, so they outweigh the panel's own `overflow: hidden` further down. */
-  .armada-logbook__page .armada-logbook__log { max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
-  .armada-logbook__page .armada-logbook__detail { display: flex; flex-direction: column; max-height: 100%; min-height: 0; }
-  .armada-logbook__page .armada-logbook__card { max-height: 100%; min-height: 0; }
-  .armada-logbook__page .armada-logbook__body { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .armada-logbook__page .armada-logbook__log {
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .armada-logbook__page .armada-logbook__detail {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    min-height: 0;
+  }
+  .armada-logbook__page .armada-logbook__card {
+    max-height: 100%;
+    min-height: 0;
+  }
+  .armada-logbook__page .armada-logbook__body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-height: 0;
+  }
 }
 
-.armada-logbook__filters { display: flex; justify-content: flex-start; align-items: center; gap: var(--space-3); }
-.armada-logbook__tidied { color: var(--fg-muted); font-size: var(--text-sm); }
+.armada-logbook__filters {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--space-3);
+}
+.armada-logbook__tidied {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
 
 .armada-logbook__panel,
 .armada-logbook__card {
@@ -50,7 +85,9 @@
   background: var(--bg-sunken);
   overflow: hidden;
 }
-.armada-logbook__log { display: block; }
+.armada-logbook__log {
+  display: block;
+}
 
 /* The legend strip's own look is `depth.css`'s; this is its fallback where the look is not loaded. */
 .armada-logbook__band {
@@ -71,10 +108,28 @@
 
 /* ---- The log ---------------------------------------------------------------------------------- */
 
-.armada-logbook__table { --row-min: 0; --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2); display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2); outline: none; }
-.armada-logbook__table:focus-visible .armada-logbook__row[aria-selected="true"] { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.armada-logbook__group { display: flex; flex-direction: column; }
-.armada-logbook__row + .armada-logbook__row { margin-top: var(--border-width); box-shadow: 0 calc(var(--border-width) * -1) 0 color-mix(in srgb, var(--fg-default) 10%, transparent); }
+.armada-logbook__table {
+  --row-min: 0;
+  --row-pad: calc(var(--space-1) / 2) var(--space-3) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  outline: none;
+}
+.armada-logbook__table:focus-visible .armada-logbook__row[aria-selected="true"] {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+.armada-logbook__group {
+  display: flex;
+  flex-direction: column;
+}
+.armada-logbook__row + .armada-logbook__row {
+  margin-top: var(--border-width);
+  box-shadow: 0 calc(var(--border-width) * -1) 0
+    color-mix(in srgb, var(--fg-default) 10%, transparent);
+}
 
 /* A section's head stays as the log scrolls, until the next one pushes it out. */
 .armada-logbook__section {
@@ -108,26 +163,57 @@
   text-transform: uppercase;
 }
 
-.armada-logbook__row { cursor: default; }
-.armada-logbook__jobs { font-family: var(--font-mono); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
+.armada-logbook__row {
+  cursor: default;
+}
+.armada-logbook__jobs {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
 
 .armada-logbook__mark {
   display: inline-flex;
   align-items: center;
   vertical-align: middle;
 }
-.armada-logbook__mark[data-tone="tripped"] { color: var(--fg-default); }
+.armada-logbook__mark[data-tone="tripped"] {
+  color: var(--fg-default);
+}
 
 /* ---- The open entry --------------------------------------------------------------------------- */
 
-.armada-logbook__detail { min-width: 0; outline: none; }
-.armada-logbook__detail:focus-visible .armada-logbook__card { border-color: var(--border-strong); }
+.armada-logbook__detail {
+  min-width: 0;
+  outline: none;
+}
+.armada-logbook__detail:focus-visible .armada-logbook__card {
+  border-color: var(--border-strong);
+}
 
 /* The entry's head: its kind code, its id, and its flags and state at the far end. */
-.armada-logbook__head-band { flex: none; padding-block: var(--space-1); }
-.armada-logbook__head-kind { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--fg-default); }
-.armada-logbook__head-id { color: var(--fg-subtle); text-transform: none; letter-spacing: normal; font-weight: var(--weight-body); }
-.armada-logbook__head-where { display: inline-flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+.armada-logbook__head-band {
+  flex: none;
+  padding-block: var(--space-1);
+}
+.armada-logbook__head-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-default);
+}
+.armada-logbook__head-id {
+  color: var(--fg-subtle);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: var(--weight-body);
+}
+.armada-logbook__head-where {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
 
 .armada-logbook__top {
   display: flex;
@@ -161,21 +247,56 @@
   line-height: var(--leading-sm);
 }
 
-.armada-logbook__edit { display: flex; flex-direction: column; gap: var(--space-2); }
-.armada-logbook__acts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.armada-logbook__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.armada-logbook__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
 
 /* The record, the evidence and the earlier texts: tables one under another, each head staying as the body scrolls. */
-.armada-logbook__body { display: flex; flex-direction: column; }
-.armada-logbook__body > .armada-table { table-layout: fixed; background: transparent; }
-.armada-logbook__body > .armada-table + .armada-table { border-top: var(--border-width) solid var(--border-default); }
+.armada-logbook__body {
+  display: flex;
+  flex-direction: column;
+}
+.armada-logbook__body > .armada-table {
+  table-layout: fixed;
+  background: transparent;
+}
+.armada-logbook__body > .armada-table + .armada-table {
+  border-top: var(--border-width) solid var(--border-default);
+}
 /* The acts in the head keep their own words' case and face, not the strip's. */
-.armada-logbook__head-band .armada-logbook__acts { font-family: var(--font-sans); text-transform: none; letter-spacing: normal; }
-.armada-logbook__body thead th { position: sticky; top: 0; z-index: 1; background: var(--bg-raised); }
-.armada-logbook__body .armada-table-row:hover { background: transparent; }
-.armada-logbook__body .armada-table-row:last-child { border-bottom: none; }
-.armada-logbook__body .armada-table-cell { height: var(--h-row); padding-block: var(--space-1); }
+.armada-logbook__head-band .armada-logbook__acts {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.armada-logbook__body thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-raised);
+}
+.armada-logbook__body .armada-table-row:hover {
+  background: transparent;
+}
+.armada-logbook__body .armada-table-row:last-child {
+  border-bottom: none;
+}
+.armada-logbook__body .armada-table-cell {
+  height: var(--h-row);
+  padding-block: var(--space-1);
+}
 
-.armada-logbook__record .armada-table-cell { overflow-wrap: anywhere; white-space: normal; }
+.armada-logbook__record .armada-table-cell {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
 .armada-logbook__fact {
   padding: var(--space-1) var(--space-3);
   color: var(--fg-subtle);
@@ -186,10 +307,21 @@
   vertical-align: middle;
 }
 
-.armada-logbook__col-cites { width: 45%; }
-.armada-logbook__col-by { width: calc(var(--space-12) * 3); }
-.armada-logbook__cites { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); white-space: normal; }
-.armada-logbook__cite { color: var(--fg-default); }
+.armada-logbook__col-cites {
+  width: 45%;
+}
+.armada-logbook__col-by {
+  width: calc(var(--space-12) * 3);
+}
+.armada-logbook__cites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  white-space: normal;
+}
+.armada-logbook__cite {
+  color: var(--fg-default);
+}
 
 .armada-logbook__job {
   padding: 0;
@@ -199,9 +331,22 @@
   font: inherit;
   cursor: pointer;
 }
-.armada-logbook__body td[data-truncates] > :is(.armada-logbook__job, span) { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; }
-.armada-logbook__job:hover { color: var(--accent-hover); }
-.armada-logbook__job:focus-visible { outline: calc(var(--border-width) * 2) solid var(--accent); outline-offset: var(--border-width); border-radius: var(--radius-sm); }
+.armada-logbook__body td[data-truncates] > :is(.armada-logbook__job, span) {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+}
+.armada-logbook__job:hover {
+  color: var(--accent-hover);
+}
+.armada-logbook__job:focus-visible {
+  outline: calc(var(--border-width) * 2) solid var(--accent);
+  outline-offset: var(--border-width);
+  border-radius: var(--radius-sm);
+}
 
 .armada-logbook__unread {
   margin: 0;
@@ -220,26 +365,110 @@
 /* ---- Retros ----------------------------------------------------------------------------------- */
 /* The retro items fill the tab and lay out their own log and item (`LessonList.css`). */
 
-.armada-logbook__fixes { display: flex; flex-direction: column; outline: none; }
-.armada-logbook__fixes > .armada-lessons-page { flex: 1 1 auto; min-height: 0; padding: 0; gap: var(--space-3); }
-:root[data-look] .armada-logbook .armada-logbook__fixes > .armada-lessons-page > * { width: 100%; align-self: stretch; }
-.armada-logbook__fixes .armada-lessons-split { flex: 1 1 auto; }
+.armada-logbook__fixes {
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+.armada-logbook__fixes > .armada-lessons-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  gap: var(--space-3);
+}
+:root[data-look] .armada-logbook .armada-logbook__fixes > .armada-lessons-page > * {
+  width: 100%;
+  align-self: stretch;
+}
+.armada-logbook__fixes .armada-lessons-split {
+  flex: 1 1 auto;
+}
 
 /* Organize's proposal, in the place of the open entry: one card per finding, its acts at the bottom right. */
 .armada-logbook__proposal-head,
-:root[data-look] .armada-logbook__band.armada-logbook__proposal-head { min-height: var(--h-row-header); padding: var(--space-4); gap: var(--space-4); }
-.armada-logbook__proposal-head .armada-logbook__head-where { gap: var(--space-4); }
-.armada-logbook__proposal-head .armada-logbook__acts { gap: var(--space-3); align-items: center; }
-.armada-logbook__proposal { margin: 0; padding: 0; list-style: none; }
-.armada-logbook__proposed { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); border-bottom: var(--border-width) solid var(--border-default); }
-.armada-logbook__proposed:last-child { border-bottom: none; }
-.armada-logbook__block { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.armada-logbook__label { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-medium); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
-.armada-logbook__line { display: grid; grid-template-columns: calc(var(--space-12) + var(--space-2)) minmax(0, 1fr) auto; align-items: baseline; column-gap: var(--space-3); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); }
-.armada-logbook__line[data-muted] { color: var(--fg-muted); }
-.armada-logbook__line-kind { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-caps); }
-.armada-logbook__line-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.armada-logbook__line:not([data-muted]) .armada-logbook__line-text { white-space: normal; overflow-wrap: anywhere; }
-.armada-logbook__line-age { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); text-align: right; }
-.armada-logbook__proposed-note { padding-inline-start: calc(var(--space-12) + var(--space-2) + var(--space-3)); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); }
-.armada-logbook__proposed-acts { display: flex; justify-content: flex-end; gap: var(--space-3); }
+:root[data-look] .armada-logbook__band.armada-logbook__proposal-head {
+  min-height: var(--h-row-header);
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+.armada-logbook__proposal-head .armada-logbook__head-where {
+  gap: var(--space-4);
+}
+.armada-logbook__proposal-head .armada-logbook__acts {
+  gap: var(--space-3);
+  align-items: center;
+}
+.armada-logbook__proposal {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.armada-logbook__proposed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+.armada-logbook__proposed:last-child {
+  border-bottom: none;
+}
+.armada-logbook__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.armada-logbook__label {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.armada-logbook__line {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) + var(--space-2)) minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--space-3);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.armada-logbook__line[data-muted] {
+  color: var(--fg-muted);
+}
+.armada-logbook__line-kind {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+}
+.armada-logbook__line-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.armada-logbook__line:not([data-muted]) .armada-logbook__line-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.armada-logbook__line-age {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: right;
+}
+.armada-logbook__proposed-note {
+  padding-inline-start: calc(var(--space-12) + var(--space-2) + var(--space-3));
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.armada-logbook__proposed-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}

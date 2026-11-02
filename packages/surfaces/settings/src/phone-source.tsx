@@ -3,7 +3,17 @@
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 
-export type PhoneGateway = { state: "running" } | { state: "not_running" } | { state: "said"; said: string };
+export type PhoneGateway =
+  | {
+      state: "running";
+    }
+  | {
+      state: "not_running";
+    }
+  | {
+      state: "said";
+      said: string;
+    };
 
 /**
  * How far this Mac is along the way in, as the Gateway's `/admin/setup` says it. `named` is a
@@ -15,21 +25,45 @@ export type PhoneSetup = {
   named: boolean;
   address?: string;
   /** A press of Turn on Funnel: waiting on it, the page the tailnet needs it allowed on, or Tailscale's refusal. */
-  funnel?: { state: "turning" } | { state: "approve"; page: string } | { state: "said"; said: string };
+  funnel?:
+    | {
+        state: "turning";
+      }
+    | {
+        state: "approve";
+        page: string;
+      }
+    | {
+        state: "said";
+        said: string;
+      };
 };
 
 /** A phone can reach this Mac: a tunnel the owner named, or Funnel or `tailscale serve` in front of the Gateway. */
-export const reachable = (setup: PhoneSetup | null): boolean => setup === null || setup.named || setup.served !== "none";
+export const reachable = (setup: PhoneSetup | null): boolean =>
+  setup === null || setup.named || setup.served !== "none";
 
 export type PhoneState = {
   /** Fleet's phone switch, `turning` while a press waits on Fleet. `null` until Fleet has said. */
-  access: { on: boolean; turning: boolean } | null;
+  access: {
+    on: boolean;
+    turning: boolean;
+  } | null;
   gateway: PhoneGateway;
-  phones: readonly { id: string; name: string; seenAt: number }[];
+  phones: readonly {
+    id: string;
+    name: string;
+    seenAt: number;
+  }[];
   /** The pairing address with its one-time code, and when the code stops working (epoch ms). */
-  pairing: { url: string; expiresAt: number } | null;
+  pairing: {
+    url: string;
+    expiresAt: number;
+  } | null;
   /** A phone that posted the code and waits on Confirm. */
-  claim: { device: string } | null;
+  claim: {
+    device: string;
+  } | null;
   /** The way in. `null` until the Gateway has said, and where it cannot. */
   setup: PhoneSetup | null;
 };
@@ -52,11 +86,19 @@ const PhoneSourceContext = createContext<PhoneSource | null>(null);
 export const PhoneSourceProvider = PhoneSourceContext.Provider;
 
 /** The source this window was given, or `null` where it has none. */
-export function usePhone(): { source: PhoneSource; state: PhoneState } | null {
+export function usePhone(): {
+  source: PhoneSource;
+  state: PhoneState;
+} | null {
   const source = useContext(PhoneSourceContext);
   const state = useSyncExternalStore(
     source?.subscribe ?? (() => () => undefined),
     () => source?.get() ?? null,
   );
-  return source === null || state === null ? null : { source, state };
+  return source === null || state === null
+    ? null
+    : {
+        source,
+        state,
+      };
 }

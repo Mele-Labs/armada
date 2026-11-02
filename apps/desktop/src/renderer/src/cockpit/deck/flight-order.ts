@@ -5,19 +5,45 @@ import type { Tile } from "./flight-controls";
 import { tileKey, type SessionTileId } from "./session-tiles";
 
 /** The tiles drawn, in order. */
-const TILES: readonly SessionTileId[] = ["land", "pause", "judge", "report", "release", "terminal", "requests"];
+const TILES: readonly SessionTileId[] = [
+  "land",
+  "pause",
+  "judge",
+  "report",
+  "release",
+  "terminal",
+  "requests",
+];
 
 /** The layers the Job head draws as views, in order. */
-export const VIEW_LAYERS = ["artifacts", "system", "checks", "subagents", "slot"] as const;
+export const VIEW_LAYERS = [
+  "artifacts",
+  "system",
+  "checks",
+  "subagents",
+  "slot",
+] as const;
 
 /** Each built-in tile in the order given, whatever order the owner's file lists them in. */
-const built = (shown: readonly Tile[], ids: readonly string[]): Tile[] => ids.flatMap((id) => shown.filter((one) => one.builtIn !== undefined && one.id === id));
+const built = (shown: readonly Tile[], ids: readonly string[]): Tile[] =>
+  ids.flatMap((id) => shown.filter((one) => one.builtIn !== undefined && one.id === id));
 
 /** The tiles Flight control draws, each in its seat, off or on, so nothing shifts; the owner's own tiles end the row. */
-export const flightTilesOf = (shown: readonly Tile[]): Tile[] => [...built(shown, TILES), ...shown.filter((one) => one.builtIn === undefined)];
+export const flightTilesOf = (shown: readonly Tile[]): Tile[] => [
+  ...built(shown, TILES),
+  ...shown.filter((one) => one.builtIn === undefined),
+];
 
 /** The keys in reading order, ⌥⇧1 to ⌥⇧9 and ⌥⇧0, the ones after the tenth having none. */
-const KEY_ORDER: readonly string[] = [...VIEW_LAYERS, "land", "judge", "report", "release", "terminal", "requests"];
+const KEY_ORDER: readonly string[] = [
+  ...VIEW_LAYERS,
+  "land",
+  "judge",
+  "report",
+  "release",
+  "terminal",
+  "requests",
+];
 
 /**
  * The key of a built-in tile or view. **It belongs to the place and not to whether the tile is on**, so one going off or on moves no other's.

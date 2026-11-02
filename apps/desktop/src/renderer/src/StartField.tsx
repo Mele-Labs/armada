@@ -21,27 +21,104 @@ export type Preview = "none" | "folder" | "new" | "found";
 
 /** The directories of a repository, as the Cockpit would read them: a stand-in for the one the person will choose. */
 const REPOSITORY: Areas = [
-  { dir: "src", kids: [["app", 6], ["components", 9], ["lib", 4]] },
-  { dir: "tests", kids: [], files: 5 },
-  { dir: "docs", kids: [], files: 3 },
+  {
+    dir: "src",
+    kids: [
+      [
+        "app",
+        6,
+      ],
+      [
+        "components",
+        9,
+      ],
+      [
+        "lib",
+        4,
+      ],
+    ],
+  },
+  {
+    dir: "tests",
+    kids: [],
+    files: 5,
+  },
+  {
+    dir: "docs",
+    kids: [],
+    files: 3,
+  },
 ];
 
 /** A folder Claude Code kept sessions for, with the directories drawn for it. */
 const FOLDER: Areas = [
-  { dir: "src", kids: [], files: 7 },
-  { dir: "tests", kids: [], files: 3 },
+  {
+    dir: "src",
+    kids: [],
+    files: 7,
+  },
+  {
+    dir: "tests",
+    kids: [],
+    files: 3,
+  },
 ];
 
-const NEW: Areas = [{ dir: "src", kids: [], files: 1 }];
+const NEW: Areas = [
+  {
+    dir: "src",
+    kids: [],
+    files: 1,
+  },
+];
 
-const FALLBACK = ["api", "site", "app", "scratch"];
+const FALLBACK = [
+  "api",
+  "site",
+  "app",
+  "scratch",
+];
 
 const reposOf = (preview: Preview, folders: readonly string[]): RepoIn[] => {
-  if (preview === "folder") return [{ root: "/repository", name: "repository", pads: ["/repository:bay-1", "/repository:bay-2"], goal: true, areas: REPOSITORY }];
-  if (preview === "new") return [{ root: "/project", name: "project", pads: ["/project:bay-1"], goal: true, areas: NEW }];
+  if (preview === "folder")
+    return [
+      {
+        root: "/repository",
+        name: "repository",
+        pads: [
+          "/repository:bay-1",
+          "/repository:bay-2",
+        ],
+        goal: true,
+        areas: REPOSITORY,
+      },
+    ];
+  if (preview === "new")
+    return [
+      {
+        root: "/project",
+        name: "project",
+        pads: [
+          "/project:bay-1",
+        ],
+        goal: true,
+        areas: NEW,
+      },
+    ];
   if (preview === "found") {
-    const names = folders.length === 0 ? FALLBACK : folders.slice(0, 4).map((one) => one.split("/").pop() ?? one);
-    return names.map((name, at) => ({ root: `/${name}-${at}`, name, pads: [`/${name}-${at}:bay-1`], goal: true, areas: FOLDER }));
+    const names =
+      folders.length === 0
+        ? FALLBACK
+        : folders.slice(0, 4).map((one) => one.split("/").pop() ?? one);
+    return names.map((name, at) => ({
+      root: `/${name}-${at}`,
+      name,
+      pads: [
+        `/${name}-${at}:bay-1`,
+      ],
+      goal: true,
+      areas: FOLDER,
+    }));
   }
   return [];
 };
@@ -65,41 +142,89 @@ const droneOf = (preview: Preview): DroneIn[] =>
           working: preview === "folder",
           shown: true,
           slot: preview === "folder" ? "/repository:bay-1" : "/project:bay-1",
-          ...(preview === "folder" ? { doing: "write" as const, touches: [{ path: "src/components", w: 1 }] } : { touches: [] }),
+          ...(preview === "folder"
+            ? {
+                doing: "write" as const,
+                touches: [
+                  {
+                    path: "src/components",
+                    w: 1,
+                  },
+                ],
+              }
+            : {
+                touches: [],
+              }),
         },
       ]
     : [];
 
 /** A bay's pad as the map draws it. */
-const padOf = (key: string): PadIn => ({ key, slot: Number(key.slice(-1)), bay: "held", word: "Held", repo: key.split(":")[0]!.slice(1), Glyph: ShieldCheck });
+const padOf = (key: string): PadIn => ({
+  key,
+  slot: Number(key.slice(-1)),
+  bay: "held",
+  word: "Held",
+  repo: key.split(":")[0]!.slice(1),
+  Glyph: ShieldCheck,
+});
 
 /** The camera's drift: how far it wanders on the plane, and how long a lap takes. */
-const DRIFT = { x: 26, y: 14, eye: 0.012, lapMs: 40_000 };
+const DRIFT = {
+  x: 26,
+  y: 14,
+  eye: 0.012,
+  lapMs: 40_000,
+};
 
 export function StartField({ preview, folders }: { preview: Preview; folders: readonly string[] }) {
   const host = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState<Size>({ width: 0, height: 0 });
+  const [size, setSize] = useState<Size>({
+    width: 0,
+    height: 0,
+  });
   // The plots stand at nothing for a moment, then rise to their height.
   const [risen, setRisen] = useState(false);
-  const [drift, setDrift] = useState({ x: 0, y: 0, eye: 0 });
+  const [drift, setDrift] = useState({
+    x: 0,
+    y: 0,
+    eye: 0,
+  });
 
   useEffect(() => {
     const one = host.current;
     if (one === null) return;
-    const read = () => setSize((was) => (Math.round(one.clientWidth) === was.width && Math.round(one.clientHeight) === was.height ? was : { width: Math.round(one.clientWidth), height: Math.round(one.clientHeight) }));
+    const read = () =>
+      setSize((was) =>
+        Math.round(one.clientWidth) === was.width && Math.round(one.clientHeight) === was.height
+          ? was
+          : {
+              width: Math.round(one.clientWidth),
+              height: Math.round(one.clientHeight),
+            },
+      );
     read();
     const watch = new ResizeObserver(read);
     watch.observe(one);
     return () => watch.disconnect();
   }, []);
 
-  const repos = useMemo(() => reposOf(preview, folders), [preview, folders]);
+  const repos = useMemo(
+    () => reposOf(preview, folders),
+    [
+      preview,
+      folders,
+    ],
+  );
   useEffect(() => {
     setRisen(false);
     if (repos.length === 0) return;
     const wait = window.setTimeout(() => setRisen(true), 80);
     return () => window.clearTimeout(wait);
-  }, [repos, preview]);
+  }, [
+    repos,
+    preview,
+  ]);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -112,7 +237,11 @@ export function StartField({ preview, folders }: { preview: Preview; folders: re
       if (now - last < 48) return;
       last = now;
       const turn = ((now - start) / DRIFT.lapMs) * 2 * Math.PI;
-      setDrift({ x: Math.sin(turn) * DRIFT.x, y: Math.cos(turn * 0.7) * DRIFT.y, eye: Math.sin(turn * 0.5) * DRIFT.eye });
+      setDrift({
+        x: Math.sin(turn) * DRIFT.x,
+        y: Math.cos(turn * 0.7) * DRIFT.y,
+        eye: Math.sin(turn * 0.5) * DRIFT.eye,
+      });
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
@@ -122,18 +251,93 @@ export function StartField({ preview, folders }: { preview: Preview; folders: re
     if (size.width === 0 || size.height === 0) return undefined;
     const big = bigOf(size);
     // The field is laid out in part of the pane and the camera is moved to put it in the right two thirds, clear of the menu.
-    const world: Size = { width: Math.round(size.width * 0.78), height: Math.round(size.height * 0.9) };
+    const world: Size = {
+      width: Math.round(size.width * 0.78),
+      height: Math.round(size.height * 0.9),
+    };
     const drones = droneOf(preview);
     const layout = layoutOf(repos, drones, world, big);
-    const frame = frameOf({ layout, drones, plays: [], big });
-    const plane = { width: world.width, height: world.height * FLAT };
+    const frame = frameOf({
+      layout,
+      drones,
+      plays: [],
+      big,
+    });
+    const plane = {
+      width: world.width,
+      height: world.height * FLAT,
+    };
     // At rest the field fits the part of the pane the menu leaves, fitted to a smaller pane and then moved over.
-    const part: Size = { width: size.width * 0.66, height: size.height * 0.92 };
-    const home = homeOf(part, plane, marksOf(layout.territories, [...layout.at.values()].map((at) => ({ at, call: false })), big, reachOf(FOOT, MARGIN, big)));
-    const pads = new Map(layout.territories.flatMap((one) => one.pads.map((pad) => [pad.key, padOf(pad.key)] as const)));
-    const padAt = new Map(layout.territories.flatMap((one) => one.pads.map((pad) => [pad.key, { x: pad.x, y: pad.y * FLAT }] as const)));
-    return { big, world, layout, frame, home, drones, pads, padAt, zero: new Map([...frame.heights].map(([path]) => [path, 0] as const)) };
-  }, [size, repos, preview]);
+    const part: Size = {
+      width: size.width * 0.66,
+      height: size.height * 0.92,
+    };
+    const home = homeOf(
+      part,
+      plane,
+      marksOf(
+        layout.territories,
+        [
+          ...layout.at.values(),
+        ].map((at) => ({
+          at,
+          call: false,
+        })),
+        big,
+        reachOf(FOOT, MARGIN, big),
+      ),
+    );
+    const pads = new Map(
+      layout.territories.flatMap((one) =>
+        one.pads.map(
+          (pad) =>
+            [
+              pad.key,
+              padOf(pad.key),
+            ] as const,
+        ),
+      ),
+    );
+    const padAt = new Map(
+      layout.territories.flatMap((one) =>
+        one.pads.map(
+          (pad) =>
+            [
+              pad.key,
+              {
+                x: pad.x,
+                y: pad.y * FLAT,
+              },
+            ] as const,
+        ),
+      ),
+    );
+    return {
+      big,
+      world,
+      layout,
+      frame,
+      home,
+      drones,
+      pads,
+      padAt,
+      zero: new Map(
+        [
+          ...frame.heights,
+        ].map(
+          ([path]) =>
+            [
+              path,
+              0,
+            ] as const,
+        ),
+      ),
+    };
+  }, [
+    size,
+    repos,
+    preview,
+  ]);
 
   const scene = useMemo(() => {
     if (read === undefined) return undefined;
@@ -142,10 +346,27 @@ export function StartField({ preview, folders }: { preview: Preview; folders: re
       layout,
       world,
       big,
-      frame: risen ? frame : { ...frame, heights: zero },
+      frame: risen
+        ? frame
+        : {
+            ...frame,
+            heights: zero,
+          },
       drones,
       pads,
-      goals: new Map(layout.territories.map((one) => [one.root, { root: one.root, said: "Main", red: false }] as const)),
+      goals: new Map(
+        layout.territories.map(
+          (one) =>
+            [
+              one.root,
+              {
+                root: one.root,
+                said: "Main",
+                red: false,
+              },
+            ] as const,
+        ),
+      ),
       prs: [],
       plays: [],
       readable: true,
@@ -154,7 +375,15 @@ export function StartField({ preview, folders }: { preview: Preview; folders: re
       hot: undefined,
       hotTile: undefined,
       hotPart: undefined,
-      names: layout.territories.flatMap((one) => one.tiles.filter((tile) => tile.rect.w > 70).map((tile) => ({ tile, text: tile.path.split("/").pop() ?? tile.path, clash: false }))),
+      names: layout.territories.flatMap((one) =>
+        one.tiles
+          .filter((tile) => tile.rect.w > 70)
+          .map((tile) => ({
+            tile,
+            text: tile.path.split("/").pop() ?? tile.path,
+            clash: false,
+          })),
+      ),
       focus: undefined,
       labels: new Set(),
       clashed: new Map(),
@@ -165,7 +394,10 @@ export function StartField({ preview, folders }: { preview: Preview; folders: re
       trails: new Map(),
       padAt,
     });
-  }, [read, risen]);
+  }, [
+    read,
+    risen,
+  ]);
 
   const cam = useMemo<Cam | undefined>(() => {
     if (read === undefined) return undefined;
@@ -173,12 +405,24 @@ export function StartField({ preview, folders }: { preview: Preview; folders: re
     // Moving the camera left puts the field to the right of the middle: by the share of the pane the menu holds. The lower, nearer angle, and a
     // little larger than the fit, so the field is the subject and its edge may leave the pane.
     const aside = (size.width * 0.17) / home.eye;
-    return { ...home, tilt: true, x: home.x - aside + drift.x, y: home.y + drift.y, eye: home.eye * 1.1 * (1 + drift.eye) };
-  }, [read, drift, size.width]);
+    return {
+      ...home,
+      tilt: true,
+      x: home.x - aside + drift.x,
+      y: home.y + drift.y,
+      eye: home.eye * 1.1 * (1 + drift.eye),
+    };
+  }, [
+    read,
+    drift,
+    size.width,
+  ]);
 
   return (
     <div ref={host} className="armada-start-field" aria-hidden="true">
-      {scene === undefined || cam === undefined ? null : <PixiMap size={size} cam={cam} live scene={scene} />}
+      {scene === undefined || cam === undefined ? null : (
+        <PixiMap size={size} cam={cam} live scene={scene} />
+      )}
     </div>
   );
 }

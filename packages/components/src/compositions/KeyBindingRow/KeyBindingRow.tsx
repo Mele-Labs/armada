@@ -37,7 +37,16 @@ export type KeyBindingRowProps = {
   note?: string;
 };
 
-export function KeyBindingRow({ verb, icon: Icon, slots, listening, onListen, onBind, onReset, note }: KeyBindingRowProps) {
+export function KeyBindingRow({
+  verb,
+  icon: Icon,
+  slots,
+  listening,
+  onListen,
+  onBind,
+  onReset,
+  note,
+}: KeyBindingRowProps) {
   useEffect(() => {
     if (listening === null) return;
     const view = slots[listening];
@@ -54,7 +63,12 @@ export function KeyBindingRow({ verb, icon: Icon, slots, listening, onListen, on
       // A row of digits takes the modifiers held with any digit.
       if (!/^\d$/.test(chord.key)) return;
       const { key: _digit, ...mods } = chord;
-      bind(formatSlot({ ...view.slot, mods }));
+      bind(
+        formatSlot({
+          ...view.slot,
+          mods,
+        }),
+      );
     };
     const bind = (spelled: string) => {
       onBind(listening, spelled);
@@ -67,17 +81,33 @@ export function KeyBindingRow({ verb, icon: Icon, slots, listening, onListen, on
       holdKeys(false);
       window.removeEventListener("keydown", pressed, true);
     };
-  }, [listening, slots, onBind, onListen]);
+  }, [
+    listening,
+    slots,
+    onBind,
+    onListen,
+  ]);
 
   const conflicted = slots.flatMap((one) => one.conflicts ?? []);
   return (
     <div className="armada-key-binding-row" role="group" aria-label={verb}>
       <div className="armada-key-binding-row__act">
-        {Icon == null ? <span className="armada-key-binding-row__mark" /> : <Icon className="armada-key-binding-row__mark" size={16} aria-hidden />}
+        {Icon == null ? (
+          <span className="armada-key-binding-row__mark" />
+        ) : (
+          <Icon className="armada-key-binding-row__mark" size={16} aria-hidden />
+        )}
         <span className="armada-key-binding-row__verb">
           {verb}
           {note === undefined ? null : <span className="armada-key-binding-row__note">{note}</span>}
-          {conflicted.length === 0 ? null : <span className="armada-key-binding-row__conflict">Also {[...new Set(conflicted)].join(", ")}</span>}
+          {conflicted.length === 0 ? null : (
+            <span className="armada-key-binding-row__conflict">
+              Also{" "}
+              {[
+                ...new Set(conflicted),
+              ].join(", ")}
+            </span>
+          )}
         </span>
       </div>
       <div className="armada-key-binding-row__keys">
@@ -93,11 +123,23 @@ export function KeyBindingRow({ verb, icon: Icon, slots, listening, onListen, on
               data-listening={waiting ? "" : undefined}
               data-conflict={(one.conflicts?.length ?? 0) > 0 ? "" : undefined}
               aria-pressed={waiting}
-              aria-label={waiting ? `${named}: press a key, Esc to cancel, Delete to unbind` : `${named}: ${spelled === "" ? "unbound" : spelled}`}
+              aria-label={
+                waiting
+                  ? `${named}: press a key, Esc to cancel, Delete to unbind`
+                  : `${named}: ${spelled === "" ? "unbound" : spelled}`
+              }
               onClick={() => onListen(waiting ? null : at)}
             >
-              {one.name === undefined ? null : <span className="armada-key-binding-row__slot">{one.name}</span>}
-              {waiting ? <span className="armada-key-binding-row__waiting">Press a key</span> : spelled === "" ? <span className="armada-key-binding-row__unbound">Unbound</span> : <Kbd>{spelled}</Kbd>}
+              {one.name === undefined ? null : (
+                <span className="armada-key-binding-row__slot">{one.name}</span>
+              )}
+              {waiting ? (
+                <span className="armada-key-binding-row__waiting">Press a key</span>
+              ) : spelled === "" ? (
+                <span className="armada-key-binding-row__unbound">Unbound</span>
+              ) : (
+                <Kbd>{spelled}</Kbd>
+              )}
             </button>
           );
         })}

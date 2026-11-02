@@ -185,7 +185,10 @@
 @supports (anchor-name: --a) {
   .armada-graph-node-bar .armada-tooltip__bubble {
     position-area: block-start span-inline-end;
-    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+    position-try-fallbacks:
+      flip-block,
+      flip-inline,
+      flip-block flip-inline;
     margin-block-start: 0;
     margin-block-end: var(--space-1);
   }

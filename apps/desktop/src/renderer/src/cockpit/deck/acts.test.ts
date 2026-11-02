@@ -7,18 +7,52 @@ import { actsOf } from "./acts";
 import type { Pr, Subject } from "./ship";
 
 const opened = vi.hoisted(() => vi.fn(() => true));
-vi.mock("../../shared-panel/store", () => ({ openPullRequestInPanel: opened }));
+vi.mock("../../shared-panel/store", () => ({
+  openPullRequestInPanel: opened,
+}));
 
-const pr = { key: "pr:/r:7", root: "/r", number: 7, title: "t", branch: "b", url: "https://example.test/7", ci: "passed", stage: "ready" } as Pr;
-const subject = (kind: "session" | "pr", extra: Partial<Subject> = {}): Subject => ({ key: `${kind}:x1`, kind, id: "x1", title: "t", root: "/r", repo: "r", pr, ...extra }) as Subject;
+const pr = {
+  key: "pr:/r:7",
+  root: "/r",
+  number: 7,
+  title: "t",
+  branch: "b",
+  url: "https://example.test/7",
+  ci: "passed",
+  stage: "ready",
+} as Pr;
+const subject = (kind: "session" | "pr", extra: Partial<Subject> = {}): Subject =>
+  ({
+    key: `${kind}:x1`,
+    kind,
+    id: "x1",
+    title: "t",
+    root: "/r",
+    repo: "r",
+    pr,
+    ...extra,
+  }) as Subject;
 
-const hosts = () => ({ onOpenSession: vi.fn() });
-const draft = (extra: Partial<SessionsDraft> = {}) => ({ send: vi.fn(), act: vi.fn(async () => true), stop: vi.fn(), ...extra }) as unknown as SessionsDraft;
+const hosts = () => ({
+  onOpenSession: vi.fn(),
+});
+const draft = (extra: Partial<SessionsDraft> = {}) =>
+  ({
+    send: vi.fn(),
+    act: vi.fn(async () => true),
+    stop: vi.fn(),
+    ...extra,
+  }) as unknown as SessionsDraft;
 
 test("Reply sends the words to the Session through its own box's route", () => {
   const sessions = draft();
   actsOf(sessions, hosts()).reply(subject("session"), "go on");
-  expect(sessions.send).toHaveBeenCalledWith("x1", { text: "go on", files: [], sketches: [], tags: [] });
+  expect(sessions.send).toHaveBeenCalledWith("x1", {
+    text: "go on",
+    files: [],
+    sketches: [],
+    tags: [],
+  });
 });
 
 test("Stop is Fleet's for a Session, and not offered, nor faked, where Fleet has none", () => {
@@ -28,7 +62,12 @@ test("Stop is Fleet's for a Session, and not offered, nor faked, where Fleet has
   acts.stop(subject("session"));
   expect(sessions.stop).toHaveBeenCalledWith("x1");
 
-  const bare = actsOf(draft({ stop: undefined }), hosts());
+  const bare = actsOf(
+    draft({
+      stop: undefined,
+    }),
+    hosts(),
+  );
   expect(bare.can.stop(subject("session"))).toBe(false);
   expect(bare.can.stop(subject("pr"))).toBe(false);
   expect(() => bare.stop(subject("session"))).not.toThrow();
@@ -47,7 +86,13 @@ test("Merge is left off where Fleet has none: a pull request nobody owns, a Sess
   expect(acts.can.merge(subject("session"))).toBe(true);
   expect(acts.can.merge(subject("pr"))).toBe(false);
   expect(actsOf(undefined, hosts()).can.merge(subject("session"))).toBe(false);
-  expect(acts.can.merge(subject("session", { pr: undefined }))).toBe(false);
+  expect(
+    acts.can.merge(
+      subject("session", {
+        pr: undefined,
+      }),
+    ),
+  ).toBe(false);
   expect(() => acts.merge(subject("pr"))).not.toThrow();
 });
 
@@ -56,7 +101,11 @@ test("Open goes where the subject lives: a Session to its own view, a pull reque
   const acts = actsOf(draft(), given);
   acts.open(subject("session"));
   acts.open(subject("pr"));
-  expect(given.onOpenSession.mock.calls).toEqual([["x1"]]);
+  expect(given.onOpenSession.mock.calls).toEqual([
+    [
+      "x1",
+    ],
+  ]);
   expect(opened).toHaveBeenCalledOnce();
   expect(opened).toHaveBeenCalledWith(pr);
 });

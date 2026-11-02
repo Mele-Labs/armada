@@ -29,58 +29,183 @@ export type EditManifest = {
  * is required. Clearing a list removes its key.
  */
 export type ManifestEdit =
-  | { edit: "add_check"; name: string; check: CheckDraft }
-  | { edit: "remove_check"; name: string }
-  | { edit: "set_check_run"; name: string; run: string }
-  | { edit: "set_check_requires"; name: string; requires: string[] }
-  | { edit: "set_check_when"; name: string; when: string[] }
-  | { edit: "set_check_narrow"; name: string; narrow: NarrowingDraft | null }
-  | { edit: "add_command"; name: string; command: CommandDraft }
-  | { edit: "remove_command"; name: string }
-  | { edit: "set_command_run"; name: string; run: string | null }
+  | {
+      edit: "add_check";
+      name: string;
+      check: CheckDraft;
+    }
+  | {
+      edit: "remove_check";
+      name: string;
+    }
+  | {
+      edit: "set_check_run";
+      name: string;
+      run: string;
+    }
+  | {
+      edit: "set_check_requires";
+      name: string;
+      requires: string[];
+    }
+  | {
+      edit: "set_check_when";
+      name: string;
+      when: string[];
+    }
+  | {
+      edit: "set_check_narrow";
+      name: string;
+      narrow: NarrowingDraft | null;
+    }
+  | {
+      edit: "add_command";
+      name: string;
+      command: CommandDraft;
+    }
+  | {
+      edit: "remove_command";
+      name: string;
+    }
+  | {
+      edit: "set_command_run";
+      name: string;
+      run: string | null;
+    }
   /** `false` removes a written `true`; absent already means `false`. */
-  | { edit: "set_command_destructive"; name: string; destructive: boolean }
-  | { edit: "set_command_serve"; name: string; serve: string | null }
-  | { edit: "set_command_ready"; name: string; ready: string | null }
-  | { edit: "set_command_links"; name: string; links: LinkDraft[] }
-  | { edit: "add_port"; name: string; port: PortDraft }
-  | { edit: "remove_port"; name: string }
-  | { edit: "set_port_container"; name: string; container: number | null }
-  | { edit: "set_port_env"; name: string; env: string | null }
+  | {
+      edit: "set_command_destructive";
+      name: string;
+      destructive: boolean;
+    }
+  | {
+      edit: "set_command_serve";
+      name: string;
+      serve: string | null;
+    }
+  | {
+      edit: "set_command_ready";
+      name: string;
+      ready: string | null;
+    }
+  | {
+      edit: "set_command_links";
+      name: string;
+      links: LinkDraft[];
+    }
+  | {
+      edit: "add_port";
+      name: string;
+      port: PortDraft;
+    }
+  | {
+      edit: "remove_port";
+      name: string;
+    }
+  | {
+      edit: "set_port_container";
+      name: string;
+      container: number | null;
+    }
+  | {
+      edit: "set_port_env";
+      name: string;
+      env: string | null;
+    }
   /** The word as the file writes it. `null` means `never`. */
-  | { edit: "set_auto_merge"; auto_merge: string | null }
+  | {
+      edit: "set_auto_merge";
+      auto_merge: string | null;
+    }
   /** The word as the file writes it. `null` means `human_always`. */
-  | { edit: "set_review_gate"; review_gate: string | null }
+  | {
+      edit: "set_review_gate";
+      review_gate: string | null;
+    }
   /** `null` defers to what Fleet runs with. */
-  | { edit: "set_cost_cap_micros_per_job"; cost_cap_micros_per_job: number | null }
+  | {
+      edit: "set_cost_cap_micros_per_job";
+      cost_cap_micros_per_job: number | null;
+    }
   /** `null` defers to what Fleet runs with. */
-  | { edit: "set_turn_cap_per_job"; turn_cap_per_job: number | null }
+  | {
+      edit: "set_turn_cap_per_job";
+      turn_cap_per_job: number | null;
+    }
   /** `false` removes a written `true`; absent already means not frozen. */
-  | { edit: "set_freeze"; freeze: boolean }
+  | {
+      edit: "set_freeze";
+      freeze: boolean;
+    }
   /** `0` removes a written code; absent already means `0`. */
-  | { edit: "set_check_expect_exit_code"; name: string; expect_exit_code: number }
+  | {
+      edit: "set_check_expect_exit_code";
+      name: string;
+      expect_exit_code: number;
+    }
   /** `null` removes the key, and Armada infers a base. */
-  | { edit: "set_base"; base: string | null }
-  | { edit: "add_evidence"; evidence: EvidenceDraft }
+  | {
+      edit: "set_base";
+      base: string | null;
+    }
+  | {
+      edit: "add_evidence";
+      evidence: EvidenceDraft;
+    }
   /** Takes `evidence:` and the comment block directly above it. */
-  | { edit: "remove_evidence" }
-  | { edit: "set_evidence_serve"; serve: string | null }
-  | { edit: "set_evidence_ready"; ready: string | null }
-  | { edit: "set_evidence_run"; run: string }
-  | { edit: "set_evidence_frames"; frames: string }
-  | { edit: "set_evidence_never"; never: string[] }
+  | {
+      edit: "remove_evidence";
+    }
+  | {
+      edit: "set_evidence_serve";
+      serve: string | null;
+    }
+  | {
+      edit: "set_evidence_ready";
+      ready: string | null;
+    }
+  | {
+      edit: "set_evidence_run";
+      run: string;
+    }
+  | {
+      edit: "set_evidence_frames";
+      frames: string;
+    }
+  | {
+      edit: "set_evidence_never";
+      never: string[];
+    }
   /** Empty removes `after_merge`. */
-  | { edit: "set_after_merge_checks"; checks: string[] }
+  | {
+      edit: "set_after_merge_checks";
+      checks: string[];
+    }
   /** Empty removes `setup`. */
-  | { edit: "set_setup_requires"; requires: string[] }
+  | {
+      edit: "set_setup_requires";
+      requires: string[];
+    }
   /** `null` defers to what Fleet runs with. */
-  | { edit: "set_quiet_after_seconds"; quiet_after_seconds: number | null }
+  | {
+      edit: "set_quiet_after_seconds";
+      quiet_after_seconds: number | null;
+    }
   /** `null` defers to what Fleet runs with. */
-  | { edit: "set_poke_limit"; poke_limit: number | null }
+  | {
+      edit: "set_poke_limit";
+      poke_limit: number | null;
+    }
   /** Empty defers to what Fleet runs with. */
-  | { edit: "set_exclude_paths"; exclude_paths: string[] }
+  | {
+      edit: "set_exclude_paths";
+      exclude_paths: string[];
+    }
   /** `null` removes the key, and the repository defers to this machine's default. Since 23.68. */
-  | { edit: "set_pr_mode"; pr_mode: string | null };
+  | {
+      edit: "set_pr_mode";
+      pr_mode: string | null;
+    };
 
 /** A Check a form declares. */
 export type CheckDraft = {
@@ -153,11 +278,20 @@ export type ManifestDeclared = {
   /** Shown, never edited. Absent from an older Fleet. */
   version?: number;
   /** In the order the file writes them. */
-  checks: { name: string; check: CheckDraft }[];
+  checks: {
+    name: string;
+    check: CheckDraft;
+  }[];
   /** Commands and servers together, sorted. `serve` tells them apart. */
-  commands: { name: string; command: CommandDraft }[];
+  commands: {
+    name: string;
+    command: CommandDraft;
+  }[];
   /** Sorted. */
-  ports: { name: string; port: PortDraft }[];
+  ports: {
+    name: string;
+    port: PortDraft;
+  }[];
   auto_merge: PolicyWords;
   review_gate: PolicyWords;
   /** `freeze`. Absent from a Fleet built before it. */

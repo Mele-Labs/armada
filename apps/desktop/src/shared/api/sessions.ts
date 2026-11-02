@@ -1,7 +1,23 @@
 // The Sessions Fleet hosts and the ledger of every agent session: reads, and the acts a person takes.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { AskJudge, DismissJudgeNote, JudgeReading, MarkJudgeRead, ModSessionStarted, ProjectRowRef, SendJudgeNote, StartModSession, DeleteWatch, DismissWait, ReadWatchLog, StopWatch, WatchList, WatchLog, WatchSummary } from "@armada/protocol";
+import type {
+  AskJudge,
+  DismissJudgeNote,
+  JudgeReading,
+  MarkJudgeRead,
+  ModSessionStarted,
+  ProjectRowRef,
+  SendJudgeNote,
+  StartModSession,
+  DeleteWatch,
+  DismissWait,
+  ReadWatchLog,
+  StopWatch,
+  WatchList,
+  WatchLog,
+  WatchSummary,
+} from "@armada/protocol";
 import type {
   AnswerDocument,
   AnswerSessionAsk,
@@ -59,23 +75,52 @@ import type {
   WritePullRequest,
 } from "@armada/protocol";
 import type { Ring } from "../ring";
-import type { ArtifactRead, LoadoutItemAsk, LoadoutItemBody, PageBounds, PageShot } from "@armada/screens/src/draft/sessions";
+import type {
+  ArtifactRead,
+  LoadoutItemAsk,
+  LoadoutItemBody,
+  PageBounds,
+  PageShot,
+} from "@armada/screens/src/draft/sessions";
 
 /** What a session act came to: the thing Fleet answered with, or the refusal to word. */
-export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+export type SessionActed<T = SessionRecord> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** `send_session_notes`' body, each note with where its box is on its picture, the whole window, where it has one. */
-export type RingedNotes = { session_id: string; notes: { note: SessionNote; ring?: Ring }[] };
+export type RingedNotes = {
+  session_id: string;
+  notes: {
+    note: SessionNote;
+    ring?: Ring;
+  }[];
+};
 
 /** What a person can do to a pull request a Session holds, without leaving Bridge. */
 /** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it. */
-export type JobTerminalChange = JobTerminal & { change: "opened" | "exited" };
+export type JobTerminalChange = JobTerminal & {
+  change: "opened" | "exited";
+};
 
 /**
  * A shell moved from its own window back into Bridge, docked. `shell` is the Job's last shell main followed,
  * so one that ended in its window is shown ended rather than opened again; absent where main followed none.
  */
-export type TerminalMovedBack = { sessionId: string; to: "docked"; shell?: { runId: string; ended: boolean } };
+export type TerminalMovedBack = {
+  sessionId: string;
+  to: "docked";
+  shell?: {
+    runId: string;
+    ended: boolean;
+  };
+};
 
 export type PullRequestPress = "read" | "ready" | "merge" | "auto_merge";
 
@@ -93,7 +138,18 @@ export type SessionsApi = {
    * **`held` starts it on a card before any agent moves**: the Session carries `hosted.start` until `beginSession`.
    * **`projectRows` are the rows of the repository's projects it starts with**: each written task among them is held by the Job.
    */
-  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }, after?: StartAfter, held?: boolean, projectRows?: readonly ProjectRowRef[]) => Promise<SessionActed>;
+  startSession: (
+    title?: string,
+    root?: string,
+    request?: string,
+    tuning?: {
+      model?: string;
+      effort?: string;
+    },
+    after?: StartAfter,
+    held?: boolean,
+    projectRows?: readonly ProjectRowRef[],
+  ) => Promise<SessionActed>;
   /** Begins a held Session: the agent starts, and how the work lands is the choice sent, or the one `hosted.start.picked` names. Answers the record with `start` gone. */
   beginSession: (begin: BeginSession) => Promise<SessionActed>;
   /** Fleet's proposer reads a brief that tags `sessionId` for the wait it names. A reading it could not make is `ends`, from main. */
@@ -204,7 +260,11 @@ export type SessionsApi = {
    * `toSessionId`, a live Session of the same repository: `rows`, or every one where absent. A turn
    * running is stopped first where a slot is among them. Answers what moved and what stayed, with why.
    */
-  releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
+  releaseSessionHolds: (
+    sessionId: string,
+    toSessionId?: string,
+    rows?: ChosenHold[],
+  ) => Promise<SessionActed<SessionHoldsReleased>>;
   /**
    * Hands one group of the Session's plan to a linked Session of its own: Fleet starts it in the same repository, titled with the
    * group's, and sends the group's tasks and the Session's handoff as its first message. Answers the new Session's id.
@@ -225,7 +285,10 @@ export type SessionsApi = {
   /** A picture or file a message carried, by the id its row gave. */
   readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
   /** A subagent's own thread as its transcript stands. Read again while it runs. */
-  readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
+  readSessionSubagent: (
+    sessionId: string,
+    subagentId: string,
+  ) => Promise<SessionActed<SessionSubagent>>;
   /** What a Session's agent knows, was told and used each turn: `get_session_loadout`. Read again on a `session.changed`. */
   readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
   /** Every version of everything a Session holds, oldest first: `get_attachment_history`. Read again on a `session.changed`. */
@@ -233,7 +296,10 @@ export type SessionsApi = {
   /** The style set a `mock` node's `kept` hash names: `get_kept_styles`. Content addressed, so an answer never changes. */
   readKeptStyles: (hash: string) => Promise<SessionActed<KeptStyles>>;
   /** What one item of a Session's Loadout says, read from disk by Fleet: `read_loadout_item`. */
-  readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
+  readLoadoutItem: (
+    sessionId: string,
+    item: LoadoutItemAsk,
+  ) => Promise<SessionActed<LoadoutItemBody>>;
   /** A hosted Session's MCP servers, asked of its process now: `get_session_mcp`. No event says to read again. */
   readSessionMcp: (sessionId: string) => Promise<SessionActed<SessionMcp>>;
   /** The answers to a Job's last message and the lines he sends often, for its quick bar: `get_session_quick`. Read again when the Job's last row changes. */
@@ -242,7 +308,11 @@ export type SessionsApi = {
    * Reconnects, turns on or off, or signs in to one server, and answers the servers after: `act_on_session_mcp`.
    * Waits for the server to settle, up to a minute and a half. A `sign_in` in the answer is a page for `openLink`.
    */
-  actOnSessionMcp: (sessionId: string, server: string, act: McpServerAct) => Promise<SessionActed<SessionMcpActed>>;
+  actOnSessionMcp: (
+    sessionId: string,
+    server: string,
+    act: McpServerAct,
+  ) => Promise<SessionActed<SessionMcpActed>>;
   /**
    * Restarts a hosted Job's agent so it loads the mod it came up without: `mend_session_tools`, body `{ session_id }`.
    * Fleet fills its copy of the mod first and answers once the restart is under way; the mark clears when the new process's `init` says so.
@@ -288,23 +358,52 @@ export type SessionsApi = {
     press: PullRequestPress,
   ) => Promise<SessionActed<PullRequestState>>;
   /** What the panel's tabs and facts draw, read from the forge when the panel opens. Main names the repository from the Session. */
-  readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
+  readPullRequestPage: (
+    sessionId: string,
+    number: number,
+  ) => Promise<SessionActed<PullRequestPage>>;
   /** One file of a pull request, read when a person opens it from the Files tab. Main names the repository from the Session. */
-  readPullRequestFile: (sessionId: string, number: number, path: string) => Promise<SessionActed<PullRequestFilePatch>>;
+  readPullRequestFile: (
+    sessionId: string,
+    number: number,
+    path: string,
+  ) => Promise<SessionActed<PullRequestFilePatch>>;
   /** A comment, an approval or a request for changes on a pull request a Session holds. Answers the page read again after it. */
-  writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
+  writePullRequest: (
+    sessionId: string,
+    number: number,
+    write: PullRequestWrite,
+  ) => Promise<SessionActed<PullRequestPage>>;
   /** Runs a shell block from a Session's thread, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without). Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`. */
-  startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
+  startSessionRun: (
+    sessionId: string,
+    command: string,
+    cols?: number,
+    rows?: number,
+  ) => Promise<SessionActed<SessionRunUnderway>>;
   /** Opens the Job's shell, or is handed the one already open, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without, used only where it opens now). Answers with its run id: what it prints arrives on `onSessionRunMessage`, and typing, resizing and stopping it are the run calls on that id. */
-  openTerminal: (sessionId: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
+  openTerminal: (
+    sessionId: string,
+    cols?: number,
+    rows?: number,
+  ) => Promise<SessionActed<SessionRunUnderway>>;
   /** Runs `command` in the directory `dir` with no Job behind it, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without). Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`, and typing, resizing and stopping it are the run calls on that id. */
-  startTerminalRun: (command: string, dir: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
+  startTerminalRun: (
+    command: string,
+    dir: string,
+    cols?: number,
+    rows?: number,
+  ) => Promise<SessionActed<SessionRunUnderway>>;
   /** Ends a run's process group. */
   stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
   /** Types into a run's terminal: the keys as a string, written as they are. Refused where the run has ended. */
   writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
   /** Tells a run's terminal its size in cells. */
-  resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
+  resizeSessionRun: (
+    runId: string,
+    cols: number,
+    rows: number,
+  ) => Promise<SessionActed<SessionRunUnderway>>;
   /**
    * Pulls a held checkout level with its base: the one press "Your checkout" offers. **Names the repository by
    * its Manifest and no command**; Fleet reads the hold again, runs the pull it knows and answers with git's exit
@@ -316,7 +415,9 @@ export type SessionsApi = {
    * checkout. **Names the repository by its Manifest and no path**; Fleet reads the hold again, refuses what
    * the pull would refuse and answers with the pull request's number. The hold then carries it.
    */
-  sendCheckoutAsPullRequest: (manifestId: string) => Promise<SessionActed<CheckoutSentAsPullRequest>>;
+  sendCheckoutAsPullRequest: (
+    manifestId: string,
+  ) => Promise<SessionActed<CheckoutSentAsPullRequest>>;
   /**
    * One uncommitted file of a held checkout, as a unified diff against HEAD. Names the repository by its Manifest
    * and the path; Fleet refuses a path the hold does not list.
@@ -342,9 +443,17 @@ export type SessionsApi = {
 
 /** Every session on the machine, as `list_sessions` answers and `session.changed` keeps current. */
 export type SessionsRead =
-  | { state: "none" }
-  | { state: "read"; sessions: SessionRecord[] }
-  | { state: "failed"; outcome: Outcome };
+  | {
+      state: "none";
+    }
+  | {
+      state: "read";
+      sessions: SessionRecord[];
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    };
 
 export type SessionsState = {
   /** `none` until Fleet has answered, and on a Fleet that does not serve Sessions: the surface is then left off. */
@@ -358,7 +467,9 @@ export type SessionsState = {
 };
 
 export const SESSIONS_NOTHING_YET: SessionsState = {
-  sessions: { state: "none" },
+  sessions: {
+    state: "none",
+  },
   sessionThreads: {},
   sessionWatches: {},
   sessionThreadsReading: [],

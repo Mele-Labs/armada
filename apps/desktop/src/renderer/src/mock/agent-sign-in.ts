@@ -6,7 +6,10 @@ import type { AgentSignIn, AgentSignInSource } from "../agent-sign-in";
 const SIGNING_IN_MS = 2_000;
 
 export function createMockAgentSignIn(): AgentSignInSource {
-  let state: AgentSignIn = { signed_out_since: new Date(Date.now() - 5 * 60_000).toISOString(), signing_in: false };
+  let state: AgentSignIn = {
+    signed_out_since: new Date(Date.now() - 5 * 60_000).toISOString(),
+    signing_in: false,
+  };
   const listeners = new Set<() => void>();
   const set = (to: AgentSignIn): void => {
     state = to;
@@ -20,8 +23,17 @@ export function createMockAgentSignIn(): AgentSignInSource {
     },
     signIn: () => {
       if (state.signing_in || state.signed_out_since === undefined) return;
-      set({ ...state, signing_in: true });
-      globalThis.setTimeout(() => set({ signing_in: false }), SIGNING_IN_MS);
+      set({
+        ...state,
+        signing_in: true,
+      });
+      globalThis.setTimeout(
+        () =>
+          set({
+            signing_in: false,
+          }),
+        SIGNING_IN_MS,
+      );
     },
   };
 }

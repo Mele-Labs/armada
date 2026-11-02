@@ -9,17 +9,50 @@ const ENTRIES = role("grid", "Entries");
 const ENTRY = region("Entry");
 
 const logbookTidy = walk("logbook-tidy", [
-  { press: place("Logbook"), say: "In use holds the same two commands over and over in different words" },
-  { hover: button("Tidy now"), say: "Tidy now folds near-duplicates together" },
-  { press: button("Tidy now"), say: "Fleet runs the pass in the background" },
-  { look: text("Tidying"), say: "The page says Tidying until the pass ends" },
-  { press: place("System"), say: "The pass does not need the page, so he can leave" },
-  { later: place("Logbook"), say: "It ends while he is away" },
-  { press: place("Logbook"), say: "Back on the Logbook" },
-  { look: text("Merged 8 entries"), say: "How many it merged, and nothing else" },
-  { look: inside(ENTRIES, text(/Run pnpm exec vitest run/)), say: "In use is down to the entries that were kept" },
-  { look: inside(ENTRY, text(/^Merged/)), say: "The open one keeps what it absorbed under Earlier, as Merged" },
-  { press: role("tab", "Archived"), say: "The merged ones are under Archived, kept and searchable" },
+  {
+    press: place("Logbook"),
+    say: "In use holds the same two commands over and over in different words",
+  },
+  {
+    hover: button("Tidy now"),
+    say: "Tidy now folds near-duplicates together",
+  },
+  {
+    press: button("Tidy now"),
+    say: "Fleet runs the pass in the background",
+  },
+  {
+    look: text("Tidying"),
+    say: "The page says Tidying until the pass ends",
+  },
+  {
+    press: place("System"),
+    say: "The pass does not need the page, so he can leave",
+  },
+  {
+    later: place("Logbook"),
+    say: "It ends while he is away",
+  },
+  {
+    press: place("Logbook"),
+    say: "Back on the Logbook",
+  },
+  {
+    look: text("Merged 8 entries"),
+    say: "How many it merged, and nothing else",
+  },
+  {
+    look: inside(ENTRIES, text(/Run pnpm exec vitest run/)),
+    say: "In use is down to the entries that were kept",
+  },
+  {
+    look: inside(ENTRY, text(/^Merged/)),
+    say: "The open one keeps what it absorbed under Earlier, as Merged",
+  },
+  {
+    press: role("tab", "Archived"),
+    say: "The merged ones are under Archived, kept and searchable",
+  },
 ]);
 
 export { logbookTidy as "logbook-tidy" };

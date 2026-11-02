@@ -14,38 +14,85 @@ import { fleetAlso } from "./taught-parts";
 
 type Line = AlsoChangesProps["lines"][number];
 
-const PART = { words: "Words", fleet: "Fleet" } as const;
+const PART = {
+  words: "Words",
+  fleet: "Fleet",
+} as const;
 
 function Also({ entry }: { entry: LogbookEntry }) {
   const listed = useModList();
   // A teaching makes at most one mod of a kind, so the line is the newest listed.
   const rows = useMemo(
     () =>
-      (["words", "fleet"] as const).flatMap((kind) => {
-        const row = listed.filter((one) => one.kind === kind && one.entry === entry.id).sort((a, b) => (b.changed_at ?? "").localeCompare(a.changed_at ?? ""))[0];
-        return row === undefined ? [] : [{ kind, row }];
+      (
+        [
+          "words",
+          "fleet",
+        ] as const
+      ).flatMap((kind) => {
+        const row = listed
+          .filter((one) => one.kind === kind && one.entry === entry.id)
+          .sort((a, b) => (b.changed_at ?? "").localeCompare(a.changed_at ?? ""))[0];
+        return row === undefined
+          ? []
+          : [
+              {
+                kind,
+                row,
+              },
+            ];
       }),
-    [listed, entry.id],
+    [
+      listed,
+      entry.id,
+    ],
   );
   // What each Fleet mod does, from its checked file, for the change of it read.
-  const [said, setSaid] = useState<Readonly<Record<string, { at: string; text: string | undefined }>>>({});
+  const [said, setSaid] = useState<
+    Readonly<
+      Record<
+        string,
+        {
+          at: string;
+          text: string | undefined;
+        }
+      >
+    >
+  >({});
   useEffect(() => {
     let live = true;
     for (const { kind, row } of rows) {
       const at = row.changed_at ?? "";
       if (kind !== "fleet" || said[row.name]?.at === at) continue;
       void window.armada.validateMod(row.name).then((checked) => {
-        if (live && checked?.valid) setSaid((was) => ({ ...was, [row.name]: { at, text: checked.fleet === undefined ? undefined : fleetAlso(checked.fleet) } }));
+        if (live && checked?.valid)
+          setSaid((was) => ({
+            ...was,
+            [row.name]: {
+              at,
+              text: checked.fleet === undefined ? undefined : fleetAlso(checked.fleet),
+            },
+          }));
       });
     }
     return () => {
       live = false;
     };
-  }, [rows, said]);
+  }, [
+    rows,
+    said,
+  ]);
   const lines = rows.map(({ kind, row }): Line => {
     const read = said[row.name];
     const worded = kind === "fleet" && read?.at === (row.changed_at ?? "") ? read.text : undefined;
-    return { part: PART[kind], text: worded ?? row.description ?? row.name, mod: { name: row.name, onOpen: () => askToOpenMod(row.name, kind) } };
+    return {
+      part: PART[kind],
+      text: worded ?? row.description ?? row.name,
+      mod: {
+        name: row.name,
+        onOpen: () => askToOpenMod(row.name, kind),
+      },
+    };
   });
   return lines.length === 0 ? null : <AlsoChanges lines={lines} />;
 }

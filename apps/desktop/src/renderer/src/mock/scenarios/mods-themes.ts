@@ -11,31 +11,71 @@ import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 import { DUSK_MOD, mockThemes } from "../themes";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 const MODS = "~/Library/Application Support/Armada/mods/dusk";
 
 function build(): Scenario {
   const board = onBoard({
-    repositories: [ARMADA],
+    repositories: [
+      ARMADA,
+    ],
     picked: ARMADA.root,
   });
-  const served = new FakeSessionsFleet([hosted("01SESSIONMODSAAAAAAAAAAAAA", { title: "A theme", attachments: [held("slot", "3")] })]).scenario(board);
+  const served = new FakeSessionsFleet([
+    hosted("01SESSIONMODSAAAAAAAAAAAAA", {
+      title: "A theme",
+      attachments: [
+        held("slot", "3"),
+      ],
+    }),
+  ]).scenario(board);
   return {
     ...served,
     name: "mods-themes",
     says: "Settings → Theme, the Mods surface, and a Session that writes a theme",
     behaves: (handle) => {
       mockThemes.reset();
-      const fake = new FakeSessionsFleet([hosted("01SESSIONMODSAAAAAAAAAAAAA", { title: "A theme", attachments: [held("slot", "3")] })]);
+      const fake = new FakeSessionsFleet([
+        hosted("01SESSIONMODSAAAAAAAAAAAAA", {
+          title: "A theme",
+          attachments: [
+            held("slot", "3"),
+          ],
+        }),
+      ]);
       const own = fake.scenario(board).behaves!(handle);
       return {
         ...own,
         sendSessionMessage: async (send) => {
           await own.watchSession!(send.session_id);
           const sent = await own.sendSessionMessage!(send);
-          fake.row(send.session_id, { id: "w1", at: "2026-10-07T13:48:05.000Z", kind: "tool", text: `Write ${MODS}/mod.toml` });
-          fake.row(send.session_id, { id: "w2", at: "2026-10-07T13:48:06.000Z", kind: "tool", text: `Write ${MODS}/theme.css` });
-          fake.row(send.session_id, { id: "w3", at: "2026-10-07T13:48:08.000Z", kind: "message", from: { kind: "agent" }, text: "Dusk is in Settings, under Theme." });
+          fake.row(send.session_id, {
+            id: "w1",
+            at: "2026-10-07T13:48:05.000Z",
+            kind: "tool",
+            text: `Write ${MODS}/mod.toml`,
+          });
+          fake.row(send.session_id, {
+            id: "w2",
+            at: "2026-10-07T13:48:06.000Z",
+            kind: "tool",
+            text: `Write ${MODS}/theme.css`,
+          });
+          fake.row(send.session_id, {
+            id: "w3",
+            at: "2026-10-07T13:48:08.000Z",
+            kind: "message",
+            from: {
+              kind: "agent",
+            },
+            text: "Dusk is in Settings, under Theme.",
+          });
           mockThemes.install(DUSK_MOD);
           return sent;
         },

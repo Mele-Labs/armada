@@ -11,28 +11,53 @@ export const SketchShareContext = createContext<SketchShareHost>({});
 export const useSketchShareHost = (): SketchShareHost => useContext(SketchShareContext);
 
 /** The host's save, or a download where the host has none: the first of `files`, since a browser asks for no place. */
-export async function saveWith(host: SketchShareHost, files: readonly SketchShareFile[]): Promise<SketchShareSaved> {
+export async function saveWith(
+  host: SketchShareHost,
+  files: readonly SketchShareFile[],
+): Promise<SketchShareSaved> {
   if (host.save !== undefined) return host.save(files);
   const file = files[0];
-  if (file === undefined) return { saved: false, why: "failed" };
-  const url = URL.createObjectURL(new Blob([file.data as BlobPart], { type: MIME[file.kind] }));
+  if (file === undefined)
+    return {
+      saved: false,
+      why: "failed",
+    };
+  const url = URL.createObjectURL(
+    new Blob(
+      [
+        file.data as BlobPart,
+      ],
+      {
+        type: MIME[file.kind],
+      },
+    ),
+  );
   const link = document.createElement("a");
   link.href = url;
   link.download = file.name;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
-  return { saved: true, name: file.name };
+  return {
+    saved: true,
+    name: file.name,
+  };
 }
 
 /** The host's clipboard, or the browser's. */
-export const copyWith = (host: SketchShareHost, text: string): Promise<void> => (host.copy === undefined ? navigator.clipboard.writeText(text) : host.copy(text));
+export const copyWith = (host: SketchShareHost, text: string): Promise<void> =>
+  host.copy === undefined ? navigator.clipboard.writeText(text) : host.copy(text);
 
 /**
  * An SVG drawn onto a canvas at `scale` times its own size, as PNG bytes. The size is the SVG's own width and height.
  * **A data address and not an object one**: Chromium taints the canvas for a picture with a `foreignObject` in it
  * (a screen) when it was loaded from an object address, and a tainted canvas cannot be read back.
  */
-export async function svgToPng(svg: string, width: number, height: number, scale = 2): Promise<Uint8Array> {
+export async function svgToPng(
+  svg: string,
+  width: number,
+  height: number,
+  scale = 2,
+): Promise<Uint8Array> {
   const url = `data:${MIME.svg};charset=utf-8,${encodeURIComponent(svg)}`;
   const image = new Image();
   await new Promise<void>((done, fail) => {

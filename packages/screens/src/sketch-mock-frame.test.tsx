@@ -3,8 +3,19 @@
 
 import { expect, test, vi } from "vitest";
 
-import { MockView, NO_STYLESHEET, type MockStyles } from "@armada/components/src/compositions/SketchScene/MockView";
-import { elementOfKey, mockMarkup, mockNodes, partKey, partName, partOf } from "@armada/components/src/compositions/SketchScene/mock-frame";
+import {
+  MockView,
+  NO_STYLESHEET,
+  type MockStyles,
+} from "@armada/components/src/compositions/SketchScene/MockView";
+import {
+  elementOfKey,
+  mockMarkup,
+  mockNodes,
+  partKey,
+  partName,
+  partOf,
+} from "@armada/components/src/compositions/SketchScene/mock-frame";
 import type { SceneNode } from "@armada/components/src/compositions/SketchScene/scene";
 
 import { mount } from "./mounted";
@@ -36,11 +47,20 @@ test("nothing that runs or loads survives into the frame", () => {
   expect(doc.querySelector('[data-part="keep"]')?.textContent).toBe("Kept");
   expect(doc.querySelector("a")?.textContent).toBe("Go");
   // A fragment alone is kept, for an SVG's `use`.
-  expect([...doc.querySelectorAll("use")].map((one) => one.getAttribute("href"))).toEqual(["#glyph", null]);
+  expect(
+    [
+      ...doc.querySelectorAll("use"),
+    ].map((one) => one.getAttribute("href")),
+  ).toEqual([
+    "#glyph",
+    null,
+  ]);
 });
 
 test("a data-icon becomes the registry's glyph at the size it names, keeping its other attributes", () => {
-  const doc = drawn('<span><i data-icon="bot" data-size="20" class="lamp"></i><i data-icon="not-a-glyph"></i></span>');
+  const doc = drawn(
+    '<span><i data-icon="bot" data-size="20" class="lamp"></i><i data-icon="not-a-glyph"></i></span>',
+  );
   const glyph = doc.querySelector("svg");
   expect(glyph).not.toBeNull();
   expect(glyph?.getAttribute("width")).toBe("20");
@@ -51,14 +71,18 @@ test("a data-icon becomes the registry's glyph at the size it names, keeping its
 });
 
 test("a saved file's markup is cleaned by the same rules", () => {
-  const text = mockMarkup('<p onclick="x()" style="color:red">Hi</p><script>x()</script><i data-icon="bot"></i>');
+  const text = mockMarkup(
+    '<p onclick="x()" style="color:red">Hi</p><script>x()</script><i data-icon="bot"></i>',
+  );
   expect(text).toContain("Hi");
   expect(text).toContain("<svg");
   expect(text).not.toMatch(/script|onclick|style=/);
 });
 
 test("a part is the nearest element named by data-part, else the nearest with words", () => {
-  const doc = drawn('<section data-part="card"><div><span id="lamp">Running</span></div><b id="empty"></b></section><p id="loose"><em id="deep">Words</em></p>');
+  const doc = drawn(
+    '<section data-part="card"><div><span id="lamp">Running</span></div><b id="empty"></b></section><p id="loose"><em id="deep">Words</em></p>',
+  );
   const body = doc.body;
   expect(partOf(doc.getElementById("lamp"), body)?.getAttribute("data-part")).toBe("card");
   expect(partOf(doc.getElementById("deep"), body)?.id).toBe("deep");
@@ -77,8 +101,12 @@ test("a part is named by its data-part, else by its words cut short", () => {
 });
 
 test("a part is found again by its key: by name, by its place among the same name, or by its path", () => {
-  const doc = drawn('<ul><li data-part="row">One</li><li data-part="row">Two</li></ul><p id="path">Plain</p><h2 data-part="title">T</h2>');
-  const rows = [...doc.querySelectorAll('[data-part="row"]')];
+  const doc = drawn(
+    '<ul><li data-part="row">One</li><li data-part="row">Two</li></ul><p id="path">Plain</p><h2 data-part="title">T</h2>',
+  );
+  const rows = [
+    ...doc.querySelectorAll('[data-part="row"]'),
+  ];
   expect(partKey(doc.querySelector('[data-part="title"]')!, doc.body)).toBe("title");
   expect(partKey(rows[0]!, doc.body)).toBe("row[1]");
   expect(partKey(rows[1]!, doc.body)).toBe("row[2]");
@@ -92,13 +120,29 @@ test("a part is found again by its key: by name, by its place among the same nam
   expect(elementOfKey(doc, "body >>> nonsense")).toBeUndefined();
 });
 
-const NODE: SceneNode = { id: "card", kind: "mock", x: 0, y: 0, w: 320, title: "Job card", html: '<div class="lamp" data-part="lamp">Running</div>', css: ".lamp { color: rgb(255, 0, 0); }" };
+const NODE: SceneNode = {
+  id: "card",
+  kind: "mock",
+  x: 0,
+  y: 0,
+  w: 320,
+  title: "Job card",
+  html: '<div class="lamp" data-part="lamp">Running</div>',
+  css: ".lamp { color: rgb(255, 0, 0); }",
+};
 
 const STYLED: MockStyles = {
-  css: [".lamp { font-weight: 700; }"],
+  css: [
+    ".lamp { font-weight: 700; }",
+  ],
   fonts: [],
-  drawnWith: ["packages/tokens/tokens.css", "packages/components/src/compositions/JobCard/JobCard.css"],
-  root: { "data-theme": "dark" },
+  drawnWith: [
+    "packages/tokens/tokens.css",
+    "packages/components/src/compositions/JobCard/JobCard.css",
+  ],
+  root: {
+    "data-theme": "dark",
+  },
 };
 
 const frameOf = () => document.querySelector<HTMLIFrameElement>("iframe.armada-mock__frame");
@@ -121,11 +165,27 @@ test("a frame is drawn with the host's sheets and the node's own rules, and says
 
 test("the line names the files and not their folders", async () => {
   mount(<MockView node={NODE} resolve={async () => STYLED} parts={[]} />);
-  await vi.waitFor(() => expect([...document.querySelectorAll("span")].some((one) => one.textContent === "tokens.css, JobCard.css")).toBe(true));
+  await vi.waitFor(() =>
+    expect(
+      [
+        ...document.querySelectorAll("span"),
+      ].some((one) => one.textContent === "tokens.css, JobCard.css"),
+    ).toBe(true),
+  );
 });
 
 test("a node no stylesheet of the app was used for says so", async () => {
-  mount(<MockView node={NODE} resolve={async () => ({ css: [], fonts: [], drawnWith: [] })} parts={[]} />);
+  mount(
+    <MockView
+      node={NODE}
+      resolve={async () => ({
+        css: [],
+        fonts: [],
+        drawnWith: [],
+      })}
+      parts={[]}
+    />,
+  );
   await vi.waitFor(() => expect(document.body.textContent).toContain(NO_STYLESHEET));
 });
 
@@ -140,7 +200,25 @@ test("a read that failed says the same, and the frame still draws the node's own
 
 test("the host is asked with the node's id, the paths it named and the set Fleet kept", async () => {
   const resolve = vi.fn(async () => STYLED);
-  mount(<MockView node={{ ...NODE, styles: ["a.css"], kept: "0123456789abcdef0123456789abcdef" }} resolve={resolve} parts={[]} />);
+  mount(
+    <MockView
+      node={{
+        ...NODE,
+        styles: [
+          "a.css",
+        ],
+        kept: "0123456789abcdef0123456789abcdef",
+      }}
+      resolve={resolve}
+      parts={[]}
+    />,
+  );
   await vi.waitFor(() => expect(resolve).toHaveBeenCalled());
-  expect(resolve).toHaveBeenCalledWith({ id: "card", styles: ["a.css"], kept: "0123456789abcdef0123456789abcdef" });
+  expect(resolve).toHaveBeenCalledWith({
+    id: "card",
+    styles: [
+      "a.css",
+    ],
+    kept: "0123456789abcdef0123456789abcdef",
+  });
 });

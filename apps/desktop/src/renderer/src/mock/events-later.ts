@@ -6,14 +6,28 @@ import type { TimelineEvent } from "@armada/protocol";
 
 import type { TimelineSource } from "../fleet-timeline";
 
-export type LaterEvents = { source: TimelineSource; advance: () => void };
+export type LaterEvents = {
+  source: TimelineSource;
+  advance: () => void;
+};
 
 /** One step's batch: entries added, or time passing over the entries held, and entries added after it. */
-export type LaterBatch = readonly TimelineEvent[] | { passes: number; add?: readonly TimelineEvent[] };
+export type LaterBatch =
+  | readonly TimelineEvent[]
+  | {
+      passes: number;
+      add?: readonly TimelineEvent[];
+    };
 
-const earlier = (one: TimelineEvent, seconds: number): TimelineEvent => ({ ...one, at: new Date(Date.parse(one.at) - seconds * 1000).toISOString() });
+const earlier = (one: TimelineEvent, seconds: number): TimelineEvent => ({
+  ...one,
+  at: new Date(Date.parse(one.at) - seconds * 1000).toISOString(),
+});
 
-export function eventsLater(first: readonly TimelineEvent[], later: readonly (() => LaterBatch)[]): LaterEvents {
+export function eventsLater(
+  first: readonly TimelineEvent[],
+  later: readonly (() => LaterBatch)[],
+): LaterEvents {
   let held = first;
   let passed = 0;
   const listeners = new Set<() => void>();
@@ -28,7 +42,16 @@ export function eventsLater(first: readonly TimelineEvent[], later: readonly (()
     advance: () => {
       const batch = later[passed++]?.();
       if (batch === undefined) return;
-      held = "passes" in batch ? [...held.map((one) => earlier(one, batch.passes)), ...(batch.add ?? [])] : [...held, ...batch];
+      held =
+        "passes" in batch
+          ? [
+              ...held.map((one) => earlier(one, batch.passes)),
+              ...(batch.add ?? []),
+            ]
+          : [
+              ...held,
+              ...batch,
+            ];
       for (const on of listeners) on();
     },
   };

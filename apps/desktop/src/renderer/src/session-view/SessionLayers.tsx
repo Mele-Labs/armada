@@ -3,9 +3,58 @@
 // search field in Artifacts, the first row elsewhere; the arrows walk the rows. A layer is drawn from what the ledger and the thread already
 // hold (`artifacts.ts`, `slot-trouble.ts`) and reads nothing of its own, but the Artifacts graph's history, read while the graph is open.
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, Check, CircleDot, CircleX, GitMerge, GitPullRequest, List, LoaderCircle, Megaphone, Power, ShieldCheck, ShieldEllipsis, ShieldX, Terminal, Waypoints, X, type LucideIcon } from "lucide-react";
-import { ArtifactGraph, Button, ClashPaths, Enlargeable, Input, PullRequestChecksMark, ReopenAct, Stamp, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tooltip, timeSaid, useTimeFormat, type ClashView, useOpenClash, type LedgerEntry, type SessionLedgerTone } from "@armada/components";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
+import {
+  ArrowDown,
+  Check,
+  CircleDot,
+  CircleX,
+  GitMerge,
+  GitPullRequest,
+  List,
+  LoaderCircle,
+  Megaphone,
+  Power,
+  ShieldCheck,
+  ShieldEllipsis,
+  ShieldX,
+  Terminal,
+  Waypoints,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  ArtifactGraph,
+  Button,
+  ClashPaths,
+  Enlargeable,
+  Input,
+  PullRequestChecksMark,
+  ReopenAct,
+  Stamp,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  Tooltip,
+  timeSaid,
+  useTimeFormat,
+  type ClashView,
+  useOpenClash,
+  type LedgerEntry,
+  type SessionLedgerTone,
+} from "@armada/components";
 import { attachmentsOf, type Session, type SessionRow } from "@armada/screens/src/draft/sessions";
 import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
@@ -56,14 +105,34 @@ const ROW = "[data-layer-row]";
 /** A layer drawn as a tab of a pane: the tab is its title and its × closes it, so it has no head and no Esc of its own. */
 export const LayerInPane = createContext(false);
 
-function Shell({ label, tools, keys, owns, children }: { label: string; tools?: ReactNode; /** A key the layer owns, heard before the arrows walk the rows. */ keys?: (event: KeyboardEvent<HTMLElement>) => void; /** The letters `keys` answers to, which the deck does not take while focus is in the layer. */ owns?: string; children: ReactNode }) {
+function Shell({
+  label,
+  tools,
+  keys,
+  owns,
+  children,
+}: {
+  label: string;
+  tools?: ReactNode /** A key the layer owns, heard before the arrows walk the rows. */;
+  keys?: (
+    event: KeyboardEvent<HTMLElement>,
+  ) => void /** The letters `keys` answers to, which the deck does not take while focus is in the layer. */;
+  owns?: string;
+  children: ReactNode;
+}) {
   const root = useRef<HTMLElement>(null);
   const pane = useContext(LayerInPane);
   // Esc is Back, wherever focus is, unless a sheet or a menu is open over the layer: that one's Esc is its own.
   useEffect(() => {
     if (pane) return;
     const listen = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null || popupIsOpen()) return;
+      if (
+        event.key !== "Escape" ||
+        event.defaultPrevented ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]') !== null ||
+        popupIsOpen()
+      )
+        return;
       event.preventDefault();
       closeLayer();
     };
@@ -74,27 +143,46 @@ function Shell({ label, tools, keys, owns, children }: { label: string; tools?: 
   useEffect(() => {
     const first = root.current?.querySelector<HTMLElement>(`[data-layer-field], ${ROW}`);
     first?.focus();
-  }, [label]);
+  }, [
+    label,
+  ]);
   const walk = (event: KeyboardEvent<HTMLElement>) => {
     keys?.(event);
     if (event.defaultPrevented || (event.key !== "ArrowDown" && event.key !== "ArrowUp")) return;
-    const stops = [...(root.current?.querySelectorAll<HTMLElement>(`[data-layer-field], ${ROW}`) ?? [])];
+    const stops = [
+      ...(root.current?.querySelectorAll<HTMLElement>(`[data-layer-field], ${ROW}`) ?? []),
+    ];
     const at = stops.findIndex((one) => one === document.activeElement);
-    const to = stops[Math.min(stops.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))];
+    const to =
+      stops[Math.min(stops.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))];
     if (to === undefined) return;
     event.preventDefault();
     to.focus();
   };
   return (
-    <section ref={root} className="sv-layer" aria-label={label} data-in-pane={pane || undefined} data-keeps-escape="" {...(owns === undefined ? {} : { "data-owns-keys": owns })} onKeyDown={walk}>
-      {pane ? null : <header className="sv-layer__head">
-        <h3 className="sv-layer__title">{label}</h3>
-        <Tooltip label="Back" shortcut="Esc">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Back" onClick={closeLayer}>
-            <X size={16} aria-hidden="true" />
-          </Button>
-        </Tooltip>
-      </header>}
+    <section
+      ref={root}
+      className="sv-layer"
+      aria-label={label}
+      data-in-pane={pane || undefined}
+      data-keeps-escape=""
+      {...(owns === undefined
+        ? {}
+        : {
+            "data-owns-keys": owns,
+          })}
+      onKeyDown={walk}
+    >
+      {pane ? null : (
+        <header className="sv-layer__head">
+          <h3 className="sv-layer__title">{label}</h3>
+          <Tooltip label="Back" shortcut="Esc">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Back" onClick={closeLayer}>
+              <X size={16} aria-hidden="true" />
+            </Button>
+          </Tooltip>
+        </header>
+      )}
       {tools === undefined ? null : <div className="sv-layer__tools">{tools}</div>}
       <div className="sv-layer__body">{children}</div>
     </section>
@@ -102,31 +190,75 @@ function Shell({ label, tools, keys, owns, children }: { label: string; tools?: 
 }
 
 /** The hue a state's chip wears: the Checks' own, and amber for what waits on a person. */
-const MARK_HUE: Record<SessionLedgerTone, string> = { pending: "waiting", passed: "passed", failed: "failed", running: "running", done: "passed", escalated: "waiting", piloted: "waiting", stopped: "stopped" };
+const MARK_HUE: Record<SessionLedgerTone, string> = {
+  pending: "waiting",
+  passed: "passed",
+  failed: "failed",
+  running: "running",
+  done: "passed",
+  escalated: "waiting",
+  piloted: "waiting",
+  stopped: "stopped",
+};
 
-const TONE_WORD: Partial<Record<SessionLedgerTone, string>> = { passed: "Passed", failed: "Failed", running: "Running", done: "Done", pending: "Waiting", escalated: "Waiting", piloted: "Piloted", stopped: "Stopped" };
+const TONE_WORD: Partial<Record<SessionLedgerTone, string>> = {
+  passed: "Passed",
+  failed: "Failed",
+  running: "Running",
+  done: "Done",
+  pending: "Waiting",
+  escalated: "Waiting",
+  piloted: "Piloted",
+  stopped: "Stopped",
+};
 
 /** A picture the row names, small, opening large on a press. Nothing is drawn until it is read, or where it cannot be. */
 function Thumb({ sessionId, path, name }: { sessionId: string; path: string; name: string }) {
   const held = useArtifact(useSessionsDraft(), sessionId, path);
-  const read = held.state === "read" && held.read.ok && held.read.type.startsWith("image/") ? held.read : undefined;
+  const read =
+    held.state === "read" && held.read.ok && held.read.type.startsWith("image/")
+      ? held.read
+      : undefined;
   const [src, setSrc] = useState<string | undefined>();
   useEffect(() => {
     if (read === undefined) return setSrc(undefined);
-    const url = URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type }));
+    const url = URL.createObjectURL(
+      new Blob(
+        [
+          read.bytes as BlobPart,
+        ],
+        {
+          type: read.type,
+        },
+      ),
+    );
     setSrc(url);
     return () => URL.revokeObjectURL(url);
-  }, [read]);
-  return src === undefined ? null : <Enlargeable className="sv-ledger__thumb" src={src} name={name} />;
+  }, [
+    read,
+  ]);
+  return src === undefined ? null : (
+    <Enlargeable className="sv-ledger__thumb" src={src} name={name} />
+  );
 }
 
 /** One row, as every list of the Job draws it (`LedgerRow.tsx`): its kind's glyph and title, then the address or path, the kind and its states. A row with somewhere to go is a button; one without is read. */
-export function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; sessionId: string }) {
+export function Row({
+  row,
+  kind,
+  sessionId,
+}: {
+  row: ArtifactRow;
+  kind: string;
+  sessionId: string;
+}) {
   const { Glyph } = row;
   // With a judge to ask, every row keeps its act column: the Judge where the row has something to read, the column empty where it has not.
   const judged = useJudgeApi() !== undefined;
   const artifact = judged ? artifactOfRow(row, kind) : undefined;
-  const judge = !judged ? undefined : artifact === undefined ? null : <JudgeAct job={sessionId} artifact={artifact} label={`Judge ${artifact.title}`} />;
+  const judge = !judged ? undefined : artifact === undefined ? null : (
+    <JudgeAct job={sessionId} artifact={artifact} label={`Judge ${artifact.title}`} />
+  );
   const Tone = row.mark === undefined ? undefined : TONE[row.mark.glyph];
   return (
     <LedgerRow
@@ -135,13 +267,29 @@ export function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; 
       title={row.title}
       label={row.title}
       onOpen={row.open}
-      {...(judge === undefined ? {} : { act: judge })}
-      {...(row.picture === undefined ? {} : { act: <Thumb sessionId={sessionId} path={row.picture} name={`Picture of ${row.title}`} /> })}
-      {...(row.closed === undefined ? {} : { act: <ReopenAct name={row.title} onPress={row.closed.onReopen} /> })}
+      {...(judge === undefined
+        ? {}
+        : {
+            act: judge,
+          })}
+      {...(row.picture === undefined
+        ? {}
+        : {
+            act: (
+              <Thumb sessionId={sessionId} path={row.picture} name={`Picture of ${row.title}`} />
+            ),
+          })}
+      {...(row.closed === undefined
+        ? {}
+        : {
+            act: <ReopenAct name={row.title} onPress={row.closed.onReopen} />,
+          })}
       meta={
         <>
           {row.sub === undefined ? null : <code className="sv-ledger__sub">{row.sub}</code>}
-          {row.closed === undefined ? null : <Stamp at={row.closed.at} className="sv-ledger__word" />}
+          {row.closed === undefined ? null : (
+            <Stamp at={row.closed.at} className="sv-ledger__word" />
+          )}
           {row.words?.map((word) => (
             <span key={word} className="sv-ledger__said">
               {word}
@@ -150,14 +298,26 @@ export function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; 
           <span className="sv-ledger__word">{row.said}</span>
           {row.pr === undefined ? null : (
             <>
-              <Fact Glyph={row.pr.merged ? GitMerge : GitPullRequest} said={row.pr.merged ? "Merged" : "Open"} word={row.pr.merged ? "Merged" : "Open"} state={row.pr.merged ? "merged" : "open"} />
+              <Fact
+                Glyph={row.pr.merged ? GitMerge : GitPullRequest}
+                said={row.pr.merged ? "Merged" : "Open"}
+                word={row.pr.merged ? "Merged" : "Open"}
+                state={row.pr.merged ? "merged" : "open"}
+              />
               <span className="sv-ledger__fact" data-state={row.pr.checks}>
                 <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />
                 {CHECK_SAID[row.pr.checks]}
               </span>
             </>
           )}
-          {row.mark === undefined || Tone === undefined ? null : <Fact Glyph={Tone} said={row.mark.said} word={row.mark.word ?? TONE_WORD[row.mark.glyph] ?? row.mark.said} state={MARK_HUE[row.mark.glyph]} />}
+          {row.mark === undefined || Tone === undefined ? null : (
+            <Fact
+              Glyph={Tone}
+              said={row.mark.said}
+              word={row.mark.word ?? TONE_WORD[row.mark.glyph] ?? row.mark.said}
+              state={MARK_HUE[row.mark.glyph]}
+            />
+          )}
         </>
       }
     />
@@ -167,7 +327,17 @@ export function Row({ row, kind, sessionId }: { row: ArtifactRow; kind: string; 
 /** The Commands group lists this many before "View all". */
 const COMMANDS_SHOWN = 10;
 
-function Group({ group, session }: { group: { id: string; label: string; rows: readonly ArtifactRow[] }; session: Session }) {
+function Group({
+  group,
+  session,
+}: {
+  group: {
+    id: string;
+    label: string;
+    rows: readonly ArtifactRow[];
+  };
+  session: Session;
+}) {
   const [all, setAll] = useState(false);
   const capped = group.id === "command" && group.rows.length > COMMANDS_SHOWN;
   const rows = capped && !all ? group.rows.slice(0, COMMANDS_SHOWN) : group.rows;
@@ -176,8 +346,15 @@ function Group({ group, session }: { group: { id: string; label: string; rows: r
       <h4 className="sv-layer__group-label">{group.label}</h4>
       <ul className="sv-layer__rows">
         {rows.map((row) => {
-          const pr = row.prNumber === undefined ? undefined : attachmentsOf(session, "pull_request").find((one) => one.number === row.prNumber);
-          return pr === undefined ? <Row key={row.key} row={row} kind={group.id} sessionId={session.id} /> : <PullRow key={row.key} session={session} pr={pr} />;
+          const pr =
+            row.prNumber === undefined
+              ? undefined
+              : attachmentsOf(session, "pull_request").find((one) => one.number === row.prNumber);
+          return pr === undefined ? (
+            <Row key={row.key} row={row} kind={group.id} sessionId={session.id} />
+          ) : (
+            <PullRow key={row.key} session={session} pr={pr} />
+          );
         })}
       </ul>
       {capped ? (
@@ -189,7 +366,17 @@ function Group({ group, session }: { group: { id: string; label: string; rows: r
   );
 }
 
-export function Groups({ groups, session }: { groups: readonly { id: string; label: string; rows: readonly ArtifactRow[] }[]; session: Session }) {
+export function Groups({
+  groups,
+  session,
+}: {
+  groups: readonly {
+    id: string;
+    label: string;
+    rows: readonly ArtifactRow[];
+  }[];
+  session: Session;
+}) {
   return (
     <>
       {groups.map((group) => (
@@ -207,7 +394,12 @@ function useVersions(session: Session, open: boolean): Session["versions"] {
   const read = useSessionsDraft()?.history;
   const [versions, setVersions] = useState<Session["versions"]>(undefined);
   const { id, attachments } = session;
-  useEffect(() => setVersions(undefined), [id]);
+  useEffect(
+    () => setVersions(undefined),
+    [
+      id,
+    ],
+  );
   useEffect(() => {
     if (!open || read === undefined) return;
     let live = true;
@@ -217,32 +409,107 @@ function useVersions(session: Session, open: boolean): Session["versions"] {
     return () => {
       live = false;
     };
-  }, [open, read, id, attachments]);
+  }, [
+    open,
+    read,
+    id,
+    attachments,
+  ]);
   return versions;
 }
 
-const VIEWS: { id: "list" | "graph"; label: string; Glyph: LucideIcon }[] = [
-  { id: "list", label: "List", Glyph: List },
-  { id: "graph", label: "Graph", Glyph: Waypoints },
+const VIEWS: {
+  id: "list" | "graph";
+  label: string;
+  Glyph: LucideIcon;
+}[] = [
+  {
+    id: "list",
+    label: "List",
+    Glyph: List,
+  },
+  {
+    id: "graph",
+    label: "Graph",
+    Glyph: Waypoints,
+  },
 ];
 
 /** Everything the Session made or used, as groups or as a graph of how it grew; the field at the top narrows both as it is typed in, and V switches them. */
-export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }: { session: Session; entries: readonly LedgerEntry[]; onOpenSession: (id: string) => void; onOpenSketch?: (sketch: string, at?: string) => void }) {
+export function ArtifactsLayer({
+  session,
+  entries,
+  onOpenSession,
+  onOpenSketch,
+}: {
+  session: Session;
+  entries: readonly LedgerEntry[];
+  onOpenSession: (id: string) => void;
+  onOpenSketch?: (sketch: string, at?: string) => void;
+}) {
   const [words, setWords] = useState("");
   const [view, setView] = useState<"list" | "graph">("list");
   const sessions = useSessions();
   const format = useTimeFormat();
   const versions = useVersions(session, view === "graph");
-  const all = useMemo(() => artifactsOf(session, entries, { sessions, open: onOpenSession }), [session, entries, sessions, onOpenSession]);
-  const shown = useMemo(() => matching(all, words), [all, words]);
+  const all = useMemo(
+    () =>
+      artifactsOf(session, entries, {
+        sessions,
+        open: onOpenSession,
+      }),
+    [
+      session,
+      entries,
+      sessions,
+      onOpenSession,
+    ],
+  );
+  const shown = useMemo(
+    () => matching(all, words),
+    [
+      all,
+      words,
+    ],
+  );
   const graph = useMemo(
-    () => graphOf(versions === undefined ? session : { ...session, versions }, all, shown, words, { sketch: (id, at) => onOpenSketch?.(id, at), clock: (ms) => timeSaid(ms, { hour12: format.hour12, seconds: false, date: false }) }),
-    [session, versions, all, shown, words, onOpenSketch, format.hour12],
+    () =>
+      graphOf(
+        versions === undefined
+          ? session
+          : {
+              ...session,
+              versions,
+            },
+        all,
+        shown,
+        words,
+        {
+          sketch: (id, at) => onOpenSketch?.(id, at),
+          clock: (ms) =>
+            timeSaid(ms, {
+              hour12: format.hour12,
+              seconds: false,
+              date: false,
+            }),
+        },
+      ),
+    [
+      session,
+      versions,
+      all,
+      shown,
+      words,
+      onOpenSketch,
+      format.hour12,
+    ],
   );
   // V switches the view from anywhere in the layer but a field, where it is a letter.
   const keys = (event: KeyboardEvent<HTMLElement>) => {
-    const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-    if (typing || event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== "v") return;
+    const typing =
+      event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+    if (typing || event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== "v")
+      return;
     event.preventDefault();
     setView((now) => (now === "list" ? "graph" : "list"));
   };
@@ -254,12 +521,28 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
       tools={
         <>
           <div className="sv-layer__search">
-            <Input type="search" aria-label="Search artifacts" placeholder="Search" data-layer-field="" value={words} onChange={(event) => setWords(event.target.value)} autoComplete="off" spellCheck={false} />
+            <Input
+              type="search"
+              aria-label="Search artifacts"
+              placeholder="Search"
+              data-layer-field=""
+              value={words}
+              onChange={(event) => setWords(event.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
           </div>
           <div className="sv-layer__views" role="group" aria-label="View">
             {VIEWS.map(({ id, label, Glyph }) => (
               <Tooltip key={id} label={label} shortcut="V">
-                <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={view === id} onClick={() => setView(id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label={label}
+                  aria-pressed={view === id}
+                  onClick={() => setView(id)}
+                >
                   <Glyph size={16} aria-hidden="true" />
                 </Button>
               </Tooltip>
@@ -268,14 +551,30 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
         </>
       }
     >
-      {view === "list" ? <Groups groups={shown} session={session} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
+      {view === "list" ? (
+        <Groups groups={shown} session={session} />
+      ) : graph.nodes.length === 0 ? null : (
+        <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />
+      )}
     </Shell>
   );
 }
 
 /** Every subagent, the running ones first. Each opens its own thread, as the ledger's rows do. */
-export function SubagentsLayer({ session, entries }: { session: Session; entries: readonly LedgerEntry[] }) {
-  const groups = useMemo(() => artifactsOf(session, entries).filter((one) => one.id === "subagent"), [session, entries]);
+export function SubagentsLayer({
+  session,
+  entries,
+}: {
+  session: Session;
+  entries: readonly LedgerEntry[];
+}) {
+  const groups = useMemo(
+    () => artifactsOf(session, entries).filter((one) => one.id === "subagent"),
+    [
+      session,
+      entries,
+    ],
+  );
   return (
     <Shell label="Subagents">
       <ul className="sv-layer__rows">
@@ -287,21 +586,60 @@ export function SubagentsLayer({ session, entries }: { session: Session; entries
   );
 }
 
-const CHECK = { running: "running", passed: "passed", failed: "failed" } as const;
-const CHECK_SAID = { running: "Running", passed: "Passed", failed: "Failed" } as const;
+const CHECK = {
+  running: "running",
+  passed: "passed",
+  failed: "failed",
+} as const;
+const CHECK_SAID = {
+  running: "Running",
+  passed: "Passed",
+  failed: "Failed",
+} as const;
 
 /** The Checks the Session ran in its slot, newest first. Each opens its run on the Checks page. */
-export function ChecksLayer({ session, onOpenCheck }: { session: Session; onOpenCheck: (run: number) => void }) {
-  const runs = session.rows.filter((one): one is Extract<SessionRow, { kind: "check" }> => one.kind === "check").reverse();
+export function ChecksLayer({
+  session,
+  onOpenCheck,
+}: {
+  session: Session;
+  onOpenCheck: (run: number) => void;
+}) {
+  const runs = session.rows
+    .filter(
+      (
+        one,
+      ): one is Extract<
+        SessionRow,
+        {
+          kind: "check";
+        }
+      > => one.kind === "check",
+    )
+    .reverse();
   return (
     <Shell label="Checks">
-      <p className="sv-layer__note">The agent that ran each Check gets its result when the run ends.</p>
+      <p className="sv-layer__note">
+        The agent that ran each Check gets its result when the run ends.
+      </p>
       <ul className="sv-layer__rows">
         {runs.map((one) => (
           <li key={one.id} className="sv-layer__item">
-            <button type="button" className="sv-layer__row" data-layer-row="" aria-label={`${one.name}, ${CHECK_SAID[one.state].toLowerCase()}`} onClick={() => onOpenCheck(one.run)}>
+            <button
+              type="button"
+              className="sv-layer__row"
+              data-layer-row=""
+              aria-label={`${one.name}, ${CHECK_SAID[one.state].toLowerCase()}`}
+              onClick={() => onOpenCheck(one.run)}
+            >
               <span className="sv-layer__kind">
-                {one.state === "running" ? <LoaderCircle size={16} strokeWidth={2} aria-hidden data-spinning="" /> : one.state === "failed" ? <CircleX size={16} strokeWidth={2} aria-hidden /> : <ShieldCheck size={16} strokeWidth={2} aria-hidden />}
+                {one.state === "running" ? (
+                  <LoaderCircle size={16} strokeWidth={2} aria-hidden data-spinning="" />
+                ) : one.state === "failed" ? (
+                  <CircleX size={16} strokeWidth={2} aria-hidden />
+                ) : (
+                  <ShieldCheck size={16} strokeWidth={2} aria-hidden />
+                )}
               </span>
               <span className="sv-layer__title-line">{one.name}</span>
               <code className="sv-layer__sub">{one.at}</code>
@@ -323,8 +661,15 @@ function HeldBayRow({ bay }: { bay: HeldBay }) {
   const view = bayViewOf(slot, slotKey(slot), ledgerOf(slot, []), undefined, Date.now());
   const behind =
     slot.behind === undefined || slot.behind === 0 ? null : (
-      <Tooltip label={`${slot.behind} ${slot.behind === 1 ? "commit" : "commits"} behind ${slot.base}`}>
-        <span className="deck-bay__mark sv-layer__behind" role="img" aria-label={`${slot.behind} behind ${slot.base}`} data-wrong={bay.wrong === "behind" || undefined}>
+      <Tooltip
+        label={`${slot.behind} ${slot.behind === 1 ? "commit" : "commits"} behind ${slot.base}`}
+      >
+        <span
+          className="deck-bay__mark sv-layer__behind"
+          role="img"
+          aria-label={`${slot.behind} behind ${slot.base}`}
+          data-wrong={bay.wrong === "behind" || undefined}
+        >
           <ArrowDown size={12} aria-hidden="true" />
           {slot.behind}
         </span>
@@ -333,7 +678,14 @@ function HeldBayRow({ bay }: { bay: HeldBay }) {
   return (
     <section className="sv-layer__group sv-layer__slot" aria-label={name}>
       <Tooltip label="Show in Bays">
-        <button type="button" className="deck-bay" data-bay={view.state} data-layer-row="" aria-label={`Show ${name} in Bays`} onClick={() => void openSlotKeyInPanel(slotKey(slot))}>
+        <button
+          type="button"
+          className="deck-bay"
+          data-bay={view.state}
+          data-layer-row=""
+          aria-label={`Show ${name} in Bays`}
+          onClick={() => void openSlotKeyInPanel(slotKey(slot))}
+        >
           <Berth view={view} foot={behind} />
         </button>
       </Tooltip>
@@ -368,7 +720,10 @@ function ClashWith({ clash }: { clash: ClashView }) {
 export function BaysLayer({ session, bays }: { session: Session; bays: SessionBays | undefined }) {
   // A file opens its diff only where Fleet reads one.
   const read = useSessionsDraft()?.clashFile !== undefined;
-  const clashes: ClashView[] = (bays?.clashes ?? []).map((clash) => ({ with: clash.one.kind === "session" && clash.one.id === session.id ? clash.other : clash.one, paths: clash.paths }));
+  const clashes: ClashView[] = (bays?.clashes ?? []).map((clash) => ({
+    with: clash.one.kind === "session" && clash.one.id === session.id ? clash.other : clash.one,
+    paths: clash.paths,
+  }));
   return (
     <Shell label="Bays">
       {clashes.length === 0 ? null : (
@@ -388,7 +743,14 @@ export function BaysLayer({ session, bays }: { session: Session; bays: SessionBa
                     <ClashWith clash={clash} />
                   </TableCell>
                   <TableCell variant="mono">
-                    <ClashPaths clash={clash} {...(read ? { onPath: (path: string) => openClashFile(session.id, clash.with, path) } : {})} />
+                    <ClashPaths
+                      clash={clash}
+                      {...(read
+                        ? {
+                            onPath: (path: string) => openClashFile(session.id, clash.with, path),
+                          }
+                        : {})}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -396,7 +758,9 @@ export function BaysLayer({ session, bays }: { session: Session; bays: SessionBa
           </Table>
         </section>
       )}
-      {bays?.bays.map((bay) => <HeldBayRow key={bay.slot.slot} bay={bay} />)}
+      {bays?.bays.map((bay) => (
+        <HeldBayRow key={bay.slot.slot} bay={bay} />
+      ))}
     </Shell>
   );
 }
@@ -405,7 +769,13 @@ export function BaysLayer({ session, bays }: { session: Session; bays: SessionBa
 function LanesLayer({ session }: { session: Session }) {
   const root = useRef<HTMLDivElement>(null);
   // Focus goes to the canvas, as it does in the panel, so its keys work at once.
-  useEffect(() => root.current?.querySelector<HTMLElement>("[data-node]")?.focus({ preventScroll: true }), []);
+  useEffect(
+    () =>
+      root.current?.querySelector<HTMLElement>("[data-node]")?.focus({
+        preventScroll: true,
+      }),
+    [],
+  );
   return (
     <Shell label="Workflow" owns="[ ]">
       <div ref={root} className="sv-lanes__layer">
@@ -416,18 +786,57 @@ function LanesLayer({ session }: { session: Session }) {
 }
 
 /** What the Job costs the machine, and the bays it holds, drawn as the Bays layer draws them. */
-export function SystemLayer({ session, bays }: { session: Session; bays: SessionBays | undefined }) {
+export function SystemLayer({
+  session,
+  bays,
+}: {
+  session: Session;
+  bays: SessionBays | undefined;
+}) {
   const held = bays?.bays ?? [];
   return (
     <Shell label="System">
-      <SystemSections sessionId={session.id} worktrees={held.length === 0 ? null : held.map((bay) => <HeldBayRow key={bay.slot.slot} bay={bay} />)} />
+      <SystemSections
+        sessionId={session.id}
+        worktrees={
+          held.length === 0 ? null : held.map((bay) => <HeldBayRow key={bay.slot.slot} bay={bay} />)
+        }
+      />
     </Shell>
   );
 }
 
 /** The layer that is open. */
-export function Layer({ id, session, entries, bays, onOpenCheck, onOpenSession, onOpenSketch }: { id: LayerId; session: Session; entries: readonly LedgerEntry[]; bays: SessionBays | undefined; onOpenCheck: (run: number) => void; onOpenSession: (id: string) => void; onOpenSketch?: (sketch: string, at?: string) => void }) {
-  if (id === "artifacts") return <ArtifactsLayer session={session} entries={entries} onOpenSession={onOpenSession} {...(onOpenSketch === undefined ? {} : { onOpenSketch })} />;
+export function Layer({
+  id,
+  session,
+  entries,
+  bays,
+  onOpenCheck,
+  onOpenSession,
+  onOpenSketch,
+}: {
+  id: LayerId;
+  session: Session;
+  entries: readonly LedgerEntry[];
+  bays: SessionBays | undefined;
+  onOpenCheck: (run: number) => void;
+  onOpenSession: (id: string) => void;
+  onOpenSketch?: (sketch: string, at?: string) => void;
+}) {
+  if (id === "artifacts")
+    return (
+      <ArtifactsLayer
+        session={session}
+        entries={entries}
+        onOpenSession={onOpenSession}
+        {...(onOpenSketch === undefined
+          ? {}
+          : {
+              onOpenSketch,
+            })}
+      />
+    );
   if (id === "subagents") return <SubagentsLayer session={session} entries={entries} />;
   if (id === "checks") return <ChecksLayer session={session} onOpenCheck={onOpenCheck} />;
   if (id === "lanes") return <LanesLayer session={session} />;

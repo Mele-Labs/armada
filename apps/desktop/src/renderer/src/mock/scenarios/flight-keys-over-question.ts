@@ -3,4 +3,7 @@
 import { jobHandoff } from "../job-handoff";
 import type { Scenario } from "../moment";
 
-export const s322FlightKeysOverQuestion: Scenario = jobHandoff("flight-keys-over-question", "A Job open with a question, and the flight control keys beside its numbers");
+export const s322FlightKeysOverQuestion: Scenario = jobHandoff(
+  "flight-keys-over-question",
+  "A Job open with a question, and the flight control keys beside its numbers",
+);

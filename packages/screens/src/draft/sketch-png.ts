@@ -90,7 +90,11 @@ export function sketchInkOf(style: CSSStyleDeclaration): SketchInk {
 }
 
 /** The PNG, and its size in pixels — the two halves `StagedFrame` carries beside a path. */
-export type SketchPng = { bytes: Uint8Array<ArrayBuffer>; width: number; height: number };
+export type SketchPng = {
+  bytes: Uint8Array<ArrayBuffer>;
+  width: number;
+  height: number;
+};
 
 /** How many rows a box's well shows when it holds less — the pad's `rows={2}`. */
 const WELL_ROWS = 2;
@@ -98,7 +102,12 @@ const WELL_ROWS = 2;
 /** React Flow's own bend for a bezier edge. */
 const CURVATURE = 0.25;
 
-type Rect = { x: number; y: number; width: number; height: number };
+type Rect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 type Side = "left" | "right" | "top" | "bottom";
 type Pen = OffscreenCanvasRenderingContext2D;
 
@@ -128,20 +137,46 @@ function laidOut(pen: Pen, ink: SketchInk, shape: SketchShape) {
   const lines = shape.body.trim() === "" ? [] : wrapped(pen, shape.body, room);
   const wellHeight =
     Math.max(WELL_ROWS, lines.length) * ink.leading + ink.inset * 2 + ink.hairline * 2;
-  const rect: Rect = { x: shape.x, y: shape.y, width: ink.boxWidth, height: wellHeight + ink.inset * 2 };
-  return { rect, lines, well: { x: shape.x + ink.inset, y: shape.y + ink.inset, width: wellWidth, height: wellHeight } };
+  const rect: Rect = {
+    x: shape.x,
+    y: shape.y,
+    width: ink.boxWidth,
+    height: wellHeight + ink.inset * 2,
+  };
+  return {
+    rect,
+    lines,
+    well: {
+      x: shape.x + ink.inset,
+      y: shape.y + ink.inset,
+      width: wellWidth,
+      height: wellHeight,
+    },
+  };
 }
 
 function middleOf(rect: Rect, side: Side): SketchPoint {
   switch (side) {
     case "left":
-      return { x: rect.x, y: rect.y + rect.height / 2 };
+      return {
+        x: rect.x,
+        y: rect.y + rect.height / 2,
+      };
     case "right":
-      return { x: rect.x + rect.width, y: rect.y + rect.height / 2 };
+      return {
+        x: rect.x + rect.width,
+        y: rect.y + rect.height / 2,
+      };
     case "top":
-      return { x: rect.x + rect.width / 2, y: rect.y };
+      return {
+        x: rect.x + rect.width / 2,
+        y: rect.y,
+      };
     case "bottom":
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height };
+      return {
+        x: rect.x + rect.width / 2,
+        y: rect.y + rect.height,
+      };
   }
 }
 
@@ -153,13 +188,25 @@ function offset(distance: number): number {
 function control(from: SketchPoint, side: Side, to: SketchPoint): SketchPoint {
   switch (side) {
     case "left":
-      return { x: from.x - offset(from.x - to.x), y: from.y };
+      return {
+        x: from.x - offset(from.x - to.x),
+        y: from.y,
+      };
     case "right":
-      return { x: from.x + offset(to.x - from.x), y: from.y };
+      return {
+        x: from.x + offset(to.x - from.x),
+        y: from.y,
+      };
     case "top":
-      return { x: from.x, y: from.y - offset(from.y - to.y) };
+      return {
+        x: from.x,
+        y: from.y - offset(from.y - to.y),
+      };
     case "bottom":
-      return { x: from.x, y: from.y + offset(to.y - from.y) };
+      return {
+        x: from.x,
+        y: from.y + offset(to.y - from.y),
+      };
   }
 }
 
@@ -171,14 +218,25 @@ function sideOf(handle: string): Side {
 /** One join: the curve, then the closed arrow at its end. */
 function joinPath(from: Rect, to: Rect) {
   const sides = facingSides(
-    { position: from, measured: from },
-    { position: to, measured: to },
+    {
+      position: from,
+      measured: from,
+    },
+    {
+      position: to,
+      measured: to,
+    },
   );
   const out = sideOf(sides.sourceHandle);
   const into = sideOf(sides.targetHandle);
   const start = middleOf(from, out);
   const end = middleOf(to, into);
-  return { start, end, c1: control(start, out, end), c2: control(end, into, start) };
+  return {
+    start,
+    end,
+    c1: control(start, out, end),
+    c2: control(end, into, start),
+  };
 }
 
 /** The pen's own curve: through the midpoints, as `Ink`'s `pathOf` draws it. */
@@ -218,44 +276,86 @@ async function decoded(picture: SketchPicture): Promise<HTMLImageElement> {
  * top-left rather than at the pad's origin. Painted in the pad's order —
  * joins under the boxes and pictures, ink over everything.
  */
-export async function sketchPng(
-  drawing: Drawing,
-  ink: SketchInk,
-  scale = 2,
-): Promise<SketchPng> {
+export async function sketchPng(drawing: Drawing, ink: SketchInk, scale = 2): Promise<SketchPng> {
   const measure = new OffscreenCanvas(1, 1).getContext("2d");
   if (measure === null) throw new Error("No 2D context to measure the sketch with.");
   const font = `${String(ink.textSize)}px ${ink.font}`;
   if (typeof document !== "undefined") await document.fonts.load(font);
   measure.font = font;
 
-  const boxes = drawing.shapes.map((shape) => ({ id: shape.id, ...laidOut(measure, ink, shape) }));
+  const boxes = drawing.shapes.map((shape) => ({
+    id: shape.id,
+    ...laidOut(measure, ink, shape),
+  }));
   const pictures = await Promise.all(
-    drawing.pictures.map(async (picture) => ({ picture, image: await decoded(picture) })),
+    drawing.pictures.map(async (picture) => ({
+      picture,
+      image: await decoded(picture),
+    })),
   );
   const placed = new Map<string, Rect>([
-    ...boxes.map((box) => [box.id, box.rect] as const),
-    ...drawing.pictures.map((one) => [one.id, one as Rect] as const),
+    ...boxes.map(
+      (box) =>
+        [
+          box.id,
+          box.rect,
+        ] as const,
+    ),
+    ...drawing.pictures.map(
+      (one) =>
+        [
+          one.id,
+          one as Rect,
+        ] as const,
+    ),
   ]);
   const joins = drawing.joins.flatMap((join) => {
     const from = placed.get(join.from);
     const to = placed.get(join.to);
-    return from === undefined || to === undefined ? [] : [joinPath(from, to)];
+    return from === undefined || to === undefined
+      ? []
+      : [
+          joinPath(from, to),
+        ];
   });
 
   // Everything that paints, as points, for the frame.
   const corners: SketchPoint[] = [
-    ...[...placed.values()].flatMap((rect) => [
-      { x: rect.x, y: rect.y },
-      { x: rect.x + rect.width, y: rect.y + rect.height },
+    ...[
+      ...placed.values(),
+    ].flatMap((rect) => [
+      {
+        x: rect.x,
+        y: rect.y,
+      },
+      {
+        x: rect.x + rect.width,
+        y: rect.y + rect.height,
+      },
     ]),
     ...drawing.strokes.flatMap((stroke) => stroke.points),
-    ...joins.flatMap((join) => [join.c1, join.c2]),
+    ...joins.flatMap((join) => [
+      join.c1,
+      join.c2,
+    ]),
   ];
   // An empty pad frames the origin, so it is the margin and nothing else.
-  const xs = corners.length === 0 ? [0] : corners.map((one) => one.x);
-  const ys = corners.length === 0 ? [0] : corners.map((one) => one.y);
-  const framed = { left: Math.min(...xs) - ink.margin, top: Math.min(...ys) - ink.margin };
+  const xs =
+    corners.length === 0
+      ? [
+          0,
+        ]
+      : corners.map((one) => one.x);
+  const ys =
+    corners.length === 0
+      ? [
+          0,
+        ]
+      : corners.map((one) => one.y);
+  const framed = {
+    left: Math.min(...xs) - ink.margin,
+    top: Math.min(...ys) - ink.margin,
+  };
   const width = Math.ceil((Math.max(...xs) + ink.margin - framed.left) * scale);
   const height = Math.ceil((Math.max(...ys) + ink.margin - framed.top) * scale);
   const canvas = new OffscreenCanvas(width, height);
@@ -327,6 +427,12 @@ export async function sketchPng(
   pen.lineJoin = "round";
   for (const stroke of drawing.strokes) strokeAlong(pen, stroke.points);
 
-  const png = await canvas.convertToBlob({ type: "image/png" });
-  return { bytes: new Uint8Array(await png.arrayBuffer()), width, height };
+  const png = await canvas.convertToBlob({
+    type: "image/png",
+  });
+  return {
+    bytes: new Uint8Array(await png.arrayBuffer()),
+    width,
+    height,
+  };
 }

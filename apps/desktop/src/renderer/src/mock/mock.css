@@ -378,13 +378,34 @@
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
 }
-.armada-mock-checkout h1 { margin: 0; font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-heading); }
-.armada-mock-checkout ul, .armada-mock-checkout p { margin: 0; }
-.armada-mock-checkout ul { padding-left: var(--space-4); }
-.armada-mock-checkout__code { display: flex; align-items: flex-end; gap: var(--space-2); }
-.armada-mock-checkout__asks { display: flex; gap: var(--space-2); }
-.armada-mock-checkout__total { font-weight: var(--weight-medium); }
-.armada-mock-checkout > .armada-button { align-self: flex-start; }
+.armada-mock-checkout h1 {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+}
+.armada-mock-checkout ul,
+.armada-mock-checkout p {
+  margin: 0;
+}
+.armada-mock-checkout ul {
+  padding-left: var(--space-4);
+}
+.armada-mock-checkout__code {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.armada-mock-checkout__asks {
+  display: flex;
+  gap: var(--space-2);
+}
+.armada-mock-checkout__total {
+  font-weight: var(--weight-medium);
+}
+.armada-mock-checkout > .armada-button {
+  align-self: flex-start;
+}
 
 /* `JobBrowserWindows.tsx`: a Job browser's window, wider than the terminal's, the page beside the Job as the walk window draws them. */
 .armada-mock-terminal-window.armada-mock-browser-window {
@@ -394,4 +415,3 @@
   width: auto;
   height: calc(100vh - var(--space-12));
 }
-

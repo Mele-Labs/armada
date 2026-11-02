@@ -1,10 +1,66 @@
-import { BaseEdge, Handle, applyNodeChanges, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
 import {
-  Activity, Bot, Box, Clock, Cpu, Eye, File, GitBranch, GitMerge, Globe, Hammer, HardDrive, Layers, Lock, Package, Pause, Pencil, Play, Rocket, RotateCw, Scale,
-  ExternalLink, ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
+  BaseEdge,
+  Handle,
+  applyNodeChanges,
+  useNodesInitialized,
+  useReactFlow,
+  useStore,
+  type Edge,
+  type EdgeProps,
+  type Node,
+  type NodeChange,
+  type NodeProps,
+  type ReactFlowInstance,
+} from "@xyflow/react";
+import {
+  Activity,
+  Bot,
+  Box,
+  Clock,
+  Cpu,
+  Eye,
+  File,
+  GitBranch,
+  GitMerge,
+  Globe,
+  Hammer,
+  HardDrive,
+  Layers,
+  Lock,
+  Package,
+  Pause,
+  Pencil,
+  Play,
+  Rocket,
+  RotateCw,
+  Scale,
+  ExternalLink,
+  ScrollText,
+  Server,
+  Settings,
+  ShieldCheck,
+  SquarePlus,
+  Terminal,
+  Trash2,
+  Undo2,
+  Webhook,
+  Wrench,
+  X,
+  Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Button } from "../../primitives/Button/Button";
@@ -12,26 +68,70 @@ import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMe
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf } from "../GraphCanvas/GraphCanvas";
-import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
+import {
+  GraphCanvasNodeAct,
+  GraphCanvasNodeBar,
+  GraphCanvasRailGroup,
+  type GraphCanvasRailAct,
+} from "../GraphCanvas/GraphCanvasRail";
 import { Ink, type SketchPoint } from "../SketchPad/Ink";
 import type { DocumentPlace } from "../ViewerNotes/compose";
 import { NoteNumber, useViewerNotes, type ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
-import { labelSize, placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
+import {
+  labelSize,
+  placeLabels,
+  type LabelMetrics,
+  type LabelPlace,
+  type Rect,
+} from "./edge-labels";
 import { sketchHtml } from "./export-html";
 import { sceneMermaid } from "./export-mermaid";
 import { screenMarkup, screenStyles } from "./export-screen";
-import { DEFAULT_METRICS, EXPORT_TOKENS, SANS, frameOf, sketchSvg, stepPlan, type ExportGeometry, type ExportMetrics, type MockMarkup, type SketchSvgInput } from "./export-svg";
+import {
+  DEFAULT_METRICS,
+  EXPORT_TOKENS,
+  SANS,
+  frameOf,
+  sketchSvg,
+  stepPlan,
+  type ExportGeometry,
+  type ExportMetrics,
+  type MockMarkup,
+  type SketchSvgInput,
+} from "./export-svg";
 import { MERMAID_COPIED, savedSaid, sketchFileName, type SketchShareFile } from "./share";
 import { copyWith, saveWith, svgToPng, useSketchShareHost } from "./SketchShare";
 import { roundedPath, routeAll } from "./route";
 import { holdsStep, screenGuess, screenSteps, screenWidth } from "./screen";
 import { settle } from "./settle";
 import { ScreenView } from "./ScreenView";
-import { MockStylesContext, MockView, type MockNotes, type MockStyles, type ResolveMockStyles } from "./MockView";
+import {
+  MockStylesContext,
+  MockView,
+  type MockNotes,
+  type MockStyles,
+  type ResolveMockStyles,
+} from "./MockView";
 import { mockMarkup, partAt, partsIn, splitPart, type MockPart } from "./mock-frame";
 import {
-  CHANGE_SAID, NO_MARKS, SCENE_COLORS, cssMs, diffScenes, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
-  type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode, type SceneShape,
+  CHANGE_SAID,
+  NO_MARKS,
+  SCENE_COLORS,
+  cssMs,
+  diffScenes,
+  markJoin,
+  markRemove,
+  nextMarkId,
+  parseScene,
+  partLabel,
+  withMarks,
+  type Scene,
+  type SceneChange,
+  type SceneEdge,
+  type SceneIcon,
+  type SceneMarks,
+  type SceneNode,
+  type SceneShape,
 } from "./scene";
 
 /**
@@ -54,7 +154,13 @@ export type SketchSceneProps = {
   /** What the sketch is called: the name of a file it is saved as, and the heading of the page it is shared as. */
   title?: string;
   /** A press on a part opens a small ask about it; this hears what was asked. */
-  onAsk?: (about: { id: string; label: string }, said: string) => void;
+  onAsk?: (
+    about: {
+      id: string;
+      label: string;
+    },
+    said: string,
+  ) => void;
   /**
    * What the owner did to it, kept by the host: lines, boxes and joins of his, and parts of the
    * Drone's he struck out. His parts are drawn in his colour. Absent offers no tools.
@@ -86,7 +192,9 @@ export type SketchSceneProps = {
    * Filled with a function that draws the sketch as it stands as static SVG markup, the way Save as web page does and with the theme's values
    * written in. For a host that builds a file of its own around the sketch. Emptied when the sketch goes; the function gives nothing where the scene does not draw.
    */
-  exporter?: { current: (() => string | undefined) | null };
+  exporter?: {
+    current: (() => string | undefined) | null;
+  };
   /**
    * Reads what a `mock` is drawn with: its stylesheets as text, its fonts as bytes and the files they came from. The host holds
    * the repository, so the scene carries paths and not files. Absent, a `mock` is drawn with only its own rules.
@@ -95,9 +203,31 @@ export type SketchSceneProps = {
 };
 
 const ICON: Record<SceneIcon, LucideIcon> = {
-  activity: Activity, bot: Bot, box: Box, clock: Clock, cpu: Cpu, eye: Eye, file: File, "git-branch": GitBranch, "git-merge": GitMerge, globe: Globe,
-  hammer: Hammer, "hard-drive": HardDrive, layers: Layers, lock: Lock, package: Package, rocket: Rocket, scale: Scale, "scroll-text": ScrollText,
-  server: Server, settings: Settings, "shield-check": ShieldCheck, terminal: Terminal, webhook: Webhook, wrench: Wrench, zap: Zap,
+  activity: Activity,
+  bot: Bot,
+  box: Box,
+  clock: Clock,
+  cpu: Cpu,
+  eye: Eye,
+  file: File,
+  "git-branch": GitBranch,
+  "git-merge": GitMerge,
+  globe: Globe,
+  hammer: Hammer,
+  "hard-drive": HardDrive,
+  layers: Layers,
+  lock: Lock,
+  package: Package,
+  rocket: Rocket,
+  scale: Scale,
+  "scroll-text": ScrollText,
+  server: Server,
+  settings: Settings,
+  "shield-check": ShieldCheck,
+  terminal: Terminal,
+  webhook: Webhook,
+  wrench: Wrench,
+  zap: Zap,
 };
 
 type NodeData = {
@@ -112,21 +242,50 @@ type NodeData = {
   struck: boolean;
   joining: boolean;
   /** The notes on it: held, and the one being written. */
-  notes: readonly { n: number; writing: boolean; said: string }[];
+  notes: readonly {
+    n: number;
+    writing: boolean;
+    said: string;
+  }[];
   /** For a `mock`: the notes on its elements, and the elements ringed without one (picked, or named by a sent note). */
   parts: MockNotes;
   resolve: ResolveMockStyles | undefined;
   /** Where a group or a lane was grown to, round the boxes it holds once they are moved apart. */
-  frame: { w: number; h: number } | undefined;
+  frame:
+    | {
+        w: number;
+        h: number;
+      }
+    | undefined;
   onBody: (body: string) => void;
 };
 type SceneRfNode = Node<NodeData, "scene">;
-type EdgeData = { path: string; place: LabelPlace | undefined; edge: SceneEdge; change: SceneChange | undefined; dim: boolean; active: boolean; still: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
+type EdgeData = {
+  path: string;
+  place: LabelPlace | undefined;
+  edge: SceneEdge;
+  change: SceneChange | undefined;
+  dim: boolean;
+  active: boolean;
+  still: boolean;
+  asked: boolean;
+  mine: boolean;
+  struck: boolean;
+  onPress: (id: string) => void;
+};
 type SceneRfEdge = Edge<EdgeData, "flow">;
 
 function Sides({ type }: { type: "source" | "target" }) {
   const prefix = type === "source" ? "s" : "t";
-  return GRAPH_CANVAS_SIDES.map((side) => <Handle key={`${prefix}-${side}`} id={`${prefix}-${side}`} type={type} position={side} isConnectable={false} />);
+  return GRAPH_CANVAS_SIDES.map((side) => (
+    <Handle
+      key={`${prefix}-${side}`}
+      id={`${prefix}-${side}`}
+      type={type}
+      position={side}
+      isConnectable={false}
+    />
+  ));
 }
 
 const sentence = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, " ");
@@ -143,8 +302,12 @@ function Head({ node }: { node: SceneNode }) {
           </span>
         </Tooltip>
       )}
-      {node.title === undefined ? null : <span className="armada-scene-node__title">{node.title}</span>}
-      {node.lang === undefined ? null : <span className="armada-scene-node__lang">{node.lang}</span>}
+      {node.title === undefined ? null : (
+        <span className="armada-scene-node__title">{node.title}</span>
+      )}
+      {node.lang === undefined ? null : (
+        <span className="armada-scene-node__lang">{node.lang}</span>
+      )}
     </div>
   );
 }
@@ -155,7 +318,9 @@ function Wire({ node }: { node: SceneNode }) {
     <div className="armada-scene-wire" data-part={part}>
       {part === "list" || part === "text" || part === "card" ? (
         <>
-          {node.title === undefined ? null : <span className="armada-scene-wire__title">{node.title}</span>}
+          {node.title === undefined ? null : (
+            <span className="armada-scene-wire__title">{node.title}</span>
+          )}
           <span className="armada-scene-wire__line" />
           <span className="armada-scene-wire__line" />
           {part === "text" ? null : <span className="armada-scene-wire__line" data-short />}
@@ -186,7 +351,12 @@ function Shaped({ node }: { node: SceneNode }) {
   return (
     <>
       {outline === undefined ? null : (
-        <svg className="armada-scene-node__outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+        <svg
+          className="armada-scene-node__outline"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden
+        >
           {outline}
         </svg>
       )}
@@ -195,7 +365,11 @@ function Shaped({ node }: { node: SceneNode }) {
           <span className="armada-scene-node__name">
             {Glyph === undefined || node.icon === undefined ? null : (
               <Tooltip label={sentence(node.icon)}>
-                <span className="armada-scene-node__icon" role="img" aria-label={sentence(node.icon)}>
+                <span
+                  className="armada-scene-node__icon"
+                  role="img"
+                  aria-label={sentence(node.icon)}
+                >
                   <Glyph size={12} strokeWidth={2} aria-hidden />
                 </span>
               </Tooltip>
@@ -203,14 +377,31 @@ function Shaped({ node }: { node: SceneNode }) {
             {node.title}
           </span>
         )}
-        {node.body === undefined ? null : <pre className="armada-scene-node__body">{node.body}</pre>}
+        {node.body === undefined ? null : (
+          <pre className="armada-scene-node__body">{node.body}</pre>
+        )}
       </div>
     </>
   );
 }
 
 function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
-  const { node, change, dim, current, inner, asked, mine, struck, joining, notes, parts, resolve, frame, onBody } = data;
+  const {
+    node,
+    change,
+    dim,
+    current,
+    inner,
+    asked,
+    mine,
+    struck,
+    joining,
+    notes,
+    parts,
+    resolve,
+    frame,
+    onBody,
+  } = data;
   const shape = node.kind === "box" && !mine && node.shape !== "box" ? node.shape : undefined;
   return (
     <>
@@ -231,22 +422,47 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         // **`w` and `h` are floors, not clips**: a box grows to hold its words. A group and a lane have none, so take the size they were grown to.
         style={
           node.screen !== undefined
-            ? { width: node.w ?? screenWidth(node.screen) }
+            ? {
+                width: node.w ?? screenWidth(node.screen),
+              }
             : node.kind === "mock"
-              ? { width: node.w }
+              ? {
+                  width: node.w,
+                }
               : GROUND.has(node.kind)
-              ? { width: frame?.w ?? node.w, height: frame?.h ?? node.h }
-              : { ...(node.w === undefined ? {} : { minWidth: node.w }), ...(node.h === undefined ? {} : { minHeight: node.h }) }
+                ? {
+                    width: frame?.w ?? node.w,
+                    height: frame?.h ?? node.h,
+                  }
+                : {
+                    ...(node.w === undefined
+                      ? {}
+                      : {
+                          minWidth: node.w,
+                        }),
+                    ...(node.h === undefined
+                      ? {}
+                      : {
+                          minHeight: node.h,
+                        }),
+                  }
         }
       >
         {mine ? (
           // `nodrag nopan`: typing and selecting words must not move the box or the view.
           <div className="armada-scene-node__own nodrag nopan">
-            <Textarea rows={2} value={node.body ?? ""} aria-label="The words in your box" onChange={(event) => onBody(event.target.value)} />
+            <Textarea
+              rows={2}
+              value={node.body ?? ""}
+              aria-label="The words in your box"
+              onChange={(event) => onBody(event.target.value)}
+            />
           </div>
         ) : node.screen !== undefined ? (
           <>
-            {node.title === undefined ? null : <span className="armada-scene-node__caption">{node.title}</span>}
+            {node.title === undefined ? null : (
+              <span className="armada-scene-node__caption">{node.title}</span>
+            )}
             <ScreenView screen={node.screen} at={inner} />
           </>
         ) : node.kind === "mock" ? (
@@ -260,7 +476,9 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         ) : (
           <>
             <Head node={node} />
-            {node.body === undefined ? null : <pre className="armada-scene-node__body">{node.body}</pre>}
+            {node.body === undefined ? null : (
+              <pre className="armada-scene-node__body">{node.body}</pre>
+            )}
           </>
         )}
       </div>
@@ -283,75 +501,162 @@ function SceneEdgeView({ id, data }: EdgeProps<SceneRfEdge>) {
   const said = `${mine ? "Yours, " : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
   const at = place;
   return (
-    <g className="armada-scene-edge" data-color={edge.color} data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-still={still || undefined} data-flow={edge.flow !== false || undefined}>
+    <g
+      className="armada-scene-edge"
+      data-color={edge.color}
+      data-change={change}
+      data-dim={dim || undefined}
+      data-active={active || undefined}
+      data-asked={asked || undefined}
+      data-mine={mine || undefined}
+      data-struck={struck || undefined}
+      data-still={still || undefined}
+      data-flow={edge.flow !== false || undefined}
+    >
       <defs>
-        <marker id={`head-${id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <marker
+          id={`head-${id}`}
+          viewBox="0 0 10 10"
+          refX="9"
+          refY="5"
+          markerWidth="8"
+          markerHeight="8"
+          orient="auto-start-reverse"
+        >
           <path className="armada-scene-edge__head" d="M0 0L10 5L0 10z" />
         </marker>
       </defs>
-      <BaseEdge id={id} path={path} markerEnd={`url(#head-${id})`} className="armada-scene-edge__line" />
-      {active ? <circle className="armada-scene-edge__dot" style={{ offsetPath: `path("${path}")` }} /> : null}
+      <BaseEdge
+        id={id}
+        path={path}
+        markerEnd={`url(#head-${id})`}
+        className="armada-scene-edge__line"
+      />
+      {active ? (
+        <circle
+          className="armada-scene-edge__dot"
+          style={{
+            offsetPath: `path("${path}")`,
+          }}
+        />
+      ) : null}
       {at === undefined || edge.label === undefined ? null : (
         // The words may be cut to fit, so the arrow's name carries all of them.
         <g className="armada-scene-edge__words" role="img" aria-label={edge.label}>
-          <rect className="armada-scene-edge__backing" x={at.x - at.w / 2} y={at.y - at.h / 2} width={at.w} height={at.h} />
+          <rect
+            className="armada-scene-edge__backing"
+            x={at.x - at.w / 2}
+            y={at.y - at.h / 2}
+            width={at.w}
+            height={at.h}
+          />
           {at.lines.map((line, index) => (
-            <text key={line + String(index)} className="armada-scene-edge__label" x={at.x} y={at.y - at.h / 2 + at.pad + (index + 0.5) * at.lineH}>
+            <text
+              key={line + String(index)}
+              className="armada-scene-edge__label"
+              x={at.x}
+              y={at.y - at.h / 2 + at.pad + (index + 0.5) * at.lineH}
+            >
               {line}
             </text>
           ))}
         </g>
       )}
       {still ? null : (
-      <path
-        className="armada-scene-edge__hit"
-        d={path}
-        role="button"
-        tabIndex={0}
-        aria-label={said}
-        onClick={() => onPress(edge.id)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") onPress(edge.id);
-        }}
-      />
+        <path
+          className="armada-scene-edge__hit"
+          d={path}
+          role="button"
+          tabIndex={0}
+          aria-label={said}
+          onClick={() => onPress(edge.id)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") onPress(edge.id);
+          }}
+        />
       )}
     </g>
   );
 }
 
-const NODE_TYPES = { scene: SceneNodeView };
-const EDGE_TYPES = { flow: SceneEdgeView };
+const NODE_TYPES = {
+  scene: SceneNodeView,
+};
+const EDGE_TYPES = {
+  flow: SceneEdgeView,
+};
 // **Never past full size**: React Flow's own ceiling is 2, so a sketch of three boxes was fitted at twice the size of its words.
-const FIT = { padding: 0.1, maxZoom: 1 };
-const PREVIEW_FIT = { padding: 0.04, maxZoom: 1 };
+const FIT = {
+  padding: 0.1,
+  maxZoom: 1,
+};
+const PREVIEW_FIT = {
+  padding: 0.04,
+  maxZoom: 1,
+};
 const PAN = 80;
 
 const tokenPx = (name: string, fallback: number) => {
-  const read = typeof document === "undefined" ? NaN : Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+  const read =
+    typeof document === "undefined"
+      ? NaN
+      : Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
   return Number.isNaN(read) ? fallback : read;
 };
 /** The label's own type, read from the tokens it is drawn in. */
-const labelMetrics = (): LabelMetrics => ({ charW: tokenPx("--text-xs", 14) * SANS, lineH: tokenPx("--leading-xs", 20), pad: tokenPx("--space-1", 4) });
+const labelMetrics = (): LabelMetrics => ({
+  charW: tokenPx("--text-xs", 14) * SANS,
+  lineH: tokenPx("--leading-xs", 20),
+  pad: tokenPx("--space-1", 4),
+});
 /** The room kept between boxes, and the gutters the arrows run in. */
 const gapPx = () => tokenPx("--space-8", 32);
 
 const SHARE_ENTRIES: DropdownMenuEntry[] = [
-  { kind: "item", id: "html", label: "Save as web page" },
-  { kind: "item", id: "image", label: "Save as image" },
-  { kind: "item", id: "mermaid", label: "Copy as Mermaid" },
+  {
+    kind: "item",
+    id: "html",
+    label: "Save as web page",
+  },
+  {
+    kind: "item",
+    id: "image",
+    label: "Save as image",
+  },
+  {
+    kind: "item",
+    id: "mermaid",
+    label: "Copy as Mermaid",
+  },
 ];
 
-const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reduced = () =>
+  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** A step is as long as the pulse token: the dot crosses its edge in most of it and the rest holds the node lit. */
 const pulseMs = () => {
-  const read = typeof document === "undefined" ? undefined : cssMs(getComputedStyle(document.documentElement).getPropertyValue("--duration-pulse"));
+  const read =
+    typeof document === "undefined"
+      ? undefined
+      : cssMs(getComputedStyle(document.documentElement).getPropertyValue("--duration-pulse"));
   return read ?? 1600;
 };
 
-function Capture({ into, extent, preview }: { into: { current: ReactFlowInstance | null }; extent: string; preview: boolean }) {
+function Capture({
+  into,
+  extent,
+  preview,
+}: {
+  into: {
+    current: ReactFlowInstance | null;
+  };
+  extent: string;
+  preview: boolean;
+}) {
   const flow = useReactFlow();
   // A preview sits in a box that changes size as the window and its neighbours do, and keeps fitting it.
-  const box = useStore((state) => (preview ? `${String(state.width)}x${String(state.height)}` : ""));
+  const box = useStore((state) =>
+    preview ? `${String(state.width)}x${String(state.height)}` : "",
+  );
   // Fitted once the nodes are measured and moved apart, because a fit made before frames boxes of no size
   // where they will not stay, and again when the Drone's own scene grows or shrinks. The owner's boxes never move the view.
   const measured = useNodesInitialized();
@@ -361,18 +666,33 @@ function Capture({ into, extent, preview }: { into: { current: ReactFlowInstance
     if (!measured || extent === "" || seen.current === wanted) return;
     const first = seen.current === undefined;
     seen.current = wanted;
-    void flow.fitView({ ...(preview ? PREVIEW_FIT : FIT), duration: first || preview || reduced() ? 0 : 250 });
-  }, [measured, extent, box, preview, flow]);
+    void flow.fitView({
+      ...(preview ? PREVIEW_FIT : FIT),
+      duration: first || preview || reduced() ? 0 : 250,
+    });
+  }, [
+    measured,
+    extent,
+    box,
+    preview,
+    flow,
+  ]);
   useEffect(() => {
     into.current = flow;
     return () => {
       into.current = null;
     };
-  }, [flow, into]);
+  }, [
+    flow,
+    into,
+  ]);
   return null;
 }
 
-const GROUND = new Set(["group", "lane"]);
+const GROUND = new Set([
+  "group",
+  "lane",
+]);
 
 /** A body's words as the browser broke them into lines: which line each character fell on, read from where it was drawn. */
 function linesOf(body: HTMLElement): string[] | undefined {
@@ -407,18 +727,52 @@ function linesOf(body: HTMLElement): string[] | undefined {
 
 /** What the caller built, over what React Flow kept per node: its size and whether it is picked. */
 function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): SceneRfNode[] {
-  const held = new Map(kept.map((one) => [one.id, one]));
+  const held = new Map(
+    kept.map((one) => [
+      one.id,
+      one,
+    ]),
+  );
   return fresh.map((one) => {
     const was = held.get(one.id);
-    return was === undefined ? one : { ...was, ...one, measured: was.measured, selected: was.selected };
+    return was === undefined
+      ? one
+      : {
+          ...was,
+          ...one,
+          measured: was.measured,
+          selected: was.selected,
+        };
   });
 }
-const JOINS_THE_PICK = ["Meta", "Control"];
+const JOINS_THE_PICK = [
+  "Meta",
+  "Control",
+];
 const NO_NOTES: NodeData["notes"] = [];
-const NO_STYLES: MockStyles = { css: [], fonts: [], drawnWith: [] };
+const NO_STYLES: MockStyles = {
+  css: [],
+  fonts: [],
+  drawnWith: [],
+};
 const NO_PARTS: NodeData["parts"] = [];
 
-export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, within, marked, exporter, mockStyles: givenStyles }: SketchSceneProps) {
+export function SketchScene({
+  scene: given,
+  against,
+  title,
+  onAsk,
+  marks,
+  onMarks,
+  preview = false,
+  autoplay = false,
+  playing = false,
+  notes: noteScope,
+  within,
+  marked,
+  exporter,
+  mockStyles: givenStyles,
+}: SketchSceneProps) {
   const hostStyles = givenStyles ?? useContext(MockStylesContext);
   // What was read for each `mock`, kept as it comes so a file can be made from it without reading again. A read that failed is kept as nothing read.
   const readStyles = useRef(new Map<string, MockStyles>());
@@ -436,14 +790,38 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
               throw failed;
             }
           },
-    [hostStyles],
+    [
+      hostStyles,
+    ],
   );
-  const parsed = useMemo(() => parseScene(given), [given]);
-  const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
-  const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
+  const parsed = useMemo(
+    () => parseScene(given),
+    [
+      given,
+    ],
+  );
+  const before = useMemo(
+    () => (against === undefined ? undefined : parseScene(against)),
+    [
+      against,
+    ],
+  );
+  const diff = useMemo(
+    () => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)),
+    [
+      parsed,
+      before,
+    ],
+  );
   const base: Scene | undefined = diff?.scene ?? parsed;
   const mark = marks ?? NO_MARKS;
-  const composed = useMemo(() => (base === undefined ? undefined : withMarks(base, mark)), [base, mark]);
+  const composed = useMemo(
+    () => (base === undefined ? undefined : withMarks(base, mark)),
+    [
+      base,
+      mark,
+    ],
+  );
   const shown = composed?.scene;
   const [asked, setAsked] = useState<string | undefined>(undefined);
   const [stepAt, setStepAt] = useState<number | undefined>(undefined);
@@ -462,51 +840,124 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     return () => {
       exporter.current = null;
     };
-  }, [exporter]);
+  }, [
+    exporter,
+  ]);
   const viewer = useViewerNotes(preview ? undefined : noteScope, figure);
   // A Shift drag's box, in the figure's own pixels, while it is drawn.
-  const [boxing, setBoxing] = useState<{ x0: number; y0: number; x1: number; y1: number } | undefined>(undefined);
+  const [boxing, setBoxing] = useState<
+    | {
+        x0: number;
+        y0: number;
+        x1: number;
+        y1: number;
+      }
+    | undefined
+  >(undefined);
   // Where it started, read by the moves and the release however soon they come after the press.
-  const boxFrom = useRef<{ x: number; y: number } | undefined>(undefined);
+  const boxFrom = useRef<
+    | {
+        x: number;
+        y: number;
+      }
+    | undefined
+  >(undefined);
   // Each part's notes, by its id.
   const noted = useMemo(() => {
-    const by = new Map<string, { n: number; writing: boolean; said: string }[]>();
+    const by = new Map<
+      string,
+      {
+        n: number;
+        writing: boolean;
+        said: string;
+      }[]
+    >();
     for (const one of viewer.marks) {
-      const parts = one.about.kind === "sketch" ? one.about.parts : one.about.kind === "document" && one.about.target.kind === "part" && one.about.target.sketch === (title ?? "Sketch") ? one.about.target.parts : [];
-      for (const part of parts) by.set(part.id, [...(by.get(part.id) ?? []), { n: one.n, writing: one.writing, said: one.text }]);
+      const parts =
+        one.about.kind === "sketch"
+          ? one.about.parts
+          : one.about.kind === "document" &&
+              one.about.target.kind === "part" &&
+              one.about.target.sketch === (title ?? "Sketch")
+            ? one.about.target.parts
+            : [];
+      for (const part of parts)
+        by.set(part.id, [
+          ...(by.get(part.id) ?? []),
+          {
+            n: one.n,
+            writing: one.writing,
+            said: one.text,
+          },
+        ]);
     }
     return by;
-  }, [viewer.marks, title]);
+  }, [
+    viewer.marks,
+    title,
+  ]);
   // **A step is a number a node, an arrow or an element of a screen carries**, and what shares a number plays together.
   const steps = useMemo(
     () =>
       [
         ...new Set(
           [
-            ...(shown?.nodes ?? []).flatMap((one) => [one.step, ...(one.screen === undefined ? [] : screenSteps(one.screen))]),
+            ...(shown?.nodes ?? []).flatMap((one) => [
+              one.step,
+              ...(one.screen === undefined ? [] : screenSteps(one.screen)),
+            ]),
             ...(shown?.edges ?? []).map((one) => one.step),
           ].filter((one): one is number => one !== undefined),
         ),
       ].sort((a, b) => a - b),
-    [shown],
+    [
+      shown,
+    ],
   );
   const loops = autoplay || (preview && playing);
-  const sceneKey = useMemo(() => JSON.stringify(given), [given]);
+  const sceneKey = useMemo(
+    () => JSON.stringify(given),
+    [
+      given,
+    ],
+  );
 
   // Opening on a scene starts its steps where the host asks for it, and a different scene starts over.
   const first = steps.length > 0 ? steps[0] : undefined;
   useEffect(() => {
     setStepAt(loops && first !== undefined && !reduced() ? 0 : undefined);
-  }, [loops, first, sceneKey]);
+  }, [
+    loops,
+    first,
+    sceneKey,
+  ]);
 
   useEffect(() => {
     if (stepAt === undefined || reduced()) return;
-    const timer = setTimeout(() => setStepAt(stepAt + 1 < steps.length ? stepAt + 1 : loops ? 0 : undefined), pulseMs());
+    const timer = setTimeout(
+      () => setStepAt(stepAt + 1 < steps.length ? stepAt + 1 : loops ? 0 : undefined),
+      pulseMs(),
+    );
     return () => clearTimeout(timer);
-  }, [stepAt, steps.length, loops]);
+  }, [
+    stepAt,
+    steps.length,
+    loops,
+  ]);
 
   const edit = (next: SceneMarks) => onMarks?.(next);
-  const onBody = (id: string, body: string) => edit({ ...mark, nodes: mark.nodes.map((one) => (one.id === id ? { ...one, body } : one)) });
+  const onBody = (id: string, body: string) =>
+    edit({
+      ...mark,
+      nodes: mark.nodes.map((one) =>
+        one.id === id
+          ? {
+              ...one,
+              body,
+            }
+          : one,
+      ),
+    });
   const at = stepAt === undefined ? undefined : steps[stepAt];
   // What this step lights: its own nodes, and where its arrows go.
   const lit = useMemo(() => {
@@ -515,76 +966,217 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     for (const one of shown?.nodes ?? []) if (one.step === at) ids.add(one.id);
     for (const one of shown?.edges ?? []) if (one.step === at) ids.add(one.to);
     return ids;
-  }, [at, shown]);
+  }, [
+    at,
+    shown,
+  ]);
   // **React Flow holds what a node measures and whether it is picked**, and a graph that is handed its
   // nodes anew each render keeps neither unless it applies the changes itself, as the pad does.
   const [kept, setKept] = useState<SceneRfNode[]>([]);
-  const sizes = kept.map((one) => `${one.id}:${String(one.measured?.width)}x${String(one.measured?.height)}`).join("|");
+  const sizes = kept
+    .map((one) => `${one.id}:${String(one.measured?.width)}x${String(one.measured?.height)}`)
+    .join("|");
   // Where every box and arrow goes, from what the boxes measured: the Drone's boxes moved apart until none
   // touches another, and each arrow routed round them. Keyed on their sizes, so a step lighting a node moves nothing.
   const layout = useMemo(() => {
-    const measured = new Map(kept.map((one) => [one.id, one.measured]));
+    const measured = new Map(
+      kept.map((one) => [
+        one.id,
+        one.measured,
+      ]),
+    );
     const gap = gapPx();
     const all = shown?.nodes ?? [];
     const sizeOf = (node: SceneNode) => {
-      if (GROUND.has(node.kind)) return { w: node.w ?? 0, h: node.h ?? 0 };
+      if (GROUND.has(node.kind))
+        return {
+          w: node.w ?? 0,
+          h: node.h ?? 0,
+        };
       const held = measured.get(node.id);
-      const guess = node.screen === undefined ? { w: node.w ?? 240, h: node.h ?? (node.kind === "mock" ? 160 : 90) } : screenGuess(node.screen, node.w);
-      return { w: held?.width ?? guess.w, h: held?.height ?? guess.h };
+      const guess =
+        node.screen === undefined
+          ? {
+              w: node.w ?? 240,
+              h: node.h ?? (node.kind === "mock" ? 160 : 90),
+            }
+          : screenGuess(node.screen, node.w);
+      return {
+        w: held?.width ?? guess.w,
+        h: held?.height ?? guess.h,
+      };
     };
     // Settled once every box has a size of its own; until then they stand where the Drone put them.
     // The owner's own boxes stay where he put them.
-    const ready = all.length > 0 && all.every((one) => GROUND.has(one.kind) || measured.get(one.id)?.width !== undefined);
+    const ready =
+      all.length > 0 &&
+      all.every((one) => GROUND.has(one.kind) || measured.get(one.id)?.width !== undefined);
     const drones = all.filter((one) => !(composed?.mine.has(one.id) ?? false));
     const metrics = labelMetrics();
     // An arrow with words keeps room for them between the two boxes it joins.
-    const joins = (shown?.edges ?? []).flatMap((one) => (one.label === undefined || one.label.trim() === "" ? [] : [{ from: one.from, to: one.to, ...labelSize(one.label, metrics) }]));
-    const rects = new Map<string, Rect>(ready ? settle(drones.map((one) => ({ id: one.id, x: one.x, y: one.y, ...sizeOf(one), ground: GROUND.has(one.kind) })), gap, joins) : []);
-    for (const one of all) if (!rects.has(one.id)) rects.set(one.id, { x: one.x, y: one.y, ...sizeOf(one) });
+    const joins = (shown?.edges ?? []).flatMap((one) =>
+      one.label === undefined || one.label.trim() === ""
+        ? []
+        : [
+            {
+              from: one.from,
+              to: one.to,
+              ...labelSize(one.label, metrics),
+            },
+          ],
+    );
+    const rects = new Map<string, Rect>(
+      ready
+        ? settle(
+            drones.map((one) => ({
+              id: one.id,
+              x: one.x,
+              y: one.y,
+              ...sizeOf(one),
+              ground: GROUND.has(one.kind),
+            })),
+            gap,
+            joins,
+          )
+        : [],
+    );
+    for (const one of all)
+      if (!rects.has(one.id))
+        rects.set(one.id, {
+          x: one.x,
+          y: one.y,
+          ...sizeOf(one),
+        });
     const solid = all.filter((one) => !GROUND.has(one.kind));
-    const ids = (keep: (one: SceneNode) => boolean) => new Set(all.filter(keep).map((one) => one.id));
-    const ways = routeAll(rects, shown?.edges ?? [], gap, ids((one) => GROUND.has(one.kind)), ids((one) => one.shape !== undefined && one.shape !== "box" && one.shape !== "cylinder"));
+    const ids = (keep: (one: SceneNode) => boolean) =>
+      new Set(all.filter(keep).map((one) => one.id));
+    const ways = routeAll(
+      rects,
+      shown?.edges ?? [],
+      gap,
+      ids((one) => GROUND.has(one.kind)),
+      ids((one) => one.shape !== undefined && one.shape !== "box" && one.shape !== "cylinder"),
+    );
     const drawn = (shown?.edges ?? []).flatMap((edge) => {
       const way = ways.get(edge.id);
-      return way === undefined ? [] : [{ id: edge.id, label: edge.label, path: roundedPath(way, gap / 4) }];
+      return way === undefined
+        ? []
+        : [
+            {
+              id: edge.id,
+              label: edge.label,
+              path: roundedPath(way, gap / 4),
+            },
+          ];
     });
     // Where each arrow ends: its head, which no arrow's words may cover.
-    const heads = [...ways.values()].map((way) => ({ x: way[way.length - 1]!.x - gap / 4, y: way[way.length - 1]!.y - gap / 4, w: gap / 2, h: gap / 2 }));
-    const places = placeLabels(drawn, solid.map((one) => rects.get(one.id)!), metrics, heads);
+    const heads = [
+      ...ways.values(),
+    ].map((way) => ({
+      x: way[way.length - 1]!.x - gap / 4,
+      y: way[way.length - 1]!.y - gap / 4,
+      w: gap / 2,
+      h: gap / 2,
+    }));
+    const places = placeLabels(
+      drawn,
+      solid.map((one) => rects.get(one.id)!),
+      metrics,
+      heads,
+    );
     // What the view is fitted to: the Drone's boxes where they settled, rounded so a pixel's change does not refit.
     const round = (n: number) => String(Math.round(n / 20) * 20);
     const ours = drones.map((one) => rects.get(one.id)!);
-    const extent = !ready || ours.length === 0 ? "" : [Math.min(...ours.map((r) => r.x)), Math.min(...ours.map((r) => r.y)), Math.max(...ours.map((r) => r.x + r.w)), Math.max(...ours.map((r) => r.y + r.h))].map(round).join(",");
-    return { extent, rects, paths: new Map(drawn.map((one) => [one.id, one.path])), places };
+    const extent =
+      !ready || ours.length === 0
+        ? ""
+        : [
+            Math.min(...ours.map((r) => r.x)),
+            Math.min(...ours.map((r) => r.y)),
+            Math.max(...ours.map((r) => r.x + r.w)),
+            Math.max(...ours.map((r) => r.y + r.h)),
+          ]
+            .map(round)
+            .join(",");
+    return {
+      extent,
+      rects,
+      paths: new Map(
+        drawn.map((one) => [
+          one.id,
+          one.path,
+        ]),
+      ),
+      places,
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `sizes` stands for what `kept` measured
-  }, [shown, composed, sizes]);
+  }, [
+    shown,
+    composed,
+    sizes,
+  ]);
   const places = layout.places;
   const markedKey = (marked ?? []).join("\n");
   const fresh = useMemo<SceneRfNode[]>(
     () => {
       // The elements of a `mock` that carry a number, and those ringed with none: picked by a box or named by a note already sent.
-      const ringed = [...boxed.map((one) => one.id), ...markedKey.split("\n")];
+      const ringed = [
+        ...boxed.map((one) => one.id),
+        ...markedKey.split("\n"),
+      ];
       const partsOf = (id: string): MockNotes => [
-        ...[...noted].filter(([key]) => splitPart(key)?.node === id).map(([key, list]) => ({ id: key, notes: list })),
-        ...[...new Set(ringed)].filter((key) => splitPart(key)?.node === id && !noted.has(key)).map((key) => ({ id: key, notes: NO_NOTES })),
+        ...[
+          ...noted,
+        ]
+          .filter(([key]) => splitPart(key)?.node === id)
+          .map(([key, list]) => ({
+            id: key,
+            notes: list,
+          })),
+        ...[
+          ...new Set(ringed),
+        ]
+          .filter((key) => splitPart(key)?.node === id && !noted.has(key))
+          .map((key) => ({
+            id: key,
+            notes: NO_NOTES,
+          })),
       ];
       return (shown?.nodes ?? []).map((node) => {
         const change = diff?.nodes.get(node.id);
         const mine = composed?.mine.has(node.id) ?? false;
         const struck = composed?.struck.has(node.id) ?? false;
         // A screen that holds the step in one of its elements rings that element and stands the rest of itself back, and does not dim.
-        const inner = at !== undefined && node.screen !== undefined && !lit.has(node.id) && holdsStep(node.screen, at) ? at : undefined;
-        const name = mine ? (node.body?.trim() === "" || node.body === undefined ? "Your box" : `Your box: ${node.body}`) : partLabel(shown!, node.id);
+        const inner =
+          at !== undefined &&
+          node.screen !== undefined &&
+          !lit.has(node.id) &&
+          holdsStep(node.screen, at)
+            ? at
+            : undefined;
+        const name = mine
+          ? node.body?.trim() === "" || node.body === undefined
+            ? "Your box"
+            : `Your box: ${node.body}`
+          : partLabel(shown!, node.id);
         const rect = layout.rects.get(node.id);
         return {
           id: node.id,
           type: "scene",
-          position: { x: rect?.x ?? node.x, y: rect?.y ?? node.y },
+          position: {
+            x: rect?.x ?? node.x,
+            y: rect?.y ?? node.y,
+          },
           data: {
             node,
             change,
             // A group or a lane is the ground the steps happen on, and does not stand back.
-            dim: (diff !== undefined && change === "same") || (at !== undefined && !lit.has(node.id) && inner === undefined && !GROUND.has(node.kind)),
+            dim:
+              (diff !== undefined && change === "same") ||
+              (at !== undefined &&
+                !lit.has(node.id) &&
+                inner === undefined &&
+                !GROUND.has(node.kind)),
             current: lit.has(node.id),
             inner,
             asked: node.id === asked,
@@ -594,22 +1186,55 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
             notes: noted.get(node.id) ?? NO_NOTES,
             parts: node.kind === "mock" ? partsOf(node.id) : NO_PARTS,
             resolve: mockStyles,
-            frame: GROUND.has(node.kind) && rect !== undefined ? { w: rect.w, h: rect.h } : undefined,
+            frame:
+              GROUND.has(node.kind) && rect !== undefined
+                ? {
+                    w: rect.w,
+                    h: rect.h,
+                  }
+                : undefined,
             onBody: (body: string) => onBody(node.id, body),
           },
           draggable: false,
-          ...(GROUND.has(node.kind) ? { zIndex: -1 } : {}),
+          ...(GROUND.has(node.kind)
+            ? {
+                zIndex: -1,
+              }
+            : {}),
           ariaLabel: `${mine ? "" : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${name}`,
         };
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `onBody` closes over `mark`, which `composed` already tracks
-    [shown, diff, at, lit, asked, joining, composed, layout, noted, boxed, markedKey, mockStyles],
+    [
+      shown,
+      diff,
+      at,
+      lit,
+      asked,
+      joining,
+      composed,
+      layout,
+      noted,
+      boxed,
+      markedKey,
+      mockStyles,
+    ],
   );
   const latest = useRef(fresh);
   latest.current = fresh;
-  const nodes = useMemo(() => overlay(kept, fresh), [kept, fresh]);
-  const onNodesChange = useCallback((changes: NodeChange<SceneRfNode>[]) => setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))), []);
+  const nodes = useMemo(
+    () => overlay(kept, fresh),
+    [
+      kept,
+      fresh,
+    ],
+  );
+  const onNodesChange = useCallback(
+    (changes: NodeChange<SceneRfNode>[]) =>
+      setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))),
+    [],
+  );
   const laidOut = fresh.length > 0;
   const wasMarked = useRef(false);
   useEffect(() => {
@@ -617,8 +1242,19 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     if (markedKey === "" && !wasMarked.current) return;
     wasMarked.current = markedKey !== "";
     const ids = markedKey === "" ? [] : markedKey.split("\n");
-    onNodesChange(latest.current.map((one) => ({ type: "select" as const, id: one.id, selected: ids.includes(one.id) })));
-  }, [markedKey, sceneKey, laidOut, onNodesChange]);
+    onNodesChange(
+      latest.current.map((one) => ({
+        type: "select" as const,
+        id: one.id,
+        selected: ids.includes(one.id),
+      })),
+    );
+  }, [
+    markedKey,
+    sceneKey,
+    laidOut,
+    onNodesChange,
+  ]);
   const edges = useMemo<SceneRfEdge[]>(
     () =>
       (shown?.edges ?? []).flatMap((edge) => {
@@ -638,7 +1274,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
               edge,
               place: places.get(edge.id),
               change,
-              dim: (diff !== undefined && change === "same") || (at !== undefined && edge.step !== at),
+              dim:
+                (diff !== undefined && change === "same") || (at !== undefined && edge.step !== at),
               active: at !== undefined && edge.step === at,
               still: preview,
               asked: edge.id === asked,
@@ -649,47 +1286,147 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
           },
         ];
       }),
-    [shown, diff, at, asked, composed, preview, places, layout],
+    [
+      shown,
+      diff,
+      at,
+      asked,
+      composed,
+      preview,
+      places,
+      layout,
+    ],
   );
 
-  if (shown === undefined || base === undefined) return <figure className="armada-sketch" data-preview={preview || undefined} role="group" aria-label="Sketch" />;
+  if (shown === undefined || base === undefined)
+    return (
+      <figure
+        className="armada-sketch"
+        data-preview={preview || undefined}
+        role="group"
+        aria-label="Sketch"
+      />
+    );
 
-  const strokes = [...(shown.strokes ?? []), ...mark.strokes];
-  const draw = (points: readonly SketchPoint[]) => edit({ ...mark, strokes: [...mark.strokes, { id: `i${String(mark.strokes.length + 1)}`, points }] });
+  const strokes = [
+    ...(shown.strokes ?? []),
+    ...mark.strokes,
+  ];
+  const draw = (points: readonly SketchPoint[]) =>
+    edit({
+      ...mark,
+      strokes: [
+        ...mark.strokes,
+        {
+          id: `i${String(mark.strokes.length + 1)}`,
+          points,
+        },
+      ],
+    });
 
   /** A note about `ids`, and the elements of a `mock` named beside them, or about the parts picked where none is named. */
   const aboutParts = (ids: readonly string[], elements: readonly MockPart[] = []) => {
     if (ids.length + elements.length === 0) return undefined;
-    const parts = [...ids.map((id) => ({ id, label: partLabel(shown, id) })), ...elements];
+    const parts = [
+      ...ids.map((id) => ({
+        id,
+        label: partLabel(shown, id),
+      })),
+      ...elements,
+    ];
     const sketch = title ?? "Sketch";
-    return { parts, about: within === undefined ? { kind: "sketch" as const, title: sketch, parts } : { kind: "document" as const, place: within, target: { kind: "part" as const, sketch, parts } } };
+    return {
+      parts,
+      about:
+        within === undefined
+          ? {
+              kind: "sketch" as const,
+              title: sketch,
+              parts,
+            }
+          : {
+              kind: "document" as const,
+              place: within,
+              target: {
+                kind: "part" as const,
+                sketch,
+                parts,
+              },
+            },
+    };
   };
   /** The part a press landed on, and what a note from there is about: the picked parts where it is one of them. */
-  const pointedAt = (target: EventTarget | null, point?: { x: number; y: number }) => {
-    const drawn = target instanceof Element ? target.closest<HTMLElement>(".react-flow__node") : null;
+  const pointedAt = (
+    target: EventTarget | null,
+    point?: {
+      x: number;
+      y: number;
+    },
+  ) => {
+    const drawn =
+      target instanceof Element ? target.closest<HTMLElement>(".react-flow__node") : null;
     const id = drawn?.dataset.id;
     // The elements a Shift drag boxed go with the press that lands on their node, or on none.
     const boxedHere = id === undefined || boxed.some((one) => splitPart(one.id)?.node === id);
     // On a `mock`, the press names the element under it, which the frame's own document finds.
-    if (id !== undefined && drawn !== null && point !== undefined && !boxedHere && shown.nodes.some((one) => one.id === id && one.kind === "mock")) {
+    if (
+      id !== undefined &&
+      drawn !== null &&
+      point !== undefined &&
+      !boxedHere &&
+      shown.nodes.some((one) => one.id === id && one.kind === "mock")
+    ) {
       const frame = drawn.querySelector("iframe");
       const part = frame === null ? undefined : partAt(frame, id, point.x, point.y);
-      if (part !== undefined) return aboutParts([], [part]);
+      if (part !== undefined)
+        return aboutParts(
+          [],
+          [
+            part,
+          ],
+        );
     }
     // A press on a node whose elements were boxed is about them, and about the nodes picked beside them, and not about the node whole.
-    return aboutParts(id === undefined || (boxedHere && boxed.length > 0) ? picked : picked.includes(id) ? picked : [id], boxedHere ? boxed : []);
+    return aboutParts(
+      id === undefined || (boxedHere && boxed.length > 0)
+        ? picked
+        : picked.includes(id)
+          ? picked
+          : [
+              id,
+            ],
+      boxedHere ? boxed : [],
+    );
   };
   /** The menu at `at`, about what `target` points at; the box opens clear of the parts it is about. `pointer` is set when the press was the mouse's. */
-  const noteMenu = (at: { x: number; y: number }, target: EventTarget | null, pointer = false) => {
+  const noteMenu = (
+    at: {
+      x: number;
+      y: number;
+    },
+    target: EventTarget | null,
+    pointer = false,
+  ) => {
     const about = pointedAt(target, pointer ? at : undefined);
     const rects = (about?.parts ?? []).flatMap((one) => {
-      const drawn = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(splitPart(one.id)?.node ?? one.id)}"]`);
-      return drawn == null ? [] : [drawn.getBoundingClientRect()];
+      const drawn = figure.current?.querySelector(
+        `.react-flow__node[data-id="${CSS.escape(splitPart(one.id)?.node ?? one.id)}"]`,
+      );
+      return drawn == null
+        ? []
+        : [
+            drawn.getBoundingClientRect(),
+          ];
     });
     const anchor =
       rects.length === 0
         ? undefined
-        : { left: Math.min(...rects.map((r) => r.left)), top: Math.min(...rects.map((r) => r.top)), right: Math.max(...rects.map((r) => r.right)), bottom: Math.max(...rects.map((r) => r.bottom)) };
+        : {
+            left: Math.min(...rects.map((r) => r.left)),
+            top: Math.min(...rects.map((r) => r.top)),
+            right: Math.max(...rects.map((r) => r.right)),
+            bottom: Math.max(...rects.map((r) => r.bottom)),
+          };
     viewer.menu(at, about?.about, anchor);
   };
 
@@ -699,16 +1436,32 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     viewer.onKeyDown(event);
     if (viewer.on && (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey))) {
       event.preventDefault();
-      const node = target.closest(".react-flow__node") ?? (picked.length === 0 ? null : figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(picked[picked.length - 1]!)}"]`));
+      const node =
+        target.closest(".react-flow__node") ??
+        (picked.length === 0
+          ? null
+          : figure.current?.querySelector(
+              `.react-flow__node[data-id="${CSS.escape(picked[picked.length - 1]!)}"]`,
+            ));
       const box = (node ?? target).getBoundingClientRect();
-      noteMenu({ x: box.left, y: box.bottom }, node ?? target);
+      noteMenu(
+        {
+          x: box.left,
+          y: box.bottom,
+        },
+        node ?? target,
+      );
       return;
     }
     const instance = flow.current;
     if (instance === null) return;
     const moved = (dx: number, dy: number) => {
       const at = instance.getViewport();
-      void instance.setViewport({ ...at, x: at.x + dx, y: at.y + dy });
+      void instance.setViewport({
+        ...at,
+        x: at.x + dx,
+        y: at.y + dy,
+      });
     };
     if (event.key === "+" || event.key === "=") void instance.zoomIn();
     else if (event.key === "-") void instance.zoomOut();
@@ -723,13 +1476,52 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const middle = () => {
     const pane = figure.current?.querySelector(".react-flow")?.getBoundingClientRect();
     const instance = flow.current;
-    if (pane === undefined || instance === null) return { x: 0, y: 0 };
-    const centre = instance.screenToFlowPosition({ x: (pane.left + pane.right) / 2 - 120, y: (pane.top + pane.bottom) / 2 - 40 });
-    const held = instance.getNodes().filter((one) => !GROUND.has((one.data as NodeData).node.kind)).map((one) => ({ x: one.position.x, y: one.position.y, w: one.measured?.width ?? 240, h: one.measured?.height ?? 90 }));
-    const free = (at: { x: number; y: number }) => held.every((one) => at.x + 240 + 20 <= one.x || at.x >= one.x + one.w + 20 || at.y + 90 + 20 <= one.y || at.y >= one.y + one.h + 20);
-    for (const dy of [0, 1, -1, 2, -2, 3, -3]) {
-      for (const dx of [0, 1, -1, 2, -2]) {
-        const at = { x: Math.round(centre.x + dx * 260), y: Math.round(centre.y + dy * 110) };
+    if (pane === undefined || instance === null)
+      return {
+        x: 0,
+        y: 0,
+      };
+    const centre = instance.screenToFlowPosition({
+      x: (pane.left + pane.right) / 2 - 120,
+      y: (pane.top + pane.bottom) / 2 - 40,
+    });
+    const held = instance
+      .getNodes()
+      .filter((one) => !GROUND.has((one.data as NodeData).node.kind))
+      .map((one) => ({
+        x: one.position.x,
+        y: one.position.y,
+        w: one.measured?.width ?? 240,
+        h: one.measured?.height ?? 90,
+      }));
+    const free = (at: { x: number; y: number }) =>
+      held.every(
+        (one) =>
+          at.x + 240 + 20 <= one.x ||
+          at.x >= one.x + one.w + 20 ||
+          at.y + 90 + 20 <= one.y ||
+          at.y >= one.y + one.h + 20,
+      );
+    for (const dy of [
+      0,
+      1,
+      -1,
+      2,
+      -2,
+      3,
+      -3,
+    ]) {
+      for (const dx of [
+        0,
+        1,
+        -1,
+        2,
+        -2,
+      ]) {
+        const at = {
+          x: Math.round(centre.x + dx * 260),
+          y: Math.round(centre.y + dy * 110),
+        };
         if (free(at)) return at;
       }
     }
@@ -746,57 +1538,114 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     setAsked((was) => (was === id || composed?.mine.has(id) ? undefined : id));
   };
 
-
   /** The drawing as it stands, in the theme's colours now: what every export is made from. `steps` is for a page that plays them. */
   const exportInput = (steps: boolean): SketchSvgInput => {
     const style = getComputedStyle(figure.current ?? document.documentElement);
-    const tokens = Object.fromEntries(EXPORT_TOKENS.map((name) => [name, style.getPropertyValue(name).trim()]));
+    const tokens = Object.fromEntries(
+      EXPORT_TOKENS.map((name) => [
+        name,
+        style.getPropertyValue(name).trim(),
+      ]),
+    );
     const px = (name: string, fallback: number) => {
       const read = Number.parseFloat(tokens[name] ?? "");
       return Number.isNaN(read) ? fallback : read;
     };
     const d = DEFAULT_METRICS;
     const metrics: ExportMetrics = {
-      textXs: px("--text-xs", d.textXs), textSm: px("--text-sm", d.textSm), leadingXs: px("--leading-xs", d.leadingXs), leadingSm: px("--leading-sm", d.leadingSm),
-      space1: px("--space-1", d.space1), space2: px("--space-2", d.space2), space3: px("--space-3", d.space3), edge: px("--edge-active", d.edge),
-      radiusSm: px("--radius-sm", d.radiusSm), radiusMd: px("--radius-md", d.radiusMd), pad: px("--space-6", d.pad),
+      textXs: px("--text-xs", d.textXs),
+      textSm: px("--text-sm", d.textSm),
+      leadingXs: px("--leading-xs", d.leadingXs),
+      leadingSm: px("--leading-sm", d.leadingSm),
+      space1: px("--space-1", d.space1),
+      space2: px("--space-2", d.space2),
+      space3: px("--space-3", d.space3),
+      edge: px("--edge-active", d.edge),
+      radiusSm: px("--radius-sm", d.radiusSm),
+      radiusMd: px("--radius-md", d.radiusMd),
+      pad: px("--space-6", d.pad),
     };
     const icons: Record<string, string> = {};
     for (const one of shown.nodes) {
       if (one.icon === undefined || icons[one.icon] !== undefined) continue;
       const Glyph = ICON[one.icon];
-      icons[one.icon] = renderToStaticMarkup(<Glyph size={12} strokeWidth={2} />).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
+      icons[one.icon] = renderToStaticMarkup(<Glyph size={12} strokeWidth={2} />)
+        .replace(/^<svg[^>]*>/, "")
+        .replace(/<\/svg>$/, "");
     }
     // Where each screen's sheet starts under its title, in the node's own units and not the zoom's.
     const sheetTop = (node: SceneNode): number => {
-      const drawn = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(node.id)}"] .armada-scene-node`);
+      const drawn = figure.current?.querySelector(
+        `.react-flow__node[data-id="${CSS.escape(node.id)}"] .armada-scene-node`,
+      );
       const sheet = drawn?.querySelector(".armada-screen");
-      if (!(drawn instanceof HTMLElement) || !(sheet instanceof HTMLElement) || drawn.offsetHeight === 0) return node.title === undefined ? 0 : metrics.leadingSm + metrics.space2;
-      return ((sheet.getBoundingClientRect().top - drawn.getBoundingClientRect().top) * drawn.offsetHeight) / drawn.getBoundingClientRect().height;
+      if (
+        !(drawn instanceof HTMLElement) ||
+        !(sheet instanceof HTMLElement) ||
+        drawn.offsetHeight === 0
+      )
+        return node.title === undefined ? 0 : metrics.leadingSm + metrics.space2;
+      return (
+        ((sheet.getBoundingClientRect().top - drawn.getBoundingClientRect().top) *
+          drawn.offsetHeight) /
+        drawn.getBoundingClientRect().height
+      );
     };
-    const screens = shown.nodes.some((one) => one.screen !== undefined) ? screenMarkup(shown, (id) => sheetTop(shown.nodes.find((one) => one.id === id)!), steps, screenStyles()) : undefined;
+    const screens = shown.nodes.some((one) => one.screen !== undefined)
+      ? screenMarkup(
+          shown,
+          (id) => sheetTop(shown.nodes.find((one) => one.id === id)!),
+          steps,
+          screenStyles(),
+        )
+      : undefined;
     // Each `mock` as a file carries it: cleaned HTML and the sheets read for it, in a frame as tall as the canvas drew it. One not read yet is left as its frame.
     const mocks: Record<string, MockMarkup> = {};
     for (const one of shown.nodes) {
       const read = mockStyles === undefined ? NO_STYLES : readStyles.current.get(one.id);
       if (one.kind !== "mock" || one.html === undefined || read === undefined) continue;
-      const place = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(one.id)}"] .armada-scene-node`);
+      const place = figure.current?.querySelector(
+        `.react-flow__node[data-id="${CSS.escape(one.id)}"] .armada-scene-node`,
+      );
       const stage = place?.querySelector(".armada-mock__stage");
       const rect = layout.rects.get(one.id);
-      const measured = place instanceof HTMLElement && stage instanceof HTMLElement && place.offsetHeight > 0 && stage.offsetHeight > 0;
-      const top = measured ? ((stage.getBoundingClientRect().top - place.getBoundingClientRect().top) * place.offsetHeight) / place.getBoundingClientRect().height : one.title === undefined ? 0 : metrics.leadingSm + metrics.space2;
+      const measured =
+        place instanceof HTMLElement &&
+        stage instanceof HTMLElement &&
+        place.offsetHeight > 0 &&
+        stage.offsetHeight > 0;
+      const top = measured
+        ? ((stage.getBoundingClientRect().top - place.getBoundingClientRect().top) *
+            place.offsetHeight) /
+          place.getBoundingClientRect().height
+        : one.title === undefined
+          ? 0
+          : metrics.leadingSm + metrics.space2;
       mocks[one.id] = {
         top,
         height: measured ? stage.offsetHeight : Math.max(0, (rect?.h ?? 0) - top),
         html: mockMarkup(one.html),
-        css: [...read.css, ...(one.css === undefined ? [] : [one.css])].join("\n"),
+        css: [
+          ...read.css,
+          ...(one.css === undefined
+            ? []
+            : [
+                one.css,
+              ]),
+        ].join("\n"),
         root: read.root ?? {},
       };
     }
-    const geometry: ExportGeometry = { rects: layout.rects, paths: layout.paths, places };
+    const geometry: ExportGeometry = {
+      rects: layout.rects,
+      paths: layout.paths,
+      places,
+    };
     const bodyLines: Record<string, string[]> = {};
     for (const one of shown.nodes) {
-      const body = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(one.id)}"] .armada-scene-node__body`);
+      const body = figure.current?.querySelector(
+        `.react-flow__node[data-id="${CSS.escape(one.id)}"] .armada-scene-node__body`,
+      );
       const lines = body instanceof HTMLElement ? linesOf(body) : undefined;
       if (lines !== undefined) bodyLines[one.id] = lines;
     }
@@ -807,22 +1656,51 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       metrics,
       tokens,
       icons,
-      ...(screens === undefined ? {} : { screens }),
-      ...(Object.keys(mocks).length === 0 ? {} : { mocks }),
-      state: { change: new Map([...(diff?.nodes ?? []), ...(diff?.edges ?? [])]), mine: composed?.mine ?? new Set(), struck: composed?.struck ?? new Set() },
+      ...(screens === undefined
+        ? {}
+        : {
+            screens,
+          }),
+      ...(Object.keys(mocks).length === 0
+        ? {}
+        : {
+            mocks,
+          }),
+      state: {
+        change: new Map([
+          ...(diff?.nodes ?? []),
+          ...(diff?.edges ?? []),
+        ]),
+        mine: composed?.mine ?? new Set(),
+        struck: composed?.struck ?? new Set(),
+      },
       title: title ?? "Sketch",
       standalone: true,
     };
   };
 
-  drawnAs.current = () => sketchSvg({ ...exportInput(false), standalone: false });
+  drawnAs.current = () =>
+    sketchSvg({
+      ...exportInput(false),
+      standalone: false,
+    });
 
   /** Told either way, since a save or a copy is otherwise silent. */
   const share = async (id: string) => {
     const name = title ?? "Sketch";
     // A file is made of what the frames were drawn with, so a `mock` still being read is waited for.
     if (id === "html" && mockStyles !== undefined) {
-      await Promise.all(shown.nodes.filter((one) => one.kind === "mock" && !readStyles.current.has(one.id)).map((one) => mockStyles({ id: one.id, styles: one.styles ?? [], kept: one.kept }).catch(() => undefined)));
+      await Promise.all(
+        shown.nodes
+          .filter((one) => one.kind === "mock" && !readStyles.current.has(one.id))
+          .map((one) =>
+            mockStyles({
+              id: one.id,
+              styles: one.styles ?? [],
+              kept: one.kept,
+            }).catch(() => undefined),
+          ),
+      );
     }
     const input = exportInput(id === "html");
     const save = async (files: readonly SketchShareFile[]) => {
@@ -839,7 +1717,12 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       try {
         // Each colour as the theme holds it now, since Mermaid draws in values and not in tokens.
         const style = getComputedStyle(figure.current ?? document.documentElement);
-        const hues = Object.fromEntries(SCENE_COLORS.map((one) => [one, style.getPropertyValue(`--sketch-${one}`).trim()]).filter(([, value]) => value !== ""));
+        const hues = Object.fromEntries(
+          SCENE_COLORS.map((one) => [
+            one,
+            style.getPropertyValue(`--sketch-${one}`).trim(),
+          ]).filter(([, value]) => value !== ""),
+        );
         await copyWith(host, sceneMermaid(shown, hues));
         host.copied?.(MERMAID_COPIED);
       } catch {
@@ -847,16 +1730,39 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       }
     } else if (id === "html") {
       const pulse = pulseMs() > 0 ? pulseMs() : 1600;
-      const html = sketchHtml({ svg: sketchSvg({ ...input, standalone: false }), title: name, tokens: input.tokens, steps: stepPlan(shown), pulse });
-      await save([{ kind: "html", name: sketchFileName(title, "html"), data: html }]);
+      const html = sketchHtml({
+        svg: sketchSvg({
+          ...input,
+          standalone: false,
+        }),
+        title: name,
+        tokens: input.tokens,
+        steps: stepPlan(shown),
+        pulse,
+      });
+      await save([
+        {
+          kind: "html",
+          name: sketchFileName(title, "html"),
+          data: html,
+        },
+      ]);
     } else if (id === "image") {
       const svg = sketchSvg(input);
       const frame = frameOf(shown, input.geometry, input.metrics);
       try {
         const png = await svgToPng(svg, frame.w, frame.h);
         await save([
-          { kind: "png", name: sketchFileName(title, "png"), data: png },
-          { kind: "svg", name: sketchFileName(title, "svg"), data: svg },
+          {
+            kind: "png",
+            name: sketchFileName(title, "png"),
+            data: png,
+          },
+          {
+            kind: "svg",
+            name: sketchFileName(title, "svg"),
+            data: svg,
+          },
         ]);
       } catch {
         host.said?.(`${sketchFileName(title, "png")} was not saved.`);
@@ -868,8 +1774,26 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     ...(onMarks === undefined
       ? []
       : [
-          { id: "draw", name: "Draw", icon: Pencil, pressed: pen, why: "Drag on the sketch to draw. Press again to stop.", onPress: () => setPen(!pen) },
-          { id: "undo", name: "Undo", icon: Undo2, disabled: mark.strokes.length === 0, why: "Nothing has been drawn by hand.", onPress: () => edit({ ...mark, strokes: mark.strokes.slice(0, -1) }) },
+          {
+            id: "draw",
+            name: "Draw",
+            icon: Pencil,
+            pressed: pen,
+            why: "Drag on the sketch to draw. Press again to stop.",
+            onPress: () => setPen(!pen),
+          },
+          {
+            id: "undo",
+            name: "Undo",
+            icon: Undo2,
+            disabled: mark.strokes.length === 0,
+            why: "Nothing has been drawn by hand.",
+            onPress: () =>
+              edit({
+                ...mark,
+                strokes: mark.strokes.slice(0, -1),
+              }),
+          },
           {
             id: "add",
             name: "Add a box",
@@ -879,7 +1803,19 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
               setAsked(undefined);
               setJoining(undefined);
               const at = middle();
-              edit({ ...mark, nodes: [...mark.nodes, { id: nextMarkId(mark), kind: "box", x: at.x, y: at.y, body: "" }] });
+              edit({
+                ...mark,
+                nodes: [
+                  ...mark.nodes,
+                  {
+                    id: nextMarkId(mark),
+                    kind: "box",
+                    x: at.x,
+                    y: at.y,
+                    body: "",
+                  },
+                ],
+              });
             },
           },
         ]),
@@ -890,7 +1826,16 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       pressed: stepAt !== undefined,
       disabled: steps.length === 0,
       why: "This sketch has no order to play.",
-      onPress: () => setStepAt(stepAt === undefined ? 0 : reduced() ? (stepAt + 1 < steps.length ? stepAt + 1 : undefined) : undefined),
+      onPress: () =>
+        setStepAt(
+          stepAt === undefined
+            ? 0
+            : reduced()
+              ? stepAt + 1 < steps.length
+                ? stepAt + 1
+                : undefined
+              : undefined,
+        ),
     },
     {
       id: "restart",
@@ -915,7 +1860,10 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   // the Shift key's own press first. Any part the box touches is picked; the ground it stands on is not.
   const local = (event: { clientX: number; clientY: number }) => {
     const rect = figure.current!.getBoundingClientRect();
-    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
   };
   const boxDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (!viewer.on || pen || !event.shiftKey || event.button !== 0) return;
@@ -924,13 +1872,23 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const at = local(event);
     boxFrom.current = at;
-    setBoxing({ x0: at.x, y0: at.y, x1: at.x, y1: at.y });
+    setBoxing({
+      x0: at.x,
+      y0: at.y,
+      x1: at.x,
+      y1: at.y,
+    });
   };
   const boxMove = (event: ReactPointerEvent<HTMLElement>) => {
     const from = boxFrom.current;
     if (from === undefined) return;
     const at = local(event);
-    setBoxing({ x0: from.x, y0: from.y, x1: at.x, y1: at.y });
+    setBoxing({
+      x0: from.x,
+      y0: from.y,
+      x1: at.x,
+      y1: at.y,
+    });
   };
   const boxUp = (event: ReactPointerEvent<HTMLElement>) => {
     const from = boxFrom.current;
@@ -938,27 +1896,55 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     boxFrom.current = undefined;
     const end = local(event);
     const rect = figure.current!.getBoundingClientRect();
-    const box = { left: rect.left + Math.min(from.x, end.x), right: rect.left + Math.max(from.x, end.x), top: rect.top + Math.min(from.y, end.y), bottom: rect.top + Math.max(from.y, end.y) };
+    const box = {
+      left: rect.left + Math.min(from.x, end.x),
+      right: rect.left + Math.max(from.x, end.x),
+      top: rect.top + Math.min(from.y, end.y),
+      bottom: rect.top + Math.max(from.y, end.y),
+    };
     setBoxing(undefined);
-    const ids = [...(figure.current?.querySelectorAll<HTMLElement>(".react-flow__node") ?? [])].flatMap((one) => {
+    const ids = [
+      ...(figure.current?.querySelectorAll<HTMLElement>(".react-flow__node") ?? []),
+    ].flatMap((one) => {
       const id = one.dataset.id;
       const drawn = shown.nodes.find((node) => node.id === id);
       if (id === undefined || drawn === undefined || GROUND.has(drawn.kind)) return [];
       const at = one.getBoundingClientRect();
-      return at.right >= box.left && at.left <= box.right && at.bottom >= box.top && at.top <= box.bottom ? [id] : [];
+      return at.right >= box.left &&
+        at.left <= box.right &&
+        at.bottom >= box.top &&
+        at.top <= box.bottom
+        ? [
+            id,
+          ]
+        : [];
     });
     // A `mock` the box touches gives the elements it covers, and is not picked whole.
     const elements = ids.flatMap((id) => {
       if (!shown.nodes.some((node) => node.id === id && node.kind === "mock")) return [];
-      const frame = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(id)}"] iframe`);
+      const frame = figure.current?.querySelector(
+        `.react-flow__node[data-id="${CSS.escape(id)}"] iframe`,
+      );
       return frame instanceof HTMLIFrameElement ? partsIn(frame, id, box) : [];
     });
     const whole = ids.filter((id) => !elements.some((one) => splitPart(one.id)?.node === id));
     setBoxed(elements);
-    onNodesChange(nodes.map((one) => ({ type: "select" as const, id: one.id, selected: whole.includes(one.id) })));
+    onNodesChange(
+      nodes.map((one) => ({
+        type: "select" as const,
+        id: one.id,
+        selected: whole.includes(one.id),
+      })),
+    );
   };
 
-  const part = asked === undefined ? undefined : { id: asked, label: partLabel(shown, asked) };
+  const part =
+    asked === undefined
+      ? undefined
+      : {
+          id: asked,
+          label: partLabel(shown, asked),
+        };
   const isEdge = part !== undefined && shown.edges.some((one) => one.id === part.id);
   const lifted = picked.length > 0 && picked.every((id) => composed?.struck.has(id));
 
@@ -974,19 +1960,34 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
             onPointerDownCapture: boxDown,
             // The canvas pans on the mouse's own down, which a pointer's held default keeps from coming; one that comes anyway is kept from it too.
             onMouseDownCapture: (event: ReactMouseEvent<HTMLElement>) => {
-              if (boxFrom.current !== undefined || (event.shiftKey && event.button === 0 && !pen)) event.stopPropagation();
+              if (boxFrom.current !== undefined || (event.shiftKey && event.button === 0 && !pen))
+                event.stopPropagation();
             },
             onPointerMove: boxMove,
             onPointerUp: boxUp,
             onContextMenu: (event: ReactMouseEvent<HTMLElement>) => {
               event.preventDefault();
-              noteMenu({ x: event.clientX, y: event.clientY }, event.target, true);
+              noteMenu(
+                {
+                  x: event.clientX,
+                  y: event.clientY,
+                },
+                event.target,
+                true,
+              );
             },
           }
         : {})}
       {...(preview
-        ? { "data-preview": true, inert: true }
-        : { "aria-keyshortcuts": `+ - 0 ArrowLeft ArrowRight ArrowUp ArrowDown${viewer.on ? " ContextMenu Shift+F10 Meta+Enter" : ""}`, tabIndex: 0, onKeyDown })}
+        ? {
+            "data-preview": true,
+            inert: true,
+          }
+        : {
+            "aria-keyshortcuts": `+ - 0 ArrowLeft ArrowRight ArrowUp ArrowDown${viewer.on ? " ContextMenu Shift+F10 Meta+Enter" : ""}`,
+            tabIndex: 0,
+            onKeyDown,
+          })}
     >
       <GraphCanvas<SceneRfNode, SceneRfEdge>
         surface="armada-sketch-scene"
@@ -1023,7 +2024,11 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
                 ? {}
                 : {
                     onRemove: () => {
-                      edit(markRemove(mark, [part.id]));
+                      edit(
+                        markRemove(mark, [
+                          part.id,
+                        ]),
+                      );
                       setAsked(undefined);
                     },
                     removal: composed?.struck.has(part.id) ? "Put back" : "Remove",
@@ -1057,7 +2062,12 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       {boxing === undefined ? null : (
         <span
           className="armada-sketch__box"
-          style={{ left: Math.min(boxing.x0, boxing.x1), top: Math.min(boxing.y0, boxing.y1), width: Math.abs(boxing.x1 - boxing.x0), height: Math.abs(boxing.y1 - boxing.y0) }}
+          style={{
+            left: Math.min(boxing.x0, boxing.x1),
+            top: Math.min(boxing.y0, boxing.y1),
+            width: Math.abs(boxing.x1 - boxing.x0),
+            height: Math.abs(boxing.y1 - boxing.y0),
+          }}
         />
       )}
       {viewer.layer}
@@ -1073,7 +2083,10 @@ function AskBox({
   onRemove,
   removal,
 }: {
-  part: { id: string; label: string };
+  part: {
+    id: string;
+    label: string;
+  };
   onAsk: NonNullable<SketchSceneProps["onAsk"]>;
   onClose: () => void;
   onRemove?: () => void;
@@ -1099,13 +2112,30 @@ function AskBox({
         <span className="armada-scene-ask__acts">
           {onRemove === undefined || removal === undefined ? null : (
             <Tooltip label={removal}>
-              <Button variant="ghost" size="sm" iconOnly aria-label={removal} onClick={onRemove} type="button">
-                {removal === "Remove" ? <Trash2 size={16} strokeWidth={2} aria-hidden /> : <Undo2 size={16} strokeWidth={2} aria-hidden />}
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={removal}
+                onClick={onRemove}
+                type="button"
+              >
+                {removal === "Remove" ? (
+                  <Trash2 size={16} strokeWidth={2} aria-hidden />
+                ) : (
+                  <Undo2 size={16} strokeWidth={2} aria-hidden />
+                )}
               </Button>
             </Tooltip>
           )}
           <Tooltip label="Close">
-            <Button variant="ghost" size="sm" aria-label="Close ask" onClick={onClose} type="button">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Close ask"
+              onClick={onClose}
+              type="button"
+            >
               <X size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>

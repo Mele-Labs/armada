@@ -8,7 +8,13 @@ import { join } from "node:path";
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { HelmCarry } from "../shared/api/helm";
-import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
+import type {
+  BuildSource,
+  ChangeSlotPool,
+  Outcome,
+  RescueSlot,
+  RetroSubject,
+} from "@armada/protocol";
 import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
 import type { HelmContext, LandCheckAt, ThoughtTarget } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
@@ -140,18 +146,27 @@ async function stageAttachment(
   bytes: ArrayBuffer,
   filename: string,
   _mimeType: string,
-): Promise<{ path: string }> {
+): Promise<{
+  path: string;
+}> {
   const dir = join(app.getPath("temp"), "armada-attachments", randomUUID());
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, {
+    recursive: true,
+  });
   const path = join(dir, filename);
   await writeFile(path, Buffer.from(bytes));
-  return { path };
+  return {
+    path,
+  };
 }
 
 let connection: FleetConnection | null = null;
 
 /** Nothing reached Fleet, because there is no connection to reach it on. */
-const UNSENT: Outcome = { ok: false, why: "not_connected" };
+const UNSENT: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 /**
  * The capture windows open on server Runs — #1294,
@@ -162,10 +177,13 @@ const UNSENT: Outcome = { ok: false, why: "not_connected" };
 /** The walk windows with focus right now: Bridge's own windows dim while any does. */
 const walkFocused = new Set<string>();
 const tellWindows = (channel: string, ...values: unknown[]): void => {
-  for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, ...values);
+  for (const window of BrowserWindow.getAllWindows())
+    if (!window.isDestroyed()) window.webContents.send(channel, ...values);
 };
 /** A Job's walk notes, held until the owner sends them as one turn. `userData`, as the window's place is kept. */
-const heldNotes = new HeldNotes(join(app.getPath("userData"), "held-notes.json"), (sessionId) => tellHeld(heldNotes, captureWindows, sessionId));
+const heldNotes = new HeldNotes(join(app.getPath("userData"), "held-notes.json"), (sessionId) =>
+  tellHeld(heldNotes, captureWindows, sessionId),
+);
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
@@ -173,27 +191,58 @@ const captureWindows = new CaptureWindows({
   heldOn: (sessionId) => heldNotes.of(sessionId).length,
   // A pull request's walk no Session holds: the note stays in Armada. No Approve.
   reviewNote: async (review, said, capture) => {
-    tellWindows(CHANNELS.reviewWalkNote, reviewNoteOf(review, said, capture, new Date().toISOString()));
-    return { ok: true };
+    tellWindows(
+      CHANNELS.reviewWalkNote,
+      reviewNoteOf(review, said, capture, new Date().toISOString()),
+    );
+    return {
+      ok: true,
+    };
   },
   reviewClosed: (review) => {
     void connection?.reviews.closeWalk(review.manifestId, review.walkId);
     tellWindows(CHANNELS.reviewWalkClosed, review.walkId);
   },
   sessionApproved: async (sessionId, address, take) => {
-    const sent = await connection?.sessions.send({ session_id: sessionId, text: approvedText(address, take) });
-    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+    const sent = await connection?.sessions.send({
+      session_id: sessionId,
+      text: approvedText(address, take),
+    });
+    return sent === undefined
+      ? UNSENT
+      : sent.ok
+        ? {
+            ok: true,
+          }
+        : sent.outcome;
   },
   // The Session's question in its window settles as the item it is under Waiting on you.
   answerAsk: async (sessionId, itemId, answer) => {
-    const sent = await connection?.sessions.answerWaiting({ session_id: sessionId, item_id: itemId, ...answer });
-    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+    const sent = await connection?.sessions.answerWaiting({
+      session_id: sessionId,
+      item_id: itemId,
+      ...answer,
+    });
+    return sent === undefined
+      ? UNSENT
+      : sent.ok
+        ? {
+            ok: true,
+          }
+        : sent.outcome;
   },
   sessionClosed: (sessionId, address) => {
-    void connection?.sessions.windowClosed({ session_id: sessionId, url: address });
+    void connection?.sessions.windowClosed({
+      session_id: sessionId,
+      url: address,
+    });
   },
   sessionFailed: (sessionId, address, why) => {
-    void connection?.sessions.windowFailed({ session_id: sessionId, url: address, why });
+    void connection?.sessions.windowFailed({
+      session_id: sessionId,
+      url: address,
+      why,
+    });
   },
   // The Cockpit holds back a walk's call while its window is open, so it hears when one opens or closes.
   windowsChanged: () => {
@@ -207,7 +256,8 @@ const captureWindows = new CaptureWindows({
     if (on) walkFocused.add(serverId);
     else walkFocused.delete(serverId);
     for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
+      if (!window.isDestroyed())
+        window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
     }
   },
 });
@@ -217,12 +267,17 @@ const bridgeWindows = new Set<BrowserWindow>();
 
 /** Bridge's window up now, or null. */
 function bridgeWindow(): BrowserWindow | null {
-  const [window] = [...bridgeWindows].filter((one) => !one.isDestroyed());
+  const [window] = [
+    ...bridgeWindows,
+  ].filter((one) => !one.isDestroyed());
   return window ?? null;
 }
 
 /** Each Job's shell in a window of its own, opened over Bridge's window. */
-const terminalWindows = new TerminalWindows(makeTerminalWindow, () => bridgeWindow()?.getBounds() ?? null);
+const terminalWindows = new TerminalWindows(
+  makeTerminalWindow,
+  () => bridgeWindow()?.getBounds() ?? null,
+);
 
 function createWindow(): BrowserWindow {
   const placed = restoreWindow();
@@ -237,14 +292,21 @@ function createWindow(): BrowserWindow {
     // row's own height and `TitleBar.css`'s left gutter are read against this
     // figure together, same gap that css already reports.
     titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 18, y: 16 },
+    trafficLightPosition: {
+      x: 18,
+      y: 16,
+    },
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
       // The dev-only annotation layer, #1226: the preload exposes it on this flag alone.
-      additionalArguments: DEV_BUILD ? [ANNOTATE_FLAG] : [],
+      additionalArguments: DEV_BUILD
+        ? [
+            ANNOTATE_FLAG,
+          ]
+        : [],
     },
   });
 
@@ -289,7 +351,9 @@ function createWindow(): BrowserWindow {
   //
   // `openExternal` is reached on a channel, never by navigating: `forge.ts` from
   // main's own state, `links.ts` from a link in a model's text, `http(s):` only.
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler(() => ({
+    action: "deny",
+  }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
 
   // **Always the built renderer, and `dev` builds it first.** electron-vite
@@ -301,7 +365,16 @@ function createWindow(): BrowserWindow {
   //
   // **`--no-mods` is safe mode**: the renderer reads `?nomods` and loads without any mod's theme.
   // A query on the page, so the preload surface gains nothing.
-  void window.loadFile(join(__dirname, "../renderer/index.html"), process.argv.includes("--no-mods") ? { query: { nomods: "1" } } : {});
+  void window.loadFile(
+    join(__dirname, "../renderer/index.html"),
+    process.argv.includes("--no-mods")
+      ? {
+          query: {
+            nomods: "1",
+          },
+        }
+      : {},
+  );
   return window;
 }
 
@@ -320,10 +393,18 @@ const pickedViews = new Map<number, PickedView>();
 const NO_PICK: PickedView = {
   repository: null,
   manifestReading: null,
-  health: { state: "none" },
-  checkoutRunSheet: { state: "none" },
-  checkoutRunFollowed: { state: "none" },
-  manifestDrift: { state: "none" },
+  health: {
+    state: "none",
+  },
+  checkoutRunSheet: {
+    state: "none",
+  },
+  checkoutRunFollowed: {
+    state: "none",
+  },
+  manifestDrift: {
+    state: "none",
+  },
 };
 
 function viewFor(windowId: number): PickedView {
@@ -333,7 +414,14 @@ function viewFor(windowId: number): PickedView {
 /** `state` with one window's own view folded in — `leftOut` nests under `holds`, everything else is top-level. */
 function withView(state: BridgeState, view: PickedView): BridgeState {
   const { leftOut, ...rest } = view;
-  return { ...state, ...rest, holds: { ...state.holds, leftOut } };
+  return {
+    ...state,
+    ...rest,
+    holds: {
+      ...state.holds,
+      leftOut,
+    },
+  };
 }
 
 /** What each window holds of the state, so a send is only what moved since: `shared/state-change.ts`. */
@@ -366,7 +454,10 @@ function publish(state: BridgeState): void {
 
 /** One window's own pick moved. Told to that window alone — nothing else here reaches the rest. */
 function publishToWindow(windowId: number, change: Partial<PickedView>): void {
-  const view = { ...viewFor(windowId), ...change };
+  const view = {
+    ...viewFor(windowId),
+    ...change,
+  };
   pickedViews.set(windowId, view);
   const window = BrowserWindow.getAllWindows().find((one) => one.id === windowId);
   if (window !== undefined && !window.isDestroyed()) {
@@ -471,7 +562,11 @@ function hand(window: BrowserWindow): void {
 const downshiftNotice = new DownshiftNotice({
   show: (told) => {
     if (!Notification.isSupported()) return;
-    const banner = new Notification({ title: told.title, body: told.body, sound: told.sound });
+    const banner = new Notification({
+      title: told.title,
+      body: told.body,
+      sound: told.sound,
+    });
     banner.on("click", focusBridge);
     showHeld(banner);
   },
@@ -485,7 +580,10 @@ const downshiftNotice = new DownshiftNotice({
 const agentSignInNotice = new AgentSignInNotice({
   show: (told) => {
     if (!Notification.isSupported()) return;
-    const banner = new Notification({ title: told.title, sound: told.sound });
+    const banner = new Notification({
+      title: told.title,
+      sound: told.sound,
+    });
     banner.on("click", focusBridge);
     showHeld(banner);
   },
@@ -501,8 +599,16 @@ const sessionAttention = new SessionAttention({
     if (BrowserWindow.getFocusedWindow() !== null) return;
     if (settingOf(published.settings, "features.notifications") === false) return;
     if (!Notification.isSupported()) return;
-    const banner = new Notification({ title: told.title, body: told.body, sound: soundOf(told.tone) });
-    banner.on("click", () => summon({ sessionId: told.sessionId }));
+    const banner = new Notification({
+      title: told.title,
+      body: told.body,
+      sound: soundOf(told.tone),
+    });
+    banner.on("click", () =>
+      summon({
+        sessionId: told.sessionId,
+      }),
+    );
     showHeld(banner);
   },
 });
@@ -541,15 +647,26 @@ void app.whenReady().then(() => {
   // A Session showed a page: it joins the one walk window, which opens behind by itself where none is up.
   connection.sessions.onWindow(
     (sessionId, title, url, takes, origins, signIn, steps, pressed) =>
-      void captureWindows.openForSession(sessionId, title, url, takes, origins, signIn, steps, pressed),
+      void captureWindows.openForSession(
+        sessionId,
+        title,
+        url,
+        takes,
+        origins,
+        signIn,
+        steps,
+        pressed,
+      ),
   );
   // A Session asked about a place on its walk: the walk on screen goes there, and one that is not is marked.
   connection.sessions.onAsked(
-    (sessionId, title, window, place, itemId) => void captureWindows.askedFor(sessionId, title, window, place, itemId),
+    (sessionId, title, window, place, itemId) =>
+      void captureWindows.askedFor(sessionId, title, window, place, itemId),
   );
   // Sleep mode or a repository's Autopilot changed in Fleet: every window gets the night, or it, whole.
   const everyWindow = (channel: string, ...values: unknown[]): void => {
-    for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, ...values);
+    for (const window of BrowserWindow.getAllWindows())
+      if (!window.isDestroyed()) window.webContents.send(channel, ...values);
   };
   // Every Session list after it changes: a Job that started waiting is told when no window is looking.
   // A note file Fleet rewrote, read off the Session list: the annotation layer reads its notes again. Dev only, as the layer is.
@@ -561,15 +678,24 @@ void app.whenReady().then(() => {
     if (notesWatch?.read(sessions) === true) everyWindow(ANNOTATION_CHANNELS.changed);
   });
   // What a shell block run from a Session prints, to every window: only the one that started it holds the id.
-  connection.sessions.onRun((runId, message) => everyWindow(CHANNELS.sessionRunMessage, runId, message));
+  connection.sessions.onRun((runId, message) =>
+    everyWindow(CHANNELS.sessionRunMessage, runId, message),
+  );
   // A Job's shell opened or ended in Fleet: every window, which follows it by run id.
-  connection.sessions.onTerminal((change, terminal) => everyWindow(CHANNELS.sessionTerminal, { ...terminal, change }));
+  connection.sessions.onTerminal((change, terminal) =>
+    everyWindow(CHANNELS.sessionTerminal, {
+      ...terminal,
+      change,
+    }),
+  );
   // Which Jobs have a terminal window, and a shell moved back out of one, reach the walk panel's Job too, whose Terminal follows the setting.
   const everyDocument = (channel: string, ...values: unknown[]): void => {
     everyWindow(channel, ...values);
     for (const panel of captureWindows.panels()) panel.send(channel, ...values);
   };
-  terminalWindows.onChanged((sessionIds) => everyDocument(CHANNELS.terminalWindowsChanged, sessionIds));
+  terminalWindows.onChanged((sessionIds) =>
+    everyDocument(CHANNELS.terminalWindowsChanged, sessionIds),
+  );
   // Each Job's browser, which its agent drives through Fleet's held calls and the owner may take over.
   const siteFile = join(app.getPath("userData"), "site-permissions.json");
   const siteSettings = new SiteSettingsStore({
@@ -584,22 +710,40 @@ void app.whenReady().then(() => {
   });
   const jobBrowsers = new JobBrowsers(
     {
-      page: (sessionId, told) => makeBrowserPage(connection?.sessions.recordOf(sessionId)?.manifest_id ?? null, bridgeWindow, told, siteSettings),
-      window: (sessionId, tabId, told) => makeBrowserWindow(sessionId, tabId, bridgeWindow()?.getBounds() ?? null, told),
+      page: (sessionId, told) =>
+        makeBrowserPage(
+          connection?.sessions.recordOf(sessionId)?.manifest_id ?? null,
+          bridgeWindow,
+          told,
+          siteSettings,
+        ),
+      window: (sessionId, tabId, told) =>
+        makeBrowserWindow(sessionId, tabId, bridgeWindow()?.getBounds() ?? null, told),
     },
     {
       changed: (state) => everyWindow(CHANNELS.jobBrowserChanged, state),
       show: (sessionId) => bridgeWindow()?.webContents.send(CHANNELS.jobBrowserShown, sessionId),
-      capture: (sessionId, tabId, host) => (host as BrowserWindow).webContents.send(CHANNELS.jobBrowserCapture, sessionId, tabId),
+      capture: (sessionId, tabId, host) =>
+        (host as BrowserWindow).webContents.send(CHANNELS.jobBrowserCapture, sessionId, tabId),
       answer: async (body) => connection?.sessions.answerBrowser(body),
       note: async (body) => {
         const sent = await connection?.sessions.sendNote(body);
-        return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+        return sent === undefined
+          ? UNSENT
+          : sent.ok
+            ? {
+                ok: true,
+              }
+            : sent.outcome;
       },
     },
   );
   connection.sessions.onBrowser((request) => void jobBrowsers.request(request));
-  handleJobBrowsers({ ipc: ipcMain, browsers: jobBrowsers, known: (sessionId) => connection?.sessions.recordOf(sessionId) !== undefined });
+  handleJobBrowsers({
+    ipc: ipcMain,
+    browsers: jobBrowsers,
+    known: (sessionId) => connection?.sessions.recordOf(sessionId) !== undefined,
+  });
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
   connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
   connection.modelDownshift.onChanged((state) => {
@@ -609,7 +753,9 @@ void app.whenReady().then(() => {
   connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
   connection.projects.onChanged((projects) => everyWindow(CHANNELS.projectsChanged, projects));
   connection.bugReports.onChanged((reports) => everyWindow(CHANNELS.bugReportsChanged, reports));
-  connection.lifecycles.onKeepDraftsChanged((manifestId) => everyWindow(CHANNELS.keepDraftsChanged, manifestId));
+  connection.lifecycles.onKeepDraftsChanged((manifestId) =>
+    everyWindow(CHANNELS.keepDraftsChanged, manifestId),
+  );
   connection.lifecycles.onChanged((held) => everyWindow(CHANNELS.jobLifecyclesChanged, held));
   connection.agentSignIn.onChanged((state) => {
     agentSignInNotice.read(state);
@@ -620,9 +766,15 @@ void app.whenReady().then(() => {
   connection.acts.onFailed((failed) => everyWindow(CHANNELS.actFailed, failed));
   connection.reviews.onRun((run) => everyWindow(CHANNELS.reviewRunChanged, run));
   connection.reviews.onWalk((walk) => everyWindow(CHANNELS.reviewWalkChanged, walk));
-  connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
-  handleTaps({ ipc: ipcMain, app });
-  if (DEV_BUILD) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
+  connection.issues.onAutopilotChanged((autopilot) =>
+    everyWindow(CHANNELS.autopilotChanged, autopilot),
+  );
+  handleTaps({
+    ipc: ipcMain,
+    app,
+  });
+  if (DEV_BUILD)
+    installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
 
   // The renderer initiates exactly these things and no others. There is no
   // arbitrary-channel invoke, which is what keeps the surface readable.
@@ -654,18 +806,25 @@ void app.whenReady().then(() => {
       stageAttachment(bytes, filename, mimeType),
   );
   ipcMain.handle(CHANNELS.searchFiles, (event, query: string, manifestId: unknown) =>
-    connection?.commands.searchFiles(query, connection.repositories.pickedByWindow.of(windowIdOf(event)), typeof manifestId === "string" ? manifestId : undefined),
+    connection?.commands.searchFiles(
+      query,
+      connection.repositories.pickedByWindow.of(windowIdOf(event)),
+      typeof manifestId === "string" ? manifestId : undefined,
+    ),
   );
   ipcMain.handle(CHANNELS.readRequestRepository, (_event, words: unknown) =>
     connection?.commands.readRequestRepository(typeof words === "string" ? words : ""),
   );
   // The pool reshaped from Cleanup's bay grid, and read again after for the
   // reclaim's reason: whether a slot went is Fleet's reading.
-  ipcMain.handle(CHANNELS.changeSlotPool, async (_event, manifestId: string, change: ChangeSlotPool) => {
-    const outcome = await connection?.commands.changeSlotPool(manifestId, change);
-    await connection?.rereadHeld();
-    return outcome;
-  });
+  ipcMain.handle(
+    CHANNELS.changeSlotPool,
+    async (_event, manifestId: string, change: ChangeSlotPool) => {
+      const outcome = await connection?.commands.changeSlotPool(manifestId, change);
+      await connection?.rereadHeld();
+      return outcome;
+    },
+  );
   // The rescue of a stranded slot, read again after for the same reason: whether
   // the Scout is reading, or the slot went, is Fleet's reading.
   ipcMain.handle(CHANNELS.rescueSlot, async (_event, manifestId: string, rescue: RescueSlot) => {
@@ -681,7 +840,9 @@ void app.whenReady().then(() => {
       connection?.commands.answerHelmCall(call, answer, note),
   );
   // The owner's answer to one retro item.
-  ipcMain.handle(CHANNELS.agreeLesson, (_event, lessonId: string) => connection?.commands.agreeLesson(lessonId));
+  ipcMain.handle(CHANNELS.agreeLesson, (_event, lessonId: string) =>
+    connection?.commands.agreeLesson(lessonId),
+  );
   ipcMain.handle(CHANNELS.disagreeLesson, (_event, lessonId: string) =>
     connection?.commands.disagreeLesson(lessonId),
   );
@@ -695,39 +856,67 @@ void app.whenReady().then(() => {
     connection?.commands.savePreference(save),
   );
   // settings.json. Fleet-wide, so no id rides this either — `settings.ts`.
-  ipcMain.handle(CHANNELS.saveSettings, async (_event, changes: SaveSettings["changes"]): Promise<Outcome> =>
-    (await connection?.commands.saveSettings(changes)) ?? { ok: false, why: "not_connected" },
+  ipcMain.handle(
+    CHANNELS.saveSettings,
+    async (_event, changes: SaveSettings["changes"]): Promise<Outcome> =>
+      (await connection?.commands.saveSettings(changes)) ?? {
+        ok: false,
+        why: "not_connected",
+      },
   );
   // The models, asked of the harness again. Nothing crosses; `holds.models` is republished.
   ipcMain.handle(CHANNELS.askModels, async () => void (await connection?.askModels()));
   // The file itself, in the configured editor. No path crosses: main opens the one Fleet named.
   ipcMain.handle(CHANNELS.openSettingsFile, () => openSettingsFile(published));
   // The phone, one named operation at a time: the switch is Fleet's, the rest the Gateway's — `phone-gateway.ts`.
-  ipcMain.handle(CHANNELS.phone, (_event, request: PhoneRequest) => connection?.phone(request) ?? askPhone(request, null));
+  ipcMain.handle(
+    CHANNELS.phone,
+    (_event, request: PhoneRequest) => connection?.phone(request) ?? askPhone(request, null),
+  );
   // The mods on this machine. Fleet-wide, so no id rides these either — `mods.ts`.
-  ipcMain.handle(CHANNELS.validateMod, async (_event, name: string) => (await connection?.mods.validate(name)) ?? null);
-  ipcMain.handle(CHANNELS.setModEnabled, async (_event, name: string, enabled: boolean): Promise<Outcome> =>
-    (await connection?.mods.setEnabled(name, enabled)) ?? { ok: false, why: "not_connected" },
+  ipcMain.handle(
+    CHANNELS.validateMod,
+    async (_event, name: string) => (await connection?.mods.validate(name)) ?? null,
   );
-  ipcMain.handle(CHANNELS.promoteMod, async (_event, name: string): Promise<Outcome> =>
-    (await connection?.mods.promote(name)) ?? { ok: false, why: "not_connected" },
+  ipcMain.handle(
+    CHANNELS.setModEnabled,
+    async (_event, name: string, enabled: boolean): Promise<Outcome> =>
+      (await connection?.mods.setEnabled(name, enabled)) ?? {
+        ok: false,
+        why: "not_connected",
+      },
   );
-  ipcMain.handle(CHANNELS.tryTrackerMod, async (_event, name: string): Promise<Outcome> =>
-    (await connection?.mods.tryTracker(name)) ?? { ok: false, why: "not_connected" },
+  ipcMain.handle(
+    CHANNELS.promoteMod,
+    async (_event, name: string): Promise<Outcome> =>
+      (await connection?.mods.promote(name)) ?? {
+        ok: false,
+        why: "not_connected",
+      },
+  );
+  ipcMain.handle(
+    CHANNELS.tryTrackerMod,
+    async (_event, name: string): Promise<Outcome> =>
+      (await connection?.mods.tryTracker(name)) ?? {
+        ok: false,
+        why: "not_connected",
+      },
   );
   // Which running Check's log is open. A fourth socket, carrying lines only,
   // and read-only.
-  ipcMain.handle(
-    CHANNELS.followCheckOutput,
-    (_event, jobId: string | null, kept: string | null) =>
-      connection?.followCheckOutput(jobId, kept),
+  ipcMain.handle(CHANNELS.followCheckOutput, (_event, jobId: string | null, kept: string | null) =>
+    connection?.followCheckOutput(jobId, kept),
   );
   // Which merge line Check's log is open, by the line's three names. Its own socket, read-only.
   // **Only the three strings cross**: anything else the renderer sends is not asked about.
   ipcMain.handle(CHANNELS.followLandCheck, (_event, at: LandCheckAt | null) =>
     connection?.followLandCheck(landCheckAt(at)),
   );
-  handleRehearsal({ ipc: ipcMain, connection: () => connection, windowIdOf });
+  handleRehearsal({
+    ipc: ipcMain,
+    connection: () => connection,
+    windowIdOf,
+  });
   // Overview's health and per-repository drift, held open by that surface.
   ipcMain.handle(CHANNELS.watchOverview, (event, want: unknown) =>
     connection?.overviewFor(windowIdOf(event)).watch(want === true),
@@ -735,21 +924,35 @@ void app.whenReady().then(() => {
   // Helm's conversation: say something, end its Session, and point it without moving the rail's own
   // pick. Fleet-wide, unlike the window's own reads above: one Helm Session per repository,
   // whichever window's dock is open on it.
-  ipcMain.handle(CHANNELS.askHelm, (_event, text: string, context?: HelmContext, carry?: HelmCarry) =>
-    connection?.askHelm(text, context, carry),
+  ipcMain.handle(
+    CHANNELS.askHelm,
+    (_event, text: string, context?: HelmContext, carry?: HelmCarry) =>
+      connection?.askHelm(text, context, carry),
   );
   ipcMain.handle(CHANNELS.helmDebugInfo, () => connection?.helmDebugInfo());
   ipcMain.handle(CHANNELS.readThought, (_event, text: string) => connection?.readThought(text));
-  ipcMain.handle(CHANNELS.recordThoughtSent, (_event, manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry) =>
-    connection?.recordThoughtSent(manifestId, text, target, carry),
+  ipcMain.handle(
+    CHANNELS.recordThoughtSent,
+    (_event, manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry) =>
+      connection?.recordThoughtSent(manifestId, text, target, carry),
   );
   ipcMain.handle(CHANNELS.startHelmFresh, () => connection?.startHelmFresh());
-  ipcMain.handle(CHANNELS.pointHelm, (_event, manifestId: string) => connection?.pointHelm(manifestId));
-  handleRepositories({ ipc: ipcMain, connection: () => connection, state: () => published, windowIdOf });
+  ipcMain.handle(CHANNELS.pointHelm, (_event, manifestId: string) =>
+    connection?.pointHelm(manifestId),
+  );
+  handleRepositories({
+    ipc: ipcMain,
+    connection: () => connection,
+    state: () => published,
+    windowIdOf,
+  });
   // A declared server in the main checkout. `servers` on the published state is what keeps a *Serving*
   // row on screen after the sheet that started it closes.
   ipcMain.handle(CHANNELS.startServer, (event, name: string) =>
-    connection?.rehearsal.startServer(name, connection.repositories.pickedByWindow.of(windowIdOf(event))),
+    connection?.rehearsal.startServer(
+      name,
+      connection.repositories.pickedByWindow.of(windowIdOf(event)),
+    ),
   );
   ipcMain.handle(CHANNELS.stopServer, (_event, serverId: string) =>
     connection?.rehearsal.stopServer(serverId),
@@ -767,10 +970,16 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.changeFleetBuild, (_event, build: BuildSource, adopt: boolean) =>
     connection?.fleetBuild.change(build, adopt),
   );
-  ipcMain.handle(CHANNELS.readSessionCheckOutput, (_event, run: number) => connection?.readSessionCheckOutput(run));
-  ipcMain.handle(CHANNELS.stopSessionCheck, (_event, run: number, force: boolean) => connection?.stopSessionCheck(run, force));
+  ipcMain.handle(CHANNELS.readSessionCheckOutput, (_event, run: number) =>
+    connection?.readSessionCheckOutput(run),
+  );
+  ipcMain.handle(CHANNELS.stopSessionCheck, (_event, run: number, force: boolean) =>
+    connection?.stopSessionCheck(run, force),
+  );
   // A retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
-  ipcMain.handle(CHANNELS.readRetro, (_event, subject: RetroSubject) => connection?.readRetro(subject));
+  ipcMain.handle(CHANNELS.readRetro, (_event, subject: RetroSubject) =>
+    connection?.readRetro(subject),
+  );
   ipcMain.handle(CHANNELS.readLessons, (event, state: "open" | "accepted") =>
     connection?.readLessons(
       connection.repositories.pickedByWindow.of(windowIdOf(event)),
@@ -781,57 +990,110 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.reviewLessons, (event) =>
     connection?.reviewLessons(connection.repositories.pickedByWindow.of(windowIdOf(event))),
   );
-  ipcMain.handle(CHANNELS.askLesson, (_event, lessonId: string, question: string, history: AskTurn[]) =>
-    connection?.askLesson(lessonId, question, history),
+  ipcMain.handle(
+    CHANNELS.askLesson,
+    (_event, lessonId: string, question: string, history: AskTurn[]) =>
+      connection?.askLesson(lessonId, question, history),
   );
   // What fleet is holding disk for, while somebody is deciding about it. Read-only.
-  ipcMain.handle(CHANNELS.readHeld, (_event, want: boolean) =>
-    connection?.readHeld(want),
-  );
+  ipcMain.handle(CHANNELS.readHeld, (_event, want: boolean) => connection?.readHeld(want));
   handleSessions({
     ipc: ipcMain,
     connection: () => connection,
     windowIdOf,
     pages: new SessionPages(),
-    terminals: { windows: terminalWindows, movedBack: (move) => everyDocument(CHANNELS.terminalMovedBack, move) },
+    terminals: {
+      windows: terminalWindows,
+      movedBack: (move) => everyDocument(CHANNELS.terminalMovedBack, move),
+    },
   });
   handleFilePanel({
     ipc: ipcMain,
     recordOf: (id) => connection?.sessions.recordOf(id),
     kitInventory: async (sender) => {
-      const read = await connection?.kitFor(BrowserWindow.fromWebContents(sender)?.id ?? 0).inventory();
+      const read = await connection
+        ?.kitFor(BrowserWindow.fromWebContents(sender)?.id ?? 0)
+        .inventory();
       return read?.ok === true ? read.setup : undefined;
     },
     published: () => published,
   });
-  handleSleep({ ipc: ipcMain, connection: () => connection });
-  handleSketchShare({ ipc: ipcMain });
-  handleAttachments({ ipc: ipcMain });
-  handleAccounts({ ipc: ipcMain, connection: () => connection });
+  handleSleep({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleSketchShare({
+    ipc: ipcMain,
+  });
+  handleAttachments({
+    ipc: ipcMain,
+  });
+  handleAccounts({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
   ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());
   // The Cockpit's calls, counted by the window that holds them. Anything but a count is ignored.
   ipcMain.on(CHANNELS.dockCount, (_event, calls: unknown) => {
     if (typeof calls !== "number" || !Number.isInteger(calls) || calls < 0) return;
     app.dock?.setBadge(calls === 0 ? "" : String(calls));
   });
-  handlePlanUsage({ ipc: ipcMain, connection: () => connection });
-  handleModelDownshift({ ipc: ipcMain, connection: () => connection });
-  handleProjects({ ipc: ipcMain, connection: () => connection });
-  handleBugReports({ ipc: ipcMain, connection: () => connection });
-  handleLifecycles({ ipc: ipcMain, connection: () => connection });
-  handleAgentSignIn({ ipc: ipcMain, connection: () => connection });
-  handleTimeline({ ipc: ipcMain, connection: () => connection });
-  handleClashes({ ipc: ipcMain, connection: () => connection });
-  handleTeaching({ ipc: ipcMain, connection: () => connection });
+  handlePlanUsage({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleModelDownshift({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleProjects({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleBugReports({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleLifecycles({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleAgentSignIn({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleTimeline({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleClashes({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleTeaching({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
   // Talk, heard on this Mac and never by Fleet: Armada Voice for Apple's recogniser and Whisper, macOS's own Dictation.
   const voiceHelper = helperPath(app.isPackaged, app.getAppPath(), process.resourcesPath);
   const whisperDir = join(app.getPath("userData"), "whisper");
   handleVoice({
     ipc: ipcMain,
-    install: new WhisperInstall(whisperDir, whisperDisk(whisperDir, (url) => net.fetch(url)), (state) => everyWindow(CHANNELS.voiceWhisperChanged, state)),
+    install: new WhisperInstall(
+      whisperDir,
+      whisperDisk(whisperDir, (url) => net.fetch(url)),
+      (state) => everyWindow(CHANNELS.voiceWhisperChanged, state),
+    ),
     voice: {
       helper: process.platform === "darwin" && existsSync(voiceHelper) ? voiceHelper : null,
-      spawn: (file, args) => spawn(file, args, { stdio: ["pipe", "pipe", "ignore"] }),
+      spawn: (file, args) =>
+        spawn(file, args, {
+          stdio: [
+            "pipe",
+            "pipe",
+            "ignore",
+          ],
+        }),
       dictate: (action) => {
         if (process.platform === "darwin") Menu.sendActionToFirstResponder(action);
       },
@@ -841,26 +1103,77 @@ void app.whenReady().then(() => {
       },
     },
   });
-  handleReviews({ ipc: ipcMain, connection: () => connection, walks: { show: (shown) => captureWindows.openForReview(shown) } });
-  handleTerritory({ ipc: ipcMain, connection: () => connection });
-  handleBayHistory({ ipc: ipcMain, connection: () => connection });
-  handleSessionSystem({ ipc: ipcMain, connection: () => connection });
-  handleLogbook({ ipc: ipcMain, connection: () => connection });
-  handleUsageSummary({ ipc: ipcMain, connection: () => connection });
-  handleFlightControls({ ipc: ipcMain, connection: () => connection });
-  handlePullRequestNotes({ ipc: ipcMain, connection: () => connection });
-  handleOnboarding({ ipc: ipcMain, connection: () => connection });
-  handleSharing({ ipc: ipcMain, connection: () => connection });
-  handleIssues({ ipc: ipcMain, connection: () => connection });
-  handleRequests({ ipc: ipcMain, connection: () => connection });
-  handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
+  handleReviews({
+    ipc: ipcMain,
+    connection: () => connection,
+    walks: {
+      show: (shown) => captureWindows.openForReview(shown),
+    },
+  });
+  handleTerritory({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleBayHistory({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleSessionSystem({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleLogbook({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleUsageSummary({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleFlightControls({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handlePullRequestNotes({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleOnboarding({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleSharing({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleIssues({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleRequests({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleStudios({
+    ipc: ipcMain,
+    connection: () => connection,
+    published: () => published,
+    captureWindows,
+    summon,
+  });
   handleHeldNotes({
     ipc: ipcMain,
     store: heldNotes,
     captureWindows,
     send: async (body) => {
       const sent = await connection?.sessions.sendNotes(body);
-      return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+      return sent === undefined
+        ? UNSENT
+        : sent.ok
+          ? {
+              ok: true,
+            }
+          : sent.outcome;
     },
   });
   // A Studio node's own address, `openPullRequest`'s reason: read here off the
@@ -886,8 +1199,13 @@ app.on("before-quit", (event) => {
   if (held.length === 0 || connection === null) return;
   walksClosed = true;
   event.preventDefault();
-  const closing = Promise.all(held.map((walk) => connection?.reviews.closeWalk(walk.manifestId, walk.walkId)));
-  void Promise.race([closing, new Promise((resolve) => setTimeout(resolve, 4000))]).finally(() => app.quit());
+  const closing = Promise.all(
+    held.map((walk) => connection?.reviews.closeWalk(walk.manifestId, walk.walkId)),
+  );
+  void Promise.race([
+    closing,
+    new Promise((resolve) => setTimeout(resolve, 4000)),
+  ]).finally(() => app.quit());
 });
 
 app.on("window-all-closed", () => {

@@ -11,12 +11,17 @@ import { fade, hex, mix, type Palette, type Rgba } from "./palette";
 import type { DroneSpec } from "./scene";
 import { name } from "./stands";
 
-const colour = (c: Rgba) => ({ color: hex(c), alpha: c[3] });
+const colour = (c: Rgba) => ({
+  color: hex(c),
+  alpha: c[3],
+});
 
-export const hueOf = (hue: Hue, p: Palette): Rgba => (hue === "ask" ? p.ask : hue === "bad" ? p.bad : p.muted);
+export const hueOf = (hue: Hue, p: Palette): Rgba =>
+  hue === "ask" ? p.ask : hue === "bad" ? p.bad : p.muted;
 
 /** How much of a drone shows: faint when filtered out, faded when it is another Job's, dim when another is picked, muted when he is locked on another. */
-export const alphaOf = (s: DroneSpec): number => (s.away ? 0.12 : s.ghost ? GHOST : s.dim ? 0.4 : s.muted ? 0.6 : 1);
+export const alphaOf = (s: DroneSpec): number =>
+  s.away ? 0.12 : s.ghost ? GHOST : s.dim ? 0.4 : s.muted ? 0.6 : 1;
 
 /** How large a subagent is drawn beside the drone that sent it. */
 export const SMALL = 0.68;
@@ -27,28 +32,80 @@ export const GHOST = 0.25;
 /** Everything that changes the picture, so a drone is drawn again only when one of these does. */
 export function droneSig(s: DroneSpec): string {
   const d = s.drone;
-  return [d.kind, d.hue, d.spin, d.ping, d.flare, s.selected, s.hot, s.labelled && d.title, s.muted, s.away, s.dim, s.call, s.leaving, s.clashes, s.ghost, s.small].join(":");
+  return [
+    d.kind,
+    d.hue,
+    d.spin,
+    d.ping,
+    d.flare,
+    s.selected,
+    s.hot,
+    s.labelled && d.title,
+    s.muted,
+    s.away,
+    s.dim,
+    s.call,
+    s.leaving,
+    s.clashes,
+    s.ghost,
+    s.small,
+  ].join(":");
 }
 
 /** A rotor: a squashed disc so it reads at an angle, its blades standing still inside it. */
 function rotor(g: Graphics, x: number, y: number, r: number, spin: boolean, p: Palette): void {
-  g.ellipse(x, y, r, r * 0.38).fill(colour(fade(p.fg, spin ? 0.15 : 0.08))).stroke({ ...colour(fade(p.muted, 0.5)), width: 1 });
-  const blade = { ...colour(fade(p.fg, spin ? 0.8 : 0.5)), width: 1.6, cap: "round" as const };
-  g.moveTo(x - r, y).lineTo(x + r, y).stroke(blade);
-  g.moveTo(x, y - r * 0.38).lineTo(x, y + r * 0.38).stroke(blade);
-  g.circle(x, y, 2).fill(colour(mix(p.base, p.fg, 0.45))).stroke({ ...colour(p.base), width: 0.8 });
+  g.ellipse(x, y, r, r * 0.38)
+    .fill(colour(fade(p.fg, spin ? 0.15 : 0.08)))
+    .stroke({
+      ...colour(fade(p.muted, 0.5)),
+      width: 1,
+    });
+  const blade = {
+    ...colour(fade(p.fg, spin ? 0.8 : 0.5)),
+    width: 1.6,
+    cap: "round" as const,
+  };
+  g.moveTo(x - r, y)
+    .lineTo(x + r, y)
+    .stroke(blade);
+  g.moveTo(x, y - r * 0.38)
+    .lineTo(x, y + r * 0.38)
+    .stroke(blade);
+  g.circle(x, y, 2)
+    .fill(colour(mix(p.base, p.fg, 0.45)))
+    .stroke({
+      ...colour(p.base),
+      width: 0.8,
+    });
 }
 
 /** The quad itself: the small plus. A subagent is drawn as the small one. */
 export function body(spin: boolean, hue: Rgba, p: Palette): Graphics {
   const g = new Graphics();
-  const arm = { ...colour(p.muted), width: 2, cap: "round" as const };
-  const hull = { ...colour(mix(p.muted, hue, 0.7)), width: 1.2 };
-  g.moveTo(-13, 0).lineTo(-4, 0).moveTo(13, 0).lineTo(4, 0).moveTo(0, -8).lineTo(0, -3).moveTo(0, 8).lineTo(0, 3).stroke(arm);
+  const arm = {
+    ...colour(p.muted),
+    width: 2,
+    cap: "round" as const,
+  };
+  const hull = {
+    ...colour(mix(p.muted, hue, 0.7)),
+    width: 1.2,
+  };
+  g.moveTo(-13, 0)
+    .lineTo(-4, 0)
+    .moveTo(13, 0)
+    .lineTo(4, 0)
+    .moveTo(0, -8)
+    .lineTo(0, -3)
+    .moveTo(0, 8)
+    .lineTo(0, 3)
+    .stroke(arm);
   rotor(g, -15, 0, 7, spin, p);
   rotor(g, 15, 0, 7, spin, p);
   rotor(g, 0, -10, 6, spin, p);
-  g.circle(0, 0, 6.2).fill(colour(mix(p.base, p.fg, 0.38))).stroke(hull);
+  g.circle(0, 0, 6.2)
+    .fill(colour(mix(p.base, p.fg, 0.38)))
+    .stroke(hull);
   g.circle(0, 0, 3.2).fill(colour(mix(p.base, p.fg, 0.15)));
   g.circle(0, 0, 1.4).fill(colour(hue));
   rotor(g, 0, 10, 7, spin, p);
@@ -58,14 +115,36 @@ export function body(spin: boolean, hue: Rgba, p: Palette): Graphics {
 /** What the drone shows besides its body: a red flare over a failing Check, the lit mast of a call, the lock-on brackets. */
 function marks(s: DroneSpec, wide: number, hue: Rgba, p: Palette): Graphics {
   const g = new Graphics();
-  if (s.drone.flare) g.moveTo(-9, -16).lineTo(-13, -27).moveTo(0, -19).lineTo(0, -33).moveTo(9, -16).lineTo(13, -27).stroke({ ...colour(p.bad), width: 1.7, cap: "round" });
+  if (s.drone.flare)
+    g.moveTo(-9, -16)
+      .lineTo(-13, -27)
+      .moveTo(0, -19)
+      .lineTo(0, -33)
+      .moveTo(9, -16)
+      .lineTo(13, -27)
+      .stroke({
+        ...colour(p.bad),
+        width: 1.7,
+        cap: "round",
+      });
   if (s.drone.ping) {
-    g.moveTo(0, -7).lineTo(0, -20).stroke({ ...colour(hue), width: 1.5, cap: "round" });
+    g.moveTo(0, -7)
+      .lineTo(0, -20)
+      .stroke({
+        ...colour(hue),
+        width: 1.5,
+        cap: "round",
+      });
     g.circle(0, -21.5, 2.6).fill(colour(hue));
   }
   if (s.selected || s.hot) {
     const brackets = new GraphicsPath(bracketsOf(wide + 14, -34, 22));
-    g.path(brackets).stroke({ ...colour(p.accent), width: 2, cap: "round", join: "round" });
+    g.path(brackets).stroke({
+      ...colour(p.accent),
+      width: 2,
+      cap: "round",
+      join: "round",
+    });
   }
   return g;
 }
@@ -89,9 +168,20 @@ export function callMark(tone: "ask" | "bad", p: Palette): Container {
   out.addChild(lit);
   const g = new Graphics();
   g.rect(-1, -16, 2, 16).fill(colour(c));
-  g.circle(0, -33, 17).fill(colour(c)).stroke({ ...colour(p.base), width: 2 });
+  g.circle(0, -33, 17)
+    .fill(colour(c))
+    .stroke({
+      ...colour(p.base),
+      width: 2,
+    });
   const icon = new Graphics();
-  for (const d of MEGAPHONE) icon.path(new GraphicsPath(d)).stroke({ ...colour(p.base), width: 2.2, cap: "round", join: "round" });
+  for (const d of MEGAPHONE)
+    icon.path(new GraphicsPath(d)).stroke({
+      ...colour(p.base),
+      width: 2.2,
+      cap: "round",
+      join: "round",
+    });
   icon.scale.set(18 / 24);
   icon.position.set(-9, -33 - 9);
   out.addChild(g, icon);
@@ -116,10 +206,21 @@ function clashMark(p: Palette): Container {
   lit.position.set(0, -13);
   out.addChild(lit);
   const g = new Graphics();
-  g.circle(0, -13, 13).fill(colour(p.ask)).stroke({ ...colour(p.base), width: 2 });
+  g.circle(0, -13, 13)
+    .fill(colour(p.ask))
+    .stroke({
+      ...colour(p.base),
+      width: 2,
+    });
   out.addChild(g);
   const icon = new Graphics();
-  for (const d of SWORDS) icon.path(new GraphicsPath(d)).stroke({ ...colour(p.base), width: 2.2, cap: "round", join: "round" });
+  for (const d of SWORDS)
+    icon.path(new GraphicsPath(d)).stroke({
+      ...colour(p.base),
+      width: 2.2,
+      cap: "round",
+      join: "round",
+    });
   icon.scale.set(14 / 24);
   icon.position.set(-7, -13 - 7);
   out.addChild(icon);
@@ -147,7 +248,10 @@ export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
   shell.scale.set(big * (s.small ? SMALL : 1));
   // The light a drone gives off: stronger where it is calling or failing, and where it is at work.
   const stands = d.hue !== "calm" || d.spin;
-  if ((stands || s.selected) && !s.ghost) shell.addChild(glowSprite(30, s.selected ? p.accent : hue, d.hue !== "calm" ? 0.5 : d.spin ? 0.3 : 0.2));
+  if ((stands || s.selected) && !s.ghost)
+    shell.addChild(
+      glowSprite(30, s.selected ? p.accent : hue, d.hue !== "calm" ? 0.5 : d.spin ? 0.3 : 0.2),
+    );
   shell.addChild(body(d.spin, hue, p), marks(s, wide, hue, p));
   if (d.ping || d.flare) {
     const lamp = glowSprite(10, d.flare ? p.bad : hue, 0.9);
@@ -157,8 +261,14 @@ export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
   out.addChild(shell);
   if (s.labelled && !s.ghost) {
     const text = d.title.length > 22 ? `${d.title.slice(0, 21)}…` : d.title;
-    const label = name(text, p, d.hue !== "calm" || s.selected ? p.fg : p.muted, { x: 0.5, y: 1 });
-    label.position.set(0, -Math.round(24 * big + (d.flare ? 26 : d.ping ? 14 : 4) + (s.selected ? 14 : 0)));
+    const label = name(text, p, d.hue !== "calm" || s.selected ? p.fg : p.muted, {
+      x: 0.5,
+      y: 1,
+    });
+    label.position.set(
+      0,
+      -Math.round(24 * big + (d.flare ? 26 : d.ping ? 14 : 4) + (s.selected ? 14 : 0)),
+    );
     out.addChild(label);
   }
   // Muted when he is locked on another drone and this one is calm; dim when another is picked on the timeline; faint when filtered out.
@@ -167,5 +277,15 @@ export function drawDrone(s: DroneSpec, big: number, p: Palette): DroneParts {
   const head = Math.round(40 * big);
   const mark = tone === undefined ? undefined : callMark(tone, p);
   if (mark !== undefined && s.leaving) mark.alpha = 0.35;
-  return { body: out, mark, clashes: Array.from({ length: s.clashes }, () => clashMark(p)), head };
+  return {
+    body: out,
+    mark,
+    clashes: Array.from(
+      {
+        length: s.clashes,
+      },
+      () => clashMark(p),
+    ),
+    head,
+  };
 }

@@ -5,13 +5,18 @@ import type { GuidanceProviderProps } from "@armada/components";
 import type { SettingsList } from "@armada/protocol";
 
 /** `GuidanceProvider.firstContact` off settings.json, or `undefined` until Fleet has answered with it. */
-export function firstContactOf(settings: SettingsList | null): GuidanceProviderProps["firstContact"] {
+export function firstContactOf(
+  settings: SettingsList | null,
+): GuidanceProviderProps["firstContact"] {
   const setting = settings?.settings.find((one) => one.key === "features.openGuidesFirstTime");
   if (setting === undefined) return undefined;
   return {
     off: setting.value === false,
     saved: setting.saved !== null,
-    onOff: (off) => void window.armada.saveSettings({ "features.openGuidesFirstTime": !off }),
+    onOff: (off) =>
+      void window.armada.saveSettings({
+        "features.openGuidesFirstTime": !off,
+      }),
   };
 }
 

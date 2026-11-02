@@ -12,14 +12,61 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 test("the `/` list is what the agent named, and the composer offers it", async () => {
-  const fleet = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "Fix the flaky store test", hosted: { turn: { state: "idle" }, mode: "auto", running: false, commands: ["compact", "review"] } })]);
-  mount(fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root })));
+  const fleet = new FakeSessionsFleet([
+    hosted("01SESSIONAAAAAAAAAAAAAAAAA", {
+      title: "Fix the flaky store test",
+      hosted: {
+        turn: {
+          state: "idle",
+        },
+        mode: "auto",
+        running: false,
+        commands: [
+          "compact",
+          "review",
+        ],
+      },
+    }),
+  ]);
+  mount(
+    fleet.scenario(
+      onBoard({
+        repositories: [
+          ARMADA,
+        ],
+        picked: ARMADA.root,
+      }),
+    ),
+  );
   await onScreen();
   await toSession("Fix the flaky store test");
-  await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "/");
-  await expect.element(page.getByRole("option", { name: "/compact" })).toBeVisible();
-  await expect.element(page.getByRole("option", { name: "/review" })).toBeVisible();
+  await userEvent.fill(
+    page.getByRole("textbox", {
+      name: "Message",
+    }),
+    "/",
+  );
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: "/compact",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: "/review",
+      }),
+    )
+    .toBeVisible();
 });

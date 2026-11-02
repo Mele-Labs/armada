@@ -12,7 +12,13 @@ export const SWITCH_MS = 90;
 export const CROSS_MS = 300;
 
 /** What is shown: the card, what it hangs from, and the drone, tile or part (a pad, flag or crate) it lights while it stands. */
-export type Shown = { tip: Tip; anchor: Anchor; hot?: string; tile?: string; part?: string };
+export type Shown = {
+  tip: Tip;
+  anchor: Anchor;
+  hot?: string;
+  tile?: string;
+  part?: string;
+};
 
 export type Tips = {
   /** The pointer or focus came to something. */
@@ -32,10 +38,19 @@ export type Tips = {
 };
 
 /** How long a card waits before it first opens, and how long after one closed the next opens at once. The inspect card's, so the map keeps time with every other card. */
-export type Waits = { delay: () => number; grace: () => number };
+export type Waits = {
+  delay: () => number;
+  grace: () => number;
+};
 
 export function steadyTips(
-  timers: { set: (run: () => void, ms: number) => number; clear: (id: number) => void } = { set: (run, ms) => window.setTimeout(run, ms), clear: (id) => window.clearTimeout(id) },
+  timers: {
+    set: (run: () => void, ms: number) => number;
+    clear: (id: number) => void;
+  } = {
+    set: (run, ms) => window.setTimeout(run, ms),
+    clear: (id) => window.clearTimeout(id),
+  },
   waits?: Waits,
 ): Tips {
   let current: Shown | undefined;
@@ -68,7 +83,10 @@ export function steadyTips(
   };
   return {
     show: (shown) => {
-      if (current !== undefined) return current.anchor.target === shown.anchor.target ? settle(shown) : queue(shown, crossing ? cross() : SWITCH_MS);
+      if (current !== undefined)
+        return current.anchor.target === shown.anchor.target
+          ? settle(shown)
+          : queue(shown, crossing ? cross() : SWITCH_MS);
       // The first card of a run waits the shared delay; one that follows a card just closed does not.
       if (waits === undefined || Date.now() - closedAt < waits.grace()) return settle(shown);
       queue(shown, waits.delay());

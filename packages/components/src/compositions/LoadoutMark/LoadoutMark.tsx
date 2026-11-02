@@ -2,7 +2,12 @@ import { Layers } from "lucide-react";
 import type { LoadoutSummary } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
-import { Inspect, InspectCard, InspectSection, type InspectFact } from "../../primitives/Inspect/Inspect";
+import {
+  Inspect,
+  InspectCard,
+  InspectSection,
+  type InspectFact,
+} from "../../primitives/Inspect/Inspect";
 import { countSaid, toolSaid, useSaid } from "../../loadout";
 import { timeSaid, useTimeFormat } from "../../time-format";
 
@@ -18,19 +23,60 @@ export type LoadoutMarkProps = {
 function LoadoutCard({ summary, onOpen }: LoadoutMarkProps) {
   const turn = summary.latest_turn;
   const format = useTimeFormat();
-  const used: InspectFact[] = (turn?.used ?? []).slice(0, SHOWN).map((one) => ({ label: [one.kind === "tool" ? toolSaid(one) : one.name, countSaid(one)].filter((part) => part !== undefined).join(" "), value: useSaid(one) }));
+  const used: InspectFact[] = (turn?.used ?? []).slice(0, SHOWN).map((one) => ({
+    label: [
+      one.kind === "tool" ? toolSaid(one) : one.name,
+      countSaid(one),
+    ]
+      .filter((part) => part !== undefined)
+      .join(" "),
+    value: useSaid(one),
+  }));
   const more = (turn?.used.length ?? 0) - SHOWN;
   return (
     <InspectCard
-      kind={{ Glyph: Layers, label: "Loadout" }}
-      {...(turn === undefined ? {} : { where: timeSaid(turn.started_at, format) })}
+      kind={{
+        Glyph: Layers,
+        label: "Loadout",
+      }}
+      {...(turn === undefined
+        ? {}
+        : {
+            where: timeSaid(turn.started_at, format),
+          })}
       facts={[
-        { label: "Knows", value: summary.knows, mono: true },
-        { label: "Told", value: summary.told, mono: true },
+        {
+          label: "Knows",
+          value: summary.knows,
+          mono: true,
+        },
+        {
+          label: "Told",
+          value: summary.told,
+          mono: true,
+        },
       ]}
-      keys={[{ key: "Enter", verb: "Show all" }]}
+      keys={[
+        {
+          key: "Enter",
+          verb: "Show all",
+        },
+      ]}
     >
-      <InspectSection heading="Latest turn" facts={more > 0 ? [...used, { label: `${more} more`, value: "" }] : used} />
+      <InspectSection
+        heading="Latest turn"
+        facts={
+          more > 0
+            ? [
+                ...used,
+                {
+                  label: `${more} more`,
+                  value: "",
+                },
+              ]
+            : used
+        }
+      />
       <span className="armada-loadout-mark__acts">
         <Button variant="secondary" size="sm" onClick={onOpen}>
           Show all
@@ -49,7 +95,12 @@ export function LoadoutMark({ summary, onOpen }: LoadoutMarkProps) {
   return (
     <span className="armada-loadout-mark">
       <Inspect name="Loadout" pin={false} card={<LoadoutCard summary={summary} onOpen={onOpen} />}>
-        <button type="button" className="armada-loadout-mark__button" aria-label="Loadout" onClick={onOpen}>
+        <button
+          type="button"
+          className="armada-loadout-mark__button"
+          aria-label="Loadout"
+          onClick={onOpen}
+        >
           <Layers size={16} strokeWidth={2} aria-hidden />
         </button>
       </Inspect>

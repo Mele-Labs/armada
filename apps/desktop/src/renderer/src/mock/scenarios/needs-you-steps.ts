@@ -12,15 +12,40 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).
 const waiting: Session = {
   id: "s15",
   title: "Add single sign-on",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: minutesAgo(3),
   rows: [
-    { id: "w1", at: "10:08:40", kind: "message", from: { kind: "you" }, text: "Add single sign-on." },
-    { id: "w2", at: "10:12:03", kind: "message", from: { kind: "agent" }, text: "The code is in. It needs an OAuth app registered with the provider before it can run." },
+    {
+      id: "w1",
+      at: "10:08:40",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Add single sign-on.",
+    },
+    {
+      id: "w2",
+      at: "10:12:03",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "The code is in. It needs an OAuth app registered with the provider before it can run.",
+    },
   ],
   attachments: [
-    { kind: "slot", slot: 4 },
-    { kind: "branch", name: "feat/single-sign-on", slot: 4 },
+    {
+      kind: "slot",
+      slot: 4,
+    },
+    {
+      kind: "branch",
+      name: "feat/single-sign-on",
+      slot: 4,
+    },
   ],
   waitingFor: [
     {
@@ -28,7 +53,10 @@ const waiting: Session = {
       text: "Register the OAuth app",
       since: minutesAgo(3),
       source: "agent",
-      act: { kind: "walk", target: "https://auth.example.com/apps/new" },
+      act: {
+        kind: "walk",
+        target: "https://auth.example.com/apps/new",
+      },
       steps: [
         "Name it Armada",
         "Any homepage URL and callback URL",
@@ -38,8 +66,22 @@ const waiting: Session = {
         "Copy the Client ID and send it here",
       ],
     },
-    { id: "st2", text: "Run the sign in tests on your machine", since: minutesAgo(2), source: "agent", act: { kind: "run", target: "pnpm -C apps/desktop test sign-in" } },
-    { id: "st3", text: "Keep the old token store or drop it?", since: minutesAgo(2), source: "agent" },
+    {
+      id: "st2",
+      text: "Run the sign in tests on your machine",
+      since: minutesAgo(2),
+      source: "agent",
+      act: {
+        kind: "run",
+        target: "pnpm -C apps/desktop test sign-in",
+      },
+    },
+    {
+      id: "st3",
+      text: "Keep the old token store or drop it?",
+      since: minutesAgo(2),
+      source: "agent",
+    },
   ],
 };
 
@@ -47,5 +89,10 @@ export const s207NeedsYouSteps: Scenario = {
   ...s200Sessions,
   name: "needs-you-steps",
   says: "A Session waiting on the person for a procedure with steps, beside a command and a question",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [waiting]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        waiting,
+      ]),
+  },
 };

@@ -1,6 +1,15 @@
 import { Check, ChevronDown, ChevronRight, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "../Button/Button";
@@ -64,18 +73,32 @@ export type DropdownMenuEntry =
        * A submenu the row opens beside the menu: its choices, the chosen one checked. The row trails its `detail` and a › chevron.
        * → or a press opens it onto the chosen choice, ↑ ↓ move, ↵ picks, ← or Esc goes back to the row. A pick reports the choice's id to `onSelect`, like any row's.
        */
-      submenu?: { id: string; label: string; selected?: boolean }[];
+      submenu?: {
+        id: string;
+        label: string;
+        selected?: boolean;
+      }[];
       /** A row under the item above it, as a repository is under its Workspace: indented, and kept by a filter with the heading it sits under. */
       member?: boolean;
     }
-  | { kind: "separator"; id: string }
-  | { kind: "label"; id: string; label: string };
+  | {
+      kind: "separator";
+      id: string;
+    }
+  | {
+      kind: "label";
+      id: string;
+      label: string;
+    };
 
 /**
  * Acts an app adds to every context menu (one opened with `at`), after the menu's own entries, such as Mod and Report.
  * A press on one goes to `onSelect` here, not the menu's. A menu without `at` never gets them; its ids must not collide with a menu's own.
  */
-export const PointActs = createContext<{ entries: DropdownMenuEntry[]; onSelect: (id: string) => void } | null>(null);
+export const PointActs = createContext<{
+  entries: DropdownMenuEntry[];
+  onSelect: (id: string) => void;
+} | null>(null);
 
 export type DropdownMenuProps = {
   /** Sentence case, and it names what the menu is for. */
@@ -134,7 +157,11 @@ export type DropdownMenuProps = {
    * its own items (the Cockpit's list). Typing reports through `onChange`, the items are not
    * filtered by it, and Enter closes the menu and reports through `onEnter`. Needs `searchLabel`.
    */
-  search?: { value: string; onChange: (value: string) => void; onEnter: () => void };
+  search?: {
+    value: string;
+    onChange: (value: string) => void;
+    onEnter: () => void;
+  };
   /**
    * The trigger as plain text and its chevron, with no box, for a menu that stands in a panel's
    * header band (the owner, 16 Oct 2026).
@@ -158,7 +185,10 @@ export type DropdownMenuProps = {
    * A point in the window the panel opens at, for a context menu: no trigger is drawn, the panel is portalled and its
    * leading top corner sits on the point, kept inside the window. Open it through `open`.
    */
-  at?: { x: number; y: number };
+  at?: {
+    x: number;
+    y: number;
+  };
   /** A class on the panel, for a menu that styles its own rows. */
   panelClass?: string;
 };
@@ -175,16 +205,26 @@ export function filterEntries(entries: DropdownMenuEntry[], query: string): Drop
   if (needle === "") return entries;
   const kept: DropdownMenuEntry[] = [];
   let heading: DropdownMenuEntry[] = [];
-  const holds = (entry: DropdownMenuEntry) => entry.kind === "item" && entry.label.toLowerCase().includes(needle);
+  const holds = (entry: DropdownMenuEntry) =>
+    entry.kind === "item" && entry.label.toLowerCase().includes(needle);
   for (let at = 0; at < entries.length; at += 1) {
     const entry = entries[at]!;
     if (entry.kind !== "item") {
-      heading = entry.kind === "label" ? [entry] : [];
+      heading =
+        entry.kind === "label"
+          ? [
+              entry,
+            ]
+          : [];
       continue;
     }
     // An item with rows under it is their heading: it keeps them all when its own name matches, and stands over the ones that match when it does not.
     const members: DropdownMenuEntry[] = [];
-    for (let next = entries[at + 1]; next?.kind === "item" && next.member === true; next = entries[at + 1]) {
+    for (
+      let next = entries[at + 1];
+      next?.kind === "item" && next.member === true;
+      next = entries[at + 1]
+    ) {
       members.push(next);
       at += 1;
     }
@@ -220,7 +260,21 @@ export function DropdownMenu({
 }: DropdownMenuProps) {
   const point = useContext(PointActs);
   const extra = at !== undefined && point !== null ? point.entries : [];
-  const entries = extra.length === 0 ? given : [...given, ...(given.length === 0 ? [] : [{ kind: "separator" as const, id: "point-acts-rule" }]), ...extra];
+  const entries =
+    extra.length === 0
+      ? given
+      : [
+          ...given,
+          ...(given.length === 0
+            ? []
+            : [
+                {
+                  kind: "separator" as const,
+                  id: "point-acts-rule",
+                },
+              ]),
+          ...extra,
+        ];
   const [own, setOwn] = useState(defaultOpen);
   const open = held ?? own;
   const setOpen = (next: boolean) => {
@@ -238,11 +292,18 @@ export function DropdownMenu({
   const [typed, setQuery] = useState("");
   const query = field?.value ?? typed;
   const search = useRef<HTMLInputElement>(null);
-  const visible = searchLabel === undefined || field !== undefined ? entries : filterEntries(entries, query);
+  const visible =
+    searchLabel === undefined || field !== undefined ? entries : filterEntries(entries, query);
   // One icon column and one check column per menu, drawn on every row once any row has either, so labels line up.
   const hasIcons = entries.some((entry) => entry.kind === "item" && entry.icon !== undefined);
   const hasChecks = entries.some((entry) => entry.kind === "item" && entry.selected !== undefined);
-  const choosable = visible.flatMap((entry) => (entry.kind === "item" && entry.disabled !== true && entry.submenu === undefined ? [entry] : []));
+  const choosable = visible.flatMap((entry) =>
+    entry.kind === "item" && entry.disabled !== true && entry.submenu === undefined
+      ? [
+          entry,
+        ]
+      : [],
+  );
   // The row whose submenu is open, and the same fact for the Esc listener below, which is added once per opening.
   const [sub, setSub] = useState<string | null>(null);
   const subOpen = useRef(sub);
@@ -255,14 +316,22 @@ export function DropdownMenu({
       setQuery("");
       setSub(null);
     }
-  }, [shown]);
+  }, [
+    shown,
+  ]);
 
   // A submenu opens onto its chosen choice, or its first.
   useEffect(() => {
     if (sub === null) return;
-    const choices = [...(panel.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])];
-    (choices.find((choice) => choice.getAttribute("aria-checked") === "true") ?? choices[0])?.focus();
-  }, [sub]);
+    const choices = [
+      ...(panel.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? []),
+    ];
+    (
+      choices.find((choice) => choice.getAttribute("aria-checked") === "true") ?? choices[0]
+    )?.focus();
+  }, [
+    sub,
+  ]);
 
   // Which side the menu resolved to, read before the first paint so its
   // entrance rises from that side. Anchor positioning chooses a fallback in
@@ -278,8 +347,11 @@ export function DropdownMenu({
     const at = layer.getBoundingClientRect();
     const from = anchor.getBoundingClientRect();
     layer.dataset.opens = at.top < from.top ? "up" : "down";
-    layer.dataset.aligns = Math.abs(at.right - from.right) <= Math.abs(at.left - from.left) ? "end" : "start";
-  }, [shown]);
+    layer.dataset.aligns =
+      Math.abs(at.right - from.right) <= Math.abs(at.left - from.left) ? "end" : "start";
+  }, [
+    shown,
+  ]);
 
   // A portalled panel has no anchor to take its place from, so it is set from the trigger's box:
   // below it with the trailing edges flush, above it where there is no room below.
@@ -303,7 +375,11 @@ export function DropdownMenu({
     const below = from.bottom + gap;
     layer.style.left = `${left}px`;
     layer.style.top = `${below + own.height > window.innerHeight ? Math.max(gap, from.top - gap - own.height) : below}px`;
-  }, [shown, portal, at]);
+  }, [
+    shown,
+    portal,
+    at,
+  ]);
 
   // Puts a submenu away and hands focus back to the row that opened it.
   const closeSub = () => {
@@ -320,9 +396,20 @@ export function DropdownMenu({
       closeSub();
       return;
     }
-    const choices = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+    const choices = [
+      ...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitemradio"]'),
+    ];
     const at = choices.indexOf(document.activeElement as HTMLElement);
-    const to = event.key === "ArrowDown" ? (at + 1) % choices.length : event.key === "ArrowUp" ? (at <= 0 ? choices.length : at) - 1 : event.key === "Home" ? 0 : event.key === "End" ? choices.length - 1 : null;
+    const to =
+      event.key === "ArrowDown"
+        ? (at + 1) % choices.length
+        : event.key === "ArrowUp"
+          ? (at <= 0 ? choices.length : at) - 1
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? choices.length - 1
+              : null;
     if (to === null) return;
     event.preventDefault();
     event.stopPropagation();
@@ -366,11 +453,19 @@ export function DropdownMenu({
       <Count of={triggerCount} />
       {/* Says this opens a menu, settled 2026-09-17 (icons/, chevron-down).
           Every labelled trigger carries it. */}
-      <ChevronDown className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
+      <ChevronDown
+        className="armada-dropdown-menu__chevron"
+        size={12}
+        strokeWidth={2}
+        aria-hidden
+      />
     </button>
   );
 
-  const layered = (node: ReactNode): ReactNode => (portal || at !== undefined ? createPortal(node, typeof portal === "object" ? portal : document.body) : node);
+  const layered = (node: ReactNode): ReactNode =>
+    portal || at !== undefined
+      ? createPortal(node, typeof portal === "object" ? portal : document.body)
+      : node;
 
   // **Focus goes into the menu as it opens**, onto its first item, so the
   // arrows and Enter work however it was opened — a press, or a key that is not
@@ -380,7 +475,10 @@ export function DropdownMenu({
     if (!shown) return;
     if (searchLabel !== undefined) search.current?.focus();
     else itemsOf(panel.current)[0]?.focus();
-  }, [shown, searchLabel]);
+  }, [
+    shown,
+    searchLabel,
+  ]);
 
   // Esc closes an overlay, per the global tier, and hands focus back to the
   // trigger where it was in the menu, rather than dropping it on the page.
@@ -398,7 +496,8 @@ export function DropdownMenu({
     }
     function onDown(event: MouseEvent) {
       const hit = event.target as Node;
-      if (!root.current?.contains(hit) && panel.current?.contains(hit) !== true) close.current(false);
+      if (!root.current?.contains(hit) && panel.current?.contains(hit) !== true)
+        close.current(false);
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
@@ -406,7 +505,9 @@ export function DropdownMenu({
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("mousedown", onDown);
     };
-  }, [open]);
+  }, [
+    open,
+  ]);
 
   return (
     <div
@@ -417,7 +518,11 @@ export function DropdownMenu({
       data-detail={triggerDetail === undefined ? undefined : true}
     >
       {at !== undefined ? null : Glyph === undefined ? (
-        triggerTooltip === undefined ? labelled : <Tooltip label={triggerTooltip}>{labelled}</Tooltip>
+        triggerTooltip === undefined ? (
+          labelled
+        ) : (
+          <Tooltip label={triggerTooltip}>{labelled}</Tooltip>
+        )
       ) : (
         <Button
           ref={trigger}
@@ -435,180 +540,257 @@ export function DropdownMenu({
       )}
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
-      {shown ? layered(
-        <div ref={panel} className={panelClass === undefined ? "armada-dropdown-menu__panel" : `armada-dropdown-menu__panel ${panelClass}`} data-portal={Boolean(portal) || at !== undefined || undefined} data-searchable={searchLabel !== undefined || undefined} data-checks={hasChecks || undefined} data-detailed={entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) || undefined} role="menu" onKeyDown={moveFocus}>
-          {searchLabel === undefined ? null : (
-            <div className="armada-dropdown-menu__search">
-              <Input
-                ref={search}
-                role="searchbox"
-                aria-label={searchLabel}
-                autoComplete="off"
-                value={query}
-                onChange={(event) => (field?.onChange ?? setQuery)(event.target.value)}
-                trailing={
-                  query === "" ? undefined : (
-                    <Tooltip label="Clear search">
-                      <button
-                        type="button"
-                        className="armada-dropdown-menu__clear"
-                        aria-label="Clear search"
-                        onClick={() => {
-                          (field?.onChange ?? setQuery)("");
-                          search.current?.focus();
-                        }}
-                      >
-                        <X size={14} strokeWidth={2} aria-hidden />
-                      </button>
-                    </Tooltip>
-                  )
-                }
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  if (field !== undefined) {
-                    setOpen(false);
-                    field.onEnter();
-                    return;
-                  }
-                  const first = choosable[0];
-                  if (first === undefined) return;
-                  choose(first.id);
-                }}
-              />
-            </div>
-          )}
-          {searchLabel !== undefined && visible.length === 0 ? (
-            <p className="armada-dropdown-menu__empty" role="status">{`Nothing matches “${query.trim()}”.`}</p>
-          ) : null}
-          {visible.map((entry) => {
-            if (entry.kind === "separator") {
-              return <div key={entry.id} className="armada-dropdown-menu__separator" role="separator" />;
-            }
-            if (entry.kind === "label") {
-              return (
-                <div key={entry.id} className="armada-dropdown-menu__label">
-                  {entry.label}
+      {shown
+        ? layered(
+            <div
+              ref={panel}
+              className={
+                panelClass === undefined
+                  ? "armada-dropdown-menu__panel"
+                  : `armada-dropdown-menu__panel ${panelClass}`
+              }
+              data-portal={Boolean(portal) || at !== undefined || undefined}
+              data-searchable={searchLabel !== undefined || undefined}
+              data-checks={hasChecks || undefined}
+              data-detailed={
+                entries.some((entry) => entry.kind === "item" && entry.detail !== undefined) ||
+                undefined
+              }
+              role="menu"
+              onKeyDown={moveFocus}
+            >
+              {searchLabel === undefined ? null : (
+                <div className="armada-dropdown-menu__search">
+                  <Input
+                    ref={search}
+                    role="searchbox"
+                    aria-label={searchLabel}
+                    autoComplete="off"
+                    value={query}
+                    onChange={(event) => (field?.onChange ?? setQuery)(event.target.value)}
+                    trailing={
+                      query === "" ? undefined : (
+                        <Tooltip label="Clear search">
+                          <button
+                            type="button"
+                            className="armada-dropdown-menu__clear"
+                            aria-label="Clear search"
+                            onClick={() => {
+                              (field?.onChange ?? setQuery)("");
+                              search.current?.focus();
+                            }}
+                          >
+                            <X size={14} strokeWidth={2} aria-hidden />
+                          </button>
+                        </Tooltip>
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter") return;
+                      event.preventDefault();
+                      if (field !== undefined) {
+                        setOpen(false);
+                        field.onEnter();
+                        return;
+                      }
+                      const first = choosable[0];
+                      if (first === undefined) return;
+                      choose(first.id);
+                    }}
+                  />
                 </div>
-              );
-            }
-            const item = (
-              <button
-                key={entry.id}
-                type="button"
-                role="menuitem"
-                aria-current={entry.selected || undefined}
-                aria-disabled={entry.disabled || undefined}
-                data-muted={entry.muted || undefined}
-                data-state={entry.state}
-                data-act={entry.act || undefined}
-                data-member={entry.member || undefined}
-                data-submenu={entry.submenu === undefined ? undefined : entry.id}
-                aria-haspopup={entry.submenu === undefined ? undefined : "menu"}
-                aria-expanded={entry.submenu === undefined ? undefined : sub === entry.id}
-                className={
-                  entry.danger
-                    ? "armada-dropdown-menu__item armada-dropdown-menu__item--danger"
-                    : "armada-dropdown-menu__item"
+              )}
+              {searchLabel !== undefined && visible.length === 0 ? (
+                <p
+                  className="armada-dropdown-menu__empty"
+                  role="status"
+                >{`Nothing matches “${query.trim()}”.`}</p>
+              ) : null}
+              {visible.map((entry) => {
+                if (entry.kind === "separator") {
+                  return (
+                    <div
+                      key={entry.id}
+                      className="armada-dropdown-menu__separator"
+                      role="separator"
+                    />
+                  );
                 }
-                onClick={(event) => {
-                  // A press on the trail of a row that has a way right is that way, whether or not the row itself can be chosen.
-                  if (entry.onRight !== undefined && (event.target as HTMLElement).closest(".armada-dropdown-menu__trail") !== null) {
-                    setOpen(false);
-                    entry.onRight();
-                    return;
-                  }
-                  if (entry.disabled === true) return;
-                  if (entry.submenu !== undefined) {
-                    setSub(sub === entry.id ? null : entry.id);
-                    return;
-                  }
-                  choose(entry.id);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowRight" && entry.submenu !== undefined && entry.disabled !== true) {
-                    event.preventDefault();
-                    setSub(entry.id);
-                    return;
-                  }
-                  if (event.key !== "ArrowRight" || entry.onRight === undefined) return;
-                  event.preventDefault();
-                  setOpen(false);
-                  entry.onRight();
-                }}
-              >
-                {entry.icon !== undefined ? (
-                  <entry.icon className="armada-dropdown-menu__icon" size={16} strokeWidth={2} aria-hidden />
-                ) : hasIcons ? (
-                  <span className="armada-dropdown-menu__icon" aria-hidden />
-                ) : null}
-                <span className="armada-dropdown-menu__text">
-                  {entry.label}
-                  <Count of={entry.count} />
-                </span>
-                {entry.detail === undefined ? null : <span className="armada-dropdown-menu__detail">{entry.detail}</span>}
-                {entry.trail === undefined ? null : <span className="armada-dropdown-menu__trail">{entry.trail}</span>}
-                {entry.submenu !== undefined ? (
-                  <ChevronRight className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
-                ) : hasChecks ? (
-                  <>
-                    {entry.selected || !entry.shortcut ? null : <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>}
-                    <span className="armada-dropdown-menu__mark" aria-hidden>
-                      {entry.selected ? <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden /> : null}
+                if (entry.kind === "label") {
+                  return (
+                    <div key={entry.id} className="armada-dropdown-menu__label">
+                      {entry.label}
+                    </div>
+                  );
+                }
+                const item = (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    role="menuitem"
+                    aria-current={entry.selected || undefined}
+                    aria-disabled={entry.disabled || undefined}
+                    data-muted={entry.muted || undefined}
+                    data-state={entry.state}
+                    data-act={entry.act || undefined}
+                    data-member={entry.member || undefined}
+                    data-submenu={entry.submenu === undefined ? undefined : entry.id}
+                    aria-haspopup={entry.submenu === undefined ? undefined : "menu"}
+                    aria-expanded={entry.submenu === undefined ? undefined : sub === entry.id}
+                    className={
+                      entry.danger
+                        ? "armada-dropdown-menu__item armada-dropdown-menu__item--danger"
+                        : "armada-dropdown-menu__item"
+                    }
+                    onClick={(event) => {
+                      // A press on the trail of a row that has a way right is that way, whether or not the row itself can be chosen.
+                      if (
+                        entry.onRight !== undefined &&
+                        (event.target as HTMLElement).closest(".armada-dropdown-menu__trail") !==
+                          null
+                      ) {
+                        setOpen(false);
+                        entry.onRight();
+                        return;
+                      }
+                      if (entry.disabled === true) return;
+                      if (entry.submenu !== undefined) {
+                        setSub(sub === entry.id ? null : entry.id);
+                        return;
+                      }
+                      choose(entry.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "ArrowRight" &&
+                        entry.submenu !== undefined &&
+                        entry.disabled !== true
+                      ) {
+                        event.preventDefault();
+                        setSub(entry.id);
+                        return;
+                      }
+                      if (event.key !== "ArrowRight" || entry.onRight === undefined) return;
+                      event.preventDefault();
+                      setOpen(false);
+                      entry.onRight();
+                    }}
+                  >
+                    {entry.icon !== undefined ? (
+                      <entry.icon
+                        className="armada-dropdown-menu__icon"
+                        size={16}
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                    ) : hasIcons ? (
+                      <span className="armada-dropdown-menu__icon" aria-hidden />
+                    ) : null}
+                    <span className="armada-dropdown-menu__text">
+                      {entry.label}
+                      <Count of={entry.count} />
                     </span>
-                  </>
-                ) : entry.shortcut ? (
-                  <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>
-                ) : null}
-              </button>
-            );
-            const row =
-              entry.hint !== undefined ? (
-                <Tooltip key={entry.id} label={entry.hint} asChild>
-                  {item}
-                </Tooltip>
-              ) : (
-                item
-              );
-            if (entry.submenu === undefined) return row;
-            return (
-              <div key={entry.id} className="armada-dropdown-menu__sub">
-                {row}
-                {sub !== entry.id ? null : (
-                  <div className="armada-dropdown-menu__flyout" role="menu" aria-label={entry.label} onKeyDown={stepChoices}>
-                    {entry.submenu.map((choice) => (
-                      <button
-                        key={choice.id}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={choice.selected === true}
-                        className="armada-dropdown-menu__item"
-                        onClick={() => choose(choice.id)}
+                    {entry.detail === undefined ? null : (
+                      <span className="armada-dropdown-menu__detail">{entry.detail}</span>
+                    )}
+                    {entry.trail === undefined ? null : (
+                      <span className="armada-dropdown-menu__trail">{entry.trail}</span>
+                    )}
+                    {entry.submenu !== undefined ? (
+                      <ChevronRight
+                        className="armada-dropdown-menu__chevron"
+                        size={12}
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                    ) : hasChecks ? (
+                      <>
+                        {entry.selected || !entry.shortcut ? null : (
+                          <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>
+                        )}
+                        <span className="armada-dropdown-menu__mark" aria-hidden>
+                          {entry.selected ? (
+                            <Check
+                              className="armada-dropdown-menu__check"
+                              size={16}
+                              strokeWidth={2}
+                              aria-hidden
+                            />
+                          ) : null}
+                        </span>
+                      </>
+                    ) : entry.shortcut ? (
+                      <kbd className="armada-dropdown-menu__kbd">{entry.shortcut}</kbd>
+                    ) : null}
+                  </button>
+                );
+                const row =
+                  entry.hint !== undefined ? (
+                    <Tooltip key={entry.id} label={entry.hint} asChild>
+                      {item}
+                    </Tooltip>
+                  ) : (
+                    item
+                  );
+                if (entry.submenu === undefined) return row;
+                return (
+                  <div key={entry.id} className="armada-dropdown-menu__sub">
+                    {row}
+                    {sub !== entry.id ? null : (
+                      <div
+                        className="armada-dropdown-menu__flyout"
+                        role="menu"
+                        aria-label={entry.label}
+                        onKeyDown={stepChoices}
                       >
-                        <span className="armada-dropdown-menu__text">{choice.label}</span>
-                        {choice.selected ? <Check className="armada-dropdown-menu__check" size={16} strokeWidth={2} aria-hidden /> : null}
-                      </button>
-                    ))}
+                        {entry.submenu.map((choice) => (
+                          <button
+                            key={choice.id}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={choice.selected === true}
+                            className="armada-dropdown-menu__item"
+                            onClick={() => choose(choice.id)}
+                          >
+                            <span className="armada-dropdown-menu__text">{choice.label}</span>
+                            {choice.selected ? (
+                              <Check
+                                className="armada-dropdown-menu__check"
+                                size={16}
+                                strokeWidth={2}
+                                aria-hidden
+                              />
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
+                );
+              })}
+            </div>,
+          )
+        : null}
     </div>
   );
 }
 
 /** A menu's items, in the order it draws them. */
 function itemsOf(panel: HTMLElement | null): HTMLElement[] {
-  return [...(panel?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+  return [
+    ...(panel?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []),
+  ];
 }
 
 /** ↑ and ↓ step through the items and wrap; Home and End go to either end. Enter is the item's own. */
 function moveFocus(event: ReactKeyboardEvent<HTMLDivElement>): void {
   // In the filter field only ↓ and ↑ are the menu's: Home and End move its caret.
-  if ((event.target as HTMLElement).getAttribute("role") === "searchbox" && event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  if (
+    (event.target as HTMLElement).getAttribute("role") === "searchbox" &&
+    event.key !== "ArrowDown" &&
+    event.key !== "ArrowUp"
+  )
+    return;
   const items = itemsOf(event.currentTarget);
   const at = items.indexOf(document.activeElement as HTMLElement);
   const to =

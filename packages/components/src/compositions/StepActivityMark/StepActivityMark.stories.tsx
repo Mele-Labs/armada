@@ -26,7 +26,11 @@ type Story = StoryObj<typeof StepActivityMark>;
  * glyph existed.
  */
 export const NotStarted: Story = {
-  args: { activity: "not_started", label: "Not started", ordinal: 3 },
+  args: {
+    activity: "not_started",
+    label: "Not started",
+    ordinal: 3,
+  },
 };
 
 /**
@@ -35,11 +39,17 @@ export const NotStarted: Story = {
  * to show.
  */
 export const NotStartedWithNoOrdinal: Story = {
-  args: { activity: "not_started", label: "Not started" },
+  args: {
+    activity: "not_started",
+    label: "Not started",
+  },
 };
 
 export const Running: Story = {
-  args: { activity: "running", label: "Running" },
+  args: {
+    activity: "running",
+    label: "Running",
+  },
 };
 
 /**
@@ -47,7 +57,11 @@ export const Running: Story = {
  * moves on opacity and scale at `--duration-pulse`; the ring holds still.
  */
 export const RunningPulsing: Story = {
-  args: { activity: "running", label: "Running", pulsing: true },
+  args: {
+    activity: "running",
+    label: "Running",
+    pulsing: true,
+  },
 };
 
 /**
@@ -56,16 +70,25 @@ export const RunningPulsing: Story = {
  * is `eye`. `docs/contracts/iconography.md` says `clock` in prose. Reported.
  */
 export const AwaitingHuman: Story = {
-  args: { activity: "awaiting_human", label: "Waiting on you" },
+  args: {
+    activity: "awaiting_human",
+    label: "Waiting on you",
+  },
 };
 
 /** Retrying takes no hue. It is a position, not an outcome. */
 export const Retrying: Story = {
-  args: { activity: "retrying", label: "Retrying" },
+  args: {
+    activity: "retrying",
+    label: "Retrying",
+  },
 };
 
 export const Advanced: Story = {
-  args: { activity: "advanced", label: "Advanced" },
+  args: {
+    activity: "advanced",
+    label: "Advanced",
+  },
 };
 
 /**
@@ -75,7 +98,10 @@ export const Advanced: Story = {
  * see `Compositions/Workflow rail`.
  */
 export const Stopped: Story = {
-  args: { activity: "stopped", label: "Stopped" },
+  args: {
+    activity: "stopped",
+    label: "Stopped",
+  },
 };
 
 /**
@@ -85,7 +111,10 @@ export const Stopped: Story = {
  * one level down; no roster names a glyph for it. Reported.
  */
 export const Killed: Story = {
-  args: { activity: "killed", label: "Killed" },
+  args: {
+    activity: "killed",
+    label: "Killed",
+  },
 };
 
 /**
@@ -94,7 +123,10 @@ export const Killed: Story = {
  * both channels.
  */
 export const Failed: Story = {
-  args: { activity: "failed", label: "Failed a check" },
+  args: {
+    activity: "failed",
+    label: "Failed a check",
+  },
 };
 
 /**
@@ -104,22 +136,70 @@ export const Failed: Story = {
  */
 export const EveryValue: StoryObj = {
   render: () => {
-    const values: [StepActivity, string, number?][] = [
-      ["not_started", "Not started", 3],
-      ["running", "Running"],
-      ["awaiting_human", "Waiting on you"],
-      ["retrying", "Retrying"],
-      ["advanced", "Advanced"],
-      ["stopped", "Stopped"],
-      ["killed", "Killed"],
-      ["failed", "Failed a check"],
+    const values: [
+      StepActivity,
+      string,
+      number?,
+    ][] = [
+      [
+        "not_started",
+        "Not started",
+        3,
+      ],
+      [
+        "running",
+        "Running",
+      ],
+      [
+        "awaiting_human",
+        "Waiting on you",
+      ],
+      [
+        "retrying",
+        "Retrying",
+      ],
+      [
+        "advanced",
+        "Advanced",
+      ],
+      [
+        "stopped",
+        "Stopped",
+      ],
+      [
+        "killed",
+        "Killed",
+      ],
+      [
+        "failed",
+        "Failed a check",
+      ],
     ];
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-2)",
+        }}
+      >
         {values.map(([activity, label, ordinal]) => (
-          <div key={activity} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+          <div
+            key={activity}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-2)",
+            }}
+          >
             <StepActivityMark activity={activity} label={label} ordinal={ordinal} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--fg-subtle)" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-2xs)",
+                color: "var(--fg-subtle)",
+              }}
+            >
               {activity}
             </span>
           </div>

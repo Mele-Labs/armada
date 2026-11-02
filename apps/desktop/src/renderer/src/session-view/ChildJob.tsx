@@ -16,23 +16,82 @@ function ChildPull({ pr, manifestId }: { pr: PullRequest; manifestId: string | u
   const { on, menu } = usePullRequestMenu(manifestId, pr.number, pr.title, pr.address);
   return (
     <>
-      <PullRequestChip framed number={pr.number} title={pr.title} state={pr.state} checks={{ state: checksOf(pr), said: checksSaid(pr.checks) }} data-nav="" onOpen={() => openPrPanel(pr)} {...on} />
+      <PullRequestChip
+        framed
+        number={pr.number}
+        title={pr.title}
+        state={pr.state}
+        checks={{
+          state: checksOf(pr),
+          said: checksSaid(pr.checks),
+        }}
+        data-nav=""
+        onOpen={() => openPrPanel(pr)}
+        {...on}
+      />
       {menu}
     </>
   );
 }
 
 /** A plan group's issue as the Job card's chip, which opens it in the side panel. */
-export const cardIssueOf = (issue: Issue | undefined, manifestId: string | undefined): { issue?: JobCardIssue } =>
-  issue === undefined ? {} : { issue: { label: issueLabel(issue.number), title: issue.title, ...(issue.state === "closed" ? { closed: true } : {}), onOpen: () => openIssuePanel(issue, manifestId) } };
+export const cardIssueOf = (
+  issue: Issue | undefined,
+  manifestId: string | undefined,
+): {
+  issue?: JobCardIssue;
+} =>
+  issue === undefined
+    ? {}
+    : {
+        issue: {
+          label: issueLabel(issue.number),
+          title: issue.title,
+          ...(issue.state === "closed"
+            ? {
+                closed: true,
+              }
+            : {}),
+          onOpen: () => openIssuePanel(issue, manifestId),
+        },
+      };
 
-export function ChildJob({ child, group, issue, manifestId, onOpen }: { child: Session; /** The title of the plan group it was handed from, absent for a Job started outside the plan. */ group?: string | undefined; /** The issue that group works. */ issue?: Issue | undefined; manifestId: string | undefined; onOpen: (id: string) => void }) {
+export function ChildJob({
+  child,
+  group,
+  issue,
+  manifestId,
+  onOpen,
+}: {
+  child: Session /** The title of the plan group it was handed from, absent for a Job started outside the plan. */;
+  group?: string | undefined /** The issue that group works. */;
+  issue?: Issue | undefined;
+  manifestId: string | undefined;
+  onOpen: (id: string) => void;
+}) {
   const { state, said } = stateOf(child);
   const title = jobTitle(child);
   const pr = pullOf(child);
   return (
     <span className="sv-flight__job">
-      <JobCard data-nav="" title={title} state={state} said={said} {...(group === undefined ? {} : { handedFrom: group })} {...cardIssueOf(issue, manifestId)} {...(child.lastTurnAt === undefined ? {} : { at: child.lastTurnAt })} onOpen={() => onOpen(child.id)} />
+      <JobCard
+        data-nav=""
+        title={title}
+        state={state}
+        said={said}
+        {...(group === undefined
+          ? {}
+          : {
+              handedFrom: group,
+            })}
+        {...cardIssueOf(issue, manifestId)}
+        {...(child.lastTurnAt === undefined
+          ? {}
+          : {
+              at: child.lastTurnAt,
+            })}
+        onOpen={() => onOpen(child.id)}
+      />
       {pr === undefined ? null : <ChildPull pr={pr} manifestId={manifestId} />}
     </span>
   );

@@ -14,7 +14,7 @@
    frame, because Bridge mounts a job detail on its own — outside the gallery
    there is no 1180px frame to inherit them from, and an unresolved
    `var()` in `grid-template-columns` drops the whole declaration. */
-.armada-screen{
+.armada-screen {
   /* 1180px — the drawing's screen width, the same on every screen. */
   --armada-screen-width: calc(var(--space-12) * 24 + var(--space-6) + var(--space-1));
   /* 420px — the shell window's height, and the width of the running job's
@@ -158,7 +158,19 @@
    hover, selection or focus snaps. `:where()` weighs nothing: a component that
    names its own transition keeps it (a press is faster, a travel is longer).
    Colour and edge only, never size or position. */
-:where(button, a[href], summary, li, tr, [role="tab"], [role="row"], [role="option"], [role="menuitem"], [role="treeitem"], [role="gridcell"]) {
+:where(
+  button,
+  a[href],
+  summary,
+  li,
+  tr,
+  [role="tab"],
+  [role="row"],
+  [role="option"],
+  [role="menuitem"],
+  [role="treeitem"],
+  [role="gridcell"]
+) {
   transition:
     background-color var(--duration-fast) var(--ease),
     border-color var(--duration-fast) var(--ease),
@@ -360,18 +372,35 @@
 
 /* The Dashboard's turning mark, and a Plan question answered in place. Every kind of item has its hue
    in the frame (the tile's edge, the card's band), never in a phrase. */
-@keyframes armada-dashboard-spin { to { transform: rotate(360deg); } }
+@keyframes armada-dashboard-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* The hues every Dashboard part reads its frame from. */
-.armada-screen__overview [data-hue="ask"] { --hue: var(--status-awaiting-review); }
+.armada-screen__overview [data-hue="ask"] {
+  --hue: var(--status-awaiting-review);
+}
 .armada-screen__overview [data-hue="issue"],
-.armada-screen__overview [data-hue="bad"] { --hue: var(--status-completed-failed); }
-.armada-screen__overview [data-hue="running"] { --hue: var(--status-running); }
-.armada-screen__overview [data-hue="queued"] { --hue: var(--status-not-started); }
-.armada-screen__overview [data-hue="ok"] { --hue: var(--status-completed-success); }
+.armada-screen__overview [data-hue="bad"] {
+  --hue: var(--status-completed-failed);
+}
+.armada-screen__overview [data-hue="running"] {
+  --hue: var(--status-running);
+}
+.armada-screen__overview [data-hue="queued"] {
+  --hue: var(--status-not-started);
+}
+.armada-screen__overview [data-hue="ok"] {
+  --hue: var(--status-completed-success);
+}
 
 @keyframes armada-call-in {
-  from { opacity: 0; transform: translateY(var(--space-2)); }
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2));
+  }
 }
 
 /* ---- Tiles: every Job and Session in one grid ----------------------------------------------------- */
@@ -395,21 +424,28 @@
   min-width: 0;
   min-height: calc(var(--space-12) * 2);
   padding: var(--space-3);
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease);
 }
 
-.armada-tile:hover { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
+.armada-tile:hover {
+  background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised));
+}
 
 .armada-tile[aria-selected="true"] {
   border-color: var(--hue);
   background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
 }
 
-.armada-tiles:focus-visible .armada-tile[aria-selected="true"] { box-shadow: 0 0 0 var(--border-width) var(--accent); }
+.armada-tiles:focus-visible .armada-tile[aria-selected="true"] {
+  box-shadow: 0 0 0 var(--border-width) var(--accent);
+}
 
 .armada-tile[data-lit] {
   border-color: var(--hue);
@@ -417,11 +453,26 @@
   box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 45%, transparent);
 }
 
-.armada-tile__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.armada-tile__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
 
-@keyframes armada-tile-live { 50% { opacity: 0.4; } }
+@keyframes armada-tile-live {
+  50% {
+    opacity: 0.4;
+  }
+}
 
-.armada-tile__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--space-4); }
+.armada-tile__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--space-4);
+}
 
 /* ---- job detail --------------------------------------------------------- */
 
@@ -658,7 +709,10 @@
   padding-bottom: var(--pad-page);
 }
 
-
 /* Pending: bars stand where the Studios' rows will be. The row takes the height a row has with its Open control, so none moves when they land. */
-.armada-studio-list--pending { --skeleton-fill: var(--bg-raised); }
-.armada-studio-list--pending .armada-table-cell { height: var(--h-row); }
+.armada-studio-list--pending {
+  --skeleton-fill: var(--bg-raised);
+}
+.armada-studio-list--pending .armada-table-cell {
+  height: var(--h-row);
+}

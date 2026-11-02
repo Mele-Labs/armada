@@ -38,16 +38,31 @@ function thrown(): string[] {
  * first into the lightest share**, by steps, so a walk added to `walks/` lands
  * in a share with no edit here and no share is left holding the long ones.
  */
-export function walksIn(part: number, of: number): [string, Walk][] {
-  const loads = Array.from({ length: of }, () => 0);
+export function walksIn(
+  part: number,
+  of: number,
+): [
+  string,
+  Walk,
+][] {
+  const loads = Array.from(
+    {
+      length: of,
+    },
+    () => 0,
+  );
   const share = new Map<string, number>();
-  const longestFirst = [...WALKS].sort(([a, one], [b, other]) => other.steps.length - one.steps.length || a.localeCompare(b));
+  const longestFirst = [
+    ...WALKS,
+  ].sort(([a, one], [b, other]) => other.steps.length - one.steps.length || a.localeCompare(b));
   for (const [name, one] of longestFirst) {
     const lightest = loads.indexOf(Math.min(...loads));
     loads[lightest] = (loads[lightest] ?? 0) + one.steps.length;
     share.set(name, lightest + 1);
   }
-  return [...WALKS].filter(([name]) => share.get(name) === part);
+  return [
+    ...WALKS,
+  ].filter(([name]) => share.get(name) === part);
 }
 
 /**
@@ -58,7 +73,12 @@ export function walksIn(part: number, of: number): [string, Walk][] {
  * to the middle of the page.
  */
 export async function parkThePointer(): Promise<void> {
-  await userEvent.hover(page.elementLocator(document.body), { position: { x: 0, y: 0 } });
+  await userEvent.hover(page.elementLocator(document.body), {
+    position: {
+      x: 0,
+      y: 0,
+    },
+  });
 }
 
 /** Registers the tests of share `part` of `of`. Called once, at the top of a test file. */
@@ -82,21 +102,29 @@ export function playWalks(part: number, of: number): void {
   }
 
   for (const [name, script] of walksIn(part, of)) {
-    test(`the walk ${name} plays to its last step`, async () => {
-      const heard = thrown();
-      // A walk that names its own window is played in it, and the next test gets its own back.
-      if (script.viewport !== undefined) {
-        await page.viewport(script.viewport.width, script.viewport.height);
-        onTestFinished(() => page.viewport(1440, 900));
-      }
-      // The address names the walk, as the window that plays it does, so a page that reads it draws what the walk asks for.
-      window.history.replaceState(null, "", `${window.location.pathname}?walk=${encodeURIComponent(name)}`);
-      onTestFinished(() => window.history.replaceState(null, "", window.location.pathname));
-      mount(script.scenario);
-      await onScreen();
-      await walkThrough(script.steps);
-      expect(heard).toEqual([]);
-      // A step waits for its target to settle, so a long walk outruns the default 15 s.
-    }, Math.max(15_000, script.steps.length * 600));
+    test(
+      `the walk ${name} plays to its last step`,
+      async () => {
+        const heard = thrown();
+        // A walk that names its own window is played in it, and the next test gets its own back.
+        if (script.viewport !== undefined) {
+          await page.viewport(script.viewport.width, script.viewport.height);
+          onTestFinished(() => page.viewport(1440, 900));
+        }
+        // The address names the walk, as the window that plays it does, so a page that reads it draws what the walk asks for.
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}?walk=${encodeURIComponent(name)}`,
+        );
+        onTestFinished(() => window.history.replaceState(null, "", window.location.pathname));
+        mount(script.scenario);
+        await onScreen();
+        await walkThrough(script.steps);
+        expect(heard).toEqual([]);
+        // A step waits for its target to settle, so a long walk outruns the default 15 s.
+      },
+      Math.max(15_000, script.steps.length * 600),
+    );
   }
 }

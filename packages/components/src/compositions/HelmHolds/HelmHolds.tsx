@@ -27,11 +27,20 @@ export function HelmHolds({ entries }: { entries: readonly LedgerEntry[] }) {
         const Glyph = GLYPH[one.kind]!;
         return (
           <Tooltip key={one.key} label={one.name} asChild>
-            <button type="button" className="armada-helm-holds__chip" aria-label={`Open ${one.name}`} onClick={one.onOpen}>
+            <button
+              type="button"
+              className="armada-helm-holds__chip"
+              aria-label={`Open ${one.name}`}
+              onClick={one.onOpen}
+            >
               <Glyph size={12} strokeWidth={2} aria-hidden />
               <span className="armada-helm-holds__text">{one.text}</span>
               {one.slot === undefined ? null : (
-                <span className="armada-ref-chip" role="img" aria-label={`Worktree slot ${one.slot}`}>
+                <span
+                  className="armada-ref-chip"
+                  role="img"
+                  aria-label={`Worktree slot ${one.slot}`}
+                >
                   <KeyRound size={12} strokeWidth={2} aria-hidden />
                   {one.slot}
                 </span>
@@ -40,8 +49,18 @@ export function HelmHolds({ entries }: { entries: readonly LedgerEntry[] }) {
                 <PullRequestChecksMark checks={one.pr.checks} said={one.pr.checksSaid} />
               ) : one.kind === "subagent" && one.mark !== undefined ? (
                 <Tooltip label={one.mark.said}>
-                  <span className="armada-session-mark" role="img" aria-label={one.mark.said} data-state-mark data-pulsing={one.mark.glyph === "running" || undefined}>
-                    {one.mark.glyph === "running" ? <CircleDot size={12} strokeWidth={2} aria-hidden /> : <Check size={12} strokeWidth={2} aria-hidden />}
+                  <span
+                    className="armada-session-mark"
+                    role="img"
+                    aria-label={one.mark.said}
+                    data-state-mark
+                    data-pulsing={one.mark.glyph === "running" || undefined}
+                  >
+                    {one.mark.glyph === "running" ? (
+                      <CircleDot size={12} strokeWidth={2} aria-hidden />
+                    ) : (
+                      <Check size={12} strokeWidth={2} aria-hidden />
+                    )}
                   </span>
                 </Tooltip>
               ) : null}

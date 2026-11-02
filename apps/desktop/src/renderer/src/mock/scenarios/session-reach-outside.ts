@@ -16,7 +16,13 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 const SESSION = "01SESSIONREACHOUTSIDEAAAAA";
 const WRITER = "01SESSIONREACHWRITESAAAAAA";
 const RUNNER = "01SESSIONREACHRUNSAAAAAAAA";
@@ -36,7 +42,13 @@ const reaching: HelmCallInFlight = {
   length: READING.length,
   whole: READING,
   rule: "Bash(cat:*)",
-  offers: ["allow_once", "refuse", "always_allow", "allow_for_session", "always_block"],
+  offers: [
+    "allow_once",
+    "refuse",
+    "always_allow",
+    "allow_for_session",
+    "always_block",
+  ],
   holding_for_seconds: 300,
   reaches: PATH,
   reaches_to: "read",
@@ -50,7 +62,13 @@ const writing: HelmCallInFlight = {
   detail: "/Users/user/Desktop/drafts/notes.md",
   truncated: false,
   rule: "Write",
-  offers: ["allow_once", "refuse", "always_allow", "allow_for_session", "always_block"],
+  offers: [
+    "allow_once",
+    "refuse",
+    "always_allow",
+    "allow_for_session",
+    "always_block",
+  ],
   holding_for_seconds: 300,
   reaches: "/Users/user/Desktop/drafts/notes.md",
   reaches_to: "write",
@@ -66,31 +84,122 @@ const running: HelmCallInFlight = {
   detail: RUNNING,
   truncated: false,
   rule: "Bash(node:*)",
-  offers: ["allow_once", "refuse", "always_allow", "allow_for_session", "allow_like_this_for_session", "always_block"],
+  offers: [
+    "allow_once",
+    "refuse",
+    "always_allow",
+    "allow_for_session",
+    "allow_like_this_for_session",
+    "always_block",
+  ],
   holding_for_seconds: 300,
   reaches: "/Users/user/code/other-repo",
   reaches_to: "run",
-  kind: { program: "node", script: "tidy.mjs" },
+  kind: {
+    program: "node",
+    script: "tidy.mjs",
+  },
 };
 
 function fleet(): FakeSessionsFleet {
   const records = [
-    hosted(SESSION, { title: "Retry budget", attachments: [held("slot", "4")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: reaching } }),
-    hosted(WRITER, { title: "Release notes", attachments: [held("slot", "5")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: writing } }),
-    hosted(RUNNER, { title: "Tidy other repo", attachments: [held("slot", "6")], hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: running } }),
+    hosted(SESSION, {
+      title: "Retry budget",
+      attachments: [
+        held("slot", "4"),
+      ],
+      hosted: {
+        turn: {
+          state: "working",
+        },
+        mode: "auto",
+        running: true,
+        asked: reaching,
+      },
+    }),
+    hosted(WRITER, {
+      title: "Release notes",
+      attachments: [
+        held("slot", "5"),
+      ],
+      hosted: {
+        turn: {
+          state: "working",
+        },
+        mode: "auto",
+        running: true,
+        asked: writing,
+      },
+    }),
+    hosted(RUNNER, {
+      title: "Tidy other repo",
+      attachments: [
+        held("slot", "6"),
+      ],
+      hosted: {
+        turn: {
+          state: "working",
+        },
+        mode: "auto",
+        running: true,
+        asked: running,
+      },
+    }),
   ];
   const thread = {
     [SESSION]: [
-      { kind: "message" as const, id: "m1", at: AT, from: { kind: "you" as const }, text: "The handoff is in ~/Documents/handoffs/HANDOFF.md. Read it and carry on." },
-      { kind: "ask" as const, id: `ask-${reaching.call}-${SESSION}`, at: AT, ask: reaching, state: "waiting" as const },
+      {
+        kind: "message" as const,
+        id: "m1",
+        at: AT,
+        from: {
+          kind: "you" as const,
+        },
+        text: "The handoff is in ~/Documents/handoffs/HANDOFF.md. Read it and carry on.",
+      },
+      {
+        kind: "ask" as const,
+        id: `ask-${reaching.call}-${SESSION}`,
+        at: AT,
+        ask: reaching,
+        state: "waiting" as const,
+      },
     ],
     [WRITER]: [
-      { kind: "message" as const, id: "m2", at: AT, from: { kind: "you" as const }, text: "Draft the release notes on my Desktop, in drafts/notes.md." },
-      { kind: "ask" as const, id: `ask-${writing.call}-${WRITER}`, at: AT, ask: writing, state: "waiting" as const },
+      {
+        kind: "message" as const,
+        id: "m2",
+        at: AT,
+        from: {
+          kind: "you" as const,
+        },
+        text: "Draft the release notes on my Desktop, in drafts/notes.md.",
+      },
+      {
+        kind: "ask" as const,
+        id: `ask-${writing.call}-${WRITER}`,
+        at: AT,
+        ask: writing,
+        state: "waiting" as const,
+      },
     ],
     [RUNNER]: [
-      { kind: "message" as const, id: "m3", at: AT, from: { kind: "you" as const }, text: "See what the tidy script would change in ~/code/other-repo." },
-      { kind: "ask" as const, id: `ask-${running.call}-${RUNNER}`, at: AT, ask: running, state: "waiting" as const },
+      {
+        kind: "message" as const,
+        id: "m3",
+        at: AT,
+        from: {
+          kind: "you" as const,
+        },
+        text: "See what the tidy script would change in ~/code/other-repo.",
+      },
+      {
+        kind: "ask" as const,
+        id: `ask-${running.call}-${RUNNER}`,
+        at: AT,
+        ask: running,
+        state: "waiting" as const,
+      },
     ],
   };
   return new FakeSessionsFleet(records, thread);
@@ -98,7 +207,9 @@ function fleet(): FakeSessionsFleet {
 
 function build(): Scenario {
   const board = onBoard({
-    repositories: [ARMADA],
+    repositories: [
+      ARMADA,
+    ],
     picked: ARMADA.root,
   });
   return {

@@ -14,7 +14,12 @@ describe("a key for a row", () => {
   });
 
   test("is not ⌘1 to ⌘9, which open results", () => {
-    for (const digit of ["1", "5", "9"]) expect(refuseHotkey(chord(`⌘${digit}`), [])).toBe("⌘1 to ⌘9 open results");
+    for (const digit of [
+      "1",
+      "5",
+      "9",
+    ])
+      expect(refuseHotkey(chord(`⌘${digit}`), [])).toBe("⌘1 to ⌘9 open results");
     // Only the bare ⌘ digit: with another modifier it opens nothing.
     expect(refuseHotkey(chord("⇧⌘5"), [])).toBeUndefined();
   });
@@ -29,7 +34,12 @@ describe("a key for a row", () => {
   });
 
   test("is not another row's, and names that row", () => {
-    const others = [{ label: "Reviews", hotkey: "⇧⌘J" }];
+    const others = [
+      {
+        label: "Reviews",
+        hotkey: "⇧⌘J",
+      },
+    ];
     expect(refuseHotkey(chord("⇧⌘J"), others)).toBe("Bound to Reviews");
     expect(refuseHotkey(chord("⇧⌘L"), others)).toBeUndefined();
   });
@@ -47,7 +57,12 @@ describe("a word for a row", () => {
   });
 
   test("is not another row's, however it is cased, and names that row", () => {
-    const others = [{ label: "Reviews", alias: "rev" }];
+    const others = [
+      {
+        label: "Reviews",
+        alias: "rev",
+      },
+    ];
     expect(refuseAlias("REV", others)).toBe("Used by Reviews");
     expect(refuseAlias("rv", others)).toBeUndefined();
   });

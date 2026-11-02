@@ -15,8 +15,20 @@ const open = () => undefined;
 export const ASlotAndABranch: Story = {
   args: {
     entries: [
-      { key: "slot", kind: "slot", name: "Slot 14", text: "slot-14", onOpen: open },
-      { key: "branch", kind: "branch", name: "Branch helm/route-thoughts", text: "helm/route-thoughts", onOpen: open },
+      {
+        key: "slot",
+        kind: "slot",
+        name: "Slot 14",
+        text: "slot-14",
+        onOpen: open,
+      },
+      {
+        key: "branch",
+        kind: "branch",
+        name: "Branch helm/route-thoughts",
+        text: "helm/route-thoughts",
+        onOpen: open,
+      },
     ],
   },
 };
@@ -25,13 +37,31 @@ export const ASlotAndABranch: Story = {
 export const ASubagentWorking: Story = {
   args: {
     entries: [
-      { key: "slot", kind: "slot", name: "Slot 14", text: "slot-14", onOpen: open },
-      { key: "agent", kind: "subagent", name: "Subagent Read the merge line", text: "Read the merge line", mark: { glyph: "running", said: "Working" }, onOpen: open },
+      {
+        key: "slot",
+        kind: "slot",
+        name: "Slot 14",
+        text: "slot-14",
+        onOpen: open,
+      },
+      {
+        key: "agent",
+        kind: "subagent",
+        name: "Subagent Read the merge line",
+        text: "Read the merge line",
+        mark: {
+          glyph: "running",
+          said: "Working",
+        },
+        onOpen: open,
+      },
     ],
   },
 };
 
 /** Nothing held draws nothing. */
 export const NothingHeld: Story = {
-  args: { entries: [] },
+  args: {
+    entries: [],
+  },
 };

@@ -3,4 +3,9 @@
 import { jobHandoff } from "../job-handoff";
 import type { Scenario } from "../moment";
 
-export const s298JobHandoffAuto: Scenario = jobHandoff("job-handoff-auto", "Context set to carry on automatically, and a Job passes the line", false, true);
+export const s298JobHandoffAuto: Scenario = jobHandoff(
+  "job-handoff-auto",
+  "Context set to carry on automatically, and a Job passes the line",
+  false,
+  true,
+);

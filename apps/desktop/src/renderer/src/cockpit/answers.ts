@@ -10,7 +10,15 @@
 // of the card is held, and a second press is not a second send.
 
 import { useEffect, useRef, useState } from "react";
-import { actionOf, briefOf, isPressed, keyFor, useCodeRun, type CodeRun, type Press } from "@armada/components";
+import {
+  actionOf,
+  briefOf,
+  isPressed,
+  keyFor,
+  useCodeRun,
+  type CodeRun,
+  type Press,
+} from "@armada/components";
 import type { AnswerWaiting } from "@armada/protocol";
 
 import type { BridgeState } from "../../../shared/bridge";
@@ -35,7 +43,17 @@ import type { Hosts, Item } from "../Dashboard";
  * `once` marks an act, which runs on one press, its click or its number: an option is picked and then sent,
  * because a reply can go with it, which `run` takes as `words`.
  */
-export type Answer = { id: string; label: string; run: (words?: string) => void; key?: string; act?: string; says?: string; description?: string; recommended?: boolean; once?: boolean };
+export type Answer = {
+  id: string;
+  label: string;
+  run: (words?: string) => void;
+  key?: string;
+  act?: string;
+  says?: string;
+  description?: string;
+  recommended?: boolean;
+  once?: boolean;
+};
 
 /** How long a command that passed stays on its card, with its output and exit, before the card goes. */
 const PASSED_FOR = 1400;
@@ -43,7 +61,11 @@ const PASSED_FOR = 1400;
 const LEAVES = 300;
 
 /** The picker an Attach opens: who a pull request can be attached to. */
-export type Attaching = { candidates: readonly Owner[]; choose: (owner: Owner) => void; close: () => void };
+export type Attaching = {
+  candidates: readonly Owner[];
+  choose: (owner: Owner) => void;
+  close: () => void;
+};
 
 export type Answering = {
   /** The question asked now: the call's own fact. */
@@ -84,30 +106,76 @@ export type Answering = {
 };
 
 /** What an act out to Fleet came to. */
-type Told = { kind: "refused"; said: string } | { kind: "answered" | "gone" | "dismissed" | "attached" };
+type Told =
+  | {
+      kind: "refused";
+      said: string;
+    }
+  | {
+      kind: "answered" | "gone" | "dismissed" | "attached";
+    };
 
 /** The pull request a call is about, as the card and the claim name it. */
-function pullOf(item: Item, state: BridgeState): { number: number; branch: string; url: string; open: boolean } | undefined {
+function pullOf(
+  item: Item,
+  state: BridgeState,
+):
+  | {
+      number: number;
+      branch: string;
+      url: string;
+      open: boolean;
+    }
+  | undefined {
   const views = viewsOf(state);
   if (item.key.startsWith("pull:")) {
     const number = Number(item.key.slice("pull:".length));
-    const pull = views.flatMap((view) => view.hub?.pulls ?? []).find((one) => one.number === number);
-    return pull === undefined ? undefined : { number, branch: pull.branch, url: pull.url, open: true };
+    const pull = views
+      .flatMap((view) => view.hub?.pulls ?? [])
+      .find((one) => one.number === number);
+    return pull === undefined
+      ? undefined
+      : {
+          number,
+          branch: pull.branch,
+          url: pull.url,
+          open: true,
+        };
   }
   if (item.key.startsWith("main:")) {
     const main = views.find((view) => view.root === item.key.slice("main:".length))?.hub?.main;
     const merge = main?.state === "red" ? main.red.merge : undefined;
-    return merge === undefined ? undefined : { number: merge.number, branch: merge.branch ?? "", url: merge.url ?? "", open: true };
+    return merge === undefined
+      ? undefined
+      : {
+          number: merge.number,
+          branch: merge.branch ?? "",
+          url: merge.url ?? "",
+          open: true,
+        };
   }
   return undefined;
 }
 
 /** The repository and the brief a new Session starts from for a failing pull request or red main: where the Dispatch sheet opens. */
-function startOf(item: Item, views: ReturnType<typeof viewsOf>): { root: string; brief: string } | undefined {
+function startOf(
+  item: Item,
+  views: ReturnType<typeof viewsOf>,
+):
+  | {
+      root: string;
+      brief: string;
+    }
+  | undefined {
   if (item.key.startsWith("main:")) {
     const root = item.key.slice("main:".length);
     const main = views.find((view) => view.root === root)?.hub?.main;
-    return main?.state === "red" ? { root, brief: briefOf(main.red) } : undefined;
+    return main?.state === "red"
+      ? {
+          root,
+          brief: briefOf(main.red),
+        }
+      : undefined;
   }
   if (!item.key.startsWith("pull:")) return undefined;
   const number = Number(item.key.slice("pull:".length));
@@ -132,8 +200,17 @@ function mainRedSaid(views: ReturnType<typeof viewsOf>, root: string): string {
   const failed =
     red === undefined
       ? []
-      : [{ check: red.check, test: red.test }, ...(red.also ?? [])].map((one) => `- ${one.check}${one.test === undefined ? "" : `: ${one.test}`}`);
-  return [`main is red${merged}. Find why and open a pull request that fixes main.`, ...failed].join("\n");
+      : [
+          {
+            check: red.check,
+            test: red.test,
+          },
+          ...(red.also ?? []),
+        ].map((one) => `- ${one.check}${one.test === undefined ? "" : `: ${one.test}`}`);
+  return [
+    `main is red${merged}. Find why and open a pull request that fixes main.`,
+    ...failed,
+  ].join("\n");
 }
 
 /** Where `o` goes: the Session, or the pull request the call is about. */
@@ -143,7 +220,15 @@ function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | un
   const session = sessionIdOf(item.key);
   if (session !== undefined) return () => hosts.onOpenSession(session);
   const pull = pullOf(item, state);
-  return pull === undefined || pull.url === "" ? undefined : () => void openInPanel({ kind: "pr", number: pull.number, address: pull.url, branch: pull.branch });
+  return pull === undefined || pull.url === ""
+    ? undefined
+    : () =>
+        void openInPanel({
+          kind: "pr",
+          number: pull.number,
+          address: pull.url,
+          branch: pull.branch,
+        });
 }
 
 /**
@@ -160,7 +245,9 @@ function standingOf(send: (mode: "best" | "quick") => void, permission: boolean)
       key: keyFor("call_best"),
       act: "call_best",
       label: actionOf("call_best").verb,
-      says: permission ? "Tells the agent to weigh the command carefully and decide for itself whether to run it" : "Tells the agent to weigh the options and choose the best solution itself",
+      says: permission
+        ? "Tells the agent to weigh the command carefully and decide for itself whether to run it"
+        : "Tells the agent to weigh the options and choose the best solution itself",
       run: () => send("best"),
     },
     {
@@ -168,7 +255,9 @@ function standingOf(send: (mode: "best" | "quick") => void, permission: boolean)
       key: keyFor("call_quick"),
       act: "call_quick",
       label: actionOf("call_quick").verb,
-      says: permission ? "Tells the agent to run the command if it is reasonable and keep moving" : "Tells the agent to finish the work and land it, skipping the formalities",
+      says: permission
+        ? "Tells the agent to run the command if it is reasonable and keep moving"
+        : "Tells the agent to finish the work and land it, skipping the formalities",
       run: () => send("quick"),
     },
   ];
@@ -179,14 +268,27 @@ const RECOMMENDED = /\s*\(Recommended\)\s*$/i;
 export const plainLabel = (label: string): string => label.replace(RECOMMENDED, "");
 
 /** `finish` clears the call once Fleet has answered; `dismissed` does the same for a dismissal. */
-export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finish: () => void, dismissed: () => void = finish): Answering {
+export function useAnswering(
+  item: Item,
+  hosts: Hosts,
+  state: BridgeState,
+  finish: () => void,
+  dismissed: () => void = finish,
+): Answering {
   const [picked, setPicked] = useState<number>();
   const [attaching, setAttaching] = useState(false);
   const [pending, setPending] = useState<string>();
   // One act is out at a time, so a repeated key or a second press is not a second send.
   const out = useRef(false);
   // A new call starts with nothing picked.
-  useEffect(() => (setPicked(undefined), setAttaching(false), setPending(undefined), void (out.current = false)), [item.key]);
+  useEffect(
+    () => (
+      setPicked(undefined), setAttaching(false), setPending(undefined), void (out.current = false)
+    ),
+    [
+      item.key,
+    ],
+  );
 
   /**
    * Sends one act to Fleet, `id` the control pressed. The loop runs until Fleet answers: an acceptance
@@ -201,15 +303,12 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       out.current = false;
       setPending(undefined);
     };
-    void call().then(
-      (told) => {
-        if (told.kind === "refused") {
-          stop();
-          hosts.onTell?.(told.said);
-        } else done();
-      },
-      stop,
-    );
+    void call().then((told) => {
+      if (told.kind === "refused") {
+        stop();
+        hosts.onTell?.(told.said);
+      } else done();
+    }, stop);
   };
 
   const open = opener(item, hosts, state);
@@ -230,26 +329,58 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
             window.setTimeout(settle, LEAVES);
           }, PASSED_FOR);
         });
-  const ran = useCodeRun(runner, item.waiting === undefined ? undefined : waitingRunKey(item.waiting.sessionId, item.waiting.item.id));
+  const ran = useCodeRun(
+    runner,
+    item.waiting === undefined
+      ? undefined
+      : waitingRunKey(item.waiting.sessionId, item.waiting.item.id),
+  );
   // Nothing starts it again while it runs or has passed and the card is about to go, from the block's play control or the key.
-  const guarded: CodeRun = { ...ran, start: (command) => (ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0) ? undefined : ran.start(command)) };
+  const guarded: CodeRun = {
+    ...ran,
+    start: (command) =>
+      ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0)
+        ? undefined
+        : ran.start(command),
+  };
   // From the press until it ends badly the command holds the card; one that passed holds it until the card has gone.
-  const running = ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0);
+  const running =
+    ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0);
   const pull = pullOf(item, state);
   const owner = ownerOfCall(views, sessions, item.key);
 
   // A Session's call answers through Fleet.
   const waiting = item.waiting;
   const restart = restartOf(waiting?.item.act);
-  const sendWaiting = (id: string, body: Omit<AnswerWaiting, "session_id" | "item_id">, accepted?: () => void) => {
+  const sendWaiting = (
+    id: string,
+    body: Omit<AnswerWaiting, "session_id" | "item_id">,
+    accepted?: () => void,
+  ) => {
     if (waiting === undefined) return;
-    wait(id, () => answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body }), () => (accepted?.(), finish()));
+    wait(
+      id,
+      () =>
+        answerWaiting({
+          session_id: waiting.sessionId,
+          item_id: waiting.item.id,
+          ...body,
+        }),
+      () => (accepted?.(), finish()),
+    );
   };
 
   /** A short nudge to whoever owns the pull request or main's red, saying which, through the path that reaches them. */
   const poke = (who: Owner) => {
-    const said = item.key.startsWith("main:") ? mainRedSaid(views, item.key.slice("main:".length)) : `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
-    draft?.send(who.id, { text: said, files: [], sketches: [], tags: [] });
+    const said = item.key.startsWith("main:")
+      ? mainRedSaid(views, item.key.slice("main:".length))
+      : `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
+    draft?.send(who.id, {
+      text: said,
+      files: [],
+      sketches: [],
+      tags: [],
+    });
     finish();
   };
 
@@ -261,7 +392,14 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       "Attach",
       async (): Promise<Told> => {
         const done = await attachPr(pull.number, to);
-        return done.attached ? { kind: "attached" } : { kind: "refused", said: done.said };
+        return done.attached
+          ? {
+              kind: "attached",
+            }
+          : {
+              kind: "refused",
+              said: done.said,
+            };
       },
       () => {
         out.current = false;
@@ -269,7 +407,15 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       },
     );
   };
-  const candidates: Owner[] = sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id }));
+  const candidates: Owner[] = sessions
+    .filter((one) => one.dead === undefined)
+    .map(
+      (one): Owner => ({
+        kind: "session",
+        id: one.id,
+        title: one.title ?? one.id,
+      }),
+    );
 
   // A Sleep decision is agreed with, or changed in words; either way it is reviewed and the call leaves.
   const slept = useSleepSource();
@@ -278,7 +424,9 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
 
   /** Where a pull request the Session names is, from its own attachments or the repository's open ones. */
   const pullAddress = (number: number): string | undefined => {
-    const attached = sessions.find((one) => one.id === waiting?.sessionId)?.attachments.find((one) => one.kind === "pull_request" && one.number === number);
+    const attached = sessions
+      .find((one) => one.id === waiting?.sessionId)
+      ?.attachments.find((one) => one.kind === "pull_request" && one.number === number);
     if (attached?.kind === "pull_request") return attached.address;
     return views.flatMap((view) => view.hub?.pulls ?? []).find((one) => one.number === number)?.url;
   };
@@ -291,35 +439,88 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     }
   };
 
-  const answer = (label: string, run: (words?: string) => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
-  const oneTap = (label: string, run: () => void): Answer => answer(label, run, { once: true });
+  const answer = (
+    label: string,
+    run: (words?: string) => void,
+    extra: Partial<Answer> = {},
+  ): Answer => ({
+    id: label,
+    label,
+    run,
+    ...extra,
+  });
+  const oneTap = (label: string, run: () => void): Answer =>
+    answer(label, run, {
+      once: true,
+    });
   const actsOf = (): Answer[] => {
     // Agreeing is the whole answer; where it was decided opens from the card's own Open.
-    if (sleep !== undefined) return [oneTap("Agree", () => (reviewed(sleep.id), finish()))];
+    if (sleep !== undefined)
+      return [
+        oneTap("Agree", () => (reviewed(sleep.id), finish())),
+      ];
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
-      if (given.source === "walk") return [oneTap("Approve", () => sendWaiting("Approve", {}))];
+      if (given.source === "walk")
+        return [
+          oneTap("Approve", () => sendWaiting("Approve", {})),
+        ];
       // A plan is approved from its own call: the version is the one in the item's id. Sending changes needs the plan, so that is in the Session.
-      if (given.source === "plan") return draft?.work === undefined ? [] : [oneTap("Approve", () => draft.work?.approve(waiting.sessionId))];
+      if (given.source === "plan")
+        return draft?.work === undefined
+          ? []
+          : [
+              oneTap("Approve", () => draft.work?.approve(waiting.sessionId)),
+            ];
       // A Session that said it is done is ended, or kept: Keep going drops the call and leaves the Session as it is.
       if (given.source === "done") {
         return [
-          oneTap("End job", () => (draft?.close === undefined ? finish() : askToEnd(draft, waiting.sessionId, finish))),
+          oneTap("End job", () =>
+            draft?.close === undefined ? finish() : askToEnd(draft, waiting.sessionId, finish),
+          ),
           oneTap("Keep going", () =>
-            wait("Keep going", async (): Promise<Told> => {
-              const kept = await dismissWaiting(waiting.sessionId, given.id);
-              return kept.kind === "dismissed" ? { kind: "dismissed" } : kept;
-            }, dismissed),
+            wait(
+              "Keep going",
+              async (): Promise<Told> => {
+                const kept = await dismissWaiting(waiting.sessionId, given.id);
+                return kept.kind === "dismissed"
+                  ? {
+                      kind: "dismissed",
+                    }
+                  : kept;
+              },
+              dismissed,
+            ),
           ),
         ];
       }
       if (given.options !== undefined && given.options.length > 0) {
         return given.options.map((option, at) =>
-          answer(plainLabel(option.label), (words) => sendWaiting(plainLabel(option.label), { choice: at, ...(words === undefined || words === "" ? {} : { text: words }) }), {
-            ...("description" in option && typeof option.description === "string" ? { description: option.description } : {}),
-            ...(RECOMMENDED.test(option.label) ? { recommended: true } : {}),
-          }),
+          answer(
+            plainLabel(option.label),
+            (words) =>
+              sendWaiting(plainLabel(option.label), {
+                choice: at,
+                ...(words === undefined || words === ""
+                  ? {}
+                  : {
+                      text: words,
+                    }),
+              }),
+            {
+              ...("description" in option && typeof option.description === "string"
+                ? {
+                    description: option.description,
+                  }
+                : {}),
+              ...(RECOMMENDED.test(option.label)
+                ? {
+                    recommended: true,
+                  }
+                : {}),
+            },
+          ),
         );
       }
       // An errand for him follows its act. A line with none is a word to the agent, in the text box.
@@ -327,7 +528,14 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       if (act?.kind === "run") {
         // A slash command is the session's own: it is told, as a reply. Anything else he runs himself.
         // The key says the verb; the command itself is on the card, whole and in its own case.
-        if (act.target.startsWith("/")) return [oneTap("Run", () => sendWaiting("Run", { text: act.target }))];
+        if (act.target.startsWith("/"))
+          return [
+            oneTap("Run", () =>
+              sendWaiting("Run", {
+                text: act.target,
+              }),
+            ),
+          ];
         // A restart is the Fleet panel's build switch: one key, nothing to copy or say. The runner switches it.
         // Fleet's offer of one also takes Skip, which dismisses it and tells the agent nothing.
         if (restart !== undefined) {
@@ -336,50 +544,125 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
               ? []
               : [
                   oneTap("Skip", () =>
-                    wait("Skip", async (): Promise<Told> => {
-                      const skipped = await dismissWaiting(waiting.sessionId, given.id);
-                      return skipped.kind === "dismissed" ? { kind: "dismissed" } : skipped;
-                    }, dismissed),
+                    wait(
+                      "Skip",
+                      async (): Promise<Told> => {
+                        const skipped = await dismissWaiting(waiting.sessionId, given.id);
+                        return skipped.kind === "dismissed"
+                          ? {
+                              kind: "dismissed",
+                            }
+                          : skipped;
+                      },
+                      dismissed,
+                    ),
                   ),
                 ];
-          return [...(runner === undefined ? [] : [answer(restart.label, () => guarded.start(act.target), { once: true })]), ...skip];
+          return [
+            ...(runner === undefined
+              ? []
+              : [
+                  answer(restart.label, () => guarded.start(act.target), {
+                    once: true,
+                  }),
+                ]),
+            ...skip,
+          ];
         }
         const ended = ran.phase.state === "ended" && ran.phase.code !== 0;
         return [
-          ...(runner === undefined ? [] : [answer("Run", () => guarded.start(act.target), { once: true, ...(ended ? { label: "Run again" } : {}) })]),
+          ...(runner === undefined
+            ? []
+            : [
+                answer("Run", () => guarded.start(act.target), {
+                  once: true,
+                  ...(ended
+                    ? {
+                        label: "Run again",
+                      }
+                    : {}),
+                }),
+              ]),
           oneTap("Copy", () => copy(act.target)),
         ];
       }
       if (act?.kind === "approve_pr") {
         const number = act.target.replace(/^#/, "");
         const address = pullAddress(Number(number));
-        return [oneTap(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : void openInPanel({ kind: "pr", number: Number(number), address })))];
+        return [
+          oneTap(`Open #${number}`, () =>
+            address === undefined
+              ? hosts.onOpenSession(waiting.sessionId)
+              : void openInPanel({
+                  kind: "pr",
+                  number: Number(number),
+                  address,
+                }),
+          ),
+        ];
       }
-      if (act?.kind === "walk") return [oneTap("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
+      if (act?.kind === "walk")
+        return [
+          oneTap("Open the page", () =>
+            draft?.openWindow === undefined
+              ? hosts.onOpenLink(act.target)
+              : draft.openWindow(waiting.sessionId, act.target),
+          ),
+        ];
       // A sketch or a document is approved on its card in the Job's thread, so the key goes there.
-      if (given.source === "sketch" || given.source === "document") return [oneTap("Open the Job", () => hosts.onOpenSession(waiting.sessionId))];
+      if (given.source === "sketch" || given.source === "document")
+        return [
+          oneTap("Open the Job", () => hosts.onOpenSession(waiting.sessionId)),
+        ];
       return [];
     }
     // Somebody is already on it: go and see that they are addressing it, or nudge them. No new Drone.
     if ((item.key.startsWith("main:") || item.key.startsWith("pull:")) && pull !== undefined) {
-      if (owner !== undefined) return [oneTap("Open the Job", () => hosts.onOpenSession(owner.id)), oneTap("Poke", () => poke(owner))];
+      if (owner !== undefined)
+        return [
+          oneTap("Open the Job", () => hosts.onOpenSession(owner.id)),
+          oneTap("Poke", () => poke(owner)),
+        ];
       const start = startOf(item, views);
       const started =
         start === undefined || dispatching === undefined
           ? []
-          : [oneTap("Start a Job", () => (dispatching.startDraft(start.brief, start.root), finish()))];
-      return [...started, oneTap("Attach", () => setAttaching(true))];
+          : [
+              oneTap(
+                "Start a Job",
+                () => (dispatching.startDraft(start.brief, start.root), finish()),
+              ),
+            ];
+      return [
+        ...started,
+        oneTap("Attach", () => setAttaching(true)),
+      ];
     }
     return [];
   };
 
   const numbered = actsOf();
   const permission = waiting?.item.source === "permission";
-  const standing = asksAnAgent(item) ? standingOf((mode) => sendWaiting(mode, { mode }), permission) : [];
-  const answers = [...numbered, ...standing];
+  const standing = asksAnAgent(item)
+    ? standingOf(
+        (mode) =>
+          sendWaiting(mode, {
+            mode,
+          }),
+        permission,
+      )
+    : [];
+  const answers = [
+    ...numbered,
+    ...standing,
+  ];
 
   // One answer is the answer: Enter sends it without a number first. Where every answer is an act, Enter runs the first.
-  const chosen = picked ?? (answers.length === 1 || (answers.length > 0 && answers.every((one) => one.once === true)) ? 0 : undefined);
+  const chosen =
+    picked ??
+    (answers.length === 1 || (answers.length > 0 && answers.every((one) => one.once === true))
+      ? 0
+      : undefined);
   const shown = pending ?? (running ? "Run" : undefined);
   const held = shown !== undefined;
   const pick = (index: number) => !held && answers[index] !== undefined && setPicked(index);
@@ -398,7 +681,13 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   };
   const step = (by: 1 | -1) =>
     !held &&
-    setPicked(chosen === undefined ? (by === 1 ? 0 : answers.length - 1) : Math.min(answers.length - 1, Math.max(0, chosen + by)));
+    setPicked(
+      chosen === undefined
+        ? by === 1
+          ? 0
+          : answers.length - 1
+        : Math.min(answers.length - 1, Math.max(0, chosen + by)),
+    );
   const send = () => {
     if (held) return;
     if (answers.length === 0) open?.();
@@ -406,11 +695,21 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   };
   // A first message is sent in the Session's own box, so the card has no reply and its one act opens the Session. The done ask on his
   // tasks sends the agent nothing, so a word typed on it has nowhere to go.
-  const replies = waiting !== undefined && restart === undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission" && waiting.item.source !== "first_message" && waiting.item.source !== "task_done";
+  const replies =
+    waiting !== undefined &&
+    restart === undefined &&
+    waiting.item.source !== "walk" &&
+    waiting.item.source !== "permission" &&
+    waiting.item.source !== "first_message" &&
+    waiting.item.source !== "task_done";
 
   return {
     ask: item.fact,
-    ...(waiting?.item.act?.kind === "run" || waiting?.item.act?.kind === "walk" ? { target: waiting.item.act.target } : {}),
+    ...(waiting?.item.act?.kind === "run" || waiting?.item.act?.kind === "walk"
+      ? {
+          target: waiting.item.act.target,
+        }
+      : {}),
     answers,
     picked: chosen,
     pick,
@@ -420,17 +719,62 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     canSend: !held && (answers.length === 0 ? open !== undefined : chosen !== undefined),
     send,
     open,
-    ...(waiting?.item.act?.kind === "walk" ? { openWalk: () => draft?.openWindow?.(waiting.sessionId, waiting.item.act!.target) } : {}),
-    ...(owner === undefined ? {} : { owner }),
-    ...(sleep !== undefined
-      ? { reply: (text: string, accepted?: () => void) => (slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()) }
+    ...(waiting?.item.act?.kind === "walk"
+      ? {
+          openWalk: () => draft?.openWindow?.(waiting.sessionId, waiting.item.act!.target),
+        }
       : {}),
-    ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
-    ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
-    ...(waiting?.item.act?.kind === "run" && runner !== undefined && restart === undefined && !waiting.item.act.target.startsWith("/") ? { run: guarded } : {}),
+    ...(owner === undefined
+      ? {}
+      : {
+          owner,
+        }),
+    ...(sleep !== undefined
+      ? {
+          reply: (text: string, accepted?: () => void) => (
+            slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()
+          ),
+        }
+      : {}),
+    ...(replies
+      ? {
+          reply: (text: string, accepted?: () => void) =>
+            sendWaiting(
+              "reply",
+              {
+                text,
+              },
+              accepted,
+            ),
+        }
+      : {}),
+    ...(attaching
+      ? {
+          attaching: {
+            candidates,
+            choose: attach,
+            close: () => setAttaching(false),
+          },
+        }
+      : {}),
+    ...(waiting?.item.act?.kind === "run" &&
+    runner !== undefined &&
+    restart === undefined &&
+    !waiting.item.act.target.startsWith("/")
+      ? {
+          run: guarded,
+        }
+      : {}),
     pending: shown,
     // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
-    dismiss: () => (sleep === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(sleep.id), dismissed())),
-    ...(waiting?.item.source === "agent" ? { remove: (reason: string) => wait("dismiss", () => dismissItem(item, reason), dismissed) } : {}),
+    dismiss: () =>
+      sleep === undefined
+        ? wait("dismiss", () => dismissItem(item), dismissed)
+        : (reviewed(sleep.id), dismissed()),
+    ...(waiting?.item.source === "agent"
+      ? {
+          remove: (reason: string) => wait("dismiss", () => dismissItem(item, reason), dismissed),
+        }
+      : {}),
   };
 }

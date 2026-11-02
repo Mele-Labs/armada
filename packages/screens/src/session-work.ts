@@ -3,9 +3,30 @@
 // beside it go in, a `SessionWork` comes out (`draft/sessions.ts`). Fleet's word is used as it comes: a step is lit only where
 // Fleet names one, and a task's state is the one Fleet kept.
 
-import type { BuildPiece, FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WorkflowSummary } from "@armada/protocol";
+import type {
+  BuildPiece,
+  FileTouch,
+  PlanMark as WirePlanMark,
+  ProposedField,
+  SessionPlan,
+  SessionRecord,
+  SessionRow as WireRow,
+  WorkflowSummary,
+} from "@armada/protocol";
 
-import type { AgentTask, PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkDrone, WorkFile, WorkflowChoice, WorkLanding, WorkPlan } from "./draft/sessions";
+import type {
+  AgentTask,
+  PlanMark,
+  SessionAttachment,
+  SessionRow,
+  SessionWork,
+  SuggestLine,
+  WorkDrone,
+  WorkFile,
+  WorkflowChoice,
+  WorkLanding,
+  WorkPlan,
+} from "./draft/sessions";
 
 /** What the window holds beside a record that the work is read with. */
 export type WorkBeside = {
@@ -25,44 +46,104 @@ export type WorkBeside = {
 
 /** The workflows a Session may be given, as the picker lists them. */
 export const choicesOf = (workflows: readonly WorkflowSummary[]): WorkflowChoice[] =>
-  workflows.map((one) => ({ id: one.id, name: one.name, steps: one.steps.map((step) => step.label), manifestId: one.manifest_id }));
+  workflows.map((one) => ({
+    id: one.id,
+    name: one.name,
+    steps: one.steps.map((step) => step.label),
+    manifestId: one.manifest_id,
+  }));
 
-const PICKABLE: readonly ProposedField[] = ["workflow", "model", "effort"];
+const PICKABLE: readonly ProposedField[] = [
+  "workflow",
+  "model",
+  "effort",
+];
 
 /** The workflow a Session follows and the step it is at, where Fleet names one. */
-function workflowOf(record: SessionRecord, workflows: readonly WorkflowSummary[]): SessionWork["workflow"] {
+function workflowOf(
+  record: SessionRecord,
+  workflows: readonly WorkflowSummary[],
+): SessionWork["workflow"] {
   if (record.workflow === undefined) return undefined;
   const found = heldOf(record, workflows);
-  if (found === undefined) return { name: record.workflow, steps: [] };
+  if (found === undefined)
+    return {
+      name: record.workflow,
+      steps: [],
+    };
   // `workflow_step` is the step's index, which Fleet leaves off for a custom Session, after the last step's pull request merged, and while workflows are off.
   const at = record.workflow_step;
   const phase = at === undefined ? undefined : found.steps[at]?.phase;
   return {
     name: found.name,
     steps: found.steps.map((step) => step.label),
-    ...(at === undefined || at < 0 || at >= found.steps.length ? {} : { at }),
-    ...(phase === undefined ? {} : { phase }),
-    ...((record.workflow_visits ?? []).length === 0 ? {} : { visits: (record.workflow_visits ?? []).map((one) => ({ step: one.step, since: one.since })) }),
-    ...((record.skipped_steps ?? []).length === 0 ? {} : { skipped: record.skipped_steps }),
+    ...(at === undefined || at < 0 || at >= found.steps.length
+      ? {}
+      : {
+          at,
+        }),
+    ...(phase === undefined
+      ? {}
+      : {
+          phase,
+        }),
+    ...((record.workflow_visits ?? []).length === 0
+      ? {}
+      : {
+          visits: (record.workflow_visits ?? []).map((one) => ({
+            step: one.step,
+            since: one.since,
+          })),
+        }),
+    ...((record.skipped_steps ?? []).length === 0
+      ? {}
+      : {
+          skipped: record.skipped_steps,
+        }),
   };
 }
 
 /** The workflow the Session follows: its own copy once it changed a step, else the one Fleet holds for its repository, else any of that id. */
-function heldOf(record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkflowSummary | undefined {
+function heldOf(
+  record: SessionRecord,
+  workflows: readonly WorkflowSummary[],
+): WorkflowSummary | undefined {
   if (record.workflow === undefined) return undefined;
   if (record.workflow_copy?.id === record.workflow) return record.workflow_copy;
-  return workflows.find((one) => one.id === record.workflow && (record.manifest_id === undefined || one.manifest_id === record.manifest_id)) ?? workflows.find((one) => one.id === record.workflow);
+  return (
+    workflows.find(
+      (one) =>
+        one.id === record.workflow &&
+        (record.manifest_id === undefined || one.manifest_id === record.manifest_id),
+    ) ?? workflows.find((one) => one.id === record.workflow)
+  );
 }
 
 /** The steps of the workflow the Session follows, each with the id a rule names it by. Empty where Fleet does not hold the workflow. */
-export const stepsWithIds = (record: SessionRecord, workflows: readonly WorkflowSummary[]): { id: string; label: string }[] =>
-  heldOf(record, workflows)?.steps.map((step) => ({ id: step.step_id, label: step.label })) ?? [];
+export const stepsWithIds = (
+  record: SessionRecord,
+  workflows: readonly WorkflowSummary[],
+): {
+  id: string;
+  label: string;
+}[] =>
+  heldOf(record, workflows)?.steps.map((step) => ({
+    id: step.step_id,
+    label: step.label,
+  })) ?? [];
 
 /** What the Session's workflow lands in, as Fleet resolves it. Absent where Fleet does not say. */
-const landsOf = (record: SessionRecord, workflows: readonly WorkflowSummary[]): WorkLanding | undefined => heldOf(record, workflows)?.lands;
+const landsOf = (
+  record: SessionRecord,
+  workflows: readonly WorkflowSummary[],
+): WorkLanding | undefined => heldOf(record, workflows)?.lands;
 
 /** The wire row that recorded this version of the plan, and the last row before it that the thread draws. */
-function afterOf(plan: SessionPlan, rows: readonly WireRow[] | undefined, drawn: readonly SessionRow[]): string | undefined {
+function afterOf(
+  plan: SessionPlan,
+  rows: readonly WireRow[] | undefined,
+  drawn: readonly SessionRow[],
+): string | undefined {
   if (rows === undefined) return undefined;
   const at = rows.findIndex((one) => one.kind === "plan" && one.version === plan.version);
   if (at < 0) return undefined;
@@ -75,37 +156,116 @@ function afterOf(plan: SessionPlan, rows: readonly WireRow[] | undefined, drawn:
 }
 
 /** The plan as the view draws it. A sketch the ledger does not hold yet is left off. */
-export function planOf(plan: SessionPlan, beside: Pick<WorkBeside, "attachments" | "rows" | "drawn">): WorkPlan {
-  const sketch = plan.sketch === undefined ? undefined : beside.attachments.find((one) => one.kind === "sketch" && one.id === plan.sketch?.id);
+export function planOf(
+  plan: SessionPlan,
+  beside: Pick<WorkBeside, "attachments" | "rows" | "drawn">,
+): WorkPlan {
+  const sketch =
+    plan.sketch === undefined
+      ? undefined
+      : beside.attachments.find((one) => one.kind === "sketch" && one.id === plan.sketch?.id);
   const after = afterOf(plan, beside.rows, beside.drawn);
   return {
     version: plan.version,
     scope: plan.scope,
     approved: plan.approved,
-    ...(plan.summary === "" ? {} : { summary: plan.summary }),
-    ...(plan.set_aside_at === undefined ? {} : { setAside: true as const }),
+    ...(plan.summary === ""
+      ? {}
+      : {
+          summary: plan.summary,
+        }),
+    ...(plan.set_aside_at === undefined
+      ? {}
+      : {
+          setAside: true as const,
+        }),
     groups: plan.groups.map((group) => ({
       id: group.id,
       agent: group.agent,
       title: group.title,
       paths: group.paths,
-      ...(group.gives === undefined || group.gives === "" ? {} : { gives: group.gives }),
-      ...(group.issue === undefined ? {} : { issue: group.issue }),
-      landsIn: { label: group.lands_in.label, ...(group.lands_in.pull_request === undefined ? {} : { pullRequest: { number: group.lands_in.pull_request.number, title: group.lands_in.pull_request.title, state: group.lands_in.pull_request.state } }) },
-      ...(group.own_job === true ? { ownJob: true as const } : {}),
+      ...(group.gives === undefined || group.gives === ""
+        ? {}
+        : {
+            gives: group.gives,
+          }),
+      ...(group.issue === undefined
+        ? {}
+        : {
+            issue: group.issue,
+          }),
+      landsIn: {
+        label: group.lands_in.label,
+        ...(group.lands_in.pull_request === undefined
+          ? {}
+          : {
+              pullRequest: {
+                number: group.lands_in.pull_request.number,
+                title: group.lands_in.pull_request.title,
+                state: group.lands_in.pull_request.state,
+              },
+            }),
+      },
+      ...(group.own_job === true
+        ? {
+            ownJob: true as const,
+          }
+        : {}),
       tasks: group.tasks.map((task) => ({
         id: task.id,
         text: task.text,
         state: task.state,
-        ...(task.seen === true ? { seen: true as const } : {}),
-        ...(task.changed_at === undefined ? {} : { changedAt: task.changed_at }),
-        ...(task.marked === undefined ? {} : { marked: task.marked }),
-        ...(task.stale === undefined ? {} : { stale: { why: task.stale.why, since: task.stale.since } }),
+        ...(task.seen === true
+          ? {
+              seen: true as const,
+            }
+          : {}),
+        ...(task.changed_at === undefined
+          ? {}
+          : {
+              changedAt: task.changed_at,
+            }),
+        ...(task.marked === undefined
+          ? {}
+          : {
+              marked: task.marked,
+            }),
+        ...(task.stale === undefined
+          ? {}
+          : {
+              stale: {
+                why: task.stale.why,
+                since: task.stale.since,
+              },
+            }),
       })),
     })),
-    ...(plan.changes === undefined ? {} : { changes: { added: plan.changes.added, renamed: plan.changes.renamed, removed: plan.changes.removed } }),
-    ...(sketch === undefined || sketch.kind !== "sketch" || plan.sketch === undefined || !("nodes" in sketch.drawing) ? {} : { sketch: { id: plan.sketch.id, title: plan.sketch.title, scene: sketch.drawing } }),
-    ...(after === undefined ? {} : { after }),
+    ...(plan.changes === undefined
+      ? {}
+      : {
+          changes: {
+            added: plan.changes.added,
+            renamed: plan.changes.renamed,
+            removed: plan.changes.removed,
+          },
+        }),
+    ...(sketch === undefined ||
+    sketch.kind !== "sketch" ||
+    plan.sketch === undefined ||
+    !("nodes" in sketch.drawing)
+      ? {}
+      : {
+          sketch: {
+            id: plan.sketch.id,
+            title: plan.sketch.title,
+            scene: sketch.drawing,
+          },
+        }),
+    ...(after === undefined
+      ? {}
+      : {
+          after,
+        }),
   };
 }
 
@@ -116,28 +276,60 @@ const plotOf = (path: string): string => {
 };
 
 /** The drones and the files the touches name: each drone at the file it touched last, and each file with what was last done to it. */
-export function fieldOf(touches: readonly FileTouch[]): { field: WorkDrone[]; files: WorkFile[] } {
-  const ordered = [...touches].sort((a, b) => a.at.localeCompare(b.at));
+export function fieldOf(touches: readonly FileTouch[]): {
+  field: WorkDrone[];
+  files: WorkFile[];
+} {
+  const ordered = [
+    ...touches,
+  ].sort((a, b) => a.at.localeCompare(b.at));
   const last = new Map<string, FileTouch>();
   const files = new Map<string, WorkFile>();
   for (const touch of ordered) {
     last.set(touch.by?.id ?? "", touch);
-    files.set(touch.path, { path: touch.path, act: touch.act });
+    files.set(touch.path, {
+      path: touch.path,
+      act: touch.act,
+    });
   }
-  const field = [...last].map(([id, touch]): WorkDrone => ({
-    id: id === "" ? "main" : id,
-    ...(touch.by === undefined ? {} : { agent: touch.by.agent }),
-    path: plotOf(touch.path),
-    doing: "write",
-    file: touch.path,
-    at: touch.at,
-  }));
-  return { field, files: [...files.values()] };
+  const field = [
+    ...last,
+  ].map(
+    ([id, touch]): WorkDrone => ({
+      id: id === "" ? "main" : id,
+      ...(touch.by === undefined
+        ? {}
+        : {
+            agent: touch.by.agent,
+          }),
+      path: plotOf(touch.path),
+      doing: "write",
+      file: touch.path,
+      at: touch.at,
+    }),
+  );
+  return {
+    field,
+    files: [
+      ...files.values(),
+    ],
+  };
 }
 
 /** The agent's own task list, from the build record's pieces, in the order made: a finished piece is done, one the tool has in progress is working, the rest are open. */
 export function tasksOf(pieces: readonly BuildPiece[]): AgentTask[] {
-  return pieces.map((one): AgentTask => ({ id: one.id, subject: one.text, state: one.piece === "solid" || one.piece === "hollow" ? "done" : one.working === true ? "working" : "open" }));
+  return pieces.map(
+    (one): AgentTask => ({
+      id: one.id,
+      subject: one.text,
+      state:
+        one.piece === "solid" || one.piece === "hollow"
+          ? "done"
+          : one.working === true
+            ? "working"
+            : "open",
+    }),
+  );
 }
 
 /**
@@ -148,21 +340,65 @@ export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork |
   if (record.helm === true) return undefined;
   const hosted = record.hosted !== undefined;
   const off = beside.workflowsOff === true;
-  const picked = (record.proposal?.picked ?? []).filter((one) => PICKABLE.includes(one) && !beside.unpicked.has(one) && !(off && one === "workflow")) as ("workflow" | "model" | "effort")[];
+  const picked = (record.proposal?.picked ?? []).filter(
+    (one) => PICKABLE.includes(one) && !beside.unpicked.has(one) && !(off && one === "workflow"),
+  ) as ("workflow" | "model" | "effort")[];
   const workflow = off ? undefined : workflowOf(record, beside.workflows);
   const landing = landsOf(record, beside.workflows);
   const { field, files } = fieldOf(record.touches ?? []);
-  const tasks = record.plan !== undefined || record.state === "ended" ? [] : tasksOf(record.build?.pieces ?? []);
+  const tasks =
+    record.plan !== undefined || record.state === "ended"
+      ? []
+      : tasksOf(record.build?.pieces ?? []);
   return {
     ...(hosted
-      ? { proposal: { workflow: record.workflow ?? null, ...(record.proposal?.reading === true ? { reading: true as const } : {}), ...(picked.length === 0 ? {} : { picked }) } }
+      ? {
+          proposal: {
+            workflow: record.workflow ?? null,
+            ...(record.proposal?.reading === true
+              ? {
+                  reading: true as const,
+                }
+              : {}),
+            ...(picked.length === 0
+              ? {}
+              : {
+                  picked,
+                }),
+          },
+        }
       : {}),
-    ...(workflow === undefined ? {} : { workflow }),
-    ...(record.plan === undefined ? {} : { plan: planOf(record.plan, beside) }),
-    ...(tasks.length === 0 ? {} : { tasks }),
-    ...(field.length === 0 ? {} : { field, files }),
-    ...(off ? { railOff: true as const } : {}),
-    ...(landing === undefined ? {} : { landing }),
+    ...(workflow === undefined
+      ? {}
+      : {
+          workflow,
+        }),
+    ...(record.plan === undefined
+      ? {}
+      : {
+          plan: planOf(record.plan, beside),
+        }),
+    ...(tasks.length === 0
+      ? {}
+      : {
+          tasks,
+        }),
+    ...(field.length === 0
+      ? {}
+      : {
+          field,
+          files,
+        }),
+    ...(off
+      ? {
+          railOff: true as const,
+        }
+      : {}),
+    ...(landing === undefined
+      ? {}
+      : {
+          landing,
+        }),
   };
 }
 
@@ -171,34 +407,96 @@ export function wireMarksOf(marks: readonly PlanMark[]): WirePlanMark[] {
   return marks.map((one): WirePlanMark => {
     switch (one.kind) {
       case "add":
-        return one.task === undefined ? { kind: "add_group", id: one.id, text: one.text } : { kind: "add_task", group: one.group, id: one.id, text: one.text };
+        return one.task === undefined
+          ? {
+              kind: "add_group",
+              id: one.id,
+              text: one.text,
+            }
+          : {
+              kind: "add_task",
+              group: one.group,
+              id: one.id,
+              text: one.text,
+            };
       case "move":
-        return { kind: "move_task", task: one.task, from: one.from, to: one.to };
+        return {
+          kind: "move_task",
+          task: one.task,
+          from: one.from,
+          to: one.to,
+        };
       case "agent":
-        return { kind: "subagent", group: one.group, from: one.from, to: one.to };
+        return {
+          kind: "subagent",
+          group: one.group,
+          from: one.from,
+          to: one.to,
+        };
       default:
         return one;
     }
   });
 }
 
-const VERBS: readonly SuggestLine["verb"][] = ["Renamed", "Removed", "Added", "Moved", "Subagent", "Note"];
+const VERBS: readonly SuggestLine["verb"][] = [
+  "Renamed",
+  "Removed",
+  "Added",
+  "Moved",
+  "Subagent",
+  "Note",
+];
 
 /** The lines of a plan-changes row, in the words the thread draws. */
-export const linesOfWire = (lines: readonly { verb: string; place: string; from?: string; text?: string }[]): SuggestLine[] =>
+export const linesOfWire = (
+  lines: readonly {
+    verb: string;
+    place: string;
+    from?: string;
+    text?: string;
+  }[],
+): SuggestLine[] =>
   lines.map((one) => ({
     verb: VERBS.find((verb) => verb === one.verb) ?? "Note",
     where: one.place,
-    ...(one.from === undefined ? {} : { from: one.from }),
-    ...(one.text === undefined ? {} : { text: one.text }),
+    ...(one.from === undefined
+      ? {}
+      : {
+          from: one.from,
+        }),
+    ...(one.text === undefined
+      ? {}
+      : {
+          text: one.text,
+        }),
   }));
 
-const CHANGED = { "session.workflow": "Workflow", "session.model": "Model", "session.effort": "Effort" } as const;
+const CHANGED = {
+  "session.workflow": "Workflow",
+  "session.model": "Model",
+  "session.effort": "Effort",
+} as const;
 
 /** What a timeline entry that changed a Session's workflow, model or effort says: the value's name and what it was and became. */
-export function changeOfEvent(kind: string, says: string): { what: string; from: string; to: string } | undefined {
+export function changeOfEvent(
+  kind: string,
+  says: string,
+):
+  | {
+      what: string;
+      from: string;
+      to: string;
+    }
+  | undefined {
   const what = CHANGED[kind as keyof typeof CHANGED];
   if (what === undefined) return undefined;
   const found = /^[a-z]+:\s*(.*?)\s*(?:→|->)\s*(.*)$/.exec(says);
-  return found === null ? undefined : { what, from: found[1]!, to: found[2]! };
+  return found === null
+    ? undefined
+    : {
+        what,
+        from: found[1]!,
+        to: found[2]!,
+      };
 }

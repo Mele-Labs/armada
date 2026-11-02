@@ -30,12 +30,32 @@ const terminal: Session = {
   effort: "medium",
   mode: "ask",
   commands: COMMANDS,
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   lastTurnAt: new Date().toISOString(),
   rows: [
-    { id: "frt-1", at: "14:01:12", kind: "message", from: { kind: "you" }, text: "Rate limit the login route" },
-    { id: "frt-2", at: "14:01:20", kind: "tool", text: "Read src/routes/login.ts" },
-    { id: "frt-3", at: "14:01:31", kind: "tool", text: "Edit src/routes/login.ts" },
+    {
+      id: "frt-1",
+      at: "14:01:12",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Rate limit the login route",
+    },
+    {
+      id: "frt-2",
+      at: "14:01:20",
+      kind: "tool",
+      text: "Read src/routes/login.ts",
+    },
+    {
+      id: "frt-3",
+      at: "14:01:31",
+      kind: "tool",
+      text: "Edit src/routes/login.ts",
+    },
   ],
   attachments: [],
 };
@@ -43,37 +63,95 @@ const terminal: Session = {
 const SETTINGS = "src/settings/Settings.tsx";
 const PROVIDER = "src/theme/ThemeProvider.tsx";
 const FILES: readonly WorkFile[] = [
-  { path: PROVIDER, act: "write" },
-  { path: SETTINGS, act: "edit" },
-  { path: "src/theme/tokens.css", act: "edit" },
-  { path: "src/settings/Settings.test.tsx", act: "edit" },
+  {
+    path: PROVIDER,
+    act: "write",
+  },
+  {
+    path: SETTINGS,
+    act: "edit",
+  },
+  {
+    path: "src/theme/tokens.css",
+    act: "edit",
+  },
+  {
+    path: "src/settings/Settings.test.tsx",
+    act: "edit",
+  },
 ];
 
 /** The Sessions store for the walk `first-run`: nothing open, and a Session started from the prompt plays its script. */
 export function firstRunStore(): SessionsStore {
-  const inner = sessionsStore([terminal], [], new Map(), []);
+  const inner = sessionsStore(
+    [
+      terminal,
+    ],
+    [],
+    new Map(),
+    [],
+  );
   const mine = new Set<string>();
   /** The folder each Job of the walk started in. */
   const startedIn = new Map<string, string>();
   // The terminal session is shown once the mod is installed.
   let installed = false;
-  let shown: { from: readonly Session[]; list: readonly Session[] } | undefined;
+  let shown:
+    | {
+        from: readonly Session[];
+        list: readonly Session[];
+      }
+    | undefined;
   const timers = new Set<number>();
   let parent: string | undefined;
   let rows = 0;
   let clock = 0;
 
-  const bump = () => inner.edit(parent ?? TERMINAL, (one) => ({ ...one }));
+  const bump = () =>
+    inner.edit(parent ?? TERMINAL, (one) => ({
+      ...one,
+    }));
   const stamp = () => {
     clock += 9;
     return `14:${String(2 + Math.floor(clock / 60)).padStart(2, "0")}:${String(clock % 60).padStart(2, "0")}`;
   };
-  const row = (make: (id: string, at: string) => SessionRow): SessionRow => make(`fr${(rows += 1)}`, stamp());
-  const tool = (text: string) => row((id, at) => ({ id, at, kind: "tool", text }));
-  const said = (text: string) => row((id, at) => ({ id, at, kind: "message", from: { kind: "agent" }, text }));
+  const row = (make: (id: string, at: string) => SessionRow): SessionRow =>
+    make(`fr${(rows += 1)}`, stamp());
+  const tool = (text: string) =>
+    row((id, at) => ({
+      id,
+      at,
+      kind: "tool",
+      text,
+    }));
+  const said = (text: string) =>
+    row((id, at) => ({
+      id,
+      at,
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text,
+    }));
   /** A command that exited, as the thread folds it: the exit and what it printed. */
-  const ran = (command: string, code: number | null, tail: string) => row((id, at) => ({ id, at, kind: "ran", command, code, tail }));
-  const add = (id: string, more: SessionRow[]) => inner.edit(id, (one) => ({ ...one, rows: [...one.rows, ...more] }));
+  const ran = (command: string, code: number | null, tail: string) =>
+    row((id, at) => ({
+      id,
+      at,
+      kind: "ran",
+      command,
+      code,
+      tail,
+    }));
+  const add = (id: string, more: SessionRow[]) =>
+    inner.edit(id, (one) => ({
+      ...one,
+      rows: [
+        ...one.rows,
+        ...more,
+      ],
+    }));
   const after = (ms: number, run: () => void) => {
     const handle = window.setTimeout(() => {
       timers.delete(handle);
@@ -82,25 +160,73 @@ export function firstRunStore(): SessionsStore {
     timers.add(handle);
   };
   const tasks = (done: number): NonNullable<Session["work"]>["tasks"] =>
-    ["Add a theme setting", "Switch the colours from the setting", "Add the toggle to Settings", "Run the tests"].map((subject, at) => ({
+    [
+      "Add a theme setting",
+      "Switch the colours from the setting",
+      "Add the toggle to Settings",
+      "Run the tests",
+    ].map((subject, at) => ({
       id: `t${at + 1}`,
       subject,
       state: at < done ? "done" : at === done ? "working" : "open",
     }));
-  const working = (id: string, done: number, files: readonly WorkFile[], doing: "write" | "run", file?: string) =>
-    inner.edit(id, (one) => ({ ...one, work: { tasks: tasks(done), field: [{ id: "main", path: file === undefined ? "src/settings" : file.split("/").slice(0, 2).join("/"), doing, ...(file === undefined ? {} : { file }) }], files } }));
+  const working = (
+    id: string,
+    done: number,
+    files: readonly WorkFile[],
+    doing: "write" | "run",
+    file?: string,
+  ) =>
+    inner.edit(id, (one) => ({
+      ...one,
+      work: {
+        tasks: tasks(done),
+        field: [
+          {
+            id: "main",
+            path: file === undefined ? "src/settings" : file.split("/").slice(0, 2).join("/"),
+            doing,
+            ...(file === undefined
+              ? {}
+              : {
+                  file,
+                }),
+          },
+        ],
+        files,
+      },
+    }));
 
   /** The folder made a repository, then the edits: what the Job does with no Manifest. A new project has nothing to read yet. */
   const opening = (id: string) => {
     const folder = startedIn.get(id) ?? FOLDER;
     const fresh = folder !== FOLDER;
-    inner.edit(id, (one) => ({ ...one, title: "Dark mode toggle", cwd: folder, standing: "working" }));
+    inner.edit(id, (one) => ({
+      ...one,
+      title: "Dark mode toggle",
+      cwd: folder,
+      standing: "working",
+    }));
     after(500, () => {
-      add(id, [tool(`git init ${folder}`), ...(fresh ? [tool("Write package.json")] : [tool("Read src/settings/Settings.tsx"), tool("Read src/theme/tokens.css")])]);
+      add(id, [
+        tool(`git init ${folder}`),
+        ...(fresh
+          ? [
+              tool("Write package.json"),
+            ]
+          : [
+              tool("Read src/settings/Settings.tsx"),
+              tool("Read src/theme/tokens.css"),
+            ]),
+      ]);
       working(id, 0, [], "write", SETTINGS);
     });
     after(1300, () => {
-      add(id, [tool(`Write ${PROVIDER}`), tool(`${fresh ? "Write" : "Edit"} ${SETTINGS}`), tool("Edit src/theme/tokens.css")]);
+      add(id, [
+        tool(`Write ${PROVIDER}`),
+        tool(`${fresh ? "Write" : "Edit"} ${SETTINGS}`),
+        tool("Edit src/theme/tokens.css"),
+      ]);
       working(id, 2, FILES.slice(0, 3), "write", SETTINGS);
     });
   };
@@ -109,10 +235,16 @@ export function firstRunStore(): SessionsStore {
   const finish = (id: string) =>
     inner.edit(id, (one) => ({
       ...one,
-      turn: { state: "idle" },
+      turn: {
+        state: "idle",
+      },
       standing: "replied",
       lastTurnAt: new Date().toISOString(),
-      work: { tasks: tasks(4), field: [], files: FILES },
+      work: {
+        tasks: tasks(4),
+        field: [],
+        files: FILES,
+      },
     }));
 
   /** The tests and the dev server, each guessed in turn, then the end of the turn. */
@@ -120,7 +252,11 @@ export function firstRunStore(): SessionsStore {
     () => {
       if (parent === undefined) return;
       add(parent, [
-        ran("npm test", 1, 'npm error Missing script: "test"\nnpm error\nnpm error To see a list of scripts, run:\nnpm error   npm run'),
+        ran(
+          "npm test",
+          1,
+          'npm error Missing script: "test"\nnpm error\nnpm error To see a list of scripts, run:\nnpm error   npm run',
+        ),
         ran("pnpm test", 0, " ✓ src/settings/Settings.test.tsx\n ✓ src/theme/theme.test.ts"),
         ran("pnpm dev", null, "  VITE ready\n  Local:   http://localhost:5173/"),
         said("Tests pass with pnpm test. The dev server starts on :5173."),
@@ -129,7 +265,9 @@ export function firstRunStore(): SessionsStore {
     },
     () => {
       if (parent === undefined) return;
-      add(parent, [said("Settings has a dark mode toggle. The theme follows the system until it is switched.")]);
+      add(parent, [
+        said("Settings has a dark mode toggle. The theme follows the system until it is switched."),
+      ]);
       finish(parent);
     },
   ];
@@ -137,10 +275,43 @@ export function firstRunStore(): SessionsStore {
 
   /** A Job after the first, which Armada already knows the repository for: it leases a slot and cuts a branch, and keeps working. */
   const later = (id: string) => {
-    inner.edit(id, (one) => ({ ...one, title: "Docs dark mode", cwd: startedIn.get(id) ?? FOLDER, standing: "working", context: { tokens: 96_300, window: 1_000_000 } }));
+    inner.edit(id, (one) => ({
+      ...one,
+      title: "Docs dark mode",
+      cwd: startedIn.get(id) ?? FOLDER,
+      standing: "working",
+      context: {
+        tokens: 96_300,
+        window: 1_000_000,
+      },
+    }));
     after(500, () => {
-      add(id, [tool("Read docs/theme.md"), row((rid, at) => ({ id: rid, at, kind: "lease", slot: 2, branch: "docs/dark-mode" })), tool("Edit docs/theme.md")]);
-      inner.edit(id, (one) => ({ ...one, attachments: [...one.attachments, { kind: "slot", slot: 2 }, { kind: "branch", name: "docs/dark-mode", slot: 2 }] }));
+      add(id, [
+        tool("Read docs/theme.md"),
+        row((rid, at) => ({
+          id: rid,
+          at,
+          kind: "lease",
+          slot: 2,
+          branch: "docs/dark-mode",
+        })),
+        tool("Edit docs/theme.md"),
+      ]);
+      inner.edit(id, (one) => ({
+        ...one,
+        attachments: [
+          ...one.attachments,
+          {
+            kind: "slot",
+            slot: 2,
+          },
+          {
+            kind: "branch",
+            name: "docs/dark-mode",
+            slot: 2,
+          },
+        ],
+      }));
     });
   };
 
@@ -154,7 +325,11 @@ export function firstRunStore(): SessionsStore {
     // The terminal session is in the list once its mod is installed, and the list is the same array until it changes.
     get: () => {
       const all = inner.get();
-      if (shown?.from !== all) shown = { from: all, list: installed ? all : all.filter((one) => one.id !== TERMINAL) };
+      if (shown?.from !== all)
+        shown = {
+          from: all,
+          list: installed ? all : all.filter((one) => one.id !== TERMINAL),
+        };
       return shown.list;
     },
     start(tag, root, request, tuning, wait) {
@@ -167,9 +342,20 @@ export function firstRunStore(): SessionsStore {
         inner.edit(id, (one) => ({
           ...one,
           manifestId: manifestOf(root ?? FOLDER),
-          ...(request === undefined && root !== undefined ? { title: manifestOf(root), cwd: root } : {}),
-          context: { tokens: 18_400, window: 1_000_000 },
-          loadout: { knows: 214, told: 6 },
+          ...(request === undefined && root !== undefined
+            ? {
+                title: manifestOf(root),
+                cwd: root,
+              }
+            : {}),
+          context: {
+            tokens: 18_400,
+            window: 1_000_000,
+          },
+          loadout: {
+            knows: 214,
+            told: 6,
+          },
         }));
       }
       return id;
@@ -180,8 +366,21 @@ export function firstRunStore(): SessionsStore {
       if (first) parent = id;
       inner.edit(id, (one) => ({
         ...one,
-        rows: [...one.rows, row((rid, at) => ({ id: rid, at, kind: "message", from: { kind: "you" }, text: sent.text }))],
-        turn: { state: "working" },
+        rows: [
+          ...one.rows,
+          row((rid, at) => ({
+            id: rid,
+            at,
+            kind: "message",
+            from: {
+              kind: "you",
+            },
+            text: sent.text,
+          })),
+        ],
+        turn: {
+          state: "working",
+        },
       }));
       if (first) opening(id);
       else later(id);

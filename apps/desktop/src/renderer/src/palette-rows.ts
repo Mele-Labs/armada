@@ -46,22 +46,48 @@ export type RowWorld = {
   /** Opens the palette on the row's first blank, for a row that was run without them. */
   openAt: (row: ModRow) => void;
   /** The repositories the title row lists, and the one picked by root. */
-  repositories: readonly { root: string; label: string }[];
+  repositories: readonly {
+    root: string;
+    label: string;
+  }[];
   picked: string | null;
   /** Runs a line in a repository's checkout, showing its output in the side panel. False where no panel is hosted. */
   runShell: (command: string, dir: string, repository: string) => boolean;
 };
 
 /** What a blank was filled with: as a prompt reads it, and as an address does (`#1899` and `1899`). */
-export type Filled = Readonly<Record<string, { text: string; bare: string; /** A repository's root, where the blank named one. */ root?: string }>>;
+export type Filled = Readonly<
+  Record<
+    string,
+    {
+      text: string;
+      bare: string /** A repository's root, where the blank named one. */;
+      root?: string;
+    }
+  >
+>;
 
-const pullOf = (world: RowWorld, id: string): PaletteLinked | undefined => world.fixtures.pulls.find((one) => `${one.repo}:${one.number}` === id);
-const issueOf = (world: RowWorld, id: string): PaletteLinked | undefined => world.fixtures.issues.find((one) => `${one.repo}:${one.number}` === id);
+const pullOf = (world: RowWorld, id: string): PaletteLinked | undefined =>
+  world.fixtures.pulls.find((one) => `${one.repo}:${one.number}` === id);
+const issueOf = (world: RowWorld, id: string): PaletteLinked | undefined =>
+  world.fixtures.issues.find((one) => `${one.repo}:${one.number}` === id);
 
 /** The pull request a Job holds, with the address it opens from. */
-const heldBy = (job: Session): { number: number; address: string } | undefined => {
+const heldBy = (
+  job: Session,
+):
+  | {
+      number: number;
+      address: string;
+    }
+  | undefined => {
   const held = job.attachments.find((one) => one.kind === "pull_request");
-  return held === undefined || held.kind !== "pull_request" ? undefined : { number: held.number, address: held.address };
+  return held === undefined || held.kind !== "pull_request"
+    ? undefined
+    : {
+        number: held.number,
+        address: held.address,
+      };
 };
 
 export function carryOutRow(choice: PaletteChoice, world: RowWorld): void {
@@ -94,12 +120,24 @@ export function carryOutRow(choice: PaletteChoice, world: RowWorld): void {
 function runCommandId(id: string, world: RowWorld): void {
   const mod = world.modRows.find((one) => one.id === id);
   if (mod !== undefined) return runModRow(mod, {}, world);
-  runCommand(world.fixtures.commands.find((one) => one.id === id), world);
+  runCommand(
+    world.fixtures.commands.find((one) => one.id === id),
+    world,
+  );
 }
 
 const blanksOf = (row: ModRow): readonly string[] => row.command.blanks ?? [];
-const view = (filled: Filled, key: "text" | "bare", encode = (word: string) => word): Record<string, string> =>
-  Object.fromEntries(Object.entries(filled).map(([name, one]) => [name, encode(one[key])]));
+const view = (
+  filled: Filled,
+  key: "text" | "bare",
+  encode = (word: string) => word,
+): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(filled).map(([name, one]) => [
+      name,
+      encode(one[key]),
+    ]),
+  );
 
 /** Rows being chained now, so a chain that comes back to a row it is running stops there. */
 const chaining = new Set<string>();
@@ -111,18 +149,27 @@ const chaining = new Set<string>();
 export function runModRow(row: ModRow, filled: Filled, world: RowWorld): void {
   const { command } = row;
   const dir = Object.values(filled).find((one) => one.root !== undefined)?.root ?? world.picked;
-  if (blanksOf(row).some((name) => filled[name] === undefined) || (command.shell !== undefined && dir === null)) return world.openAt(row);
-  if (command.prompt !== undefined) return world.startJob(fill(command.prompt, view(filled, "text")));
+  if (
+    blanksOf(row).some((name) => filled[name] === undefined) ||
+    (command.shell !== undefined && dir === null)
+  )
+    return world.openAt(row);
+  if (command.prompt !== undefined)
+    return world.startJob(fill(command.prompt, view(filled, "text")));
   if (command.url !== undefined) {
     const address = fill(command.url, view(filled, "bare", encodeURIComponent));
     // A forge address opens where Bridge opens it; any other goes to the browser.
-    if (!world.openLink(address)) void window.armada.openLink(address).then((followed) => followed.ok || world.tell(`${command.name}: ${address} did not open`));
+    if (!world.openLink(address))
+      void window.armada
+        .openLink(address)
+        .then((followed) => followed.ok || world.tell(`${command.name}: ${address} did not open`));
     return;
   }
   if (command.shell !== undefined && dir !== null) {
     const repository = world.repositories.find((one) => one.root === dir)?.label ?? dir;
     // Typed as it was, with a pull request or an issue as its number: a `#` would start a comment.
-    if (!world.runShell(fill(command.shell, view(filled, "bare")), dir, repository)) world.tell(`${command.name}: no side panel to show it in`);
+    if (!world.runShell(fill(command.shell, view(filled, "bare")), dir, repository))
+      world.tell(`${command.name}: no side panel to show it in`);
     return;
   }
   if (command.chain !== undefined) runChain(row, command.chain, world);
@@ -139,7 +186,8 @@ function runChain(row: ModRow, chain: readonly string[], world: RowWorld): void 
       if (known === undefined) return world.tell(`${name} stopped: no row ${id}`);
       if (known.dormant) return world.tell(`${name} stopped at ${known.label}: it cannot run`);
       const nested = world.modRows.find((one) => `cmd:${one.id}` === id);
-      if (nested !== undefined && askedOf(nested, world.picked).length > 0) return world.openAt(nested);
+      if (nested !== undefined && askedOf(nested, world.picked).length > 0)
+        return world.openAt(nested);
       world.runRow(id);
     }
   } finally {
@@ -150,12 +198,14 @@ function runChain(row: ModRow, chain: readonly string[], world: RowWorld): void 
 function runCommand(command: PaletteCommand | undefined, world: RowWorld): void {
   if (command === undefined) return;
   // A URL opens in the browser. A shell line runs in the checkout, and a chain steps through the palette; neither has a runner here yet.
-  if (command.kind === "url" && command.value !== undefined) window.open(`https://${command.value}`, "_blank", "noopener");
+  if (command.kind === "url" && command.value !== undefined)
+    window.open(`https://${command.value}`, "_blank", "noopener");
   if (command.kind === "chain") world.surface(SURFACE.projects);
 }
 
 function onPage(id: string, world: RowWorld): void {
-  if (id.startsWith(JOB_PAGE) && world.job !== undefined) return on(`session:${world.job.id}`, id.slice(JOB_PAGE.length), world);
+  if (id.startsWith(JOB_PAGE) && world.job !== undefined)
+    return on(`session:${world.job.id}`, id.slice(JOB_PAGE.length), world);
   if (id === "dispatch") world.compose();
   else if (id === "map" || id === "timeline") setView(id);
   else if (id === "needing-you") world.surface(SURFACE.overview);
@@ -167,17 +217,23 @@ function onPage(id: string, world: RowWorld): void {
 function on(target: string, action: string, world: RowWorld, value = ""): void {
   if (action === "pin" || action === "unpin") return togglePin(target);
   // The word or key he gave a row, or its removal: kept by the palette, and no row of anyone's to open.
-  if (action === "alias" || action === "remove-alias") return setAlias(target, action === "alias" ? value : "");
-  if (action === "hotkey" || action === "remove-hotkey") return setHotkey(target, action === "hotkey" ? value : "");
+  if (action === "alias" || action === "remove-alias")
+    return setAlias(target, action === "alias" ? value : "");
+  if (action === "hotkey" || action === "remove-hotkey")
+    return setHotkey(target, action === "hotkey" ? value : "");
   const [kind, ...rest] = target.split(":");
   const id = rest.join(":");
   if (kind === "session") {
     const job = world.jobs.find((one) => one.id === id);
     const held = job === undefined ? undefined : heldBy(job);
     if (action === "open") world.openSession(id);
-    else if (action === "pause" || action === "resume") void toggleSessionPause(world.draft, id, action === "resume");
+    else if (action === "pause" || action === "resume")
+      void toggleSessionPause(world.draft, id, action === "resume");
     else if (action === "stop") stopSession(world.draft, id);
-    else if (action === "fork") void Promise.resolve(world.draft?.fork?.(id)).then((forked) => forked !== undefined && world.openSession(forked));
+    else if (action === "fork")
+      void Promise.resolve(world.draft?.fork?.(id)).then(
+        (forked) => forked !== undefined && world.openSession(forked),
+      );
     else if (action === "open-pull") {
       if (held !== undefined) world.openLink(held.address);
     } else if (action === "merge-pull") {

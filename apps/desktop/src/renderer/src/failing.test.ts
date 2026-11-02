@@ -12,7 +12,10 @@ import { refusedWith } from "@armada/protocol";
 import { fleetRestartFailure } from "@armada/shell";
 import { failingIn } from "./failing";
 
-const BRIDGE: BridgeIdentity = { auditPath: null, fleetProtocol: null };
+const BRIDGE: BridgeIdentity = {
+  auditPath: null,
+  fleetProtocol: null,
+};
 
 const CONNECTED: Connection = {
   state: "connected",
@@ -27,7 +30,10 @@ const CONNECTED: Connection = {
 
 /** What the window shows for a command that met a bare 404 on `path`. */
 function failedAt(path: string) {
-  const outcome = refusedWith(404, "", { method: "POST", path });
+  const outcome = refusedWith(404, "", {
+    method: "POST",
+    path,
+  });
   return failingIn({
     connection: CONNECTED,
     bridge: BRIDGE,
@@ -42,18 +48,30 @@ test("a 404 on a route nothing lists as pending still reads as the two sides dis
   const failure = failedAt("/sessions/s1/unknown");
 
   expect(failure?.payload.code).toBe("bridge.command.unanswerable");
-  expect(failure?.headline).toBe("Fleet answered 404 on POST /sessions/s1/unknown, and Bridge could not read it");
+  expect(failure?.headline).toBe(
+    "Fleet answered 404 on POST /sessions/s1/unknown, and Bridge could not read it",
+  );
 });
 
 const APART: Connection = {
   state: "protocol_mismatch",
-  fleet: { ...CONNECTED.fleet, protocolId: "3fa9c1d20b7e4a15" },
+  fleet: {
+    ...CONNECTED.fleet,
+    protocolId: "3fa9c1d20b7e4a15",
+  },
   speaks: "3fa9c1d20b7e4a15",
   expected: "91bb07e4c25d8830",
 };
 
 function mismatch(connection: Connection) {
-  return failingIn({ connection, bridge: BRIDGE, readAt: 0, outcome: null, raised: [], now: 0 }).fleet;
+  return failingIn({
+    connection,
+    bridge: BRIDGE,
+    readAt: 0,
+    outcome: null,
+    raised: [],
+    now: 0,
+  }).fleet;
 }
 
 test("a Fleet on another protocol is told as a mismatch, with the one thing to press", () => {
@@ -66,13 +84,23 @@ test("a Fleet on another protocol is told as a mismatch, with the one thing to p
 });
 
 test("a runtime file with no ID is the one mismatch that names the stale side", () => {
-  const failure = mismatch({ ...APART, speaks: "" });
+  const failure = mismatch({
+    ...APART,
+    speaks: "",
+  });
 
   expect(failure?.headline).toBe("Fleet is out of date");
 });
 
 test("a restart that failed is a fault with a code of its own, and says what was left alone", () => {
-  const failure = fleetRestartFailure({ ok: false, why: "not_started_by_armada", detail: "not loaded" }, BRIDGE);
+  const failure = fleetRestartFailure(
+    {
+      ok: false,
+      why: "not_started_by_armada",
+      detail: "not loaded",
+    },
+    BRIDGE,
+  );
 
   expect(failure.payload.code).toBe("bridge.fleet.restart_failed");
   expect(failure.kind).toBe("fault");

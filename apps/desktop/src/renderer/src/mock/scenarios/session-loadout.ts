@@ -6,7 +6,17 @@
 // skills and the productivity plugin's, so they offer Edit; an own skill is removed to a pretend Trash and restored from
 // it, and the plugin uninstalled. The walk `session-loadout` plays it.
 
-import type { KitInventory, LoadoutItem, LoadoutSummary, LoadoutTurn, LoadoutUse, RepositorySummary, SessionLoadout, SessionMcpServer, SessionRow } from "@armada/protocol";
+import type {
+  KitInventory,
+  LoadoutItem,
+  LoadoutSummary,
+  LoadoutTurn,
+  LoadoutUse,
+  RepositorySummary,
+  SessionLoadout,
+  SessionMcpServer,
+  SessionRow,
+} from "@armada/protocol";
 import { loadoutKeyOf } from "@armada/components";
 import { kitPieces } from "@armada/manifest/fake";
 import type { LoadoutItemBody } from "@armada/screens/src/draft/sessions";
@@ -16,12 +26,28 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 const AT = "2026-10-17T13:40:00.000Z";
 const ID = "a3f7c2d9-6b18-4e05-9c3a-1d8e2f4b7a60";
 
-const item = (kind: LoadoutItem["kind"], name: string, source: LoadoutItem["source"], more: Partial<LoadoutItem> = {}): LoadoutItem => ({ kind, name, source, ...more });
+const item = (
+  kind: LoadoutItem["kind"],
+  name: string,
+  source: LoadoutItem["source"],
+  more: Partial<LoadoutItem> = {},
+): LoadoutItem => ({
+  kind,
+  name,
+  source,
+  ...more,
+});
 
 const ITEMS: LoadoutItem[] = [
   item("skill", "work-issue", "repository"),
@@ -32,26 +58,62 @@ const ITEMS: LoadoutItem[] = [
   item("skill", "armada:session-rules", "armada"),
   item("skill", "pdf", "kit"),
   item("skill", "deep-research", "kit"),
-  item("skill", "productivity:memory-management", "plugin", { from: "productivity" }),
+  item("skill", "productivity:memory-management", "plugin", {
+    from: "productivity",
+  }),
   item("skill", "code-review", "built_in"),
   item("subagent", "armada:mechanic", "armada"),
   item("subagent", "Explore", "built_in"),
   item("subagent", "general-purpose", "built_in"),
-  item("mcp_server", "forge", "mcp", { from: "forge", state: "connected" }),
-  item("mcp_server", "chrome-devtools", "mcp", { from: "chrome-devtools", state: "failed" }),
-  item("mcp_server", "armada-fleet", "armada", { state: "connected" }),
-  item("tool", "Read", "built_in", { state: "loaded" }),
-  item("tool", "Edit", "built_in", { state: "loaded" }),
-  item("tool", "Bash", "built_in", { state: "loaded" }),
-  item("tool", "Grep", "built_in", { state: "loaded" }),
-  item("tool", "Agent", "built_in", { state: "loaded" }),
-  item("tool", "mcp__forge__pull_request_read", "mcp", { from: "forge", state: "loaded" }),
-  item("tool", "mcp__forge__search_code", "mcp", { from: "forge", state: "deferred" }),
-  item("tool", "mcp__armada-fleet__list_jobs", "armada", { state: "deferred" }),
-  item("memory_file", "AGENTS.md", "repository", { tokens: 2_100 }),
-  item("memory_file", "docs/practices/bridge.md", "repository", { tokens: 4_800 }),
-  item("memory_file", "~/.harness/AGENTS.md", "kit", { tokens: 600 }),
-  item("memory_file", "Organisation policy", "managed", { tokens: 300 }),
+  item("mcp_server", "forge", "mcp", {
+    from: "forge",
+    state: "connected",
+  }),
+  item("mcp_server", "chrome-devtools", "mcp", {
+    from: "chrome-devtools",
+    state: "failed",
+  }),
+  item("mcp_server", "armada-fleet", "armada", {
+    state: "connected",
+  }),
+  item("tool", "Read", "built_in", {
+    state: "loaded",
+  }),
+  item("tool", "Edit", "built_in", {
+    state: "loaded",
+  }),
+  item("tool", "Bash", "built_in", {
+    state: "loaded",
+  }),
+  item("tool", "Grep", "built_in", {
+    state: "loaded",
+  }),
+  item("tool", "Agent", "built_in", {
+    state: "loaded",
+  }),
+  item("tool", "mcp__forge__pull_request_read", "mcp", {
+    from: "forge",
+    state: "loaded",
+  }),
+  item("tool", "mcp__forge__search_code", "mcp", {
+    from: "forge",
+    state: "deferred",
+  }),
+  item("tool", "mcp__armada-fleet__list_jobs", "armada", {
+    state: "deferred",
+  }),
+  item("memory_file", "AGENTS.md", "repository", {
+    tokens: 2_100,
+  }),
+  item("memory_file", "docs/practices/bridge.md", "repository", {
+    tokens: 4_800,
+  }),
+  item("memory_file", "~/.harness/AGENTS.md", "kit", {
+    tokens: 600,
+  }),
+  item("memory_file", "Organisation policy", "managed", {
+    tokens: 300,
+  }),
   item("output_style", "Explanatory", "kit"),
   item("rules", "Armada job rules", "armada"),
   item("injection", "Owner's corrections", "armada"),
@@ -59,31 +121,69 @@ const ITEMS: LoadoutItem[] = [
 ];
 
 const at = (minutes: number) => new Date(Date.parse(AT) + minutes * 60_000).toISOString();
-const use = (turn: string, kind: LoadoutUse["kind"], name: string, source: LoadoutUse["source"], more: Partial<LoadoutUse> = {}): LoadoutUse => ({ turn_started_at: turn, kind, name, source, ...more });
+const use = (
+  turn: string,
+  kind: LoadoutUse["kind"],
+  name: string,
+  source: LoadoutUse["source"],
+  more: Partial<LoadoutUse> = {},
+): LoadoutUse => ({
+  turn_started_at: turn,
+  kind,
+  name,
+  source,
+  ...more,
+});
 
 const turn = (minutes: number, used: (started: string) => LoadoutUse[]): LoadoutTurn => {
   const started = at(minutes);
-  return { started_at: started, used: used(started) };
+  return {
+    started_at: started,
+    used: used(started),
+  };
 };
 
 const TURNS: LoadoutTurn[] = [
-  turn(0, (t) => [use(t, "skill", "work-issue", "repository"), use(t, "tool", "Read", "built_in"), use(t, "tool", "Grep", "built_in")]),
-  turn(6, (t) => [use(t, "skill", "armada-components", "repository"), use(t, "tool", "Edit", "built_in"), use(t, "tool", "Bash", "built_in")]),
+  turn(0, (t) => [
+    use(t, "skill", "work-issue", "repository"),
+    use(t, "tool", "Read", "built_in"),
+    use(t, "tool", "Grep", "built_in"),
+  ]),
+  turn(6, (t) => [
+    use(t, "skill", "armada-components", "repository"),
+    use(t, "tool", "Edit", "built_in"),
+    use(t, "tool", "Bash", "built_in"),
+  ]),
   turn(14, (t) => [
-    use(t, "subagent", "armada:mechanic", "armada", { model: "sonnet" }),
-    use(t, "tool", "mcp__forge__pull_request_read", "mcp", { from: "forge", by: "armada:mechanic", count: 40 }),
+    use(t, "subagent", "armada:mechanic", "armada", {
+      model: "sonnet",
+    }),
+    use(t, "tool", "mcp__forge__pull_request_read", "mcp", {
+      from: "forge",
+      by: "armada:mechanic",
+      count: 40,
+    }),
     use(t, "skill", "commit-message", "repository"),
-    use(t, "tool", "Bash", "built_in", { by: "armada:mechanic" }),
+    use(t, "tool", "Bash", "built_in", {
+      by: "armada:mechanic",
+    }),
   ]),
   turn(22, (t) => [
     use(t, "skill", "armada-voice", "repository"),
     use(t, "tool", "Edit", "built_in"),
-    use(t, "tool", "mcp__mailroom_docs__create_inspiration_document", "mcp", { from: "mailroom_docs" }),
-    use(t, "tool", "mcp__browser-devtools__resize_page", "mcp", { from: "browser-devtools" }),
+    use(t, "tool", "mcp__mailroom_docs__create_inspiration_document", "mcp", {
+      from: "mailroom_docs",
+    }),
+    use(t, "tool", "mcp__browser-devtools__resize_page", "mcp", {
+      from: "browser-devtools",
+    }),
   ]),
 ];
 
-const LOADOUT: SessionLoadout = { items: ITEMS, turns: TURNS };
+const LOADOUT: SessionLoadout = {
+  items: ITEMS,
+  turns: TURNS,
+};
 
 const WORK_ISSUE = `---
 name: work-issue
@@ -151,21 +251,94 @@ Progress. Keep your own multi-step work in your task list with TaskCreate and Ta
 
 /** What a row opens, by `loadoutKeyOf`, as `read_loadout_item` answers. Anything else is not found. */
 const BODIES: Record<string, LoadoutItemBody> = {
-  [loadoutKeyOf({ kind: "skill", name: "work-issue", source: "repository" })]: { what: "read", path: ".harness/skills/work-issue/SKILL.md", format: "markdown", body: WORK_ISSUE },
-  [loadoutKeyOf({ kind: "subagent", name: "armada:mechanic", source: "armada" })]: { what: "read", path: "agents/mechanic.md", format: "markdown", body: MECHANIC },
-  [loadoutKeyOf({ kind: "memory_file", name: "AGENTS.md", source: "repository" })]: { what: "read", path: "AGENTS.md", format: "markdown", body: AGENTS_MD },
-  [loadoutKeyOf({ kind: "rules", name: "Armada job rules", source: "armada" })]: { what: "read", format: "text", body: RULES },
-  [loadoutKeyOf({ kind: "tool", name: "Read", source: "built_in" })]: { what: "not_read", why: "Read is built into the agent. It has no file to read." },
+  [loadoutKeyOf({
+    kind: "skill",
+    name: "work-issue",
+    source: "repository",
+  })]: {
+    what: "read",
+    path: ".harness/skills/work-issue/SKILL.md",
+    format: "markdown",
+    body: WORK_ISSUE,
+  },
+  [loadoutKeyOf({
+    kind: "subagent",
+    name: "armada:mechanic",
+    source: "armada",
+  })]: {
+    what: "read",
+    path: "agents/mechanic.md",
+    format: "markdown",
+    body: MECHANIC,
+  },
+  [loadoutKeyOf({
+    kind: "memory_file",
+    name: "AGENTS.md",
+    source: "repository",
+  })]: {
+    what: "read",
+    path: "AGENTS.md",
+    format: "markdown",
+    body: AGENTS_MD,
+  },
+  [loadoutKeyOf({
+    kind: "rules",
+    name: "Armada job rules",
+    source: "armada",
+  })]: {
+    what: "read",
+    format: "text",
+    body: RULES,
+  },
+  [loadoutKeyOf({
+    kind: "tool",
+    name: "Read",
+    source: "built_in",
+  })]: {
+    what: "not_read",
+    why: "Read is built into the agent. It has no file to read.",
+  },
 };
 
 /** The servers as the Session's process reports them now, one in each state. */
 const MCP: SessionMcpServer[] = [
-  { name: "armada-fleet", state: "connected", scope: "user", tools: 71 },
-  { name: "forge", state: "connected", scope: "project", tools: 2 },
-  { name: "chrome-devtools", state: "failed", error: "timed out after 30s", scope: "project", tools: 0 },
-  { name: "Atlassian Rovo (2)", state: "connecting", scope: "dynamic", tools: 0 },
-  { name: "mailroom", state: "needs_sign_in", scope: "dynamic", tools: 0 },
-  { name: "ledger", state: "off", scope: "user", tools: 0 },
+  {
+    name: "armada-fleet",
+    state: "connected",
+    scope: "user",
+    tools: 71,
+  },
+  {
+    name: "forge",
+    state: "connected",
+    scope: "project",
+    tools: 2,
+  },
+  {
+    name: "chrome-devtools",
+    state: "failed",
+    error: "timed out after 30s",
+    scope: "project",
+    tools: 0,
+  },
+  {
+    name: "Atlassian Rovo (2)",
+    state: "connecting",
+    scope: "dynamic",
+    tools: 0,
+  },
+  {
+    name: "mailroom",
+    state: "needs_sign_in",
+    scope: "dynamic",
+    tools: 0,
+  },
+  {
+    name: "ledger",
+    state: "off",
+    scope: "user",
+    tools: 0,
+  },
 ];
 
 const HOME = "/Users/user/.harness";
@@ -182,22 +355,55 @@ const KIT: KitInventory = {
       read: {
         what: "read",
         items: [
-          { name: "pdf", says: "Read and write PDF files", source: `${HOME}/skills/pdf` },
-          { name: "deep-research", says: "Research a question across many sources", source: `${HOME}/skills/deep-research` },
-          { name: "memory-management", says: "Keep notes between sessions", source: `${PRODUCTIVITY}/skills/memory-management`, plugin: "productivity" },
-          { name: "summarise", says: "Summarise a long thread", source: `${PRODUCTIVITY}/skills/summarise`, plugin: "productivity" },
+          {
+            name: "pdf",
+            says: "Read and write PDF files",
+            source: `${HOME}/skills/pdf`,
+          },
+          {
+            name: "deep-research",
+            says: "Research a question across many sources",
+            source: `${HOME}/skills/deep-research`,
+          },
+          {
+            name: "memory-management",
+            says: "Keep notes between sessions",
+            source: `${PRODUCTIVITY}/skills/memory-management`,
+            plugin: "productivity",
+          },
+          {
+            name: "summarise",
+            says: "Summarise a long thread",
+            source: `${PRODUCTIVITY}/skills/summarise`,
+            plugin: "productivity",
+          },
         ],
         unreadable: [],
       },
     },
     {
       kind: "plugins",
-      read: { what: "read", items: [{ name: "productivity@toolshed", says: "version 1.0.0", source: PRODUCTIVITY, uninstall: "harness plugin uninstall productivity@toolshed" }], unreadable: [] },
+      read: {
+        what: "read",
+        items: [
+          {
+            name: "productivity@toolshed",
+            says: "version 1.0.0",
+            source: PRODUCTIVITY,
+            uninstall: "harness plugin uninstall productivity@toolshed",
+          },
+        ],
+        unreadable: [],
+      },
     },
   ],
 };
 
-const TOLD = new Set<LoadoutItem["kind"]>(["output_style", "rules", "injection"]);
+const TOLD = new Set<LoadoutItem["kind"]>([
+  "output_style",
+  "rules",
+  "injection",
+]);
 const SUMMARY: LoadoutSummary = {
   knows: ITEMS.filter((one) => !TOLD.has(one.kind)).length,
   told: ITEMS.filter((one) => TOLD.has(one.kind)).length,
@@ -209,41 +415,124 @@ const records = () => [
     title: "Why did the mechanic skip the Checks",
     started_at: AT,
     last_turn_at: new Date().toISOString(),
-    usage: { context_tokens: 96_200, context_window: 1_000_000 },
+    usage: {
+      context_tokens: 96_200,
+      context_window: 1_000_000,
+    },
     loadout_summary: SUMMARY,
-    attachments: [held("slot", "2"), held("branch", "fix/mechanic-checks")],
-    hosted: { turn: { state: "idle" }, mode: "auto", running: true, model: "opus", resolved_model: "vendor-opus-5-5" },
+    attachments: [
+      held("slot", "2"),
+      held("branch", "fix/mechanic-checks"),
+    ],
+    hosted: {
+      turn: {
+        state: "idle",
+      },
+      mode: "auto",
+      running: true,
+      model: "opus",
+      resolved_model: "vendor-opus-5-5",
+    },
   }),
 ];
 
 const threads = (): Record<string, SessionRow[]> => ({
   [ID]: [
-    { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "The mechanic pushed without running the Checks. Find out why." },
-    { kind: "message", id: "m2", at: at(14), from: { kind: "agent" }, text: "Sent armada:mechanic to read the pull request." },
-    { kind: "message", id: "m3", at: at(22), from: { kind: "agent" }, text: "It ran on sonnet and read the pull request through the forge MCP server. chrome-devtools failed to connect, so it could not open the page." },
-    { kind: "message", id: "m4", at: at(30), from: { kind: "agent" }, text: "Two things let the push through:\n\n1. The Checks were never listed in the plan.\n2. The mechanic treated a red check as a warning.\n\n- The fix is one line in the plan template.\n- The gate should refuse a push with no Checks." },
+    {
+      kind: "message",
+      id: "m1",
+      at: AT,
+      from: {
+        kind: "you",
+      },
+      text: "The mechanic pushed without running the Checks. Find out why.",
+    },
+    {
+      kind: "message",
+      id: "m2",
+      at: at(14),
+      from: {
+        kind: "agent",
+      },
+      text: "Sent armada:mechanic to read the pull request.",
+    },
+    {
+      kind: "message",
+      id: "m3",
+      at: at(22),
+      from: {
+        kind: "agent",
+      },
+      text: "It ran on sonnet and read the pull request through the forge MCP server. chrome-devtools failed to connect, so it could not open the page.",
+    },
+    {
+      kind: "message",
+      id: "m4",
+      at: at(30),
+      from: {
+        kind: "agent",
+      },
+      text: "Two things let the push through:\n\n1. The Checks were never listed in the plan.\n2. The mechanic treated a red check as a warning.\n\n- The fix is one line in the plan template.\n- The gate should refuse a push with no Checks.",
+    },
   ],
 });
 
 function build(): Scenario {
   const fleet = new FakeSessionsFleet(records(), threads());
-  fleet.loadouts = { [ID]: LOADOUT };
-  fleet.loadoutItems = { [ID]: BODIES };
-  fleet.mcpServers = { [ID]: MCP };
-  fleet.mcpTools = { "chrome-devtools": 26, mailroom: 12, forge: 2, ledger: 40 };
-  fleet.mcpSignIns = { mailroom: { url: "https://mailroom.example/settings/connectors", callback_expected: false } };
-  const served = fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root }));
+  fleet.loadouts = {
+    [ID]: LOADOUT,
+  };
+  fleet.loadoutItems = {
+    [ID]: BODIES,
+  };
+  fleet.mcpServers = {
+    [ID]: MCP,
+  };
+  fleet.mcpTools = {
+    "chrome-devtools": 26,
+    mailroom: 12,
+    forge: 2,
+    ledger: 40,
+  };
+  fleet.mcpSignIns = {
+    mailroom: {
+      url: "https://mailroom.example/settings/connectors",
+      callback_expected: false,
+    },
+  };
+  const served = fleet.scenario(
+    onBoard({
+      repositories: [
+        ARMADA,
+      ],
+      picked: ARMADA.root,
+    }),
+  );
   const behaves: Scenario["behaves"] = (handle) => {
     let inventory = KIT;
-    const pieces = kitPieces({}, { get: () => inventory, set: (next) => void (inventory = next) });
+    const pieces = kitPieces(
+      {},
+      {
+        get: () => inventory,
+        set: (next) => void (inventory = next),
+      },
+    );
     return {
       ...served.behaves?.(handle),
-      readKitInventory: async () => ({ ok: true, setup: inventory }),
+      readKitInventory: async () => ({
+        ok: true,
+        setup: inventory,
+      }),
       removeKitPiece: pieces.removeKitPiece,
       restoreKitPiece: pieces.restoreKitPiece,
     };
   };
-  return { ...served, behaves, name: "session-loadout", says: "A Session's Loadout: what its agent knows, was told and used each turn, where each came from, its MCP servers live, and Kit's skills edited, removed and restored" };
+  return {
+    ...served,
+    behaves,
+    name: "session-loadout",
+    says: "A Session's Loadout: what its agent knows, was told and used each turn, where each came from, its MCP servers live, and Kit's skills edited, removed and restored",
+  };
 }
 
 export const sessionLoadout: Scenario = build();

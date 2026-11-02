@@ -9,5 +9,8 @@ export const searchBars: Scenario = {
   ...projects,
   name: "search-bars",
   says: "One search bar on System, Projects, Reviews and Issues",
-  draft: { ...projects.draft, prReview: reviewSeed() },
+  draft: {
+    ...projects.draft,
+    prReview: reviewSeed(),
+  },
 };

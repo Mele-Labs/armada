@@ -6,7 +6,10 @@
 // uncommitted files exist nowhere but that checkout is.
 
 /** What was committed to a slot's branch so that freeing the slot loses nothing. Nothing is pushed. */
-export type ReclaimedSaved = { commit: string; files: string[] };
+export type ReclaimedSaved = {
+  commit: string;
+  files: string[];
+};
 
 export type WorktreesHeld = {
   /**
@@ -125,7 +128,10 @@ export type SlotFinding = {
 export type RescueAct = "start" | "stop" | "scrap" | "stash" | "pick_up";
 
 /** `rescue_slot`'s body, `POST /worktrees/slots/rescue?manifest_id=`. */
-export type RescueSlot = { act: RescueAct; slot: number };
+export type RescueSlot = {
+  act: RescueAct;
+  slot: number;
+};
 
 /** What `rescue_slot` did. */
 export type SlotRescued = {
@@ -162,7 +168,10 @@ export type SlotPoolChanged = {
 };
 
 /** The branch a released slot's work is on, and what was committed to it. */
-export type SlotReleased = { branch: string; saved?: ReclaimedSaved | null };
+export type SlotReleased = {
+  branch: string;
+  saved?: ReclaimedSaved | null;
+};
 
 /**
  * Who holds a slot, or why nothing can. Discriminated on `state`, and matched
@@ -170,12 +179,20 @@ export type SlotReleased = { branch: string; saved?: ReclaimedSaved | null };
  */
 export type SlotHolding =
   /** Never made. The next lease makes it. */
-  | { state: "unmade" }
+  | {
+      state: "unmade";
+    }
   /** A directory that is not a checkout. Nothing leases it until a person removes it. */
-  | { state: "not_a_checkout" }
+  | {
+      state: "not_a_checkout";
+    }
   /** A take or a release is under way. */
-  | { state: "busy" }
-  | { state: "free" }
+  | {
+      state: "busy";
+    }
+  | {
+      state: "free";
+    }
   /** A process outside Fleet, as `ps` names it: `zsh (pid 4120)`. */
   | {
       state: "session";
@@ -185,9 +202,16 @@ export type SlotHolding =
       session_title?: string;
     }
   /** A Session Fleet hosts, holding the slot under its own id. */
-  | { state: "hosted_session"; session_id: string; session_title?: string }
+  | {
+      state: "hosted_session";
+      session_id: string;
+      session_title?: string;
+    }
   /** Its holder is gone and it still holds work. */
-  | { state: "stranded"; why: string };
+  | {
+      state: "stranded";
+      why: string;
+    };
 
 /** A bay an agent session holds, from a terminal or hosted by Armada: both are released the same way. */
 export function releasable(slot: WorktreeSlot): boolean {

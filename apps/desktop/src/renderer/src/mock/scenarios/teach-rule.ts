@@ -13,21 +13,52 @@ import { FakeSessionsFleet } from "../sessions-fleet";
 import { ruleRecord, ruleThreads } from "../sessions/teach-rule";
 import { bindTeachFleet, teachedMods } from "../teach";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 function build(): Scenario {
-  const board = onBoard({ repositories: [ARMADA] });
-  const served = new FakeSessionsFleet([ruleRecord()], ruleThreads()).scenario(board);
+  const board = onBoard({
+    repositories: [
+      ARMADA,
+    ],
+  });
+  const served = new FakeSessionsFleet(
+    [
+      ruleRecord(),
+    ],
+    ruleThreads(),
+  ).scenario(board);
   return {
     ...served,
     name: "teach-rule",
     says: "A rule taught from a pull request: when it is approved, move its tickets to Done, shown to change before it is kept",
-    draft: { pieces: builtInPieces() },
+    draft: {
+      pieces: builtInPieces(),
+    },
     // A Fleet of its own for each window, so a walk told twice starts from the same Job.
     behaves: (handle) => {
-      const own = new FakeSessionsFleet([ruleRecord()], ruleThreads()).scenario(board).behaves!(handle);
-      bindTeachFleet({ ask: () => undefined, kept: () => undefined }, handle);
-      return { ...own, ...teachedMods };
+      const own = new FakeSessionsFleet(
+        [
+          ruleRecord(),
+        ],
+        ruleThreads(),
+      ).scenario(board).behaves!(handle);
+      bindTeachFleet(
+        {
+          ask: () => undefined,
+          kept: () => undefined,
+        },
+        handle,
+      );
+      return {
+        ...own,
+        ...teachedMods,
+      };
     },
   };
 }

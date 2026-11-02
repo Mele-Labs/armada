@@ -28,10 +28,29 @@ export function landsWord(lands: Lands): string {
   return WORDS[lands];
 }
 
-const WORDS: Record<Lands, string> = { armada: "Armada", kit: "Kit", manifest: "Manifest" };
+const WORDS: Record<Lands, string> = {
+  armada: "Armada",
+  kit: "Kit",
+  manifest: "Manifest",
+};
 
-const MARKS: Record<Lands, { Glyph: typeof Briefcase; says: string }> = {
-  armada: { Glyph: AppWindow, says: "Lands in Armada" },
-  kit: { Glyph: Briefcase, says: "Lands in Kit" },
-  manifest: { Glyph: FileCog, says: "Lands in the Manifest" },
+const MARKS: Record<
+  Lands,
+  {
+    Glyph: typeof Briefcase;
+    says: string;
+  }
+> = {
+  armada: {
+    Glyph: AppWindow,
+    says: "Lands in Armada",
+  },
+  kit: {
+    Glyph: Briefcase,
+    says: "Lands in Kit",
+  },
+  manifest: {
+    Glyph: FileCog,
+    says: "Lands in the Manifest",
+  },
 };

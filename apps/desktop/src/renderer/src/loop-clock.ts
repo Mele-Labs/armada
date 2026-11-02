@@ -9,7 +9,10 @@ const TICK_MS = 100;
 function held(one: Animation): boolean {
   const effect = one.effect as KeyframeEffect | null;
   if (effect?.target == null) return false;
-  return getComputedStyle(effect.target, effect.pseudoElement ?? undefined).animationPlayState.includes("paused");
+  return getComputedStyle(
+    effect.target,
+    effect.pseudoElement ?? undefined,
+  ).animationPlayState.includes("paused");
 }
 
 /** Takes over each infinite animation as it appears, and keeps its phase. `styles/index.css` still decides what stands still. */

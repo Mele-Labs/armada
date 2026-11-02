@@ -15,7 +15,12 @@ export type StateSource = {
 type Wire = Pick<BridgeApi, "subscribeChanges" | "syncState">;
 
 class Feed implements StateSource {
-  private held: { state: BridgeState; seq: number } | undefined;
+  private held:
+    | {
+        state: BridgeState;
+        seq: number;
+      }
+    | undefined;
   private readonly listeners = new Set<(state: BridgeState) => void>();
   private asking: Promise<void> | undefined;
   private started: Promise<void> | undefined;
@@ -45,8 +50,15 @@ class Feed implements StateSource {
   private take(change: StateChange<BridgeState>, asked = false): void {
     if ("full" in change) {
       // A whole state no newer than the one held arrived late: the held one is right.
-      if (this.held !== undefined && (asked ? change.seq <= this.held.seq : change.seq < this.held.seq)) return;
-      this.held = { state: change.full, seq: change.seq };
+      if (
+        this.held !== undefined &&
+        (asked ? change.seq <= this.held.seq : change.seq < this.held.seq)
+      )
+        return;
+      this.held = {
+        state: change.full,
+        seq: change.seq,
+      };
     } else if (this.held === undefined || change.from > this.held.seq) {
       void this.sync();
       return;
@@ -54,7 +66,10 @@ class Feed implements StateSource {
       return;
     } else {
       try {
-        this.held = { state: apply(this.held.state, change.patch) as BridgeState, seq: change.to };
+        this.held = {
+          state: apply(this.held.state, change.patch) as BridgeState,
+          seq: change.to,
+        };
       } catch {
         void this.sync();
         return;
@@ -91,11 +106,17 @@ export function stateOf(api: Wire): StateSource {
 const WHOLE = new WeakMap<object, unknown>();
 
 /** `api` with `state` and `subscribe` as whole states, for what takes the app's API and reads the state through it. */
-export function withState<A extends Wire>(api: A): Omit<A, "subscribeChanges" | "syncState"> & StateSource {
+export function withState<A extends Wire>(
+  api: A,
+): Omit<A, "subscribeChanges" | "syncState"> & StateSource {
   let whole = WHOLE.get(api);
   if (whole === undefined) {
     const feed = stateOf(api);
-    whole = { ...api, state: feed.state, subscribe: feed.subscribe };
+    whole = {
+      ...api,
+      state: feed.state,
+      subscribe: feed.subscribe,
+    };
     WHOLE.set(api, whole);
   }
   return whole as never;

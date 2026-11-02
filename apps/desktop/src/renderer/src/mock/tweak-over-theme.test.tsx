@@ -15,14 +15,24 @@ const TOKEN = "--status-killed";
 /** A colour, spelled by arithmetic: the gate refuses a colour literal in what a renderer ships, tests included. */
 const hex = (n: number) => `#${n.toString(16).toUpperCase().padStart(6, "0")}`;
 const LIGHTER = hex(0xb4bbc3);
-const token = () => getComputedStyle(document.documentElement).getPropertyValue(TOKEN).trim().toUpperCase();
+const token = () =>
+  getComputedStyle(document.documentElement).getPropertyValue(TOKEN).trim().toUpperCase();
 
 afterEach(() => window.history.replaceState(null, "", window.location.pathname));
 
 async function choose(name: string) {
   await toSystemPage("Theme");
-  await page.getByRole("combobox", { name: "Theme" }).fill(name);
-  await page.getByRole("option", { name, exact: true }).click();
+  await page
+    .getByRole("combobox", {
+      name: "Theme",
+    })
+    .fill(name);
+  await page
+    .getByRole("option", {
+      name,
+      exact: true,
+    })
+    .click();
 }
 
 test("a tweak survives choosing another theme, in either direction, and goes when its switch does", async () => {
@@ -39,7 +49,13 @@ test("a tweak survives choosing another theme, in either direction, and goes whe
   expect(token()).toBe(LIGHTER);
 
   await choose("Light");
-  await page.getByRole("switch", { name: "stopped-lighter" }).click({ force: true });
+  await page
+    .getByRole("switch", {
+      name: "stopped-lighter",
+    })
+    .click({
+      force: true,
+    });
   await expect.poll(token).not.toBe(LIGHTER);
   expect(document.documentElement.dataset["theme"]).toBe("light");
 });
@@ -48,7 +64,13 @@ test("a tweak outranks a theme mod that writes its block as :root[data-theme]", 
   mount("teach-mods");
   await onScreen();
   const css = `:root[data-theme="late"] { ${TOKEN}: ${hex(0x123456)}; }`;
-  mockThemes.install({ name: "late", title: "Late", enabled: true, swatch: modSwatch(css), load: () => Promise.resolve(css) });
+  mockThemes.install({
+    name: "late",
+    title: "Late",
+    enabled: true,
+    swatch: modSwatch(css),
+    load: () => Promise.resolve(css),
+  });
   await choose("Late");
   expect(document.documentElement.dataset["theme"]).toBe("late");
   expect(token()).toBe(LIGHTER);

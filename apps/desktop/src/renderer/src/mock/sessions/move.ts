@@ -35,27 +35,92 @@ export function movable(store: SessionsStore, own: Set<string>): SessionsStore {
       const made = await store.start();
       if (made === undefined) return undefined;
       own.add(made);
-      const branches = old.attachments.flatMap((one) => (one.kind === "branch" ? [one.name] : [])).join(",");
+      const branches = old.attachments
+        .flatMap((one) =>
+          one.kind === "branch"
+            ? [
+                one.name,
+              ]
+            : [],
+        )
+        .join(",");
       store.edit(made, () => ({
         id: made,
-        ...(old.title === undefined ? {} : { title: old.title }),
+        ...(old.title === undefined
+          ? {}
+          : {
+              title: old.title,
+            }),
         manifestId,
-        ...(old.model === undefined ? {} : { model: old.model }),
-        ...(old.effort === undefined ? {} : { effort: old.effort }),
-        ...(old.mode === undefined ? {} : { mode: old.mode }),
-        ...(old.context === undefined ? {} : { context: old.context }),
-        attachments: [{ kind: "forked_from", id, ...(old.manifestId === undefined ? {} : { moved: old.manifestId }), ...(branches === "" ? {} : { branch: branches }) }],
-        trail: { started: new Date().toISOString() },
+        ...(old.model === undefined
+          ? {}
+          : {
+              model: old.model,
+            }),
+        ...(old.effort === undefined
+          ? {}
+          : {
+              effort: old.effort,
+            }),
+        ...(old.mode === undefined
+          ? {}
+          : {
+              mode: old.mode,
+            }),
+        ...(old.context === undefined
+          ? {}
+          : {
+              context: old.context,
+            }),
+        attachments: [
+          {
+            kind: "forked_from",
+            id,
+            ...(old.manifestId === undefined
+              ? {}
+              : {
+                  moved: old.manifestId,
+                }),
+            ...(branches === ""
+              ? {}
+              : {
+                  branch: branches,
+                }),
+          },
+        ],
+        trail: {
+          started: new Date().toISOString(),
+        },
         rows: [],
-        turn: { state: "idle" },
-        ...(old.lastTurnAt === undefined ? {} : { lastTurnAt: old.lastTurnAt }),
+        turn: {
+          state: "idle",
+        },
+        ...(old.lastTurnAt === undefined
+          ? {}
+          : {
+              lastTurnAt: old.lastTurnAt,
+            }),
       }));
       // The old one keeps its slot, branch and files, and ends with where it went.
       store.edit(id, (one) => {
         const { asked, waitingFor, ...rest } = one;
         void asked;
         void waitingFor;
-        return { ...rest, dead: "ended", turn: { state: "idle" }, attachments: [...one.attachments, { kind: "forked_to", id: made, moved: manifestId }] };
+        return {
+          ...rest,
+          dead: "ended",
+          turn: {
+            state: "idle",
+          },
+          attachments: [
+            ...one.attachments,
+            {
+              kind: "forked_to",
+              id: made,
+              moved: manifestId,
+            },
+          ],
+        };
       });
       return made;
     },

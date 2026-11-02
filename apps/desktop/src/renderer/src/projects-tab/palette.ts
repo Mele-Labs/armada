@@ -31,7 +31,11 @@ export type Filing = {
 };
 
 /** What the one bar files, or `undefined` where the window keeps no projects. The chips start over each time the palette opens. */
-export function useProjectsFiling(picked: RepositorySummary | null, repositories: readonly RepositorySummary[], open: boolean): Filing | undefined {
+export function useProjectsFiling(
+  picked: RepositorySummary | null,
+  repositories: readonly RepositorySummary[],
+  open: boolean,
+): Filing | undefined {
   const store = useProjectsStore();
   const snap = useProjects();
   const [repo, pickRepo] = useState<string | undefined>(undefined);
@@ -40,20 +44,37 @@ export function useProjectsFiling(picked: RepositorySummary | null, repositories
     if (open) return;
     pickRepo(undefined);
     pickProject(NONE);
-  }, [open]);
+  }, [
+    open,
+  ]);
   if (store === undefined) return undefined;
   const bands = bandsIn(picked, repositories);
   const last = bands.find((band) => band.manifestId === lastUsedRepo(snap))?.manifestId;
-  const repos = [...bands.filter((band) => band.manifestId === last), ...bands.filter((band) => band.manifestId !== last)];
-  const home = bands.some((band) => band.manifestId === repo) ? repo! : (repos[0]?.manifestId ?? "");
-  const projects = [...snap.projects].sort((a, b) => b.usedAt - a.usedAt);
+  const repos = [
+    ...bands.filter((band) => band.manifestId === last),
+    ...bands.filter((band) => band.manifestId !== last),
+  ];
+  const home = bands.some((band) => band.manifestId === repo)
+    ? repo!
+    : (repos[0]?.manifestId ?? "");
+  const projects = [
+    ...snap.projects,
+  ].sort((a, b) => b.usedAt - a.usedAt);
   const chips: PaletteChip[] = [
     {
       id: REPOSITORY,
       name: "Repository",
       icon: FolderGit2,
       marker: "@",
-      options: repos.map((band) => ({ id: band.manifestId, label: band.label, ...(band.manifestId === last ? { detail: "last used" } : {}) })),
+      options: repos.map((band) => ({
+        id: band.manifestId,
+        label: band.label,
+        ...(band.manifestId === last
+          ? {
+              detail: "last used",
+            }
+          : {}),
+      })),
       chosen: home,
       onChoose: pickRepo,
     },
@@ -62,7 +83,16 @@ export function useProjectsFiling(picked: RepositorySummary | null, repositories
       name: "Project",
       icon: Folder,
       marker: "+",
-      options: [{ id: NONE, label: NO_PROJECT }, ...projects.map((one) => ({ id: one.id, label: one.name }))],
+      options: [
+        {
+          id: NONE,
+          label: NO_PROJECT,
+        },
+        ...projects.map((one) => ({
+          id: one.id,
+          label: one.name,
+        })),
+      ],
       chosen: projects.some((one) => one.id === project) ? project : NONE,
       onChoose: pickProject,
     },
@@ -81,10 +111,32 @@ export function useProjectsFiling(picked: RepositorySummary | null, repositories
 /** Every task and subtask he has, for the palette to find by title: the project it is in, or No project, then its repository. */
 export function usePaletteTasks(repositories: readonly RepositorySummary[]): PaletteTask[] {
   const { loose, projects } = useProjects();
-  const repository = new Map(bandsIn(null, repositories).map((band) => [band.manifestId, band.label]));
+  const repository = new Map(
+    bandsIn(null, repositories).map((band) => [
+      band.manifestId,
+      band.label,
+    ]),
+  );
   const named = (rows: ProjectRow[], project: string): PaletteTask[] =>
     rows.flatMap((row) =>
-      row.kind === "task" ? [row, ...(row.subtasks ?? [])].map((one) => ({ id: one.id, label: one.title, detail: `${project} · ${repository.get(one.manifestId) ?? one.manifestId}` })) : [],
+      row.kind === "task"
+        ? [
+            row,
+            ...(row.subtasks ?? []),
+          ].map((one) => ({
+            id: one.id,
+            label: one.title,
+            detail: `${project} · ${repository.get(one.manifestId) ?? one.manifestId}`,
+          }))
+        : [],
     );
-  return [...named([...loose], NO_PROJECT), ...projects.flatMap((one) => named(one.rows, one.name))];
+  return [
+    ...named(
+      [
+        ...loose,
+      ],
+      NO_PROJECT,
+    ),
+    ...projects.flatMap((one) => named(one.rows, one.name)),
+  ];
 }

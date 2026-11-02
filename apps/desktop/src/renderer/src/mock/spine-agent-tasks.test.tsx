@@ -14,8 +14,28 @@ test("a Job whose turn is running with a task list draws the list in its story a
   await onScreen();
   // Its turn is running, and the agent has a list under way. The spine is the stage's own column, outside the Job's thread.
   await toSession(/Name the store migrations/);
-  await expect.element(page.getByRole("list", { name: "Tasks" })).toBeVisible();
-  await expect.element(page.getByRole("list", { name: "Tasks" }).getByText("Rename the files to their order")).toBeVisible();
-  expect(page.getByRole("region", { name: "Working on" }).elements()).toHaveLength(0);
+  await expect
+    .element(
+      page.getByRole("list", {
+        name: "Tasks",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page
+        .getByRole("list", {
+          name: "Tasks",
+        })
+        .getByText("Rename the files to their order"),
+    )
+    .toBeVisible();
+  expect(
+    page
+      .getByRole("region", {
+        name: "Working on",
+      })
+      .elements(),
+  ).toHaveLength(0);
   expect(document.querySelectorAll(".armada-session-working")).toHaveLength(0);
 });

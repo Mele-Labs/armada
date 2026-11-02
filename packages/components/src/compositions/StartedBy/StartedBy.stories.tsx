@@ -13,9 +13,16 @@ export default meta;
 type Story = StoryObj<typeof StartedBy>;
 
 export const Row: Story = {
-  args: { title: "Debug Job 14", onOpen: fn() },
+  args: {
+    title: "Debug Job 14",
+    onOpen: fn(),
+  },
   play: async ({ canvasElement, args }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Started by Debug Job 14" }));
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "Started by Debug Job 14",
+      }),
+    );
     await expect(args.onOpen).toHaveBeenCalled();
   },
 };

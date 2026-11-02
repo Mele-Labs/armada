@@ -12,11 +12,22 @@ const callout = region("Nothing left to do");
 const band = inside(callout, button("Nothing left to do"));
 
 function opened(title: RegExp): Step[] {
-  const mine = inside(region("Jobs", { exact: true }), button(title));
+  const mine = inside(
+    region("Jobs", {
+      exact: true,
+    }),
+    button(title),
+  );
   return [
     toSessions,
-    { press: mine, say: "Opened" },
-    { look: band, say: "A band on the composer, already open as the header of a panel, and the thread dims" },
+    {
+      press: mine,
+      say: "Opened",
+    },
+    {
+      look: band,
+      say: "A band on the composer, already open as the header of a panel, and the thread dims",
+    },
   ];
 }
 
@@ -27,13 +38,42 @@ function keep(narrow: boolean): Step[] {
   const { artifacts, opened: inArtifacts, message } = kit(narrow);
   return [
     ...opened(/Pin the store clock/),
-    { look: prs, say: "Each pull request with its state and checks; many scroll inside the panel" },
-    { look: inside(callout, button("End job")), say: "End job stays in view under them" },
-    { key: "Escape", on: inside(callout, button("End job")), say: "Esc folds it" },
-    ...inArtifacts([{ look: inside(artifacts, region("Pull requests", { exact: true })), say: "The Artifacts layer holds the pull requests too, with state and checks" }]),
-    { press: band, say: "Opened again" },
-    { press: inside(callout, button("Keep going")), say: "Keep going puts it away" },
-    { look: message, say: "The cursor is in the message box" },
+    {
+      look: prs,
+      say: "Each pull request with its state and checks; many scroll inside the panel",
+    },
+    {
+      look: inside(callout, button("End job")),
+      say: "End job stays in view under them",
+    },
+    {
+      key: "Escape",
+      on: inside(callout, button("End job")),
+      say: "Esc folds it",
+    },
+    ...inArtifacts([
+      {
+        look: inside(
+          artifacts,
+          region("Pull requests", {
+            exact: true,
+          }),
+        ),
+        say: "The Artifacts layer holds the pull requests too, with state and checks",
+      },
+    ]),
+    {
+      press: band,
+      say: "Opened again",
+    },
+    {
+      press: inside(callout, button("Keep going")),
+      say: "Keep going puts it away",
+    },
+    {
+      look: message,
+      say: "The cursor is in the message box",
+    },
   ];
 }
 
@@ -41,17 +81,46 @@ const { artifacts: layer, opened: inLayer } = kit(false);
 
 const made: Step[] = [
   ...opened(/Write up the store clock/),
-  { look: artifacts, say: "The page and the Doc it made, and not the picture it looked at" },
-  ...inLayer([{ look: inside(layer, region("Files", { exact: true })), say: "The picture is in the Artifacts layer, under Files" }]),
+  {
+    look: artifacts,
+    say: "The page and the Doc it made, and not the picture it looked at",
+  },
+  ...inLayer([
+    {
+      look: inside(
+        layer,
+        region("Files", {
+          exact: true,
+        }),
+      ),
+      say: "The picture is in the Artifacts layer, under Files",
+    },
+  ]),
 ];
 
 function end(narrow: boolean): Step[] {
   const { artifacts, opened: inArtifacts } = kit(narrow);
   return [
     ...opened(/Pin the store clock/),
-    { press: inside(callout, button("End job")), say: "End job ends the Job" },
-    { look: role("img", "Ended"), say: "Ended" },
-    ...inArtifacts([{ look: inside(artifacts, region("Pull requests", { exact: true })), say: "Its pull requests stay in Artifacts" }]),
+    {
+      press: inside(callout, button("End job")),
+      say: "End job ends the Job",
+    },
+    {
+      look: role("img", "Ended"),
+      say: "Ended",
+    },
+    ...inArtifacts([
+      {
+        look: inside(
+          artifacts,
+          region("Pull requests", {
+            exact: true,
+          }),
+        ),
+        say: "Its pull requests stay in Artifacts",
+      },
+    ]),
   ];
 }
 

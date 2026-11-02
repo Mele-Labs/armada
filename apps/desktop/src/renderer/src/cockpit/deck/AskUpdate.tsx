@@ -13,7 +13,20 @@ export function AskUpdate({ subject }: { subject: string }) {
   return (
     <span className="bf-ask" data-sent={sent || undefined}>
       <Tooltip label={label} asChild>
-        <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={sent} pending={held?.state === "sending"} {...(held?.state === "refused" ? { answer: "refused" as const } : {})} onClick={press}>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={label}
+          aria-pressed={sent}
+          pending={held?.state === "sending"}
+          {...(held?.state === "refused"
+            ? {
+                answer: "refused" as const,
+              }
+            : {})}
+          onClick={press}
+        >
           <MessageCircleMore size={16} aria-hidden="true" />
         </Button>
       </Tooltip>

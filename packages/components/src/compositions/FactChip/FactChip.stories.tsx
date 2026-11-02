@@ -15,7 +15,9 @@ type Story = StoryObj<typeof FactChip>;
  * column whatever it held.
  */
 export const AShortValue: Story = {
-  args: { children: "not run" },
+  args: {
+    children: "not run",
+  },
 };
 
 /**
@@ -24,7 +26,13 @@ export const AShortValue: Story = {
  */
 export const TheFactsOnARunningStep: Story = {
   render: () => (
-    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+    <div
+      style={{
+        display: "flex",
+        gap: "var(--space-2)",
+        flexWrap: "wrap",
+      }}
+    >
       <FactChip>3 files · +94 −31</FactChip>
       <FactChip>not run</FactChip>
       <FactChip>2 criteria</FactChip>
@@ -41,7 +49,13 @@ export const TheFactsOnARunningStep: Story = {
  */
 export const AVerdictPerFact: Story = {
   render: () => (
-    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+    <div
+      style={{
+        display: "flex",
+        gap: "var(--space-2)",
+        flexWrap: "wrap",
+      }}
+    >
       <FactChip named="refused">refused · reducer changed</FactChip>
       <FactChip named="advanced">advanced</FactChip>
       <FactChip named="passed">2 of 2 passed</FactChip>
@@ -58,7 +72,13 @@ export const AVerdictPerFact: Story = {
  */
 export const ARunInJobColours: Story = {
   render: () => (
-    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+    <div
+      style={{
+        display: "flex",
+        gap: "var(--space-2)",
+        flexWrap: "wrap",
+      }}
+    >
       <FactChip run="passed">exit 0 (expects 0)</FactChip>
       <FactChip run="failed">exit 101 (expects 0)</FactChip>
       <FactChip run="stopped">stopped</FactChip>
@@ -76,7 +96,11 @@ export const ARunInJobColours: Story = {
  */
 export const WiderThanItsColumn: Story = {
   render: () => (
-    <div style={{ width: "calc(var(--space-12) * 3)" }}>
+    <div
+      style={{
+        width: "calc(var(--space-12) * 3)",
+      }}
+    >
       <FactChip title="3 files · +94 −31 · all inside the plan">
         3 files · +94 −31 · all inside the plan
       </FactChip>

@@ -15,22 +15,62 @@ const INSTALL = "pnpm install --frozen-lockfile";
 const waiting: Session = {
   id: "s16",
   title: "Debug Bridge on Merge line",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: minutesAgo(2),
   rows: [
-    { id: "k1", at: "22:12:40", kind: "message", from: { kind: "you" }, text: "Clean up after the merge line fix." },
+    {
+      id: "k1",
+      at: "22:12:40",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Clean up after the merge line fix.",
+    },
     {
       id: "k2",
       at: "22:20:43",
       kind: "message",
-      from: { kind: "agent" },
+      from: {
+        kind: "agent",
+      },
       text: `The slot guard won't let me stop the mock server on port 5788:\n\n\`\`\`bash\n${STOP}\n\`\`\`\n\nThe preview also needs its packages again:\n\n\`\`\`bash\n${INSTALL}\n\`\`\``,
     },
   ],
-  attachments: [{ kind: "slot", slot: 10 }, { kind: "branch", name: "fix/merge-line", slot: 10 }],
+  attachments: [
+    {
+      kind: "slot",
+      slot: 10,
+    },
+    {
+      kind: "branch",
+      name: "fix/merge-line",
+      slot: 10,
+    },
+  ],
   waitingFor: [
-    { id: "r1", text: "Stop the mock server on 5788", since: minutesAgo(2), source: "agent", act: { kind: "run", target: STOP } },
-    { id: "r2", text: "Install the preview's packages", since: minutesAgo(2), source: "agent", act: { kind: "run", target: INSTALL } },
+    {
+      id: "r1",
+      text: "Stop the mock server on 5788",
+      since: minutesAgo(2),
+      source: "agent",
+      act: {
+        kind: "run",
+        target: STOP,
+      },
+    },
+    {
+      id: "r2",
+      text: "Install the preview's packages",
+      since: minutesAgo(2),
+      source: "agent",
+      act: {
+        kind: "run",
+        target: INSTALL,
+      },
+    },
   ],
 };
 
@@ -38,5 +78,10 @@ export const s211SessionRunItem: Scenario = {
   ...s200Sessions,
   name: "session-run-item",
   says: "A Session waiting on the person to run two commands it wrote in the thread",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [waiting]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        waiting,
+      ]),
+  },
 };

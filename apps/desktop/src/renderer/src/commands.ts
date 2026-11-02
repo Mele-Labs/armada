@@ -9,14 +9,45 @@
 // callback rather than by reaching for state it does not own: a re-read's answer is published by
 // `onRead`.
 
-import type { EditManifestProposal, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
-import type { BuildSource, ChangeSlotPool, LandCheckAt, RescueSlot, RetroSubject, SketchToKeep } from "@armada/protocol";
+import type {
+  EditManifestProposal,
+  StudioPosition,
+  StudioPromotion,
+  WriteManifestProposal,
+} from "@armada/protocol";
+import type {
+  BuildSource,
+  ChangeSlotPool,
+  LandCheckAt,
+  RescueSlot,
+  RetroSubject,
+  SketchToKeep,
+} from "@armada/protocol";
 import { useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
-import type { ActingOnWorkflowCopy, AskingForWorkflowChange, SavingWorkflow, SuggestingWorkflowChange } from "../../shared/workflows";
-import type { EditManifest, ProposeToArmada, SaveManifestFile, SendBackWorkflowChange, WorkflowChangeRef } from "@armada/protocol";
-import type { AddKitServer, InstallKitPiece, LookAtKitSource, ManifestReach, ReachesDrones, RemoveKitPiece, RestoreKitPiece } from "@armada/protocol";
+import type {
+  ActingOnWorkflowCopy,
+  AskingForWorkflowChange,
+  SavingWorkflow,
+  SuggestingWorkflowChange,
+} from "../../shared/workflows";
+import type {
+  EditManifest,
+  ProposeToArmada,
+  SaveManifestFile,
+  SendBackWorkflowChange,
+  WorkflowChangeRef,
+} from "@armada/protocol";
+import type {
+  AddKitServer,
+  InstallKitPiece,
+  LookAtKitSource,
+  ManifestReach,
+  ReachesDrones,
+  RemoveKitPiece,
+  RestoreKitPiece,
+} from "@armada/protocol";
 import type { Outcome, OrganizeAction, OrganizeProposal } from "@armada/protocol";
 import type { HelmCallAnswer, StartCheckoutRun } from "@armada/protocol";
 import type { HelmContext } from "@armada/protocol";
@@ -37,24 +68,39 @@ import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
  * screens are a layer. */
 export const readHeld = (want: boolean): void => void window.armada.readHeld(want);
 // The Studios surface — #1287. The two reads are held by effects, so they are stable here too.
-export const watchStudios = (manifestId: string | readonly string[] | null): void => void window.armada.watchStudios(manifestId);
-export const watchStudio = (studioId: string | null): void => void window.armada.watchStudio(studioId);
+export const watchStudios = (manifestId: string | readonly string[] | null): void =>
+  void window.armada.watchStudios(manifestId);
+export const watchStudio = (studioId: string | null): void =>
+  void window.armada.watchStudio(studioId);
 export const createStudio = (manifestId: string) => window.armada.createStudio(manifestId);
 // Named, and added to, by a person — #1364. Neither goes through Helm.
-export const renameStudio = (studioId: string, name: string) => window.armada.renameStudio(studioId, name);
+export const renameStudio = (studioId: string, name: string) =>
+  window.armada.renameStudio(studioId, name);
 export const addStudioNode = (
   studioId: string,
   node: StudioNodeByHand,
-  position: { x: number; y: number },
+  position: {
+    x: number;
+    y: number;
+  },
   within: string | null,
 ) => window.armada.addStudioNode(studioId, node, position, within);
 export const pathOfFile = (file: File) => window.armada.pathOfFile(file);
-export const addStudioPicture = (studioId: string, bytes: Uint8Array, position: { x: number; y: number }) =>
-  window.armada.addStudioPicture(studioId, bytes, position);
+export const addStudioPicture = (
+  studioId: string,
+  bytes: Uint8Array,
+  position: {
+    x: number;
+    y: number;
+  },
+) => window.armada.addStudioPicture(studioId, bytes, position);
 export const addStudioSketch = (
   studioId: string,
   drawing: SketchToKeep,
-  position: { x: number; y: number },
+  position: {
+    x: number;
+    y: number;
+  },
   within: string | null,
 ) => window.armada.addStudioSketch(studioId, drawing, position, within);
 export const saveStudioSketch = (studioId: string, nodeId: string, drawing: SketchToKeep) =>
@@ -62,7 +108,10 @@ export const saveStudioSketch = (studioId: string, nodeId: string, drawing: Sket
 export const moveStudioNode = (
   studioId: string,
   nodeId: string,
-  position: { x: number; y: number },
+  position: {
+    x: number;
+    y: number;
+  },
   within: string | null,
 ) => window.armada.moveStudioNode(studioId, nodeId, position, within);
 export const removeStudioNodes = (studioId: string, nodeIds: readonly string[]) =>
@@ -106,7 +155,8 @@ export const bayActs = {
   onRescue: slotActs.onRescueSlot,
 };
 export const readSessionCheckOutput = (run: number) => window.armada.readSessionCheckOutput(run);
-export const stopSessionCheck = (run: number, force: boolean) => window.armada.stopSessionCheck(run, force);
+export const stopSessionCheck = (run: number, force: boolean) =>
+  window.armada.stopSessionCheck(run, force);
 /** A Session's retro and the Lessons listing, read on open and on focus — `docs/concepts/retro.md`. */
 export const readRetro = (subject: RetroSubject) => window.armada.readRetro(subject);
 export const readLessons = (state: "open" | "accepted") => window.armada.readLessons(state);
@@ -115,22 +165,28 @@ export const agreeLesson = (lessonId: string) => window.armada.agreeLesson(lesso
 export const disagreeLesson = (lessonId: string) => window.armada.disagreeLesson(lessonId);
 export const startLessonSession = (lessonId: string) => window.armada.startLessonSession(lessonId);
 /** Setup's Set up with a session: the two Session calls it makes, on the repository being set up. */
-export const setupSessionFleet = { startSession: (title?: string, root?: string) => window.armada.startSession(title, root), sendSessionMessage: (send: SendSessionMessage) => window.armada.sendSessionMessage(send) };
+export const setupSessionFleet = {
+  startSession: (title?: string, root?: string) => window.armada.startSession(title, root),
+  sendSessionMessage: (send: SendSessionMessage) => window.armada.sendSessionMessage(send),
+};
 export const reviewLessons = () => window.armada.reviewLessons();
 export const askLesson = (lessonId: string, question: string, history: AskTurn[]) =>
   window.armada.askLesson(lessonId, question, history);
 /** The Logbook, read on open, and the owner's three acts on an entry — `docs/concepts/logbook.md`. */
 export const readLogbook = () => window.armada.readLogbook();
-export const editLogbookEntry = (id: string, text: string) => window.armada.editLogbookEntry(id, text);
-export const lockLogbookEntry = (id: string, locked: boolean) => window.armada.lockLogbookEntry(id, locked);
+export const editLogbookEntry = (id: string, text: string) =>
+  window.armada.editLogbookEntry(id, text);
+export const lockLogbookEntry = (id: string, locked: boolean) =>
+  window.armada.lockLogbookEntry(id, locked);
 export const forgetLogbookEntry = (id: string) => window.armada.forgetLogbookEntry(id);
 export const organizeLogbook = (action: OrganizeAction) => window.armada.organizeLogbook(action);
 export const dismissOrganizeLogbook = () => window.armada.dismissOrganizeLogbook();
-export const applyOrganizeLogbook = (action: OrganizeAction, proposals: OrganizeProposal[]) => window.armada.applyOrganizeLogbook(action, proposals);
+export const applyOrganizeLogbook = (action: OrganizeAction, proposals: OrganizeProposal[]) =>
+  window.armada.applyOrganizeLogbook(action, proposals);
 export const followCheckOutput = (jobId: string | null, kept: string | null): void =>
   void window.armada.followCheckOutput(jobId, kept);
-export const followLandCheck = (at: LandCheckAt | null): void => void window.armada.followLandCheck(at);
-
+export const followLandCheck = (at: LandCheckAt | null): void =>
+  void window.armada.followLandCheck(at);
 
 // The same rehearsal in the main checkout — the Manifest surface. Held open
 // by the app rather than by the screen, because the palette lists off the same
@@ -152,11 +208,14 @@ export const watchManifestDrift = (want: boolean): void =>
   void window.armada.watchManifestDrift(want);
 // Overview's health and per-repository drift. Held open by the surface, `holding.ts`'s shape.
 export const watchOverview = (want: boolean): void => void window.armada.watchOverview(want);
-export const startCheckoutVerify = (workspace?: string) => window.armada.startCheckoutVerify(workspace);
-export const pickRepository = (root: string | null): void => void window.armada.pickRepository(root);
+export const startCheckoutVerify = (workspace?: string) =>
+  window.armada.startCheckoutVerify(workspace);
+export const pickRepository = (root: string | null): void =>
+  void window.armada.pickRepository(root);
 // Helm's conversation — #944. The reply, and the thread it joins, arrive on
 // `BridgeState.helm`. `context` names where the person is — #1075.
-export const askHelm = (text: string, context?: HelmContext) => window.armada.askHelm(text, context);
+export const askHelm = (text: string, context?: HelmContext) =>
+  window.armada.askHelm(text, context);
 /** The session as one quotable record, read once when a person opens it — #1367. */
 export const helmDebugInfo = () => window.armada.helmDebugInfo();
 export const startHelmFresh = () => window.armada.startHelmFresh();
@@ -165,15 +224,18 @@ export const pointHelm = (manifestId: string): void => void window.armada.pointH
 export const chooseFolder = () => window.armada.chooseFolder();
 export const resolveFolder = (path: string) => window.armada.resolveFolder(path);
 export const addRepository = (path: string) => window.armada.addRepository(path);
-export const cloneRepository = (url: string, parent: string) => window.armada.cloneRepository(url, parent);
-export const createProject = (parent: string, name: string) => window.armada.createProject(parent, name);
+export const cloneRepository = (url: string, parent: string) =>
+  window.armada.cloneRepository(url, parent);
+export const createProject = (parent: string, name: string) =>
+  window.armada.createProject(parent, name);
 // Starting out: the folders already worked in with another agent CLI, how a repository runs and where that is kept, the mod's install.
 export const listImportFolders = () => window.armada.listImportFolders();
 export const getImportRuns = (path: string) => window.armada.getImportRuns(path);
 /** Fleet installs only for a press: call this from one. */
 export const installAgentMod = () => window.armada.installAgentMod();
 export const getRunMemory = (repository: string) => window.armada.getRunMemory(repository);
-export const getRunMemoryPlace = (repository: string) => window.armada.getRunMemoryPlace(repository);
+export const getRunMemoryPlace = (repository: string) =>
+  window.armada.getRunMemoryPlace(repository);
 export const setRunMemoryPlace = (body: SetRunMemoryPlace) => window.armada.setRunMemoryPlace(body);
 export const dropRunFact = (body: DropRunFact) => window.armada.dropRunFact(body);
 // The Manifest file. Held by the app, like the sheet above, so an unsaved edit
@@ -184,8 +246,10 @@ export const editManifest = (body: EditManifest) => window.armada.editManifest(b
 // Setup: Scan, the proposals, one edit, Write.
 export const readRepositoryScan = () => window.armada.readRepositoryScan();
 export const readManifestProposals = () => window.armada.readManifestProposals();
-export const editManifestProposal = (body: EditManifestProposal) => window.armada.editManifestProposal(body);
-export const writeManifestProposal = (body: WriteManifestProposal) => window.armada.writeManifestProposal(body);
+export const editManifestProposal = (body: EditManifestProposal) =>
+  window.armada.editManifestProposal(body);
+export const writeManifestProposal = (body: WriteManifestProposal) =>
+  window.armada.writeManifestProposal(body);
 // A repository-wide always-allow — Fleet's own table since protocol 13.5.
 export const listRepositoryAllowedCommands = () => window.armada.listRepositoryAllowedCommands();
 export const removeRepositoryAllowedCommand = (run: string) =>
@@ -201,27 +265,42 @@ export const restoreKitPiece = (body: RestoreKitPiece) => window.armada.restoreK
 export const listKitServers = () => window.armada.listKitServers();
 /** The Workflow creator: the list, one definition, and a save. */
 export const readWorkflows = () => window.armada.readWorkflows();
-export const readWorkflowDefinition = (workflowId: string, source: string, manifestId: string | null) =>
-  window.armada.readWorkflowDefinition(workflowId, source, manifestId);
+export const readWorkflowDefinition = (
+  workflowId: string,
+  source: string,
+  manifestId: string | null,
+) => window.armada.readWorkflowDefinition(workflowId, source, manifestId);
 export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
 /** The Workflows page beside a definition's text: its steps, a copy deleted or reset to Armada's, a nudge marked not a drift. */
 export const readWorkflowSteps = (workflowId: string, source: string, manifestId: string | null) =>
   window.armada.readWorkflowSteps(workflowId, source, manifestId);
-export const deleteWorkflowCopy = (acting: ActingOnWorkflowCopy) => window.armada.deleteWorkflowCopy(acting);
-export const resetWorkflowCopy = (acting: ActingOnWorkflowCopy) => window.armada.resetWorkflowCopy(acting);
+export const deleteWorkflowCopy = (acting: ActingOnWorkflowCopy) =>
+  window.armada.deleteWorkflowCopy(acting);
+export const resetWorkflowCopy = (acting: ActingOnWorkflowCopy) =>
+  window.armada.resetWorkflowCopy(acting);
 export const markNotADrift = (nudge: number) => window.armada.markNotADrift(nudge);
 /** The changes an agent drafts for him to approve: typed, suggested, polled while drafting, then approved, dismissed or sent back. */
-export const askWorkflowChange = (asking: AskingForWorkflowChange) => window.armada.askWorkflowChange(asking);
-export const suggestWorkflowChange = (suggesting: SuggestingWorkflowChange) => window.armada.suggestWorkflowChange(suggesting);
-export const readWorkflowChanges = (workflowId: string, source: string, manifestId: string | null) =>
-  window.armada.readWorkflowChanges(workflowId, source, manifestId);
-export const approveWorkflowChange = (change: number) => window.armada.approveWorkflowChange(change);
-export const dismissWorkflowChange = (change: number) => window.armada.dismissWorkflowChange(change);
-export const sendBackWorkflowChange = (back: SendBackWorkflowChange) => window.armada.sendBackWorkflowChange(back);
+export const askWorkflowChange = (asking: AskingForWorkflowChange) =>
+  window.armada.askWorkflowChange(asking);
+export const suggestWorkflowChange = (suggesting: SuggestingWorkflowChange) =>
+  window.armada.suggestWorkflowChange(suggesting);
+export const readWorkflowChanges = (
+  workflowId: string,
+  source: string,
+  manifestId: string | null,
+) => window.armada.readWorkflowChanges(workflowId, source, manifestId);
+export const approveWorkflowChange = (change: number) =>
+  window.armada.approveWorkflowChange(change);
+export const dismissWorkflowChange = (change: number) =>
+  window.armada.dismissWorkflowChange(change);
+export const sendBackWorkflowChange = (back: SendBackWorkflowChange) =>
+  window.armada.sendBackWorkflowChange(back);
 /** A job that builds what a change Armada can't do yet lacks. */
-export const buildWorkflowSupport = (building: WorkflowChangeRef) => window.armada.buildWorkflowSupport(building);
+export const buildWorkflowSupport = (building: WorkflowChangeRef) =>
+  window.armada.buildWorkflowSupport(building);
 /** A Job on Armada's own repository that lands a definition, so it ships to every install. */
-export const proposeWorkflowToArmada = (proposing: ProposeToArmada) => window.armada.proposeWorkflowToArmada(proposing);
+export const proposeWorkflowToArmada = (proposing: ProposeToArmada) =>
+  window.armada.proposeWorkflowToArmada(proposing);
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);
 export const setKitServerReach = (name: string, drones: ReachesDrones) =>
@@ -235,7 +314,8 @@ export const openServerLink = (serverId: string, url: string) =>
 /** A link in a model's text. Main opens `http(s):` only — `main/links.ts`. */
 export const openLink = (address: string) => window.armada.openLink(address);
 export const restartFleet = () => window.armada.restartFleet();
-export const changeFleetBuild = (build: BuildSource, adopt: boolean) => window.armada.changeFleetBuild(build, adopt);
+export const changeFleetBuild = (build: BuildSource, adopt: boolean) =>
+  window.armada.changeFleetBuild(build, adopt);
 
 // The capture window on a server Run — #1294. One entry, and everything the
 // window then does is its own bar's.
@@ -244,7 +324,8 @@ export const openCaptureWindow = (serverId: string, url: string) =>
 export const stageAttachment = (bytes: ArrayBuffer, filename: string, mimeType: string) =>
   window.armada.stageAttachment(bytes, filename, mimeType);
 /** Paths under the checkout narrowed against typed text, for the `@` mention popup. */
-export const searchFiles = (query: string, manifestId?: string) => window.armada.searchFiles(query, manifestId);
+export const searchFiles = (query: string, manifestId?: string) =>
+  window.armada.searchFiles(query, manifestId);
 
 /** What a command needs from the render. */
 export type Sending = {
@@ -270,12 +351,19 @@ export function useCommands(sending: Sending) {
    * Session's ledger shows the message.
    */
   async function sendToSession(sessionId: string, text: string): Promise<void> {
-    const answer = await window.armada.sendSessionMessage({ session_id: sessionId, text });
+    const answer = await window.armada.sendSessionMessage({
+      session_id: sessionId,
+      text,
+    });
     if (!answer.ok) setOutcome(answer.outcome);
   }
 
   /** Answer one held Helm call. What draws the card's own controls off while this is out is the call id held here. #1389. */
-  async function answerHelmCall(call: string, chose: HelmCallAnswer, note?: string): Promise<Outcome> {
+  async function answerHelmCall(
+    call: string,
+    chose: HelmCallAnswer,
+    note?: string,
+  ): Promise<Outcome> {
     setAnsweringHelm(call);
     try {
       const answered = await window.armada.answerHelmCall(call, chose, note);

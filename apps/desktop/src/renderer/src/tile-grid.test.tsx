@@ -10,7 +10,10 @@ import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { useTileGrid } from "@armada/components";
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
@@ -22,7 +25,10 @@ afterEach(() => {
 function Late() {
   const [served, setServed] = useState(false);
   const grid = useRef<HTMLUListElement>(null);
-  useTileGrid(grid, { tile: "li", cursor: "button" });
+  useTileGrid(grid, {
+    tile: "li",
+    cursor: "button",
+  });
   return (
     <>
       <button type="button" onClick={() => setServed(true)}>
@@ -30,7 +36,11 @@ function Late() {
       </button>
       {served ? (
         <ul ref={grid}>
-          {["one", "two", "three"].map((name) => (
+          {[
+            "one",
+            "two",
+            "three",
+          ].map((name) => (
             <li key={name}>
               <button type="button">{name}</button>
             </li>
@@ -47,30 +57,79 @@ function Late() {
 test("a grid drawn after the first render is still one Tab stop and moves on the arrows", async () => {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   // StrictMode, as the app renders: every effect runs twice, and the grid must come back from the second.
-  flushSync(() => root.render(<StrictMode><Late /></StrictMode>));
+  flushSync(() =>
+    root.render(
+      <StrictMode>
+        <Late />
+      </StrictMode>,
+    ),
+  );
 
-  await userEvent.click(page.getByRole("button", { name: "Serve" }));
-  await expect.element(page.getByRole("button", { name: "one" })).toBeVisible();
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Serve",
+    }),
+  );
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "one",
+      }),
+    )
+    .toBeVisible();
 
   await userEvent.keyboard("{Tab}");
-  await expect.element(page.getByRole("button", { name: "one" })).toHaveFocus();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "one",
+      }),
+    )
+    .toHaveFocus();
   // One stop: the next Tab leaves the grid rather than walking it.
   await userEvent.keyboard("{Tab}");
-  await expect.element(page.getByRole("button", { name: "After" })).toHaveFocus();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "After",
+      }),
+    )
+    .toHaveFocus();
   await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
-  await expect.element(page.getByRole("button", { name: "one" })).toHaveFocus();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "one",
+      }),
+    )
+    .toHaveFocus();
   await userEvent.keyboard("{ArrowDown}");
-  await expect.element(page.getByRole("button", { name: "two" })).toHaveFocus();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "two",
+      }),
+    )
+    .toHaveFocus();
 });
 
 function Drawn() {
   const grid = useRef<HTMLUListElement>(null);
-  useTileGrid(grid, { tile: "li", cursor: "button" });
+  useTileGrid(grid, {
+    tile: "li",
+    cursor: "button",
+  });
   return (
     <ul ref={grid}>
-      {["one", "two"].map((name) => (
+      {[
+        "one",
+        "two",
+      ].map((name) => (
         <li key={name}>
           <button type="button">{name}</button>
         </li>
@@ -82,10 +141,29 @@ function Drawn() {
 test("a grid drawn on the first render keeps its keys through StrictMode's second run of its effects", async () => {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
-  roots.push({ root, host });
-  flushSync(() => root.render(<StrictMode><Drawn /></StrictMode>));
+  roots.push({
+    root,
+    host,
+  });
+  flushSync(() =>
+    root.render(
+      <StrictMode>
+        <Drawn />
+      </StrictMode>,
+    ),
+  );
 
-  await userEvent.click(page.getByRole("button", { name: "one" }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "one",
+    }),
+  );
   await userEvent.keyboard("{ArrowDown}");
-  await expect.element(page.getByRole("button", { name: "two" })).toHaveFocus();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "two",
+      }),
+    )
+    .toHaveFocus();
 });

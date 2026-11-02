@@ -7,7 +7,11 @@ import type { ClashHolderRef } from "@armada/components";
 const OPEN_HOLDER = "armada:open-holder";
 
 export function askToOpenHolder(holder: ClashHolderRef): void {
-  window.dispatchEvent(new CustomEvent<ClashHolderRef>(OPEN_HOLDER, { detail: holder }));
+  window.dispatchEvent(
+    new CustomEvent<ClashHolderRef>(OPEN_HOLDER, {
+      detail: holder,
+    }),
+  );
 }
 
 /** Opens a Session when asked to. Main is not a holder there is anything to open. */
@@ -19,5 +23,7 @@ export function useOpenHolderAsked(open: { session: (id: string) => void }): voi
     };
     window.addEventListener(OPEN_HOLDER, heard);
     return () => window.removeEventListener(OPEN_HOLDER, heard);
-  }, [open.session]);
+  }, [
+    open.session,
+  ]);
 }

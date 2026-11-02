@@ -2,7 +2,13 @@
 // marked in progress, two of those untouched for over an hour and a half and an hour; the thread ends in the calls the Job made, which Now reads its leading line from.
 // Over `one-session-view`, in place of the Job that rotates the audit log.
 
-import type { Session, SessionRow, WorkGroup, WorkTask, WorkTaskState } from "@armada/screens/src/draft/sessions";
+import type {
+  Session,
+  SessionRow,
+  WorkGroup,
+  WorkTask,
+  WorkTaskState,
+} from "@armada/screens/src/draft/sessions";
 
 import { REAL_CALLS, REAL_GROUPS, REAL_MARKS, REAL_SUMMARY, SNAPSHOT_AT } from "../real-issues-job";
 import type { Scenario } from "../moment";
@@ -13,7 +19,11 @@ const BUSY = "one-view-3";
 /** About how long one tool call took in this Job, which turns "calls since touched" into a time. */
 const SECONDS_A_CALL = 20;
 
-const STATE: Record<string, WorkTaskState> = { in_progress: "working", completed: "done", pending: "open" };
+const STATE: Record<string, WorkTaskState> = {
+  in_progress: "working",
+  completed: "done",
+  pending: "open",
+};
 
 /** The plan's groups as the Job recorded them, each task in the state its mark had. A mark in progress carries when it last changed, counted back from now. */
 function groupsOf(at: number): WorkGroup[] {
@@ -27,7 +37,18 @@ function groupsOf(at: number): WorkGroup[] {
       tasks: group.tasks.map((task): WorkTask => {
         const mark = REAL_MARKS[task.id.slice(1)];
         const state = STATE[mark?.status ?? "pending"] ?? "open";
-        return { id: task.id, text: task.title, state, ...(state === "working" && mark !== undefined ? { changedAt: new Date(at - mark.callsSinceTouched * SECONDS_A_CALL * 1000).toISOString() } : {}) };
+        return {
+          id: task.id,
+          text: task.title,
+          state,
+          ...(state === "working" && mark !== undefined
+            ? {
+                changedAt: new Date(
+                  at - mark.callsSinceTouched * SECONDS_A_CALL * 1000,
+                ).toISOString(),
+              }
+            : {}),
+        };
       }),
     }),
   );
@@ -37,8 +58,15 @@ function groupsOf(at: number): WorkGroup[] {
 function callsOf(): SessionRow[] {
   const end = Date.parse(SNAPSHOT_AT);
   return REAL_CALLS.map(([tool, input], i): SessionRow => {
-    const clock = new Date(end - (REAL_CALLS.length - 1 - i) * SECONDS_A_CALL * 1000).toISOString().slice(11, 19);
-    return { id: `real-${i + 1}`, at: clock, kind: "tool", text: input === "" ? tool : `${tool} ${input}` };
+    const clock = new Date(end - (REAL_CALLS.length - 1 - i) * SECONDS_A_CALL * 1000)
+      .toISOString()
+      .slice(11, 19);
+    return {
+      id: `real-${i + 1}`,
+      at: clock,
+      kind: "tool",
+      text: input === "" ? tool : `${tool} ${input}`,
+    };
   });
 }
 
@@ -48,10 +76,21 @@ export const asRealIssuesJob = (one: Session): Session => {
   return {
     ...one,
     title: "Issues tab beside Reviews",
-    turn: { state: "working" },
+    turn: {
+      state: "working",
+    },
     rows: callsOf(),
     attachments: [],
-    work: { plan: { summary: REAL_SUMMARY, scope: [...new Set(groups.flatMap((group) => group.paths))], approved: true, groups } },
+    work: {
+      plan: {
+        summary: REAL_SUMMARY,
+        scope: [
+          ...new Set(groups.flatMap((group) => group.paths)),
+        ],
+        approved: true,
+        groups,
+      },
+    },
   };
 };
 

@@ -2,7 +2,13 @@
 // Controls and A11y rather than in a separate app — review and reply live in
 // one loop, and a note is half of that loop's write side.
 import React, { useCallback, useEffect, useState } from "react";
-import { addons, types, useChannel, useStorybookApi, useStorybookState } from "storybook/manager-api";
+import {
+  addons,
+  types,
+  useChannel,
+  useStorybookApi,
+  useStorybookState,
+} from "storybook/manager-api";
 import { styled } from "storybook/theming";
 import { Button } from "storybook/internal/components";
 import { PICK_CANCEL, PICK_CANCELLED, PICK_RESULT, PICK_START } from "./picker-types.ts";
@@ -164,9 +170,13 @@ function NotesPanel({ active }: { active?: boolean }) {
       .then((res) => res.json())
       .then(setNotes)
       .catch(() => setNotes([]));
-  }, [storyId]);
+  }, [
+    storyId,
+  ]);
 
-  useEffect(refresh, [refresh]);
+  useEffect(refresh, [
+    refresh,
+  ]);
 
   // A pick belongs to the story it was made against — carrying it into a
   // note on a different story would mislabel it.
@@ -174,7 +184,9 @@ function NotesPanel({ active }: { active?: boolean }) {
     setPicked(null);
     setPicking(false);
     setShot(null);
-  }, [storyId]);
+  }, [
+    storyId,
+  ]);
 
   // An image on the clipboard becomes the note's screenshot; text still pastes
   // as text.
@@ -196,12 +208,16 @@ function NotesPanel({ active }: { active?: boolean }) {
     setPicked(null);
     setPicking(true);
     emit(PICK_START);
-  }, [emit]);
+  }, [
+    emit,
+  ]);
 
   const cancelPicking = useCallback(() => {
     emit(PICK_CANCEL);
     setPicking(false);
-  }, [emit]);
+  }, [
+    emit,
+  ]);
 
   // Right after the reviewer clicks "Pick an area", focus is still on that
   // button in the manager frame, not the preview iframe — the picker's own
@@ -216,7 +232,10 @@ function NotesPanel({ active }: { active?: boolean }) {
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [picking, cancelPicking]);
+  }, [
+    picking,
+    cancelPicking,
+  ]);
 
   /**
    * Send the note, and **keep it in the box unless the server says it landed.**
@@ -238,13 +257,23 @@ function NotesPanel({ active }: { active?: boolean }) {
     setFailed(null);
     fetch("/__notes", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         story: storyId,
         titled,
         note: draft,
-        ...(picked ? { picked } : {}),
-        ...(shot ? { shot } : {}),
+        ...(picked
+          ? {
+              picked,
+            }
+          : {}),
+        ...(shot
+          ? {
+              shot,
+            }
+          : {}),
       }),
     })
       .then((response) => {
@@ -258,7 +287,14 @@ function NotesPanel({ active }: { active?: boolean }) {
       .catch((reason: unknown) => {
         setFailed(reason instanceof Error ? reason.message : String(reason));
       });
-  }, [api, draft, picked, refresh, shot, storyId]);
+  }, [
+    api,
+    draft,
+    picked,
+    refresh,
+    shot,
+    storyId,
+  ]);
 
   if (!active) return null;
 

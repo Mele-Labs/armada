@@ -38,7 +38,9 @@ export function GuideFigure({ figure, scale }: GuideFigureProps) {
   // already still — `travel.ts` and `useHold.ts` take the preference the same
   // way. The tokens zero --duration-travel under the same query as well.
   const [still] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
 
   return (
@@ -75,7 +77,14 @@ function Arriving({ at, children }: { at: number; children: ReactNode }) {
   return (
     // Its place in the queue, which is what staggers it. Not a duration:
     // --duration-travel is the duration and this multiplies it.
-    <div className="armada-guide-figure__arriving" style={{ "--armada-figure-order": at } as CSSProperties}>
+    <div
+      className="armada-guide-figure__arriving"
+      style={
+        {
+          "--armada-figure-order": at,
+        } as CSSProperties
+      }
+    >
       {children}
     </div>
   );
@@ -92,7 +101,13 @@ const said = (state: string): string => STEP_STATE[state]?.verb ?? state;
  * scenario runs on.
  */
 const WORKFLOW_STEPS: readonly WorkflowStepCardProps[] = [
-  { kind: "step", name: "Plan the change", activity: "advanced", said: said("advanced"), ordinal: 1 },
+  {
+    kind: "step",
+    name: "Plan the change",
+    activity: "advanced",
+    said: said("advanced"),
+    ordinal: 1,
+  },
   // `current` is off, and that is the rule rather than the fixture: it pulses
   // the step's mark on a loop, and a loop says *still working*.
   {
@@ -101,7 +116,11 @@ const WORKFLOW_STEPS: readonly WorkflowStepCardProps[] = [
     activity: "running",
     said: said("running"),
     ordinal: 2,
-    facts: [{ value: "2 groups" }],
+    facts: [
+      {
+        value: "2 groups",
+      },
+    ],
   },
   {
     kind: "step",
@@ -109,7 +128,11 @@ const WORKFLOW_STEPS: readonly WorkflowStepCardProps[] = [
     activity: "not_started",
     said: said("not_started"),
     ordinal: 3,
-    facts: [{ value: "delivers" }],
+    facts: [
+      {
+        value: "delivers",
+      },
+    ],
     gate: ADVANCE_GATE["human_always"]?.verb ?? "a person answers",
   },
 ];
@@ -128,18 +151,48 @@ function WorkflowSteps() {
 }
 
 /** One group's card and its tasks, as the canvas draws a group and a task. */
-const GROUPS: readonly { group: WorkflowStepCardProps; tasks: readonly WorkflowStepCardProps[] }[] = [
+const GROUPS: readonly {
+  group: WorkflowStepCardProps;
+  tasks: readonly WorkflowStepCardProps[];
+}[] = [
   {
     group: {
       kind: "group",
       name: "Group 1",
       activity: "advanced",
       said: "passed",
-      facts: [{ value: "2 tasks" }, { value: "7 checks" }],
+      facts: [
+        {
+          value: "2 tasks",
+        },
+        {
+          value: "7 checks",
+        },
+      ],
     },
     tasks: [
-      { kind: "task", name: "Read the settings out of one place", activity: "advanced", said: "done", facts: [{ value: "T1" }] },
-      { kind: "task", name: "Hand the store in", activity: "advanced", said: "done", facts: [{ value: "T2" }] },
+      {
+        kind: "task",
+        name: "Read the settings out of one place",
+        activity: "advanced",
+        said: "done",
+        facts: [
+          {
+            value: "T1",
+          },
+        ],
+      },
+      {
+        kind: "task",
+        name: "Hand the store in",
+        activity: "advanced",
+        said: "done",
+        facts: [
+          {
+            value: "T2",
+          },
+        ],
+      },
     ],
   },
   {
@@ -148,11 +201,38 @@ const GROUPS: readonly { group: WorkflowStepCardProps; tasks: readonly WorkflowS
       name: "Group 2",
       activity: "not_started",
       said: "pending",
-      facts: [{ value: "2 tasks" }, { value: "7 checks" }],
+      facts: [
+        {
+          value: "2 tasks",
+        },
+        {
+          value: "7 checks",
+        },
+      ],
     },
     tasks: [
-      { kind: "task", name: "Add a test that does not construct the store", activity: "not_started", said: "open", facts: [{ value: "T3" }] },
-      { kind: "task", name: "Update the package's README", activity: "not_started", said: "open", facts: [{ value: "T4" }] },
+      {
+        kind: "task",
+        name: "Add a test that does not construct the store",
+        activity: "not_started",
+        said: "open",
+        facts: [
+          {
+            value: "T3",
+          },
+        ],
+      },
+      {
+        kind: "task",
+        name: "Update the package's README",
+        activity: "not_started",
+        said: "open",
+        facts: [
+          {
+            value: "T4",
+          },
+        ],
+      },
     ],
   },
 ];

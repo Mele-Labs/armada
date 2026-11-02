@@ -8,7 +8,10 @@ import { FLAT, bigOf, layoutOf, type DroneIn, type PrIn, type RepoIn, type Size 
 import type { PadIn } from "../tip";
 import { sceneOf, type PixiSceneIn } from "./scene";
 
-export const PANE: Size = { width: 900, height: 560 };
+export const PANE: Size = {
+  width: 900,
+  height: 560,
+};
 
 const drone = (key: string, extra: Partial<DroneIn>): DroneIn => ({
   key,
@@ -31,34 +34,145 @@ const drone = (key: string, extra: Partial<DroneIn>): DroneIn => ({
 export const REPO: RepoIn = {
   root: "/r",
   name: "r",
-  pads: ["slot-1", "slot-2"],
+  pads: [
+    "slot-1",
+    "slot-2",
+  ],
   goal: true,
-  areas: [{ dir: "crates", kids: [["fleet", 40, ["lib.rs"]], ["store", 12, []]] }],
+  areas: [
+    {
+      dir: "crates",
+      kids: [
+        [
+          "fleet",
+          40,
+          [
+            "lib.rs",
+          ],
+        ],
+        [
+          "store",
+          12,
+          [],
+        ],
+      ],
+    },
+  ],
 };
 
 export const DRONES: DroneIn[] = [
-  drone("session:Writer", { doing: "write", spin: true, hover: true, working: true, slot: "slot-1", touches: [{ path: "crates/fleet", w: 1 }] }),
-  drone("session:Caller", { said: "Needs you", hue: "ask", ping: true, slot: "slot-2" }),
+  drone("session:Writer", {
+    doing: "write",
+    spin: true,
+    hover: true,
+    working: true,
+    slot: "slot-1",
+    touches: [
+      {
+        path: "crates/fleet",
+        w: 1,
+      },
+    ],
+  }),
+  drone("session:Caller", {
+    said: "Needs you",
+    hue: "ask",
+    ping: true,
+    slot: "slot-2",
+  }),
 ];
 
-export const PRS: PrIn[] = [{ key: "pr:7", number: 7, stage: "checking", root: "/r" } as PrIn];
+export const PRS: PrIn[] = [
+  {
+    key: "pr:7",
+    number: 7,
+    stage: "checking",
+    root: "/r",
+  } as PrIn,
+];
 
 export const PADS = new Map<string, PadIn>([
-  ["slot-1", { key: "slot-1", slot: 1, bay: "held", word: "Held", repo: "r", Glyph: ShieldCheck }],
-  ["slot-2", { key: "slot-2", slot: 2, bay: "held", word: "Held", repo: "r", Glyph: ShieldCheck }],
+  [
+    "slot-1",
+    {
+      key: "slot-1",
+      slot: 1,
+      bay: "held",
+      word: "Held",
+      repo: "r",
+      Glyph: ShieldCheck,
+    },
+  ],
+  [
+    "slot-2",
+    {
+      key: "slot-2",
+      slot: 2,
+      bay: "held",
+      word: "Held",
+      repo: "r",
+      Glyph: ShieldCheck,
+    },
+  ],
 ]);
 
 /** The scene of that field, with each part of what the page hands the canvas open to change. */
-export function sceneFor({ size = PANE, ...over }: Partial<Parameters<typeof sceneOf>[0]> & { size?: Size } = {}): PixiSceneIn {
-  const world = { width: size.width * 1.6, height: size.height * 1.6 };
+export function sceneFor({
+  size = PANE,
+  ...over
+}: Partial<Parameters<typeof sceneOf>[0]> & {
+  size?: Size;
+} = {}): PixiSceneIn {
+  const world = {
+    width: size.width * 1.6,
+    height: size.height * 1.6,
+  };
   const big = bigOf(size);
   const drones = over.drones ?? DRONES;
   const prs = over.prs ?? PRS;
   const plays = over.plays ?? [];
-  const layout = over.layout ?? layoutOf([REPO], drones, world, big, prs, []);
-  const frame = over.frame ?? frameOf({ layout, drones, plays, big });
-  const calls = over.calls ?? new Map([["session:Caller", "ask" as const]]);
-  const padAt = new Map(layout.territories.flatMap((one) => one.pads.map((pad) => [pad.key, { x: pad.x, y: pad.y * FLAT }] as const)));
+  const layout =
+    over.layout ??
+    layoutOf(
+      [
+        REPO,
+      ],
+      drones,
+      world,
+      big,
+      prs,
+      [],
+    );
+  const frame =
+    over.frame ??
+    frameOf({
+      layout,
+      drones,
+      plays,
+      big,
+    });
+  const calls =
+    over.calls ??
+    new Map([
+      [
+        "session:Caller",
+        "ask" as const,
+      ],
+    ]);
+  const padAt = new Map(
+    layout.territories.flatMap((one) =>
+      one.pads.map(
+        (pad) =>
+          [
+            pad.key,
+            {
+              x: pad.x,
+              y: pad.y * FLAT,
+            },
+          ] as const,
+      ),
+    ),
+  );
   return sceneOf({
     layout,
     world,
@@ -66,7 +180,16 @@ export function sceneFor({ size = PANE, ...over }: Partial<Parameters<typeof sce
     frame,
     drones,
     pads: PADS,
-    goals: new Map([["/r", { root: "/r", said: "Green", red: false }]]),
+    goals: new Map([
+      [
+        "/r",
+        {
+          root: "/r",
+          said: "Green",
+          red: false,
+        },
+      ],
+    ]),
     prs,
     plays,
     readable: true,

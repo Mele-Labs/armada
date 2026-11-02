@@ -14,15 +14,26 @@ const FMT_STILL_RUNNING: CheckoutRunFollowed = {
   name: "fmt",
   path: ".armada/runs/run_1.log",
   fromLine: 1,
-  lines: ["Fixed 3 files"],
+  lines: [
+    "Fixed 3 files",
+  ],
 };
 
-const FMT_FINISHED: CheckoutRunFollowed = { ...FMT_STILL_RUNNING, ended: "exit 0" };
+const FMT_FINISHED: CheckoutRunFollowed = {
+  ...FMT_STILL_RUNNING,
+  ended: "exit 0",
+};
 
 describe("runOutputOf", () => {
   it("reads a followed run when it is the one selected", () => {
     const output = runOutputOf(FMT_STILL_RUNNING, "fmt");
-    expect(output?.rows).toEqual([{ row: "line", at: 1, text: "Fixed 3 files" }]);
+    expect(output?.rows).toEqual([
+      {
+        row: "line",
+        at: 1,
+        text: "Fixed 3 files",
+      },
+    ]);
   });
 
   it("draws nothing once a different entry is selected", () => {
@@ -43,11 +54,24 @@ describe("runOutputOf", () => {
     // There is nothing to compare against, which is a different fact from
     // comparing against a row that names something else.
     const output = runOutputOf(FMT_STILL_RUNNING, undefined);
-    expect(output?.rows).toEqual([{ row: "line", at: 1, text: "Fixed 3 files" }]);
+    expect(output?.rows).toEqual([
+      {
+        row: "line",
+        at: 1,
+        text: "Fixed 3 files",
+      },
+    ]);
   });
 
   it("draws nothing where nothing is being followed", () => {
-    expect(runOutputOf({ state: "none" }, "fmt")).toBeUndefined();
+    expect(
+      runOutputOf(
+        {
+          state: "none",
+        },
+        "fmt",
+      ),
+    ).toBeUndefined();
   });
 });
 
@@ -55,17 +79,45 @@ describe("runOutputOf", () => {
 // reading from here so the same run reads the same wherever it appears.
 describe("runOutcomeOf", () => {
   it("passes a run that came to the code it expected, whatever the code", () => {
-    expect(runOutcomeOf({ exit_code: 0, expect_exit_code: 0, stopped: false })).toBe("passed");
-    expect(runOutcomeOf({ exit_code: 1, expect_exit_code: 1, stopped: false })).toBe("passed");
+    expect(
+      runOutcomeOf({
+        exit_code: 0,
+        expect_exit_code: 0,
+        stopped: false,
+      }),
+    ).toBe("passed");
+    expect(
+      runOutcomeOf({
+        exit_code: 1,
+        expect_exit_code: 1,
+        stopped: false,
+      }),
+    ).toBe("passed");
   });
 
   it("fails any other code, and an ending with no code at all", () => {
-    expect(runOutcomeOf({ exit_code: 101, expect_exit_code: 0, stopped: false })).toBe("failed");
+    expect(
+      runOutcomeOf({
+        exit_code: 101,
+        expect_exit_code: 0,
+        stopped: false,
+      }),
+    ).toBe("failed");
     // A budget, or a spawn that never started: no code, and nobody pressed Stop.
-    expect(runOutcomeOf({ expect_exit_code: 0, stopped: false })).toBe("failed");
+    expect(
+      runOutcomeOf({
+        expect_exit_code: 0,
+        stopped: false,
+      }),
+    ).toBe("failed");
   });
 
   it("reads a run somebody stopped as stopped, as a killed run is not a failure", () => {
-    expect(runOutcomeOf({ expect_exit_code: 0, stopped: true })).toBe("stopped");
+    expect(
+      runOutcomeOf({
+        expect_exit_code: 0,
+        stopped: true,
+      }),
+    ).toBe("stopped");
   });
 });

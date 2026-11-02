@@ -1,12 +1,40 @@
-import { Fragment, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { AppWindowMac, CircleCheck, CircleX, FileTerminal, PanelBottom, PanelBottomClose, PanelRight, PowerOff, RotateCcw, Square, SquareTerminal, X } from "lucide-react";
+import {
+  Fragment,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
+import {
+  AppWindowMac,
+  CircleCheck,
+  CircleX,
+  FileTerminal,
+  PanelBottom,
+  PanelBottomClose,
+  PanelRight,
+  PowerOff,
+  RotateCcw,
+  Square,
+  SquareTerminal,
+  X,
+} from "lucide-react";
 
 import { Button } from "../Button/Button";
 import { Tabs } from "../Tabs/Tabs";
 import { Tooltip } from "../Tooltip/Tooltip";
 
 /** How a terminal run stands. A null `code` is a run Stop ended (`stopped` true) or a signal did (`stopped` false); left out, the reason is not known and reads as a stop. */
-export type TerminalPhase = { state: "running" } | { state: "ended"; code: number | null; stopped?: boolean };
+export type TerminalPhase =
+  | {
+      state: "running";
+    }
+  | {
+      state: "ended";
+      code: number | null;
+      stopped?: boolean;
+    };
 
 /** What an end says, for a tooltip: an exit code, a stop, or a signal. */
 export function endedSaid(end: { code: number | null; stopped?: boolean }): string {
@@ -17,11 +45,37 @@ export function endedSaid(end: { code: number | null; stopped?: boolean }): stri
 /** A run's mark: the terminal glyph, animated while it runs, then passed, failed or stopped. Its tooltip says which. */
 export function TerminalMark({ phase }: { phase: TerminalPhase }) {
   const said = phase.state === "running" ? "Running" : endedSaid(phase);
-  const result = phase.state === "running" ? "running" : phase.code === 0 ? "passed" : phase.code === null && phase.stopped !== false ? "stopped" : "failed";
+  const result =
+    phase.state === "running"
+      ? "running"
+      : phase.code === 0
+        ? "passed"
+        : phase.code === null && phase.stopped !== false
+          ? "stopped"
+          : "failed";
   return (
     <Tooltip label={said}>
-      <span className="armada-terminal-mark" data-result={result} role="img" aria-label={result === "running" ? "Running" : result === "passed" ? "Passed" : result === "stopped" ? "Stopped" : "Failed"}>
-        {result === "running" ? <SquareTerminal size={16} strokeWidth={2} aria-hidden /> : result === "passed" ? <CircleCheck size={16} strokeWidth={2} aria-hidden /> : <CircleX size={16} strokeWidth={2} aria-hidden />}
+      <span
+        className="armada-terminal-mark"
+        data-result={result}
+        role="img"
+        aria-label={
+          result === "running"
+            ? "Running"
+            : result === "passed"
+              ? "Passed"
+              : result === "stopped"
+                ? "Stopped"
+                : "Failed"
+        }
+      >
+        {result === "running" ? (
+          <SquareTerminal size={16} strokeWidth={2} aria-hidden />
+        ) : result === "passed" ? (
+          <CircleCheck size={16} strokeWidth={2} aria-hidden />
+        ) : (
+          <CircleX size={16} strokeWidth={2} aria-hidden />
+        )}
       </span>
     </Tooltip>
   );
@@ -38,15 +92,37 @@ export type TerminalPaneProps = {
 };
 
 /** What a pane's header holds: what leads it, what follows on the line, and its keys. */
-type PaneHead = { lead: ReactNode; line: ReactNode; keys: ReactNode };
+type PaneHead = {
+  lead: ReactNode;
+  line: ReactNode;
+  keys: ReactNode;
+};
 
 /**
  * The frame every docked pane is drawn in. One component for the run and the shell, so the dock's tabs
  * stay mounted, and keep the focus, as the pane in front changes.
  */
-function PaneFrame({ state, head, tabs, placed, children }: { state: string; head: PaneHead; tabs?: ReactNode; placed?: "panel" | "window"; children: ReactNode }) {
+function PaneFrame({
+  state,
+  head,
+  tabs,
+  placed,
+  children,
+}: {
+  state: string;
+  head: PaneHead;
+  tabs?: ReactNode;
+  placed?: "panel" | "window";
+  children: ReactNode;
+}) {
   return (
-    <section className="armada-terminal" role="group" aria-label="Terminal" data-state={state} data-placed={placed}>
+    <section
+      className="armada-terminal"
+      role="group"
+      aria-label="Terminal"
+      data-state={state}
+      data-placed={placed}
+    >
       <header className="armada-terminal__head">
         {tabs === undefined ? head.lead : <span className="armada-terminal__tabs">{tabs}</span>}
         <span className="armada-terminal__command">{head.line}</span>
@@ -57,7 +133,10 @@ function PaneFrame({ state, head, tabs, placed, children }: { state: string; hea
   );
 }
 
-function runHead({ command, phase, onStop, onRerun, onClose }: Omit<TerminalPaneProps, "children">, tabbed: boolean): PaneHead {
+function runHead(
+  { command, phase, onStop, onRerun, onClose }: Omit<TerminalPaneProps, "children">,
+  tabbed: boolean,
+): PaneHead {
   const mark = <TerminalMark phase={phase} />;
   return {
     lead: mark,
@@ -107,7 +186,13 @@ export function TerminalPane({ children, ...run }: TerminalPaneProps) {
 }
 
 /** How a Job's shell stands. It ends without a code worth showing. */
-export type ShellPhase = { state: "running" } | { state: "ended" };
+export type ShellPhase =
+  | {
+      state: "running";
+    }
+  | {
+      state: "ended";
+    };
 
 export type ShellPaneProps = {
   phase: ShellPhase;
@@ -129,20 +214,48 @@ export type ShellPaneProps = {
 export type ShellMoveTo = "docked" | "side panel" | "window";
 
 /** One move on the head: the place it sends the shell, and the act. */
-export type ShellMove = { to: ShellMoveTo; onMove: () => void };
+export type ShellMove = {
+  to: ShellMoveTo;
+  onMove: () => void;
+};
 
 /** The shell in the side panel or a window, which names it and closes it. */
 export type ShellPanelPaneProps = Omit<ShellPaneProps, "onHide" | "onClose">;
 
 /** Each glyph pictures the place the shell goes. */
-const MOVE_ACT: Readonly<Record<ShellMoveTo, { label: string; glyph: ReactNode }>> = {
-  docked: { label: "Dock", glyph: <PanelBottom size={16} strokeWidth={2} aria-hidden /> },
-  "side panel": { label: "Move to the side panel", glyph: <PanelRight size={16} strokeWidth={2} aria-hidden /> },
-  window: { label: "Open in a window", glyph: <AppWindowMac size={16} strokeWidth={2} aria-hidden /> },
+const MOVE_ACT: Readonly<
+  Record<
+    ShellMoveTo,
+    {
+      label: string;
+      glyph: ReactNode;
+    }
+  >
+> = {
+  docked: {
+    label: "Dock",
+    glyph: <PanelBottom size={16} strokeWidth={2} aria-hidden />,
+  },
+  "side panel": {
+    label: "Move to the side panel",
+    glyph: <PanelRight size={16} strokeWidth={2} aria-hidden />,
+  },
+  window: {
+    label: "Open in a window",
+    glyph: <AppWindowMac size={16} strokeWidth={2} aria-hidden />,
+  },
 };
 
 /** An act drawn as its glyph alone, which the tooltip names. */
-function IconAct({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+function IconAct({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
     <Tooltip label={label}>
       <Button variant="ghost" size="sm" iconOnly aria-label={label} onClick={onClick}>
@@ -153,7 +266,10 @@ function IconAct({ label, onClick, children }: { label: string; onClick: () => v
 }
 
 /** `docked` holds the pane's own way away, which a panel's shell leaves to the panel. */
-function shellHead({ phase, onEnd, onOpen, moves = [] }: Omit<ShellPanelPaneProps, "children">, docked: Pick<ShellPaneProps, "onHide" | "onClose"> | null): PaneHead {
+function shellHead(
+  { phase, onEnd, onOpen, moves = [] }: Omit<ShellPanelPaneProps, "children">,
+  docked: Pick<ShellPaneProps, "onHide" | "onClose"> | null,
+): PaneHead {
   const running = phase.state === "running";
   const move = moves.map(({ to, onMove }) => (
     <IconAct key={to} label={MOVE_ACT[to].label} onClick={onMove}>
@@ -262,7 +378,10 @@ export type ShellDockProps = {
 /** The most of a command its tab spells out. The tab strip wraps rather than cuts, so the label is cut here. */
 const TAB_COMMAND_MOST = 32;
 
-const tabCommand = (command: string) => (command.length <= TAB_COMMAND_MOST ? command : `${command.slice(0, TAB_COMMAND_MOST - 1).trimEnd()}…`);
+const tabCommand = (command: string) =>
+  command.length <= TAB_COMMAND_MOST
+    ? command
+    : `${command.slice(0, TAB_COMMAND_MOST - 1).trimEnd()}…`;
 
 /**
  * **A Job's docked place**, holding its shell, a block's run, or both. With both open they are tabs,
@@ -275,20 +394,42 @@ export function ShellDock({ shell, run, front, onFront }: ShellDockProps) {
     shell !== null && run !== null ? (
       <Tabs
         items={[
-          { id: "shell", label: "Terminal" },
-          { id: "run", label: tabCommand(run.command), hint: run.command },
+          {
+            id: "shell",
+            label: "Terminal",
+          },
+          {
+            id: "run",
+            label: tabCommand(run.command),
+            hint: run.command,
+          },
         ]}
         value={front}
         onChange={(id) => onFront(id === "run" ? "run" : "shell")}
       />
     ) : undefined;
-  let pane: { key: ShellDockPane; state: string; head: PaneHead; body: ReactNode };
+  let pane: {
+    key: ShellDockPane;
+    state: string;
+    head: PaneHead;
+    body: ReactNode;
+  };
   if (run !== null && (shell === null || front === "run")) {
     const { children, ...rest } = run;
-    pane = { key: "run", state: rest.phase.state, head: runHead(rest, tabs !== undefined), body: children };
+    pane = {
+      key: "run",
+      state: rest.phase.state,
+      head: runHead(rest, tabs !== undefined),
+      body: children,
+    };
   } else if (shell !== null) {
     const { children, ...rest } = shell;
-    pane = { key: "shell", state: rest.phase.state, head: shellHead(rest, rest), body: children };
+    pane = {
+      key: "shell",
+      state: rest.phase.state,
+      head: shellHead(rest, rest),
+      body: children,
+    };
   } else return null;
   return (
     <DockFrame>
@@ -302,13 +443,19 @@ export function ShellDock({ shell, run, front, onFront }: ShellDockProps) {
 
 function DockFrame({ children }: { children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ pointerId: number; startY: number; startHeight: number } | null>(null);
+  const drag = useRef<{
+    pointerId: number;
+    startY: number;
+    startHeight: number;
+  } | null>(null);
   const [height, setHeight] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
 
   const room = () => {
     const parent = box.current?.parentElement;
-    return parent === null || parent === undefined ? 600 : Math.max(HEIGHT_MIN, parent.clientHeight - THREAD_MIN);
+    return parent === null || parent === undefined
+      ? 600
+      : Math.max(HEIGHT_MIN, parent.clientHeight - THREAD_MIN);
   };
   const clamp = (value: number) => Math.min(room(), Math.max(HEIGHT_MIN, value));
   const now = () => box.current?.getBoundingClientRect().height ?? HEIGHT_MIN;
@@ -316,7 +463,11 @@ function DockFrame({ children }: { children: ReactNode }) {
   function pointerDown(event: PointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { pointerId: event.pointerId, startY: event.clientY, startHeight: now() };
+    drag.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startHeight: now(),
+    };
     setDragging(true);
     event.currentTarget.focus();
     event.preventDefault();
@@ -339,14 +490,28 @@ function DockFrame({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div ref={box} className="armada-terminal-dock" {...(height === null ? {} : { style: { flexBasis: height } })}>
+    <div
+      ref={box}
+      className="armada-terminal-dock"
+      {...(height === null
+        ? {}
+        : {
+            style: {
+              flexBasis: height,
+            },
+          })}
+    >
       <div
         className="armada-terminal-dock__handle"
         role="separator"
         aria-orientation="horizontal"
         aria-label="Resize terminal"
         aria-valuemin={HEIGHT_MIN}
-        {...(height === null ? {} : { "aria-valuenow": Math.round(height) })}
+        {...(height === null
+          ? {}
+          : {
+              "aria-valuenow": Math.round(height),
+            })}
         tabIndex={0}
         data-dragging={dragging || undefined}
         onDoubleClick={() => setHeight(null)}

@@ -22,8 +22,20 @@ const meta: Meta<typeof TitleBar> = {
     // would only shrink-wrap it to its content, which is a story artefact
     // nothing in Bridge ever draws.
     (Story) => (
-      <div className="armada-screen" style={{ display: "flex", flexDirection: "column" }}>
-        <div className="armada-screen__window" style={{ height: "auto", flexDirection: "column" }}>
+      <div
+        className="armada-screen"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          className="armada-screen__window"
+          style={{
+            height: "auto",
+            flexDirection: "column",
+          }}
+        >
           <Story />
         </div>
       </div>
@@ -51,12 +63,23 @@ export const Full: Story = {
     repositoryPicker: picker,
     onSearch: () => {},
     onDispatch: fn(),
-    fleet: { state: "running", label: "Running" },
+    fleet: {
+      state: "running",
+      label: "Running",
+    },
   },
   /** One bar searches and dispatches, so the full row draws no Dispatch button (the owner, 10 Oct 2026). */
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: /^Search, or describe work to dispatch/ })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Dispatch" })).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", {
+        name: /^Search, or describe work to dispatch/,
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Dispatch",
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -64,7 +87,11 @@ export const Full: Story = {
 export const HelmClosed: Story = {
   args: {
     ...Full.args,
-    helm: { questions: 3, binding: "⌘J", onOpen: () => {} },
+    helm: {
+      questions: 3,
+      binding: "⌘J",
+      onOpen: () => {},
+    },
   },
 };
 
@@ -76,7 +103,10 @@ export const HelmClosed: Story = {
 export const BeforeAnythingIsRead: Story = {
   args: {
     onSearch: () => {},
-    fleet: { state: "unknown", label: "Reading" },
+    fleet: {
+      state: "unknown",
+      label: "Reading",
+    },
   },
 };
 
@@ -88,28 +118,56 @@ export const BeforeAnythingIsRead: Story = {
 export const FleetRunning: Story = {
   args: {
     ...Full.args,
-    helm: { questions: 3, binding: "⌘J", onOpen: () => {} },
+    helm: {
+      questions: 3,
+      binding: "⌘J",
+      onOpen: () => {},
+    },
   },
 };
 
 /** Fleet is not running — `--status-escalated`, the panel's own hue for it, and the word in the name. */
 export const FleetNotRunning: Story = {
-  args: { ...FleetRunning.args, fleet: { state: "not-running", label: "Not running" } },
+  args: {
+    ...FleetRunning.args,
+    fleet: {
+      state: "not-running",
+      label: "Not running",
+    },
+  },
 };
 
 /** Alive and not answering — `--status-awaiting-review`, a state a dot alone could not tell from running. */
 export const FleetUnreachable: Story = {
-  args: { ...FleetRunning.args, fleet: { state: "unreachable", label: "Unreachable" } },
+  args: {
+    ...FleetRunning.args,
+    fleet: {
+      state: "unreachable",
+      label: "Unreachable",
+    },
+  },
 };
 
 /** None of the three — reading, a refused runtime file — neutral, and the label names which. */
 export const FleetUnknown: Story = {
-  args: { ...FleetRunning.args, fleet: { state: "unknown", label: "Reading" } },
+  args: {
+    ...FleetRunning.args,
+    fleet: {
+      state: "unknown",
+      label: "Reading",
+    },
+  },
 };
 
 /** A live pid that has not answered yet: the Armada mark breathing in the dot's place, `Starting` on hover. */
 export const FleetStarting: Story = {
-  args: { ...FleetRunning.args, fleet: { state: "starting", label: "Starting" } },
+  args: {
+    ...FleetRunning.args,
+    fleet: {
+      state: "starting",
+      label: "Starting",
+    },
+  },
 };
 
 /**
@@ -128,14 +186,23 @@ export const FleetStates: Story = {
   render: (args) => (
     <>
       {FLEET_SAID.map(({ state, label }) => (
-        <TitleBar key={state} {...args} fleet={{ state, label }} />
+        <TitleBar
+          key={state}
+          {...args}
+          fleet={{
+            state,
+            label,
+          }}
+        />
       ))}
     </>
   ),
   play: async ({ canvas }) => {
     for (const { state, label } of FLEET_SAID) {
       const said = `Fleet — ${label}`;
-      const dot = canvas.getByRole("img", { name: said });
+      const dot = canvas.getByRole("img", {
+        name: said,
+      });
       await expect(dot).toHaveAttribute("title", said);
       await expect(dot.firstElementChild).toHaveAttribute("data-tone", FLEET_DOT_TONE[state]);
     }
@@ -143,11 +210,26 @@ export const FleetStates: Story = {
 };
 
 /** Every Fleet state, with the word the panel puts beside its own dot for each. */
-const FLEET_SAID: { state: FleetState; label: string }[] = [
-  { state: "running", label: "Running" },
-  { state: "not-running", label: "Not running" },
-  { state: "unreachable", label: "Unreachable" },
-  { state: "unknown", label: "Reading" },
+const FLEET_SAID: {
+  state: FleetState;
+  label: string;
+}[] = [
+  {
+    state: "running",
+    label: "Running",
+  },
+  {
+    state: "not-running",
+    label: "Not running",
+  },
+  {
+    state: "unreachable",
+    label: "Unreachable",
+  },
+  {
+    state: "unknown",
+    label: "Reading",
+  },
 ];
 
 /**
@@ -168,7 +250,14 @@ export const FleetIsDrawnWhateverElseTheRowCarries: Story = {
   render: (args) => (
     <>
       <TitleBar {...args} />
-      <TitleBar {...args} helm={{ questions: 3, binding: "⌘J", onOpen: () => {} }} />
+      <TitleBar
+        {...args}
+        helm={{
+          questions: 3,
+          binding: "⌘J",
+          onOpen: () => {},
+        }}
+      />
     </>
   ),
 };
@@ -183,7 +272,11 @@ export const FleetIsDrawnWhateverElseTheRowCarries: Story = {
 export const RevealedShortcuts: Story = {
   args: {
     ...Full.args,
-    helm: { questions: 3, binding: "⌘J", onOpen: () => {} },
+    helm: {
+      questions: 3,
+      binding: "⌘J",
+      onOpen: () => {},
+    },
   },
   render: (args) => (
     <ShortcutRevealProvider>
@@ -212,18 +305,38 @@ export const RevealedShortcuts: Story = {
 export const InASlimWindow: Story = {
   args: {
     ...Full.args,
-    helm: { questions: 3, binding: "⌘J", onOpen: fn() },
+    helm: {
+      questions: 3,
+      binding: "⌘J",
+      onOpen: fn(),
+    },
     repositoryMenu: {
       entries: [
-        { kind: "item", id: "all", label: "All repositories", selected: true },
-        { kind: "separator", id: "rule" },
-        { kind: "item", id: "/code/armada", label: "armada" },
+        {
+          kind: "item",
+          id: "all",
+          label: "All repositories",
+          selected: true,
+        },
+        {
+          kind: "separator",
+          id: "rule",
+        },
+        {
+          kind: "item",
+          id: "/code/armada",
+          label: "armada",
+        },
       ],
       onSelect: fn(),
     },
   },
   render: (args) => (
-    <div style={{ width: "calc(var(--window-floor) - var(--space-12) * 5)" }}>
+    <div
+      style={{
+        width: "calc(var(--window-floor) - var(--space-12) * 5)",
+      }}
+    >
       <TitleBar {...args} />
     </div>
   ),
@@ -231,34 +344,82 @@ export const InASlimWindow: Story = {
     await expect(canvasElement.querySelector(".armada-title-bar__search")).not.toBeVisible();
 
     const bar = canvasElement.querySelector(".armada-title-bar")!.getBoundingClientRect();
-    const menu = canvas.getByRole("button", { name: "Menu" });
+    const menu = canvas.getByRole("button", {
+      name: "Menu",
+    });
     await expect(menu.getBoundingClientRect().right).toBeLessThanOrEqual(bar.right);
     await expect(menu.getBoundingClientRect().right).toBeGreaterThan(bar.right - bar.width / 4);
 
     await userEvent.click(menu);
-    const panel = canvas.getByRole("dialog", { name: "Menu" });
+    const panel = canvas.getByRole("dialog", {
+      name: "Menu",
+    });
     await expect(panel).toBeVisible();
     // The repositories are rows in the panel, not a second list opening in it.
-    await expect(within(panel).queryByRole("button", { expanded: false })).toBeNull();
-    await expect(within(panel).getByRole("button", { name: "All repositories", pressed: true })).toBeVisible();
-    const dispatch = within(panel).getByRole("button", { name: "Dispatch" });
+    await expect(
+      within(panel).queryByRole("button", {
+        expanded: false,
+      }),
+    ).toBeNull();
+    await expect(
+      within(panel).getByRole("button", {
+        name: "All repositories",
+        pressed: true,
+      }),
+    ).toBeVisible();
+    const dispatch = within(panel).getByRole("button", {
+      name: "Dispatch",
+    });
     await expect(dispatch.querySelector("kbd")).toHaveTextContent(/^⌘N$/);
-    await userEvent.click(canvas.getByRole("button", { name: /^Helm/ }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /^Helm/,
+      }),
+    );
     await expect(args.helm!.onOpen).toHaveBeenCalledTimes(1);
-    await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Menu",
+      }),
+    ).not.toBeInTheDocument();
 
     // The filter field is here at this width too, and typing narrows the rows to what matches.
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    const reopened = canvas.getByRole("dialog", { name: "Menu" });
-    await userEvent.type(within(reopened).getByRole("searchbox", { name: "Find a repository" }), "arm");
-    await expect(within(reopened).queryByRole("button", { name: "All repositories" })).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    );
+    const reopened = canvas.getByRole("dialog", {
+      name: "Menu",
+    });
+    await userEvent.type(
+      within(reopened).getByRole("searchbox", {
+        name: "Find a repository",
+      }),
+      "arm",
+    );
+    await expect(
+      within(reopened).queryByRole("button", {
+        name: "All repositories",
+      }),
+    ).toBeNull();
     await userEvent.type(within(reopened).getByRole("searchbox"), "zzz");
-    await expect(within(reopened).getByRole("status")).toHaveTextContent("Nothing matches “armzzz”.");
+    await expect(within(reopened).getByRole("status")).toHaveTextContent(
+      "Nothing matches “armzzz”.",
+    );
     await userEvent.clear(within(reopened).getByRole("searchbox"));
     await userEvent.type(within(reopened).getByRole("searchbox"), "arm");
-    await userEvent.click(within(reopened).getByRole("button", { name: "armada" }));
+    await userEvent.click(
+      within(reopened).getByRole("button", {
+        name: "armada",
+      }),
+    );
     await expect(args.repositoryMenu!.onSelect).toHaveBeenCalledWith("/code/armada");
-    await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Menu",
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -266,22 +427,65 @@ export const InASlimWindow: Story = {
 export const MenuEntries: Story = {
   args: {
     ...Full.args,
-    sleep: { on: false, onToggle: fn() },
-    menu: { settings: { onOpen: fn(), shortcut: "⌘," }, doctor: { onOpen: fn() } },
+    sleep: {
+      on: false,
+      onToggle: fn(),
+    },
+    menu: {
+      settings: {
+        onOpen: fn(),
+        shortcut: "⌘,",
+      },
+      doctor: {
+        onOpen: fn(),
+      },
+    },
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    const panel = canvas.getByRole("dialog", { name: "Menu" });
-    await expect(within(panel).getByRole("button", { name: "Sleep mode" })).toBeVisible();
-    const settings = within(panel).getByRole("button", { name: "Settings" });
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    );
+    const panel = canvas.getByRole("dialog", {
+      name: "Menu",
+    });
+    await expect(
+      within(panel).getByRole("button", {
+        name: "Sleep mode",
+      }),
+    ).toBeVisible();
+    const settings = within(panel).getByRole("button", {
+      name: "Settings",
+    });
     await expect(settings.querySelector("kbd")).toBeInTheDocument();
     await userEvent.click(settings);
     await expect(args.menu?.settings?.onOpen).toHaveBeenCalledTimes(1);
-    await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await userEvent.click(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Doctor" }));
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Menu",
+      }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    );
+    await userEvent.click(
+      within(
+        canvas.getByRole("dialog", {
+          name: "Menu",
+        }),
+      ).getByRole("button", {
+        name: "Doctor",
+      }),
+    );
     await expect(args.menu?.doctor?.onOpen).toHaveBeenCalledTimes(1);
-    await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Menu",
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -293,13 +497,33 @@ export const SleepModeToggle: Story = {
     repositoryPicker: picker,
     onSearch: () => {},
     onDispatch: fn(),
-    fleet: { state: "running", label: "Running" },
-    sleep: { on: false, onToggle: fn() },
+    fleet: {
+      state: "running",
+      label: "Running",
+    },
+    sleep: {
+      on: false,
+      onToggle: fn(),
+    },
   },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu");
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    const sleep = within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sleep mode" });
+    await expect(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    ).toHaveAttribute("title", "Menu");
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    );
+    const sleep = within(
+      canvas.getByRole("dialog", {
+        name: "Menu",
+      }),
+    ).getByRole("button", {
+      name: "Sleep mode",
+    });
     await expect(sleep).toHaveAttribute("aria-pressed", "false");
     await userEvent.click(sleep);
     await expect(args.sleep?.onToggle).toHaveBeenCalledTimes(1);
@@ -308,19 +532,48 @@ export const SleepModeToggle: Story = {
 
 /** Sleep is on: the menu button's tooltip says so, and its entry is pressed. */
 export const SleepModeOn: Story = {
-  args: { ...SleepModeToggle.args, sleep: { on: true, onToggle: fn() } },
+  args: {
+    ...SleepModeToggle.args,
+    sleep: {
+      on: true,
+      onToggle: fn(),
+    },
+  },
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, sleep mode on");
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sleep mode" })).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    ).toHaveAttribute("title", "Menu, sleep mode on");
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    );
+    await expect(
+      within(
+        canvas.getByRole("dialog", {
+          name: "Menu",
+        }),
+      ).getByRole("button", {
+        name: "Sleep mode",
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
   },
 };
 
 const noAct = () => undefined;
 /** An account a window is signed in to, or out of with no profiles; its acts do nothing. */
 const account = (logins: readonly string[], signIn: () => void = noAct): Account => ({
-  profiles: logins.map((login, at) => ({ account_id: 1001 + at, login, active: at === 0, chosen: false })),
-  flow: { phase: "idle" },
+  profiles: logins.map((login, at) => ({
+    account_id: 1001 + at,
+    login,
+    active: at === 0,
+    chosen: false,
+  })),
+  flow: {
+    phase: "idle",
+  },
   syncs: null,
   signIn,
   openDevicePage: noAct,
@@ -341,16 +594,39 @@ const openAccount = fn();
 
 /** Nothing signed in: the button's tooltip says so, and the first entry is Sign in, which opens the account where the window keeps it. */
 export const SignedOut: Story = {
-  args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
+  args: {
+    ...SleepModeToggle.args,
+    menu: {
+      account: {
+        onOpen: openAccount,
+      },
+    },
+  },
   render: (args) => (
     <AccountProvider value={account([], signIn)}>
       <TitleBar {...args} />
     </AccountProvider>
   ),
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, signed out");
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await userEvent.click(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sign in" }));
+    await expect(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    ).toHaveAttribute("title", "Menu, signed out");
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    );
+    await userEvent.click(
+      within(
+        canvas.getByRole("dialog", {
+          name: "Menu",
+        }),
+      ).getByRole("button", {
+        name: "Sign in",
+      }),
+    );
     await expect(openAccount).toHaveBeenCalledTimes(1);
     await expect(signIn).not.toHaveBeenCalled();
   },
@@ -358,41 +634,114 @@ export const SignedOut: Story = {
 
 /** Signed in, the entry reads Account with no login in it, and the button says nothing more than Menu. */
 export const SignedIn: Story = {
-  args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
+  args: {
+    ...SleepModeToggle.args,
+    menu: {
+      account: {
+        onOpen: openAccount,
+      },
+    },
+  },
   render: (args) => (
-    <AccountProvider value={account(["nickmele"])}>
+    <AccountProvider
+      value={account([
+        "nickmele",
+      ])}
+    >
       <TitleBar {...args} />
     </AccountProvider>
   ),
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu");
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Account" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    ).toHaveAttribute("title", "Menu");
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    );
+    await expect(
+      within(
+        canvas.getByRole("dialog", {
+          name: "Menu",
+        }),
+      ).getByRole("button", {
+        name: "Account",
+      }),
+    ).toBeVisible();
     await expect(canvas.queryByText("nickmele")).toBeNull();
   },
 };
 
 /** A sign-in waiting on the person: the button's title and the account row carry the turn, so the way back is a mark. */
 export const SignInWaiting: Story = {
-  args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
+  args: {
+    ...SleepModeToggle.args,
+    menu: {
+      account: {
+        onOpen: openAccount,
+      },
+    },
+  },
   render: (args) => (
-    <AccountProvider value={{ ...account([], signIn), flow: { phase: "code", code: "WDJB-MJHT" } }}>
+    <AccountProvider
+      value={{
+        ...account([], signIn),
+        flow: {
+          phase: "code",
+          code: "WDJB-MJHT",
+        },
+      }}
+    >
       <TitleBar {...args} />
     </AccountProvider>
   ),
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, signed out, waiting for GitHub");
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("img", { name: "Waiting for GitHub" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    ).toHaveAttribute("title", "Menu, signed out, waiting for GitHub");
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    );
+    await expect(
+      within(
+        canvas.getByRole("dialog", {
+          name: "Menu",
+        }),
+      ).getByRole("img", {
+        name: "Waiting for GitHub",
+      }),
+    ).toBeVisible();
   },
 };
 
 /** Signed out with Sleep on: both marks ride on the button, and the tooltip names both. */
 export const SignedOutAsleep: Story = {
-  args: { ...SleepModeToggle.args, sleep: { on: true, onToggle: fn() }, menu: { account: { onOpen: openAccount } } },
+  args: {
+    ...SleepModeToggle.args,
+    sleep: {
+      on: true,
+      onToggle: fn(),
+    },
+    menu: {
+      account: {
+        onOpen: openAccount,
+      },
+    },
+  },
   render: SignedOut.render!,
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, sleep mode on, signed out");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    ).toHaveAttribute("title", "Menu, sleep mode on, signed out");
   },
 };
 
@@ -406,28 +755,54 @@ export const PlanUsage: Story = {
   args: {
     repositoryPicker: picker,
     onSearch: () => {},
-    fleet: { state: "running", label: "Running" },
+    fleet: {
+      state: "running",
+      label: "Running",
+    },
     planUsage: [
-      { kind: "five_hour", percentUsed: 34, resetsAt: inTwoHours() },
-      { kind: "seven_day", percentUsed: 61 },
+      {
+        kind: "five_hour",
+        percentUsed: 34,
+        resetsAt: inTwoHours(),
+      },
+      {
+        kind: "seven_day",
+        percentUsed: 61,
+      },
     ],
   },
   play: async ({ canvas, userEvent }) => {
-    const ring = canvas.getByRole("button", { name: "5-hour limit 34%, Weekly limit 61%" });
-    await expect(canvas.queryByRole("img", { name: "Analyzing Usage" })).not.toBeInTheDocument();
+    const ring = canvas.getByRole("button", {
+      name: "5-hour limit 34%, Weekly limit 61%",
+    });
+    await expect(
+      canvas.queryByRole("img", {
+        name: "Analyzing Usage",
+      }),
+    ).not.toBeInTheDocument();
     await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
     await userEvent.hover(ring);
     const card = await screen.findByRole("tooltip");
-    const five = within(card).getByRole("region", { name: "5-hour limit" });
+    const five = within(card).getByRole("region", {
+      name: "5-hour limit",
+    });
     await expect(five).toHaveTextContent("34%");
     await expect(five).toHaveTextContent("Resets in");
     await expect(five).toHaveTextContent("2h 14m");
-    await expect(within(card).getByRole("region", { name: "Weekly limit" })).toHaveTextContent("61%");
+    await expect(
+      within(card).getByRole("region", {
+        name: "Weekly limit",
+      }),
+    ).toHaveTextContent("61%");
 
     await userEvent.click(ring);
     await userEvent.unhover(ring);
-    await expect(screen.getByRole("dialog", { name: "Plan limits" })).toBeVisible();
+    await expect(
+      screen.getByRole("dialog", {
+        name: "Plan limits",
+      }),
+    ).toBeVisible();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   },
@@ -438,10 +813,20 @@ export const PlanUsageLevels: Story = {
   args: {
     repositoryPicker: picker,
     onSearch: () => {},
-    fleet: { state: "running", label: "Running" },
+    fleet: {
+      state: "running",
+      label: "Running",
+    },
     planUsage: [
-      { kind: "five_hour", percentUsed: 86, resetsAt: inTwoHours() },
-      { kind: "seven_day", percentUsed: 97 },
+      {
+        kind: "five_hour",
+        percentUsed: 86,
+        resetsAt: inTwoHours(),
+      },
+      {
+        kind: "seven_day",
+        percentUsed: 97,
+      },
     ],
   },
 };
@@ -451,19 +836,39 @@ export const PlanUsageOffer: Story = {
   args: {
     repositoryPicker: picker,
     onSearch: () => {},
-    fleet: { state: "running", label: "Running" },
+    fleet: {
+      state: "running",
+      label: "Running",
+    },
     planUsage: [
-      { kind: "five_hour", percentUsed: 34, resetsAt: inTwoHours() },
+      {
+        kind: "five_hour",
+        percentUsed: 34,
+        resetsAt: inTwoHours(),
+      },
       {
         kind: "seven_day",
         percentUsed: 83,
         resetsAt: inTwoHours(),
         offer: {
           attention: "Default to sonnet offered",
-          facts: [["Default model", "opus"]],
+          facts: [
+            [
+              "Default model",
+              "opus",
+            ],
+          ],
           acts: [
-            { label: "Default to sonnet", onPress: () => {}, primary: true, stays: true },
-            { label: "Choose…", onPress: () => {} },
+            {
+              label: "Default to sonnet",
+              onPress: () => {},
+              primary: true,
+              stays: true,
+            },
+            {
+              label: "Choose…",
+              onPress: () => {},
+            },
           ],
         },
       },
@@ -476,12 +881,28 @@ export const PlanUsageAbsent: Story = {
   args: {
     repositoryPicker: picker,
     onSearch: () => {},
-    fleet: { state: "running", label: "Running" },
-    planUsage: [{ kind: "spend_limit", percentUsed: 12 }],
+    fleet: {
+      state: "running",
+      label: "Running",
+    },
+    planUsage: [
+      {
+        kind: "spend_limit",
+        percentUsed: 12,
+      },
+    ],
   },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("button", { name: /limit/ })).not.toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: "Analyzing Usage" })).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /limit/,
+      }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Analyzing Usage",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -490,13 +911,22 @@ export const PlanUsageLoading: Story = {
   args: {
     repositoryPicker: picker,
     onSearch: () => {},
-    fleet: { state: "running", label: "Running" },
+    fleet: {
+      state: "running",
+      label: "Running",
+    },
     planUsage: [],
   },
   play: async ({ canvas, userEvent }) => {
-    const loading = canvas.getByRole("img", { name: "Analyzing Usage" });
+    const loading = canvas.getByRole("img", {
+      name: "Analyzing Usage",
+    });
     await expect(loading).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Plan limits" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Plan limits",
+      }),
+    ).not.toBeInTheDocument();
 
     await userEvent.hover(loading);
     await waitFor(() => expect(canvas.getByText("Analyzing Usage")).toBeVisible());
@@ -508,19 +938,42 @@ export const PlanUsageUnset: Story = {
   args: {
     repositoryPicker: picker,
     onSearch: () => {},
-    fleet: { state: "running", label: "Running" },
+    fleet: {
+      state: "running",
+      label: "Running",
+    },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("img", { name: "Analyzing Usage" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("button", { name: /limit/ })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("img", {
+        name: "Analyzing Usage",
+      }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /limit/,
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 
 const PLACES = [
-  { id: "cockpit", label: "Cockpit" },
-  { id: "jobs", label: "Jobs" },
-  { id: "sessions", label: "Sessions" },
-  { id: "system", label: "System" },
+  {
+    id: "cockpit",
+    label: "Cockpit",
+  },
+  {
+    id: "jobs",
+    label: "Jobs",
+  },
+  {
+    id: "sessions",
+    label: "Sessions",
+  },
+  {
+    id: "system",
+    label: "System",
+  },
 ];
 
 /**
@@ -533,19 +986,34 @@ export const WithPlaces: Story = {
     wordmark: "Armada",
     places: <Tabs items={PLACES} value="jobs" />,
     onSearch: () => {},
-    fleet: { state: "running", label: "Running" },
+    fleet: {
+      state: "running",
+      label: "Running",
+    },
   },
   play: async ({ canvas }) => {
     const tabs = canvas.getByRole("tablist");
-    const search = canvas.getByRole("button", { name: "Search, or describe work to dispatch (⌘K)" });
-    await expect(canvas.getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
+    const search = canvas.getByRole("button", {
+      name: "Search, or describe work to dispatch (⌘K)",
+    });
+    await expect(
+      canvas.getByRole("tab", {
+        name: "Jobs",
+      }),
+    ).toHaveAttribute("aria-selected", "true");
     // The places come first, then the trigger, and the trigger's label is not drawn.
-    await expect(tabs.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await expect(
+      tabs.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await expect(search).toHaveAttribute("title", "Search, or describe work to dispatch (⌘K)");
     await expect(canvas.queryByText("Search, or describe work to dispatch")).not.toBeVisible();
     // The word stands for the lockup and the mark.
     await expect(canvas.getByText("Armada")).toBeVisible();
-    await expect(canvas.queryByRole("img", { name: "Armada" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("img", {
+        name: "Armada",
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -553,24 +1021,39 @@ export const WithPlaces: Story = {
 export const WithPlacesInASlimWindow: Story = {
   args: WithPlaces.args!,
   render: (args) => (
-    <div style={{ width: "calc(var(--window-floor) - var(--space-12) * 5)" }}>
+    <div
+      style={{
+        width: "calc(var(--window-floor) - var(--space-12) * 5)",
+      }}
+    >
       <TitleBar {...args} />
     </div>
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("tablist")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Menu" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    ).toBeVisible();
   },
 };
 
 /** A surface with no picker of its own: the row names the picked repository, as text, and cuts a long name. */
 export const WithRepository: Story = {
-  args: { ...WithPlaces.args!, repository: "armada" },
+  args: {
+    ...WithPlaces.args!,
+    repository: "armada",
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("armada")).toBeVisible();
     await expect(canvas.getByText("armada")).toHaveAttribute("title", "armada");
     await expect(canvas.queryByRole("combobox")).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("button", { name: "armada" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "armada",
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -579,20 +1062,55 @@ export const WithoutPlaces: Story = {
   args: Full.args!,
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("tablist")).not.toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: "Armada" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("img", {
+        name: "Armada",
+      }),
+    ).toBeInTheDocument();
     await expect(canvas.getByText("Search, or describe work to dispatch")).toBeVisible();
   },
 };
 
 const REPOSITORY_ENTRIES = [
-  { kind: "item", id: "", label: "All repositories", selected: true },
-  { kind: "separator", id: "all-rule" },
-  { kind: "item", id: "/code/armada", label: "armada" },
-  { kind: "label", id: "not-set-up", label: "Not set up" },
-  { kind: "item", id: "/code/scratch", label: "scratch" },
-  { kind: "separator", id: "acts-rule" },
-  { kind: "item", id: "new-project", label: "New project" },
-  { kind: "item", id: "add-repository", label: "Add a repository" },
+  {
+    kind: "item",
+    id: "",
+    label: "All repositories",
+    selected: true,
+  },
+  {
+    kind: "separator",
+    id: "all-rule",
+  },
+  {
+    kind: "item",
+    id: "/code/armada",
+    label: "armada",
+  },
+  {
+    kind: "label",
+    id: "not-set-up",
+    label: "Not set up",
+  },
+  {
+    kind: "item",
+    id: "/code/scratch",
+    label: "scratch",
+  },
+  {
+    kind: "separator",
+    id: "acts-rule",
+  },
+  {
+    kind: "item",
+    id: "new-project",
+    label: "New project",
+  },
+  {
+    kind: "item",
+    id: "add-repository",
+    label: "Add a repository",
+  },
 ] as const;
 
 /**
@@ -605,23 +1123,67 @@ export const RepositoryPicker: Story = {
     repositoryPicker: undefined,
     repository: "All repositories",
     repositoryMenu: {
-      entries: [...REPOSITORY_ENTRIES],
+      entries: [
+        ...REPOSITORY_ENTRIES,
+      ],
       onSelect: fn(),
-      manifest: { label: "Open the Manifest", icon: FileCog, onOpen: fn() },
+      manifest: {
+        label: "Open the Manifest",
+        icon: FileCog,
+        onOpen: fn(),
+      },
     },
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Repository" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Repository",
+      }),
+    );
     const items = screen.getAllByRole("menuitem").map((one) => one.textContent);
-    await expect(items).toEqual(["All repositories", "armada", "scratchNot set up", "New project", "Add a repository"]);
+    await expect(items).toEqual([
+      "All repositories",
+      "armada",
+      "scratchNot set up",
+      "New project",
+      "Add a repository",
+    ]);
     // The tag is on the row, not a heading of its own.
-    await expect(screen.queryByText("Not set up", { selector: ".armada-dropdown-menu__label" })).toBeNull();
-    await expect(screen.getByRole("menuitem", { name: /^scratch/ }).querySelector(".armada-dropdown-menu__detail")).toHaveTextContent("Not set up");
+    await expect(
+      screen.queryByText("Not set up", {
+        selector: ".armada-dropdown-menu__label",
+      }),
+    ).toBeNull();
+    await expect(
+      screen
+        .getByRole("menuitem", {
+          name: /^scratch/,
+        })
+        .querySelector(".armada-dropdown-menu__detail"),
+    ).toHaveTextContent("Not set up");
     // The acts are marked apart from the repositories and carry a glyph each.
-    await expect(screen.getByRole("menuitem", { name: "New project" })).toHaveAttribute("data-act");
-    await expect(screen.getByRole("menuitem", { name: "armada" })).not.toHaveAttribute("data-act");
-    await expect(screen.getByRole("menuitem", { name: "Add a repository" }).querySelector("svg")).not.toBeNull();
-    await userEvent.click(screen.getByRole("menuitem", { name: "armada" }));
+    await expect(
+      screen.getByRole("menuitem", {
+        name: "New project",
+      }),
+    ).toHaveAttribute("data-act");
+    await expect(
+      screen.getByRole("menuitem", {
+        name: "armada",
+      }),
+    ).not.toHaveAttribute("data-act");
+    await expect(
+      screen
+        .getByRole("menuitem", {
+          name: "Add a repository",
+        })
+        .querySelector("svg"),
+    ).not.toBeNull();
+    await userEvent.click(
+      screen.getByRole("menuitem", {
+        name: "armada",
+      }),
+    );
     await expect(args.repositoryMenu!.onSelect).toHaveBeenCalledWith("/code/armada");
   },
 };
@@ -630,7 +1192,11 @@ export const RepositoryPicker: Story = {
 export const ManifestChip: Story = {
   args: RepositoryPicker.args!,
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Open the Manifest" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open the Manifest",
+      }),
+    );
     await expect(args.repositoryMenu!.manifest!.onOpen).toHaveBeenCalledTimes(1);
   },
 };
@@ -638,10 +1204,20 @@ export const ManifestChip: Story = {
 export const ManifestChipNothingServed: Story = {
   args: {
     ...RepositoryPicker.args,
-    repositoryMenu: { ...RepositoryPicker.args!.repositoryMenu!, manifest: { label: "Open the Manifest", icon: FileCog, disabled: true, onOpen: fn() } },
+    repositoryMenu: {
+      ...RepositoryPicker.args!.repositoryMenu!,
+      manifest: {
+        label: "Open the Manifest",
+        icon: FileCog,
+        disabled: true,
+        onOpen: fn(),
+      },
+    },
   },
   play: async ({ args, canvas }) => {
-    const chip = canvas.getByRole("button", { name: "Open the Manifest" });
+    const chip = canvas.getByRole("button", {
+      name: "Open the Manifest",
+    });
     await expect(chip).toBeDisabled();
     await expect(args.repositoryMenu!.manifest!.onOpen).not.toHaveBeenCalled();
   },
@@ -653,15 +1229,41 @@ export const RepositoryRowMark: Story = {
     ...RepositoryPicker.args,
     repositoryMenu: {
       ...RepositoryPicker.args!.repositoryMenu!,
-      trailOf: (id, label) => (id === "/code/armada" ? { node: <span role="button" aria-label={`Armada configuration for ${label}`} />, open: openConfig } : undefined),
+      trailOf: (id, label) =>
+        id === "/code/armada"
+          ? {
+              node: <span role="button" aria-label={`Armada configuration for ${label}`} />,
+              open: openConfig,
+            }
+          : undefined,
     },
   },
   play: async ({ canvas, userEvent }) => {
     openConfig.mockClear();
-    await userEvent.click(canvas.getByRole("button", { name: "Repository" }));
-    await expect(screen.getByRole("menuitem", { name: /^armada/ }).querySelector('[aria-label="Armada configuration for armada"]')).not.toBeNull();
-    await expect(screen.getByRole("menuitem", { name: /^scratch/ }).querySelector(".armada-dropdown-menu__trail")).toBeNull();
-    screen.getByRole("menuitem", { name: /^armada/ }).focus();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Repository",
+      }),
+    );
+    await expect(
+      screen
+        .getByRole("menuitem", {
+          name: /^armada/,
+        })
+        .querySelector('[aria-label="Armada configuration for armada"]'),
+    ).not.toBeNull();
+    await expect(
+      screen
+        .getByRole("menuitem", {
+          name: /^scratch/,
+        })
+        .querySelector(".armada-dropdown-menu__trail"),
+    ).toBeNull();
+    screen
+      .getByRole("menuitem", {
+        name: /^armada/,
+      })
+      .focus();
     await userEvent.keyboard("{ArrowRight}");
     await expect(openConfig).toHaveBeenCalledTimes(1);
     await expect(screen.queryByRole("menu")).toBeNull();

@@ -37,7 +37,8 @@ import {
 export function repositoryRoot(start: string): string | null {
   let at = resolve(start);
   for (;;) {
-    if (existsSync(join(at, "pnpm-workspace.yaml")) && existsSync(join(at, "Cargo.toml"))) return at;
+    if (existsSync(join(at, "pnpm-workspace.yaml")) && existsSync(join(at, "Cargo.toml")))
+      return at;
     const up = dirname(at);
     if (up === at) return null;
     at = up;
@@ -51,7 +52,24 @@ export function repositoryRoot(start: string): string | null {
  */
 export function servedRoot(root: string): string {
   try {
-    const common = execFileSync("git", ["-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const common = execFileSync(
+      "git",
+      [
+        "-C",
+        root,
+        "rev-parse",
+        "--path-format=absolute",
+        "--git-common-dir",
+      ],
+      {
+        encoding: "utf8",
+        stdio: [
+          "ignore",
+          "pipe",
+          "ignore",
+        ],
+      },
+    ).trim();
     return basename(common) === ".git" ? dirname(common) : root;
   } catch {
     return root;
@@ -97,7 +115,9 @@ export async function listAnnotations(dir: string): Promise<Annotation[]> {
  */
 export async function saveAnnotation(dir: string, note: unknown): Promise<void> {
   if (!isAnnotation(note)) throw new Error("not an annotation");
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, {
+    recursive: true,
+  });
   const path = join(dir, `${note.id}.json`);
   const partial = `${path}.${randomUUID()}.partial`;
   await writeFile(partial, serializeAnnotation(note), "utf8");
@@ -107,16 +127,25 @@ export async function saveAnnotation(dir: string, note: unknown): Promise<void> 
 /** The note, its picture and its example pictures, where it has them. */
 export async function removeAnnotation(dir: string, id: unknown): Promise<void> {
   if (!isAnnotationId(id)) throw new Error("not an annotation id");
-  await rm(join(dir, `${id}.json`), { force: true });
-  await rm(join(dir, shotName(id)), { force: true });
+  await rm(join(dir, `${id}.json`), {
+    force: true,
+  });
+  await rm(join(dir, shotName(id)), {
+    force: true,
+  });
   const names = await readdir(dir).catch(() => [] as string[]);
-  for (const name of names) if (isExampleOf(id, name)) await rm(join(dir, name), { force: true });
+  for (const name of names)
+    if (isExampleOf(id, name))
+      await rm(join(dir, name), {
+        force: true,
+      });
 }
 
 /** Bytes as IPC or a request hands them over: an `ArrayBuffer`, or a view of one such as a `Buffer`. */
 function bytesOf(value: unknown): Uint8Array | null {
   if (value instanceof ArrayBuffer) return new Uint8Array(value);
-  if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  if (ArrayBuffer.isView(value))
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
   return null;
 }
 
@@ -133,26 +162,39 @@ export async function readShot(dir: string, id: unknown): Promise<ArrayBuffer | 
 }
 
 /** Writes one of a note's example pictures to `name`, which has to be `exampleName(id, n)`. */
-export async function saveExample(dir: string, id: unknown, name: unknown, png: unknown): Promise<void> {
+export async function saveExample(
+  dir: string,
+  id: unknown,
+  name: unknown,
+  png: unknown,
+): Promise<void> {
   if (!isExampleOf(id, name)) throw new Error("not an example of this note");
   await writePng(dir, name, png);
 }
 
 /** One of a note's example pictures, or null where it is gone. */
-export async function readExample(dir: string, id: unknown, name: unknown): Promise<ArrayBuffer | null> {
+export async function readExample(
+  dir: string,
+  id: unknown,
+  name: unknown,
+): Promise<ArrayBuffer | null> {
   if (!isExampleOf(id, name)) throw new Error("not an example of this note");
   return readPng(dir, name);
 }
 
 export async function removeExample(dir: string, id: unknown, name: unknown): Promise<void> {
   if (!isExampleOf(id, name)) throw new Error("not an example of this note");
-  await rm(join(dir, name), { force: true });
+  await rm(join(dir, name), {
+    force: true,
+  });
 }
 
 async function writePng(dir: string, name: string, png: unknown): Promise<void> {
   const bytes = bytesOf(png);
   if (bytes === null || !isPng(bytes)) throw new Error("not a PNG");
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, {
+    recursive: true,
+  });
   const path = join(dir, name);
   const partial = `${path}.${randomUUID()}.partial`;
   await writeFile(partial, bytes);
@@ -193,10 +235,14 @@ export function handleAnnotations(ipc: Handles, appPath: string, capture: Captur
   ipc.handle(ANNOTATION_CHANNELS.save, (_event, note) => saveAnnotation(dir, note));
   ipc.handle(ANNOTATION_CHANNELS.remove, (_event, id) => removeAnnotation(dir, id));
   ipc.handle(ANNOTATION_CHANNELS.root, () => servedRoot(root));
-  ipc.handle(ANNOTATION_CHANNELS.capture, (event, box) => (isBoxOf(box) ? capture(event, box) : null));
+  ipc.handle(ANNOTATION_CHANNELS.capture, (event, box) =>
+    isBoxOf(box) ? capture(event, box) : null,
+  );
   ipc.handle(ANNOTATION_CHANNELS.saveShot, (_event, id, png) => saveShot(dir, id, png));
   ipc.handle(ANNOTATION_CHANNELS.shot, (_event, id) => readShot(dir, id));
-  ipc.handle(ANNOTATION_CHANNELS.saveExample, (_event, id, name, png) => saveExample(dir, id, name, png));
+  ipc.handle(ANNOTATION_CHANNELS.saveExample, (_event, id, name, png) =>
+    saveExample(dir, id, name, png),
+  );
   ipc.handle(ANNOTATION_CHANNELS.example, (_event, id, name) => readExample(dir, id, name));
   ipc.handle(ANNOTATION_CHANNELS.removeExample, (_event, id, name) => removeExample(dir, id, name));
   return dir;
@@ -205,5 +251,10 @@ export function handleAnnotations(ipc: Handles, appPath: string, capture: Captur
 function isBoxOf(value: unknown): value is Box {
   if (typeof value !== "object" || value === null) return false;
   const box = value as Record<string, unknown>;
-  return ["x", "y", "width", "height"].every((key) => typeof box[key] === "number" && Number.isFinite(box[key]));
+  return [
+    "x",
+    "y",
+    "width",
+    "height",
+  ].every((key) => typeof box[key] === "number" && Number.isFinite(box[key]));
 }

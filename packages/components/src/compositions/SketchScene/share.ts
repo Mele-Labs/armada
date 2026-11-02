@@ -5,10 +5,22 @@
 export type SketchShareKind = "html" | "png" | "svg";
 
 /** One rendering of the sketch, as a host writes it. `name` is the whole file name, extension included. */
-export type SketchShareFile = { kind: SketchShareKind; name: string; data: string | Uint8Array };
+export type SketchShareFile = {
+  kind: SketchShareKind;
+  name: string;
+  data: string | Uint8Array;
+};
 
 /** What saving came to. Where a person was asked for a place and gave none, nothing failed. */
-export type SketchShareSaved = { saved: true; name: string } | { saved: false; why: "cancelled" | "failed" };
+export type SketchShareSaved =
+  | {
+      saved: true;
+      name: string;
+    }
+  | {
+      saved: false;
+      why: "cancelled" | "failed";
+    };
 
 /**
  * What the app around the sketch does with it. **Every member is optional**: with none, Save is a browser
@@ -25,7 +37,11 @@ export type SketchShareHost = {
   said?: (sentence: string) => void;
 };
 
-export const MIME: Record<SketchShareKind, string> = { html: "text/html", png: "image/png", svg: "image/svg+xml" };
+export const MIME: Record<SketchShareKind, string> = {
+  html: "text/html",
+  png: "image/png",
+  svg: "image/svg+xml",
+};
 
 /** What the toast names after a copy, as `The debug info` is named. */
 export const MERMAID_COPIED = "The Mermaid text";

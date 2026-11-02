@@ -3,7 +3,11 @@ import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { Input } from "../../primitives/Input/Input";
 
 /** One category Settings is split into. `matches` is drawn beside it while a search is on. */
-export type SettingsIndexSection = { id: string; label: string; matches?: number };
+export type SettingsIndexSection = {
+  id: string;
+  label: string;
+  matches?: number;
+};
 
 /**
  * Settings, split into categories a person can find: a search over every setting, the categories
@@ -25,7 +29,14 @@ export type SettingsIndexProps = {
   children: ReactNode;
 };
 
-export function SettingsIndex({ sections, current, onSection, query, onQuery, children }: SettingsIndexProps) {
+export function SettingsIndex({
+  sections,
+  current,
+  onSection,
+  query,
+  onQuery,
+  children,
+}: SettingsIndexProps) {
   const searching = query.trim() !== "";
   const tabs = useRef<HTMLDivElement>(null);
   const shown = searching ? sections.filter((one) => (one.matches ?? 0) > 0) : sections;
@@ -33,7 +44,15 @@ export function SettingsIndex({ sections, current, onSection, query, onQuery, ch
   const keyed = (event: KeyboardEvent<HTMLDivElement>) => {
     const at = shown.findIndex((one) => one.id === current);
     const to =
-      event.key === "ArrowDown" ? at + 1 : event.key === "ArrowUp" ? at - 1 : event.key === "Home" ? 0 : event.key === "End" ? shown.length - 1 : null;
+      event.key === "ArrowDown"
+        ? at + 1
+        : event.key === "ArrowUp"
+          ? at - 1
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? shown.length - 1
+              : null;
     if (to === null) return;
     const next = shown[(to + shown.length) % shown.length];
     if (next === undefined) return;
@@ -60,7 +79,14 @@ export function SettingsIndex({ sections, current, onSection, query, onQuery, ch
               }
             }}
           />
-          <div ref={tabs} role="tablist" aria-orientation="vertical" aria-label="Settings" className="armada-settings-index__tabs" onKeyDown={keyed}>
+          <div
+            ref={tabs}
+            role="tablist"
+            aria-orientation="vertical"
+            aria-label="Settings"
+            className="armada-settings-index__tabs"
+            onKeyDown={keyed}
+          >
             {shown.map((one) => {
               const on = !searching && one.id === current;
               return (
@@ -78,14 +104,26 @@ export function SettingsIndex({ sections, current, onSection, query, onQuery, ch
                   }}
                 >
                   <span className="armada-settings-index__label">{one.label}</span>
-                  {searching ? <span className="armada-settings-index__count">{one.matches}</span> : null}
+                  {searching ? (
+                    <span className="armada-settings-index__count">{one.matches}</span>
+                  ) : null}
                 </button>
               );
             })}
           </div>
-          {searching && shown.length === 0 ? <p className="armada-settings-index__none">Nothing matches.</p> : null}
+          {searching && shown.length === 0 ? (
+            <p className="armada-settings-index__none">Nothing matches.</p>
+          ) : null}
         </div>
-        <div role="tabpanel" aria-label={searching ? "Matches" : (sections.find((one) => one.id === current)?.label ?? "Settings")} className="armada-settings-index__body">
+        <div
+          role="tabpanel"
+          aria-label={
+            searching
+              ? "Matches"
+              : (sections.find((one) => one.id === current)?.label ?? "Settings")
+          }
+          className="armada-settings-index__body"
+        >
           {children}
         </div>
       </div>

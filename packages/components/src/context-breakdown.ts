@@ -7,9 +7,20 @@
  * is loaded on demand and counts for nothing until it is.
  */
 export type ContextBreakdown = {
-  categories: readonly { name: string; tokens: number; kind: "used" | "free" | "buffer" | "deferred" }[];
-  memoryFiles: readonly { path: string; tokens: number }[];
-  mcpTools: readonly { name: string; server: string; tokens: number }[];
+  categories: readonly {
+    name: string;
+    tokens: number;
+    kind: "used" | "free" | "buffer" | "deferred";
+  }[];
+  memoryFiles: readonly {
+    path: string;
+    tokens: number;
+  }[];
+  mcpTools: readonly {
+    name: string;
+    server: string;
+    tokens: number;
+  }[];
   totalTokens: number;
   maxTokens: number;
   /** The count at which auto-compaction runs. Absent when it is off. */

@@ -14,7 +14,11 @@ const NO_SESSIONS: readonly Session[] = [];
 const EMPTY = () => NO_SESSIONS;
 
 /** The Job whose End is waiting on the person, the Sessions it is a Job of, and what to do once it has ended. */
-type Asked = { draft: SessionsDraft; id: string; then: (() => void) | undefined };
+type Asked = {
+  draft: SessionsDraft;
+  id: string;
+  then: (() => void) | undefined;
+};
 let asked: Asked | undefined;
 const looks = new Set<() => void>();
 
@@ -40,7 +44,11 @@ export function askToEnd(draft: SessionsDraft, id: string, then?: () => void): v
     then?.();
     return;
   }
-  ask({ draft, id, then });
+  ask({
+    draft,
+    id,
+    then,
+  });
 }
 
 /** Drop the ask for Job `id`, as its view leaves the screen: a list for a Job nobody is looking at is one nobody can answer. */
@@ -63,7 +71,10 @@ export function EndsInFlight({ draft }: { draft: SessionsDraft | undefined }) {
   const rows = waiting === undefined ? [] : flyingOf(sessions, waiting.id);
   useEffect(() => {
     if (waiting !== undefined && rows.length === 0) ask(undefined);
-  }, [waiting, rows.length]);
+  }, [
+    waiting,
+    rows.length,
+  ]);
   if (waiting === undefined || draft === undefined || rows.length === 0) return null;
   // On the body, appended as it opens: a side panel is a layer at the same height, and the one opened last is drawn over the other.
   return createPortal(

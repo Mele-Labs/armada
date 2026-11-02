@@ -17,12 +17,25 @@ export const files: Slice<FilesApi, Record<string, never>> = {
     let picked = 0;
     const versionOf = (n: number) => `v${n}`;
     // This disk is the checkout too: a path written relative to it is the file it ends in.
-    const keyOf = (path: string): string => (disk.has(path) ? path : ([...disk.keys()].find((one) => one.endsWith(`/${path}`)) ?? path));
+    const keyOf = (path: string): string =>
+      disk.has(path)
+        ? path
+        : ([
+            ...disk.keys(),
+          ].find((one) => one.endsWith(`/${path}`)) ?? path);
     return {
       readPanelFile: async (given) => {
-        const item = { ...given, path: keyOf(given.path) };
+        const item = {
+          ...given,
+          path: keyOf(given.path),
+        };
         // A file a scenario's ledger names that this disk was not given reads as its own name.
-        if (!disk.has(item.path)) disk.set(item.path, { text: `${item.path.split("/").pop()}\n`, type: "text/plain", version: 1 });
+        if (!disk.has(item.path))
+          disk.set(item.path, {
+            text: `${item.path.split("/").pop()}\n`,
+            type: "text/plain",
+            version: 1,
+          });
         const file = disk.get(item.path)!;
         last = item.path;
         // A walk's `later` step, from this window on. The latest window wins, as it does for a scenario's.
@@ -30,28 +43,77 @@ export const files: Slice<FilesApi, Record<string, never>> = {
           const at = last === undefined ? undefined : disk.get(last);
           if (last === undefined || at === undefined || at.elsewhere === undefined) return;
           const { elsewhere, ...rest } = at;
-          disk.set(last, { ...rest, text: elsewhere, version: at.version + 1 });
-          const changed: PanelFileItem = { kind: "file", path: last, from: "settings" };
+          disk.set(last, {
+            ...rest,
+            text: elsewhere,
+            version: at.version + 1,
+          });
+          const changed: PanelFileItem = {
+            kind: "file",
+            path: last,
+            from: "settings",
+          };
           listeners.forEach((one) => one(changed));
         });
-        return { ok: true, ...(file.text === undefined ? {} : { text: file.text }), ...(file.bytes === undefined ? {} : { bytes: file.bytes }), type: file.type, version: versionOf(file.version) };
+        return {
+          ok: true,
+          ...(file.text === undefined
+            ? {}
+            : {
+                text: file.text,
+              }),
+          ...(file.bytes === undefined
+            ? {}
+            : {
+                bytes: file.bytes,
+              }),
+          type: file.type,
+          version: versionOf(file.version),
+        };
       },
       savePanelFile: async (given, text, version) => {
-        const item = { ...given, path: keyOf(given.path) };
+        const item = {
+          ...given,
+          path: keyOf(given.path),
+        };
         const file = disk.get(item.path);
-        if (file === undefined) return { state: "failed", detail: "The file is not on disk" };
-        if (versionOf(file.version) !== version) return { state: "moved", onDisk: file.text ?? "", version: versionOf(file.version) };
+        if (file === undefined)
+          return {
+            state: "failed",
+            detail: "The file is not on disk",
+          };
+        if (versionOf(file.version) !== version)
+          return {
+            state: "moved",
+            onDisk: file.text ?? "",
+            version: versionOf(file.version),
+          };
         const next = file.version + 1;
-        disk.set(item.path, { ...file, text, version: next });
-        return { state: "saved", version: versionOf(next) };
+        disk.set(item.path, {
+          ...file,
+          text,
+          version: next,
+        });
+        return {
+          state: "saved",
+          version: versionOf(next),
+        };
       },
       pickPanelFile: async () => (picked++ % 2 === 0 ? CLOCK_FILE : PICTURE_FILE),
       // A path is a file where the pretend disk holds it, as written or relative to the checkout.
       openPanelPath: async (text) => {
         const path = text.trim().replace(/^["'`]+|["'`]+$/g, "");
-        return disk.has(keyOf(path)) ? { kind: "file", path: keyOf(path), from: "picked" } : null;
+        return disk.has(keyOf(path))
+          ? {
+              kind: "file",
+              path: keyOf(path),
+              from: "picked",
+            }
+          : null;
       },
-      openPanelFileIn: async () => ({ ok: true }),
+      openPanelFileIn: async () => ({
+        ok: true,
+      }),
       // The files a scenario put on the pretend disk are the ones its checkout has.
       findPanelFiles: async (_sessionId, paths) => paths.filter((one) => disk.has(keyOf(one))),
       onPanelFileChanged: (onChanged) => {

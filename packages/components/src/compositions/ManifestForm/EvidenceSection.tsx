@@ -5,11 +5,21 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Entry, Hinted, Section } from "./Entries";
 import type { ManifestFormEvidence, ManifestFormProps } from "./ManifestForm";
 
-const UNDECLARED: ManifestFormEvidence = { serve: "", ready: "", run: "", frames: "", never: "" };
+const UNDECLARED: ManifestFormEvidence = {
+  serve: "",
+  ready: "",
+  run: "",
+  frames: "",
+  never: "",
+};
 
 export function EvidenceSection({ draft, onDraft, problems }: ManifestFormProps) {
   const evidence = draft.evidence;
-  const set = (next: ManifestFormEvidence | null) => onDraft({ ...draft, evidence: next });
+  const set = (next: ManifestFormEvidence | null) =>
+    onDraft({
+      ...draft,
+      evidence: next,
+    });
   return (
     <Section
       title="Evidence"
@@ -30,7 +40,12 @@ export function EvidenceSection({ draft, onDraft, problems }: ManifestFormProps)
               value={evidence.run}
               invalid={problems["evidence.run"] !== undefined}
               message={problems["evidence.run"]}
-              onChange={(event) => set({ ...evidence, run: event.target.value })}
+              onChange={(event) =>
+                set({
+                  ...evidence,
+                  run: event.target.value,
+                })
+              }
             />
           </Hinted>
           <Hinted hint="A directory relative to the repository root. Fleet keeps what lands there.">
@@ -40,7 +55,12 @@ export function EvidenceSection({ draft, onDraft, problems }: ManifestFormProps)
               value={evidence.frames}
               invalid={problems["evidence.frames"] !== undefined}
               message={problems["evidence.frames"]}
-              onChange={(event) => set({ ...evidence, frames: event.target.value })}
+              onChange={(event) =>
+                set({
+                  ...evidence,
+                  frames: event.target.value,
+                })
+              }
             />
           </Hinted>
           <Hinted hint="Optional: what starts the thing being shown. It goes with Ready when.">
@@ -48,7 +68,12 @@ export function EvidenceSection({ draft, onDraft, problems }: ManifestFormProps)
               label="Serves"
               mono
               value={evidence.serve}
-              onChange={(event) => set({ ...evidence, serve: event.target.value })}
+              onChange={(event) =>
+                set({
+                  ...evidence,
+                  serve: event.target.value,
+                })
+              }
             />
           </Hinted>
           <Hinted hint="A command that exits 0 once it is serving.">
@@ -58,7 +83,12 @@ export function EvidenceSection({ draft, onDraft, problems }: ManifestFormProps)
               value={evidence.ready}
               invalid={problems["evidence.ready"] !== undefined}
               message={problems["evidence.ready"]}
-              onChange={(event) => set({ ...evidence, ready: event.target.value })}
+              onChange={(event) =>
+                set({
+                  ...evidence,
+                  ready: event.target.value,
+                })
+              }
             />
           </Hinted>
           <Hinted hint="One path a line. Armada does not enforce it: whoever writes the spec reads it, and so does whoever reviews it.">
@@ -67,7 +97,12 @@ export function EvidenceSection({ draft, onDraft, problems }: ManifestFormProps)
               value={evidence.never}
               rows={2}
               spellCheck={false}
-              onChange={(event) => set({ ...evidence, never: event.target.value })}
+              onChange={(event) =>
+                set({
+                  ...evidence,
+                  never: event.target.value,
+                })
+              }
             />
           </Hinted>
         </Entry>

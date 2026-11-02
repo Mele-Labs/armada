@@ -14,10 +14,25 @@ afterEach(() => {
   while (servers.length > 0) servers.pop()?.close();
 });
 
-const PROJECTS = { projects: [{ id: "p1", name: "Pocket launch", rows: [] }], loose: [] };
+const PROJECTS = {
+  projects: [
+    {
+      id: "p1",
+      name: "Pocket launch",
+      rows: [],
+    },
+  ],
+  loose: [],
+};
 
 /** A Fleet answering every request with `status` and `body`, remembering what was asked and what each request carried. */
-async function serving(status: number, body: unknown): Promise<{ port: number; asked: string[] }> {
+async function serving(
+  status: number,
+  body: unknown,
+): Promise<{
+  port: number;
+  asked: string[];
+}> {
   const asked: string[] = [];
   const server = createServer((request, response) => {
     const parts: Buffer[] = [];
@@ -25,14 +40,19 @@ async function serving(status: number, body: unknown): Promise<{ port: number; a
     request.on("end", () => {
       const sent = Buffer.concat(parts).toString();
       asked.push(`${request.method} ${request.url}${sent === "" ? "" : ` ${sent}`}`);
-      response.writeHead(status, { "content-type": "application/json" });
+      response.writeHead(status, {
+        "content-type": "application/json",
+      });
       response.end(JSON.stringify(body));
     });
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   servers.push(server);
-  return { port: (server.address() as AddressInfo).port, asked };
+  return {
+    port: (server.address() as AddressInfo).port,
+    asked,
+  };
 }
 
 describe("his projects", () => {
@@ -41,25 +61,66 @@ describe("his projects", () => {
     const host = new ProjectsHost(() => fleet.port);
     const answers = [
       await host.list(),
-      await host.add({ name: "Pocket launch" }),
-      await host.rename("p1", { name: "Launch" }),
+      await host.add({
+        name: "Pocket launch",
+      }),
+      await host.rename("p1", {
+        name: "Launch",
+      }),
       await host.delete("p1"),
-      await host.addTask({ manifest_id: "armada", project: "p1", title: "Pair a phone" }),
-      await host.addTask({ manifest_id: "site", title: "Loose" }),
-      await host.addSubtask("t1", { title: "Draw the code" }),
-      await host.editTask("t1", { title: "Pair", notes: "QR" }),
-      await host.linkIssue({ manifest_id: "armada", project: "p1", issue: "#7" }),
-      await host.linkTaskIssue("t1", { issue: "ABC-12" }),
-      await host.unlinkTaskIssue("t1", { issue: "ABC-12" }),
-      await host.linkTaskJob("t1", { session_id: "s1" }),
+      await host.addTask({
+        manifest_id: "armada",
+        project: "p1",
+        title: "Pair a phone",
+      }),
+      await host.addTask({
+        manifest_id: "site",
+        title: "Loose",
+      }),
+      await host.addSubtask("t1", {
+        title: "Draw the code",
+      }),
+      await host.editTask("t1", {
+        title: "Pair",
+        notes: "QR",
+      }),
+      await host.linkIssue({
+        manifest_id: "armada",
+        project: "p1",
+        issue: "#7",
+      }),
+      await host.linkTaskIssue("t1", {
+        issue: "ABC-12",
+      }),
+      await host.unlinkTaskIssue("t1", {
+        issue: "ABC-12",
+      }),
+      await host.linkTaskJob("t1", {
+        session_id: "s1",
+      }),
       await host.unlinkTaskJob("t1"),
-      await host.linkTaskPull("t1", { number: 2874 }),
-      await host.unlinkTaskPull("t1", { number: 2874 }),
+      await host.linkTaskPull("t1", {
+        number: 2874,
+      }),
+      await host.unlinkTaskPull("t1", {
+        number: 2874,
+      }),
       await host.removeRow("t1"),
-      await host.moveRow("t1", { project: "", position: 2, parent: "" }),
-      await host.tickTask("t1", { done: true }),
+      await host.moveRow("t1", {
+        project: "",
+        position: 2,
+        parent: "",
+      }),
+      await host.tickTask("t1", {
+        done: true,
+      }),
     ];
-    expect(answers).toEqual(answers.map(() => ({ ok: true, value: PROJECTS })));
+    expect(answers).toEqual(
+      answers.map(() => ({
+        ok: true,
+        value: PROJECTS,
+      })),
+    );
     expect(fleet.asked).toEqual([
       "GET /projects",
       'POST /projects {"name":"Pocket launch"}',
@@ -83,13 +144,36 @@ describe("his projects", () => {
   });
 
   it("are refused in Fleet's own words where there is no such row", async () => {
-    const fleet = await serving(404, { code: "fleet.no_such_project_row", message: "There is no row t9", run_id: "r", fields: {}, chain: [] });
-    const done = await new ProjectsHost(() => fleet.port).tickTask("t9", { done: true });
-    expect(done).toMatchObject({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.no_such_project_row" } } });
+    const fleet = await serving(404, {
+      code: "fleet.no_such_project_row",
+      message: "There is no row t9",
+      run_id: "r",
+      fields: {},
+      chain: [],
+    });
+    const done = await new ProjectsHost(() => fleet.port).tickTask("t9", {
+      done: true,
+    });
+    expect(done).toMatchObject({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "refused",
+        error: {
+          code: "fleet.no_such_project_row",
+        },
+      },
+    });
   });
 
   it("are not asked where Fleet is not connected", async () => {
-    expect(await new ProjectsHost(() => null).list()).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+    expect(await new ProjectsHost(() => null).list()).toEqual({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_connected",
+      },
+    });
   });
 
   it("tell on the projects a stream event carried", () => {
@@ -97,6 +181,8 @@ describe("his projects", () => {
     const host = new ProjectsHost(() => null);
     host.onChanged((projects) => told.push(projects));
     host.changed(PROJECTS);
-    expect(told).toEqual([PROJECTS]);
+    expect(told).toEqual([
+      PROJECTS,
+    ]);
   });
 });

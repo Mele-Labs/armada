@@ -5,7 +5,10 @@ import type { AgentSignIn, Outcome } from "@armada/protocol";
 import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import { ask } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 export class AgentSignInHost {
   private readonly port: () => number | null;
@@ -47,9 +50,20 @@ export class AgentSignInHost {
 
   private async act(method: "GET" | "POST"): Promise<AgentSignInRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, method, "/agent/sign_in");
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, value: answer.body as AgentSignIn };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      value: answer.body as AgentSignIn,
+    };
   }
 }

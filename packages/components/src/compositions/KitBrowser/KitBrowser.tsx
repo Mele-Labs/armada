@@ -15,7 +15,13 @@ import { BuiltInMark, ModKindMark } from "../ModRow/ModRow";
 import type { KitServerKind, KitServerRowProps } from "../KitServers/KitServers";
 import { KIT_KIND_LABEL } from "../KitSetup/KitSetup";
 import type { KitSetupKindWord, KitSetupRead } from "../KitSetup/KitSetup";
-import { itemSyncs, SharedHomeBar, SyncMarks, SyncSheet, useSharedHome } from "../KitSetup/SharedHome";
+import {
+  itemSyncs,
+  SharedHomeBar,
+  SyncMarks,
+  SyncSheet,
+  useSharedHome,
+} from "../KitSetup/SharedHome";
 import type { SharedHome, SharedRow } from "../KitSetup/SharedHome";
 import { HOME_KIND, holds, rowsOf } from "./kit-rows";
 import type { KitKindId, KitRef, KitRow } from "./kit-rows";
@@ -25,7 +31,9 @@ export type KitPiecesProps = {
   onAdd: () => void;
   onRemove: (piece: { kind: KitPieceKind; name: string }) => void;
   /** The skill last moved to the Trash, while Undo can bring it back. */
-  trashed: { name: string } | null;
+  trashed: {
+    name: string;
+  } | null;
   onUndo: () => void;
   /** Why the last Remove or Undo did nothing. */
   refused?: ReactNode;
@@ -82,7 +90,16 @@ export type KitBrowserProps = {
 };
 
 /** The list's rows as bars while the setup read is out: widths varied so the column does not read as a table. */
-const PENDING_NAMES = ["8rem", "10rem", "6rem", "9rem", "7rem", "11rem", "5rem", "8rem"];
+const PENDING_NAMES = [
+  "8rem",
+  "10rem",
+  "6rem",
+  "9rem",
+  "7rem",
+  "11rem",
+  "5rem",
+  "8rem",
+];
 
 export function KitBrowser({
   kind,
@@ -147,7 +164,9 @@ export function KitBrowser({
               <span className="armada-kit-browser__meta">{one.meta}</span>
             </Tooltip>
           )}
-          {one.mark === undefined ? null : <span className="armada-kit-browser__mark">{one.mark}</span>}
+          {one.mark === undefined ? null : (
+            <span className="armada-kit-browser__mark">{one.mark}</span>
+          )}
           {one.mod === undefined ? null : <ModMarks mod={one.mod} />}
           {/* Where it stands against the home, inside the row; what settles it is in the detail. A row that does not
               sync holds the mark's place, so the versions stay in one column. */}
@@ -166,7 +185,16 @@ export function KitBrowser({
   return (
     <div className="armada-kit-browser">
       <section className="armada-kit-browser__list" aria-label={label} data-col="list">
-        {shared === undefined ? null : <SharedHomeBar home={shared} {...(HOME_KIND[kind] === undefined ? {} : { kind: HOME_KIND[kind] })} />}
+        {shared === undefined ? null : (
+          <SharedHomeBar
+            home={shared}
+            {...(HOME_KIND[kind] === undefined
+              ? {}
+              : {
+                  kind: HOME_KIND[kind],
+                })}
+          />
+        )}
         <Input
           type="search"
           aria-label={`Filter ${label}`}
@@ -254,7 +282,9 @@ export function KitBrowser({
         {adding && servers !== undefined ? (
           <div className="armada-kit-browser__form">
             <h3 className="armada-kit-browser__title">Add server</h3>
-            {servers.refused === undefined ? null : <p className="armada-kit-browser__refused">{servers.refused}</p>}
+            {servers.refused === undefined ? null : (
+              <p className="armada-kit-browser__refused">{servers.refused}</p>
+            )}
             <KitServerAddForm
               keep={`${keep}:add-server`}
               onAdd={(added) => {
@@ -299,7 +329,12 @@ export function KitBrowser({
       </section>
 
       {shared === undefined || comparing === null ? null : (
-        <SyncSheet row={comparing} kindLabel={KIT_KIND_LABEL[comparing.kind as KitSetupKindWord] ?? comparing.kind} acts={shared} onClose={() => setComparing(null)} />
+        <SyncSheet
+          row={comparing}
+          kindLabel={KIT_KIND_LABEL[comparing.kind as KitSetupKindWord] ?? comparing.kind}
+          acts={shared}
+          onClose={() => setComparing(null)}
+        />
       )}
     </div>
   );
@@ -319,16 +354,32 @@ function ModMarks({ mod }: { mod: NonNullable<KitRow["mod"]> }) {
  * An item against the home: its own switch in What syncs, on and fixed while its whole kind is on, which sends it to
  * the home as it turns on; then Add to this machine for an item only the home has, and Compare for one that differs.
  */
-function SyncActs({ row, shared, onCompare }: { row: KitRow; shared: SharedHome | undefined; onCompare: (row: SharedRow) => void }) {
+function SyncActs({
+  row,
+  shared,
+  onCompare,
+}: {
+  row: KitRow;
+  shared: SharedHome | undefined;
+  onCompare: (row: SharedRow) => void;
+}) {
   if (shared === undefined) return null;
   const { setItem, syncs } = shared;
   const { home, sync } = row;
   // An item only the home has is brought, not synced from here.
-  const switched = home === undefined || syncs === undefined || setItem === undefined || sync?.state === "home" ? undefined : itemSyncs(syncs, home);
+  const switched =
+    home === undefined || syncs === undefined || setItem === undefined || sync?.state === "home"
+      ? undefined
+      : itemSyncs(syncs, home);
   return (
     <>
       {switched === undefined ? null : (
-        <Switch size="sm" checked={switched.on} disabled={switched.locked} onChange={(event) => setItem!(home!, event.target.checked)}>
+        <Switch
+          size="sm"
+          checked={switched.on}
+          disabled={switched.locked}
+          onChange={(event) => setItem!(home!, event.target.checked)}
+        >
           Sync to home
         </Switch>
       )}
@@ -381,15 +432,28 @@ function Detail({
         size="sm"
         ground="card"
         aria-label={`Remove ${row.name}`}
-        onClick={() => (piece.kind === "plugin" ? setConfirming(true) : pieces.onRemove({ kind: piece.kind, name: piece.name }))}
+        onClick={() =>
+          piece.kind === "plugin"
+            ? setConfirming(true)
+            : pieces.onRemove({
+                kind: piece.kind,
+                name: piece.name,
+              })
+        }
       >
         Remove
       </Button>
     );
   const notes = (
     <>
-      {pieces === undefined || row.from === undefined ? null : <p className="armada-kit-browser__comes">Comes with the {row.from} plugin. Remove the plugin to remove it.</p>}
-      {pieces?.refused === undefined || piece === undefined ? null : <p className="armada-kit-browser__refused">{pieces.refused}</p>}
+      {pieces === undefined || row.from === undefined ? null : (
+        <p className="armada-kit-browser__comes">
+          Comes with the {row.from} plugin. Remove the plugin to remove it.
+        </p>
+      )}
+      {pieces?.refused === undefined || piece === undefined ? null : (
+        <p className="armada-kit-browser__refused">{pieces.refused}</p>
+      )}
     </>
   );
   const sync = <SyncActs row={row} shared={shared} onCompare={onCompare} />;
@@ -398,10 +462,15 @@ function Detail({
   const head = (
     <>
       <header className="armada-kit-browser__head">
-        <h3 className="armada-kit-browser__title" data-mono={row.mono === true && kit === undefined ? "" : undefined}>
+        <h3
+          className="armada-kit-browser__title"
+          data-mono={row.mono === true && kit === undefined ? "" : undefined}
+        >
           {row.name}
         </h3>
-        {row.mark === undefined ? null : <span className="armada-kit-browser__mark">{row.mark}</span>}
+        {row.mark === undefined ? null : (
+          <span className="armada-kit-browser__mark">{row.mark}</span>
+        )}
         {row.mod === undefined ? null : <ModMarks mod={row.mod} />}
         {row.meta === undefined ? null : row.metaSaid === undefined ? (
           <span className="armada-kit-browser__meta">{row.meta}</span>
@@ -418,9 +487,14 @@ function Detail({
       </header>
 
       {row.path === undefined ? null : <p className="armada-kit-browser__path">{row.path}</p>}
-      {inline && row.server === undefined ? null : row.heading === undefined ? null : <p className="armada-kit-browser__heading">{row.heading}</p>}
+      {inline && row.server === undefined ? null : row.heading === undefined ? null : (
+        <p className="armada-kit-browser__heading">{row.heading}</p>
+      )}
       {inline && row.server === undefined ? null : row.says === undefined ? null : (
-        <p className="armada-kit-browser__says" data-mono={row.mono === true || row.server !== undefined ? "" : undefined}>
+        <p
+          className="armada-kit-browser__says"
+          data-mono={row.mono === true || row.server !== undefined ? "" : undefined}
+        >
           {row.says}
         </p>
       )}
@@ -441,7 +515,10 @@ function Detail({
   if (inline) {
     return (
       <article className="armada-kit-browser__item-detail" aria-label={row.name} data-file="">
-        {fileView({ path: row.opens!, head })}
+        {fileView({
+          path: row.opens!,
+          head,
+        })}
       </article>
     );
   }
@@ -455,7 +532,16 @@ function Detail({
           <ul className="armada-kit-browser__items">
             {row.brings.map((one) => (
               <li key={one.id} className="armada-kit-browser__item">
-                <button type="button" className="armada-kit-browser__row" data-nav-item="" onClick={() => (one.opens !== undefined && onOpenFile !== undefined ? onOpenFile(one.opens) : onJump(one))}>
+                <button
+                  type="button"
+                  className="armada-kit-browser__row"
+                  data-nav-item=""
+                  onClick={() =>
+                    one.opens !== undefined && onOpenFile !== undefined
+                      ? onOpenFile(one.opens)
+                      : onJump(one)
+                  }
+                >
                   <span className="armada-kit-browser__name">{one.name}</span>
                   <span className="armada-kit-browser__side">
                     <span className="armada-kit-browser__mark">{one.word}</span>
@@ -472,7 +558,11 @@ function Detail({
           <div>
             <dt>In Kit</dt>
             <dd>
-              <Select aria-label={`In Kit: ${kit.name}`} value={kit.reachesByDefault ? "yes" : "no"} onChange={(event) => servers.onKitReach?.(kit.name, event.target.value === "yes")}>
+              <Select
+                aria-label={`In Kit: ${kit.name}`}
+                value={kit.reachesByDefault ? "yes" : "no"}
+                onChange={(event) => servers.onKitReach?.(kit.name, event.target.value === "yes")}
+              >
                 <option value="no">Off</option>
                 <option value="yes">On everywhere</option>
               </Select>
@@ -485,7 +575,14 @@ function Detail({
                 <Select
                   aria-label={`Here: ${kit.name}`}
                   value={kit.here ?? "kit"}
-                  onChange={(event) => servers.onHereReach?.(kit.name, event.target.value === "kit" ? null : (event.target.value as "extended" | "restricted"))}
+                  onChange={(event) =>
+                    servers.onHereReach?.(
+                      kit.name,
+                      event.target.value === "kit"
+                        ? null
+                        : (event.target.value as "extended" | "restricted"),
+                    )
+                  }
                 >
                   <option value="kit">{KIT_HERE_LABEL.kit}</option>
                   <option value="extended">{KIT_HERE_LABEL.extended}</option>
@@ -504,24 +601,45 @@ function Detail({
       <div className="armada-kit-browser__acts">
         {sync}
         {row.path === undefined ? null : (
-          <Button variant="ghost" size="sm" ground="card" onClick={() => onShowInFinder?.(row.path!)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            ground="card"
+            onClick={() => onShowInFinder?.(row.path!)}
+          >
             Show in Finder
           </Button>
         )}
-        {row.removable !== true || onRemoveAllowed === undefined || row.sync?.state === "home" ? null : (
-          <Button variant="ghost" size="sm" ground="card" aria-label={`Remove ${row.name}`} onClick={() => onRemoveAllowed(row.name)}>
+        {row.removable !== true ||
+        onRemoveAllowed === undefined ||
+        row.sync?.state === "home" ? null : (
+          <Button
+            variant="ghost"
+            size="sm"
+            ground="card"
+            aria-label={`Remove ${row.name}`}
+            onClick={() => onRemoveAllowed(row.name)}
+          >
             Remove
           </Button>
         )}
         {remove}
         {kit === undefined || servers?.onForget === undefined ? null : (
-          <Button variant="ghost" size="sm" ground="card" aria-label={`Remove ${kit.name}`} onClick={() => servers.onForget?.(kit.name)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            ground="card"
+            aria-label={`Remove ${kit.name}`}
+            onClick={() => servers.onForget?.(kit.name)}
+          >
             Remove
           </Button>
         )}
       </div>
       {notes}
-      {openRefused === undefined || row.path === undefined ? null : <p className="armada-kit-browser__refused">{openRefused}</p>}
+      {openRefused === undefined || row.path === undefined ? null : (
+        <p className="armada-kit-browser__refused">{openRefused}</p>
+      )}
       {piece?.kind !== "plugin" || pieces === undefined ? null : (
         <Dialog
           open={confirming}
@@ -529,12 +647,19 @@ function Detail({
           confirmLabel="Remove"
           onConfirm={() => {
             setConfirming(false);
-            pieces.onRemove({ kind: piece.kind, name: piece.name });
+            pieces.onRemove({
+              kind: piece.kind,
+              name: piece.name,
+            });
           }}
           onCancel={() => setConfirming(false)}
         >
-          {piece.uninstall === undefined ? null : <pre className="armada-kit-browser__commands">{piece.uninstall}</pre>}
-          {row.brings === undefined || row.brings.length === 0 ? null : <p>Removes what it brings: {row.brings.map((one) => one.name).join(", ")}.</p>}
+          {piece.uninstall === undefined ? null : (
+            <pre className="armada-kit-browser__commands">{piece.uninstall}</pre>
+          )}
+          {row.brings === undefined || row.brings.length === 0 ? null : (
+            <p>Removes what it brings: {row.brings.map((one) => one.name).join(", ")}.</p>
+          )}
           <p>There is no Undo.</p>
         </Dialog>
       )}

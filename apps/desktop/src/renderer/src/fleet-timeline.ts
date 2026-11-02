@@ -31,7 +31,10 @@ export type FleetTimelineHost = {
 
 const NONE: readonly TimelineEvent[] = [];
 
-export function createFleetTimeline(fleet: FleetTimelineHost, now: () => number = Date.now): TimelineSource {
+export function createFleetTimeline(
+  fleet: FleetTimelineHost,
+  now: () => number = Date.now,
+): TimelineSource {
   let held: readonly TimelineEvent[] = NONE;
   let wasConnected = false;
   const listeners = new Set<() => void>();
@@ -39,18 +42,35 @@ export function createFleetTimeline(fleet: FleetTimelineHost, now: () => number 
 
   // Every reader redraws on a notice, and a busy Fleet appends dozens a second: they are told no faster than four a second, the first at
   // once and the last always. What `get` returns is current meanwhile.
-  const tell = throttled<void>(() => listeners.forEach((on) => on()), TICK_MS, { now: () => Date.now(), later: (run, ms) => void setTimeout(run, ms) });
+  const tell = throttled<void>(() => listeners.forEach((on) => on()), TICK_MS, {
+    now: () => Date.now(),
+    later: (run, ms) => void setTimeout(run, ms),
+  });
   const merge = (more: readonly TimelineEvent[]): void => {
-    const seen = new Map(held.map((one) => [one.id, one]));
+    const seen = new Map(
+      held.map((one) => [
+        one.id,
+        one,
+      ]),
+    );
     for (const one of more) seen.set(one.id, one);
-    held = [...seen.values()].sort((a, b) => a.id - b.id).slice(-KEPT);
+    held = [
+      ...seen.values(),
+    ]
+      .sort((a, b) => a.id - b.id)
+      .slice(-KEPT);
     tell.push();
   };
   const read = (): void => {
     const since = new Date(now() - TIMELINE_WINDOW_MS).toISOString();
-    void fleet.getFleetTimeline({ since, limit: KEPT }).then((answer) => {
-      if (answer.ok) merge(answer.value.events);
-    });
+    void fleet
+      .getFleetTimeline({
+        since,
+        limit: KEPT,
+      })
+      .then((answer) => {
+        if (answer.ok) merge(answer.value.events);
+      });
   };
   const connectedIn = (facts: Pick<BridgeState, "connection">): void => {
     const connected = facts.connection.state === "connected";
@@ -59,7 +79,11 @@ export function createFleetTimeline(fleet: FleetTimelineHost, now: () => number 
   };
   const start = (): void => {
     const offState = fleet.subscribe(connectedIn);
-    const offAppended = fleet.onTimelineAppended((one) => merge([one]));
+    const offAppended = fleet.onTimelineAppended((one) =>
+      merge([
+        one,
+      ]),
+    );
     // Read at once whether or not Fleet answers: main answers from the picture it kept on disk until it does.
     void fleet.state().then((facts) => {
       if (facts.connection.state !== "connected") read();

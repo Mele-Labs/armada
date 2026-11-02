@@ -35,7 +35,10 @@ export type HeldReadsOf<Read, State> = {
   failed: State;
 };
 
-type Held<State> = { jobId: string; keys: Record<string, State> };
+type Held<State> = {
+  jobId: string;
+  keys: Record<string, State>;
+};
 
 export function useHeldReads<Read, State>({
   read,
@@ -44,7 +47,10 @@ export function useHeldReads<Read, State>({
   asking,
   failed,
 }: HeldReadsOf<Read, State>): HeldReads<State> {
-  const [held, setHeld] = useState<Held<State>>({ jobId, keys: {} });
+  const [held, setHeld] = useState<Held<State>>({
+    jobId,
+    keys: {},
+  });
   const mine = held.jobId === jobId ? held.keys : NOTHING;
 
   // Read through refs inside the callbacks, so an answer landing does not
@@ -52,38 +58,80 @@ export function useHeldReads<Read, State>({
   // callback that changed with it would ask again every second.
   const current = useRef(mine);
   current.current = mine;
-  const settling = useRef({ settle, asking, failed });
-  settling.current = { settle, asking, failed };
+  const settling = useRef({
+    settle,
+    asking,
+    failed,
+  });
+  settling.current = {
+    settle,
+    asking,
+    failed,
+  };
 
   const hold = useCallback(
     (key: string, state: State) =>
       setHeld((was) =>
         was.jobId === jobId
-          ? { jobId, keys: { ...was.keys, [key]: state } }
-          : { jobId, keys: { [key]: state } },
+          ? {
+              jobId,
+              keys: {
+                ...was.keys,
+                [key]: state,
+              },
+            }
+          : {
+              jobId,
+              keys: {
+                [key]: state,
+              },
+            },
       ),
-    [jobId],
+    [
+      jobId,
+    ],
   );
 
   const fetch = useCallback(
     (key: string) => {
       if (current.current[key] !== undefined) return;
-      current.current = { ...current.current, [key]: settling.current.asking };
+      current.current = {
+        ...current.current,
+        [key]: settling.current.asking,
+      };
       hold(key, settling.current.asking);
       // An answer for a Job that is no longer open is nobody's, so it is
       // dropped rather than held under the Job that replaced it.
       const land = (state: State) =>
-        setHeld((was) => (was.jobId === jobId ? { jobId, keys: { ...was.keys, [key]: state } } : was));
+        setHeld((was) =>
+          was.jobId === jobId
+            ? {
+                jobId,
+                keys: {
+                  ...was.keys,
+                  [key]: state,
+                },
+              }
+            : was,
+        );
       void read(jobId, key).then(
         (answer) => land(settling.current.settle(answer)),
         () => land(settling.current.failed),
       );
     },
-    [read, jobId, hold],
+    [
+      read,
+      jobId,
+      hold,
+    ],
   );
 
   const of = useCallback((key: string) => current.current[key], []);
-  return { of, fetch, hold };
+  return {
+    of,
+    fetch,
+    hold,
+  };
 }
 
 const NOTHING: Record<string, never> = {};

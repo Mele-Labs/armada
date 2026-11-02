@@ -34,7 +34,9 @@ export const useExiting = (): boolean =>
     () => exiting,
   );
 
-export const reducedMotion = (): boolean => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const reducedMotion = (): boolean =>
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** A token's duration in ms, read where the stylesheet sets it, never past the cap. */
 function tokenMs(name: string, fallback: number): number {
@@ -56,7 +58,9 @@ export function leaveFrom(key: string, commit: () => void): void {
   if (pane === null || pane === undefined || stage === null || stage === undefined) return commit();
   const at = pane.getBoundingClientRect();
   const from = stage.getBoundingClientRect();
-  const row = document.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`)?.getBoundingClientRect();
+  const row = document
+    .querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`)
+    ?.getBoundingClientRect();
   // The pane folds into its row; with the row off screen it has nowhere to go and fades.
 
   const ghost = document.createElement("div");
@@ -64,7 +68,12 @@ export function leaveFrom(key: string, commit: () => void): void {
   ghost.setAttribute("data-ghost", "");
   ghost.setAttribute("aria-hidden", "true");
   ghost.inert = true;
-  Object.assign(ghost.style, { left: `${at.left - from.left}px`, top: `${at.top - from.top}px`, width: `${at.width}px`, height: `${at.height}px` });
+  Object.assign(ghost.style, {
+    left: `${at.left - from.left}px`,
+    top: `${at.top - from.top}px`,
+    width: `${at.width}px`,
+    height: `${at.height}px`,
+  });
   const copy = pane.cloneNode(true) as HTMLElement;
   ghost.append(copy);
   stage.append(ghost);
@@ -75,15 +84,33 @@ export function leaveFrom(key: string, commit: () => void): void {
     if (one.scrollTop > 0) now[i]!.scrollTop = one.scrollTop;
   });
 
-  const easing = getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease";
-  const span = row === undefined ? tokenMs("--duration-base", 180) : tokenMs("--duration-travel", 300);
+  const easing =
+    getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease";
+  const span =
+    row === undefined ? tokenMs("--duration-base", 180) : tokenMs("--duration-travel", 300);
   const frames: Keyframe[] =
     row === undefined
-      ? [{ opacity: 1 }, { opacity: 0 }]
+      ? [
+          {
+            opacity: 1,
+          },
+          {
+            opacity: 0,
+          },
+        ]
       : [
-          { opacity: 1, transform: "none" },
-          { opacity: 0.6, offset: 0.6 },
-          { opacity: 0, transform: `translate(${row.left - at.left}px, ${row.top - at.top}px) scale(${row.width / at.width}, ${row.height / at.height})` },
+          {
+            opacity: 1,
+            transform: "none",
+          },
+          {
+            opacity: 0.6,
+            offset: 0.6,
+          },
+          {
+            opacity: 0,
+            transform: `translate(${row.left - at.left}px, ${row.top - at.top}px) scale(${row.width / at.width}, ${row.height / at.height})`,
+          },
         ];
 
   let finished = false;
@@ -101,7 +128,11 @@ export function leaveFrom(key: string, commit: () => void): void {
   commit();
   window.requestAnimationFrame(() => {
     if (finished) return;
-    const run = ghost.animate(frames, { duration: span, easing, fill: "forwards" });
+    const run = ghost.animate(frames, {
+      duration: span,
+      easing,
+      fill: "forwards",
+    });
     window.setTimeout(rest, tokenMs("--duration-travel", 300) + 50);
     void run.finished.then(finish, finish);
   });

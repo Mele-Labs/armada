@@ -19,8 +19,26 @@ export type RevisionMenuProps = {
  * Which revision of a thing a Job kept is shown, newest first: a document's pages, a sketch's redraws. **The trigger names the
  * revision shown**, so the newest reads as a number too, and its tooltip says what the number is.
  */
-export function RevisionMenu({ count, revision, onPick, open, onOpenChange, align = "start", portal = false }: RevisionMenuProps) {
-  const entries = Array.from({ length: count }, (_, at): DropdownMenuEntry => ({ kind: "item", id: String(at + 1), label: `Revision ${String(at + 1)}`, selected: at + 1 === revision })).reverse();
+export function RevisionMenu({
+  count,
+  revision,
+  onPick,
+  open,
+  onOpenChange,
+  align = "start",
+  portal = false,
+}: RevisionMenuProps) {
+  const entries = Array.from(
+    {
+      length: count,
+    },
+    (_, at): DropdownMenuEntry => ({
+      kind: "item",
+      id: String(at + 1),
+      label: `Revision ${String(at + 1)}`,
+      selected: at + 1 === revision,
+    }),
+  ).reverse();
   return (
     <span className="armada-revision-menu">
       <DropdownMenu
@@ -30,8 +48,16 @@ export function RevisionMenu({ count, revision, onPick, open, onOpenChange, alig
         triggerLabel={`Revision ${String(revision)}`}
         triggerTooltip="Revision"
         entries={entries}
-        {...(open === undefined ? {} : { open })}
-        {...(onOpenChange === undefined ? {} : { onOpenChange })}
+        {...(open === undefined
+          ? {}
+          : {
+              open,
+            })}
+        {...(onOpenChange === undefined
+          ? {}
+          : {
+              onOpenChange,
+            })}
         onSelect={(id) => onPick(Number(id))}
       />
     </span>

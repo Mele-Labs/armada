@@ -105,7 +105,9 @@ export function GuideCatalogue({
       style={
         narrow || listWidth === undefined
           ? undefined
-          : ({ "--armada-guide-list": `${width}px` } as CSSProperties)
+          : ({
+              "--armada-guide-list": `${width}px`,
+            } as CSSProperties)
       }
     >
       <div className="armada-guides__list">
@@ -208,9 +210,15 @@ const LIST_WIDTH_DEFAULT_FALLBACK = 286;
  * own, so the widest the index may be is a fact about the two columns rather
  * than about the window.
  */
-function listWidthBounds(): { min: number; max: number } {
+function listWidthBounds(): {
+  min: number;
+  max: number;
+} {
   if (typeof document === "undefined") {
-    return { min: LIST_WIDTH_MIN_FALLBACK, max: LIST_WIDTH_MAX_FALLBACK };
+    return {
+      min: LIST_WIDTH_MIN_FALLBACK,
+      max: LIST_WIDTH_MAX_FALLBACK,
+    };
   }
   const style = getComputedStyle(document.documentElement);
   const min = parseFloat(style.getPropertyValue("--w-guide-list-min"));
@@ -224,7 +232,9 @@ function listWidthBounds(): { min: number; max: number } {
 /** The list's own resting width, for a caller with none of its own to remember yet. */
 export function defaultGuideListWidth(): number {
   if (typeof document === "undefined") return LIST_WIDTH_DEFAULT_FALLBACK;
-  const value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--w-guide-list"));
+  const value = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--w-guide-list"),
+  );
   return Number.isFinite(value) ? value : LIST_WIDTH_DEFAULT_FALLBACK;
 }
 
@@ -248,7 +258,11 @@ const LIST_WIDTH_STEP = 16;
  * inverted one: nothing here is mirrored to the opposite edge.
  */
 function ListHandle({ width, onResize }: { width: number; onResize: (width: number) => void }) {
-  const drag = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
+  const drag = useRef<{
+    pointerId: number;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
   // Only for the grip's intensified colour while dragging — `:hover` drops the
   // moment the cursor leaves the hit area, which a fast drag does almost at
   // once, and the grip going dim mid-drag would read as let go.
@@ -257,7 +271,11 @@ function ListHandle({ width, onResize }: { width: number; onResize: (width: numb
   function pointerDown(event: PointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: width };
+    drag.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: width,
+    };
     setDragging(true);
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";

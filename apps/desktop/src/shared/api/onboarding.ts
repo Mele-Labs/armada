@@ -15,7 +15,15 @@ import type {
 } from "@armada/protocol";
 
 /** What one of these reads or acts came to: Fleet's answer, or the refusal to word. */
-export type OnboardingAnswer<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+export type OnboardingAnswer<T> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type OnboardingApi = {
   /** `POST /repositories/create`: make `name` under `parent`, start it as a git repository and serve it. Listed before this answers; the window picks it. */

@@ -30,8 +30,15 @@ afterEach(() => {
 async function slowFleet(): Promise<number> {
   const server: Server = createServer((_request, response) => {
     const answering = setTimeout(() => {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ id: "job", status: "running" }));
+      response.writeHead(200, {
+        "content-type": "application/json",
+      });
+      response.end(
+        JSON.stringify({
+          id: "job",
+          status: "running",
+        }),
+      );
     }, ANSWER_MS);
     response.on("close", () => clearTimeout(answering));
   });
@@ -45,15 +52,30 @@ async function slowFleet(): Promise<number> {
 describe("waiting on a slow Fleet", () => {
   it("undici's default headers timeout cuts a slow answer short of Bridge's wait", async () => {
     const port = await slowFleet();
-    const scaledDefault = new Agent({ headersTimeout: DEFAULT_SCALED_MS });
+    const scaledDefault = new Agent({
+      headersTimeout: DEFAULT_SCALED_MS,
+    });
     opened.push(() => void scaledDefault.close());
 
-    const answer = await ask(port, "POST", "/jobs/job/rerun_checks", undefined, 10_000, scaledDefault);
+    const answer = await ask(
+      port,
+      "POST",
+      "/jobs/job/rerun_checks",
+      undefined,
+      10_000,
+      scaledDefault,
+    );
 
     // The incident's own shape: unreachable, `fetch failed`, inside a wait that had not run out.
     expect(answer).toMatchObject({
       ok: false,
-      outcome: { why: "transport", detail: "fetch failed", fault: { why: "unreachable" } },
+      outcome: {
+        why: "transport",
+        detail: "fetch failed",
+        fault: {
+          why: "unreachable",
+        },
+      },
     });
   });
 
@@ -62,7 +84,13 @@ describe("waiting on a slow Fleet", () => {
 
     const answer = await ask(port, "POST", "/jobs/job/rerun_checks", undefined, 10_000);
 
-    expect(answer).toEqual({ ok: true, body: { id: "job", status: "running" } });
+    expect(answer).toEqual({
+      ok: true,
+      body: {
+        id: "job",
+        status: "running",
+      },
+    });
   });
 
   it("waits with no bound at all at NO_WAIT", async () => {
@@ -80,7 +108,13 @@ describe("waiting on a slow Fleet", () => {
 
     expect(answer).toMatchObject({
       ok: false,
-      outcome: { why: "transport", fault: { why: "timed_out", waitedMs: DEFAULT_SCALED_MS } },
+      outcome: {
+        why: "transport",
+        fault: {
+          why: "timed_out",
+          waitedMs: DEFAULT_SCALED_MS,
+        },
+      },
     });
   });
 });

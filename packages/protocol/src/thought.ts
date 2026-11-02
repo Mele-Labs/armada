@@ -36,9 +36,14 @@ export type ThoughtTarget = {
  */
 export type ThoughtReading =
   /** For Helm itself. */
-  | { kind: "question" }
+  | {
+      kind: "question";
+    }
   /** For other work. Without a `target`, nothing running is about it. */
-  | { kind: "thought"; target?: ThoughtTarget };
+  | {
+      kind: "thought";
+      target?: ThoughtTarget;
+    };
 
 /**
  * `record_thought_sent` (`POST /helm/thought_sent?manifest_id=`): the words were delivered. The
@@ -57,4 +62,12 @@ export type ThoughtSent = {
  * the dock and is the dock's alone, so it is never part of `BridgeState`. The `outcome` of a read
  * that failed is the dock's cue to ask Helm, since the words must never be lost.
  */
-export type ThoughtRead = { ok: true; reading: ThoughtReading } | { ok: false; outcome: Outcome };
+export type ThoughtRead =
+  | {
+      ok: true;
+      reading: ThoughtReading;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };

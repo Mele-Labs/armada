@@ -3,7 +3,15 @@ import { Eye, Plus } from "lucide-react";
 import { Badge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { Sheet } from "../Sheet/Sheet";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardReadout, CardTitle } from "./Card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardReadout,
+  CardTitle,
+} from "./Card";
 
 /**
  * The contract names two renderings of a card: its resting state, and a
@@ -24,7 +32,11 @@ const meta: Meta<typeof Card> = {
   component: Card,
   decorators: [
     (Story) => (
-      <div style={{ maxWidth: "56ch" }}>
+      <div
+        style={{
+          maxWidth: "56ch",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -56,12 +68,22 @@ export const WithHeader: Story = {
       <CardTitle>Evidence accepted at step 4 of 5</CardTitle>
       <CardDescription>Four criteria resolved. One test added, none removed.</CardDescription>
       <CardContent>
-        <span style={{ color: "var(--fg-muted)", fontSize: "var(--text-xs)" }}>
+        <span
+          style={{
+            color: "var(--fg-muted)",
+            fontSize: "var(--text-xs)",
+          }}
+        >
           Verification source <span className="mono">Judge</span>
         </span>
       </CardContent>
       <CardFooter>
-        <span style={{ color: "var(--fg-subtle)", fontSize: "var(--text-2xs)" }}>
+        <span
+          style={{
+            color: "var(--fg-subtle)",
+            fontSize: "var(--text-2xs)",
+          }}
+        >
           Read at <span className="mono">14:22</span>
         </span>
       </CardFooter>
@@ -81,7 +103,14 @@ export const LegendStrip: Story = {
         </Button>
       </CardHeader>
       <CardContent>
-        <span style={{ color: "var(--fg-muted)", fontSize: "var(--text-xs)" }}>What the panel holds.</span>
+        <span
+          style={{
+            color: "var(--fg-muted)",
+            fontSize: "var(--text-xs)",
+          }}
+        >
+          What the panel holds.
+        </span>
       </CardContent>
     </Card>
   ),

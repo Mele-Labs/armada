@@ -8,9 +8,17 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs", exact: true });
+const list = () =>
+  page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
 /** The caps of the deck's bands and tiles, as the stylesheet names where they hide. */
-const caps = () => [...document.querySelectorAll<HTMLElement>(".deck :is(.deck-band, .deck-controls, .deck-flight) .armada-kbd")];
+const caps = () => [
+  ...document.querySelectorAll<HTMLElement>(
+    ".deck :is(.deck-band, .deck-controls, .deck-flight) .armada-kbd",
+  ),
+];
 const drawn = (cap: HTMLElement) => getComputedStyle(cap).display !== "none";
 const revealed = () => "reveal" in document.documentElement.dataset;
 
@@ -18,10 +26,23 @@ async function openJob() {
   mount("cockpit-ship-flightdeck");
   await onScreen();
   await expect.element(list()).toBeVisible();
-  await list().getByRole("button", { name: "Cache key", exact: true }).click();
-  await expect.element(page.getByRole("region", { name: "Job: Cache key" })).toBeVisible();
+  await list()
+    .getByRole("button", {
+      name: "Cache key",
+      exact: true,
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Job: Cache key",
+      }),
+    )
+    .toBeVisible();
   // A cap on a tile and one in a band, so both places are held.
-  await expect.poll(() => document.querySelectorAll(".deck-flight .deck-tile .armada-kbd").length).toBeGreaterThan(0);
+  await expect
+    .poll(() => document.querySelectorAll(".deck-flight .deck-tile .armada-kbd").length)
+    .toBeGreaterThan(0);
   expect(document.querySelectorAll(".deck-band .armada-kbd").length).toBeGreaterThan(0);
 }
 

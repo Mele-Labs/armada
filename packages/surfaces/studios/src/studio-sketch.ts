@@ -18,10 +18,32 @@ import type { Drawing } from "@armada/screens/src/draft/sketch";
  */
 export function padOf(drawing: SketchDrawing): Drawing {
   return {
-    shapes: drawing.boxes.map(({ id, x, y, body }) => ({ id, x, y, body })),
-    joins: drawing.joins.map(({ id, from, to }) => ({ id, from, to })),
-    strokes: drawing.strokes.map(({ id, points }) => ({ id, points: points.map(({ x, y }) => ({ x, y })) })),
-    pictures: drawing.pictures.map(({ id, x, y, width, height }) => ({ id, x, y, width, height, src: "" })),
+    shapes: drawing.boxes.map(({ id, x, y, body }) => ({
+      id,
+      x,
+      y,
+      body,
+    })),
+    joins: drawing.joins.map(({ id, from, to }) => ({
+      id,
+      from,
+      to,
+    })),
+    strokes: drawing.strokes.map(({ id, points }) => ({
+      id,
+      points: points.map(({ x, y }) => ({
+        x,
+        y,
+      })),
+    })),
+    pictures: drawing.pictures.map(({ id, x, y, width, height }) => ({
+      id,
+      x,
+      y,
+      width,
+      height,
+      src: "",
+    })),
   };
 }
 
@@ -36,11 +58,20 @@ export function keptOf(drawing: SketchDrawing): ReadonlySet<string> {
  * React Flow can land between two.
  */
 function rounded(drawing: Drawing): Drawing {
-  const at = ({ x, y }: { x: number; y: number }) => ({ x: Math.round(x), y: Math.round(y) });
+  const at = ({ x, y }: { x: number; y: number }) => ({
+    x: Math.round(x),
+    y: Math.round(y),
+  });
   return {
-    shapes: drawing.shapes.map((one) => ({ ...one, ...at(one) })),
+    shapes: drawing.shapes.map((one) => ({
+      ...one,
+      ...at(one),
+    })),
     joins: drawing.joins,
-    strokes: drawing.strokes.map((one) => ({ ...one, points: one.points.map(at) })),
+    strokes: drawing.strokes.map((one) => ({
+      ...one,
+      points: one.points.map(at),
+    })),
     pictures: drawing.pictures.map((one) => ({
       ...one,
       ...at(one),
@@ -60,7 +91,13 @@ export function drawnAs(drawing: Drawing): string {
     shapes,
     joins,
     strokes,
-    pictures: pictures.map(({ id, x, y, width, height }) => ({ id, x, y, width, height })),
+    pictures: pictures.map(({ id, x, y, width, height }) => ({
+      id,
+      x,
+      y,
+      width,
+      height,
+    })),
   });
 }
 
@@ -76,12 +113,41 @@ export async function toKeep(
 ): Promise<SketchToKeep> {
   const { shapes, joins, strokes, pictures } = rounded(drawing);
   return {
-    boxes: shapes.map(({ id, x, y, body }) => ({ id, x, y, body })),
-    joins: joins.map(({ id, from, to }) => ({ id, from, to })),
-    strokes: strokes.map(({ id, points }) => ({ id, points: [...points] })),
+    boxes: shapes.map(({ id, x, y, body }) => ({
+      id,
+      x,
+      y,
+      body,
+    })),
+    joins: joins.map(({ id, from, to }) => ({
+      id,
+      from,
+      to,
+    })),
+    strokes: strokes.map(({ id, points }) => ({
+      id,
+      points: [
+        ...points,
+      ],
+    })),
     pictures: await Promise.all(
       pictures.map(async ({ id, x, y, width, height, src }) =>
-        kept.has(id) ? { id, x, y, width, height } : { id, x, y, width, height, bytes: await bytesOf(src) },
+        kept.has(id)
+          ? {
+              id,
+              x,
+              y,
+              width,
+              height,
+            }
+          : {
+              id,
+              x,
+              y,
+              width,
+              height,
+              bytes: await bytesOf(src),
+            },
       ),
     ),
   };

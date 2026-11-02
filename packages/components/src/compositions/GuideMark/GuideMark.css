@@ -26,7 +26,9 @@
      can find, and a control nobody can find is the same defect. */
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  transition:
+    background var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
 }
 
 .armada-guide-mark:hover {

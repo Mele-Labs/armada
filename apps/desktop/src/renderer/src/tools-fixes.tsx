@@ -4,13 +4,28 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import { ToolsMark, type TerminalDockRun, type ToolsFix } from "@armada/components";
-import { toolsMissingSaid, toolsPieceSaid, type Session, type SessionsDraft, type ToolsPiece } from "@armada/screens/src/draft/sessions";
+import {
+  toolsMissingSaid,
+  toolsPieceSaid,
+  type Session,
+  type SessionsDraft,
+  type ToolsPiece,
+} from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "./sessions-draft";
 
-const ACT: Record<Exclude<ToolsPiece, "task_tools">, string> = { mod: "Restart the agent", door: "Reconnect" };
+const ACT: Record<Exclude<ToolsPiece, "task_tools">, string> = {
+  mod: "Restart the agent",
+  door: "Reconnect",
+};
 
-type Phase = { running: true } | { error: string };
+type Phase =
+  | {
+      running: true;
+    }
+  | {
+      error: string;
+    };
 
 let held: ReadonlyMap<string, Phase> = new Map();
 const listeners = new Set<() => void>();
@@ -39,7 +54,14 @@ const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.d
 /** The Job's own terminal, as its view docks it: the update runs there, where the person sees all of it and can answer a prompt. */
 type Terminal = Pick<TerminalDockRun, "start">;
 
-function press(draft: SessionsDraft, id: string, piece: ToolsPiece, update: string, terminal: Terminal | undefined, open: (() => void) | undefined): void {
+function press(
+  draft: SessionsDraft,
+  id: string,
+  piece: ToolsPiece,
+  update: string,
+  terminal: Terminal | undefined,
+  open: (() => void) | undefined,
+): void {
   // Left to the terminal: its own pane shows the run and its exit, so no phase is held here. From a row the Job opens first.
   if (piece === "task_tools") {
     if (terminal !== undefined) terminal.start(update);
@@ -51,15 +73,32 @@ function press(draft: SessionsDraft, id: string, piece: ToolsPiece, update: stri
   }
   const key = `${id}:${piece}`;
   if ("running" in (held.get(key) ?? {})) return;
-  put(key, { running: true });
+  put(key, {
+    running: true,
+  });
   const done = () => put(key, undefined);
-  const failed = (error: string) => put(key, { error });
-  if (piece === "door") void draft.actOnMcp?.(id, "armada-fleet", "reconnect").then((one) => (one.ok ? done() : failed(one.said)));
+  const failed = (error: string) =>
+    put(key, {
+      error,
+    });
+  if (piece === "door")
+    void draft
+      .actOnMcp?.(id, "armada-fleet", "reconnect")
+      .then((one) => (one.ok ? done() : failed(one.said)));
   else void draft.mendTools?.(id).then((one) => (one.ok ? done() : failed(one.said)));
 }
 
 /** What the mark's menu lists for a Job, with the press on each act. Absent where the Job came up whole. */
-export function useToolsFixes(session: Session, terminal?: Terminal, open?: () => void): { fixes: ToolsFix[]; onFix: (piece: string) => void } | undefined {
+export function useToolsFixes(
+  session: Session,
+  terminal?: Terminal,
+  open?: () => void,
+):
+  | {
+      fixes: ToolsFix[];
+      onFix: (piece: string) => void;
+    }
+  | undefined {
   const draft = useSessionsDraft();
   const phases = useSyncExternalStore(subscribe, () => held);
   const wanted = useSyncExternalStore(subscribe, () => asked.get(session.id));
@@ -68,24 +107,54 @@ export function useToolsFixes(session: Session, terminal?: Terminal, open?: () =
     if (wanted === undefined || terminal === undefined) return;
     ask(session.id, undefined);
     terminal.start(wanted);
-  }, [wanted, terminal, session.id]);
+  }, [
+    wanted,
+    terminal,
+    session.id,
+  ]);
   const tools = session.toolsMissing;
   if (tools === undefined || draft === undefined) return undefined;
-  const can: Record<ToolsPiece, boolean> = { mod: draft.mendTools !== undefined, door: draft.actOnMcp !== undefined, task_tools: terminal !== undefined || open !== undefined };
-  const act: Record<ToolsPiece, string> = { ...ACT, task_tools: `Update ${tools.harness}` };
+  const can: Record<ToolsPiece, boolean> = {
+    mod: draft.mendTools !== undefined,
+    door: draft.actOnMcp !== undefined,
+    task_tools: terminal !== undefined || open !== undefined,
+  };
+  const act: Record<ToolsPiece, string> = {
+    ...ACT,
+    task_tools: `Update ${tools.harness}`,
+  };
   const fixes = tools.missing.map((piece): ToolsFix => {
     const phase = phases.get(`${session.id}:${piece}`);
     return {
       piece,
       said: toolsPieceSaid(piece),
-      ...(can[piece] ? { act: act[piece] } : {}),
+      ...(can[piece]
+        ? {
+            act: act[piece],
+          }
+        : {}),
       // The terminal takes over from the menu.
-      ...(piece === "task_tools" ? { closes: true } : {}),
-      ...(phase !== undefined && "running" in phase ? { running: true } : {}),
-      ...(phase !== undefined && "error" in phase ? { error: phase.error } : {}),
+      ...(piece === "task_tools"
+        ? {
+            closes: true,
+          }
+        : {}),
+      ...(phase !== undefined && "running" in phase
+        ? {
+            running: true,
+          }
+        : {}),
+      ...(phase !== undefined && "error" in phase
+        ? {
+            error: phase.error,
+          }
+        : {}),
     };
   });
-  return { fixes, onFix: (piece) => press(draft, session.id, piece as ToolsPiece, tools.update, terminal, open) };
+  return {
+    fixes,
+    onFix: (piece) => press(draft, session.id, piece as ToolsPiece, tools.update, terminal, open),
+  };
 }
 
 /** What each Job's person put away the band over its message box for: the pieces missing then. In memory, for the life of the window. */
@@ -103,14 +172,22 @@ function putAway(id: string, pieces: readonly ToolsPiece[] | undefined): void {
  * Whether the band over a Job's message box shows, and the act that puts it away. It stays away while every piece missing is one that was missing when
  * it was put away: a piece fixed leaves it away, a piece newly missing brings it back. Nothing missing forgets the dismissal.
  */
-export function useToolsBand(session: Session): { shown: boolean; dismiss: () => void } {
+export function useToolsBand(session: Session): {
+  shown: boolean;
+  dismiss: () => void;
+} {
   const gone = useSyncExternalStore(subscribe, () => away.get(session.id));
   const missing = session.toolsMissing?.missing;
   useEffect(() => {
     if (missing === undefined && away.has(session.id)) putAway(session.id, undefined);
-  }, [missing, session.id]);
+  }, [
+    missing,
+    session.id,
+  ]);
   return {
-    shown: missing !== undefined && (gone === undefined || missing.some((piece) => !gone.includes(piece))),
+    shown:
+      missing !== undefined &&
+      (gone === undefined || missing.some((piece) => !gone.includes(piece))),
     dismiss: () => {
       if (missing !== undefined) putAway(session.id, missing);
     },
@@ -118,8 +195,27 @@ export function useToolsBand(session: Session): { shown: boolean; dismiss: () =>
 }
 
 /** The tools mark of a Job on its row, with its menu where the build can act on it, pulsing: the row has no band. Nothing where the Job came up whole. */
-export function ToolsMarkOf({ session, size, open }: { session: Session; size?: 12 | 16; open?: () => void }) {
+export function ToolsMarkOf({
+  session,
+  size,
+  open,
+}: {
+  session: Session;
+  size?: 12 | 16;
+  open?: () => void;
+}) {
   const fixing = useToolsFixes(session, undefined, open);
   if (session.toolsMissing === undefined) return null;
-  return <ToolsMark said={toolsMissingSaid(session.toolsMissing)} {...(size === undefined ? {} : { size })} {...(fixing ?? {})} apparent />;
+  return (
+    <ToolsMark
+      said={toolsMissingSaid(session.toolsMissing)}
+      {...(size === undefined
+        ? {}
+        : {
+            size,
+          })}
+      {...(fixing ?? {})}
+      apparent
+    />
+  );
 }

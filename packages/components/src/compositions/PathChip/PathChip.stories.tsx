@@ -54,7 +54,9 @@ export const ALongPathTruncatingItsDirectory: Story = {
     const directory = whole.getByText("packages/settings/src/");
     const basename = whole.getByText("selectors.ts");
     const separator = glyph(directory, "last").right;
-    await expect(Math.abs(separator - basename.getBoundingClientRect().left)).toBeLessThanOrEqual(1);
+    await expect(Math.abs(separator - basename.getBoundingClientRect().left)).toBeLessThanOrEqual(
+      1,
+    );
 
     const clipped = canvas.getByText(".armada/artifacts/job_2d90bb/");
     const chip = canvas.getByTitle(".armada/artifacts/job_2d90bb/root_cause.md");
@@ -90,5 +92,7 @@ export const WithWhatItIs: Story = {
  * span before the filename would render as a stray separator.
  */
 export const AtTheRoot: Story = {
-  args: { basename: "armada.yml" },
+  args: {
+    basename: "armada.yml",
+  },
 };

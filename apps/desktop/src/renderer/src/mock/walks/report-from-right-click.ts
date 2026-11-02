@@ -6,35 +6,84 @@ import { button, deckRow, dialog, inside, region, role, text, walk } from "../wa
 import type { Step } from "../walk";
 
 const writes = (what: string): Step[] => [
-  { type: what, into: inside(dialog("New note"), role("textbox", "Note")), say: "What is wrong with it" },
-  { press: button("Save note"), say: "Saved" },
-  { look: inside(dialog("Note"), text(what)), say: "The note stays up where it was left" },
+  {
+    type: what,
+    into: inside(dialog("New note"), role("textbox", "Note")),
+    say: "What is wrong with it",
+  },
+  {
+    press: button("Save note"),
+    say: "Saved",
+  },
+  {
+    look: inside(dialog("Note"), text(what)),
+    say: "The note stays up where it was left",
+  },
 ];
 
 const anything: Step[] = [
-  { context: region("Jobs", { exact: true }), say: "A right press on anything the app has no menu for" },
-  { look: role("menuitem", "Report"), say: "Report is in the menu" },
-  { press: role("menuitem", "Report"), say: "Report opens a note on what was pressed" },
+  {
+    context: region("Jobs", {
+      exact: true,
+    }),
+    say: "A right press on anything the app has no menu for",
+  },
+  {
+    look: role("menuitem", "Report"),
+    say: "Report is in the menu",
+  },
+  {
+    press: role("menuitem", "Report"),
+    say: "Report opens a note on what was pressed",
+  },
   ...writes("The list needs a heading"),
 ];
 
 const row: Step[] = [
-  { context: deckRow("Fix the flaky store test"), say: "A Job's row has a menu of its own" },
-  { look: role("menuitem", "Auto Pilot"), say: "With its own acts" },
-  { look: role("menuitem", "Report"), say: "And Report, always" },
-  { press: role("menuitem", "Report"), say: "Report opens a note on the row" },
+  {
+    context: deckRow("Fix the flaky store test"),
+    say: "A Job's row has a menu of its own",
+  },
+  {
+    look: role("menuitem", "Auto Pilot"),
+    say: "With its own acts",
+  },
+  {
+    look: role("menuitem", "Report"),
+    say: "And Report, always",
+  },
+  {
+    press: role("menuitem", "Report"),
+    say: "Report opens a note on the row",
+  },
   ...writes("The row should say which step it is on"),
 ];
 
 const places: Step[] = [
-  { context: inside(role("navigation", "Places"), role("tab", "Cockpit")), say: "The Places strip has a menu of its own" },
-  { look: role("menuitem", "Hide Cockpit"), say: "With its own acts" },
-  { look: role("menuitem", "Report"), say: "And Report, as every menu has" },
-  { press: role("menuitem", "Report"), say: "Report opens a note on the tab" },
+  {
+    context: inside(role("navigation", "Places"), role("tab", "Cockpit")),
+    say: "The Places strip has a menu of its own",
+  },
+  {
+    look: role("menuitem", "Hide Cockpit"),
+    say: "With its own acts",
+  },
+  {
+    look: role("menuitem", "Report"),
+    say: "And Report, as every menu has",
+  },
+  {
+    press: role("menuitem", "Report"),
+    say: "Report opens a note on the tab",
+  },
   ...writes("The tab names are too small"),
 ];
 
 const planned = walk("report-from-right-click", anything);
 const onARow = walk("report-from-right-click", row);
 const onPlaces = walk("report-from-right-click", places);
-export { planned as "report-from-right-click", onARow as "report-from-job-row", onPlaces as "report-from-places" };
+export {
+  planned as "report-from-right-click",
+  onARow as "report-from-job-row",
+  onPlaces as "report-from-places",
+};

@@ -17,36 +17,68 @@ const TRIP_MS = 2400;
 /** How much of the arc a packet's tail covers behind it. */
 const TAIL = 0.07;
 
-const colour = (c: Rgba) => ({ color: hex(c), alpha: c[3] });
+const colour = (c: Rgba) => ({
+  color: hex(c),
+  alpha: c[3],
+});
 
 /** Whether an arc's packets move. */
-export const arcsMoving = (s: PixiSceneIn, clock: Clock): boolean => clock.pulse > 0 && s.arcs.some((one) => one.loop);
+export const arcsMoving = (s: PixiSceneIn, clock: Clock): boolean =>
+  clock.pulse > 0 && s.arcs.some((one) => one.loop);
 
 /** Where along the arc each packet is: travelling where it moves, else spread evenly along it. */
-export const packetsAt = (arc: Pick<ArcSpec, "loop">, clock: Pick<Clock, "now" | "pulse">): number[] => {
+export const packetsAt = (
+  arc: Pick<ArcSpec, "loop">,
+  clock: Pick<Clock, "now" | "pulse">,
+): number[] => {
   const start = arc.loop && clock.pulse > 0 ? turn(clock.now, TRIP_MS) : 0.5 / PACKETS;
-  return Array.from({ length: PACKETS }, (_, k) => (start + k / PACKETS) % 1);
+  return Array.from(
+    {
+      length: PACKETS,
+    },
+    (_, k) => (start + k / PACKETS) % 1,
+  );
 };
 
 /** Each arc and its packets, in screen space on the effects' graphic. */
 export function drawArcs(g: G, s: PixiSceneIn, p: Palette, view: View, clock: Clock): void {
   for (const arc of s.arcs) {
     const n = 28;
-    const points = Array.from({ length: n + 1 }, (_, i) => project(view, alongOf(arc.from, arc.to, arc.lift, i / n)));
+    const points = Array.from(
+      {
+        length: n + 1,
+      },
+      (_, i) => project(view, alongOf(arc.from, arc.to, arc.lift, i / n)),
+    );
     if (points.some((one) => one.scale <= 0)) continue;
     const u = view.eye * points[n >> 1]!.scale;
     const path = (width: number, alpha: number) => {
       g.moveTo(points[0]!.x, points[0]!.y);
       for (const one of points.slice(1)) g.lineTo(one.x, one.y);
-      g.stroke({ color: hex(p.accent), alpha, width: width * u, cap: "round", join: "round" });
+      g.stroke({
+        color: hex(p.accent),
+        alpha,
+        width: width * u,
+        cap: "round",
+        join: "round",
+      });
     };
     path(5, 0.12);
     path(1.4, 0.75);
     for (const t of packetsAt(arc, clock)) {
       const head = project(view, alongOf(arc.from, arc.to, arc.lift, t));
       const tail = project(view, alongOf(arc.from, arc.to, arc.lift, Math.max(0, t - TAIL)));
-      g.moveTo(tail.x, tail.y).lineTo(head.x, head.y).stroke({ color: hex(p.accent), alpha: 0.45, width: 2.4 * u, cap: "round" });
-      g.roundRect(head.x - 4.5 * u, head.y - 3 * u, 9 * u, 6 * u, 1.5 * u).fill(colour(mix(p.accent, p.fg, 0.25)));
+      g.moveTo(tail.x, tail.y)
+        .lineTo(head.x, head.y)
+        .stroke({
+          color: hex(p.accent),
+          alpha: 0.45,
+          width: 2.4 * u,
+          cap: "round",
+        });
+      g.roundRect(head.x - 4.5 * u, head.y - 3 * u, 9 * u, 6 * u, 1.5 * u).fill(
+        colour(mix(p.accent, p.fg, 0.25)),
+      );
     }
   }
 }

@@ -7,7 +7,12 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { SessionThreadRow } from "./SessionThread";
 
 /** **Proposed, not on the wire**: drawn from a mock's rows until Fleet writes one. */
-export type SavedThreadRow = Extract<SessionThreadRow, { kind: "saved" }>;
+export type SavedThreadRow = Extract<
+  SessionThreadRow,
+  {
+    kind: "saved";
+  }
+>;
 
 /** Opens a saved request in Requests, in its collection. A context as `RequestOpen` is; absent, the row has no press for it. */
 export const SavedOpen = createContext<((row: SavedThreadRow) => void) | null>(null);

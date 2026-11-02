@@ -9,12 +9,30 @@ import { hear } from "./voice";
 import type { VoiceHosts } from "./voice";
 import type { WhisperInstall } from "./whisper-install";
 
-const ENGINES: readonly unknown[] = ["apple", "whisper", "dictation"] satisfies VoiceEngine[];
+const ENGINES: readonly unknown[] = [
+  "apple",
+  "whisper",
+  "dictation",
+] satisfies VoiceEngine[];
 
 type Sender = IpcMainInvokeEvent["sender"];
-type Handle = (channel: string, listener: (event: { sender: Sender }, ...args: unknown[]) => unknown) => void;
+type Handle = (
+  channel: string,
+  listener: (
+    event: {
+      sender: Sender;
+    },
+    ...args: unknown[]
+  ) => unknown,
+) => void;
 
-type Hosts = { ipc: { handle: Handle }; voice: Omit<VoiceHosts, "whisper">; install: WhisperInstall };
+type Hosts = {
+  ipc: {
+    handle: Handle;
+  };
+  voice: Omit<VoiceHosts, "whisper">;
+  install: WhisperInstall;
+};
 
 export function handleVoice({ ipc, voice, install }: Hosts): void {
   const hearing = new Map<Sender, Map<number, () => void>>();
@@ -40,11 +58,34 @@ export function handleVoice({ ipc, voice, install }: Hosts): void {
       if (!sender.isDestroyed()) sender.send(CHANNELS.voiceHeard, heard);
     };
     let ended = false;
-    const stop = hear(engine as VoiceEngine, { ...voice, whisper: () => install.paths() }, (word) => send({ id, word }), (why) => {
-      ended = true;
-      held.delete(id);
-      send(why === undefined ? { id, end: true } : { id, end: true, why });
-    });
+    const stop = hear(
+      engine as VoiceEngine,
+      {
+        ...voice,
+        whisper: () => install.paths(),
+      },
+      (word) =>
+        send({
+          id,
+          word,
+        }),
+      (why) => {
+        ended = true;
+        held.delete(id);
+        send(
+          why === undefined
+            ? {
+                id,
+                end: true,
+              }
+            : {
+                id,
+                end: true,
+                why,
+              },
+        );
+      },
+    );
     if (!ended) held.set(id, stop);
     return true;
   });

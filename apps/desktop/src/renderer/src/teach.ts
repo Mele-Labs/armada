@@ -43,10 +43,23 @@ export type Teaching = {
 };
 
 /** Where an address was found. */
-export type SiteFrom = { kind: "settings" } | { kind: "pull_request"; number: number } | { kind: "you" };
+export type SiteFrom =
+  | {
+      kind: "settings";
+    }
+  | {
+      kind: "pull_request";
+      number: number;
+    }
+  | {
+      kind: "you";
+    };
 
 /** A repository's site: the address its keys go under. */
-export type Site = { address: string; from: SiteFrom };
+export type Site = {
+  address: string;
+  from: SiteFrom;
+};
 
 export type FleetDoes = "batch" | "quiet" | "tell" | "call";
 
@@ -64,29 +77,68 @@ export type Tweak = {
 };
 
 /** A layout change: entries of one region not drawn. */
-export type LayoutChange = { mod: string; region: LayoutRegion; hidden: readonly string[] };
+export type LayoutChange = {
+  mod: string;
+  region: LayoutRegion;
+  hidden: readonly string[];
+};
 
 /** What Fleet understood. Any of the parts, only those the teaching changes. Each part but the note is kept by a mod named by Fleet. */
 export type TeachAnswer = {
   agents?: string;
   /** Words matching `pattern` are links. `example` is one match; `site` is where this repository's matches go, if found. Kept by a Words mod. */
-  bridge?: { mod: string; name: string; pattern: string; example: string; site?: Site };
+  bridge?: {
+    mod: string;
+    name: string;
+    pattern: string;
+    example: string;
+    site?: Site;
+  };
   /** What Fleet does with a notice whose text matches `match`, and what it does instead when a condition holds. Kept by a Fleet mod. */
-  fleet?: { mod: string; name: string; match: string; does: FleetDoes; when?: FleetInstead[]; scope: "job" | "repository" | "all" };
+  fleet?: {
+    mod: string;
+    name: string;
+    match: string;
+    does: FleetDoes;
+    when?: FleetInstead[];
+    scope: "job" | "repository" | "all";
+  };
   tweak?: Tweak;
   layout?: LayoutChange;
   /** A lifecycle rule, kept as a rule piece in Kit and not as a mod, with what Fleet could not test in the person's words. */
-  rule?: { rule: LifecycleRule; untestable?: readonly string[] };
+  rule?: {
+    rule: LifecycleRule;
+    untestable?: readonly string[];
+  };
 };
 
 /** One thing taught. */
-export type Lesson = { id: string; reach: TeachReach; teaching: Teaching; say: string; answer: TeachAnswer; at: string };
+export type Lesson = {
+  id: string;
+  reach: TeachReach;
+  teaching: Teaching;
+  say: string;
+  answer: TeachAnswer;
+  at: string;
+};
 
 /** A pattern to draw as a link before it is kept, in the form `refScanner` takes. */
-export type PreviewLink = { pattern: string; address: string; from?: string };
+export type PreviewLink = {
+  pattern: string;
+  address: string;
+  from?: string;
+};
 
 /** What the panel shows back, drawn behind it before it is kept: a link in the thread, a colour on the screen. */
-export type Preview = { reach: TeachReach; manifestId?: string; link?: PreviewLink; tweak?: { token: string; now: string } };
+export type Preview = {
+  reach: TeachReach;
+  manifestId?: string;
+  link?: PreviewLink;
+  tweak?: {
+    token: string;
+    now: string;
+  };
+};
 
 type Held = {
   offered: boolean;
@@ -96,23 +148,37 @@ type Held = {
   saved: number;
 };
 
-const NOTHING: Held = { offered: false, lessons: [], preview: undefined, saved: 0 };
+const NOTHING: Held = {
+  offered: false,
+  lessons: [],
+  preview: undefined,
+  saved: 0,
+};
 let held: Held = NOTHING;
 const listeners = new Set<() => void>();
 const set = (next: Partial<Held>) => {
-  held = { ...held, ...next };
+  held = {
+    ...held,
+    ...next,
+  };
   listeners.forEach((on) => on());
 };
 
 /** Whether this window offers Teach. A new window starts from nothing taught. */
 export function provideTeaching(offered: boolean): void {
-  held = { ...NOTHING, offered };
+  held = {
+    ...NOTHING,
+    offered,
+  };
   modOpened.set(undefined);
   listeners.forEach((on) => on());
 }
 
 /** A teaching was kept: the rules Fleet lists may have changed. */
-export const teachingSaved = (): void => set({ saved: held.saved + 1 });
+export const teachingSaved = (): void =>
+  set({
+    saved: held.saved + 1,
+  });
 
 /** How many teachings this window has kept. */
 export function useTeachingsSaved(): number {
@@ -124,14 +190,25 @@ let minted = 0;
 /** A mock Fleet keeps a lesson. */
 export function saveLesson(input: Omit<Lesson, "id" | "at">): Lesson {
   minted += 1;
-  const lesson: Lesson = { ...input, id: `lesson-${minted}`, at: new Date().toISOString() };
-  set({ lessons: [...held.lessons, lesson] });
+  const lesson: Lesson = {
+    ...input,
+    id: `lesson-${minted}`,
+    at: new Date().toISOString(),
+  };
+  set({
+    lessons: [
+      ...held.lessons,
+      lesson,
+    ],
+  });
   return lesson;
 }
 
 /** Takes back everything the lesson changed: the note, the links and what Fleet does. */
 export function forgetLesson(id: string): void {
-  set({ lessons: held.lessons.filter((one) => one.id !== id) });
+  set({
+    lessons: held.lessons.filter((one) => one.id !== id),
+  });
 }
 
 /** The lessons as they stand, for a source that serves the Logbook. */
@@ -143,7 +220,9 @@ export const taughtId = (lesson: { id: string }): string => `taught:${lesson.id}
 /** What the panel shows back, drawn behind it before it is kept. */
 export function previewTeaching(preview: Preview | undefined): void {
   if (JSON.stringify(held.preview) === JSON.stringify(preview)) return;
-  set({ preview });
+  set({
+    preview,
+  });
 }
 
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
@@ -157,10 +236,19 @@ export function useLessons(): readonly Lesson[] {
   return useSyncExternalStore(subscribe, () => held.lessons);
 }
 
-export const DOES: Record<FleetDoes, string> = { batch: "batched", quiet: "quiet", tell: "told", call: "called to you" };
+export const DOES: Record<FleetDoes, string> = {
+  batch: "batched",
+  quiet: "quiet",
+  tell: "told",
+  call: "called to you",
+};
 
 /** Where a Fleet rule reaches, as `Also changes` words it. */
-export const SCOPE = { job: "for this Job", repository: "for this repository", all: "for every repository" } as const;
+export const SCOPE = {
+  job: "for this Job",
+  repository: "for this repository",
+  all: "for every repository",
+} as const;
 
 /** Where an address was found, from the words the wire spells it in (`settings`, `pull_request #N`, `person`), as a tooltip says it. */
 export function foundSaid(found: string): string {
@@ -176,32 +264,71 @@ export const addressOf = (site: Site, match: string): string => `${site.address}
 /** The link the panel is showing back, where it reaches this repository: for it alone, or for every one. */
 export function usePreviewLink(manifestId: string | undefined): PreviewLink | undefined {
   const preview = useSyncExternalStore(subscribe, () => held.preview);
-  return preview?.link !== undefined && (preview.reach === "all" || preview.manifestId === manifestId) ? preview.link : undefined;
+  return preview?.link !== undefined &&
+    (preview.reach === "all" || preview.manifestId === manifestId)
+    ? preview.link
+    : undefined;
 }
 
 /** The tweak the panel is showing back. */
-export function usePreviewTweak(): { token: string; now: string } | undefined {
+export function usePreviewTweak():
+  | {
+      token: string;
+      now: string;
+    }
+  | undefined {
   const preview = useSyncExternalStore(subscribe, () => held.preview);
   return preview?.tweak;
 }
 
 /** A rule for notices: Fleet batches or silences those whose text matches, written after the notice the person taught from. */
-export type NoticeRule = { name: string; match: string; does: FleetDoes; after: string };
+export type NoticeRule = {
+  name: string;
+  match: string;
+  does: FleetDoes;
+  after: string;
+};
 
 /** The rules that reach a Session: taught in this Job, in its repository, or everywhere. */
-export function useNoticeRules(sessionId: string, manifestId: string | undefined): readonly NoticeRule[] {
+export function useNoticeRules(
+  sessionId: string,
+  manifestId: string | undefined,
+): readonly NoticeRule[] {
   const lessons = useLessons();
   const mods = useModList();
-  const off = useMemo(() => new Set(mods.filter((one) => !one.enabled).map((one) => one.name)), [mods]);
+  const off = useMemo(
+    () => new Set(mods.filter((one) => !one.enabled).map((one) => one.name)),
+    [
+      mods,
+    ],
+  );
   return useMemo(
     () =>
       lessons.flatMap((one) => {
         const fleet = one.answer.fleet;
         if (fleet === undefined || one.teaching.at === undefined || off.has(fleet.mod)) return [];
-        const there = fleet.scope === "all" || (fleet.scope === "job" ? one.teaching.sessionId === sessionId : one.teaching.manifestId === manifestId);
-        return there ? [{ name: fleet.name, match: fleet.match, does: fleet.does, after: one.teaching.at }] : [];
+        const there =
+          fleet.scope === "all" ||
+          (fleet.scope === "job"
+            ? one.teaching.sessionId === sessionId
+            : one.teaching.manifestId === manifestId);
+        return there
+          ? [
+              {
+                name: fleet.name,
+                match: fleet.match,
+                does: fleet.does,
+                after: one.teaching.at,
+              },
+            ]
+          : [];
       }),
-    [lessons, off, sessionId, manifestId],
+    [
+      lessons,
+      off,
+      sessionId,
+      manifestId,
+    ],
   );
 }
 
@@ -209,14 +336,20 @@ export function useNoticeRules(sessionId: string, manifestId: string | undefined
  * The thread with Fleet's notices as it was taught to send them: those after the one taught from that match a rule are one row
  * for a batch, each line a notice, or gone for a quiet one. A notice no rule matches is as it came.
  */
-export function batchNotices(rows: readonly SessionThreadRow[], rules: readonly NoticeRule[]): readonly SessionThreadRow[] {
+export function batchNotices(
+  rows: readonly SessionThreadRow[],
+  rules: readonly NoticeRule[],
+): readonly SessionThreadRow[] {
   if (rules.length === 0) return rows;
   const out: SessionThreadRow[] = [];
   const batched = new Map<string, number>();
   for (const row of rows) {
     const rule =
       row.kind === "message" && row.from === "session" && row.sender.id === "fleet"
-        ? rules.find((one) => Date.parse(row.at) > Date.parse(one.after) && new RegExp(one.match).test(row.text))
+        ? rules.find(
+            (one) =>
+              Date.parse(row.at) > Date.parse(one.after) && new RegExp(one.match).test(row.text),
+          )
         : undefined;
     if (rule === undefined || (rule.does !== "batch" && rule.does !== "quiet")) {
       out.push(row);
@@ -225,43 +358,104 @@ export function batchNotices(rows: readonly SessionThreadRow[], rules: readonly 
     if (rule.does === "quiet" || row.kind !== "message" || row.from !== "session") continue;
     const into = batched.get(rule.name);
     const was = into === undefined ? undefined : out[into];
-    if (into === undefined || was === undefined || was.kind !== "message" || was.from !== "session") {
+    if (
+      into === undefined ||
+      was === undefined ||
+      was.kind !== "message" ||
+      was.from !== "session"
+    ) {
       batched.set(rule.name, out.length);
-      out.push({ ...row, batch: rule.name });
-    } else out[into] = { ...was, text: `${was.text}\n${row.text}` };
+      out.push({
+        ...row,
+        batch: rule.name,
+      });
+    } else
+      out[into] = {
+        ...was,
+        text: `${was.text}\n${row.text}`,
+      };
   }
   return out;
 }
 
 /** The Job and repository Teach is pressed in. */
-export type TeachHere = { sessionId: string; jobTitle: string; manifestId?: string; root?: string; repository: string };
+export type TeachHere = {
+  sessionId: string;
+  jobTitle: string;
+  manifestId?: string;
+  root?: string;
+  repository: string;
+};
 export const TeachHereContext = createContext<TeachHere | null>(null);
 
 /** Where Teach is pressed in a Job: the Job, and the repository it is of by the Manifest it carries or the folder it works in. */
-export function teachHereOf(session: Pick<Session, "id" | "title" | "manifestId" | "cwd">, repositories: readonly RepositorySummary[]): TeachHere {
+export function teachHereOf(
+  session: Pick<Session, "id" | "title" | "manifestId" | "cwd">,
+  repositories: readonly RepositorySummary[],
+): TeachHere {
   const at = rootOfSession(session, repositories);
   return {
     sessionId: session.id,
     jobTitle: session.title ?? session.id,
-    ...(session.manifestId === undefined ? {} : { manifestId: session.manifestId }),
-    ...(at === undefined ? {} : { root: at }),
+    ...(session.manifestId === undefined
+      ? {}
+      : {
+          manifestId: session.manifestId,
+        }),
+    ...(at === undefined
+      ? {}
+      : {
+          root: at,
+        }),
     repository: (at ?? session.cwd ?? session.manifestId ?? session.id).split("/").pop()!,
   };
 }
 
 /** Opens the Teach panel on something in this Job, or is absent where the window offers no Teach. */
-export function useTeachFrom(here: TeachHere): ((kind: TeachSourceKind, text: string, at?: string, ids?: string[]) => void) | undefined {
+export function useTeachFrom(
+  here: TeachHere,
+): ((kind: TeachSourceKind, text: string, at?: string, ids?: string[]) => void) | undefined {
   const offered = useTeachingOffered();
   return useMemo(
-    () => (!offered ? undefined : (kind, text, at, ids) => void openInPanel({ kind: "teach", ...here, source: kind, text, ...(at === undefined ? {} : { at }), ...(ids === undefined ? {} : { ids }) })),
-    [offered, here],
+    () =>
+      !offered
+        ? undefined
+        : (kind, text, at, ids) =>
+            void openInPanel({
+              kind: "teach",
+              ...here,
+              source: kind,
+              text,
+              ...(at === undefined
+                ? {}
+                : {
+                    at,
+                  }),
+              ...(ids === undefined
+                ? {}
+                : {
+                    ids,
+                  }),
+            }),
+    [
+      offered,
+      here,
+    ],
   );
 }
 
 /** The same, for a row deep in this Job's panels, which reads the Job from `TeachHereContext`. Absent outside any Job. */
-export function useTeach(): ((kind: TeachSourceKind, text: string, at?: string, ids?: string[]) => void) | undefined {
+export function useTeach():
+  | ((kind: TeachSourceKind, text: string, at?: string, ids?: string[]) => void)
+  | undefined {
   const here = useContext(TeachHereContext);
-  const open = useTeachFrom(here ?? { sessionId: "", jobTitle: "", repository: "" });
+  const open = useTeachFrom(
+    here ?? {
+      sessionId: "",
+      jobTitle: "",
+      repository: "",
+    },
+  );
   return here === null ? undefined : open;
 }
 
@@ -272,10 +466,30 @@ export const wordsOfQuote = (quote: string): string => quote.replace(/^> ?/gm, "
 export const BRIDGE = "bridge";
 
 /** Opens the Teach panel on something of Bridge's own, or is absent where the window offers no Teach. */
-export function useTeachBridge(): ((kind: "panel" | "row" | "title_bar", text: string, ids?: string[]) => void) | undefined {
+export function useTeachBridge():
+  | ((kind: "panel" | "row" | "title_bar", text: string, ids?: string[]) => void)
+  | undefined {
   const offered = useTeachingOffered();
   return useMemo(
-    () => (!offered ? undefined : (kind, text, ids) => void openInPanel({ kind: "teach", sessionId: BRIDGE, jobTitle: "Bridge", repository: "Bridge", source: kind, text, ...(ids === undefined ? {} : { ids }) })),
-    [offered],
+    () =>
+      !offered
+        ? undefined
+        : (kind, text, ids) =>
+            void openInPanel({
+              kind: "teach",
+              sessionId: BRIDGE,
+              jobTitle: "Bridge",
+              repository: "Bridge",
+              source: kind,
+              text,
+              ...(ids === undefined
+                ? {}
+                : {
+                    ids,
+                  }),
+            }),
+    [
+      offered,
+    ],
   );
 }

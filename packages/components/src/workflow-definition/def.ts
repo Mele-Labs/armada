@@ -14,11 +14,18 @@ export type Source = "carried" | "kit" | "repository";
 export type Scope = string;
 
 /** A Manifest a definition may be written to: the id Fleet names it by, and the repository's name a person reads. */
-export type ManifestOption = { id: string; name: string };
+export type ManifestOption = {
+  id: string;
+  name: string;
+};
 
 export const KIT: Scope = "kit";
 
-export const SOURCE_RANK: Record<Source, number> = { carried: 0, kit: 1, repository: 2 };
+export const SOURCE_RANK: Record<Source, number> = {
+  carried: 0,
+  kit: 1,
+  repository: 2,
+};
 
 export const SOURCE_DIR: Record<Source, string> = {
   carried: "compiled in",
@@ -26,7 +33,16 @@ export const SOURCE_DIR: Record<Source, string> = {
   repository: ".armada/workflows",
 };
 
-export const EVIDENCE = ["diff", "failing_test", "facts_note", "test_suite_run", "bundle", "document", "plan", "review"] as const;
+export const EVIDENCE = [
+  "diff",
+  "failing_test",
+  "facts_note",
+  "test_suite_run",
+  "bundle",
+  "document",
+  "plan",
+  "review",
+] as const;
 
 /** The mechanical checks a step may name, and `none` for one that names none. */
 export const CHECKS = [
@@ -41,7 +57,12 @@ export const CHECKS = [
 ] as const;
 
 /** Three independent settings and a fourth state that stands in for all three. */
-export type Gate = { checks: boolean; judge: boolean; you: boolean; repository: boolean };
+export type Gate = {
+  checks: boolean;
+  judge: boolean;
+  you: boolean;
+  repository: boolean;
+};
 
 export type Step = {
   id: string;
@@ -75,10 +96,26 @@ export type Definition = {
 };
 
 /** What opening a file answers: its definition, or the reason it cannot be drawn. */
-export type Read = { ok: true; def: Definition } | { ok: false; said: string };
+export type Read =
+  | {
+      ok: true;
+      def: Definition;
+    }
+  | {
+      ok: false;
+      said: string;
+    };
 
 /** What a save answers. `exists` is Fleet's refusal that a definition is already there, which a second press may replace. */
-export type Saved = { ok: true } | { ok: false; said: string; exists?: true };
+export type Saved =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      said: string;
+      exists?: true;
+    };
 
 /** One row of the list: a file Fleet found, and what became of it. */
 export type Entry = {
@@ -103,13 +140,19 @@ export function resolve(entries: readonly Entry[]): Resolved[] {
   for (const one of entries) {
     if (one.leftOut !== undefined) continue;
     const held = winner.get(one.id);
-    if (held === undefined || SOURCE_RANK[one.source] > SOURCE_RANK[held]) winner.set(one.id, one.source);
+    if (held === undefined || SOURCE_RANK[one.source] > SOURCE_RANK[held])
+      winner.set(one.id, one.source);
   }
   return entries.map((one) => {
     const won = winner.get(one.id);
     return one.leftOut === undefined && won !== undefined && won !== one.source
-      ? { ...one, overriddenBy: won }
-      : { ...one };
+      ? {
+          ...one,
+          overriddenBy: won,
+        }
+      : {
+          ...one,
+        };
   });
 }
 
@@ -130,44 +173,102 @@ export type Refusal = {
  */
 export function refusalsOf(def: Definition): Refusal[] {
   const out: Refusal[] = [];
-  if (def.id === "") out.push({ where: "id", why: "Empty", field: "Workflow id" });
-  if (def.steps.length === 0) out.push({ where: "steps", why: "At least one step", field: "Add step" });
+  if (def.id === "")
+    out.push({
+      where: "id",
+      why: "Empty",
+      field: "Workflow id",
+    });
+  if (def.steps.length === 0)
+    out.push({
+      where: "steps",
+      why: "At least one step",
+      field: "Add step",
+    });
 
   const seen = new Set<string>();
   def.steps.forEach((step, at) => {
     const n = at + 1;
-    if (step.id === "") out.push({ where: `steps[${n}].id`, why: "Empty", step: at, field: "Step id" });
-    else if (seen.has(step.id)) out.push({ where: `steps[${n}].id`, why: `Duplicate step name ${step.id}`, step: at, field: "Step id" });
+    if (step.id === "")
+      out.push({
+        where: `steps[${n}].id`,
+        why: "Empty",
+        step: at,
+        field: "Step id",
+      });
+    else if (seen.has(step.id))
+      out.push({
+        where: `steps[${n}].id`,
+        why: `Duplicate step name ${step.id}`,
+        step: at,
+        field: "Step id",
+      });
     seen.add(step.id);
 
     // A Judge gate with no question reads as no Judge at all, and the loader refuses a gate that names one without the other.
     if (step.gate.judge && !step.gate.you && !step.gate.repository && step.judge.trim() === "") {
-      out.push({ where: `steps[${n}].judge_checks`, why: "Judge ticked and the step names no question", step: at, field: "Judge question" });
+      out.push({
+        where: `steps[${n}].judge_checks`,
+        why: "Judge ticked and the step names no question",
+        step: at,
+        field: "Judge question",
+      });
     }
     if (!Number.isInteger(step.retryLimit) || step.retryLimit < 0) {
-      out.push({ where: `steps[${n}].retry_limit`, why: "A whole number, 0 or more", step: at, field: "Retries" });
+      out.push({
+        where: `steps[${n}].retry_limit`,
+        why: "A whole number, 0 or more",
+        step: at,
+        field: "Retries",
+      });
     }
     if (step.returnsTo !== "") {
       const to = def.steps.findIndex((one) => one.id === step.returnsTo);
       if (to === -1) {
-        out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} is not a step`, step: at, field: "Sends work back to" });
+        out.push({
+          where: `steps[${n}].verdict_routing`,
+          why: `${step.returnsTo} is not a step`,
+          step: at,
+          field: "Sends work back to",
+        });
       } else if (to >= at) {
-        out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} is not before ${displayId(step, n)}`, step: at, field: "Sends work back to" });
+        out.push({
+          where: `steps[${n}].verdict_routing`,
+          why: `${step.returnsTo} is not before ${displayId(step, n)}`,
+          step: at,
+          field: "Sends work back to",
+        });
       }
       if (!Number.isInteger(step.iterationCap) || step.iterationCap < 0) {
-        out.push({ where: `steps[${n}].iteration_cap`, why: "A whole number, 0 or more", step: at, field: "Passes" });
+        out.push({
+          where: `steps[${n}].iteration_cap`,
+          why: "A whole number, 0 or more",
+          step: at,
+          field: "Passes",
+        });
       }
     }
   });
   return out;
 }
 
-function displayId(step: Step | { id: string }, n: number): string {
+function displayId(
+  step:
+    | Step
+    | {
+        id: string;
+      },
+  n: number,
+): string {
   return step.id === "" ? `step ${n}` : step.id;
 }
 
 /** The file a definition is written to, from the Manifest the window is in. `scopeName` is the repository's name for a Manifest. */
-export function fileOf(def: Pick<Definition, "id" | "scope">, current: string, scopeName: (scope: Scope) => string): string {
+export function fileOf(
+  def: Pick<Definition, "id" | "scope">,
+  current: string,
+  scopeName: (scope: Scope) => string,
+): string {
   const name = def.id === "" ? "…" : def.id;
   if (def.scope === KIT) return `${SOURCE_DIR.kit}/${name}.json`;
   return `${def.scope === current ? "" : `${scopeName(def.scope)}/`}${SOURCE_DIR.repository}/${name}.json`;
@@ -179,7 +280,12 @@ export function blankStep(): Step {
     evidence: "diff",
     check: "none",
     judge: "",
-    gate: { checks: false, judge: false, you: false, repository: false },
+    gate: {
+      checks: false,
+      judge: false,
+      you: false,
+      repository: false,
+    },
     retryLimit: 3,
     returnsTo: "",
     iterationCap: 5,
@@ -188,5 +294,11 @@ export function blankStep(): Step {
 
 /** A new definition, written to the Manifest the window is in. */
 export function blankDefinition(scope: Scope): Definition {
-  return { id: "", scope, steps: [blankStep()] };
+  return {
+    id: "",
+    scope,
+    steps: [
+      blankStep(),
+    ],
+  };
 }

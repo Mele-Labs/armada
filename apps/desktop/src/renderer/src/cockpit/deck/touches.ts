@@ -12,10 +12,17 @@ import type { SlotTouches, TimelineEvent, WriteClash } from "@armada/protocol";
 import { areaOf, relativeTo } from "./areas";
 
 /** An area, and how many observed edits there are in it. */
-export type Touch = { path: string; w: number };
+export type Touch = {
+  path: string;
+  w: number;
+};
 
 /** Two or more drones changing the same area, or one changing what main has also changed. */
-export type Clash = { path: string; root: string; keys: string[] };
+export type Clash = {
+  path: string;
+  root: string;
+  keys: string[];
+};
 
 /** How many items a burst carries: Fleet keeps the newest 25. */
 const MOST_ITEMS = 25;
@@ -29,7 +36,14 @@ function rolled(paths: readonly string[]): Touch[] {
     const area = areaOf(path);
     if (area !== undefined) counts.set(area, (counts.get(area) ?? 0) + 1);
   }
-  return [...counts].map(([path, w]) => ({ path, w })).sort(byWeight);
+  return [
+    ...counts,
+  ]
+    .map(([path, w]) => ({
+      path,
+      w,
+    }))
+    .sort(byWeight);
 }
 
 /** The paths a burst wrote: a Session's items. */
@@ -44,7 +58,10 @@ function writtenBy(event: TimelineEvent): readonly string[] {
  */
 export function touchesFromEvents(
   events: readonly TimelineEvent[],
-  of: { keyOf: (event: TimelineEvent) => string | undefined; rootsOf: (key: string) => readonly string[] },
+  of: {
+    keyOf: (event: TimelineEvent) => string | undefined;
+    rootsOf: (key: string) => readonly string[];
+  },
 ): Map<string, Touch[]> {
   const paths = new Map<string, string[]>();
   for (const event of events) {
@@ -52,7 +69,10 @@ export function touchesFromEvents(
     const key = written.length === 0 ? undefined : of.keyOf(event);
     if (key === undefined) continue;
     const roots = of.rootsOf(key);
-    paths.set(key, [...(paths.get(key) ?? []), ...written.slice(0, MOST_ITEMS).map((path) => relativeTo(path, roots))]);
+    paths.set(key, [
+      ...(paths.get(key) ?? []),
+      ...written.slice(0, MOST_ITEMS).map((path) => relativeTo(path, roots)),
+    ]);
   }
   const touched = new Map<string, Touch[]>();
   for (const [key, list] of paths) {
@@ -78,28 +98,58 @@ export function touchesOfSlots(read: SlotTouches): Map<string, Touch[]> {
 }
 
 /** What a drone touches: what its tool bursts placed, else what Fleet read of its slot, else nothing, so it rests at its pad. */
-export const touchesOf = (key: string, observed: ReadonlyMap<string, readonly Touch[]>, slotted: ReadonlyMap<string, readonly Touch[]>): readonly Touch[] => observed.get(key) ?? slotted.get(key) ?? [];
+export const touchesOf = (
+  key: string,
+  observed: ReadonlyMap<string, readonly Touch[]>,
+  slotted: ReadonlyMap<string, readonly Touch[]>,
+): readonly Touch[] => observed.get(key) ?? slotted.get(key) ?? [];
 
 /**
  * The areas two holders are both writing, from the write-clash read: one mark per area, naming the drones that hold it.
  * Main is not a drone, and a holder the ship does not hold has no key, so a clash against main marks one drone's areas and
  * a clash between two strangers marks none.
  */
-export function clashesOf(clashes: readonly WriteClash[], of: { keyOf: (kind: string, id: string) => string | undefined; rootOf: (key: string) => string | undefined }): Clash[] {
+export function clashesOf(
+  clashes: readonly WriteClash[],
+  of: {
+    keyOf: (kind: string, id: string) => string | undefined;
+    rootOf: (key: string) => string | undefined;
+  },
+): Clash[] {
   const found = new Map<string, Clash>();
   for (const clash of clashes) {
-    const keys = [clash.one, clash.other].flatMap((holder) => {
+    const keys = [
+      clash.one,
+      clash.other,
+    ].flatMap((holder) => {
       const key = of.keyOf(holder.kind, holder.id);
-      return key === undefined ? [] : [key];
+      return key === undefined
+        ? []
+        : [
+            key,
+          ];
     });
     const root = keys[0] === undefined ? undefined : of.rootOf(keys[0]);
     if (root === undefined) continue;
     for (const area of new Set(clash.paths.flatMap((path) => areaOf(path) ?? []))) {
       const at = `${root} ${area}`;
       const have = found.get(at);
-      if (have === undefined) found.set(at, { path: area, root, keys });
-      else have.keys = [...new Set([...have.keys, ...keys])];
+      if (have === undefined)
+        found.set(at, {
+          path: area,
+          root,
+          keys,
+        });
+      else
+        have.keys = [
+          ...new Set([
+            ...have.keys,
+            ...keys,
+          ]),
+        ];
     }
   }
-  return [...found.values()];
+  return [
+    ...found.values(),
+  ];
 }

@@ -8,9 +8,17 @@ import { seedSaid } from "./seed";
 const COMMIT = "a787ffc2c1d0aa00000000000000000000000000";
 
 const DECLARED: DeclaredSeed = {
-  paths: ["target"],
-  warmed_by: ["warm_build", "warm_tests"],
-  warmth: { state: "warm", commit: COMMIT },
+  paths: [
+    "target",
+  ],
+  warmed_by: [
+    "warm_build",
+    "warm_tests",
+  ],
+  warmth: {
+    state: "warm",
+    commit: COMMIT,
+  },
 };
 
 describe("seedSaid", () => {
@@ -25,8 +33,14 @@ describe("seedSaid", () => {
   });
 
   it("says a worktree cut during a warm-up starts cold", () => {
-    expect(seedSaid({ ...DECLARED, warmth: { state: "warming", commit: COMMIT } })).toContain(
-      "a worktree cut now starts cold",
-    );
+    expect(
+      seedSaid({
+        ...DECLARED,
+        warmth: {
+          state: "warming",
+          commit: COMMIT,
+        },
+      }),
+    ).toContain("a worktree cut now starts cold");
   });
 });

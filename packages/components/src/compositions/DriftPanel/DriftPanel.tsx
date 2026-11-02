@@ -24,7 +24,10 @@ export type DriftPanelRow = {
   /** What the line names that the checkout does not have. Present on `gone`. */
   missing?: string[];
   /** What the read did not follow, and why, whatever the verdict. */
-  unfollowed?: { word: string; why: ReactNode }[];
+  unfollowed?: {
+    word: string;
+    why: ReactNode;
+  }[];
 };
 
 export type DriftPanelProps = {
@@ -91,9 +94,9 @@ export function DriftPanel({ rows, note, titled = true }: DriftPanelProps) {
       )}
 
       <p className="armada-drift-panel__scope">
-        Drift reads whether what each run, serve and ready line names is still in this
-        checkout. It says nothing about policy, permissions or budgets, which name nothing
-        runnable, or about whether a command still does the right thing.
+        Drift reads whether what each run, serve and ready line names is still in this checkout. It
+        says nothing about policy, permissions or budgets, which name nothing runnable, or about
+        whether a command still does the right thing.
       </p>
     </section>
   );
@@ -129,6 +132,7 @@ function linesOf(count: number): string {
 }
 
 function summaryOf(gone: number, total: number): string {
-  if (gone === 0) return `None of the ${linesOf(total)} names something this checkout no longer has.`;
+  if (gone === 0)
+    return `None of the ${linesOf(total)} names something this checkout no longer has.`;
   return `${gone} of ${linesOf(total)} ${gone === 1 ? "names" : "name"} something this checkout no longer has.`;
 }

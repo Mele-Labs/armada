@@ -16,9 +16,22 @@ import { NO_WORK, useReviewStore, useReviews } from "../pr-review/store";
 import { tilesOf, toolsOf } from "../pr-review/tools";
 import type { ToolDef } from "../pr-review/model";
 
-const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+const typing = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    [
+      "INPUT",
+      "TEXTAREA",
+      "SELECT",
+    ].includes(target.tagName));
 
-export function ReviewTab({ row, onOpenLink }: { row: PullReviewRow; onOpenLink: (address: string) => void }) {
+export function ReviewTab({
+  row,
+  onOpenLink,
+}: {
+  row: PullReviewRow;
+  onOpenLink: (address: string) => void;
+}) {
   const store = useReviewStore();
   const reviews = useReviews();
   const key = `${row.repository}#${row.number}`;
@@ -26,7 +39,10 @@ export function ReviewTab({ row, onOpenLink }: { row: PullReviewRow; onOpenLink:
     if (store === undefined) return;
     store.open(store.adopt(row));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, key]);
+  }, [
+    store,
+    key,
+  ]);
   const pr = reviews.prs.find((one) => one.key === key);
   const send = useSendFindings(pr);
   const work = pr === undefined ? NO_WORK : (reviews.work[key] ?? NO_WORK);
@@ -44,7 +60,15 @@ export function ReviewTab({ row, onOpenLink }: { row: PullReviewRow; onOpenLink:
   // The keys 1 to 9 press the tools, where no box is being typed in and nothing asks first.
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || typing(event.target) || reviews.spending !== undefined) return;
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey ||
+        typing(event.target) ||
+        reviews.spending !== undefined
+      )
+        return;
       const at = Number(event.key) - 1;
       if (!Number.isInteger(at) || at < 0 || at >= tools.length) return;
       event.preventDefault();
@@ -61,23 +85,39 @@ export function ReviewTab({ row, onOpenLink }: { row: PullReviewRow; onOpenLink:
       <div className="side-review__tools" role="group" aria-label="Review tools">
         {tools.map((one, at) => {
           const explains = one.kind === "explanation";
-          const pressed = explains ? work.view === "explanation" && work.kind === one.id : work.view === one.id;
-          const running = (explains ? work.explains[one.id] : work.runs[one.id])?.state === "running";
+          const pressed = explains
+            ? work.view === "explanation" && work.kind === one.id
+            : work.view === one.id;
+          const running =
+            (explains ? work.explains[one.id] : work.runs[one.id])?.state === "running";
           return (
             <Tooltip key={one.id} label={one.checks} shortcut={String(at + 1)} asChild>
-              <Button variant={pressed ? "secondary" : "ghost"} size="sm" aria-pressed={pressed} aria-busy={running || undefined} onClick={() => press(one)}>
+              <Button
+                variant={pressed ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={pressed}
+                aria-busy={running || undefined}
+                onClick={() => press(one)}
+              >
                 {one.name}
               </Button>
             </Tooltip>
           );
         })}
-        <Button variant={work.view === "comments" ? "secondary" : "ghost"} size="sm" aria-pressed={work.view === "comments"} onClick={() => store.setView(pr.key, "comments")}>
+        <Button
+          variant={work.view === "comments" ? "secondary" : "ghost"}
+          size="sm"
+          aria-pressed={work.view === "comments"}
+          onClick={() => store.setView(pr.key, "comments")}
+        >
           {work.drafts.length === 0 ? "Review" : `Review · ${work.drafts.length}`}
         </Button>
       </div>
       {work.view === "comments" ? <CommentsView pr={pr} send={send} /> : null}
       {tool !== undefined && tool.agent ? <ToolResults pr={pr} tool={tool} send={send} /> : null}
-      {work.view === "explanation" ? <Overview pr={pr} send={send} onOpenLink={onOpenLink} /> : null}
+      {work.view === "explanation" ? (
+        <Overview pr={pr} send={send} onOpenLink={onOpenLink} />
+      ) : null}
       <AskComposer pr={pr} />
       <SpendConfirm />
     </div>

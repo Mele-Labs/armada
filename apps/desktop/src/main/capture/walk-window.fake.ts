@@ -6,7 +6,11 @@ import { placeOf } from "./queue";
 import type { WalkSeat } from "./window";
 
 /** Every fake window made, the last one last. */
-export const made: { windows: FakeWalkWindow[] } = { windows: [] };
+export const made: {
+  windows: FakeWalkWindow[];
+} = {
+  windows: [],
+};
 
 export class FakeWalkWindow {
   open = true;
@@ -15,7 +19,9 @@ export class FakeWalkWindow {
   private walks: Queued[] = [];
   private current: Queued | null = null;
   private readonly board: WalkWindowBoard;
-  private readonly seat = { onScreen: () => true } as unknown as WalkSeat;
+  private readonly seat = {
+    onScreen: () => true,
+  } as unknown as WalkSeat;
 
   constructor(_sizes: unknown, board: WalkWindowBoard) {
     this.board = board;
@@ -37,14 +43,21 @@ export class FakeWalkWindow {
   add(walk: Queued, show: boolean): void {
     if (this.find(walk.key) !== undefined) return;
     const at = placeOf(this.walks, walk.since);
-    this.walks = [...this.walks.slice(0, at), walk, ...this.walks.slice(at)];
+    this.walks = [
+      ...this.walks.slice(0, at),
+      walk,
+      ...this.walks.slice(at),
+    ];
     if (show || this.current === null) this.bring(walk);
   }
 
   replace(walk: Queued): void {
     const standing = this.find(walk.key);
     if (standing === undefined) return this.add(walk, false);
-    const fresh = { ...walk, since: standing.since };
+    const fresh = {
+      ...walk,
+      since: standing.since,
+    };
     this.walks = this.walks.map((one) => (one === standing ? fresh : one));
     standing.walk?.dispose();
     if (this.current === standing) this.bring(fresh);

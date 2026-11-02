@@ -17,13 +17,29 @@ import type { Owner } from "./owner";
 /** What an event is a state of, as the colour reads it: working, needs him, failing, passed, waiting. */
 export type EventTone = TimelineTone;
 
-export type Subject = { kind: "session"; id: string; title: string } | { kind: "main" };
+export type Subject =
+  | {
+      kind: "session";
+      id: string;
+      title: string;
+    }
+  | {
+      kind: "main";
+    };
 
 /** The pull request an event is about, where it is drawn on its owner's track. */
-export type Pull = { number: number; title: string; url?: string };
+export type Pull = {
+  number: number;
+  title: string;
+  url?: string;
+};
 
 /** The coalesced kinds: a burst of work Fleet counted into one row. They draw quieter than a turn, an ask or a pull request. */
-export const QUIET_KINDS: ReadonlySet<TimelineKind> = new Set<TimelineKind>(["session.read", "session.edited", "session.ran"]);
+export const QUIET_KINDS: ReadonlySet<TimelineKind> = new Set<TimelineKind>([
+  "session.read",
+  "session.edited",
+  "session.ran",
+]);
 
 export type FleetEvent = {
   id: string;
@@ -49,17 +65,40 @@ export type FleetEvent = {
 };
 
 const NOTHING: readonly TimelineEvent[] = [];
-const NO_SOURCE: TimelineSource = { get: () => NOTHING, subscribe: () => () => undefined };
+const NO_SOURCE: TimelineSource = {
+  get: () => NOTHING,
+  subscribe: () => () => undefined,
+};
 const Held = createContext<TimelineSource>(NO_SOURCE);
 
 /** Hand a moment's events to the window, fixed. The mock's own mount is the one caller. */
-export function FleetEventsFrom({ events, children }: { events: readonly TimelineEvent[] | undefined; children: ReactNode }) {
-  const source = useMemo<TimelineSource>(() => ({ get: () => events ?? NOTHING, subscribe: () => () => undefined }), [events]);
+export function FleetEventsFrom({
+  events,
+  children,
+}: {
+  events: readonly TimelineEvent[] | undefined;
+  children: ReactNode;
+}) {
+  const source = useMemo<TimelineSource>(
+    () => ({
+      get: () => events ?? NOTHING,
+      subscribe: () => () => undefined,
+    }),
+    [
+      events,
+    ],
+  );
   return <Held.Provider value={source}>{children}</Held.Provider>;
 }
 
 /** Hand the window what Fleet serves. Nothing is read until a timeline is on screen to subscribe. */
-export function FleetEventsOver({ source, children }: { source: TimelineSource; children: ReactNode }) {
+export function FleetEventsOver({
+  source,
+  children,
+}: {
+  source: TimelineSource;
+  children: ReactNode;
+}) {
   return <Held.Provider value={source}>{children}</Held.Provider>;
 }
 
@@ -85,14 +124,42 @@ export function fromWire(event: TimelineEvent, names: Names): FleetEvent | undef
   const { subject } = event;
   let pull: Pull | undefined;
   let drawn: Subject;
-  if (subject.kind === "session") drawn = { kind: "session", id: subject.id, title: event.title ?? names.session(subject.id) ?? "Job" };
+  if (subject.kind === "session")
+    drawn = {
+      kind: "session",
+      id: subject.id,
+      title: event.title ?? names.session(subject.id) ?? "Job",
+    };
   else if (subject.kind === "pull_request") {
     const owner = names.pull(subject.number);
     if (owner === undefined) return undefined;
-    drawn = { kind: "session", id: owner.id, title: names.session(owner.id) ?? owner.title };
-    pull = { number: subject.number, title: event.title ?? "", ...(subject.url === undefined ? {} : { url: subject.url }) };
-  } else drawn = { kind: "main" };
-  const detail = pull === undefined ? event.detail : [`#${pull.number}`, event.detail].filter((one) => one !== undefined).join(" ");
+    drawn = {
+      kind: "session",
+      id: owner.id,
+      title: names.session(owner.id) ?? owner.title,
+    };
+    pull = {
+      number: subject.number,
+      title: event.title ?? "",
+      ...(subject.url === undefined
+        ? {}
+        : {
+            url: subject.url,
+          }),
+    };
+  } else
+    drawn = {
+      kind: "main",
+    };
+  const detail =
+    pull === undefined
+      ? event.detail
+      : [
+          `#${pull.number}`,
+          event.detail,
+        ]
+          .filter((one) => one !== undefined)
+          .join(" ");
   return {
     id: String(event.id),
     at: event.at,
@@ -100,29 +167,72 @@ export function fromWire(event: TimelineEvent, names: Names): FleetEvent | undef
     subject: drawn,
     tone: event.tone,
     says: event.says,
-    ...(detail === undefined ? {} : { detail }),
+    ...(detail === undefined
+      ? {}
+      : {
+          detail,
+        }),
     repo: event.manifest_id ?? "",
-    ...(event.live === true ? { live: true } : {}),
-    ...(event.over === true ? { over: true } : {}),
-    ...(pull === undefined ? {} : { pull }),
-    ...(event.items === undefined || event.items.length === 0 ? {} : { items: event.items }),
+    ...(event.live === true
+      ? {
+          live: true,
+        }
+      : {}),
+    ...(event.over === true
+      ? {
+          over: true,
+        }
+      : {}),
+    ...(pull === undefined
+      ? {}
+      : {
+          pull,
+        }),
+    ...(event.items === undefined || event.items.length === 0
+      ? {}
+      : {
+          items: event.items,
+        }),
   };
 }
 
-export const keyOf = (subject: Subject): string => (subject.kind === "session" ? `session:${subject.id}` : "main");
+export const keyOf = (subject: Subject): string =>
+  subject.kind === "session" ? `session:${subject.id}` : "main";
 
-export const titleOf = (subject: Subject): string => (subject.kind === "main" ? "main" : subject.title);
+export const titleOf = (subject: Subject): string =>
+  subject.kind === "main" ? "main" : subject.title;
 
 /** How a subject stands, from its newest event: the order the lanes group in. */
 export type Standing = "ask" | "bad" | "stuck" | "run" | "idle" | "done";
 
-export const STANDINGS: readonly { id: Standing; said: string }[] = [
-  { id: "ask", said: "Needs you" },
-  { id: "bad", said: "Failing" },
-  { id: "stuck", said: "Stuck" },
-  { id: "run", said: "Moving" },
-  { id: "idle", said: "Waiting" },
-  { id: "done", said: "Finished" },
+export const STANDINGS: readonly {
+  id: Standing;
+  said: string;
+}[] = [
+  {
+    id: "ask",
+    said: "Needs you",
+  },
+  {
+    id: "bad",
+    said: "Failing",
+  },
+  {
+    id: "stuck",
+    said: "Stuck",
+  },
+  {
+    id: "run",
+    said: "Moving",
+  },
+  {
+    id: "idle",
+    said: "Waiting",
+  },
+  {
+    id: "done",
+    said: "Finished",
+  },
 ];
 
 export type Lane = {
@@ -168,13 +278,21 @@ function sessionStanding(state: SessionState): Standing {
  * window holds, as the Sessions list reads it; a Session it does not hold stands by its newest event's
  * tone and is never moving or stuck.
  */
-export function lanesOf(events: readonly FleetEvent[], reading: (sessionId: string) => SessionState | undefined = () => undefined): Lane[] {
+export function lanesOf(
+  events: readonly FleetEvent[],
+  reading: (sessionId: string) => SessionState | undefined = () => undefined,
+): Lane[] {
   const by = new Map<string, FleetEvent[]>();
   for (const event of events) {
     const key = keyOf(event.subject);
-    by.set(key, [...(by.get(key) ?? []), event]);
+    by.set(key, [
+      ...(by.get(key) ?? []),
+      event,
+    ]);
   }
-  const lanes = [...by].map(([key, own]): Lane => {
+  const lanes = [
+    ...by,
+  ].map(([key, own]): Lane => {
     const newest = own.sort((a, b) => when(b) - when(a));
     // A pull request's events are marks on the track and do not say how the Session stands.
     const head = newest.find((one) => one.pull === undefined) ?? newest[0]!;
@@ -191,7 +309,20 @@ export function lanesOf(events: readonly FleetEvent[], reading: (sessionId: stri
               : head.subject.kind !== "session" && head.live === true
                 ? "run"
                 : "idle";
-    return { key, subject: head.subject, repo: head.repo, events: newest, head, standing, ...(read === undefined ? {} : { session: read }), last: when(newest[0]!) };
+    return {
+      key,
+      subject: head.subject,
+      repo: head.repo,
+      events: newest,
+      head,
+      standing,
+      ...(read === undefined
+        ? {}
+        : {
+            session: read,
+          }),
+      last: when(newest[0]!),
+    };
   });
   const rank = (lane: Lane) => STANDINGS.findIndex((one) => one.id === lane.standing);
   return lanes.sort((a, b) => rank(a) - rank(b) || b.last - a.last);
@@ -199,7 +330,10 @@ export function lanesOf(events: readonly FleetEvent[], reading: (sessionId: stri
 
 /** The lanes the Cockpit's filter shows: what needs him, what is not over, what is. */
 export function lanesFor(lanes: readonly Lane[], filter: DashboardTab): Lane[] {
-  if (filter === "command-central") return lanes.filter((one) => one.standing === "ask" || one.standing === "bad" || one.standing === "stuck");
+  if (filter === "command-central")
+    return lanes.filter(
+      (one) => one.standing === "ask" || one.standing === "bad" || one.standing === "stuck",
+    );
   if (filter === "done") return lanes.filter((one) => one.standing === "done");
   return lanes.filter((one) => one.standing !== "done");
 }

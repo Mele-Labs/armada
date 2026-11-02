@@ -30,7 +30,10 @@ function Card({ children }: { children: React.ReactNode }) {
 
 /** At rest: `--bg-sunken` well, `--border-default` edge, `--fg-default` text. */
 export const Default: Story = {
-  args: { label: "Job title", defaultValue: "Refresh the auth token flow" },
+  args: {
+    label: "Job title",
+    defaultValue: "Refresh the auth token flow",
+  },
   render: (args) => (
     <Card>
       <Input {...args} />
@@ -40,7 +43,10 @@ export const Default: Story = {
 
 /** Placeholder is `--fg-subtle`, the same step as a timestamp. */
 export const Placeholder: Story = {
-  args: { label: "Job title", placeholder: "Refresh the auth token flow" },
+  args: {
+    label: "Job title",
+    placeholder: "Refresh the auth token flow",
+  },
   render: (args) => (
     <Card>
       <Input {...args} />
@@ -50,7 +56,11 @@ export const Placeholder: Story = {
 
 /** A path is machine-derived, so it is mono at one step smaller than the label. */
 export const Mono: Story = {
-  args: { label: "Project location", defaultValue: "~/code/armada", mono: true },
+  args: {
+    label: "Project location",
+    defaultValue: "~/code/armada",
+    mono: true,
+  },
   render: (args) => (
     <Card>
       <Input {...args} />

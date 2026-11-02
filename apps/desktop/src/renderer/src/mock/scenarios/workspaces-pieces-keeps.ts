@@ -107,10 +107,30 @@ export const workspacesPiecesKeeps: Scenario = {
     pieces: {
       ...workspacesPieces.draft!.pieces!,
       keeps: [
-        { manifestId, kind: "rule", id: "progress", text: startTheTicket },
-        { manifestId, kind: "lifecycle", id: "ticket", text: ticket },
-        { manifestId, kind: "rule", id: "to-review", text: moveToReview },
-        { manifestId, kind: "lifecycle", id: "qa_sign_off", text: qaSignOff },
+        {
+          manifestId,
+          kind: "rule",
+          id: "progress",
+          text: startTheTicket,
+        },
+        {
+          manifestId,
+          kind: "lifecycle",
+          id: "ticket",
+          text: ticket,
+        },
+        {
+          manifestId,
+          kind: "rule",
+          id: "to-review",
+          text: moveToReview,
+        },
+        {
+          manifestId,
+          kind: "lifecycle",
+          id: "qa_sign_off",
+          text: qaSignOff,
+        },
       ],
     },
   },

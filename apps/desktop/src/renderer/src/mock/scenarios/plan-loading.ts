@@ -9,7 +9,13 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { onTimePassing } from "../time-passes";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 const ARRIVES_AFTER_MS = 4_000;
 
@@ -17,14 +23,27 @@ const fromNow = (hours: number): string => new Date(Date.now() + hours * 3_600_0
 
 const reading = (): PlanUsage => ({
   windows: [
-    { kind: "five_hour", percent_used: 12, resets_at: fromNow(4) },
-    { kind: "seven_day", percent_used: 87, resets_at: fromNow(2 * 24) },
+    {
+      kind: "five_hour",
+      percent_used: 12,
+      resets_at: fromNow(4),
+    },
+    {
+      kind: "seven_day",
+      percent_used: 87,
+      resets_at: fromNow(2 * 24),
+    },
   ],
   read_at: new Date().toISOString(),
 });
 
 function build(): Scenario {
-  const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
+  const board = onBoard({
+    repositories: [
+      ARMADA,
+    ],
+    picked: ARMADA.root,
+  });
   return {
     ...board,
     name: "plan-loading",
@@ -40,7 +59,12 @@ function build(): Scenario {
         }),
       );
       return {
-        getPlanUsage: async () => ({ ok: true, value: { windows: [] } }),
+        getPlanUsage: async () => ({
+          ok: true,
+          value: {
+            windows: [],
+          },
+        }),
         onPlanUsageChanged: (on) => {
           heard.add(on);
           return () => void heard.delete(on);

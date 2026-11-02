@@ -13,19 +13,36 @@ import { ScreenView } from "./ScreenView";
  * Each screen of the scene as markup: at rest, and with `steps` at every step one of its elements carries, which
  * only a page that plays them needs. `topOf` is where a screen's sheet starts under its title, as the canvas measured it.
  */
-export function screenMarkup(scene: Scene, topOf: (id: string) => number, steps: boolean, css: string): ExportScreens {
+export function screenMarkup(
+  scene: Scene,
+  topOf: (id: string) => number,
+  steps: boolean,
+  css: string,
+): ExportScreens {
   const nodes: Record<string, ExportScreens["nodes"][string]> = {};
   for (const node of scene.nodes) {
     const screen = node.screen;
     if (screen === undefined) continue;
-    const at = steps ? [...new Set(screenSteps(screen))] : [];
+    const at = steps
+      ? [
+          ...new Set(screenSteps(screen)),
+        ]
+      : [];
     nodes[node.id] = {
       top: topOf(node.id),
       rest: renderToStaticMarkup(<ScreenView screen={screen} at={undefined} />),
-      steps: Object.fromEntries(at.map((one) => [one, renderToStaticMarkup(<ScreenView screen={screen} at={one} />)])),
+      steps: Object.fromEntries(
+        at.map((one) => [
+          one,
+          renderToStaticMarkup(<ScreenView screen={screen} at={one} />),
+        ]),
+      ),
     };
   }
-  return { css, nodes };
+  return {
+    css,
+    nodes,
+  };
 }
 
 /** The kit's rules as the page holds them now, read off it so a file never drifts from the canvas. The kit's sheet has no at-rules. */
@@ -35,7 +52,12 @@ export function screenStyles(sheets: StyleSheetList = document.styleSheets): str
   for (const sheet of Array.from(sheets)) {
     try {
       for (const rule of Array.from(sheet.cssRules)) {
-        if (rule instanceof CSSStyleRule && kit.test(rule.selectorText) && !rule.selectorText.includes("armada-scene")) out.push(rule.cssText);
+        if (
+          rule instanceof CSSStyleRule &&
+          kit.test(rule.selectorText) &&
+          !rule.selectorText.includes("armada-scene")
+        )
+          out.push(rule.cssText);
       }
     } catch {
       // A sheet from another origin cannot be read, and the kit's is never one.

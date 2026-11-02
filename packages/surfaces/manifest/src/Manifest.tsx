@@ -73,45 +73,55 @@ import {
 import { said } from "@armada/screens/src/copy";
 import { NOTHING_SERVED, servesNothing } from "@armada/screens/src/locate-reads";
 import { useManifestRuns, type ManifestSlice } from "./checkout-runs";
-import { useRepositoryAllows, type RepositoryAllowsSlice } from "@armada/screens/src/manifest-allows";
+import {
+  useRepositoryAllows,
+  type RepositoryAllowsSlice,
+} from "@armada/screens/src/manifest-allows";
 import type { ManifestEditing } from "./manifest-file";
 import type { ManifestForming } from "./manifest-form";
-import { driftGoneOf, driftPanelOf, verifyPanelOf, verifySaidOf, type VerifyInputs } from "@armada/screens/src/verify";
+import {
+  driftGoneOf,
+  driftPanelOf,
+  verifyPanelOf,
+  verifySaidOf,
+  type VerifyInputs,
+} from "@armada/screens/src/verify";
 
-export type ManifestProps = ManifestSlice & RepositoryAllowsSlice & {
-  /**
-   * The entry the command palette picked, or `null`.
-   *
-   * **It selects; it does not run.** Journey 9 has the palette opening the
-   * surface with a Check chosen, and a row that started a destructive Command
-   * straight off a list of forty would be an act nobody confirmed.
-   */
-  picked: string | null;
-  /** The app's one `now`, which every elapsed figure on screen is drawn from. */
-  now: number;
-  /** A sentence to say — today, only a server link that did not open. */
-  onSaid: (sentence: string) => void;
-  /** The file view, held by the app so an unsaved edit outlives the surface. */
-  editing: ManifestEditing;
-  /** The forms, held by the app for the same reason. */
-  form: ManifestForming;
-  /** `GET /manifest/drift`, held open by the app while this surface shows. */
-  drift: ManifestDriftRead;
-  /** What the person's own armada.yml for this repository did to it: a name it declares differently is marked as hiding the repository's. */
-  kit?: ManifestFromKit | undefined;
-  /** Press Verify. **Only ever from its button** — nothing here calls it on a read. */
-  onStartVerify: () => Promise<Outcome>;
-  /** Setup, drawn by the app, and whether it is the view up. Absent leaves the tab out. */
-  setup?: ReactNode;
-  settingUp?: boolean;
-  onSettingUp?: (on: boolean) => void;
-  /** `false` where the picked repository has no `armada.yml` yet: Setup is the only view with anything to show. */
-  setUp?: boolean;
-  /** Start a Session that writes `armada.yml` with the owner from Setup's reading. Absent leaves the act out. */
-  onSetUpWithSession?: () => void;
-  /** That Session is being started, and Fleet has not answered. */
-  startingSession?: boolean;
-};
+export type ManifestProps = ManifestSlice &
+  RepositoryAllowsSlice & {
+    /**
+     * The entry the command palette picked, or `null`.
+     *
+     * **It selects; it does not run.** Journey 9 has the palette opening the
+     * surface with a Check chosen, and a row that started a destructive Command
+     * straight off a list of forty would be an act nobody confirmed.
+     */
+    picked: string | null;
+    /** The app's one `now`, which every elapsed figure on screen is drawn from. */
+    now: number;
+    /** A sentence to say — today, only a server link that did not open. */
+    onSaid: (sentence: string) => void;
+    /** The file view, held by the app so an unsaved edit outlives the surface. */
+    editing: ManifestEditing;
+    /** The forms, held by the app for the same reason. */
+    form: ManifestForming;
+    /** `GET /manifest/drift`, held open by the app while this surface shows. */
+    drift: ManifestDriftRead;
+    /** What the person's own armada.yml for this repository did to it: a name it declares differently is marked as hiding the repository's. */
+    kit?: ManifestFromKit | undefined;
+    /** Press Verify. **Only ever from its button** — nothing here calls it on a read. */
+    onStartVerify: () => Promise<Outcome>;
+    /** Setup, drawn by the app, and whether it is the view up. Absent leaves the tab out. */
+    setup?: ReactNode;
+    settingUp?: boolean;
+    onSettingUp?: (on: boolean) => void;
+    /** `false` where the picked repository has no `armada.yml` yet: Setup is the only view with anything to show. */
+    setUp?: boolean;
+    /** Start a Session that writes `armada.yml` with the owner from Setup's reading. Absent leaves the act out. */
+    onSetUpWithSession?: () => void;
+    /** That Session is being started, and Fleet has not answered. */
+    startingSession?: boolean;
+  };
 
 /**
  * Everything this repository's Manifest declares, one press that runs one of
@@ -126,9 +136,13 @@ export function Manifest(props: ManifestProps) {
   // Before the branches: a hook cannot be called conditionally, and the states
   // below are branches on what was read rather than on what this holds.
   // No root file, but a workspace declares Commands: those alone are listed, and nothing of the root's.
-  const workspaced = props.sheet.state === "read" && (props.sheet.sheet.workspaces ?? []).length > 0;
+  const workspaced =
+    props.sheet.state === "read" && (props.sheet.sheet.workspaces ?? []).length > 0;
   const rootless = props.setUp === false && workspaced;
-  const slot = useManifestRuns({ ...props, rootless });
+  const slot = useManifestRuns({
+    ...props,
+    rootless,
+  });
   const { editing } = props;
   const onlySetup = props.setUp === false && props.setup !== undefined && !workspaced;
   const [dismissedVerify, setDismissedVerify] = useState<string | null>(null);
@@ -143,7 +157,9 @@ export function Manifest(props: ManifestProps) {
     refused: verifyRefused,
     onVerify: () => {
       setVerifyRefused(null);
-      void props.onStartVerify().then((outcome) => setVerifyRefused(outcome.ok ? null : said(outcome)));
+      void props
+        .onStartVerify()
+        .then((outcome) => setVerifyRefused(outcome.ok ? null : said(outcome)));
     },
     onStopRun: (runId) => void props.onStopRun(runId),
     onDismiss: setDismissedVerify,
@@ -154,11 +170,17 @@ export function Manifest(props: ManifestProps) {
   // One Tab stop a grid of tiles, the arrows across it: `tile-grid.ts`. The file view's editor
   // carries `data-keeps-keys`, so it keeps every key it is given.
   const screen = useRef<HTMLDivElement>(null);
-  useTileGrid(screen, { tile: "[data-tile]" });
+  useTileGrid(screen, {
+    tile: "[data-tile]",
+  });
 
   // A Fleet serving nothing is where a fresh install starts, not a Manifest that would not read.
   if (props.sheet.state === "failed" && servesNothing(props.sheet.outcome)) {
-    return <Alert tone="neutral" title={NOTHING_SERVED.title}>{NOTHING_SERVED.next}</Alert>;
+    return (
+      <Alert tone="neutral" title={NOTHING_SERVED.title}>
+        {NOTHING_SERVED.next}
+      </Alert>
+    );
   }
 
   const onForm = editing.view === "form" && !props.settingUp;
@@ -199,7 +221,8 @@ export function Manifest(props: ManifestProps) {
             )
           }
         >
-          Nothing lands here until it is unfrozen. New work and a running Job's next step wait, and nothing merges.
+          Nothing lands here until it is unfrozen. New work and a running Job's next step wait, and
+          nothing merges.
         </Alert>
       )}
       {/* Above both views, so the file stays reachable when the run sheet is
@@ -215,72 +238,105 @@ export function Manifest(props: ManifestProps) {
         className="armada-screen__viewscreen"
         data-lit={gone.size === 0 ? undefined : ""}
       >
-      <div className="armada-screen__tabs">
-        <span className="armada-screen__label">Manifest</span>
-        <Tabs
-          compact
-          items={[
-            ...(onlySetup
-              ? []
-              : rootless
-                ? [{ id: "run", label: "Checks and Commands" }]
+        <div className="armada-screen__tabs">
+          <span className="armada-screen__label">Manifest</span>
+          <Tabs
+            compact
+            items={[
+              ...(onlySetup
+                ? []
+                : rootless
+                  ? [
+                      {
+                        id: "run",
+                        label: "Checks and Commands",
+                      },
+                    ]
+                  : [
+                      {
+                        id: "run",
+                        label: "Checks and Commands",
+                      },
+                      {
+                        id: "form",
+                        label: "Edit",
+                      },
+                      {
+                        id: "file",
+                        label: editing.named,
+                      },
+                    ]),
+              ...(props.setup === undefined
+                ? []
                 : [
-                  { id: "run", label: "Checks and Commands" },
-                  { id: "form", label: "Edit" },
-                  { id: "file", label: editing.named },
-                ]),
-            ...(props.setup === undefined ? [] : [{ id: "setup", label: "Set up workspaces" }]),
-          ]}
-          value={selected}
-          onChange={(id) => {
-            props.onSettingUp?.(id === "setup");
-            if (id !== "setup") editing.onView(id === "file" || id === "form" ? id : "run");
-          }}
-        />
-        {/* Sixty workspaces corrected one sheet at a time is the daunting part; a Session
+                    {
+                      id: "setup",
+                      label: "Set up workspaces",
+                    },
+                  ]),
+            ]}
+            value={selected}
+            onChange={(id) => {
+              props.onSettingUp?.(id === "setup");
+              if (id !== "setup") editing.onView(id === "file" || id === "form" ? id : "run");
+            }}
+          />
+          {/* Sixty workspaces corrected one sheet at a time is the daunting part; a Session
             asks about them in conversation instead, from the reading this tab already holds. */}
-        {selected !== "setup" || props.onSetUpWithSession === undefined ? null : (
-          <div className="armada-screen__tabs-acts">
-            <Button variant="ghost" pending={props.startingSession === true} onClick={props.onSetUpWithSession}>
-              {props.startingSession === true ? "Starting a job" : "Set up with a job"}
-            </Button>
-          </div>
-        )}
-        {!reads ? null : (
-          <div className="armada-screen__tabs-acts">
-            <Button variant="ghost" onClick={() => setReading("drift")}>
-              Drift
-              {gone.size === 0 ? null : (
-                <span className="armada-screen__drifted">{`${gone.size} gone`}</span>
-              )}
-            </Button>
-            <Button variant="ghost" onClick={() => setReading("verify")}>
-              Verify
-              {verifySaid === undefined ? null : (
-                <span className="armada-screen__act-said">{verifySaid}</span>
-              )}
-            </Button>
-          </div>
-        )}
-      </div>
-      {/* The view and the note that says what it is for, faded in together on a
+          {selected !== "setup" || props.onSetUpWithSession === undefined ? null : (
+            <div className="armada-screen__tabs-acts">
+              <Button
+                variant="ghost"
+                pending={props.startingSession === true}
+                onClick={props.onSetUpWithSession}
+              >
+                {props.startingSession === true ? "Starting a job" : "Set up with a job"}
+              </Button>
+            </div>
+          )}
+          {!reads ? null : (
+            <div className="armada-screen__tabs-acts">
+              <Button variant="ghost" onClick={() => setReading("drift")}>
+                Drift
+                {gone.size === 0 ? null : (
+                  <span className="armada-screen__drifted">{`${gone.size} gone`}</span>
+                )}
+              </Button>
+              <Button variant="ghost" onClick={() => setReading("verify")}>
+                Verify
+                {verifySaid === undefined ? null : (
+                  <span className="armada-screen__act-said">{verifySaid}</span>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+        {/* The view and the note that says what it is for, faded in together on a
           switch. Keyed on the selected tab, so a sheet re-reading under the
           same view does not fade. A stack of its own, so the wrapper lays its
           children out as the screen's stack did. */}
-      <TabPanel tab={selected} className="armada-screen__stack armada-screen__glass" role="tabpanel">
-        {viewNote === null ? null : <p className="armada-screen__view-note">{viewNote}</p>}
-        {(props.settingUp || onlySetup) && props.setup !== undefined ? (
-          props.setup
-        ) : rootless ? (
-          <RunPage {...slot} />
-        ) : editing.view === "file" ? (
-          <FileView file={editing.file} />
-        ) : editing.view === "form" ? (
-          <FormView form={props.form} named={editing.named} onFile={() => editing.onView("file")} />
-        ) : (
-          <RunView {...props} slot={slot} />
-        )}
-      </TabPanel>
+        <TabPanel
+          tab={selected}
+          className="armada-screen__stack armada-screen__glass"
+          role="tabpanel"
+        >
+          {viewNote === null ? null : <p className="armada-screen__view-note">{viewNote}</p>}
+          {(props.settingUp || onlySetup) && props.setup !== undefined ? (
+            props.setup
+          ) : rootless ? (
+            <RunPage {...slot} />
+          ) : editing.view === "file" ? (
+            <FileView file={editing.file} />
+          ) : editing.view === "form" ? (
+            <FormView
+              form={props.form}
+              named={editing.named}
+              onFile={() => editing.onView("file")}
+            />
+          ) : (
+            <RunView {...props} slot={slot} />
+          )}
+        </TabPanel>
       </div>
       {/* Both layers, mounted once at the stack rather than inside the view, so
           closing one does not depend on which tab is up. */}
@@ -304,7 +360,9 @@ function RunView({
   sheet,
   slot,
   ...props
-}: ManifestProps & { slot: ReturnType<typeof useManifestRuns> }) {
+}: ManifestProps & {
+  slot: ReturnType<typeof useManifestRuns>;
+}) {
   // The always-allow list on its own read, so a sheet that would not read
   // still leaves it standing.
   const allows = useRepositoryAllows(props);
@@ -346,7 +404,15 @@ function FileView({ file }: { file: ManifestEditing["file"] }) {
   return <ManifestFile {...file.props} />;
 }
 
-function FormView({ form, named, onFile }: { form: ManifestForming; named: string; onFile: () => void }) {
+function FormView({
+  form,
+  named,
+  onFile,
+}: {
+  form: ManifestForming;
+  named: string;
+  onFile: () => void;
+}) {
   if (form.state === "failed") {
     return (
       <Alert tone="escalated" title="The Manifest file could not be read">

@@ -8,27 +8,45 @@ import type { StudiosApi } from "../api";
 import { keeping } from "./studio-fleet";
 import type { StudioHeld } from "./studio-fleet";
 
-export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHandle<StudioHeld>): StudiosApi {
+export function studiosApi(
+  seeded: readonly Studio[] | undefined,
+  fleet: FleetHandle<StudioHeld>,
+): StudiosApi {
   return {
     // Every scenario keeps Studios, so the surface opens wherever it is reached. A scenario naming
     // none keeps an empty list and draws its empty state, never a read failure — #1341.
-    ...keeping(seeded).routes({ state: fleet.state, publish: fleet.publish }),
+    ...keeping(seeded).routes({
+      state: fleet.state,
+      publish: fleet.publish,
+    }),
     // The capture window is a second window main opens — #1294. The mock has
     // none, so this says what a Studio nothing is holding would say.
-    openCaptureWindow: async () => ({ ok: false, why: "no_studio" }),
+    openCaptureWindow: async () => ({
+      ok: false,
+      why: "no_studio",
+    }),
     captureWindow: {
       read: () => () => {},
       arm: async () => null,
       aim: async () => null,
       hold: async () => null,
       release: async () => {},
-      save: async () => ({ ok: true }) as Outcome,
+      save: async () =>
+        ({
+          ok: true,
+        }) as Outcome,
       reload: async () => {},
       followRefused: async () => {},
-      approve: async () => ({ ok: true }) as Outcome,
+      approve: async () =>
+        ({
+          ok: true,
+        }) as Outcome,
       scroll: () => {},
       showAsk: async () => {},
-      answerAsk: async () => ({ ok: true }) as Outcome,
+      answerAsk: async () =>
+        ({
+          ok: true,
+        }) as Outcome,
       pick: async () => {},
       panel: async () => {},
       openOwner: async () => {},
@@ -38,7 +56,10 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       walkReplay: async () => {},
       walkGuide: async () => {},
       walkTo: async () => {},
-      sendNotes: async () => ({ ok: true }) as Outcome,
+      sendNotes: async () =>
+        ({
+          ok: true,
+        }) as Outcome,
       overhang: () => {},
       onKey: () => () => {},
     },
@@ -48,13 +69,28 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       subject: () => () => {},
       goInBridge: async () => {},
       held: () => () => {},
-      editNote: async () => ({ ok: true }) as Outcome,
-      removeNote: async () => ({ ok: true }) as Outcome,
-      sendNotes: async () => ({ ok: true }) as Outcome,
+      editNote: async () =>
+        ({
+          ok: true,
+        }) as Outcome,
+      removeNote: async () =>
+        ({
+          ok: true,
+        }) as Outcome,
+      sendNotes: async () =>
+        ({
+          ok: true,
+        }) as Outcome,
     },
     // A Studio starting one entry — #1289, #1345. The mock Fleet answers, so
     // what these do here is what every other unstubbed act does: nothing.
-    startStudioRun: async () => ({ ok: true }) as Outcome,
-    startStudioServer: async () => ({ ok: true }) as Outcome,
+    startStudioRun: async () =>
+      ({
+        ok: true,
+      }) as Outcome,
+    startStudioServer: async () =>
+      ({
+        ok: true,
+      }) as Outcome,
   };
 }

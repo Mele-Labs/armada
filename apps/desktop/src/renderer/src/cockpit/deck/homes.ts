@@ -19,24 +19,39 @@ import { incomingOf, useDeck } from "./store";
 export const SLEEP_HOME = "sleep";
 export const HELM_HOME = "helm";
 
-const NO_HOSTS = { onOpenSession: () => {}, onOpenLink: () => {} };
+const NO_HOSTS = {
+  onOpenSession: () => {},
+  onOpenLink: () => {},
+};
 const NONE: ReadonlySet<string> = new Set();
 
 /** The home a call pulses, or none where a Session's row holds it. */
 export function homeOf(item: Item, sessions: readonly Session[]): string | undefined {
-  const helm = (id: string | undefined) => (id !== undefined && sessions.find((one) => one.id === id)?.helm === true ? HELM_HOME : undefined);
+  const helm = (id: string | undefined) =>
+    id !== undefined && sessions.find((one) => one.id === id)?.helm === true
+      ? HELM_HOME
+      : undefined;
   if (item.key.startsWith("sleep:")) return SLEEP_HOME;
-  if (/^(main|checkout|pull):/.test(item.key)) return item.ownedBy === undefined ? item.key : helm(item.ownedBy.id);
+  if (/^(main|checkout|pull):/.test(item.key))
+    return item.ownedBy === undefined ? item.key : helm(item.ownedBy.id);
   return helm(sessionIdOf(item.key));
 }
 
 /** The homes with a call still to open, by the ids above. A call opened or answered has stopped calling, as its row's would. */
-export function callingHomes(calls: readonly Item[], held: ReadonlyMap<string, number>, visited: ReadonlySet<string>, sessions: readonly Session[]): ReadonlySet<string> {
+export function callingHomes(
+  calls: readonly Item[],
+  held: ReadonlyMap<string, number>,
+  visited: ReadonlySet<string>,
+  sessions: readonly Session[],
+): ReadonlySet<string> {
   return new Set(incomingOf(calls, held, visited).flatMap((one) => homeOf(one, sessions) ?? []));
 }
 
 /** The same, read where the ship is not: the title row's controls, on every surface. */
-export function useCallingHomes(state: BridgeState, picked: RepositorySummary | null): ReadonlySet<string> {
+export function useCallingHomes(
+  state: BridgeState,
+  picked: RepositorySummary | null,
+): ReadonlySet<string> {
   const held = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
   const sessions = useSessions();

@@ -7,10 +7,21 @@ import { ModRow } from "./ModRow";
 const meta: Meta<typeof ModRow> = {
   title: "Compositions/Mod row",
   component: ModRow,
-  args: { title: "Dusk", enabled: true, onEnabled: fn(), onPromote: fn() },
+  args: {
+    title: "Dusk",
+    enabled: true,
+    onEnabled: fn(),
+    onPromote: fn(),
+  },
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)", maxWidth: "var(--w-dialog-wide)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+          maxWidth: "var(--w-dialog-wide)",
+        }}
+      >
         <Card>
           <CardContent>
             <Story />
@@ -27,41 +38,79 @@ type Story = StoryObj<typeof ModRow>;
 /** On and valid, which is where a new mod starts. */
 export const OnAndValid: Story = {
   play: async ({ canvasElement }) => {
-    const row = within(canvasElement).getByRole("group", { name: "Dusk" });
-    await expect(within(row).getByRole("img", { name: "Theme" })).toBeVisible();
-    await expect(within(row).getByRole("switch", { name: "Dusk" })).toBeChecked();
+    const row = within(canvasElement).getByRole("group", {
+      name: "Dusk",
+    });
+    await expect(
+      within(row).getByRole("img", {
+        name: "Theme",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(row).getByRole("switch", {
+        name: "Dusk",
+      }),
+    ).toBeChecked();
   },
 };
 
-export const SwitchedOff: Story = { args: { enabled: false } };
+export const SwitchedOff: Story = {
+  args: {
+    enabled: false,
+  },
+};
 
 /** Fleet's reason, read exactly. Promote is off because a mod that fails its checks has nothing to promote. */
 export const Invalid: Story = {
-  args: { detail: "line 3: `--color-x` is not a token", promoteDisabled: true },
+  args: {
+    detail: "line 3: `--color-x` is not a token",
+    promoteDisabled: true,
+  },
 };
 
 /** The branch it was put on, and nothing else. Promote is spent. */
 export const OnABranch: Story = {
-  args: { detail: "armada/mod-dusk-1791500000000", promoteDisabled: true },
+  args: {
+    detail: "armada/mod-dusk-1791500000000",
+    promoteDisabled: true,
+  },
 };
 
 /** The two presses reach their callbacks: the switch with the new value, Promote once. */
 export const Presses: Story = {
   play: async ({ canvasElement, args }) => {
-    const row = within(canvasElement).getByRole("group", { name: "Dusk" });
-    await userEvent.click(within(row).getByRole("switch", { name: "Dusk" }));
+    const row = within(canvasElement).getByRole("group", {
+      name: "Dusk",
+    });
+    await userEvent.click(
+      within(row).getByRole("switch", {
+        name: "Dusk",
+      }),
+    );
     await expect(args.onEnabled).toHaveBeenCalledWith(false);
-    await userEvent.click(within(row).getByRole("button", { name: "Promote Dusk" }));
+    await userEvent.click(
+      within(row).getByRole("button", {
+        name: "Promote Dusk",
+      }),
+    );
     await expect(args.onPromote).toHaveBeenCalledTimes(1);
   },
 };
 
 /** Only the switch toggles. Pressing it calls `onEnabled` with the new value and never `onOpen`. */
 export const SwitchDoesNotOpen: Story = {
-  args: { onOpen: fn() },
+  args: {
+    onOpen: fn(),
+  },
   play: async ({ canvasElement, args }) => {
-    const row = within(canvasElement).getByRole("group", { name: "Dusk" });
-    await userEvent.click(within(row).getByRole("switch", { name: "Dusk" }));
+    const row = within(canvasElement).getByRole("group", {
+      name: "Dusk",
+    });
+    await userEvent.click(
+      within(row).getByRole("switch", {
+        name: "Dusk",
+      }),
+    );
     await expect(args.onEnabled).toHaveBeenCalledWith(false);
     await expect(args.onOpen).not.toHaveBeenCalled();
   },
@@ -69,12 +118,25 @@ export const SwitchDoesNotOpen: Story = {
 
 /** The name button, and the row around it, open the mod. Neither toggles it. */
 export const RowAndNameOpen: Story = {
-  args: { onOpen: fn(), detail: "armada/mod-dusk-1791500000000" },
+  args: {
+    onOpen: fn(),
+    detail: "armada/mod-dusk-1791500000000",
+  },
   play: async ({ canvasElement, args }) => {
-    const row = within(canvasElement).getByRole("group", { name: "Dusk" });
-    await userEvent.click(within(row).getByRole("button", { name: "Open Dusk" }));
+    const row = within(canvasElement).getByRole("group", {
+      name: "Dusk",
+    });
+    await userEvent.click(
+      within(row).getByRole("button", {
+        name: "Open Dusk",
+      }),
+    );
     await expect(args.onOpen).toHaveBeenCalledTimes(1);
-    await userEvent.click(within(row).getByRole("img", { name: "Theme" }));
+    await userEvent.click(
+      within(row).getByRole("img", {
+        name: "Theme",
+      }),
+    );
     await expect(args.onOpen).toHaveBeenCalledTimes(2);
     await expect(args.onEnabled).not.toHaveBeenCalled();
   },
@@ -83,13 +145,22 @@ export const RowAndNameOpen: Story = {
 /** A row given no `onOpen` draws no Open button and is not openable. */
 export const NothingToOpen: Story = {
   play: async ({ canvasElement }) => {
-    const row = within(canvasElement).getByRole("group", { name: "Dusk" });
+    const row = within(canvasElement).getByRole("group", {
+      name: "Dusk",
+    });
     await expect(row).not.toHaveAttribute("data-openable");
-    await expect(within(row).queryByRole("button", { name: "Open Dusk" })).toBeNull();
+    await expect(
+      within(row).queryByRole("button", {
+        name: "Open Dusk",
+      }),
+    ).toBeNull();
   },
 };
 
-const rowOf = (canvasElement: HTMLElement, name: string) => within(canvasElement).getByRole("group", { name });
+const rowOf = (canvasElement: HTMLElement, name: string) =>
+  within(canvasElement).getByRole("group", {
+    name,
+  });
 
 /** A tracker mod used by a Manifest: tried, valid and on. */
 export const TrackerUsed: Story = {
@@ -97,40 +168,102 @@ export const TrackerUsed: Story = {
     title: "linear",
     kind: "tracker",
     standing: "used",
-    tracker: { tried: { state: "passed", words: "Tried 14 Oct on armada" }, valid: true },
+    tracker: {
+      tried: {
+        state: "passed",
+        words: "Tried 14 Oct on armada",
+      },
+      valid: true,
+    },
     onTry: fn(),
   },
   play: async ({ canvasElement, args }) => {
     const row = rowOf(canvasElement, "linear");
     await expect(row).toHaveAttribute("data-standing", "used");
-    await expect(within(row).getByRole("img", { name: "Tracker" })).toBeVisible();
-    await expect(within(row).getByRole("img", { name: "Tried 14 Oct on armada" })).toHaveAttribute("data-tone", "passed");
-    await expect(within(row).getByRole("img", { name: "Valid" })).toHaveAttribute("data-tone", "valid");
-    await userEvent.click(within(row).getByRole("button", { name: "Try linear" }));
+    await expect(
+      within(row).getByRole("img", {
+        name: "Tracker",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(row).getByRole("img", {
+        name: "Tried 14 Oct on armada",
+      }),
+    ).toHaveAttribute("data-tone", "passed");
+    await expect(
+      within(row).getByRole("img", {
+        name: "Valid",
+      }),
+    ).toHaveAttribute("data-tone", "valid");
+    await userEvent.click(
+      within(row).getByRole("button", {
+        name: "Try linear",
+      }),
+    );
     await expect(args.onTry).toHaveBeenCalledTimes(1);
   },
 };
 
 /** Edited since its try, so a Manifest does not use it until it is tried again. */
 export const TrackerStale: Story = {
-  args: { title: "linear", kind: "tracker", standing: "waiting", tracker: { tried: { state: "stale", words: "Stale" }, valid: true }, onTry: fn() },
+  args: {
+    title: "linear",
+    kind: "tracker",
+    standing: "waiting",
+    tracker: {
+      tried: {
+        state: "stale",
+        words: "Stale",
+      },
+      valid: true,
+    },
+    onTry: fn(),
+  },
   play: async ({ canvasElement, args }) => {
     const row = rowOf(canvasElement, "linear");
     await expect(row).toHaveAttribute("data-standing", "waiting");
-    await expect(within(row).getByRole("img", { name: "Stale" })).toHaveAttribute("data-tone", "stale");
-    await userEvent.click(within(row).getByRole("button", { name: "Try linear" }));
+    await expect(
+      within(row).getByRole("img", {
+        name: "Stale",
+      }),
+    ).toHaveAttribute("data-tone", "stale");
+    await userEvent.click(
+      within(row).getByRole("button", {
+        name: "Try linear",
+      }),
+    );
     await expect(args.onTry).toHaveBeenCalledTimes(1);
   },
 };
 
 /** Never tried: the same waiting frame as a stale one, with its own words. */
 export const TrackerNeverTried: Story = {
-  args: { title: "linear", kind: "tracker", standing: "waiting", tracker: { tried: { state: "never", words: "Not tried" }, valid: true }, onTry: fn() },
+  args: {
+    title: "linear",
+    kind: "tracker",
+    standing: "waiting",
+    tracker: {
+      tried: {
+        state: "never",
+        words: "Not tried",
+      },
+      valid: true,
+    },
+    onTry: fn(),
+  },
   play: async ({ canvasElement }) => {
     const row = rowOf(canvasElement, "linear");
     await expect(row).toHaveAttribute("data-standing", "waiting");
-    await expect(within(row).getByRole("img", { name: "Not tried" })).toHaveAttribute("data-tone", "never");
-    await expect(within(row).queryByRole("img", { name: "Stale" })).toBeNull();
+    await expect(
+      within(row).getByRole("img", {
+        name: "Not tried",
+      }),
+    ).toHaveAttribute("data-tone", "never");
+    await expect(
+      within(row).queryByRole("img", {
+        name: "Stale",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -140,14 +273,28 @@ export const TrackerFailed: Story = {
     title: "linear",
     kind: "tracker",
     standing: "refused",
-    tracker: { tried: { state: "failed", words: "Failed 14 Oct: `tracker-cli` is not installed" }, valid: true },
+    tracker: {
+      tried: {
+        state: "failed",
+        words: "Failed 14 Oct: `tracker-cli` is not installed",
+      },
+      valid: true,
+    },
     onTry: fn(),
   },
   play: async ({ canvasElement, args }) => {
     const row = rowOf(canvasElement, "linear");
     await expect(row).toHaveAttribute("data-standing", "refused");
-    await expect(within(row).getByRole("img", { name: "Failed 14 Oct: `tracker-cli` is not installed" })).toHaveAttribute("data-tone", "failed");
-    await userEvent.click(within(row).getByRole("button", { name: "Try linear" }));
+    await expect(
+      within(row).getByRole("img", {
+        name: "Failed 14 Oct: `tracker-cli` is not installed",
+      }),
+    ).toHaveAttribute("data-tone", "failed");
+    await userEvent.click(
+      within(row).getByRole("button", {
+        name: "Try linear",
+      }),
+    );
     await expect(args.onTry).toHaveBeenCalledTimes(1);
   },
 };
@@ -160,38 +307,80 @@ export const TrackerRefused: Story = {
     standing: "refused",
     detail: "[search] has no argv",
     promoteDisabled: true,
-    tracker: { tried: { state: "never", words: "Not tried" }, valid: false },
+    tracker: {
+      tried: {
+        state: "never",
+        words: "Not tried",
+      },
+      valid: false,
+    },
     onTry: fn(),
   },
   play: async ({ canvasElement, args }) => {
     const row = rowOf(canvasElement, "shortcut");
     await expect(row).toHaveAttribute("data-standing", "refused");
-    await expect(within(row).getByRole("img", { name: "Invalid" })).toHaveAttribute("data-tone", "invalid");
+    await expect(
+      within(row).getByRole("img", {
+        name: "Invalid",
+      }),
+    ).toHaveAttribute("data-tone", "invalid");
     await expect(within(row).getByText("[search] has no argv")).toBeVisible();
-    const tryButton = within(row).getByRole("button", { name: "Try shortcut" });
+    const tryButton = within(row).getByRole("button", {
+      name: "Try shortcut",
+    });
     await expect(tryButton).toBeDisabled();
-    await userEvent.click(tryButton, { pointerEventsCheck: 0 });
+    await userEvent.click(tryButton, {
+      pointerEventsCheck: 0,
+    });
     await expect(args.onTry).not.toHaveBeenCalled();
   },
 };
 
 /** Switched off: the grey frame, with its marks and Try as they were. */
 export const TrackerOff: Story = {
-  args: { title: "linear", kind: "tracker", standing: "off", enabled: false, tracker: { tried: { state: "passed", words: "Tried 14 Oct on armada" }, valid: true }, onTry: fn() },
+  args: {
+    title: "linear",
+    kind: "tracker",
+    standing: "off",
+    enabled: false,
+    tracker: {
+      tried: {
+        state: "passed",
+        words: "Tried 14 Oct on armada",
+      },
+      valid: true,
+    },
+    onTry: fn(),
+  },
   play: async ({ canvasElement }) => {
     const row = rowOf(canvasElement, "linear");
     await expect(row).toHaveAttribute("data-standing", "off");
-    await expect(within(row).getByRole("switch", { name: "linear" })).not.toBeChecked();
+    await expect(
+      within(row).getByRole("switch", {
+        name: "linear",
+      }),
+    ).not.toBeChecked();
   },
 };
 
 /** A list holding a tracker keeps the columns in a row that is not one: no marks, no Try. */
 export const WithTrackerColumnsOnly: Story = {
-  args: { withTracker: true, standing: "used" },
+  args: {
+    withTracker: true,
+    standing: "used",
+  },
   play: async ({ canvasElement }) => {
     const row = rowOf(canvasElement, "Dusk");
     await expect(row).toHaveAttribute("data-tracking", "true");
-    await expect(within(row).queryByRole("button", { name: "Try Dusk" })).toBeNull();
-    await expect(within(row).queryByRole("img", { name: "Valid" })).toBeNull();
+    await expect(
+      within(row).queryByRole("button", {
+        name: "Try Dusk",
+      }),
+    ).toBeNull();
+    await expect(
+      within(row).queryByRole("img", {
+        name: "Valid",
+      }),
+    ).toBeNull();
   },
 };

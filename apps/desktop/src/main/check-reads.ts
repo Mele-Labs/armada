@@ -23,14 +23,25 @@ export class CheckReads {
    */
   async readSessionCheckOutput(run: number): Promise<CheckOutputRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     return await sessionCheckOutputOf(port, run);
   }
 
   /** Stop a Session's running Check, gracefully or by force. Answers the caller; the run's end arrives on the event stream. */
   async stopSessionCheck(run: number, force: boolean): Promise<Outcome> {
     const port = this.port();
-    if (port === null) return { ok: false, why: "not_connected" };
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
     return await stopSessionCheck(port, run, force);
   }
 }

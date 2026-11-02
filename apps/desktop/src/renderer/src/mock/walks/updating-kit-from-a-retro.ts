@@ -11,15 +11,60 @@ const ALLOWLIST = region("Allowlist");
 
 export const updatingKitFromARetro = walk("retro/kit-command", [
   ...toSystemPage("Retros", "The Logbook's Retros tab"),
-  { press: GREP_LINE, say: "The item whose fix is a command" },
-  { look: inside(GREP, button("Update Kit", { exact: true })), say: "A Kit item with a command to allow" },
-  { hover: inside(GREP, button("Update Kit", { exact: true })), say: "What Update Kit does" },
-  { press: inside(GREP, button("Update Kit", { exact: true })), say: "Update Kit adds the command" },
-  { look: inside(GREP, text(/^Updated Kit$/)), say: "The card says Updated Kit" },
-  { look: inside(GREP, text(/^grep$/)), say: "And the command it added" },
+  {
+    press: GREP_LINE,
+    say: "The item whose fix is a command",
+  },
+  {
+    look: inside(
+      GREP,
+      button("Update Kit", {
+        exact: true,
+      }),
+    ),
+    say: "A Kit item with a command to allow",
+  },
+  {
+    hover: inside(
+      GREP,
+      button("Update Kit", {
+        exact: true,
+      }),
+    ),
+    say: "What Update Kit does",
+  },
+  {
+    press: inside(
+      GREP,
+      button("Update Kit", {
+        exact: true,
+      }),
+    ),
+    say: "Update Kit adds the command",
+  },
+  {
+    look: inside(GREP, text(/^Updated Kit$/)),
+    say: "The card says Updated Kit",
+  },
+  {
+    look: inside(GREP, text(/^grep$/)),
+    say: "And the command it added",
+  },
   ...toSystemPage("Allowlist", "Allowlist"),
-  { look: inside(ALLOWLIST, text(/^grep$/)), say: "The command, in the allowlist" },
-  { look: inside(ALLOWLIST, text(/^Retro item$/)), say: "Where it came from" },
-  { press: inside(ALLOWLIST, button(/^grep( |$)/)), say: "The command" },
-  { look: button("Remove grep"), say: "Remove takes it out" },
+  {
+    look: inside(ALLOWLIST, text(/^grep$/)),
+    say: "The command, in the allowlist",
+  },
+  {
+    look: inside(ALLOWLIST, text(/^Retro item$/)),
+    say: "Where it came from",
+  },
+  {
+    press: inside(ALLOWLIST, button(/^grep( |$)/)),
+    say: "The command",
+  },
+  {
+    look: button("Remove grep"),
+    say: "Remove takes it out",
+  },
 ]);

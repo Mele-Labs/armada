@@ -3,7 +3,12 @@
 // Command and a Setup entry, which the Checks page leaves out. `checks`, the scenario the walk of
 // the same name plays.
 
-import type { CheckoutRunRecord, CheckoutRunSheetRead, CheckoutVerify, MergeLines } from "@armada/protocol";
+import type {
+  CheckoutRunRecord,
+  CheckoutRunSheetRead,
+  CheckoutVerify,
+  MergeLines,
+} from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -42,49 +47,125 @@ function ended(
   };
 }
 
-const BUILD = ended("build", "cargo build --workspace --locked", "2026-10-06T14:19:18Z", 41_300, { required: ["bootstrap"] });
-const TYPECHECK = ended("typecheck", "pnpm typecheck", "2026-10-06T14:02:30Z", 9_420, { exit_code: 2, ended: "exited 2" });
-const STORYBOOK = ended("storybook", "pnpm -C packages/components build-storybook", "2026-10-06T13:51:02Z", 3_000, {
-  exit_code: undefined,
-  stopped: true,
-  ended: "stopped",
+const BUILD = ended("build", "cargo build --workspace --locked", "2026-10-06T14:19:18Z", 41_300, {
+  required: [
+    "bootstrap",
+  ],
 });
+const TYPECHECK = ended("typecheck", "pnpm typecheck", "2026-10-06T14:02:30Z", 9_420, {
+  exit_code: 2,
+  ended: "exited 2",
+});
+const STORYBOOK = ended(
+  "storybook",
+  "pnpm -C packages/components build-storybook",
+  "2026-10-06T13:51:02Z",
+  3_000,
+  {
+    exit_code: undefined,
+    stopped: true,
+    ended: "stopped",
+  },
+);
 const BRIDGE_TEST = ended("bridge_test", "pnpm bridge-test", "2026-10-06T13:40:11Z", 128_000, {
-  changed: [{ path: "apps/desktop/coverage/index.html", change: "modified" }],
+  changed: [
+    {
+      path: "apps/desktop/coverage/index.html",
+      change: "modified",
+    },
+  ],
 });
 /** In the run list and not Checks: a Command and a Setup entry. */
 const FMT = ended("fmt", "cargo fmt --all", "2026-10-06T14:20:01Z", 1_900);
-const BOOTSTRAP = ended("bootstrap", "pnpm install --frozen-lockfile", "2026-10-06T13:30:11Z", 8_200);
+const BOOTSTRAP = ended(
+  "bootstrap",
+  "pnpm install --frozen-lockfile",
+  "2026-10-06T13:30:11Z",
+  8_200,
+);
 
 const VERIFY: CheckoutVerify = {
   id: "01VERIFY",
   started_at: "2026-10-06T14:19:02Z",
   steps: [
-    { group: "setup", name: "bootstrap", run: BOOTSTRAP.command, state: "ran", record: BOOTSTRAP },
-    { group: "checks", name: "build", run: BUILD.command, state: "ran", record: BUILD },
-    { group: "checks", name: "test", run: TEST, state: "running", run_id: "crun_test" },
-    { group: "checks", name: "format", run: "cargo fmt --all --check", state: "waiting" },
-    { group: "checks", name: "bridge_build", run: "pnpm -C apps/desktop build", state: "waiting" },
+    {
+      group: "setup",
+      name: "bootstrap",
+      run: BOOTSTRAP.command,
+      state: "ran",
+      record: BOOTSTRAP,
+    },
+    {
+      group: "checks",
+      name: "build",
+      run: BUILD.command,
+      state: "ran",
+      record: BUILD,
+    },
+    {
+      group: "checks",
+      name: "test",
+      run: TEST,
+      state: "running",
+      run_id: "crun_test",
+    },
+    {
+      group: "checks",
+      name: "format",
+      run: "cargo fmt --all --check",
+      state: "waiting",
+    },
+    {
+      group: "checks",
+      name: "bridge_build",
+      run: "pnpm -C apps/desktop build",
+      state: "waiting",
+    },
   ],
 };
 
 const READ: CheckoutRunSheetRead = {
   state: "read",
   sheet: sheet({
-    running: { id: "crun_test", name: "test", command: TEST, started_at: "2026-10-06T14:20:02Z" },
+    running: {
+      id: "crun_test",
+      name: "test",
+      command: TEST,
+      started_at: "2026-10-06T14:20:02Z",
+    },
     verify: VERIFY,
   }),
 };
 
 const LOGS: Record<string, string[]> = {
-  crun_build: ["   Compiling ipc v0.0.0", "   Compiling fleet v0.0.0", "    Finished `dev` profile in 41.2s"],
-  crun_typecheck: ["$ tsc -b", "packages/screens/src/Row.tsx(88,7): error TS2322: Type 'string' is not assignable to type 'number'."],
-  crun_storybook: ["$ storybook build", "info => Cleaning outputDir"],
-  crun_bridge_test: [" RUN  v4.1.11 /Users/user/armada/apps/desktop", " ✓ src/main/connection.test.ts (18 tests) 211ms", " Test Files  65 passed (65)"],
+  crun_build: [
+    "   Compiling ipc v0.0.0",
+    "   Compiling fleet v0.0.0",
+    "    Finished `dev` profile in 41.2s",
+  ],
+  crun_typecheck: [
+    "$ tsc -b",
+    "packages/screens/src/Row.tsx(88,7): error TS2322: Type 'string' is not assignable to type 'number'.",
+  ],
+  crun_storybook: [
+    "$ storybook build",
+    "info => Cleaning outputDir",
+  ],
+  crun_bridge_test: [
+    " RUN  v4.1.11 /Users/user/armada/apps/desktop",
+    " ✓ src/main/connection.test.ts (18 tests) 211ms",
+    " Test Files  65 passed (65)",
+  ],
 };
 
-const OUT_NOW = [" Nextest run ID 4a1c in 12 binaries", "        PASS [   0.412s] core-model tests::state_machine"];
-const ARRIVING = ["        PASS [   1.904s] fleet tests::reads_the_runtime_file", "        PASS [   0.090s] ipc tests::version_skew"];
+const OUT_NOW = [
+  " Nextest run ID 4a1c in 12 binaries",
+  "        PASS [   0.412s] core-model tests::state_machine",
+];
+const ARRIVING = [
+  "        PASS [   1.904s] fleet tests::reads_the_runtime_file",
+  "        PASS [   0.090s] ipc tests::version_skew",
+];
 
 /** The line's turn for one branch: its Checks, each as the runner asked for them. */
 const LINE: MergeLines = {
@@ -98,9 +179,32 @@ const LINE: MergeLines = {
           state: "gating",
           doing: "running its Checks",
           checks: [
-            { name: "build", state: "passed", started_at: "2026-10-06T14:19:50Z", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
-            { name: "desktop_test", state: "running", started_at: "2026-10-06T14:20:20Z", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
-            { name: "screens_test", state: "waiting", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
+            {
+              name: "build",
+              state: "passed",
+              started_at: "2026-10-06T14:19:50Z",
+              requester: {
+                kind: "merge_line",
+                branch: "fleet/pulse-log-rows",
+              },
+            },
+            {
+              name: "desktop_test",
+              state: "running",
+              started_at: "2026-10-06T14:20:20Z",
+              requester: {
+                kind: "merge_line",
+                branch: "fleet/pulse-log-rows",
+              },
+            },
+            {
+              name: "screens_test",
+              state: "waiting",
+              requester: {
+                kind: "merge_line",
+                branch: "fleet/pulse-log-rows",
+              },
+            },
           ],
         },
       ],
@@ -112,28 +216,64 @@ const LINE: MergeLines = {
 };
 
 const LAND_LOGS: Record<string, string[]> = {
-  "fleet/pulse-log-rows build": ["   Compiling fleet v0.0.0", "    Finished `dev` profile in 38.0s"],
-  "fleet/pulse-log-rows desktop_test": [" RUN  v4.1.11 /Users/user/armada/apps/desktop", " ✓ src/main/connection.test.ts (18 tests) 211ms"],
+  "fleet/pulse-log-rows build": [
+    "   Compiling fleet v0.0.0",
+    "    Finished `dev` profile in 38.0s",
+  ],
+  "fleet/pulse-log-rows desktop_test": [
+    " RUN  v4.1.11 /Users/user/armada/apps/desktop",
+    " ✓ src/main/connection.test.ts (18 tests) 211ms",
+  ],
 };
 
 export function checking(): Scenario {
-  return checkingOver(READ, "checks", "A repository with Checks out, waiting and ended, who asked for each, and the logs behind them");
+  return checkingOver(
+    READ,
+    "checks",
+    "A repository with Checks out, waiting and ended, who asked for each, and the logs behind them",
+  );
 }
 
 /** The same Fleet with the run sheet never read: the merge line's Checks still draw. */
 export function checkingWithoutRunSheet(): Scenario {
-  return checkingOver({ state: "reading" }, "checks-without-run-sheet", "A repository whose run sheet has not been read, and the merge line's Checks that draw anyway");
+  return checkingOver(
+    {
+      state: "reading",
+    },
+    "checks-without-run-sheet",
+    "A repository whose run sheet has not been read, and the merge line's Checks that draw anyway",
+  );
 }
 
 export function checkingOver(read: CheckoutRunSheetRead, name: string, says: string): Scenario {
-  const base = manifesting({ sheet: read, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
+  const base = manifesting({
+    sheet: read,
+    runs: {
+      runs: [
+        FMT,
+        BUILD,
+        TYPECHECK,
+        STORYBOOK,
+        BRIDGE_TEST,
+        BOOTSTRAP,
+      ],
+      unreadable: [],
+    },
+  });
   const served = holding("checks", "");
   return {
     ...base,
     name,
-    state: { ...served.state, repository: base.state.repository, mergeLines: LINE },
+    state: {
+      ...served.state,
+      repository: base.state.repository,
+      mergeLines: LINE,
+    },
     says,
-    behaves: (fleet) => ({ ...base.behaves?.(fleet), ...printing(fleet) }),
+    behaves: (fleet) => ({
+      ...base.behaves?.(fleet),
+      ...printing(fleet),
+    }),
   };
 }
 
@@ -146,35 +286,89 @@ function printing(fleet: FleetHandle): Partial<BridgeApi> {
   };
   const show = (lines: string[]) =>
     fleet.publish({
-      checkoutRunFollowed: { state: "following", runId: "crun_test", name: "test", path: ".armada/runs/crun_test/output.log", fromLine: 1, lines },
+      checkoutRunFollowed: {
+        state: "following",
+        runId: "crun_test",
+        name: "test",
+        path: ".armada/runs/crun_test/output.log",
+        fromLine: 1,
+        lines,
+      },
     });
   return {
     observeCheckoutRun: async (runId) => {
       stop();
       if (runId !== "crun_test") {
-        fleet.publish({ checkoutRunFollowed: { state: "none" } });
+        fleet.publish({
+          checkoutRunFollowed: {
+            state: "none",
+          },
+        });
         return;
       }
       show(OUT_NOW);
       ARRIVING.forEach((_, n) => {
-        timers.push(setTimeout(() => show([...OUT_NOW, ...ARRIVING.slice(0, n + 1)]), ARRIVING_MS * (n + 1)));
+        timers.push(
+          setTimeout(
+            () =>
+              show([
+                ...OUT_NOW,
+                ...ARRIVING.slice(0, n + 1),
+              ]),
+            ARRIVING_MS * (n + 1),
+          ),
+        );
       });
     },
     followLandCheck: async (at) => {
       const lines = at === null ? undefined : LAND_LOGS[`${at.branch} ${at.check}`];
       if (at === null || lines === undefined) {
-        fleet.publish({ landFollowed: { state: "none" } });
+        fleet.publish({
+          landFollowed: {
+            state: "none",
+          },
+        });
         return;
       }
       fleet.publish({
-        landFollowed: { state: "following", root: at.root, branch: at.branch, check: at.check, fromLine: 1, lines, ...(at.check === "build" ? { ended: "finished" } : {}) },
+        landFollowed: {
+          state: "following",
+          root: at.root,
+          branch: at.branch,
+          check: at.check,
+          fromLine: 1,
+          lines,
+          ...(at.check === "build"
+            ? {
+                ended: "finished",
+              }
+            : {}),
+        },
       });
     },
     getCheckoutRunOutput: async (runId) => {
       const lines = LOGS[runId];
       return lines === undefined
-        ? { ok: false, outcome: { ok: false, why: "not_connected" } }
-        : { ok: true, output: { id: runId, name: runId.replace("crun_", ""), path: `.armada/runs/${runId}/output.log`, lines, from_line: 1, total_lines: lines.length, bytes: 0, whole: true } };
+        ? {
+            ok: false,
+            outcome: {
+              ok: false,
+              why: "not_connected",
+            },
+          }
+        : {
+            ok: true,
+            output: {
+              id: runId,
+              name: runId.replace("crun_", ""),
+              path: `.armada/runs/${runId}/output.log`,
+              lines,
+              from_line: 1,
+              total_lines: lines.length,
+              bytes: 0,
+              whole: true,
+            },
+          };
     },
   };
 }

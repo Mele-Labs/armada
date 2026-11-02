@@ -51,18 +51,37 @@
 }
 
 /* How a part sits across its parent: a control keeps its own size, anything with room in it stretches. */
-.armada-wireframe[data-axis="column"]:is(.armada-wireframe--button, .armada-wireframe--badge, .armada-wireframe--avatar) {
+.armada-wireframe[data-axis="column"]:is(
+  .armada-wireframe--button,
+  .armada-wireframe--badge,
+  .armada-wireframe--avatar
+) {
   align-self: flex-start;
 }
 
-.armada-wireframe[data-axis="row"]:is(.armada-wireframe--button, .armada-wireframe--badge, .armada-wireframe--avatar, .armada-wireframe--text, .armada-wireframe--field, .armada-wireframe--tabs) {
+.armada-wireframe[data-axis="row"]:is(
+  .armada-wireframe--button,
+  .armada-wireframe--badge,
+  .armada-wireframe--avatar,
+  .armada-wireframe--text,
+  .armada-wireframe--field,
+  .armada-wireframe--tabs
+) {
   align-self: center;
 }
 
-.armada-wireframe.armada-wireframe[data-align="start"] { align-self: flex-start; }
-.armada-wireframe.armada-wireframe[data-align="center"] { align-self: center; }
-.armada-wireframe.armada-wireframe[data-align="end"] { align-self: flex-end; }
-.armada-wireframe.armada-wireframe[data-align="stretch"] { align-self: stretch; }
+.armada-wireframe.armada-wireframe[data-align="start"] {
+  align-self: flex-start;
+}
+.armada-wireframe.armada-wireframe[data-align="center"] {
+  align-self: center;
+}
+.armada-wireframe.armada-wireframe[data-align="end"] {
+  align-self: flex-end;
+}
+.armada-wireframe.armada-wireframe[data-align="stretch"] {
+  align-self: stretch;
+}
 
 /* Layout */
 .armada-wireframe--row,
@@ -72,24 +91,44 @@
   display: flex;
 }
 
-.armada-wireframe--row { flex-direction: row; }
+.armada-wireframe--row {
+  flex-direction: row;
+}
 .armada-wireframe--column,
 .armada-wireframe__window-body,
-.armada-wireframe__panel-body { flex-direction: column; }
+.armada-wireframe__panel-body {
+  flex-direction: column;
+}
 
 .armada-wireframe--grid {
   display: grid;
   grid-template-columns: repeat(var(--wf-cols), minmax(0, 1fr));
 }
 
-.armada-screen [data-gap="none"] { gap: 0; }
-.armada-screen [data-gap="sm"] { gap: var(--wf-gap-sm); }
-.armada-screen [data-gap="md"] { gap: var(--wf-gap-md); }
-.armada-screen [data-gap="lg"] { gap: var(--wf-gap-lg); }
-.armada-screen [data-pad="none"] { padding: 0; }
-.armada-screen [data-pad="sm"] { padding: var(--wf-gap-sm); }
-.armada-screen [data-pad="md"] { padding: var(--wf-gap-md); }
-.armada-screen [data-pad="lg"] { padding: var(--wf-gap-lg); }
+.armada-screen [data-gap="none"] {
+  gap: 0;
+}
+.armada-screen [data-gap="sm"] {
+  gap: var(--wf-gap-sm);
+}
+.armada-screen [data-gap="md"] {
+  gap: var(--wf-gap-md);
+}
+.armada-screen [data-gap="lg"] {
+  gap: var(--wf-gap-lg);
+}
+.armada-screen [data-pad="none"] {
+  padding: 0;
+}
+.armada-screen [data-pad="sm"] {
+  padding: var(--wf-gap-sm);
+}
+.armada-screen [data-pad="md"] {
+  padding: var(--wf-gap-md);
+}
+.armada-screen [data-pad="lg"] {
+  padding: var(--wf-gap-lg);
+}
 
 .armada-wireframe[data-border] {
   border: var(--border-width) solid var(--wf-line);
@@ -208,8 +247,12 @@
   background: var(--wf-ink);
 }
 
-.armada-wireframe__signal > span:nth-child(2) { block-size: var(--space-3); }
-.armada-wireframe__signal > span:nth-child(3) { block-size: var(--space-4); }
+.armada-wireframe__signal > span:nth-child(2) {
+  block-size: var(--space-3);
+}
+.armada-wireframe__signal > span:nth-child(3) {
+  block-size: var(--space-4);
+}
 
 .armada-wireframe__battery {
   inline-size: var(--space-6);
@@ -632,9 +675,17 @@
   background: var(--wf-bar);
 }
 
-.armada-wireframe--text[data-style="heading"] .armada-wireframe__bar { block-size: var(--space-4); max-inline-size: 50%; }
-.armada-wireframe--text[data-style="title"] .armada-wireframe__bar { block-size: var(--space-3); max-inline-size: 70%; }
-.armada-wireframe--text[data-style="caption"] .armada-wireframe__bar { block-size: var(--space-1); }
+.armada-wireframe--text[data-style="heading"] .armada-wireframe__bar {
+  block-size: var(--space-4);
+  max-inline-size: 50%;
+}
+.armada-wireframe--text[data-style="title"] .armada-wireframe__bar {
+  block-size: var(--space-3);
+  max-inline-size: 70%;
+}
+.armada-wireframe--text[data-style="caption"] .armada-wireframe__bar {
+  block-size: var(--space-1);
+}
 
 /* Image, avatar, badge, divider */
 .armada-wireframe--image {

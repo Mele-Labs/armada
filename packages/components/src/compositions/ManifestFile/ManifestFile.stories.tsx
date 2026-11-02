@@ -70,12 +70,24 @@ const PULLED = READ.replace(
 
 /** Opened, nothing typed. Save is not offered for bytes already on disk. */
 export const Opened: Story = {
-  args: { path: PATH, text: READ, changed: false, onText: fn(), onSave: fn() },
+  args: {
+    path: PATH,
+    text: READ,
+    changed: false,
+    onText: fn(),
+    onSave: fn(),
+  },
 };
 
 /** Edited and not saved yet. */
 export const Edited: Story = {
-  args: { path: PATH, text: EDITED, changed: true, onText: fn(), onSave: fn() },
+  args: {
+    path: PATH,
+    text: EDITED,
+    changed: true,
+    onText: fn(),
+    onSave: fn(),
+  },
 };
 
 /**
@@ -88,11 +100,22 @@ export const Settling: Story = {
     path: PATH,
     text: EDITED,
     changed: false,
-    saved: { at: "2026-10-19T14:20:03Z", settled: false },
+    saved: {
+      at: "2026-10-19T14:20:03Z",
+      settled: false,
+    },
     reading: {
       path: PATH,
       at: "2026-09-12T14:11:40.000Z",
-      refused: { summary: "armada.yml could not be adopted: 1 fault", faults: [{ key: "checks.test.run", fault: "is empty" }] },
+      refused: {
+        summary: "armada.yml could not be adopted: 1 fault",
+        faults: [
+          {
+            key: "checks.test.run",
+            fault: "is empty",
+          },
+        ],
+      },
     },
     onText: fn(),
     onSave: fn(),
@@ -112,11 +135,20 @@ export const ASaveThatTook: Story = {
     path: PATH,
     text: READ.replace("poke_limit: 3", "poke_limit: 5"),
     changed: false,
-    saved: { at: "2026-10-19T14:20:03Z", settled: true },
+    saved: {
+      at: "2026-10-19T14:20:03Z",
+      settled: true,
+    },
     reading: {
       path: PATH,
       at: "2026-09-12T14:20:05.000Z",
-      moved: [{ key: "drone.poke_limit", before: "3", after: "5" }],
+      moved: [
+        {
+          key: "drone.poke_limit",
+          before: "3",
+          after: "5",
+        },
+      ],
     },
     onText: fn(),
     onSave: fn(),
@@ -130,8 +162,14 @@ export const ASaveWithNothingToSay: Story = {
     path: PATH,
     text: READ,
     changed: false,
-    saved: { at: "2026-10-19T14:20:03Z", settled: true },
-    reading: { path: PATH, at: "2026-09-12T14:20:05.000Z" },
+    saved: {
+      at: "2026-10-19T14:20:03Z",
+      settled: true,
+    },
+    reading: {
+      path: PATH,
+      at: "2026-09-12T14:20:05.000Z",
+    },
     onText: fn(),
     onSave: fn(),
   },
@@ -147,15 +185,24 @@ export const ARefusedSave: Story = {
     path: PATH,
     text: EDITED,
     changed: false,
-    saved: { at: "2026-10-19T14:20:03Z", settled: true },
+    saved: {
+      at: "2026-10-19T14:20:03Z",
+      settled: true,
+    },
     reading: {
       path: PATH,
       at: "2026-09-12T14:20:05.000Z",
       refused: {
         summary: "armada.yml could not be adopted: 2 faults",
         faults: [
-          { key: "checks.typecheck", fault: "unknown field `runs`, expected `run`" },
-          { key: "checks.typecheck.run", fault: "is required" },
+          {
+            key: "checks.typecheck",
+            fault: "unknown field `runs`, expected `run`",
+          },
+          {
+            key: "checks.typecheck.run",
+            fault: "is required",
+          },
         ],
       },
     },
@@ -169,7 +216,11 @@ export const ARefusedSave: Story = {
     await expect(canvas.getByText("checks.typecheck.run")).toBeVisible();
     await expect(canvas.getByText(/The values in force are unchanged/)).toBeVisible();
     // Bytes already on disk are not offered for saving again.
-    await expect(canvas.getByRole("button", { name: "Save" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Save",
+      }),
+    ).toBeDisabled();
   },
 };
 
@@ -180,11 +231,16 @@ export const NotADocument: Story = {
     path: PATH,
     text: READ.replace("base: main", "base: main:\n  - ["),
     changed: false,
-    saved: { at: "2026-10-19T14:20:03Z", settled: true },
+    saved: {
+      at: "2026-10-19T14:20:03Z",
+      settled: true,
+    },
     reading: {
       path: PATH,
       at: "2026-09-12T14:20:05.000Z",
-      refused: { summary: "armada.yml is not YAML: did not find expected node content at line 5 column 6" },
+      refused: {
+        summary: "armada.yml is not YAML: did not find expected node content at line 5 column 6",
+      },
     },
     onText: fn(),
     onSave: fn(),
@@ -202,18 +258,38 @@ export const ASaveOverAFileThatMoved: Story = {
     path: PATH,
     text: EDITED,
     changed: true,
-    moved: { onDisk: PULLED, onSaveOver: fn(), onTakeOnDisk: fn() },
+    moved: {
+      onDisk: PULLED,
+      onSaveOver: fn(),
+      onTakeOnDisk: fn(),
+    },
     onText: fn(),
     onSave: fn(),
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("The file changed after you opened it")).toBeVisible();
-    await expect(canvas.getByRole("textbox", { name: "On disk now" })).toHaveValue(PULLED);
-    await expect(canvas.getByRole("textbox", { name: "Your edit" })).toHaveValue(EDITED);
+    await expect(
+      canvas.getByRole("textbox", {
+        name: "On disk now",
+      }),
+    ).toHaveValue(PULLED);
+    await expect(
+      canvas.getByRole("textbox", {
+        name: "Your edit",
+      }),
+    ).toHaveValue(EDITED);
     // The plain Save is gone: the only save left is the one that says it overwrites.
-    await expect(canvas.queryByRole("button", { name: "Save" })).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Save my edit over it" }));
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Save",
+      }),
+    ).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Save my edit over it",
+      }),
+    );
     await expect(args.moved?.onSaveOver).toHaveBeenCalledOnce();
     await expect(args.moved?.onTakeOnDisk).not.toHaveBeenCalled();
   },
@@ -226,14 +302,25 @@ export const TheFileIsGone: Story = {
     path: PATH,
     text: EDITED,
     changed: true,
-    moved: { onDisk: null, onReadAgain: fn() },
+    moved: {
+      onDisk: null,
+      onReadAgain: fn(),
+    },
     onText: fn(),
     onSave: fn(),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("textbox", { name: "Your edit" })).toHaveValue(EDITED);
-    await expect(canvas.queryByRole("button", { name: "Save my edit over it" })).toBeNull();
+    await expect(
+      canvas.getByRole("textbox", {
+        name: "Your edit",
+      }),
+    ).toHaveValue(EDITED);
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Save my edit over it",
+      }),
+    ).toBeNull();
   },
 };
 

@@ -24,14 +24,30 @@ export type PhoneWayIn = {
   named: boolean;
   address?: string;
   /** A press of Turn on Funnel: waiting on it, the page the tailnet needs it allowed on, or Tailscale's refusal. */
-  funnel?: { state: "turning" } | { state: "approve"; page: string } | { state: "said"; said: string };
+  funnel?:
+    | {
+        state: "turning";
+      }
+    | {
+        state: "approve";
+        page: string;
+      }
+    | {
+        state: "said";
+        said: string;
+      };
 };
 
 /** Why there is nothing to pair with. Absent where the Gateway answers. */
 export type PhoneProblem =
-  | { kind: "not_running" }
+  | {
+      kind: "not_running";
+    }
   /** Fleet's or the Gateway's own sentence, shown as it arrived. */
-  | { kind: "said"; said: string };
+  | {
+      kind: "said";
+      said: string;
+    };
 
 /**
  * Settings → Phone: the Phone access switch, then pair, confirm and unpair.
@@ -52,7 +68,10 @@ export type PhoneProblem =
  */
 export type PhonePairingProps = {
   /** Fleet's switch, `turning` while a press waits on it. Absent until Fleet has said, which draws no switch. */
-  access?: { on: boolean; turning?: boolean };
+  access?: {
+    on: boolean;
+    turning?: boolean;
+  };
   onTurn: (on: boolean) => void;
   problem?: PhoneProblem;
   /** The pairing address with its one-time code. Absent until Pair a phone is pressed. */
@@ -60,7 +79,9 @@ export type PhonePairingProps = {
   /** What is left on the code. Names the figure beside the QR. */
   secondsLeft?: number;
   /** A phone that posted the code and is waiting on Confirm. */
-  claim?: { device: string };
+  claim?: {
+    device: string;
+  };
   phones: readonly PairedPhone[];
   onPair: () => void;
   onConfirm: () => void;
@@ -98,7 +119,9 @@ export function PhonePairing(props: PhonePairingProps) {
         </Switch>
       )}
       {problem === undefined ? null : (
-        <Alert tone="neutral">{problem.kind === "not_running" ? "The Gateway is not running." : problem.said}</Alert>
+        <Alert tone="neutral">
+          {problem.kind === "not_running" ? "The Gateway is not running." : problem.said}
+        </Alert>
       )}
       {problem !== undefined || access?.on !== true ? null : (
         <>
@@ -113,11 +136,29 @@ export function PhonePairing(props: PhonePairingProps) {
 type StepId = "install" | "sign_in" | "funnel" | "phone";
 
 /** The steps to Funnel on, each with whether it is done and the one line that says how. */
-function stepsOf(wayIn: PhoneWayIn, paired: boolean): readonly { id: StepId; name: string; why: string; done: boolean }[] {
+function stepsOf(
+  wayIn: PhoneWayIn,
+  paired: boolean,
+): readonly {
+  id: StepId;
+  name: string;
+  why: string;
+  done: boolean;
+}[] {
   const where = wayIn.address ?? "this Mac's tailnet address";
   return [
-    { id: "install", name: "Install Tailscale on this Mac", why: "Tailscale gives this Mac an https address.", done: wayIn.tailscale !== "missing" },
-    { id: "sign_in", name: "Sign in to Tailscale", why: "From its icon in the menu bar.", done: wayIn.tailscale === "running" },
+    {
+      id: "install",
+      name: "Install Tailscale on this Mac",
+      why: "Tailscale gives this Mac an https address.",
+      done: wayIn.tailscale !== "missing",
+    },
+    {
+      id: "sign_in",
+      name: "Sign in to Tailscale",
+      why: "From its icon in the menu bar.",
+      done: wayIn.tailscale === "running",
+    },
     {
       id: "funnel",
       name: "Turn on Funnel",
@@ -127,23 +168,38 @@ function stepsOf(wayIn: PhoneWayIn, paired: boolean): readonly { id: StepId; nam
           : "Funnel puts this Mac's phone app on the internet at its tailnet address. Only a phone you paired here can use it.",
       done: wayIn.served === "funnel",
     },
-    { id: "phone", name: "Add Armada to the iPhone", why: `In Safari on the iPhone, open ${where}, then Share, Add to Home Screen.`, done: paired },
+    {
+      id: "phone",
+      name: "Add Armada to the iPhone",
+      why: `In Safari on the iPhone, open ${where}, then Share, Add to Home Screen.`,
+      done: paired,
+    },
   ];
 }
 
 /** The way in: one row a step, or one line once it is all done or the owner brought his own. */
-function WayIn({ wayIn, phones, onFunnel, onOpen, onCopied }: PhonePairingProps & { wayIn: PhoneWayIn }) {
+function WayIn({
+  wayIn,
+  phones,
+  onFunnel,
+  onOpen,
+  onCopied,
+}: PhonePairingProps & {
+  wayIn: PhoneWayIn;
+}) {
   if (wayIn.named)
     return (
       <p className="armada-phone__way">
-        Phones reach this Mac at <span className="armada-phone__address">{wayIn.address}</span>, the address pocket-address names.
+        Phones reach this Mac at <span className="armada-phone__address">{wayIn.address}</span>, the
+        address pocket-address names.
       </p>
     );
   const steps = stepsOf(wayIn, phones.length > 0);
   if (steps.every((step) => step.done))
     return (
       <p className="armada-phone__way">
-        Phones reach this Mac at <span className="armada-phone__address">{wayIn.address}</span> through Tailscale Funnel.
+        Phones reach this Mac at <span className="armada-phone__address">{wayIn.address}</span>{" "}
+        through Tailscale Funnel.
       </p>
     );
   const current = steps.find((step) => !step.done)?.id;
@@ -153,7 +209,12 @@ function WayIn({ wayIn, phones, onFunnel, onOpen, onCopied }: PhonePairingProps 
       <p className="armada-phone__steps-title">Set up the way in</p>
       <ol className="armada-phone__list">
         {steps.map((step) => (
-          <li key={step.id} className="armada-phone__step" aria-label={step.name} data-state={step.done ? "done" : step.id === current ? "current" : "waiting"}>
+          <li
+            key={step.id}
+            className="armada-phone__step"
+            aria-label={step.name}
+            data-state={step.done ? "done" : step.id === current ? "current" : "waiting"}
+          >
             {step.done ? (
               <Tooltip beside label="Done">
                 <span className="armada-phone__done" role="img" aria-label="Done">
@@ -176,7 +237,9 @@ function WayIn({ wayIn, phones, onFunnel, onOpen, onCopied }: PhonePairingProps 
                     : step.why}
                 </span>
               )}
-              {step.id === "funnel" && step.id === current && funnel?.state === "said" ? <Alert tone="neutral">{funnel.said}</Alert> : null}
+              {step.id === "funnel" && step.id === current && funnel?.state === "said" ? (
+                <Alert tone="neutral">{funnel.said}</Alert>
+              ) : null}
             </div>
             <span className="armada-phone__act">
               {step.id !== current ? null : step.id === "install" ? (
@@ -188,7 +251,12 @@ function WayIn({ wayIn, phones, onFunnel, onOpen, onCopied }: PhonePairingProps 
                   Allow Funnel
                 </Button>
               ) : step.id === "funnel" ? (
-                <Button variant="primary" size="sm" disabled={funnel?.state === "turning"} onClick={() => onFunnel?.()}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={funnel?.state === "turning"}
+                  onClick={() => onFunnel?.()}
+                >
                   Turn on Funnel
                 </Button>
               ) : step.id === "phone" && wayIn.address !== undefined ? (
@@ -215,7 +283,16 @@ function WayIn({ wayIn, phones, onFunnel, onOpen, onCopied }: PhonePairingProps 
 }
 
 /** The code, the claim and the paired phones: what access on draws while the Gateway answers. */
-function Pairing({ url, secondsLeft, claim, phones, onPair, onConfirm, onUnpair, onCopied }: PhonePairingProps) {
+function Pairing({
+  url,
+  secondsLeft,
+  claim,
+  phones,
+  onPair,
+  onConfirm,
+  onUnpair,
+  onCopied,
+}: PhonePairingProps) {
   return (
     <>
       {url === undefined ? (
@@ -258,7 +335,11 @@ function Pairing({ url, secondsLeft, claim, phones, onPair, onConfirm, onUnpair,
       )}
 
       {claim === undefined ? null : (
-        <div className="armada-phone__claim" role="group" aria-label={`${claim.device} wants to pair`}>
+        <div
+          className="armada-phone__claim"
+          role="group"
+          aria-label={`${claim.device} wants to pair`}
+        >
           <p className="armada-phone__name">{claim.device} wants to pair</p>
           <Button variant="primary" onClick={onConfirm}>
             Confirm
@@ -273,7 +354,12 @@ function Pairing({ url, secondsLeft, claim, phones, onPair, onConfirm, onUnpair,
               <li className="armada-phone__row" key={phone.id}>
                 <p className="armada-phone__name">{phone.name}</p>
                 <Stamp first="age" at={phone.seenAt} className="armada-phone__seen" />
-                <Button variant="ghost" size="sm" aria-label={`Unpair ${phone.name}`} onClick={() => onUnpair(phone.id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Unpair ${phone.name}`}
+                  onClick={() => onUnpair(phone.id)}
+                >
                   Unpair
                 </Button>
               </li>
@@ -290,13 +376,21 @@ const QUIET = 4;
 
 /** The QR of `text`, one path of unit squares. Its colours are the stylesheet's: a camera needs dark on light in both themes. */
 function Qr({ text }: { text: string }) {
-  const { data: rows } = encode(text, { ecc: "M", border: 0 });
+  const { data: rows } = encode(text, {
+    ecc: "M",
+    border: 0,
+  });
   const size = rows.length + QUIET * 2;
   const path = rows
     .flatMap((row, y) => row.map((dark, x) => (dark ? `M${x + QUIET} ${y + QUIET}h1v1h-1z` : "")))
     .join("");
   return (
-    <svg className="armada-phone__qr-mark" viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges" aria-hidden="true">
+    <svg
+      className="armada-phone__qr-mark"
+      viewBox={`0 0 ${size} ${size}`}
+      shapeRendering="crispEdges"
+      aria-hidden="true"
+    >
       <path d={path} />
     </svg>
   );

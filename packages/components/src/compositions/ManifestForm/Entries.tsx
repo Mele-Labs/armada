@@ -5,7 +5,15 @@ import { Button } from "../../primitives/Button/Button";
 import { Checkbox } from "../../primitives/Checkbox/Checkbox";
 import { Input } from "../../primitives/Input/Input";
 
-export function Section({ title, says, children }: { title: string; says: string; children: ReactNode }) {
+export function Section({
+  title,
+  says,
+  children,
+}: {
+  title: string;
+  says: string;
+  children: ReactNode;
+}) {
   return (
     // A tile on the glass, and a stop on the keys: Enter goes in to its entries or its first field.
     <section className="armada-manifest-form__section" aria-label={title} data-tile="" tabIndex={0}>
@@ -20,10 +28,23 @@ export function Section({ title, says, children }: { title: string; says: string
  * One named entry, grouped under its name, with Remove beside it. A removal
  * takes the entry's lines and the comment directly above it — the writer's.
  */
-export function Entry({ name, onRemove, children }: { name: string; onRemove: () => void; children: ReactNode }) {
+export function Entry({
+  name,
+  onRemove,
+  children,
+}: {
+  name: string;
+  onRemove: () => void;
+  children: ReactNode;
+}) {
   const id = useId();
   return (
-    <fieldset className="armada-manifest-form__entry" aria-labelledby={id} data-tile="" tabIndex={0}>
+    <fieldset
+      className="armada-manifest-form__entry"
+      aria-labelledby={id}
+      data-tile=""
+      tabIndex={0}
+    >
       <div className="armada-manifest-form__entry-head">
         <span id={id} className="armada-manifest-form__name">
           {name}
@@ -38,7 +59,15 @@ export function Entry({ name, onRemove, children }: { name: string; onRemove: ()
 }
 
 /** A name, and the press that declares an entry by it. Taken names are refused here. */
-export function AddEntry({ noun, taken, onAdd }: { noun: string; taken: string[]; onAdd: (name: string) => void }) {
+export function AddEntry({
+  noun,
+  taken,
+  onAdd,
+}: {
+  noun: string;
+  taken: string[];
+  onAdd: (name: string) => void;
+}) {
   const [typed, setTyped] = useState("");
   const name = typed.trim();
   const clash = taken.includes(name);
@@ -100,7 +129,14 @@ export function Choices({
               key={name}
               checked={chosen.includes(name)}
               onChange={(event) =>
-                onChosen(event.target.checked ? [...chosen, name] : chosen.filter((one) => one !== name))
+                onChosen(
+                  event.target.checked
+                    ? [
+                        ...chosen,
+                        name,
+                      ]
+                    : chosen.filter((one) => one !== name),
+                )
               }
             >
               {name}

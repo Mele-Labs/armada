@@ -39,16 +39,38 @@ import { arcsMoving } from "./arcs";
 import { unitOf } from "../lens";
 import type { LensSpec } from "./scene";
 
-type Stood = { spec: StandSpec; node: Container };
+type Stood = {
+  spec: StandSpec;
+  node: Container;
+};
 /** A lifted file as drawn: how far it has risen, and the rise or the settling it is on. */
-type Lifted = { spec: LensSpec; k: number; from: number; to: number; start: number };
-type Tween<T> = { from: T; to: T; start: number; ms: number };
+type Lifted = {
+  spec: LensSpec;
+  k: number;
+  from: number;
+  to: number;
+  start: number;
+};
+type Tween<T> = {
+  from: T;
+  to: T;
+  start: number;
+  ms: number;
+};
 
-const sameCam = (a: Cam, b: Cam) => a.x === b.x && a.y === b.y && a.eye === b.eye && a.tilt === b.tilt;
+const sameCam = (a: Cam, b: Cam) =>
+  a.x === b.x && a.y === b.y && a.eye === b.eye && a.tilt === b.tilt;
 
 export class Stage {
   /** The camera as drawn this frame. The drones group and the hit layer read it to place what they add. */
-  shown: View = { x: 0, y: 0, eye: 1, pitch: 0, width: 0, height: 0 };
+  shown: View = {
+    x: 0,
+    y: 0,
+    eye: 1,
+    pitch: 0,
+    width: 0,
+    height: 0,
+  };
   readonly stands = new Container();
   readonly drones = new Container();
   readonly effects = new Container();
@@ -61,8 +83,18 @@ export class Stage {
   private marks: PlaneLayer | undefined;
   private marksGlow: PlaneLayer | undefined;
   /** What the plots and the bars were last drawn from, so a scene that changes neither leaves them as they are. */
-  private tilesDrawn: { of: TilesIn; heights: ReadonlyMap<string, number> } | undefined;
-  private marksDrawn: { of: unknown; heights: ReadonlyMap<string, number> } | undefined;
+  private tilesDrawn:
+    | {
+        of: TilesIn;
+        heights: ReadonlyMap<string, number>;
+      }
+    | undefined;
+  private marksDrawn:
+    | {
+        of: unknown;
+        heights: ReadonlyMap<string, number>;
+      }
+    | undefined;
   private air: PlaneLayer | undefined;
   private ground: PlaneLayer | undefined;
   private groundGlow: PlaneLayer | undefined;
@@ -71,7 +103,12 @@ export class Stage {
   private lens: PlaneLayer | undefined;
   /** The files lifted or settling, by path, and what the lens layer was last drawn from. */
   private lifted = new Map<string, Lifted>();
-  private lensDrawn: { of: unknown; heights: ReadonlyMap<string, number> } | undefined;
+  private lensDrawn:
+    | {
+        of: unknown;
+        heights: ReadonlyMap<string, number>;
+      }
+    | undefined;
   private fliers: Fliers | undefined;
   private workers: Workers | undefined;
   private beams: Beams | undefined;
@@ -85,7 +122,10 @@ export class Stage {
   private pending = false;
   /** The palette or the fonts changed while folded: everything is drawn again from them when the stage is seen again. */
   private pendingForce = false;
-  private size: Size = { width: 0, height: 0 };
+  private size: Size = {
+    width: 0,
+    height: 0,
+  };
   private cam: Cam | undefined;
   private scene: PixiSceneIn | undefined;
   private drawn: PixiSceneIn | undefined;
@@ -126,7 +166,12 @@ export class Stage {
       autoStart: false,
       sharedTicker: false,
       powerPreference: "low-power",
-      eventFeatures: { move: false, globalMove: false, click: false, wheel: false },
+      eventFeatures: {
+        move: false,
+        globalMove: false,
+        click: false,
+        wheel: false,
+      },
     });
     // Starting a renderer starts Pixi's system ticker, which then asks for an animation frame every frame for as long as one lives, and an
     // idle map must ask for none. It only sweeps unused textures, which a handful of name labels do not need. A stage that was dropped while
@@ -134,12 +179,26 @@ export class Stage {
     Ticker.system.stop();
     if (this.gone) {
       // Never `destroy(true)`: that releases Pixi's pools, which the console's stage shares with this one (`console-stage.ts`).
-      app.destroy({ removeView: true }, { children: true });
+      app.destroy(
+        {
+          removeView: true,
+        },
+        {
+          children: true,
+        },
+      );
       return;
     }
     // With no WebGL Pixi starts its 2D renderer, which cannot draw these meshes and throws on each frame.
     if (app.renderer.type === RendererType.CANVAS) {
-      app.destroy({ removeView: true }, { children: true });
+      app.destroy(
+        {
+          removeView: true,
+        },
+        {
+          children: true,
+        },
+      );
       throw new Error("WebGL is not available");
     }
     this.app = app;
@@ -164,7 +223,21 @@ export class Stage {
     this.workers = new Workers(this.drones);
     this.beams = new Beams(this.effects);
     this.stands.sortableChildren = true;
-    app.stage.addChild(this.terrain.mesh, this.tiles.mesh, this.air.mesh, this.ground.mesh, this.groundGlow.mesh, this.marks.mesh, this.marksGlow.mesh, this.lines.mesh, this.linesGlow.mesh, this.lens.mesh, this.stands, this.drones, this.effects);
+    app.stage.addChild(
+      this.terrain.mesh,
+      this.tiles.mesh,
+      this.air.mesh,
+      this.ground.mesh,
+      this.groundGlow.mesh,
+      this.marks.mesh,
+      this.marksGlow.mesh,
+      this.lines.mesh,
+      this.linesGlow.mesh,
+      this.lens.mesh,
+      this.stands,
+      this.drones,
+      this.effects,
+    );
     app.ticker.add(this.tick);
     // A name drawn before its font arrived is drawn again once it has.
     void document.fonts.ready.then(() => this.restyle());
@@ -175,7 +248,14 @@ export class Stage {
       if (records.some((one) => one.attributeName === "data-theme")) this.restyle();
       this.settle();
     });
-    this.themed.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-still", "data-idle"] });
+    this.themed.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: [
+        "data-theme",
+        "data-still",
+        "data-idle",
+      ],
+    });
     this.settle();
     this.still = window.matchMedia("(prefers-reduced-motion: reduce)");
     this.still.addEventListener("change", this.restyle);
@@ -246,7 +326,16 @@ export class Stage {
       this.camTween = undefined;
       this.show(to);
     } else {
-      this.camTween = { from: { ...this.shown, width: to.width, height: to.height }, to, start: performance.now(), ms };
+      this.camTween = {
+        from: {
+          ...this.shown,
+          width: to.width,
+          height: to.height,
+        },
+        to,
+        start: performance.now(),
+        ms,
+      };
       this.wake();
     }
   }
@@ -297,7 +386,14 @@ export class Stage {
     this.lines?.destroy();
     this.linesGlow?.destroy();
     this.lens?.destroy();
-    app.destroy({ removeView: true }, { children: true });
+    app.destroy(
+      {
+        removeView: true,
+      },
+      {
+        children: true,
+      },
+    );
   }
 
   // ---- Drawing ---------------------------------------------------------------------------------------------
@@ -309,7 +405,14 @@ export class Stage {
     const was = this.drawn;
     this.drawn = scene;
     // The floor is the repository's whole tree: it is drawn again for a new tree or ground, never because a drone, a file or a glow moved.
-    const ground = force || was === undefined || !same(was.layout.territories, scene.layout.territories) || was.pads !== scene.pads || was.goals !== scene.goals || was.hotPart !== scene.hotPart || was.world !== scene.world;
+    const ground =
+      force ||
+      was === undefined ||
+      !same(was.layout.territories, scene.layout.territories) ||
+      was.pads !== scene.pads ||
+      was.goals !== scene.goals ||
+      was.hotPart !== scene.hotPart ||
+      was.world !== scene.world;
     if (force) {
       this.tilesDrawn = undefined;
       this.marksDrawn = undefined;
@@ -320,15 +423,24 @@ export class Stage {
     this.noticePlays(scene);
     this.fliers?.sync(scene, palette, this.fonts);
     this.workers?.sync(scene, palette, this.fonts);
-    if (force || was === undefined || was.crates !== scene.crates) this.build(this.air!, (b) => drawAir(b, scene, palette));
+    if (force || was === undefined || was.crates !== scene.crates)
+      this.build(this.air!, (b) => drawAir(b, scene, palette));
     this.noticeLandings(scene, was === undefined);
     const toward = scene.heights;
     const first = was === undefined || this.heights.size === 0;
-    const moving = [...toward].some(([path, height]) => (this.heights.get(path) ?? height) !== height);
+    const moving = [
+      ...toward,
+    ].some(([path, height]) => (this.heights.get(path) ?? height) !== height);
     if (first || palette.riseMs <= 0) {
       this.heights = new Map(toward);
       this.riseTween = undefined;
-    } else if (moving) this.riseTween = { from: new Map(this.heights), to: toward, start: performance.now(), ms: palette.riseMs };
+    } else if (moving)
+      this.riseTween = {
+        from: new Map(this.heights),
+        to: toward,
+        start: performance.now(),
+        ms: palette.riseMs,
+      };
     this.relift(scene, palette);
     this.rebuildTiles();
     this.rebuildFx();
@@ -351,11 +463,16 @@ export class Stage {
 
   private clock(): Clock {
     const now = performance.now();
-    return { now, pulse: this.palette?.pulseMs ?? 0, since: (id, delay) => now - (this.playStart.get(id) ?? now) - delay };
+    return {
+      now,
+      pulse: this.palette?.pulseMs ?? 0,
+      since: (id, delay) => now - (this.playStart.get(id) ?? now) - delay,
+    };
   }
 
   /** The height a plot stands at as it is drawn now, which is not where it is going while it eases. */
-  readonly floorOf = (tile: string | undefined): number => (tile === undefined ? 0 : (this.risen.get(tile) ?? this.drawn?.heights.get(tile) ?? 0));
+  readonly floorOf = (tile: string | undefined): number =>
+    tile === undefined ? 0 : (this.risen.get(tile) ?? this.drawn?.heights.get(tile) ?? 0);
 
   /** A plot a play touches rises and settles: up over the first 38% of 0.9 of a pulse, and down over the rest. */
   private liftOf(path: string, clock: Clock): number {
@@ -372,7 +489,9 @@ export class Stage {
     const { scene } = this;
     if (scene === undefined || scene.bumps.size === 0) return false;
     const clock = this.clock();
-    return [...scene.bumps.keys()].some((path) => this.liftOf(path, clock) !== 0);
+    return [
+      ...scene.bumps.keys(),
+    ].some((path) => this.liftOf(path, clock) !== 0);
   }
 
   /** What lies on the ground under the drones, and the lines they leave: drawn again whenever the scene, a plot's height or a loop moves it. */
@@ -380,7 +499,12 @@ export class Stage {
     const { scene, palette } = this;
     if (scene === undefined || palette === undefined || this.ground === undefined) return;
     const clock = this.clock();
-    const [shade, glow, lines, lit] = [new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder(), new PlaneBuilder()];
+    const [shade, glow, lines, lit] = [
+      new PlaneBuilder(),
+      new PlaneBuilder(),
+      new PlaneBuilder(),
+      new PlaneBuilder(),
+    ];
     drawPad(shade, glow, scene, palette, clock);
     drawGround(shade, glow, scene, palette, this.floorOf, clock);
     drawDoings(glow, scene, palette, this.floorOf, clock);
@@ -398,7 +522,8 @@ export class Stage {
     const clock = this.clock();
     this.fliers?.place(this.shown, this.floorOf, clock);
     this.workers?.place(this.shown, this.floorOf);
-    if (this.scene !== undefined && this.palette !== undefined) this.beams?.update(this.scene, this.palette, this.shown, this.floorOf, clock);
+    if (this.scene !== undefined && this.palette !== undefined)
+      this.beams?.update(this.scene, this.palette, this.shown, this.floorOf, clock);
   }
 
   private build(layer: PlaneLayer, draw: (b: PlaneBuilder) => void): void {
@@ -411,13 +536,31 @@ export class Stage {
     const { scene, palette } = this;
     if (scene === undefined || palette === undefined || this.tiles === undefined) return;
     const clock = this.clock();
-    this.risen = scene.bumps.size === 0 ? this.heights : new Map([...this.heights].map(([path, height]) => [path, height + this.liftOf(path, clock)] as const));
+    this.risen =
+      scene.bumps.size === 0
+        ? this.heights
+        : new Map(
+            [
+              ...this.heights,
+            ].map(
+              ([path, height]) =>
+                [
+                  path,
+                  height + this.liftOf(path, clock),
+                ] as const,
+            ),
+          );
     const of = tilesIn(scene);
     const fading = this.fading;
     const kept = this.tilesDrawn;
     if (fading || kept === undefined || !same(kept.heights, this.risen) || !same(kept.of, of)) {
-      this.build(this.tiles, (b) => drawTiles(b, of, palette, this.risen, (key) => this.ringAlpha(key)));
-      this.tilesDrawn = { of, heights: this.risen };
+      this.build(this.tiles, (b) =>
+        drawTiles(b, of, palette, this.risen, (key) => this.ringAlpha(key)),
+      );
+      this.tilesDrawn = {
+        of,
+        heights: this.risen,
+      };
     }
     this.rebuildMarks();
     this.rebuildLens();
@@ -427,39 +570,86 @@ export class Stage {
   private rebuildMarks(): void {
     const { scene, palette } = this;
     if (scene === undefined || palette === undefined || this.marks === undefined) return;
-    const of = [scene.layout.bars, scene.glow, scene.touched, scene.route, scene.pad?.blame];
+    const of = [
+      scene.layout.bars,
+      scene.glow,
+      scene.touched,
+      scene.route,
+      scene.pad?.blame,
+    ];
     const kept = this.marksDrawn;
     if (kept !== undefined && same(kept.heights, this.risen) && same(kept.of, of)) return;
-    const [b, glow] = [new PlaneBuilder(), new PlaneBuilder()];
+    const [b, glow] = [
+      new PlaneBuilder(),
+      new PlaneBuilder(),
+    ];
     drawMarks(b, glow, scene, palette, this.risen);
     drawBlame(b, glow, scene, palette, this.risen);
     this.marks.set(b);
     this.marksGlow!.set(glow);
-    this.marksDrawn = { of, heights: this.risen };
+    this.marksDrawn = {
+      of,
+      heights: this.risen,
+    };
   }
 
   /** A file newly lifted rises, one no longer lifted settles back, over the plots' rise time: at once under reduced motion. */
   private relift(scene: PixiSceneIn, palette: Palette): void {
     const now = performance.now();
-    const want = new Map((scene.lens ?? []).map((spec) => [spec.path, spec] as const));
+    const want = new Map(
+      (scene.lens ?? []).map(
+        (spec) =>
+          [
+            spec.path,
+            spec,
+          ] as const,
+      ),
+    );
     const ms = palette.riseMs;
     for (const [path, spec] of want) {
       const was = this.lifted.get(path);
-      if (was === undefined) this.lifted.set(path, { spec, k: ms <= 0 ? 1 : 0, from: 0, to: 1, start: now });
+      if (was === undefined)
+        this.lifted.set(path, {
+          spec,
+          k: ms <= 0 ? 1 : 0,
+          from: 0,
+          to: 1,
+          start: now,
+        });
       else {
         was.spec = spec;
-        if (was.to !== 1) Object.assign(was, { from: was.k, to: 1, start: now }, ms <= 0 ? { k: 1 } : {});
+        if (was.to !== 1)
+          Object.assign(
+            was,
+            {
+              from: was.k,
+              to: 1,
+              start: now,
+            },
+            ms <= 0
+              ? {
+                  k: 1,
+                }
+              : {},
+          );
       }
     }
     for (const [path, one] of this.lifted) {
       if (want.has(path) || one.to === 0) continue;
       if (ms <= 0) this.lifted.delete(path);
-      else Object.assign(one, { from: one.k, to: 0, start: now });
+      else
+        Object.assign(one, {
+          from: one.k,
+          to: 0,
+          start: now,
+        });
     }
   }
 
   private get lifting(): boolean {
-    return [...this.lifted.values()].some((one) => one.k !== one.to);
+    return [
+      ...this.lifted.values(),
+    ].some((one) => one.k !== one.to);
   }
 
   /** One step of each rise and settling; a file settled all the way down is gone. */
@@ -478,14 +668,33 @@ export class Stage {
   private rebuildLens(): void {
     const { palette } = this;
     if (palette === undefined || this.lens === undefined) return;
-    const items = [...this.lifted.values()].map((one) => ({ spec: one.spec, k: one.k }));
+    const items = [
+      ...this.lifted.values(),
+    ].map((one) => ({
+      spec: one.spec,
+      k: one.k,
+    }));
     const unit = unitOf(this.shown.eye);
     const kept = this.lensDrawn;
-    if (kept !== undefined && same(kept.heights, this.risen) && same(kept.of, [items, unit])) return;
+    if (
+      kept !== undefined &&
+      same(kept.heights, this.risen) &&
+      same(kept.of, [
+        items,
+        unit,
+      ])
+    )
+      return;
     const b = new PlaneBuilder();
     drawLens(b, items, palette, this.floorOf, unit);
     this.lens.set(b);
-    this.lensDrawn = { of: [items, unit], heights: this.risen };
+    this.lensDrawn = {
+      of: [
+        items,
+        unit,
+      ],
+      heights: this.risen,
+    };
   }
 
   /** How far the lifted file at `path` has risen now, 0 to 1. None that is not lifted. */
@@ -499,7 +708,8 @@ export class Stage {
     for (const { build } of scene.builds) {
       if (build.landedAt === undefined) continue;
       live.add(build.key);
-      if (!this.landed.has(build.key)) this.landed.set(build.key, first ? Number.NEGATIVE_INFINITY : performance.now());
+      if (!this.landed.has(build.key))
+        this.landed.set(build.key, first ? Number.NEGATIVE_INFINITY : performance.now());
     }
     for (const key of this.landed.keys()) if (!live.has(key)) this.landed.delete(key);
   }
@@ -524,13 +734,22 @@ export class Stage {
         next.set(spec.key, kept);
         continue;
       }
-      kept?.node.destroy({ children: true });
+      kept?.node.destroy({
+        children: true,
+      });
       const node = spec.make(palette);
       node.eventMode = "none";
       this.stands.addChild(node);
-      next.set(spec.key, { spec, node });
+      next.set(spec.key, {
+        spec,
+        node,
+      });
     }
-    for (const [key, one] of this.stood) if (!next.has(key)) one.node.destroy({ children: true });
+    for (const [key, one] of this.stood)
+      if (!next.has(key))
+        one.node.destroy({
+          children: true,
+        });
     this.stood = next;
   }
 
@@ -540,7 +759,13 @@ export class Stage {
     const clock = this.clock();
     for (const { spec, node } of this.stood.values()) {
       // A name lying on a plot rides it as it rises.
-      let where = spec.onTile === undefined ? spec.at : { ...spec.at, z: this.floorOf(spec.onTile) };
+      let where =
+        spec.onTile === undefined
+          ? spec.at
+          : {
+              ...spec.at,
+              z: this.floorOf(spec.onTile),
+            };
       node.alpha = 1;
       const hop = spec.hop;
       if (hop !== undefined && clock.pulse > 0) {
@@ -548,7 +773,8 @@ export class Stage {
         const t = Math.min(1, Math.max(0, since / (clock.pulse * (hop.landing ? 0.7 : 1.5))));
         // From where it was, along an arc that rises 34, to its place; a pull request that has landed goes the moment it arrives.
         where = alongOf(hop.from, spec.at, 34, t);
-        if (hop.landing) node.alpha = 1 - Math.min(1, Math.max(0, (since - clock.pulse * 0.7) / 160));
+        if (hop.landing)
+          node.alpha = 1 - Math.min(1, Math.max(0, (since - clock.pulse * 0.7) / 160));
       }
       const at = project(this.shown, where);
       node.visible = at.scale > 0 && node.alpha > 0;
@@ -574,7 +800,12 @@ export class Stage {
   private get fading(): boolean {
     const pulse = this.palette?.pulseMs ?? 0;
     const now = performance.now();
-    return pulse > 0 && [...this.landed.values()].some((born) => now - born < pulse * 2.7);
+    return (
+      pulse > 0 &&
+      [
+        ...this.landed.values(),
+      ].some((born) => now - born < pulse * 2.7)
+    );
   }
 
   /** A drone's loop is running, or a play an event started has not finished. */
@@ -584,11 +815,25 @@ export class Stage {
     if (scene === undefined || pulse <= 0) return false;
     const now = performance.now();
     const clock = this.clock();
-    return scene.drones.some((one) => one.loop && one.aim !== undefined) || padMoving(scene, clock) || thinkMoving(scene, clock) || arcsMoving(scene, clock) || scene.plays.some((one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)));
+    return (
+      scene.drones.some((one) => one.loop && one.aim !== undefined) ||
+      padMoving(scene, clock) ||
+      thinkMoving(scene, clock) ||
+      arcsMoving(scene, clock) ||
+      scene.plays.some(
+        (one) => !over(one.kind, one.delay, pulse, now - (this.playStart.get(one.id) ?? now)),
+      )
+    );
   }
 
   private get easing(): boolean {
-    return this.camTween !== undefined || this.riseTween !== undefined || this.lifting || this.fading || this.moving;
+    return (
+      this.camTween !== undefined ||
+      this.riseTween !== undefined ||
+      this.lifting ||
+      this.fading ||
+      this.moving
+    );
   }
 
   /** Something changed: draw it. On the ticker if it will keep changing, otherwise once on the next animation frame. */
@@ -599,7 +844,8 @@ export class Stage {
       cancelAnimationFrame(this.frame);
       this.frame = 0;
       // A loop or a play is smooth at thirty frames a second; only a hand or an easing camera needs more.
-      app.ticker.maxFPS = this.camTween !== undefined || this.riseTween !== undefined || this.lifting ? 0 : 30;
+      app.ticker.maxFPS =
+        this.camTween !== undefined || this.riseTween !== undefined || this.lifting ? 0 : 30;
       if (!app.ticker.started) app.ticker.start();
       return;
     }
@@ -617,14 +863,31 @@ export class Stage {
     if (cam !== undefined) {
       const t = Math.min(1, (now - cam.start) / cam.ms);
       const k = easeOut(t);
-      this.show({ x: lerp(cam.from.x, cam.to.x, k), y: lerp(cam.from.y, cam.to.y, k), eye: lerp(cam.from.eye, cam.to.eye, k), pitch: lerp(cam.from.pitch, cam.to.pitch, k), width: cam.to.width, height: cam.to.height });
+      this.show({
+        x: lerp(cam.from.x, cam.to.x, k),
+        y: lerp(cam.from.y, cam.to.y, k),
+        eye: lerp(cam.from.eye, cam.to.eye, k),
+        pitch: lerp(cam.from.pitch, cam.to.pitch, k),
+        width: cam.to.width,
+        height: cam.to.height,
+      });
       if (t >= 1) this.camTween = undefined;
     }
     const rise = this.riseTween;
     if (rise !== undefined) {
       const t = Math.min(1, (now - rise.start) / rise.ms);
       const k = easeOut(t);
-      this.heights = new Map([...rise.to].map(([path, to]) => [path, lerp(rise.from.get(path) ?? to, to, k)] as const));
+      this.heights = new Map(
+        [
+          ...rise.to,
+        ].map(
+          ([path, to]) =>
+            [
+              path,
+              lerp(rise.from.get(path) ?? to, to, k),
+            ] as const,
+        ),
+      );
       if (t >= 1) this.riseTween = undefined;
     }
     const lensing = this.lifting;
@@ -634,7 +897,8 @@ export class Stage {
     this.rebuildFx();
     this.placeStands();
     this.placeFliers();
-    if (this.app !== undefined) this.app.ticker.maxFPS = cam !== undefined || rise !== undefined || lensing ? 0 : 30;
+    if (this.app !== undefined)
+      this.app.ticker.maxFPS = cam !== undefined || rise !== undefined || lensing ? 0 : 30;
     if (!this.easing) this.app?.ticker.stop();
   };
 }

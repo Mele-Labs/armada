@@ -13,7 +13,13 @@ export type Who = "drone" | "agent" | "owner" | "fleet" | "commander";
  * `usage` row in `packages/icons/icons/` — `bot` a Drone, `user-check` the
  * person, `server` Fleet, the last Proposed.
  */
-export function WhoMark({ who, said }: { who: Who; /** What the tooltip says in place of the actor's name: the act, beside who did it. */ said?: string }) {
+export function WhoMark({
+  who,
+  said,
+}: {
+  who: Who /** What the tooltip says in place of the actor's name: the act, beside who did it. */;
+  said?: string;
+}) {
   const { Glyph, says: name } = MARKS[who];
   const says = said ?? name;
   // Named as an image, the merge line's marks' way, so a reader without a
@@ -32,10 +38,31 @@ export function whoWord(who: Who): string {
   return MARKS[who].says;
 }
 
-const MARKS: Record<Who, { Glyph: typeof Bot; says: string }> = {
-  drone: { Glyph: Bot, says: "Drone" },
-  agent: { Glyph: Bot, says: "Agent" },
-  owner: { Glyph: UserCheck, says: "You" },
-  fleet: { Glyph: Server, says: "Fleet" },
-  commander: { Glyph: Compass, says: "Commander" },
+const MARKS: Record<
+  Who,
+  {
+    Glyph: typeof Bot;
+    says: string;
+  }
+> = {
+  drone: {
+    Glyph: Bot,
+    says: "Drone",
+  },
+  agent: {
+    Glyph: Bot,
+    says: "Agent",
+  },
+  owner: {
+    Glyph: UserCheck,
+    says: "You",
+  },
+  fleet: {
+    Glyph: Server,
+    says: "Fleet",
+  },
+  commander: {
+    Glyph: Compass,
+    says: "Commander",
+  },
 };

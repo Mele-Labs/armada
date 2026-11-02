@@ -18,12 +18,25 @@ export type FleetSleep = {
   onSleepChanged: (on: (state: SleepWire) => void) => () => void;
 };
 
-const NOTHING: SleepState = { on: false, decided: [], blocked: [], landed: [], walks: [] };
+const NOTHING: SleepState = {
+  on: false,
+  decided: [],
+  blocked: [],
+  landed: [],
+  walks: [],
+};
 
 /** The wire's night as Bridge draws it: a decision's `session_id` is the Session it opens. */
 const nightOf = (wire: SleepWire): SleepState => ({
   ...wire,
-  decided: wire.decided.map(({ session_id, ...one }) => (session_id === undefined ? one : { ...one, sessionId: session_id })),
+  decided: wire.decided.map(({ session_id, ...one }) =>
+    session_id === undefined
+      ? one
+      : {
+          ...one,
+          sessionId: session_id,
+        },
+  ),
 });
 
 export function createFleetSleep(fleet: FleetSleep): SleepSource {
@@ -82,7 +95,8 @@ export function createFleetSleep(fleet: FleetSleep): SleepSource {
     // After a correction the row is already gone, and one Fleet refused stays for the owner.
     review: (id) =>
       void (correcting.get(id) ?? Promise.resolve(true)).then((taken) => {
-        if (taken && state.decided.some((one) => one.id === id)) void fleet.reviewSleep(id).then(took);
+        if (taken && state.decided.some((one) => one.id === id))
+          void fleet.reviewSleep(id).then(took);
       }),
   };
 }

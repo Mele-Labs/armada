@@ -11,7 +11,8 @@ import type { SessionActed } from "../../shared/api/sessions";
 type On = (event: RunEvent) => void;
 
 /** git's lines as a terminal draws them: every line ends in a carriage return and a feed, and the last does too. */
-const lines = (text: string): string => (text === "" ? "" : text.replace(/\r?\n/g, "\r\n").replace(/(\r\n)?$/, "\r\n"));
+const lines = (text: string): string =>
+  text === "" ? "" : text.replace(/\r?\n/g, "\r\n").replace(/(\r\n)?$/, "\r\n");
 
 /**
  * Asks Fleet to pull the checkout of the repository with this Manifest level with its base, and plays the answer. A refusal ends
@@ -21,22 +22,45 @@ export function catchingUp(
   catchUp: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>,
   manifestId: string | undefined,
   on: On,
-): { stop: () => void } {
-  const stop = { stop: () => undefined };
+): {
+  stop: () => void;
+} {
+  const stop = {
+    stop: () => undefined,
+  };
   if (manifestId === undefined) {
-    on({ kind: "out", text: "Fleet serves no Manifest for that repository.\r\n" });
-    on({ kind: "end", code: 1 });
+    on({
+      kind: "out",
+      text: "Fleet serves no Manifest for that repository.\r\n",
+    });
+    on({
+      kind: "end",
+      code: 1,
+    });
     return stop;
   }
   void catchUp(manifestId).then((done) => {
     if (!done.ok) {
-      on({ kind: "out", text: `${refusalWords(done.outcome)}\r\n` });
-      on({ kind: "end", code: 1 });
+      on({
+        kind: "out",
+        text: `${refusalWords(done.outcome)}\r\n`,
+      });
+      on({
+        kind: "end",
+        code: 1,
+      });
       return;
     }
     const out = lines(done.value.output);
-    if (out !== "") on({ kind: "out", text: out });
-    on({ kind: "end", code: done.value.code });
+    if (out !== "")
+      on({
+        kind: "out",
+        text: out,
+      });
+    on({
+      kind: "end",
+      code: done.value.code,
+    });
   });
   return stop;
 }

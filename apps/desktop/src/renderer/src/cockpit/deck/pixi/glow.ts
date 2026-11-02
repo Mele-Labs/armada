@@ -9,7 +9,11 @@ import { hex, type Rgba } from "./palette";
 let disc: Texture | undefined;
 let pillar: Texture | undefined;
 
-function canvasOf(width: number, height: number, alphaAt: (x: number, y: number) => number): Texture {
+function canvasOf(
+  width: number,
+  height: number,
+  alphaAt: (x: number, y: number) => number,
+): Texture {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;

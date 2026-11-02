@@ -3,7 +3,14 @@
 // command. Hovering or focusing a dot shows the events near it in a card, itself first, and pressing it picks its event. Takes what
 // the feed took, so the Session open narrows it.
 
-import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type RefObject,
+} from "react";
 import { Stamp, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
 import type { MergeLineView } from "@armada/screens";
@@ -30,16 +37,31 @@ function Hour({ events, lit }: { events: readonly FleetEvent[]; lit: string | un
     <span className="armada-tl__tip armada-tl__hour">
       {events.slice(0, MOST_CARD).map((event) => {
         const Kind = GLYPH[event.subject.kind];
-        const Owed = event.tone === "ask" ? STANDING_MARK.ask.icon : event.tone === "bad" ? STANDING_MARK.bad.icon : undefined;
+        const Owed =
+          event.tone === "ask"
+            ? STANDING_MARK.ask.icon
+            : event.tone === "bad"
+              ? STANDING_MARK.bad.icon
+              : undefined;
         return (
-          <span key={event.id} className="armada-tl__moment" data-lit={lit === event.id || undefined} data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined} style={toneOf(event.tone)}>
+          <span
+            key={event.id}
+            className="armada-tl__moment"
+            data-lit={lit === event.id || undefined}
+            data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined}
+            style={toneOf(event.tone)}
+          >
             <Kind size={14} aria-hidden="true" className="armada-tl__kindmark" />
             <span className="armada-tl__title">{titleOf(event.subject)}</span>
             <Stamp still first="age" at={event.at} className="armada-tl__age" />
             <span className="armada-tl__says">
               <span className="armada-tl__what">{event.says}</span>
-              {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
-              {Owed === undefined ? null : <Owed size={14} aria-hidden="true" className="armada-tl__flag" />}
+              {event.detail === undefined ? null : (
+                <span className="armada-tl__detail">{event.detail}</span>
+              )}
+              {Owed === undefined ? null : (
+                <Owed size={14} aria-hidden="true" className="armada-tl__flag" />
+              )}
             </span>
           </span>
         );
@@ -49,33 +71,60 @@ function Hour({ events, lit }: { events: readonly FleetEvent[]; lit: string | un
 }
 
 /** How big the plot is, as the take lays itself out in pixels. */
-function useSize(ref: RefObject<HTMLElement | null>): { w: number; h: number } {
-  const [size, set] = useState({ w: 274, h: 240 });
+function useSize(ref: RefObject<HTMLElement | null>): {
+  w: number;
+  h: number;
+} {
+  const [size, set] = useState({
+    w: 274,
+    h: 240,
+  });
   useLayoutEffect(() => {
     const held = ref.current;
     if (held === null) return;
-    const read = () => set((was) => (was.w === held.clientWidth && was.h === held.clientHeight ? was : { w: held.clientWidth || 274, h: held.clientHeight || 240 }));
+    const read = () =>
+      set((was) =>
+        was.w === held.clientWidth && was.h === held.clientHeight
+          ? was
+          : {
+              w: held.clientWidth || 274,
+              h: held.clientHeight || 240,
+            },
+      );
     read();
     if (typeof ResizeObserver === "undefined") return;
     const watch = new ResizeObserver(read);
     watch.observe(held);
     return () => watch.disconnect();
-  }, [ref]);
+  }, [
+    ref,
+  ]);
   return size;
 }
 
 /** The events within `span` ms of `at`, newest first. */
-const near = (events: readonly FleetEvent[], at: number, span: number): FleetEvent[] => events.filter((event) => Math.abs(Date.parse(event.at) - at) <= span).sort(newestFirst);
+const near = (events: readonly FleetEvent[], at: number, span: number): FleetEvent[] =>
+  events.filter((event) => Math.abs(Date.parse(event.at) - at) <= span).sort(newestFirst);
 
 /** Dots at their time, packed up and down a centre line so none overlap; `d` is the dot's size. Undefined where they do not fit in `half`. */
 function pack(xs: readonly number[], d: number, half: number): number[] | undefined {
-  const placed: { x: number; y: number }[] = [];
+  const placed: {
+    x: number;
+    y: number;
+  }[] = [];
   const out: number[] = [];
   for (const x of xs) {
     const near = placed.filter((one) => x - one.x < d);
     let y: number | undefined;
     for (let k = 0; y === undefined && k * d * 0.5 <= half; k++) {
-      for (const sign of k === 0 ? [1] : [1, -1]) {
+      for (const sign of k === 0
+        ? [
+            1,
+          ]
+        : [
+            1,
+            -1,
+          ]) {
         const candidate = sign * k * d * 0.5;
         if (near.every((one) => (one.x - x) ** 2 + (one.y - candidate) ** 2 >= d * d)) {
           y = candidate;
@@ -84,35 +133,92 @@ function pack(xs: readonly number[], d: number, half: number): number[] | undefi
       }
     }
     if (y === undefined) return undefined;
-    placed.push({ x, y });
+    placed.push({
+      x,
+      y,
+    });
     out.push(y);
   }
   return out;
 }
 
-function Swarm({ events, now, lit, onPick, dot }: { events: readonly FleetEvent[]; now: number; lit: string | undefined; onPick: (event: FleetEvent) => void; dot: number }) {
+function Swarm({
+  events,
+  now,
+  lit,
+  onPick,
+  dot,
+}: {
+  events: readonly FleetEvent[];
+  now: number;
+  lit: string | undefined;
+  onPick: (event: FleetEvent) => void;
+  dot: number;
+}) {
   const plot = useRef<HTMLDivElement>(null);
   const { w, h } = useSize(plot);
   const [hot, setHot] = useState<string>();
-  const ordered = useMemo(() => [...events].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)), [events]);
+  const ordered = useMemo(
+    () =>
+      [
+        ...events,
+      ].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)),
+    [
+      events,
+    ],
+  );
   const laid = useMemo(() => {
     const margin = 6;
     // Half a pixel is the finest a screen draws, so a dot that has drifted less keeps the style it has instead of being rewritten.
-    const xs = ordered.map((event) => Math.round((margin + (1 - Math.min(HOUR, Math.max(0, now - Date.parse(event.at))) / HOUR) * (w - 2 * margin)) * 2) / 2);
+    const xs = ordered.map(
+      (event) =>
+        Math.round(
+          (margin +
+            (1 - Math.min(HOUR, Math.max(0, now - Date.parse(event.at))) / HOUR) *
+              (w - 2 * margin)) *
+            2,
+        ) / 2,
+    );
     // The dots shrink until they fit the height; below the smallest they are laid as close as they go.
     for (let d = dot; d >= 2; d *= 0.85) {
       const ys = pack(xs, d, h / 2 - d / 2);
-      if (ys !== undefined) return { d, xs, ys, packed: true };
+      if (ys !== undefined)
+        return {
+          d,
+          xs,
+          ys,
+          packed: true,
+        };
     }
-    return { d: 2, xs, ys: pack(xs, 2, 4000)!.map((y) => Math.max(-h / 2 + 1, Math.min(h / 2 - 1, y))), packed: false };
-  }, [ordered, now, w, h, dot]);
+    return {
+      d: 2,
+      xs,
+      ys: pack(xs, 2, 4000)!.map((y) => Math.max(-h / 2 + 1, Math.min(h / 2 - 1, y))),
+      packed: false,
+    };
+  }, [
+    ordered,
+    now,
+    w,
+    h,
+    dot,
+  ]);
   const held = ordered.find((event) => event.id === hot);
-  const cluster = held === undefined ? [] : [held, ...near(events, Date.parse(held.at), NEAR).filter((event) => event.id !== held.id)];
-  const over = (event: { target: EventTarget }) => setHot((event.target as HTMLElement).closest<HTMLElement>("[data-id]")?.dataset.id);
+  const cluster =
+    held === undefined
+      ? []
+      : [
+          held,
+          ...near(events, Date.parse(held.at), NEAR).filter((event) => event.id !== held.id),
+        ];
+  const over = (event: { target: EventTarget }) =>
+    setHot((event.target as HTMLElement).closest<HTMLElement>("[data-id]")?.dataset.id);
   const step = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     // By place in the field rather than a number on each dot, which every dot would be rewritten to keep as events come and go.
-    const dots = [...event.currentTarget.querySelectorAll<HTMLElement>(".armada-tl__dot")];
+    const dots = [
+      ...event.currentTarget.querySelectorAll<HTMLElement>(".armada-tl__dot"),
+    ];
     const at = dots.indexOf((event.target as HTMLElement).closest<HTMLElement>(".armada-tl__dot")!);
     const from = at === -1 ? dots.length - 1 : at;
     const to = Math.min(dots.length - 1, Math.max(0, from + (event.key === "ArrowLeft" ? -1 : 1)));
@@ -122,7 +228,15 @@ function Swarm({ events, now, lit, onPick, dot }: { events: readonly FleetEvent[
   return (
     <div className="armada-tl__sized" ref={plot}>
       <Tooltip label={<Hour events={cluster} lit={lit} />} card beside asChild>
-        <div className="armada-tl__field" style={{ ["--d" as string]: `${laid.d}px` }} onPointerOver={over} onFocusCapture={over} onKeyDown={step}>
+        <div
+          className="armada-tl__field"
+          style={{
+            ["--d" as string]: `${laid.d}px`,
+          }}
+          onPointerOver={over}
+          onFocusCapture={over}
+          onKeyDown={step}
+        >
           <i className="armada-tl__axis-line" aria-hidden="true" />
           {ordered.map((event, i) => {
             const quiet = QUIET_KINDS.has(event.kind);
@@ -138,7 +252,17 @@ function Swarm({ events, now, lit, onPick, dot }: { events: readonly FleetEvent[
                 data-lit={lit === event.id || undefined}
                 tabIndex={i === ordered.length - 1 ? 0 : -1}
                 aria-label={`${titleOf(event.subject)}: ${event.says}`}
-                style={{ ...toneOf(event.tone), left: laid.xs[i]!, ...(laid.packed ? { ["--row" as string]: Math.round(row) } : { top: h / 2 + laid.ys[i]! }) }}
+                style={{
+                  ...toneOf(event.tone),
+                  left: laid.xs[i]!,
+                  ...(laid.packed
+                    ? {
+                        ["--row" as string]: Math.round(row),
+                      }
+                    : {
+                        top: h / 2 + laid.ys[i]!,
+                      }),
+                }}
                 onClick={() => onPick(event)}
               />
             );
@@ -173,7 +297,13 @@ export function ActivityGraph({
   dot?: number;
 }) {
   const lanes = useLanes(now, views, filter, keep, of, MOST_GRAPH);
-  const events = useMemo(() => lanes.flatMap((lane) => lane.events).filter((event) => now - Date.parse(event.at) < HOUR), [lanes, now]);
+  const events = useMemo(
+    () => lanes.flatMap((lane) => lane.events).filter((event) => now - Date.parse(event.at) < HOUR),
+    [
+      lanes,
+      now,
+    ],
+  );
   return (
     <div className="armada-tl armada-tl__graph" role="group" aria-label="Last hour">
       <div className="armada-tl__plot">

@@ -18,7 +18,9 @@ import type { Outcome, RepositoryAllowedCommands } from "@armada/protocol";
  * `--jsx`-less on purpose: `RunPageAlwaysAllowedRow` is the same shape, and
  * TypeScript does not need the two names to be one declaration to agree.
  */
-export type RepositoryAllowedRow = { run: string };
+export type RepositoryAllowedRow = {
+  run: string;
+};
 
 /**
  * `GET /manifest/allowed_commands` and `POST /manifest/allowed_commands/remove`,
@@ -27,8 +29,14 @@ export type RepositoryAllowedRow = { run: string };
  * folding one has already folded the other.
  */
 export type RepositoryAllowedCommandsRead =
-  | { ok: true; commands: RepositoryAllowedCommands }
-  | { ok: false; outcome: Outcome };
+  | {
+      ok: true;
+      commands: RepositoryAllowedCommands;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** What the Manifest surface asks of the host for this list. */
 export type RepositoryAllowsSlice = {
@@ -44,9 +52,10 @@ export type RepositoryAllowsSlice = {
  * rather than an empty list, which would say a person removed every rule
  * there ever was before the read had even gone out.
  */
-export function useRepositoryAllows(
-  slice: RepositoryAllowsSlice,
-): { rows: RepositoryAllowedRow[] | undefined; onRemove: (run: string) => void } {
+export function useRepositoryAllows(slice: RepositoryAllowsSlice): {
+  rows: RepositoryAllowedRow[] | undefined;
+  onRemove: (run: string) => void;
+} {
   const { onListRepositoryAllowedCommands, onRemoveRepositoryAllowedCommand } = slice;
   const [rows, setRows] = useState<RepositoryAllowedRow[] | undefined>(undefined);
 
@@ -69,5 +78,7 @@ export function useRepositoryAllows(
 }
 
 function rowOf(row: { run: string }): RepositoryAllowedRow {
-  return { run: row.run };
+  return {
+    run: row.run,
+  };
 }

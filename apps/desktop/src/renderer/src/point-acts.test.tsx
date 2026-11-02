@@ -12,9 +12,14 @@ import type { AnnotationsDevApi } from "../../shared/annotations";
 import { startModJob } from "./mod-job";
 import { PointActsProvided } from "./point-acts";
 
-vi.mock("./mod-job", () => ({ startModJob: vi.fn(async () => undefined) }));
+vi.mock("./mod-job", () => ({
+  startModJob: vi.fn(async () => undefined),
+}));
 
-let mounted: { root: Root; host: HTMLElement }[] = [];
+let mounted: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 beforeEach(() => {
   // A build with the dev layer, so Report is offered; a test that wants a shipped build says so before it mounts.
@@ -35,11 +40,22 @@ afterEach(() => {
 
 /** An app menu of its own, opened where any context event lands, as the Cockpit's row menu is. */
 function AppMenu({ own }: { own: (id: string) => void }) {
-  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const [at, setAt] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   useEffect(() => {
-    const opened = (event: MouseEvent): void => setAt({ x: event.clientX, y: event.clientY });
+    const opened = (event: MouseEvent): void =>
+      setAt({
+        x: event.clientX,
+        y: event.clientY,
+      });
     // And by a key or a button, with no right press under it.
-    const byKey = (): void => setAt({ x: 40, y: 40 });
+    const byKey = (): void =>
+      setAt({
+        x: 40,
+        y: 40,
+      });
     window.addEventListener("contextmenu", opened);
     window.addEventListener("open-by-key", byKey);
     return () => {
@@ -53,7 +69,13 @@ function AppMenu({ own }: { own: (id: string) => void }) {
       open
       at={at}
       triggerLabel="Row"
-      entries={[{ kind: "item", id: "pause", label: "Pause" }]}
+      entries={[
+        {
+          kind: "item",
+          id: "pause",
+          label: "Pause",
+        },
+      ]}
       onOpenChange={(open) => {
         if (!open) setAt(null);
       }}
@@ -74,7 +96,10 @@ async function mount(own: (id: string) => void = () => undefined): Promise<void>
       </PointActsProvided>,
     ),
   );
-  mounted.push({ root, host });
+  mounted.push({
+    root,
+    host,
+  });
   await new Promise((done) => setTimeout(done, 0));
 }
 
@@ -86,20 +111,48 @@ function element(tag = "button"): HTMLElement {
   return one;
 }
 
-const rightPress = (on: EventTarget): boolean => on.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+const rightPress = (on: EventTarget): boolean =>
+  on.dispatchEvent(
+    new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 40,
+      clientY: 40,
+    }),
+  );
 
 /** What Report sends, in the window event the annotation layer listens for. */
-function reports(): { asked: ReturnType<typeof vi.fn>; stop: () => void } {
+function reports(): {
+  asked: ReturnType<typeof vi.fn>;
+  stop: () => void;
+} {
   const asked = vi.fn();
   window.addEventListener("armada:report", asked);
-  return { asked, stop: () => window.removeEventListener("armada:report", asked) };
+  return {
+    asked,
+    stop: () => window.removeEventListener("armada:report", asked),
+  };
 }
 
 test("an app menu lists Mod and Report after its own entries, below a rule", async () => {
   await mount();
   rightPress(element());
-  await expect.element(page.getByRole("menuitem", { name: "Mod" })).toBeVisible();
-  expect([...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent?.trim())).toEqual(["Pause", "Mod", "Report"]);
+  await expect
+    .element(
+      page.getByRole("menuitem", {
+        name: "Mod",
+      }),
+    )
+    .toBeVisible();
+  expect(
+    [
+      ...document.querySelectorAll('[role="menuitem"]'),
+    ].map((one) => one.textContent?.trim()),
+  ).toEqual([
+    "Pause",
+    "Mod",
+    "Report",
+  ]);
   expect(document.querySelectorAll('[role="separator"]')).toHaveLength(1);
 });
 
@@ -108,8 +161,20 @@ test("a build without the dev layer offers Mod and no Report", async () => {
   vi.stubEnv("DEV", false);
   await mount();
   rightPress(element());
-  await expect.element(page.getByRole("menuitem", { name: "Mod" })).toBeVisible();
-  expect(page.getByRole("menuitem", { name: "Report" }).query()).toBeNull();
+  await expect
+    .element(
+      page.getByRole("menuitem", {
+        name: "Mod",
+      }),
+    )
+    .toBeVisible();
+  expect(
+    page
+      .getByRole("menuitem", {
+        name: "Report",
+      })
+      .query(),
+  ).toBeNull();
 });
 
 test("choosing Report asks to report the element that was right-pressed, and not the menu's own handler", async () => {
@@ -118,7 +183,11 @@ test("choosing Report asks to report the element that was right-pressed, and not
   const pointed = element();
   rightPress(pointed);
   const { asked, stop } = reports();
-  await page.getByRole("menuitem", { name: "Report" }).click();
+  await page
+    .getByRole("menuitem", {
+      name: "Report",
+    })
+    .click();
   stop();
   expect(asked).toHaveBeenCalledTimes(1);
   expect((asked.mock.calls[0]?.[0] as CustomEvent<Element>).detail).toBe(pointed);
@@ -131,7 +200,11 @@ test("choosing Mod starts a Mod Job on that element", async () => {
   await mount(own);
   const pointed = element();
   rightPress(pointed);
-  await page.getByRole("menuitem", { name: "Mod" }).click();
+  await page
+    .getByRole("menuitem", {
+      name: "Mod",
+    })
+    .click();
   expect(startModJob).toHaveBeenCalledTimes(1);
   expect(startModJob).toHaveBeenCalledWith(pointed);
   expect(own).not.toHaveBeenCalled();
@@ -142,7 +215,11 @@ test("the menu's own entry still goes to the menu", async () => {
   await mount(own);
   rightPress(element());
   const { asked, stop } = reports();
-  await page.getByRole("menuitem", { name: "Pause" }).click();
+  await page
+    .getByRole("menuitem", {
+      name: "Pause",
+    })
+    .click();
   stop();
   expect(own).toHaveBeenCalledWith("pause");
   expect(asked).not.toHaveBeenCalled();
@@ -157,7 +234,11 @@ test("an SVG pressed on is taken whole, as the glyph and not one path in it", as
   glyph.append(path);
   document.body.append(glyph);
   rightPress(path);
-  await page.getByRole("menuitem", { name: "Mod" }).click();
+  await page
+    .getByRole("menuitem", {
+      name: "Mod",
+    })
+    .click();
   expect(startModJob).toHaveBeenCalledWith(glyph);
 });
 
@@ -166,7 +247,11 @@ test("a menu opened by key, with no right press before it, is for the element la
   const focused = element();
   focused.focus();
   window.dispatchEvent(new Event("open-by-key"));
-  await page.getByRole("menuitem", { name: "Mod" }).click();
+  await page
+    .getByRole("menuitem", {
+      name: "Mod",
+    })
+    .click();
   expect(startModJob).toHaveBeenCalledWith(focused);
 });
 
@@ -175,10 +260,18 @@ test("a press or a key outside a menu forgets the last right press, so a menu op
   const pressed = element();
   const other = element();
   rightPress(pressed);
-  other.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  other.dispatchEvent(
+    new PointerEvent("pointerdown", {
+      bubbles: true,
+    }),
+  );
   // Nothing was focused: the menu below has no element to act on.
   window.dispatchEvent(new Event("open-by-key"));
-  await page.getByRole("menuitem", { name: "Mod" }).click();
+  await page
+    .getByRole("menuitem", {
+      name: "Mod",
+    })
+    .click();
   expect(startModJob).not.toHaveBeenCalled();
 });
 
@@ -191,7 +284,11 @@ test("a right press inside the annotation layer is not noted", async () => {
   layer.append(inside);
   document.body.append(layer);
   rightPress(inside);
-  await page.getByRole("menuitem", { name: "Mod" }).click();
+  await page
+    .getByRole("menuitem", {
+      name: "Mod",
+    })
+    .click();
   expect(startModJob).not.toHaveBeenCalled();
 });
 
@@ -201,7 +298,11 @@ test("an element that has left the page since is not acted on", async () => {
   rightPress(pointed);
   pointed.remove();
   const { asked, stop } = reports();
-  await page.getByRole("menuitem", { name: "Report" }).click();
+  await page
+    .getByRole("menuitem", {
+      name: "Report",
+    })
+    .click();
   stop();
   expect(asked).not.toHaveBeenCalled();
 });

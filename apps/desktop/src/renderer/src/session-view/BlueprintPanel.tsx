@@ -26,15 +26,52 @@ import { bandKeyFor, useFold, useWhole, WHOLE_KEY } from "./story";
 import "./progress-takes.css";
 import "./story.css";
 
-export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed, onOpenSketch, onOpenSession }: { work: SessionWork; place: Place; id: string; session: Session; manifestId?: string | undefined; acts: SessionWorkActs | undefined; ed: PlanEditing | undefined; onOpenSketch: (sketch: string) => void; onOpenSession: (id: string) => void }) {
+export function BlueprintPanel({
+  work,
+  place,
+  id,
+  session,
+  manifestId,
+  acts,
+  ed,
+  onOpenSketch,
+  onOpenSession,
+}: {
+  work: SessionWork;
+  place: Place;
+  id: string;
+  session: Session;
+  manifestId?: string | undefined;
+  acts: SessionWorkActs | undefined;
+  ed: PlanEditing | undefined;
+  onOpenSketch: (sketch: string) => void;
+  onOpenSession: (id: string) => void;
+}) {
   const plan = work.plan;
   const fold = useFold(session, "blueprint");
   const everything = useWhole(session.id);
   const planned = plan !== undefined && ed !== undefined;
   const drafting = planned && !plan.approved;
-  const finished = plan !== undefined && plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done" || task.state === "handed_in"));
-  const broke = plan !== undefined && plan.approved && plan.groups.some((group) => group.tasks.some((task) => task.state === "failed"));
-  const state: PanelState | undefined = plan === undefined ? undefined : !plan.approved ? "draft" : broke ? "failed" : finished ? "done" : "live";
+  const finished =
+    plan !== undefined &&
+    plan.approved &&
+    plan.groups.every((group) =>
+      group.tasks.every((task) => task.state === "done" || task.state === "handed_in"),
+    );
+  const broke =
+    plan !== undefined &&
+    plan.approved &&
+    plan.groups.some((group) => group.tasks.some((task) => task.state === "failed"));
+  const state: PanelState | undefined =
+    plan === undefined
+      ? undefined
+      : !plan.approved
+        ? "draft"
+        : broke
+          ? "failed"
+          : finished
+            ? "done"
+            : "live";
   const todos = (session.activity?.todos ?? []).filter((one) => one.task === undefined);
   const atWork = planned ? [] : subagentsAtWork(session);
   const workingGroup = accountGroupOf(session)?.id;
@@ -49,7 +86,13 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
     <>
       {sketch === undefined ? null : (
         <Tooltip label="Sketch">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Sketch" onClick={() => onOpenSketch(sketch.id)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Sketch"
+            onClick={() => onOpenSketch(sketch.id)}
+          >
             <PencilRuler size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
@@ -57,7 +100,14 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
       <AskUpdate subject={`session:${id}`} />
       {!planned || !plan.approved ? null : (
         <Tooltip label="Whole blueprint" shortcut={WHOLE_KEY.cap}>
-          <Button variant="ghost" size="sm" iconOnly aria-label="Whole blueprint" aria-pressed={!nowView} onClick={everything.toggle}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Whole blueprint"
+            aria-pressed={!nowView}
+            onClick={everything.toggle}
+          >
             <ListTree size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
@@ -72,18 +122,58 @@ export function BlueprintPanel({ work, place, id, session, manifestId, acts, ed,
     </>
   );
   return (
-    <SvPanel label="Blueprint" area="blueprint" place={place} state={state} acts={bar} fold={fold} keycap={bandKeyFor("blueprint")}>
+    <SvPanel
+      label="Blueprint"
+      area="blueprint"
+      place={place}
+      state={state}
+      acts={bar}
+      fold={fold}
+      keycap={bandKeyFor("blueprint")}
+    >
       <FlightHead session={session} work={work} id={id} manifestId={manifestId} acts={acts} />
-      {drafting && plan.summary !== undefined ? <p className="sv-blueprint__summary">{plan.summary}</p> : null}
-      {todos.length === 0 ? null : <AgentTasks todos={todos} working={session.turn.state === "working"} />}
+      {drafting && plan.summary !== undefined ? (
+        <p className="sv-blueprint__summary">{plan.summary}</p>
+      ) : null}
+      {todos.length === 0 ? null : (
+        <AgentTasks todos={todos} working={session.turn.state === "working"} />
+      )}
       {atWork.length === 0 ? null : <SubagentsAtWork rows={atWork} />}
-      {!planned || !nowView ? null : <FlightRows groups={groups} workingGroup={workingGroup} now={now} session={session} manifestId={manifestId} onOpenSession={onOpenSession} />}
+      {!planned || !nowView ? null : (
+        <FlightRows
+          groups={groups}
+          workingGroup={workingGroup}
+          now={now}
+          session={session}
+          manifestId={manifestId}
+          onOpenSession={onOpenSession}
+        />
+      )}
       {!planned || nowView ? null : (
         <div className="sv-plan" data-drafting={drafting || undefined}>
           <div className="sv-plan__groups">
             {groups.map((group) => {
               const step = steps.get(group.id);
-              return <Group key={group.id} group={group} {...(drafting && step !== undefined ? { step, opened: true } : group.id === workingGroup && now !== undefined ? { now } : {})} ed={ed} parent={session} manifestId={manifestId} onOpenSession={onOpenSession} />;
+              return (
+                <Group
+                  key={group.id}
+                  group={group}
+                  {...(drafting && step !== undefined
+                    ? {
+                        step,
+                        opened: true,
+                      }
+                    : group.id === workingGroup && now !== undefined
+                      ? {
+                          now,
+                        }
+                      : {})}
+                  ed={ed}
+                  parent={session}
+                  manifestId={manifestId}
+                  onOpenSession={onOpenSession}
+                />
+              );
             })}
           </div>
           <div className="sv-plan__foot">

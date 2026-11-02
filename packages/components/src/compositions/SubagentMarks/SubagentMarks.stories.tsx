@@ -14,7 +14,10 @@ type Story = StoryObj<typeof SubagentMarks>;
 
 /** Both known: the type bare, and the model worded as the Session's composer words it. */
 export const TypeAndModel: Story = {
-  args: { type: "bridge-engineer", model: "vendor-opus-5-5" },
+  args: {
+    type: "bridge-engineer",
+    model: "vendor-opus-5-5",
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("bridge-engineer")).toBeVisible();
     await expect(canvas.getByText("Opus 5.5")).toBeVisible();
@@ -23,7 +26,9 @@ export const TypeAndModel: Story = {
 
 /** Nothing has answered yet, so no model is known: its slot stays empty. */
 export const TypeOnly: Story = {
-  args: { type: "general-purpose" },
+  args: {
+    type: "general-purpose",
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("general-purpose")).toBeVisible();
     await expect(canvas.queryByText("Opus 5.5")).not.toBeInTheDocument();

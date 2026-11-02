@@ -10,7 +10,10 @@
 // Nothing here throws. A theme that cannot be applied is Dark, and Bridge keeps running.
 
 const DARK = "dark";
-const BUILT_IN = new Set(["dark", "light"]);
+const BUILT_IN = new Set([
+  "dark",
+  "light",
+]);
 
 /**
  * CSS a theme may ship: style rules only, fetching nothing. **A rule is the theme's own**, scoped
@@ -25,14 +28,20 @@ function sheetOf(doc: Document, name: string, css: string): CSSStyleSheet {
   sheet.replaceSync(css);
   if (sheet.cssRules.length === 0) throw new Error("a theme with no rules");
   const own = `[data-theme="${name}"]`;
-  const scoped = (selector: string) => selector.split(",").every((part) => BARE.has(part.trim()) || part.includes(own));
+  const scoped = (selector: string) =>
+    selector.split(",").every((part) => BARE.has(part.trim()) || part.includes(own));
   for (const rule of Array.from(sheet.cssRules)) {
-    if (!(rule instanceof CSSStyleRule) || !scoped(rule.selectorText)) throw new Error(`a theme rule outside ${own}`);
+    if (!(rule instanceof CSSStyleRule) || !scoped(rule.selectorText))
+      throw new Error(`a theme rule outside ${own}`);
   }
   return sheet;
 }
 
-const BARE = new Set([":root", "[data-theme]", ":root[data-theme]"]);
+const BARE = new Set([
+  ":root",
+  "[data-theme]",
+  ":root[data-theme]",
+]);
 
 export type ThemeLoader = {
   /**
@@ -49,7 +58,8 @@ export function createThemeLoader(doc: Document): ThemeLoader {
   let mine: CSSStyleSheet | null = null;
 
   const drop = () => {
-    if (mine !== null) doc.adoptedStyleSheets = doc.adoptedStyleSheets.filter((one) => one !== mine);
+    if (mine !== null)
+      doc.adoptedStyleSheets = doc.adoptedStyleSheets.filter((one) => one !== mine);
     mine = null;
   };
   const show = (id: string) => {
@@ -73,7 +83,10 @@ export function createThemeLoader(doc: Document): ThemeLoader {
         const next = sheetOf(doc, id, css);
         drop();
         mine = next;
-        doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, next];
+        doc.adoptedStyleSheets = [
+          ...doc.adoptedStyleSheets,
+          next,
+        ];
         return show(id);
       } catch (why) {
         return fallBack(why);

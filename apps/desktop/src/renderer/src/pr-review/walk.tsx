@@ -6,9 +6,46 @@
 
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, Check, CircleHelp, Footprints, GitBranch, GitPullRequest, Globe, LoaderCircle, Minus, NotebookText, Pencil, RefreshCw, RotateCw, Send, SquareDashed, SquareTerminal, Trash2, X } from "lucide-react";
-import { Button, Checkbox, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Tooltip, useKept } from "@armada/components";
-import type { RememberedPlace, ReviewWalkState, WalkPlace, WalkSource, WalkStep, WalkTarget } from "@armada/protocol";
+import {
+  ArrowLeft,
+  Check,
+  CircleHelp,
+  Footprints,
+  GitBranch,
+  GitPullRequest,
+  Globe,
+  LoaderCircle,
+  Minus,
+  NotebookText,
+  Pencil,
+  RefreshCw,
+  RotateCw,
+  Send,
+  SquareDashed,
+  SquareTerminal,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  Button,
+  Checkbox,
+  Input,
+  Kbd,
+  PrMark,
+  Radio,
+  RadioGroup,
+  Sheet,
+  Tooltip,
+  useKept,
+} from "@armada/components";
+import type {
+  RememberedPlace,
+  ReviewWalkState,
+  WalkPlace,
+  WalkSource,
+  WalkStep,
+  WalkTarget,
+} from "@armada/protocol";
 import { useAtFloor } from "@armada/shell";
 
 import { RunFailed, SOURCE_MARK, TOOL_MARK } from "./marks";
@@ -19,29 +56,85 @@ import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { WALK_RUN } from "./store-walk";
 import "./walk.css";
 
-type Said = { Glyph: LucideIcon; said: string; tone?: string };
-
-const SOURCES: Record<WalkSource | "you", Said> = {
-  pull_request: { Glyph: GitPullRequest, said: "From the pull request" },
-  memory: { Glyph: NotebookText, said: "From what Armada remembers of this area" },
-  you: { Glyph: CircleHelp, said: "From you" },
+type Said = {
+  Glyph: LucideIcon;
+  said: string;
+  tone?: string;
 };
 
-const FOUND = { found: { Glyph: Check, said: "Found", tone: "success" }, nothing: { Glyph: Minus, said: "Nothing found" }, asking: { Glyph: CircleHelp, said: "Waiting on you" } } as const satisfies Record<string, Said>;
+const SOURCES: Record<WalkSource | "you", Said> = {
+  pull_request: {
+    Glyph: GitPullRequest,
+    said: "From the pull request",
+  },
+  memory: {
+    Glyph: NotebookText,
+    said: "From what Armada remembers of this area",
+  },
+  you: {
+    Glyph: CircleHelp,
+    said: "From you",
+  },
+};
+
+const FOUND = {
+  found: {
+    Glyph: Check,
+    said: "Found",
+    tone: "success",
+  },
+  nothing: {
+    Glyph: Minus,
+    said: "Nothing found",
+  },
+  asking: {
+    Glyph: CircleHelp,
+    said: "Waiting on you",
+  },
+} as const satisfies Record<string, Said>;
 
 type Phase = "pending" | "running" | "done" | "failed";
 
 const PHASE: Record<Phase, Said> = {
-  pending: { Glyph: SquareDashed, said: "Waiting" },
-  running: { Glyph: LoaderCircle, said: "Running", tone: "running" },
-  done: { Glyph: Check, said: "Done", tone: "success" },
-  failed: { Glyph: X, said: "Failed", tone: "failed" },
+  pending: {
+    Glyph: SquareDashed,
+    said: "Waiting",
+  },
+  running: {
+    Glyph: LoaderCircle,
+    said: "Running",
+    tone: "running",
+  },
+  done: {
+    Glyph: Check,
+    said: "Done",
+    tone: "success",
+  },
+  failed: {
+    Glyph: X,
+    said: "Failed",
+    tone: "failed",
+  },
 };
 
-const SETUP_MARK = { checkout: GitBranch, run: SquareTerminal, wait: Globe } as const;
+const SETUP_MARK = {
+  checkout: GitBranch,
+  run: SquareTerminal,
+  wait: Globe,
+} as const;
 
 /** A mark that turns while it runs, as the checks mark does. */
-function Turning({ running, Glyph, said, tone }: { running: boolean; Glyph: LucideIcon; said: string; tone: string | undefined }) {
+function Turning({
+  running,
+  Glyph,
+  said,
+  tone,
+}: {
+  running: boolean;
+  Glyph: LucideIcon;
+  said: string;
+  tone: string | undefined;
+}) {
   return (
     <span className="pr-review__mark" data-checks={running ? "running" : undefined}>
       <PrMark Glyph={Glyph} said={said} tone={tone} />
@@ -50,16 +143,58 @@ function Turning({ running, Glyph, said, tone }: { running: boolean; Glyph: Luci
 }
 
 /** A step's verb, its target, and what it types or presses. */
-function actOf(step: WalkStep): { verb: string; target: WalkTarget; with?: string } {
-  if ("press" in step) return { verb: "press", target: step.press };
-  if ("look" in step) return { verb: "look", target: step.look };
-  if ("hover" in step) return { verb: "hover", target: step.hover };
-  if ("later" in step) return { verb: "look", target: step.later };
-  if ("type" in step) return { verb: "type", target: step.into, with: step.type };
-  if ("key" in step) return { verb: "key", target: step.on, with: step.key };
-  if ("select" in step) return { verb: "select", target: step.in, with: step.select };
-  if ("paste" in step) return { verb: "paste", target: step.paste };
-  return { verb: "drag", target: step.drag };
+function actOf(step: WalkStep): {
+  verb: string;
+  target: WalkTarget;
+  with?: string;
+} {
+  if ("press" in step)
+    return {
+      verb: "press",
+      target: step.press,
+    };
+  if ("look" in step)
+    return {
+      verb: "look",
+      target: step.look,
+    };
+  if ("hover" in step)
+    return {
+      verb: "hover",
+      target: step.hover,
+    };
+  if ("later" in step)
+    return {
+      verb: "look",
+      target: step.later,
+    };
+  if ("type" in step)
+    return {
+      verb: "type",
+      target: step.into,
+      with: step.type,
+    };
+  if ("key" in step)
+    return {
+      verb: "key",
+      target: step.on,
+      with: step.key,
+    };
+  if ("select" in step)
+    return {
+      verb: "select",
+      target: step.in,
+      with: step.select,
+    };
+  if ("paste" in step)
+    return {
+      verb: "paste",
+      target: step.paste,
+    };
+  return {
+    verb: "drag",
+    target: step.drag,
+  };
 }
 
 export function WalkView({ pr, tool }: { pr: ReviewPr; tool: ToolDef }) {
@@ -74,10 +209,22 @@ export function WalkView({ pr, tool }: { pr: ReviewPr; tool: ToolDef }) {
   const finding = walk.find.state === "looking";
   const going = run?.state === "running";
   return (
-    <div className="pr-results pr-walk" aria-label={`${tool.name} results`} role="region" data-tool={tool.mark} data-source={tool.source}>
+    <div
+      className="pr-results pr-walk"
+      aria-label={`${tool.name} results`}
+      role="region"
+      data-tool={tool.mark}
+      data-source={tool.source}
+    >
       <header className="pr-results__head">
         <Tooltip label="Back to the overview" shortcut="Esc">
-          <Button variant="ghost" size="sm" iconOnly aria-label="Back to the overview" onClick={() => store.setView(pr.key, "explanation")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Back to the overview"
+            onClick={() => store.setView(pr.key, "explanation")}
+          >
             <ArrowLeft size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
@@ -86,7 +233,14 @@ export function WalkView({ pr, tool }: { pr: ReviewPr; tool: ToolDef }) {
         <PrMark Glyph={source.Glyph} said={source.said} />
         <span className="pr-results__acts">
           <Tooltip label="Walk it again, for this pull request">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={going || finding} onClick={() => store.spend(tool.name, () => store.findPlace(pr.key))}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Run again"
+              disabled={going || finding}
+              onClick={() => store.spend(tool.name, () => store.findPlace(pr.key))}
+            >
               <RotateCw size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
@@ -101,7 +255,12 @@ export function WalkView({ pr, tool }: { pr: ReviewPr; tool: ToolDef }) {
       <Found walk={walk} />
       {walk.said === undefined ? null : <RunFailed said={walk.said} />}
       {walk.asking ? (
-        <article className="pr-change pr-walk__ask" tabIndex={0} data-stop aria-label="Question: where it runs">
+        <article
+          className="pr-change pr-walk__ask"
+          tabIndex={0}
+          data-stop
+          aria-label="Question: where it runs"
+        >
           <Button variant="primary" size="sm" data-run="" onClick={() => store.askWhere(pr.key)}>
             <CircleHelp size={16} strokeWidth={2} aria-hidden />
             Answer
@@ -140,8 +299,27 @@ function Found({ walk }: { walk: WalkWork }) {
   if (find.state === "said") return <RunFailed said={find.said} />;
   const { tried, place } = find.found;
   const nothing = tried.every((one) => !one.found);
-  const lines: { key: string; source: keyof typeof SOURCES; by: string | undefined; state: keyof typeof FOUND; said: string }[] = tried.map((one) => ({ key: one.source, source: one.source, by: one.by, state: one.found ? "found" : "nothing", said: one.said }));
-  if (nothing) lines.push({ key: "you", source: "you", by: undefined, state: place === undefined ? "asking" : "found", said: place === undefined ? "Not in the pull request or in memory" : placeWords(place) });
+  const lines: {
+    key: string;
+    source: keyof typeof SOURCES;
+    by: string | undefined;
+    state: keyof typeof FOUND;
+    said: string;
+  }[] = tried.map((one) => ({
+    key: one.source,
+    source: one.source,
+    by: one.by,
+    state: one.found ? "found" : "nothing",
+    said: one.said,
+  }));
+  if (nothing)
+    lines.push({
+      key: "you",
+      source: "you",
+      by: undefined,
+      state: place === undefined ? "asking" : "found",
+      said: place === undefined ? "Not in the pull request or in memory" : placeWords(place),
+    });
   return (
     <ol className="pr-walk__facts" aria-label="Where it runs">
       {lines.map((one) => {
@@ -149,8 +327,15 @@ function Found({ walk }: { walk: WalkWork }) {
         const result = FOUND[one.state];
         return (
           <li key={one.key} className="pr-walk__fact" aria-label={from.said} data-state={one.state}>
-            <PrMark Glyph={from.Glyph} said={one.by === undefined ? from.said : `${from.said}: ${one.by}`} />
-            <PrMark Glyph={result.Glyph} said={result.said} tone={"tone" in result ? result.tone : undefined} />
+            <PrMark
+              Glyph={from.Glyph}
+              said={one.by === undefined ? from.said : `${from.said}: ${one.by}`}
+            />
+            <PrMark
+              Glyph={result.Glyph}
+              said={result.said}
+              tone={"tone" in result ? result.tone : undefined}
+            />
             <span className="pr-walk__said">{one.said}</span>
           </li>
         );
@@ -165,11 +350,24 @@ function Setup({ pr, place, walk }: { pr: ReviewPr; place: WalkPlace; walk: Walk
   if (place.how !== "pull" || state === undefined) return null;
   const failed = walk.held === undefined && walk.reached !== undefined;
   const at = state === "checking_out" ? 0 : state === "starting" ? 1 : 3;
-  const phase = (line: number): Phase => (line < at ? "done" : line === at ? (failed ? "failed" : "running") : "pending");
+  const phase = (line: number): Phase =>
+    line < at ? "done" : line === at ? (failed ? "failed" : "running") : "pending";
   const lines = [
-    { id: "checkout", said: `Check out ${pr.branch} into slot ${walk.held?.slot ?? ""}`.trim(), code: undefined },
-    { id: "run", said: "Run", code: place.command },
-    { id: "wait", said: "Wait for", code: place.address ?? place.api },
+    {
+      id: "checkout",
+      said: `Check out ${pr.branch} into slot ${walk.held?.slot ?? ""}`.trim(),
+      code: undefined,
+    },
+    {
+      id: "run",
+      said: "Run",
+      code: place.command,
+    },
+    {
+      id: "wait",
+      said: "Wait for",
+      code: place.address ?? place.api,
+    },
   ] as const;
   return (
     <ol className="pr-walk__facts" aria-label="Setup">
@@ -177,9 +375,22 @@ function Setup({ pr, place, walk }: { pr: ReviewPr; place: WalkPlace; walk: Walk
         const now = PHASE[phase(line)];
         const Glyph = SETUP_MARK[one.id];
         return (
-          <li key={one.id} className="pr-walk__fact" aria-label={`${one.said} ${one.code ?? ""}`.trim()} data-state={phase(line)}>
-            <PrMark Glyph={Glyph} said={one.id === "checkout" ? "Checkout" : one.id === "run" ? "Command" : "Address"} />
-            <Turning running={phase(line) === "running"} Glyph={now.Glyph} said={now.said} tone={now.tone} />
+          <li
+            key={one.id}
+            className="pr-walk__fact"
+            aria-label={`${one.said} ${one.code ?? ""}`.trim()}
+            data-state={phase(line)}
+          >
+            <PrMark
+              Glyph={Glyph}
+              said={one.id === "checkout" ? "Checkout" : one.id === "run" ? "Command" : "Address"}
+            />
+            <Turning
+              running={phase(line) === "running"}
+              Glyph={now.Glyph}
+              said={now.said}
+              tone={now.tone}
+            />
             <span className="pr-walk__said">
               {one.said}
               {one.code === undefined ? null : <code className="pr-walk__code">{one.code}</code>}
@@ -211,7 +422,14 @@ function Walk({ pr, work, written }: { pr: ReviewPr; work: WalkWork; written: Wa
         </p>
       ) : (
         <article className="pr-change pr-walk__card" tabIndex={0} data-stop aria-label="Walk it">
-          <Button variant="primary" size="sm" data-run="" pending={work.opening} disabled={work.opening} onClick={() => store.walkIt(pr.key)}>
+          <Button
+            variant="primary"
+            size="sm"
+            data-run=""
+            pending={work.opening}
+            disabled={work.opening}
+            onClick={() => store.walkIt(pr.key)}
+          >
             <Footprints size={16} strokeWidth={2} aria-hidden />
             Walk it
             <Kbd aria-hidden="true">↵</Kbd>
@@ -229,8 +447,14 @@ function Walk({ pr, work, written }: { pr: ReviewPr; work: WalkWork; written: Wa
                   <p className="pr-steps__do">{step.say}</p>
                   <p className="pr-walk__act">
                     <code className="pr-walk__verb">{act.verb}</code>
-                    <span className="pr-walk__target">{act.target.name === undefined ? act.target.role : `${act.target.role} “${act.target.name}”`}</span>
-                    {act.with === undefined ? null : <code className="pr-walk__code">{act.with}</code>}
+                    <span className="pr-walk__target">
+                      {act.target.name === undefined
+                        ? act.target.role
+                        : `${act.target.role} “${act.target.name}”`}
+                    </span>
+                    {act.with === undefined ? null : (
+                      <code className="pr-walk__code">{act.with}</code>
+                    )}
                   </p>
                 </div>
               </li>
@@ -240,7 +464,11 @@ function Walk({ pr, work, written }: { pr: ReviewPr; work: WalkWork; written: Wa
       ) : (
         <ol className="pr-steps" aria-label="Requests">
           {written.requests.map((step, at) => (
-            <li key={at} className="pr-steps__step" aria-label={`Request ${at + 1}: ${step.method} ${step.path}`}>
+            <li
+              key={at}
+              className="pr-steps__step"
+              aria-label={`Request ${at + 1}: ${step.method} ${step.path}`}
+            >
               <span className="pr-steps__n mono">{at + 1}</span>
               <div className="pr-steps__body">
                 <p className="pr-steps__do">{step.say}</p>
@@ -280,7 +508,14 @@ function Notes({ notes }: { notes: WalkWork["notes"] }) {
 
 // ---- The sheets ---------------------------------------------------------------------------------------------
 
-const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+const typing = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    [
+      "INPUT",
+      "TEXTAREA",
+      "SELECT",
+    ].includes(target.tagName));
 
 /** Both sheets. Mounted with the Flight control, which is there wherever the review is. */
 export function WalkSheets() {
@@ -292,10 +527,30 @@ export function WalkSheets() {
   const find = pr === undefined ? undefined : reviews.work[pr.key]?.walk.find;
   return (
     <>
-      <Sheet kind="walk-place" open={pr !== undefined && find?.state === "found"} floating floor={floor} title="Where it runs" closeLabel="Close" closeBinding="Esc" onClose={() => store.closeSheet()}>
-        {pr === undefined || find?.state !== "found" ? null : <AskPlace pr={pr} area={find.found.area} />}
+      <Sheet
+        kind="walk-place"
+        open={pr !== undefined && find?.state === "found"}
+        floating
+        floor={floor}
+        title="Where it runs"
+        closeLabel="Close"
+        closeBinding="Esc"
+        onClose={() => store.closeSheet()}
+      >
+        {pr === undefined || find?.state !== "found" ? null : (
+          <AskPlace pr={pr} area={find.found.area} />
+        )}
       </Sheet>
-      <Sheet kind="walk-places" open={sheet?.kind === "places"} floating floor={floor} title="Where changes run" closeLabel="Close" closeBinding="Esc" onClose={() => store.closeSheet()}>
+      <Sheet
+        kind="walk-places"
+        open={sheet?.kind === "places"}
+        floating
+        floor={floor}
+        title="Where changes run"
+        closeLabel="Close"
+        closeBinding="Esc"
+        onClose={() => store.closeSheet()}
+      >
         <Places />
       </Sheet>
     </>
@@ -315,14 +570,38 @@ function AskPlace({ pr, area: first }: { pr: ReviewPr; area: string }) {
   const where = address.trim() !== "" || api.trim() !== "";
   const ready = where && (how === "deployed" || command.trim() !== "");
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".pr-walk-ask input[type='radio']:checked")?.focus());
+    const frame = window.requestAnimationFrame(() =>
+      document.querySelector<HTMLElement>(".pr-walk-ask input[type='radio']:checked")?.focus(),
+    );
     return () => window.cancelAnimationFrame(frame);
   }, []);
   const save = () => {
     if (!ready) return;
-    const place: WalkPlace = { how, ...(address.trim() === "" ? {} : { address: address.trim() }), ...(how === "pull" ? { command: command.trim() } : {}), ...(api.trim() === "" ? {} : { api: api.trim() }) };
+    const place: WalkPlace = {
+      how,
+      ...(address.trim() === ""
+        ? {}
+        : {
+            address: address.trim(),
+          }),
+      ...(how === "pull"
+        ? {
+            command: command.trim(),
+          }
+        : {}),
+      ...(api.trim() === ""
+        ? {}
+        : {
+            api: api.trim(),
+          }),
+    };
     store.answer(pr.key, place, remember ? area.trim().replace(/\/$/, "") : undefined);
-    [forgetHow, forgetAddress, forgetCommand, forgetApi].forEach((forget) => forget());
+    [
+      forgetHow,
+      forgetAddress,
+      forgetCommand,
+      forgetApi,
+    ].forEach((forget) => forget());
   };
   return (
     <form
@@ -352,14 +631,37 @@ function AskPlace({ pr, area: first }: { pr: ReviewPr; area: string }) {
           </Radio>
         </span>
       </RadioGroup>
-      {how === "pull" ? <Input mono label="Command" value={command} onChange={(event) => setCommand(event.target.value)} /> : null}
-      <Input mono label="Address" value={address} onChange={(event) => setAddress(event.target.value)} />
-      <Input mono label="API base address" value={api} onChange={(event) => setApi(event.target.value)} />
+      {how === "pull" ? (
+        <Input
+          mono
+          label="Command"
+          value={command}
+          onChange={(event) => setCommand(event.target.value)}
+        />
+      ) : null}
+      <Input
+        mono
+        label="Address"
+        value={address}
+        onChange={(event) => setAddress(event.target.value)}
+      />
+      <Input
+        mono
+        label="API base address"
+        value={api}
+        onChange={(event) => setApi(event.target.value)}
+      />
       <div className="pr-walk-ask__remember">
         <Checkbox checked={remember} onChange={(event) => setRemember(event.target.checked)}>
           Remember for
         </Checkbox>
-        <Input mono aria-label="Area" value={areaShown(area)} disabled={!remember} onChange={(event) => setArea(event.target.value)} />
+        <Input
+          mono
+          aria-label="Area"
+          value={areaShown(area)}
+          disabled={!remember}
+          onChange={(event) => setArea(event.target.value)}
+        />
       </div>
       <div className="pr-add__bar">
         <Button variant="ghost" onClick={() => store.closeSheet()}>
@@ -387,9 +689,18 @@ function Places() {
           onKeyDown={(event) => {
             // Down and up, and j and k, move between the rows; the row's own keys are on the row.
             if (typing(event.target)) return;
-            const rows = [...event.currentTarget.querySelectorAll<HTMLElement>("article[data-stop]")];
-            const at = rows.findIndex((one) => one === event.target || one.contains(event.target as Node));
-            const by = event.key === "ArrowDown" || event.key === "j" ? 1 : event.key === "ArrowUp" || event.key === "k" ? -1 : 0;
+            const rows = [
+              ...event.currentTarget.querySelectorAll<HTMLElement>("article[data-stop]"),
+            ];
+            const at = rows.findIndex(
+              (one) => one === event.target || one.contains(event.target as Node),
+            );
+            const by =
+              event.key === "ArrowDown" || event.key === "j"
+                ? 1
+                : event.key === "ArrowUp" || event.key === "k"
+                  ? -1
+                  : 0;
             if (by !== 0) {
               event.preventDefault();
               rows[Math.min(rows.length - 1, Math.max(0, at + by))]?.focus();
@@ -398,7 +709,11 @@ function Places() {
         >
           {places.list.map((one) => (
             <li key={one.id}>
-              <Row one={one} editing={editing === one.id} onEdit={(on) => setEditing(on ? one.id : undefined)} />
+              <Row
+                one={one}
+                editing={editing === one.id}
+                onEdit={(on) => setEditing(on ? one.id : undefined)}
+              />
             </li>
           ))}
         </ul>
@@ -407,7 +722,15 @@ function Places() {
   );
 }
 
-function Row({ one, editing, onEdit }: { one: RememberedPlace; editing: boolean; onEdit: (on: boolean) => void }) {
+function Row({
+  one,
+  editing,
+  onEdit,
+}: {
+  one: RememberedPlace;
+  editing: boolean;
+  onEdit: (on: boolean) => void;
+}) {
   const store = useReviewStore()!;
   const [command, setCommand] = useState(one.place.command ?? "");
   const [address, setAddress] = useState(one.place.address ?? "");
@@ -441,12 +764,24 @@ function Row({ one, editing, onEdit }: { one: RememberedPlace; editing: boolean;
         <span className="pr-change__path">{one.repository}</span>
         <span className="pr-change__marks">
           <Tooltip label="Edit" shortcut="e">
-            <Button variant="ghost" size="sm" iconOnly aria-label={`Edit ${areaShown(one.area)}`} onClick={() => (reset(), onEdit(!editing))}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={`Edit ${areaShown(one.area)}`}
+              onClick={() => (reset(), onEdit(!editing))}
+            >
               <Pencil size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
           <Tooltip label="Forget" shortcut="Del">
-            <Button variant="ghost" size="sm" iconOnly aria-label={`Forget ${areaShown(one.area)}`} onClick={() => store.forgetPlace(one)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={`Forget ${areaShown(one.area)}`}
+              onClick={() => store.forgetPlace(one)}
+            >
               <Trash2 size={16} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
@@ -459,13 +794,47 @@ function Row({ one, editing, onEdit }: { one: RememberedPlace; editing: boolean;
           onSubmit={(event) => {
             event.preventDefault();
             if (!ready) return;
-            store.editPlace(one, { how: one.place.how, ...(address.trim() === "" ? {} : { address: address.trim() }), ...(one.place.how === "pull" ? { command: command.trim() } : {}), ...(api.trim() === "" ? {} : { api: api.trim() }) });
+            store.editPlace(one, {
+              how: one.place.how,
+              ...(address.trim() === ""
+                ? {}
+                : {
+                    address: address.trim(),
+                  }),
+              ...(one.place.how === "pull"
+                ? {
+                    command: command.trim(),
+                  }
+                : {}),
+              ...(api.trim() === ""
+                ? {}
+                : {
+                    api: api.trim(),
+                  }),
+            });
             onEdit(false);
           }}
         >
-          {one.place.how === "pull" ? <Input mono label="Command" value={command} onChange={(event) => setCommand(event.target.value)} /> : null}
-          <Input mono label="Address" value={address} onChange={(event) => setAddress(event.target.value)} />
-          <Input mono label="API base address" value={api} onChange={(event) => setApi(event.target.value)} />
+          {one.place.how === "pull" ? (
+            <Input
+              mono
+              label="Command"
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+            />
+          ) : null}
+          <Input
+            mono
+            label="Address"
+            value={address}
+            onChange={(event) => setAddress(event.target.value)}
+          />
+          <Input
+            mono
+            label="API base address"
+            value={api}
+            onChange={(event) => setApi(event.target.value)}
+          />
           <div className="pr-add__bar">
             <Button variant="ghost" onClick={() => onEdit(false)}>
               Cancel

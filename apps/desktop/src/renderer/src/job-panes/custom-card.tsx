@@ -4,7 +4,16 @@
 
 import { useEffect, useRef, type ReactElement } from "react";
 import { CircleCheck, ExternalLink, LoaderCircle, PanelTop } from "lucide-react";
-import { AskCards, Button, Inspect, InspectCard, SessionComposer, SessionThread, Tooltip, sessionGlyphOf } from "@armada/components";
+import {
+  AskCards,
+  Button,
+  Inspect,
+  InspectCard,
+  SessionComposer,
+  SessionThread,
+  Tooltip,
+  sessionGlyphOf,
+} from "@armada/components";
 import type { Session, SessionAnswer } from "@armada/screens/src/draft/sessions";
 
 import { askedOf } from "../asked-of";
@@ -31,7 +40,13 @@ function Tail({ job }: { job: Session }) {
   });
   return (
     <div ref={box} className="job-card__thread">
-      <SessionThread sessionId={job.id} rows={rows} working={job.turn.state === "working"} onAnswer={NOBODY} onOpenSession={NOBODY} />
+      <SessionThread
+        sessionId={job.id}
+        rows={rows}
+        working={job.turn.state === "working"}
+        onAnswer={NOBODY}
+        onOpenSession={NOBODY}
+      />
     </div>
   );
 }
@@ -41,7 +56,15 @@ function Ask({ job }: { job: Session }) {
   const draft = useSessionsDraft();
   const asked = askedOf(job);
   if (asked === undefined) return null;
-  return <AskCards asked={asked} keep={`${job.id}:${job.asked?.call ?? asked.command}`} onAnswer={(answer, answers, folder, kind) => draft?.answer(job.id, answer as SessionAnswer | undefined, answers, folder, kind)} />;
+  return (
+    <AskCards
+      asked={asked}
+      keep={`${job.id}:${job.asked?.call ?? asked.command}`}
+      onAnswer={(answer, answers, folder, kind) =>
+        draft?.answer(job.id, answer as SessionAnswer | undefined, answers, folder, kind)
+      }
+    />
+  );
 }
 
 function Message({ job, tabId }: { job: Session; tabId: string }) {
@@ -62,7 +85,11 @@ function Message({ job, tabId }: { job: Session; tabId: string }) {
       commands={NONE}
       taggable={NONE}
       searchFiles={(query) => searchFiles(query, job.manifestId)}
-      {...(numbered === undefined ? {} : { numbered })}
+      {...(numbered === undefined
+        ? {}
+        : {
+            numbered,
+          })}
       tags={NONE}
       onTags={NOBODY}
       drawn={NONE}
@@ -80,7 +107,21 @@ function Message({ job, tabId }: { job: Session; tabId: string }) {
  * `children` is the tab's label, which the card hangs off. `summon` opens the card with the caret in its composer, as the tab's menu asks; `onSummoned` lets go of the ask. With no Job, or
  * while the first build is still the tab's own body, the label is drawn as it is.
  */
-export function ModJobCard({ tabId, job, building, summon, onSummoned, children }: { tabId: string; job: Session | undefined; building: boolean; summon: boolean; onSummoned: () => void; children: ReactElement }) {
+export function ModJobCard({
+  tabId,
+  job,
+  building,
+  summon,
+  onSummoned,
+  children,
+}: {
+  tabId: string;
+  job: Session | undefined;
+  building: boolean;
+  summon: boolean;
+  onSummoned: () => void;
+  children: ReactElement;
+}) {
   if (job === undefined || building) return children;
   const working = job.turn.state === "working";
   const asking = job.asked !== undefined;
@@ -99,12 +140,21 @@ export function ModJobCard({ tabId, job, building, summon, onSummoned, children 
       to='[role="textbox"]'
       card={
         <InspectCard
-          kind={{ Glyph: PanelTop, label: "Mod Job" }}
+          kind={{
+            Glyph: PanelTop,
+            label: "Mod Job",
+          }}
           width="wide"
           title={
             <span className="job-card__title">
               <Tooltip label={said} asChild>
-                <span className="job-card__state" role="img" aria-label={said} data-working={(working && !asking) || undefined} data-asking={asking || undefined}>
+                <span
+                  className="job-card__state"
+                  role="img"
+                  aria-label={said}
+                  data-working={(working && !asking) || undefined}
+                  data-asking={asking || undefined}
+                >
                   <Glyph size={16} strokeWidth={2} aria-hidden />
                 </span>
               </Tooltip>
@@ -115,7 +165,16 @@ export function ModJobCard({ tabId, job, building, summon, onSummoned, children 
           <Ask job={job} />
           <Tail job={job} />
           <Message job={job} tabId={tabId} />
-          <Button variant="secondary" size="sm" onClick={() => select({ kind: "session", key: `session:${job.id}` })}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              select({
+                kind: "session",
+                key: `session:${job.id}`,
+              })
+            }
+          >
             <ExternalLink size={16} strokeWidth={2} aria-hidden />
             Open Job
           </Button>

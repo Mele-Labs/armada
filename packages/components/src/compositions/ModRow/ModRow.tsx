@@ -1,5 +1,31 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { Bell, Box, ChevronDown, ChevronRight, CircleDashed, ClockAlert, Command, Eclipse, FlaskConical, GitPullRequestArrow, Link, Package, Palette, PanelTop, PanelsTopLeft, ShieldCheck, ShieldX, Ticket } from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import {
+  Bell,
+  Box,
+  ChevronDown,
+  ChevronRight,
+  CircleDashed,
+  ClockAlert,
+  Command,
+  Eclipse,
+  FlaskConical,
+  GitPullRequestArrow,
+  Link,
+  Package,
+  Palette,
+  PanelTop,
+  PanelsTopLeft,
+  ShieldCheck,
+  ShieldX,
+  Ticket,
+} from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { SwitchControl } from "../../primitives/Switch/Switch";
@@ -59,9 +85,16 @@ export type ModRowProps = {
   /** The act that settles it, as Kit draws it: `SyncAct`. */
   syncAct?: ReactNode;
   /** The pull request Promote opened. */
-  pull?: { number: number; title: string; onOpen: () => void };
+  pull?: {
+    number: number;
+    title: string;
+    onOpen: () => void;
+  };
   /** The Job that holds that pull request. */
-  job?: { title: string; onOpen: () => void };
+  job?: {
+    title: string;
+    onOpen: () => void;
+  };
   /** A press on the row anywhere but its controls, or Enter on its name, opens the mod. Only the switch toggles it. Absent, the row opens nothing. */
   onOpen?: () => void;
   /** Promote is off while the mod is invalid or already on a branch. */
@@ -81,10 +114,36 @@ export type ModRowProps = {
 };
 
 /** What a mod changes: how Bridge looks, how it is arranged, how it shows words, what Fleet does with a notice, which rows the command palette offers. */
-export type ModKind = "theme" | "tweak" | "layout" | "words" | "fleet" | "tracker" | "commands" | "tab";
+export type ModKind =
+  | "theme"
+  | "tweak"
+  | "layout"
+  | "words"
+  | "fleet"
+  | "tracker"
+  | "commands"
+  | "tab";
 
-export const MOD_KIND_SAID = { theme: "Theme", tweak: "Theme tweak", layout: "Layout", words: "Words", fleet: "Fleet", tracker: "Tracker", commands: "Commands", tab: "Tab" } as const;
-const GLYPH = { theme: Palette, tweak: Eclipse, layout: PanelsTopLeft, words: Link, fleet: Bell, tracker: Ticket, commands: Command, tab: PanelTop } as const;
+export const MOD_KIND_SAID = {
+  theme: "Theme",
+  tweak: "Theme tweak",
+  layout: "Layout",
+  words: "Words",
+  fleet: "Fleet",
+  tracker: "Tracker",
+  commands: "Commands",
+  tab: "Tab",
+} as const;
+const GLYPH = {
+  theme: Palette,
+  tweak: Eclipse,
+  layout: PanelsTopLeft,
+  words: Link,
+  fleet: Bell,
+  tracker: Ticket,
+  commands: Command,
+  tab: PanelTop,
+} as const;
 
 /** The kind's glyph, with its name on hover. Kit's Mods list draws the same one. */
 export function ModKindMark({ kind = "theme" }: { kind?: ModKind }) {
@@ -98,7 +157,12 @@ export function ModKindMark({ kind = "theme" }: { kind?: ModKind }) {
   );
 }
 
-const TRIED_GLYPH = { passed: FlaskConical, failed: FlaskConical, stale: ClockAlert, never: CircleDashed } as const;
+const TRIED_GLYPH = {
+  passed: FlaskConical,
+  failed: FlaskConical,
+  stale: ClockAlert,
+  never: CircleDashed,
+} as const;
 
 function Mark({ tone, words, children }: { tone: string; words: string; children: ReactNode }) {
   return (
@@ -123,7 +187,29 @@ export function BuiltInMark() {
   );
 }
 
-export function ModRow({ title, kind = "theme", tracker, withTracker = false, standing, enabled, onEnabled, detail, onOpen, builtIn = false, syncMark, syncAct, pull, job, promoteDisabled = false, onPromote, onTry, opened, onOpened, autoFocus = false, children }: ModRowProps) {
+export function ModRow({
+  title,
+  kind = "theme",
+  tracker,
+  withTracker = false,
+  standing,
+  enabled,
+  onEnabled,
+  detail,
+  onOpen,
+  builtIn = false,
+  syncMark,
+  syncAct,
+  pull,
+  job,
+  promoteDisabled = false,
+  onPromote,
+  onTry,
+  opened,
+  onOpened,
+  autoFocus = false,
+  children,
+}: ModRowProps) {
   const Glyph = GLYPH[kind];
   const Tried = tracker === undefined ? undefined : TRIED_GLYPH[tracker.tried.state];
   const lined = withTracker || tracker !== undefined;
@@ -131,20 +217,35 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
   const said = useId();
   useEffect(() => {
     if (autoFocus) toggle.current?.focus();
-  }, [autoFocus]);
+  }, [
+    autoFocus,
+  ]);
   // The arrows open and close a row and move between rows, as they do in a tree. They act on the row's own controls: what an opened
   // row holds keeps its keys.
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const row = event.currentTarget;
     const target = event.target as HTMLElement;
-    if (target.closest(".armada-mod-row__held") !== null || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (
+      target.closest(".armada-mod-row__held") !== null ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    )
+      return;
     if (event.key === "ArrowRight" && onOpened !== undefined && opened !== true) onOpened(true);
-    else if (event.key === "ArrowLeft" && onOpened !== undefined && opened === true) onOpened(false);
+    else if (event.key === "ArrowLeft" && onOpened !== undefined && opened === true)
+      onOpened(false);
     else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      const rows = Array.from(row.parentElement?.children ?? []).filter((one) => one.classList.contains("armada-mod-row"));
+      const rows = Array.from(row.parentElement?.children ?? []).filter((one) =>
+        one.classList.contains("armada-mod-row"),
+      );
       const next = rows[rows.indexOf(row) + (event.key === "ArrowDown" ? 1 : -1)];
       if (next === undefined) return;
-      const controls = (of: Element) => Array.from(of.querySelectorAll<HTMLElement>("input, button")).filter((one) => one.closest(".armada-mod-row__held") === null && !one.hasAttribute("disabled"));
+      const controls = (of: Element) =>
+        Array.from(of.querySelectorAll<HTMLElement>("input, button")).filter(
+          (one) => one.closest(".armada-mod-row__held") === null && !one.hasAttribute("disabled"),
+        );
       const at = controls(row).indexOf(target);
       (controls(next)[Math.max(at, 0)] ?? controls(next)[0])?.focus();
     } else return;
@@ -154,18 +255,33 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
   };
   // A press on a control or on what the row holds is that control's; the rest of the row opens the mod.
   const onPress = (event: MouseEvent<HTMLDivElement>) => {
-    if (onOpen === undefined || (event.target as HTMLElement).closest("button, input, label, a, .armada-mod-row__held") !== null) return;
+    if (
+      onOpen === undefined ||
+      (event.target as HTMLElement).closest("button, input, label, a, .armada-mod-row__held") !==
+        null
+    )
+      return;
     onOpen();
   };
   const name = <span className="armada-mod-row__title">{title}</span>;
-  const line = detail === undefined ? null : (
-    <span id={said} className="armada-mod-row__detail">
-      {detail}
-    </span>
-  );
+  const line =
+    detail === undefined ? null : (
+      <span id={said} className="armada-mod-row__detail">
+        {detail}
+      </span>
+    );
   // The row's press is for a pointer: the name is a button, which is how a keyboard opens the mod.
   return (
-    <div className="armada-mod-row" role="group" aria-label={title} data-standing={standing} data-tracking={lined || undefined} data-openable={onOpen === undefined ? undefined : ""} onKeyDown={onKeyDown} onClick={onPress}>
+    <div
+      className="armada-mod-row"
+      role="group"
+      aria-label={title}
+      data-standing={standing}
+      data-tracking={lined || undefined}
+      data-openable={onOpen === undefined ? undefined : ""}
+      onKeyDown={onKeyDown}
+      onClick={onPress}
+    >
       <Tooltip label={MOD_KIND_SAID[kind]}>
         <span className="armada-mod-row__kind" role="img" aria-label={MOD_KIND_SAID[kind]}>
           <Glyph size={16} />
@@ -182,12 +298,26 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
                 {line}
               </span>
             ) : (
-              <button type="button" className="armada-mod-row__text" aria-label={`Open ${title}`} onClick={onOpen}>
+              <button
+                type="button"
+                className="armada-mod-row__text"
+                aria-label={`Open ${title}`}
+                onClick={onOpen}
+              >
                 {name}
                 {line}
               </button>
             )}
-            <SwitchControl label={title} checked={enabled} onChange={(event) => onEnabled?.(event.target.checked)} {...(detail === undefined ? {} : { "aria-describedby": said })} />
+            <SwitchControl
+              label={title}
+              checked={enabled}
+              onChange={(event) => onEnabled?.(event.target.checked)}
+              {...(detail === undefined
+                ? {}
+                : {
+                    "aria-describedby": said,
+                  })}
+            />
           </>
         )}
       </div>
@@ -198,7 +328,10 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
           <Mark tone={tracker.tried.state} words={tracker.tried.words}>
             <Tried size={16} />
           </Mark>
-          <Mark tone={tracker.valid ? "valid" : "invalid"} words={tracker.valid ? "Valid" : "Invalid"}>
+          <Mark
+            tone={tracker.valid ? "valid" : "invalid"}
+            words={tracker.valid ? "Valid" : "Invalid"}
+          >
             {tracker.valid ? <ShieldCheck size={16} /> : <ShieldX size={16} />}
           </Mark>
         </div>
@@ -207,7 +340,13 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
         <span className="armada-mod-row__try" aria-hidden="true" />
       ) : (
         <Tooltip label={`Try ${title} against the repository`}>
-          <Button iconOnly variant="ghost" aria-label={`Try ${title}`} disabled={tracker?.valid === false} onClick={onTry}>
+          <Button
+            iconOnly
+            variant="ghost"
+            aria-label={`Try ${title}`}
+            disabled={tracker?.valid === false}
+            onClick={onTry}
+          >
             <FlaskConical size={16} />
           </Button>
         </Tooltip>
@@ -237,14 +376,27 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
         <span className="armada-mod-row__cell" />
       ) : (
         <Tooltip label={`Add ${title} to Armada in a pull request`}>
-          <Button iconOnly variant="ghost" aria-label={`Promote ${title}`} disabled={promoteDisabled} onClick={onPromote}>
+          <Button
+            iconOnly
+            variant="ghost"
+            aria-label={`Promote ${title}`}
+            disabled={promoteDisabled}
+            onClick={onPromote}
+          >
             <GitPullRequestArrow size={16} />
           </Button>
         </Tooltip>
       )}
       {pull === undefined && job === undefined ? null : (
         <div className="armada-mod-row__held armada-mod-row__promoted">
-          {pull === undefined ? null : <PullRequestChip number={pull.number} title={pull.title} state="open" onOpen={pull.onOpen} />}
+          {pull === undefined ? null : (
+            <PullRequestChip
+              number={pull.number}
+              title={pull.title}
+              state="open"
+              onOpen={pull.onOpen}
+            />
+          )}
           {job === undefined ? null : (
             <RowLink
               label={`Job ${job.title}`}
@@ -262,7 +414,9 @@ export function ModRow({ title, kind = "theme", tracker, withTracker = false, st
           )}
         </div>
       )}
-      {opened && children !== undefined ? <div className="armada-mod-row__held">{children}</div> : null}
+      {opened && children !== undefined ? (
+        <div className="armada-mod-row__held">{children}</div>
+      ) : null}
     </div>
   );
 }

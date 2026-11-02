@@ -22,12 +22,28 @@ export function fleetBuildOf(
   if (report === null) return undefined;
   return {
     on: report.on,
-    ...(report.position === undefined ? {} : { position: report.position }),
+    ...(report.position === undefined
+      ? {}
+      : {
+          position: report.position,
+        }),
     working: report.restarting ?? null,
-    ...(report.stage === undefined ? {} : { stage: report.stage }),
+    ...(report.stage === undefined
+      ? {}
+      : {
+          stage: report.stage,
+        }),
     drones: [],
-    ...(report.failed === undefined ? {} : { failed: report.failed }),
-    ...(report.left_out === undefined ? {} : { leftOut: report.left_out }),
+    ...(report.failed === undefined
+      ? {}
+      : {
+          failed: report.failed,
+        }),
+    ...(report.left_out === undefined
+      ? {}
+      : {
+          leftOut: report.left_out,
+        }),
     onChoose: change,
     onRestart: (adopt) => change(report.on, adopt),
   };

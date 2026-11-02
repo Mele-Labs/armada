@@ -9,20 +9,71 @@ import { manifesting, PLUGIN_KIT_INVENTORY } from "../manifest-fake";
 import type { MockDraft, Scenario } from "../moment";
 import { s200Sessions } from "./sessions";
 
-const plugin = (source: string, repository: string, name: string, skills: string[]): [string, KitSourceFound] => [
+const plugin = (
+  source: string,
+  repository: string,
+  name: string,
+  skills: string[],
+): [
+  string,
+  KitSourceFound,
+] => [
   source,
-  { found: "plugin", name, marketplace: name, repository, skills, commands: [`claude plugin marketplace add ${repository}`, `claude plugin install ${name}@${name}`] },
+  {
+    found: "plugin",
+    name,
+    marketplace: name,
+    repository,
+    skills,
+    commands: [
+      `claude plugin marketplace add ${repository}`,
+      `claude plugin install ${name}@${name}`,
+    ],
+  },
 ];
 
 /** What a look finds, by the source as pasted. Anything else is found unknown. */
 const FOUND: Record<string, KitSourceFound> = Object.fromEntries([
-  plugin("https://impeccable.style/", "pbakaus/impeccable", "impeccable", ["impeccable"]),
+  plugin("https://impeccable.style/", "pbakaus/impeccable", "impeccable", [
+    "impeccable",
+  ]),
   plugin("example/broken-plugin", "example/broken-plugin", "broken-plugin", []),
-  ["example/release-notes", { found: "skill", name: "release-notes", repository: "example/release-notes", commands: ["npx skills add example/release-notes"] }],
-  ["example/design-tools", { found: "several", repository: "example/design-tools", kind: "plugin", choices: [
-    { name: "palette", says: "Picks colours from a brand's tokens", commands: ["claude plugin marketplace add example/design-tools", "claude plugin install palette@design-tools"] },
-    { name: "type-scale", commands: ["claude plugin marketplace add example/design-tools", "claude plugin install type-scale@design-tools"] },
-  ] }],
+  [
+    "example/release-notes",
+    {
+      found: "skill",
+      name: "release-notes",
+      repository: "example/release-notes",
+      commands: [
+        "npx skills add example/release-notes",
+      ],
+    },
+  ],
+  [
+    "example/design-tools",
+    {
+      found: "several",
+      repository: "example/design-tools",
+      kind: "plugin",
+      choices: [
+        {
+          name: "palette",
+          says: "Picks colours from a brand's tokens",
+          commands: [
+            "claude plugin marketplace add example/design-tools",
+            "claude plugin install palette@design-tools",
+          ],
+        },
+        {
+          name: "type-scale",
+          commands: [
+            "claude plugin marketplace add example/design-tools",
+            "claude plugin install type-scale@design-tools",
+          ],
+        },
+      ],
+    },
+  ],
 ]);
 
 /**
@@ -51,7 +102,9 @@ function build(): Scenario {
         "example/broken-plugin": {
           error: `Installing plugin "broken-plugin@broken-plugin"...\nError: Failed to install plugin: .claude-plugin/plugin.json is missing the required field "name"`,
           at: 1,
-          takenBack: ["the broken-plugin marketplace"],
+          takenBack: [
+            "the broken-plugin marketplace",
+          ],
         },
       },
     },
@@ -59,8 +112,15 @@ function build(): Scenario {
   // The Cockpit's Jobs, drawn ahead of Fleet as the Sessions walks draw them, so a Job can be open when a link lands.
   return {
     ...kit,
-    ...(s200Sessions.held === undefined ? {} : { held: s200Sessions.held }),
-    draft: { ...s200Sessions.draft, sessions: titledSessions },
+    ...(s200Sessions.held === undefined
+      ? {}
+      : {
+          held: s200Sessions.held,
+        }),
+    draft: {
+      ...s200Sessions.draft,
+      sessions: titledSessions,
+    },
     name: "kit-add-and-remove",
     says: "A link dropped anywhere opens a panel that looks at it: install it in Kit, start a Job with it, or add it to the Job open",
   };

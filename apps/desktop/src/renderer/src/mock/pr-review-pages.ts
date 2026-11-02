@@ -6,35 +6,91 @@
 //
 // Built on the helpers `session-pr-pages.ts` has for the panel's tabs, which read the same shapes.
 
-import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestPage } from "@armada/protocol";
+import type {
+  PullRequestCheckRow,
+  PullRequestCommit,
+  PullRequestEntry,
+  PullRequestPage,
+} from "@armada/protocol";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
 import type { Account, Change, Hunk, ReviewPr, Theme, ToolDef } from "../pr-review/model";
 import { walkSeeds, rememberedPlaces } from "./pr-review-walk-pages";
-import { ARMADA_DEFS, type FindingSeed, type MockPr, type ReviewSeed, type SeedThread } from "./review-seed";
+import {
+  ARMADA_DEFS,
+  type FindingSeed,
+  type MockPr,
+  type ReviewSeed,
+  type SeedThread,
+} from "./review-seed";
 
 const FORGE = "https://forge.example/mele-labs";
-const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
+const minutesAgo = (minutes: number): string =>
+  new Date(Date.now() - minutes * 60_000).toISOString();
 
-const checks = (repository: string, number: number, rows: readonly (readonly [string, PullRequestCheckRow["state"], number?])[]): PullRequestCheckRow[] =>
+const checks = (
+  repository: string,
+  number: number,
+  rows: readonly (readonly [
+    string,
+    PullRequestCheckRow["state"],
+    number?,
+  ])[],
+): PullRequestCheckRow[] =>
   rows.map(([name, state, seconds], at) => ({
     name,
     state,
-    ...(seconds === undefined ? {} : { seconds }),
-    ...(state === "skipped" ? {} : { address: `${FORGE}/${repository}/pull/${number}/checks?check_run_id=${at + 1}` }),
+    ...(seconds === undefined
+      ? {}
+      : {
+          seconds,
+        }),
+    ...(state === "skipped"
+      ? {}
+      : {
+          address: `${FORGE}/${repository}/pull/${number}/checks?check_run_id=${at + 1}`,
+        }),
   }));
 
-const commits = (rows: readonly (readonly [string, string, string, number])[]): PullRequestCommit[] =>
-  rows.map(([sha, headline, author, ago]) => ({ sha, headline, author, at: minutesAgo(ago) }));
+const commits = (
+  rows: readonly (readonly [
+    string,
+    string,
+    string,
+    number,
+  ])[],
+): PullRequestCommit[] =>
+  rows.map(([sha, headline, author, ago]) => ({
+    sha,
+    headline,
+    author,
+    at: minutesAgo(ago),
+  }));
 
-type HunkIn = readonly [path: string, patch: readonly string[]];
-type ChangeIn = { id: string; title: string; why: string; hunks: readonly HunkIn[] };
-type ThemeIn = { id: string; title: string; purpose: string; changes: readonly ChangeIn[] };
+type HunkIn = readonly [
+  path: string,
+  patch: readonly string[],
+];
+type ChangeIn = {
+  id: string;
+  title: string;
+  why: string;
+  hunks: readonly HunkIn[];
+};
+type ThemeIn = {
+  id: string;
+  title: string;
+  purpose: string;
+  changes: readonly ChangeIn[];
+};
 
 /** A hunk as the reader draws it: the patch split into the lines git wrote. */
 function hunkOf([path, patch]: HunkIn): Hunk {
   const drawn = drawnOf(`diff --git a/${path} b/${path}\n${patch.join("\n")}`, () => "");
-  return { path, lines: drawn.files[0]?.lines ?? [] };
+  return {
+    path,
+    lines: drawn.files[0]?.lines ?? [],
+  };
 }
 
 type Spec = {
@@ -60,35 +116,69 @@ type Spec = {
   explainedBy: MockPr["explainedBy"];
   themes: readonly ThemeIn[];
   /** Threads by the change they are on, and the line of its first hunk by what it says. */
-  threads?: readonly { id: string; change: string; match?: string; resolved?: boolean; comments: readonly (readonly [author: string, ago: number, body: string])[] }[];
+  threads?: readonly {
+    id: string;
+    change: string;
+    match?: string;
+    resolved?: boolean;
+    comments: readonly (readonly [
+      author: string,
+      ago: number,
+      body: string,
+    ])[];
+  }[];
   /** What each of the other explanations says, by the kind's id. */
   accounts?: Readonly<Record<string, Account>>;
   /** What a question about it would come to, and the questions already asked of it. */
-  answers?: readonly { when: string; body: string }[];
+  answers?: readonly {
+    when: string;
+    body: string;
+  }[];
   asked?: readonly string[];
   /** What each tool finds, by the tool's id. */
   results?: Readonly<Record<string, readonly FindingSeed[]>>;
 };
 
-function build(spec: Spec): { pr: MockPr; results: Readonly<Record<string, readonly FindingSeed[]>> } {
+function build(spec: Spec): {
+  pr: MockPr;
+  results: Readonly<Record<string, readonly FindingSeed[]>>;
+} {
   const themes: Theme[] = spec.themes.map((theme) => ({
     ...theme,
-    changes: theme.changes.map((one): Change => ({ ...one, hunks: one.hunks.map(hunkOf) })),
+    changes: theme.changes.map(
+      (one): Change => ({
+        ...one,
+        hunks: one.hunks.map(hunkOf),
+      }),
+    ),
   }));
   const changes = themes.flatMap((theme) => theme.changes);
   const key = `${spec.repository}#${spec.number}`;
   const threads: SeedThread[] = (spec.threads ?? []).map((one) => {
     const at = changes.find((change) => change.id === one.change);
     if (at === undefined) throw new Error(`${key} has no change ${one.change}`);
-    const line = one.match === undefined ? -1 : at.hunks[0]!.lines.findIndex((text) => text.text.includes(one.match!));
-    if (one.match !== undefined && line < 0) throw new Error(`${one.change} has no line holding “${one.match}”`);
+    const line =
+      one.match === undefined
+        ? -1
+        : at.hunks[0]!.lines.findIndex((text) => text.text.includes(one.match!));
+    if (one.match !== undefined && line < 0)
+      throw new Error(`${one.change} has no line holding “${one.match}”`);
     return {
       id: `${key}:${one.id}`,
       change: one.change,
       hunk: 0,
-      ...(line < 0 ? {} : { line }),
+      ...(line < 0
+        ? {}
+        : {
+            line,
+          }),
       resolved: one.resolved ?? false,
-      comments: one.comments.map(([author, ago, body], n) => ({ id: `${key}:${one.id}:${n}`, author, at: minutesAgo(ago), body })),
+      comments: one.comments.map(([author, ago, body], n) => ({
+        id: `${key}:${one.id}:${n}`,
+        author,
+        at: minutesAgo(ago),
+        body,
+      })),
     };
   });
   const lines = changes.flatMap((change) => change.hunks.flatMap((hunk) => hunk.lines));
@@ -105,11 +195,21 @@ function build(spec: Spec): { pr: MockPr; results: Readonly<Record<string, reado
     approvals: spec.approvals ?? 0,
     conversation: spec.conversation,
     checks: spec.checkRows,
-    files: [...new Set(changes.flatMap((change) => change.hunks.map((hunk) => hunk.path)))].map((path) => ({
+    files: [
+      ...new Set(changes.flatMap((change) => change.hunks.map((hunk) => hunk.path))),
+    ].map((path) => ({
       path,
       status: "modified" as const,
-      additions: changes.flatMap((change) => change.hunks).filter((hunk) => hunk.path === path).flatMap((hunk) => hunk.lines).filter((one) => one.kind === "added").length,
-      deletions: changes.flatMap((change) => change.hunks).filter((hunk) => hunk.path === path).flatMap((hunk) => hunk.lines).filter((one) => one.kind === "removed").length,
+      additions: changes
+        .flatMap((change) => change.hunks)
+        .filter((hunk) => hunk.path === path)
+        .flatMap((hunk) => hunk.lines)
+        .filter((one) => one.kind === "added").length,
+      deletions: changes
+        .flatMap((change) => change.hunks)
+        .filter((hunk) => hunk.path === path)
+        .flatMap((hunk) => hunk.lines)
+        .filter((one) => one.kind === "removed").length,
     })),
     commits: spec.commits,
   };
@@ -126,18 +226,32 @@ function build(spec: Spec): { pr: MockPr; results: Readonly<Record<string, reado
     head: spec.commits.at(-1)?.sha ?? "",
     updatedAt: minutesAgo(spec.opened),
     lists: spec.lists,
-    ...(spec.team === undefined ? {} : { team: spec.team }),
-    ...(spec.holder === undefined ? {} : { holder: spec.holder }),
+    ...(spec.team === undefined
+      ? {}
+      : {
+          team: spec.team,
+        }),
+    ...(spec.holder === undefined
+      ? {}
+      : {
+          holder: spec.holder,
+        }),
     body: spec.body,
     page,
-    explanation: { summary: spec.summary, themes },
+    explanation: {
+      summary: spec.summary,
+      themes,
+    },
     explainedBy: spec.explainedBy,
     accounts: spec.accounts ?? {},
     answers: spec.answers ?? [],
     asked: spec.asked ?? [],
     threads,
   };
-  return { pr, results: spec.results ?? {} };
+  return {
+    pr,
+    results: spec.results ?? {},
+  };
 }
 
 // ---- #1899: asked of him by marta, with threads ----------------------------------------------------------
@@ -154,59 +268,175 @@ const marta = build({
   title: "Cache the plan windows for a minute",
   branch: "marta/plan-windows-cache",
   author: "marta",
-  lists: ["requested", "team", "assigned"],
+  lists: [
+    "requested",
+    "team",
+    "assigned",
+  ],
   team: "@Mele-Labs/fleet",
   opened: 205,
   body: "## Why\n\nThe title bar's meters read the plan windows every five seconds, and each read is a call to the provider. With two windows open that is 24 calls a minute before a single Session has started, against an allowance of 30. On 11 Oct that was enough to rate limit three Sessions (#1880).\n\n## What changes\n\n- Fleet keeps the last read for **60 seconds** and serves it again\n- Bridge asks once a minute instead of every five seconds\n- `read_at` says when Fleet last read, so the meters can say how old they are\n- A failed read is not cached, so the next ask tries the provider again\n\nThe windows move on the minute, so a minute is the longest a figure is wrong by.\n\n## How it is cached\n\nThe cache is one `Held` behind a `Mutex`, filled on the first ask and replaced when it is older than `CACHE_FOR`:\n\n```rust\nconst CACHE_FOR: Duration = Duration::from_secs(60);\n\nasync fn windows(&self) -> Result<Reading, Error> {\n    let mut held = self.held.lock().await;\n    if let Some(one) = held.as_ref().filter(|one| one.at.elapsed() < CACHE_FOR) {\n        return Ok(one.reading());\n    }\n    let fresh = provider::windows().await?;\n    *held = Some(Held { at: Instant::now(), windows: fresh });\n    Ok(held.as_ref().unwrap().reading())\n}\n```\n\n## Not in this pull request\n\n- A shared cache across Fleets on one machine. There is only ever one Fleet per home, so it would add a file to guard for nothing.\n- Pushing the figure to Bridge. Bridge still asks; it just asks less.\n- Any change to how the meters are drawn beyond the age line.\n\n## Compatibility\n\n`read_at` is a new required field on the wire. Bridge and Fleet ship together, so the protocol version moves with it and an old Bridge is refused at connect, as for any wire change.\n\nCloses #1871.",
   checks: "passed",
   review: "required",
   conversation: [
-    { kind: "comment", author: "marta", at: minutesAgo(190), body: "Asked for review from @nick: the Rust side is the part to read." },
-    { kind: "review", author: "devon", at: minutesAgo(120), verdict: "commented", body: "Two small things inline. The cache itself reads right." },
+    {
+      kind: "comment",
+      author: "marta",
+      at: minutesAgo(190),
+      body: "Asked for review from @nick: the Rust side is the part to read.",
+    },
+    {
+      kind: "review",
+      author: "devon",
+      at: minutesAgo(120),
+      verdict: "commented",
+      body: "Two small things inline. The cache itself reads right.",
+    },
   ],
   checkRows: checks("mele-labs/armada", 1899, [
-    ["build", "passed", 128],
-    ["test · rust", "passed", 238],
-    ["test · bridge", "passed", 214],
-    ["test · protocol", "passed", 71],
-    ["verify-foundations", "passed", 57],
-    ["typecheck", "passed", 94],
+    [
+      "build",
+      "passed",
+      128,
+    ],
+    [
+      "test · rust",
+      "passed",
+      238,
+    ],
+    [
+      "test · bridge",
+      "passed",
+      214,
+    ],
+    [
+      "test · protocol",
+      "passed",
+      71,
+    ],
+    [
+      "verify-foundations",
+      "passed",
+      57,
+    ],
+    [
+      "typecheck",
+      "passed",
+      94,
+    ],
   ]),
   commits: commits([
-    ["a41c0d7", "Keep the last plan read for a minute", "marta", 200],
-    ["f9b2e63", "Read the plan once a minute in Bridge", "marta", 196],
-    ["02d7a8c", "Say when the windows were read", "marta", 150],
+    [
+      "a41c0d7",
+      "Keep the last plan read for a minute",
+      "marta",
+      200,
+    ],
+    [
+      "f9b2e63",
+      "Read the plan once a minute in Bridge",
+      "marta",
+      196,
+    ],
+    [
+      "02d7a8c",
+      "Say when the windows were read",
+      "marta",
+      150,
+    ],
   ]),
-  asked: ["What happens to the cached read if Fleet restarts?"],
+  asked: [
+    "What happens to the cached read if Fleet restarts?",
+  ],
   answers: [
-    { when: "restart", body: "It is lost. The cache is a `Held` in memory in `plan_usage.rs`, so the first read after a restart calls the provider, and the minute starts from there." },
-    { when: "gh|signed out|sign.?in", body: "No. The plan windows come from the provider, not from `gh`, so a signed out `gh` does not touch this cache. The pull request panel's own reads are unchanged." },
+    {
+      when: "restart",
+      body: "It is lost. The cache is a `Held` in memory in `plan_usage.rs`, so the first read after a restart calls the provider, and the minute starts from there.",
+    },
+    {
+      when: "gh|signed out|sign.?in",
+      body: "No. The plan windows come from the provider, not from `gh`, so a signed out `gh` does not touch this cache. The pull request panel's own reads are unchanged.",
+    },
   ],
   accounts: {
     "user-impact": {
       shape: "change",
       rows: [
-        { what: "The plan meters in the title bar", before: "Each meter read the provider every five seconds, so a figure was never more than five seconds old.", after: "A figure can be up to a minute old, and the meter says how old it is." },
-        { what: "A second window", before: "Every window asked the provider on its own.", after: "Windows ask Fleet once a minute, and Fleet answers from its last read." },
-        { what: "A provider that is slow", before: "The meters waited on each read, and stalled with it.", after: "The last read is served again until its minute is up." },
+        {
+          what: "The plan meters in the title bar",
+          before:
+            "Each meter read the provider every five seconds, so a figure was never more than five seconds old.",
+          after: "A figure can be up to a minute old, and the meter says how old it is.",
+        },
+        {
+          what: "A second window",
+          before: "Every window asked the provider on its own.",
+          after: "Windows ask Fleet once a minute, and Fleet answers from its last read.",
+        },
+        {
+          what: "A provider that is slow",
+          before: "The meters waited on each read, and stalled with it.",
+          after: "The last read is served again until its minute is up.",
+        },
       ],
     },
     "how-to-test": {
       shape: "steps",
       steps: [
-        { do: "Run the plan usage tests, by name.", code: "armada check test plan_usage", look: "The cache cases pass: a second read inside the minute is served, and one after it calls the provider again.", from: { from: "doc", path: "crates/fleet/AGENTS.md", address: `${FORGE}/mele-labs/armada/blob/main/crates/fleet/AGENTS.md` } },
-        { do: "Start Fleet on this branch and watch its log for plan reads.", code: "tail -f ~/.armada/fleet.log | grep plan_usage", look: "One provider call a minute, where it was one every five seconds.", from: { from: "doc", path: "crates/fleet/README.md", address: `${FORGE}/mele-labs/armada/blob/main/crates/fleet/README.md` } },
-        { do: "Open a second Bridge window and leave both on the Cockpit for two minutes.", look: "Still one call a minute in the log, not two.", from: { from: "doc", path: "apps/desktop/AGENTS.md", address: `${FORGE}/mele-labs/armada/blob/main/apps/desktop/AGENTS.md` } },
-        { do: "Hover a plan meter in the title bar.", look: "It says how long ago Fleet read the figure, counting up from read_at.", from: { from: "doc", path: "docs/practices/bridge.md", address: `${FORGE}/mele-labs/armada/blob/main/docs/practices/bridge.md` } },
+        {
+          do: "Run the plan usage tests, by name.",
+          code: "armada check test plan_usage",
+          look: "The cache cases pass: a second read inside the minute is served, and one after it calls the provider again.",
+          from: {
+            from: "doc",
+            path: "crates/fleet/AGENTS.md",
+            address: `${FORGE}/mele-labs/armada/blob/main/crates/fleet/AGENTS.md`,
+          },
+        },
+        {
+          do: "Start Fleet on this branch and watch its log for plan reads.",
+          code: "tail -f ~/.armada/fleet.log | grep plan_usage",
+          look: "One provider call a minute, where it was one every five seconds.",
+          from: {
+            from: "doc",
+            path: "crates/fleet/README.md",
+            address: `${FORGE}/mele-labs/armada/blob/main/crates/fleet/README.md`,
+          },
+        },
+        {
+          do: "Open a second Bridge window and leave both on the Cockpit for two minutes.",
+          look: "Still one call a minute in the log, not two.",
+          from: {
+            from: "doc",
+            path: "apps/desktop/AGENTS.md",
+            address: `${FORGE}/mele-labs/armada/blob/main/apps/desktop/AGENTS.md`,
+          },
+        },
+        {
+          do: "Hover a plan meter in the title bar.",
+          look: "It says how long ago Fleet read the figure, counting up from read_at.",
+          from: {
+            from: "doc",
+            path: "docs/practices/bridge.md",
+            address: `${FORGE}/mele-labs/armada/blob/main/docs/practices/bridge.md`,
+          },
+        },
       ],
     },
     why: {
       shape: "reason",
-      problem: "Every open window read the plan windows every five seconds, and each read was a call to the provider. The provider allows 30 requests a minute to an account, and the meters used the same allowance a Session needs to start.",
+      problem:
+        "Every open window read the plan windows every five seconds, and each read was a call to the provider. The provider allows 30 requests a minute to an account, and the meters used the same allowance a Session needs to start.",
       cost: "On the afternoon of 11 Oct two windows and three Sessions went over it, and Sessions began failing with a rate limit error before they had done anything.",
       links: [
-        { label: "#1871 Plan meters hit the provider's rate limit", address: `${FORGE}/mele-labs/armada/issues/1871` },
-        { label: "#1880 Sessions rate limited on 11 Oct", address: `${FORGE}/mele-labs/armada/issues/1880` },
+        {
+          label: "#1871 Plan meters hit the provider's rate limit",
+          address: `${FORGE}/mele-labs/armada/issues/1871`,
+        },
+        {
+          label: "#1880 Sessions rate limited on 11 Oct",
+          address: `${FORGE}/mele-labs/armada/issues/1880`,
+        },
       ],
     },
   },
@@ -217,7 +447,8 @@ const marta = build({
     {
       id: "keep",
       title: "Fleet keeps the last read",
-      purpose: "A read inside the minute is served from memory, so the provider is called once a minute.",
+      purpose:
+        "A read inside the minute is served from memory, so the provider is called once a minute.",
       changes: [
         {
           id: "hold",
@@ -291,7 +522,14 @@ const marta = build({
           hunks: [
             [
               "crates/fleet/src/lib.rs",
-              ["@@ -41,6 +41,7 @@ pub mod plan_usage;", " pub struct Fleet {", "     store: Store,", "+    plan_usage: plan_usage::PlanUsage,", "     gate: Gate,", " }"],
+              [
+                "@@ -41,6 +41,7 @@ pub mod plan_usage;",
+                " pub struct Fleet {",
+                "     store: Store,",
+                "+    plan_usage: plan_usage::PlanUsage,",
+                "     gate: Gate,",
+                " }",
+              ],
             ],
           ],
         },
@@ -326,7 +564,8 @@ const marta = build({
     {
       id: "poll",
       title: "Bridge asks once a minute",
-      purpose: "The title bar stops asking every five seconds for a figure that cannot have changed.",
+      purpose:
+        "The title bar stops asking every five seconds for a figure that cannot have changed.",
       changes: [
         {
           id: "poll",
@@ -336,7 +575,7 @@ const marta = build({
             [
               MAIN_TS,
               [
-                "@@ -8,15 +8,22 @@ import { fleet } from \"./fleet-link\";",
+                '@@ -8,15 +8,22 @@ import { fleet } from "./fleet-link";',
                 " ",
                 "-const EVERY_MS = 5_000;",
                 "+const EVERY_MS = 60_000;",
@@ -345,7 +584,7 @@ const marta = build({
                 "+let timer: NodeJS.Timeout | undefined;",
                 " ",
                 " export async function readPlanUsage(): Promise<PlanUsage | undefined> {",
-                "   const answer = await fleet.get<PlanUsage>(\"/plan_usage\");",
+                '   const answer = await fleet.get<PlanUsage>("/plan_usage");',
                 "-  last = answer.ok ? answer.value : last;",
                 "+  if (answer.ok) last = answer.value;",
                 "   return last;",
@@ -410,7 +649,7 @@ const marta = build({
                 "+  read_at: string;",
                 " };",
                 " ",
-                " export type PlanKind = PlanWindow[\"kind\"];",
+                ' export type PlanKind = PlanWindow["kind"];',
               ],
             ],
           ],
@@ -445,8 +684,16 @@ const marta = build({
       change: "hold",
       match: "const CACHE_FOR",
       comments: [
-        ["devon", 118, "Should this be a setting? Other windows are `settings.toml` rows."],
-        ["marta", 96, "Kept as a const for now. A setting needs a registry row and the keyboard of the Settings page, and nobody has asked to change it."],
+        [
+          "devon",
+          118,
+          "Should this be a setting? Other windows are `settings.toml` rows.",
+        ],
+        [
+          "marta",
+          96,
+          "Kept as a const for now. A setting needs a registry row and the keyboard of the Settings page, and nobody has asked to change it.",
+        ],
       ],
     },
     {
@@ -455,15 +702,29 @@ const marta = build({
       match: "const listeners",
       resolved: true,
       comments: [
-        ["devon", 117, "nit: `names` was a set of strings and is now a set of callbacks."],
-        ["marta", 100, "Renamed."],
+        [
+          "devon",
+          117,
+          "nit: `names` was a set of strings and is now a set of callbacks.",
+        ],
+        [
+          "marta",
+          100,
+          "Renamed.",
+        ],
       ],
     },
     {
       id: "readat",
       change: "readat",
       match: "read_at: string",
-      comments: [["priya", 90, "Is this RFC 3339 like the other instants in this file, or epoch millis?"]],
+      comments: [
+        [
+          "priya",
+          90,
+          "Is this RFC 3339 like the other instants in this file, or epoch millis?",
+        ],
+      ],
     },
   ],
   results: {
@@ -495,7 +756,13 @@ const marta = build({
         body: "A Fleet that predates this change sends none, and Bridge parses it as present. Make it optional, or bump the protocol.",
       },
     ],
-    "test-gaps": [{ change: "test", title: "No test for a window that resets inside the minute", body: "The one test holds time still. Nothing covers a read after `resets_at` has passed." }],
+    "test-gaps": [
+      {
+        change: "test",
+        title: "No test for a window that resets inside the minute",
+        body: "The one test holds time still. Nothing covers a read after `resets_at` has passed.",
+      },
+    ],
   },
 });
 
@@ -508,30 +775,65 @@ const devon = build({
   title: "Serve a bay's history from one query",
   branch: "devon/bay-history-query",
   author: "devon",
-  lists: ["team"],
+  lists: [
+    "team",
+  ],
   team: "@Mele-Labs/bridge",
   opened: 64,
   body: "A bay's pane asked Fleet for every slot event and filtered them in Bridge.\n\nThe query answers one bay's leases and checkouts, newest first, and says when it cut.",
   checks: "running",
   review: "none",
-  conversation: [{ kind: "comment", author: "devon", at: minutesAgo(60), body: "Draft shape is in `bay-history.ts`. The Rust side reads the same rows the timeline does." }],
+  conversation: [
+    {
+      kind: "comment",
+      author: "devon",
+      at: minutesAgo(60),
+      body: "Draft shape is in `bay-history.ts`. The Rust side reads the same rows the timeline does.",
+    },
+  ],
   checkRows: checks("mele-labs/armada", 1903, [
-    ["build", "passed", 131],
-    ["test · rust", "running"],
-    ["test · bridge", "running"],
-    ["typecheck", "passed", 97],
+    [
+      "build",
+      "passed",
+      131,
+    ],
+    [
+      "test · rust",
+      "running",
+    ],
+    [
+      "test · bridge",
+      "running",
+    ],
+    [
+      "typecheck",
+      "passed",
+      97,
+    ],
   ]),
   commits: commits([
-    ["7bd0c19", "Answer a bay's history from one query", "devon", 62],
-    ["c3a5f48", "Draw the history from the query's rows", "devon", 50],
+    [
+      "7bd0c19",
+      "Answer a bay's history from one query",
+      "devon",
+      62,
+    ],
+    [
+      "c3a5f48",
+      "Draw the history from the query's rows",
+      "devon",
+      50,
+    ],
   ]),
-  summary: "A bay's pane filtered every slot event in Bridge to find one bay's history. Fleet now answers that bay's leases and checkouts, newest first, and says when it cut the list. The pane draws the answer.",
+  summary:
+    "A bay's pane filtered every slot event in Bridge to find one bay's history. Fleet now answers that bay's leases and checkouts, newest first, and says when it cut the list. The pane draws the answer.",
   explainedBy: "agent",
   themes: [
     {
       id: "query",
       title: "Fleet answers a bay's history",
-      purpose: "One query returns one bay's entries, so Bridge stops filtering the whole event log.",
+      purpose:
+        "One query returns one bay's entries, so Bridge stops filtering the whole event log.",
       changes: [
         {
           id: "query",
@@ -578,9 +880,9 @@ const devon = build({
               [
                 "@@ -3,8 +3,12 @@",
                 " export type BayHistoryEntry =",
-                "   | { kind: \"leased\"; at: string; holder: BayHolder; branch?: string }",
-                "   | { kind: \"released\"; at: string; holder: BayHolder }",
-                "   | { kind: \"checkout\"; at: string; sha: string; to: string; from?: string };",
+                '   | { kind: "leased"; at: string; holder: BayHolder; branch?: string }',
+                '   | { kind: "released"; at: string; holder: BayHolder }',
+                '   | { kind: "checkout"; at: string; sha: string; to: string; from?: string };',
                 " ",
                 "-export type BayHistory = { manifest_id: string; slot: number; entries: BayHistoryEntry[] };",
                 "+export type BayHistory = {",
@@ -615,7 +917,7 @@ const devon = build({
                 "+  const history = useBayHistory(bay.manifest, bay.slot);",
                 "+  const entries = history?.entries ?? [];",
                 "   return (",
-                "     <section className=\"deck-history\" aria-label=\"History\">",
+                '     <section className="deck-history" aria-label="History">',
                 "       <Holders entries={entries} />",
                 "+      {history?.cut === true ? <Cut /> : null}",
                 "     </section>",
@@ -625,15 +927,15 @@ const devon = build({
             [
               "apps/desktop/src/renderer/src/cockpit/deck/bay-history.test.tsx",
               [
-                "@@ -12,5 +12,10 @@ describe(\"BayHistoryPane\", () => {",
-                "   it(\"lists a bay's entries\", async () => {",
+                '@@ -12,5 +12,10 @@ describe("BayHistoryPane", () => {',
+                '   it("lists a bay\'s entries", async () => {',
                 "     const pane = await mountPane(bay);",
                 "     expect(pane.entries()).toHaveLength(3);",
                 "   });",
                 "+",
-                "+  it(\"says where the list was cut\", async () => {",
+                '+  it("says where the list was cut", async () => {',
                 "+    const pane = await mountPane(bay, { cut: true });",
-                "+    expect(pane.note()).toBe(\"Older entries exist\");",
+                '+    expect(pane.note()).toBe("Older entries exist");',
                 "+  });",
                 " });",
               ],
@@ -654,27 +956,52 @@ const mia = build({
   title: "Bump the manifest icons",
   branch: "mia/manifest-icons",
   author: "mia",
-  lists: ["requested"],
+  lists: [
+    "requested",
+  ],
   opened: 120,
   body: "The home screen icons were 144 and 192. The install prompt wants 512 as well, with a maskable one.",
   checks: "passed",
   review: "required",
   conversation: [],
   checkRows: checks("mele-labs/pocket", 212, [
-    ["build", "passed", 64],
-    ["test", "passed", 41],
-    ["lighthouse", "passed", 88],
+    [
+      "build",
+      "passed",
+      64,
+    ],
+    [
+      "test",
+      "passed",
+      41,
+    ],
+    [
+      "lighthouse",
+      "passed",
+      88,
+    ],
   ]),
-  commits: commits([["e1f7b02", "Add the 512 and maskable icons", "mia", 118]]),
-  summary: "The install prompt wants a 512 pixel icon and a maskable one, and the manifest only named 144 and 192. Both are added to the manifest and to the files the service worker caches.",
+  commits: commits([
+    [
+      "e1f7b02",
+      "Add the 512 and maskable icons",
+      "mia",
+      118,
+    ],
+  ]),
+  summary:
+    "The install prompt wants a 512 pixel icon and a maskable one, and the manifest only named 144 and 192. Both are added to the manifest and to the files the service worker caches.",
   explainedBy: "agent",
   // Risks reads this one and finds nothing: the tool's empty picture, with what was checked under it.
-  results: { risks: [] },
+  results: {
+    risks: [],
+  },
   themes: [
     {
       id: "icons",
       title: "The install prompt gets its icons",
-      purpose: "The manifest names the two sizes the prompt asks for, and the app works offline with them.",
+      purpose:
+        "The manifest names the two sizes the prompt asks for, and the app works offline with them.",
       changes: [
         {
           id: "manifest",
@@ -685,17 +1012,17 @@ const mia = build({
               "public/manifest.webmanifest",
               [
                 "@@ -6,8 +6,18 @@",
-                "   \"display\": \"standalone\",",
-                "   \"icons\": [",
-                "     { \"src\": \"/icons/192.png\", \"sizes\": \"192x192\", \"type\": \"image/png\" },",
-                "-    { \"src\": \"/icons/144.png\", \"sizes\": \"144x144\", \"type\": \"image/png\" }",
-                "+    { \"src\": \"/icons/144.png\", \"sizes\": \"144x144\", \"type\": \"image/png\" },",
-                "+    { \"src\": \"/icons/512.png\", \"sizes\": \"512x512\", \"type\": \"image/png\" },",
+                '   "display": "standalone",',
+                '   "icons": [',
+                '     { "src": "/icons/192.png", "sizes": "192x192", "type": "image/png" },',
+                '-    { "src": "/icons/144.png", "sizes": "144x144", "type": "image/png" }',
+                '+    { "src": "/icons/144.png", "sizes": "144x144", "type": "image/png" },',
+                '+    { "src": "/icons/512.png", "sizes": "512x512", "type": "image/png" },',
                 "+    {",
-                "+      \"src\": \"/icons/maskable-512.png\",",
-                "+      \"sizes\": \"512x512\",",
-                "+      \"type\": \"image/png\",",
-                "+      \"purpose\": \"maskable\"",
+                '+      "src": "/icons/maskable-512.png",',
+                '+      "sizes": "512x512",',
+                '+      "type": "image/png",',
+                '+      "purpose": "maskable"',
                 "+    }",
                 "   ]",
                 " }",
@@ -708,7 +1035,18 @@ const mia = build({
           title: "Cache them for offline",
           why: "An icon not in the precache list is fetched on first use, and the install prompt can ask before it is online.",
           hunks: [
-            ["src/sw/precache.ts", ["@@ -3,6 +3,8 @@ export const PRECACHE = [", "   \"/\",", "   \"/icons/192.png\",", "+  \"/icons/512.png\",", "+  \"/icons/maskable-512.png\",", "   \"/app.js\",", " ];"]],
+            [
+              "src/sw/precache.ts",
+              [
+                "@@ -3,6 +3,8 @@ export const PRECACHE = [",
+                '   "/",',
+                '   "/icons/192.png",',
+                '+  "/icons/512.png",',
+                '+  "/icons/maskable-512.png",',
+                '   "/app.js",',
+                " ];",
+              ],
+            ],
           ],
         },
       ],
@@ -728,47 +1066,121 @@ const reconnect = build({
   title: "Fix the reconnect wait",
   branch: "fleet/reconnect-wait",
   author: "drone",
-  lists: ["mine"],
+  lists: [
+    "mine",
+  ],
   opened: 40,
-  holder: { id: "f1", title: "Fix the reconnect wait" },
+  holder: {
+    id: "f1",
+    title: "Fix the reconnect wait",
+  },
   body: "When Bridge loses its socket to Fleet it waited a flat 30 seconds.\n\n- the first wait is 5 seconds\n- each one after doubles, up to the 60 second cap\n- a wait is jittered by 20% so two windows do not reconnect together",
   checks: "failed",
   review: "required",
-  conversation: [{ kind: "comment", author: "drone", at: minutesAgo(38), body: "The first wait is 5 seconds and doubles up to the cap. desktop_test is red on the resize case, which this does not touch." }],
+  conversation: [
+    {
+      kind: "comment",
+      author: "drone",
+      at: minutesAgo(38),
+      body: "The first wait is 5 seconds and doubles up to the cap. desktop_test is red on the resize case, which this does not touch.",
+    },
+  ],
   checkRows: checks("mele-labs/armada", 1896, [
-    ["build", "passed", 122],
-    ["test · rust", "passed", 244],
-    ["desktop_test", "failed", 201],
-    ["verify-foundations", "passed", 56],
-    ["typecheck", "passed", 93],
+    [
+      "build",
+      "passed",
+      122,
+    ],
+    [
+      "test · rust",
+      "passed",
+      244,
+    ],
+    [
+      "desktop_test",
+      "failed",
+      201,
+    ],
+    [
+      "verify-foundations",
+      "passed",
+      56,
+    ],
+    [
+      "typecheck",
+      "passed",
+      93,
+    ],
   ]),
   commits: commits([
-    ["5c18d3e", "Wait 5 seconds first, then back off", "drone", 38],
-    ["80a2f6b", "Jitter the wait", "drone", 31],
+    [
+      "5c18d3e",
+      "Wait 5 seconds first, then back off",
+      "drone",
+      38,
+    ],
+    [
+      "80a2f6b",
+      "Jitter the wait",
+      "drone",
+      31,
+    ],
   ]),
   accounts: {
     "user-impact": {
       shape: "change",
       rows: [
-        { what: "Fleet restarts", before: "Every window stayed dark for 30 seconds.", after: "The first retry is at 5 seconds, so a restart is back in about that." },
-        { what: "Fleet is away for a while", before: "A retry every 30 seconds for as long as it stayed away.", after: "Waits of 5, 10, 20 and 40 seconds, then one every 60." },
-        { what: "Two windows open", before: "Both retried on the same beat.", after: "Each wait is spread by a fifth, so they do not knock together." },
+        {
+          what: "Fleet restarts",
+          before: "Every window stayed dark for 30 seconds.",
+          after: "The first retry is at 5 seconds, so a restart is back in about that.",
+        },
+        {
+          what: "Fleet is away for a while",
+          before: "A retry every 30 seconds for as long as it stayed away.",
+          after: "Waits of 5, 10, 20 and 40 seconds, then one every 60.",
+        },
+        {
+          what: "Two windows open",
+          before: "Both retried on the same beat.",
+          after: "Each wait is spread by a fifth, so they do not knock together.",
+        },
       ],
     },
     "how-to-test": {
       shape: "steps",
       steps: [
-        { do: "Open Bridge, then stop Fleet.", code: "armada fleet stop", look: "The link mark says reconnecting, and the first retry comes at about 5 seconds." },
-        { do: "Leave Fleet stopped for two minutes.", look: "Retries at about 5, 10, 20 and 40 seconds, then every 60." },
-        { do: "Start Fleet again.", code: "armada fleet start", look: "Bridge connects at its next retry and the link mark says connected." },
-        { do: "Open a second window and stop Fleet again.", look: "The two windows do not retry in the same second." },
+        {
+          do: "Open Bridge, then stop Fleet.",
+          code: "armada fleet stop",
+          look: "The link mark says reconnecting, and the first retry comes at about 5 seconds.",
+        },
+        {
+          do: "Leave Fleet stopped for two minutes.",
+          look: "Retries at about 5, 10, 20 and 40 seconds, then every 60.",
+        },
+        {
+          do: "Start Fleet again.",
+          code: "armada fleet start",
+          look: "Bridge connects at its next retry and the link mark says connected.",
+        },
+        {
+          do: "Open a second window and stop Fleet again.",
+          look: "The two windows do not retry in the same second.",
+        },
       ],
     },
     why: {
       shape: "reason",
-      problem: "A Fleet restart left every Bridge window dark for 30 seconds, because the wait after a lost socket was a flat 30 seconds and the first retry was already late. A Fleet that stayed away was asked every 30 seconds for as long as it did.",
+      problem:
+        "A Fleet restart left every Bridge window dark for 30 seconds, because the wait after a lost socket was a flat 30 seconds and the first retry was already late. A Fleet that stayed away was asked every 30 seconds for as long as it did.",
       cost: "Jobs kept progressing, but nothing could be reviewed or answered for half a minute after every update, and two windows retried in step.",
-      links: [{ label: "#1859 Bridge takes 30 seconds to come back after an update", address: `${FORGE}/mele-labs/armada/issues/1859` }],
+      links: [
+        {
+          label: "#1859 Bridge takes 30 seconds to come back after an update",
+          address: `${FORGE}/mele-labs/armada/issues/1859`,
+        },
+      ],
     },
   },
   summary:
@@ -778,7 +1190,8 @@ const reconnect = build({
     {
       id: "back",
       title: "A dropped socket waits longer each time",
-      purpose: "The first retry is quick, and a Fleet that stays away is asked less and less often.",
+      purpose:
+        "The first retry is quick, and a Fleet that stays away is asked less and less often.",
       changes: [
         {
           id: "back",
@@ -810,19 +1223,25 @@ const reconnect = build({
           hunks: [
             [
               LINK,
-              ["@@ -1,4 +1,5 @@", " import WebSocket from \"ws\";", "+import { jittered, waitFor } from \"../renderer/src/cockpit/reconnect\";", " ", " import { announce } from \"./status\";"],
+              [
+                "@@ -1,4 +1,5 @@",
+                ' import WebSocket from "ws";',
+                '+import { jittered, waitFor } from "../renderer/src/cockpit/reconnect";',
+                " ",
+                ' import { announce } from "./status";',
+              ],
             ],
             [
               LINK,
               [
-                "@@ -28,10 +29,14 @@ import { announce } from \"./status\";",
+                '@@ -28,10 +29,14 @@ import { announce } from "./status";',
                 " let socket: WebSocket | undefined;",
                 "+let attempt = 0;",
                 " ",
                 " export function connect(): void {",
                 "   const socket = new WebSocket(url());",
-                "   socket.on(\"close\", () => {",
-                "     announce(\"lost\");",
+                '   socket.on("close", () => {',
+                '     announce("lost");',
                 "-    setTimeout(connect, 30_000);",
                 "+    const wait = jittered(waitFor(attempt));",
                 "+    attempt += 1;",
@@ -842,16 +1261,16 @@ const reconnect = build({
               "apps/desktop/src/renderer/src/cockpit/reconnect.test.ts",
               [
                 "@@ -0,0 +1,13 @@",
-                "+import { describe, expect, it } from \"vitest\";",
+                '+import { describe, expect, it } from "vitest";',
                 "+",
-                "+import { waitFor } from \"./reconnect\";",
+                '+import { waitFor } from "./reconnect";',
                 "+",
-                "+describe(\"waitFor\", () => {",
-                "+  it(\"starts at five seconds\", () => {",
+                '+describe("waitFor", () => {',
+                '+  it("starts at five seconds", () => {',
                 "+    expect(waitFor(0)).toBe(5_000);",
                 "+  });",
                 "+",
-                "+  it(\"doubles, then holds at the cap\", () => {",
+                '+  it("doubles, then holds at the cap", () => {',
                 "+    expect(waitFor(1)).toBe(10_000);",
                 "+    expect(waitFor(3)).toBe(40_000);",
                 "+    expect(waitFor(9)).toBe(60_000);",
@@ -883,7 +1302,8 @@ const reconnect = build({
     {
       id: "spread",
       title: "Two windows do not reconnect in step",
-      purpose: "Every window that lost Fleet at once would retry at once. A spread breaks the knock.",
+      purpose:
+        "Every window that lost Fleet at once would retry at once. A spread breaks the knock.",
       changes: [
         {
           id: "jitter",
@@ -915,9 +1335,9 @@ const reconnect = build({
             [
               "apps/desktop/src/renderer/src/cockpit/reconnect.test.ts",
               [
-                "@@ -14,0 +15,8 @@ describe(\"waitFor\", () => {",
-                "+describe(\"jittered\", () => {",
-                "+  it(\"spreads a wait by a fifth either side\", () => {",
+                '@@ -14,0 +15,8 @@ describe("waitFor", () => {',
+                '+describe("jittered", () => {',
+                '+  it("spreads a wait by a fifth either side", () => {',
                 "+    expect(jittered(10_000, () => 0)).toBe(8_000);",
                 "+    expect(jittered(10_000, () => 1)).toBe(12_000);",
                 "+  });",
@@ -931,7 +1351,8 @@ const reconnect = build({
     {
       id: "connected",
       title: "Bridge says when it is connected",
-      purpose: "The link announced only a loss. It now announces the open, and the title bar has words for it.",
+      purpose:
+        "The link announced only a loss. It now announces the open, and the title bar has words for it.",
       changes: [
         {
           id: "open",
@@ -943,11 +1364,11 @@ const reconnect = build({
               [
                 "@@ -31,6 +32,9 @@ export function connect(): void {",
                 "   const socket = new WebSocket(url());",
-                "+  socket.on(\"open\", () => {",
-                "+    announce(\"connected\");",
+                '+  socket.on("open", () => {',
+                '+    announce("connected");',
                 "+  });",
-                "   socket.on(\"close\", () => {",
-                "     announce(\"lost\");",
+                '   socket.on("close", () => {',
+                '     announce("lost");',
               ],
             ],
           ],
@@ -961,15 +1382,15 @@ const reconnect = build({
               "apps/desktop/src/renderer/src/cockpit/link-state.ts",
               [
                 "@@ -1,10 +1,12 @@",
-                "-export type LinkState = \"lost\" | \"connecting\";",
-                "+export type LinkState = \"connected\" | \"lost\" | \"connecting\";",
+                '-export type LinkState = "lost" | "connecting";',
+                '+export type LinkState = "connected" | "lost" | "connecting";',
                 " ",
                 " export function wordsOf(state: LinkState): string {",
                 "   switch (state) {",
-                "+    case \"connected\":",
-                "+      return \"Connected\";",
-                "     case \"lost\":",
-                "       return \"Lost\";",
+                '+    case "connected":',
+                '+      return "Connected";',
+                '     case "lost":',
+                '       return "Lost";',
               ],
             ],
           ],
@@ -978,7 +1399,13 @@ const reconnect = build({
     },
   ],
   results: {
-    risks: [{ change: "jitter", title: "Jitter can pass the cap", body: "The cap is applied in `waitFor`, before the spread. A 60 second wait comes out as up to 72 seconds." }],
+    risks: [
+      {
+        change: "jitter",
+        title: "Jitter can pass the cap",
+        body: "The cap is applied in `waitFor`, before the spread. A 60 second wait comes out as up to 72 seconds.",
+      },
+    ],
     "possible-bugs": [
       {
         change: "link",
@@ -995,7 +1422,13 @@ const reconnect = build({
         body: "A window built before this change switches on `LinkState` with no default, and draws nothing for `connected`.",
       },
     ],
-    "test-gaps": [{ change: "open", title: "No test for the open handler", body: "Nothing asserts that `announce` is called with `connected`, or that the attempt count is touched when the socket opens." }],
+    "test-gaps": [
+      {
+        change: "open",
+        title: "No test for the open handler",
+        body: "Nothing asserts that `announce` is called with `connected`, or that the attempt count is touched when the socket opens.",
+      },
+    ],
   },
 });
 
@@ -1008,19 +1441,40 @@ const pause = build({
   title: "Add the pause marker column",
   branch: "armada/82-pause-column",
   author: "drone",
-  lists: ["mine"],
+  lists: [
+    "mine",
+  ],
   opened: 30,
   body: "Adds `paused_at` to the jobs table, null until a Job is paused.",
   checks: "running",
   review: "none",
   conversation: [],
   checkRows: checks("mele-labs/armada", 1892, [
-    ["build", "passed", 119],
-    ["test · rust", "running"],
-    ["verify-foundations", "passed", 55],
+    [
+      "build",
+      "passed",
+      119,
+    ],
+    [
+      "test · rust",
+      "running",
+    ],
+    [
+      "verify-foundations",
+      "passed",
+      55,
+    ],
   ]),
-  commits: commits([["9e4b7a0", "Add the pause marker column", "drone", 29]]),
-  summary: "A Job is paused when `paused_at` is set and resumed when it is cleared. The column is added to the jobs table, read into the store's row, and sent on the wire.",
+  commits: commits([
+    [
+      "9e4b7a0",
+      "Add the pause marker column",
+      "drone",
+      29,
+    ],
+  ]),
+  summary:
+    "A Job is paused when `paused_at` is set and resumed when it is cleared. The column is added to the jobs table, read into the store's row, and sent on the wire.",
   explainedBy: "agent",
   themes: [
     {
@@ -1052,7 +1506,16 @@ const pause = build({
           title: "Read it into the row",
           why: "The store hands out `JobRow`, so the column has to be a field of it.",
           hunks: [
-            ["crates/store/src/jobs.rs", ["@@ -44,6 +44,7 @@ pub struct JobRow {", "     pub branch: Option<String>,", "     pub started_at: Option<String>,", "+    pub paused_at: Option<String>,", " }"]],
+            [
+              "crates/store/src/jobs.rs",
+              [
+                "@@ -44,6 +44,7 @@ pub struct JobRow {",
+                "     pub branch: Option<String>,",
+                "     pub started_at: Option<String>,",
+                "+    pub paused_at: Option<String>,",
+                " }",
+              ],
+            ],
           ],
         },
         {
@@ -1062,7 +1525,14 @@ const pause = build({
           hunks: [
             [
               "packages/protocol/src/job.ts",
-              ["@@ -52,6 +52,8 @@ export type JobSummary = {", "   started_at?: string;", "+  /** RFC 3339. Set while the Job is paused. */", "+  paused_at?: string;", "   branch?: string;", " };"],
+              [
+                "@@ -52,6 +52,8 @@ export type JobSummary = {",
+                "   started_at?: string;",
+                "+  /** RFC 3339. Set while the Job is paused. */",
+                "+  paused_at?: string;",
+                "   branch?: string;",
+                " };",
+              ],
             ],
           ],
         },
@@ -1082,7 +1552,20 @@ const pause = build({
 
 // ---- Found by a find, on neither of his lists ------------------------------------------------------------
 
-const quick = (spec: { conversation?: PullRequestEntry[]; accounts?: Readonly<Record<string, Account>>; lists: ReviewPr["lists"]; team?: string; number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
+const quick = (spec: {
+  conversation?: PullRequestEntry[];
+  accounts?: Readonly<Record<string, Account>>;
+  lists: ReviewPr["lists"];
+  team?: string;
+  number: number;
+  title: string;
+  branch: string;
+  author: string;
+  opened: number;
+  body: string;
+  summary: string;
+  theme: ThemeIn;
+}) =>
   build({
     repository: "mele-labs/armada",
     manifestId: "armada",
@@ -1091,26 +1574,60 @@ const quick = (spec: { conversation?: PullRequestEntry[]; accounts?: Readonly<Re
     branch: spec.branch,
     author: spec.author,
     lists: spec.lists,
-    ...(spec.team === undefined ? {} : { team: spec.team }),
+    ...(spec.team === undefined
+      ? {}
+      : {
+          team: spec.team,
+        }),
     opened: spec.opened,
     body: spec.body,
     checks: "passed",
     review: "none",
     conversation: spec.conversation ?? [],
     checkRows: checks("mele-labs/armada", spec.number, [
-      ["build", "passed", 120],
-      ["test · rust", "passed", 230],
+      [
+        "build",
+        "passed",
+        120,
+      ],
+      [
+        "test · rust",
+        "passed",
+        230,
+      ],
     ]),
-    commits: commits([[`${spec.number.toString(16)}a01c3`.slice(0, 7), spec.title, spec.author, spec.opened - 3]]),
+    commits: commits([
+      [
+        `${spec.number.toString(16)}a01c3`.slice(0, 7),
+        spec.title,
+        spec.author,
+        spec.opened - 3,
+      ],
+    ]),
     summary: spec.summary,
     explainedBy: "agent",
-    ...(spec.accounts === undefined ? {} : { accounts: spec.accounts }),
-    themes: [spec.theme],
+    ...(spec.accounts === undefined
+      ? {}
+      : {
+          accounts: spec.accounts,
+        }),
+    themes: [
+      spec.theme,
+    ],
   });
 
 const hub = quick({
-  conversation: [{ kind: "comment", author: "preview-bot", at: minutesAgo(280), body: "Preview ready: https://pr-1907.preview.armada.dev\n\nBuilt from the last commit. Taken down when the pull request closes." }],
-  lists: ["team"],
+  conversation: [
+    {
+      kind: "comment",
+      author: "preview-bot",
+      at: minutesAgo(280),
+      body: "Preview ready: https://pr-1907.preview.armada.dev\n\nBuilt from the last commit. Taken down when the pull request closes.",
+    },
+  ],
+  lists: [
+    "team",
+  ],
   team: "@Mele-Labs/fleet",
   number: 1907,
   title: "Name the hub's ports",
@@ -1122,30 +1639,69 @@ const hub = quick({
     "user-impact": {
       shape: "change",
       rows: [
-        { what: "Restarting Fleet", before: "Every open window kept reading the old port and had to be closed and reopened.", after: "The hub comes back on the same port, so a window reconnects on its own." },
-        { what: "A port that is taken", before: "Not handled; the hub took whatever it was given.", after: "The hub binds a free port and writes it to the runtime file." },
+        {
+          what: "Restarting Fleet",
+          before: "Every open window kept reading the old port and had to be closed and reopened.",
+          after: "The hub comes back on the same port, so a window reconnects on its own.",
+        },
+        {
+          what: "A port that is taken",
+          before: "Not handled; the hub took whatever it was given.",
+          after: "The hub binds a free port and writes it to the runtime file.",
+        },
       ],
     },
     "how-to-test": {
       shape: "steps",
       steps: [
-        { do: "Restart Fleet with a window open.", code: "armada fleet restart", look: "The window reconnects without a reload.", from: { from: "description" } },
-        { do: "Run the hub port tests, by name.", code: "armada check test hub_port", look: "Three cases pass: free, taken, and first start.", from: { from: "description" } },
-        { do: "Occupy the port, restart Fleet, and read the runtime file.", code: "nc -l 4219 &\ncat ~/.armada/runtime.json", look: "A different hub_port than before, and the window still reconnects.", from: { from: "doc", path: "crates/fleet/README.md", address: `${FORGE}/mele-labs/armada/blob/main/crates/fleet/README.md` } },
+        {
+          do: "Restart Fleet with a window open.",
+          code: "armada fleet restart",
+          look: "The window reconnects without a reload.",
+          from: {
+            from: "description",
+          },
+        },
+        {
+          do: "Run the hub port tests, by name.",
+          code: "armada check test hub_port",
+          look: "Three cases pass: free, taken, and first start.",
+          from: {
+            from: "description",
+          },
+        },
+        {
+          do: "Occupy the port, restart Fleet, and read the runtime file.",
+          code: "nc -l 4219 &\ncat ~/.armada/runtime.json",
+          look: "A different hub_port than before, and the window still reconnects.",
+          from: {
+            from: "doc",
+            path: "crates/fleet/README.md",
+            address: `${FORGE}/mele-labs/armada/blob/main/crates/fleet/README.md`,
+          },
+        },
       ],
     },
     why: {
       shape: "reason",
-      problem: "A restart left the hub on a new port, and every window that survived it was reading the old one.",
+      problem:
+        "A restart left the hub on a new port, and every window that survived it was reading the old one.",
       cost: "A window had to be closed and reopened after every Fleet restart before it found the hub again.",
-      links: [{ label: "#1862 Windows lose the hub after a Fleet restart", address: `${FORGE}/mele-labs/armada/issues/1862` }],
+      links: [
+        {
+          label: "#1862 Windows lose the hub after a Fleet restart",
+          address: `${FORGE}/mele-labs/armada/issues/1862`,
+        },
+      ],
     },
   },
-  summary: "The hub took a random port on every start, so a window that survived a restart read a stale one. It now asks for the port in the runtime file first.",
+  summary:
+    "The hub took a random port on every start, so a window that survived a restart read a stale one. It now asks for the port in the runtime file first.",
   theme: {
     id: "ports",
     title: "The hub keeps its port",
-    purpose: "A restart lands on the port the runtime file names, so a window reconnects without reading anything new.",
+    purpose:
+      "A restart lands on the port the runtime file names, so a window reconnects without reading anything new.",
     changes: [
       {
         id: "bind",
@@ -1173,7 +1729,15 @@ const hub = quick({
         title: "Write the port back",
         why: "A fallback port has to be the one recorded, or the next start asks for the old one again.",
         hunks: [
-          ["crates/fleet/src/main_hub.rs", ["@@ -80,6 +86,7 @@ pub async fn serve(runtime: &Runtime) -> io::Result<()> {", "     let listener = bind(runtime).await?;", "+    runtime.record_port(listener.local_addr()?.port())?;", "     accept(listener).await"]],
+          [
+            "crates/fleet/src/main_hub.rs",
+            [
+              "@@ -80,6 +86,7 @@ pub async fn serve(runtime: &Runtime) -> io::Result<()> {",
+              "     let listener = bind(runtime).await?;",
+              "+    runtime.record_port(listener.local_addr()?.port())?;",
+              "     accept(listener).await",
+            ],
+          ],
         ],
       },
     ],
@@ -1188,7 +1752,8 @@ const totals = quick({
   author: "marek",
   opened: 410,
   body: "Line items were rounded one by one and then summed, so an invoice could be a cent off the sum of its lines.\n\nTotals are now summed in minor units and rounded once at the end.",
-  summary: "An invoice total was the sum of rounded lines, which drifts by a cent. It is now the rounded sum of the lines.",
+  summary:
+    "An invoice total was the sum of rounded lines, which drifts by a cent. It is now the rounded sum of the lines.",
   theme: {
     id: "rounding",
     title: "A total is rounded once",
@@ -1216,14 +1781,17 @@ const totals = quick({
 });
 
 const webhook = quick({
-  lists: ["assigned"],
+  lists: [
+    "assigned",
+  ],
   number: 1908,
   title: "Retry the webhook on a 5xx",
   branch: "devon/webhook-retry",
   author: "devon",
   opened: 180,
   body: "A customer's endpoint that answered 502 once was never told about the payment.\n\nThe billing service now retries a webhook on any 5xx, three times, with a growing wait.",
-  summary: "A webhook that got a 5xx was dropped. The billing service now tries it three more times with a growing wait.",
+  summary:
+    "A webhook that got a 5xx was dropped. The billing service now tries it three more times with a growing wait.",
   theme: {
     id: "retry",
     title: "A webhook that failed is tried again",
@@ -1260,33 +1828,88 @@ const webhook = quick({
 // ---- The tools ------------------------------------------------------------------------------------------------
 
 const kitTools: ToolDef[] = [
-  { id: "test-gaps", kind: "tool", name: "Test gaps", source: "kit", mark: "custom", agent: true, checks: "What the change does that no test would notice if it broke." },
+  {
+    id: "test-gaps",
+    kind: "tool",
+    name: "Test gaps",
+    source: "kit",
+    mark: "custom",
+    agent: true,
+    checks: "What the change does that no test would notice if it broke.",
+  },
 ];
 
 /** `.armada/review-tools/` in the armada repository: one that is its own, and one that replaces the Kit's of the same name. */
 const repositoryTools: Record<string, ToolDef[]> = {
   armada: [
-    { id: "test-gaps", kind: "tool", name: "Test gaps", source: "repository", mark: "custom", agent: true, checks: "What the change does that no test in this repository's suites would notice if it broke. Name the suite that should hold it." },
-    { id: "migration-safety", kind: "tool", name: "Migration safety", source: "repository", mark: "custom", agent: true, checks: "A migration under crates/store/migrations that locks a table, rewrites rows, or cannot be run twice." },
+    {
+      id: "test-gaps",
+      kind: "tool",
+      name: "Test gaps",
+      source: "repository",
+      mark: "custom",
+      agent: true,
+      checks:
+        "What the change does that no test in this repository's suites would notice if it broke. Name the suite that should hold it.",
+    },
+    {
+      id: "migration-safety",
+      kind: "tool",
+      name: "Migration safety",
+      source: "repository",
+      mark: "custom",
+      agent: true,
+      checks:
+        "A migration under crates/store/migrations that locks a table, rewrites rows, or cannot be run twice.",
+    },
   ],
 };
 
 /** Every pull request the mock forge holds, the tools a repository has, and what each tool finds on each pull request. */
 export function reviewSeed(): ReviewSeed {
-  const all = [marta, devon, mia, reconnect, pause, hub, totals, webhook];
+  const all = [
+    marta,
+    devon,
+    mia,
+    reconnect,
+    pause,
+    hub,
+    totals,
+    webhook,
+  ];
   return {
     me: "nick",
     // Listed newest first, as the forge lists them: the order they were written in.
-    prs: all.map((one, at) => ({ ...one.pr, updatedAt: minutesAgo(at + 1) })),
+    prs: all.map((one, at) => ({
+      ...one.pr,
+      updatedAt: minutesAgo(at + 1),
+    })),
     tools: {
       armada: ARMADA_DEFS,
       kit: kitTools,
       repository: repositoryTools,
-      leftOut: { armada: [{ file: "/Users/user/Development/armada/.armada/review-tools/notes.md", source: "repository", said: "No kind in its front matter" }] },
+      leftOut: {
+        armada: [
+          {
+            file: "/Users/user/Development/armada/.armada/review-tools/notes.md",
+            source: "repository",
+            said: "No kind in its front matter",
+          },
+        ],
+      },
     },
-    results: Object.fromEntries(all.map((one) => [one.pr.key, one.results])),
+    results: Object.fromEntries(
+      all.map((one) => [
+        one.pr.key,
+        one.results,
+      ]),
+    ),
     pushes: {
-      [reconnect.pr.key]: { sha: "d41e7a9", headline: "Reset the attempt count when the socket opens", author: "drone" },
+      [reconnect.pr.key]: {
+        sha: "d41e7a9",
+        headline: "Reset the attempt count when the socket opens",
+        author: "drone",
+      },
     },
     walks: walkSeeds(),
     places: rememberedPlaces(),
@@ -1294,16 +1917,32 @@ export function reviewSeed(): ReviewSeed {
       {
         when: "touch.*files.*touched|files i.?ve (touched|changed)",
         hits: [
-          { key: hub.pr.key, reason: "touches crates/fleet/src/main_hub.rs, which you changed on 14 Oct" },
-          { key: marta.pr.key, reason: "touches crates/fleet/src/lib.rs, which you changed on 14 Oct" },
-          { key: devon.pr.key, reason: "touches apps/desktop/src/renderer/src/cockpit/deck/bay-history.tsx, which you changed on 9 Oct" },
+          {
+            key: hub.pr.key,
+            reason: "touches crates/fleet/src/main_hub.rs, which you changed on 14 Oct",
+          },
+          {
+            key: marta.pr.key,
+            reason: "touches crates/fleet/src/lib.rs, which you changed on 14 Oct",
+          },
+          {
+            key: devon.pr.key,
+            reason:
+              "touches apps/desktop/src/renderer/src/cockpit/deck/bay-history.tsx, which you changed on 9 Oct",
+          },
         ],
       },
       {
         when: "billing",
         hits: [
-          { key: webhook.pr.key, reason: "touches services/billing/src/webhook.rs" },
-          { key: totals.pr.key, reason: "touches services/billing/src/totals.rs" },
+          {
+            key: webhook.pr.key,
+            reason: "touches services/billing/src/webhook.rs",
+          },
+          {
+            key: totals.pr.key,
+            reason: "touches services/billing/src/totals.rs",
+          },
         ],
       },
     ],

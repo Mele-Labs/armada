@@ -25,7 +25,9 @@ export type LimitValues = {
 };
 
 /** The limits in force — `GET /limits` — and the ones Fleet shipped with. */
-export type FleetLimits = LimitValues & { shipped: LimitValues };
+export type FleetLimits = LimitValues & {
+  shipped: LimitValues;
+};
 
 /**
  * A save — `POST /limits/save`. **An omitted field keeps its current value**,

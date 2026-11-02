@@ -34,10 +34,23 @@ export const HOST = "127.0.0.1";
 
 /** What is at the runtime file's path. */
 export type Presence =
-  | { at: "absent"; absence: Absence }
-  | { at: "stale"; absence: Absence }
-  | { at: "running"; fleet: FleetIdentity; path: string }
-  | { at: "refused"; fault: RuntimeFault };
+  | {
+      at: "absent";
+      absence: Absence;
+    }
+  | {
+      at: "stale";
+      absence: Absence;
+    }
+  | {
+      at: "running";
+      fleet: FleetIdentity;
+      path: string;
+    }
+  | {
+      at: "refused";
+      fault: RuntimeFault;
+    };
 
 /**
  * Where machine-level state lives. Application Support, because Armada is a
@@ -66,7 +79,10 @@ export function auditPath(home: string | undefined): string | null {
  * there on.
  */
 export function startingIdentity(home: string | undefined): BridgeIdentity {
-  return { auditPath: auditPath(home), fleetProtocol: null };
+  return {
+    auditPath: auditPath(home),
+    fleetProtocol: null,
+  };
 }
 
 function machineDir(home: string | undefined): string | null {
@@ -75,7 +91,18 @@ function machineDir(home: string | undefined): string | null {
 }
 
 /** What a process reported as its start time. Compared for equality, never parsed. */
-type Holder = { held: false } | { held: true; startedAt: string } | { held: null; detail: string };
+type Holder =
+  | {
+      held: false;
+    }
+  | {
+      held: true;
+      startedAt: string;
+    }
+  | {
+      held: null;
+      detail: string;
+    };
 
 /** The largest pid the platform can express. Above it names no process. */
 const PID_CEILING = 2147483647;
@@ -91,19 +118,46 @@ const PID_CEILING = 2147483647;
  * as.
  */
 export function holderOf(pid: number): Holder {
-  if (!Number.isInteger(pid) || pid <= 0 || pid > PID_CEILING) return { held: false };
+  if (!Number.isInteger(pid) || pid <= 0 || pid > PID_CEILING)
+    return {
+      held: false,
+    };
 
-  const run = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8" });
+  const run = spawnSync(
+    "ps",
+    [
+      "-o",
+      "lstart=",
+      "-p",
+      String(pid),
+    ],
+    {
+      encoding: "utf8",
+    },
+  );
   if (run.error !== undefined) {
-    return { held: null, detail: run.error.message };
+    return {
+      held: null,
+      detail: run.error.message,
+    };
   }
   // Told apart by stderr rather than by the exit code: an absent pid and a
   // refused argument both exit non-zero, and only one means nothing is there.
   const complaint = (run.stderr ?? "").trim();
-  if (complaint !== "") return { held: null, detail: complaint };
+  if (complaint !== "")
+    return {
+      held: null,
+      detail: complaint,
+    };
   const reading = (run.stdout ?? "").trim();
-  if (reading === "") return { held: false };
-  return { held: true, startedAt: reading };
+  if (reading === "")
+    return {
+      held: false,
+    };
+  return {
+    held: true,
+    startedAt: reading,
+  };
 }
 
 /** The four fields, checked. Anything else in the object is ignored. */
@@ -117,7 +171,12 @@ function identity(parsed: unknown): FleetIdentity | null {
   const speaks = typeof id === "string" ? id : "";
   if (typeof pid !== "number") return null;
   if (typeof port !== "number" || typeof startedAt !== "string") return null;
-  return { protocolId: speaks, pid, port, startedAt };
+  return {
+    protocolId: speaks,
+    pid,
+    port,
+    startedAt,
+  };
 }
 
 /**
@@ -132,15 +191,36 @@ export async function read(path: string): Promise<Presence> {
     text = await readFile(path, "utf8");
   } catch (cause) {
     const code = (cause as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") return { at: "absent", absence: { why: "no_runtime_file", path } };
-    return { at: "refused", fault: { why: "unreadable", path, detail: detailOf(cause) } };
+    if (code === "ENOENT")
+      return {
+        at: "absent",
+        absence: {
+          why: "no_runtime_file",
+          path,
+        },
+      };
+    return {
+      at: "refused",
+      fault: {
+        why: "unreadable",
+        path,
+        detail: detailOf(cause),
+      },
+    };
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch (cause) {
-    return { at: "refused", fault: { why: "undecodable", path, detail: detailOf(cause) } };
+    return {
+      at: "refused",
+      fault: {
+        why: "undecodable",
+        path,
+        detail: detailOf(cause),
+      },
+    };
   }
 
   // A file that will not parse is refused, not ignored. Fleet writes to a
@@ -150,7 +230,11 @@ export async function read(path: string): Promise<Presence> {
   if (fleet === null) {
     return {
       at: "refused",
-      fault: { why: "undecodable", path, detail: "the four fields Fleet writes are not all there" },
+      fault: {
+        why: "undecodable",
+        path,
+        detail: "the four fields Fleet writes are not all there",
+      },
     };
   }
 
@@ -158,11 +242,23 @@ export async function read(path: string): Promise<Presence> {
   if (holder.held === null) {
     return {
       at: "refused",
-      fault: { why: "probe_failed", path, pid: fleet.pid, detail: holder.detail },
+      fault: {
+        why: "probe_failed",
+        path,
+        pid: fleet.pid,
+        detail: holder.detail,
+      },
     };
   }
   if (holder.held === false) {
-    return { at: "stale", absence: { why: "pid_dead", path, pid: fleet.pid } };
+    return {
+      at: "stale",
+      absence: {
+        why: "pid_dead",
+        path,
+        pid: fleet.pid,
+      },
+    };
   }
   if (holder.startedAt !== fleet.startedAt) {
     // The row a bare liveness check gets wrong. Something holds the pid Fleet
@@ -179,7 +275,11 @@ export async function read(path: string): Promise<Presence> {
       },
     };
   }
-  return { at: "running", fleet, path };
+  return {
+    at: "running",
+    fleet,
+    path,
+  };
 }
 
 function detailOf(cause: unknown): string {

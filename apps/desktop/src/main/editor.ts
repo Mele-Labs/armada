@@ -66,7 +66,10 @@ export type Editor = {
 
 /** Whitespace-only is unset. An exported empty string is not a decision. */
 function said(value: string | undefined): string[] | null {
-  const words = (value ?? "").trim().split(/\s+/).filter((word) => word !== "");
+  const words = (value ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word !== "");
   return words.length === 0 ? null : words;
 }
 
@@ -82,14 +85,26 @@ export function chooseEditor(env: NodeJS.ProcessEnv, configured = ""): Editor | 
   const chosen = said(configured);
   if (chosen !== null) {
     const [command, ...args] = chosen;
-    if (command !== undefined) return { command, args, from: "editor.command" };
+    if (command !== undefined)
+      return {
+        command,
+        args,
+        from: "editor.command",
+      };
   }
-  for (const from of ["$VISUAL", "$EDITOR"] as const) {
+  for (const from of [
+    "$VISUAL",
+    "$EDITOR",
+  ] as const) {
     const words = said(env[from.slice(1)]);
     if (words === null) continue;
     const [command, ...args] = words;
     if (command === undefined) continue;
-    return { command, args, from };
+    return {
+      command,
+      args,
+      from,
+    };
   }
   return null;
 }
@@ -145,7 +160,12 @@ export async function whereIs(command: string, env: NodeJS.ProcessEnv): Promise<
  * reported is the one failure Bridge can see and a person can act on, which
  * `whereIs` has already answered before this is called.
  */
-export function startEditor(program: string, args: readonly string[], path: string, line = 1): void {
+export function startEditor(
+  program: string,
+  args: readonly string[],
+  path: string,
+  line = 1,
+): void {
   startDetached(program, withFile(args, path, line));
 }
 
@@ -155,8 +175,15 @@ export function startEditor(program: string, args: readonly string[], path: stri
  * `$EDITOR` has always meant.
  */
 export function withFile(args: readonly string[], path: string, line = 1): string[] {
-  const filled = args.map((word) => word.replaceAll("{file}", path).replaceAll("{line}", String(line)));
-  return args.some((word) => word.includes("{file}")) ? filled : [...filled, path];
+  const filled = args.map((word) =>
+    word.replaceAll("{file}", path).replaceAll("{line}", String(line)),
+  );
+  return args.some((word) => word.includes("{file}"))
+    ? filled
+    : [
+        ...filled,
+        path,
+      ];
 }
 
 /**
@@ -164,13 +191,19 @@ export function withFile(args: readonly string[], path: string, line = 1): strin
  * the terminal launcher in `terminal.ts`.
  */
 export function startDetached(program: string, argv: readonly string[]): void {
-  const child = spawn(program, [...argv], {
-    detached: true,
-    stdio: "ignore",
-    // Named rather than defaulted. `shell: true` here would hand the whole
-    // argv to `/bin/sh` and turn a configured string into a command line.
-    shell: false,
-  });
+  const child = spawn(
+    program,
+    [
+      ...argv,
+    ],
+    {
+      detached: true,
+      stdio: "ignore",
+      // Named rather than defaulted. `shell: true` here would hand the whole
+      // argv to `/bin/sh` and turn a configured string into a command line.
+      shell: false,
+    },
+  );
   // A spawn can still fail asynchronously — a binary that is executable and is
   // not one, say. Nothing listens, and an unhandled `error` on a ChildProcess
   // takes the main process down, so the handler exists to be the one that does

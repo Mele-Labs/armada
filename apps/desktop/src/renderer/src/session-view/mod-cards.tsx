@@ -11,11 +11,27 @@ export function useModCards(id: string): readonly ThreadCard[] {
   const made = useModsMade(id);
   return made.mods.map((one) => ({
     key: `mod:${one.name}`,
-    ...(one.changedAt === undefined ? {} : { at: one.changedAt }),
+    ...(one.changedAt === undefined
+      ? {}
+      : {
+          at: one.changedAt,
+        }),
     node: (
       <Card>
         <CardContent>
-          <ModRow title={one.title} kind={one.kind} enabled={one.enabled} onEnabled={(on) => made.setEnabled(one.name, on)} onOpen={() => openMod({ name: one.name, title: one.title, kind: one.kind })} />
+          <ModRow
+            title={one.title}
+            kind={one.kind}
+            enabled={one.enabled}
+            onEnabled={(on) => made.setEnabled(one.name, on)}
+            onOpen={() =>
+              openMod({
+                name: one.name,
+                title: one.title,
+                kind: one.kind,
+              })
+            }
+          />
         </CardContent>
       </Card>
     ),

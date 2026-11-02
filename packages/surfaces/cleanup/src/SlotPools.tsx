@@ -30,7 +30,12 @@ export type SlotPoolsProps = {
 
 export function SlotPools({ slots, now, onChange, onRescue, onCopied, bandActs }: SlotPoolsProps) {
   const floor = useAtFloor();
-  const { worked, acts, acting, refused } = useTileActs({ now, onChange, onRescue, onCopied });
+  const { worked, acts, acting, refused } = useTileActs({
+    now,
+    onChange,
+    onRescue,
+    onCopied,
+  });
 
   const pools = new Map<string, TileRow[]>();
   for (const slot of slots) {
@@ -40,25 +45,50 @@ export function SlotPools({ slots, now, onChange, onRescue, onCopied, bandActs }
       key,
       name: `slot-${slot.slot}`,
       slot,
-      ...(heldFor === null ? {} : { heldFor }),
+      ...(heldFor === null
+        ? {}
+        : {
+            heldFor,
+          }),
       ...worked(key),
     };
-    pools.set(slot.manifest_id, [...(pools.get(slot.manifest_id) ?? []), row]);
+    pools.set(slot.manifest_id, [
+      ...(pools.get(slot.manifest_id) ?? []),
+      row,
+    ]);
   }
 
   return (
     <>
-      {[...pools].map(([manifestId, pool], at) => (
-        <section key={manifestId} className="armada-pool-slots__pool" aria-label={pools.size > 1 ? manifestId : undefined}>
+      {[
+        ...pools,
+      ].map(([manifestId, pool], at) => (
+        <section
+          key={manifestId}
+          className="armada-pool-slots__pool"
+          aria-label={pools.size > 1 ? manifestId : undefined}
+        >
           {/* Named for its repository only where there is more than one to tell apart. */}
           {pools.size > 1 ? <h3 className="armada-pool-slots__repo">{manifestId}</h3> : null}
           <PoolSlots
             floor={floor}
             rows={pool}
-            {...(at === 0 && bandActs !== undefined ? { bandActs } : {})}
+            {...(at === 0 && bandActs !== undefined
+              ? {
+                  bandActs,
+                }
+              : {})}
             {...acts(manifestId)}
-            {...(onCopied === undefined ? {} : { onCopied })}
-            {...(refused[keyOf(manifestId)] === undefined ? {} : { addRefused: refused[keyOf(manifestId)] })}
+            {...(onCopied === undefined
+              ? {}
+              : {
+                  onCopied,
+                })}
+            {...(refused[keyOf(manifestId)] === undefined
+              ? {}
+              : {
+                  addRefused: refused[keyOf(manifestId)],
+                })}
             adding={acting.has(keyOf(manifestId))}
           />
         </section>

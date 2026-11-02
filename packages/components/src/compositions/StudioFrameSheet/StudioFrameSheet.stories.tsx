@@ -32,13 +32,23 @@ export const Opened: Story = {
   args: {
     open: true,
     said: SAID,
-    frame: { src: shot("darkslategray", "Job Board — 1440 × 900") },
+    frame: {
+      src: shot("darkslategray", "Job Board — 1440 × 900"),
+    },
   },
   play: async ({ canvas }) => {
     // What the person said names the layer; nothing captions the picture.
-    await expect(canvas.getByRole("dialog", { name: "Note" })).toBeVisible();
+    await expect(
+      canvas.getByRole("dialog", {
+        name: "Note",
+      }),
+    ).toBeVisible();
     await expect(canvas.getByText(SAID)).toBeVisible();
-    await expect(canvas.getByRole("img", { name: /captured from/ })).toBeVisible();
+    await expect(
+      canvas.getByRole("img", {
+        name: /captured from/,
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -47,7 +57,9 @@ export const NothingToDraw: Story = {
   args: {
     open: true,
     said: SAID,
-    frame: { why: "This frame is on the Note and no longer on disk." },
+    frame: {
+      why: "This frame is on the Note and no longer on disk.",
+    },
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText(/no longer on disk/)).toBeVisible();

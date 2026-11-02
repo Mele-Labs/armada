@@ -24,18 +24,36 @@ const JOB_TITLE = "Promote Dusk";
 const BRANCH = "armada/mod-dusk-1761226080000";
 
 /** The home's Dusk: the other machine warmed the accent. */
-const HOME_DUSK = DUSK_CSS.replace("--accent: #C1B4EC;", "--accent: #D9896B;").replace("--accent-hover: #D0C5F3;", "--accent-hover: #E39C82;");
+const HOME_DUSK = DUSK_CSS.replace("--accent: #C1B4EC;", "--accent: #D9896B;").replace(
+  "--accent-hover: #D0C5F3;",
+  "--accent-hover: #E39C82;",
+);
 
-const mod = (name: string, state: SharedRow["state"], modKind: "theme" | "layout", more: Partial<SharedRow> = {}): SharedRow => ({ kind: "mods", name, state, modKind, ...more });
+const mod = (
+  name: string,
+  state: SharedRow["state"],
+  modKind: "theme" | "layout",
+  more: Partial<SharedRow> = {},
+): SharedRow => ({
+  kind: "mods",
+  name,
+  state,
+  modKind,
+  ...more,
+});
 
 const MOD_ROWS: SharedRow[] = [
-  mod("dusk", "differs", "theme", { here: DUSK_CSS, there: HOME_DUSK }),
+  mod("dusk", "differs", "theme", {
+    here: DUSK_CSS,
+    there: HOME_DUSK,
+  }),
   mod("harbour", "here", "theme"),
   mod("ember", "home", "theme"),
   mod("tidy", "same", "layout"),
 ];
 
-const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
+const minutesAgo = (minutes: number): string =>
+  new Date(Date.now() - minutes * 60_000).toISOString();
 
 /** The pull request Promote opened, as the forge reads it: the mod's two files under `packages/mods/dusk/`. */
 function promoted(): PullRequestRead {
@@ -52,39 +70,95 @@ function promoted(): PullRequestRead {
     approvals: 0,
     body: "Copies the Dusk theme into packages/mods/dusk.",
     conversation: [],
-    checks: [{ name: "build", state: "running", address: `${ADDRESS}/checks?check_run_id=1` }],
-    files: [
-      { path: "packages/mods/dusk/mod.toml", status: "added", additions: 3, deletions: 0 },
-      { path: "packages/mods/dusk/theme.css", status: "added", additions: DUSK_CSS.split("\n").length, deletions: 0 },
+    checks: [
+      {
+        name: "build",
+        state: "running",
+        address: `${ADDRESS}/checks?check_run_id=1`,
+      },
     ],
-    commits: [{ sha: "d5c1a0e", headline: PULL_TITLE, author: "claude", at: minutesAgo(1) }],
+    files: [
+      {
+        path: "packages/mods/dusk/mod.toml",
+        status: "added",
+        additions: 3,
+        deletions: 0,
+      },
+      {
+        path: "packages/mods/dusk/theme.css",
+        status: "added",
+        additions: DUSK_CSS.split("\n").length,
+        deletions: 0,
+      },
+    ],
+    commits: [
+      {
+        sha: "d5c1a0e",
+        headline: PULL_TITLE,
+        author: "claude",
+        at: minutesAgo(1),
+      },
+    ],
   };
   return {
     repository: "mele-labs/armada",
     root: ARMADA.root,
-    facts: { kind: "pull_request", number: PULL, title: PULL_TITLE, branch: BRANCH, address: ADDRESS, checks: { state: "pending" }, state: "open", auto: false, body: page.body ?? "" },
+    facts: {
+      kind: "pull_request",
+      number: PULL,
+      title: PULL_TITLE,
+      branch: BRANCH,
+      address: ADDRESS,
+      checks: {
+        state: "pending",
+      },
+      state: "open",
+      auto: false,
+      body: page.body ?? "",
+    },
     page,
   };
 }
 
 const MOD_TOML = 'name = "dusk"\nkind = "theme"\nversion = "1"';
-const added = (text: string) => `@@ -0,0 +1,${text.split("\n").length} @@\n${text.split("\n").map((line) => `+${line}`).join("\n")}`;
+const added = (text: string) =>
+  `@@ -0,0 +1,${text.split("\n").length} @@\n${text
+    .split("\n")
+    .map((line) => `+${line}`)
+    .join("\n")}`;
 
 function reads(): PanelReads {
-  const base = sharedPanelReads({ lines: [] });
+  const base = sharedPanelReads({
+    lines: [],
+  });
   return {
     ...base,
-    pullRequest: (item) => (item.number === PULL ? Promise.resolve(promoted()) : base.pullRequest(item)),
+    pullRequest: (item) =>
+      item.number === PULL ? Promise.resolve(promoted()) : base.pullRequest(item),
     pullRequestPatches: (item) =>
       item.number === PULL
         ? Promise.resolve({
             ok: true,
             files: [
-              { manifest_id: MANIFEST, number: PULL, path: "packages/mods/dusk/mod.toml", patch: added(MOD_TOML) },
-              { manifest_id: MANIFEST, number: PULL, path: "packages/mods/dusk/theme.css", patch: added(DUSK_CSS) },
+              {
+                manifest_id: MANIFEST,
+                number: PULL,
+                path: "packages/mods/dusk/mod.toml",
+                patch: added(MOD_TOML),
+              },
+              {
+                manifest_id: MANIFEST,
+                number: PULL,
+                path: "packages/mods/dusk/theme.css",
+                patch: added(DUSK_CSS),
+              },
             ],
           })
-        : (base.pullRequestPatches?.(item) ?? Promise.resolve({ ok: false, said: "The forge could not find this pull request." })),
+        : (base.pullRequestPatches?.(item) ??
+          Promise.resolve({
+            ok: false,
+            said: "The forge could not find this pull request.",
+          })),
   };
 }
 
@@ -94,24 +168,52 @@ function build(): Scenario {
     ...sharedHome,
     draft: {
       ...sharedHome.draft,
-      sharedHome: { ...home, rows: [...home.rows, ...MOD_ROWS] },
+      sharedHome: {
+        ...home,
+        rows: [
+          ...home.rows,
+          ...MOD_ROWS,
+        ],
+      },
       sharedPanel: reads,
       account: {
-        signIn: { login: "mele-work", code: "RTHV-2CLM", repository: home.repository },
+        signIn: {
+          login: "mele-work",
+          code: "RTHV-2CLM",
+          repository: home.repository,
+        },
         add: {
           login: home.account,
           code: "WDJB-MJHT",
           items: {
             mods: [
-              { name: "dusk", scope: "global", repo: "" },
-              { name: "harbour", scope: "private", repo: "" },
-              { name: "tidy", scope: "global", repo: "" },
+              {
+                name: "dusk",
+                scope: "global",
+                repo: "",
+              },
+              {
+                name: "harbour",
+                scope: "private",
+                repo: "",
+              },
+              {
+                name: "tidy",
+                scope: "global",
+                repo: "",
+              },
             ],
           },
         },
         joined: [
-          { login: "mele-work", chosen: false },
-          { login: home.account, chosen: true },
+          {
+            login: "mele-work",
+            chosen: false,
+          },
+          {
+            login: home.account,
+            chosen: true,
+          },
         ],
       },
     },
@@ -133,12 +235,34 @@ function build(): Scenario {
             manifest_id: MANIFEST,
             cwd: ARMADA.root,
             started_at: new Date().toISOString(),
-            attachments: [held("slot", "4"), pullRequest(PULL, { title: PULL_TITLE, branch: BRANCH, address: ADDRESS, checks: "pending" })],
+            attachments: [
+              held("slot", "4"),
+              pullRequest(PULL, {
+                title: PULL_TITLE,
+                branch: BRANCH,
+                address: ADDRESS,
+                checks: "pending",
+              }),
+            ],
           }),
         );
-        return { branch: `armada/mod-${name}-1761226080000`, pull: { number: PULL, title: PULL_TITLE, address: ADDRESS }, job: { id: JOB, title: JOB_TITLE } };
+        return {
+          branch: `armada/mod-${name}-1761226080000`,
+          pull: {
+            number: PULL,
+            title: PULL_TITLE,
+            address: ADDRESS,
+          },
+          job: {
+            id: JOB,
+            title: JOB_TITLE,
+          },
+        };
       });
-      return { ...kit, ...own };
+      return {
+        ...kit,
+        ...own,
+      };
     },
   };
 }

@@ -9,10 +9,15 @@ import { COMPACT, offeredOf, plain } from "./session-tiles";
 
 /** What the context figure offers: Compact, or why it is off. */
 export function useCompactAct(session: Session, draft: SessionsDraft): ContextCompact {
-  const words = tilesOf("job", useFlightFile()).find((one) => one.id === "compact")?.words ?? `/${COMPACT}`;
+  const words =
+    tilesOf("job", useFlightFile()).find((one) => one.id === "compact")?.words ?? `/${COMPACT}`;
   const { off, compact } = offeredOf(session, draft, undefined);
   return {
-    ...(off.compact === undefined ? {} : { why: off.compact }),
+    ...(off.compact === undefined
+      ? {}
+      : {
+          why: off.compact,
+        }),
     onPress: () => {
       if (compact?.how === "terminal") draft.command?.(session.id, words);
       else void draft.send(session.id, plain(words));

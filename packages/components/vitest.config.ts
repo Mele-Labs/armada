@@ -24,17 +24,29 @@ import { defineConfig } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
 /** Motion on or off for the page a story runs in, where every story starts with it reduced. */
-const motion: BrowserCommand<[on: boolean]> = ({ page }, on) =>
-  page.emulateMedia({ reducedMotion: on ? "no-preference" : "reduce" });
+const motion: BrowserCommand<
+  [
+    on: boolean,
+  ]
+> = ({ page }, on) =>
+  page.emulateMedia({
+    reducedMotion: on ? "no-preference" : "reduce",
+  });
 
 export default defineConfig({
   // Resolved against the working directory, which is why the Check runs this
   // with `-C packages/components` rather than from the repository root.
-  plugins: [storybookTest({ configDir: ".storybook" })],
+  plugins: [
+    storybookTest({
+      configDir: ".storybook",
+    }),
+  ],
   test: {
     name: "storybook",
     // Hands `motion` below to a story that asks for it; `.storybook/motion.ts`.
-    setupFiles: ["./.storybook/vitest.setup.ts"],
+    setupFiles: [
+      "./.storybook/vitest.setup.ts",
+    ],
     browser: {
       enabled: true,
       headless: true,
@@ -44,9 +56,19 @@ export default defineConfig({
       // still sliding in. A story whose claim is the motion itself says
       // `parameters: { motion: "on" }`. Emulation is per page and a page runs its files one
       // after another, so `vitest.setup.ts` re-reduces it at the top of each file.
-      provider: playwright({ contextOptions: { reducedMotion: "reduce" } }),
-      commands: { motion },
-      instances: [{ browser: "chromium" }],
+      provider: playwright({
+        contextOptions: {
+          reducedMotion: "reduce",
+        },
+      }),
+      commands: {
+        motion,
+      },
+      instances: [
+        {
+          browser: "chromium",
+        },
+      ],
     },
   },
 });

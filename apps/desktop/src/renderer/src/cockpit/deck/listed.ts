@@ -7,7 +7,13 @@ import { useFound, type Found } from "./find";
 import type { Ship, Subject } from "./ship";
 import { listOf, placeNew, useDeck } from "./store";
 
-export function useListed(ship: Ship, banding: readonly Banding[] | undefined): { listed: Subject[]; found: ReadonlyMap<string, Found> | undefined } {
+export function useListed(
+  ship: Ship,
+  banding: readonly Banding[] | undefined,
+): {
+  listed: Subject[];
+  found: ReadonlyMap<string, Found> | undefined;
+} {
   const checks = useDeck((deck) => deck.checks);
   const held = useDeck((deck) => deck.held);
   const scope = useDeck((deck) => deck.scope);
@@ -16,7 +22,47 @@ export function useListed(ship: Ship, banding: readonly Banding[] | undefined): 
   const open = useDeck((deck) => (deck.sel?.kind === "session" ? deck.sel.key : undefined));
   const found = useFound(query);
   // A Session new to the order takes the bottom of it, and stays there.
-  useEffect(() => placeNew(ship), [ship]);
-  const listed = useMemo(() => listOf(ship, { checks, held, scope, order, ...(found === undefined ? {} : { found }), ...(open === undefined ? {} : { open }) }, banding), [ship, checks, held, scope, order, found, open, banding]);
-  return { listed, found };
+  useEffect(
+    () => placeNew(ship),
+    [
+      ship,
+    ],
+  );
+  const listed = useMemo(
+    () =>
+      listOf(
+        ship,
+        {
+          checks,
+          held,
+          scope,
+          order,
+          ...(found === undefined
+            ? {}
+            : {
+                found,
+              }),
+          ...(open === undefined
+            ? {}
+            : {
+                open,
+              }),
+        },
+        banding,
+      ),
+    [
+      ship,
+      checks,
+      held,
+      scope,
+      order,
+      found,
+      open,
+      banding,
+    ],
+  );
+  return {
+    listed,
+    found,
+  };
 }

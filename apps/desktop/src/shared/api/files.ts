@@ -9,20 +9,51 @@
 export type PanelFileFrom = "session" | "settings" | "kit" | "picked";
 
 /** What a press hands over to open a file. `sessionId` is the Session whose files `path` is among, where `from` is `session`. */
-export type PanelFileItem = { kind: "file"; path: string; from: PanelFileFrom; sessionId?: string };
+export type PanelFileItem = {
+  kind: "file";
+  path: string;
+  from: PanelFileFrom;
+  sessionId?: string;
+};
 
 /** The file as it is on disk. `version` is whatever main needs to tell later that it changed: a save hands it back. */
 export type PanelFileRead =
-  | { ok: true; text?: string; bytes?: Uint8Array; type: string; version: string }
-  | { ok: false; why: "not_addressable" | "too_big" | "binary" | "unreadable" };
+  | {
+      ok: true;
+      text?: string;
+      bytes?: Uint8Array;
+      type: string;
+      version: string;
+    }
+  | {
+      ok: false;
+      why: "not_addressable" | "too_big" | "binary" | "unreadable";
+    };
 
 /** What a save came to. `moved` is a file that differs from the one read: nothing was written, and `onDisk` is what is there now. */
 export type PanelFileSaved =
-  | { state: "saved"; version: string }
-  | { state: "moved"; onDisk: string; version: string }
-  | { state: "failed"; detail: string };
+  | {
+      state: "saved";
+      version: string;
+    }
+  | {
+      state: "moved";
+      onDisk: string;
+      version: string;
+    }
+  | {
+      state: "failed";
+      detail: string;
+    };
 
-export type PanelFileOpenedIn = { ok: true } | { ok: false; detail: string };
+export type PanelFileOpenedIn =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      detail: string;
+    };
 
 export type FilesApi = {
   readPanelFile: (item: PanelFileItem) => Promise<PanelFileRead>;

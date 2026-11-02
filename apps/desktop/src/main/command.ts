@@ -82,10 +82,17 @@ export class Commands {
    * caller (`picked.test.ts`) supplies none. `manifestId` names the repository outright: a Session's message box
    * searches the Session's own, whatever the window has picked.
    */
-  async searchFiles(query: string, picked: Picked = this.board.picked, manifestId?: string): Promise<string[]> {
+  async searchFiles(
+    query: string,
+    picked: Picked = this.board.picked,
+    manifestId?: string,
+  ): Promise<string[]> {
     const port = this.board.port();
     const q = encodeURIComponent(query);
-    const path = manifestId === undefined ? picked.manifest(`/manifest/files?q=${q}`) : picked.manifestNamed(`/manifest/files?q=${q}`, manifestId);
+    const path =
+      manifestId === undefined
+        ? picked.manifest(`/manifest/files?q=${q}`)
+        : picked.manifestNamed(`/manifest/files?q=${q}`, manifestId);
     if (port === null || path === null) return [];
     const answer = await ask(port, "GET", path);
     return answer.ok === true ? (answer.body as FilesFound).paths : [];
@@ -103,9 +110,23 @@ export class Commands {
    */
   async changeSlotPool(manifestId: string, change: ChangeSlotPool): Promise<Outcome> {
     const port = this.board.port();
-    if (port === null) return { ok: false, why: "not_connected" };
-    const answer = await ask(port, "POST", this.board.picked.manifestNamed("/worktrees/slots", manifestId), change);
-    return answer.ok === true ? { ok: true, slotChanged: answer.body as SlotPoolChanged } : answer.outcome;
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
+    const answer = await ask(
+      port,
+      "POST",
+      this.board.picked.manifestNamed("/worktrees/slots", manifestId),
+      change,
+    );
+    return answer.ok === true
+      ? {
+          ok: true,
+          slotChanged: answer.body as SlotPoolChanged,
+        }
+      : answer.outcome;
   }
 
   /**
@@ -115,9 +136,23 @@ export class Commands {
    */
   async rescueSlot(manifestId: string, rescue: RescueSlot): Promise<RescueOutcome> {
     const port = this.board.port();
-    if (port === null) return { ok: false, why: "not_connected" };
-    const answer = await ask(port, "POST", this.board.picked.manifestNamed("/worktrees/slots/rescue", manifestId), rescue);
-    return answer.ok === true ? { ok: true, rescued: answer.body as SlotRescued } : (answer.outcome as RescueOutcome);
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
+    const answer = await ask(
+      port,
+      "POST",
+      this.board.picked.manifestNamed("/worktrees/slots/rescue", manifestId),
+      rescue,
+    );
+    return answer.ok === true
+      ? {
+          ok: true,
+          rescued: answer.body as SlotRescued,
+        }
+      : (answer.outcome as RescueOutcome);
   }
 
   /**
@@ -131,12 +166,28 @@ export class Commands {
    */
   async answerHelmCall(call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> {
     const port = this.board.port();
-    if (port === null) return { ok: false, why: "not_connected" };
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
     // Nothing rather than an empty string, `answerCommand`'s rule.
     const said = note?.trim() ?? "";
-    const body: AnswerHelmCall = { call, answer, ...(said === "" ? {} : { note: said }) };
+    const body: AnswerHelmCall = {
+      call,
+      answer,
+      ...(said === ""
+        ? {}
+        : {
+            note: said,
+          }),
+    };
     const answered = await ask(port, "POST", "/helm/calls/answer", body);
-    return answered.ok === true ? { ok: true } : answered.outcome;
+    return answered.ok === true
+      ? {
+          ok: true,
+        }
+      : answered.outcome;
   }
 
   /** Agree with one retro item. `lessoning.ts`. */

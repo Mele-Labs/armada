@@ -8,13 +8,35 @@ const helm = role("complementary", "Helm");
 
 const issueBacklogs = walk("issue-backlogs", [
   // The # picker in a message box, on the Jira repository.
-  { press: button("Helm"), say: "Helm's dock" },
-  { press: inside(helm, button("Point Helm at a repository")), say: "Helm is pointed at none" },
-  { press: role("menuitem", /ops/), say: "ops" },
-  { type: "#OPS", into: inside(helm, role("textbox", "Ask Helm")), say: "A hash and the start of a key" },
-  { look: inside(helm, role("listbox", "Tag an issue or pull request")), say: "The issues whose key starts so" },
-  { look: inside(helm, role("option", /OPS-7/)), say: "OPS-7" },
-  { look: inside(helm, role("option", /OPS-12/)), say: "OPS-12" },
+  {
+    press: button("Helm"),
+    say: "Helm's dock",
+  },
+  {
+    press: inside(helm, button("Point Helm at a repository")),
+    say: "Helm is pointed at none",
+  },
+  {
+    press: role("menuitem", /ops/),
+    say: "ops",
+  },
+  {
+    type: "#OPS",
+    into: inside(helm, role("textbox", "Ask Helm")),
+    say: "A hash and the start of a key",
+  },
+  {
+    look: inside(helm, role("listbox", "Tag an issue or pull request")),
+    say: "The issues whose key starts so",
+  },
+  {
+    look: inside(helm, role("option", /OPS-7/)),
+    say: "OPS-7",
+  },
+  {
+    look: inside(helm, role("option", /OPS-12/)),
+    say: "OPS-12",
+  },
 ]);
 
 export { issueBacklogs as "issue-backlogs" };

@@ -11,15 +11,30 @@ import { FakeSessionsFleet } from "../sessions-fleet";
 const STOREFRONT: RepositorySummary = {
   root: "/Users/user/code/storefront",
   records_root: "/records/storefront",
-  manifest: { ...repository().manifest!, id: "storefront", repository: "storefront", path: "storefront/armada.yml" },
+  manifest: {
+    ...repository().manifest!,
+    id: "storefront",
+    repository: "storefront",
+    path: "storefront/armada.yml",
+  },
 };
 const OPS: RepositorySummary = {
   root: "/Users/user/code/ops",
   records_root: "/records/ops",
-  manifest: { ...repository().manifest!, id: "ops", repository: "ops", path: "ops/armada.yml" },
+  manifest: {
+    ...repository().manifest!,
+    id: "ops",
+    repository: "ops",
+    path: "ops/armada.yml",
+  },
 };
 
-const board = onBoard({ repositories: [STOREFRONT, OPS] });
+const board = onBoard({
+  repositories: [
+    STOREFRONT,
+    OPS,
+  ],
+});
 
 /** Served as the Sessions fleet serves a scenario, so Helm's box is the Sessions box and `#` reads each repository's issues. */
 function build(): Scenario {

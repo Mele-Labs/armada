@@ -7,15 +7,30 @@ import type { RefusedAct } from "./tell";
 import { askToTell } from "./tell";
 
 /** What the toast says, and the act it was for. */
-export function actFailedToTell({ act, manifest_id, session_id, error }: ActFailed): { sentence: string; act: RefusedAct } {
+export function actFailedToTell({ act, manifest_id, session_id, error }: ActFailed): {
+  sentence: string;
+  act: RefusedAct;
+} {
   return {
-    sentence: refusalWords({ ok: false, why: "refused", error }),
+    sentence: refusalWords({
+      ok: false,
+      why: "refused",
+      error,
+    }),
     act: {
       act,
       request: {
         code: error.code,
-        ...(manifest_id === undefined ? {} : { manifest_id }),
-        ...(session_id === undefined ? {} : { session_id }),
+        ...(manifest_id === undefined
+          ? {}
+          : {
+              manifest_id,
+            }),
+        ...(session_id === undefined
+          ? {}
+          : {
+              session_id,
+            }),
       },
     },
   };
@@ -23,7 +38,9 @@ export function actFailedToTell({ act, manifest_id, session_id, error }: ActFail
 
 /** Tells each failure Fleet sends. `window.armada` in the app, a fake in a test. */
 export function tellActFailures(
-  fleet: { onActFailed: (on: (failed: ActFailed) => void) => () => void },
+  fleet: {
+    onActFailed: (on: (failed: ActFailed) => void) => () => void;
+  },
   tell: (sentence: string, act: RefusedAct) => void = askToTell,
 ): () => void {
   return fleet.onActFailed((failed) => {

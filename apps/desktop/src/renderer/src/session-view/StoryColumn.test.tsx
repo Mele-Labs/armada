@@ -11,15 +11,31 @@ import { StoryColumn } from "./StoryColumn";
 import { resetFolds } from "./story";
 
 // The mod list is Fleet's, read through `window.armada`; no Job here made a mod.
-vi.mock("../mod-list", () => ({ useModList: () => [] }));
+vi.mock("../mod-list", () => ({
+  useModList: () => [],
+}));
 // The Jobs this one started are read from the window's Sessions.
-const held: { sessions: Session[] } = { sessions: [] };
-vi.mock("../sessions-draft", async (original) => ({ ...(await original<typeof import("../sessions-draft")>()), useSessions: () => held.sessions }));
+const held: {
+  sessions: Session[];
+} = {
+  sessions: [],
+};
+vi.mock("../sessions-draft", async (original) => ({
+  ...(await original<typeof import("../sessions-draft")>()),
+  useSessions: () => held.sessions,
+}));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const ID = "story-column-s1";
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   held.sessions = [];
   resetFolds(ID);
@@ -30,38 +46,115 @@ afterEach(() => {
   }
 });
 
-const plan = { scope: [], approved: true, groups: [{ id: "g1", title: "Retry the lease", agent: "rust-engineer", paths: [], tasks: [{ id: "t1", text: "Name the failure", state: "working" as const }, { id: "t2", text: "Retry once", state: "open" as const }] }] };
-const work = { plan } as unknown as SessionWork;
-const ed: PlanEditing = { id: ID, plan, marks: [], set: () => undefined, send: () => undefined };
+const plan = {
+  scope: [],
+  approved: true,
+  groups: [
+    {
+      id: "g1",
+      title: "Retry the lease",
+      agent: "rust-engineer",
+      paths: [],
+      tasks: [
+        {
+          id: "t1",
+          text: "Name the failure",
+          state: "working" as const,
+        },
+        {
+          id: "t2",
+          text: "Retry once",
+          state: "open" as const,
+        },
+      ],
+    },
+  ],
+};
+const work = {
+  plan,
+} as unknown as SessionWork;
+const ed: PlanEditing = {
+  id: ID,
+  plan,
+  marks: [],
+  set: () => undefined,
+  send: () => undefined,
+};
 
 const session = (turn: "working" | "idle"): Session =>
   ({
     id: ID,
     title: "Retry the lease",
     attachments: [],
-    turn: { state: turn },
+    turn: {
+      state: turn,
+    },
     work,
     rows: [
-      { id: "m1", at: "2026-10-27T10:00:00Z", kind: "message", from: { kind: "you" }, text: "Retry the lease on a dropped socket" },
-      { id: "c1", at: "2026-10-27T10:01:00Z", kind: "tool", text: "Read crates/store/src/audit.rs" },
-      { id: "c2", at: "2026-10-27T10:01:10Z", kind: "tool", text: "Edit crates/store/src/audit.rs" },
+      {
+        id: "m1",
+        at: "2026-10-27T10:00:00Z",
+        kind: "message",
+        from: {
+          kind: "you",
+        },
+        text: "Retry the lease on a dropped socket",
+      },
+      {
+        id: "c1",
+        at: "2026-10-27T10:01:00Z",
+        kind: "tool",
+        text: "Read crates/store/src/audit.rs",
+      },
+      {
+        id: "c2",
+        at: "2026-10-27T10:01:10Z",
+        kind: "tool",
+        text: "Edit crates/store/src/audit.rs",
+      },
     ],
   }) as unknown as Session;
 
-function mount(one: Session, own: { work: SessionWork; ed: PlanEditing } = { work, ed }): HTMLElement {
+function mount(
+  one: Session,
+  own: {
+    work: SessionWork;
+    ed: PlanEditing;
+  } = {
+    work,
+    ed,
+  },
+): HTMLElement {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   act(() =>
     root.render(
-      <StoryColumn session={one} entries={[]} work={own.work} id={ID} manifestId={undefined} acts={undefined} ed={own.ed} onOpenSketch={() => undefined} onOpenSession={() => undefined} live={undefined} />,
+      <StoryColumn
+        session={one}
+        entries={[]}
+        work={own.work}
+        id={ID}
+        manifestId={undefined}
+        acts={undefined}
+        ed={own.ed}
+        onOpenSketch={() => undefined}
+        onOpenSession={() => undefined}
+        live={undefined}
+      />,
     ),
   );
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   return host;
 }
 
-const beats = (host: HTMLElement) => [...host.querySelectorAll('ul[aria-label="Now"] > li')].map((one) => one.querySelector(".sv-beat__label")?.textContent);
+const beats = (host: HTMLElement) =>
+  [
+    ...host.querySelectorAll('ul[aria-label="Now"] > li'),
+  ].map((one) => one.querySelector(".sv-beat__label")?.textContent);
 
 test("Now leads with the line the calls make, and not with a task the agent marked", () => {
   const host = mount(session("working"));
@@ -76,7 +169,16 @@ test("with no turn running nothing is detected, and Now leads with the agent", (
 });
 
 test("with no calls to read, an agent held on a question for him is named for what it waits on", () => {
-  const held = { ...session("idle"), asked: { questions: [{ question: "Keep the rotation at midnight?" }] } } as unknown as Session;
+  const held = {
+    ...session("idle"),
+    asked: {
+      questions: [
+        {
+          question: "Keep the rotation at midnight?",
+        },
+      ],
+    },
+  } as unknown as Session;
   expect(beats(mount(held))).toContain("Waiting on you");
   expect(beats(mount(held))).not.toContain("Agent");
 });
@@ -86,14 +188,53 @@ test("Whole plan opens every group where it stands, and keeps a finished one out
     scope: [],
     approved: true,
     groups: [
-      { id: "g0", title: "Read the lease", agent: "rust-engineer", paths: [], tasks: [{ id: "t0", text: "Find where it drops", state: "done" as const }] },
+      {
+        id: "g0",
+        title: "Read the lease",
+        agent: "rust-engineer",
+        paths: [],
+        tasks: [
+          {
+            id: "t0",
+            text: "Find where it drops",
+            state: "done" as const,
+          },
+        ],
+      },
       plan.groups[0]!,
-      { id: "g2", title: "Docs follow", agent: "docs-writer", paths: [], tasks: [{ id: "t3", text: "Say when it retries", state: "open" as const }] },
+      {
+        id: "g2",
+        title: "Docs follow",
+        agent: "docs-writer",
+        paths: [],
+        tasks: [
+          {
+            id: "t3",
+            text: "Say when it retries",
+            state: "open" as const,
+          },
+        ],
+      },
     ],
   };
-  const whole = { plan: three } as unknown as SessionWork;
-  const host = mount({ ...session("working"), work: whole } as unknown as Session, { work: whole, ed: { ...ed, plan: three } });
-  const zone = (label: string) => host.querySelector<HTMLElement>(`section[aria-label="${label}"]`)?.textContent ?? "";
+  const whole = {
+    plan: three,
+  } as unknown as SessionWork;
+  const host = mount(
+    {
+      ...session("working"),
+      work: whole,
+    } as unknown as Session,
+    {
+      work: whole,
+      ed: {
+        ...ed,
+        plan: three,
+      },
+    },
+  );
+  const zone = (label: string) =>
+    host.querySelector<HTMLElement>(`section[aria-label="${label}"]`)?.textContent ?? "";
   // Folded, a finished group is a title and a bar in Done, its tasks not listed.
   expect(zone("Done")).toContain("Read the lease");
   expect(zone("Done")).not.toContain("Find where it drops");
@@ -107,33 +248,148 @@ test("Whole plan opens every group where it stands, and keeps a finished one out
 test("a walk shown again at one address is one beat in Now, the newest showing", () => {
   const url = "http://localhost:5511/?walk=processes";
   const again = session("idle");
-  const shown = { ...again, rows: [...again.rows, { id: "w1", at: "2026-10-27T10:02:00Z", kind: "window", title: "Processes", url }, { id: "w2", at: "2026-10-27T10:03:00Z", kind: "window", title: "Processes, take 2", url }] } as unknown as Session;
+  const shown = {
+    ...again,
+    rows: [
+      ...again.rows,
+      {
+        id: "w1",
+        at: "2026-10-27T10:02:00Z",
+        kind: "window",
+        title: "Processes",
+        url,
+      },
+      {
+        id: "w2",
+        at: "2026-10-27T10:03:00Z",
+        kind: "window",
+        title: "Processes, take 2",
+        url,
+      },
+    ],
+  } as unknown as Session;
   const host = mount(shown);
-  const walks = [...host.querySelectorAll('ul[aria-label="Now"] > li[data-walk]')].map((one) => one.querySelector(".sv-beat__label")?.textContent);
-  expect(walks).toEqual(["Processes, take 2"]);
+  const walks = [
+    ...host.querySelectorAll('ul[aria-label="Now"] > li[data-walk]'),
+  ].map((one) => one.querySelector(".sv-beat__label")?.textContent);
+  expect(walks).toEqual([
+    "Processes, take 2",
+  ]);
 });
 
 const childJob = (id: string, title: string, change: object): Session =>
-  ({ id, title, attachments: [{ kind: "started_by", id: ID }], rows: [], turn: { state: "idle" }, standing: "idle", ...change }) as unknown as Session;
-const zoneOf = (host: HTMLElement, label: string) => host.querySelector<HTMLElement>(`section[aria-label="${label}"]`);
-const cardsIn = (zone: HTMLElement | null) => [...(zone?.querySelectorAll("button.armada-job-card") ?? [])].map((one) => one.getAttribute("aria-label"));
+  ({
+    id,
+    title,
+    attachments: [
+      {
+        kind: "started_by",
+        id: ID,
+      },
+    ],
+    rows: [],
+    turn: {
+      state: "idle",
+    },
+    standing: "idle",
+    ...change,
+  }) as unknown as Session;
+const zoneOf = (host: HTMLElement, label: string) =>
+  host.querySelector<HTMLElement>(`section[aria-label="${label}"]`);
+const cardsIn = (zone: HTMLElement | null) =>
+  [
+    ...(zone?.querySelectorAll("button.armada-job-card") ?? []),
+  ].map((one) => one.getAttribute("aria-label"));
 
 test("a Job started outside the plan stands in Now while it runs and in Done once it has ended", () => {
-  const running = childJob("c1", "Seed the test database", { turn: { state: "working" }, standing: "working" });
-  const ended = childJob("c2", "Check an old dump restores", { dead: "ended" });
-  const parent = { ...session("idle"), attachments: [{ kind: "started_to", id: "c1" }, { kind: "started_to", id: "c2" }] } as unknown as Session;
-  held.sessions = [parent, running, ended];
+  const running = childJob("c1", "Seed the test database", {
+    turn: {
+      state: "working",
+    },
+    standing: "working",
+  });
+  const ended = childJob("c2", "Check an old dump restores", {
+    dead: "ended",
+  });
+  const parent = {
+    ...session("idle"),
+    attachments: [
+      {
+        kind: "started_to",
+        id: "c1",
+      },
+      {
+        kind: "started_to",
+        id: "c2",
+      },
+    ],
+  } as unknown as Session;
+  held.sessions = [
+    parent,
+    running,
+    ended,
+  ];
   const host = mount(parent);
-  expect(cardsIn(zoneOf(host, "Now"))).toEqual(["Job Seed the test database"]);
-  expect(cardsIn(zoneOf(host, "Done"))).toEqual(["Job Check an old dump restores"]);
+  expect(cardsIn(zoneOf(host, "Now"))).toEqual([
+    "Job Seed the test database",
+  ]);
+  expect(cardsIn(zoneOf(host, "Done"))).toEqual([
+    "Job Check an old dump restores",
+  ]);
 });
 
 test("a group handed to a Job still running stands in Now though the parent ticked every task when it handed it", () => {
-  const ticked = { scope: [], approved: true, groups: [{ id: "g1", title: "Name the migrations", agent: "rust-engineer", paths: [], tasks: [{ id: "t1", text: "Hand it over", state: "done" as const }] }] };
-  const own = { work: { plan: ticked } as unknown as SessionWork, ed: { ...ed, plan: ticked } };
-  const parent = { ...session("idle"), work: own.work, attachments: [{ kind: "started_to", id: "c1", group: "g1" }] } as unknown as Session;
-  held.sessions = [parent, childJob("c1", "Migrations get names", { turn: { state: "working" }, standing: "working" })];
+  const ticked = {
+    scope: [],
+    approved: true,
+    groups: [
+      {
+        id: "g1",
+        title: "Name the migrations",
+        agent: "rust-engineer",
+        paths: [],
+        tasks: [
+          {
+            id: "t1",
+            text: "Hand it over",
+            state: "done" as const,
+          },
+        ],
+      },
+    ],
+  };
+  const own = {
+    work: {
+      plan: ticked,
+    } as unknown as SessionWork,
+    ed: {
+      ...ed,
+      plan: ticked,
+    },
+  };
+  const parent = {
+    ...session("idle"),
+    work: own.work,
+    attachments: [
+      {
+        kind: "started_to",
+        id: "c1",
+        group: "g1",
+      },
+    ],
+  } as unknown as Session;
+  held.sessions = [
+    parent,
+    childJob("c1", "Migrations get names", {
+      turn: {
+        state: "working",
+      },
+      standing: "working",
+    }),
+  ];
   const host = mount(parent, own);
-  expect(cardsIn(zoneOf(host, "Now"))).toEqual(["Job Migrations get names"]);
+  expect(cardsIn(zoneOf(host, "Now"))).toEqual([
+    "Job Migrations get names",
+  ]);
   expect(cardsIn(zoneOf(host, "Done"))).toEqual([]);
 });

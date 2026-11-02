@@ -6,7 +6,11 @@
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { s205SessionRetro, s205SessionRetroNothingNew, s205SessionRetroRefused } from "./scenarios/session-retro";
+import {
+  s205SessionRetro,
+  s205SessionRetroNothingNew,
+  s205SessionRetroRefused,
+} from "./scenarios/session-retro";
 import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -14,15 +18,33 @@ unmountAfterEach();
 // The Retros page remembers which source it listed, and one test narrows it.
 beforeEach(() => window.localStorage.clear());
 
-const more = () => page.getByRole("region", { name: /^Job: / }).getByRole("button", { name: "More" });
+const more = () =>
+  page
+    .getByRole("region", {
+      name: /^Job: /,
+    })
+    .getByRole("button", {
+      name: "More",
+    });
 /** The head's More menu, open on its Retro item. */
 const retro = async (name: "Retro" | "Writing the retro" = "Retro") => {
   await userEvent.click(more());
-  return page.getByRole("menuitem", { name });
+  return page.getByRole("menuitem", {
+    name,
+  });
 };
-const sheet = () => page.getByRole("dialog", { name: "Retro" });
-const thread = () => page.getByRole("region", { name: "Thread" });
-const card = () => thread().getByRole("region", { name: "Retro" });
+const sheet = () =>
+  page.getByRole("dialog", {
+    name: "Retro",
+  });
+const thread = () =>
+  page.getByRole("region", {
+    name: "Thread",
+  });
+const card = () =>
+  thread().getByRole("region", {
+    name: "Retro",
+  });
 const ID = "01IDLECCCCCCCCCCCCCCCCCCCC";
 
 /** Opens the Session and presses Retro in its header's More menu. */
@@ -34,7 +56,11 @@ async function pressInTheHeader(title = "Fix the flaky store test") {
 /** Writes a retro from the Session's header and opens it from the card, which is how a retro is reached now. */
 async function writeAndOpen() {
   await pressInTheHeader();
-  await userEvent.click(card().getByRole("button", { name: "Open retro" }));
+  await userEvent.click(
+    card().getByRole("button", {
+      name: "Open retro",
+    }),
+  );
 }
 
 test("The Retro press puts a retro card in the Session's thread, and the person stays in the thread", async () => {
@@ -61,10 +87,23 @@ test("The card's Open retro link opens that retro on the Retros page, headed by 
 
   await expect.element(sheet()).toBeVisible();
   await expect.element(sheet().getByText("Fix the flaky store test · s-01IDLECC")).toBeVisible();
-  await expect.element(sheet().getByRole("listitem", { name: "A reset waited 40 minutes for an answer" })).toBeVisible();
+  await expect
+    .element(
+      sheet().getByRole("listitem", {
+        name: "A reset waited 40 minutes for an answer",
+      }),
+    )
+    .toBeVisible();
 
-  const item = sheet().getByRole("listitem", { name: "A reset waited 40 minutes for an answer" });
-  await userEvent.click(item.getByRole("button", { name: "Reject change", exact: true }));
+  const item = sheet().getByRole("listitem", {
+    name: "A reset waited 40 minutes for an answer",
+  });
+  await userEvent.click(
+    item.getByRole("button", {
+      name: "Reject change",
+      exact: true,
+    }),
+  );
   await expect.element(item).not.toBeInTheDocument();
 });
 
@@ -77,7 +116,17 @@ test("A second press while one is being written is refused in Fleet's words and 
   // The press is held while writing, so the second comes from elsewhere: the preload, as another window's would.
   const second = await window.armada.retroSession(ID);
   expect(second.ok).toBe(false);
-  expect(!second.ok && second.why === "refused" && (second as { error?: { code?: string } }).error?.code).toBe("fleet.session_retro_being_written");
+  expect(
+    !second.ok &&
+      second.why === "refused" &&
+      (
+        second as {
+          error?: {
+            code?: string;
+          };
+        }
+      ).error?.code,
+  ).toBe("fleet.session_retro_being_written");
   await expect.element(card().getByText("Retro 1 written · 5 items")).toBeVisible();
 });
 
@@ -97,7 +146,11 @@ test("A terminal Session has no card, so its press keeps the mark and opens the 
   await pressInTheHeader("Tidy the release notes");
 
   await expect.element(sheet()).toBeVisible();
-  await userEvent.click(sheet().getByRole("button", { name: "Close" }));
+  await userEvent.click(
+    sheet().getByRole("button", {
+      name: "Close",
+    }),
+  );
   expect(card().elements()).toHaveLength(0);
 });
 
@@ -106,7 +159,9 @@ test("A refused retro says why and opens nothing", async () => {
   await onScreen();
   await pressInTheHeader();
 
-  await expect.element(page.getByText("A retro is already being written for this Session")).toBeVisible();
+  await expect
+    .element(page.getByText("A retro is already being written for this Session"))
+    .toBeVisible();
   await expect.element(sheet()).not.toBeInTheDocument();
 });
 
@@ -115,15 +170,55 @@ test("Closed, the retro's items stay on the Logbook's Retros tab beside the othe
   await onScreen();
   await writeAndOpen();
   await expect.element(sheet()).toBeVisible();
-  await userEvent.click(sheet().getByRole("button", { name: "Close" }));
+  await userEvent.click(
+    sheet().getByRole("button", {
+      name: "Close",
+    }),
+  );
 
   // The Logbook's Retros tab is open behind the sheet: a line for each item, from its Job, the retro's own and the others'.
-  const list = page.getByRole("grid", { name: "Retros" });
-  await expect.element(list.getByRole("row", { name: /A restart of Fleet killed the subagents.*Fix the flaky store test · s-01IDLECC/ }).first()).toBeVisible();
-  await expect.element(list.getByRole("row", { name: /Retire guides 8 and 20/ }).first()).toBeVisible();
+  const list = page.getByRole("grid", {
+    name: "Retros",
+  });
+  await expect
+    .element(
+      list
+        .getByRole("row", {
+          name: /A restart of Fleet killed the subagents.*Fix the flaky store test · s-01IDLECC/,
+        })
+        .first(),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      list
+        .getByRole("row", {
+          name: /Retire guides 8 and 20/,
+        })
+        .first(),
+    )
+    .toBeVisible();
   // The open item's record names whose way it was.
-  await list.getByRole("row", { name: /A restart of Fleet killed the subagents/ }).first().click();
-  await expect.element(page.getByRole("region", { name: "Retro item" }).getByRole("table", { name: "Record" }).getByText("Agent", { exact: true })).toBeVisible();
+  await list
+    .getByRole("row", {
+      name: /A restart of Fleet killed the subagents/,
+    })
+    .first()
+    .click();
+  await expect
+    .element(
+      page
+        .getByRole("region", {
+          name: "Retro item",
+        })
+        .getByRole("table", {
+          name: "Record",
+        })
+        .getByText("Agent", {
+          exact: true,
+        }),
+    )
+    .toBeVisible();
 });
 
 test("A Session's read honours n: the numbered retro, the newest without it, and an unknown n refused", async () => {
@@ -132,9 +227,24 @@ test("A Session's read honours n: the numbered retro, the newest without it, and
   await writeAndOpen();
   await expect.element(sheet()).toBeVisible();
   const id = ID;
-  const first = await window.armada.readRetro({ kind: "session", id, n: 1 });
+  const first = await window.armada.readRetro({
+    kind: "session",
+    id,
+    n: 1,
+  });
   expect(first.ok && first.retro.items?.[0]?.id).toBe(`${id}-r1-1`);
-  const newest = await window.armada.readRetro({ kind: "session", id });
+  const newest = await window.armada.readRetro({
+    kind: "session",
+    id,
+  });
   expect(newest.ok && newest.retro.items?.[0]?.id).toBe(`${id}-r1-1`);
-  expect((await window.armada.readRetro({ kind: "session", id, n: 9 })).ok).toBe(false);
+  expect(
+    (
+      await window.armada.readRetro({
+        kind: "session",
+        id,
+        n: 9,
+      })
+    ).ok,
+  ).toBe(false);
 });

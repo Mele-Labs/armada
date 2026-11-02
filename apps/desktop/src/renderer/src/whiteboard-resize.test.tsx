@@ -15,7 +15,10 @@ import { useEffect, useState } from "react";
 
 import "./styles/index.css";
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
@@ -24,7 +27,18 @@ afterEach(() => {
   }
 });
 
-const KINDS = ["link", "run", "note", "contradiction", "finding", "cluster", "sketch", "outline", "issue_draft", "job"] as const;
+const KINDS = [
+  "link",
+  "run",
+  "note",
+  "contradiction",
+  "finding",
+  "cluster",
+  "sketch",
+  "outline",
+  "issue_draft",
+  "job",
+] as const;
 
 /**
  * A board whose cards say something different on every pass — a title from one
@@ -35,14 +49,34 @@ const KINDS = ["link", "run", "note", "contradiction", "finding", "cluster", "sk
 function board(pass: number): StudioWhiteboardNode[] {
   return KINDS.map((kind, i) => ({
     id: `n${i}`,
-    position: { x: (i % 4) * 320, y: Math.floor(i / 4) * 240 },
+    position: {
+      x: (i % 4) * 320,
+      y: Math.floor(i / 4) * 240,
+    },
     node: {
       kind,
       title: `${kind} ${"word ".repeat(1 + ((pass + i) % 14))}`,
-      facts: ["one", "two"].slice(0, 1 + ((pass + i) % 2)),
+      facts: [
+        "one",
+        "two",
+      ].slice(0, 1 + ((pass + i) % 2)),
       // A Sketch says what it says in its boxes, so its words change there.
       ...(kind === "sketch"
-        ? { drawing: { boxes: [{ id: "b1", x: 0, y: 0, body: "word ".repeat(1 + ((pass + i) % 14)) }], lines: [], strokes: [], pictures: [] } }
+        ? {
+            drawing: {
+              boxes: [
+                {
+                  id: "b1",
+                  x: 0,
+                  y: 0,
+                  body: "word ".repeat(1 + ((pass + i) % 14)),
+                },
+              ],
+              lines: [],
+              strokes: [],
+              pictures: [],
+            },
+          }
         : {}),
     },
   })) as StudioWhiteboardNode[];
@@ -66,7 +100,10 @@ test("a board whose cards keep changing what they say holds its boxes and raises
   host.style.cssText = "position:fixed;inset:0";
   document.body.append(host);
   const root = createRoot(host);
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
 
   // **Drawn from inside a frame, not awaited pass by pass.** A test that lets
   // each pass settle never leaves the observer's loop unsettled, and would see
@@ -86,8 +123,18 @@ test("a board whose cards keep changing what they say holds its boxes and raises
       }
       const frame = requestAnimationFrame(() => setPass(pass + 1));
       return () => cancelAnimationFrame(frame);
-    }, [pass, done]);
-    return <StudioWhiteboard nodes={board(pass)} edges={[]} onNodeMoved={() => undefined} onSelectionChange={() => undefined} />;
+    }, [
+      pass,
+      done,
+    ]);
+    return (
+      <StudioWhiteboard
+        nodes={board(pass)}
+        edges={[]}
+        onNodeMoved={() => undefined}
+        onSelectionChange={() => undefined}
+      />
+    );
   }
 
   await new Promise<void>((done) => root.render(<Churn done={done} />));
@@ -98,7 +145,12 @@ test("a board whose cards keep changing what they say holds its boxes and raises
   expect(host.querySelectorAll(".react-flow__node")).toHaveLength(KINDS.length);
   // The cause: one height per node over every pass. A card's box is its kind's,
   // never its words'.
-  expect([...boxes], "a card's box changed with what it said").toHaveLength(KINDS.length);
+  expect(
+    [
+      ...boxes,
+    ],
+    "a card's box changed with what it said",
+  ).toHaveLength(KINDS.length);
   // The symptom it drove, which is what the owner was shown.
   expect(raised, "the board raised a window error while its cards changed").toEqual([]);
 });

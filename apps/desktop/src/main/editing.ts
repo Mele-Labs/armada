@@ -47,13 +47,23 @@ const EDIT_REFUSALS = [
  * than as an empty text a person could save over.
  */
 export function saveAnswerOf(answer: Answer): ManifestSaveAnswer {
-  if (answer.ok === true) return { state: "saved", saved: answer.body as ManifestSaved };
+  if (answer.ok === true)
+    return {
+      state: "saved",
+      saved: answer.body as ManifestSaved,
+    };
   const outcome = answer.outcome;
   if (!outcome.ok && outcome.why === "refused" && outcome.error.code === MANIFEST_MOVED) {
     const onDisk = outcome.error.fields["on_disk"];
-    return { state: "moved", onDisk: typeof onDisk === "string" ? onDisk : null };
+    return {
+      state: "moved",
+      onDisk: typeof onDisk === "string" ? onDisk : null,
+    };
   }
-  return { state: "failed", outcome };
+  return {
+    state: "failed",
+    outcome,
+  };
 }
 
 /**
@@ -61,22 +71,46 @@ export function saveAnswerOf(answer: Answer): ManifestSaveAnswer {
  * pairs; a pair in any other shape is dropped rather than drawn half-read.
  */
 export function editAnswerOf(answer: Answer): ManifestEditAnswer {
-  if (answer.ok === true) return { state: "edited", edited: answer.body as ManifestEdited };
+  if (answer.ok === true)
+    return {
+      state: "edited",
+      edited: answer.body as ManifestEdited,
+    };
   const outcome = answer.outcome;
-  if (outcome.ok || outcome.why !== "refused") return { state: "failed", outcome };
+  if (outcome.ok || outcome.why !== "refused")
+    return {
+      state: "failed",
+      outcome,
+    };
   const { code, message, fields } = outcome.error;
   if (code === MANIFEST_MOVED) {
     const onDisk = fields["on_disk"];
-    return { state: "moved", onDisk: typeof onDisk === "string" ? onDisk : null };
+    return {
+      state: "moved",
+      onDisk: typeof onDisk === "string" ? onDisk : null,
+    };
   }
-  if (!EDIT_REFUSALS.includes(code)) return { state: "failed", outcome };
+  if (!EDIT_REFUSALS.includes(code))
+    return {
+      state: "failed",
+      outcome,
+    };
   const pairs = Array.isArray(fields["faults"]) ? (fields["faults"] as unknown[]) : [];
   const faults = pairs.flatMap((pair) =>
     Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "string"
-      ? [{ key: pair[0], fault: pair[1] }]
+      ? [
+          {
+            key: pair[0],
+            fault: pair[1],
+          },
+        ]
       : [],
   );
-  return { state: "refused", saying: message, faults };
+  return {
+    state: "refused",
+    saying: message,
+    faults,
+  };
 }
 
 /** `get_manifest_file`, `save_manifest_file`, `edit_manifest`. */
@@ -95,12 +129,30 @@ export class ManifestFileCommands {
   /** `armada.yml` as it is on disk, whole and unparsed. */
   async readFile(): Promise<ManifestFileRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const path = this.picked.manifest("/manifest/file");
-    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    if (path === null)
+      return {
+        ok: false,
+        outcome: NOT_SET_UP,
+      };
     const answer = await ask(port, "GET", path);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    return { ok: true, file: answer.body as ManifestFile };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
+    return {
+      ok: true,
+      file: answer.body as ManifestFile,
+    };
   }
 
   /**
@@ -109,18 +161,40 @@ export class ManifestFileCommands {
    */
   async saveFile(body: SaveManifestFile): Promise<ManifestSaveAnswer> {
     const port = this.port();
-    if (port === null) return { state: "failed", outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        state: "failed",
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const path = this.picked.manifest("/manifest/save_file");
-    if (path === null) return { state: "failed", outcome: NOT_SET_UP };
+    if (path === null)
+      return {
+        state: "failed",
+        outcome: NOT_SET_UP,
+      };
     return saveAnswerOf(await ask(port, "POST", path, body));
   }
 
   /** A form's edits, by key. **Writes and stops**, and answers with the file as written. */
   async edit(body: EditManifest): Promise<ManifestEditAnswer> {
     const port = this.port();
-    if (port === null) return { state: "failed", outcome: { ok: false, why: "not_connected" } };
+    if (port === null)
+      return {
+        state: "failed",
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
     const path = this.picked.manifest("/manifest/edit");
-    if (path === null) return { state: "failed", outcome: NOT_SET_UP };
+    if (path === null)
+      return {
+        state: "failed",
+        outcome: NOT_SET_UP,
+      };
     return editAnswerOf(await ask(port, "POST", path, body));
   }
 }

@@ -40,9 +40,15 @@ function useSteady(props: Omit<CockpitProps, "now">): Pick<CockpitProps, Act> {
   return useMemo(
     () =>
       Object.fromEntries(
-        given.map((one) => [one, (...args: unknown[]) => (latest.current[one] as ((...args: unknown[]) => unknown) | undefined)?.(...args)]),
+        given.map((one) => [
+          one,
+          (...args: unknown[]) =>
+            (latest.current[one] as ((...args: unknown[]) => unknown) | undefined)?.(...args),
+        ]),
       ) as Pick<CockpitProps, Act>,
-    [given.join()],
+    [
+      given.join(),
+    ],
   );
 }
 
@@ -50,5 +56,14 @@ export function CommandCentral(props: Omit<CockpitProps, "now">) {
   const acts = useSteady(props);
   const { state, picked, bring, bayActs } = props;
   // The deck reads ages in whole minutes, so it reads the minute: a clock that moves each second would draw all of it each second.
-  return <DeckBody state={state} now={useNow(AGE_MS)} picked={picked} bring={bring} bayActs={bayActs} {...acts} />;
+  return (
+    <DeckBody
+      state={state}
+      now={useNow(AGE_MS)}
+      picked={picked}
+      bring={bring}
+      bayActs={bayActs}
+      {...acts}
+    />
+  );
 }

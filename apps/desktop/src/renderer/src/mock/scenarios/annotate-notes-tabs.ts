@@ -9,17 +9,53 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, asking, held, hosted } from "../sessions-fleet";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 // The Jobs the sent notes went to: one working, one waiting on a call. The fixtures' notes name them by id.
 const sessions = () => [
-  hosted("01SESSIONNOTESTABSAAAAAAAA", { title: "Tidy the invoice table", attachments: [held("slot", "2"), held("branch", "fix/invoice-table")] }),
-  hosted("01SESSIONSENTROWBADGEAAAAA", { title: "Row badge spacing", hosted: { turn: { state: "working" }, mode: "auto", running: true } }),
-  hosted("01SESSIONSENTCOMPOSERAAAAA", { title: "Composer draft", hosted: { turn: { state: "working" }, mode: "auto", running: true, asked: asking("pnpm test --filter composer") } }),
+  hosted("01SESSIONNOTESTABSAAAAAAAA", {
+    title: "Tidy the invoice table",
+    attachments: [
+      held("slot", "2"),
+      held("branch", "fix/invoice-table"),
+    ],
+  }),
+  hosted("01SESSIONSENTROWBADGEAAAAA", {
+    title: "Row badge spacing",
+    hosted: {
+      turn: {
+        state: "working",
+      },
+      mode: "auto",
+      running: true,
+    },
+  }),
+  hosted("01SESSIONSENTCOMPOSERAAAAA", {
+    title: "Composer draft",
+    hosted: {
+      turn: {
+        state: "working",
+      },
+      mode: "auto",
+      running: true,
+      asked: asking("pnpm test --filter composer"),
+    },
+  }),
 ];
 
 function build(): Scenario {
-  const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
+  const board = onBoard({
+    repositories: [
+      ARMADA,
+    ],
+    picked: ARMADA.root,
+  });
   return {
     ...new FakeSessionsFleet(sessions()).scenario(board),
     name: "annotate-notes-tabs",
@@ -32,10 +68,16 @@ function build(): Scenario {
         // A Session Fleet starts takes its title from the first message, so the fake names it here.
         startSession: async (title) => {
           const started = await own.startSession!(title);
-          if (started.ok && title !== undefined) await own.renameSession!({ session_id: started.value.id, title });
+          if (started.ok && title !== undefined)
+            await own.renameSession!({
+              session_id: started.value.id,
+              title,
+            });
           return started;
         },
-        stageAttachment: async (_bytes, filename) => ({ path: `/tmp/${filename}` }),
+        stageAttachment: async (_bytes, filename) => ({
+          path: `/tmp/${filename}`,
+        }),
         sendSessionMessage: async (send) => {
           await own.watchSession!(send.session_id);
           return own.sendSessionMessage!(send);
@@ -44,8 +86,19 @@ function build(): Scenario {
         sendSessionNotes: async (send) => {
           await own.watchSession!(send.session_id);
           const text = send.notes.map(({ note }) => note.said).join("\n\n");
-          const sent = await own.sendSessionMessage!({ session_id: send.session_id, text });
-          return sent.ok ? { ok: true, value: { session: sent.value, candidates: send.notes.map(() => []) } } : sent;
+          const sent = await own.sendSessionMessage!({
+            session_id: send.session_id,
+            text,
+          });
+          return sent.ok
+            ? {
+                ok: true,
+                value: {
+                  session: sent.value,
+                  candidates: send.notes.map(() => []),
+                },
+              }
+            : sent;
         },
       };
     },

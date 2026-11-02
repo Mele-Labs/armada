@@ -21,13 +21,25 @@ import type { CaptureStudioNote, StagedFrame } from "@armada/protocol";
  * drawn at one width and grows down the page with its words, so a height in
  * the draft would be a measurement Bridge took and a person never chose.
  */
-export type SketchShape = { id: string; x: number; y: number; body: string };
+export type SketchShape = {
+  id: string;
+  x: number;
+  y: number;
+  body: string;
+};
 
 /** One box joined to another, in the direction a person drew it. */
-export type SketchJoin = { id: string; from: string; to: string };
+export type SketchJoin = {
+  id: string;
+  from: string;
+  to: string;
+};
 
 /** One place on the pad, in the same coordinates a box's `x` and `y` are in. */
-export type SketchPoint = { x: number; y: number };
+export type SketchPoint = {
+  x: number;
+  y: number;
+};
 
 /**
  * One line drawn freehand, **kept as the line rather than as a picture of it**.
@@ -43,7 +55,10 @@ export type SketchPoint = { x: number; y: number };
  * do none of them, which is the same argument `drawn` already makes against
  * reopening the PNG.
  */
-export type SketchStroke = { id: string; points: readonly SketchPoint[] };
+export type SketchStroke = {
+  id: string;
+  points: readonly SketchPoint[];
+};
 
 /**
  * A picture pasted onto the pad — a screenshot, most often — at a place and a
@@ -148,7 +163,12 @@ export function sketchFromFrame(
 }
 
 /** A pad with nothing on it. What Sketch opens on where no moment carries one. */
-export const NOTHING_DRAWN: Drawing = { shapes: [], joins: [], strokes: [], pictures: [] };
+export const NOTHING_DRAWN: Drawing = {
+  shapes: [],
+  joins: [],
+  strokes: [],
+  pictures: [],
+};
 
 /** What a sketch was drawn from, or an empty pad where it carries none. */
 export function drawingOf(sketch: SketchOpening | undefined): Drawing {
@@ -189,7 +209,10 @@ export function withShape(drawing: Drawing, shape: SketchShape): Drawing {
     ...drawing,
     shapes: held
       ? drawing.shapes.map((one) => (one.id === shape.id ? shape : one))
-      : [...drawing.shapes, shape],
+      : [
+          ...drawing.shapes,
+          shape,
+        ],
   };
 }
 
@@ -207,7 +230,13 @@ export function nextPictureId(drawing: Drawing): string {
 
 /** A picture put down, on top of what is already there. */
 export function withPicture(drawing: Drawing, picture: SketchPicture): Drawing {
-  return { ...drawing, pictures: [...drawing.pictures, picture] };
+  return {
+    ...drawing,
+    pictures: [
+      ...drawing.pictures,
+      picture,
+    ],
+  };
 }
 
 /**
@@ -252,7 +281,16 @@ function nextStrokeId(drawing: Drawing): string {
  */
 export function withStroke(drawing: Drawing, points: readonly SketchPoint[]): Drawing {
   if (points.length < 2) return drawing;
-  return { ...drawing, strokes: [...drawing.strokes, { id: nextStrokeId(drawing), points }] };
+  return {
+    ...drawing,
+    strokes: [
+      ...drawing.strokes,
+      {
+        id: nextStrokeId(drawing),
+        points,
+      },
+    ],
+  };
 }
 
 /**
@@ -264,7 +302,10 @@ export function withStroke(drawing: Drawing, points: readonly SketchPoint[]): Dr
  */
 export function withoutLastStroke(drawing: Drawing): Drawing {
   if (drawing.strokes.length === 0) return drawing;
-  return { ...drawing, strokes: drawing.strokes.slice(0, -1) };
+  return {
+    ...drawing,
+    strokes: drawing.strokes.slice(0, -1),
+  };
 }
 
 /**
@@ -277,24 +318,66 @@ export function withoutLastStroke(drawing: Drawing): Drawing {
 export function withJoin(drawing: Drawing, from: string, to: string): Drawing {
   if (from === to) return drawing;
   const already = drawing.joins.some(
-    (join) =>
-      (join.from === from && join.to === to) || (join.from === to && join.to === from),
+    (join) => (join.from === from && join.to === to) || (join.from === to && join.to === from),
   );
   if (already) return drawing;
-  return { ...drawing, joins: [...drawing.joins, { id: `${from}-${to}`, from, to }] };
+  return {
+    ...drawing,
+    joins: [
+      ...drawing.joins,
+      {
+        id: `${from}-${to}`,
+        from,
+        to,
+      },
+    ],
+  };
 }
 
 /** The words in one box, rewritten. A box the pad does not hold changes nothing. */
 export function withBody(drawing: Drawing, id: string, body: string): Drawing {
-  return { ...drawing, shapes: drawing.shapes.map((one) => (one.id === id ? { ...one, body } : one)) };
+  return {
+    ...drawing,
+    shapes: drawing.shapes.map((one) =>
+      one.id === id
+        ? {
+            ...one,
+            body,
+          }
+        : one,
+    ),
+  };
 }
 
 /** A box or a picture put down somewhere new. */
-export function withPlace(drawing: Drawing, id: string, at: { x: number; y: number }): Drawing {
+export function withPlace(
+  drawing: Drawing,
+  id: string,
+  at: {
+    x: number;
+    y: number;
+  },
+): Drawing {
   return {
     ...drawing,
-    shapes: drawing.shapes.map((one) => (one.id === id ? { ...one, x: at.x, y: at.y } : one)),
-    pictures: drawing.pictures.map((one) => (one.id === id ? { ...one, x: at.x, y: at.y } : one)),
+    shapes: drawing.shapes.map((one) =>
+      one.id === id
+        ? {
+            ...one,
+            x: at.x,
+            y: at.y,
+          }
+        : one,
+    ),
+    pictures: drawing.pictures.map((one) =>
+      one.id === id
+        ? {
+            ...one,
+            x: at.x,
+            y: at.y,
+          }
+        : one,
+    ),
   };
 }
 
@@ -311,5 +394,8 @@ export function sketchDrawn(
   drawing: Drawing,
   producedBy?: string,
 ): SketchAttachment {
-  return { ...sketchFromFrame(staged, said, producedBy), drawn: drawing };
+  return {
+    ...sketchFromFrame(staged, said, producedBy),
+    drawn: drawing,
+  };
 }

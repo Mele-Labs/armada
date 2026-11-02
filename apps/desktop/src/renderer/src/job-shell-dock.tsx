@@ -3,7 +3,13 @@
 // view's dock holds a block's runs alone.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { DockedTerminal, XtermScreen, type ShellDockPane, type ShellPaneProps, type TerminalDockRun } from "@armada/components";
+import {
+  DockedTerminal,
+  XtermScreen,
+  type ShellDockPane,
+  type ShellPaneProps,
+  type TerminalDockRun,
+} from "@armada/components";
 
 import { shellsOf, useJobShell, type JobShell, type JobShells, type ShellPlace } from "./job-shell";
 import { viewingNow } from "./cockpit/viewed";
@@ -21,16 +27,29 @@ export type JobDock = {
  * `served` is whether the view serves terminal runs; a view that does also docks the Job's shell, unless `shellElsewhere`: the
  * Cockpit docks it in a panel of its own under the Job (`useDeckShell`), and the view's dock holds a block's runs alone.
  */
-export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDockRun, served: boolean, shellElsewhere = false): JobDock {
+export function useJobDock(
+  sessionId: string,
+  place: ShellPlace,
+  run: TerminalDockRun,
+  served: boolean,
+  shellElsewhere = false,
+): JobDock {
   const shells = served && !shellElsewhere ? shellsOf(window.armada) : null;
   const { shell, shown } = useJobShell(shells, place, sessionId);
   const [front, setFront] = useState<ShellDockPane>("shell");
   // A shell docked from the side panel or its window comes to the front, as every other way of showing it does.
   useEffect(() => {
     if (shown) setFront("shell");
-  }, [shown]);
+  }, [
+    shown,
+  ]);
   useShellArrivals(shells, place, sessionId, () => setFront("shell"));
-  if (!served) return { dock: run, terminal: undefined, pane: null };
+  if (!served)
+    return {
+      dock: run,
+      terminal: undefined,
+      pane: null,
+    };
   const dock: TerminalDockRun = {
     ...run,
     start: (command, inline) => {
@@ -42,7 +61,12 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
       run.show();
     },
   };
-  if (shells === null) return { dock, terminal: undefined, pane: <DockedTerminal dock={dock} /> };
+  if (shells === null)
+    return {
+      dock,
+      terminal: undefined,
+      pane: <DockedTerminal dock={dock} />,
+    };
   const pane = !shown || shell === undefined ? null : shellPane(shells, place, sessionId, shell);
   return {
     dock,
@@ -50,7 +74,16 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
       shells.want(place, sessionId);
       setFront("shell");
     },
-    pane: <DockedTerminal dock={dock} shell={{ pane, front, onFront: setFront }} />,
+    pane: (
+      <DockedTerminal
+        dock={dock}
+        shell={{
+          pane,
+          front,
+          onFront: setFront,
+        }}
+      />
+    ),
   };
 }
 
@@ -58,7 +91,12 @@ export function useJobDock(sessionId: string, place: ShellPlace, run: TerminalDo
  * A shell the agent opened shows in the view of its Job, or in the window it already has; a shell moved back out of its window docks.
  * `docked` hears each that docks.
  */
-export function useShellArrivals(shells: JobShells | null, place: ShellPlace, sessionId: string, docked?: () => void): void {
+export function useShellArrivals(
+  shells: JobShells | null,
+  place: ShellPlace,
+  sessionId: string,
+  docked?: () => void,
+): void {
   const told = useRef(docked);
   told.current = docked;
   useEffect(() => {
@@ -66,7 +104,8 @@ export function useShellArrivals(shells: JobShells | null, place: ShellPlace, se
     const offOpened = shells.onOpened((opened) => {
       // A shell the agent opens while the Job is not on screen waits behind its Terminal key, which pulses while it prints.
       if (opened !== sessionId || !viewingNow(sessionId)) return;
-      if (place === "page" && shells.hasWindow(sessionId) && toWindow(shells, place, sessionId)) return;
+      if (place === "page" && shells.hasWindow(sessionId) && toWindow(shells, place, sessionId))
+        return;
       shells.show(place, sessionId, true);
       told.current?.();
     });
@@ -82,14 +121,29 @@ export function useShellArrivals(shells: JobShells | null, place: ShellPlace, se
       offOpened();
       offBack();
     };
-  }, [shells, place, sessionId]);
+  }, [
+    shells,
+    place,
+    sessionId,
+  ]);
 }
 
 /** The docked shell's pane: Hide and End shell, New shell and Close, and on a Job's page the move to a window. */
-function shellPane(shells: JobShells, place: ShellPlace, sessionId: string, shell: JobShell): ShellPaneProps {
+function shellPane(
+  shells: JobShells,
+  place: ShellPlace,
+  sessionId: string,
+  shell: JobShell,
+): ShellPaneProps {
   const running = !shell.ended;
   return {
-    phase: running ? { state: "running" } : { state: "ended" },
+    phase: running
+      ? {
+          state: "running",
+        }
+      : {
+          state: "ended",
+        },
     onHide: () => shells.show(place, sessionId, false),
     onEnd: () => shells.stop(sessionId),
     onOpen: () => shells.want(place, sessionId),
@@ -106,7 +160,16 @@ function shellPane(shells: JobShells, place: ShellPlace, sessionId: string, shel
         }
       : {}),
     // Keyed by the shell, so a new one is a new screen that fits and says its size before it opens.
-    children: <XtermScreen key={shell.screen} out={shell.out} run={shell.screen} running={running} write={(data) => shells.write(sessionId, data)} onSize={(cols, rows) => shells.sized(sessionId, cols, rows)} />,
+    children: (
+      <XtermScreen
+        key={shell.screen}
+        out={shell.out}
+        run={shell.screen}
+        running={running}
+        write={(data) => shells.write(sessionId, data)}
+        onSize={(cols, rows) => shells.sized(sessionId, cols, rows)}
+      />
+    ),
   };
 }
 
@@ -117,11 +180,18 @@ function shellPane(shells: JobShells, place: ShellPlace, sessionId: string, shel
 export function useDeckShell(sessionId: string, served: boolean): ShellPaneProps | null {
   const shells = served ? shellsOf(window.armada) : null;
   const { shell, shown } = useJobShell(shells, "page", sessionId);
-  return shells === null || !shown || shell === undefined ? null : shellPane(shells, "page", sessionId, shell);
+  return shells === null || !shown || shell === undefined
+    ? null
+    : shellPane(shells, "page", sessionId, shell);
 }
 
 /** The Job's shell as Flight control's Terminal tile reads and presses it, where the Job has no panes: whether it shows docked or in its window. */
-export type JobTerminal = { shown: boolean; windowed: boolean; /** The shell printed a moment ago, so something is running in it. */ running: boolean; press: () => void };
+export type JobTerminal = {
+  shown: boolean;
+  windowed: boolean /** The shell printed a moment ago, so something is running in it. */;
+  running: boolean;
+  press: () => void;
+};
 
 /** How long after its last output a shell still counts as running something. */
 const IDLE_MS = 3000;
@@ -136,7 +206,9 @@ function useShellRunning(shell: JobShell | undefined): boolean {
     if (wait <= 0) return;
     const timer = setTimeout(() => tick((n) => n + 1), wait);
     return () => clearTimeout(timer);
-  }, [printedAt]);
+  }, [
+    printedAt,
+  ]);
   return printedAt !== undefined && Date.now() - printedAt < IDLE_MS;
 }
 

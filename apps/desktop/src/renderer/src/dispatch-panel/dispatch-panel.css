@@ -28,7 +28,9 @@
 }
 
 @keyframes armada-dispatch-panel-in {
-  from { opacity: 0; }
+  from {
+    opacity: 0;
+  }
 }
 
 /* ---- The frame ------------------------------------------------------------------------------ */
@@ -61,7 +63,9 @@
 }
 
 .armada-dispatch-panel__frame[data-open]:focus-within {
-  box-shadow: var(--shadow-overlay), 0 0 0 calc(var(--border-width) * 3) color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow:
+    var(--shadow-overlay),
+    0 0 0 calc(var(--border-width) * 3) color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* Dispatch is waiting on the owner for a repository: the frame takes the call's hue, lit at its edge, as a Cockpit call does. */
@@ -80,7 +84,8 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-4);
-  padding: calc((var(--h-row-unit) * 2 - var(--border-width) * 2 - var(--leading-lg)) / 2) var(--space-6, var(--space-4));
+  padding: calc((var(--h-row-unit) * 2 - var(--border-width) * 2 - var(--leading-lg)) / 2)
+    var(--space-6, var(--space-4));
 }
 
 .armada-dispatch-panel__prompt,
@@ -91,7 +96,9 @@
   min-height: var(--leading-lg);
 }
 
-.armada-dispatch-panel__prompt { color: var(--accent); }
+.armada-dispatch-panel__prompt {
+  color: var(--accent);
+}
 
 /* Under the bar, in the field's own inset: pastes kept as files wait here until the Session starts. */
 .armada-dispatch-panel__snippets {
@@ -119,16 +126,27 @@
   transition: height var(--duration-sheet) var(--ease);
 }
 
-.armada-dispatch-panel__frame[data-open] .armada-dispatch-panel__field { height: calc(var(--leading-lg) * 5); }
+.armada-dispatch-panel__frame[data-open] .armada-dispatch-panel__field {
+  height: calc(var(--leading-lg) * 5);
+}
 
 .armada-dispatch-panel__field:focus,
-.armada-dispatch-panel__field:focus-visible { outline: none; box-shadow: none; }
+.armada-dispatch-panel__field:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 
-.armada-dispatch-panel__field::placeholder { color: var(--fg-subtle); }
+.armada-dispatch-panel__field::placeholder {
+  color: var(--fg-subtle);
+}
 
 /* Tab switches the kind only while the cursor is in the frame. */
-.armada-dispatch-panel__tab { visibility: hidden; }
-.armada-dispatch-panel__frame:focus-within .armada-dispatch-panel__tab { visibility: visible; }
+.armada-dispatch-panel__tab {
+  visibility: hidden;
+}
+.armada-dispatch-panel__frame:focus-within .armada-dispatch-panel__tab {
+  visibility: visible;
+}
 
 /* ---- The drawer: opens under the line ------------------------------------------------------- */
 
@@ -167,7 +185,9 @@
   border-top: var(--border-width) solid var(--border-default);
   background: var(--bg-raised);
   color: var(--fg-muted);
-  transition: background var(--duration-base) var(--ease), color var(--duration-base) var(--ease);
+  transition:
+    background var(--duration-base) var(--ease),
+    color var(--duration-base) var(--ease);
 }
 
 .armada-dispatch-panel__send {
@@ -196,7 +216,9 @@
   text-overflow: ellipsis;
 }
 
-.armada-dispatch-panel__picks .armada-session-composer__pick { min-width: calc(var(--space-12) * 1.5); }
+.armada-dispatch-panel__picks .armada-session-composer__pick {
+  min-width: calc(var(--space-12) * 1.5);
+}
 
 /* ---- The repository row: every set-up repository a chip, each with its key --------------------- */
 
@@ -208,7 +230,9 @@
   padding: var(--space-3) var(--space-4);
   border-top: var(--border-width) solid var(--border-default);
   background: var(--bg-sunken);
-  transition: background var(--duration-base) var(--ease), border-color var(--duration-base) var(--ease);
+  transition:
+    background var(--duration-base) var(--ease),
+    border-color var(--duration-base) var(--ease);
 }
 
 /* What the row says about the read: a name is a repository, the rest are the ways there is none yet. */
@@ -224,10 +248,14 @@
 
 .armada-dispatch-panel__reading[data-reading="detected"],
 .armada-dispatch-panel__reading[data-reading="picked"],
-.armada-dispatch-panel__reading[data-reading="scoped"] { color: var(--accent); }
+.armada-dispatch-panel__reading[data-reading="scoped"] {
+  color: var(--accent);
+}
 
 /* Being read: an open ring turning. */
-.armada-dispatch-panel__reading[data-reading="detecting"] { color: var(--accent); }
+.armada-dispatch-panel__reading[data-reading="detecting"] {
+  color: var(--accent);
+}
 
 .armada-dispatch-panel__reading[data-reading="detecting"] > svg {
   animation: armada-dispatch-panel-spin var(--duration-pulse) linear infinite;
@@ -253,9 +281,17 @@
     color var(--duration-fast) var(--ease);
 }
 
-.armada-dispatch-panel__repo:hover:not(:disabled) { border-color: var(--border-strong); }
-.armada-dispatch-panel__repo:disabled { cursor: default; color: var(--fg-subtle); }
-.armada-dispatch-panel__repo:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-dispatch-panel__repo:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.armada-dispatch-panel__repo:disabled {
+  cursor: default;
+  color: var(--fg-subtle);
+}
+.armada-dispatch-panel__repo:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
 
 .armada-dispatch-panel__name {
   min-width: 0;
@@ -265,7 +301,9 @@
 }
 
 /* The one the words name, where another is chosen: lit at its edge. */
-.armada-dispatch-panel__repo[data-mark="read"] { border-color: var(--accent); }
+.armada-dispatch-panel__repo[data-mark="read"] {
+  border-color: var(--accent);
+}
 
 /* The chosen one, filled in the accent and set in the heading weight, as a held bay is filled in its hue. */
 .armada-dispatch-panel__repo[data-mark="chosen"] {
@@ -276,7 +314,10 @@
   box-shadow: var(--shadow-primary);
 }
 
-.armada-dispatch-panel__repo[data-mark="chosen"]:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.armada-dispatch-panel__repo[data-mark="chosen"]:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
 
 .armada-dispatch-panel__repo[data-mark="chosen"] .armada-kbd {
   border-color: color-mix(in srgb, var(--fg-inverse) 45%, transparent);
@@ -285,7 +326,10 @@
 }
 
 /* The trailing menu past nine: the chosen repository, when it is one of them, is drawn as a chosen chip is. */
-.armada-dispatch-panel__more { display: inline-flex; align-items: center; }
+.armada-dispatch-panel__more {
+  display: inline-flex;
+  align-items: center;
+}
 
 .armada-dispatch-panel__more[data-mark="chosen"] .armada-dropdown-menu__trigger {
   border-color: var(--accent);
@@ -301,7 +345,9 @@
   color: var(--fg-inverse);
 }
 
-.armada-dispatch-panel__frame[data-asking] .armada-dispatch-panel__reading { color: var(--fg-inverse); }
+.armada-dispatch-panel__frame[data-asking] .armada-dispatch-panel__reading {
+  color: var(--fg-inverse);
+}
 
 .armada-dispatch-panel__frame[data-asking] .armada-dispatch-panel__repo {
   border-color: var(--fg-inverse);
@@ -322,24 +368,34 @@
 }
 
 .armada-dispatch-panel__frame[data-asking] .armada-dispatch-panel__repo:focus-visible .armada-kbd,
-.armada-dispatch-panel__frame[data-asking] .armada-dispatch-panel__repo:hover:not(:disabled) .armada-kbd {
+.armada-dispatch-panel__frame[data-asking]
+  .armada-dispatch-panel__repo:hover:not(:disabled)
+  .armada-kbd {
   border-color: color-mix(in srgb, var(--hue) 55%, transparent);
   color: var(--hue);
 }
 
 @keyframes armada-dispatch-panel-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-dispatch-panel__reading[data-reading="detecting"] > svg { animation: none; }
+  .armada-dispatch-panel__reading[data-reading="detecting"] > svg {
+    animation: none;
+  }
 }
 
 /* The menu past nine is drawn in a layer of its own, since the frame clips what hangs out of it; it has to clear the scrim. */
-body[data-dispatching] > .armada-dropdown-menu__panel[data-portal] { z-index: var(--z-palette); }
+body[data-dispatching] > .armada-dropdown-menu__panel[data-portal] {
+  z-index: var(--z-palette);
+}
 
 /* A start the sheet sent and Fleet refused is the window's toast, so the toasts clear the scrim and the sheet while it is up. */
-body[data-dispatching] .armada-app__toasts { z-index: calc(var(--z-palette) + 1); }
+body[data-dispatching] .armada-app__toasts {
+  z-index: calc(var(--z-palette) + 1);
+}
 
 /* ---- The request's words: the tag of the Session a brief waits on is lit in the text ------------ */
 
@@ -378,7 +434,10 @@ body[data-dispatching] .armada-app__toasts { z-index: calc(var(--z-palette) + 1)
   color: transparent;
 }
 
-.armada-dispatch-panel__words > .armada-dispatch-panel__field { position: relative; display: block; }
+.armada-dispatch-panel__words > .armada-dispatch-panel__field {
+  position: relative;
+  display: block;
+}
 
 /* ---- The @ menu: the mention list's rows, in the sheet's flow so the frame does not clip it ------- */
 
@@ -391,9 +450,14 @@ body[data-dispatching] .armada-app__toasts { z-index: calc(var(--z-palette) + 1)
   box-shadow: none;
 }
 
-.armada-dispatch-panel__menu .armada-mention__row { gap: var(--space-2); }
+.armada-dispatch-panel__menu .armada-mention__row {
+  gap: var(--space-2);
+}
 
-.armada-dispatch-panel__menu svg { flex: none; color: var(--fg-muted); }
+.armada-dispatch-panel__menu svg {
+  flex: none;
+  color: var(--fg-muted);
+}
 
 /* ---- The sentence over the request: the proposer's reading of the wait, each part a button ------- */
 
@@ -414,7 +478,9 @@ body[data-dispatching] .armada-app__toasts { z-index: calc(var(--z-palette) + 1)
   padding: var(--space-2) var(--space-4);
 }
 
-.armada-wait__glue { margin-inline-start: calc(var(--space-2) * -1); }
+.armada-wait__glue {
+  margin-inline-start: calc(var(--space-2) * -1);
+}
 
 .armada-wait__part {
   display: inline-flex;
@@ -433,14 +499,27 @@ body[data-dispatching] .armada-app__toasts { z-index: calc(var(--z-palette) + 1)
   transition: border-color var(--duration-fast) var(--ease);
 }
 
-.armada-wait__part:hover:not(:disabled) { border-color: var(--border-strong); }
-.armada-wait__part:disabled { cursor: default; color: var(--fg-subtle); }
-.armada-wait__part:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-wait__part:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.armada-wait__part:disabled {
+  cursor: default;
+  color: var(--fg-subtle);
+}
+.armada-wait__part:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
 
 /* Set by hand: the accent at its edge, until the words say something else about it. */
-.armada-wait__part[data-his] { border-color: var(--accent); }
+.armada-wait__part[data-his] {
+  border-color: var(--accent);
+}
 
-.armada-wait__part > svg { flex: none; color: var(--fg-muted); }
+.armada-wait__part > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
 
 .armada-wait__text {
   min-width: 0;
@@ -456,7 +535,10 @@ body[data-dispatching] .armada-app__toasts { z-index: calc(var(--z-palette) + 1)
   border-top: var(--border-width) solid var(--border-default);
 }
 
-.armada-dispatch-panel__settings .armada-dispatch-settings { padding-top: 0; border-top: 0; }
+.armada-dispatch-panel__settings .armada-dispatch-settings {
+  padding-top: 0;
+  border-top: 0;
+}
 
 .armada-dispatch-panel__settings .armada-dispatch-settings__head {
   font-family: var(--font-mono);
@@ -472,4 +554,7 @@ body[data-dispatching] .armada-app__toasts { z-index: calc(var(--z-palette) + 1)
   animation: armada-dispatch-panel-in var(--duration-base) var(--ease);
 }
 
-.armada-dispatch-panel__autopilot .armada-input-field__label { font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-dispatch-panel__autopilot .armada-input-field__label {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}

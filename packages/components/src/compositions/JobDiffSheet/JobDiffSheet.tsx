@@ -67,7 +67,11 @@ export function railOfPatch(files: DiffFile[]): JobDiffFile[] {
       if (line.kind === "added") added += 1;
       else if (line.kind === "removed") removed += 1;
     }
-    return { path: file.path, added, removed };
+    return {
+      path: file.path,
+      added,
+      removed,
+    };
   });
 }
 

@@ -16,23 +16,84 @@ const POCKET = "pocket";
 
 /** The Sessions the ship holds on a bay, so a history row that names one opens it. */
 const sessionOn = (slot: number): BayHolder => {
-  const held = ship.held?.slots?.find((one) => one.manifest_id === ARMADA && one.slot === slot)?.held;
-  return held?.state === "hosted_session" ? { kind: "session", id: held.session_id, title: held.session_title } : { kind: "session", id: "gone" };
+  const held = ship.held?.slots?.find(
+    (one) => one.manifest_id === ARMADA && one.slot === slot,
+  )?.held;
+  return held?.state === "hosted_session"
+    ? {
+        kind: "session",
+        id: held.session_id,
+        title: held.session_title,
+      }
+    : {
+        kind: "session",
+        id: "gone",
+      };
 };
-const PIN_CLOCK: BayHolder = { kind: "session", id: "r1", title: "Pin the store clock" };
-const GATE_POLICY: BayHolder = { kind: "session", id: "p1", title: "Gate policy on every run" };
-const CHECKS: BayHolder = { kind: "agent", id: "claude (pid 44698)", title: "Checks --changed Bug" };
-const CHECKS_EARLIER: BayHolder = { kind: "agent", id: "claude (pid 31207)", title: "Checks --changed Store" };
-const FRAME: BayHolder = { kind: "session", id: "01SESSIONCLOSEDFRAME0000", title: "Frame the reply" };
+const PIN_CLOCK: BayHolder = {
+  kind: "session",
+  id: "r1",
+  title: "Pin the store clock",
+};
+const GATE_POLICY: BayHolder = {
+  kind: "session",
+  id: "p1",
+  title: "Gate policy on every run",
+};
+const CHECKS: BayHolder = {
+  kind: "agent",
+  id: "claude (pid 44698)",
+  title: "Checks --changed Bug",
+};
+const CHECKS_EARLIER: BayHolder = {
+  kind: "agent",
+  id: "claude (pid 31207)",
+  title: "Checks --changed Store",
+};
+const FRAME: BayHolder = {
+  kind: "session",
+  id: "01SESSIONCLOSEDFRAME0000",
+  title: "Frame the reply",
+};
 
-const leased = (minutes: number, holder: BayHolder, branch?: string): BayHistoryEntry => ({ kind: "leased", at: ago(minutes), holder, ...(branch === undefined ? {} : { branch }) });
-const released = (minutes: number, holder: BayHolder): BayHistoryEntry => ({ kind: "released", at: ago(minutes), holder });
-const checkout = (minutes: number, sha: string, to: string, from?: string): BayHistoryEntry => ({ kind: "checkout", at: ago(minutes), sha, to, ...(from === undefined ? {} : { from }) });
+const leased = (minutes: number, holder: BayHolder, branch?: string): BayHistoryEntry => ({
+  kind: "leased",
+  at: ago(minutes),
+  holder,
+  ...(branch === undefined
+    ? {}
+    : {
+        branch,
+      }),
+});
+const released = (minutes: number, holder: BayHolder): BayHistoryEntry => ({
+  kind: "released",
+  at: ago(minutes),
+  holder,
+});
+const checkout = (minutes: number, sha: string, to: string, from?: string): BayHistoryEntry => ({
+  kind: "checkout",
+  at: ago(minutes),
+  sha,
+  to,
+  ...(from === undefined
+    ? {}
+    : {
+        from,
+      }),
+});
 
-const history = (manifest: string, slot: number, entries: BayHistoryEntry[], cut = false): BayHistory => ({
+const history = (
+  manifest: string,
+  slot: number,
+  entries: BayHistoryEntry[],
+  cut = false,
+): BayHistory => ({
   manifest_id: manifest,
   slot,
-  entries: [...entries].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)),
+  entries: [
+    ...entries,
+  ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)),
   cut,
 });
 
@@ -79,7 +140,23 @@ const HISTORIES: BayHistory[] = [
     released(3 * HOUR, FRAME),
   ]),
   // Closed: a person closed it after its last lease.
-  history(POCKET, 2, [leased(30 * HOUR, { kind: "session", id: "01POCKETSESSIONAUDIT0000", title: "Audit the pairing flow" }, "pocket/audit"), checkout(29 * HOUR, "6c4d2f9", "pocket/audit", "main"), released(26 * HOUR, { kind: "session", id: "01POCKETSESSIONAUDIT0000", title: "Audit the pairing flow" })]),
+  history(POCKET, 2, [
+    leased(
+      30 * HOUR,
+      {
+        kind: "session",
+        id: "01POCKETSESSIONAUDIT0000",
+        title: "Audit the pairing flow",
+      },
+      "pocket/audit",
+    ),
+    checkout(29 * HOUR, "6c4d2f9", "pocket/audit", "main"),
+    released(26 * HOUR, {
+      kind: "session",
+      id: "01POCKETSESSIONAUDIT0000",
+      title: "Audit the pairing flow",
+    }),
+  ]),
 ];
 
 function build(): Scenario {
@@ -90,17 +167,29 @@ function build(): Scenario {
     base: "main",
     warm: true,
     behind: 838,
-    held: { state: "session", holder: "claude (pid 44698)", session_title: "Checks --changed Bug" },
+    held: {
+      state: "session",
+      holder: "claude (pid 44698)",
+      session_title: "Checks --changed Bug",
+    },
     branch: "armada/session-627d8d8f",
     since: ago(65 * HOUR),
   };
-  const slots = [...(ship.held?.slots ?? []), cli];
+  const slots = [
+    ...(ship.held?.slots ?? []),
+    cli,
+  ];
   return {
     ...ship,
     name: "bay-pane-acts",
     says: "The flight deck's bay pane: every act of the Worktree Slots panel on a held, free, closed and stranded bay, and each bay's history of leases and checkouts",
-    held: { slots },
-    draft: { ...ship.draft, bayHistories: HISTORIES },
+    held: {
+      slots,
+    },
+    draft: {
+      ...ship.draft,
+      bayHistories: HISTORIES,
+    },
   };
 }
 

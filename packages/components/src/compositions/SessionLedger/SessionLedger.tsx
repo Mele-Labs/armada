@@ -1,5 +1,48 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Link, CircleCheck, CircleX, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, FileText, Globe, Image, ListChecks, Megaphone, MessageCircleQuestion, MoveRight, NotebookText, Power, Radar, Reply, ScanText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, SquareTerminal, Trash2, Undo2, Unplug, X } from "lucide-react";
+import {
+  AppWindow,
+  BellRing,
+  Link,
+  CircleCheck,
+  CircleX,
+  GitPullRequestArrow,
+  LoaderCircle,
+  CornerUpRight,
+  SquarePen,
+  MessageSquare,
+  Check,
+  CircleDot,
+  Files,
+  FileText,
+  Globe,
+  Image,
+  ListChecks,
+  Megaphone,
+  MessageCircleQuestion,
+  MoveRight,
+  NotebookText,
+  Power,
+  Radar,
+  Reply,
+  ScanText,
+  Search,
+  Terminal,
+  GitBranch,
+  GitPullRequest,
+  KeyRound,
+  Presentation,
+  PencilRuler,
+  RotateCw,
+  ShieldCheck,
+  ShieldEllipsis,
+  ShieldX,
+  Split,
+  SquareTerminal,
+  Trash2,
+  Undo2,
+  Unplug,
+  X,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -34,7 +77,20 @@ import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedS
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "studio" | "sketch" | "subagent" | "background" | "artifact" | "fork" | "start" | "linked" | "closed";
+export type LedgerKind =
+  | "waiting"
+  | "slot"
+  | "branch"
+  | "pull_request"
+  | "studio"
+  | "sketch"
+  | "subagent"
+  | "background"
+  | "artifact"
+  | "fork"
+  | "start"
+  | "linked"
+  | "closed";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "document" | "window";
@@ -43,7 +99,15 @@ export type ArtifactForm = "page" | "file" | "image" | "doc" | "document" | "win
 export type BackgroundForm = "command" | "monitor";
 
 /** A hue a ledger row or a card's fact carries: the Checks or the turn it stands for, never a chosen colour. */
-export type SessionLedgerTone = "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted" | "stopped";
+export type SessionLedgerTone =
+  | "pending"
+  | "passed"
+  | "failed"
+  | "running"
+  | "done"
+  | "escalated"
+  | "piloted"
+  | "stopped";
 
 /**
  * What hovering or focusing a row shows beside it: what the row is, one fact a line. **Built by the host
@@ -54,16 +118,34 @@ export type SessionLedgerCard = {
   /** The item's id, as the card's head says it: `#2301`. */
   where?: string;
   /** Its state, where the host names the glyph; else a fact labelled State is drawn as the state band. */
-  state?: { said: string; Glyph?: LucideIcon; tone?: SessionLedgerTone };
+  state?: {
+    said: string;
+    Glyph?: LucideIcon;
+    tone?: SessionLedgerTone;
+  };
   /**
    * `mono` is a machine value, a branch or a path. `tone` is drawn in the hue the row's mark takes.
    * A value of `{ at }` is an RFC 3339 instant, drawn as a stamp in the owner's time format. `open` draws the value as a link
    * to what it names, such as the Job that holds a pull request.
    */
-  facts: readonly { label: string; value: string | { at: string }; tone?: SessionLedgerTone; mono?: boolean; open?: () => void }[];
+  facts: readonly {
+    label: string;
+    value:
+      | string
+      | {
+          at: string;
+        };
+    tone?: SessionLedgerTone;
+    mono?: boolean;
+    open?: () => void;
+  }[];
 };
 
-import { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest } from "./PullRequestMarks";
+import {
+  PullRequestChecksMark,
+  PullRequestStateMark,
+  type LedgerPullRequest,
+} from "./PullRequestMarks";
 
 export { PullRequestChecksMark, PullRequestStateMark, type LedgerPullRequest };
 
@@ -76,7 +158,10 @@ export type LedgerEntry = {
   /** A `pull_request` row's state and Checks, drawn as the two bare marks the done callout draws too. */
   pr?: LedgerPullRequest;
   /** A pull request's Checks, or a subagent's turn, as the one mark at the row's end. */
-  mark?: { glyph: SessionLedgerTone; said: string };
+  mark?: {
+    glyph: SessionLedgerTone;
+    said: string;
+  };
   /** The preview a hover or a focus shows beside the row. Absent draws none. */
   card?: SessionLedgerCard;
   /** Which of the four an `artifact` row is, and so its glyph and what its tooltip names. */
@@ -97,7 +182,11 @@ export type LedgerEntry = {
   /** A `waiting` row: what its press does, which is its glyph and what the glyph's tooltip names. */
   act?: WaitingActKind;
   /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other. */
-  options?: readonly { label: string; description?: string; onPick: () => void | Promise<unknown> }[];
+  options?: readonly {
+    label: string;
+    description?: string;
+    onPick: () => void | Promise<unknown>;
+  }[];
   onOther?: (text: string) => void | Promise<unknown>;
   /**
    * A `waiting` row with no `act`: what the person types under it, sent as his answer. With this and no
@@ -105,13 +194,22 @@ export type LedgerEntry = {
    */
   onReply?: (text: string) => void;
   /** A `waiting` row whose act is `run`, where the Session can run it: the row is the command's block with Run, as in the thread. */
-  run?: { command: string; runner: CodeRunner; keep?: string };
+  run?: {
+    command: string;
+    runner: CodeRunner;
+    keep?: string;
+  };
   /**
    * A `waiting` row whose act is a restart onto a build (`buildChangeOf`): the row is one key that
    * switches it, with nothing to copy and no command to read. `command` is its tooltip. Without a
    * `runner` the key does nothing.
    */
-  restart?: { command: string; runner?: CodeRunner; keep?: string; /** The key's own name where the row reads something else, as an offer does. */ label?: string };
+  restart?: {
+    command: string;
+    runner?: CodeRunner;
+    keep?: string /** The key's own name where the row reads something else, as an offer does. */;
+    label?: string;
+  };
   /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   replyKeep?: string;
   /** A `waiting` row Fleet read out of the agent's reply rather than the agent stating it: where it asks, its glyph says so in place of Reply or Question. */
@@ -137,91 +235,264 @@ export type LedgerEntry = {
    */
   dismissSaid?: string;
   /** Release at the row's end, shown on hover or focus, `name` what its tooltip names. Its press is the host's, which confirms first. */
-  release?: { name: string; onPress: () => void };
+  release?: {
+    name: string;
+    onPress: () => void;
+  };
   /** Released from here: given back, or kept by Fleet with `kept` saying why. */
-  released?: { kept?: string };
+  released?: {
+    kept?: string;
+  };
   /** A held Job's row: Start at its end begins that Job without opening it. `starting` while the start waits on the request being read. */
-  start?: { starting: boolean; onStart: () => void };
+  start?: {
+    starting: boolean;
+    onStart: () => void;
+  };
   /** A `closed` row, an item he closed from Needs you: when, and Reopen, which puts it back there. Absent `onReopen` is an item whose thing has ended. */
-  closed?: { at: string; onReopen?: () => void };
+  closed?: {
+    at: string;
+    onReopen?: () => void;
+  };
   onOpen: () => void;
 };
 
 /** `message` is an item that waits on the person sending the message in the box. `steps` is a procedure, whose press opens its steps beside the thread. */
 export type WaitingActKind = "walk" | "answer" | "approve_pr" | "run" | "message" | "steps";
 
-const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: string }> = {
-  walk: { Glyph: AppWindow, said: "Opens the walk" },
-  answer: { Glyph: MessageSquare, said: "Goes to the question" },
-  approve_pr: { Glyph: GitPullRequestArrow, said: "Opens the pull request" },
-  run: { Glyph: Terminal, said: "Copies the command" },
-  message: { Glyph: SquarePen, said: "Goes to the message" },
-  steps: { Glyph: ListChecks, said: "Steps" },
-  none: { Glyph: BellRing, said: "Waiting on you" },
+const WAITING_ACT: Record<
+  WaitingActKind | "none",
+  {
+    Glyph: LucideIcon;
+    said: string;
+  }
+> = {
+  walk: {
+    Glyph: AppWindow,
+    said: "Opens the walk",
+  },
+  answer: {
+    Glyph: MessageSquare,
+    said: "Goes to the question",
+  },
+  approve_pr: {
+    Glyph: GitPullRequestArrow,
+    said: "Opens the pull request",
+  },
+  run: {
+    Glyph: Terminal,
+    said: "Copies the command",
+  },
+  message: {
+    Glyph: SquarePen,
+    said: "Goes to the message",
+  },
+  steps: {
+    Glyph: ListChecks,
+    said: "Steps",
+  },
+  none: {
+    Glyph: BellRing,
+    said: "Waiting on you",
+  },
 };
 
-const REPLY = { Glyph: Reply, said: "Reply" };
+const REPLY = {
+  Glyph: Reply,
+  said: "Reply",
+};
 
 /** A Job this one's agent started, held on its start card: its press opens that Job. */
-const HELD_CHILD = { Glyph: Link, said: "Opens the linked Job" };
+const HELD_CHILD = {
+  Glyph: Link,
+  said: "Opens the linked Job",
+};
 
 /** A question Fleet read out of the agent's words. */
-const READ_FROM_REPLY = { Glyph: ScanText, said: "Read from the reply" };
+const READ_FROM_REPLY = {
+  Glyph: ScanText,
+  said: "Read from the reply",
+};
 
 /** A row with choices is a question, whatever its press does: one asked in the walk window still opens the walk. */
-const QUESTION = { Glyph: MessageCircleQuestion, said: "Question" };
+const QUESTION = {
+  Glyph: MessageCircleQuestion,
+  said: "Question",
+};
 
 /** What an item he closed was, by what its press did, as a Closed row's glyph and tooltip name it. */
-const CLOSED_KIND: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: string }> = {
-  walk: { Glyph: AppWindow, said: "Walk" },
+const CLOSED_KIND: Record<
+  WaitingActKind | "none",
+  {
+    Glyph: LucideIcon;
+    said: string;
+  }
+> = {
+  walk: {
+    Glyph: AppWindow,
+    said: "Walk",
+  },
   answer: QUESTION,
-  approve_pr: { Glyph: GitPullRequestArrow, said: "Pull request" },
-  run: { Glyph: Terminal, said: "Command" },
-  message: { Glyph: SquarePen, said: "Message" },
-  steps: { Glyph: ListChecks, said: "Steps" },
-  none: { Glyph: BellRing, said: "Call" },
+  approve_pr: {
+    Glyph: GitPullRequestArrow,
+    said: "Pull request",
+  },
+  run: {
+    Glyph: Terminal,
+    said: "Command",
+  },
+  message: {
+    Glyph: SquarePen,
+    said: "Message",
+  },
+  steps: {
+    Glyph: ListChecks,
+    said: "Steps",
+  },
+  none: {
+    Glyph: BellRing,
+    said: "Call",
+  },
 };
 
 /** A Closed row's glyph and what its tooltip names. */
-export const closedMark = (row: LedgerEntry): { Glyph: LucideIcon; said: string } => CLOSED_KIND[row.act ?? "none"];
+export const closedMark = (
+  row: LedgerEntry,
+): {
+  Glyph: LucideIcon;
+  said: string;
+} => CLOSED_KIND[row.act ?? "none"];
 
-const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
-  { kind: "linked", label: "Linked", Glyph: Link },
-  { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
-  { kind: "branch", label: "Branches", Glyph: GitBranch },
-  { kind: "closed", label: "Closed", Glyph: BellRing },
-  { kind: "studio", label: "Studios", Glyph: Presentation },
-  { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
-  { kind: "subagent", label: "Subagents", Glyph: Split },
-  { kind: "background", label: "Background", Glyph: SquareTerminal },
-  { kind: "artifact", label: "Artifacts", Glyph: Files },
-  { kind: "fork", label: "Forks", Glyph: MoveRight },
-  { kind: "start", label: "Started", Glyph: CornerUpRight },
+const SECTIONS: {
+  kind: LedgerKind;
+  label: string;
+  Glyph: LucideIcon;
+}[] = [
+  {
+    kind: "linked",
+    label: "Linked",
+    Glyph: Link,
+  },
+  {
+    kind: "pull_request",
+    label: "Pull requests",
+    Glyph: GitPullRequest,
+  },
+  {
+    kind: "branch",
+    label: "Branches",
+    Glyph: GitBranch,
+  },
+  {
+    kind: "closed",
+    label: "Closed",
+    Glyph: BellRing,
+  },
+  {
+    kind: "studio",
+    label: "Studios",
+    Glyph: Presentation,
+  },
+  {
+    kind: "sketch",
+    label: "Sketches",
+    Glyph: PencilRuler,
+  },
+  {
+    kind: "subagent",
+    label: "Subagents",
+    Glyph: Split,
+  },
+  {
+    kind: "background",
+    label: "Background",
+    Glyph: SquareTerminal,
+  },
+  {
+    kind: "artifact",
+    label: "Artifacts",
+    Glyph: Files,
+  },
+  {
+    kind: "fork",
+    label: "Forks",
+    Glyph: MoveRight,
+  },
+  {
+    kind: "start",
+    label: "Started",
+    Glyph: CornerUpRight,
+  },
 ];
 
 /** Also the glyphs of the rows a Session's done callout lists, so a page reads the same there as here. */
-export const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
-  page: { Glyph: Globe, said: "Published page" },
-  file: { Glyph: Files, said: "File written" },
-  image: { Glyph: Image, said: "Looked at" },
-  doc: { Glyph: NotebookText, said: "Doc" },
-  document: { Glyph: FileText, said: "Document" },
-  window: { Glyph: AppWindow, said: "Shown in a window" },
+export const ARTIFACT: Record<
+  ArtifactForm,
+  {
+    Glyph: LucideIcon;
+    said: string;
+  }
+> = {
+  page: {
+    Glyph: Globe,
+    said: "Published page",
+  },
+  file: {
+    Glyph: Files,
+    said: "File written",
+  },
+  image: {
+    Glyph: Image,
+    said: "Looked at",
+  },
+  doc: {
+    Glyph: NotebookText,
+    said: "Doc",
+  },
+  document: {
+    Glyph: FileText,
+    said: "Document",
+  },
+  window: {
+    Glyph: AppWindow,
+    said: "Shown in a window",
+  },
 };
 
 export const FILE_SHOWN = "File shown";
 
 /** The form an `artifact` row draws. */
-export function artifactOf(row: LedgerEntry): { Glyph: LucideIcon; said: string } | undefined {
+export function artifactOf(row: LedgerEntry):
+  | {
+      Glyph: LucideIcon;
+      said: string;
+    }
+  | undefined {
   if (row.artifact === undefined) return undefined;
   const form = ARTIFACT[row.artifact];
-  return row.shown === true ? { ...form, said: FILE_SHOWN } : form;
+  return row.shown === true
+    ? {
+        ...form,
+        said: FILE_SHOWN,
+      }
+    : form;
 }
 
 /** The glyphs of a background row, and what each one's tooltip names. */
-export const BACKGROUND: Record<BackgroundForm, { Glyph: LucideIcon; said: string }> = {
-  command: { Glyph: SquareTerminal, said: "Background command" },
-  monitor: { Glyph: Radar, said: "Monitor" },
+export const BACKGROUND: Record<
+  BackgroundForm,
+  {
+    Glyph: LucideIcon;
+    said: string;
+  }
+> = {
+  command: {
+    Glyph: SquareTerminal,
+    said: "Background command",
+  },
+  monitor: {
+    Glyph: Radar,
+    said: "Monitor",
+  },
 };
 
 const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
@@ -238,7 +509,10 @@ const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
 type Show = "open" | "all";
 
 /** Which of a section's two views the viewer chose, kept per section. A viewer's convenience, so a blocked store only forgets it. */
-function useShow(kind: LedgerKind): [Show, (next: Show) => void] {
+function useShow(kind: LedgerKind): [
+  Show,
+  (next: Show) => void,
+] {
   const key = `armada.session-ledger.show.${kind}`;
   const [show, set] = useState<Show>(() => {
     try {
@@ -260,11 +534,31 @@ function useShow(kind: LedgerKind): [Show, (next: Show) => void] {
   ];
 }
 
-function ShowToggle({ label, show, onShow }: { label: string; show: Show; onShow: (next: Show) => void }) {
+function ShowToggle({
+  label,
+  show,
+  onShow,
+}: {
+  label: string;
+  show: Show;
+  onShow: (next: Show) => void;
+}) {
   return (
     <div className="armada-session-ledger__show" role="radiogroup" aria-label={`${label} shown`}>
-      {(["open", "all"] as const).map((one) => (
-        <button key={one} type="button" role="radio" aria-checked={show === one} className="armada-session-ledger__show-option" onClick={() => onShow(one)}>
+      {(
+        [
+          "open",
+          "all",
+        ] as const
+      ).map((one) => (
+        <button
+          key={one}
+          type="button"
+          role="radio"
+          aria-checked={show === one}
+          className="armada-session-ledger__show-option"
+          onClick={() => onShow(one)}
+        >
           {one === "open" ? "Open" : "All"}
         </button>
       ))}
@@ -273,13 +567,34 @@ function ShowToggle({ label, show, onShow }: { label: string; show: Show; onShow
 }
 
 /** The kinds the Artifacts head offers a toggle for, and what each toggle is called. */
-const KINDS: { form: ArtifactForm; label: string }[] = [
-  { form: "window", label: "Windows" },
-  { form: "page", label: "Pages" },
-  { form: "file", label: "Files" },
-  { form: "image", label: "Pictures" },
-  { form: "doc", label: "Docs" },
-  { form: "document", label: "Documents" },
+const KINDS: {
+  form: ArtifactForm;
+  label: string;
+}[] = [
+  {
+    form: "window",
+    label: "Windows",
+  },
+  {
+    form: "page",
+    label: "Pages",
+  },
+  {
+    form: "file",
+    label: "Files",
+  },
+  {
+    form: "image",
+    label: "Pictures",
+  },
+  {
+    form: "doc",
+    label: "Docs",
+  },
+  {
+    form: "document",
+    label: "Documents",
+  },
 ];
 
 /** How many Artifacts rows show before More. */
@@ -289,7 +604,10 @@ const NEWEST = 5;
  * Which artifact kinds the viewer lets through, everything but Pictures to begin with. A viewer's convenience, so a blocked store only forgets it.
  * The kinds hidden are kept, not the kinds shown, so a kind added later shows. A list of kinds shown from before is read once as what it hid.
  */
-function useKinds(): [readonly ArtifactForm[], (next: readonly ArtifactForm[]) => void] {
+function useKinds(): [
+  readonly ArtifactForm[],
+  (next: readonly ArtifactForm[]) => void,
+] {
   const key = "armada.session-ledger.kinds.artifact.hidden";
   const shownBefore = "armada.session-ledger.kinds.artifact";
   const forms = KINDS.map((one) => one.form);
@@ -298,7 +616,8 @@ function useKinds(): [readonly ArtifactForm[], (next: readonly ArtifactForm[]) =
       const hidden: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
       if (Array.isArray(hidden)) return forms.filter((form) => !hidden.includes(form));
       const shown: unknown = JSON.parse(localStorage.getItem(shownBefore) ?? "null");
-      if (Array.isArray(shown)) return forms.filter((form) => form === "document" || shown.includes(form));
+      if (Array.isArray(shown))
+        return forms.filter((form) => form === "document" || shown.includes(form));
       return forms.filter((form) => form !== "image");
     } catch {
       return forms.filter((form) => form !== "image");
@@ -320,24 +639,50 @@ function useKinds(): [readonly ArtifactForm[], (next: readonly ArtifactForm[]) =
 /** A section's rows; Branches also holds the slots no branch is on, after the branches. */
 function rowsOf(entries: readonly LedgerEntry[], kind: LedgerKind): LedgerEntry[] {
   const own = entries.filter((one) => one.kind === kind);
-  return kind === "branch" ? [...own, ...entries.filter((one) => one.kind === "slot")] : own;
+  return kind === "branch"
+    ? [
+        ...own,
+        ...entries.filter((one) => one.kind === "slot"),
+      ]
+    : own;
 }
 
 /** The kinds the bar narrows the ledger to, in the bar's order; each stands for one section. */
-const BAR: { kind: LedgerKind; said: string; Glyph: LucideIcon }[] = [
-  { kind: "pull_request", said: "Pull requests", Glyph: GitPullRequest },
-  { kind: "branch", said: "Branches and slots", Glyph: GitBranch },
-  { kind: "artifact", said: "Artifacts", Glyph: Files },
+const BAR: {
+  kind: LedgerKind;
+  said: string;
+  Glyph: LucideIcon;
+}[] = [
+  {
+    kind: "pull_request",
+    said: "Pull requests",
+    Glyph: GitPullRequest,
+  },
+  {
+    kind: "branch",
+    said: "Branches and slots",
+    Glyph: GitBranch,
+  },
+  {
+    kind: "artifact",
+    said: "Artifacts",
+    Glyph: Files,
+  },
 ];
 
 /** What a Session's Search draft is kept under, so it survives leaving the panel. */
-const searchKeep = (keepKey: string | undefined) => (keepKey === undefined ? false : `session-ledger-search:${keepKey}`);
+const searchKeep = (keepKey: string | undefined) =>
+  keepKey === undefined ? false : `session-ledger-search:${keepKey}`;
 
 /** The words a node draws, for matching a search against a row's text. */
 function plain(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
   if (Array.isArray(node)) return node.map(plain).join("");
-  return isValidElement<{ children?: ReactNode }>(node) ? Children.toArray(node.props.children).map(plain).join("") : "";
+  return isValidElement<{
+    children?: ReactNode;
+  }>(node)
+    ? Children.toArray(node.props.children).map(plain).join("")
+    : "";
 }
 
 /**
@@ -345,7 +690,17 @@ function plain(node: ReactNode): string {
  * leaves it out**, so the bar has no button that can never have a row behind it (the Cockpit's Ledger panel
  * keeps the branch and the bay in its band).
  */
-export function SessionLedger({ entries, folded = false, keepKey, offers }: { entries: readonly LedgerEntry[]; folded?: boolean; keepKey?: string; offers?: readonly LedgerKind[] }) {
+export function SessionLedger({
+  entries,
+  folded = false,
+  keepKey,
+  offers,
+}: {
+  entries: readonly LedgerEntry[];
+  folded?: boolean;
+  keepKey?: string;
+  offers?: readonly LedgerKind[];
+}) {
   const [only, setOnly] = useState<LedgerKind>();
   const keep = searchKeep(keepKey);
   const [query, setQuery] = useState(() => (keep === false ? "" : (readKept<string>(keep) ?? "")));
@@ -353,78 +708,89 @@ export function SessionLedger({ entries, folded = false, keepKey, offers }: { en
   // The choice lasts as long as this ledger does. A kind that has lost its last row cannot narrow anything, so it is not applied.
   const chosen = only !== undefined && rowsOf(entries, only).length > 0 ? only : undefined;
   const asked = query.trim().toLowerCase();
-  const sections = SECTIONS.filter(({ kind }) => chosen === undefined || kind === chosen).map((section) => ({
-    ...section,
-    all: rowsOf(entries, section.kind).filter((row) => asked === "" || `${row.name} ${plain(row.text)}`.toLowerCase().includes(asked)),
-  }));
+  const sections = SECTIONS.filter(({ kind }) => chosen === undefined || kind === chosen).map(
+    (section) => ({
+      ...section,
+      all: rowsOf(entries, section.kind).filter(
+        (row) => asked === "" || `${row.name} ${plain(row.text)}`.toLowerCase().includes(asked),
+      ),
+    }),
+  );
   const stopFinding = () => {
     if (keep !== false) forgetKept(keep);
     setQuery("");
     setFinding(false);
   };
   return (
-    <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
+    <aside
+      className="armada-session-ledger"
+      role="region"
+      aria-label="Attachments"
+      data-folded={folded || undefined}
+    >
       {SECTIONS.every(({ kind }) => rowsOf(entries, kind).length === 0) ? null : (
-      <div className="armada-session-ledger__bar" role="group" aria-label="Narrow the ledger">
-        <div className="armada-session-ledger__search" data-open={finding || undefined}>
-          <Tooltip label="Search">
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label="Search"
-              aria-pressed={finding}
-              // Pressed again while open, it must not take the focus from the field first, or the blur would close it and this press open it again.
-              onMouseDown={finding ? (event) => event.preventDefault() : undefined}
-              onClick={() => (finding ? stopFinding() : setFinding(true))}
-            >
-              <Search size={12} strokeWidth={2} aria-hidden />
-            </Button>
-          </Tooltip>
-          {finding ? (
-            <div className="armada-session-ledger__find">
-              <Textarea
-                autoFocus
-                rows={1}
-                keep={keep}
-                aria-label="Search the ledger"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onBlur={() => {
-                  if (query.trim() === "") stopFinding();
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    stopFinding();
-                  } else if (event.key === "Enter") {
-                    event.preventDefault();
-                  }
-                }}
-              />
-            </div>
-          ) : null}
-        </div>
-        {BAR.filter(({ kind }) => offers === undefined || offers.includes(kind)).map(({ kind, said, Glyph }) => {
-          const pressed = chosen === kind;
-          return (
-            <Tooltip key={kind} label={said}>
+        <div className="armada-session-ledger__bar" role="group" aria-label="Narrow the ledger">
+          <div className="armada-session-ledger__search" data-open={finding || undefined}>
+            <Tooltip label="Search">
               <Button
                 variant="ghost"
                 size="sm"
                 iconOnly
-                aria-label={said}
-                aria-pressed={pressed}
-                disabled={rowsOf(entries, kind).length === 0}
-                onClick={() => setOnly(pressed ? undefined : kind)}
+                aria-label="Search"
+                aria-pressed={finding}
+                // Pressed again while open, it must not take the focus from the field first, or the blur would close it and this press open it again.
+                onMouseDown={finding ? (event) => event.preventDefault() : undefined}
+                onClick={() => (finding ? stopFinding() : setFinding(true))}
               >
-                <Glyph size={12} strokeWidth={2} aria-hidden />
+                <Search size={12} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
-          );
-        })}
-      </div>
+            {finding ? (
+              <div className="armada-session-ledger__find">
+                <Textarea
+                  autoFocus
+                  rows={1}
+                  keep={keep}
+                  aria-label="Search the ledger"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onBlur={() => {
+                    if (query.trim() === "") stopFinding();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      stopFinding();
+                    } else if (event.key === "Enter") {
+                      event.preventDefault();
+                    }
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+          {BAR.filter(({ kind }) => offers === undefined || offers.includes(kind)).map(
+            ({ kind, said, Glyph }) => {
+              const pressed = chosen === kind;
+              return (
+                <Tooltip key={kind} label={said}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label={said}
+                    aria-pressed={pressed}
+                    disabled={rowsOf(entries, kind).length === 0}
+                    onClick={() => setOnly(pressed ? undefined : kind)}
+                  >
+                    <Glyph size={12} strokeWidth={2} aria-hidden />
+                  </Button>
+                </Tooltip>
+              );
+            },
+          )}
+        </div>
       )}
       {sections.every((one) => one.all.length === 0) ? <EmptyLedger /> : null}
       {sections.map(({ kind, label, Glyph, all }) => (
@@ -434,7 +800,17 @@ export function SessionLedger({ entries, folded = false, keepKey, offers }: { en
   );
 }
 
-function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: string; Glyph: LucideIcon; all: readonly LedgerEntry[] }) {
+function LedgerSection({
+  kind,
+  label,
+  Glyph,
+  all,
+}: {
+  kind: LedgerKind;
+  label: string;
+  Glyph: LucideIcon;
+  all: readonly LedgerEntry[];
+}) {
   const [show, setShow] = useShow(kind);
   const [kinds, setKinds] = useKinds();
   const [more, setMore] = useState(false);
@@ -443,7 +819,9 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
   const filtered = kind === "artifact";
   const present = KINDS.filter((one) => all.some((row) => row.artifact === one.form));
   const letThrough = toggles && show === "open" ? all.filter((one) => one.finished !== true) : all;
-  const passed = filtered ? letThrough.filter((one) => one.artifact !== undefined && kinds.includes(one.artifact)) : letThrough;
+  const passed = filtered
+    ? letThrough.filter((one) => one.artifact !== undefined && kinds.includes(one.artifact))
+    : letThrough;
   // The host gives rows newest first and an entry carries no time of its own, so its order stands.
   const rows = filtered && !more ? passed.slice(0, NEWEST) : passed;
   return (
@@ -464,7 +842,16 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
                     iconOnly
                     aria-label={said}
                     aria-pressed={pressed}
-                    onClick={() => setKinds(pressed ? kinds.filter((one) => one !== form) : [...kinds, form])}
+                    onClick={() =>
+                      setKinds(
+                        pressed
+                          ? kinds.filter((one) => one !== form)
+                          : [
+                              ...kinds,
+                              form,
+                            ],
+                      )
+                    }
                   >
                     <Kind size={12} strokeWidth={2} aria-hidden />
                   </Button>
@@ -476,7 +863,11 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
       </div>
       {rows.length === 0 ? null : <LedgerRows kind={kind} Glyph={Glyph} rows={rows} />}
       {filtered && passed.length > NEWEST ? (
-        <button type="button" className="armada-session-ledger__more" onClick={() => setMore(!more)}>
+        <button
+          type="button"
+          className="armada-session-ledger__more"
+          onClick={() => setMore(!more)}
+        >
           {more ? "Less" : "More"}
         </button>
       ) : null}
@@ -485,7 +876,10 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
 }
 
 /** What a waiting row's glyph is and what its tooltip names: Read from the reply where Fleet read a question out of one, Question where it has choices, Reply where its press opens a box, else its act's. */
-export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string } {
+export function waitingMark(row: LedgerEntry): {
+  Glyph: LucideIcon;
+  said: string;
+} {
   const replies = row.act === undefined && row.onReply !== undefined;
   if (row.fromReply === true && (row.options !== undefined || replies)) return READ_FROM_REPLY;
   if (row.options !== undefined) return QUESTION;
@@ -494,24 +888,58 @@ export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string
 }
 
 /** A section's rows, also drawn by the thread's Needs you panel so a waiting item reads and acts the same in both. */
-export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; Glyph: LucideIcon; rows: readonly LedgerEntry[]; /** A reply row starts with its box open, for a row that was pressed to be opened. */ expanded?: true }) {
-  const [replying, setReplying] = useState<string | undefined>(() => (expanded === undefined ? undefined : rows.find((one) => one.act === undefined && one.onReply !== undefined)?.key));
+export function LedgerRows({
+  kind,
+  Glyph,
+  rows,
+  expanded,
+}: {
+  kind: LedgerKind;
+  Glyph: LucideIcon;
+  rows: readonly LedgerEntry[] /** A reply row starts with its box open, for a row that was pressed to be opened. */;
+  expanded?: true;
+}) {
+  const [replying, setReplying] = useState<string | undefined>(() =>
+    expanded === undefined
+      ? undefined
+      : rows.find((one) => one.act === undefined && one.onReply !== undefined)?.key,
+  );
   const [removing, setRemoving] = useState<string>();
   // Remove at a row's end, and the reason box under it while it is open.
   const removal = (row: LedgerEntry) =>
     row.onRemove === undefined ? null : (
-      <RemoveAct name={row.name} open={removing === row.key} onPress={() => setRemoving(removing === row.key ? undefined : row.key)} />
+      <RemoveAct
+        name={row.name}
+        open={removing === row.key}
+        onPress={() => setRemoving(removing === row.key ? undefined : row.key)}
+      />
     );
   const reasoning = (row: LedgerEntry) =>
-    removing === row.key && row.onRemove !== undefined ? <RemoveBox name={row.name} keep={row.removeKeep} onRemove={row.onRemove} onClose={() => setRemoving(undefined)} /> : null;
+    removing === row.key && row.onRemove !== undefined ? (
+      <RemoveBox
+        name={row.name}
+        keep={row.removeKeep}
+        onRemove={row.onRemove}
+        onClose={() => setRemoving(undefined)}
+      />
+    ) : null;
   return (
     <ul className="armada-session-ledger__rows">
       {rows.map((row) => {
-        if (kind === "waiting" && row.restart !== undefined) return <RestartRow key={row.key} row={row} restart={row.restart} />;
+        if (kind === "waiting" && row.restart !== undefined)
+          return <RestartRow key={row.key} row={row} restart={row.restart} />;
         if (kind === "waiting" && row.act === "run" && row.run !== undefined) {
           const block = (
             <div>
-              <RunnableBlock command={row.run.command} runner={row.run.runner} {...(row.run.keep === undefined ? {} : { keep: row.run.keep })}>
+              <RunnableBlock
+                command={row.run.command}
+                runner={row.run.runner}
+                {...(row.run.keep === undefined
+                  ? {}
+                  : {
+                      keep: row.run.keep,
+                    })}
+              >
                 <pre className="armada-prose__block">
                   <code>{row.run.command}</code>
                 </pre>
@@ -519,8 +947,24 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
             </div>
           );
           return (
-            <li key={row.key} className="armada-session-ledger__run" aria-label={row.name} data-removable={row.onRemove !== undefined || undefined}>
-              {row.card === undefined ? block : <Inspect card={<LedgerPreview card={row.card} kind={row.kind} keys={[]} />} name={row.card.title} side="beside" pin={false}>{block}</Inspect>}
+            <li
+              key={row.key}
+              className="armada-session-ledger__run"
+              aria-label={row.name}
+              data-removable={row.onRemove !== undefined || undefined}
+            >
+              {row.card === undefined ? (
+                block
+              ) : (
+                <Inspect
+                  card={<LedgerPreview card={row.card} kind={row.kind} keys={[]} />}
+                  name={row.card.title}
+                  side="beside"
+                  pin={false}
+                >
+                  {block}
+                </Inspect>
+              )}
               {removal(row)}
               {reasoning(row)}
             </li>
@@ -529,9 +973,24 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
         if (kind === "waiting" && row.options !== undefined) {
           const { options } = row;
           return (
-            <li key={row.key} aria-label={row.name} className="armada-session-ledger__held" data-removable={row.onRemove !== undefined || undefined}>
+            <li
+              key={row.key}
+              aria-label={row.name}
+              className="armada-session-ledger__held"
+              data-removable={row.onRemove !== undefined || undefined}
+            >
               <QuestionDeck
-                questions={[{ question: row.name, header: "", multi_select: false, options: options.map((one) => ({ label: one.label, description: one.description ?? "" })) }]}
+                questions={[
+                  {
+                    question: row.name,
+                    header: "",
+                    multi_select: false,
+                    options: options.map((one) => ({
+                      label: one.label,
+                      description: one.description ?? "",
+                    })),
+                  },
+                ]}
                 canSkip={false}
                 flat
                 onAnswer={(_, answers) => {
@@ -549,7 +1008,11 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
         if (kind === "closed" && row.closed !== undefined) {
           const mark = closedMark(row);
           return (
-            <li key={row.key} className="armada-session-ledger__row armada-session-ledger__closed" aria-label={row.name}>
+            <li
+              key={row.key}
+              className="armada-session-ledger__row armada-session-ledger__closed"
+              aria-label={row.name}
+            >
               <span className="armada-session-ledger__open" data-plain="">
                 <Tooltip label={mark.said}>
                   <span className="armada-session-mark" role="img" aria-label={mark.said}>
@@ -571,17 +1034,29 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
           );
         }
         // A command that exited badly is no gate failing, so it takes the cross and not the shield.
-        const Mark = row.mark === undefined ? undefined : row.kind === "background" && row.mark.glyph === "failed" ? X : MARK[row.mark.glyph];
+        const Mark =
+          row.mark === undefined
+            ? undefined
+            : row.kind === "background" && row.mark.glyph === "failed"
+              ? X
+              : MARK[row.mark.glyph];
         const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
         const waiting = kind === "waiting" ? waitingMark(row) : undefined;
-        const form = row.artifact !== undefined ? artifactOf(row) : row.background !== undefined ? BACKGROUND[row.background] : undefined;
+        const form =
+          row.artifact !== undefined
+            ? artifactOf(row)
+            : row.background !== undefined
+              ? BACKGROUND[row.background]
+              : undefined;
         const opener = (
           <button
             type="button"
             className="armada-session-ledger__open"
             aria-label={`Open ${row.name}`}
             aria-expanded={replies ? replying === row.key : undefined}
-            onClick={replies ? () => setReplying(replying === row.key ? undefined : row.key) : row.onOpen}
+            onClick={
+              replies ? () => setReplying(replying === row.key ? undefined : row.key) : row.onOpen
+            }
           >
             {row.pr !== undefined ? (
               <PullRequestStateMark merged={row.pr.merged} />
@@ -592,7 +1067,11 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
                 </span>
               </Tooltip>
             ) : form === undefined ? (
-              row.kind === "slot" ? <KeyRound size={12} strokeWidth={2} aria-hidden /> : <Glyph size={12} strokeWidth={2} aria-hidden />
+              row.kind === "slot" ? (
+                <KeyRound size={12} strokeWidth={2} aria-hidden />
+              ) : (
+                <Glyph size={12} strokeWidth={2} aria-hidden />
+              )
             ) : (
               <Tooltip label={form.said}>
                 <span className="armada-session-mark" role="img" aria-label={form.said}>
@@ -637,21 +1116,39 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
             className="armada-session-ledger__row"
             aria-label={row.name}
             data-mark={row.mark?.glyph}
-            data-given={(row.released !== undefined && row.released.kept === undefined) || undefined}
+            data-given={
+              (row.released !== undefined && row.released.kept === undefined) || undefined
+            }
           >
             {row.card === undefined ? (
               opener
             ) : (
-              <Inspect card={<LedgerPreview card={row.card} kind={row.kind} />} name={row.card.title} side="beside" pin={false}>
+              <Inspect
+                card={<LedgerPreview card={row.card} kind={row.kind} />}
+                name={row.card.title}
+                side="beside"
+                pin={false}
+              >
                 {opener}
               </Inspect>
             )}
             {removal(row)}
-            {row.onDismiss === undefined ? null : <DismissAct name={row.name} said={row.dismissSaid} onPress={row.onDismiss} />}
-            {row.release === undefined ? null : <ReleaseAct name={row.release.name} onPress={row.release.onPress} />}
-            {row.released?.kept === undefined ? null : <span className="armada-session-ledger__kept">{row.released.kept}</span>}
+            {row.onDismiss === undefined ? null : (
+              <DismissAct name={row.name} said={row.dismissSaid} onPress={row.onDismiss} />
+            )}
+            {row.release === undefined ? null : (
+              <ReleaseAct name={row.release.name} onPress={row.release.onPress} />
+            )}
+            {row.released?.kept === undefined ? null : (
+              <span className="armada-session-ledger__kept">{row.released.kept}</span>
+            )}
             {replies && replying === row.key && row.onReply !== undefined ? (
-              <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
+              <ReplyBox
+                name={row.name}
+                keep={row.replyKeep}
+                onSend={row.onReply}
+                onClose={() => setReplying(undefined)}
+              />
             ) : null}
             {reasoning(row)}
           </li>
@@ -665,41 +1162,96 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
  * A restart's row: its label and one mark, the press the key. Nothing starts it again while it runs or
  * once it has passed and the row is about to go; a failure leaves the key to press again.
  */
-function RestartRow({ row, restart }: { row: LedgerEntry; restart: NonNullable<LedgerEntry["restart"]> }) {
+function RestartRow({
+  row,
+  restart,
+}: {
+  row: LedgerEntry;
+  restart: NonNullable<LedgerEntry["restart"]>;
+}) {
   // An offer reads its sentence, so the key carries its own label beside it.
   if (row.onDismiss !== undefined) {
     return (
       <li className="armada-session-ledger__row armada-session-ledger__offer" aria-label={row.name}>
         <span className="armada-session-ledger__offer-text">{row.text}</span>
-        <RestartKey className="armada-session-ledger__offer-key" name={restart.label ?? row.name} restart={restart} />
+        <RestartKey
+          className="armada-session-ledger__offer-key"
+          name={restart.label ?? row.name}
+          restart={restart}
+        />
         <DismissAct name={row.name} said={row.dismissSaid} onPress={row.onDismiss} />
       </li>
     );
   }
   return (
     <li className="armada-session-ledger__row" aria-label={row.name}>
-      <RestartKey className="armada-session-ledger__open" name={row.name} restart={restart} text={row.text} />
+      <RestartKey
+        className="armada-session-ledger__open"
+        name={row.name}
+        restart={restart}
+        text={row.text}
+      />
     </li>
   );
 }
 
 /** A restart's key alone, its mark and `text`, as a list row draws it and as the Needs you band does. */
-export function RestartKey({ className, name, restart, text = name }: { className: string; name: string; restart: NonNullable<LedgerEntry["restart"]>; text?: ReactNode }) {
+export function RestartKey({
+  className,
+  name,
+  restart,
+  text = name,
+}: {
+  className: string;
+  name: string;
+  restart: NonNullable<LedgerEntry["restart"]>;
+  text?: ReactNode;
+}) {
   const run = useCodeRun(restart.runner, restart.keep);
   const { phase } = run;
-  const held = restart.runner === undefined || phase.state === "running" || (phase.state === "ended" && phase.code === 0);
+  const held =
+    restart.runner === undefined ||
+    phase.state === "running" ||
+    (phase.state === "ended" && phase.code === 0);
   const mark =
     phase.state === "running"
-      ? { Glyph: LoaderCircle, said: "Running", state: "running" }
+      ? {
+          Glyph: LoaderCircle,
+          said: "Running",
+          state: "running",
+        }
       : phase.state === "ended"
         ? phase.code === 0
-          ? { Glyph: CircleCheck, said: "Passed", state: "passed" }
-          : { Glyph: CircleX, said: endedSaid(phase), state: "failed" }
-        : { Glyph: RotateCw, said: restart.command, state: undefined };
+          ? {
+              Glyph: CircleCheck,
+              said: "Passed",
+              state: "passed",
+            }
+          : {
+              Glyph: CircleX,
+              said: endedSaid(phase),
+              state: "failed",
+            }
+        : {
+            Glyph: RotateCw,
+            said: restart.command,
+            state: undefined,
+          };
   return (
     <Tooltip label={mark.said} asChild>
-      <button type="button" className={className} aria-label={name} aria-disabled={held || undefined} onClick={() => (held ? undefined : run.start(restart.command))}>
-        <span className="armada-session-mark" data-restart={mark.state} role="img" aria-label={mark.said}>
+      <button
+        type="button"
+        className={className}
+        aria-label={name}
+        aria-disabled={held || undefined}
+        onClick={() => (held ? undefined : run.start(restart.command))}
+      >
+        <span
+          className="armada-session-mark"
+          data-restart={mark.state}
+          role="img"
+          aria-label={mark.said}
+        >
           <mark.Glyph size={12} strokeWidth={2} aria-hidden />
         </span>
         <span className="armada-session-ledger__text">{text}</span>
@@ -708,20 +1260,65 @@ export function RestartKey({ className, name, restart, text = name }: { classNam
   );
 }
 
-const KIND: Record<LedgerKind, { Glyph: LucideIcon; label: string }> = {
-  waiting: { Glyph: BellRing, label: "Waiting" },
-  slot: { Glyph: KeyRound, label: "Slot" },
-  branch: { Glyph: GitBranch, label: "Branch" },
-  pull_request: { Glyph: GitPullRequest, label: "Pull request" },
-  studio: { Glyph: Presentation, label: "Studio" },
-  sketch: { Glyph: PencilRuler, label: "Sketch" },
-  subagent: { Glyph: Split, label: "Subagent" },
-  background: { Glyph: SquareTerminal, label: "Background" },
-  artifact: { Glyph: Files, label: "Artifact" },
-  fork: { Glyph: MoveRight, label: "Fork" },
-  start: { Glyph: CornerUpRight, label: "Started" },
-  linked: { Glyph: Link, label: "Linked" },
-  closed: { Glyph: BellRing, label: "Closed" },
+const KIND: Record<
+  LedgerKind,
+  {
+    Glyph: LucideIcon;
+    label: string;
+  }
+> = {
+  waiting: {
+    Glyph: BellRing,
+    label: "Waiting",
+  },
+  slot: {
+    Glyph: KeyRound,
+    label: "Slot",
+  },
+  branch: {
+    Glyph: GitBranch,
+    label: "Branch",
+  },
+  pull_request: {
+    Glyph: GitPullRequest,
+    label: "Pull request",
+  },
+  studio: {
+    Glyph: Presentation,
+    label: "Studio",
+  },
+  sketch: {
+    Glyph: PencilRuler,
+    label: "Sketch",
+  },
+  subagent: {
+    Glyph: Split,
+    label: "Subagent",
+  },
+  background: {
+    Glyph: SquareTerminal,
+    label: "Background",
+  },
+  artifact: {
+    Glyph: Files,
+    label: "Artifact",
+  },
+  fork: {
+    Glyph: MoveRight,
+    label: "Fork",
+  },
+  start: {
+    Glyph: CornerUpRight,
+    label: "Started",
+  },
+  linked: {
+    Glyph: Link,
+    label: "Linked",
+  },
+  closed: {
+    Glyph: BellRing,
+    label: "Closed",
+  },
 };
 
 /** The status token a card's tone draws in: the same ones a row's mark takes. */
@@ -737,22 +1334,86 @@ const TONE_COLOR: Record<SessionLedgerTone, string> = {
 };
 
 /** What a row's card keys say: a row's press opens it. */
-const OPENS: readonly InspectKey[] = [{ key: "Enter", verb: "Open" }];
+const OPENS: readonly InspectKey[] = [
+  {
+    key: "Enter",
+    verb: "Open",
+  },
+];
 
 /** A row's preview as the inspect card: its kind, its name, its state, then one fact a line. */
-export function LedgerPreview({ card, kind, keys = OPENS }: { card: SessionLedgerCard; kind: LedgerKind; keys?: readonly InspectKey[] }) {
-  const held = card.state ?? (() => {
-    const one = card.facts.find((fact) => fact.label === "State");
-    return one === undefined || typeof one.value !== "string" ? undefined : { said: one.value, ...(one.tone === undefined ? {} : { tone: one.tone }) };
-  })();
+export function LedgerPreview({
+  card,
+  kind,
+  keys = OPENS,
+}: {
+  card: SessionLedgerCard;
+  kind: LedgerKind;
+  keys?: readonly InspectKey[];
+}) {
+  const held =
+    card.state ??
+    (() => {
+      const one = card.facts.find((fact) => fact.label === "State");
+      return one === undefined || typeof one.value !== "string"
+        ? undefined
+        : {
+            said: one.value,
+            ...(one.tone === undefined
+              ? {}
+              : {
+                  tone: one.tone,
+                }),
+          };
+    })();
   const Glyph = card.state?.Glyph ?? (held?.tone === undefined ? undefined : MARK[held.tone]);
   return (
     <InspectCard
       kind={KIND[kind]}
-      {...(card.where === undefined ? {} : { where: card.where })}
+      {...(card.where === undefined
+        ? {}
+        : {
+            where: card.where,
+          })}
       title={card.title}
-      {...(held === undefined ? {} : { state: { ...(Glyph === undefined ? {} : { Glyph }), said: held.said, ...(held.tone === undefined ? {} : { tone: TONE_COLOR[held.tone] }) } })}
-      facts={card.facts.filter((fact) => card.state !== undefined || fact.label !== "State").map((fact) => ({ label: fact.label, value: typeof fact.value === "string" ? fact.value : <Stamp at={fact.value.at} />, ...(fact.mono === true ? { mono: true } : {}), ...(fact.tone === undefined ? {} : { tone: TONE_COLOR[fact.tone] }), ...(fact.open === undefined ? {} : { open: fact.open }) }))}
+      {...(held === undefined
+        ? {}
+        : {
+            state: {
+              ...(Glyph === undefined
+                ? {}
+                : {
+                    Glyph,
+                  }),
+              said: held.said,
+              ...(held.tone === undefined
+                ? {}
+                : {
+                    tone: TONE_COLOR[held.tone],
+                  }),
+            },
+          })}
+      facts={card.facts
+        .filter((fact) => card.state !== undefined || fact.label !== "State")
+        .map((fact) => ({
+          label: fact.label,
+          value: typeof fact.value === "string" ? fact.value : <Stamp at={fact.value.at} />,
+          ...(fact.mono === true
+            ? {
+                mono: true,
+              }
+            : {}),
+          ...(fact.tone === undefined
+            ? {}
+            : {
+                tone: TONE_COLOR[fact.tone],
+              }),
+          ...(fact.open === undefined
+            ? {}
+            : {
+                open: fact.open,
+              }),
+        }))}
       keys={keys}
       width="wide"
     />
@@ -763,7 +1424,17 @@ export function LedgerPreview({ card, kind, keys = OPENS }: { card: SessionLedge
  * The box under a waiting row that has no act: a textarea and Send. Enter sends, Shift+Enter breaks the
  * line, Escape closes and keeps the draft; a send closes it and clears the draft.
  */
-function ReplyBox({ name, keep, onSend, onClose }: { name: string; keep: string | undefined; onSend: (text: string) => void; onClose: () => void }) {
+function ReplyBox({
+  name,
+  keep,
+  onSend,
+  onClose,
+}: {
+  name: string;
+  keep: string | undefined;
+  onSend: (text: string) => void;
+  onClose: () => void;
+}) {
   const [text, setText] = useState("");
   const send = () => {
     const said = text.trim();
@@ -799,10 +1470,25 @@ function ReplyBox({ name, keep, onSend, onClose }: { name: string; keep: string 
 }
 
 /** Takes an item the agent stated off the list. Its tooltip names it; the reason box opens under the row. */
-export function RemoveAct({ name, open, onPress }: { name: string; open: boolean; onPress: () => void }) {
+export function RemoveAct({
+  name,
+  open,
+  onPress,
+}: {
+  name: string;
+  open: boolean;
+  onPress: () => void;
+}) {
   return (
     <Tooltip label="Remove">
-      <Button variant="ghost" size="sm" iconOnly aria-label={`Remove ${name}`} aria-expanded={open} onClick={onPress}>
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
+        aria-label={`Remove ${name}`}
+        aria-expanded={open}
+        onClick={onPress}
+      >
         <Trash2 size={12} strokeWidth={2} aria-hidden />
       </Button>
     </Tooltip>
@@ -810,7 +1496,15 @@ export function RemoveAct({ name, open, onPress }: { name: string; open: boolean
 }
 
 /** Puts one row away for good in one press. The row's hover or focus shows it; its tooltip names the row. */
-function DismissAct({ name, said = "Dismiss", onPress }: { name: string; said?: string | undefined; onPress: () => void }) {
+function DismissAct({
+  name,
+  said = "Dismiss",
+  onPress,
+}: {
+  name: string;
+  said?: string | undefined;
+  onPress: () => void;
+}) {
   return (
     <span className="armada-session-ledger__dismiss">
       <Tooltip label={said}>
@@ -827,11 +1521,19 @@ function DismissAct({ name, said = "Dismiss", onPress }: { name: string; said?: 
  * ended has none, and an empty place of the same width keeps the column where it is.
  */
 export function ReopenAct({ name, onPress }: { name: string; onPress: (() => void) | undefined }) {
-  if (onPress === undefined) return <span className="armada-session-ledger__reopen" data-none="" aria-hidden="true" />;
+  if (onPress === undefined)
+    return <span className="armada-session-ledger__reopen" data-none="" aria-hidden="true" />;
   return (
     <span className="armada-session-ledger__reopen">
       <Tooltip label="Reopen">
-        <Button variant="ghost" size="sm" iconOnly aria-label={`Reopen ${name}`} data-layer-row="" onClick={onPress}>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={`Reopen ${name}`}
+          data-layer-row=""
+          onClick={onPress}
+        >
           <Undo2 size={12} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
@@ -856,7 +1558,17 @@ function ReleaseAct({ name, onPress }: { name: string; onPress: () => void }) {
  * The reason box under a removed item: one line, whose words go to the agent. **Enter removes it, and an
  * empty reason is fine.** Esc puts the box away and removes nothing; what was typed is kept for next time.
  */
-export function RemoveBox({ name, keep, onRemove, onClose }: { name: string; keep: string | undefined; onRemove: (reason: string) => void; onClose: () => void }) {
+export function RemoveBox({
+  name,
+  keep,
+  onRemove,
+  onClose,
+}: {
+  name: string;
+  keep: string | undefined;
+  onRemove: (reason: string) => void;
+  onClose: () => void;
+}) {
   const [text, setText] = useState("");
   const remove = () => {
     onRemove(text.trim());
@@ -894,12 +1606,22 @@ export function RemoveBox({ name, keep, onRemove, onClose }: { name: string; kee
  */
 function EmptyLedger() {
   return (
-    <svg className="armada-session-ledger__picture" viewBox="0 0 96 40" role="img" aria-label="Nothing attached">
+    <svg
+      className="armada-session-ledger__picture"
+      viewBox="0 0 96 40"
+      role="img"
+      aria-label="Nothing attached"
+    >
       <circle className="armada-session-ledger__picture-place" cx="10" cy="8" r="3.5" />
       <path d="M22 8 H84" />
       <circle className="armada-session-ledger__picture-place" cx="10" cy="20" r="3.5" />
       <path d="M22 20 H66" />
-      <circle className="armada-session-ledger__picture-place armada-session-ledger__picture-later" cx="10" cy="32" r="3.5" />
+      <circle
+        className="armada-session-ledger__picture-place armada-session-ledger__picture-later"
+        cx="10"
+        cy="32"
+        r="3.5"
+      />
       <path className="armada-session-ledger__picture-later" d="M22 32 H76" />
     </svg>
   );

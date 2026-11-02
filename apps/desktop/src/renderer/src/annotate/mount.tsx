@@ -14,7 +14,13 @@ export function mount(story?: Sink["story"]): void {
   const host = document.createElement("div");
   host.setAttribute("data-armada-annotate", "");
   document.body.append(host);
-  const sink = window.armadaDev !== undefined ? mainSink(window.armadaDev) : { ...devServerSink(), story };
+  const sink =
+    window.armadaDev !== undefined
+      ? mainSink(window.armadaDev)
+      : {
+          ...devServerSink(),
+          story,
+        };
   createRoot(host).render(
     <StrictMode>
       <WiredSessions>

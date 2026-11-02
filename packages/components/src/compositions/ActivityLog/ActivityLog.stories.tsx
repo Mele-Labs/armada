@@ -37,8 +37,20 @@ const STREAM: ActivityEntry[] = [
     summary:
       "Splitting the selector block into its own module so the tests can import it without the store.",
   },
-  { id: "3", at: "14:23:11", actor: "drone", summary: "Read", subject: "packages/settings/src/reducer.ts" },
-  { id: "4", at: "14:26:31", actor: "drone", summary: "Edit", subject: "packages/settings/src/selectors.ts" },
+  {
+    id: "3",
+    at: "14:23:11",
+    actor: "drone",
+    summary: "Read",
+    subject: "packages/settings/src/reducer.ts",
+  },
+  {
+    id: "4",
+    at: "14:26:31",
+    actor: "drone",
+    summary: "Edit",
+    subject: "packages/settings/src/selectors.ts",
+  },
   {
     id: "5",
     at: "14:29:40",
@@ -54,7 +66,12 @@ const STREAM: ActivityEntry[] = [
     actor: "fleet",
     summary: "Heartbeat — the Drone has been quiet for 48 seconds",
   },
-  { id: "7", at: "14:31:58", actor: "drone", summary: "thinking" },
+  {
+    id: "7",
+    at: "14:31:58",
+    actor: "drone",
+    summary: "thinking",
+  },
 ];
 
 /**
@@ -63,7 +80,9 @@ const STREAM: ActivityEntry[] = [
  * it.
  */
 export const OneStream: Story = {
-  args: { entries: STREAM },
+  args: {
+    entries: STREAM,
+  },
   /**
    * **Which lines are controls, and which are not.** A row with nothing behind
    * it was a button carrying `aria-expanded={false}` — which tells a screen
@@ -78,9 +97,15 @@ export const OneStream: Story = {
    */
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByText("thinking")).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: /thinking/ })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /thinking/,
+      }),
+    ).toBeNull();
 
-    const bash = canvas.getByRole("button", { name: /cargo build --workspace --locked/ });
+    const bash = canvas.getByRole("button", {
+      name: /cargo build --workspace --locked/,
+    });
     await expect(bash).toHaveAttribute("aria-expanded", "false");
     await expect(canvas.queryByText(/Finished/)).toBeNull();
 
@@ -98,7 +123,10 @@ export const OneStream: Story = {
  * transcript.
  */
 export const AnEntryOpened: Story = {
-  args: { entries: STREAM, openId: "5" },
+  args: {
+    entries: STREAM,
+    openId: "5",
+  },
 };
 
 /**
@@ -155,7 +183,12 @@ export const APayloadCut: Story = {
         summary: "Check failed — 218 of 2034 tests.",
         subject: "test",
         named: "failed",
-        output: Array.from({ length: 218 }, (_, i) => `FAIL settings::selectors::case_${i + 1}`).join("\n"),
+        output: Array.from(
+          {
+            length: 218,
+          },
+          (_, i) => `FAIL settings::selectors::case_${i + 1}`,
+        ).join("\n"),
         outputAt: ".armada/logs/job_2d90bb/checks/test.log",
         ran: "exit 101 · 4m 02s · in .armada/worktrees/job_2d90bb",
       },
@@ -179,7 +212,12 @@ export const ACutThatNamesNoFile: Story = {
         actor: "drone",
         summary: "Bash",
         subject: "cargo nextest run --workspace",
-        output: Array.from({ length: 60 }, (_, i) => `line ${i + 1}`).join("\n"),
+        output: Array.from(
+          {
+            length: 60,
+          },
+          (_, i) => `line ${i + 1}`,
+        ).join("\n"),
       },
     ],
   },
@@ -201,7 +239,9 @@ export const TheStreamCut: Story = {
  * Drone that has just started has done nothing yet — so **nothing is drawn**.
  */
 export const NothingYet: Story = {
-  args: { entries: [] },
+  args: {
+    entries: [],
+  },
   play: async ({ canvasElement }) => {
     await expect(canvasElement.textContent).toBe("");
   },
@@ -266,8 +306,20 @@ export const TheBriefWithoutItsEcho: Story = {
         actor: "drone",
         summary: "Reading the wire's own row shape before touching the story.",
       },
-      { id: "3", at: "09:15:07", actor: "drone", summary: "Read", subject: "packages/screens/src/story.ts" },
-      { id: "4", at: "09:16:20", actor: "drone", summary: "Edit", subject: "ActivityLog.stories.tsx" },
+      {
+        id: "3",
+        at: "09:15:07",
+        actor: "drone",
+        summary: "Read",
+        subject: "packages/screens/src/story.ts",
+      },
+      {
+        id: "4",
+        at: "09:16:20",
+        actor: "drone",
+        summary: "Edit",
+        subject: "ActivityLog.stories.tsx",
+      },
     ],
   },
   /**
@@ -277,7 +329,9 @@ export const TheBriefWithoutItsEcho: Story = {
    * this reads the render rather than the fixture.
    */
   play: async ({ canvas, userEvent }) => {
-    const brief = canvas.getByRole("button", { name: /Armada opened the step\./ });
+    const brief = canvas.getByRole("button", {
+      name: /Armada opened the step\./,
+    });
     await expect(canvas.queryByText(/STEP: Add the echo comparison story/)).toBeNull();
 
     await userEvent.click(brief);

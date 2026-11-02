@@ -9,6 +9,17 @@ export const s320ArtifactGraph: Scenario = {
   ...s200Sessions,
   name: "artifact-graph",
   says: "A Job's Artifacts as a graph, each thing hanging off what produced it",
-  behaves: () => ({ readAttachmentHistory: async () => ({ ok: true, value: graphHistory() }) }),
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [graphJob(), graphChild()]) },
+  behaves: () => ({
+    readAttachmentHistory: async () => ({
+      ok: true,
+      value: graphHistory(),
+    }),
+  }),
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        graphJob(),
+        graphChild(),
+      ]),
+  },
 };

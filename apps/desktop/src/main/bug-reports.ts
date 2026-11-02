@@ -5,7 +5,10 @@ import type { BugReport, BugReportDropped, BugReports, Outcome } from "@armada/p
 import type { BugReportActed } from "../shared/api/bug-reports";
 import { ask } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 export class BugReportsHost {
   private readonly port: () => number | null;
@@ -42,8 +45,20 @@ export class BugReportsHost {
 
   private async act<T>(method: "GET" | "POST", rest: string): Promise<BugReportActed<T>> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, method, `/bug_reports${rest}`);
-    return answer.ok === true ? { ok: true, value: answer.body as T } : { ok: false, outcome: answer.outcome };
+    return answer.ok === true
+      ? {
+          ok: true,
+          value: answer.body as T,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 }

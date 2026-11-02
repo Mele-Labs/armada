@@ -14,7 +14,9 @@ async function begin() {
   if (import.meta.env.MODE === "fixture") await (await import("./fixture/seed")).seed();
   // React empties the page on an error nothing caught; the page's own "could not open" line takes its place.
   const onUncaughtError = () => document.getElementById("stuck")?.removeAttribute("hidden");
-  createRoot(document.getElementById("root")!, { onUncaughtError }).render(
+  createRoot(document.getElementById("root")!, {
+    onUncaughtError,
+  }).render(
     <StrictMode>
       <Root />
     </StrictMode>,

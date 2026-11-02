@@ -85,19 +85,33 @@ if (typeof window !== "undefined" && typeof window.addEventListener === "functio
 export function useKept<T>(
   key: string | undefined,
   initial: T,
-  options: { stored?: (value: T) => unknown; revive?: (stored: unknown) => T } = {},
-): [T, (next: T | ((was: T) => T)) => void, () => void] {
+  options: {
+    stored?: (value: T) => unknown;
+    revive?: (stored: unknown) => T;
+  } = {},
+): [
+  T,
+  (next: T | ((was: T) => T)) => void,
+  () => void,
+] {
   const first = useRef(initial);
   const [local, setLocal] = useState(initial);
-  const kept = useSyncExternalStore(subscribe, () => (key === undefined ? first.current : (readKept<T>(key, options.revive) ?? first.current)));
+  const kept = useSyncExternalStore(subscribe, () =>
+    key === undefined ? first.current : (readKept<T>(key, options.revive) ?? first.current),
+  );
   const value = key === undefined ? local : kept;
   const set = (next: T | ((was: T) => T)) => {
     const was = key === undefined ? value : (readKept<T>(key, options.revive) ?? first.current);
     const resolved = typeof next === "function" ? (next as (was: T) => T)(was) : next;
     // Local, a function reaches React as one, so two sets in one handler each build on the last.
     if (key === undefined) setLocal(next);
-    else writeKept(key, resolved, options.stored === undefined ? resolved : options.stored(resolved));
+    else
+      writeKept(key, resolved, options.stored === undefined ? resolved : options.stored(resolved));
   };
   const clear = () => (key === undefined ? setLocal(first.current) : forgetKept(key));
-  return [value, set, clear];
+  return [
+    value,
+    set,
+    clear,
+  ];
 }

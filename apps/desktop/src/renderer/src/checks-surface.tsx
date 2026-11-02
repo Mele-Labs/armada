@@ -24,12 +24,40 @@ import {
  */
 export function useAsked() {
   const [mergeFocus, setMergeFocus] = useState<string | undefined>(undefined);
-  const [loadout, setLoadout] = useState<{ id: string; at?: LoadoutAt | undefined } | undefined>(undefined);
+  const [loadout, setLoadout] = useState<
+    | {
+        id: string;
+        at?: LoadoutAt | undefined;
+      }
+    | undefined
+  >(undefined);
   const setCheckFocus = useCallback((next: string | undefined) => {
-    if (next !== undefined) openInPanel({ kind: "check", id: next });
+    if (next !== undefined)
+      openInPanel({
+        kind: "check",
+        id: next,
+      });
   }, []);
-  const setLoadoutFocus = useCallback((id: string | undefined, at?: LoadoutAt) => setLoadout(id === undefined ? undefined : { id, at }), []);
-  return { mergeFocus, setMergeFocus, setCheckFocus, loadoutFocus: loadout?.id, loadoutAt: loadout?.at, setLoadoutFocus };
+  const setLoadoutFocus = useCallback(
+    (id: string | undefined, at?: LoadoutAt) =>
+      setLoadout(
+        id === undefined
+          ? undefined
+          : {
+              id,
+              at,
+            },
+      ),
+    [],
+  );
+  return {
+    mergeFocus,
+    setMergeFocus,
+    setCheckFocus,
+    loadoutFocus: loadout?.id,
+    loadoutAt: loadout?.at,
+    setLoadoutFocus,
+  };
 }
 
 type ChecksState = Pick<
@@ -45,7 +73,10 @@ export function useChecksHost(
   const { mergeLines, repository } = state;
   const lines = useMemo(
     () => (mergeLines?.lines ?? []).filter((one) => repository === null || one.root === repository),
-    [mergeLines, repository],
+    [
+      mergeLines,
+      repository,
+    ],
   );
   return {
     sheet: state.checkoutRunSheet,

@@ -4,7 +4,10 @@ import type { InputHTMLAttributes } from "react";
  * One of a few ordered steps, moved by dragging or by the arrow keys. The step's name is drawn at the
  * end of the track and read out as the value, so a step is never a bare number.
  */
-export type SliderProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onChange" | "min" | "max" | "step"> & {
+export type SliderProps = Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "type" | "value" | "onChange" | "min" | "max" | "step"
+> & {
   /** The steps, lowest first. */
   steps: readonly string[];
   value: string;

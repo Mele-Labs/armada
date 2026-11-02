@@ -40,10 +40,26 @@ export function entryOf(prefix: string, entry: RunEntry, seen?: CheckoutSeen): R
     name: entry.name,
     run: entry.run,
     note: noteOf(entry.requires),
-    ...(entry.destructive ? { destructive: true } : {}),
-    ...(seen?.gone.has(entry.name) === true ? { drifted: true } : {}),
-    ...(seen?.hiding?.has(id) === true ? { hides: true } : {}),
-    ...(last === undefined ? {} : { last: lastOf(last) }),
+    ...(entry.destructive
+      ? {
+          destructive: true,
+        }
+      : {}),
+    ...(seen?.gone.has(entry.name) === true
+      ? {
+          drifted: true,
+        }
+      : {}),
+    ...(seen?.hiding?.has(id) === true
+      ? {
+          hides: true,
+        }
+      : {}),
+    ...(last === undefined
+      ? {}
+      : {
+          last: lastOf(last),
+        }),
   };
 }
 
@@ -57,7 +73,9 @@ function lastOf(record: CheckoutRunRecord): NonNullable<RunPageEntry["last"]> {
     result: record.exit_code === undefined ? record.ended : `exit ${record.exit_code}`,
     ...(record.exit_code === undefined
       ? {}
-      : { whole: `exit ${record.exit_code} (expects ${record.expect_exit_code})` }),
+      : {
+          whole: `exit ${record.exit_code} (expects ${record.expect_exit_code})`,
+        }),
     outcome: runOutcomeOf(record),
     at: record.started_at,
   };
@@ -69,7 +87,11 @@ export function serverEntryOf(entry: ServerEntry): RunPageEntry {
     name: entry.name,
     run: entry.serve,
     note: entry.run === undefined ? undefined : `Runs ${entry.run} first.`,
-    ...(entry.destructive ? { destructive: true } : {}),
+    ...(entry.destructive
+      ? {
+          destructive: true,
+        }
+      : {}),
   };
 }
 

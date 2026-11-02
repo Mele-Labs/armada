@@ -8,16 +8,53 @@ const refused = role("dialog", "Pull request #1899");
 const answered = role("dialog", "Pull request #1892");
 
 const prPanelSaysWhyRefused = walk("pr-panel-refused", [
-  { press: inside(queue, button(/^#1899/)), say: "A pull request the forge refused" },
-  { look: inside(refused, role("alert")), say: "Fleet's words: the forge's reason, and the step that fixes it" },
-  { look: inside(refused, button("Copy command")), say: "The command it names can be copied" },
-  { press: inside(refused, button("Run", { exact: true })), say: "Or run, as in a terminal opened in the repository" },
-  { later: inside(refused, text(/Logged in to github\.com as ines/)), say: "Its output is drawn under the sentence" },
-  { look: inside(refused, button("Open the pull request again")), say: "When it ends, the pull request can be opened again" },
-  { key: "Escape", on: refused, say: "Esc closes the panel" },
-  { press: inside(queue, button(/^#1892/)), say: "One the forge answers" },
-  { look: inside(answered, tab("Conversation")), say: "Is drawn whole" },
-  { key: "Escape", on: answered, say: "Esc" },
+  {
+    press: inside(queue, button(/^#1899/)),
+    say: "A pull request the forge refused",
+  },
+  {
+    look: inside(refused, role("alert")),
+    say: "Fleet's words: the forge's reason, and the step that fixes it",
+  },
+  {
+    look: inside(refused, button("Copy command")),
+    say: "The command it names can be copied",
+  },
+  {
+    press: inside(
+      refused,
+      button("Run", {
+        exact: true,
+      }),
+    ),
+    say: "Or run, as in a terminal opened in the repository",
+  },
+  {
+    later: inside(refused, text(/Logged in to github\.com as ines/)),
+    say: "Its output is drawn under the sentence",
+  },
+  {
+    look: inside(refused, button("Open the pull request again")),
+    say: "When it ends, the pull request can be opened again",
+  },
+  {
+    key: "Escape",
+    on: refused,
+    say: "Esc closes the panel",
+  },
+  {
+    press: inside(queue, button(/^#1892/)),
+    say: "One the forge answers",
+  },
+  {
+    look: inside(answered, tab("Conversation")),
+    say: "Is drawn whole",
+  },
+  {
+    key: "Escape",
+    on: answered,
+    say: "Esc",
+  },
 ]);
 
 export { prPanelSaysWhyRefused as "pr-panel-says-why-refused" };

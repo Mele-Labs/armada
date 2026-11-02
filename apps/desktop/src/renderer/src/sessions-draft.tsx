@@ -19,38 +19,74 @@ import { ViewerNotesOver } from "./viewer-notes";
 const Held = createContext<SessionsDraft | undefined>(undefined);
 
 /** The acts on a repository's own card, which a real Fleet serves whether or not the Sessions list has been read. */
-export type RepositoryActs = Pick<SessionsDraft, "runInRepository" | "diffInRepository" | "actInRepository" | "refreshPullRequest" | "sendCheckoutAsPullRequest" | "checkoutSendFailed">;
+export type RepositoryActs = Pick<
+  SessionsDraft,
+  | "runInRepository"
+  | "diffInRepository"
+  | "actInRepository"
+  | "refreshPullRequest"
+  | "sendCheckoutAsPullRequest"
+  | "checkoutSendFailed"
+>;
 const Acts = createContext<RepositoryActs | undefined>(undefined);
 
 const NONE: readonly Session[] = [];
-const NEVER = { get: () => NONE, subscribe: () => () => undefined };
+const NEVER = {
+  get: () => NONE,
+  subscribe: () => () => undefined,
+};
 const NO_IDEAS: readonly QueuedIdea[] = [];
 
 /** End answers at once, over whichever serves it: the stage plays the Job out and shows the timeline, and Fleet parks the Job in the background (`cockpit/deck/exit.ts`). */
 const withLeaving = (draft: SessionsDraft): SessionsDraft => {
   const { close } = draft;
   // Over the draft as its prototype, as `withPressed` is: a spread loses what it reads by getter, `commands` among them.
-  return close === undefined ? draft : Object.assign(Object.create(draft) as SessionsDraft, { close: (id: string) => (announceEnd(id), close.call(draft, id)) });
+  return close === undefined
+    ? draft
+    : Object.assign(Object.create(draft) as SessionsDraft, {
+        close: (id: string) => (announceEnd(id), close.call(draft, id)),
+      });
 };
 
 /** The Judge's half of the Sessions: its acts, where they are served, and each Job's readings as its record carries them (`judge/store.ts`). */
 function JudgeFeed({ draft }: { draft: SessionsDraft | undefined }) {
-  const sessions = useSyncExternalStore(draft?.subscribe ?? NEVER.subscribe, draft?.everywhere ?? draft?.get ?? NEVER.get);
+  const sessions = useSyncExternalStore(
+    draft?.subscribe ?? NEVER.subscribe,
+    draft?.everywhere ?? draft?.get ?? NEVER.get,
+  );
   const acts = draft?.judge;
   useLayoutEffect(() => {
     provideJudge(acts === undefined ? undefined : judgeApiOver(acts));
     return () => provideJudge(undefined);
-  }, [acts]);
+  }, [
+    acts,
+  ]);
   useLayoutEffect(() => {
     if (acts !== undefined) for (const one of sessions) putReadings(one.id, one.judgeReadings);
-  }, [acts, sessions]);
+  }, [
+    acts,
+    sessions,
+  ]);
   return null;
 }
 
 /** Hand a moment's Sessions to the window. The mock's own mount is the one caller. */
-export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | undefined; acts?: RepositoryActs; children: ReactNode }) {
+export function SessionsFrom({
+  held,
+  acts,
+  children,
+}: {
+  held: SessionsDraft | undefined;
+  acts?: RepositoryActs;
+  children: ReactNode;
+}) {
   // What the person sent is in the thread at once, and Pause, Auto land and Approve read as pressed at the press, over whichever serves it (`outgoing.ts`, `pressed.ts`).
-  const sending = useMemo(() => (held === undefined ? undefined : withLeaving(withPressed(withOutgoing(held)))), [held]);
+  const sending = useMemo(
+    () => (held === undefined ? undefined : withLeaving(withPressed(withOutgoing(held)))),
+    [
+      held,
+    ],
+  );
   return (
     <Acts.Provider value={acts}>
       <Held.Provider value={sending}>
@@ -99,7 +135,10 @@ export function useSessions(): readonly Session[] {
 /** The Sessions of every repository, whatever is picked, live: what the palette jumps to. Where the list already holds them all, that list. */
 export function useSessionsEverywhere(): readonly Session[] {
   const held = useContext(Held);
-  return useSyncExternalStore(held?.subscribe ?? NEVER.subscribe, held?.everywhere ?? held?.get ?? NEVER.get);
+  return useSyncExternalStore(
+    held?.subscribe ?? NEVER.subscribe,
+    held?.everywhere ?? held?.get ?? NEVER.get,
+  );
 }
 
 /** The ideas saved to start later, live. Empty where none are served. */

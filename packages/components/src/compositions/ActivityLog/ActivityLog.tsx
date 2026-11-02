@@ -143,7 +143,11 @@ export function ActivityLog({
   openId,
 }: ActivityLogProps) {
   const [open, setOpen] = useState<ReadonlySet<string>>(() =>
-    openId === undefined ? new Set<string>() : new Set([openId]),
+    openId === undefined
+      ? new Set<string>()
+      : new Set([
+          openId,
+        ]),
   );
 
   const toggle = useCallback((entryId: string) => {
@@ -168,7 +172,8 @@ export function ActivityLog({
       <ol className="armada-activity__entries">
         {entries.map((entry) => {
           const shown = open.has(entry.id);
-          const opens = entry.output !== undefined || entry.payload !== undefined || entry.ran !== undefined;
+          const opens =
+            entry.output !== undefined || entry.payload !== undefined || entry.ran !== undefined;
           const bounded = boundedTo(entry.output, maxLines);
           const row = (
             <>
@@ -280,10 +285,22 @@ export function ActivityLog({
 function boundedTo(
   output: string | undefined,
   maxLines: number,
-): { text: string; lines: number; cut: boolean } | null {
+): {
+  text: string;
+  lines: number;
+  cut: boolean;
+} | null {
   if (output === undefined) return null;
   const lines = output.split("\n");
   return lines.length <= maxLines
-    ? { text: output, lines: lines.length, cut: false }
-    : { text: lines.slice(0, maxLines).join("\n"), lines: lines.length, cut: true };
+    ? {
+        text: output,
+        lines: lines.length,
+        cut: false,
+      }
+    : {
+        text: lines.slice(0, maxLines).join("\n"),
+        lines: lines.length,
+        cut: true,
+      };
 }

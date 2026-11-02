@@ -2,7 +2,16 @@
 // **every field the tracker returned** as names and values (Bridge draws them alike, whichever tracker sent them), the
 // description, the pull requests that name it, and the Jobs working it or the one press that starts one.
 
-import { Button, Kbd, Prose, PullRequestChip, RepositoryChip, SessionMark, Stamp, Tooltip } from "@armada/components";
+import {
+  Button,
+  Kbd,
+  Prose,
+  PullRequestChip,
+  RepositoryChip,
+  SessionMark,
+  Stamp,
+  Tooltip,
+} from "@armada/components";
 
 import { PullRequestMenuOn } from "../pull-request-menu";
 import { IssueState, Open } from "../shared-panel/panels";
@@ -21,7 +30,12 @@ type Hosts = {
   onOpenSession: (id: string) => void;
   onStart: (band: Band, ticket: TicketRead) => void;
   /** The armada repository, where a kept report starts a Job. Absent where none is served. */
-  armada: { root: string; label: string } | undefined;
+  armada:
+    | {
+        root: string;
+        label: string;
+      }
+    | undefined;
   onStartReport: (root: string, report: ReportedBug) => void;
 };
 
@@ -33,7 +47,12 @@ export function IssuesReader(hosts: Hosts) {
   if (report !== undefined) return <ReportReader key={report.id} report={report} {...hosts} />;
   const band = hosts.bands.find((one) => one.manifestId === open?.manifestId);
   const read = open === undefined ? undefined : store.readOf(open.manifestId, open.reference);
-  if (open === undefined || band === undefined || band.tracker.state !== "read" || read === undefined) {
+  if (
+    open === undefined ||
+    band === undefined ||
+    band.tracker.state !== "read" ||
+    read === undefined
+  ) {
     return <section className="deck-pane issues-reader" aria-label="Issue" tabIndex={-1} />;
   }
   if (read.state === "failed") {
@@ -45,13 +64,34 @@ export function IssuesReader(hosts: Hosts) {
       </section>
     );
   }
-  return <Reader key={`${band.manifestId}\n${open.reference}`} band={band} ticket={read.ticket} {...hosts} />;
+  return (
+    <Reader
+      key={`${band.manifestId}\n${open.reference}`}
+      band={band}
+      ticket={read.ticket}
+      {...hosts}
+    />
+  );
 }
 
-function Reader({ band, ticket, onOpenLink, onOpenSession, onStart }: Hosts & { band: Band; ticket: TicketRead }) {
+function Reader({
+  band,
+  ticket,
+  onOpenLink,
+  onOpenSession,
+  onStart,
+}: Hosts & {
+  band: Band;
+  ticket: TicketRead;
+}) {
   const holders = useHolders(ticket.holders);
   return (
-    <section className="deck-pane issues-reader" data-tone={toneOfHolders(holders)} aria-label={`Issue ${ticket.reference}`} tabIndex={-1}>
+    <section
+      className="deck-pane issues-reader"
+      data-tone={toneOfHolders(holders)}
+      aria-label={`Issue ${ticket.reference}`}
+      tabIndex={-1}
+    >
       <header className="deck-band deck-pane__head">
         <h2 className="deck-pane__title">{ticket.title}</h2>
         <RepositoryChip name={band.label} />
@@ -61,7 +101,12 @@ function Reader({ band, ticket, onOpenLink, onOpenSession, onStart }: Hosts & { 
           </Tooltip>
           {holders.length > 0 ? null : (
             <Tooltip label="Start a Job" shortcut={ISSUES_KEYS.start}>
-              <Button variant="secondary" size="sm" data-start onClick={() => onStart(band, ticket)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                data-start
+                onClick={() => onStart(band, ticket)}
+              >
                 Start a Job
               </Button>
             </Tooltip>
@@ -123,8 +168,28 @@ function Reader({ band, ticket, onOpenLink, onOpenSession, onStart }: Hosts & { 
             <h3 className="issues-reader__eyebrow">Pull requests</h3>
             <div className="issues-reader__pulls">
               {ticket.linked_pull_requests.map((one) => (
-                <PullRequestMenuOn key={one.number} manifestId={band.manifestId} number={one.number} title={one.title} address={one.address}>
-                  {(on) => <PullRequestChip framed number={one.number} title={one.title} state={one.state} {...(one.checks === undefined ? {} : { checks: one.checks })} onOpen={() => onOpenLink(one.address)} {...on} />}
+                <PullRequestMenuOn
+                  key={one.number}
+                  manifestId={band.manifestId}
+                  number={one.number}
+                  title={one.title}
+                  address={one.address}
+                >
+                  {(on) => (
+                    <PullRequestChip
+                      framed
+                      number={one.number}
+                      title={one.title}
+                      state={one.state}
+                      {...(one.checks === undefined
+                        ? {}
+                        : {
+                            checks: one.checks,
+                          })}
+                      onOpen={() => onOpenLink(one.address)}
+                      {...on}
+                    />
+                  )}
                 </PullRequestMenuOn>
               ))}
             </div>
@@ -136,10 +201,24 @@ function Reader({ band, ticket, onOpenLink, onOpenSession, onStart }: Hosts & { 
 }
 
 /** One reported bug whole. Keep sets it aside; once kept, Start a Job puts it in a sheet as the brief. Drop removes it. */
-function ReportReader({ report, armada, onOpenLink, onOpenSession, onStartReport }: Hosts & { report: ReportedBug }) {
+function ReportReader({
+  report,
+  armada,
+  onOpenLink,
+  onOpenSession,
+  onStartReport,
+}: Hosts & {
+  report: ReportedBug;
+}) {
   const store = useIssuesStore()!;
   const job = jobOfReport(useSessions(), report.id);
-  const { state, said } = job === undefined ? { state: undefined, said: "" } : stateOf(job);
+  const { state, said } =
+    job === undefined
+      ? {
+          state: undefined,
+          said: "",
+        }
+      : stateOf(job);
   return (
     <section className="deck-pane issues-reader" aria-label="Reported bug" tabIndex={-1}>
       <header className="deck-band deck-pane__head">
@@ -150,21 +229,37 @@ function ReportReader({ report, armada, onOpenLink, onOpenSession, onStartReport
             <Kbd>{ISSUES_KEYS.reader}</Kbd>
           </Tooltip>
           {job !== undefined && state !== undefined ? (
-            <Button variant="secondary" size="sm" data-job aria-label={`Open the Job, ${jobTitle(job)}`} onClick={() => onOpenSession(job.id)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              data-job
+              aria-label={`Open the Job, ${jobTitle(job)}`}
+              onClick={() => onOpenSession(job.id)}
+            >
               <SessionMark state={state} said={`${jobTitle(job)}: ${said}`} />
               {jobTitle(job)}
             </Button>
           ) : report.fixed !== undefined ? null : report.kept ? (
             armada === undefined ? null : (
               <Tooltip label="Start a Job" shortcut={ISSUES_KEYS.start}>
-                <Button variant="secondary" size="sm" data-start onClick={() => onStartReport(armada.root, report)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-start
+                  onClick={() => onStartReport(armada.root, report)}
+                >
                   Start a Job
                 </Button>
               </Tooltip>
             )
           ) : (
             <Tooltip label="Keep" shortcut={ISSUES_KEYS.keep}>
-              <Button variant="secondary" size="sm" data-keep onClick={() => store.keepReport(report.id)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                data-keep
+                onClick={() => store.keepReport(report.id)}
+              >
                 Keep
               </Button>
             </Tooltip>
@@ -189,7 +284,13 @@ function ReportReader({ report, armada, onOpenLink, onOpenSession, onStartReport
           <Stamp at={report.at} />
         </span>
         {report.fixed === undefined ? null : (
-          <PullRequestChip framed number={report.fixed.pull_request} title={report.fixed.title} state="merged" onOpen={() => onOpenLink(report.fixed!.url)} />
+          <PullRequestChip
+            framed
+            number={report.fixed.pull_request}
+            title={report.fixed.title}
+            state="merged"
+            onOpen={() => onOpenLink(report.fixed!.url)}
+          />
         )}
       </div>
       <div className="issues-reader__body">

@@ -9,11 +9,26 @@
 import type { KitInventory, SessionRecord } from "@armada/protocol";
 import { createHash, randomBytes } from "node:crypto";
 import { constants, watch } from "node:fs";
-import { access, chmod, open, readFile, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  open,
+  readFile,
+  realpath,
+  rename,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 
-import type { PanelFileItem, PanelFileOpenedIn, PanelFileRead, PanelFileSaved } from "../shared/api/files";
+import type {
+  PanelFileItem,
+  PanelFileOpenedIn,
+  PanelFileRead,
+  PanelFileSaved,
+} from "../shared/api/files";
 import { namesKitPath } from "./kit-names";
 import { MOST_BYTES, namesFile, typeOfFile } from "./session-file";
 import type { FileReads } from "./session-file";
@@ -21,7 +36,10 @@ import type { FileReads } from "./session-file";
 /** What the panel needs of a disk beyond reading: write a file whole, make settings.json, hear a directory change. */
 export type PanelDisk = FileReads & {
   /** Where `path` is with its links followed, and whether it is a file; null where nothing is there. */
-  real: (path: string) => Promise<{ path: string; file: boolean } | null>;
+  real: (path: string) => Promise<{
+    path: string;
+    file: boolean;
+  } | null>;
   /** Whether this process may read the file. */
   readable: (path: string) => Promise<boolean>;
   /** Atomic: a temporary file beside the target, then a rename, so a reader sees the old file or the new and never half. */
@@ -29,7 +47,12 @@ export type PanelDisk = FileReads & {
   /** `{}\n` where nothing is, as opening settings.json does. A file already there is left alone. */
   create: (path: string) => Promise<void>;
   /** Names the directory's entry that changed, or null where the OS did not say. */
-  watch: (dir: string, onEvent: (name: string | null) => void) => { close: () => void };
+  watch: (
+    dir: string,
+    onEvent: (name: string | null) => void,
+  ) => {
+    close: () => void;
+  };
 };
 
 export type PanelHosts = {
@@ -64,17 +87,27 @@ export const diskPanel: PanelDisk = {
   read: async (path) => new Uint8Array(await readFile(path)),
   real: async (path) => {
     try {
-      return { path: await realpath(path), file: (await stat(path)).isFile() };
+      return {
+        path: await realpath(path),
+        file: (await stat(path)).isFile(),
+      };
     } catch {
       return null;
     }
   },
-  readable: (path) => access(path, constants.R_OK).then(() => true, () => false),
+  readable: (path) =>
+    access(path, constants.R_OK).then(
+      () => true,
+      () => false,
+    ),
   replace: async (path, bytes) => {
     // The target itself, so a link to a file is written through and not replaced by one.
     const target = await realpath(path).catch(() => path);
     const mode = (await stat(target).catch(() => null))?.mode;
-    const beside = join(dirname(target), `.${basename(target)}.${randomBytes(4).toString("hex")}.tmp`);
+    const beside = join(
+      dirname(target),
+      `.${basename(target)}.${randomBytes(4).toString("hex")}.tmp`,
+    );
     try {
       const handle = await open(beside, "wx", 0o600);
       try {
@@ -91,15 +124,27 @@ export const diskPanel: PanelDisk = {
   },
   create: async (path) => {
     // Already there is the usual case; a directory that cannot be written shows when the file is read.
-    await writeFile(path, "{}\n", { flag: "wx" }).catch(() => {});
+    await writeFile(path, "{}\n", {
+      flag: "wx",
+    }).catch(() => {});
   },
   watch: (dir, onEvent) => {
     try {
-      const watcher = watch(dir, { persistent: false }, (_event, name) => onEvent(name === null ? null : String(name)));
+      const watcher = watch(
+        dir,
+        {
+          persistent: false,
+        },
+        (_event, name) => onEvent(name === null ? null : String(name)),
+      );
       watcher.on("error", () => {});
-      return { close: () => watcher.close() };
+      return {
+        close: () => watcher.close(),
+      };
     } catch {
-      return { close: () => {} };
+      return {
+        close: () => {},
+      };
     }
   },
 };
@@ -107,7 +152,15 @@ export const diskPanel: PanelDisk = {
 const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 const sayWhy = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
-type Watch = { disk: string; item: PanelFileItem; version: string; closer: { close: () => void }; timer: ReturnType<typeof setTimeout> | undefined };
+type Watch = {
+  disk: string;
+  item: PanelFileItem;
+  version: string;
+  closer: {
+    close: () => void;
+  };
+  timer: ReturnType<typeof setTimeout> | undefined;
+};
 
 export function createFilePanel(hosts: PanelHosts) {
   const { disk } = hosts;
@@ -130,7 +183,13 @@ export function createFilePanel(hosts: PanelHosts) {
   async function inCheckout(record: SessionRecord, path: string): Promise<string | null> {
     const root = await disk.real(record.cwd);
     if (root === null) return null;
-    const fromHere = isAbsolute(path) ? [path] : [resolve(record.cwd, path)];
+    const fromHere = isAbsolute(path)
+      ? [
+          path,
+        ]
+      : [
+          resolve(record.cwd, path),
+        ];
     const at = record.cwd.indexOf(SLOTS);
     if (!isAbsolute(path) && at > 0) fromHere.push(resolve(record.cwd.slice(0, at), path));
     for (const candidate of fromHere) {
@@ -145,9 +204,11 @@ export function createFilePanel(hosts: PanelHosts) {
     if (typeof item?.path !== "string" || item.path === "") return null;
     switch (item.from) {
       case "session": {
-        const record = typeof item.sessionId === "string" ? hosts.recordOf(item.sessionId) : undefined;
+        const record =
+          typeof item.sessionId === "string" ? hosts.recordOf(item.sessionId) : undefined;
         if (record === undefined) return null;
-        if (namesFile(record, item.path)) return isAbsolute(item.path) ? item.path : resolve(record.cwd, item.path);
+        if (namesFile(record, item.path))
+          return isAbsolute(item.path) ? item.path : resolve(record.cwd, item.path);
         return inCheckout(record, item.path); // the same file `known` offered the link for
       }
       case "settings":
@@ -180,7 +241,15 @@ export function createFilePanel(hosts: PanelHosts) {
     }
     release(owner);
     const name = basename(path);
-    const one: Watch = { disk: path, item, version, timer: undefined, closer: { close: () => {} } };
+    const one: Watch = {
+      disk: path,
+      item,
+      version,
+      timer: undefined,
+      closer: {
+        close: () => {},
+      },
+    };
     // Only a change in the bytes is told: a touch, an atomic rename that left them alone, and the window's own save are not.
     const check = async (): Promise<void> => {
       const now = await disk.read(path).then(sha256, () => "gone");
@@ -199,24 +268,57 @@ export function createFilePanel(hosts: PanelHosts) {
   return {
     async read(owner: unknown, item: PanelFileItem): Promise<PanelFileRead> {
       const path = await locate(item, owner);
-      if (path === null) return { ok: false, why: "not_addressable" };
+      if (path === null)
+        return {
+          ok: false,
+          why: "not_addressable",
+        };
       try {
         if (item.from === "settings") await disk.create(path);
-        if ((await disk.size(path)) > MOST_BYTES) return { ok: false, why: "too_big" };
+        if ((await disk.size(path)) > MOST_BYTES)
+          return {
+            ok: false,
+            why: "too_big",
+          };
         const bytes = await disk.read(path);
         const type = typeOfFile(path);
         const version = sha256(bytes);
         if (type.startsWith("image/")) {
           keepWatching(owner, item, path, version);
-          return { ok: true, bytes, type, version };
+          return {
+            ok: true,
+            bytes,
+            type,
+            version,
+          };
         }
-        if (bytes.subarray(0, 4096).includes(0)) return { ok: false, why: "binary" };
+        if (bytes.subarray(0, 4096).includes(0))
+          return {
+            ok: false,
+            why: "binary",
+          };
         // Strict, so a file that is not UTF-8 is refused rather than saved back with its bytes replaced.
-        const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+        const text = new TextDecoder("utf-8", {
+          fatal: true,
+          ignoreBOM: true,
+        }).decode(bytes);
         keepWatching(owner, item, path, version);
-        return { ok: true, text, type, version };
+        return {
+          ok: true,
+          text,
+          type,
+          version,
+        };
       } catch (error) {
-        return error instanceof TypeError ? { ok: false, why: "binary" } : { ok: false, why: "unreadable" };
+        return error instanceof TypeError
+          ? {
+              ok: false,
+              why: "binary",
+            }
+          : {
+              ok: false,
+              why: "unreadable",
+            };
       }
     },
 
@@ -225,21 +327,43 @@ export function createFilePanel(hosts: PanelHosts) {
      * means something else wrote it: nothing is written and what is there comes back. A save that passes the
      * version of that answer is Keep mine. `owner`, where given, is not told of the write it made itself.
      */
-    async save(item: PanelFileItem, text: string, version: string, owner?: unknown): Promise<PanelFileSaved> {
+    async save(
+      item: PanelFileItem,
+      text: string,
+      version: string,
+      owner?: unknown,
+    ): Promise<PanelFileSaved> {
       const path = await locate(item, owner);
-      if (path === null || typeOfFile(path).startsWith("image/")) return { state: "failed", detail: NOT_OPENED };
+      if (path === null || typeOfFile(path).startsWith("image/"))
+        return {
+          state: "failed",
+          detail: NOT_OPENED,
+        };
       try {
         const now = await disk.read(path);
         const current = sha256(now);
-        if (current !== version) return { state: "moved", onDisk: new TextDecoder("utf-8", { ignoreBOM: true }).decode(now), version: current };
+        if (current !== version)
+          return {
+            state: "moved",
+            onDisk: new TextDecoder("utf-8", {
+              ignoreBOM: true,
+            }).decode(now),
+            version: current,
+          };
         const bytes = new TextEncoder().encode(text);
         await disk.replace(path, bytes);
         const saved = sha256(bytes);
         const own = owner === undefined ? undefined : watches.get(owner);
         if (own?.disk === path) own.version = saved;
-        return { state: "saved", version: saved };
+        return {
+          state: "saved",
+          version: saved,
+        };
       } catch (error) {
-        return { state: "failed", detail: sayWhy(error) };
+        return {
+          state: "failed",
+          detail: sayWhy(error),
+        };
       }
     },
 
@@ -247,7 +371,15 @@ export function createFilePanel(hosts: PanelHosts) {
     async known(sessionId: string, paths: readonly string[]): Promise<string[]> {
       const record = hosts.recordOf(sessionId);
       if (record === undefined) return [];
-      const found = await Promise.all(paths.slice(0, MOST_ASKED).map(async (path) => (typeof path === "string" && path !== "" && (await inCheckout(record, path)) !== null ? path : null)));
+      const found = await Promise.all(
+        paths
+          .slice(0, MOST_ASKED)
+          .map(async (path) =>
+            typeof path === "string" && path !== "" && (await inCheckout(record, path)) !== null
+              ? path
+              : null,
+          ),
+      );
       return found.filter((one): one is string => one !== null);
     },
 
@@ -255,7 +387,11 @@ export function createFilePanel(hosts: PanelHosts) {
       const path = await hosts.pick();
       if (path === null) return null;
       chosen.add(path);
-      return { kind: "file", path, from: "picked" };
+      return {
+        kind: "file",
+        path,
+        from: "picked",
+      };
     },
 
     /**
@@ -264,28 +400,59 @@ export function createFilePanel(hosts: PanelHosts) {
      */
     async openPath(text: string, sessionId?: string): Promise<PanelFileItem | null> {
       if (typeof text !== "string") return null;
-      const typed = text.trim().replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "").trim();
+      const typed = text
+        .trim()
+        .replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "")
+        .trim();
       if (typed === "") return null;
       const home = (hosts.home ?? homedir)();
       const cwd = typeof sessionId === "string" ? hosts.recordOf(sessionId)?.cwd : undefined;
-      const path = typed === "~" || typed.startsWith("~/") ? join(home, typed.slice(1)) : isAbsolute(typed) ? typed : cwd === undefined ? null : resolve(cwd, typed);
+      const path =
+        typed === "~" || typed.startsWith("~/")
+          ? join(home, typed.slice(1))
+          : isAbsolute(typed)
+            ? typed
+            : cwd === undefined
+              ? null
+              : resolve(cwd, typed);
       if (path === null) return null;
       const there = await disk.real(path);
       if (there?.file !== true || !(await disk.readable(path))) return null;
       chosen.add(path);
-      return { kind: "file", path, from: "picked" };
+      return {
+        kind: "file",
+        path,
+        from: "picked",
+      };
     },
 
-    async openIn(item: PanelFileItem, where: "editor" | "finder", owner?: unknown): Promise<PanelFileOpenedIn> {
+    async openIn(
+      item: PanelFileItem,
+      where: "editor" | "finder",
+      owner?: unknown,
+    ): Promise<PanelFileOpenedIn> {
       const path = await locate(item, owner);
-      if (path === null) return { ok: false, detail: NOT_OPENED };
+      if (path === null)
+        return {
+          ok: false,
+          detail: NOT_OPENED,
+        };
       if (where === "finder") {
         hosts.showInFolder(path);
-        return { ok: true };
+        return {
+          ok: true,
+        };
       }
       if (item.from === "settings") await disk.create(path);
       const refused = await hosts.inEditor(path);
-      return refused === null ? { ok: true } : { ok: false, detail: refused };
+      return refused === null
+        ? {
+            ok: true,
+          }
+        : {
+            ok: false,
+            detail: refused,
+          };
     },
 
     release,

@@ -22,9 +22,16 @@ import { repositoryRoot } from "./annotations";
 
 /** The Babel node this reads. Structural, so this module needs no `@babel/core`. */
 export type OpeningElement = {
-  name?: { type?: string; name?: unknown } | null;
+  name?: {
+    type?: string;
+    name?: unknown;
+  } | null;
   attributes?: unknown[];
-  loc?: { start?: { line?: unknown } | null } | null;
+  loc?: {
+    start?: {
+      line?: unknown;
+    } | null;
+  } | null;
 };
 
 /** The three builders this calls on Babel's `types`, and nothing else. */
@@ -48,10 +55,15 @@ const PRIMITIVES = "packages/components/src/primitives/";
  * component rather than a host element, a primitive, a file outside the
  * repository, a node Babel gave no position, or one already stamped.
  */
-export function stampFor(node: OpeningElement, filename: string, root: string | null): string | null {
+export function stampFor(
+  node: OpeningElement,
+  filename: string,
+  root: string | null,
+): string | null {
   if (root === null) return null;
   const name = node.name;
-  if (name?.type !== "JSXIdentifier" || typeof name.name !== "string" || !HOST.test(name.name)) return null;
+  if (name?.type !== "JSXIdentifier" || typeof name.name !== "string" || !HOST.test(name.name))
+    return null;
   if ((node.attributes ?? []).some(isStamped)) return null;
   const line = node.loc?.start?.line;
   if (typeof line !== "number" || !Number.isInteger(line) || line < 1) return null;
@@ -65,7 +77,13 @@ export function stampFor(node: OpeningElement, filename: string, root: string | 
 }
 
 function isStamped(attribute: unknown): boolean {
-  const name = (attribute as { name?: { name?: unknown } } | null)?.name?.name;
+  const name = (
+    attribute as {
+      name?: {
+        name?: unknown;
+      };
+    } | null
+  )?.name?.name;
   return name === SOURCE_ATTRIBUTE;
 }
 
@@ -89,7 +107,14 @@ export function annotationSource(options: { root?: string } = {}) {
   return ({ types }: { types: Types }) => ({
     name: "armada-annotation-source",
     visitor: {
-      JSXOpeningElement(path: { node: OpeningElement }, state: { filename?: string | null }) {
+      JSXOpeningElement(
+        path: {
+          node: OpeningElement;
+        },
+        state: {
+          filename?: string | null;
+        },
+      ) {
         const filename = state.filename;
         if (typeof filename !== "string") return;
         const stamp = stampFor(path.node, filename, rootOf(filename));

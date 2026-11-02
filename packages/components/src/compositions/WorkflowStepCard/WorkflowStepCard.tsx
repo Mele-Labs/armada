@@ -80,7 +80,10 @@ export type WorkflowStepCardProps = {
    * sweeps. A plan group passes `GROUP_STATE`'s row, so the graph draws what
    * the list draws. Absent changes nothing.
    */
-  mark?: { icon: LucideIcon; token: string };
+  mark?: {
+    icon: LucideIcon;
+    token: string;
+  };
   /**
    * The state in words — the registry's verb for a step, the group machine's
    * own value for a group. Read to somebody who cannot see the mark.
@@ -117,7 +120,10 @@ export type WorkflowStepCardProps = {
    * is where the count lives: a count beside the segments it counts is the
    * aggregate the owner ruled out on 29 Sep 2026.
    */
-  bar?: { groups: readonly TaskBarSegment[]; label: string };
+  bar?: {
+    groups: readonly TaskBarSegment[];
+    label: string;
+  };
   /**
    * The running step's parts in order, along the card's bottom edge — done,
    * now, next (owner, 3 Oct 2026, `ouqa`). **Drawn, it is the card's one loop**
@@ -134,7 +140,10 @@ export type WorkflowStepCardProps = {
   /** A step added to this Job alone: a dashed accent edge, so it reads apart from the workflow's own. */
   added?: boolean;
   /** Whose hand is on a task, where that is the Commander's: a mark after the name. */
-  by?: { who: "commander"; said?: string };
+  by?: {
+    who: "commander";
+    said?: string;
+  };
 };
 
 export function WorkflowStepCard({
@@ -202,34 +211,51 @@ export function WorkflowStepCard({
       {/* The bar, drawn before the head so it lands on the card's own top edge
           rather than inside its content box. Nothing to read: the mark and the
           word beside it already say running. */}
-      {working && track === undefined ? <span className="armada-wf-card__sweep" aria-hidden="true" /> : null}
+      {working && track === undefined ? (
+        <span className="armada-wf-card__sweep" aria-hidden="true" />
+      ) : null}
       {band === undefined ? null : (
         <span className="armada-wf-card__band">
-          {ordinal === undefined ? null : <span className="armada-wf-card__band-order">{ordinal}</span>}
+          {ordinal === undefined ? null : (
+            <span className="armada-wf-card__band-order">{ordinal}</span>
+          )}
           <span className="armada-wf-card__band-name">{name}</span>
-          {band.tag === undefined ? null : <span className="armada-wf-card__band-tag">{band.tag}</span>}
+          {band.tag === undefined ? null : (
+            <span className="armada-wf-card__band-tag">{band.tag}</span>
+          )}
         </span>
       )}
-      {band !== undefined ? null : <span className="armada-wf-card__head">
-        {mark === undefined ? (
-          <StepActivityMark
-            activity={activity}
-            label={said}
-            ordinal={ordinal}
-            // **No `pulsing`, and that loses nothing.** The mark only ever
-            // pulses on `running`, which is the one state that now sweeps — and
-            // one loop per card means the sweep is the loop. A card that is not
-            // working does not move at all.
-            says={`${name}, ${said}`}
-          />
-        ) : (
-          <OwnMark mark={mark} label={said} says={`${name}, ${said}`} />
-        )}
-        <span className="armada-wf-card__name" data-identifier={nameIsAnIdentifier || undefined}>
-          {name}
+      {band !== undefined ? null : (
+        <span className="armada-wf-card__head">
+          {mark === undefined ? (
+            <StepActivityMark
+              activity={activity}
+              label={said}
+              ordinal={ordinal}
+              // **No `pulsing`, and that loses nothing.** The mark only ever
+              // pulses on `running`, which is the one state that now sweeps — and
+              // one loop per card means the sweep is the loop. A card that is not
+              // working does not move at all.
+              says={`${name}, ${said}`}
+            />
+          ) : (
+            <OwnMark mark={mark} label={said} says={`${name}, ${said}`} />
+          )}
+          <span className="armada-wf-card__name" data-identifier={nameIsAnIdentifier || undefined}>
+            {name}
+          </span>
+          {by === undefined ? null : (
+            <WhoMark
+              who={by.who}
+              {...(by.said === undefined
+                ? {}
+                : {
+                    said: by.said,
+                  })}
+            />
+          )}
         </span>
-        {by === undefined ? null : <WhoMark who={by.who} {...(by.said === undefined ? {} : { said: by.said })} />}
-      </span>}
+      )}
       {band === undefined || details.length === 0 ? null : (
         <span className="armada-wf-card__details">
           {details.map((one) => (
@@ -266,7 +292,10 @@ export function WorkflowStepCard({
       {/* The board's outlined chip on a step of the run, which draws no facts
           and may draw no line; a fragment under the facts everywhere else. */}
       {gate === undefined ? null : (
-        <span className="armada-wf-card__gate" data-chip={kind === "step" && facts.length === 0 ? "true" : undefined}>
+        <span
+          className="armada-wf-card__gate"
+          data-chip={kind === "step" && facts.length === 0 ? "true" : undefined}
+        >
           {gate}
         </span>
       )}
@@ -296,7 +325,9 @@ export function WorkflowStepCard({
           "data-banded": "",
           "data-look": band.look ?? "solid",
           "data-returns": returns || undefined,
-          style: { "--armada-wf-band": `var(${band.token})` } as CSSProperties,
+          style: {
+            "--armada-wf-band": `var(${band.token})`,
+          } as CSSProperties,
         }),
   };
 
@@ -336,7 +367,11 @@ function OwnMark({
     <Tooltip asChild label={says}>
       <span
         className="armada-step-mark armada-wf-card__mark"
-        style={{ "--armada-wf-card-mark": `var(${mark.token})` } as CSSProperties}
+        style={
+          {
+            "--armada-wf-card-mark": `var(${mark.token})`,
+          } as CSSProperties
+        }
       >
         <Icon size={12} strokeWidth={2} aria-hidden />
         <span className="armada-step-mark__name">{label}</span>

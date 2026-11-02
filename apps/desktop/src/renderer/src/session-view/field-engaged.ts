@@ -6,14 +6,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const graceMs = (): number => {
-  const parsed = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--tooltip-grace"), 10);
+  const parsed = Number.parseInt(
+    getComputedStyle(document.documentElement).getPropertyValue("--tooltip-grace"),
+    10,
+  );
   return Number.isNaN(parsed) ? 300 : parsed;
 };
 
-export type EngagedHandlers = { onPointerEnter: () => void; onPointerLeave: () => void; onFocus: () => void; onBlur: () => void };
+export type EngagedHandlers = {
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
+  onFocus: () => void;
+  onBlur: () => void;
+};
 
 /** `on` is false where the cards never float: the Field large already draws them at full size. */
-export function useEngaged(on: boolean): { engaged: boolean; handlers: EngagedHandlers } {
+export function useEngaged(on: boolean): {
+  engaged: boolean;
+  handlers: EngagedHandlers;
+} {
   const [engaged, setEngaged] = useState(false);
   const pointer = useRef(false);
   const focus = useRef(false);
@@ -44,6 +55,11 @@ export function useEngaged(on: boolean): { engaged: boolean; handlers: EngagedHa
     };
     window.addEventListener("keydown", away);
     return () => window.removeEventListener("keydown", away);
-  }, [engaged]);
-  return { engaged: on && engaged, handlers };
+  }, [
+    engaged,
+  ]);
+  return {
+    engaged: on && engaged,
+    handlers,
+  };
 }

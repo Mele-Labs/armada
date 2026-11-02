@@ -20,7 +20,10 @@ export interface WindowState extends Rect {
   fullScreen: boolean;
 }
 
-export const DEFAULT_SIZE = { width: 1280, height: 800 } as const;
+export const DEFAULT_SIZE = {
+  width: 1280,
+  height: 800,
+} as const;
 
 /** Smallest overlap, in pixels either way, that counts as a window a person can still grab. */
 const REACHABLE = 80;
@@ -31,7 +34,11 @@ const REACHABLE = 80;
  */
 export function place(saved: Rect | null, workAreas: readonly Rect[]): Rect {
   if (saved !== null && workAreas.some((area) => overlaps(saved, area))) return saved;
-  const primary = workAreas[0] ?? { x: 0, y: 0, ...DEFAULT_SIZE };
+  const primary = workAreas[0] ?? {
+    x: 0,
+    y: 0,
+    ...DEFAULT_SIZE,
+  };
   const width = Math.min(DEFAULT_SIZE.width, primary.width);
   const height = Math.min(DEFAULT_SIZE.height, primary.height);
   return {
@@ -53,7 +60,12 @@ const file = (): string => join(app.getPath("userData"), "window-state.json");
 function read(): WindowState | null {
   try {
     const value = JSON.parse(readFileSync(file(), "utf8")) as Partial<WindowState>;
-    const numbers = [value.x, value.y, value.width, value.height];
+    const numbers = [
+      value.x,
+      value.y,
+      value.width,
+      value.height,
+    ];
     if (!numbers.every((n) => typeof n === "number" && Number.isFinite(n))) return null;
     if (value.width! < 200 || value.height! < 200) return null;
     return value as WindowState;
@@ -63,12 +75,23 @@ function read(): WindowState | null {
 }
 
 /** Bounds and mode for a new window, from the last one saved. */
-export function restore(): { bounds: Rect; maximized: boolean; fullScreen: boolean } {
+export function restore(): {
+  bounds: Rect;
+  maximized: boolean;
+  fullScreen: boolean;
+} {
   const saved = read();
   const areas = screen.getAllDisplays().map((d) => d.workArea);
   const primary = screen.getPrimaryDisplay().workArea;
-  const ordered = [primary, ...areas.filter((a) => a !== primary)];
-  return { bounds: place(saved, ordered), maximized: saved?.maximized === true, fullScreen: saved?.fullScreen === true };
+  const ordered = [
+    primary,
+    ...areas.filter((a) => a !== primary),
+  ];
+  return {
+    bounds: place(saved, ordered),
+    maximized: saved?.maximized === true,
+    fullScreen: saved?.fullScreen === true,
+  };
 }
 
 /** Keeps the file current as the window moves, resizes and closes. */
@@ -78,7 +101,11 @@ export function remember(window: BrowserWindow): void {
     if (window.isDestroyed()) return;
     // A maximized or full screen window's own bounds are the screen's; keep the normal ones.
     const bounds = window.getNormalBounds();
-    const state: WindowState = { ...bounds, maximized: window.isMaximized(), fullScreen: window.isFullScreen() };
+    const state: WindowState = {
+      ...bounds,
+      maximized: window.isMaximized(),
+      fullScreen: window.isFullScreen(),
+    };
     try {
       writeFileSync(file(), JSON.stringify(state));
     } catch {
@@ -89,7 +116,14 @@ export function remember(window: BrowserWindow): void {
     clearTimeout(timer);
     timer = setTimeout(save, 400);
   };
-  for (const event of ["move", "resize", "maximize", "unmaximize", "enter-full-screen", "leave-full-screen"] as const) {
+  for (const event of [
+    "move",
+    "resize",
+    "maximize",
+    "unmaximize",
+    "enter-full-screen",
+    "leave-full-screen",
+  ] as const) {
     window.on(event as "move", later);
   }
   window.on("close", () => {

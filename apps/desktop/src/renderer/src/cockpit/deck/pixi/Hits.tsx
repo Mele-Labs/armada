@@ -5,7 +5,16 @@
 // plots, files and bases that are only hovered are asked of the pointer instead (`plates.ts`), since there are as many as the repository
 // has files.
 
-import { createContext, memo, useContext, useEffect, useLayoutEffect, useRef, type MouseEvent as ReactMouseEvent, type MutableRefObject } from "react";
+import {
+  createContext,
+  memo,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+  type MutableRefObject,
+} from "react";
 import { ShieldCheck } from "lucide-react";
 import { clashSaid, useClashesOf, useOpenClash } from "@armada/components";
 
@@ -14,15 +23,65 @@ import { keyed, onPlane } from "../bf-parts";
 import { arcsOf, bandOf, roadOf, type BuildIn } from "../build";
 import type { CallTone } from "../field";
 import { alongOf, type P3, type Point } from "../layout";
-import { clashLines, clashTip, clashesTip, droneTip, goalSaid, goalTip, outpostTip, padTip, payloadSaid, payloadTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "../tip";
+import {
+  clashLines,
+  clashTip,
+  clashesTip,
+  droneTip,
+  goalSaid,
+  goalTip,
+  outpostTip,
+  padTip,
+  payloadSaid,
+  payloadTip,
+  type DroneFacts,
+  type GoalIn,
+  type PadIn,
+  type Tip,
+} from "../tip";
 import { plateAt } from "./plates";
 import type { View } from "./project";
-import type { ArcSpec, Crate, DroneSpec, OutpostSpec, PixiSceneIn, Placed, WorkerSpec } from "./scene";
-import { arcSpot, bandSpot, callSpot, clashSpot, crateSpot, droneSpot, goalSpot, lineSpot, outpostSpot, padSpot, pieceSpot, quoteSpot, workerSpot, type Spot } from "./spots";
+import type {
+  ArcSpec,
+  Crate,
+  DroneSpec,
+  OutpostSpec,
+  PixiSceneIn,
+  Placed,
+  WorkerSpec,
+} from "./scene";
+import {
+  arcSpot,
+  bandSpot,
+  callSpot,
+  clashSpot,
+  crateSpot,
+  droneSpot,
+  goalSpot,
+  lineSpot,
+  outpostSpot,
+  padSpot,
+  pieceSpot,
+  quoteSpot,
+  workerSpot,
+  type Spot,
+} from "./spots";
 import type { Stage } from "./stage";
 
 /** Raised by a thing that is hovered or focused: what to say, what it hangs from, where the pointer was if it is too large to have a middle, and what it lights. */
-export type ShowTip = (tip: Tip | undefined, target?: Element, at?: { x: number; y: number }, lit?: { hot?: string; tile?: string; part?: string }) => void;
+export type ShowTip = (
+  tip: Tip | undefined,
+  target?: Element,
+  at?: {
+    x: number;
+    y: number;
+  },
+  lit?: {
+    hot?: string;
+    tile?: string;
+    part?: string;
+  },
+) => void;
 
 /** What a press does, and where a card goes: the page's, read when it is wanted so the layer need not be drawn again for a new one. */
 export type HitActs = {
@@ -54,7 +113,10 @@ class Placer {
   }
 
   put(el: HTMLElement): void {
-    const spot = this.view === undefined || this.view.width === 0 ? undefined : this.spots.get(el)?.(this.view);
+    const spot =
+      this.view === undefined || this.view.width === 0
+        ? undefined
+        : this.spots.get(el)?.(this.view);
     if (spot === undefined) {
       el.style.display = "none";
       return;
@@ -79,7 +141,9 @@ function usePlaced<T extends HTMLElement>(spot: (view: View) => Spot | undefined
     const node = el.current!;
     placer.add(node, (view) => latest.current(view));
     return () => placer.remove(node);
-  }, [placer]);
+  }, [
+    placer,
+  ]);
   useLayoutEffect(() => placer.put(el.current!));
   return el;
 }
@@ -94,14 +158,22 @@ const speaking = (say: (target: Element) => void, leave: () => void) => ({
 
 // ---- The things ----------------------------------------------------------------------------------------
 
-type DroneProps = { spec: DroneSpec; facts: DroneFacts | undefined; big: number; acts: MutableRefObject<HitActs> };
+type DroneProps = {
+  spec: DroneSpec;
+  facts: DroneFacts | undefined;
+  big: number;
+  acts: MutableRefObject<HitActs>;
+};
 
 /** A drone, and the marks over it that can be pressed: the call it holds and each write clash it is in. */
 function Drone({ spec, facts, big, acts }: DroneProps) {
   const d = spec.drone;
   const ref = usePlaced<HTMLDivElement>((view) => droneSpot(view, spec, big));
   const pick = () => acts.current.select(d.key);
-  const say = (target: Element) => acts.current.tip(droneTip(d, facts, ShieldCheck), target, undefined, { hot: d.key });
+  const say = (target: Element) =>
+    acts.current.tip(droneTip(d, facts, ShieldCheck), target, undefined, {
+      hot: d.key,
+    });
   const leave = () => acts.current.tip(undefined);
   return (
     <>
@@ -127,14 +199,28 @@ function Drone({ spec, facts, big, acts }: DroneProps) {
         onKeyDown={(event) => keyed(event, pick)}
         {...speaking(say, leave)}
       />
-      {spec.call === undefined ? null : <Call spec={spec} tone={spec.call} acts={acts} big={big} say={say} />}
+      {spec.call === undefined ? null : (
+        <Call spec={spec} tone={spec.call} acts={acts} big={big} say={say} />
+      )}
       <Clashes spec={spec} acts={acts} big={big} />
     </>
   );
 }
 
 /** The badge of a call a drone holds: pressing it opens the drone, as pressing the drone does. */
-function Call({ spec, tone, acts, big, say }: { spec: DroneSpec; tone: CallTone; acts: MutableRefObject<HitActs>; big: number; say: (target: Element) => void }) {
+function Call({
+  spec,
+  tone,
+  acts,
+  big,
+  say,
+}: {
+  spec: DroneSpec;
+  tone: CallTone;
+  acts: MutableRefObject<HitActs>;
+  big: number;
+  say: (target: Element) => void;
+}) {
   const ref = usePlaced<HTMLDivElement>((view) => callSpot(view, spec, big));
   const pick = () => acts.current.select(spec.drone.key);
   return (
@@ -155,14 +241,36 @@ function Call({ spec, tone, acts, big, say }: { spec: DroneSpec; tone: CallTone;
 }
 
 /** The one mark for the write clashes a drone is in. Fleet's are read one drone at a time, by a hook. */
-function Clashes({ spec, acts, big }: { spec: DroneSpec; acts: MutableRefObject<HitActs>; big: number }) {
+function Clashes({
+  spec,
+  acts,
+  big,
+}: {
+  spec: DroneSpec;
+  acts: MutableRefObject<HitActs>;
+  big: number;
+}) {
   const d = spec.drone;
   const clashes = useClashesOf(d.kind, d.key.slice(d.kind.length + 1));
   const [first] = clashes;
-  return first === undefined ? null : <ClashMark spec={spec} big={big} acts={acts} first={first} clashes={clashes} />;
+  return first === undefined ? null : (
+    <ClashMark spec={spec} big={big} acts={acts} first={first} clashes={clashes} />
+  );
 }
 
-function ClashMark({ spec, big, acts, first: clash, clashes }: { spec: DroneSpec; big: number; acts: MutableRefObject<HitActs>; first: ReturnType<typeof useClashesOf>[number]; clashes: ReturnType<typeof useClashesOf> }) {
+function ClashMark({
+  spec,
+  big,
+  acts,
+  first: clash,
+  clashes,
+}: {
+  spec: DroneSpec;
+  big: number;
+  acts: MutableRefObject<HitActs>;
+  first: ReturnType<typeof useClashesOf>[number];
+  clashes: ReturnType<typeof useClashesOf>;
+}) {
   const ref = usePlaced<HTMLDivElement>((view) => clashSpot(view, spec, 0, big));
   const openClash = useOpenClash();
   const several = clashes.length > 1;
@@ -173,7 +281,11 @@ function ClashMark({ spec, big, acts, first: clash, clashes }: { spec: DroneSpec
       className="bf-hits__item"
       role={opens ? "button" : "img"}
       tabIndex={opens ? 0 : -1}
-      aria-label={several ? `Conflicts with ${clashes.map((one) => one.with.label).join(", ")}` : clashSaid(clash)}
+      aria-label={
+        several
+          ? `Conflicts with ${clashes.map((one) => one.with.label).join(", ")}`
+          : clashSaid(clash)
+      }
       data-hit="clash"
       data-key={spec.drone.key}
       data-opens={opens || undefined}
@@ -182,7 +294,10 @@ function ClashMark({ spec, big, acts, first: clash, clashes }: { spec: DroneSpec
         if (opens) openClash(clash.with);
       }}
       onKeyDown={(event) => opens && keyed(event, () => openClash(clash.with))}
-      {...speaking((target) => acts.current.tip(several ? clashesTip(clashes) : clashTip(clash), target), () => acts.current.tip(undefined))}
+      {...speaking(
+        (target) => acts.current.tip(several ? clashesTip(clashes) : clashTip(clash), target),
+        () => acts.current.tip(undefined),
+      )}
     />
   );
 }
@@ -203,13 +318,31 @@ function Pad({ pad, at, acts }: { pad: PadIn; at: Point; acts: MutableRefObject<
       data-bay={pad.bay}
       onClick={pick}
       onKeyDown={(event) => keyed(event, pick)}
-      {...speaking((target) => acts.current.tip(padTip(pad), target, undefined, { part: `pad:${pad.key}` }), () => acts.current.tip(undefined))}
+      {...speaking(
+        (target) =>
+          acts.current.tip(padTip(pad), target, undefined, {
+            part: `pad:${pad.key}`,
+          }),
+        () => acts.current.tip(undefined),
+      )}
     />
   );
 }
 
 /** Main: the flag at a repository's objective. */
-function Goal({ root, repo, goal, at, acts }: { root: string; repo: string; goal: GoalIn; at: Point; acts: MutableRefObject<HitActs> }) {
+function Goal({
+  root,
+  repo,
+  goal,
+  at,
+  acts,
+}: {
+  root: string;
+  repo: string;
+  goal: GoalIn;
+  at: Point;
+  acts: MutableRefObject<HitActs>;
+}) {
   const ref = usePlaced<HTMLDivElement>((view) => goalSpot(view, at));
   const pick = () => acts.current.goal(root);
   return (
@@ -224,7 +357,13 @@ function Goal({ root, repo, goal, at, acts }: { root: string; repo: string; goal
       data-red={goal.red || undefined}
       onClick={pick}
       onKeyDown={(event) => keyed(event, pick)}
-      {...speaking((target) => acts.current.tip(goalTip(goal, repo), target, undefined, { part: `goal:${root}` }), () => acts.current.tip(undefined))}
+      {...speaking(
+        (target) =>
+          acts.current.tip(goalTip(goal, repo), target, undefined, {
+            part: `goal:${root}`,
+          }),
+        () => acts.current.tip(undefined),
+      )}
     />
   );
 }
@@ -243,7 +382,13 @@ function Outpost({ outpost, acts }: { outpost: OutpostSpec; acts: MutableRefObje
       data-hit="outpost"
       data-service={outpost.service}
       data-lit={outpost.lit || undefined}
-      {...speaking((target) => acts.current.tip(outpostTip(outpost), target, undefined, { part: `outpost:${outpost.service}` }), () => acts.current.tip(undefined))}
+      {...speaking(
+        (target) =>
+          acts.current.tip(outpostTip(outpost), target, undefined, {
+            part: `outpost:${outpost.service}`,
+          }),
+        () => acts.current.tip(undefined),
+      )}
     />
   );
 }
@@ -264,15 +409,34 @@ function Payload({ crate, acts }: { crate: Crate; acts: MutableRefObject<HitActs
       data-stage={crate.pr.stage}
       onClick={pick}
       onKeyDown={(event) => keyed(event, pick)}
-      {...speaking((target) => acts.current.tip(payloadTip(crate.pr), target, undefined, { part: `crate:${crate.pr.key}` }), () => acts.current.tip(undefined))}
+      {...speaking(
+        (target) =>
+          acts.current.tip(payloadTip(crate.pr), target, undefined, {
+            part: `crate:${crate.pr.key}`,
+          }),
+        () => acts.current.tip(undefined),
+      )}
     />
   );
 }
 
-type Said = { tip: Tip; said: string };
+type Said = {
+  tip: Tip;
+  said: string;
+};
 
 /** A piece of a ring, an arc of its road or its band: a card, and a place to stop. */
-function RingPart({ kind, said, spot, acts }: { kind: "task" | "road" | "phase"; said: Said; spot: (view: View) => Spot; acts: MutableRefObject<HitActs> }) {
+function RingPart({
+  kind,
+  said,
+  spot,
+  acts,
+}: {
+  kind: "task" | "road" | "phase";
+  said: Said;
+  spot: (view: View) => Spot;
+  acts: MutableRefObject<HitActs>;
+}) {
   const ref = usePlaced<HTMLDivElement>(spot);
   return (
     <div
@@ -283,13 +447,26 @@ function RingPart({ kind, said, spot, acts }: { kind: "task" | "road" | "phase";
       aria-selected={false}
       aria-label={said.said}
       data-hit={kind}
-      {...speaking((target) => acts.current.tip(said.tip, target), () => acts.current.tip(undefined))}
+      {...speaking(
+        (target) => acts.current.tip(said.tip, target),
+        () => acts.current.tip(undefined),
+      )}
     />
   );
 }
 
 /** What a ring has to be hovered over: a piece for each task, or the band where there is no list, and an arc for each stop of the road. */
-function Ring({ one, heights, big, acts }: { one: Placed; heights: ReadonlyMap<string, number>; big: number; acts: MutableRefObject<HitActs> }) {
+function Ring({
+  one,
+  heights,
+  big,
+  acts,
+}: {
+  one: Placed;
+  heights: ReadonlyMap<string, number>;
+  big: number;
+  acts: MutableRefObject<HitActs>;
+}) {
   const build: BuildIn = one.build;
   // A landed ring is cleared a quarter hour on.
   if (build.landedAt !== undefined && build.now - build.landedAt > FRESH_LAND_MS) return null;
@@ -299,25 +476,62 @@ function Ring({ one, heights, big, acts }: { one: Placed; heights: ReadonlyMap<s
   const band = build.tasks.length === 0 && bandOf(build) !== undefined ? bandTip(build) : undefined;
   return (
     <>
-      {band === undefined ? null : <RingPart kind="phase" said={band} spot={(view) => bandSpot(view, one, heights, big)} acts={acts} />}
+      {band === undefined ? null : (
+        <RingPart
+          kind="phase"
+          said={band}
+          spot={(view) => bandSpot(view, one, heights, big)}
+          acts={acts}
+        />
+      )}
       {build.tasks.map((_, k) => {
         const said = pieceTip(build, k);
-        return said === undefined ? null : <RingPart key={`${build.key}:task:${k}`} kind="task" said={said} spot={(view) => pieceSpot(view, one, heights, k, n, big)} acts={acts} />;
+        return said === undefined ? null : (
+          <RingPart
+            key={`${build.key}:task:${k}`}
+            kind="task"
+            said={said}
+            spot={(view) => pieceSpot(view, one, heights, k, n, big)}
+            acts={acts}
+          />
+        );
       })}
       {road === undefined
         ? null
         : road.map((_, k) => {
             const said = arcTip(build, k);
-            return said === undefined ? null : <RingPart key={`${build.key}:road:${k}`} kind="road" said={said} spot={(view) => arcSpot(view, one, heights, k, m, big)} acts={acts} />;
+            return said === undefined ? null : (
+              <RingPart
+                key={`${build.key}:road:${k}`}
+                kind="road"
+                said={said}
+                spot={(view) => arcSpot(view, one, heights, k, m, big)}
+                acts={acts}
+              />
+            );
           })}
     </>
   );
 }
 
 /** A subagent hovering at its place on a ring. */
-function Worker({ worker, stage, acts }: { worker: WorkerSpec; stage: Stage; acts: MutableRefObject<HitActs> }) {
-  const ref = usePlaced<HTMLDivElement>((view) => workerSpot(view, worker, stage.floorOf(worker.tile)));
-  const tip: Tip = { label: "Subagent", title: worker.detail, hue: "quiet" };
+function Worker({
+  worker,
+  stage,
+  acts,
+}: {
+  worker: WorkerSpec;
+  stage: Stage;
+  acts: MutableRefObject<HitActs>;
+}) {
+  const ref = usePlaced<HTMLDivElement>((view) =>
+    workerSpot(view, worker, stage.floorOf(worker.tile)),
+  );
+  const tip: Tip = {
+    label: "Subagent",
+    title: worker.detail,
+    hue: "quiet",
+  };
   return (
     <div
       ref={ref}
@@ -327,13 +541,24 @@ function Worker({ worker, stage, acts }: { worker: WorkerSpec; stage: Stage; act
       aria-selected={false}
       aria-label={`Subagent, ${worker.detail}`}
       data-hit="worker"
-      {...speaking((target) => acts.current.tip(tip, target), () => acts.current.tip(undefined))}
+      {...speaking(
+        (target) => acts.current.tip(tip, target),
+        () => acts.current.tip(undefined),
+      )}
     />
   );
 }
 
 /** The line between two drones changing one area: hovered for its card, and not a place to stop. */
-function ClashLine({ line, tip, acts }: { line: readonly P3[]; tip: Tip; acts: MutableRefObject<HitActs> }) {
+function ClashLine({
+  line,
+  tip,
+  acts,
+}: {
+  line: readonly P3[];
+  tip: Tip;
+  acts: MutableRefObject<HitActs>;
+}) {
   const ref = usePlaced<HTMLDivElement>((view) => lineSpot(view, line, 7));
   return (
     <div
@@ -341,7 +566,12 @@ function ClashLine({ line, tip, acts }: { line: readonly P3[]; tip: Tip; acts: M
       className="bf-hits__item"
       aria-hidden="true"
       data-hit="clash-line"
-      onMouseEnter={(event) => acts.current.tip(tip, event.currentTarget, { x: event.clientX, y: event.clientY })}
+      onMouseEnter={(event) =>
+        acts.current.tip(tip, event.currentTarget, {
+          x: event.clientX,
+          y: event.clientY,
+        })
+      }
       onMouseLeave={() => acts.current.tip(undefined)}
     />
   );
@@ -352,14 +582,39 @@ function ClashLine({ line, tip, acts }: { line: readonly P3[]; tip: Tip; acts: M
  * the other Job, as a press on its drone does. The quote is the place to stop; the line takes the pointer only.
  */
 function Message({ arc, acts }: { arc: ArcSpec; acts: MutableRefObject<HitActs> }) {
-  const line = usePlaced<HTMLDivElement>((view) => lineSpot(view, Array.from({ length: 19 }, (_, i) => alongOf(arc.from, arc.to, arc.lift, i / 18)), 7));
+  const line = usePlaced<HTMLDivElement>((view) =>
+    lineSpot(
+      view,
+      Array.from(
+        {
+          length: 19,
+        },
+        (_, i) => alongOf(arc.from, arc.to, arc.lift, i / 18),
+      ),
+      7,
+    ),
+  );
   const quote = usePlaced<HTMLDivElement>((view) => quoteSpot(view, arc));
   const pick = () => acts.current.select(arc.other);
   const said = `${arc.sent ? "Message to" : "Message from"} ${arc.title}: ${arc.quote}`;
-  const tip: Tip = { label: arc.sent ? "Message to" : "Message from", title: arc.title, hue: "quiet", lines: [arc.quote] };
+  const tip: Tip = {
+    label: arc.sent ? "Message to" : "Message from",
+    title: arc.title,
+    hue: "quiet",
+    lines: [
+      arc.quote,
+    ],
+  };
   return (
     <>
-      <div ref={line} className="bf-hits__item" aria-hidden="true" data-hit="message-line" data-key={arc.other} onClick={pick} />
+      <div
+        ref={line}
+        className="bf-hits__item"
+        aria-hidden="true"
+        data-hit="message-line"
+        data-key={arc.other}
+        onClick={pick}
+      />
       <div
         ref={quote}
         className="bf-hits__item"
@@ -371,7 +626,10 @@ function Message({ arc, acts }: { arc: ArcSpec; acts: MutableRefObject<HitActs> 
         data-from={arc.sent ? "this" : "other"}
         onClick={pick}
         onKeyDown={(event) => keyed(event, pick)}
-        {...speaking((target) => acts.current.tip(tip, target), () => acts.current.tip(undefined))}
+        {...speaking(
+          (target) => acts.current.tip(tip, target),
+          () => acts.current.tip(undefined),
+        )}
       />
     </>
   );
@@ -384,7 +642,12 @@ function Message({ arc, acts }: { arc: ArcSpec; acts: MutableRefObject<HitActs> 
  * on the pane asks `plateAt` where the pointer is, and says the card of what is there. What a card hangs from is a stand-in element for the
  * plate, kept so that the card knows it is the same plate while the pointer crosses it.
  */
-function usePlates(layer: MutableRefObject<HTMLDivElement | null>, stage: Stage, scene: PixiSceneIn, acts: MutableRefObject<HitActs>): void {
+function usePlates(
+  layer: MutableRefObject<HTMLDivElement | null>,
+  stage: Stage,
+  scene: PixiSceneIn,
+  acts: MutableRefObject<HitActs>,
+): void {
   const latest = useRef(scene);
   latest.current = scene;
   useEffect(() => {
@@ -398,13 +661,30 @@ function usePlates(layer: MutableRefObject<HTMLDivElement | null>, stage: Stage,
       frame = 0;
       if (last === undefined) return;
       const box = host.getBoundingClientRect();
-      const plate = plateAt(latest.current, stage.shown, last.clientX - box.left, last.clientY - box.top);
+      const plate = plateAt(
+        latest.current,
+        stage.shown,
+        last.clientX - box.left,
+        last.clientY - box.top,
+      );
       if (plate?.key === current) return;
       current = plate?.key;
       if (plate === undefined) return acts.current.tip(undefined);
       let target = stand.get(plate.key);
       if (target === undefined) stand.set(plate.key, (target = document.createElement("div")));
-      acts.current.tip(plate.tip, target, { x: last.clientX, y: last.clientY }, plate.tile === undefined ? undefined : { tile: plate.tile });
+      acts.current.tip(
+        plate.tip,
+        target,
+        {
+          x: last.clientX,
+          y: last.clientY,
+        },
+        plate.tile === undefined
+          ? undefined
+          : {
+              tile: plate.tile,
+            },
+      );
     };
     const move = (event: PointerEvent) => {
       // A thing with a card of its own says it; a hand on the map is moving it.
@@ -428,7 +708,9 @@ function usePlates(layer: MutableRefObject<HTMLDivElement | null>, stage: Stage,
       host.removeEventListener("pointermove", move);
       host.removeEventListener("pointerleave", leave);
     };
-  }, [stage]);
+  }, [
+    stage,
+  ]);
 }
 
 export type HitLayerProps = {
@@ -445,21 +727,37 @@ function HitLayer({ stage, scene, facts, acts }: HitLayerProps) {
   useLayoutEffect(() => {
     placer.run(stage.shown);
     return stage.onView((view) => placer.run(view));
-  }, [stage, placer]);
+  }, [
+    stage,
+    placer,
+  ]);
   usePlates(layer, stage, scene, acts);
-  const drones = [...scene.drones].sort((a, b) => a.at.y - b.at.y);
+  const drones = [
+    ...scene.drones,
+  ].sort((a, b) => a.at.y - b.at.y);
   return (
     <PlacerContext.Provider value={placer}>
       <div ref={layer} className="bf-hits" role="listbox" aria-label="Map">
         {scene.layout.territories.flatMap((one) =>
           one.pads.map((pad) => {
             const info = scene.pads.get(pad.key);
-            return info === undefined ? null : <Pad key={pad.key} pad={info} at={pad} acts={acts} />;
+            return info === undefined ? null : (
+              <Pad key={pad.key} pad={info} at={pad} acts={acts} />
+            );
           }),
         )}
         {scene.layout.territories.map((one) => {
           const goal = scene.goals.get(one.root);
-          return goal === undefined || one.goal === undefined ? null : <Goal key={one.root} root={one.root} repo={one.name} goal={goal} at={one.goal} acts={acts} />;
+          return goal === undefined || one.goal === undefined ? null : (
+            <Goal
+              key={one.root}
+              root={one.root}
+              repo={one.name}
+              goal={goal}
+              at={one.goal}
+              acts={acts}
+            />
+          );
         })}
         {scene.outposts.map((one) => (
           <Outpost key={one.service} outpost={one} acts={acts} />
@@ -475,13 +773,36 @@ function HitLayer({ stage, scene, facts, acts }: HitLayerProps) {
         ))}
         {scene.clashLines.map((one) => {
           const clash = scene.layout.clashes.find((c) => `${c.root}:${c.path}` === one.key);
-          return clash === undefined ? null : <ClashLine key={one.key} line={Array.from({ length: 19 }, (_, i) => alongOf(one.from, one.to, 22, i / 18))} tip={{ label: "Write clash", title: clash.path, hue: "ask", lines: clashLines(clash) }} acts={acts} />;
+          return clash === undefined ? null : (
+            <ClashLine
+              key={one.key}
+              line={Array.from(
+                {
+                  length: 19,
+                },
+                (_, i) => alongOf(one.from, one.to, 22, i / 18),
+              )}
+              tip={{
+                label: "Write clash",
+                title: clash.path,
+                hue: "ask",
+                lines: clashLines(clash),
+              }}
+              acts={acts}
+            />
+          );
         })}
         {scene.arcs.map((one) => (
           <Message key={one.key} arc={one} acts={acts} />
         ))}
         {drones.map((spec) => (
-          <Drone key={spec.drone.key} spec={spec} facts={facts.get(spec.drone.key)} big={scene.big} acts={acts} />
+          <Drone
+            key={spec.drone.key}
+            spec={spec}
+            facts={facts.get(spec.drone.key)}
+            big={scene.big}
+            acts={acts}
+          />
         ))}
       </div>
     </PlacerContext.Provider>

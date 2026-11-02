@@ -25,11 +25,19 @@ function Effect({ before, after }: { before: number; after: number | undefined }
   const share = before > 0 ? (after - before) / before : 0;
   const percent = `${Math.abs(Math.round(share * 100))}%`;
   const still = Math.abs(share) < STILL;
-  const tip = still ? "No change in the burn per hour" : `${share < 0 ? "Down" : "Up"} ${percent} in the burn per hour`;
+  const tip = still
+    ? "No change in the burn per hour"
+    : `${share < 0 ? "Down" : "Up"} ${percent} in the burn per hour`;
   return (
     <Tooltip label={tip}>
       <span className="armada-usage__delta" aria-label={tip}>
-        {still ? <Minus size={12} aria-hidden /> : share < 0 ? <ArrowDown size={12} aria-hidden /> : <ArrowUp size={12} aria-hidden />}
+        {still ? (
+          <Minus size={12} aria-hidden />
+        ) : share < 0 ? (
+          <ArrowDown size={12} aria-hidden />
+        ) : (
+          <ArrowUp size={12} aria-hidden />
+        )}
         {still ? "" : percent}
       </span>
     </Tooltip>
@@ -50,9 +58,20 @@ type Props = {
 
 export function UsageRules({ rules, pick, onPick, titles, job, now }: Props) {
   const rule = rules[pick];
-  const trips = rule === undefined ? [] : rule.trips.filter((one) => job === undefined || one.id === job).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const trips =
+    rule === undefined
+      ? []
+      : rule.trips
+          .filter((one) => job === undefined || one.id === job)
+          .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const told = rule?.tell.replace("{figure}", trips[0]?.figure ?? rule.tell_figure);
-  const top = Math.max(0, ...trips.flatMap((one) => [one.before, one.after ?? 0]));
+  const top = Math.max(
+    0,
+    ...trips.flatMap((one) => [
+      one.before,
+      one.after ?? 0,
+    ]),
+  );
   return (
     <section className="armada-usage__panel" aria-label="Usage rules">
       <div className="armada-usage__band">
@@ -66,9 +85,18 @@ export function UsageRules({ rules, pick, onPick, titles, job, now }: Props) {
       </div>
       <ul className="armada-usage__rules" role="listbox" aria-label="Rules">
         {rules.map((one, at) => (
-          <li key={one.id} role="option" aria-selected={at === pick} aria-label={`${one.name}, ${one.on ? "on" : "off"}, ${one.limit_tip}`} className="armada-usage__rule" onClick={() => onPick(at)}>
+          <li
+            key={one.id}
+            role="option"
+            aria-selected={at === pick}
+            aria-label={`${one.name}, ${one.on ? "on" : "off"}, ${one.limit_tip}`}
+            className="armada-usage__rule"
+            onClick={() => onPick(at)}
+          >
             <Tooltip label={one.on ? "On" : "Off"}>
-              <span className="armada-usage__state" data-on={one.on || undefined}>{one.on ? <Power size={14} aria-hidden /> : <PowerOff size={14} aria-hidden />}</span>
+              <span className="armada-usage__state" data-on={one.on || undefined}>
+                {one.on ? <Power size={14} aria-hidden /> : <PowerOff size={14} aria-hidden />}
+              </span>
             </Tooltip>
             <span className="armada-usage__title">{one.name}</span>
             <Tooltip label={one.limit_tip}>
@@ -102,18 +130,39 @@ export function UsageRules({ rules, pick, onPick, titles, job, now }: Props) {
             <ul className="armada-usage__trips" aria-label={`${rule.name}, trips`}>
               {trips.map((one) => {
                 const title = titles?.get(one.id) ?? shortId(one.id);
-                const fill = (units: number | undefined) => `${top > 0 && units !== undefined ? (units / top) * 100 : 0}%`;
+                const fill = (units: number | undefined) =>
+                  `${top > 0 && units !== undefined ? (units / top) * 100 : 0}%`;
                 return (
-                  <li key={`${one.id}-${one.at}`} className="armada-usage__trip" aria-label={`${title}, ${ageOf(Date.parse(one.at), now)}, ${one.figure}, ${M(one.before)} million before${one.after === undefined ? "" : `, ${M(one.after)} million after`}`}>
+                  <li
+                    key={`${one.id}-${one.at}`}
+                    className="armada-usage__trip"
+                    aria-label={`${title}, ${ageOf(Date.parse(one.at), now)}, ${one.figure}, ${M(one.before)} million before${one.after === undefined ? "" : `, ${M(one.after)} million after`}`}
+                  >
                     <span className="armada-usage__what">
                       <Tooltip label={title}>
-                        <span className="armada-usage__title" data-id={titles?.has(one.id) !== true || undefined}>{title}</span>
+                        <span
+                          className="armada-usage__title"
+                          data-id={titles?.has(one.id) !== true || undefined}
+                        >
+                          {title}
+                        </span>
                       </Tooltip>
                       <span className="armada-usage__track" aria-hidden>
-                        <span className="armada-usage__fill" data-before style={{ width: fill(one.before) }} />
+                        <span
+                          className="armada-usage__fill"
+                          data-before
+                          style={{
+                            width: fill(one.before),
+                          }}
+                        />
                       </span>
                       <span className="armada-usage__track" aria-hidden>
-                        <span className="armada-usage__fill" style={{ width: fill(one.after) }} />
+                        <span
+                          className="armada-usage__fill"
+                          style={{
+                            width: fill(one.after),
+                          }}
+                        />
                       </span>
                     </span>
                     <Stamp first="age" at={one.at} now={now} className="armada-usage__fig" />
@@ -124,7 +173,9 @@ export function UsageRules({ rules, pick, onPick, titles, job, now }: Props) {
                       <span className="armada-usage__fig">{M(one.before)}</span>
                     </Tooltip>
                     <Tooltip label="Million units per hour, the 60 minutes after the tell">
-                      <span className="armada-usage__fig">{one.after === undefined ? "" : M(one.after)}</span>
+                      <span className="armada-usage__fig">
+                        {one.after === undefined ? "" : M(one.after)}
+                      </span>
                     </Tooltip>
                     <Effect before={one.before} after={one.after} />
                   </li>

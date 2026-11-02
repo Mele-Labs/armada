@@ -33,58 +33,153 @@ export type Target = {
 };
 
 export type Step =
-  | { press: Target; say: string }
-  | { look: Target; say: string }
+  | {
+      press: Target;
+      say: string;
+    }
+  | {
+      look: Target;
+      say: string;
+    }
   /** Pointed at and held there while the step is shown, so what hovering reveals is in its picture. */
-  | { hover: Target; say: string }
+  | {
+      hover: Target;
+      say: string;
+    }
   /** Looked at, and then time passes: the scenario publishes its next moment as the walk moves on. */
-  | { later: Target; say: string }
+  | {
+      later: Target;
+      say: string;
+    }
   /** Typed into a field; words ending in a newline end with Enter. */
-  | { type: string; into: Target; say: string }
+  | {
+      type: string;
+      into: Target;
+      say: string;
+    }
   /** A key pressed on a target as the keyboard sends one: "n", "Tab", or "Meta+n" for a chord. */
-  | { key: string; on: Target; say: string }
+  | {
+      key: string;
+      on: Target;
+      say: string;
+    }
   /** A right press on the target, as a pointer makes one: the context menu the app or the layer opens there. */
-  | { context: Target; say: string }
+  | {
+      context: Target;
+      say: string;
+    }
   /** These words, inside the target, selected as a pointer drag would leave them. */
-  | { select: string; in: Target; say: string }
+  | {
+      select: string;
+      in: Target;
+      say: string;
+    }
   /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. */
-  | { paste: Target; say: string }
+  | {
+      paste: Target;
+      say: string;
+    }
   /** Words pasted on a target, as a browser hands them over: a paste event carrying plain text. */
-  | { paste: Target; text: string; say: string }
+  | {
+      paste: Target;
+      text: string;
+      say: string;
+    }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. `shift` holds Shift down through it. */
-  | { drag: Target; by: { x: number; y: number }; shift?: true; say: string }
+  | {
+      drag: Target;
+      by: {
+        x: number;
+        y: number;
+      };
+      shift?: true;
+      say: string;
+    }
   /** A draggable thing carried by the browser's own drag and drop onto another element and let go there: a tab onto the gap between two panes. */
-  | { drag: Target; onto: Target; say: string };
+  | {
+      drag: Target;
+      onto: Target;
+      say: string;
+    };
 
 /** A walk is played at the window the test starts from unless it names its own: a narrow one shows what folds. */
-export type Walk = { scenario: string; steps: readonly Step[]; viewport?: { width: number; height: number } };
+export type Walk = {
+  scenario: string;
+  steps: readonly Step[];
+  viewport?: {
+    width: number;
+    height: number;
+  };
+};
 
 /** A walk over `scenario`. Its name is the name it is exported under. */
 export function walk(scenario: string, steps: readonly Step[], viewport?: Walk["viewport"]): Walk {
-  return viewport === undefined ? { scenario, steps } : { scenario, steps, viewport };
+  return viewport === undefined
+    ? {
+        scenario,
+        steps,
+      }
+    : {
+        scenario,
+        steps,
+        viewport,
+      };
 }
 
 const quoted = (name: Name) => (typeof name === "string" ? `“${name}”` : String(name));
 
 /** Anything with this role, and this name where one is given. */
-export function role(kind: string, name?: Name, options: { exact?: boolean } = {}): Target {
+export function role(
+  kind: string,
+  name?: Name,
+  options: {
+    exact?: boolean;
+  } = {},
+): Target {
   return {
     role: kind,
-    ...(name === undefined ? {} : { name }),
-    ...(options.exact === undefined ? {} : { exact: options.exact }),
+    ...(name === undefined
+      ? {}
+      : {
+          name,
+        }),
+    ...(options.exact === undefined
+      ? {}
+      : {
+          exact: options.exact,
+        }),
     said: name === undefined ? `a ${kind}` : `a ${kind} named ${quoted(name)}`,
   };
 }
 
-export const tab = (name: Name, options?: { exact?: boolean }) => role("tab", name, options);
-export const button = (name: Name, options?: { exact?: boolean }) => role("button", name, options);
+export const tab = (
+  name: Name,
+  options?: {
+    exact?: boolean;
+  },
+) => role("tab", name, options);
+export const button = (
+  name: Name,
+  options?: {
+    exact?: boolean;
+  },
+) => role("button", name, options);
 export const dialog = (name: Name) => role("dialog", name);
 export const row = (name: Name) => role("row", name);
-export const region = (name: Name, options?: { exact?: boolean }) => role("region", name, options);
+export const region = (
+  name: Name,
+  options?: {
+    exact?: boolean;
+  },
+) => role("region", name, options);
 
 /** Words on screen: the smallest element that draws them. */
 export function text(words: Name): Target {
-  return { role: "text", name: words, said: `the words ${quoted(words)}` };
+  return {
+    role: "text",
+    name: words,
+    said: `the words ${quoted(words)}`,
+  };
 }
 
 /**
@@ -94,7 +189,11 @@ export function text(words: Name): Target {
  */
 export function card(label: string): Target {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return { role: "button", name: new RegExp(`^${escaped}, `), said: `a card named “${label}”` };
+  return {
+    role: "button",
+    name: new RegExp(`^${escaped}, `),
+    said: `a card named “${label}”`,
+  };
 }
 
 /**
@@ -102,47 +201,103 @@ export function card(label: string): Target {
  * Close is the one where it opened over the page.
  */
 export function either(first: Target, ...others: Target[]): Target {
-  return { ...first, or: others, said: [first, ...others].map((one) => one.said).join(" or ") };
+  return {
+    ...first,
+    or: others,
+    said: [
+      first,
+      ...others,
+    ]
+      .map((one) => one.said)
+      .join(" or "),
+  };
 }
 
 /** `target`, looked for only inside `scope`. */
 export function inside(scope: Target, target: Target): Target {
-  return { ...target, within: scope, said: `${target.said} in ${scope.said}` };
+  return {
+    ...target,
+    within: scope,
+    said: `${target.said} in ${scope.said}`,
+  };
 }
 
 /** One of the title bar's six places: Cockpit, Jobs, Sessions, Studios, Logbook or System. Not matched whole: a tab with a call waiting names it too. */
 export const place = (name: string): Target => inside(role("navigation", "Places"), tab(name));
 
 /** A row of the Cockpit's list of Sessions, by its title. */
-export const deckRow = (title: Name): Target => inside(region("Jobs", { exact: true }), button(title));
+export const deckRow = (title: Name): Target =>
+  inside(
+    region("Jobs", {
+      exact: true,
+    }),
+    button(title),
+  );
 
 /**
  * What the System strip's five pages were called, and the sidebar entry each opens now. A name that is an entry
  * of its own (Guides, Workflows, Limits, Output styles) is passed through.
  */
-const ENTRY: Readonly<Record<string, string>> = { Kit: "Skills", Mods: "Theme", Settings: "Limits" };
+const ENTRY: Readonly<Record<string, string>> = {
+  Kit: "Skills",
+  Mods: "Theme",
+  Settings: "Limits",
+};
 
 /** One entry of the System sidebar, which is drawn only while System is the place. Matched on its name, so a mark beside it does not hide it. */
 export const systemPage = (name: string): Target => {
   const entry = ENTRY[name] ?? name;
-  return inside(role("navigation", "System"), button(new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`)));
+  return inside(
+    role("navigation", "System"),
+    button(new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`)),
+  );
 };
 
 /** The steps that reach a System entry from anywhere: System, then the entry in its sidebar. Studios is a place of its own, one press, and Retros is the Logbook's Retros tab. */
 export function toSystemPage(name: string, say: string): Step[] {
-  if (name === "Retros") return [{ press: place("Logbook"), say: "The Logbook" }, { press: tab("Retros"), say }];
-  if (name === "Studios") return [{ press: place(name), say }];
+  if (name === "Retros")
+    return [
+      {
+        press: place("Logbook"),
+        say: "The Logbook",
+      },
+      {
+        press: tab("Retros"),
+        say,
+      },
+    ];
+  if (name === "Studios")
+    return [
+      {
+        press: place(name),
+        say,
+      },
+    ];
   return [
-    { press: place("System"), say: `System, for ${name}` },
-    { press: systemPage(name), say },
+    {
+      press: place("System"),
+      say: `System, for ${name}`,
+    },
+    {
+      press: systemPage(name),
+      say,
+    },
   ];
 }
 
 /** The steps that reach a page by its name from ⌘K: the palette opened, the name typed, Enter. For a page no tab or System entry carries. */
 export function viaPalette(name: string, say: string): Step[] {
   return [
-    { key: "Meta+k", on: role("navigation", "Places"), say: `⌘K, for ${name}` },
-    { type: `${name}\n`, into: inside(dialog("Command palette"), role("combobox")), say },
+    {
+      key: "Meta+k",
+      on: role("navigation", "Places"),
+      say: `⌘K, for ${name}`,
+    },
+    {
+      type: `${name}\n`,
+      into: inside(dialog("Command palette"), role("combobox")),
+      say,
+    },
   ];
 }
 
@@ -154,7 +309,13 @@ export function targetOf(step: Step): Target {
   if ("later" in step) return step.later;
   if ("paste" in step) return step.paste;
   if ("select" in step) return step.in;
-  return "press" in step ? step.press : "look" in step ? step.look : "drag" in step ? step.drag : step.into;
+  return "press" in step
+    ? step.press
+    : "look" in step
+      ? step.look
+      : "drag" in step
+        ? step.drag
+        : step.into;
 }
 
 /** What the step does, said plainly for a stop. */
@@ -165,7 +326,13 @@ function verb(step: Step): string {
   if ("later" in step) return "look at";
   if ("paste" in step) return "paste into";
   if ("select" in step) return "select words in";
-  return "press" in step ? "press" : "look" in step ? "look at" : "drag" in step ? "drag" : "type into";
+  return "press" in step
+    ? "press"
+    : "look" in step
+      ? "look at"
+      : "drag" in step
+        ? "drag"
+        : "type into";
 }
 
 const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -193,10 +360,33 @@ export function stopped(at: number, step: Step): string {
  */
 function press(element: HTMLElement): void {
   const box = element.getBoundingClientRect();
-  const at = { bubbles: true, cancelable: true, composed: true, view: window, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, button: 0 };
-  const pointer = { ...at, pointerId: 1, pointerType: "mouse", isPrimary: true };
-  element.dispatchEvent(new PointerEvent("pointerdown", { ...pointer, buttons: 1 }));
-  const down = element.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 1 }));
+  const at = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    view: window,
+    clientX: box.x + box.width / 2,
+    clientY: box.y + box.height / 2,
+    button: 0,
+  };
+  const pointer = {
+    ...at,
+    pointerId: 1,
+    pointerType: "mouse",
+    isPrimary: true,
+  };
+  element.dispatchEvent(
+    new PointerEvent("pointerdown", {
+      ...pointer,
+      buttons: 1,
+    }),
+  );
+  const down = element.dispatchEvent(
+    new MouseEvent("mousedown", {
+      ...at,
+      buttons: 1,
+    }),
+  );
   if (down) element.focus();
   element.dispatchEvent(new PointerEvent("pointerup", pointer));
   element.dispatchEvent(new MouseEvent("mouseup", at));
@@ -206,17 +396,51 @@ function press(element: HTMLElement): void {
 /** A right press as a pointer makes one: down, then the context menu event, at the element's middle. */
 function pressContext(element: HTMLElement): void {
   const box = element.getBoundingClientRect();
-  const at = { bubbles: true, cancelable: true, composed: true, view: window, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, button: 2 };
-  element.dispatchEvent(new PointerEvent("pointerdown", { ...at, pointerId: 1, pointerType: "mouse", isPrimary: true, buttons: 2 }));
-  element.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 2 }));
+  const at = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    view: window,
+    clientX: box.x + box.width / 2,
+    clientY: box.y + box.height / 2,
+    button: 2,
+  };
+  element.dispatchEvent(
+    new PointerEvent("pointerdown", {
+      ...at,
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true,
+      buttons: 2,
+    }),
+  );
+  element.dispatchEvent(
+    new MouseEvent("mousedown", {
+      ...at,
+      buttons: 2,
+    }),
+  );
   element.dispatchEvent(new MouseEvent("contextmenu", at));
 }
 
 /** A pointer arriving from outside the window, as React hears one: an over with nothing it came from. */
 function pointerOver(element: HTMLElement, arriving: boolean): void {
   const box = element.getBoundingClientRect();
-  const at = { bubbles: true, cancelable: true, composed: true, view: window, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, relatedTarget: null };
-  const pointer = { ...at, pointerId: 1, pointerType: "mouse", isPrimary: true };
+  const at = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    view: window,
+    clientX: box.x + box.width / 2,
+    clientY: box.y + box.height / 2,
+    relatedTarget: null,
+  };
+  const pointer = {
+    ...at,
+    pointerId: 1,
+    pointerType: "mouse",
+    isPrimary: true,
+  };
   element.dispatchEvent(new PointerEvent(arriving ? "pointerover" : "pointerout", pointer));
   element.dispatchEvent(new MouseEvent(arriving ? "mouseover" : "mouseout", at));
 }
@@ -228,7 +452,10 @@ function pointerOver(element: HTMLElement, arriving: boolean): void {
  */
 async function pointAt(element: HTMLElement): Promise<void> {
   pointerOver(element, true);
-  const delay = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--tooltip-delay"), 10);
+  const delay = Number.parseInt(
+    getComputedStyle(document.documentElement).getPropertyValue("--tooltip-delay"),
+    10,
+  );
   await sleep((Number.isNaN(delay) ? 400 : delay) + 100);
   await frame();
 }
@@ -241,8 +468,15 @@ function fill(element: HTMLElement, words: string): void {
   // `change`, which is the event React reads a select's `onChange` from.
   if (element instanceof HTMLSelectElement) {
     element.focus();
-    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(element, words);
-    element.dispatchEvent(new Event("change", { bubbles: true }));
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(
+      element,
+      words,
+    );
+    element.dispatchEvent(
+      new Event("change", {
+        bubbles: true,
+      }),
+    );
     return;
   }
   // A box that holds tags in its lines is not a field: its words are its text, and it says so with `input`.
@@ -253,11 +487,20 @@ function fill(element: HTMLElement, words: string): void {
     let line: HTMLElement = element;
     if (standing) {
       const last = element.lastElementChild;
-      line = last instanceof HTMLDivElement && last.dataset.block === undefined && last.textContent === "" ? last : element.appendChild(document.createElement("div"));
+      line =
+        last instanceof HTMLDivElement &&
+        last.dataset.block === undefined &&
+        last.textContent === ""
+          ? last
+          : element.appendChild(document.createElement("div"));
       line.replaceChildren();
     } else {
       // The words are put in, and the tags already standing in the line stay: they are not words.
-      [...element.childNodes].filter((one) => !(one instanceof HTMLElement && one.dataset.tagKind !== undefined)).forEach((one) => one.remove());
+      [
+        ...element.childNodes,
+      ]
+        .filter((one) => !(one instanceof HTMLElement && one.dataset.tagKind !== undefined))
+        .forEach((one) => one.remove());
     }
     line.append(document.createTextNode(words));
     const range = document.createRange();
@@ -265,24 +508,45 @@ function fill(element: HTMLElement, words: string): void {
     range.collapse(false);
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
-    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(
+      new Event("input", {
+        bubbles: true,
+      }),
+    );
     return;
   }
   // xterm reads a typed character from an `input` event that carries it, as a browser sends one, and not from the field's value.
   if (element.classList.contains("xterm-helper-textarea")) {
     element.focus();
-    for (const data of words) element.dispatchEvent(new InputEvent("input", { data, inputType: "insertText", bubbles: true }));
+    for (const data of words)
+      element.dispatchEvent(
+        new InputEvent("input", {
+          data,
+          inputType: "insertText",
+          bubbles: true,
+        }),
+      );
     return;
   }
   // Anything else is typed at as keys: each character goes to the element as a key press, for a page that listens for them.
   if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
-    for (const key of words) element.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    for (const key of words)
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key,
+          bubbles: true,
+        }),
+      );
     return;
   }
   element.focus();
   const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), "value")?.set;
   setter?.call(element, words);
-  element.dispatchEvent(new Event("input", { bubbles: true }));
+  element.dispatchEvent(
+    new Event("input", {
+      bubbles: true,
+    }),
+  );
 }
 
 /**
@@ -292,9 +556,19 @@ function fill(element: HTMLElement, words: string): void {
  * follows the pointer off the node it picked up, and its connector listens on
  * the document. What is sent to the document reaches the window too.
  */
-function drag(element: HTMLElement, by: { x: number; y: number }, shiftKey = false): void {
+function drag(
+  element: HTMLElement,
+  by: {
+    x: number;
+    y: number;
+  },
+  shiftKey = false,
+): void {
   const box = element.getBoundingClientRect();
-  const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const from = {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+  };
   const at = (x: number, y: number, buttons: number) => ({
     bubbles: true,
     cancelable: true,
@@ -308,12 +582,26 @@ function drag(element: HTMLElement, by: { x: number; y: number }, shiftKey = fal
   });
   // A resize handle listens for pointer events on itself, having captured the
   // pointer, so each step is sent there as a pointer event too.
-  const pointer = (x: number, y: number, buttons: number) => ({ ...at(x, y, buttons), pointerId: 1, pointerType: "mouse", isPrimary: true });
+  const pointer = (x: number, y: number, buttons: number) => ({
+    ...at(x, y, buttons),
+    pointerId: 1,
+    pointerType: "mouse",
+    isPrimary: true,
+  });
   element.dispatchEvent(new PointerEvent("pointerdown", pointer(from.x, from.y, 1)));
   element.dispatchEvent(new MouseEvent("mousedown", at(from.x, from.y, 1)));
-  for (const part of [0.25, 0.5, 0.75, 1]) {
-    element.dispatchEvent(new PointerEvent("pointermove", pointer(from.x + by.x * part, from.y + by.y * part, 1)));
-    document.dispatchEvent(new MouseEvent("mousemove", at(from.x + by.x * part, from.y + by.y * part, 1)));
+  for (const part of [
+    0.25,
+    0.5,
+    0.75,
+    1,
+  ]) {
+    element.dispatchEvent(
+      new PointerEvent("pointermove", pointer(from.x + by.x * part, from.y + by.y * part, 1)),
+    );
+    document.dispatchEvent(
+      new MouseEvent("mousemove", at(from.x + by.x * part, from.y + by.y * part, 1)),
+    );
   }
   element.dispatchEvent(new PointerEvent("pointerup", pointer(from.x + by.x, from.y + by.y, 0)));
   document.dispatchEvent(new MouseEvent("mouseup", at(from.x + by.x, from.y + by.y, 0)));
@@ -326,10 +614,26 @@ function drag(element: HTMLElement, by: { x: number; y: number }, shiftKey = fal
 async function dropOnto(element: HTMLElement, onto: HTMLElement | null): Promise<void> {
   if (onto === null) return;
   const box = onto.getBoundingClientRect();
-  const to = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const to = {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+  };
   const data = new DataTransfer();
-  const send = (target: Element, type: string) => target.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, clientX: to.x, clientY: to.y, dataTransfer: data }));
-  const top = () => document.elementsFromPoint(to.x, to.y).find((one) => one.closest(`[${WALK_UI}]`) === null) ?? onto;
+  const send = (target: Element, type: string) =>
+    target.dispatchEvent(
+      new DragEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: window,
+        clientX: to.x,
+        clientY: to.y,
+        dataTransfer: data,
+      }),
+    );
+  const top = () =>
+    document.elementsFromPoint(to.x, to.y).find((one) => one.closest(`[${WALK_UI}]`) === null) ??
+    onto;
   send(element, "dragstart");
   await sleep(60);
   send(top(), "dragenter");
@@ -346,7 +650,8 @@ async function dropOnto(element: HTMLElement, onto: HTMLElement | null): Promise
  * here from the window's own tokens: a window with a failing test in it.
  */
 function pasteScreenshot(element: HTMLElement): void {
-  const tone = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "gray";
+  const tone = (name: string) =>
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "gray";
   const canvas = document.createElement("canvas");
   canvas.width = 480;
   canvas.height = 280;
@@ -357,12 +662,30 @@ function pasteScreenshot(element: HTMLElement): void {
   draw.fillStyle = tone("--border-default");
   draw.fillRect(0, 0, 480, 28);
   draw.font = `${tone("--text-xs")} monospace`;
-  const lines: [string, string][] = [
-    ["--fg-muted", "running 31 tests"],
-    ["--fg-muted", "test store_open ... ok"],
-    ["--fg-muted", "test store_close ... ok"],
-    ["--status-completed-failed", "test store_flaky ... FAILED"],
-    ["--status-completed-failed", "assertion failed: at.second() == 0"],
+  const lines: [
+    string,
+    string,
+  ][] = [
+    [
+      "--fg-muted",
+      "running 31 tests",
+    ],
+    [
+      "--fg-muted",
+      "test store_open ... ok",
+    ],
+    [
+      "--fg-muted",
+      "test store_close ... ok",
+    ],
+    [
+      "--status-completed-failed",
+      "test store_flaky ... FAILED",
+    ],
+    [
+      "--status-completed-failed",
+      "assertion failed: at.second() == 0",
+    ],
   ];
   lines.forEach(([color, words], at) => {
     draw.fillStyle = tone(color);
@@ -371,8 +694,24 @@ function pasteScreenshot(element: HTMLElement): void {
   canvas.toBlob((blob) => {
     if (blob === null) return;
     const clipboard = new DataTransfer();
-    clipboard.items.add(new File([blob], "Screenshot 2026-10-07 at 14.02.png", { type: "image/png" }));
-    element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+    clipboard.items.add(
+      new File(
+        [
+          blob,
+        ],
+        "Screenshot 2026-10-07 at 14.02.png",
+        {
+          type: "image/png",
+        },
+      ),
+    );
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: clipboard,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   }, "image/png");
 }
 
@@ -383,8 +722,15 @@ function pasteScreenshot(element: HTMLElement): void {
 function pasteText(element: HTMLElement, text: string): void {
   const clipboard = new DataTransfer();
   clipboard.setData("text/plain", text);
-  const went = element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
-  if (went && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) fill(element, element.value + text);
+  const went = element.dispatchEvent(
+    new ClipboardEvent("paste", {
+      clipboardData: clipboard,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  if (went && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement))
+    fill(element, element.value + text);
 }
 
 /** `words` selected where they stand in `element`'s text, as the page hears a selection change. A code editor selects in its own view. */
@@ -408,11 +754,25 @@ function pressKey(element: HTMLElement, spec: string): void {
   const parts = spec.split("+");
   const key = parts[parts.length - 1] === "" ? "+" : parts[parts.length - 1]!;
   const held = new Set(parts.slice(0, -1));
-  const code = /^[0-9]$/.test(key) ? `Digit${key}` : /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : key;
+  const code = /^[0-9]$/.test(key)
+    ? `Digit${key}`
+    : /^[a-z]$/i.test(key)
+      ? `Key${key.toUpperCase()}`
+      : key;
   // xterm reads a Control chord from the legacy key code, which is the letter's capital.
   const keyCode = /^[0-9a-z]$/i.test(key) ? key.toUpperCase().charCodeAt(0) : 0;
   element.dispatchEvent(
-    new KeyboardEvent("keydown", { key, code, keyCode, altKey: held.has("Alt"), shiftKey: held.has("Shift"), metaKey: held.has("Meta"), ctrlKey: held.has("Control"), bubbles: true, cancelable: true }),
+    new KeyboardEvent("keydown", {
+      key,
+      code,
+      keyCode,
+      altKey: held.has("Alt"),
+      shiftKey: held.has("Shift"),
+      metaKey: held.has("Meta"),
+      ctrlKey: held.has("Control"),
+      bubbles: true,
+      cancelable: true,
+    }),
   );
 }
 
@@ -441,7 +801,19 @@ export function act(step: Step, element: HTMLElement, next?: Step): Promise<void
     // Words ending in a newline are sent with Enter, as a field that saves on it is used.
     fill(element, step.type.replace(/\n$/, ""));
     // A beat later, so the field has drawn what was typed before the key reaches it. xterm reads the legacy key code.
-    if (step.type.endsWith("\n")) window.setTimeout(() => element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true })), 50);
+    if (step.type.endsWith("\n"))
+      window.setTimeout(
+        () =>
+          element.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              bubbles: true,
+            }),
+          ),
+        50,
+      );
   } else if ("paste" in step && "text" in step) pasteText(element, step.text);
   else if ("paste" in step) pasteScreenshot(element);
   else if ("select" in step) selectWords(element, step.select);

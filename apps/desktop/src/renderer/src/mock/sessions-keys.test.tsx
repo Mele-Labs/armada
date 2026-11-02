@@ -12,24 +12,54 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
-const opened = (title: string) => page.getByRole("button", { name: `${title}, rename` });
+const opened = (title: string) =>
+  page.getByRole("button", {
+    name: `${title}, rename`,
+  });
 
 test("Sessions keys: a field keeps j and k", async () => {
   const fleet = new FakeSessionsFleet([
-    terminal("S1", { title: "First one" }),
-    terminal("S2", { title: "Second one" }),
-    terminal("S3", { title: "Third one" }),
+    terminal("S1", {
+      title: "First one",
+    }),
+    terminal("S2", {
+      title: "Second one",
+    }),
+    terminal("S3", {
+      title: "Third one",
+    }),
   ]);
-  mount(fleet.scenario(onBoard({ repositories: [ARMADA], picked: ARMADA.root })));
+  mount(
+    fleet.scenario(
+      onBoard({
+        repositories: [
+          ARMADA,
+        ],
+        picked: ARMADA.root,
+      }),
+    ),
+  );
   await onScreen();
   await toSession("First one");
   await expect.element(opened("First one")).toBeVisible();
 
   await userEvent.click(opened("First one"));
   await userEvent.keyboard("jj");
-  await expect.element(page.getByRole("textbox", { name: "Job name" })).toHaveValue("First onejj");
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Job name",
+      }),
+    )
+    .toHaveValue("First onejj");
   await userEvent.keyboard("{Escape}");
   await expect.element(opened("First one")).toBeVisible();
 });

@@ -1,4 +1,15 @@
-import { Check, ChevronLeft, ChevronRight, Crosshair, LoaderCircle, MessageCircleQuestion, RefreshCw, RotateCcw, Search, UserCheck } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  LoaderCircle,
+  MessageCircleQuestion,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  UserCheck,
+} from "lucide-react";
 import { useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
@@ -26,13 +37,26 @@ import { SessionMark, sessionGlyphOf } from "../SessionFrame/SessionFrame";
  * Where an Approve press stands. `refused` carries Fleet's words, drawn as the
  * button's tooltip so the bar keeps its one row.
  */
-export type CaptureBarApproval = { state: "pending" } | { state: "approved" } | { state: "refused"; said: string };
+export type CaptureBarApproval =
+  | {
+      state: "pending";
+    }
+  | {
+      state: "approved";
+    }
+  | {
+      state: "refused";
+      said: string;
+    };
 
 /**
  * The Job these notes go to holds notes not sent yet, one or several. **Approve, and ⌘↵, ask first**: send them and approve,
  * approve without them, which leaves them held on the Job, or go back.
  */
-export type CaptureBarHeld = { notes: "one" | "several"; onSendAndApprove: () => void };
+export type CaptureBarHeld = {
+  notes: "one" | "several";
+  onSendAndApprove: () => void;
+};
 
 /** An address this window refused, as the bar says it. */
 export type CaptureBarRefusal = {
@@ -172,17 +196,40 @@ export type CaptureBarQueue = {
  * ⌘R reloads the page. ⌘↵ is Approve's only while no field holds the cursor, where it sends.
  */
 export const QUEUE_KEYS = {
-  open: ["⌥", "⌘", "↓"],
-  takes: ["⌥", "⌘", "T"],
-  next: ["⌥", "⌘", "→"],
-  previous: ["⌥", "⌘", "←"],
-  approve: ["⌘", "↵"],
-  reload: ["⌘", "R"],
+  open: [
+    "⌥",
+    "⌘",
+    "↓",
+  ],
+  takes: [
+    "⌥",
+    "⌘",
+    "T",
+  ],
+  next: [
+    "⌥",
+    "⌘",
+    "→",
+  ],
+  previous: [
+    "⌥",
+    "⌘",
+    "←",
+  ],
+  approve: [
+    "⌘",
+    "↵",
+  ],
+  reload: [
+    "⌘",
+    "R",
+  ],
 } as const;
 
 /** Whether a key lands in a field, where ⌘↵ is the field's own Send. */
 const inAField = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select") !== null);
+  target instanceof HTMLElement &&
+  (target.isContentEditable || target.closest("input, textarea, select") !== null);
 
 /** What the queue's keys do. A key whose act is absent is left alone. */
 type QueueActs = {
@@ -194,7 +241,11 @@ type QueueActs = {
 };
 
 /** The queue's keys as the bar takes them. True when the key was one of them. Letters go by `code`, which ⌥ rewrites in `key`. */
-function queueKey(event: KeyboardEvent<HTMLElement>, queue: CaptureBarQueue, acts: QueueActs): boolean {
+function queueKey(
+  event: KeyboardEvent<HTMLElement>,
+  queue: CaptureBarQueue,
+  acts: QueueActs,
+): boolean {
   const alone = !event.ctrlKey && !event.shiftKey;
   const chord = event.metaKey && event.altKey && alone;
   const plain = event.metaKey && !event.altKey && alone;
@@ -245,7 +296,13 @@ export type CaptureBarWalk = {
    * Next is what the walk waits on; signing in wins over it. **Absent: the page plays its own walk** and
    * rings its own target.
    */
-  guide?: { shown: boolean; onShow: (shown: boolean) => void; stopped?: string; signingIn?: boolean; waiting?: boolean };
+  guide?: {
+    shown: boolean;
+    onShow: (shown: boolean) => void;
+    stopped?: string;
+    signingIn?: boolean;
+    waiting?: boolean;
+  };
 };
 
 /**
@@ -256,7 +313,9 @@ function walkKey(event: KeyboardEvent<HTMLElement>, walk: CaptureBarWalk): void 
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   const key = event.key.toLowerCase();
   const onAButton = event.target instanceof HTMLElement && event.target.closest("button") !== null;
-  const inWalkRow = event.target instanceof HTMLElement && event.target.closest(".armada-capture-bar__walk") !== null;
+  const inWalkRow =
+    event.target instanceof HTMLElement &&
+    event.target.closest(".armada-capture-bar__walk") !== null;
   const act =
     key === "arrowright" || (key === "enter" && (!onAButton || inWalkRow))
       ? walk.onNext
@@ -277,25 +336,51 @@ function walkKey(event: KeyboardEvent<HTMLElement>, walk: CaptureBarWalk): void 
 export type CaptureBarReadiness = "ready" | "working";
 
 /** Each readiness as the Session mark draws it, and what its tooltip says. */
-const READINESS: Record<CaptureBarReadiness, { mark: "waiting" | "working"; said: string }> = {
-  ready: { mark: "waiting", said: "Ready to walk" },
-  working: { mark: "working", said: "Still changing" },
+const READINESS: Record<
+  CaptureBarReadiness,
+  {
+    mark: "waiting" | "working";
+    said: string;
+  }
+> = {
+  ready: {
+    mark: "waiting",
+    said: "Ready to walk",
+  },
+  working: {
+    mark: "working",
+    said: "Still changing",
+  },
 };
 
 /** Each take's name in the order shown, which is on screen, and the press that swaps it. */
-export type CaptureBarVariations = { names: readonly string[]; at: number; onPick: (at: number) => void };
+export type CaptureBarVariations = {
+  names: readonly string[];
+  at: number;
+  onPick: (at: number) => void;
+};
 
 /** A take's letter: A for the first. */
 export const variationLetter = (at: number): string => String.fromCharCode(65 + at);
 
 /** Which panel the window has, whether it is drawn, and the press that changes that. */
-export type CaptureBarPanel = { kind: "session"; open: boolean; onToggle: (open: boolean) => void };
+export type CaptureBarPanel = {
+  kind: "session";
+  open: boolean;
+  onToggle: (open: boolean) => void;
+};
 
 /** Whether the bar has a second row to draw — a refusal, the run having ended, a folded question, or the page loading. */
 export function hasASecondRow(
   props: Pick<CaptureBarProps, "serving" | "refused" | "framesRefused" | "question" | "loading">,
 ): boolean {
-  return !props.serving || props.refused !== undefined || props.framesRefused > 0 || props.question !== undefined || props.loading === true;
+  return (
+    !props.serving ||
+    props.refused !== undefined ||
+    props.framesRefused > 0 ||
+    props.question !== undefined ||
+    props.loading === true
+  );
 }
 
 /** The page loading, as a status: the loading glyph turning, and the word. */
@@ -321,72 +406,91 @@ function LoadingLine() {
 function WalkControls({ walk, status }: { walk: CaptureBarWalk; status?: ReactNode }) {
   return (
     <>
-    <Tooltip label="Replay to the step before">
-      <Button variant="ghost" size="sm" disabled={walk.at <= 1} onClick={walk.onBack}>
-        <ChevronLeft size={12} strokeWidth={2} aria-hidden />
-        Back
-      </Button>
-    </Tooltip>
-    <Kbd>←</Kbd>
-    <span className="armada-capture-bar__walk-where">
-      Step {walk.at} of {walk.of}
-    </span>
-    {walk.guide?.signingIn !== true ? null : (
-      <Tooltip label="Signing in">
-        <span className="armada-capture-bar__walk-signing" role="img" aria-label="Signing in">
-          <UserCheck size={12} strokeWidth={2} aria-hidden />
-        </span>
+      <Tooltip label="Replay to the step before">
+        <Button variant="ghost" size="sm" disabled={walk.at <= 1} onClick={walk.onBack}>
+          <ChevronLeft size={12} strokeWidth={2} aria-hidden />
+          Back
+        </Button>
       </Tooltip>
-    )}
-    {walk.guide?.stopped === undefined ? null : (
-      <Tooltip label={`Not found: ${walk.guide.stopped}`}>
-        <span className="armada-capture-bar__walk-stopped" role="img" aria-label="Not found">
-          <Search size={12} strokeWidth={2} aria-hidden />
-        </span>
+      <Kbd>←</Kbd>
+      <span className="armada-capture-bar__walk-where">
+        Step {walk.at} of {walk.of}
+      </span>
+      {walk.guide?.signingIn !== true ? null : (
+        <Tooltip label="Signing in">
+          <span className="armada-capture-bar__walk-signing" role="img" aria-label="Signing in">
+            <UserCheck size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      )}
+      {walk.guide?.stopped === undefined ? null : (
+        <Tooltip label={`Not found: ${walk.guide.stopped}`}>
+          <span className="armada-capture-bar__walk-stopped" role="img" aria-label="Not found">
+            <Search size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      )}
+      <span className="armada-capture-bar__walk-said" title={walk.said}>
+        {walk.said}
+      </span>
+      {status}
+      {walk.guide === undefined ? null : (
+        <Tooltip label="Ring the target over the page">
+          <Switch
+            size="sm"
+            checked={walk.guide.shown}
+            onChange={(event) => walk.guide?.onShow(event.target.checked)}
+          >
+            Ring
+          </Switch>
+        </Tooltip>
+      )}
+      <Tooltip label="Replay from step 1">
+        <Button variant="ghost" size="sm" iconOnly aria-label="Replay" onClick={walk.onReplay}>
+          <RotateCcw size={12} strokeWidth={2} aria-hidden />
+        </Button>
       </Tooltip>
-    )}
-    <span className="armada-capture-bar__walk-said" title={walk.said}>
-      {walk.said}
-    </span>
-    {status}
-    {walk.guide === undefined ? null : (
-      <Tooltip label="Ring the target over the page">
-        <Switch size="sm" checked={walk.guide.shown} onChange={(event) => walk.guide?.onShow(event.target.checked)}>
-          Ring
+      <Kbd>R</Kbd>
+      <Tooltip label="Go on by itself">
+        <Switch
+          size="sm"
+          checked={walk.autoplay}
+          onChange={(event) => walk.onAutoplay(event.target.checked)}
+        >
+          Autoplay
         </Switch>
       </Tooltip>
-    )}
-    <Tooltip label="Replay from step 1">
-      <Button variant="ghost" size="sm" iconOnly aria-label="Replay" onClick={walk.onReplay}>
-        <RotateCcw size={12} strokeWidth={2} aria-hidden />
-      </Button>
-    </Tooltip>
-    <Kbd>R</Kbd>
-    <Tooltip label="Go on by itself">
-      <Switch size="sm" checked={walk.autoplay} onChange={(event) => walk.onAutoplay(event.target.checked)}>
-        Autoplay
-      </Switch>
-    </Tooltip>
-    <Kbd>A</Kbd>
-    <Tooltip label={walk.guide?.waiting === true && walk.guide.signingIn !== true ? "Autoplay stops before a step that acts on this page" : "Act on the ringed target and go on"}>
-      <Button
-        variant="primary"
-        size="sm"
-        disabled={!walk.ready || walk.done}
-        onClick={walk.onNext}
-        {...(walk.guide?.waiting === true && walk.guide.signingIn !== true ? { "data-waiting": "" } : {})}
+      <Kbd>A</Kbd>
+      <Tooltip
+        label={
+          walk.guide?.waiting === true && walk.guide.signingIn !== true
+            ? "Autoplay stops before a step that acts on this page"
+            : "Act on the ringed target and go on"
+        }
       >
-        Next
-        <ChevronRight size={12} strokeWidth={2} aria-hidden />
-      </Button>
-    </Tooltip>
-    <Kbd>→</Kbd>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={!walk.ready || walk.done}
+          onClick={walk.onNext}
+          {...(walk.guide?.waiting === true && walk.guide.signingIn !== true
+            ? {
+                "data-waiting": "",
+              }
+            : {})}
+        >
+          Next
+          <ChevronRight size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+      <Kbd>→</Kbd>
     </>
   );
 }
 
 /** What an entry reads as: a Job by its name, a pull request by its number and title. */
-const queuedName = (one: CaptureBarQueued): string => (one.pull === undefined ? one.name : `#${one.pull} ${one.name}`);
+const queuedName = (one: CaptureBarQueued): string =>
+  one.pull === undefined ? one.name : `#${one.pull} ${one.name}`;
 
 /**
  * A menu item's words with marks in them. `DropdownMenu` draws an item's `label` as it is given and searches it only when it has a
@@ -396,12 +500,17 @@ const asLabel = (node: ReactNode): string => node as unknown as string;
 
 /** An item in the walks' dropdown: the name with its marks, then the page's title and address as muted words. */
 function WalkItem({ one, on }: { one: CaptureBarQueued; on: boolean }) {
-  const Glyph = one.readiness === undefined ? undefined : sessionGlyphOf(READINESS[one.readiness].mark);
+  const Glyph =
+    one.readiness === undefined ? undefined : sessionGlyphOf(READINESS[one.readiness].mark);
   return (
     <span className="armada-capture-bar__walk-item">
       <span className="armada-capture-bar__walk-item-head">
         {Glyph === undefined || one.readiness === undefined ? null : (
-          <span className="armada-capture-bar__walk-item-mark" role="img" aria-label={READINESS[one.readiness].said}>
+          <span
+            className="armada-capture-bar__walk-item-mark"
+            role="img"
+            aria-label={READINESS[one.readiness].said}
+          >
             <Glyph size={12} strokeWidth={2} aria-hidden />
           </span>
         )}
@@ -425,7 +534,17 @@ function WalkItem({ one, on }: { one: CaptureBarQueued; on: boolean }) {
  * tooltip carries the address in full. A walk that asked puts the ask glyph beside it, naming the Job. Open, it lists every walk
  * oldest first with the one on screen checked; choosing one jumps to it. A Job with two walks is named twice.
  */
-function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue; layer: HTMLElement | null | false | undefined; open: boolean; onOpenChange: (open: boolean) => void }) {
+function WalkMenu({
+  queue,
+  layer,
+  open,
+  onOpenChange,
+}: {
+  queue: CaptureBarQueue;
+  layer: HTMLElement | null | false | undefined;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const here = queue.entries[queue.at];
   const asker = queue.entries.find((one, at) => at !== queue.at && one.asking !== undefined);
   const entries: DropdownMenuEntry[] = queue.entries.map(
@@ -434,7 +553,11 @@ function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue
       id: one.id,
       label: asLabel(<WalkItem one={one} on={at === queue.at} />),
       selected: at === queue.at,
-      ...(one.aim === undefined ? {} : { hint: one.aim }),
+      ...(one.aim === undefined
+        ? {}
+        : {
+            hint: one.aim,
+          }),
     }),
   );
   const name = here === undefined ? "Walks" : queuedName(here);
@@ -453,12 +576,16 @@ function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue
   const said = (
     <span className="armada-capture-bar__walks-tip">
       <span>{here?.address ?? "Walks"}</span>
-      {asker === undefined || asker.asking === undefined ? null : <span>{`${queuedName(asker)} asked`}</span>}
+      {asker === undefined || asker.asking === undefined ? null : (
+        <span>{`${queuedName(asker)} asked`}</span>
+      )}
     </span>
   );
   return (
     <span className="armada-capture-bar__walks">
-      {here?.readiness === undefined ? null : <SessionMark state={READINESS[here.readiness].mark} said={READINESS[here.readiness].said} />}
+      {here?.readiness === undefined ? null : (
+        <SessionMark state={READINESS[here.readiness].mark} said={READINESS[here.readiness].said} />
+      )}
       <Tooltip label={said} shortcut={QUEUE_KEYS.open.join("")}>
         <span className="armada-capture-bar__walks-menu">
           <DropdownMenu
@@ -470,7 +597,14 @@ function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue
             entries={entries}
             open={open}
             onOpenChange={onOpenChange}
-            onSelect={(id) => queue.onPick(Math.max(0, queue.entries.findIndex((one) => one.id === id)))}
+            onSelect={(id) =>
+              queue.onPick(
+                Math.max(
+                  0,
+                  queue.entries.findIndex((one) => one.id === id),
+                ),
+              )
+            }
           />
         </span>
       </Tooltip>
@@ -479,9 +613,24 @@ function WalkMenu({ queue, layer, open, onOpenChange }: { queue: CaptureBarQueue
 }
 
 /** The page's takes as a dropdown that names the one on screen, `A Ledger filter`, and lists them all with it checked. */
-function TakesMenu({ variations, layer, open, onOpenChange }: { variations: CaptureBarVariations; layer: HTMLElement | null | false | undefined; open: boolean; onOpenChange: (open: boolean) => void }) {
+function TakesMenu({
+  variations,
+  layer,
+  open,
+  onOpenChange,
+}: {
+  variations: CaptureBarVariations;
+  layer: HTMLElement | null | false | undefined;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const named = (at: number): string => `${variationLetter(at)} ${variations.names[at] ?? ""}`;
-  const entries: DropdownMenuEntry[] = variations.names.map((_, at) => ({ kind: "item", id: String(at), label: named(at), selected: at === variations.at }));
+  const entries: DropdownMenuEntry[] = variations.names.map((_, at) => ({
+    kind: "item",
+    id: String(at),
+    label: named(at),
+    selected: at === variations.at,
+  }));
   return (
     <Tooltip label="Takes" shortcut={QUEUE_KEYS.takes.join("")}>
       <span className="armada-capture-bar__takes-menu">
@@ -505,7 +654,11 @@ function TakesMenu({ variations, layer, open, onOpenChange }: { variations: Capt
  * The one status that wants saying, as a compact item with its action: the run ended, an address refused, a question waiting, the
  * page loading, notes pending, or frames refused, in that order. **Never a row of its own**: it sits at the end of the walk's row, or alone where there is no walk.
  */
-function StatusItem(props: CaptureBarProps & { landsOn: string | null }) {
+function StatusItem(
+  props: CaptureBarProps & {
+    landsOn: string | null;
+  },
+) {
   const { serving, refused, question, framesRefused, landsOn } = props;
   if (!serving) {
     return (
@@ -529,7 +682,12 @@ function StatusItem(props: CaptureBarProps & { landsOn: string | null }) {
   }
   if (question !== undefined) {
     return (
-      <StatusLine text={question} tip={question} tone="question" glyph={<MessageCircleQuestion size={12} strokeWidth={2} aria-hidden />}>
+      <StatusLine
+        text={question}
+        tip={question}
+        tone="question"
+        glyph={<MessageCircleQuestion size={12} strokeWidth={2} aria-hidden />}
+      >
         <Button variant="secondary" ground="sunken" size="sm" onClick={props.onShowQuestion}>
           Show question
         </Button>
@@ -548,28 +706,74 @@ function StatusItem(props: CaptureBarProps & { landsOn: string | null }) {
     if (panel !== undefined && !panel.open) {
       return (
         <StatusLine text={one ? "Note pending" : "Notes pending"} tip={tip} tone="held">
-          <Button variant="secondary" ground="sunken" size="sm" onClick={() => panel.onToggle(true)}>
+          <Button
+            variant="secondary"
+            ground="sunken"
+            size="sm"
+            onClick={() => panel.onToggle(true)}
+          >
             {one ? "Show note" : "Show notes"}
           </Button>
         </StatusLine>
       );
     }
-    return <StatusLine text={`${one ? "Note" : "Notes"} pending in the Job panel`} tip={tip} tone="held" />;
+    return (
+      <StatusLine
+        text={`${one ? "Note" : "Notes"} pending in the Job panel`}
+        tip={tip}
+        tone="held"
+      />
+    );
   }
-  if (framesRefused > 0) return <StatusLine text="Frames refused" tip="Frames off this origin were refused" tone="frames" />;
+  if (framesRefused > 0)
+    return (
+      <StatusLine text="Frames refused" tip="Frames off this origin were refused" tone="frames" />
+    );
   return null;
 }
 
 /** What Approve asks while notes are held on the Job. */
 const HELD_ASK: DropdownMenuEntry[] = [
-  { kind: "label", id: "held", label: "Notes pending on the Job" },
-  { kind: "item", id: "send", label: "Send notes and approve" },
-  { kind: "item", id: "without", label: "Approve without them", hint: "The notes stay pending on the Job" },
-  { kind: "separator", id: "rule" },
-  { kind: "item", id: "back", label: "Go back" },
+  {
+    kind: "label",
+    id: "held",
+    label: "Notes pending on the Job",
+  },
+  {
+    kind: "item",
+    id: "send",
+    label: "Send notes and approve",
+  },
+  {
+    kind: "item",
+    id: "without",
+    label: "Approve without them",
+    hint: "The notes stay pending on the Job",
+  },
+  {
+    kind: "separator",
+    id: "rule",
+  },
+  {
+    kind: "item",
+    id: "back",
+    label: "Go back",
+  },
 ];
 
-function StatusLine({ text, tip, tone, glyph, children }: { text: string; tip: string; tone: string; glyph?: ReactNode; children?: ReactNode }) {
+function StatusLine({
+  text,
+  tip,
+  tone,
+  glyph,
+  children,
+}: {
+  text: string;
+  tip: string;
+  tone: string;
+  glyph?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <span className="armada-capture-bar__status" role="status" data-tone={tone}>
       {glyph}
@@ -582,13 +786,36 @@ function StatusLine({ text, tip, tone, glyph, children }: { text: string; tip: s
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk, queue, held } = props;
+  const {
+    run,
+    address,
+    studio,
+    session,
+    serving,
+    armed,
+    framesRefused,
+    refused,
+    binding,
+    approval,
+    question,
+    panel,
+    variations,
+    readiness,
+    walk,
+    queue,
+    held,
+  } = props;
   const [walksOpen, setWalksOpen] = useState(false);
   const [takesOpen, setTakesOpen] = useState(false);
   const [asking, setAsking] = useState(false);
   const taking = variations === undefined ? "" : ` ${variationLetter(variations.at)}`;
   const approved = approval?.state === "approved";
-  const landsOn = studio !== null ? `Notes land on ${studio}` : session !== undefined ? `Notes go to ${session}` : null;
+  const landsOn =
+    studio !== null
+      ? `Notes land on ${studio}`
+      : session !== undefined
+        ? `Notes go to ${session}`
+        : null;
   const aim =
     studio === null && session !== undefined && props.onOpenOwner !== undefined ? (
       <>
@@ -613,10 +840,20 @@ export function CaptureBar(props: CaptureBarProps) {
   const capture =
     landsOn === null ? null : (
       <>
-        <Button variant={armed ? "primary" : "ghost"} size="sm" disabled={!serving} onClick={() => props.onArm(!armed)}>
+        <Button
+          variant={armed ? "primary" : "ghost"}
+          size="sm"
+          disabled={!serving}
+          onClick={() => props.onArm(!armed)}
+        >
           {armed ? "Capturing" : "Capture"}
         </Button>
-        <KbdChord keys={[...binding]} aria-label={`${binding.join(" ")} turns capturing on`} />
+        <KbdChord
+          keys={[
+            ...binding,
+          ]}
+          aria-label={`${binding.join(" ")} turns capturing on`}
+        />
       </>
     );
   // Nothing settled to approve while the opener is still changing the page.
@@ -638,7 +875,14 @@ export function CaptureBar(props: CaptureBarProps) {
           disabled={approval?.state === "pending"}
           onSelect={asked}
         />
-        {queue === undefined ? null : <KbdChord keys={[...QUEUE_KEYS.approve]} aria-label="⌘↵ approves" />}
+        {queue === undefined ? null : (
+          <KbdChord
+            keys={[
+              ...QUEUE_KEYS.approve,
+            ]}
+            aria-label="⌘↵ approves"
+          />
+        )}
       </>
     ) : (
       <>
@@ -649,18 +893,39 @@ export function CaptureBar(props: CaptureBarProps) {
           // While the opener is still changing the page there is nothing settled to approve.
           disabled={approval?.state === "approved" || readiness === "working"}
           pending={approval?.state === "pending"}
-          {...(approval?.state === "refused" ? { answer: "refused" as const, title: approval.said } : {})}
+          {...(approval?.state === "refused"
+            ? {
+                answer: "refused" as const,
+                title: approval.said,
+              }
+            : {})}
           onClick={props.onApprove}
         >
           {readiness === "working" ? null : <Check size={12} strokeWidth={2} aria-hidden />}
-          {readiness === "working" ? "Not ready" : approval?.state === "approved" ? `Approved${taking}` : `Approve${taking}`}
+          {readiness === "working"
+            ? "Not ready"
+            : approval?.state === "approved"
+              ? `Approved${taking}`
+              : `Approve${taking}`}
         </Button>
-        {queue === undefined ? null : <KbdChord keys={[...QUEUE_KEYS.approve]} aria-label="⌘↵ approves" />}
+        {queue === undefined ? null : (
+          <KbdChord
+            keys={[
+              ...QUEUE_KEYS.approve,
+            ]}
+            aria-label="⌘↵ approves"
+          />
+        )}
       </>
     );
   const toggle =
     panel === undefined ? null : (
-      <Button variant="ghost" size="sm" aria-expanded={panel.open} onClick={() => panel.onToggle(!panel.open)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-expanded={panel.open}
+        onClick={() => panel.onToggle(!panel.open)}
+      >
         {`${panel.open ? "Hide" : "Show"} Job`}
       </Button>
     );
@@ -689,13 +954,30 @@ export function CaptureBar(props: CaptureBarProps) {
       : {
           onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
             // Approve is not the key while the bar says there is nothing settled to approve, and asks first while notes are held.
-            const approving = props.onApprove === undefined || unapprovable ? undefined : held !== undefined ? () => setAsking(true) : props.onApprove;
+            const approving =
+              props.onApprove === undefined || unapprovable
+                ? undefined
+                : held !== undefined
+                  ? () => setAsking(true)
+                  : props.onApprove;
             const acts: QueueActs = {
               approve: approving,
               open: () => setWalksOpen(true),
-              ...(variations === undefined ? {} : { takes: () => setTakesOpen(true) }),
-              ...(serving ? { reload: props.onReload } : {}),
-              ...(serving && landsOn !== null ? { capture: () => props.onArm(!armed) } : {}),
+              ...(variations === undefined
+                ? {}
+                : {
+                    takes: () => setTakesOpen(true),
+                  }),
+              ...(serving
+                ? {
+                    reload: props.onReload,
+                  }
+                : {}),
+              ...(serving && landsOn !== null
+                ? {
+                    capture: () => props.onArm(!armed),
+                  }
+                : {}),
             };
             if (queue !== undefined && queueKey(event, queue, acts)) return;
             if (walk !== undefined) walkKey(event, walk);
@@ -704,24 +986,57 @@ export function CaptureBar(props: CaptureBarProps) {
   };
 
   if (queue !== undefined) {
-    const hasStatus = !serving || refused !== undefined || question !== undefined || props.loading === true || held !== undefined || framesRefused > 0;
+    const hasStatus =
+      !serving ||
+      refused !== undefined ||
+      question !== undefined ||
+      props.loading === true ||
+      held !== undefined ||
+      framesRefused > 0;
     return (
       <div {...root}>
         <div className="armada-capture-bar__row">
-          <WalkMenu queue={queue} layer={props.menuLayer} open={walksOpen} onOpenChange={setWalksOpen} />
-          {variations === undefined ? null : <TakesMenu variations={variations} layer={props.menuLayer} open={takesOpen} onOpenChange={setTakesOpen} />}
+          <WalkMenu
+            queue={queue}
+            layer={props.menuLayer}
+            open={walksOpen}
+            onOpenChange={setWalksOpen}
+          />
+          {variations === undefined ? null : (
+            <TakesMenu
+              variations={variations}
+              layer={props.menuLayer}
+              open={takesOpen}
+              onOpenChange={setTakesOpen}
+            />
+          )}
           <span className="armada-capture-bar__queue-address" title={address}>
             {address}
           </span>
           <span className="armada-capture-bar__icons">
             <Tooltip label="Reload" shortcut={QUEUE_KEYS.reload.join("")}>
-              <Button variant="ghost" size="sm" iconOnly aria-label="Reload" disabled={!serving} onClick={props.onReload}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label="Reload"
+                disabled={!serving}
+                onClick={props.onReload}
+              >
                 <RefreshCw size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
             {landsOn === null ? null : (
               <Tooltip label={armed ? "Capturing" : "Capture"} shortcut={binding.join("")}>
-                <Button variant={armed ? "primary" : "ghost"} size="sm" iconOnly aria-label="Capture" aria-pressed={armed} disabled={!serving} onClick={() => props.onArm(!armed)}>
+                <Button
+                  variant={armed ? "primary" : "ghost"}
+                  size="sm"
+                  iconOnly
+                  aria-label="Capture"
+                  aria-pressed={armed}
+                  disabled={!serving}
+                  onClick={() => props.onArm(!armed)}
+                >
                   <Crosshair size={16} strokeWidth={2} aria-hidden />
                 </Button>
               </Tooltip>
@@ -733,8 +1048,20 @@ export function CaptureBar(props: CaptureBarProps) {
           </span>
         </div>
         {walk === undefined && !hasStatus ? null : (
-          <div className="armada-capture-bar__row armada-capture-bar__walk" {...(walk === undefined ? {} : { role: "group", "aria-label": `Walk ${walk.name}` })}>
-            {walk === undefined ? <StatusItem {...props} landsOn={landsOn} /> : <WalkControls walk={walk} status={<StatusItem {...props} landsOn={landsOn} />} />}
+          <div
+            className="armada-capture-bar__row armada-capture-bar__walk"
+            {...(walk === undefined
+              ? {}
+              : {
+                  role: "group",
+                  "aria-label": `Walk ${walk.name}`,
+                })}
+          >
+            {walk === undefined ? (
+              <StatusItem {...props} landsOn={landsOn} />
+            ) : (
+              <WalkControls walk={walk} status={<StatusItem {...props} landsOn={landsOn} />} />
+            )}
           </div>
         )}
       </div>
@@ -747,7 +1074,9 @@ export function CaptureBar(props: CaptureBarProps) {
         {mark}
         {runChip}
         <span className="armada-capture-bar__address">{address}</span>
-        <span className="armada-capture-bar__aim">{!serving ? "The run ended" : (aim ?? "Walking a server")}</span>
+        <span className="armada-capture-bar__aim">
+          {!serving ? "The run ended" : (aim ?? "Walking a server")}
+        </span>
         {reload}
         {capture}
         {approve}
@@ -755,7 +1084,11 @@ export function CaptureBar(props: CaptureBarProps) {
       </div>
       {/* A row of their own, so the takes never push the acts off a narrow window's bar. */}
       {variations === undefined ? null : (
-        <div role="radiogroup" aria-label="Variations" className="armada-capture-bar__row armada-capture-bar__takes">
+        <div
+          role="radiogroup"
+          aria-label="Variations"
+          className="armada-capture-bar__row armada-capture-bar__takes"
+        >
           {variations.names.map((name, at) => (
             <button
               key={at}
@@ -772,7 +1105,11 @@ export function CaptureBar(props: CaptureBarProps) {
         </div>
       )}
       {walk === undefined ? null : (
-        <div className="armada-capture-bar__row armada-capture-bar__walk" role="group" aria-label={`Walk ${walk.name}`}>
+        <div
+          className="armada-capture-bar__row armada-capture-bar__walk"
+          role="group"
+          aria-label={`Walk ${walk.name}`}
+        >
           <WalkControls walk={walk} />
         </div>
       )}

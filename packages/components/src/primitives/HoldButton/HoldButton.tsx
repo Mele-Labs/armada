@@ -68,7 +68,14 @@ export function HoldButton({
   });
 
   const face =
-    icon === undefined ? ({ variant: "destructive" } as const) : ({ variant: "ghost", iconOnly: true } as const);
+    icon === undefined
+      ? ({
+          variant: "destructive",
+        } as const)
+      : ({
+          variant: "ghost",
+          iconOnly: true,
+        } as const);
 
   // Under reduced motion the fill is invisible, and it is the only thing that
   // says how long is left, so the press asks instead.
@@ -77,7 +84,11 @@ export function HoldButton({
       <Button
         {...rest}
         {...face}
-        {...(icon === undefined ? {} : { "aria-label": askLabel })}
+        {...(icon === undefined
+          ? {}
+          : {
+              "aria-label": askLabel,
+            })}
         disabled={disabled}
         pending={pending}
         onClick={onAsk}
@@ -94,7 +105,11 @@ export function HoldButton({
       {...hold.handlers}
       ref={hold.ref}
       {...face}
-      {...(icon === undefined ? {} : { "aria-label": children })}
+      {...(icon === undefined
+        ? {}
+        : {
+            "aria-label": children,
+          })}
       disabled={disabled}
       pending={pending}
       data-hold=""

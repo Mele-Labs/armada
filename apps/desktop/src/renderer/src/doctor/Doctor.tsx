@@ -13,27 +13,54 @@ import { gridOf, MEANS, readingOf, summaryOf, worstOf, type Row } from "./grid";
 import "../cockpit/cockpit.css";
 import "./doctor.css";
 
-
-const GLYPHS = { pass: CircleCheck, warn: TriangleAlert, fail: CircleX, reading: CircleDashed } as const;
-const GLYPH_NAMES = { pass: "Pass", warn: "Warn", fail: "Fail", reading: "Reading" } as const;
+const GLYPHS = {
+  pass: CircleCheck,
+  warn: TriangleAlert,
+  fail: CircleX,
+  reading: CircleDashed,
+} as const;
+const GLYPH_NAMES = {
+  pass: "Pass",
+  warn: "Warn",
+  fail: "Fail",
+  reading: "Reading",
+} as const;
 
 /** A result as its registry glyph in the result's hue, with the word as its tooltip. Drawn under the new look; the word stays for everything else. */
 function Glyph({ result }: { result: Row["result"] }) {
   const Icon = GLYPHS[result];
   return (
     <Tooltip label={GLYPH_NAMES[result]}>
-      <span className="armada-doctor__glyph" data-result={result} role="img" aria-label={GLYPH_NAMES[result]}>
+      <span
+        className="armada-doctor__glyph"
+        data-result={result}
+        role="img"
+        aria-label={GLYPH_NAMES[result]}
+      >
         <Icon size={16} aria-hidden="true" />
       </span>
     </Tooltip>
   );
 }
 
-function Tile({ row, selected, onSelect }: { row: Row; selected: boolean; onSelect: (key: string) => void }) {
+function Tile({
+  row,
+  selected,
+  onSelect,
+}: {
+  row: Row;
+  selected: boolean;
+  onSelect: (key: string) => void;
+}) {
   const ref = useRef<HTMLLIElement>(null);
   useEffect(() => {
-    if (selected) ref.current?.scrollIntoView({ block: "nearest" });
-  }, [selected]);
+    if (selected)
+      ref.current?.scrollIntoView({
+        block: "nearest",
+      });
+  }, [
+    selected,
+  ]);
   return (
     <li
       ref={ref}
@@ -52,7 +79,9 @@ function Tile({ row, selected, onSelect }: { row: Row; selected: boolean; onSele
           {row.result}
         </b>
       </div>
-      {MEANS[row.module] === undefined ? null : <span className="armada-doctor-tile__checks">{MEANS[row.module]!.reads}</span>}
+      {MEANS[row.module] === undefined ? null : (
+        <span className="armada-doctor-tile__checks">{MEANS[row.module]!.reads}</span>
+      )}
       <ReadingOf detail={row.detail} />
       <div className="armada-tile__foot">
         <span className="armada-doctor-tile__owner">{`Probed by ${row.owner}`}</span>
@@ -64,7 +93,8 @@ function Tile({ row, selected, onSelect }: { row: Row; selected: boolean; onSele
 /** A probe's line laid out: its sentences, then each value it named, label beside value. */
 function ReadingOf({ detail, whole = false }: { detail: string; whole?: boolean }) {
   const { lines, facts } = readingOf(detail);
-  if (lines.length === 0 && facts.length === 0) return <span className="armada-doctor-reading__none">Nothing read yet</span>;
+  if (lines.length === 0 && facts.length === 0)
+    return <span className="armada-doctor-reading__none">Nothing read yet</span>;
   return (
     <div className="armada-doctor-reading" data-whole={whole || undefined}>
       {lines.map((line, at) => (
@@ -91,7 +121,13 @@ function ReadingOf({ detail, whole = false }: { detail: string; whole?: boolean 
 /** The picked module whole: what it read, who probes it, and what each of its words would mean. */
 function Pane({ row }: { row: Row }) {
   const means = MEANS[row.module];
-  const words = (["pass", "warn", "fail"] as const).filter((word) => means === undefined || word !== "warn" || means.warn !== undefined);
+  const words = (
+    [
+      "pass",
+      "warn",
+      "fail",
+    ] as const
+  ).filter((word) => means === undefined || word !== "warn" || means.warn !== undefined);
   return (
     <article className="armada-doctor-pane" data-result={row.result} aria-label={row.module}>
       <header className="armada-doctor-pane__head">
@@ -125,7 +161,11 @@ function Pane({ row }: { row: Row }) {
               <span>{word === "warn" ? means.warn : means[word]}</span>
             </li>
           ))}
-          {means.warn === undefined ? <li className="armada-doctor-pane__never">Never warns: it is reachable or it is not.</li> : null}
+          {means.warn === undefined ? (
+            <li className="armada-doctor-pane__never">
+              Never warns: it is reachable or it is not.
+            </li>
+          ) : null}
         </ul>
       )}
     </article>
@@ -160,16 +200,32 @@ export function DoctorSurface({
   // When the probes last answered, read off the app's one clock.
   const [checkedAt, setCheckedAt] = useState<string>();
   useEffect(() => {
-    if (health.state === "read" || health.state === "failed") setCheckedAt(new Date().toISOString());
-  }, [health]);
+    if (health.state === "read" || health.state === "failed")
+      setCheckedAt(new Date().toISOString());
+  }, [
+    health,
+  ]);
 
   const [selected, setSelected] = useState<string>();
-  const at = Math.max(0, grid.rows.findIndex((row) => row.key === selected));
+  const at = Math.max(
+    0,
+    grid.rows.findIndex((row) => row.key === selected),
+  );
   const current = grid.rows[at];
   const list = useRef<HTMLUListElement>(null);
   const move = (event: KeyboardEvent) => {
-    const cols = list.current === null ? 1 : Math.max(1, getComputedStyle(list.current).gridTemplateColumns.split(" ").length);
-    const by = { ArrowRight: 1, ArrowLeft: -1, j: 1, k: -1, ArrowDown: cols, ArrowUp: -cols }[event.key];
+    const cols =
+      list.current === null
+        ? 1
+        : Math.max(1, getComputedStyle(list.current).gridTemplateColumns.split(" ").length);
+    const by = {
+      ArrowRight: 1,
+      ArrowLeft: -1,
+      j: 1,
+      k: -1,
+      ArrowDown: cols,
+      ArrowUp: -cols,
+    }[event.key];
     if (by === undefined || event.metaKey || event.ctrlKey || event.altKey) return;
     event.preventDefault();
     const next = grid.rows[Math.min(grid.rows.length - 1, Math.max(0, at + by))];
@@ -178,7 +234,11 @@ export function DoctorSurface({
 
   return (
     <div className="armada-cockpit armada-doctor" data-worst={worst}>
-      <section className="armada-view" aria-label="Doctor" data-waiting={worst === undefined ? undefined : ""}>
+      <section
+        className="armada-view"
+        aria-label="Doctor"
+        data-waiting={worst === undefined ? undefined : ""}
+      >
         <div className="armada-view__stage">
           <div className="armada-view__body" data-pane={current === undefined ? undefined : ""}>
             <div className="armada-doctor__modules">
@@ -193,14 +253,32 @@ export function DoctorSurface({
                   </CardReadout>
                 )}
                 <Tooltip label="Check again">
-                  <Button variant="ghost" iconOnly aria-label="Check again" onClick={onCheck} disabled={reading}>
+                  <Button
+                    variant="ghost"
+                    iconOnly
+                    aria-label="Check again"
+                    onClick={onCheck}
+                    disabled={reading}
+                  >
                     <RotateCw size={16} aria-hidden="true" />
                   </Button>
                 </Tooltip>
               </CardHeader>
-              <ul ref={list} className="armada-tiles armada-view__grid" role="listbox" aria-label="Modules" tabIndex={0} onKeyDown={move}>
+              <ul
+                ref={list}
+                className="armada-tiles armada-view__grid"
+                role="listbox"
+                aria-label="Modules"
+                tabIndex={0}
+                onKeyDown={move}
+              >
                 {grid.rows.map((row) => (
-                  <Tile key={row.key} row={row} selected={row.key === current?.key} onSelect={setSelected} />
+                  <Tile
+                    key={row.key}
+                    row={row}
+                    selected={row.key === current?.key}
+                    onSelect={setSelected}
+                  />
                 ))}
               </ul>
             </div>

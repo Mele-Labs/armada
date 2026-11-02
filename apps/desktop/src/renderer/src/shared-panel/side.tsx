@@ -10,9 +10,19 @@ import { useAtFloor } from "@armada/shell";
 /** A panel drawn in a pane of a Job: its body alone, with no sheet, head or close of its own. */
 export const InlinePanel = createContext(false);
 
-type Tab = { id: string; label: string };
+type Tab = {
+  id: string;
+  label: string;
+};
 
-const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+const typing = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    [
+      "INPUT",
+      "TEXTAREA",
+      "SELECT",
+    ].includes(target.tagName));
 
 /**
  * `[` and `]` move to the tab before and after, wherever focus is in the panel. **Held on the window while the panel is up**, so it
@@ -32,7 +42,11 @@ export function useTabKeys(ids: readonly string[], tab: string, onTab: (id: stri
     };
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
-  }, [ids, tab, onTab]);
+  }, [
+    ids,
+    tab,
+    onTab,
+  ]);
 }
 
 export function SidePanel({
@@ -76,7 +90,12 @@ export function SidePanel({
    * A list floated in a sheet to the panel's left, as the pull request panel floats its files. **Not drawn at the floor**, where
    * it would lie over the panel: the caller draws it in the body there.
    */
-  left?: { title: string; body: ReactNode } | undefined;
+  left?:
+    | {
+        title: string;
+        body: ReactNode;
+      }
+    | undefined;
   /** `dock` for a pick on a canvas behind the panel, which a full panel would cover. */
   size?: "panel" | "dock";
   /** The ground behind stays pressable, for a panel that is drawn about what lies beside it: a pick on a canvas, a Job's spine. */
@@ -95,70 +114,112 @@ export function SidePanel({
   );
   // The list's close takes focus as it opens; the tab keeps it, as in the pull request panel.
   useEffect(() => {
-    if (floats) body.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
-  }, [floats]);
+    if (floats)
+      body.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({
+        preventScroll: true,
+      });
+  }, [
+    floats,
+  ]);
   const panelBody = (
     <>
-    {crumb === undefined && beside === undefined ? (
-      <h3 className="armada-pr-panel__title">{heading}</h3>
-    ) : (
-      <div className="side-panel__head">
-        <div className="side-panel__heading">
-          {crumb === undefined ? null : <p className="side-panel__crumb">{crumb}</p>}
-          <h3 className="armada-pr-panel__title">{heading}</h3>
+      {crumb === undefined && beside === undefined ? (
+        <h3 className="armada-pr-panel__title">{heading}</h3>
+      ) : (
+        <div className="side-panel__head">
+          <div className="side-panel__heading">
+            {crumb === undefined ? null : <p className="side-panel__crumb">{crumb}</p>}
+            <h3 className="armada-pr-panel__title">{heading}</h3>
+          </div>
+          {beside}
         </div>
-        {beside}
-      </div>
-    )}
-    {meta === undefined ? null : <div className="armada-pr-panel__meta">{meta}</div>}
-    {acts === undefined ? null : (
-      <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
-        {acts}
-      </div>
-    )}
-    {bar === undefined ? null : <div className="side-panel__bar">{bar}</div>}
-    {tabs === undefined || tab === undefined || onTab === undefined ? (
-      <div className="armada-pr-tabs">
-        <div className="armada-pr-tabs__panel">{children}</div>
-      </div>
-    ) : (
-      <div className="armada-pr-tabs">
-        <Tabs items={[...tabs]} value={tab} onChange={onTab} />
-        <TabPanel tab={tab} role="tabpanel" aria-label={tabs.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
-          {children}
-        </TabPanel>
-      </div>
-    )}
+      )}
+      {meta === undefined ? null : <div className="armada-pr-panel__meta">{meta}</div>}
+      {acts === undefined ? null : (
+        <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
+          {acts}
+        </div>
+      )}
+      {bar === undefined ? null : <div className="side-panel__bar">{bar}</div>}
+      {tabs === undefined || tab === undefined || onTab === undefined ? (
+        <div className="armada-pr-tabs">
+          <div className="armada-pr-tabs__panel">{children}</div>
+        </div>
+      ) : (
+        <div className="armada-pr-tabs">
+          <Tabs
+            items={[
+              ...tabs,
+            ]}
+            value={tab}
+            onChange={onTab}
+          />
+          <TabPanel
+            tab={tab}
+            role="tabpanel"
+            aria-label={tabs.find((one) => one.id === tab)?.label}
+            className="armada-pr-tabs__panel"
+          >
+            {children}
+          </TabPanel>
+        </div>
+      )}
     </>
   );
-  if (inline) return <div className="armada-pr-panel" ref={body}>{panelBody}</div>;
-  return (
-    <>
-    <Sheet
-      kind="side-panel"
-      open
-      floating
-      under={floats}
-      floor={floor}
-      title={title}
-      {...(repository === undefined ? {} : { subtitle: <span className="armada-pr-panel__repository mono">{repository}</span> })}
-      size={size}
-      {...(through === true ? { through: true } : {})}
-      {...(back === undefined ? {} : { back })}
-      closeLabel="Close"
-      closeBinding="Esc"
-      onClose={onClose}
-    >
+  if (inline)
+    return (
       <div className="armada-pr-panel" ref={body}>
         {panelBody}
       </div>
-    </Sheet>
-    {floats && left !== undefined ? (
-      /* The panel's own, so its close and Esc close the panel. */
-      <Sheet open floating beside="side-panel" kind="side-panel-list" size="panel" title={left.title} closeBinding="Esc" onClose={onClose}>
-        {left.body}
+    );
+  return (
+    <>
+      <Sheet
+        kind="side-panel"
+        open
+        floating
+        under={floats}
+        floor={floor}
+        title={title}
+        {...(repository === undefined
+          ? {}
+          : {
+              subtitle: <span className="armada-pr-panel__repository mono">{repository}</span>,
+            })}
+        size={size}
+        {...(through === true
+          ? {
+              through: true,
+            }
+          : {})}
+        {...(back === undefined
+          ? {}
+          : {
+              back,
+            })}
+        closeLabel="Close"
+        closeBinding="Esc"
+        onClose={onClose}
+      >
+        <div className="armada-pr-panel" ref={body}>
+          {panelBody}
+        </div>
       </Sheet>
-    ) : null}
+      {floats && left !== undefined ? (
+        /* The panel's own, so its close and Esc close the panel. */
+        <Sheet
+          open
+          floating
+          beside="side-panel"
+          kind="side-panel-list"
+          size="panel"
+          title={left.title}
+          closeBinding="Esc"
+          onClose={onClose}
+        >
+          {left.body}
+        </Sheet>
+      ) : null}
     </>
   );
 }

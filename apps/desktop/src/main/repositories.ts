@@ -37,7 +37,13 @@ export class RepositoryReads {
       port: wiring.port,
       list: (port) => this.readHoldings(port),
       // On the state main publishes to every window; each renderer decides whether to announce it.
-      landed: (repository) => wiring.publish({ located: { repository, at: Date.now() } }),
+      landed: (repository) =>
+        wiring.publish({
+          located: {
+            repository,
+            at: Date.now(),
+          },
+        }),
     });
   }
 
@@ -52,7 +58,11 @@ export class RepositoryReads {
    * publishes one catalogue to every window; each window's own pick is reconciled against it
    * apart from every other window's.
    */
-  async listed(listed: RepositoryList | null, port: number, movedWindowId: number | null = null): Promise<void> {
+  async listed(
+    listed: RepositoryList | null,
+    port: number,
+    movedWindowId: number | null = null,
+  ): Promise<void> {
     const windowIds = this.wiring.windowIds();
     // Every open window's own pick, reconciled against the new listing apart from every other's —
     // **synchronously, before anything below awaits**, so a pick pressed the instant this listing
@@ -65,11 +75,19 @@ export class RepositoryReads {
     );
     for (const windowId of shifted.keys()) {
       const root = this.pickedByWindow.of(windowId).picked;
-      this.wiring.publishToWindow(windowId, { repository: root });
+      this.wiring.publishToWindow(windowId, {
+        repository: root,
+      });
       this.wiring.onPicked(root);
     }
     const held = this.wiring.holds();
-    const kept = listed === null ? held : { ...held, repositories: listed.repositories };
+    const kept =
+      listed === null
+        ? held
+        : {
+            ...held,
+            repositories: listed.repositories,
+          };
     // `leftOut` is scoped to a pick; every other field here is not, so any one window's answer
     // carries the shared ones and every window's own call carries its own `leftOut`.
     const holdingsPerWindow = await Promise.all(
@@ -78,15 +96,25 @@ export class RepositoryReads {
         holdings: await holdingsOf(port, kept, this.pickedByWindow.of(windowId)),
       })),
     );
-    this.wiring.publish({ holds: holdingsPerWindow[0]?.holdings ?? { ...kept, leftOut: [] } });
+    this.wiring.publish({
+      holds: holdingsPerWindow[0]?.holdings ?? {
+        ...kept,
+        leftOut: [],
+      },
+    });
     for (const { windowId, holdings } of holdingsPerWindow) {
-      this.wiring.publishToWindow(windowId, { leftOut: holdings.leftOut });
+      this.wiring.publishToWindow(windowId, {
+        leftOut: holdings.leftOut,
+      });
     }
     await Promise.all([
       this.wiring.overviewAgain(port),
       ...windowIds.map(async (windowId) => {
         if (windowId !== movedWindowId && !shifted.get(windowId)) return;
-        await Promise.all([this.readManifestOf(windowId, port), this.wiring.rehearsal.onRepositoryMoved(windowId, port)]);
+        await Promise.all([
+          this.readManifestOf(windowId, port),
+          this.wiring.rehearsal.onRepositoryMoved(windowId, port),
+        ]);
       }),
     ]);
   }
@@ -95,7 +123,9 @@ export class RepositoryReads {
   async pick(windowId: number, root: string | null): Promise<void> {
     const picked = this.pickedByWindow.of(windowId);
     if (!picked.pick(root)) return;
-    this.wiring.publishToWindow(windowId, { repository: picked.picked });
+    this.wiring.publishToWindow(windowId, {
+      repository: picked.picked,
+    });
     this.wiring.onPicked(picked.picked);
     const port = this.wiring.port();
     if (port !== null) await this.readHoldings(port, windowId);
@@ -104,7 +134,9 @@ export class RepositoryReads {
   /** One window's own reading of its picked Manifest. */
   async readManifestOf(windowId: number, port: number): Promise<void> {
     const picked = this.pickedByWindow.of(windowId);
-    this.wiring.publishToWindow(windowId, { manifestReading: await manifestReadingOf(port, picked) });
+    this.wiring.publishToWindow(windowId, {
+      manifestReading: await manifestReadingOf(port, picked),
+    });
   }
 
   /**
@@ -112,7 +144,9 @@ export class RepositoryReads {
    * a window picked something in an earlier connection and Fleet may answer differently now.
    */
   async readManifestForEveryWindow(port: number): Promise<void> {
-    await Promise.all(this.wiring.windowIds().map((windowId) => this.readManifestOf(windowId, port)));
+    await Promise.all(
+      this.wiring.windowIds().map((windowId) => this.readManifestOf(windowId, port)),
+    );
   }
 
   /**
@@ -121,7 +155,10 @@ export class RepositoryReads {
    */
   manifestReread(event: ManifestReading): void {
     for (const [windowId, picked] of this.pickedByWindow.all()) {
-      if (picked.reads(event.path)) this.wiring.publishToWindow(windowId, { manifestReading: event });
+      if (picked.reads(event.path))
+        this.wiring.publishToWindow(windowId, {
+          manifestReading: event,
+        });
     }
   }
 }

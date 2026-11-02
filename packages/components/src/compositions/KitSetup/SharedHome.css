@@ -72,7 +72,9 @@
 }
 
 @keyframes armada-shared-turn {
-  to { transform: rotate(1turn); }
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

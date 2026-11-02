@@ -24,7 +24,9 @@ export type OverviewState = {
 };
 
 export const OVERVIEW_NOTHING_YET: OverviewState = {
-  health: { state: "none" },
+  health: {
+    state: "none",
+  },
 };
 
 export const OVERVIEW_CHANNELS = {

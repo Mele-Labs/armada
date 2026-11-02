@@ -10,49 +10,98 @@ const note: Annotation = {
   status: "open",
   text: "Too quiet ",
   component: "NeedsBand",
-  source: { file: "packages/components/src/compositions/Cockpit/NeedsBand.tsx", line: 42 },
-  owners: ["Cockpit"],
+  source: {
+    file: "packages/components/src/compositions/Cockpit/NeedsBand.tsx",
+    line: 42,
+  },
+  owners: [
+    "Cockpit",
+  ],
   ownersFrom: "parent",
   selector: 'section[aria-label="Needs you"] > ul > li:nth-of-type(2)',
-  element: { tag: "li", text: "Session 3 waits on a walk", label: null },
+  element: {
+    tag: "li",
+    text: "Session 3 waits on a walk",
+    label: null,
+  },
   screen: "Cockpit",
   layer: null,
-  nearby: ["Needs you"],
+  nearby: [
+    "Needs you",
+  ],
   location: "/index.html?scenario=every-state",
   scenario: "every-state",
-  selected: ['tab "Cockpit"'],
-  box: { x: 12, y: 80, width: 900, height: 64 },
-  window: { width: 1280, height: 800 },
+  selected: [
+    'tab "Cockpit"',
+  ],
+  box: {
+    x: 12,
+    y: 80,
+    width: 900,
+    height: 64,
+  },
+  window: {
+    width: 1280,
+    height: 800,
+  },
   createdAt: "2026-10-17T22:21:05.000Z",
   updatedAt: "2026-10-17T22:21:05.000Z",
 };
 
 describe("a ⌥⌘A note, whole", () => {
   it("names its file, its stamp from the build, and what the page showed", () => {
-    expect(annotationNote(note, "http://localhost:5174/index.html?scenario=every-state", "iVBORw0KGgo=")).toEqual({
+    expect(
+      annotationNote(note, "http://localhost:5174/index.html?scenario=every-state", "iVBORw0KGgo="),
+    ).toEqual({
       said: "Too quiet",
       address: "http://localhost:5174/index.html?scenario=every-state",
       note_id: "20261017-222105-k3f9",
       place: {
         component: "NeedsBand",
-        owners: ["Cockpit"],
+        owners: [
+          "Cockpit",
+        ],
         selector: note.selector,
-        element: { tag: "li", text: "Session 3 waits on a walk" },
-        nearby: ["Needs you"],
+        element: {
+          tag: "li",
+          text: "Session 3 waits on a walk",
+        },
+        nearby: [
+          "Needs you",
+        ],
         stamp: "packages/components/src/compositions/Cockpit/NeedsBand.tsx:42",
         location: "/index.html?scenario=every-state",
         screen: "Cockpit",
       },
-      state: { selected: ['tab "Cockpit"'], scenario: "every-state" },
-      crop: { media_type: "image/png", data: "iVBORw0KGgo=" },
+      state: {
+        selected: [
+          'tab "Cockpit"',
+        ],
+        scenario: "every-state",
+      },
+      crop: {
+        media_type: "image/png",
+        data: "iVBORw0KGgo=",
+      },
     });
   });
 
   it("reads a note written before nearby and selected were, with empty lists and no crop", () => {
     const { nearby: _nearby, selected: _selected, source: _source, ...older } = note;
-    const body = annotationNote({ ...older, component: null, scenario: null, screen: null }, "app://bridge", null);
+    const body = annotationNote(
+      {
+        ...older,
+        component: null,
+        scenario: null,
+        screen: null,
+      },
+      "app://bridge",
+      null,
+    );
     expect(body.place.nearby).toEqual([]);
-    expect(body.state).toEqual({ selected: [] });
+    expect(body.state).toEqual({
+      selected: [],
+    });
     expect(body.place).not.toHaveProperty("stamp");
     expect(body.place).not.toHaveProperty("component");
     expect(body).not.toHaveProperty("crop");
@@ -60,10 +109,28 @@ describe("a ⌥⌘A note, whole", () => {
 
   it("carries the changes he made on the page in his words, after them, since the thread keeps only what he said", () => {
     const changes: Annotation["changes"] = [
-      { kind: "size", property: "font-size", before: "13px", after: "18px", token: "--text-lg" },
-      { kind: "text", property: "text", before: "Session 3 waits on a walk", after: "Session 3 waits" },
+      {
+        kind: "size",
+        property: "font-size",
+        before: "13px",
+        after: "18px",
+        token: "--text-lg",
+      },
+      {
+        kind: "text",
+        property: "text",
+        before: "Session 3 waits on a walk",
+        after: "Session 3 waits",
+      },
     ];
-    const said = annotationNote({ ...note, changes }, "app://bridge", null).said;
+    const said = annotationNote(
+      {
+        ...note,
+        changes,
+      },
+      "app://bridge",
+      null,
+    ).said;
     expect(said.split("\n")).toEqual([
       "Too quiet",
       "",
@@ -74,6 +141,15 @@ describe("a ⌥⌘A note, whole", () => {
   });
 
   it("says only what he said where he changed nothing", () => {
-    expect(annotationNote({ ...note, changes: [] }, "app://bridge", null).said).toBe("Too quiet");
+    expect(
+      annotationNote(
+        {
+          ...note,
+          changes: [],
+        },
+        "app://bridge",
+        null,
+      ).said,
+    ).toBe("Too quiet");
   });
 });

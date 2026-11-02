@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { GuideCard } from "./compositions/GuideCard/GuideCard";
 import type { Guide } from "./guides/guide";
@@ -19,7 +27,11 @@ export type GuidanceMemory = {
   cardSeen: boolean;
 };
 
-const NOTHING_MET: GuidanceMemory = { off: false, met: [], cardSeen: false };
+const NOTHING_MET: GuidanceMemory = {
+  off: false,
+  met: [],
+  cardSeen: false,
+};
 
 // `localStorage` for what has been met, `left-collapsed.ts`' own reason: one window's way of looking.
 // Whether first contact is on at all is `features.openGuidesFirstTime` in settings.json once Fleet
@@ -108,7 +120,11 @@ export type GuidanceProviderProps = {
    * has answered**, and the window's own memory of the switch answers until then. `saved` is whether
    * the file holds the key, so a switch turned off before the setting existed is carried into it once.
    */
-  firstContact?: { off: boolean; saved: boolean; onOff: (off: boolean) => void };
+  firstContact?: {
+    off: boolean;
+    saved: boolean;
+    onOff: (off: boolean) => void;
+  };
 };
 
 /**
@@ -120,10 +136,23 @@ export type GuidanceProviderProps = {
  * four; the rest keep their first contact for a later visit. Four uninvited
  * cards in a row is the noise the mark exists to replace.
  */
-export function GuidanceProvider({ children, remembered = true, onReadAll, firstContact }: GuidanceProviderProps) {
-  const [stored, setMemory] = useState<GuidanceMemory>(() => (remembered ? readMemory() : NOTHING_MET));
+export function GuidanceProvider({
+  children,
+  remembered = true,
+  onReadAll,
+  firstContact,
+}: GuidanceProviderProps) {
+  const [stored, setMemory] = useState<GuidanceMemory>(() =>
+    remembered ? readMemory() : NOTHING_MET,
+  );
   const [showing, setShowing] = useState<Showing | null>(null);
-  const memory = firstContact === undefined ? stored : { ...stored, off: firstContact.off };
+  const memory =
+    firstContact === undefined
+      ? stored
+      : {
+          ...stored,
+          off: firstContact.off,
+        };
 
   // A switch turned off in this window before settings.json held it is carried there, once.
   const carried = useRef(false);
@@ -131,15 +160,26 @@ export function GuidanceProvider({ children, remembered = true, onReadAll, first
     if (firstContact === undefined || carried.current) return;
     carried.current = true;
     if (!firstContact.saved && stored.off && !firstContact.off) firstContact.onOff(true);
-  }, [firstContact, stored.off]);
+  }, [
+    firstContact,
+    stored.off,
+  ]);
   const setting = useRef(firstContact);
   setting.current = firstContact;
 
   // Read through a ref, so the two callbacks below never change identity: a
   // mark says it is on screen from an effect, and an effect that re-runs on
   // every render of the provider would say it on every event Fleet publishes.
-  const latest = useRef({ memory, showing, remembered });
-  latest.current = { memory, showing, remembered };
+  const latest = useRef({
+    memory,
+    showing,
+    remembered,
+  });
+  latest.current = {
+    memory,
+    showing,
+    remembered,
+  };
   // One self-opened card per session. Not stored: a person who reopens the
   // window is meeting the next piece for the first time all over again.
   const openedItself = useRef(false);
@@ -152,10 +192,20 @@ export function GuidanceProvider({ children, remembered = true, onReadAll, first
   const onOpen = useCallback(
     (guide: Guide) => {
       const held = latest.current.memory;
-      setShowing({ guide, invited: true, withSwitch: !held.cardSeen });
-      remember({ ...held, cardSeen: true, met: metWith(held.met, guide.piece) });
+      setShowing({
+        guide,
+        invited: true,
+        withSwitch: !held.cardSeen,
+      });
+      remember({
+        ...held,
+        cardSeen: true,
+        met: metWith(held.met, guide.piece),
+      });
     },
-    [remember],
+    [
+      remember,
+    ],
   );
 
   const onMet = useCallback(
@@ -164,30 +214,58 @@ export function GuidanceProvider({ children, remembered = true, onReadAll, first
       if (held.off || open !== null || openedItself.current) return;
       if (held.met.includes(guide.piece)) return;
       openedItself.current = true;
-      setShowing({ guide, invited: false, withSwitch: !held.cardSeen });
-      remember({ ...held, cardSeen: true, met: metWith(held.met, guide.piece) });
+      setShowing({
+        guide,
+        invited: false,
+        withSwitch: !held.cardSeen,
+      });
+      remember({
+        ...held,
+        cardSeen: true,
+        met: metWith(held.met, guide.piece),
+      });
     },
-    [remember],
+    [
+      remember,
+    ],
   );
 
   const onOff = useCallback(
     (off: boolean) => {
       const own = setting.current;
-      if (own === undefined) remember({ ...latest.current.memory, off });
+      if (own === undefined)
+        remember({
+          ...latest.current.memory,
+          off,
+        });
       else own.onOff(off);
     },
-    [remember],
+    [
+      remember,
+    ],
   );
 
   return (
-    <GuidanceContext.Provider value={{ onOpen, onMet, off: memory.off, onOff }}>
+    <GuidanceContext.Provider
+      value={{
+        onOpen,
+        onMet,
+        off: memory.off,
+        onOff,
+      }}
+    >
       {children}
       {showing === null ? null : (
         <GuideCard
           guide={showing.guide}
           invited={showing.invited}
           onClose={() => setShowing(null)}
-          {...(showing.withSwitch ? { off: memory.off, onOff } : {})}
+          {...(showing.withSwitch
+            ? {
+                off: memory.off,
+                onOff,
+              }
+            : {})}
           {...(onReadAll === undefined
             ? {}
             : {
@@ -203,5 +281,10 @@ export function GuidanceProvider({ children, remembered = true, onReadAll, first
 }
 
 function metWith(met: readonly string[], piece: string): readonly string[] {
-  return met.includes(piece) ? met : [...met, piece];
+  return met.includes(piece)
+    ? met
+    : [
+        ...met,
+        piece,
+      ];
 }

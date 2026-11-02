@@ -77,14 +77,26 @@ export type PaletteDispatch = {
   step?: (words: string, kind: BarKind) => PaletteStep | undefined;
 };
 
-const KIND: Record<BarKind, string> = { session: "Job", autopilot: "Autopilot", task: "Task", project: "Project" };
+const KIND: Record<BarKind, string> = {
+  session: "Job",
+  autopilot: "Autopilot",
+  task: "Task",
+  project: "Project",
+};
 
 /** What the row offers to do with the words, for each kind. */
-const OFFER: Record<BarKind, string> = { session: "Start a Job with ", autopilot: "Start Autopilot with ", task: "Add a task ", project: "Add a project " };
+const OFFER: Record<BarKind, string> = {
+  session: "Start a Job with ",
+  autopilot: "Start Autopilot with ",
+  task: "Add a task ",
+  project: "Add a project ",
+};
 
 /** The kind Tab steps to from this one, round the kinds offered. */
 export function nextKind(dispatch: PaletteDispatch): BarKind {
-  const kinds = dispatch.kinds ?? ["session"];
+  const kinds = dispatch.kinds ?? [
+    "session",
+  ];
   return kinds[(kinds.indexOf(dispatch.kind) + 1) % kinds.length] ?? "session";
 }
 
@@ -99,7 +111,11 @@ export function readsAsWork(query: string): boolean {
 export const DISPATCH_ROW = "armada-palette-row-dispatch";
 
 /** A chip as the row draws it: its choice's label, and whether its list is up. */
-export type DrawnChip = { chip: PaletteChip; label: string; open: boolean };
+export type DrawnChip = {
+  chip: PaletteChip;
+  label: string;
+  open: boolean;
+};
 
 /**
  * What was typed, as the row that dispatches it. A row carrying chips is stacked (the owner, 30 Oct 2026): the words on the
@@ -134,7 +150,15 @@ export function DispatchRow({
       id={DISPATCH_ROW}
       role="option"
       aria-selected={active}
-      className={["armada-palette__row", "armada-palette__row--dispatch", chips.length === 0 ? "" : "armada-palette__row--stacked", trailing ? "armada-palette__row--trailing" : "", active ? "armada-palette__row--active" : ""].filter((one) => one !== "").join(" ")}
+      className={[
+        "armada-palette__row",
+        "armada-palette__row--dispatch",
+        chips.length === 0 ? "" : "armada-palette__row--stacked",
+        trailing ? "armada-palette__row--trailing" : "",
+        active ? "armada-palette__row--active" : "",
+      ]
+        .filter((one) => one !== "")
+        .join(" ")}
       onMouseEnter={onEnter}
       onClick={onChoose}
     >
@@ -149,7 +173,13 @@ export function DispatchRow({
         {chips.length === 0 ? null : (
           <span className="armada-palette__chips">
             {chips.map(({ chip, label, open }) => (
-              <Chip key={chip.id} chip={chip} label={label} open={open} onOpen={() => onChip?.(chip.id)} />
+              <Chip
+                key={chip.id}
+                chip={chip}
+                label={label}
+                open={open}
+                onOpen={() => onChip?.(chip.id)}
+              />
             ))}
           </span>
         )}
@@ -161,7 +191,17 @@ export function DispatchRow({
 }
 
 /** One chip: its glyph and its choice. One with a list opens it on a press, and the focus stays in the words. */
-function Chip({ chip, label, open, onOpen }: { chip: PaletteChip; label: string; open: boolean; onOpen: () => void }) {
+function Chip({
+  chip,
+  label,
+  open,
+  onOpen,
+}: {
+  chip: PaletteChip;
+  label: string;
+  open: boolean;
+  onOpen: () => void;
+}) {
   const Glyph = chip.icon;
   const said = `${chip.name} ${label}`;
   const inner = (
@@ -203,16 +243,53 @@ function Chip({ chip, label, open, onOpen }: { chip: PaletteChip; label: string;
 }
 
 /** The keys the one bar answers, along the palette's foot while there is something typed to send. */
-export function DispatchKeys({ dispatch, sends, acts }: { dispatch: PaletteDispatch; sends: boolean; acts: boolean }) {
+export function DispatchKeys({
+  dispatch,
+  sends,
+  acts,
+}: {
+  dispatch: PaletteDispatch;
+  sends: boolean;
+  acts: boolean;
+}) {
   const verb = adds(dispatch.kind) ? "Add" : "Dispatch";
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span>{sends ? verb : "Open"} <KbdChord keys={["↵"]} /></span>
-      <span>{verb} <KbdChord keys={["⌘", "↵"]} /></span>
+      <span>
+        {sends ? verb : "Open"}{" "}
+        <KbdChord
+          keys={[
+            "↵",
+          ]}
+        />
+      </span>
+      <span>
+        {verb}{" "}
+        <KbdChord
+          keys={[
+            "⌘",
+            "↵",
+          ]}
+        />
+      </span>
       {listed(dispatch)[0] !== undefined ? (
-        <span>{listed(dispatch)[0]!.name} <KbdChord keys={["⇥"]} /></span>
+        <span>
+          {listed(dispatch)[0]!.name}{" "}
+          <KbdChord
+            keys={[
+              "⇥",
+            ]}
+          />
+        </span>
       ) : dispatch.onKind === undefined ? null : (
-        <span>{KIND[nextKind(dispatch)]} <KbdChord keys={["⇥"]} /></span>
+        <span>
+          {KIND[nextKind(dispatch)]}{" "}
+          <KbdChord
+            keys={[
+              "⇥",
+            ]}
+          />
+        </span>
       )}
       {acts ? <ActionsKey /> : null}
     </div>
@@ -220,11 +297,14 @@ export function DispatchKeys({ dispatch, sends, acts }: { dispatch: PaletteDispa
 }
 
 /** The chips Tab steps through: those with a list. */
-export const listed = (dispatch: PaletteDispatch): PaletteChip[] => (dispatch.chips ?? []).filter((one) => one.options.length > 1);
+export const listed = (dispatch: PaletteDispatch): PaletteChip[] =>
+  (dispatch.chips ?? []).filter((one) => one.options.length > 1);
 
 /** The kind Shift+Tab steps back to, round the kinds offered. */
 export function previousKind(dispatch: PaletteDispatch): BarKind {
-  const kinds = dispatch.kinds ?? ["session"];
+  const kinds = dispatch.kinds ?? [
+    "session",
+  ];
   return kinds[(kinds.indexOf(dispatch.kind) - 1 + kinds.length) % kinds.length] ?? "session";
 }
 
@@ -232,9 +312,43 @@ export function previousKind(dispatch: PaletteDispatch): BarKind {
 export function ChoiceKeys({ open }: { open: boolean }) {
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span>Choose <KbdChord keys={["↵"]} /></span>
-      {open ? <span>Next <KbdChord keys={["⇥"]} /></span> : <span>Choose <KbdChord keys={["⇥"]} /></span>}
-      {open ? <span>Back <KbdChord keys={["Esc"]} /></span> : null}
+      <span>
+        Choose{" "}
+        <KbdChord
+          keys={[
+            "↵",
+          ]}
+        />
+      </span>
+      {open ? (
+        <span>
+          Next{" "}
+          <KbdChord
+            keys={[
+              "⇥",
+            ]}
+          />
+        </span>
+      ) : (
+        <span>
+          Choose{" "}
+          <KbdChord
+            keys={[
+              "⇥",
+            ]}
+          />
+        </span>
+      )}
+      {open ? (
+        <span>
+          Back{" "}
+          <KbdChord
+            keys={[
+              "Esc",
+            ]}
+          />
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -243,8 +357,22 @@ export function ChoiceKeys({ open }: { open: boolean }) {
 export function StepKeys({ act = "Add" }: { act?: string }) {
   return (
     <div className="armada-palette__keys-foot" aria-hidden>
-      <span>{act} <KbdChord keys={["↵"]} /></span>
-      <span>Back <KbdChord keys={["Esc"]} /></span>
+      <span>
+        {act}{" "}
+        <KbdChord
+          keys={[
+            "↵",
+          ]}
+        />
+      </span>
+      <span>
+        Back{" "}
+        <KbdChord
+          keys={[
+            "Esc",
+          ]}
+        />
+      </span>
     </div>
   );
 }

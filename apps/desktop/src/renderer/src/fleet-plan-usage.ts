@@ -28,14 +28,16 @@ export function createFleetPlanUsage(fleet: FleetPlanUsage): PlanUsageSource {
   };
   const connectedIn = (facts: Pick<BridgeState, "connection">): void => {
     const connected = facts.connection.state === "connected";
-    if (connected && !wasConnected) void fleet.getPlanUsage().then((read) => read.ok && set(read.value));
+    if (connected && !wasConnected)
+      void fleet.getPlanUsage().then((read) => read.ok && set(read.value));
     wasConnected = connected;
   };
   const start = (): void => {
     const offState = fleet.subscribe(connectedIn);
     const offUsage = fleet.onPlanUsageChanged(set);
     void fleet.state().then((facts) => {
-      if (facts.connection.state !== "connected") void fleet.getPlanUsage().then((read) => read.ok && set(read.value));
+      if (facts.connection.state !== "connected")
+        void fleet.getPlanUsage().then((read) => read.ok && set(read.value));
       connectedIn(facts);
     });
     stop = () => {

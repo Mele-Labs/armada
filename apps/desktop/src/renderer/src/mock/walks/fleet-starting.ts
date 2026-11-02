@@ -5,10 +5,23 @@
 
 import { button, region, walk } from "../walk";
 
-const TITLE_ROW = button("Fleet — Starting", { exact: true });
+const TITLE_ROW = button("Fleet — Starting", {
+  exact: true,
+});
 
 export const fleetStarting = walk("fleet/starting", [
-  { look: TITLE_ROW, say: "The mark pulses where the dot sits" },
-  { hover: TITLE_ROW, say: "Its name is the tooltip" },
-  { look: region("Jobs", { exact: true }), say: "The Cockpit stands by: each panel drawn, waiting on Fleet, with no banner and nothing to run" },
+  {
+    look: TITLE_ROW,
+    say: "The mark pulses where the dot sits",
+  },
+  {
+    hover: TITLE_ROW,
+    say: "Its name is the tooltip",
+  },
+  {
+    look: region("Jobs", {
+      exact: true,
+    }),
+    say: "The Cockpit stands by: each panel drawn, waiting on Fleet, with no banner and nothing to run",
+  },
 ]);

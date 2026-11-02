@@ -5,27 +5,86 @@
 
 import { Fragment, useState } from "react";
 import type { DragEvent, KeyboardEvent } from "react";
-import { Bot, GraduationCap, MessageSquarePlus, MessageSquare, Pencil, Plus, Send, Trash2, Undo2, X } from "lucide-react";
-import { Button, FindingNotes, Input, Select, TaskMark, Textarea, Tooltip } from "@armada/components";
+import {
+  Bot,
+  GraduationCap,
+  MessageSquarePlus,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Send,
+  Trash2,
+  Undo2,
+  X,
+} from "lucide-react";
+import {
+  Button,
+  FindingNotes,
+  Input,
+  Select,
+  TaskMark,
+  Textarea,
+  Tooltip,
+} from "@armada/components";
 import type { Anchors, FindingActs } from "@armada/components";
 import type { PlanMark, WorkPlan } from "@armada/screens/src/draft/sessions";
 
 import { useTeach } from "../teach";
-import { addGroup, addNote, addTask, dropNote, move, remove, rename, setAgent, type Since, type ViewGroup, type ViewTask } from "./plan-marks";
+import {
+  addGroup,
+  addNote,
+  addTask,
+  dropNote,
+  move,
+  remove,
+  rename,
+  setAgent,
+  type Since,
+  type ViewGroup,
+  type ViewTask,
+} from "./plan-marks";
 
 /** The marks on the plan, and what changes them. `send` puts them to the agent as one message. */
-export type PlanEditing = { id: string; plan: WorkPlan; marks: readonly PlanMark[]; set: (next: PlanMark[]) => void; send: () => void; /** Approves the plan, with the marks he made going in the same press. */ approve?: () => void };
+export type PlanEditing = {
+  id: string;
+  plan: WorkPlan;
+  marks: readonly PlanMark[];
+  set: (next: PlanMark[]) => void;
+  send: () => void /** Approves the plan, with the marks he made going in the same press. */;
+  approve?: () => void;
+};
 
 /** The subagent types a group can be handed to. */
-const AGENTS = ["rust-engineer", "bridge-engineer", "protocol-engineer", "fixture-author", "judge", "general-purpose"];
+const AGENTS = [
+  "rust-engineer",
+  "bridge-engineer",
+  "protocol-engineer",
+  "fixture-author",
+  "judge",
+  "general-purpose",
+];
 
 /** A Judge's notes by what they are about, and their acts. Drawn under the group or task each names. */
-export type FindingPins = { anchors: Anchors } & FindingActs;
+export type FindingPins = {
+  anchors: Anchors;
+} & FindingActs;
 
 const key = (ed: PlanEditing, what: string) => `plan-note:${ed.id}:${what}`;
 
 /** A name that is a button until pressed, then a field: Enter saves it and Esc, or leaving it, keeps the old one. */
-export function EditText({ value, was, label, onSave, className }: { value: string; was?: string | undefined; label: string; onSave: (to: string) => void; className?: string }) {
+export function EditText({
+  value,
+  was,
+  label,
+  onSave,
+  className,
+}: {
+  value: string;
+  was?: string | undefined;
+  label: string;
+  onSave: (to: string) => void;
+  className?: string;
+}) {
   const [draft, setDraft] = useState<string | undefined>();
   if (draft !== undefined) {
     const save = () => {
@@ -52,7 +111,12 @@ export function EditText({ value, was, label, onSave, className }: { value: stri
   return (
     <span className="sv-edit">
       {was === undefined ? null : <s className="sv-edit__was">{was}</s>}
-      <button type="button" className={`sv-edit__text${className === undefined ? "" : ` ${className}`}`} aria-label={`${label}: ${value}`} onClick={() => setDraft(value)}>
+      <button
+        type="button"
+        className={`sv-edit__text${className === undefined ? "" : ` ${className}`}`}
+        aria-label={`${label}: ${value}`}
+        onClick={() => setDraft(value)}
+      >
         {value}
       </button>
     </span>
@@ -60,24 +124,58 @@ export function EditText({ value, was, label, onSave, className }: { value: stri
 }
 
 /** The glyphs a row shows on hover: a note pinned to it, Teach where the row offers it, and remove, which becomes undo once it is removed. */
-function Tools({ what, removed, onNote, onRemove, onTeach }: { what: string; removed: boolean; onNote: () => void; onRemove: () => void; onTeach?: (() => void) | undefined }) {
+function Tools({
+  what,
+  removed,
+  onNote,
+  onRemove,
+  onTeach,
+}: {
+  what: string;
+  removed: boolean;
+  onNote: () => void;
+  onRemove: () => void;
+  onTeach?: (() => void) | undefined;
+}) {
   return (
     <span className="sv-edit__tools">
       <Tooltip label="Suggest">
-        <Button variant="ghost" size="sm" iconOnly aria-label={`Suggest on ${what}`} onClick={onNote}>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={`Suggest on ${what}`}
+          onClick={onNote}
+        >
           <MessageSquarePlus size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
       {onTeach === undefined ? null : (
         <Tooltip label="Teach">
-          <Button variant="ghost" size="sm" iconOnly aria-label={`Teach on ${what}`} onClick={onTeach}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label={`Teach on ${what}`}
+            onClick={onTeach}
+          >
             <GraduationCap size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
       )}
       <Tooltip label={removed ? "Keep" : "Remove"}>
-        <Button variant="ghost" size="sm" iconOnly aria-label={`${removed ? "Keep" : "Remove"} ${what}`} onClick={onRemove}>
-          {removed ? <Undo2 size={16} strokeWidth={2} aria-hidden /> : <Trash2 size={16} strokeWidth={2} aria-hidden />}
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={`${removed ? "Keep" : "Remove"} ${what}`}
+          onClick={onRemove}
+        >
+          {removed ? (
+            <Undo2 size={16} strokeWidth={2} aria-hidden />
+          ) : (
+            <Trash2 size={16} strokeWidth={2} aria-hidden />
+          )}
         </Button>
       </Tooltip>
     </span>
@@ -85,7 +183,17 @@ function Tools({ what, removed, onNote, onRemove, onTeach }: { what: string; rem
 }
 
 /** The one-line box a suggestion is written in. Enter pins it, Esc leaves it. */
-function NoteBox({ about, label, onAdd, onClose }: { about: string; label: string; onAdd: (text: string) => void; onClose: () => void }) {
+function NoteBox({
+  about,
+  label,
+  onAdd,
+  onClose,
+}: {
+  about: string;
+  label: string;
+  onAdd: (text: string) => void;
+  onClose: () => void;
+}) {
   const [text, setText] = useState("");
   const submit = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Escape") {
@@ -99,7 +207,15 @@ function NoteBox({ about, label, onAdd, onClose }: { about: string; label: strin
   };
   return (
     <div className="sv-note-box">
-      <Textarea aria-label={label} rows={1} keep={about} autoFocus value={text} onChange={(event) => setText(event.target.value)} onKeyDown={submit} />
+      <Textarea
+        aria-label={label}
+        rows={1}
+        keep={about}
+        autoFocus
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={submit}
+      />
       <Tooltip label="Close">
         <Button variant="ghost" size="sm" iconOnly aria-label="Close suggestion" onClick={onClose}>
           <X size={16} strokeWidth={2} aria-hidden />
@@ -123,7 +239,13 @@ function Notes({ notes, ed }: { notes: ViewGroup["notes"]; ed: PlanEditing }) {
           </Tooltip>
           <span>{note.text}</span>
           <Tooltip label="Take back">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Take back suggestion" onClick={() => ed.set(dropNote(ed.marks, note.id))}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Take back suggestion"
+              onClick={() => ed.set(dropNote(ed.marks, note.id))}
+            >
               <X size={12} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
@@ -135,7 +257,8 @@ function Notes({ notes, ed }: { notes: ViewGroup["notes"]; ed: PlanEditing }) {
 
 /** Where the agent changed a group or task in the plan it recorded again. */
 function SinceMark({ since }: { since: Since }) {
-  const said = since.kind === "added" ? "Added by the agent" : `Renamed by the agent, was ${since.from}`;
+  const said =
+    since.kind === "added" ? "Added by the agent" : `Renamed by the agent, was ${since.from}`;
   return (
     <Tooltip label={said}>
       <span className="sv-since" data-kind={since.kind} role="img" aria-label={said}>
@@ -154,7 +277,10 @@ function SinceMark({ since }: { since: Since }) {
 function TaskRow({ task, group, ed }: { task: ViewTask; group: ViewGroup; ed: PlanEditing }) {
   const [noting, setNoting] = useState(false);
   const teach = useTeach();
-  const target = { group: task.home, task: task.id };
+  const target = {
+    group: task.home,
+    task: task.id,
+  };
   return (
     <li
       className="sv-task sv-task--edit"
@@ -167,7 +293,12 @@ function TaskRow({ task, group, ed }: { task: ViewTask; group: ViewGroup; ed: Pl
       <TaskMark state={task.state} />
       <span className="sv-task__body">
         <span className="sv-task__line">
-          <EditText label="Task" value={task.text} was={task.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, target, to))} />
+          <EditText
+            label="Task"
+            value={task.text}
+            was={task.was}
+            onSave={(to) => ed.set(rename(ed.plan, ed.marks, target, to))}
+          />
           {task.added === true ? (
             <Tooltip label="Added, not sent yet">
               <span className="sv-since" data-kind="added" role="img" aria-label="Added">
@@ -175,9 +306,17 @@ function TaskRow({ task, group, ed }: { task: ViewTask; group: ViewGroup; ed: Pl
               </span>
             </Tooltip>
           ) : null}
-          {task.movedFrom === undefined ? null : <span className="sv-moved">from {task.movedFrom}</span>}
+          {task.movedFrom === undefined ? null : (
+            <span className="sv-moved">from {task.movedFrom}</span>
+          )}
           {task.since === undefined ? null : <SinceMark since={task.since} />}
-          <Tools what={`task ${task.text}`} removed={task.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} onTeach={teach === undefined ? undefined : () => teach("task", task.text)} />
+          <Tools
+            what={`task ${task.text}`}
+            removed={task.removed === true}
+            onNote={() => setNoting(true)}
+            onRemove={() => ed.set(remove(ed.marks, target))}
+            onTeach={teach === undefined ? undefined : () => teach("task", task.text)}
+          />
         </span>
         <Notes notes={task.notes} ed={ed} />
         {noting ? (
@@ -228,12 +367,28 @@ function AddTask({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
  * A group, edited in place: its subagent type, its title, the glyphs for a note and for removing it, then its tasks, which take a drop
  * from another group, and an empty task to type the next one into. Drawn open, as the overlay draws a group and as the panel does under a group's row.
  */
-export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pins }: { group: ViewGroup; ed: PlanEditing; head?: boolean; /** Whether the head repeats the group's title: not where a row above it already holds the title. */ titled?: boolean; /** Where the pencil sends the caller that holds the head open itself, instead of the editor doing it. */ onEdit?: () => void; pins?: FindingPins }) {
+export function GroupEditor({
+  group,
+  ed,
+  head = true,
+  titled = true,
+  onEdit,
+  pins,
+}: {
+  group: ViewGroup;
+  ed: PlanEditing;
+  head?: boolean /** Whether the head repeats the group's title: not where a row above it already holds the title. */;
+  titled?: boolean /** Where the pencil sends the caller that holds the head open itself, instead of the editor doing it. */;
+  onEdit?: () => void;
+  pins?: FindingPins;
+}) {
   const [noting, setNoting] = useState(false);
   // Without its head, the title and subagent type open behind a pencil, and stay open while either carries an edit.
   const [editing, setEditing] = useState(false);
   const headed = head || editing || group.was !== undefined || group.agentWas !== undefined;
-  const target = { group: group.id };
+  const target = {
+    group: group.id,
+  };
   const marks = (
     <>
       {group.added === true ? (
@@ -246,19 +401,39 @@ export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pin
       {group.since === undefined ? null : <SinceMark since={group.since} />}
     </>
   );
-  const tools = <Tools what={`group ${group.title}`} removed={group.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} />;
+  const tools = (
+    <Tools
+      what={`group ${group.title}`}
+      removed={group.removed === true}
+      onNote={() => setNoting(true)}
+      onRemove={() => ed.set(remove(ed.marks, target))}
+    />
+  );
   const drop = (event: DragEvent) => {
     event.preventDefault();
     const task = event.dataTransfer.getData("text/plain");
     if (task !== "") ed.set(move(ed.plan, ed.marks, task, group.id));
   };
   return (
-    <div className="sv-edit-group" data-removed={group.removed || undefined} data-added={group.added || undefined} data-editing={(headed && (!head || onEdit !== undefined)) || undefined} onDragOver={(event) => event.preventDefault()} onDrop={drop}>
+    <div
+      className="sv-edit-group"
+      data-removed={group.removed || undefined}
+      data-added={group.added || undefined}
+      data-editing={(headed && (!head || onEdit !== undefined)) || undefined}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={drop}
+    >
       {headed ? (
         <div className="sv-edit-group__head">
           {titled ? (
             <div className="sv-edit-group__name">
-              <EditText label="Group" className="sv-group__title" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, target, to))} />
+              <EditText
+                label="Group"
+                className="sv-group__title"
+                value={group.title}
+                was={group.was}
+                onSave={(to) => ed.set(rename(ed.plan, ed.marks, target, to))}
+              />
               {marks}
               {tools}
             </div>
@@ -267,9 +442,22 @@ export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pin
             <Tooltip label="Subagent type">
               <span className="sv-group__agent">
                 <Bot size={12} strokeWidth={2} aria-hidden />
-                {group.agentWas === undefined ? null : <s className="sv-edit__was">{group.agentWas}</s>}
-                <Select aria-label={`Subagent type of ${group.title}`} value={group.agent} onChange={(event) => ed.set(setAgent(ed.plan, ed.marks, group.id, event.target.value))}>
-                  {[...new Set([group.agent, ...AGENTS])].map((one) => (
+                {group.agentWas === undefined ? null : (
+                  <s className="sv-edit__was">{group.agentWas}</s>
+                )}
+                <Select
+                  aria-label={`Subagent type of ${group.title}`}
+                  value={group.agent}
+                  onChange={(event) =>
+                    ed.set(setAgent(ed.plan, ed.marks, group.id, event.target.value))
+                  }
+                >
+                  {[
+                    ...new Set([
+                      group.agent,
+                      ...AGENTS,
+                    ]),
+                  ].map((one) => (
                     <option key={one} value={one}>
                       {one}
                     </option>
@@ -289,11 +477,22 @@ export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pin
         <div className="sv-edit-group__head">
           <span className="sv-edit__tools">
             <Tooltip label="Edit group">
-              <Button variant="ghost" size="sm" iconOnly aria-label={`Edit group ${group.title}`} onClick={() => (onEdit === undefined ? setEditing(true) : onEdit())}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={`Edit group ${group.title}`}
+                onClick={() => (onEdit === undefined ? setEditing(true) : onEdit())}
+              >
                 <Pencil size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
-            <Tools what={`group ${group.title}`} removed={group.removed === true} onNote={() => setNoting(true)} onRemove={() => ed.set(remove(ed.marks, target))} />
+            <Tools
+              what={`group ${group.title}`}
+              removed={group.removed === true}
+              onNote={() => setNoting(true)}
+              onRemove={() => ed.set(remove(ed.marks, target))}
+            />
           </span>
         </div>
       )}
@@ -309,14 +508,26 @@ export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pin
           }}
         />
       ) : null}
-      {pins === undefined ? null : <FindingNotes findings={pins.anchors.at(group.id)} label={`Findings on ${group.title}`} onSend={pins.onSend} onDismiss={pins.onDismiss} />}
+      {pins === undefined ? null : (
+        <FindingNotes
+          findings={pins.anchors.at(group.id)}
+          label={`Findings on ${group.title}`}
+          onSend={pins.onSend}
+          onDismiss={pins.onDismiss}
+        />
+      )}
       <ul className="sv-tasks">
         {group.tasks.map((task) => (
           <Fragment key={task.id}>
             <TaskRow task={task} group={group} ed={ed} />
             {pins === undefined || pins.anchors.at(task.id).length === 0 ? null : (
               <li className="sv-task__findings">
-                <FindingNotes findings={pins.anchors.at(task.id)} label={`Findings on ${task.text}`} onSend={pins.onSend} onDismiss={pins.onDismiss} />
+                <FindingNotes
+                  findings={pins.anchors.at(task.id)}
+                  label={`Findings on ${task.text}`}
+                  onSend={pins.onSend}
+                  onDismiss={pins.onDismiss}
+                />
               </li>
             )}
           </Fragment>
@@ -324,7 +535,12 @@ export function GroupEditor({ group, ed, head = true, titled = true, onEdit, pin
         {group.gone.map((text) => (
           <li key={text} className="sv-task sv-task--gone">
             <Tooltip label="Removed by the agent">
-              <span role="img" aria-label="Removed by the agent" className="sv-since" data-kind="removed">
+              <span
+                role="img"
+                aria-label="Removed by the agent"
+                className="sv-since"
+                data-kind="removed"
+              >
                 <Trash2 size={12} strokeWidth={2} aria-hidden />
               </span>
             </Tooltip>

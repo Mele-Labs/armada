@@ -8,7 +8,10 @@ import type { HeldNote, NotedRef } from "@armada/components";
 
 import "./styles/index.css";
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 
 afterEach(() => {
   for (const { root, host } of roots.splice(0)) {
@@ -18,50 +21,109 @@ afterEach(() => {
 });
 
 const NOTES: HeldNote[] = [
-  { about: { kind: "file", path: "/Users/me/repo/crates/fleet/src/retry.rs", from: 12, to: 14, quote: "a\nb\nc" }, text: "Too many" },
+  {
+    about: {
+      kind: "file",
+      path: "/Users/me/repo/crates/fleet/src/retry.rs",
+      from: 12,
+      to: 14,
+      quote: "a\nb\nc",
+    },
+    text: "Too many",
+  },
   {
     about: {
       kind: "sketch",
       title: "Retry flow",
       parts: [
-        { id: "n3", label: "Backoff" },
-        { id: "n4", label: "Cap" },
+        {
+          id: "n3",
+          label: "Backoff",
+        },
+        {
+          id: "n4",
+          label: "Cap",
+        },
       ],
     },
     text: "Cap is low",
   },
-  { about: { kind: "image", name: "shot.png", path: "/tmp/shot.png", region: { x: 0.1, y: 0.2, w: 0.5, h: 0.25 }, crop: "data:image/png;base64,AAAA" }, text: "Misaligned" },
+  {
+    about: {
+      kind: "image",
+      name: "shot.png",
+      path: "/tmp/shot.png",
+      region: {
+        x: 0.1,
+        y: 0.2,
+        w: 0.5,
+        h: 0.25,
+      },
+      crop: "data:image/png;base64,AAAA",
+    },
+    text: "Misaligned",
+  },
 ];
 
 function thread(open: (ref: NotedRef) => void) {
   const blocks = notedOf(notesMessage(NOTES).text)!;
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
-  roots.push({ root, host });
-  root.render(<NotedMessage blocks={blocks} opens={{ open, root: "/Users/me/repo" }} />);
+  roots.push({
+    root,
+    host,
+  });
+  root.render(
+    <NotedMessage
+      blocks={blocks}
+      opens={{
+        open,
+        root: "/Users/me/repo",
+      }}
+    />,
+  );
 }
 
 test("a file's heading opens the file at its lines", async () => {
   const open = vi.fn();
   thread(open);
-  await userEvent.click(page.getByRole("button", { name: "crates/fleet/src/retry.rs:12-14" }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "crates/fleet/src/retry.rs:12-14",
+    }),
+  );
 
   expect(open).toHaveBeenCalledOnce();
-  expect(open).toHaveBeenCalledWith({ kind: "file", path: "/Users/me/repo/crates/fleet/src/retry.rs", from: 12, to: 14 });
+  expect(open).toHaveBeenCalledWith({
+    kind: "file",
+    path: "/Users/me/repo/crates/fleet/src/retry.rs",
+    from: 12,
+    to: 14,
+  });
 });
 
 test("a sketch's heading opens the sketch with the parts the note named", async () => {
   const open = vi.fn();
   thread(open);
-  await userEvent.click(page.getByRole("button", { name: "Retry flow: Backoff, Cap" }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Retry flow: Backoff, Cap",
+    }),
+  );
 
   expect(open).toHaveBeenCalledOnce();
   expect(open).toHaveBeenCalledWith({
     kind: "sketch",
     title: "Retry flow",
     parts: [
-      { id: "n3", label: "Backoff" },
-      { id: "n4", label: "Cap" },
+      {
+        id: "n3",
+        label: "Backoff",
+      },
+      {
+        id: "n4",
+        label: "Cap",
+      },
     ],
   });
 });
@@ -69,7 +131,11 @@ test("a sketch's heading opens the sketch with the parts the note named", async 
 test("a picture's heading opens the picture with the region the note marked", async () => {
   const open = vi.fn();
   thread(open);
-  await userEvent.click(page.getByRole("button", { name: "shot.png, region" }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "shot.png, region",
+    }),
+  );
 
   expect(open).toHaveBeenCalledOnce();
   const ref = open.mock.calls[0]![0] as NotedRef;
@@ -84,7 +150,13 @@ test("a picture's heading opens the picture with the region the note marked", as
 
 test("each note is listed under its number with its words, and the headings are the only presses", async () => {
   thread(vi.fn());
-  await expect.element(page.getByRole("list", { name: "Notes" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("list", {
+        name: "Notes",
+      }),
+    )
+    .toBeVisible();
   await expect.element(page.getByText("Too many")).toBeVisible();
   await expect.element(page.getByText("Cap is low")).toBeVisible();
   await expect.element(page.getByText("Misaligned")).toBeVisible();

@@ -9,7 +9,12 @@ import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { JobBrowserPane } from "./JobBrowserPane";
 import { useJobBrowser } from "./store";
 
-const HELD = { held: { state: "none" }, onWant: () => {} } as const;
+const HELD = {
+  held: {
+    state: "none",
+  },
+  onWant: () => {},
+} as const;
 
 /** The Job beside its browser: its thread and its composer, the Cockpit's own. */
 function JobBeside({ sessionId, className }: { sessionId: string; className?: string }) {
@@ -17,13 +22,44 @@ function JobBeside({ sessionId, className }: { sessionId: string; className?: st
   const draft = useSessionsDraft();
   if (session === undefined || draft === undefined) return null;
   return (
-    <section className={["deck-pane", className].filter(Boolean).join(" ")} data-frame="" aria-label={`Job: ${session.title ?? session.id}`} {...{ [OPEN_SESSION_ATTRIBUTE]: session.id }}>
+    <section
+      className={[
+        "deck-pane",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-frame=""
+      aria-label={`Job: ${session.title ?? session.id}`}
+      {...{
+        [OPEN_SESSION_ATTRIBUTE]: session.id,
+      }}
+    >
       <SessionView
         session={session}
-        goes={{ onGoTo: () => {}, onOpenLink: () => {}, onOpenCheck: () => {}, onOpenLoadout: () => {} }}
+        goes={{
+          onGoTo: () => {},
+          onOpenLink: () => {},
+          onOpenCheck: () => {},
+          onOpenLoadout: () => {},
+        }}
         onOpen={askToOpenSession}
         held={HELD}
-        deck={{ ledger: null, back: null, acts: draft.stop === undefined ? [] : [{ id: "stop", label: "Stop", icon: Square, run: () => draft.stop?.(session.id) }] }}
+        deck={{
+          ledger: null,
+          back: null,
+          acts:
+            draft.stop === undefined
+              ? []
+              : [
+                  {
+                    id: "stop",
+                    label: "Stop",
+                    icon: Square,
+                    run: () => draft.stop?.(session.id),
+                  },
+                ],
+        }}
       />
     </section>
   );

@@ -6,13 +6,28 @@ import type { StoryArgs, StyleChange } from "../../../shared/annotations";
 import { hostRootOf } from "./fiber";
 
 /** A story picked on a component: the name its fiber is found by, and the args the story sets. */
-export type Swap = { component: string; args: StoryArgs };
+export type Swap = {
+  component: string;
+  args: StoryArgs;
+};
 
 type Kept = {
-  styles: Map<string, { value: string; priority: string }>;
-  text?: { node: Text; value: string };
+  styles: Map<
+    string,
+    {
+      value: string;
+      priority: string;
+    }
+  >;
+  text?: {
+    node: Text;
+    value: string;
+  };
   /** The component's root and each `data-` attribute of it a story set, as it was: null where it had none. */
-  attributes?: { host: Element; was: Map<string, string | null> };
+  attributes?: {
+    host: Element;
+    was: Map<string, string | null>;
+  };
   id: string;
 };
 
@@ -21,7 +36,8 @@ const kept = new WeakMap<Element, Kept>();
 /** The element's first text with words in it, which the Text tool edits. Null where it draws none. */
 export function wordsOf(element: Element): Text | null {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => ((node.nodeValue ?? "").trim() === "" ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT),
+    acceptNode: (node) =>
+      (node.nodeValue ?? "").trim() === "" ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT,
   });
   return walker.nextNode() as Text | null;
 }
@@ -40,10 +56,26 @@ export function computed(element: Element, property: string): string {
 export function asHex(value: string): string {
   const parts = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+%?))?\s*\)$/.exec(value);
   if (parts === null) return value;
-  const alpha = parts[4] === undefined ? 1 : parts[4].endsWith("%") ? Number(parts[4].slice(0, -1)) / 100 : Number(parts[4]);
+  const alpha =
+    parts[4] === undefined
+      ? 1
+      : parts[4].endsWith("%")
+        ? Number(parts[4].slice(0, -1)) / 100
+        : Number(parts[4]);
   if (alpha === 0) return "transparent";
-  const hex = [parts[1], parts[2], parts[3]].map((part) => Number(part).toString(16).padStart(2, "0").toUpperCase()).join("");
-  return alpha === 1 ? `#${hex}` : `#${hex}${Math.round(alpha * 255).toString(16).padStart(2, "0").toUpperCase()}`;
+  const hex = [
+    parts[1],
+    parts[2],
+    parts[3],
+  ]
+    .map((part) => Number(part).toString(16).padStart(2, "0").toUpperCase())
+    .join("");
+  return alpha === 1
+    ? `#${hex}`
+    : `#${hex}${Math.round(alpha * 255)
+        .toString(16)
+        .padStart(2, "0")
+        .toUpperCase()}`;
 }
 
 /** What a token resolves to where `element` sits, so a theme's own value is the one recorded. */
@@ -55,7 +87,10 @@ export function tokenValue(element: Element, token: string): string {
 export const RESTYLED = "data-armada-restyled";
 
 /** Size and Colour reach what is inside the element too: "larger" is about what is in the area he picked. */
-const REACHES_INSIDE: ReadonlySet<string> = new Set(["font-size", "color"]);
+const REACHES_INSIDE: ReadonlySet<string> = new Set([
+  "font-size",
+  "color",
+]);
 
 /** Each note's rule, by its id, written together into the one style element the layer owns. */
 const rules = new Map<string, string>();
@@ -67,27 +102,41 @@ function writeRules(): void {
     sheet.setAttribute("data-armada-restyle", "");
     document.head.append(sheet);
   }
-  sheet.textContent = [...rules.values()].join("\n");
+  sheet.textContent = [
+    ...rules.values(),
+  ].join("\n");
 }
 
-const valueOf = (change: StyleChange): string => (change.token === undefined ? change.after : `var(${change.token})`);
+const valueOf = (change: StyleChange): string =>
+  change.token === undefined ? change.after : `var(${change.token})`;
 
 /**
  * Takes off whatever was put on before, then puts note `id`'s `changes` on: a token as the token, so it follows the theme.
  * Size and Colour go in one rule for the element and all inside it; Fill and Spacing inline on the element; Text in its words.
  * A variant swaps the args of `swap`'s story onto the component's root, as `data-<arg>` where the root has one.
  */
-export function putOn(element: Element, changes: readonly StyleChange[], id: string, swap?: Swap): void {
+export function putOn(
+  element: Element,
+  changes: readonly StyleChange[],
+  id: string,
+  swap?: Swap,
+): void {
   takeOff(element);
   if (!(element instanceof HTMLElement) && !(element instanceof SVGElement)) return;
-  const was: Kept = { styles: new Map(), id };
+  const was: Kept = {
+    styles: new Map(),
+    id,
+  };
   const reaching: string[] = [];
   for (const change of changes) {
     if (change.kind === "variant") {
       if (swap === undefined || was.attributes !== undefined) continue;
       const host = hostRootOf(element, swap.component);
       if (host === null) continue;
-      const attributes = { host, was: new Map<string, string | null>() };
+      const attributes = {
+        host,
+        was: new Map<string, string | null>(),
+      };
       for (const [key, value] of Object.entries(swap.args)) {
         const name = `data-${key}`;
         if (!host.hasAttribute(name)) continue;
@@ -101,7 +150,10 @@ export function putOn(element: Element, changes: readonly StyleChange[], id: str
     if (change.kind === "text") {
       const node = was.text?.node ?? wordsOf(element);
       if (node === null) continue;
-      was.text ??= { node, value: node.nodeValue ?? "" };
+      was.text ??= {
+        node,
+        value: node.nodeValue ?? "",
+      };
       node.nodeValue = change.after;
       continue;
     }
@@ -110,7 +162,10 @@ export function putOn(element: Element, changes: readonly StyleChange[], id: str
       continue;
     }
     if (!was.styles.has(change.property)) {
-      was.styles.set(change.property, { value: element.style.getPropertyValue(change.property), priority: element.style.getPropertyPriority(change.property) });
+      was.styles.set(change.property, {
+        value: element.style.getPropertyValue(change.property),
+        priority: element.style.getPropertyPriority(change.property),
+      });
     }
     element.style.setProperty(change.property, valueOf(change), "important");
   }

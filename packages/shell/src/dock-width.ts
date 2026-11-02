@@ -39,7 +39,10 @@ function write(width: number): void {
  * sheet, which shares it, to the area that sheet covers — which has no
  * `--w-work-min` to keep, so a clamp here would cap the sheet at the dock's.
  */
-export function useDockWidth(): [number, (width: number) => void] {
+export function useDockWidth(): [
+  number,
+  (width: number) => void,
+] {
   const [width, setWidth] = useState(() => read() ?? defaultDockWidth());
 
   function press(next: number): void {
@@ -47,5 +50,8 @@ export function useDockWidth(): [number, (width: number) => void] {
     write(next);
   }
 
-  return [width, press];
+  return [
+    width,
+    press,
+  ];
 }

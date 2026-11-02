@@ -15,16 +15,62 @@ const TEST = "pnpm test";
 const waiting: Session = {
   id: "s17",
   title: "Pin the store clock",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: minutesAgo(2),
   rows: [
-    { id: "p1", at: "14:36:10", kind: "message", from: { kind: "you" }, text: "Pin the clock in the store tests." },
-    { id: "p2", at: "14:40:11", kind: "message", from: { kind: "agent" }, text: "The change is on the branch. Both of these are yours to run." },
+    {
+      id: "p1",
+      at: "14:36:10",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Pin the clock in the store tests.",
+    },
+    {
+      id: "p2",
+      at: "14:40:11",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "The change is on the branch. Both of these are yours to run.",
+    },
   ],
-  attachments: [{ kind: "slot", slot: 3 }, { kind: "branch", name: "fix/pin-store-clock", slot: 3 }],
+  attachments: [
+    {
+      kind: "slot",
+      slot: 3,
+    },
+    {
+      kind: "branch",
+      name: "fix/pin-store-clock",
+      slot: 3,
+    },
+  ],
   waitingFor: [
-    { id: "p-preview", text: "Restart onto the preview", since: minutesAgo(3), source: "agent", act: { kind: "run", target: RESTART } },
-    { id: "p-test", text: "Run the tests", since: minutesAgo(2), source: "agent", act: { kind: "run", target: TEST } },
+    {
+      id: "p-preview",
+      text: "Restart onto the preview",
+      since: minutesAgo(3),
+      source: "agent",
+      act: {
+        kind: "run",
+        target: RESTART,
+      },
+    },
+    {
+      id: "p-test",
+      text: "Run the tests",
+      since: minutesAgo(2),
+      source: "agent",
+      act: {
+        kind: "run",
+        target: TEST,
+      },
+    },
   ],
 };
 
@@ -32,5 +78,10 @@ export const s241RefreshPreviewOnSessions: Scenario = {
   ...s200Sessions,
   name: "refresh-preview-on-sessions",
   says: "A Session waiting on a restart onto the preview and on a command, on the Session's list and on its call card",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [waiting]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        waiting,
+      ]),
+  },
 };

@@ -19,12 +19,25 @@ export const sThreadHeadRoom: Scenario = {
         ...one,
         title: "Retry the slot lease when two Jobs ask for the same bay at once",
         autoLand: true,
-        attachments: [...one.attachments, { kind: "subagent", id: "head-sa1", task: "Read the lease's retry path", state: "running", agentType: "explorer" }],
+        attachments: [
+          ...one.attachments,
+          {
+            kind: "subagent",
+            id: "head-sa1",
+            task: "Read the lease's retry path",
+            state: "running",
+            agentType: "explorer",
+          },
+        ],
       }));
       return {
         ...store,
         move: async () => undefined,
-        rename: (id, title) => store.edit(id, (one) => ({ ...one, title })),
+        rename: (id, title) =>
+          store.edit(id, (one) => ({
+            ...one,
+            title,
+          })),
         nameForMe: async () => undefined,
       };
     },
