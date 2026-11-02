@@ -23,6 +23,7 @@ import {
   Dialog,
   GraphCanvasNodeBar,
   GraphCanvasRailGroup,
+  Skeleton,
   SplitButton,
   Stamp,
   StampSurface,
@@ -35,8 +36,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeaderCell,
   TableRow,
   Tooltip,
   keyFor,
@@ -283,7 +282,7 @@ function StudioList({ studios, live, onOpen, onCreate, onRename, nameOf }: Studi
   }
   // All repositories: a panel for each repository that keeps any, in name order. One that keeps none draws none.
   const panels = studios.reads
-    .filter((one) => one.state === "failed" || (one.state === "read" && one.list.studios.length > 0))
+    .filter((one) => one.state === "failed" || one.state === "reading" || (one.state === "read" && one.list.studios.length > 0))
     .map((one) => ({ one, name: nameOf?.(one.manifestId) ?? one.manifestId }))
     .sort((x, y) => x.name.localeCompare(y.name));
   return (
@@ -347,7 +346,7 @@ function StudiosPanel({
       <CardHeader className="armada-studio__head">
         <CardTitle>{title}</CardTitle>
         <Tooltip label={creating ? "Starting a Studio" : "New Studio"} asChild>
-          <Button variant="ghost" size="sm" iconOnly aria-label="New Studio" pending={creating} disabled={!live} onClick={create}>
+          <Button variant="ghost" iconOnly aria-label="New Studio" pending={creating} disabled={!live} onClick={create}>
             <Plus size={16} aria-hidden="true" />
           </Button>
         </Tooltip>
@@ -374,6 +373,8 @@ type ListBodyProps = {
   onRename: (studioId: string, name: string) => void;
 };
 
+const PENDING_ROWS = [0, 1, 2];
+
 function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
   if (studios.state === "failed") {
     return (
@@ -382,20 +383,34 @@ function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
       </Alert>
     );
   }
-  // Before the read answers, and with none kept, there is nothing to draw: an empty slot stays empty.
+  // Before the read answers, bars stand where the rows will be, so they land on them; once it has, with none kept, nothing is drawn: an empty slot stays empty.
+  if (studios.state === "reading") {
+    return (
+      <StampSurface>
+        <Table className="armada-studio-list armada-studio-list--pending" aria-hidden>
+          <TableBody>
+            {PENDING_ROWS.map((at) => (
+              <TableRow key={at}>
+                <TableCell>
+                  <Skeleton width="40%" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton width="4rem" />
+                </TableCell>
+                <TableCell className="armada-studio-list__acts">
+                  <Skeleton width="3rem" />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </StampSurface>
+    );
+  }
   if (studios.state !== "read" || studios.list.studios.length === 0) return null;
   return (
     <StampSurface>
       <Table className="armada-studio-list">
-        <TableHead>
-          <TableRow>
-            <TableHeaderCell>Name</TableHeaderCell>
-            <TableHeaderCell>Last touched</TableHeaderCell>
-            {/* The acts column carries no word: a Job row's control has no header
-                either, and a heading over one split button reads as a fact. */}
-            <TableHeaderCell aria-label="Acts" />
-          </TableRow>
-        </TableHead>
         <TableBody>
           {studios.list.studios.map((one) => (
             <Row
@@ -468,7 +483,7 @@ function Row({
           way. */}
       <TableCell className="armada-studio-list__acts" onClick={(event) => event.stopPropagation()}>
         <SplitButton
-          ground="card"
+          variant="ghost"
           menuLabel={`More for ${shown}`}
           onAction={() => onOpen(studio.id)}
           items={live ? [{ label: "Rename", onSelect: () => setNaming(true) }] : []}

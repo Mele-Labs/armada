@@ -26,10 +26,7 @@
 /* A panel is the Cockpit's: raised, hairline, rest shadow. */
 :root[data-look="new"] :is(
   .armada-lessons-page .armada-lessons,
-  .armada-studio__board,
-  .armada-doctor .armada-tiles.armada-view__grid,
-  .armada-doctor .armada-doctor-pane,
-  .armada-doctor__gaps
+  .armada-studio__board
 ) {
   border: var(--border-width) solid var(--edge-rest);
   border-radius: var(--radius-lg);
@@ -39,9 +36,7 @@
 
 /* A section head inside a panel: tracked caps, one solid hairline under it. */
 :root[data-look="new"] :is(
-  .armada-studio-list .armada-table-header-cell,
-  .armada-lesson__fix-label,
-  .armada-doctor__gaps-head
+  .armada-lesson__fix-label
 ) {
   color: var(--fg-muted);
   font-family: var(--font-display);
@@ -145,6 +140,7 @@
   padding: 0 0 var(--pad-page);
 }
 :root[data-look="new"] .armada-studios-page > .armada-card {
+  flex: 1 0 auto;
   gap: 0;
   padding: 0;
   overflow: hidden;
@@ -158,16 +154,11 @@
   overflow: hidden;
   clip-path: inset(50%);
 }
-:root[data-look="new"] .armada-studios-page .armada-card-content { padding: 0; }
+:root[data-look="new"] .armada-studios-page .armada-card > .armada-card-header + .armada-card-content { padding: 0; }
 :root[data-look="new"] .armada-studios-page .armada-card-content > .armada-alert { margin: var(--space-3); }
-:root[data-look="new"] .armada-studio-list { border-collapse: separate; border-spacing: 0; overflow: hidden; width: 100%; }
-:root[data-look="new"] .armada-studio-list .armada-table-header-cell {
-  padding: var(--space-3) var(--space-4);
-  background: transparent;
-  border-bottom: var(--border-width) solid var(--head-rule);
-}
+:root[data-look="new"] .armada-studio-list { border-collapse: separate; border-spacing: 0; overflow: hidden; width: 100%; background: transparent; }
 :root[data-look="new"] .armada-studio-list .armada-table-cell {
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   height: var(--h-row);
   border-bottom: var(--border-width) solid var(--head-rule);
   font-size: var(--text-row);
@@ -201,34 +192,17 @@
 :root[data-look="new"] .armada-studio__board { overflow: hidden; background: var(--bg-sunken); }
 
 /* ================================================================ Doctor ===================================== */
-/* The viewscreen's frame, glow and ruled glass go; what is left is a page: a title row, a panel of instruments and the
-   one picked beside it. */
+/* The viewscreen's frame, glow and ruled glass go; what is left is a page: a panel of instruments, its acts in its own strip,
+   and the one picked beside it. */
 :root[data-look="new"] .armada-doctor .armada-view,
 :root[data-look="new"] .armada-doctor .armada-view[data-waiting] {
   border: 0;
   border-radius: 0;
   background: none;
   box-shadow: none;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
-:root[data-look="new"] .armada-doctor .armada-view { padding: var(--space-2) var(--space-4) var(--space-4); gap: var(--space-4); }
-:root[data-look="new"] .armada-doctor .armada-view__band {
-  padding: 0;
-  min-height: var(--leading-title);
-  border: 0;
-  background: none;
-  font-family: var(--font-mono);
-  font-size: var(--size-meta);
-}
-:root[data-look="new"] .armada-doctor .armada-view__band > svg { display: none; }
-:root[data-look="new"] .armada-doctor__title {
-  font-family: var(--font-title);
-  font-size: var(--text-title);
-  line-height: var(--leading-title);
-  font-weight: var(--weight-title);
-  letter-spacing: var(--tracking-title);
-}
+:root[data-look="new"] .armada-doctor .armada-view { padding: 0 0 var(--pad-page); gap: var(--gap-panel); }
 /* The glyphs on the tiles say it; the line of words is not drawn. */
 :root[data-look="new"] .armada-doctor__summary {
   position: absolute;
@@ -237,20 +211,24 @@
   overflow: hidden;
   clip-path: inset(50%);
 }
-:root[data-look="new"] .armada-doctor .armada-view__stage { flex: none; overflow: visible; }
-:root[data-look="new"] .armada-doctor .armada-view__band,
+/* The instruments and the pane run to the panel beneath, and what they do not fill stays inside their frames. */
+:root[data-look="new"] .armada-doctor .armada-view__stage { flex: 1 1 auto; min-height: 0; overflow: visible; }
 :root[data-look="new"] .armada-doctor .armada-view__horizon { flex: none; }
-:root[data-look="new"] .armada-doctor .armada-view__body { gap: var(--space-4); align-items: start; border: 0; }
+:root[data-look="new"] .armada-doctor .armada-view__body { flex: 1 1 auto; gap: var(--gap-panel); align-items: stretch; grid-template-rows: minmax(0, 1fr); padding: 0; border: 0; }
 :root[data-look="new"] .armada-doctor .armada-view__body[data-pane] { grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 7); }
-:root[data-look="new"] .armada-doctor .armada-view__pane { padding: 0; overflow: visible; }
+:root[data-look="new"] .armada-doctor .armada-view__pane { display: flex; flex-direction: column; padding: 0; overflow: visible; }
+:root[data-look="new"] .armada-doctor .armada-view__pane > .armada-doctor-pane { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
-/* The instruments: a dense grid of wells on the panel, a glyph then the name, the reading in the mono figures. */
+/* The instruments' panel: the legend strip over a dense grid of wells, a glyph then the name, the reading in the mono figures. */
+:root[data-look="new"] .armada-doctor__modules { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 :root[data-look="new"] .armada-doctor .armada-tiles.armada-view__grid {
+  flex: 1 1 auto;
+  background: none;
   grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 4), 1fr));
   align-content: start;
   gap: var(--space-3);
   padding: var(--space-4);
-  overflow: visible;
+  overflow-y: auto;
 }
 :root[data-look="new"] .armada-doctor-tile {
   min-height: 0;
@@ -336,11 +314,6 @@
   padding: var(--space-3) var(--space-4);
   color: var(--fg-muted);
 }
-:root[data-look="new"] .armada-doctor .armada-view__horizon { border-top: 0; }
-:root[data-look="new"] .armada-doctor__gaps-head {
-  padding-bottom: var(--space-2);
-  border-bottom: var(--border-width) solid var(--head-rule);
-}
 :root[data-look="new"] .armada-doctor__gap-owner { font-family: var(--font-mono); font-size: var(--size-meta); }
 :root[data-look="new"] .armada-doctor__gap-because { font-size: var(--size-meta); }
 
@@ -351,7 +324,7 @@
 /* Panels: the Cockpit's, drawn by `depth.css` (the bezel, the glass, the radius). Their heads are the legend strip (`depth.css`). */
 
 /* A section label inside a panel. */
-:root[data-look="new"] :is(.armada-guides__group-title, .armada-guides__eyebrow, .armada-pool-slots__repo) {
+:root[data-look="new"] :is(.armada-guides__eyebrow, .armada-pool-slots__repo) {
   color: var(--fg-muted);
   font-family: var(--font-display);
   font-size: var(--text-head);
@@ -388,25 +361,27 @@
 :root[data-look="new"] .armada-setting-field__ships,
 :root[data-look="new"] .armada-setting-field__note { font-size: var(--size-meta); line-height: var(--leading-sm); }
 :root[data-look="new"] .armada-setting-fields__file .armada-setting-field__key { font-size: var(--size-meta); color: var(--fg-muted); }
+/* The file's path in a strip: the readout gives way to the title, and cuts with an ellipsis before it wraps. */
+:root[data-look="new"] .armada-card-readout[data-path] { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-look="new"] .armada-settings-index__body { gap: var(--space-4); }
 
-/* Guides: the reader is a panel; its head is the title and eyebrow. */
+/* Guides: the reader is a panel; its head is the title and eyebrow, in the thread's type (`GuideCatalogue.css`). */
 :root[data-look="new"] .armada-guides__panel-title {
-  font-family: var(--font-title);
-  font-weight: var(--weight-title);
-  letter-spacing: var(--tracking-title);
+  font-family: var(--font-sans);
+  letter-spacing: 0;
 }
-:root[data-look="new"] .armada-guides__group-title { padding: var(--space-2) var(--space-2) var(--space-2); border-bottom-color: var(--head-rule); }
 
 /* Workflows: the list is a panel of rows. */
 :root[data-look="new"] .armada-wf__list { padding: var(--space-3); gap: var(--space-3); }
 
 /* Worktrees: the pool's glass, hatch, shutters and glow go. A bay is a well with a hairline in its state's hue. */
 :root[data-look="new"] .armada-pool-slots__view { overflow: hidden; }
-:root[data-look="new"] .armada-pool-slots__view:has(.armada-bay[data-bay="stranded"]) {
-  border-color: color-mix(in srgb, var(--slot-stranded) 55%, var(--edge-rest));
-  box-shadow: var(--shadow-rest);
-}
+/* The pool's panel runs to the foot, the bays scroll inside it and what they do not fill stays in its frame. */
+:root[data-look="new"] .armada-screen__pane:has(> .armada-pool-slots__pool) { padding-bottom: var(--pad-page); overflow: hidden; }
+:root[data-look="new"] .armada-screen__pane > .armada-pool-slots__pool { flex: 1 1 auto; min-height: 0; }
+:root[data-look="new"] .armada-screen__pane > .armada-pool-slots__pool > .armada-pool-slots__views { flex: 1 1 auto; min-height: 0; }
+:root[data-look="new"] .armada-screen__pane .armada-pool-slots__view { flex: 1 1 auto; min-height: 0; }
+:root[data-look="new"] .armada-screen__pane .armada-pool-slots__view > .armada-pool-slots { flex: 1 1 auto; align-content: start; min-height: 0; overflow-y: auto; }
 :root[data-look="new"] .armada-pool-slots__band { gap: var(--space-3); min-height: 0; }
 :root[data-look="new"] .armada-pool-slots { background: none; padding: var(--space-4); }
 :root[data-look="new"] .armada-bay {
@@ -428,5 +403,5 @@
 
 /* Each repository's table has the same columns, so Last touched lines up from one panel to the next. */
 :root[data-look="new"] .armada-studio-list { table-layout: fixed; }
-:root[data-look="new"] .armada-studio-list :is(.armada-table-header-cell, .armada-table-cell):nth-child(2) { width: calc(var(--space-12) * 5 + var(--space-6) - var(--space-1)); }
-:root[data-look="new"] .armada-studio-list :is(.armada-table-header-cell, .armada-table-cell):nth-child(3) { width: calc(var(--space-12) * 3 - var(--space-1)); }
+:root[data-look="new"] .armada-studio-list .armada-table-cell:nth-child(2) { width: calc(var(--space-12) * 5 + var(--space-6) - var(--space-1)); }
+:root[data-look="new"] .armada-studio-list .armada-table-cell:nth-child(3) { width: calc(var(--space-12) * 3 - var(--space-1)); }

@@ -171,7 +171,7 @@ export function PoolTile({ row, open, onOpen }: { row: TileRow; open: boolean; o
           ) : (
             <span className="armada-bay__word">
               {mark}
-              <span aria-hidden>{state.word}</span>
+              {slot.held.state === "unmade" ? null : <span aria-hidden>{state.word}</span>}
             </span>
           )}
           {state.bay === "free" && !closed ? <Warmth warm={slot.warm} worded /> : null}

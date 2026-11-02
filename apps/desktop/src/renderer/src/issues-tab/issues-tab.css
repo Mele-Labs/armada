@@ -21,7 +21,7 @@
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
-.issues-list__search { padding: 0 var(--space-2) var(--space-2); }
+.issues-list__search { padding: var(--space-2) var(--space-2); }
 .issues-list__pick { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
 .issues-list__pick .armada-dropdown-menu__trigger { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .issues-list__mod { display: inline-flex; color: var(--fg-muted); text-transform: none; }
@@ -100,14 +100,16 @@
 .issues-surface .issues-list .deck-list__band + .deck-list__band { margin-top: var(--space-3); }
 .issues-surface .issues-list__repository {
   min-height: var(--h-control-sm);
+  margin-bottom: var(--space-2);
   padding: 0 var(--space-3);
   border-radius: var(--radius-inset, var(--radius-sm));
   background: var(--chip);
 }
 .issues-surface .issues-row {
   --lamp-hue: var(--fg-subtle);
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "title reference" "held held" "fields fields";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "title" "reference" "held" "fields";
+  row-gap: 0;
   padding-inline-start: var(--lamp-gutter, var(--space-3));
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-inset, var(--radius-sm));
@@ -121,11 +123,17 @@
 @media (prefers-reduced-motion: reduce) { .issues-surface .issues-row[data-tone="ask"]::before { animation: none; } }
 .issues-surface .issues-row:hover { background: var(--chip-hover); }
 .issues-surface .issues-row[data-selected] { border-color: transparent; }
-.issues-surface .issues-row__reference { grid-area: reference; justify-self: end; align-self: start; color: var(--fg-default); font-weight: var(--weight-heading); }
+/* The number is a line of its own under the title, as the Jobs row's is a field of its own; the lines under it are spaced by their own margin so a line the person has off takes no room. */
+.issues-surface .issues-row__reference { grid-area: reference; justify-self: start; margin-top: var(--space-1); border-color: transparent; border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 10%, transparent); color: var(--fg-default); font-weight: var(--weight-body); }
 .issues-surface .issues-row__title { grid-area: title; display: -webkit-box; font-size: var(--text-xs); white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .issues-surface .issues-row__jobs { display: none; }
-.issues-surface .issues-row__held { grid-area: held; }
-.issues-surface .issues-row__fields { grid-area: fields; }
+.issues-surface .issues-row__held { grid-area: held; margin-top: var(--space-1); }
+.issues-surface .issues-row__fields { grid-area: fields; margin-top: var(--space-1); }
+
+/* State off: no lamp, no tint, and the title takes the lamp's room. */
+.issues-surface .issues-row[data-lamp="off"] { padding-inline-start: var(--space-3); }
+.issues-surface .issues-row[data-lamp="off"]::before { content: none; }
+.issues-surface .issues-row[data-lamp="off"][data-tone="ask"]:not(:hover) { background: var(--chip); }
 
 /* ---- A query, as the tracker reads it ------------------------------------------------------------------- */
 
@@ -150,8 +158,6 @@
 /* The issue a Job works carries that Job's state as a lamp in the head, not a band across the pane. */
 .issues-reader { position: relative; min-height: 0; }
 .issues-reader[data-tone] > .deck-pane__head::before { content: ""; flex: none; width: var(--lamp, var(--dot)); height: var(--lamp, var(--dot)); border-radius: 50%; background: var(--hue); }
-.issues-reader > .deck-pane__head { align-items: center; padding: var(--space-4) var(--space-4) var(--space-2); }
-.issues-reader .deck-pane__title { display: -webkit-box; overflow: hidden; color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-lg); line-height: var(--leading-lg); letter-spacing: 0; text-transform: none; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .issues-reader .deck-pane__acts { gap: var(--space-2); }
 .issues-reader__jobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 6), 1fr)); gap: var(--space-2); }
 .issues-reader__pulls { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
@@ -181,6 +187,7 @@
 .issues-surface .issues-row[data-report] {
   grid-template-columns: minmax(0, 1fr) var(--space-4) var(--space-4) auto;
   grid-template-areas: "title job mark at" "from from from from";
+  row-gap: var(--space-1);
   padding-inline-start: var(--space-3);
 }
 .issues-surface .issues-row[data-report]::before { content: none; }
@@ -204,3 +211,11 @@
 .issues-surface .issues-report__part { padding: var(--space-3); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-inset, var(--radius-sm)); background: var(--chip); }
 .issues-surface .issues-report__part[aria-label="Errors"],
 .issues-surface .issues-report__part[aria-label="Logs"] { background: var(--bg-sunken); }
+
+/* Pending: a row and a heading as they will be, in bars. Each wrapper takes the line the text takes, so a row is the height it lands at. */
+.issues-row[data-pending], .issues-list__repository[data-pending] { --skeleton-fill: var(--bg-raised); }
+.issues-surface .issues-row[data-pending] { cursor: default; }
+.issues-surface .issues-row[data-pending]::before { content: none; }
+.issues-surface .issues-row[data-pending]:hover { background: var(--chip); }
+.issues-row__skel { display: flex; align-items: center; min-height: var(--leading-xs); min-width: 0; }
+.issues-row__skel-reference { display: flex; align-items: center; margin-top: var(--space-1); min-height: calc(var(--leading-2xs) + var(--space-1) + var(--border-width) * 2); }

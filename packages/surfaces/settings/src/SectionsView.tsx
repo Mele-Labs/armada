@@ -11,7 +11,7 @@ import { ModList } from "./ModList";
 import { PaletteSettings, type PaletteSettingsProps } from "./PaletteSettings";
 import { PhoneSettings } from "./PhoneSettings";
 import { ReachFoldersSettings } from "./ReachFoldersSettings";
-import { SchemaSection } from "./SchemaSettings";
+import { SchemaSection, type SettingsFileParts } from "./SchemaSettings";
 import { SETTINGS_SECTIONS, settingsIn } from "./sections";
 import { ThemeSettings } from "./ThemeSettings";
 import { ThreadPane } from "./ThreadPane";
@@ -30,6 +30,8 @@ export type SettingsSectionsViewProps = {
   onCopied?: (value: string) => void;
   /** What the Command palette category reads and changes. Absent, the category draws nothing. */
   palette?: PaletteSettingsProps;
+  /** settings.json's path and open act, drawn in the strip of the first category that is a schema's. */
+  file?: SettingsFileParts;
   /** Drawn directly under a category, by id. */
   under?: Readonly<Record<string, ReactNode>>;
   /** Open a promoted mod's pull request and its Job from the All list, as the Theme and Layout pages do. */
@@ -40,7 +42,7 @@ export type SettingsSectionsViewProps = {
   onCreateMod?: ComponentProps<typeof ModList>["onCreate"];
 };
 
-export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, palette, under = {}, onOpenPull, onOpenJob, onOpenMod, onCreateMod }: SettingsSectionsViewProps) {
+export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOpenAccount, onReadGuides, onCopied, palette, file, under = {}, onOpenPull, onOpenJob, onOpenMod, onCreateMod }: SettingsSectionsViewProps) {
   const card = (title: string, body: ReactNode) => (
     <Card>
       <CardHeader>
@@ -64,12 +66,13 @@ export function SettingsSectionsView({ ids, settings, live, onSaveSettings, onOp
     guides: (title) => card(title, <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />),
   };
 
+  const firstSchema = ids.find((id) => SETTINGS_SECTIONS.find((one) => one.id === id)?.schema === true);
   const body = (id: string): ReactNode => {
     const section = SETTINGS_SECTIONS.find((one) => one.id === id);
     if (section === undefined) return null;
     const own = panes[id];
     if (section.schema !== true && own !== undefined) return own(section.label);
-    const schema = <SchemaSection label={section.label} settings={settings === null ? null : settingsIn(settings, id)} live={live} onSave={onSaveSettings} />;
+    const schema = <SchemaSection label={section.label} {...(file === undefined || id !== firstSchema ? {} : { file })} settings={settings === null ? null : settingsIn(settings, id)} live={live} onSave={onSaveSettings} />;
     // The folder list is JSON, which the schema's form does not draw.
     if (id === "features") {
       return (

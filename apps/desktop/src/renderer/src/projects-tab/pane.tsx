@@ -4,7 +4,7 @@
 // one list in his order, moved by a drag and ⌥↑ ⌥↓. A card names its repository only where the list holds more than one.
 
 import { ListChecks } from "lucide-react";
-import { Button, Kbd, Tooltip } from "@armada/components";
+import { Button, Kbd, Skeleton, Tooltip } from "@armada/components";
 
 import type { Band } from "./list";
 import { PROJECTS_KEYS } from "./key-table";
@@ -25,9 +25,29 @@ type Props = Omit<Hosts, "onDispatch"> & {
   onDispatch: (rows: readonly ProjectRow[]) => void;
 };
 
+const PENDING_TITLES = ["64%", "48%", "72%", "56%", "42%", "68%"];
+
+/** The rows the pane draws before the first read has answered: the loaded row's height and hairline, a mark and a title bar, no text. */
+function PendingRows() {
+  return (
+    <ul className="projects-rows" aria-hidden>
+      {PENDING_TITLES.map((width) => (
+        <li key={width} className="projects-item-card">
+          <div className="projects-row" data-pending>
+            <Skeleton className="projects-row__skel-mark" />
+            <span className="projects-row__skel">
+              <Skeleton width={width} />
+            </span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function Pane({ label, title, groups, bands, scope, onDispatch, onOpenSession, onOpenLink }: Props) {
   const store = useProjectsStore()!;
-  const { loose, projects, selected, showDone } = useProjects();
+  const { loose, projects, selected, showDone, pending } = useProjects();
   const labels = new Map(bands.map((band) => [band.manifestId, band.label]));
   const { item, dragging } = useCards({ onOpenSession, onOpenLink, onDispatch }, labels);
   // The picks stand in any list; a done card hidden is not one.
@@ -40,7 +60,7 @@ export function Pane({ label, title, groups, bands, scope, onDispatch, onOpenSes
         <span className="deck-pane__acts">
           {picks.length === 0 ? null : (
             <Tooltip label="Dispatch the cards picked" shortcut={PROJECTS_KEYS.dispatch}>
-              <Button variant="secondary" size="sm" data-dispatch onClick={() => onDispatch(picks)}>
+              <Button variant="ghost" size="sm" data-dispatch onClick={() => onDispatch(picks)}>
                 Dispatch
               </Button>
             </Tooltip>
@@ -61,7 +81,8 @@ export function Pane({ label, title, groups, bands, scope, onDispatch, onOpenSes
         </div>
       )}
       <div className="projects-groups" data-reordering={dragging === undefined ? undefined : ""}>
-        {groups.map((group) => {
+        {pending ? <PendingRows /> : null}
+        {pending ? [] : groups.map((group) => {
           const rows = (
             <ul className="projects-rows" aria-label={group.title === undefined ? "Rows" : `Rows of ${group.title}`}>
               {group.rows.map((row) => item(row, group.key, { movable: group.movable, many }, group.lone?.get(row.id)))}

@@ -6,7 +6,8 @@
 // **One panel for the log, `LogSheet`'s.** A Check still out is followed as it prints, which is the
 // socket the Manifest surface opens; one that has ended is read whole off `get_checkout_run_output`.
 // A merge line Check is `LandCheckLogSheet`'s own socket. **Nothing stands in for lines that have not
-// arrived**, and no count is drawn over the rows.
+// arrived**, and no count is drawn over the rows. While the run sheet is being read, skeleton tiles
+// stand after the rows drawn; once it is read they go, whether or not it holds a Check.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -67,6 +68,7 @@ export type ManifestChecksProps = {
 function CheckFilters({ value, onChange }: { value: CheckFilter; onChange: (filter: CheckFilter) => void }) {
   return (
     <Tabs
+      compact
       items={CHECK_FILTERS.map((id) => ({ id, label: CHECK_FILTER_LABEL[id] }))}
       value={value}
       onChange={(id) => onChange(id as CheckFilter)}
@@ -80,6 +82,8 @@ export function ManifestChecks(props: ManifestChecksProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<CheckFilter>("all");
   const data = sheet.state === "read" ? sheet.sheet : undefined;
+  // The run sheet is being read, or was let go: the Checks it holds have not landed. A read that failed is not pending.
+  const pending = sheet.state === "reading" || sheet.state === "none";
 
   // Read on opening, and again the moment a run ends: `checkout_run.finished` moves the sheet's
   // `running`, which is the signal the list has one more row.
@@ -133,6 +137,7 @@ export function ManifestChecks(props: ManifestChecksProps) {
     <div className="armada-screen__overview">
       <CheckList
         rows={shown.map((one) => checkRowOf(one))}
+        pending={pending}
         openRow={open?.id ?? null}
         onOpenRow={setOpenId}
         controls={
