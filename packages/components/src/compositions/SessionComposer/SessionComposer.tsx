@@ -836,6 +836,7 @@ export function SessionComposer({
           </>
         )}
         {bare || (compact && held) ? null : chips}
+        {beforeSend === undefined ? null : <span className="armada-session-composer__figure">{beforeSend}</span>}
         {talk === undefined ? null : (
           <Tooltip label={<>Talk <Kbd>⌥Space</Kbd></>}>
             <Button type="button" variant="ghost" size="sm" aria-label="Talk" aria-pressed={listening} aria-keyshortcuts="Alt+Space" className="armada-session-composer__talk" data-listening={listening || undefined} disabled={disabled} onClick={() => (listening ? endTalk() : startTalk(false))}>
@@ -843,7 +844,6 @@ export function SessionComposer({
             </Button>
           </Tooltip>
         )}
-        {beforeSend === undefined ? null : <span className="armada-session-composer__figure">{beforeSend}</span>}
         {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
       </div>
     </form>
