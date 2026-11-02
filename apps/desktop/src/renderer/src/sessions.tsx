@@ -1360,6 +1360,18 @@ export function entriesOf(
               answerWaiting(one.id, {
                 text,
               }),
+            ...(one.steps === undefined
+              ? {}
+              : {
+                  steps: {
+                    lines: one.steps,
+                    ...(runner === undefined
+                      ? {}
+                      : {
+                          runner,
+                        }),
+                  },
+                }),
           }),
       ...(act !== undefined ||
       one.steps !== undefined ||

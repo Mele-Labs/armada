@@ -26,6 +26,7 @@ import {
   RemoveBox,
   RunnableBlock,
   SessionThread,
+  StepLines,
   Tooltip,
   actionOf,
   keyFor,
@@ -33,7 +34,8 @@ import {
 
 import type { BridgeState } from "../../../shared/bridge";
 import { type Hosts, type Item } from "../Dashboard";
-import { useSessions } from "../sessions-draft";
+import { useSessions, useSessionsDraft } from "../sessions-draft";
+import { runnerOf } from "../session-runner";
 import { SessionBox } from "../sessions";
 import { threadRowsOf } from "../session-thread-rows";
 import { useAnswering, type Answer, type Answering } from "./answers";
@@ -286,6 +288,12 @@ export function CallCard({
 
   const sessionId = sessionIdOf(item.key);
   const session = sessions.find((one) => one.id === sessionId);
+  // A question with choices that also carries a procedure draws its steps under the question, their commands run where the Job works.
+  const asked = item.waiting?.item;
+  const steps = asked?.options === undefined ? undefined : asked.steps;
+  const draft = useSessionsDraft();
+  const stepRunner =
+    draft === undefined || session === undefined ? undefined : runnerOf(draft, session);
   // A pull request or red main a Session holds draws that Session's thread under the facts, so he sees what it is doing.
   const holder =
     item.ownedBy?.kind === "session"
@@ -554,6 +562,9 @@ export function CallCard({
             );
           })()}
       {answer.attaching === undefined ? null : <AttachPicker attaching={answer.attaching} />}
+      {steps === undefined || (numbered.length === 0 && standing.length === 0) ? null : (
+        <StepLines steps={steps} runner={stepRunner} />
+      )}
       {(numbered.length === 0 && standing.length === 0) || answer.attaching !== undefined ? null : (
         <AskChoices label={answer.ask}>
           <AskAnswers>

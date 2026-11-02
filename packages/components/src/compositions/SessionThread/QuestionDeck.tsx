@@ -3,7 +3,7 @@
 // it is picked; the last one sends.
 
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent, SyntheticEvent } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode, SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 
@@ -98,6 +98,7 @@ export function QuestionDeck({
   canSkip,
   flat,
   keep,
+  detail,
 }: {
   questions: readonly AskedQuestion[];
   /** A promise holds Answer disabled until it settles, so a second press cannot send it again. */
@@ -107,6 +108,8 @@ export function QuestionDeck({
   flat?: boolean;
   /** What these questions are about: the picks and the question in front are kept under it, as a message not yet sent is, and go when it is answered or skipped. */
   keep?: string;
+  /** What the question in front carries under its words and above its answers: the steps a call asks the person to follow. */
+  detail?: ReactNode;
 }) {
   const [held, setHeld, clearHeld] = useKept<Held>(
     keep === undefined ? undefined : `question:${keep}`,
@@ -404,6 +407,7 @@ export function QuestionDeck({
             <p className="armada-question-deck__ask">
               <RefText text={one.question} />
             </p>
+            {detail}
             <div
               className="armada-question-deck__answers"
               role={one.multi_select ? "group" : "radiogroup"}
