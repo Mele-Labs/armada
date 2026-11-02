@@ -85,6 +85,7 @@ mod notice_mutes;
 mod issue_queries;
 /// The projects a person keeps, across repositories: tasks he wrote and linked issues, in order.
 mod projects;
+mod session_init;
 mod session_waiting;
 /// A repository's Autopilot and what it picked. #2092.
 mod autopilot;
@@ -209,6 +210,7 @@ pub use issue_queries::KeptIssueQuery;
 pub use projects::{
     KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,
 };
+pub use session_init::KeptInit;
 pub use session_waiting::{KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
 pub use test_map::{StaleTest, TestsReaching};

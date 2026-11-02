@@ -187,6 +187,8 @@ pub mod preparing;
 /// The probes Fleet can run on itself, and the Doctor modules it cannot.
 /// **Not Doctor**, whose grid is ten modules and is not built.
 mod probing;
+/// The text of Copy debug report, read from what Fleet holds.
+mod debug_reporting;
 pub mod process;
 /// The profiles a machine has joined, each with a directory of its own for its key.
 pub mod profiles;

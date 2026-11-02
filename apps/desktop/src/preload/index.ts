@@ -62,6 +62,7 @@ import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { ProcessStopRead, ProcessTarget, SessionSystemRead } from "../shared/api/session-system";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
+import type { ArmadaReportRun, DebugReportRead } from "../shared/api/debug-report";
 import type { PullRequestNoteAnswer, PullRequestNotesAnswer } from "../shared/api/pull-request-notes";
 import type { SavePullRequestNote, SendPullRequestNotes } from "@armada/protocol";
 import type { FlightControlsAnswer, RepositoryFlightControlsAnswer, SessionShellAnswer } from "../shared/api/flight-controls";
@@ -496,6 +497,8 @@ const api: BridgeApi = {
   stopProcess: (sessionId: string, target: ProcessTarget): Promise<ProcessStopRead> => ipcRenderer.invoke(CHANNELS.stopProcess, sessionId, target),
   getUsageSummary: (tzOffsetMinutes: number): Promise<UsageSummaryRead> => ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes),
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
+  getDebugReport: (root: string | null): Promise<DebugReportRead> => ipcRenderer.invoke(CHANNELS.getDebugReport, root),
+  runArmadaReport: (root: string | null): Promise<ArmadaReportRun> => ipcRenderer.invoke(CHANNELS.runArmadaReport, root),
   getFlightControls: (): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getFlightControls),
   saveFlightControls: (controls: FlightControls): Promise<FlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.saveFlightControls, controls),
   getRepositoryFlightControls: (repository: string, sessionId?: string): Promise<RepositoryFlightControlsAnswer> => ipcRenderer.invoke(CHANNELS.getRepositoryFlightControls, repository, sessionId),

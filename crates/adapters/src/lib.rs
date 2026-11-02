@@ -40,6 +40,7 @@
 
 mod acted;
 pub mod agent_mod;
+pub mod debug_facts;
 mod annotations;
 /// The forge over GitHub's API where the repository is on `github.com`, and `gh` where not.
 mod api_forge;

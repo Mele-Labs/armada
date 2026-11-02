@@ -136,6 +136,10 @@ impl AgentHarness for HeadlessAgent {
         transcript::read(line)
     }
 
+    fn version_within(&self, path: &str, within: std::time::Duration) -> Option<String> {
+        crate::debug_facts::version_of(&self.program, path, within)
+    }
+
     /// The path out of an edit call's detail, which [`transcript`] composed
     /// as the path then the size; the whole of it where the row was cut.
     fn edited(&self, event: &DroneEvent) -> Option<String> {

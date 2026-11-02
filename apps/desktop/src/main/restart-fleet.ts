@@ -22,7 +22,7 @@ import type { Connection, FleetRestart } from "@armada/protocol";
 export type Ran = { code: number; stdout: string; stderr: string };
 export type Run = (args: string[]) => Promise<Ran>;
 
-const launchctl: Run = (args) =>
+export const launchctl: Run = (args) =>
   new Promise((resolve) => {
     execFile("launchctl", args, (error, stdout, stderr) => {
       const code = error === null ? 0 : typeof error.code === "number" ? error.code : 1;
@@ -31,7 +31,7 @@ const launchctl: Run = (args) =>
   });
 
 /** The label `scripts/restart` loads Fleet under, and the one variable that moves it. */
-function labelOf(env: NodeJS.ProcessEnv): string {
+export function labelOf(env: NodeJS.ProcessEnv): string {
   return env["ARMADA_FLEET_LABEL"] ?? "com.armada.fleet";
 }
 

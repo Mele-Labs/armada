@@ -15,6 +15,7 @@
 //! nothing cheap goes beside it.
 
 use alloc::string::String;
+use alloc::vec::Vec;
 
 /// How much of a call's detail a row carries.
 ///
@@ -213,6 +214,13 @@ pub struct HarnessReading {
     /// The session can keep a task list: the harness serves its task tools, or the older one that
     /// did the same.
     pub task_tools: bool,
+    /// What the line says of Fleet's door: its status word, or `absent` where the door is not listed.
+    pub door: String,
+    /// The tools it was served, **only the harness's own and Fleet's door's**. Another server's tools
+    /// name a person's connectors and are dropped where the line is read, so no later reader has them.
+    pub tools: Vec<String>,
+    /// The skills it came up with, **only the mod's**, for the same reason.
+    pub skills: Vec<String>,
 }
 
 /// One line of a Drone's output.

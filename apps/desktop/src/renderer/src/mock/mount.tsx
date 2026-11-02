@@ -79,6 +79,8 @@ import { ProjectsFrom, createProjectsStore } from "../projects-tab/store";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
 import { PaletteFixturesFrom } from "../palette-fixtures";
+import { DebugReportFrom } from "../debug-report/debug-report";
+import { readingsAsReader } from "./debug-report-reader";
 import { ThreadLookFrom } from "../thread-look-here";
 import { seedPaletteMemory } from "../palette-memory";
 
@@ -209,6 +211,8 @@ export function mountApp(
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
+  // Each opening of Copy debug report takes the next reading, so a window starts from the first.
+  const debugRead = readingsAsReader(chosen.draft?.debugReport);
   // `autopilot-back` waits ten minutes with nobody at the window, which a walk cannot.
   if (chosen.name === "autopilot-back" && shared === undefined) alsoOnTimePassing(() => minutesPass(10 * 60_000));
   // The palette starts as a window does: what was pinned and opened before, and nothing from an earlier pass.
@@ -241,6 +245,7 @@ export function mountApp(
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                   <AreasFrom source={chosen.draft?.areas}>
                                   <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
+                                  <DebugReportFrom read={debugRead}>
                                   <ThreadLookFrom seed={chosen.draft?.threadLook}>
                                     <AccountFrom account={chosen.draft?.account}>
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
@@ -273,6 +278,7 @@ export function mountApp(
                                       </SharedHomeFrom>
                                     </AccountFrom>
                                   </ThreadLookFrom>
+                                  </DebugReportFrom>
                                   </PaletteFixturesFrom>
                                   </AreasFrom>
                               </ClashesFrom>

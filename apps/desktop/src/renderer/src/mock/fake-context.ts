@@ -53,6 +53,7 @@ export type SliceName =
   | "bayHistory"
   | "sessionSystem"
   | "usageSummary"
+  | "debugReport"
   | "issues"
   | "autopilot"
   | "sketchShare"
