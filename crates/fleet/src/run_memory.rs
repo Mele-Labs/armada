@@ -112,7 +112,7 @@ fn wire_kind(word: &str) -> Option<RunFactKind> {
     })
 }
 
-fn place_word(place: RunPlace) -> &'static str {
+pub(crate) fn place_word(place: RunPlace) -> &'static str {
     match place {
         RunPlace::ThisMac => "this_mac",
         RunPlace::Repository => "repository",

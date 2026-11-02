@@ -641,6 +641,11 @@ const ROUTES: &[Route] = &[
         path: "/health",
     },
     Route {
+        operation: "get_debug_report",
+        method: "GET",
+        path: "/debug_report",
+    },
+    Route {
         operation: "get_manifest",
         method: "GET",
         path: "/manifests/:manifest_id",

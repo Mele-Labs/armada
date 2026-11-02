@@ -90,7 +90,7 @@ fn an_init_line_says_which_of_armadas_pieces_the_session_came_up_with() {
     );
     assert_eq!(
         whole,
-        HarnessReading { name: "Claude Code".into(), update: "claude update".into(), version: "2.1.310".into(), mod_loaded: true, door_connected: true, task_tools: true }
+        HarnessReading { name: "Claude Code".into(), update: "claude update".into(), version: "2.1.310".into(), mod_loaded: true, door_connected: true, task_tools: true, door: "connected".into(), tools: vec!["Task".into(), "TaskCreate".into(), "mcp__armada-fleet__waiting_for".into()], skills: Vec::new() }
     );
 
     let bare = started_by(
@@ -98,7 +98,7 @@ fn an_init_line_says_which_of_armadas_pieces_the_session_came_up_with() {
     );
     assert_eq!(
         bare,
-        HarnessReading { name: "Claude Code".into(), update: "claude update".into(), version: "2.0.1".into(), mod_loaded: false, door_connected: false, task_tools: true },
+        HarnessReading { name: "Claude Code".into(), update: "claude update".into(), version: "2.0.1".into(), mod_loaded: false, door_connected: false, task_tools: true, door: "pending".into(), tools: vec!["TodoWrite".into()], skills: Vec::new() },
         "a door still pending is not connected, and an older CLI's TodoWrite is task tools"
     );
 
@@ -148,7 +148,15 @@ fn a_session_can_keep_a_task_list_with_the_task_tools_or_the_older_todo_write() 
 #[test]
 fn an_init_line_without_the_lists_reads_as_nothing_there() {
     let bare = started_by(r#"{"type":"system","subtype":"init","session_id":"s","model":"m"}"#);
-    assert_eq!(bare, HarnessReading { name: "Claude Code".into(), update: "claude update".into(), ..HarnessReading::default() });
+    assert_eq!(bare, HarnessReading { name: "Claude Code".into(), update: "claude update".into(), door: "absent".into(), ..HarnessReading::default() });
+}
+
+#[test]
+fn an_init_line_keeps_the_harnesss_and_the_mods_names_and_drops_every_other_servers_and_plugins() {
+    let line = r#"{"type":"system","subtype":"init","plugins":[{"name":"armada"},{"name":"acme"}],"mcp_servers":[{"name":"armada-fleet","status":"connected"},{"name":"acme-crm","status":"connected"}],"tools":["Bash","Read","mcp__armada-fleet__waiting_for","mcp__acme-crm__lookup_customer","mcp__armada-fleetish__x","mcp__armada-fleet"],"skills":["armada:reading-a-brief","acme:quarterly-numbers","humanizer","armada-extras:x"]}"#;
+    let kept = started_by(line);
+    assert_eq!(kept.tools, vec!["Bash", "Read", "mcp__armada-fleet__waiting_for"], "{:?}", kept.tools);
+    assert_eq!(kept.skills, vec!["armada:reading-a-brief"], "{:?}", kept.skills);
 }
 
 /// The captures the testkit keeps replace each operator's inventory with a count, as a string in the

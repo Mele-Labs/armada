@@ -75,6 +75,7 @@ import { BayHistoryHost } from "./bay-history";
 import { SessionSystemHost } from "./session-system";
 import { LogbookHost } from "./logbook";
 import { UsageSummaryHost } from "./usage-summary";
+import { DebugReportHost } from "./debug-report";
 import { FlightControlsHost } from "./flight-controls";
 import { PullRequestNotesHost } from "./pull-request-notes";
 import { OnboardingHost } from "./onboarding";
@@ -241,6 +242,8 @@ export class FleetConnection {
   readonly usageSummary: UsageSummaryHost = new UsageSummaryHost(
     () => this.connected()?.port ?? null,
   );
+  /** The text Copy debug report shows, read from Fleet — `debug-report.ts`. */
+  readonly debugReport: DebugReportHost = new DebugReportHost(() => this.connected()?.port ?? null);
   /** The Cockpit's flight controls, and a shell line run for a Job — `flight-controls.ts`. */
   readonly flightControls: FlightControlsHost = new FlightControlsHost(
     () => this.connected()?.port ?? null,

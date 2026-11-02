@@ -48,4 +48,6 @@ Wherever the band is not showing, dismissed or on the Job's row, the mark pulses
 **The task list reaches the working band through the mod.**
 Current CLIs serve `TaskCreate` and `TaskUpdate`, which Fleet's gate sees without their results, so the band reads the whole list the mod reports as `tasks`; a `TodoWrite` the gate sees still sets it on an older CLI.
 
-**The reading and the mark are kept in memory only.** A Fleet that restarts has neither until the next `init`.
+**The mark is kept in memory only.** A Fleet that restarts has none until the next `init`.
+**What the line listed is kept in the store** (`session_init`, one row a Job, replaced by each `init`) for the debug report: the CLI's version, whether the mod loaded, the door's state, and tool and skill names.
+**Only the harness's own tools, `mcp__armada-fleet__*` and skills named `armada:*` are kept.** Another server's tools and another plugin's skills name a person's own connectors, so they are dropped where the line is read and never reach the store.

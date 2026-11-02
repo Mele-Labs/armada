@@ -247,6 +247,7 @@ import type {
   SessionSystemRead,
 } from "../shared/api/session-system";
 import type { UsageRulesRead, UsageSummaryRead } from "../shared/api/usage-summary";
+import type { ArmadaReportRun, DebugReportRead } from "../shared/api/debug-report";
 import type {
   PullRequestNoteAnswer,
   PullRequestNotesAnswer,
@@ -804,6 +805,10 @@ const api: BridgeApi = {
   getUsageSummary: (tzOffsetMinutes: number): Promise<UsageSummaryRead> =>
     ipcRenderer.invoke(CHANNELS.getUsageSummary, tzOffsetMinutes),
   getUsageRules: (): Promise<UsageRulesRead> => ipcRenderer.invoke(CHANNELS.getUsageRules),
+  getDebugReport: (root: string | null): Promise<DebugReportRead> =>
+    ipcRenderer.invoke(CHANNELS.getDebugReport, root),
+  runArmadaReport: (root: string | null): Promise<ArmadaReportRun> =>
+    ipcRenderer.invoke(CHANNELS.runArmadaReport, root),
   getFlightControls: (): Promise<FlightControlsAnswer> =>
     ipcRenderer.invoke(CHANNELS.getFlightControls),
   saveFlightControls: (controls: FlightControls): Promise<FlightControlsAnswer> =>

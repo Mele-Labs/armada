@@ -9,6 +9,7 @@ import { Button, CardHeader, CardReadout, CardTitle, Stamp, Tooltip } from "@arm
 import type { Connection } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 
+import { useDebugReport } from "../debug-report/debug-report";
 import { gridOf, MEANS, readingOf, summaryOf, worstOf, type Row } from "./grid";
 import "../cockpit/cockpit.css";
 import "./doctor.css";
@@ -206,6 +207,10 @@ export function DoctorSurface({
     health,
   ]);
 
+  // Where a window offers the report, its control sits beside Check again and the sheet gives focus back to it.
+  const report = useDebugReport();
+  const reportButton = useRef<HTMLButtonElement>(null);
+
   const [selected, setSelected] = useState<string>();
   const at = Math.max(
     0,
@@ -251,6 +256,15 @@ export function DoctorSurface({
                   <CardReadout>
                     checked <Stamp first="age" at={checkedAt} now={now} />
                   </CardReadout>
+                )}
+                {report === null ? null : (
+                  <Button
+                    ref={reportButton}
+                    variant="ghost"
+                    onClick={() => report.open(reportButton.current)}
+                  >
+                    Copy debug report
+                  </Button>
                 )}
                 <Tooltip label="Check again">
                   <Button

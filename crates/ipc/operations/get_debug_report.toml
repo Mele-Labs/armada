@@ -1,0 +1,12 @@
+[operations.get_debug_report]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The text a person pastes to whoever helps them when Armada is not working: install and tool versions, the mod, the repository's armada.yml, each live Job's tools and what it came up without, and recent warnings from Fleet's log. Names, versions and states only, with the home folder written as ~. Optional root, a repository root, for the repository block"
+notes = """
+`GET /debug_report?root=`, since 2 Nov 2026. Answers 200 with `DebugReport` `{ text }`: one string laid out as `Install`, `Mod`, `This repository` where `root` names one, a `Job` block for each live Job, `Recent trouble` and a last line `fleet protocol <id>  taken <time>`.
+
+Nothing is uploaded and nothing a person wrote is in it: no message, prompt, file content or log sentence. A Job's `tools` keep the built-in names and the door's, and its `skills` only the mod's `armada:` ones, since another server's tools and another plugin's skills name a person's own connectors. `armada report` prints the same text from what the CLI reads itself where Fleet does not answer.
+
+`agent_access` is `Yes` as its neighbours are: a Job reads it to say what it came up with. The CLI version is the one a Job's opening line gave, and is asked of the CLI for at most two seconds where no Job has one.
+"""

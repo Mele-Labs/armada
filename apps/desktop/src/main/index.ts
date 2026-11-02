@@ -72,6 +72,7 @@ import { handleBayHistory } from "./bay-history-channels";
 import { handleSessionSystem } from "./session-system-channels";
 import { handleLogbook } from "./logbook-channels";
 import { handleUsageSummary } from "./usage-summary-channels";
+import { handleDebugReport } from "./debug-report-channels";
 import { handleFlightControls } from "./flight-controls-channels";
 import { handlePullRequestNotes } from "./pull-request-notes-channels";
 import { handleOnboarding } from "./onboarding-channels";
@@ -1134,6 +1135,11 @@ void app.whenReady().then(() => {
   handleUsageSummary({
     ipc: ipcMain,
     connection: () => connection,
+  });
+  handleDebugReport({
+    ipc: ipcMain,
+    connection: () => connection,
+    bundled: app.isPackaged ? join(process.resourcesPath, "bin", "armada") : null,
   });
   handleFlightControls({
     ipc: ipcMain,

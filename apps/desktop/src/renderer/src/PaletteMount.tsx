@@ -7,7 +7,7 @@
 // thing; the object is the shape that function already agrees on.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GitPullRequest, Puzzle } from "lucide-react";
+import { Copy, GitPullRequest, Puzzle } from "lucide-react";
 import {
   choiceOf,
   Palette,
@@ -42,7 +42,15 @@ import { askToDebugBridge } from "./debug-bridge";
 import { askToOpenSession, openSessionIn } from "./open-session";
 import { openInPanel, openRequestsInPanel } from "./shared-panel/store";
 import { askToCreateMod } from "./create-mod";
-import { absentIn, carryOut, CREATE_MOD, dormantIn, FLEET_DOWN } from "./palette";
+import { useDebugReport } from "./debug-report/debug-report";
+import {
+  absentIn,
+  carryOut,
+  COPY_DEBUG_REPORT,
+  CREATE_MOD,
+  dormantIn,
+  FLEET_DOWN,
+} from "./palette";
 import { displayOf, keysOf, useModRows, type ModRow } from "./mod-commands";
 import { firstStep } from "./palette-blanks";
 import { askToTell } from "./tell";
@@ -134,6 +142,7 @@ export function PaletteMount({
       : modRows.map((row) => displayOf(row, modKeys[`cmd:${row.id}`]));
   const projects = useProjectsStore();
   const extras = usePaletteExtras();
+  const report = useDebugReport();
   const onDeck = useDeck((deck) => (deck.sel?.kind === "session" ? deck.sel.key : undefined));
   const job =
     showing === SURFACE.overview && onDeck !== undefined
@@ -225,6 +234,7 @@ export function PaletteMount({
   const choose = (choice: PaletteChoice): void => {
     const extra = choice.of === "board" ? extras.find((one) => one.id === choice.id) : undefined;
     if (extra !== undefined) return extra.run();
+    if (choice.of === "board" && choice.id === COPY_DEBUG_REPORT) return report?.open();
     const row = rowOf(choice);
     if (row !== undefined) remember(row);
     if (
@@ -328,6 +338,15 @@ export function PaletteMount({
                   dormant: FLEET_DOWN,
                 }),
           },
+          ...(report === null
+            ? []
+            : [
+                {
+                  id: COPY_DEBUG_REPORT,
+                  label: "Copy debug report",
+                  icon: Copy,
+                },
+              ]),
           ...extras.map(({ id, label, icon }) => ({
             id,
             label,
