@@ -22,6 +22,7 @@ A visual change still gets its walk after the sketch is approved.
 
 **Fleet finds the stylesheets, and `get_style_sources` only helps.** With `styles` left out Fleet walks from the Job's work to the closest ones, and `get_style_sources` (an optional `path`) lists them with token names and values, never file text.
 Where it lists several packages the agent names one by a `path` inside it.
+A sheet past the size cap once its imports are inlined is listed as not usable, so a mock of several components names each component's sheet in `styles`.
 `css` holds the rules the stylesheets lack.
 Where a file is not usable (SCSS, Less, a theme module), or Tailwind has no build output, the agent writes them from the tokens listed, because no build runs for a sketch.
 Fleet keeps the set it drew with and writes its hash in `kept`, and a document's `armada-sketch` may hold mocks that are kept the same way.
