@@ -10,7 +10,7 @@ A pull request description, an issue or pull request comment, a message to someo
 | | |
 |---|---|
 | What the call does | Puts the draft in the job's thread in Bridge as a card and answers at once. **It does not wait**: the job ends its turn, and the answer arrives as a message from the person |
-| How it waits | `draft:<row id>` in the Needs you panel. The job adds no `waiting_for` item for it, since Fleet lists it |
+| How it waits | `draft:<row id>` in the Needs you panel, however far back the thread holds its card. Pressing it, or its line under Now, opens the card as a tab on the job. The job adds no `waiting_for` item for it, since Fleet lists it |
 
 **He answers it one of four ways, and the agent is told which.**
 

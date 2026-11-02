@@ -127,6 +127,8 @@ import type { DeliveryChoice, HeldWorktrees, Notice, RepositorySummary } from "@
 import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
+import { draftPanelOf } from "./shared-panel/rule";
+import { openDraftCard } from "./job-panes/focus";
 import { TeachHereContext, batchNotices, teachHereOf, useNoticeRules, useTeachFrom, wordsOfQuote } from "./teach";
 import type { TeachHere } from "./teach";
 import { useShownFiles } from "./session-shown-file";
@@ -600,8 +602,9 @@ export function entriesOf(
   begin?: BeginChild,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  // A recorded plan, a draft, and a sketch or a document put to him are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "sketch" && one.source !== "document" && (one.source !== "draft" || proposedOf(session, one.id, scopes) !== undefined) && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
+  // A recorded plan, and a sketch or a document put to him, are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
+  // A draft is listed: its card can sit behind Show earlier in a long thread, and Needs you is where it is found.
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "sketch" && one.source !== "document" && one.source !== "watch_not_ours")).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
@@ -610,6 +613,9 @@ export function entriesOf(
     const other = act?.kind === "message" && act.target !== session.id ? sessions.find((that) => that.id === act.target) : undefined;
     const childStart = startOfHeldJob(one.source === "held_child" ? other : undefined, begin);
     const proposed = one.source === "draft" ? proposedOf(session, one.id, scopes) : undefined;
+    // Any other draft is pressed open as its card, a tab of its own on a Job in panes, never approved here with its text out of sight.
+    const card = one.source === "draft" && proposed === undefined;
+    const panel = card ? draftPanelOf(session, one.id) : undefined;
     // Fleet's offer of a restart reads its sentence, with the key beside it and Skip at its end.
     const offer = one.source === "preview_offer" && restart !== undefined;
     return {
@@ -629,7 +635,7 @@ export function entriesOf(
       ...(one.steps !== undefined ? { act: "steps" as const } : act === undefined ? {} : { act: act.kind }),
       ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, keep: waitingRunKey(session.id, one.id), ...(runner === undefined ? {} : { runner }), ...(offer ? { label: restart.label } : {}) } } : {}),
       ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner, keep: waitingRunKey(session.id, one.id) } } : {}),
-      ...(one.options === undefined || answerWaiting === undefined
+      ...(one.options === undefined || answerWaiting === undefined || card
         ? {}
         : {
             // Fleet's `Other` on a words question takes the person's own address, which the deck's own Other already does: pressed as a choice it would send none.
@@ -656,6 +662,7 @@ export function entriesOf(
       ...(childStart === undefined ? {} : { start: childStart }),
       onOpen: () => {
         if (other !== undefined) return open(other.id);
+        if (panel !== undefined && openDraftCard(session, panel)) return;
         if (one.steps !== undefined) return read({ kind: "steps", id: one.id });
         if (act === undefined || restart !== undefined) return;
         if (act.kind === "walk") openWindow(act.target);
