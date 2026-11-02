@@ -1,5 +1,5 @@
-// The guided review on the Logbook's Retros tab (`docs/concepts/retro.md`, *Reviewing*):
-// Review beside the tabs reads the open items together and draws them one at a
+// The guided review on the Logbook's Retros (`docs/concepts/retro.md`, *Reviewing*):
+// Review in the list's strip reads the open items together and draws them one at a
 // time, with the model's reason, a thread to ask about the card, and Skip and
 // Back. The mock Fleet orders the items as listed and folds two with the same
 // headline. The review is kept while the window is open: leaving the Logbook for Kit and
@@ -11,12 +11,12 @@ import { button, region, role, text, toSystemPage, walk } from "../walk";
 const ASK = role("textbox", "Ask about this item");
 
 export const reviewingTheRetros = walk("retro/lessons", [
-  ...toSystemPage("Retros", "The Logbook's Retros tab"),
+  ...toSystemPage("Retros", "The Logbook's Retros"),
   {
     press: button("Review", {
       exact: true,
     }),
-    say: "Review, beside the tabs",
+    say: "Review, in the list's strip",
   },
   {
     look: text(/^1 of \d+$/),
@@ -77,7 +77,7 @@ export const reviewingTheRetros = walk("retro/lessons", [
     }),
     say: "On to the second card again",
   },
-  ...toSystemPage("Kit", "Leave the Retros tab in the middle of the review"),
+  ...toSystemPage("Kit", "Leave Retros in the middle of the review"),
   ...toSystemPage("Retros", "And come back"),
   {
     look: text(/^2 of \d+$/),

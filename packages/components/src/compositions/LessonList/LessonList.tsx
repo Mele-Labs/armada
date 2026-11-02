@@ -2,24 +2,17 @@ import { MoveRight } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { isPressed, pressedSlot } from "../../keymap";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-} from "../../primitives/Table/Table";
+import { Table, TableBody, TableCell, TableRow } from "../../primitives/Table/Table";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ageOf } from "../../time-format";
 import {
   LessonCard,
-  LessonRoute,
   type LessonAnswers,
   type LessonEvidence,
   type LessonSettled,
   type RetroCite,
 } from "../LessonCard/LessonCard";
+import { ListCard, ListCardMark } from "../ListCard/ListCard";
 import { LandsMark, landsWord, type Lands } from "../LandsMark/LandsMark";
 import { WhoMark, whoWord, type Who } from "../WhoMark/WhoMark";
 
@@ -79,15 +72,22 @@ export function LessonList({ rows, onOpen }: LessonListProps) {
 
 const optionId = (id: string) => `retro-item-${id}`;
 
+export type LessonSplitProps = LessonListProps & {
+  /** What the list's strip holds, the places and the acts of the page. */
+  strip?: ReactNode;
+};
+
 /**
- * The retro items as the Logbook's Retros tab draws them, as its entries are: on the left a log of them, a line each
- * under a column head that stays, and on the right the open one under its own head, its card held at the top and its
- * record under it. The arrows move, `Enter` goes to the item and `Esc` comes back.
+ * The retro items as the Logbook's Retros tab draws them, as its entries are: on the left a list of them, a card each with its
+ * route, its title, its Job and its age, and on the right the open one under its own head, its card and its record under it.
+ * The arrows move, `Enter` goes to the item and `Esc` comes back. The frames are drawn with no items, for the strip they hold.
  */
-export function LessonSplit({ rows, onOpen }: LessonListProps) {
-  const list = useRef<HTMLTableElement>(null);
+export function LessonSplit({ rows, onOpen, strip }: LessonSplitProps) {
+  const list = useRef<HTMLDivElement>(null);
   const detail = useRef<HTMLElement>(null);
   const [picked, setPicked] = useState<string>();
+  // The head's own place for the open item's answers, which the card draws into it.
+  const [acts, setActs] = useState<HTMLElement | null>(null);
   const open = rows.find((row) => row.id === picked) ?? rows[0];
   const now = Date.now();
 
@@ -99,8 +99,6 @@ export function LessonSplit({ rows, onOpen }: LessonListProps) {
   }, [
     open?.id,
   ]);
-
-  if (rows.length === 0) return null;
 
   function pressed(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -122,64 +120,64 @@ export function LessonSplit({ rows, onOpen }: LessonListProps) {
     }
   }
 
+  const headline = open === undefined ? "" : (open.title ?? open.statement);
   return (
     <div className="armada-lessons-split" onKeyDown={pressed}>
       <div className="armada-logbook__panel armada-logbook__log armada-lessons-split__list">
-        <table
-          ref={list}
-          role="grid"
-          aria-label="Retros"
-          tabIndex={0}
-          className="armada-table armada-logbook__table"
-          aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
-        >
-          <colgroup>
-            <col className="armada-lessons-split__col-route" />
-            <col />
-            <col className="armada-lessons-split__col-job" />
-            <col className="armada-logbook__col-when" />
-          </colgroup>
-          <TableHead>
-            <tr>
-              <TableHeaderCell>Route</TableHeaderCell>
-              <TableHeaderCell>Item</TableHeaderCell>
-              <TableHeaderCell>Job</TableHeaderCell>
-              <TableHeaderCell className="armada-logbook__num">Written</TableHeaderCell>
-            </tr>
-          </TableHead>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow
-                key={row.id}
-                id={optionId(row.id)}
-                aria-selected={row.id === open?.id}
-                selected={row.id === open?.id}
-                className="armada-logbook__row"
-                onClick={() => {
-                  setPicked(row.id);
-                  list.current?.focus();
-                }}
-              >
-                <TableCell>
-                  <span className="armada-lessons-split__route">
-                    <WhoMark who={row.who} />
-                    <MoveRight size={10} strokeWidth={2} aria-hidden />
-                    {row.landsIn === undefined ? null : <LandsMark lands={row.landsIn} />}
-                  </span>
-                </TableCell>
-                <TableCell truncates>{row.title ?? row.statement}</TableCell>
-                <TableCell variant="secondary" truncates>
-                  {row.session}
-                </TableCell>
-                <TableCell variant="mono" className="armada-logbook__num">
-                  <Tooltip label={dated(row.at)}>
-                    <time dateTime={row.at}>{ageOf(Date.parse(row.at), now)}</time>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </table>
+        <div className="armada-logbook__band armada-logbook__strip">{strip}</div>
+        {rows.length === 0 ? null : (
+          <div
+            ref={list}
+            role="grid"
+            aria-label="Retros"
+            tabIndex={0}
+            className="armada-logbook__table"
+            aria-activedescendant={open === undefined ? undefined : optionId(open.id)}
+          >
+            <div className="armada-logbook__group" role="rowgroup">
+              {rows.map((row) => (
+                <ListCard
+                  key={row.id}
+                  id={optionId(row.id)}
+                  role="row"
+                  tabIndex={-1}
+                  aria-selected={row.id === open?.id}
+                  selected={row.id === open?.id}
+                  className="armada-logbook__row"
+                  aria-label={row.title ?? row.statement}
+                  onClick={() => {
+                    setPicked(row.id);
+                    list.current?.focus();
+                  }}
+                  title={row.title ?? row.statement}
+                  marks={
+                    <>
+                      <ListCardMark>
+                        <WhoMark who={row.who} />
+                      </ListCardMark>
+                      <ListCardMark>
+                        <MoveRight size={10} strokeWidth={2} aria-hidden />
+                      </ListCardMark>
+                      <ListCardMark>
+                        {row.landsIn === undefined ? null : <LandsMark lands={row.landsIn} />}
+                      </ListCardMark>
+                    </>
+                  }
+                  tag={
+                    <Tooltip label={row.sessionExact ?? row.session}>
+                      <span className="armada-lessons-split__job">{row.session}</span>
+                    </Tooltip>
+                  }
+                  at={
+                    <Tooltip label={dated(row.at)}>
+                      <time dateTime={row.at}>{ageOf(Date.parse(row.at), now)}</time>
+                    </Tooltip>
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <section
         ref={detail}
@@ -187,58 +185,51 @@ export function LessonSplit({ rows, onOpen }: LessonListProps) {
         aria-label="Retro item"
         tabIndex={-1}
       >
-        {open === undefined ? null : (
+        {open === undefined ? (
+          <div className="armada-logbook__card" />
+        ) : (
           <div className="armada-logbook__card">
-            <div className="armada-logbook__band armada-logbook__head-band">
-              <span className="armada-logbook__head-kind">Retro item</span>
-              <span className="armada-logbook__head-where">
-                <LessonRoute
-                  who={open.who}
-                  {...(open.landsIn === undefined
-                    ? {}
-                    : {
-                        landsIn: open.landsIn,
-                      })}
-                />
-              </span>
-            </div>
-            <div className="armada-lessons-split__card">
-              <ul className="armada-lessons">
-                <RowCard key={open.id} row={open} onOpen={onOpen} />
-              </ul>
+            <div className="armada-logbook__band armada-logbook__head">
+              <Tooltip label={headline} asChild>
+                <h2 className="armada-logbook__head-title">{headline}</h2>
+              </Tooltip>
+              <span ref={setActs} className="armada-logbook__head-acts" />
             </div>
             <div className="armada-logbook__body">
-              <Table className="armada-logbook__record" aria-label="Record">
-                <colgroup>
-                  <col className="armada-logbook__col-by" />
-                  <col />
-                </colgroup>
-                <TableHead>
-                  <tr>
-                    <TableHeaderCell colSpan={2}>Record</TableHeaderCell>
-                  </tr>
-                </TableHead>
-                <TableBody>
-                  <Fact name="Got in the way of">{whoWord(open.who)}</Fact>
-                  <Fact name="Fix lands in">
-                    {open.landsIn === undefined ? "Not said" : landsWord(open.landsIn)}
-                  </Fact>
-                  <Fact name="Job">
-                    <button
-                      type="button"
-                      className="armada-logbook__job"
-                      onClick={() => onOpen(open.sessionId, open.id)}
-                    >
-                      {open.session}
-                    </button>
-                  </Fact>
-                  <Fact name="Written" mono>
-                    <Tooltip label={dated(open.at)}>
-                      <time dateTime={open.at}>{ageOf(Date.parse(open.at), now)}</time>
-                    </Tooltip>
-                  </Fact>
-                </TableBody>
-              </Table>
+              <div className="armada-lessons-split__card">
+                <ul className="armada-lessons">
+                  <RowCard key={open.id} row={open} onOpen={onOpen} actsIn={acts} />
+                </ul>
+              </div>
+              <div className="armada-logbook__part">
+                <div className="armada-logbook__band armada-logbook__legend">Record</div>
+                <Table className="armada-logbook__record" aria-label="Record">
+                  <colgroup>
+                    <col className="armada-logbook__col-by" />
+                    <col />
+                  </colgroup>
+                  <TableBody>
+                    <Fact name="Got in the way of">{whoWord(open.who)}</Fact>
+                    <Fact name="Fix lands in">
+                      {open.landsIn === undefined ? "Not said" : landsWord(open.landsIn)}
+                    </Fact>
+                    <Fact name="Job">
+                      <button
+                        type="button"
+                        className="armada-logbook__job"
+                        onClick={() => onOpen(open.sessionId, open.id)}
+                      >
+                        {open.session}
+                      </button>
+                    </Fact>
+                    <Fact name="Written" mono>
+                      <Tooltip label={dated(open.at)}>
+                        <time dateTime={open.at}>{ageOf(Date.parse(open.at), now)}</time>
+                      </Tooltip>
+                    </Fact>
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </div>
         )}
@@ -273,7 +264,15 @@ function Fact({
   );
 }
 
-function RowCard({ row, onOpen }: { row: LessonRow; onOpen: LessonListProps["onOpen"] }) {
+function RowCard({
+  row,
+  onOpen,
+  actsIn,
+}: {
+  row: LessonRow;
+  onOpen: LessonListProps["onOpen"];
+  actsIn?: HTMLElement | null;
+}) {
   return (
     <LessonCard
       item={{
@@ -319,6 +318,11 @@ function RowCard({ row, onOpen }: { row: LessonRow; onOpen: LessonListProps["onO
         ? {}
         : {
             settled: row.settled,
+          })}
+      {...(actsIn === undefined
+        ? {}
+        : {
+            actsIn,
           })}
       from={{
         label: row.session,

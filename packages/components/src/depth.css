@@ -231,7 +231,8 @@
     .armada-wm-step__band,
     .armada-doctor__gaps-head,
     .armada-check-list__band,
-    .armada-screen__tabs
+    .armada-screen__tabs,
+    .armada-logbook__strip
   ) {
   --strip-min: var(--strip-h);
 }
@@ -264,7 +265,8 @@
 }
 
 /* A detail pane's head is the thread's (`.armada-session-frame__head`): 36px, the title 14px at medium weight on one line, with the acts at the right. The meta under it is the body's. */
-:root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head {
+:root[data-look="new"] :is(.issues-reader, .pr-reader, .projects-pane) > .deck-pane__head,
+:root[data-look="new"] .armada-logbook__card > .armada-logbook__head {
   align-items: center;
   min-height: var(--head-min, calc(var(--h-row-header) + var(--space-2)));
   padding: var(--head-pad, 0 var(--space-3));
@@ -272,7 +274,8 @@
 :root[data-look="new"]
   :is(.issues-reader, .pr-reader, .projects-pane)
   > .deck-pane__head
-  .deck-pane__title {
+  .deck-pane__title,
+:root[data-look="new"] .armada-logbook__card > .armada-logbook__head .armada-logbook__head-title {
   display: block;
   color: var(--fg-default);
   font-family: var(--font-sans);
@@ -294,7 +297,8 @@
     .armada-system-side__head,
     .projects-section__head,
     .armada-wm__caption,
-    .armada-guides__group-title
+    .armada-guides__group-title,
+    .armada-logbook__section
   ) {
   display: flex;
   align-items: center;
@@ -327,6 +331,10 @@
 }
 :root[data-look="new"] :is(.armada-system-side__caption, .armada-wm__caption)::after {
   content: none;
+}
+/* The Logbook's group head scrolls with the list and holds its place, so what passes under it must not show through: the band's 8% over the list's solid ground, drawn as the one solid colour it comes to. */
+:root[data-look="new"] .armada-logbook__section {
+  background: color-mix(in srgb, var(--fg-default) 8%, var(--bg-raised));
 }
 :root[data-look="new"] .armada-card-header:has(+ .armada-card-content:empty) {
   box-shadow: none;
@@ -1061,9 +1069,10 @@
 }
 
 /* Every page's key caps are the Cockpit's: not drawn, not hidden, until ⌘ is held. `ShortcutRevealProvider` sets `data-reveal`
-   on the root for as long, and the key still works the rest of the time. The Logbook's own caps are its own. */
+   on the root for as long, and the key still works the rest of the time. */
 :root:not([data-reveal])
   :is(
+    .armada-logbook,
     .armada-usage__page,
     .projects-top,
     .projects-list,

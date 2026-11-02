@@ -90,6 +90,7 @@
     :is(
       .deck-right > .deck-bays,
       .deck-left > .deck-list,
+      .armada-logbook__log,
       .job-pane,
       .sv-panel:not(.job-pane__body *, .console-calls *),
       .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])

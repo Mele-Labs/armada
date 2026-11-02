@@ -10,7 +10,7 @@ const GREP_LINE = inside(role("grid", "Retros"), row(/grep had to be allowed on 
 const ALLOWLIST = region("Allowlist");
 
 export const updatingKitFromARetro = walk("retro/kit-command", [
-  ...toSystemPage("Retros", "The Logbook's Retros tab"),
+  ...toSystemPage("Retros", "The Logbook's Retros"),
   {
     press: GREP_LINE,
     say: "The item whose fix is a command",

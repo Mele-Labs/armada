@@ -213,13 +213,19 @@ const SIDEBAR_ENTRY: Readonly<Record<string, string>> = {
   Settings: "Limits",
 };
 
-/** An entry of the System sidebar, from anywhere: System, then the entry's button. Studios is a tab of its own, one press, and Retros is the Logbook's Retros tab. */
+/** An entry of the System sidebar, from anywhere: System, then the entry's button. Studios is a tab of its own, one press, and Retros is the Logbook's Retros, chosen in its State menu. */
 export async function toSystemPage(name: string): Promise<void> {
   if (name === "Studios") return toPlace(name);
   if (name === "Retros") {
     await toPlace("Logbook");
+    await userEvent.click(
+      page.getByRole("button", {
+        name: "State",
+        exact: true,
+      }),
+    );
     return userEvent.click(
-      page.getByRole("tab", {
+      page.getByRole("menuitem", {
         name: "Retros",
         exact: true,
       }),

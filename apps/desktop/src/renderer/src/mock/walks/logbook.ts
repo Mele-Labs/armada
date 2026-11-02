@@ -9,7 +9,7 @@ const ENTRY = region("Entry");
 export const logbook = walk("logbook", [
   {
     press: place("Logbook"),
-    say: "Logbook: each repository, then Habits and This Mac, then the Retros tab",
+    say: "Logbook: each repository, then Habits and This Mac. Retros is in the State menu",
   },
   {
     key: "Enter",
@@ -60,7 +60,11 @@ export const logbook = walk("logbook", [
     say: "Forgotten. No later Job brings it back",
   },
   {
-    press: role("tab", "New"),
+    press: button("State"),
+    say: "State holds In use, New, Archived and Retros",
+  },
+  {
+    press: role("menuitem", "New"),
     say: "New holds the candidates, In use what is handed out, Archived the faded",
   },
 ]);

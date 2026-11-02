@@ -50,7 +50,11 @@ const logbookTidy = walk("logbook-tidy", [
     say: "The open one keeps what it absorbed under Earlier, as Merged",
   },
   {
-    press: role("tab", "Archived"),
+    press: button("State"),
+    say: "State",
+  },
+  {
+    press: role("menuitem", "Archived"),
     say: "The merged ones are under Archived, kept and searchable",
   },
 ]);

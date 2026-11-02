@@ -1,10 +1,9 @@
-// The Logbook's Retros tab (`docs/concepts/retro.md`): what got in the way across Sessions, newest first, a line each. The
-// open item's card reads as one arrow from whose way it got in to where the fix lands, each end its own hue, then
-// a headline, what happened, what would change and its answers. The walk expands two items' evidence
-// in place, opens a Session's retro, then rejects an Armada item, accepts a Kit item and reads the
-// accepted ones. `retro-page.test.tsx` holds the claims.
+// The Logbook's Retros (`docs/concepts/retro.md`): what got in the way across Sessions, newest first, a line each. The open
+// item has its title and answers in a head, what happened and what would change in its card, and whose way it got in and where the
+// fix lands in its Record. The walk expands two items' evidence in place, opens a Session's retro, then rejects an Armada
+// item, accepts a Kit item and reads the accepted ones. `retro-page.test.tsx` holds the claims.
 
-import { button, dialog, inside, region, role, row, tab, text, toSystemPage, walk } from "../walk";
+import { button, dialog, inside, region, role, row, text, toSystemPage, walk } from "../walk";
 
 const RETROS = role("grid", "Retros");
 const ITEM = region("Retro item");
@@ -16,7 +15,7 @@ const COMMIT = line("A commit message was read as a redirect");
 const WALKS = line("Walks opened in your browser");
 
 export const retroFromTheRetrosPage = walk("retro/lessons", [
-  ...toSystemPage("Retros", "The Logbook's Retros tab"),
+  ...toSystemPage("Retros", "The Logbook's Retros"),
   {
     look: RETROS,
     say: "Newest first, across Jobs",
@@ -27,11 +26,11 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
   },
   {
     look: inside(ITEM, text(/^Agent$/)),
-    say: "Whose way it got in, in a word and a hue",
+    say: "Whose way it got in, in the Record",
   },
   {
     look: inside(ITEM, text(/^Armada$/)),
-    say: "Where the fix lands, in a word and a hue",
+    say: "Where the fix lands, in the Record",
   },
   {
     press: WALKS,
@@ -39,7 +38,7 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
   },
   {
     look: inside(ITEM, text(/^Kit$/)),
-    say: "Kit has its own hue",
+    say: "A Kit item",
   },
   {
     press: RESET,
@@ -50,8 +49,8 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
     say: "What would change, set apart",
   },
   {
-    hover: inside(ITEM, role("img", "Agent")),
-    say: "The marks keep their tooltips",
+    hover: inside(RESET, role("img", "Agent")),
+    say: "In the log, the marks keep their tooltips",
   },
   {
     press: inside(ITEM, button("Evidence")),
@@ -94,7 +93,7 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
   },
   {
     press: inside(RETRO, button("Close")),
-    say: "Back to the Retros tab",
+    say: "Back to Retros",
   },
   {
     hover: inside(
@@ -140,7 +139,13 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
     say: "Accept saves it",
   },
   {
-    press: tab("Accepted"),
+    press: button("Show"),
+    say: "Open and Accepted are the Show menu",
+  },
+  {
+    press: role("menuitem", "Accepted", {
+      exact: true,
+    }),
     say: "Accepted: the saved Kit items",
   },
   {
@@ -148,7 +153,13 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
     say: "The Kit item, saved",
   },
   {
-    press: tab("Open"),
+    press: button("Show"),
+    say: "Show again",
+  },
+  {
+    press: role("menuitem", "Open", {
+      exact: true,
+    }),
     say: "Back to Open",
   },
 ]);
