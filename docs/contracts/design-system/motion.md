@@ -107,6 +107,19 @@ animation, even one small ring, holds frame production at the display's rate (ab
 210 ms per second of compositor and Viz time, against about 2 when everything is paused).
 The floor is why a window nobody is looking at stills its loops (`styles/index.css`).
 
+**Every loop moves on one clock.** Glass makes that floor expensive, because a frame redraws the blurred panels.
+One smooth loop of any size, a faint row pulse as much as the star field, held the GPU at 52% on the mock Cockpit, and steps on each loop's own schedule add up.
+`apps/desktop/src/renderer/src/loop-clock.ts` pauses every infinite animation in Bridge's main windows and moves them together about 10 times a second.
+
+| Measured in Bridge on an M5 Pro at 3024 by 1964, on the mock Cockpit | GPU |
+|---|---|
+| No loops, glass on | 0% |
+| Stars alone, smooth | 52% |
+| Row pulse alone, smooth | 52% |
+| Stars alone, one device pixel a step | 9.5% |
+| Row pulse alone, 12 moves a second | 7% |
+| Both of those, each on its own schedule | 16% |
+
 **A layer nobody summoned does not enter.** The licence above is for chrome a
 person asked for, and it is the press that pays for it. A guide card opened by
 a `?` scales from 0.97 like any dialog; the same card opened because somebody
