@@ -483,6 +483,13 @@
    added, removed and changed hues win over these where a sketch is read as a
    change. */
 :root, [data-theme] {
+  /* The Usage page's figures and Settings' Modified: `packages/components/src/meaning.css`. */
+  --usage-meter: var(--status-running);
+  --usage-worse: var(--status-awaiting-review);
+  --usage-over: var(--status-escalated);
+  --usage-better: var(--status-completed-success);
+  --setting-modified: var(--status-running);
+
   --sketch-blue: var(--status-running);
   --sketch-teal: var(--status-handed-in);
   --sketch-green: var(--status-completed-success);
