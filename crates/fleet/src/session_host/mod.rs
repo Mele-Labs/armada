@@ -30,6 +30,7 @@ pub(crate) mod asking_in_window;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod showing_file;
+pub(crate) mod styling;
 pub(crate) mod sketching;
 pub(crate) mod following;
 mod finishing;

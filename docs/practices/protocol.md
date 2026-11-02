@@ -154,6 +154,7 @@ WebSocket event stream, read this first.
 | [A Job's delivery question](protocol/a-jobs-delivery-question.md) |
 | [A Job starts on its start card](protocol/a-job-starts-on-its-start-card.md) |
 | [A sketch wireframes a screen: the `screen` node](protocol/a-sketch-wireframes-a-screen-the-screen-node.md) |
+| [A sketch draws HTML in the repository's styles: the `mock` node, `get_style_sources` and `get_kept_styles`](protocol/a-sketch-draws-html-the-mock-node.md) |
 | [Autopilot starts Sessions, not Jobs](protocol/autopilot-starts-sessions-not-jobs.md) |
 | [Sessions absorb Jobs, group 1: the Job arms and piloting a Job leave the wire](protocol/sessions-absorb-jobs-group-1-the-job-arms-and-piloting-a-job-leave-the.md) |
 | [Sessions absorb Jobs, group 2: the Job surface leaves the wire](protocol/sessions-absorb-jobs-group-2-the-job-surface-leaves-the-wire.md) |

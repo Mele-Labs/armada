@@ -15,13 +15,13 @@ const KEY = "mele-labs/armada";
 // the preview a pull request deployed is not reachable from a browser tab, so each names a part that page has.
 const hubSteps: readonly WalkStep[] = [
   { say: "The window is connected to Fleet and lists its work", look: { role: "region", name: "Jobs and Sessions" } },
-  { say: "Restart Fleet now, with this window open. Activity keeps drawing", look: { role: "region", name: "Activity" } },
+  { say: "Restart Fleet now, with this window open. Activity keeps drawing", look: { role: "button", name: "Activity" } },
   { say: "The same page is still open and the list is back, with no reload", look: { role: "region", name: "Jobs and Sessions" } },
 ];
 
 const bayHistorySteps: readonly WalkStep[] = [
   { say: "The bays, each with its holder", look: { role: "region", name: "Bays" } },
-  { say: "A bay's pane draws its leases and checkouts, newest first", look: { role: "region", name: "Activity" } },
+  { say: "A bay's pane draws its leases and checkouts, newest first", look: { role: "region", name: "Bays" } },
 ];
 
 const READ_AT = "2026-10-16T17:02:11Z";

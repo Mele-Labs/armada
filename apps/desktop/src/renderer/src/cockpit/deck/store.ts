@@ -56,7 +56,6 @@ export type DeckState = {
   /** The Session under the pointer or the keys, in the list or by a bay it holds: the other lights too. */
   hover: string | undefined;
   view: DeckView;
-  needs: boolean;
   /** Narrowed to what has a Check running now. */
   checks: boolean;
   scope: Scope;
@@ -108,7 +107,6 @@ function fresh(): DeckState {
     cursor: undefined,
     hover: undefined,
     view: readRemembered(DECK_VIEW_KEY, viewNamed),
-    needs: filters.includes("needs"),
     checks: filters.includes("checks"),
     scope: readRemembered(DECK_SCOPE_KEY, scopeNamed),
     order: orderRead(),
@@ -241,14 +239,10 @@ export const changeReplay = (change: Partial<Replay>) => {
 /** Back to Live: plain, with no picked event left over it. */
 export const stopReplay = () => set({ replay: undefined, focus: undefined });
 
-const keepFilters = (filters: Pick<DeckState, "needs" | "checks">) => writeRemembered(DECK_FILTERS_KEY, [filters.needs ? "needs" : "", filters.checks ? "checks" : ""].filter((one) => one !== "").join(" "));
-export const toggleNeeds = () => {
-  keepFilters({ needs: !state.needs, checks: state.checks });
-  set({ needs: !state.needs });
-};
-/** The Checks tile is a plain filter, as Calls is: what is not running a Check dims, and the list and the feed narrow to the rest. */
+const keepFilters = (filters: Pick<DeckState, "checks">) => writeRemembered(DECK_FILTERS_KEY, filters.checks ? "checks" : "");
+/** The Checks tile is a plain filter: what is not running a Check dims, and the list and the feed narrow to the rest. */
 export const toggleChecks = () => {
-  keepFilters({ needs: state.needs, checks: !state.checks });
+  keepFilters({ checks: !state.checks });
   set({ checks: !state.checks });
 };
 const keepOrder = (order: readonly string[], live: ReadonlySet<string>) => {
@@ -387,7 +381,7 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
  * **Active is the live ones in the order he placed them, the new ones last, without the paused; Paused is the ones he parked; Quiet and Ended are the Sessions that are not, newest first**, an ended one last seen
  * before the week only where a search is. All is both. The Session open on the stage is in the list wherever it came from.
  */
-export function listOf(whole: Ship, deck: Pick<DeckState, "needs" | "checks" | "held"> & { order?: readonly string[]; scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
+export function listOf(whole: Ship, deck: Pick<DeckState, "checks" | "held"> & { order?: readonly string[]; scope?: Scope; found?: ReadonlyMap<string, unknown>; open?: string }, banding?: readonly Banding[]): Subject[] {
   // A Mod Job that builds a Custom tab is never a row, not even while it is open on the stage.
   const ship: Ship = { ...whole, subjects: whole.subjects.filter((one) => one.tab !== true) };
   const scope = deck.scope ?? "active";
@@ -397,7 +391,7 @@ export function listOf(whole: Ship, deck: Pick<DeckState, "needs" | "checks" | "
   const parked = every.filter((one) => one.paused === true);
   const live = every.filter((one) => one.paused !== true);
   const base = scope === "quiet" || scope === "ended" ? held : scope === "paused" ? parked : scope === "all" ? [...every, ...held] : live;
-  const kept = base.filter((one) => (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)) && (deck.found === undefined || deck.found.has(one.key)));
+  const kept = base.filter((one) => (!deck.checks || ship.running.has(one.key)) && (deck.found === undefined || deck.found.has(one.key)));
   const open = [...past, ...parked].find((one) => one.key === deck.open && !kept.includes(one) && one.behind !== true);
   const rows = open === undefined ? kept : [...kept, open];
   // The one order the list draws and the cursor walks: grouped by repository where the list is, and nested inside each group, so a
@@ -435,12 +429,12 @@ function linkedUnder(rows: readonly Subject[], away: ReadonlyMap<string, { title
 
 /**
  * What the feed and the stage's timeline keep: the subjects the list draws, and main's own events only while no filter narrows
- * the list. **One predicate for the three**, so the Calls and Checks filters narrow the list, the
+ * the list. **One predicate for the three**, so the Checks filter narrows the list, the
  * feed and the stage together.
  */
-export function keepOf(listed: readonly Subject[], deck: Pick<DeckState, "needs" | "checks"> & Partial<Pick<DeckState, "scope" | "query">>): (subject: { kind: string; id?: string }) => boolean {
+export function keepOf(listed: readonly Subject[], deck: Pick<DeckState, "checks"> & Partial<Pick<DeckState, "scope" | "query">>): (subject: { kind: string; id?: string }) => boolean {
   const shown = new Set(listed.map((one) => one.key));
-  const whole = !deck.needs && !deck.checks && (deck.scope ?? "active") === "active" && (deck.query ?? "").trim() === "";
+  const whole = !deck.checks && (deck.scope ?? "active") === "active" && (deck.query ?? "").trim() === "";
   return (subject) => (subject.kind === "main" ? whole : shown.has(`${subject.kind}:${subject.id}`));
 }
 

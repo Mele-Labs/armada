@@ -90,7 +90,7 @@ function pack(xs: readonly number[], d: number, half: number): number[] | undefi
   return out;
 }
 
-function Swarm({ events, now, lit, onPick }: { events: readonly FleetEvent[]; now: number; lit: string | undefined; onPick: (event: FleetEvent) => void }) {
+function Swarm({ events, now, lit, onPick, dot }: { events: readonly FleetEvent[]; now: number; lit: string | undefined; onPick: (event: FleetEvent) => void; dot: number }) {
   const plot = useRef<HTMLDivElement>(null);
   const { w, h } = useSize(plot);
   const [hot, setHot] = useState<string>();
@@ -100,12 +100,12 @@ function Swarm({ events, now, lit, onPick }: { events: readonly FleetEvent[]; no
     // Half a pixel is the finest a screen draws, so a dot that has drifted less keeps the style it has instead of being rewritten.
     const xs = ordered.map((event) => Math.round((margin + (1 - Math.min(HOUR, Math.max(0, now - Date.parse(event.at))) / HOUR) * (w - 2 * margin)) * 2) / 2);
     // The dots shrink until they fit the height; below the smallest they are laid as close as they go.
-    for (let d = 6; d >= 2; d *= 0.85) {
+    for (let d = dot; d >= 2; d *= 0.85) {
       const ys = pack(xs, d, h / 2 - d / 2);
       if (ys !== undefined) return { d, xs, ys, packed: true };
     }
     return { d: 2, xs, ys: pack(xs, 2, 4000)!.map((y) => Math.max(-h / 2 + 1, Math.min(h / 2 - 1, y))), packed: false };
-  }, [ordered, now, w, h]);
+  }, [ordered, now, w, h, dot]);
   const held = ordered.find((event) => event.id === hot);
   const cluster = held === undefined ? [] : [held, ...near(events, Date.parse(held.at), NEAR).filter((event) => event.id !== held.id)];
   const over = (event: { target: EventTarget }) => setHot((event.target as HTMLElement).closest<HTMLElement>("[data-id]")?.dataset.id);
@@ -157,6 +157,7 @@ export function ActivityGraph({
   onPick,
   lit,
   of,
+  dot = 6,
 }: {
   now: number;
   views?: readonly MergeLineView[];
@@ -168,13 +169,15 @@ export function ActivityGraph({
   onPick: (event: FleetEvent) => void;
   /** The event held lit, by id: it is marked on the chart. */
   lit?: string;
+  /** The largest a dot is drawn, in pixels; a busy hour shrinks them from here. */
+  dot?: number;
 }) {
   const lanes = useLanes(now, views, filter, keep, of, MOST_GRAPH);
   const events = useMemo(() => lanes.flatMap((lane) => lane.events).filter((event) => now - Date.parse(event.at) < HOUR), [lanes, now]);
   return (
     <div className="armada-tl armada-tl__graph" role="group" aria-label="Last hour">
       <div className="armada-tl__plot">
-        <Swarm events={events} now={now} lit={lit} onPick={onPick} />
+        <Swarm events={events} now={now} lit={lit} onPick={onPick} dot={dot} />
       </div>
       <i className="armada-tl__now" aria-hidden="true" />
     </div>

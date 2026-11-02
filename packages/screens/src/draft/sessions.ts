@@ -121,6 +121,8 @@ export type SessionAttachment =
       settled?: SketchSettled;
       /** When the newest revision was kept, as near as the record tells: its thread card stands at this time. */
       kept?: string;
+      /** A document: the kept style set of each `mock` in its sketches, by content hash, keyed `<sketch title>#<node id>`: `detail.kept_styles` on the wire. */
+      keptStyles?: Readonly<Record<string, string>>;
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
@@ -629,6 +631,8 @@ export type Session = {
   heldOpenBy?: readonly HeldOpenBy[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string; summary?: string };
+  /** What the Job has done, in a sentence or two. Fleet serves nothing like it, so the wire never sets it and a real Job has none; only the mock's `cockpit-ship` fills it. The Calls HUD draws it where it is present (`ConsoleCalls.tsx`). */
+  soFar?: string;
   /**
    * What Fleet read the Session to be doing: working, stuck, replied, done or idle. **The one answer**
    * the Sessions list, the Cockpit's tiles, lanes and calls all draw. Absent from a Fleet that does not

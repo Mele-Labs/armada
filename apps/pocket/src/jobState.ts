@@ -8,6 +8,7 @@ import type {
   ApprovePlan,
   BeginSession,
   DismissWaiting,
+  KeptStyles,
   SendPlanChanges,
   SendSessionMessage,
   SessionThread as WireThread,
@@ -101,6 +102,15 @@ export async function attempt(act: () => Promise<void>, machine?: Machine): Prom
     return null;
   } catch (why) {
     return refusal(why, machine);
+  }
+}
+
+/** The style set a sketch's `mock` was drawn with, by the hash its node carries: `/api/sessions/kept_styles`. `undefined` where the Mac did not give it. */
+export async function readKept(machine: Machine, hash: string): Promise<KeptStyles | undefined> {
+  try {
+    return await getJson<KeptStyles>(machine, `/api/sessions/kept_styles?hash=${encodeURIComponent(hash)}`);
+  } catch {
+    return undefined;
   }
 }
 

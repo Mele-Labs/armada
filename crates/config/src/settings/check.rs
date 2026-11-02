@@ -2,6 +2,10 @@
 //!
 //! **The first fault refuses the file**, named by its key, and nothing in it is
 //! taken: a file half applied is a machine running on settings nobody wrote.
+//!
+//! **A key the table does not have is no fault.** It is another build's, written while
+//! Main and a preview take turns on one file: kept in the document, so a save writes it
+//! back, and read by nothing here.
 
 use std::fmt;
 
@@ -71,10 +75,7 @@ pub fn checked(
 ) -> Result<Saved, Refused> {
     for (key, value) in document {
         let Some(found) = entry(key) else {
-            return Err(Refused::at(
-                key,
-                format!("settings.json names `{key}`, which is not a setting Armada has"),
-            ));
+            continue;
         };
         if let Some(why) = fault(&found.kind, value, || {
             options(found, document, supplied, env)

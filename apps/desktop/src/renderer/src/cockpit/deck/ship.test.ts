@@ -132,7 +132,7 @@ const modJob = (id: string, extra: Partial<Session> = {}): Session => reply(id, 
 const tabMod = (made_by: string) => ({ name: "review-queue", kind: "tab" as const, enabled: true, valid: true, made_by, changed_at: SINCE });
 /** What the Jobs list draws: the Mod Job of a tab stays a subject so the stage can open it, and is never a row, even while it is the one open. */
 const ids = (ship: ReturnType<typeof shipOf>, open?: string) =>
-  listOf(ship, { needs: false, checks: false, held: new Map(), scope: "all", ...(open === undefined ? {} : { open: `session:${open}` }) }).map((one) => one.id);
+  listOf(ship, { checks: false, held: new Map(), scope: "all", ...(open === undefined ? {} : { open: `session:${open}` }) }).map((one) => one.id);
 
 test("a Mod Job started from a tab gets no row in any state, and a Mod Job started anywhere else keeps its row", () => {
   const from = { job: "holder", tab: "t1" };

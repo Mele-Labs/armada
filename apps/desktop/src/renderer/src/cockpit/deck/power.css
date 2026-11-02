@@ -15,7 +15,6 @@
 .deck[data-power] .deck-stage > .deck-pane { --power-n: 1; }
 .deck[data-power] .deck-queue { --power-n: 2; }
 .deck[data-power] :is(.deck-bays, .deck-ledger) { --power-n: 3; }
-.deck[data-power] .deck-activity { --power-n: 4; }
 .deck[data-power] .deck-controls { --power-n: 5; }
 .deck[data-power] .deck-dispatch { --power-n: 6; }
 .deck[data-power] .deck-autopilot { --power-n: 7; }
