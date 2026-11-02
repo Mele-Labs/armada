@@ -1,15 +1,15 @@
 ---
 name: armada-mods
-description: How a job makes a mod end to end — a theme (colours), a layout (which tabs, panels and places are drawn, and in what order), a tracker (an issue tracker Armada was not built for), or a tab (a React component drawn in a pane of a Job). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, to move, hide or reorder something in Bridge, or to use an issue tracker Armada does not support, or for a tab that shows something in a Job's panes.
+description: How a job makes a mod end to end — a theme (colours), a layout (which tabs, panels and places are drawn, and in what order), a tracker (an issue tracker Armada was not built for), a tab (a React component drawn in a pane of a Job), or an instrument (a React component with a face drawn on a bay of the Cockpit console). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, to move, hide or reorder something in Bridge, to use an issue tracker Armada does not support, for a tab that shows something in a Job's panes, or for an instrument or something on the console's bays.
 ---
 
 # Making a mod
 
-**Four kinds here.** A theme changes colours, in `theme.css`; a layout changes what
+**Five kinds here.** A theme changes colours, in `theme.css`; a layout changes what
 Bridge arranges, in `layout.json`; a tracker teaches Fleet an issue tracker, in
-`tracker.toml`; a tab draws a view in a Job's panes, in `tab.js`. Colours are the first section below, layouts the second, trackers the third and
-tabs the last. Pick the kind from the ask: "warmer", "darker" and "higher
-contrast" are themes; "move", "hide", "put first" and "reorder" are layouts; "a tab that shows" is a tab.
+`tracker.toml`; a tab draws a view in a Job's panes, in `tab.js`; an instrument draws on a bay of the Cockpit console and in its panel, in `instrument.js`. Colours are the first section below, layouts the second, trackers the third,
+tabs the fourth and instruments the last. Pick the kind from the ask: "warmer", "darker" and "higher
+contrast" are themes; "move", "hide", "put first" and "reorder" are layouts; "a tab that shows" is a tab; "on the console", "on a bay" and "an instrument" are instruments.
 
 # In a Mod Job
 
@@ -403,3 +403,85 @@ Set `glyph` in `mod.toml` to a name in `packages/icons/icons/` that
 **What he sees.** The tab is in the + menu of every pane under the rule above
 Custom, and in the pane it was built in. Switching the mod off in Mods removes
 its body. **Promotion is his act**, as for the other kinds.
+
+# Making an instrument mod
+
+**An instrument is code Bridge runs as part of itself.** It has a face drawn on a bay of
+the Cockpit console, and a panel that stands over the field when the bay is pressed.
+It reaches the whole Fleet API and Bridge's components, with no sandbox.
+`docs/concepts/mods.md`, *instrument.js*, is the whole contract, and the rack that seats it is in
+`docs/concepts/cockpit.md`, *The rack*.
+
+## The steps
+
+| # | Do | Tool |
+|---|---|---|
+| 1 | See what exists, so the name is new | `list_mods` |
+| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name`, `description`, `kind` set to `instrument` and your own `session_id` |
+| 3 | Edit `instrument.js` in that `path` and no other file | Your editor |
+| 4 | Check it after each edit; read `problems`, fix every one, check again | `validate_mod` with `name` |
+| 5 | Change it again when he asks; the bay reloads when the file changes | Your editor, then `validate_mod` |
+
+**Pass your own `session_id`.** It is what links this Job to the mod as `made_by`, so the
+Job's card stays on the bay. **The scaffold already passes** and moves, a bar going across,
+so the bay reads as being built until you replace it. Write `instrument.js` in steps that
+each pass `validate_mod`, and name the mod by what it shows (`review-queue`), since the name
+is its label. This Job has no row in the Jobs list: its card opens from the bay, with your
+question, the thread and a box to message you, and the bay lights while you wait on him.
+
+## The file
+
+A plain ES module, no build step. Its default export is a React component with one prop,
+`host`. It has no `import`: everything comes through `host`.
+
+| Use | For |
+|---|---|
+| `host.React` | React. Write `const { createElement: h, useState, useEffect } = host.React;` and call `h(...)`, since there is no JSX |
+| `host.armada` | Any Fleet call Bridge makes, such as `getReviewLists()` or `state()`. Read `apps/desktop/src/shared/api/` for the names |
+| `host.ui` | Bridge's primitives by name, the list a tab has in `apps/desktop/src/renderer/src/job-panes/tab-ui.ts` |
+| `host.glyphs` | Icons by registry name |
+| `host.face` | What is drawn on the bay, below |
+
+An instrument has no `host.job` and no `host.tab`. Set `glyph` in `mod.toml` to a name in
+`packages/icons/icons/` if it should have one.
+
+**What the component returns is the panel.** Bridge keeps the component mounted while the
+panel is closed, so its state survives, and what it returns stands over the field when the
+bay is pressed.
+
+**What `host.face` draws is the bay.** `host.face(paint)` registers
+`paint(draw, { w, h, t, ink })`, with `draw` a 2D canvas context.
+
+| `paint` is given | Is |
+|---|---|
+| `w`, `h` | The screen's size in the facet's true proportions, so a circle stays a circle |
+| `t` | Seconds |
+| `ink` | `run`, `ask`, `bad`, `good`, `fg`, `muted`, `subtle`, `off`: the theme's colours. Draw in these and never a hex |
+
+A face repaints only when the component calls `host.face` again, or the screen's size or the
+theme changes. `host.face(paint, { moves: true })` repaints once a second: use it only for
+something that moves, since a still face costs no canvas work. The starter moves; replace it
+with a still face unless the figure moves.
+
+## When it breaks
+
+A mod that throws as it loads, renders or paints, is invalid, or is switched off leaves its bay
+an empty socket with the reason in a tooltip, and its seat is kept. It clears by itself when
+the file next loads well, and a new `host.face` call retries a paint that threw. Switching it off
+is his, on the Mods page, where it has a row.
+
+## What you must not do
+
+| Never | Because |
+|---|---|
+| Write an `import` or `export ... from` | A module loaded from text has no path to resolve, and `validate_mod` refuses it |
+| Call `host.face` with `moves: true` for a figure that is still | A moving face repaints every frame |
+| Write words that narrate or explain on the screen | An instrument shows facts: names, numbers, states |
+| Show a state as text where a glyph with a tooltip fits | Bridge shows a state as a glyph |
+| Use a dash in a string the person reads | Armada's voice has none |
+| Edit `mod.toml` beyond `description`, `version` and `glyph` | `name` must equal the folder, and `kind` is `instrument` |
+| Add a second file | Only `mod.toml` and `instrument.js` are read |
+| Seat it in a bay | The bay is his choice, in the rack |
+
+**What he sees.** The mod is in the rack's tray under its label, in Edit on the console, and
+the bay he asked for holds it. **Promotion is his act**, as for the other kinds.

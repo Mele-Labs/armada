@@ -239,6 +239,7 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
         r#mod: false,
         from_job: None,
         from_tab: None,
+        mod_of_bay: false,
         auto_land: false,
         activity: None,
         build: None,

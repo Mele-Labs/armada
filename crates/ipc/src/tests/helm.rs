@@ -155,6 +155,7 @@ fn a_helm_record() -> SessionRecord {
         r#mod: false,
         from_job: None,
         from_tab: None,
+        mod_of_bay: false,
         auto_land: false,
         activity: None,
         build: None,
@@ -177,6 +178,18 @@ fn a_helm_record() -> SessionRecord {
 }
 
 /// The mark is on a Helm Session's record and on no other: an ordinary Session leaves it out.
+#[test]
+fn a_mod_of_a_bay_is_said_on_the_record_and_left_off_every_other() {
+    let of_a_bay = SessionRecord { helm: false, r#mod: true, mod_of_bay: true, ..a_helm_record() };
+    let json = encode(&of_a_bay).expect("plain data");
+    assert!(json.contains(r#""mod_of_bay":true"#), "{json}");
+    assert_eq!(decode::<SessionRecord>("a record", json.as_bytes()).expect("round-trips"), of_a_bay);
+
+    let json = encode(&a_helm_record()).expect("plain data");
+    assert!(!json.contains("mod_of_bay"), "{json}");
+    assert!(!decode::<SessionRecord>("a record", json.as_bytes()).expect("decodes").mod_of_bay);
+}
+
 #[test]
 fn the_helm_mark_is_left_off_every_record_that_is_not_helms() {
     let helm = a_helm_record();

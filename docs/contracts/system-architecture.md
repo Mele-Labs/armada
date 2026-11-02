@@ -393,6 +393,12 @@ The CLI names two things itself: `status`, which reads the Job's own line from
 `list_sessions`, and `dispatch`, which is `start_another_job` with `repo=` read as
 the `manifest_id` of the repository that name is. It adds no route.
 
+**A hosted Job in a root with no `armada.yml` is offered its own acts and nothing answered inside a Manifest.**
+Its door is the same listener at `?without_manifest=true`, and it lists what the rules every hosted Job is told to follow name: what it waits for, its follow-ups, its watches, finishing and `all_done`, a bug or a wrong notice reported, a page shown, a sketch, a draft, a Job dispatched in its own repository or another, and the Manifests Fleet holds.
+Beside them are its browser, its terminal, its requests and the mods on the machine.
+A test holds every act the rules name to that list (`crates/api/src/tests/door_without_manifest.rs`), so a rule cannot send a Job to a tool its door does not have.
+Other Jobs, Drones, runs and servers are refused there, since they are read inside a Manifest.
+
 **It confers nothing.** The listener is loopback with no authentication in
 front of it, so every process on this machine was already inside that boundary
 and the relay adds no authority to one. A page in a browser is the one caller

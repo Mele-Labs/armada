@@ -21,7 +21,7 @@ curl -fsSL https://github.com/Mele-Labs/armada/releases/latest/download/install.
 
 | | |
 |---|---|
-| What it does | Puts `Armada.app` in `/Applications`, starts Fleet from the `armada` inside it under launchd, and opens the app. Run it again to move onto the newest release |
+| What it does | Puts `Armada.app` in `/Applications`, starts Fleet from the `armada` inside it under launchd, links `~/.local/bin/armada` to it for a terminal's Jobs (a file already there is left alone), and opens the app. Run it again to move onto the newest release |
 | What it needs | macOS on Apple Silicon and Apple's Command Line Tools. It opens their installer when they are missing and asks you to run it again. No Rust, no Node |
 | When it refuses | When Fleet here runs from a checkout you build: `scripts/restart` updates that one |
 

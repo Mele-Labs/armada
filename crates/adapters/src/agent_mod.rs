@@ -70,9 +70,13 @@ pub fn populate(tree: &Path, home: &Path, within: Duration) -> Result<(), String
     run(script, within).map(|_| ())
 }
 
-/// Fleet's copy of the mod is there, filled from the first of `trees` that holds the mod when it
-/// was not. Blocking: it runs the script.
-pub fn populated(home: &Path, folder: &Path, trees: &[PathBuf], within: Duration) -> Result<(), String> {
+/// Fleet's copy of the mod is there, and is the app's where `bundle` names one: filled from it when
+/// missing or of another plugin version. With none, a copy that is there is left, and a missing one is
+/// filled from the first of `trees` that holds the mod. Blocking: it copies, or runs the script.
+pub fn populated(home: &Path, folder: &Path, trees: &[PathBuf], bundle: Option<&Path>, within: Duration) -> Result<(), String> {
+    if let Some(bundle) = bundle {
+        return filled_from_bundle(bundle, folder).map(|_| ());
+    }
     if is_populated(folder) {
         return Ok(());
     }
@@ -87,6 +91,76 @@ pub fn populated(home: &Path, folder: &Path, trees: &[PathBuf], within: Duration
         true => Ok(()),
         false => Err(format!("{} is still empty after copying from {}", folder.display(), tree.display())),
     }
+}
+
+/// The mod an app carries, beside the binary it runs: `<x>/Contents/Resources/bin/armada` has it at
+/// `<x>/Contents/Resources/mod`. `None` for a binary anywhere else, such as one in `~/.cargo/bin`, or
+/// where the app holds no mod, so a Fleet that is not an app's keeps the paths it had.
+pub fn bundle_beside(exe: &Path) -> Option<PathBuf> {
+    let bin = exe.parent().filter(|bin| bin.file_name() == Some(OsStr::new("bin")))?;
+    let resources = bin.parent().filter(|one| one.file_name() == Some(OsStr::new("Resources")))?;
+    resources.parent().filter(|one| one.file_name() == Some(OsStr::new("Contents")))?;
+    let bundle = resources.join("mod");
+    is_populated(&bundle).then_some(bundle)
+}
+
+/// Fleet's copy at `folder` made the bundle's, when it is not already: missing, or of another
+/// plugin version. `Ok(true)` where it was replaced, `Ok(false)` where it was left alone.
+///
+/// **The copy is made beside the folder and renamed over it**, as `scripts/sync-mod` does, so a Job
+/// reading the mod sees the old copy or the new one and never half of either. The versions are the
+/// plugin manifests' bytes, which a release changes with the version and nothing here has to parse.
+pub fn filled_from_bundle(bundle: &Path, folder: &Path) -> Result<bool, String> {
+    let manifest = |root: &Path| std::fs::read(root.join(crate::MOD_INSTALLED_MANIFEST)).ok();
+    let had = manifest(bundle);
+    if is_populated(folder) && had.is_some() && had == manifest(folder) {
+        return Ok(false);
+    }
+    if !is_populated(bundle) {
+        return Err(format!("{} holds no copy of the mod", bundle.display()));
+    }
+    let support = folder.parent().filter(|one| !one.as_os_str().is_empty()).ok_or_else(|| format!("{} has no folder to sit in", folder.display()))?;
+    std::fs::create_dir_all(support).map_err(said("could not make", support))?;
+    let id = std::process::id();
+    let staging = support.join(format!(".mod-new.{id}"));
+    let old = support.join(format!(".mod-old.{id}"));
+    let _ = std::fs::remove_dir_all(&staging);
+    let _ = std::fs::remove_dir_all(&old);
+    let filled = (|| {
+        copied(bundle, &staging)?;
+        // rename(2) cannot replace a folder that holds anything, so the old copy steps aside first.
+        if folder.exists() {
+            std::fs::rename(folder, &old).map_err(said("could not move aside", folder))?;
+        }
+        std::fs::rename(&staging, folder).map_err(|why| {
+            // The old copy goes back, so a failure leaves what was there.
+            let _ = std::fs::rename(&old, folder);
+            said("could not put the copy at", folder)(why)
+        })
+    })();
+    let _ = std::fs::remove_dir_all(&staging);
+    let _ = std::fs::remove_dir_all(&old);
+    filled.map(|()| true)
+}
+
+/// `from` and everything under it copied to `to`, which is made. Symlinks are copied as what they point at.
+fn copied(from: &Path, to: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(to).map_err(said("could not make", to))?;
+    for entry in std::fs::read_dir(from).map_err(said("could not read", from))? {
+        let path = entry.map_err(said("could not read", from))?.path();
+        let target = to.join(path.file_name().unwrap_or_default());
+        match std::fs::metadata(&path).map_err(said("could not read", &path))?.is_dir() {
+            true => copied(&path, &target)?,
+            false => {
+                std::fs::copy(&path, &target).map_err(said("could not copy", &path))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn said<'a>(what: &'a str, at: &'a Path) -> impl FnOnce(std::io::Error) -> String + 'a {
+    move |why| format!("{what} {}: {why}", at.display())
 }
 
 /// Add the marketplace and install the plugin with `program`, the CLI. **Both commands are tried**:

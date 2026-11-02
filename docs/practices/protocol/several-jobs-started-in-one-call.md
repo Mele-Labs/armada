@@ -23,3 +23,15 @@ The code is declared once, as `ipc::AGENT_START_UNPLACED`, for the route to matc
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream is neither better nor worse.** Each Job publishes what one call's Job publishes, so a batch of N is N calls' events arriving together, as N calls in a row would send them.
 The unbounded sink and the missing resync message are untouched.
+
+## A Job dispatches in its own repository: `manifest_id` is optional
+
+Since 2 Nov 2026. A Job in a folder with no `armada.yml` has no Manifest id to name, and `start_another_session` refused every call that left it out.
+**One field loosens**: `StartAnotherSession.manifest_id` is optional and left out when absent, on a Job's own fields and on each entry of `jobs` alike.
+No operation, route, event kind or error code moves.
+The protocol ID moves with `crates/ipc/src`, the operation file and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `manifest_id?: string` on `StartAnotherSession` in `packages/protocol/src/sessions.ts`, written by hand. Bridge never sends it: the call is an agent's.
+
+**Absent is the caller's own repository**, the `manifest_id` its record carries, which is the implicit id for a folder with no `armada.yml`.
+A call that names one is answered as before, and a `group` still starts the Job in the caller's own.
+The old refusal for a missing `manifest_id` is gone; a missing `title` or `message` is refused as it was.

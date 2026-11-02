@@ -9,8 +9,10 @@ claude plugin install armada@armada-local
 
 **Fleet keeps its own copy of the mod** in that folder.
 `scripts/restart` copies `plugins/` into it from the tree it builds, so the mod is as new as the Fleet and a pull on the checkout changes nothing a job loads.
+An installed app carries the mod too, in `Contents/Resources/mod` beside `Contents/Resources/bin/armada`, and its Fleet fills the copy from there when it starts and whenever the bundle's `armada/.claude-plugin/plugin.json` differs from the copy's, so an update to the app is an update to the mod.
 The copy is made beside the folder and renamed over it, so a job never reads half of one.
 A tree with no `plugins/` leaves the old copy and warns.
+A Fleet that is not an app's, run from `~/.cargo/bin`, has no bundle and keeps the paths above.
 Whatever compares a job's reported mod version with the installed one reads `Armada/mod/armada/.claude-plugin/plugin.json`.
 
 **The restart then updates the installed plugin**, so a terminal job has the new mod ready to load: `claude plugin marketplace update armada-local`, then `claude plugin update armada@armada-local`.
@@ -18,14 +20,18 @@ The CLI caches the plugin by version and moves the cache only on those two comma
 A `claude` that is not on `PATH`, or an update that fails, is one warning line and the restart goes on; `--dry-run` prints the two commands.
 A terminal job picks the new mod up when the person runs `/reload-plugins` in it, and nothing Fleet does reaches into that process ([A mod that is out of date](a-mod-that-is-out-of-date.md)).
 
-**Fleet runs these two commands itself on request.** `install_agent_mod` (body `{"requested": true}`; `false` is a 422) fills the copy with `scripts/sync-mod` from a served repository that holds one when it is missing, runs the two commands with each stopped after two minutes, and answers with the CLI's own words: `installed`, or `failed` with the step that stopped.
+**Fleet runs these two commands itself on request.** `install_agent_mod` (body `{"requested": true}`; `false` is a 422) fills the copy from the app's bundle, or with `scripts/sync-mod` from a served repository that holds `plugins/` when there is no bundle and the copy is missing, runs the two commands with each stopped after two minutes, and answers with the CLI's own words: `installed`, or `failed` with the step that stopped.
 Nothing else starts it.
 Onboarding's *Import* uses it, beside `list_import_folders` and `get_import_runs`, which read a person's past sessions (`crates/ipc/operations/`).
 
 **A hosted Job loads Fleet's copy whether or not the person installed it.**
 Fleet starts every process of a Job it hosts with `--plugin-dir` on `Armada/mod/armada`, so a Mac where nobody ran the two commands still gets the mod's task list, job id note, subagents and skills in its Jobs.
 Beside an installed copy the CLI loads the mod once, this copy winning, so a hosted Job runs the mod as new as the Fleet (measured on 2.1.292, 2.1.308, 2.1.310 and 2.1.312, 29 Oct 2026).
-Where the copy is empty, Fleet fills it with `scripts/sync-mod` from a served repository that holds one before the launch, and a launch it cannot fill starts without the mod.
+Fleet fills the copy before the launch: from the app's bundle where it is an app's, and otherwise, where the copy is empty, with `scripts/sync-mod` from a served repository that holds `plugins/`.
+**On a Mac with only the app, that is every repository.**
+A person with no sign-in, no Kit and no `armada.yml` has the mod's skills, subagents and hooks in a Job, and the acts its rules name at the door ([A Job that came up without its tools](a-job-that-came-up-without-its-tools.md)).
+What a person's own plugins and a repository's own skills add is theirs and is not carried over.
+A launch Fleet cannot fill starts without the mod.
 A Job that still came up without it is marked and mended once ([A Job that came up without its tools](a-job-that-came-up-without-its-tools.md)).
 A terminal job still loads only an installed copy.
 

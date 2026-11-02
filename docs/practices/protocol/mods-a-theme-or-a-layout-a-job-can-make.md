@@ -33,3 +33,11 @@ Both are additive and left out when absent; the IDs differ and the lifeboat serv
 `ModSummary.glyph` is a tab mod's glyph by registry name, `ModChecked.tab` (`TabModule`: `glyph?` and `code`) is the module as it was checked, `ModAim` has `tab`, and `StartModSession.aim` names the kind a Mod Job is aimed at from its first message.
 All three fields are optional and left out when absent, and `tab` is a new spelling of two closed sets, so a peer that predates it fails to decode a row of that kind; the IDs differ and the lifeboat serves.
 The event stream gets no new queue, and the unbounded-sink risk above is untouched: a rewritten `tab.js` moves `changed_at` and rides the one `mods.changed` the rescan already publishes.
+
+**Since 2 Nov 2026, an instrument mod**, `ModKind` has `instrument`, whose file is `instrument.js`, held to the limit and the checks `tab.js` is.
+`ModSummary.glyph` is an instrument mod's too, `ModChecked.instrument` (`InstrumentModule`: `glyph?` and `code`) is the module as it was checked, and `ModAim` has `instrument`.
+A scaffold names `glyph = "gauge"` and writes a starter that calls `host.face` with a paint in `ink` and returns a small panel body, and it passes at once.
+A promote commits `mod.toml` and `instrument.js`, and `crates/fleet/build.rs` compiles `instrument.js` into a built-in mod.
+Nothing in Fleet's list filters by kind, so an instrument is a row of `list_mods` and `mods.changed` from the moment it is scaffolded.
+The field is optional and left out when absent, and `instrument` is a new spelling of two closed sets, so a peer that predates it fails to decode a row of that kind; the IDs differ and the lifeboat serves.
+The event stream gets no new queue, and the unbounded-sink risk above is untouched: a rewritten `instrument.js` moves `changed_at` and rides the one `mods.changed` the rescan already publishes.

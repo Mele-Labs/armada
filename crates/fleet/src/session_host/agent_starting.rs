@@ -141,12 +141,17 @@ where
         let group = match start.group.as_deref().map(str::trim).filter(|one| !one.is_empty()) {
             Some(group) => {
                 let (_, hosting) = self.session_and_hosting(&me).await?;
-                manifest = ManifestId::carried(&hosting.manifest_id);
+                manifest = Some(ManifestId::carried(&hosting.manifest_id));
                 let (title, brief) = self.group_brief(&me, group).await?;
                 words = Words { title, message: format!("{brief}\n\n{}", words.message) };
                 Some(group.to_string())
             }
             None => None,
+        };
+        // None named is the caller's own repository, which is how a Job in one with no `armada.yml` dispatches.
+        let manifest = match manifest {
+            Some(manifest) => manifest,
+            None => ManifestId::carried(&self.session_and_hosting(&me).await?.1.manifest_id),
         };
         let made = self
             .start_session(StartSession {

@@ -114,6 +114,7 @@ mod test_map_feed;
 mod test_map_reading;
 mod test_map_ci;
 mod folder_jobs;
+mod fresh_install;
 mod session_gate;
 mod session_gate_leases;
 mod session_account;
