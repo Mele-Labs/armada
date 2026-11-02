@@ -1,6 +1,6 @@
-/* The Logbook page, drawn as a mission log: on the left one list of entries under its strip, a card each, coded by kind, and a
+/* The Logbook page: on the left one list of entries under a strip of State, Topic and Organize, a card each coded by kind, and a
    group head for each repository, Habits and This Mac that stays until the next takes its place. On the right the open entry
-   under its own head: its title and its acts held at the top, and its words, record, evidence and earlier texts scrolling under them. Wide, the two scroll on their own inside the
+   under its own head: its title and its acts held at the top, and its words, then its record, evidence and earlier texts as flat rows under a legend, scrolling under them. Wide, the two scroll on their own inside the
    page's height; narrow, the page is one column. The panels are the Cockpit's (`depth.css`). Tokens only. */
 
 .armada-logbook {
@@ -194,7 +194,7 @@
 }
 
 /* ---- Retros ----------------------------------------------------------------------------------- */
-/* The retro items fill the tab and lay out their own log and item (`LessonList.css`). */
+/* The retro items fill the page and lay out their own log and item (`LessonList.css`). */
 
 .armada-logbook__fixes { display: flex; flex-direction: column; outline: none; }
 .armada-logbook__fixes > .armada-lessons-page { flex: 1 1 auto; min-height: 0; padding: 0; gap: var(--gap-panel); }

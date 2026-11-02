@@ -1,6 +1,6 @@
 /* The Lessons page's list: one card per item, `LessonCard`'s rules, a column
    with the gap a list of cards takes. */
-/* The places on the leading side and Open or Accepted at the far end. Inside the Logbook the same menus and acts are in the list's strip. */
+/* The places as tabs, then the Show menu for Open or Accepted and Review. Inside the Logbook the same menu and act are in the list's strip, with State. */
 .armada-lessons__bar {
   display: flex;
   flex-wrap: wrap;
@@ -19,7 +19,7 @@
   list-style: none;
 }
 
-/* The Logbook's Retros tab: the items as a log on the left and the open one on the right, as the entries are
+/* Retros in the Logbook: the items as a log on the left and the open one on the right, as the entries are
    (`Logbook.css` draws the log, the head and the record). The card is the top of the item's body; its headline and its answers are the head's, its route and its
    Job the record's, so the card does not repeat them. Narrow, one column. */
 .armada-lessons-split {

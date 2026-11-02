@@ -36,14 +36,14 @@ import { ageOf } from "../../time-format";
  * The Logbook: what agents know, and on its own tab what Armada got wrong. `docs/concepts/logbook.md`.
  *
  * **Nothing in the entries asks him for anything.** He reads an entry and its evidence, and can edit, lock or forget
- * it. Every repository's Logbook is drawn at once, each in its own panel, then Habits and This Mac. Three tabs say which
- * entries the panels hold: those in use, the new ones, the archived. An entry draws one line in the list and whole on the right.
+ * it. Every repository's Logbook is drawn at once, each under its own group head, then Habits and This Mac. The State menu in the
+ * list's strip says which entries it holds: those in use, the new ones, the archived. An entry draws one card in the list and whole on the right.
  *
- * The Retros tab holds every retro item, whether its fix lands in Armada, Kit or Manifest, drawn by the host (`fixes`) only
- * while the tab is open.
+ * Retros, a choice in State, holds every retro item, whether its fix lands in Armada, Kit or Manifest, drawn by the host (`fixes`) only
+ * while it is chosen.
  *
  * The page is keyed by the registry's acts: the arrows move, `Enter` opens the entry, `e`, `l` and `f` edit, lock and
- * forget it, and `Esc` backs out a level. The tabs take the arrows when focused.
+ * forget it, `s`, `t` and `o` open State, Topic and Organize, and `Esc` backs out a level.
  */
 
 /** The three ways Organize looks through the entries. */
@@ -138,7 +138,7 @@ export type LogbookViewProps = {
  */
 export const isKept = (entry: Pick<LogbookEntry, "id">): boolean => !entry.id.startsWith("runs-") && !entry.id.startsWith("machine-");
 
-/** Each kind's mark, its word, and the three letters its column reads, as a log codes a line. */
+/** Each kind's mark, its word, and the three letters its chip reads, as a log codes a line. */
 const KIND: Record<LogbookKind, { Glyph: LucideIcon; said: string; code: string }> = {
   command: { Glyph: SquareChevronRight, said: "Command", code: "CMD" },
   gotcha: { Glyph: TrafficCone, said: "Gotcha", code: "GOT" },
