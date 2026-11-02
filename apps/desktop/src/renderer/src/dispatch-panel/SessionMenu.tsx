@@ -11,7 +11,15 @@ import {
   type KeyboardEvent,
   type SyntheticEvent,
 } from "react";
-import { Bug, File, GitPullRequest, SquareTerminal, Terminal, Ticket, type LucideIcon } from "lucide-react";
+import {
+  Bug,
+  File,
+  GitPullRequest,
+  SquareTerminal,
+  Terminal,
+  Ticket,
+  type LucideIcon,
+} from "lucide-react";
 import type { ComposerNumbered, ComposerTag, NumberedHit } from "@armada/components";
 
 export type Offered = {

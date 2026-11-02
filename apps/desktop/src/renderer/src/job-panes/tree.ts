@@ -438,8 +438,20 @@ export function arriveTerminalBehind(
   terminal: string | undefined,
 ): Arrangement {
   const holder = holderOf(arrangement, "terminal");
-  const arrived = arrive(arrangement, "terminal", undefined, undefined, undefined, undefined, terminal);
-  if (holder === undefined) return { ...arrived, focus: arrangement.focus };
+  const arrived = arrive(
+    arrangement,
+    "terminal",
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    terminal,
+  );
+  if (holder === undefined)
+    return {
+      ...arrived,
+      focus: arrangement.focus,
+    };
   return {
     ...arrived,
     focus: arrangement.focus,
@@ -454,7 +466,8 @@ export function arriveTerminalBehind(
 export function renameTab(arrangement: Arrangement, tabId: string, label: string): Arrangement {
   const pane = paneOfTab(arrangement, tabId);
   const named = label.trim();
-  if (pane === undefined || (tabById(arrangement, tabId)?.label ?? "") === named) return arrangement;
+  if (pane === undefined || (tabById(arrangement, tabId)?.label ?? "") === named)
+    return arrangement;
   return {
     ...arrangement,
     root: mapPane(arrangement.root, pane.id, (one) => ({
@@ -462,7 +475,12 @@ export function renameTab(arrangement: Arrangement, tabId: string, label: string
       tabs: (one as Pane).tabs.map((tab) => {
         if (tab.id !== tabId) return tab;
         const { label: _was, ...rest } = tab;
-        return named === "" ? rest : { ...rest, label: named };
+        return named === ""
+          ? rest
+          : {
+              ...rest,
+              label: named,
+            };
       }),
     })),
   };

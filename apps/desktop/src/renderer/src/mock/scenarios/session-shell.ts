@@ -1,11 +1,15 @@
-// The Job's shell: one terminal per Job that stays open in its worktree, which the person types into from
-// Bridge and the Job's agent types into through its tools. Over `session-run-in-terminal`, so the block
-// Run in "Deploy the store" docks beside the shell as a tab. Fleet's half is here: `openTerminal` hands
-// back the shell already open, the run calls act on it by its id, and `terminal.opened` and
-// `terminal.exited` follow it. Each time passes, the agent types `pnpm dev` into the Job's shell, opening
-// one where none is open. The walk `job-shell` plays it.
+// A Job's shells: as many terminals as the person and the Job's agent open, each in the worktree, which the person types
+// into from Bridge and the agent types into through its tools. Over `session-run-in-terminal`, so the block
+// Run in "Deploy the store" docks beside them as a tab. Fleet's half is here: `openTerminal` opens a shell and
+// mints its ID (t1, t2, never reused in a Job), hands back one already open, the run calls act on it by its id, and
+// `terminal.opened` and `terminal.exited` follow it. `terminalRunning` says whether a program holds the foreground.
+// Each time passes, the agent opens a terminal of its own, once, and types `pnpm dev` into it. The walk `job-terminals` plays it.
 
-import type { JobTerminalChange, TerminalMovedBack } from "../../../../shared/api/sessions";
+import {
+  NEW_TERMINAL,
+  type JobTerminalChange,
+  type TerminalMovedBack,
+} from "../../../../shared/api/sessions";
 import type { SessionRunMessage } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
@@ -28,12 +32,18 @@ function shellFleet() {
   const hearing = new Set<(runId: string, message: SessionRunMessage) => void>();
   const watching = new Set<(change: JobTerminalChange) => void>();
   const shells = new Map<string, FakeShell>();
-  const openIn = new Map<string, string>();
+  /** Each Job's running shells: terminal ID to run. */
+  const openIn = new Map<string, Map<string, string>>();
+  /** The last ID minted in each Job. */
+  const mintedIn = new Map<string, number>();
+  /** The terminal the Job's agent opened for itself. */
+  const agentIn = new Map<string, string>();
   const calls = {
     opened: [] as {
       sessionId: string;
       cols?: number;
       rows?: number;
+      terminal?: string;
     }[],
     stopped: [] as string[],
     started: [] as string[],
@@ -70,12 +80,43 @@ function shellFleet() {
     if (windowed.delete(sessionId)) windowsChanged();
   };
 
-  const open = (sessionId: string): string => {
-    const already = openIn.get(sessionId);
-    if (already !== undefined) return already;
+  const runningIn = (sessionId: string) => {
+    let held = openIn.get(sessionId);
+    if (held === undefined) openIn.set(sessionId, (held = new Map()));
+    return held;
+  };
+
+  const mint = (sessionId: string): string => {
+    const last = (mintedIn.get(sessionId) ?? 0) + 1;
+    mintedIn.set(sessionId, last);
+    return `t${last}`;
+  };
+
+  /** A shell in the Job: a new one, a named one (opened again where it ended), or the first running. Its run and its ID. */
+  const open = (
+    sessionId: string,
+    wanted?: string,
+  ): {
+    runId: string;
+    terminal: string;
+  } => {
+    const held = runningIn(sessionId);
+    const terminal =
+      wanted === NEW_TERMINAL || (wanted === undefined && held.size === 0)
+        ? mint(sessionId)
+        : (wanted ??
+          [
+            ...held.keys(),
+          ][0]!);
+    const already = held.get(terminal);
+    if (already !== undefined)
+      return {
+        runId: already,
+        terminal,
+      };
     const runId = `shell-${(minted += 1)}`;
     calls.started.push(runId);
-    openIn.set(sessionId, runId);
+    held.set(terminal, runId);
     lastShell.set(sessionId, {
       runId,
       ended: false,
@@ -85,6 +126,7 @@ function shellFleet() {
       session_id: sessionId,
       run_id: runId,
       change: "opened",
+      terminal,
     });
     const shell = startShell(
       WORKTREE,
@@ -95,7 +137,7 @@ function shellFleet() {
         }),
       (code) => {
         shells.delete(runId);
-        if (openIn.get(sessionId) === runId) openIn.delete(sessionId);
+        if (held.get(terminal) === runId) held.delete(terminal);
         if (lastShell.get(sessionId)?.runId === runId)
           lastShell.set(sessionId, {
             runId,
@@ -110,11 +152,15 @@ function shellFleet() {
           session_id: sessionId,
           run_id: runId,
           change: "exited",
+          terminal,
         });
       },
     );
     shells.set(runId, shell);
-    return runId;
+    return {
+      runId,
+      terminal,
+    };
   };
 
   return {
@@ -124,9 +170,11 @@ function shellFleet() {
       raisedHeard.add(on);
       return () => void raisedHeard.delete(on);
     },
-    /** The agent's `type_in_terminal`: the Job's shell, opened where it has none, and its words with Enter after a beat. */
+    /** The agent's `type_in_terminal`: a terminal of its own, opened once, and its words with Enter after a beat. */
     agentTypes: (sessionId: string, words: string) => {
-      const runId = open(sessionId);
+      if (agentIn.has(sessionId)) return;
+      const { runId, terminal } = open(sessionId, NEW_TERMINAL);
+      agentIn.set(sessionId, terminal);
       window.setTimeout(() => shells.get(runId)?.write(`${words}\r`), 400);
     },
     dispose: () =>
@@ -134,7 +182,7 @@ function shellFleet() {
         ...shells.values(),
       ].forEach((one) => one.stop()),
     api: {
-      openTerminal: async (sessionId: string, cols?: number, rows?: number) => {
+      openTerminal: async (sessionId: string, cols?: number, rows?: number, terminal?: string) => {
         calls.opened.push({
           sessionId,
           ...(cols === undefined
@@ -147,13 +195,30 @@ function shellFleet() {
             : {
                 rows,
               }),
+          ...(terminal === undefined
+            ? {}
+            : {
+                terminal,
+              }),
         });
+        const opened = open(sessionId, terminal);
         return {
           ok: true as const,
           value: {
-            run_id: open(sessionId),
+            run_id: opened.runId,
+            terminal: opened.terminal,
           },
         };
+      },
+      terminalRunning: async (sessionId: string, terminal?: string) => {
+        const held = openIn.get(sessionId);
+        const runId =
+          terminal === undefined
+            ? [
+                ...(held?.values() ?? []),
+              ][0]
+            : held?.get(terminal);
+        return runId !== undefined && shells.get(runId)?.running() === true;
       },
       writeSessionRun: async (runId: string, data: string) => {
         calls.written.push(data);

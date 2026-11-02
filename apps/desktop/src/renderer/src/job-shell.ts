@@ -356,8 +356,7 @@ export class JobShells {
         if (answer.value.terminal !== undefined && id?.terminal === undefined)
           this.learn(sessionId, answer.value.terminal);
         this.catchUp(sessionId, answer.value.run_id);
-      }
-      else
+      } else
         this.set(sessionId, {
           ...now,
           out: `${refusalWords(answer.outcome)}\r\n`,
@@ -424,7 +423,8 @@ export class JobShells {
       if (opening && size !== undefined)
         void this.api.resizeSessionRun(runId, size.cols, size.rows);
     }
-    if (told) this.opened.forEach((one) => one(this.ids.get(sessionId)?.session ?? sessionId, sessionId));
+    if (told)
+      this.opened.forEach((one) => one(this.ids.get(sessionId)?.session ?? sessionId, sessionId));
   }
 
   private message(runId: string, message: SessionRunMessage): void {
@@ -545,7 +545,10 @@ export function useShownShells(
   const said = useSyncExternalStore(subscribe, () =>
     JSON.stringify(shells?.shownOf(place, sessionId) ?? []),
   );
-  return useMemo(() => JSON.parse(said) as ShownShell[], [
-    said,
-  ]);
+  return useMemo(
+    () => JSON.parse(said) as ShownShell[],
+    [
+      said,
+    ],
+  );
 }

@@ -58,7 +58,8 @@ export function HelmThread({ rows, replying = false, emptyNote, notice }: HelmTh
   const refs = useContext(ProseRefs);
   // A chip in a row of the person's is a link where the host can open what it names.
   const openTag = (tag: ComposerTag): void => {
-    if (tag.kind === "branch" || tag.kind === "report" || tag.kind === "terminal" || refs === null) return;
+    if (tag.kind === "branch" || tag.kind === "report" || tag.kind === "terminal" || refs === null)
+      return;
     refs.open({
       kind: tag.kind,
       id: tag.id,

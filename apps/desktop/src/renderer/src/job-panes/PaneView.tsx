@@ -234,7 +234,9 @@ function TabButton({
   const close = () => {
     const shells = tab.kind === "terminal" ? shellsOf(window.armada) : null;
     if (shells === null) return shut();
-    void shells.busy(shells.keyOf(jobId, tab.terminal)).then((busy) => (busy ? setEnding(true) : shut()));
+    void shells
+      .busy(shells.keyOf(jobId, tab.terminal))
+      .then((busy) => (busy ? setEnding(true) : shut()));
   };
   const rename = (value: string) => {
     setRenaming(false);
@@ -313,43 +315,43 @@ function TabButton({
         {renaming ? (
           <RenameField label={label} onDone={rename} onCancel={() => setRenaming(false)} />
         ) : (
-        <button
-          type="button"
-          role="tab"
-          className="job-pane__label"
-          aria-selected={active}
-          tabIndex={active ? 0 : -1}
-          onClick={() => look(jobId, (arrangement) => activate(arrangement, tab.id))}
-          onKeyDown={(event) => {
-            // Shift+F10 and the Menu key open the tab's menu, anchored to the tab.
-            if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
-            event.preventDefault();
-            const box = event.currentTarget.getBoundingClientRect();
-            setPoint({
-              x: box.left,
-              y: box.bottom,
-            });
-          }}
-        >
-          {asking ? (
-            <span className="job-pane__asks">
-              <SessionMark state="waiting" said="Waiting on you" />
-            </span>
-          ) : working ? (
-            <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
-              <span
-                className="job-pane__working"
-                role="img"
-                aria-label={modJob?.title ?? "Mod Job"}
-              >
-                <LoaderCircle size={16} strokeWidth={2} aria-hidden />
+          <button
+            type="button"
+            role="tab"
+            className="job-pane__label"
+            aria-selected={active}
+            tabIndex={active ? 0 : -1}
+            onClick={() => look(jobId, (arrangement) => activate(arrangement, tab.id))}
+            onKeyDown={(event) => {
+              // Shift+F10 and the Menu key open the tab's menu, anchored to the tab.
+              if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+              event.preventDefault();
+              const box = event.currentTarget.getBoundingClientRect();
+              setPoint({
+                x: box.left,
+                y: box.bottom,
+              });
+            }}
+          >
+            {asking ? (
+              <span className="job-pane__asks">
+                <SessionMark state="waiting" said="Waiting on you" />
               </span>
-            </Tooltip>
-          ) : (
-            <Glyph size={16} strokeWidth={2} aria-hidden />
-          )}
-          <span>{label}</span>
-        </button>
+            ) : working ? (
+              <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
+                <span
+                  className="job-pane__working"
+                  role="img"
+                  aria-label={modJob?.title ?? "Mod Job"}
+                >
+                  <LoaderCircle size={16} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            ) : (
+              <Glyph size={16} strokeWidth={2} aria-hidden />
+            )}
+            <span>{label}</span>
+          </button>
         )}
       </ModJobCard>
       <span className="job-pane__close">
