@@ -135,7 +135,9 @@ They learn from disputes in the meantime: a reminder the Job disputed and a chea
 
 **A turn that leaves the person's message unanswered is sent back once** (`unanswered.rs`).
 He reads only what the agent writes, never its reasoning.
-From his message until the agent writes him something other than a lone line starting "Status:", the job owes him a reply.
+From his message, typed or chosen on one of the job's questions, until the agent writes him something other than a status line, the job owes him a reply.
+A status line is a lone line the agent carries on past: one a tool call follows, whatever its first word, and a lone line starting "Status:" wherever it sits.
+A lone line that ends the turn, or that the question itself follows, is the answer; so is a second lone line after the first.
 The first `AskUserQuestion` while it does is refused with: "Not asked: since his last message you have written him nothing but a status line, and he reads only what you write, never your reasoning.
 Write your answer to his message, then ask this question again."
 The door waits up to two seconds for the stream to reach the question first, so an answer written just before it counts.
@@ -143,6 +145,7 @@ A turn that ends still owing it sends the agent, through `told_by_fleet` and unl
 Either one settles the debt, so the question asked again is put to him and the reminder's turn is not read.
 A turn Fleet's own notice began owes nothing, and Helm is not read.
 Job 7f7f4ae4 did this twice on 24 Oct 2026: asked why commands were recorded, it worked the answer out in its reasoning and went straight to its question, so he saw a status line and the question and wrote "you never answered me or explained".
+Job 77d7b355 did it three times on 2 Nov 2026 past a rule that read only the word "Status:": it wrote one line saying it had found the causes and was writing them up, ran a tool and asked, and asked again after his answer with nothing written, so its questions named Jobs and figures that were nowhere in the thread.
 
 **A job gives back what it is finished with using `finish_up`** (`session_id` only; the hosted job holding the connection wins).
 It releases each slot the pool holds for the job as `armada worktree release` does, which refuses a tree with uncommitted files or commits that neither its branch's remote nor the base has; stops the servers running in each slot it released; and deletes the local branches those slots were on, the one the job was leased and the head branch of each pull request it holds or held, where the base (the local branch or `origin`'s) already holds every commit.
