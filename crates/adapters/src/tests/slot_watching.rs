@@ -133,6 +133,43 @@ fn an_edit_in_a_held_slot_is_not_heard() {
     assert_eq!(heard_of(repo.root()), (false, vec![3]));
 }
 
+/// The Cockpit map asks what each held slot changed every 35 seconds; a read that wrote into the
+/// slot's git folder was heard as the slot moving, and the pool read again for it.
+#[test]
+fn reading_what_a_held_slot_changed_is_not_heard() {
+    let (repo, pool) = a_pool_with_two_free_slots();
+    write(&slot(&repo, 1), "notes.txt");
+    kept_and_quiet(&repo, &pool);
+
+    let changed = crate::territory::changed_since(&slot(&repo, 1), "main").expect("read");
+    assert_eq!(changed, vec!["notes.txt".to_string()]);
+    settled(repo.root());
+    assert_eq!(heard_of(repo.root()), (false, Vec::new()), "the read wrote into the slot's git folder");
+}
+
+/// A free slot whose HEAD no branch or remote names holds work a lease would lose.
+#[test]
+fn a_free_slot_with_commits_no_branch_names_reads_as_stranded() {
+    let (repo, pool) = a_pool_with_two_free_slots();
+    repo.git(&[
+        "-C",
+        &slot(&repo, 2).to_string_lossy(),
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "on no branch",
+    ]);
+
+    let read = GitVcs::new().slot_pool_kept(&pool, true);
+    assert_eq!(read[1].held, SlotHeld::Stranded("1 commits no branch names".to_string()));
+    assert_eq!(read[2].held, SlotHeld::Free);
+}
+
 #[test]
 fn a_commit_in_a_held_slot_moves_that_slot() {
     let (repo, pool) = a_pool_with_two_free_slots();
