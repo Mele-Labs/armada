@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{CiState, FollowedCheck, FollowedPull, FromOutside, PullQueue, PullRequestStanding};
-use api::{Autopilots, HostedSessions, Sessions};
+use api::{Autopilots, HostedSessions};
 use ipc::{AutopilotDecision, AutopilotSettings, AutopilotWork};
 use store::{AttachmentState, Holder, KeptAttachment, KeptPick, MainCi, MainFailedJob, MainState};
 use testkit::{FakeJudge, FakeTracker, FakeTrackers};

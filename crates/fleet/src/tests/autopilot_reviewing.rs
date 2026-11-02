@@ -1,7 +1,7 @@
 //! What Autopilot answered, as the person reviews it: listed until kept, kept, or corrected by a
 //! message to the Job, and a correction read by the helper the next time it decides.
 
-use api::{Autopilots, HostedSessions};
+use api::Autopilots;
 use ipc::{AutopilotDecision, OverrideAutopilotDecision, ReviewAutopilotDecision};
 
 use super::autopilot_decisions::{item, keep, rig_calling, started, told, SURE_OF_THE_FIRST};
