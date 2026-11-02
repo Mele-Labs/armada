@@ -296,6 +296,7 @@ where
         }
         match event {
             DroneEvent::Started { model, harness, .. } => {
+                self.init_kept(id, &harness).await;
                 // A process mended on this line has not started the turn: it is sent again to the next.
                 if self.tools_healed(id, runtime, &harness).await {
                     return;

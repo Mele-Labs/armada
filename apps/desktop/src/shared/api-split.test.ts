@@ -157,6 +157,7 @@ import type { FleetTimelineRead } from "./api/timeline";
 import type { BayHistoryRead } from "./api/bay-history";
 import type { ProcessStopRead, ProcessTarget, SessionSystemRead } from "./api/session-system";
 import type { UsageRulesRead, UsageSummaryRead } from "./api/usage-summary";
+import type { ArmadaReportRun, DebugReportRead } from "./api/debug-report";
 import type { ClashFileAnswer, SessionFileChangeAnswer, WriteClashesRead } from "./api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
 import type { IssueNumberRead, IssueQueryActed, IssuesRead, PullRequestNumberRead } from "./api/issues";
@@ -423,6 +424,8 @@ type OldBridgeApi = {
     stopProcess: (sessionId: string, target: ProcessTarget) => Promise<ProcessStopRead>;
     getUsageSummary: (tzOffsetMinutes: number) => Promise<UsageSummaryRead>;
     getUsageRules: () => Promise<UsageRulesRead>;
+    getDebugReport: (root: string | null) => Promise<DebugReportRead>;
+    runArmadaReport: (root: string | null) => Promise<ArmadaReportRun>;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
     getModelDownshift: () => Promise<ModelDownshiftRead>;
     acceptDownshift: () => Promise<ModelDownshiftRead>;
@@ -760,6 +763,8 @@ const OLD_CHANNELS = {
     stopProcess: "bridge:stop-process",
     getUsageSummary: "bridge:get-usage-summary",
     getUsageRules: "bridge:get-usage-rules",
+    getDebugReport: "bridge:get-debug-report",
+    runArmadaReport: "bridge:run-armada-report",
     planUsageChanged: "bridge:plan-usage-changed",
     getModelDownshift: "bridge:get-model-downshift",
     acceptDownshift: "bridge:accept-downshift",

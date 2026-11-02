@@ -199,6 +199,35 @@ fn harness_read(system: &SystemLine) -> HarnessReading {
             one.name() == Some(ipc::door::SERVER) && one.status() == Some("connected")
         }),
         task_tools: system.tools.iter().filter_map(Entry::name).any(|name| TASK_TOOLS.contains(&name)),
+        door: door_state(system),
+        tools: kept_names(system.tools.iter(), kept_tool),
+        skills: kept_names(system.skills.iter(), |name| name.starts_with(MOD_SKILLS)),
+    }
+}
+
+/// The skills the mod brings, `armada:<name>`. Another plugin's name a person's own setup.
+const MOD_SKILLS: &str = "armada:";
+
+/// Whether a tool is the harness's own or Fleet's door's. **Another MCP server's tools are dropped**:
+/// their names are a person's private connectors, and nothing downstream may be able to leak them.
+fn kept_tool(name: &str) -> bool {
+    !name.starts_with("mcp__") || name.strip_prefix("mcp__").and_then(|rest| rest.strip_prefix(ipc::door::SERVER)).is_some_and(|rest| rest.starts_with("__"))
+}
+
+/// The names in a list that `keep` allows, sorted and without repeats.
+fn kept_names<'a>(list: impl Iterator<Item = &'a Entry>, keep: impl Fn(&str) -> bool) -> Vec<String> {
+    let names: std::collections::BTreeSet<&str> = list.filter_map(Entry::name).filter(|name| keep(name)).collect();
+    names.into_iter().map(str::to_string).collect()
+}
+
+/// What the line says of Fleet's door: its status where it is a word, `absent` where it is not listed.
+fn door_state(system: &SystemLine) -> String {
+    let Some(door) = system.mcp_servers.iter().find(|one| one.name() == Some(ipc::door::SERVER)) else {
+        return String::from("absent");
+    };
+    match door.status() {
+        Some(status) if status.len() <= 24 && status.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-')) => status.to_string(),
+        _ => String::from("unknown"),
     }
 }
 
@@ -484,6 +513,8 @@ struct SystemLine {
     plugins: Vec<Entry>,
     #[serde(default)]
     tools: Vec<Entry>,
+    #[serde(default)]
+    skills: Vec<Entry>,
     claude_code_version: Option<String>,
     tool_name: Option<String>,
     tool_use_id: Option<String>,

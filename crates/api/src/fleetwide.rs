@@ -45,6 +45,25 @@ pub(crate) async fn get_health<D: Queries>(State(served): State<Served<D>>) -> R
     }
 }
 
+/// `?root=` on `get_debug_report`: the repository its block is about, none for no block.
+#[derive(Deserialize)]
+pub(crate) struct DebugRoot {
+    #[serde(default)]
+    root: Option<String>,
+}
+
+/// The text a person pastes to whoever helps them.
+pub(crate) async fn get_debug_report<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(which): Query<DebugRoot>,
+) -> Response {
+    let root = which.root.map(|root| root.trim().to_string()).filter(|root| !root.is_empty());
+    match served.daemon().get_debug_report(root).await {
+        Ok(report) => answer(StatusCode::OK, &report, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// One Manifest as Fleet resolved it.
 pub(crate) async fn get_manifest<D: Queries>(
     State(served): State<Served<D>>,
