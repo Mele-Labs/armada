@@ -13,7 +13,7 @@ describe("the page a Job's document layer reads", () => {
 
   it("carries the kept styles of the page it names", () => {
     const hash = "0123456789abcdef0123456789abcdef";
-    const kept = job({ ...page("/w/a.html", "Findings", ["/s/a/r1.html"]), keptStyles: { "Flow#card": hash } });
+    const kept = { id: "j", attachments: [{ ...page("/w/a.html", "Findings", ["/s/a/r1.html"]), keptStyles: { "Flow#card": hash } }] } as unknown as Session;
     expect(documentOf(kept)?.keptStyles).toEqual({ "Flow#card": hash });
     expect(documentOf(two)).not.toHaveProperty("keptStyles");
   });
