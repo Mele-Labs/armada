@@ -370,3 +370,38 @@ describe("kept across a restart", () => {
     ]);
   });
 });
+
+describe("a saved request", () => {
+  test("a page names the collection and request, and any other page names none", async () => {
+    const s = await start();
+    expect(s.savedOfPage(s.savedPage("store-api", "create/order"))).toEqual({
+      collection: "store-api",
+      request: "create/order",
+    });
+    expect(s.savedOfPage(undefined)).toBeUndefined();
+    expect(s.savedOfPage("https://example.test")).toBeUndefined();
+  });
+
+  test("opens a Requests tab on the Job, and a second one shows the tab it has the other request", async () => {
+    const s = await start();
+    s.openSavedRequest("a", "store-api", "create-order");
+    const tabs = () =>
+      s
+        .panesOf(s.peek("a").root)
+        .flatMap((pane) => pane.tabs)
+        .filter((tab) => tab.kind === "request");
+    expect(tabs().map((tab) => s.savedOfPage(tab.page))).toEqual([
+      {
+        collection: "store-api",
+        request: "create-order",
+      },
+    ]);
+    s.openSavedRequest("a", "store-api", "list-orders");
+    expect(tabs().map((tab) => s.savedOfPage(tab.page))).toEqual([
+      {
+        collection: "store-api",
+        request: "list-orders",
+      },
+    ]);
+  });
+});

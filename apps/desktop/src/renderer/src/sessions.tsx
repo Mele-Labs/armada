@@ -184,6 +184,7 @@ import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { DeliveryChoice, HeldWorktrees, Notice, RepositorySummary } from "@armada/protocol";
 import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
+import { openSavedRequest } from "./job-panes/store";
 import { openInPanel } from "./shared-panel/store";
 import { draftPanelOf } from "./shared-panel/rule";
 import { openDraftCard } from "./job-panes/focus";
@@ -2036,16 +2037,7 @@ export function SessionView({
     ],
   );
   const openSaved = useCallback(
-    (row: SavedThreadRow) =>
-      void openInPanel({
-        kind: "requests",
-        sessionId: session.id,
-        saved: {
-          collection: row.collectionId,
-          request: row.request,
-        },
-        from: row.id,
-      }),
+    (row: SavedThreadRow) => openSavedRequest(session.id, row.collectionId, row.request),
     [
       session.id,
     ],

@@ -20,6 +20,7 @@ import {
   rectsOf,
   resizeSplit,
   shortfall,
+  showPage,
   splitPane,
   type Arrangement,
   type Node,
@@ -394,5 +395,26 @@ describe("a Custom tab's mod", () => {
     expect(tabOfKind(marked, "custom").mod).toBe("review-queue");
     expect(markTabMod(marked, tab.id, "review-queue")).toBe(marked);
     expect(markTabMod(arrangement, "nope", "review-queue")).toBe(arrangement);
+  });
+});
+
+describe("showing a page", () => {
+  test("a tab open shows another page and comes to the front, and an unknown tab changes nothing", () => {
+    const arrangement = build({
+      dir: "row",
+      ratio: 0.5,
+      a: [
+        "thread",
+      ],
+      b: [
+        "request",
+        "terminal",
+      ],
+    });
+    const request = tabOfKind(arrangement, "request");
+    const shown = showPage(arrangement, request.id, "page");
+    expect(tabOfKind(shown, "request").page).toBe("page");
+    expect(holderOf(shown, "request")!.active).toBe(request.id);
+    expect(showPage(arrangement, "nope", "page")).toBe(arrangement);
   });
 });

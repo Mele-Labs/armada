@@ -335,7 +335,7 @@ export function SessionWorkspace({
         case "files":
           return <FilesBody session={session} />;
         case "request":
-          return <RequestBody session={session} />;
+          return <RequestBody session={session} tab={tab} />;
         case "custom":
           return (
             <CustomBody

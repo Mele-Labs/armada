@@ -12,6 +12,8 @@ import {
   build,
   copyOf,
   hasKind,
+  holderOf,
+  showPage,
   moveTabToEdge,
   moveTabToEnd,
   moveTabToGap,
@@ -487,6 +489,43 @@ export function jobOpens(
     look(jobId, (arrangement) => arrive(arrangement, kind, label, page, mod));
   else
     rearrange(jobId, (arrangement) => arrive(arrangement, kind, label, page, mod), undefined, true);
+}
+
+/** A saved request, as the page a Requests tab shows: its collection and its id. */
+export const savedPage = (collection: string, request: string): string =>
+  JSON.stringify([
+    collection,
+    request,
+  ]);
+
+/** The collection and request a Requests tab's page names, or `undefined` for a tab with none. */
+export function savedOfPage(page: string | undefined):
+  | {
+      collection: string;
+      request: string;
+    }
+  | undefined {
+  if (page === undefined) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(page);
+    return Array.isArray(parsed) && typeof parsed[0] === "string" && typeof parsed[1] === "string"
+      ? {
+          collection: parsed[0],
+          request: parsed[1],
+        }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A saved request opens in the Job's Requests tab: the one there is comes to the front on it, and with none a tab opens. */
+export function openSavedRequest(jobId: string, collection: string, request: string): void {
+  const page = savedPage(collection, request);
+  const holder = holderOf(peek(jobId), "request");
+  const open = holder?.tabs.find((one) => one.kind === "request");
+  if (open === undefined) return jobOpens(jobId, "request", undefined, page);
+  look(jobId, (arrangement) => showPage(arrangement, open.id, page));
 }
 
 export function takeLayout(jobId: string, name: string): void {

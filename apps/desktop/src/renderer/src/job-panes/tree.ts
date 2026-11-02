@@ -406,6 +406,27 @@ export function activate(arrangement: Arrangement, tabId: string): Arrangement {
   };
 }
 
+/** A tab already open shows another page, and comes to the front. */
+export function showPage(arrangement: Arrangement, tabId: string, page: string): Arrangement {
+  const pane = paneOfTab(arrangement, tabId);
+  if (pane === undefined) return arrangement;
+  const shown = {
+    ...arrangement,
+    root: mapPane(arrangement.root, pane.id, (one) => ({
+      ...(one as Pane),
+      tabs: (one as Pane).tabs.map((tab) =>
+        tab.id === tabId
+          ? {
+              ...tab,
+              page,
+            }
+          : tab,
+      ),
+    })),
+  };
+  return activate(shown, tabId);
+}
+
 /** A Custom tab's mod, kept on the tab so it comes back bound to its mod after a restart. */
 export function markTabMod(arrangement: Arrangement, tabId: string, mod: string): Arrangement {
   const pane = paneOfTab(arrangement, tabId);

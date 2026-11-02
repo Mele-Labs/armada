@@ -11,8 +11,8 @@ import { toSessions } from "../sessions/walk-kit";
 const thread = region("Thread");
 const panel = dialog("Requests");
 const within = (target: ReturnType<typeof role>) => inside(panel, target);
-const tree = dialog("Collections");
-const collections = inside(tree, role("list", "Collections"));
+const collections = role("list", "Collections");
+const inTab = region(/^Pane: Request/);
 const fresh = within(
   role("group", "New environment", {
     exact: true,
@@ -59,8 +59,8 @@ const steps: Step[] = [
     say: "Open in Requests",
   },
   {
-    look: tree,
-    say: "Collections, in a panel of their own to the left of Requests",
+    look: inside(inTab, panel),
+    say: "A Request tab on the Job, on the saved request, with the collections above it",
   },
   {
     look: inside(
@@ -197,6 +197,10 @@ const steps: Step[] = [
     say: "token shows only as set",
   },
   {
+    press: within(tab("Request")),
+    say: "Request",
+  },
+  {
     press: inside(
       collections,
       button("POST Create order", {
@@ -270,10 +274,6 @@ const steps: Step[] = [
       ),
     ),
     say: "Health, which the repository commits",
-  },
-  {
-    press: within(role("button", /^Close( Esc)?$/)),
-    say: "Closed",
   },
   {
     key: "Escape",
