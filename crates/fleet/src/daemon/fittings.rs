@@ -83,6 +83,10 @@ pub struct Host {
     /// Where the mods are: one folder each, written by a person or a session
     /// and never by Fleet but at `scaffold_mod`. `docs/concepts/mods.md`.
     pub mods_dir: String,
+    /// The Armada mod an app carries beside this binary, where there is one: what Fleet's copy is
+    /// filled from at start and again when its plugin version differs. **None for a Fleet that is
+    /// not an app's**, which fills the copy from a served repository as it did.
+    pub mod_bundle: Option<String>,
     /// The mod switches as Fleet last read them, shared with the tracker mods' lookup, which runs
     /// on a tracker's blocking thread and cannot take the store's lock. Fleet refreshes it on each scan.
     pub mod_switches: crate::mods::ModSwitches,
@@ -110,6 +114,7 @@ pub(crate) struct Local {
     pub(crate) studio_frames_dir: String,
     pub(crate) kit_home: String,
     pub(crate) mods_dir: String,
+    pub(crate) mod_bundle: Option<String>,
     pub(crate) mod_switches: crate::mods::ModSwitches,
     pub(crate) built_in_mods: crate::mods::BuiltIns,
 }
@@ -339,6 +344,7 @@ where
                 studio_frames_dir: fittings.host.studio_frames_dir,
                 kit_home: fittings.host.kit_home,
                 mods_dir: fittings.host.mods_dir,
+                mod_bundle: fittings.host.mod_bundle,
                 mod_switches: fittings.host.mod_switches,
                 built_in_mods: fittings.host.built_in_mods,
             },

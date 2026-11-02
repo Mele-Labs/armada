@@ -78,6 +78,17 @@ say "Installing Armada $version into $apps"
 rm -rf "$app"
 mv "$tmp/Armada.app" "$app"
 
+# **`armada` on a terminal's path**, for a Job run there: `~/.local/bin` is on every Job's `PATH`
+# and where the agent CLI puts its own program. Only a missing file or an earlier link is
+# replaced, so a copy somebody put there is left as theirs.
+bin="$home/.local/bin"
+mkdir -p "$bin"
+if [ -L "$bin/armada" ] || [ ! -e "$bin/armada" ]; then
+  ln -sfn "$armada" "$bin/armada"
+else
+  say "Left $bin/armada as it is: a file is there, not a link to Armada"
+fi
+
 # The same job `scripts/restart` writes, pointed at the bundled binary:
 # docs/concepts/fleet.md, Daemon lifecycle, says why each key is what it is.
 # Fleet starts with no repository and serves what it is given from Bridge.

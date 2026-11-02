@@ -1,5 +1,5 @@
 // When the canvas draws. **A frame is drawn when something changed and not otherwise**: an unchanged scene draws nothing, a map nobody is
-// touching has its ticker stopped, a play starts it and it stops itself, a drone's loop draws nothing, and a window nobody is looking at (`data-still`,
+// touching has its ticker stopped, a play starts it and it stops itself, a drone's loop draws on the loop clock, and a window nobody is looking at (`data-still`,
 // `data-idle`) holds with the pose as it is. Browser: the stage is the real one on a real WebGL canvas; the test reads its application's
 // ticker and counts the frames the application draws.
 
@@ -7,6 +7,7 @@ import type { Application } from "pixi.js";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { commands } from "vitest/browser";
 
+import { startLoopClock } from "../../../loop-clock";
 import "../../../styles/index.css";
 import { PANE, sceneFor } from "./scene-fixture";
 import { Stage } from "./stage";
@@ -77,7 +78,7 @@ test("a map nobody is touching has its ticker stopped, and an unchanged scene dr
   expect(started()).toBe(false);
 });
 
-test("a drone that works holds its pose: its loop draws no frames", async () => {
+test("a drone that works starts no ticker: with no clock running, its loop draws no frames", async () => {
   stage.setScene(sceneFor());
   await wait(200);
   stage.setScene(working());
@@ -86,6 +87,47 @@ test("a drone that works holds its pose: its loop draws no frames", async () => 
   await wait(300);
   expect(started()).toBe(false);
   expect(drawn()).toBe(0);
+});
+
+test("a drone that works draws on the loop clock with the ticker stopped, and holds in an idle window", async () => {
+  const stopClock = startLoopClock();
+  try {
+    stage.setScene(working());
+    await wait(300);
+    const drawn = counting();
+    await wait(1100);
+    // Five moves a second, and not the thirty a ticker would draw.
+    expect(drawn()).toBeGreaterThanOrEqual(2);
+    expect(drawn()).toBeLessThanOrEqual(7);
+    expect(started()).toBe(false);
+
+    document.documentElement.setAttribute("data-idle", "");
+    await wait(300);
+    const held = counting();
+    await wait(500);
+    expect(held()).toBe(0);
+  } finally {
+    stopClock();
+  }
+});
+
+test("under reduced motion the clock draws a working drone no frames", async () => {
+  await commands.motion(false);
+  stage.destroy();
+  stage = Stage.start(host);
+  await expect.poll(() => host.querySelector("canvas") !== null, { timeout: 60_000 }).toBe(true);
+  stage.setSize(PANE);
+  stage.setCamera(CAM, true);
+  const stopClock = startLoopClock();
+  try {
+    stage.setScene(working());
+    await wait(300);
+    const drawn = counting();
+    await wait(600);
+    expect(drawn()).toBe(0);
+  } finally {
+    stopClock();
+  }
 });
 
 test("a play starts the ticker, and it stops itself once nothing plays", async () => {
