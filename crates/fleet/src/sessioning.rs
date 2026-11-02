@@ -732,6 +732,19 @@ where
         self.shown_file_read(id.as_str(), &path).await
     }
 
+    async fn get_style_sources(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+        path: Option<String>,
+    ) -> Result<ipc::StyleSources, Refusal> {
+        self.style_sources_read(caller, session_id, path).await
+    }
+
+    async fn get_kept_styles(&self, hash: String) -> Result<ipc::KeptStyles, Refusal> {
+        self.kept_styles_read(&hash).await
+    }
+
     async fn record_plan(
         &self,
         caller: Option<api::Caller>,

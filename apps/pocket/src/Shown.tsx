@@ -8,6 +8,7 @@ import { macOf, start, useFleet } from "./fleet";
 import { readShown, useJob, type Shown } from "./jobState";
 import { go, jobPath } from "./router";
 import { sessionOfThread, sketchOf } from "./thread";
+import { WithKeptStyles } from "./keptStyles";
 import { Band, Trouble } from "./ui";
 
 const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
@@ -52,7 +53,9 @@ export function SketchView({ origin, id, sketch }: { origin: string; id: string;
         {drawn === undefined ? (
           <Trouble says={read.error ?? (read.thread === undefined ? "" : "That Job did not show that sketch.")} />
         ) : (
-          <SketchScene scene={drawn.scene} {...(drawn.against === undefined ? {} : { against: drawn.against })} title={drawn.title} />
+          <WithKeptStyles machine={machine}>
+            <SketchScene scene={drawn.scene} {...(drawn.against === undefined ? {} : { against: drawn.against })} title={drawn.title} />
+          </WithKeptStyles>
         )}
       </div>
     </section>

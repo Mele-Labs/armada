@@ -312,6 +312,11 @@ new one. The mapping is declared, so it is read rather than inferred.
 --slot-cold        var(--status-not-started)
 --slot-closed      var(--status-rejected)
 --slot-closed-bg   var(--status-rejected-bg)
+--usage-meter      var(--status-running)
+--usage-worse      var(--status-awaiting-review)
+--usage-over       var(--status-escalated)
+--usage-better     var(--status-completed-success)
+--setting-modified var(--status-running)
 ```
 
 **A worktree slot's bay takes its slot's hue.** On Worktree Slots a held bay is a
@@ -322,6 +327,13 @@ none. A slot a person closed is shuttered in `--slot-closed`, rejected's
 violet, because closing is a person declining to lease it; a held one closed
 keeps its band and holder and takes the closed mark beside its state. The owner asked for it on 4 Oct 2026: icons and a row tint alone did not
 say which slots were available. Like a verdict, it never sums onto a Job.
+
+**A page's state takes the same three things wherever it appears**: its hue on the frame, a wash on the ground, and the figure or glyph at full strength.
+What is at rest stays neutral, so what is lit reads.
+`packages/components/src/meaning.css` draws it on the pages outside the Cockpit.
+The owner asked for it on 1 Nov 2026 ("so many pages are monotone") and approved it on a walk: a Usage figure going up lights its tile, since every figure there is burn; the plan's window lights at 80% and at 95%; a Job's peak context lights at 400k.
+`--setting-modified` borrows the hue of the slider beside it.
+A setting moved off what ships has no Job state to alias, so it is the one here that says "look" and not a state.
 
 **The acts in a tile's panel take the hue of what they do, from tokens that exist.** A destructive act (Clear, Delete branch, Forget Job, Remove slot) is `--status-completed-failed`, as the destructive Button is; a rescue is `--slot-stranded`; Close slot, Reopen slot and Stop take `--fg-default`.
 Each has its label beside a 16px glyph, a tint of `calc(var(--row-tint) * 2)` and `--row-tint-recent` on hover.
