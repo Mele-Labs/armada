@@ -26,7 +26,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `turn_completed` | `said?`: the close of what the turn ended on, its last 1,500 characters from a line start | Stamps the last turn, lets go a hold for the plan's limit, and keeps `said` as the reply (*What a Job is doing*). Marks every window the job showed ready, unless a `subagent` of it still stands (*Showing a window*). The mod does not tell a turn that died on an API error |
 | `limited` | `resets_at` | Holds the job until the plan's limit resets (*A job that hit the plan's limit*) |
 | `wrote` | nothing | The job itself wrote a file (the mod, never for a subagent): marks every window it showed as still changing |
-| `permission_asked` | `tool`, `detail?` | A terminal's harness opened its own permission prompt (the mod, from Claude Code's `PermissionRequest` hook): a `permission` call until it closes (*A terminal's permission prompt*) |
+| `permission_asked` | `tool`, `detail?` | A terminal's harness opened its own permission prompt (the mod, from Claude Code's `PermissionRequest` hook, or the engine's verdict where that hook is skipped): a `permission` call until it closes (*A terminal's permission prompt*) |
 | `permission_settled` | nothing | The tool call that raised the prompt ended: the call goes |
 | `touched` | `paths`: files written, from the job's directory | Checks them against who else writes them (*Write clashes*); a terminal Job's are counted for the timeline as `session.edited` |
 | `read` | `path`: a file read, from the job's directory | Counted for the timeline as `session.read`, for a terminal Job; nothing on the ledger changes |
@@ -46,3 +46,33 @@ A `/rename` in the terminal is reported as the name typed, or, for a bare `/rena
 **A Job's name can also be changed from Bridge**, by pressing its title in the Job view: `rename_session`, hosted or terminal, which stands until the next terminal `/rename`.
 A hosted Job's harness is not told, so its own name for itself stays what it was.
 **The mod also sends the text of each item on the task list the agent wrote**, read from the task tools it already calls (*The build record*).
+
+## Where Claude Code skips the mod's hooks
+
+An organization's Claude Code (Team and Enterprise, and any machine with managed settings) seats its own `cc-plugin-sec-default` outside every plugin a person installs, so that the organization's hooks, prompt content and tool policy stay out of a plugin's reach.
+It passes these events over for the mod: `prompt.section`, `prompt.context`, `prompt.attachment`, `prompt.compose`, `skill.prompt`, `attribution.text`, `session.compact`, `settings.read` and the `classic.*` settings hooks.
+`session.start`, `prompt.submit`, `turn.complete` and `tool.call` still run.
+**Armada does not go around it.** The mod never rewrites a prompt or a tool result to put its words in front of the model there, and changes no plugin seat or setting.
+It moves what it only *watches* to events that still run, and tells the model what Fleet itself controls: a hosted Job's start arguments and the door's handshake.
+
+**One flag decides which source speaks.** The mod's `classic.*` hooks each set it when they run.
+While it is unset, the fallbacks below run; once it is set they stay quiet, so an account where the hooks run reads as it always did.
+
+| What the mod reports | From, where the hooks run | From, where they are skipped | Left |
+|---|---|---|---|
+| A subagent ended (`settled`) | `classic.SubagentStop` | `turn.complete` with the subagent's `agentId` | |
+| The effort (`tuned`) | `classic.UserPromptSubmit`, `classic.Stop` | `turn.step`'s `effort`, main thread only | A number budget, which has no word |
+| The permission mode (`tuned`) | `classic.UserPromptSubmit`, `classic.Stop` | `agent.spawn`'s `permissionMode`, where the main thread spawns a subagent | A mode changed with no subagent spawned afterwards is not seen |
+| A turn died on the plan's limit (`limited`) | `classic.StopFailure` | `turn.complete` with reason `error`, the kind read from the transcript's last assistant line | |
+| A turn died on a sign-in that ran out (`signed_out`) | `classic.StopFailure` | the same | |
+| A permission prompt opened (`permission_asked`) | `classic.PermissionRequest` | `tool.check`'s verdict of `ask` on a real call a person answers | A prompt a settings hook then decides is told and closes with the call; auto mode's classifier is left out where the mode is known |
+| The output style | `prompt.compose` | nothing | Not told: no event that runs carries it |
+| A reply that owes the person something, held at the stop | `classic.Stop` | nothing | Not checked: only a hook that holds a stop can, and the other way is to put text in front of the model |
+
+**The Job's id and acts are told by Fleet.** The mod's `armadaSession` note reaches the model through `prompt.context` and `classic.SessionStart`, which are skipped.
+A hosted Job's start arguments carry its id after the rules (`docs/contracts/agent-prompt/5f-the-job-rules.md`), and `armada job` reads `ARMADA_SESSION` itself.
+A Job in a terminal is told at the door's handshake, by `armada mcp`, how to read its id (the `CLAUDE_CODE_SESSION_ID` in its Bash environment) and that `armada job` reaches its acts.
+Where the hooks run it is told both ways.
+
+**The skip is detected, not asked.** After two main-thread turns that ended with no `classic.*` hook of the mod heard, the mod tells Fleet once, as an attachment of kind `hooks_skipped` (`docs/practices/protocol/a-job-whose-settings-hooks-are-skipped.md`).
+Bridge draws nothing for it; the debug report and the Doctor can name it from the Job's record.

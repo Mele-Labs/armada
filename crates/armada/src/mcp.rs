@@ -59,7 +59,8 @@ pub fn speak() -> ExitCode {
             if let Some(said) = &reached.adopted {
                 eprintln!("armada mcp: {said}");
             }
-            carried(&reached.fleet, &reached.door, reached.adopted.as_deref())
+            let said = said_at_handshake(reached.adopted.as_deref(), |name| std::env::var(name).ok());
+            carried(&reached.fleet, &reached.door, said.as_deref())
         }
         Err(why) => {
             // Said on stderr as well, once: the person who started the session
@@ -463,9 +464,9 @@ const PING: &str = r#"{"jsonrpc":"2.0","id":0,"method":"ping"}"#;
 /// Carry every message to the door and every answer back. One line in, at most
 /// one line out, which is what the stdio transport is.
 ///
-/// `adopted` is the one thing this adds to what Fleet said: a session resolved
-/// upward from a subdirectory says so at its handshake, and nowhere else.
-fn carried(fleet: &Loopback, door: &str, adopted: Option<&str>) -> ExitCode {
+/// `said` is the one thing this adds to what Fleet said, at the handshake and nowhere else:
+/// [`said_at_handshake`].
+fn carried(fleet: &Loopback, door: &str, said: Option<&str>) -> ExitCode {
     each_message(|message| {
         match posted_patiently(fleet, door, message) {
             // A notification: acknowledged with 202 and no body, because
@@ -476,7 +477,7 @@ fn carried(fleet: &Loopback, door: &str, adopted: Option<&str>) -> ExitCode {
             // client left waiting for an answer to an id nothing will mention
             // again.
             Ok(answer) if answer.status == 200 && !answer.body.is_empty() => {
-                Some(noting(answer.body, adopted))
+                Some(noting(answer.body, said))
             }
             Ok(answer) => refused(
                 message,
@@ -491,6 +492,27 @@ fn carried(fleet: &Loopback, door: &str, adopted: Option<&str>) -> ExitCode {
             Err(why) => refused(message, &format!("Armada stopped answering: {why}")),
         }
     })
+}
+
+/// What a Job in a terminal is told at the handshake. **Said here as well as in the mod's note**,
+/// because an organization's Claude Code can pass the mod's prompt hooks over, and the handshake is
+/// Fleet's own. It names the id by where to read it, never by the id: a `/clear` starts a Job under
+/// another one, and a note given once would name the old.
+const TERMINAL_JOB: &str = "A Job in a terminal is named by the CLAUDE_CODE_SESSION_ID in its Bash \
+     environment: pass that as `session_id` to a tool here that takes one. Everything you do with \
+     your Job is `armada job <act>` run from Bash, which passes it itself: `armada job` lists the \
+     acts, `armada job <act> --help` says what one takes, and `armada job status` says which Job you \
+     are. The same acts are tools on this server.";
+
+/// What the relay says at its handshake besides Fleet's: where the walk adopted an ancestor, the
+/// disclosure, and for a Job in a terminal [`TERMINAL_JOB`]. A Job Fleet hosts is told its id and its
+/// acts in its start arguments, and a Drone has no such door, so neither is told it here.
+pub(crate) fn said_at_handshake(adopted: Option<&str>, env: impl Fn(&str) -> Option<String>) -> Option<String> {
+    let hosted = env(adapters::leasing::Holder::SESSION_ENV).is_some();
+    let drone = env(adapter_traits::Environment::UNATTENDED).is_some();
+    let terminal = (!hosted && !drone).then_some(TERMINAL_JOB);
+    let said: Vec<&str> = [adopted, terminal].into_iter().flatten().collect();
+    (!said.is_empty()).then(|| said.join(" "))
 }
 
 /// How long a call waits for a Fleet that is restarting, and how often it asks.

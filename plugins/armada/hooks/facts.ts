@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.55'
+export const MOD_VERSION = '0.3.56'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -198,6 +198,26 @@ export function customTitleIn(transcript: string): string | undefined {
     }
   }
   return found === undefined ? undefined : found.replace(/\s+/g, ' ')
+}
+
+/**
+ * The kind of API failure a turn died on, read from the transcript: the harness writes the failure as
+ * the session's last assistant line, with the same word `StopFailure` carries as its `error`
+ * (`rate_limit`, `authentication_failed`). Nothing where the last assistant line is a reply.
+ */
+export function apiErrorIn(transcript: string): string | undefined {
+  const lines = transcript.split('\n')
+  for (let at = lines.length - 1; at >= 0; at -= 1) {
+    if (!lines[at].includes('"type":"assistant"')) continue
+    try {
+      const entry = JSON.parse(lines[at]) as { isSidechain?: unknown; isApiErrorMessage?: unknown; error?: unknown }
+      if (entry.isSidechain === true) continue
+      return entry.isApiErrorMessage === true && typeof entry.error === 'string' ? entry.error : undefined
+    } catch {
+      // A line cut short at the end of a file being written: the one before it is the last whole.
+    }
+  }
+  return undefined
 }
 
 /** Where Claude Code keeps a session's transcript, under the directory it ran in. */

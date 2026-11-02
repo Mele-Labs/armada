@@ -134,6 +134,7 @@ WebSocket event stream, read this first.
 | [A Job's plan and its file touches](protocol/a-jobs-plan-and-its-file-touches.md) |
 | [Protocol 23.91: a Job's request is read, and its workflow is on the record](protocol/protocol-23-91-a-jobs-request-is-read-and-its-workflow-is-on-the-record.md) |
 | [A terminal's permission prompt is a call](protocol/a-terminals-permission-prompt-is-a-call.md) |
+| [A Job whose settings hooks are skipped](protocol/a-job-whose-settings-hooks-are-skipped.md) |
 | [Helm is a Job](protocol/helm-is-a-job.md) |
 | [A waiting item's steps](protocol/a-waiting-items-steps.md) |
 | [A Job moves to another repository](protocol/a-job-moves-to-another-repository.md) |
