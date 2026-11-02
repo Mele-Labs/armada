@@ -27,6 +27,9 @@ export function drawLayersAsTabs(session: string, show: (layer: LayerId) => bool
   return () => void (asTabs.get(session) === show && asTabs.delete(session));
 }
 
+/** Whether the Job is drawn in panes now, so a card that opens as a tab has somewhere to go. */
+export const inPanes = (session: string): boolean => asTabs.has(session);
+
 /** Whether the Job's panes took the layer as a tab, so none opens over the Job. */
 export const shownAsTab = (session: string, layer: LayerId): boolean => asTabs.get(session)?.(layer) === true;
 

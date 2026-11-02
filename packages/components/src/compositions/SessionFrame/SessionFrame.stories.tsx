@@ -148,12 +148,12 @@ const breakdown = {
   maxTokens: 1_000_000,
 };
 
-/** The context tank: the live tokens and the percent of the window. With a breakdown it opens a card of what fills it, and a press keeps it open. */
+/** The context ring: the percent of the window, filled clockwise. With a breakdown it opens a card of what fills it, and a press keeps it open. */
 export const ContextBreakdown: Story = {
   args: { state: "idle", said: "Idle", title: "Release notes script", context: { tokens: 53_840, window: 1_000_000, breakdown } },
   play: async ({ canvas, userEvent }) => {
     const figure = canvas.getByRole("button", { name: "Context 5%" });
-    await expect(figure).toHaveTextContent("53.8k · 5%");
+    await expect(figure).toHaveTextContent("5%");
     await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
     await userEvent.hover(figure);
@@ -175,11 +175,11 @@ export const ContextBreakdown: Story = {
   },
 };
 
-/** Without a breakdown the tank is a figure and not a button, and says its tokens on hover. */
+/** Without a breakdown the ring is a figure and not a button, and says its tokens on hover. */
 export const ContextWithoutBreakdown: Story = {
   args: { state: "idle", said: "Idle", title: "Release notes script", context: { tokens: 142_000, window: 200_000 } },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Context 71%" })).toHaveTextContent("142k · 71%");
+    await expect(canvas.getByRole("img", { name: "Context 71%" })).toHaveTextContent("71%");
     await expect(canvas.queryByRole("button", { name: /^Context/ })).not.toBeInTheDocument();
   },
 };

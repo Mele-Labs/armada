@@ -5,7 +5,7 @@
 import { button, deckRow, inside, region, role, text, toSystemPage, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const ARMADA = role("group", "Armada", { exact: true });
+const ARMADA = role("group", "Shipped with Armada", { exact: true });
 const propose = role("group", "Propose", { exact: true });
 const ends = inside(propose, role("list", "Ends when"));
 const card = role("article", "Sketch: Pause on the row", { exact: true });

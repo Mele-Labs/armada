@@ -41,7 +41,7 @@ import { PieceActs } from "./sharing/PieceActs";
 import { saveSetting, useSetting } from "./use-setting";
 import { WORKFLOWS_OFF_KEY, switched, workflowsOffOf } from "./workflows-off";
 import { useWorkspaceHeld } from "./workspace-draft";
-import { WIRE_OF, agentOf, armadaOf, askedChange, changeAt, driftOf, listedOf, stepOf, suggestionsOf } from "./workflow-manager-wire";
+import { WIRE_OF, agentOf, armadaOf, askedChange, changeAt, driftOf, listedOf, runOrderOf, runningIn, stepOf, suggestionsOf } from "./workflow-manager-wire";
 import type { Listed } from "./workflow-manager-wire";
 
 type Surfaced = Pick<BridgeState, "holds" | "repository">;
@@ -76,8 +76,10 @@ export function WorkflowManagerSurface({
   state: Surfaced;
 }) {
   const manifest = state.holds.repositories?.find((one) => one.root === state.repository)?.manifest;
-  const served = (state.holds.repositories ?? []).flatMap((one): Served[] =>
-    one.manifest === undefined ? [] : [{ manifestId: one.manifest.id, name: one.manifest.repository, root: one.root }],
+  const repositories = state.holds.repositories;
+  const served = useMemo(
+    () => (repositories ?? []).flatMap((one): Served[] => (one.manifest === undefined ? [] : [{ manifestId: one.manifest.id, name: one.manifest.repository, root: one.root }])),
+    [repositories],
   );
   return (
     <Boundary region="Workflows" bridge={bridge} onCopied={onCopied}>
@@ -117,7 +119,20 @@ function Held({ current, repository, root, served }: { current: string | null; r
     [served],
   );
 
-  const rows = useMemo((): readonly Listed[] => (listed === null || !listed.ok ? [] : listedOf(listed.workflows, listed.leftOut, current)), [listed, current]);
+  const rows = useMemo((): readonly Listed[] => {
+    if (listed === null || !listed.ok) return [];
+    const kept = listedOf(listed.workflows, listed.leftOut, current);
+    const all = [...kept, ...runningIn(listed.workflows, kept, current === null ? served.map((one) => one.manifestId) : [current])];
+    // Each repository's group stands where its repository is listed, and holds its copies and what else runs there in the order Fleet lists them under it.
+    const order = runOrderOf(listed.workflows);
+    const inRepository = (one: Listed) => one.source === "repository" || one.runsIn !== undefined;
+    const at = (one: Listed) => (inRepository(one) ? served.findIndex((each) => each.manifestId === one.manifestId) : -1);
+    const ran = (one: Listed) => (inRepository(one) ? (order.get(`${one.manifestId}/${one.id}`) ?? Number.MAX_SAFE_INTEGER) : 0);
+    return all
+      .map((one, index) => ({ one, index }))
+      .sort((a, b) => at(a.one) - at(b.one) || ran(a.one) - ran(b.one) || a.index - b.index)
+      .map(({ one }) => one);
+  }, [listed, current, served]);
   const workflowIds = useMemo(() => [...new Set(rows.map((one) => one.id))], [rows]);
   // On All the lanes are the picked copy's repository's; Armada's and Yours carry the first one they were listed under.
   const lanesAt = current ?? picked?.manifestId ?? served[0]?.manifestId ?? null;
@@ -131,7 +146,8 @@ function Held({ current, repository, root, served }: { current: string | null; r
           id: row.id,
           source: row.source,
           ...(row.manifestId === undefined ? {} : { manifestId: row.manifestId }),
-          ...(row.source === "repository" ? nameOf(row.manifestId) : {}),
+          ...(row.runsIn === undefined ? {} : { runsIn: row.runsIn }),
+          ...(row.source === "repository" || row.runsIn !== undefined ? nameOf(row.manifestId) : {}),
           forRequests: read?.forRequests ?? row.forRequests ?? "",
           steps: read?.steps ?? [],
           ...(row.leftOut === undefined ? {} : { leftOut: row.leftOut }),
@@ -171,7 +187,7 @@ function Held({ current, repository, root, served }: { current: string | null; r
 
   /** Reads the changes open on a copy, and keeps them if it is still the one picked. */
   const loadChanges = useCallback(async (one: WorkflowRef): Promise<void> => {
-    if (one.source === "armada" || one.file !== undefined) {
+    if (one.source === "armada" || one.file !== undefined || one.runsIn !== undefined) {
       setChanges([]);
       return;
     }
@@ -181,7 +197,13 @@ function Held({ current, repository, root, served }: { current: string | null; r
 
   const open = useCallback(
     (one: WorkflowRef, armada: Listed | undefined) => {
-      const ref: WorkflowRef = { id: one.id, source: one.source, ...(one.manifestId === undefined ? {} : { manifestId: one.manifestId }), ...(one.file === undefined ? {} : { file: one.file }) };
+      const ref: WorkflowRef = {
+        id: one.id,
+        source: one.source,
+        ...(one.manifestId === undefined ? {} : { manifestId: one.manifestId }),
+        ...(one.runsIn === undefined ? {} : { runsIn: one.runsIn }),
+        ...(one.file === undefined ? {} : { file: one.file }),
+      };
       asking.current = keyOf(ref);
       setPicked(ref);
       setChanges([]);
@@ -273,8 +295,9 @@ function Held({ current, repository, root, served }: { current: string | null; r
         forJobs,
         onForJobs: (on) => void saveSetting("features.workflows", on),
         machine: off.machine,
-        repository: current === null ? null : { name: repository, off: off.repositories[current] ?? [] },
-        onSwitch: (workflowId, on) => void saveSetting(WORKFLOWS_OFF_KEY, switched(off, workflowId, on, current)),
+        repositories: off.repositories,
+        repository: current === null ? null : { manifestId: current, name: repository },
+        onSwitch: (workflowId, on, manifestId) => void saveSetting(WORKFLOWS_OFF_KEY, switched(off, workflowId, on, manifestId)),
       }}
       workflows={workflows}
       notice={notice ?? fleet?.notice}
@@ -302,6 +325,17 @@ function Held({ current, repository, root, served }: { current: string | null; r
         if (!saved.ok && !refusedWith(saved.outcome, "fleet.workflow_exists")) return refusalWords(saved.outcome);
         await reread();
         open({ id: one.id, source: "yours", ...(one.manifestId === undefined ? {} : { manifestId: one.manifestId }) }, armadaOf(rows, one.id));
+        return undefined;
+      }}
+      onCopyInto={async (one) => {
+        const manifestId = one.runsIn ?? manifestFor(one);
+        const running = await readWorkflowDefinition(one.id, wireOf(one), manifestId);
+        if (!running.ok) return refusalWords(running.outcome);
+        const saved = await saveWorkflow({ manifestId, body: { scope: "repository", definition: running.definition.definition, overwrite: false } });
+        // A copy the repository already keeps is the one to open.
+        if (!saved.ok && !refusedWith(saved.outcome, "fleet.workflow_exists")) return refusalWords(saved.outcome);
+        await reread();
+        open({ id: one.id, source: "repository", ...(manifestId === null ? {} : { manifestId }) }, armadaOf(rows, one.id));
         return undefined;
       }}
       onPropose={async (one) => {
