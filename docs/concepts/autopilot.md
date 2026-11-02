@@ -17,7 +17,9 @@ The code is `crates/fleet/src/autopilot.rs` and the modules under it; the store'
 | At once | How many of its Jobs may hold a place together |
 | Until | A time, held in UTC. Optional |
 | Spend | A dollar total across its Jobs' reported costs, in millionths. Optional |
-| Jobs started | How many Jobs it may start. Optional. The store calls it `jobs` and the wire `job_cap` |
+| Jobs started | How many Jobs it may start. Optional. The store calls it `job_cap` and the wire `session_cap` |
+| On autopilot | `backlog` and `running`, two booleans: whether it works the backlog, and whether it works Jobs already running. Kept as checked at start. A start without them, and a record from before them, read as `backlog` true and `running` false |
+| Decisions | The kinds of decision a helper may answer: `recommended` (a question with a recommended answer), `open` (a question with none), `plan`, `draft`, `walk`, `land` (a green pull request), `unsure` (an issue Autopilot was unsure of), `red` (a fix for a red main), `reads` and `writes`. There is no destructive kind: it always waits for a person, and a body naming it is refused. Kept as checked at start, and a change of settings leaves them. Nothing acts on them yet |
 | State | `running`, `paused` or `stopped`, with when it started and ended |
 | Capped by | `until`, `spend` or `jobs`, where a cap rather than a person paused it. A Resume clears it |
 | Picks | Each issue it picked, the workflow, the Job it started, the picker's reason, and `started`, `set_aside`, `withdrawn` or `dismissed` |
