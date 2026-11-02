@@ -7,11 +7,12 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Settings};
-use config::settings::{Refused, Resolved, Saved};
+use config::settings::{entry, Refused, Resolved, Saved};
+use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{Event, FleetLimits, Preferences, SaveLimits, SavePreference, SaveSettings, SettingsList, WireError};
 use store::settings_file;
 
-use super::{checked_whole, file_value, read_checked};
+use super::{checked_whole, file_value, keep_last_good, read_checked};
 use crate::daemon::Fleet;
 
 /// A save naming a key the table does not have, or a value it will not take.
@@ -47,20 +48,33 @@ where
         let settings = self.machine_settings();
         let _one = settings.saving.lock().await;
         let now = settings.now();
-        let mut document = now.saved().document().clone();
+        let unacceptable = |key: Option<String>, reason: String| {
+            let error = WireError::raised(UNACCEPTABLE_SETTINGS, reason, self.run_id());
+            Refusal::Unacceptable(match key {
+                Some(key) => error.with_field("key", ipc::WireValue::Str(key)),
+                None => error,
+            })
+        };
+        // **The file as it stands, never what is in force.** What is in force after a refusal is
+        // not the file, and writing it with this change would lose whatever the file holds.
+        let mut document = read_checked(settings.path(), &now)
+            .map_err(|refused| {
+                unacceptable(refused.key, format!("settings.json was not taken, so nothing is saved: {}", refused.reason))
+            })?
+            .document()
+            .clone();
         for (key, value) in save.changes {
+            // The file may carry a key another build wrote. A save may not add one.
+            if entry(&key).is_none() {
+                let reason = format!("settings.json names `{key}`, which is not a setting Armada has");
+                return Err(unacceptable(Some(key), reason));
+            }
             match value {
                 Some(value) => document.insert(key, file_value(&value)),
                 None => document.remove(&key),
             };
         }
-        let saved = checked_whole(&document, &now).map_err(|refused| {
-            let error = WireError::raised(UNACCEPTABLE_SETTINGS, refused.reason, self.run_id());
-            Refusal::Unacceptable(match refused.key {
-                Some(key) => error.with_field("key", ipc::WireValue::Str(key)),
-                None => error,
-            })
-        })?;
+        let saved = checked_whole(&document, &now).map_err(|refused| unacceptable(refused.key, refused.reason))?;
         settings_file::write(settings.path(), saved.document()).map_err(|why| {
             Refusal::Fault(WireError::raised(
                 SETTINGS_NOT_WRITTEN,
@@ -94,6 +108,12 @@ where
     /// Put `saved` in force, clear any refusal, and say so.
     async fn settings_adopted(&self, saved: Saved) -> SettingsList {
         let settings = self.machine_settings();
+        let was_on = self.models_on();
+        if let Err(why) = keep_last_good(settings.path(), &saved) {
+            let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "the last good copy of settings.json was not kept")
+                .with_field("why", FieldValue::Str(why.to_string()));
+            crate::transcript::note_aloud(&envelope);
+        }
         let resolved: Resolved = {
             let mut held = settings.held();
             held.now = held.now.with(saved);
@@ -103,6 +123,7 @@ where
         self.retuned(&resolved);
         self.relimited(&resolved).await;
         self.downshift_settings_moved(&resolved).await;
+        self.models_switched_off(&was_on).await;
         let list = settings.listed();
         self.publish(Event::SettingsChanged(list.clone()));
         list

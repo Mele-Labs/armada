@@ -40,6 +40,17 @@ fn can_write(tool: &str) -> bool {
     matches!(tool, "Write" | "Edit" | "MultiEdit" | "NotebookEdit" | "Bash")
 }
 
+/// A subagent asked for on a model not in `on`. A process keeps the allowlist it started with and
+/// lives past a switch, so this is what holds a Job the switch did not move.
+fn subagent_off(gate: &SessionGate, on: &[String]) -> Option<GateAnswer> {
+    if !matches!(gate.tool_name.as_str(), "Agent" | "Task") {
+        return None;
+    }
+    let model = gate.tool_input.get("model")?.as_str()?;
+    (!on.iter().any(|one| one == model))
+        .then(|| GateAnswer::deny(format!("The model `{model}` is switched off. Name one of {}, or none.", on.join(", "))))
+}
+
 fn touch(gate: &SessionGate) -> Touch {
     let text = |key: &str| gate.tool_input.get(key).and_then(|said| said.as_str());
     match gate.tool_name.as_str() {
@@ -76,6 +87,9 @@ where
         }
         // Every call of a hosted session that is open, whatever the gate then decides.
         self.call_seen(&gate);
+        if let Some(answer) = subagent_off(&gate, &self.models_on()) {
+            return answer;
+        }
         // A tool the hook only reaches Fleet on so it can be noted holds nothing, so it does not
         // read the pool or the Manifest.
         if !can_write(&gate.tool_name) {

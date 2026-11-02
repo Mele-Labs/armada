@@ -80,6 +80,8 @@ pub struct HostedLaunch {
     readable: Vec<String>,
     /// The folder holding the `armada` mod's plugin, loaded for this process alone.
     plugin: Option<String>,
+    /// The models this process and its subagents may run on. Empty is no limit.
+    models: Vec<String>,
 }
 
 impl HostedLaunch {
@@ -142,6 +144,7 @@ impl HostedLaunch {
             gate: gate.to_string(),
             readable,
             plugin: None,
+            models: Vec::new(),
         })
     }
 }
@@ -190,6 +193,14 @@ impl HostedLaunch {
         Ok(self)
     }
 
+    /// Hold this process and every subagent of it to `models`. **The CLI enforces it**, whoever
+    /// asks: a `--model` or a subagent's own model outside the list runs on one inside it.
+    /// Measured on 2.1.310.
+    pub fn limited_to(mut self, models: &[String]) -> HostedLaunch {
+        self.models = models.to_vec();
+        self
+    }
+
     /// End the copy at the transcript line `uuid` of the session forked from,
     /// included. Hidden in the CLI's help; `docs/spikes/030-*`. Read only
     /// where the launch forks.
@@ -218,6 +229,10 @@ fn portable(word: &str) -> bool {
 struct Settings<'a> {
     #[serde(rename = "crossSessionInbound")]
     cross_session_inbound: &'static str,
+    #[serde(rename = "availableModels", skip_serializing_if = "<[String]>::is_empty")]
+    available_models: &'a [String],
+    #[serde(rename = "enforceAvailableModels", skip_serializing_if = "std::ops::Not::not")]
+    enforce_available_models: bool,
     hooks: Hooks<'a>,
 }
 
@@ -262,6 +277,8 @@ impl HeadlessAgent {
     pub fn render_hosted_session(&self, hosted: &HostedLaunch) -> Result<Launch, HostedRefused> {
         let settings = ipc::encode(&Settings {
             cross_session_inbound: "accept",
+            available_models: &hosted.models,
+            enforce_available_models: !hosted.models.is_empty(),
             hooks: Hooks {
                 pre_tool_use: [Matched {
                     matcher: GATED_TOOLS,

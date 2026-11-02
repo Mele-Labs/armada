@@ -90,6 +90,50 @@ async fn a_save_out_of_range_writes_nothing_and_names_the_key() {
     assert!(!settings_file_in(&home).exists(), "nothing was written");
 }
 
+/// Main and a preview take turns on one file. A key the other build wrote costs this one nothing,
+/// a save writes it back, and a save may not add one of its own.
+#[tokio::test]
+async fn a_key_another_build_wrote_comes_through_a_save() {
+    let home = TempDir::new();
+    let file = settings_file_in(&home);
+    std::fs::write(&file, r#"{"a.key.of.another.build":{"kept":true},"limits.checksAtOnce":3}"#).expect("written");
+    let fleet = Fleet::assembled(fitted(&home));
+    assert_eq!(one_of(&fleet.get_settings().await.expect("served"), "limits.checksAtOnce").value, SettingValue::Integer(3));
+
+    fleet.save_settings(changing("limits.dronesAtOnce", Some(SettingValue::Integer(2)))).await.expect("saved");
+    let written = std::fs::read_to_string(&file).expect("read");
+    for kept in ["a.key.of.another.build", "limits.checksAtOnce", "limits.dronesAtOnce"] {
+        assert!(written.contains(kept), "{kept} is gone: {written}");
+    }
+
+    let refused = fleet.save_settings(changing("a.key.of.another.build", Some(SettingValue::Integer(1)))).await.expect_err("not this build's");
+    let api::Refusal::Unacceptable(error) = refused else { panic!("{refused:?}") };
+    assert!(error.message.contains("a.key.of.another.build"), "{}", error.message);
+    assert_eq!(std::fs::read_to_string(&file).expect("read"), written, "nothing was written");
+}
+
+/// A file refused at start is the last good copy and not the shipped settings, and a save while it
+/// is refused writes nothing, so what the file holds is still there to be corrected.
+#[tokio::test]
+async fn a_file_refused_at_start_is_the_last_good_copy_and_a_save_leaves_it_alone() {
+    let home = TempDir::new();
+    let file = settings_file_in(&home);
+    std::fs::write(&file, r#"{"limits.checksAtOnce":3}"#).expect("written");
+    drop(Fleet::assembled(fitted(&home)));
+
+    let bad = r#"{"limits.checksAtOnce":3,"limits.dronesAtOnce":99}"#;
+    std::fs::write(&file, bad).expect("written");
+    let fleet = Fleet::assembled(fitted(&home));
+    let list = fleet.get_settings().await.expect("served");
+    assert!(list.refused.is_some(), "the refusal is served");
+    assert_eq!(one_of(&list, "limits.checksAtOnce").saved, Some(SettingValue::Integer(3)), "the last good copy, not what ships");
+
+    let refused = fleet.save_settings(changing("limits.checksAtOnce", Some(SettingValue::Integer(2)))).await.expect_err("the file is refused");
+    let api::Refusal::Unacceptable(error) = refused else { panic!("{refused:?}") };
+    assert_eq!(error.code, "fleet.unacceptable_settings");
+    assert_eq!(std::fs::read_to_string(&file).expect("read"), bad, "nothing was written");
+}
+
 /// A value read once at start is saved and waits for a restart, and says so.
 #[tokio::test]
 async fn an_at_restart_setting_is_saved_and_waits_for_the_next_start() {
