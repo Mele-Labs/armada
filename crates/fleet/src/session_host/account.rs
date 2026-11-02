@@ -8,6 +8,10 @@
 //! **Kept until his next message.** A turn ending clears nothing, and a turn Fleet's own notice
 //! begins clears nothing: only a message from him that starts a turn does, with the calls and texts
 //! the account was written from.
+//!
+//! **The Job's running summary, `so_far`, is written here too** from the same reads, when a turn ends
+//! and when a call goes to the person. It is Job-level, so a message from him clears none of its
+//! state here, and it is kept in the store, not in this memory.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -19,7 +23,7 @@ use ipc::{SessionAccount, SessionLive, SessionPlan};
 use super::activity::Publish;
 use crate::daemon::Fleet;
 use crate::judging::watched;
-use crate::session_account::{read, TurnSoFar, CALLS_AT_MOST, SAID_MOST};
+use crate::session_account::{read, read_so_far, JobSoFar, TurnSoFar, CALLS_AT_MOST, SAID_MOST};
 
 /// The most often the model is asked to write an account, a Session at a time.
 pub(crate) const WRITE_EVERY: Duration = Duration::from_secs(5);
@@ -55,6 +59,12 @@ pub(crate) struct Writing {
     epoch: u32,
     account: Option<SessionAccount>,
     live: Option<SessionLive>,
+    /// Something the running summary reads is not yet in it. Unlike `dirty`, a message of his keeps it.
+    so_far_dirty: bool,
+    /// The model is being asked for the running summary.
+    so_far_asking: bool,
+    /// A summary was wanted while one was being written, so another follows.
+    so_far_again: bool,
 }
 
 impl Writing {
@@ -71,6 +81,7 @@ impl Writing {
             let over = self.calls.len().saturating_sub(CALLS_AT_MOST);
             self.calls.drain(..over);
             self.dirty = true;
+            self.so_far_dirty = true;
         }
     }
 
@@ -80,6 +91,7 @@ impl Writing {
         let over = self.said.len().saturating_sub(SAID_MOST);
         self.said.drain(..over);
         self.dirty = true;
+        self.so_far_dirty = true;
     }
 
     /// A page was shown or served. Whether the live view changed.
@@ -155,6 +167,32 @@ impl Writing {
         (changed, self.wanted(every))
     }
 
+    /// The running summary is wanted. `None` where a call is out, which is asked again once it is over,
+    /// and where nothing was read since the last one. Otherwise what the model is shown, with `last`
+    /// left for the caller to read from the store.
+    pub(crate) fn so_far_begin(&mut self) -> Option<JobSoFar> {
+        if self.so_far_asking {
+            self.so_far_again = true;
+            return None;
+        }
+        if !std::mem::take(&mut self.so_far_dirty) {
+            return None;
+        }
+        self.so_far_asking = true;
+        Some(JobSoFar {
+            last: None,
+            message: self.his.as_ref().map(|(_, words)| words.clone()),
+            done: self.account.as_ref().map(|account| account.done.clone()).unwrap_or_default(),
+            said: self.said.clone(),
+        })
+    }
+
+    /// The call is over. Whether another is owed: one was asked for meanwhile and more was read.
+    pub(crate) fn so_far_finished(&mut self) -> bool {
+        self.so_far_asking = false;
+        std::mem::take(&mut self.so_far_again) && self.so_far_dirty
+    }
+
     pub(crate) fn account(&self) -> Option<SessionAccount> {
         self.account.clone()
     }
@@ -180,6 +218,36 @@ where
         let wait = self.hosts().of(id).state().activity.writing.wanted(every);
         if let Some(wait) = wait {
             self.account_after(id, wait);
+        }
+    }
+
+    /// A turn ended or a call went to the person: the running summary is written in a task of its own.
+    pub(super) fn so_far_wanted(self: &Arc<Self>, id: &str) {
+        let (fleet, id) = (Arc::clone(self), id.to_string());
+        tokio::spawn(async move { fleet.so_far_written(&id).await });
+    }
+
+    /// Rewrite the summary from the last one and what was read since, and again where more came in
+    /// while the model was asked. A failed or dropped answer leaves the old line standing.
+    async fn so_far_written(self: &Arc<Self>, id: &str) {
+        loop {
+            let Some(mut reading) = self.hosts().of(id).state().activity.writing.so_far_begin() else { return };
+            let last = self.store().lock().await.so_far(id).ok().flatten();
+            reading.last = last.clone();
+            match self.model_asked(&reading.question()).await.map(|reply| read_so_far(&reply)) {
+                Ok(Some(text)) => {
+                    let at = self.now();
+                    let _ = self.store().lock().await.keep_so_far(id, &text, at.as_str());
+                    if last.as_deref() != Some(text.as_str()) {
+                        let _ = self.published_hosted(id).await;
+                    }
+                }
+                Ok(None) => self.session_warned(id, "its summary was not written", "the answer had no line to keep"),
+                Err(why) => self.session_warned(id, "its summary was not written", why),
+            }
+            if !self.hosts().of(id).state().activity.writing.so_far_finished() {
+                return;
+            }
         }
     }
 
@@ -240,15 +308,20 @@ where
 
     /// One call, one account. Whatever goes wrong is words for the log.
     async fn account_asked(&self, turn: &TurnSoFar) -> Result<crate::session_account::Written, String> {
+        let reply = self.model_asked(&turn.question()).await?;
+        read(&reply, &turn.groups).ok_or_else(|| String::from("the answer had no line to keep"))
+    }
+
+    /// One question to the account's model, and what it replied.
+    async fn model_asked(&self, question: &str) -> Result<String, String> {
         let proposing = self.proposing().map_err(|why| format!("{why:?}"))?;
         let named = self.machine_settings().now().get(keys::MODELS_ACCOUNT);
         let model = Model::named_at(&named, None).map_err(|_| String::from("no model is configured for `models.account`"))?;
-        let ask = Ask::put(model, &turn.question(), proposing.environment.clone())
+        let ask = Ask::put(model, question, proposing.environment.clone())
             .map_err(|_| String::from("there was nothing to ask"))?;
-        let reply = watched(proposing.client.as_ref(), &ask, proposing.budget, &|_| {}, std::future::pending::<()>())
+        watched(proposing.client.as_ref(), &ask, proposing.budget, &|_| {}, std::future::pending::<()>())
             .await
-            .map_err(|why| why.to_string())?;
-        read(&reply, &turn.groups).ok_or_else(|| String::from("the answer had no line to keep"))
+            .map_err(|why| why.to_string())
     }
 
     /// The Session's plan as the row carries it.

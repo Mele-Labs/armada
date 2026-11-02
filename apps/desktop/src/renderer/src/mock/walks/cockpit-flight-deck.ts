@@ -3,12 +3,13 @@
 // flight controls and Autopilot beside. The battlefield draws from the Fleet's own data: a drone for each
 // Session, resting by its pad until a path is known. The preview switch is on for this scenario. #2301.
 
-import { button, inside, region, role, tab, text, walk } from "../walk";
+import { button, inside, region, role, tab, walk } from "../walk";
 
 const places = role("navigation", "Places");
 const list = region("Jobs", { exact: true });
 const controls = region("Flight controls");
 const activity = role("dialog", "Activity");
+const timeline = role("dialog", "Timeline");
 const stage = (name: string | RegExp) => region(name);
 
 const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
@@ -50,7 +51,7 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { press: inside(region("Merge queue"), button(/^#1896/)), say: "The merge queue is one row under the map: a mark for each pull request, one light for main" },
   { look: stage("Pull request #1896"), say: "What the forge says about it" },
   { press: inside(controls, button(/^Checks$/)), say: "Checks, from the flight controls, is a plain filter. It opens nothing and the area stays on the map" },
-  { look: inside(list, button("Migration notes")), say: "The column, the feed, the map and the timeline narrow to the Jobs with a Check running now" },
+  { look: inside(list, button("Migration notes")), say: "The column, Activity and the map narrow to the Jobs with a Check running now" },
   { look: stage("Pull request #1896"), say: "The pull request that was open stays. Back on the map every drone that is not running a Check is dimmed, and Activity is narrowed to the same" },
   { press: inside(region("Autopilot"), role("switch", "Autopilot")), say: "Autopilot is a compact card beside the controls. Its switch takes the middle area for its configuration" },
   { look: stage("Autopilot lane"), say: "The lane, in the area the map was in. The controls and the merge queue stay" },
@@ -59,11 +60,9 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { press: inside(controls, button("Calls")), say: "Calls opens the HUD on the first Job calling, with its question and what it has done" },
   { look: role("region", "Calls"), say: "Answering moves it to the next call, and Next call skips this one" },
   { key: "Escape", on: role("region", "Calls"), say: "Esc puts it away, back on its bay" },
-  { press: inside(controls, button("Timeline")), say: "The map and the timeline are one switch" },
-  { look: inside(region("Fleet timeline"), text(/Fix the reconnect wait/)), say: "The timeline keeps the same filters" },
-  { press: inside(list, button("Fix the reconnect wait")), say: "Pick the Job from the column" },
-  { key: "Escape", on: stage(/^Job: Fix the reconnect wait/), say: "Esc returns to the timeline, as it was left" },
-  { look: inside(region("Fleet timeline"), text(/Fix the reconnect wait/)), say: "Still the timeline" },
+  { press: inside(controls, button("Timeline")), say: "Timeline opens its HUD over the map" },
+  { look: inside(timeline, button(/Fix the reconnect wait/)), say: "The Jobs stuck now, then what the others came to since he last closed it" },
+  { key: "Escape", on: timeline, say: "Esc puts it away, back on its bay" },
   { key: "c", on: list, say: "c goes to the first row that needs him, and focuses it" },
   { key: "ArrowDown", on: list, say: "Arrows, or j and k, move along the list by where things are drawn" },
   { key: "Enter", on: list, say: "Enter opens it in the area" },

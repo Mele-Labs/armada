@@ -114,7 +114,7 @@ body::after {
   animation-play-state: paused !important;
 }
 
-/* A minute with no input stills the map, the Bays panel's pulse and the Job head's running acts: a spinner elsewhere still says something is working. */
+/* A minute with no input stills every loop, which the loop clock holds (`loop-clock.ts`). These also hold what ends: the map's entrances and a play's marks. */
 :root[data-idle] .deck-bay__state,
 :root[data-idle] .job-acts button[data-running] > svg,
 :root[data-idle] .armada-dropdown-menu__item[data-state="running"] > .armada-dropdown-menu__icon,

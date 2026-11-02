@@ -56,6 +56,14 @@ A plan the person has not approved sets none.
 | Kept when the turn ends and when a turn Fleet's own notice begins | It is the answer to his message, and the message is still the last one |
 | Cleared, with `live` and what it was read from, when a message from him starts a turn | The next message is a new question. An answer a slow call returns after that is dropped |
 
+**A Job's summary is one or two sentences, and a small model rewrites it.** `SessionRecord.so_far` is what the Job has done so far, for a person who is about to answer a call from it without opening it.
+It is on the record and not on `activity`: it is not cleared when a message from him starts a turn, because it covers the Job and not one message.
+The model on `models.account` is asked when a turn ends and when a question or a permission goes to him mid-turn, and reads the summary kept so far, his last message, the done lines of the account and what the agent said this turn.
+Its prompt, `SO_FAR_SHIPPED` in `crates/fleet/src/session_account.rs`, asks for the past tense, forty words at most and none of the names the account's prompt forbids; an answer that carries one, says nothing or is empty keeps the old summary.
+One call runs at a time for a Job. A request that arrives during a call is asked again once it ends, if something was read meanwhile.
+It is kept in the store, in `session_so_far`, a table of its own so that `keep_hosting` rewriting the Job's row cannot put an older summary back, and it survives his next message and a Fleet restart.
+Only a hosted Job has one, for the reason below.
+
 **`live` is the page being built.** It is the newest of a page the Job showed with `show_window` and the page of a server it started with `start_server`, which names the Job in its `session_id`.
 It is cleared with the account, and a turn ending clears neither.
 A server names the Job that started it only when the call came in on a hosted Job's own connection; a server the person starts, from Bridge or by hand, names none, and so is never a Job's live view.

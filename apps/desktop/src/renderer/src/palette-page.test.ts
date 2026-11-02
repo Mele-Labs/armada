@@ -7,9 +7,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const focusAddTask = vi.hoisted(() => vi.fn(() => true));
 vi.mock("./projects-tab/keys", () => ({ focusAddTask }));
-vi.mock("./cockpit/deck/store", () => ({ setView: vi.fn() }));
+vi.mock("./cockpit/deck/store", () => ({ showMap: vi.fn() }));
+vi.mock("./cockpit/deck/ConsoleTimeline", () => ({ showTimeline: vi.fn() }));
 
-import { setView } from "./cockpit/deck/store";
+import { showTimeline } from "./cockpit/deck/ConsoleTimeline";
 import { pageOf } from "./palette-page";
 import { carryOutRow, type RowWorld } from "./palette-rows";
 
@@ -75,7 +76,7 @@ describe("choosing a page's row", () => {
     carryOutRow({ of: "page", id: "dispatch" }, all);
     expect(hands.compose).toHaveBeenCalledTimes(1);
     carryOutRow({ of: "page", id: "timeline" }, all);
-    expect(setView).toHaveBeenCalledWith("timeline");
+    expect(showTimeline).toHaveBeenCalled();
     carryOutRow({ of: "page", id: "needing-you" }, all);
     expect(hands.surface).toHaveBeenCalledWith(SURFACE.overview);
   });

@@ -772,6 +772,17 @@ describe("when the agent said it was done", () => {
   });
 });
 
+describe("what the Job has done so far", () => {
+  it("carries so_far onto the session as soFar", () => {
+    expect(sessionOfRecord(record("a", { so_far: "Found the reads happen once." }), undefined, beside()).soFar).toBe("Found the reads happen once.");
+  });
+
+  it("carries none for a Job with no summary, or one that ended", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).soFar).toBeUndefined();
+    expect(sessionOfRecord(record("a", { state: "ended", so_far: "Found the reads happen once." }), undefined, beside()).soFar).toBeUndefined();
+  });
+});
+
 describe("what he closed from Needs you", () => {
   // Fleet sends them newest first and marks `ended` only as true.
   const closed: NonNullable<SessionRecord["closed"]> = [

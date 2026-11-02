@@ -1,5 +1,24 @@
 /* The deck's Activity: a beeswarm and no words in the plot. Tokens only. */
 
+.armada-tl {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-default);
+}
+.armada-tl__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-tl__age { flex: none; width: 7ch; white-space: nowrap; color: var(--fg-subtle); font-size: var(--text-2xs); text-align: right; }
+.armada-tl__says { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; overflow: hidden; white-space: nowrap; }
+.armada-tl__detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--fg-subtle); font-size: var(--text-2xs); }
+
+/* What a mark says on hover, on the tooltip's own bubble: one row a fact. */
+.armada-tl__tip { display: flex; width: max-content; flex-direction: column; gap: var(--space-1); min-width: calc(var(--space-12) * 3); max-width: calc(var(--space-12) * 7); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); }
+.armada-tl__tip .armada-tl__detail { overflow-wrap: anywhere; white-space: normal; }
+
 .armada-tl__graph { position: relative; display: flex; flex-direction: column; padding: var(--space-2) var(--space-4) var(--space-4); }
 /* The plot is the anchor every card hangs off, so a card stands beside the panel and never over what it is read against. */
 .armada-tl__plot { position: relative; flex: 1 1 0; min-height: 0; }
