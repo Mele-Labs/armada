@@ -288,7 +288,7 @@
 }
 /* A pane's one zone has no line: nothing to run down, so no markers on it and no room kept for it. */
 .sv-spine[data-single] {
-  --lead: 0px;
+  --lead: 0;
 }
 .sv-spine[data-single] .sv-panel[data-area]::before,
 .sv-spine[data-single] .sv-panel__band::after {
