@@ -114,8 +114,18 @@ missing node fails the whole scene. Use `color` for meaning: `red` for what
 fails, `amber` for what is unknown, `green` for what works. Leave the rest
 uncoloured.
 
-`kind` also accepts `wire` and `screen`, wireframes of a product's screen. The
-`show_sketch` tool describes them.
+`kind` also accepts `wire` and `screen`, wireframes of a product's screen for a
+repository with no styles. The `show_sketch` tool describes them.
+
+**For a screen or component of a repository with styles, use `kind: "mock"`.**
+It is HTML in a sealed frame `w` wide, drawn with the repository's own
+stylesheets, and it sits on the canvas like any node, beside arrows and tables.
+Write `html` with the app's real class names, read from the component's markup
+and stylesheet, because a mock is only as true as the markup typed for it.
+`get_style_sources` lists the stylesheets closest to your work, and `styles` and
+`css` are optional: the tool describes both. A mock that cannot be styled is
+named in the same notice as a bad scene. A mock is a still picture, so what the
+person must press and move through is a walk.
 
 ## Figures and charts
 

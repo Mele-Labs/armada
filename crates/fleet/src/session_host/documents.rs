@@ -55,9 +55,10 @@ where
         let Ok(Ok(Some((html, revisions)))) = kept else { return };
         let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
         let Ok(encoded) = ipc::encode(&names) else { return };
+        let styles = self.page_styles(id, &html).await;
         // The store replaces a row's detail whole, so leaving `settled`, `settled_at` and `words` out of
         // this one is what asks the person again about the new revision.
-        let detail = [
+        let mut detail: std::collections::BTreeMap<String, String> = [
             ("form".to_string(), "document".to_string()),
             ("title".to_string(), title_of(&html, &path)),
             ("revisions".to_string(), encoded),
@@ -66,6 +67,8 @@ where
             (DOCUMENT_KEPT_AT.to_string(), self.instant().as_str().to_string()),
         ]
         .into();
+        // The page is not rewritten, because `keep` compares its bytes: the style sets its mocks were drawn with ride beside it.
+        detail.extend(styles.kept.clone().map(|kept| ("kept_styles".to_string(), kept)));
         // A page he dismissed waits again once it is revised, as a sketch drawn again does.
         let item = format!("{DOCUMENT_ITEM_PREFIX}{path}");
         let _ = self.store().lock().await.restore_waiting(id, &item);
@@ -78,7 +81,8 @@ where
                 },
             })
             .await;
-        if let Some(told) = sketches_that_will_not_draw(&html, &path) {
+        let told = sketches_that_will_not_draw(&html, &path);
+        if let Some(told) = styles.told(told, &path) {
             let (fleet, id) = (Arc::clone(self), id.to_string());
             // Off the hearing of the stream: a word to the Job is a send, and the stream is what it waits on.
             tokio::spawn(async move {

@@ -122,6 +122,43 @@ export function sceneOfWire(value: unknown): Scene | undefined {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
+const KEPT_HASH = /^[0-9a-f]{32}$/;
+
+/**
+ * `detail.kept_styles` of a document: JSON text of `{"<sketch title>#<node id>": "<hash>"}`. **Anything that is not that reads as none**, and an
+ * entry whose hash is not 32 hex digits is left out, so a row Fleet wrote badly is a document whose frames draw with no stylesheet of the app.
+ */
+export function keptStylesOfDetail(text: string | undefined): Record<string, string> | undefined {
+  if (text === undefined) return undefined;
+  try {
+    const read: unknown = JSON.parse(text);
+    if (typeof read !== "object" || read === null || Array.isArray(read)) return undefined;
+    const kept = Object.entries(read).filter((one): one is [string, string] => typeof one[1] === "string" && KEPT_HASH.test(one[1]));
+    return kept.length === 0 ? undefined : Object.fromEntries(kept);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * `scene` with the `kept` hash of each `mock` that `held` (the scene Fleet kept) carries for the same node. Fleet writes `kept` into the
+ * sketch it keeps and not into the `show_sketch` call the thread's card is read from, so the card is given it here. **Only a node the call
+ * and the kept scene draw alike takes it**: a hash is for one set of HTML and rules, and a node redrawn since has none to give.
+ */
+export function keptFrom(scene: Scene, held: Scene | undefined): Scene {
+  if (held === undefined) return scene;
+  const had = new Map(held.nodes.flatMap((one) => (one.kind === "mock" && one.kept !== undefined ? [[one.id, one] as const] : [])));
+  if (had.size === 0) return scene;
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  return {
+    ...scene,
+    nodes: scene.nodes.map((one) => {
+      const was = had.get(one.id);
+      return was === undefined || one.kind !== "mock" || one.kept !== undefined || one.html !== was.html || one.css !== was.css || !same(one.styles, was.styles) ? one : { ...one, kept: was.kept! };
+    }),
+  };
+}
+
 /** `detail.against`: JSON text of `{ title, scene }`. `undefined` when it is absent or is not that. */
 function earlierOf(text: string | undefined): Record<string, unknown> | undefined {
   if (text === undefined) return undefined;
@@ -380,6 +417,7 @@ export function attachmentsOfRecord(record: Pick<SessionRecord, "attachments">, 
           ...(form === "file" && detail["by"] === "agent" && detail["shown"] !== undefined ? { shown: detail["shown"], by: "agent" as const, ...(detail["written"] === "true" ? { written: true as const } : {}) } : {}),
           ...(revisions.length === 0 ? {} : { revisions }),
           ...(form === "document" ? documentAskOf(one, detail) : {}),
+          ...(form === "document" ? ((kept) => (kept === undefined ? {} : { keptStyles: kept }))(keptStylesOfDetail(detail["kept_styles"])) : {}),
         });
         break;
       }

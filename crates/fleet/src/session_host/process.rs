@@ -46,6 +46,8 @@ pub struct Start {
     /// What another session addresses this one by.
     pub name: String,
     pub model: Option<String>,
+    /// The models switched on when the process starts, which it and its subagents are held to.
+    pub models: Vec<String>,
     pub effort: Option<String>,
     pub mode: SessionMode,
     /// Directories beyond the working one the session may read: where its
@@ -282,7 +284,8 @@ impl Processes for ProcessHost {
             &format!("http://127.0.0.1:{}/sessions/gate", self.port),
             start.readable.clone(),
         )
-        .map_err(|why| why.to_string())?;
+        .map_err(|why| why.to_string())?
+        .limited_to(&start.models);
         let hosted = match (&start.forking, &start.fork_note) {
             (Some(old), note) => hosted
                 .forking(old, note.as_deref().unwrap_or_default())

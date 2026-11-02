@@ -117,6 +117,25 @@ async fn a_model_switched_off_is_served_off_and_a_setting_naming_it_refuses_the_
     assert!(!roster.offers(&off), "a definition naming it is refused as the roster refuses");
 }
 
+/// The report: a model switched off came back on with no save of the switch, after a build that
+/// did not know a key in the file started on it.
+#[tokio::test]
+async fn a_key_another_build_wrote_leaves_a_model_switched_off_off() {
+    let home = TempDir::new();
+    std::fs::write(
+        crate::tests::settings_json::settings_file_in(&home),
+        r#"{"a.key.of.another.build":1,"models.roster":["a-model","another-model"]}"#,
+    )
+    .expect("written");
+    let fleet = fleet_in(&home);
+    fleet.reading_models_with(Planted::saying(Ok(vec![offered("a-model", "A"), offered("another-model", "B"), offered("a-third", "C")])));
+
+    let served = fleet.list_models(true).await.expect("served");
+    let rows: Vec<(&str, bool)> = served.offered.iter().map(|row| (row.name.as_str(), row.on)).collect();
+    assert_eq!(rows, [("a-model", true), ("another-model", true), ("a-third", false)]);
+    assert_eq!(served.models, ["a-model", "another-model"]);
+}
+
 /// With no answer the built-in names are served bare and the reason is said, then a fresh ask that
 /// is answered replaces them.
 #[tokio::test]

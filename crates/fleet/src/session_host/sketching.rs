@@ -27,7 +27,7 @@ use ipc::{
 use super::documents::{keep, one_name, revisions_in};
 use crate::daemon::Fleet;
 
-const SKETCH_REFUSED: &str = "fleet.sketch_refused";
+pub(crate) const SKETCH_REFUSED: &str = "fleet.sketch_refused";
 const SKETCH_UNNAMED: &str = "fleet.sketch_unnamed";
 const SKETCH_AGAINST_UNKNOWN: &str = "fleet.sketch_against_unknown";
 const SKETCH_NOT_OPEN: &str = "fleet.sketch_not_open";
@@ -80,6 +80,8 @@ where
             let held = self.ledger_row(&store, &session)?.attachments;
             (session.harness, held)
         };
+        // Kept before `against` is read, so the earlier scene's `kept` rides in the size the cap counts.
+        let sketch = self.sketch_styled(&id, sketch, "show_sketch").await?;
         let sketch = match against {
             None => sketch,
             Some(title) => {

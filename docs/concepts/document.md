@@ -113,6 +113,10 @@ Its scene is JSON in a `<script type="application/json">` child, in the format `
 
 **Rule.** A scene that does not validate draws an empty frame, as in a `show_sketch` call.
 
+**Rule.** A scene may hold `mock` nodes, HTML drawn with the repository's stylesheets (`drawing-a-sketch.md`).
+Fleet keeps the style set of each when it keeps the page and records their hashes in the `detail.kept_styles` of the `document` artifact. The page is not rewritten.
+A mock it cannot style is named in the `document_sketch` notice.
+
 ## Sealing
 
 **Rule.** A page is read with `DOMParser`, which runs no script and loads nothing, and rebuilt element by element from an allow list.

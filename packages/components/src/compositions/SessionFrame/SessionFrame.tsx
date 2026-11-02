@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { WorkingMark } from "../../primitives/WorkingMark/WorkingMark";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { BatteryLow, LoaderCircle, Check, CircleDashed, CircleDot, CirclePause, Clock, Ellipsis, Eye, GitFork, Link, MessageSquareDashed, MoveRight, Power, Radar, Reply, RotateCw, ShieldX, SquarePen, Unplug, WandSparkles, X } from "lucide-react";
@@ -308,8 +308,26 @@ export type SessionFrameProps = {
    * Absent, the head is one row.
    */
   headTake?: "overflow" | "rows";
+  /**
+   * The toolbelt (repository, views, acts, figures, marks) leaves the head for `SessionToolbelt`, drawn by the host under the composer.
+   * The head keeps the state, the name, the menu and `back`. Absent, the tools stay in the head.
+   */
+  toolsUnder?: boolean;
   children: ReactNode;
 };
+
+const ToolbeltContext = createContext<ReactNode>(null);
+
+/** The toolbelt of the `SessionFrame` around it, when that frame was given `toolsUnder`: a strip the host places under the composer. */
+export function SessionToolbelt() {
+  const tools = useContext(ToolbeltContext);
+  if (tools === null) return null;
+  return (
+    <div className="armada-session-frame__toolbelt" role="group" aria-label="Job tools" data-room="">
+      {tools}
+    </div>
+  );
+}
 
 /** The title, in place, on one line with the whole of it in a tooltip; a field while it is being changed. */
 function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRename?: (title: string) => void; onNameForMe?: () => Promise<unknown> }) {
@@ -399,7 +417,7 @@ function SessionTitle({ title, onRename, onNameForMe }: { title?: string; onRena
 
 const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
 
-export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, toolsMissing, toolsFixes, toolsApparent, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, headTake, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, onNameForMe, modOutOfDate = false, toolsMissing, toolsFixes, toolsApparent, checks, onOpenCheck, context, compact, loadout, fresh, repository, actions, menu, back, aside, headViews, headTake, toolsUnder = false, children }: SessionFrameProps) {
   const named = address ?? id;
   const more = menuWithFresh(menu, fresh);
   // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
@@ -422,14 +440,15 @@ export function SessionFrame({ state, said, id, address, title, onRename, onName
         {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
         {toolsMissing === undefined ? null : <ToolsMark said={toolsMissing} {...(toolsFixes === undefined ? {} : toolsFixes)} {...(toolsApparent === true ? { apparent: true } : {})} />}
       </span>
-      {more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />}
     </>
   );
+  const menuButton = more === undefined || more.entries.length === 0 ? null : <DropdownMenu align="end" portal icon={Ellipsis} triggerLabel="More" entries={more.entries} onSelect={more.onSelect} />;
+  const rowed = headTake === "rows" && !toolsUnder;
   return (
     <div ref={aside === undefined || aside === null ? undefined : docked} className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
-      <header className="armada-session-frame__head" {...(headTake === undefined ? {} : { "data-take": headTake })} {...(headTake === "overflow" ? { "data-room": "" } : {})}>
-        {headTake === "rows" ? (
+      <header className="armada-session-frame__head" {...(headTake === undefined || toolsUnder ? {} : { "data-take": headTake })} {...(headTake === "overflow" && !toolsUnder ? { "data-room": "" } : {})}>
+        {rowed ? (
           <div className="armada-session-frame__row">
             {lead}
             {back}
@@ -437,10 +456,13 @@ export function SessionFrame({ state, said, id, address, title, onRename, onName
         ) : (
           lead
         )}
-        {headTake === "rows" ? <div className="armada-session-frame__row" data-row="tools" data-room="">{tools}</div> : tools}
-        {headTake === "rows" ? null : back}
+        {rowed ? <div className="armada-session-frame__row" data-row="tools" data-room="">{tools}{menuButton}</div> : toolsUnder ? null : tools}
+        {rowed ? null : menuButton}
+        {rowed ? null : back}
       </header>
-      <div className="armada-session-frame__body">{children}</div>
+      <ToolbeltContext.Provider value={toolsUnder ? tools : null}>
+        <div className="armada-session-frame__body">{children}</div>
+      </ToolbeltContext.Provider>
     </Card>
     {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}
     </div>
