@@ -310,6 +310,79 @@
   outline-offset: var(--border-width);
 }
 
+/* A mock is a part of an app drawn in a sealed frame: no frame of the node's, its title above, and what it was drawn with below. */
+.armada-scene-node[data-kind="mock"] {
+  min-width: 0;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: none;
+  background: none;
+  overflow: visible;
+}
+
+.armada-mock__stage {
+  position: relative;
+}
+
+/* The pointer goes through the frame to the canvas, so pan, zoom and selection work over it. */
+.armada-mock__frame {
+  display: block;
+  inline-size: 100%;
+  block-size: var(--space-8);
+  border: 0;
+  pointer-events: none;
+}
+
+.armada-scene-node[data-kind="mock"][data-current] .armada-mock__frame,
+.armada-scene-node[data-kind="mock"][data-asked] .armada-mock__frame {
+  outline: var(--edge-active) solid var(--edge-focus);
+  outline-offset: var(--border-width);
+}
+
+/* What the diff says of a mock is drawn round its frame in the hue the other nodes take, since it has no frame of its own. */
+.armada-scene-node[data-kind="mock"][data-change="added"] .armada-mock__frame,
+.armada-scene-node[data-kind="mock"][data-change="removed"] .armada-mock__frame,
+.armada-scene-node[data-kind="mock"][data-change="changed"] .armada-mock__frame {
+  outline: var(--edge-active) solid var(--hue);
+  outline-offset: var(--border-width);
+}
+
+.armada-scene-node[data-kind="mock"][data-change="removed"] .armada-scene-node__caption {
+  text-decoration: line-through;
+}
+
+/* An element with a note, or picked for one, ringed over the frame where it stands. */
+.armada-mock__ring {
+  position: absolute;
+  box-sizing: border-box;
+  border: var(--edge-active) solid var(--accent);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.armada-mock__numbers {
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  right: calc(-1 * var(--space-2));
+  display: flex;
+  gap: var(--space-1);
+  pointer-events: auto;
+}
+
+.armada-mock__with {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-mock__path {
+  display: block;
+  font-family: var(--font-mono);
+}
+
 .armada-scene-node__caption {
   color: var(--fg-muted);
   font-family: var(--font-sans);

@@ -253,6 +253,20 @@ pub trait Sessions: Send + Sync + 'static {
         path: String,
     ) -> impl Future<Output = Result<ShownFile, Refusal>> + Send;
 
+    /// `get_style_sources` — the stylesheets nearest the code a Job works on, for a `mock` node's
+    /// `styles`. `caller` places a hosted session; `session_id` names one where the connection places
+    /// none; `path` is where to search from, none for the Job's own work.
+    fn get_style_sources(
+        &self,
+        caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+        path: Option<String>,
+    ) -> impl Future<Output = Result<ipc::StyleSources, Refusal>> + Send;
+
+    /// `get_kept_styles` — the style set Fleet kept, by content hash. [`Refusal::NotFound`] for a
+    /// hash Fleet does not hold.
+    fn get_kept_styles(&self, hash: String) -> impl Future<Output = Result<ipc::KeptStyles, Refusal>> + Send;
+
     /// `report_session_check` — `armada check` tells Fleet a run began or ended in a directory.
     /// Answers the run, or none where no Session holds the slot that directory is in.
     /// [`Refusal::Unacceptable`] for a start with no name or an end with no run or outcome.

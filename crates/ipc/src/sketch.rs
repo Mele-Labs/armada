@@ -12,9 +12,12 @@ use serde_json::Value;
 use crate::SessionId;
 
 pub(crate) mod screen;
+mod mocks;
+
+pub use mocks::{page_mocks, MockNode};
 
 /// What a node may be.
-pub const SCENE_KINDS: [&str; 7] = ["box", "group", "lane", "label", "code", "wire", "screen"];
+pub const SCENE_KINDS: [&str; 8] = ["box", "group", "lane", "label", "code", "wire", "screen", "mock"];
 
 /// What a `wire` node stands for.
 pub const WIRE_PARTS: [&str; 6] = ["button", "input", "list", "card", "nav", "text"];
@@ -36,6 +39,9 @@ pub const SCENE_ICONS: [&str; 25] = [
 pub const MOST_NODES: usize = 80;
 pub const MOST_EDGES: usize = 120;
 pub const MOST_STROKES: usize = 20;
+/// Most `mock` nodes one scene holds. Each is a sealed frame Bridge loads, so the count is what the
+/// window pays for as well as the bytes.
+pub const MOST_MOCKS: usize = 12;
 /// Most the scene weighs once written. **It rides on the session's record**, which is published
 /// whole on every change, so a sketch is paid for by every event that follows it.
 pub const MOST_SCENE_BYTES: usize = 32 * 1024;
@@ -43,9 +49,14 @@ pub const MOST_SCENE_BYTES: usize = 32 * 1024;
 pub const MOST_TITLE_CHARS: usize = 120;
 
 const TOP_FIELDS: [&str; 3] = ["nodes", "edges", "strokes"];
-pub(crate) const NODE_FIELDS: [&str; 15] =
-    ["id", "kind", "x", "y", "w", "h", "title", "body", "icon", "lang", "wire", "screen", "step", "shape", "color"];
+pub(crate) const NODE_FIELDS: [&str; 18] = [
+    "id", "kind", "x", "y", "w", "h", "title", "body", "icon", "lang", "wire", "screen", "html", "css", "styles", "step",
+    "shape", "color",
+];
 pub(crate) const EDGE_FIELDS: [&str; 7] = ["id", "from", "to", "label", "flow", "step", "color"];
+/// The one node field Fleet writes and an agent may not: the hash of the kept style set a `mock`
+/// was drawn with. It is in `scene.ts` and not in [`NODE_FIELDS`].
+const KEPT_FIELD: &str = "kept";
 const STROKE_FIELDS: [&str; 2] = ["id", "points"];
 const POINT_FIELDS: [&str; 2] = ["x", "y"];
 
@@ -265,6 +276,13 @@ fn scene_problems(scene: &Value, problems: &mut Vec<String>) -> Option<(usize, u
             return None;
         }
     }
+    let mocks = nodes.iter().filter(|node| node.get("kind").and_then(Value::as_str) == Some("mock")).count();
+    if mocks > MOST_MOCKS {
+        problems.push(format!(
+            "`nodes` holds {mocks} `mock` nodes and a sketch holds at most {MOST_MOCKS}. Split it into two sketches"
+        ));
+        return None;
+    }
     let ids = node_problems(nodes, problems);
     edge_problems(edges, &ids, problems);
     if let Some(strokes) = fields.get("strokes") {
@@ -296,7 +314,12 @@ fn node_problems(nodes: &[Value], problems: &mut Vec<String>) -> Vec<String> {
             problems.push(format!("{here}: must be an object, is {}", kind_of(node)));
             continue;
         };
-        unknown(fields.keys(), &NODE_FIELDS, &here, problems);
+        if fields.contains_key(KEPT_FIELD) {
+            problems.push(format!(
+                "{here}: has `{KEPT_FIELD}`, which Fleet writes when it keeps the sketch. Leave it out"
+            ));
+        }
+        unknown(fields.keys().filter(|key| key.as_str() != KEPT_FIELD), &NODE_FIELDS, &here, problems);
         match fields.get("id") {
             Some(Value::String(id)) if !id.is_empty() => match ids.iter().position(|one| one == id) {
                 Some(first) => problems.push(format!("{here}: repeats the id of nodes[{first}]. Ids are unique")),
@@ -338,8 +361,45 @@ fn node_problems(nodes: &[Value], problems: &mut Vec<String>) -> Vec<String> {
             }
             _ => {}
         }
+        mock_problems(kind, fields, &here, problems);
     }
     ids
+}
+
+/// `html`, `css` and `styles` are for a `mock` node, which needs `w` and some `html`.
+fn mock_problems(kind: Option<&str>, fields: &serde_json::Map<String, Value>, here: &str, problems: &mut Vec<String>) {
+    if kind != Some("mock") {
+        if let Some(other) = kind {
+            for name in ["html", "css", "styles"] {
+                if fields.contains_key(name) {
+                    problems.push(format!("{here}: `{name}` is for a `mock` node, and this is a `{other}`"));
+                }
+            }
+        }
+        return;
+    }
+    if fields.get("w").is_none() {
+        problems.push(format!("{here}: a `mock` needs `w`, the width of its frame"));
+    }
+    match fields.get("html") {
+        Some(Value::String(html)) if !html.trim().is_empty() => {}
+        Some(Value::String(_)) => problems.push(format!("{here}: `html` is blank. A `mock` needs the HTML it draws")),
+        None => problems.push(format!("{here}: a `mock` needs `html`, the HTML it draws")),
+        other => problems.push(format!("{here}: `html` is {}. It must be a string", seen(other))),
+    }
+    text(fields.get("css"), "css", here, problems);
+    match fields.get("styles") {
+        None => {}
+        Some(Value::Array(paths)) => {
+            if let Some(at) = paths.iter().position(|path| !path.is_string()) {
+                problems.push(format!(
+                    "{here}: `styles[{at}]` is {}. `styles` must be a list of repository paths, as strings",
+                    seen(paths.get(at))
+                ));
+            }
+        }
+        other => problems.push(format!("{here}: `styles` is {}. It must be a list of strings", seen(other))),
+    }
 }
 
 fn edge_problems(edges: &[Value], nodes: &[String], problems: &mut Vec<String>) {

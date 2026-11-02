@@ -82,7 +82,8 @@
 
    **Cheap by construction.** Each layer is one box that is painted once, a mask
    of a tiny SVG filled with a colour, then only translated: transform animations
-   run on the compositor, no layout, no repaint. A loop is a translate by exactly
+   run on the compositor, no layout, no repaint, moved by Bridge's loop clock
+   (`motion.md`). A loop is a translate by exactly
    one tile, so it seams. No gradient, no glow, no grain. It holds still under
    reduced motion and while the window is hidden (`TheShell` marks the root). */
 .armada-shell {

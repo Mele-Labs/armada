@@ -360,8 +360,8 @@
    is a hairline (`--bezel`, an inset shadow and not a second element) so a panel reads as an instrument's bezel; what a panel
    holds takes its curve less the edge and the hairline (`--radius-bezel`), or less a gutter more (`--radius-inset`), never
    less than `--radius-floor`. Panels, panes and the layers that float over them are glass; rows, fields and wells inside a
-   panel are frosted chips on it. The blur samples what is behind the panel, which is the canvas: nothing under a panel
-   animates. The map is not a panel: it has no frame at all (`.deck-pane[data-bare]`) and the grid shows round it.
+   panel are frosted chips on it. The blur samples what is behind the panel, which is the canvas and the star field, and
+   redraws on each tick of the loop clock (`motion.md`). The map is not a panel: it has no frame at all (`.deck-pane[data-bare]`) and the grid shows round it.
    Every value is a token (`takes.css`).
 
    The pages that are not the Cockpit draw their panels as it does (the `:where()` names them without weighing more than the

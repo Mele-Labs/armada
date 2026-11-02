@@ -49,6 +49,7 @@ import type {
   SessionSubagent,
   SessionLoadout,
   AttachmentHistory,
+  KeptStyles,
   McpServerAct,
   SessionMcp,
   SessionMcpActed,
@@ -229,6 +230,8 @@ export type SessionsApi = {
   readSessionLoadout: (sessionId: string) => Promise<SessionActed<SessionLoadout>>;
   /** Every version of everything a Session holds, oldest first: `get_attachment_history`. Read again on a `session.changed`. */
   readAttachmentHistory: (sessionId: string) => Promise<SessionActed<AttachmentHistory>>;
+  /** The style set a `mock` node's `kept` hash names: `get_kept_styles`. Content addressed, so an answer never changes. */
+  readKeptStyles: (hash: string) => Promise<SessionActed<KeptStyles>>;
   /** What one item of a Session's Loadout says, read from disk by Fleet: `read_loadout_item`. */
   readLoadoutItem: (sessionId: string, item: LoadoutItemAsk) => Promise<SessionActed<LoadoutItemBody>>;
   /** A hosted Session's MCP servers, asked of its process now: `get_session_mcp`. No event says to read again. */
@@ -417,6 +420,7 @@ export const SESSIONS_CHANNELS = {
   readSessionSubagent: "bridge:read-session-subagent",
   readSessionLoadout: "bridge:read-session-loadout",
   readAttachmentHistory: "bridge:read-attachment-history",
+  readKeptStyles: "bridge:read-kept-styles",
   readLoadoutItem: "bridge:read-loadout-item",
   readSessionMcp: "bridge:read-session-mcp",
   readSessionQuick: "bridge:read-session-quick",

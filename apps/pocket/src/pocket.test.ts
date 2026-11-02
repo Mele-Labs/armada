@@ -2,8 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
+import { answer } from "./fixture/gateway";
 import { fixtureMacs } from "./fixture/wire";
-import { runsOf, sessionOfThread } from "./thread";
+import { rowsOf, runsOf, sessionOfThread } from "./thread";
 import type { PhoneSession } from "./gateway";
 import { codeFromInput, linkOf } from "./pairing";
 import { routeOf } from "./router";
@@ -163,5 +164,26 @@ describe("the text fields", () => {
     const rule = /main\.pk-app\s*:is\(([^)]*)\)\s*\{([^}]*)\}/.exec(css);
     expect(rule?.[2]).toMatch(/font-size:\s*var\(--text-touch-field\)/);
     for (const field of ["textarea", "input", "select", '[contenteditable="true"]']) expect(rule?.[1]).toContain(field);
+  });
+});
+
+describe("a sketch's mock on the phone", () => {
+  const studio = () => fixtureMacs(Date.now(), { studio: "https://studio", laptop: "https://laptop" })["https://studio"]!;
+  const HASH = "0123456789abcdef0123456789abcdef";
+
+  it("takes the kept hash from the ledger's sketch, since the call in the thread is the agent's words", () => {
+    const thread = studio().threads["a2"]!;
+    expect(JSON.stringify(thread.rows)).not.toContain(HASH);
+    const card = rowsOf(sessionOfThread(thread)).find((row) => row.kind === "sketch");
+    expect(card?.kind === "sketch" && "nodes" in card.drawing ? card.drawing.nodes.find((node) => node.id === "card")?.kept : undefined).toBe(HASH);
+  });
+
+  it("reads the kept styles by hash from its Mac, and is told when the Mac holds none", () => {
+    const mac = studio();
+    const read = (hash: string) => answer(mac, [], "GET", `/api/sessions/kept_styles?hash=${hash}`, "", true);
+    const found = read(HASH);
+    expect(found.status).toBe(200);
+    expect(JSON.parse(found.body).sheets[0].path).toBe("apps/pocket/src/styles.css");
+    expect(read("fedcba9876543210fedcba9876543210").status).toBe(404);
   });
 });
