@@ -121,4 +121,18 @@ test("a mock is saved as a sealed frame holding its html and the kept rules, wit
   expect(inside.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute("content")).toContain("default-src 'none'");
   expect(saved.querySelector("script")).toBeNull();
   expect(html).not.toMatch(/steal|<script|href="http|@import|url\((?!#)/i);
+
+  // Opened under the file's own policy, the frame still draws: a `default-src 'none'` page does not refuse its srcdoc frame or the rules inline in it.
+  // The test lifts the frame's seal so it can read the frame back, which is the one thing it changes.
+  const outer = document.createElement("iframe");
+  outer.sandbox.add("allow-same-origin");
+  outer.srcdoc = html.replace('sandbox=""', 'sandbox="allow-same-origin"');
+  document.body.append(outer);
+  await vi.waitFor(() => {
+    const inner = outer.contentDocument?.querySelector("iframe")?.contentDocument;
+    const lamp = inner?.querySelector(".lamp");
+    expect(lamp).toBeTruthy();
+    expect(inner!.defaultView!.getComputedStyle(lamp!).color).toBe("rgb(255, 0, 0)");
+  });
+  outer.remove();
 });
