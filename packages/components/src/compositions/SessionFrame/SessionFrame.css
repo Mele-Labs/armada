@@ -154,10 +154,9 @@ button.armada-session-frame__title-text:focus-visible {
   align-items: center;
 }
 
-/* The context window as a tank: a mono pill of the live tokens and the percent, filled from its leading edge to the
-   percent in the tone of how full it is, with a crisp edge at the level and a dotted line at the autocompact threshold.
-   With a breakdown it is a button and opens an inspect card, hung under it from its trailing edge, so the card opens
-   leftward inside the panel: the tank sits near the head's trailing edge and the frame clips what runs past it. */
+/* The context window as a ring with its percent in mono, in the tone of how full it is, and a tick at the autocompact
+   threshold. With a breakdown it is a button and opens an inspect card, hung under it from its trailing edge, so the
+   card opens leftward inside the panel: the ring sits near the head's trailing edge and the frame clips what runs past it. */
 .armada-session-frame__context {
   flex: none;
   font-family: var(--font-mono);
@@ -371,41 +370,41 @@ button.armada-session-frame__context:focus-visible {
   min-height: 0;
 }
 
-/* The tank: the pill itself, its fill behind the text. The reading is the button's own, so the fill moves with the value. */
+/* The ring and its percent. The arc is laid on a track, from twelve o'clock, and moves with the value. */
 .armada-session-frame__context {
-  position: relative;
-  overflow: hidden;
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
-.armada-session-frame__context::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: var(--fill, 0);
-  border-inline-end: var(--border-width) solid var(--tone, var(--fg-muted));
-  background: color-mix(in srgb, var(--tone, var(--fg-muted)) 30%, transparent);
-  transition: width var(--duration-fast) var(--ease);
+.armada-context-ring {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  fill: none;
+  stroke-width: 2;
 }
 
-/* Faint, so it does not cut the text it crosses. */
-.armada-session-frame__context[data-threshold]::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset-block: 0;
-  inset-inline-start: var(--threshold, 100%);
-  border-inline-start: var(--border-width) dotted color-mix(in srgb, var(--fg-subtle) 45%, transparent);
+.armada-context-ring__track {
+  stroke: var(--border-default);
+}
+
+.armada-context-ring__arc {
+  stroke: var(--tone, var(--fg-muted));
+  transition: stroke-dasharray var(--duration-fast) var(--ease);
+}
+
+/* Faint, so it does not cut the arc it crosses. */
+.armada-context-ring__tick {
+  stroke: color-mix(in srgb, var(--fg-subtle) 60%, transparent);
+  stroke-width: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-session-frame__context::before {
+  .armada-context-ring__arc {
     transition: none;
   }
 }

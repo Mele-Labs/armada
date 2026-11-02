@@ -14,6 +14,7 @@ import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { fileDiffOf } from "../shared-panel/pull-request-patches";
 import { usePanelReads, useReading } from "../shared-panel/reads";
 import { RequestsPanel } from "../shared-panel/requests";
+import { DraftCard } from "../shared-panel/rule";
 import { InlinePanel } from "../shared-panel/side";
 import { openInPanel, type PanelItem } from "../shared-panel/store";
 import { IssueRow } from "../session-view/IssuesBlock";
@@ -267,6 +268,15 @@ export function RequestBody({ session }: { session: Session }) {
         <RequestsPanel item={{ kind: "requests", sessionId: session.id }} />
       </div>
     </InlinePanel.Provider>
+  );
+}
+
+/** A draft the Job put to the person, as its card in the thread with the same answers. Answered, it settles here and the tab stays until it is closed. */
+export function DraftBody({ jobId, tab }: { jobId: string; tab: Tab }) {
+  return tab.row === undefined ? null : (
+    <div className="job-pane__scroll">
+      <DraftCard sessionId={jobId} rowId={tab.row} />
+    </div>
   );
 }
 

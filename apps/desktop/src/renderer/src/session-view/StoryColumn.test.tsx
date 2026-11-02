@@ -7,6 +7,10 @@ import { afterEach, expect, test, vi } from "vitest";
 import type { Session, SessionWork } from "@armada/screens/src/draft/sessions";
 
 import type { PlanEditing } from "./PlanEdit";
+import { labelOf } from "../job-panes/PaneView";
+import { forgetPanes, peek } from "../job-panes/store";
+import { panesOf } from "../job-panes/tree";
+import { drawLayersAsTabs } from "./layers";
 import { StoryColumn } from "./StoryColumn";
 import { resetFolds } from "./story";
 
@@ -136,4 +140,23 @@ test("a group handed to a Job still running stands in Now though the parent tick
   const host = mount(parent, own);
   expect(cardsIn(zoneOf(host, "Now"))).toEqual(["Job Migrations get names"]);
   expect(cardsIn(zoneOf(host, "Done"))).toEqual([]);
+});
+
+test("the Waiting on you line for a plain draft opens its card as a tab on the Job, and pressing it again opens no second", () => {
+  forgetPanes();
+  const release = drawLayersAsTabs(ID, () => false);
+  const title = "Description for the queue pull request";
+  const asked = {
+    ...session("idle"),
+    rows: [{ id: "d1", at: "2026-10-27T10:02:00Z", kind: "draft", title, text: "Retries the lease once." }],
+    waitingFor: [{ id: "draft:d1", text: title, since: "2026-10-27T10:02:00Z", source: "draft", act: { kind: "answer", target: "draft:d1" }, options: [{ label: "Approve" }] }],
+  } as unknown as Session;
+  const host = mount(asked);
+  const line = () => host.querySelector<HTMLButtonElement>('ul[aria-label="Now"] button.sv-beat__open');
+  expect(line()?.textContent, "the line is pressable").toBe(title);
+  act(() => line()!.click());
+  act(() => line()!.click());
+  release();
+  const tabs = panesOf(peek(ID).root).flatMap((pane) => pane.tabs).filter((tab) => tab.kind === "draft");
+  expect(tabs.map(labelOf)).toEqual([title]);
 });
