@@ -27,6 +27,8 @@ import { roundedPath, routeAll } from "./route";
 import { holdsStep, screenGuess, screenSteps, screenWidth } from "./screen";
 import { settle } from "./settle";
 import { ScreenView } from "./ScreenView";
+import { MockView, type MockNotes, type ResolveMockStyles } from "./MockView";
+import { partAt, partsIn, splitPart, type MockPart } from "./mock-frame";
 import {
   CHANGE_SAID, NO_MARKS, SCENE_COLORS, cssMs, diffScenes, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
   type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode, type SceneShape,
@@ -41,6 +43,8 @@ import {
  * With `against`, the scene is read as a change to it: what it adds is green, what it drops is red,
  * what it alters is amber, and what it leaves is dimmed.
  */
+export type { MockFont, MockStyles, ResolveMockStyles } from "./MockView";
+
 export type SketchSceneProps = {
   /** What a Drone or the pad supplied. Validated here; anything that fails draws nothing. */
   scene: unknown;
@@ -82,6 +86,11 @@ export type SketchSceneProps = {
    * written in. For a host that builds a file of its own around the sketch. Emptied when the sketch goes; the function gives nothing where the scene does not draw.
    */
   exporter?: { current: (() => string | undefined) | null };
+  /**
+   * Reads what a `mock` is drawn with: its stylesheets as text, its fonts as bytes and the files they came from. The host holds
+   * the repository, so the scene carries paths and not files. Absent, a `mock` is drawn with only its own rules.
+   */
+  mockStyles?: ResolveMockStyles;
 };
 
 const ICON: Record<SceneIcon, LucideIcon> = {
@@ -103,6 +112,9 @@ type NodeData = {
   joining: boolean;
   /** The notes on it: held, and the one being written. */
   notes: readonly { n: number; writing: boolean; said: string }[];
+  /** For a `mock`: the notes on its elements, and the elements ringed without one (picked, or named by a sent note). */
+  parts: MockNotes;
+  resolve: ResolveMockStyles | undefined;
   /** Where a group or a lane was grown to, round the boxes it holds once they are moved apart. */
   frame: { w: number; h: number } | undefined;
   onBody: (body: string) => void;
@@ -197,7 +209,7 @@ function Shaped({ node }: { node: SceneNode }) {
 }
 
 function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
-  const { node, change, dim, current, inner, asked, mine, struck, joining, notes, frame, onBody } = data;
+  const { node, change, dim, current, inner, asked, mine, struck, joining, notes, parts, resolve, frame, onBody } = data;
   const shape = node.kind === "box" && !mine && node.shape !== "box" ? node.shape : undefined;
   return (
     <>
@@ -219,7 +231,9 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         style={
           node.screen !== undefined
             ? { width: node.w ?? screenWidth(node.screen) }
-            : GROUND.has(node.kind)
+            : node.kind === "mock"
+              ? { width: node.w }
+              : GROUND.has(node.kind)
               ? { width: frame?.w ?? node.w, height: frame?.h ?? node.h }
               : { ...(node.w === undefined ? {} : { minWidth: node.w }), ...(node.h === undefined ? {} : { minHeight: node.h }) }
         }
@@ -234,6 +248,8 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
             {node.title === undefined ? null : <span className="armada-scene-node__caption">{node.title}</span>}
             <ScreenView screen={node.screen} at={inner} />
           </>
+        ) : node.kind === "mock" ? (
+          <MockView node={node} resolve={resolve} parts={parts} />
         ) : node.kind === "wire" ? (
           <Wire node={node} />
         ) : shape !== undefined ? (
@@ -398,8 +414,9 @@ function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): S
 }
 const JOINS_THE_PICK = ["Meta", "Control"];
 const NO_NOTES: NodeData["notes"] = [];
+const NO_PARTS: NodeData["parts"] = [];
 
-export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, within, marked, exporter }: SketchSceneProps) {
+export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false, notes: noteScope, within, marked, exporter, mockStyles }: SketchSceneProps) {
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
@@ -412,6 +429,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const [pen, setPen] = useState(false);
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [joining, setJoining] = useState<string | undefined>(undefined);
+  // The elements of a `mock` a Shift drag boxed, which are picked as a box's parts are.
+  const [boxed, setBoxed] = useState<readonly MockPart[]>([]);
   const flow = useRef<ReactFlowInstance | null>(null);
   const figure = useRef<HTMLElement>(null);
   const host = useSketchShareHost();
@@ -489,7 +508,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     const sizeOf = (node: SceneNode) => {
       if (GROUND.has(node.kind)) return { w: node.w ?? 0, h: node.h ?? 0 };
       const held = measured.get(node.id);
-      const guess = node.screen === undefined ? { w: node.w ?? 240, h: node.h ?? 90 } : screenGuess(node.screen, node.w);
+      const guess = node.screen === undefined ? { w: node.w ?? 240, h: node.h ?? (node.kind === "mock" ? 160 : 90) } : screenGuess(node.screen, node.w);
       return { w: held?.width ?? guess.w, h: held?.height ?? guess.h };
     };
     // Settled once every box has a size of its own; until then they stand where the Drone put them.
@@ -519,9 +538,16 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `sizes` stands for what `kept` measured
   }, [shown, composed, sizes]);
   const places = layout.places;
+  const markedKey = (marked ?? []).join("\n");
   const fresh = useMemo<SceneRfNode[]>(
-    () =>
-      (shown?.nodes ?? []).map((node) => {
+    () => {
+      // The elements of a `mock` that carry a number, and those ringed with none: picked by a box or named by a note already sent.
+      const ringed = [...boxed.map((one) => one.id), ...markedKey.split("\n")];
+      const partsOf = (id: string): MockNotes => [
+        ...[...noted].filter(([key]) => splitPart(key)?.node === id).map(([key, list]) => ({ id: key, notes: list })),
+        ...[...new Set(ringed)].filter((key) => splitPart(key)?.node === id && !noted.has(key)).map((key) => ({ id: key, notes: NO_NOTES })),
+      ];
+      return (shown?.nodes ?? []).map((node) => {
         const change = diff?.nodes.get(node.id);
         const mine = composed?.mine.has(node.id) ?? false;
         const struck = composed?.struck.has(node.id) ?? false;
@@ -545,6 +571,8 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
             struck,
             joining: node.id === joining,
             notes: noted.get(node.id) ?? NO_NOTES,
+            parts: node.kind === "mock" ? partsOf(node.id) : NO_PARTS,
+            resolve: mockStyles,
             frame: GROUND.has(node.kind) && rect !== undefined ? { w: rect.w, h: rect.h } : undefined,
             onBody: (body: string) => onBody(node.id, body),
           },
@@ -552,15 +580,15 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
           ...(GROUND.has(node.kind) ? { zIndex: -1 } : {}),
           ariaLabel: `${mine ? "" : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${name}`,
         };
-      }),
+      });
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `onBody` closes over `mark`, which `composed` already tracks
-    [shown, diff, at, lit, asked, joining, composed, layout, noted],
+    [shown, diff, at, lit, asked, joining, composed, layout, noted, boxed, markedKey, mockStyles],
   );
   const latest = useRef(fresh);
   latest.current = fresh;
   const nodes = useMemo(() => overlay(kept, fresh), [kept, fresh]);
   const onNodesChange = useCallback((changes: NodeChange<SceneRfNode>[]) => setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))), []);
-  const markedKey = (marked ?? []).join("\n");
   const laidOut = fresh.length > 0;
   const wasMarked = useRef(false);
   useEffect(() => {
@@ -608,23 +636,32 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
   const strokes = [...(shown.strokes ?? []), ...mark.strokes];
   const draw = (points: readonly SketchPoint[]) => edit({ ...mark, strokes: [...mark.strokes, { id: `i${String(mark.strokes.length + 1)}`, points }] });
 
-  /** A note about `ids`, or about the parts picked where none is named. */
-  const aboutParts = (ids: readonly string[]) => {
-    if (ids.length === 0) return undefined;
-    const parts = ids.map((id) => ({ id, label: partLabel(shown, id) }));
+  /** A note about `ids`, and the elements of a `mock` named beside them, or about the parts picked where none is named. */
+  const aboutParts = (ids: readonly string[], elements: readonly MockPart[] = []) => {
+    if (ids.length + elements.length === 0) return undefined;
+    const parts = [...ids.map((id) => ({ id, label: partLabel(shown, id) })), ...elements];
     const sketch = title ?? "Sketch";
     return { parts, about: within === undefined ? { kind: "sketch" as const, title: sketch, parts } : { kind: "document" as const, place: within, target: { kind: "part" as const, sketch, parts } } };
   };
   /** The part a press landed on, and what a note from there is about: the picked parts where it is one of them. */
-  const pointedAt = (target: EventTarget | null) => {
-    const id = target instanceof Element ? target.closest<HTMLElement>(".react-flow__node")?.dataset.id : undefined;
-    return aboutParts(id === undefined ? picked : picked.includes(id) ? picked : [id]);
+  const pointedAt = (target: EventTarget | null, point?: { x: number; y: number }) => {
+    const drawn = target instanceof Element ? target.closest<HTMLElement>(".react-flow__node") : null;
+    const id = drawn?.dataset.id;
+    // The elements a Shift drag boxed go with the press that lands on their node, or on none.
+    const boxedHere = id === undefined || boxed.some((one) => splitPart(one.id)?.node === id);
+    // On a `mock`, the press names the element under it, which the frame's own document finds.
+    if (id !== undefined && drawn !== null && point !== undefined && !boxedHere && shown.nodes.some((one) => one.id === id && one.kind === "mock")) {
+      const frame = drawn.querySelector("iframe");
+      const part = frame === null ? undefined : partAt(frame, id, point.x, point.y);
+      if (part !== undefined) return aboutParts([], [part]);
+    }
+    return aboutParts(id === undefined ? picked : picked.includes(id) ? picked : [id], boxedHere ? boxed : []);
   };
-  /** The menu at `at`, about what `target` points at; the box opens clear of the parts it is about. */
-  const noteMenu = (at: { x: number; y: number }, target: EventTarget | null) => {
-    const about = pointedAt(target);
+  /** The menu at `at`, about what `target` points at; the box opens clear of the parts it is about. `pointer` is set when the press was the mouse's. */
+  const noteMenu = (at: { x: number; y: number }, target: EventTarget | null, pointer = false) => {
+    const about = pointedAt(target, pointer ? at : undefined);
     const rects = (about?.parts ?? []).flatMap((one) => {
-      const drawn = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(one.id)}"]`);
+      const drawn = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(splitPart(one.id)?.node ?? one.id)}"]`);
       return drawn == null ? [] : [drawn.getBoundingClientRect()];
     });
     const anchor =
@@ -865,7 +902,15 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       const at = one.getBoundingClientRect();
       return at.right >= box.left && at.left <= box.right && at.bottom >= box.top && at.top <= box.bottom ? [id] : [];
     });
-    onNodesChange(nodes.map((one) => ({ type: "select" as const, id: one.id, selected: ids.includes(one.id) })));
+    // A `mock` the box touches gives the elements it covers, and is not picked whole.
+    const elements = ids.flatMap((id) => {
+      if (!shown.nodes.some((node) => node.id === id && node.kind === "mock")) return [];
+      const frame = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(id)}"] iframe`);
+      return frame instanceof HTMLIFrameElement ? partsIn(frame, id, box) : [];
+    });
+    const whole = ids.filter((id) => !elements.some((one) => splitPart(one.id)?.node === id));
+    setBoxed(elements);
+    onNodesChange(nodes.map((one) => ({ type: "select" as const, id: one.id, selected: whole.includes(one.id) })));
   };
 
   const part = asked === undefined ? undefined : { id: asked, label: partLabel(shown, asked) };
@@ -890,7 +935,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
             onPointerUp: boxUp,
             onContextMenu: (event: ReactMouseEvent<HTMLElement>) => {
               event.preventDefault();
-              noteMenu({ x: event.clientX, y: event.clientY }, event.target);
+              noteMenu({ x: event.clientX, y: event.clientY }, event.target, true);
             },
           }
         : {})}
@@ -916,6 +961,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
           : {
               onNodePress: press,
               onPanePress: () => {
+                setBoxed([]);
                 setAsked(undefined);
                 setJoining(undefined);
               },
