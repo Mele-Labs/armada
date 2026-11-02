@@ -205,4 +205,89 @@ mod tests {
         std::fs::create_dir_all(at.join("inside")).unwrap();
         assert!(!is_checkout(&at.join("inside")), "a directory inside one is not its own");
     }
+
+    /// What `git rev-list --left-right --count HEAD...<base>` says, as `apart_in_process` returns it.
+    fn rev_list_says(at: &Path, base: &str) -> Option<Option<(u32, u32)>> {
+        let both = read(at, &["rev-list", "--left-right", "--count", &format!("HEAD...{base}")]).ok()?;
+        let (ahead, behind) = both.split_once('\t')?;
+        Some(Some((ahead.parse().ok()?, behind.parse().ok()?)))
+    }
+
+    /// `git init` at `at` with a `base` branch and `ahead` commits past it, as a slot is made.
+    fn make_slot(at: &Path, ahead: u32) {
+        let git = |args: &[&str]| {
+            let run = Command::new("git")
+                .arg("-C")
+                .arg(at)
+                .args(["-c", "user.name=armada", "-c", "user.email=armada@example.invalid"])
+                .args(args)
+                .output()
+                .expect("git on PATH");
+            assert!(run.status.success(), "git {args:?} failed: {}", String::from_utf8_lossy(&run.stderr));
+        };
+        std::fs::create_dir_all(at).unwrap();
+        git(&["init", "-q", "-b", "main"]);
+        git(&["commit", "-q", "--allow-empty", "-m", "the base"]);
+        git(&["branch", "base"]);
+        for n in 0..ahead {
+            git(&["commit", "-q", "--allow-empty", "-m", &format!("ahead {n}")]);
+        }
+    }
+
+    /// A cold `Repository::open` fails once `.git/refs` is gone and an open one still answers, so
+    /// taking it away is how a test sees that the slot's questions went to the repository held.
+    /// What is held must still see the slot change, or the pool reads a slot as it was.
+    #[test]
+    fn a_slots_questions_go_to_the_repository_held_and_it_still_sees_the_slot_change() {
+        let repo = TempRepo::with_a_commit();
+        repo.git(&["branch", "base"]);
+        repo.commit_one("a.txt", "a", "ahead one");
+        repo.commit_one("b.txt", "b", "ahead two");
+        let at = repo.root();
+        let base = "refs/heads/base";
+
+        assert_eq!(apart_in_process(at, base), Some(Some((2, 0))), "read once, opening it");
+        assert!(is_checkout(at));
+
+        repo.git(&["pack-refs", "--all"]);
+        let refs = at.join(".git/refs");
+        let away = at.join(".git/refs.away");
+        std::fs::rename(&refs, &away).unwrap();
+        assert_eq!(
+            apart_in_process(at, base),
+            Some(Some((2, 0))),
+            "answered by the held repository: opening again fails with .git/refs gone"
+        );
+        assert!(is_checkout(at), "answered by the held repository: opening again fails with .git/refs gone");
+        std::fs::rename(&away, &refs).unwrap();
+
+        repo.commit_one("c.txt", "c", "ahead three");
+        assert_eq!(apart_in_process(at, base), Some(Some((3, 0))), "a new commit is seen");
+        assert_eq!(apart_in_process(at, base), rev_list_says(at, base));
+
+        repo.git(&["gc", "--aggressive", "--prune=now", "-q"]);
+        assert_eq!(apart_in_process(at, base), Some(Some((3, 0))), "the same after a gc");
+        repo.commit_one("d.txt", "d", "ahead four");
+        assert_eq!(apart_in_process(at, base), Some(Some((4, 0))), "a commit after a gc is seen");
+        assert_eq!(apart_in_process(at, base), rev_list_says(at, base));
+
+        // A base that has moved to a commit HEAD does not hold, so the slot is behind it as well.
+        let side = repo.git(&["commit-tree", "HEAD~3^{tree}", "-p", "HEAD~3", "-m", "the base moved"]);
+        repo.git(&["branch", "-f", "base", &side]);
+        assert_eq!(apart_in_process(at, base), Some(Some((3, 1))), "a moved base ref is seen");
+        assert_eq!(apart_in_process(at, base), rev_list_says(at, base));
+
+        std::fs::remove_dir_all(at.join(".git")).unwrap();
+        assert!(!is_checkout(at), "a directory whose .git was removed is no checkout, held repository or not");
+
+        make_slot(at, 1);
+        assert_eq!(apart_in_process(at, base), Some(Some((1, 0))), "a slot made again is read as itself");
+        std::fs::remove_dir_all(at).unwrap();
+        make_slot(at, 3);
+        assert_eq!(
+            apart_in_process(at, base),
+            Some(Some((3, 0))),
+            "a slot removed and made again under the same path is not read from the one that was held"
+        );
+    }
 }
