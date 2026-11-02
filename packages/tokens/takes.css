@@ -42,14 +42,11 @@
   --pad-panel: var(--space-4);
   --gap-stack: var(--space-3);
   --bar: 2px;         /* the bar on a selected row's leading edge */
-  --blur-glass: 32px;  /* the backdrop blur under a glass panel: heavy, so the sheet frosts the grid and the pool behind it */
-  --blur-overlay: 28px; /* the backdrop blur under a menu, popover or palette: over text, so it stays blurred */
 
-  /* ---- The glass: a light frosted sheet. The text colour at 10% over the heavy blur, a crisp edge, a brighter
+  /* ---- The glass: a solid light sheet. The text colour at 10% over the base, a crisp edge, a brighter
      highlight on the top edge and a soft wide shadow. `depth.css` draws every panel, chip and toolbar with these. ---- */
   --glass-tint: var(--fg-default);
   --glass-fill: 10%;
-  --glass-saturate: 180%;
   --glass-edge: var(--border-default);                /* a panel's edge */
   --glass-edge-lifted: var(--border-strong);
   --glass-highlight: inset 0 var(--border-width) 0 color-mix(in srgb, var(--fg-default) 24%, transparent);
@@ -103,7 +100,7 @@
   --pop-rise: -4px;
 }
 
-/* `--fg-muted` and `--fg-subtle` are lifted on Dark: the light frosted sheet takes
+/* `--fg-muted` and `--fg-subtle` are lifted on Dark: the light sheet takes
    `--fg-subtle` under 4.5:1 where the pool is strongest, and the tiles' label `--fg-muted` on a chip. Another theme
    keeps its own text tokens, which a hex here would overwrite. */
 :root[data-look="new"]:is(:not([data-theme]), [data-theme="dark"]) {
