@@ -7,7 +7,7 @@ import type { AskOffer, AskedQuestion, PlanApproval, Scene, SessionThreadRow } f
 import type { SessionThread as WireThread, WaitingItem } from "@armada/protocol";
 import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { planAsked, type Session, type SessionAttachment, type SessionSketch } from "@armada/screens/src/draft/sessions";
-import { fileCallOf, sessionOfRecord, sketchCallOf } from "@armada/screens/src/sessions-wire";
+import { fileCallOf, keptFrom, sessionOfRecord, sketchCallOf } from "@armada/screens/src/sessions-wire";
 
 const NOTHING_BESIDE = { picture: () => undefined, sketches: [], pending: [] };
 
@@ -30,8 +30,10 @@ function sketchCardOf(row: Row, ledger: Ledger): SessionThreadRow | undefined {
   const call = sketchCallOf(row.text);
   if (call === undefined) return undefined;
   const sketch = `sketch:${call.title}`;
-  if (!ledger.some((one) => one.kind === "sketch" && one.id === sketch)) return undefined;
-  return { id: row.id, at: row.at, kind: "sketch", sketch, title: call.title, drawing: call.scene, ...(call.against === undefined ? {} : { against: call.against }) };
+  const held = ledger.find((one) => one.kind === "sketch" && one.id === sketch);
+  if (held === undefined || held.kind !== "sketch") return undefined;
+  // The call is the agent's words, without the `kept` Fleet wrote on the sketch it kept.
+  return { id: row.id, at: row.at, kind: "sketch", sketch, title: call.title, drawing: keptFrom(call.scene, sceneOfSketch(held.drawing)), ...(call.against === undefined ? {} : { against: call.against }) };
 }
 
 /** A `show_file` call whose file the ledger holds, opened by the ledger's own path. */

@@ -27,6 +27,7 @@ mod phone;
 mod showing_file;
 mod sketching;
 mod sketch_answers;
+mod sketch_styles;
 mod page_replies;
 mod document_answers;
 mod step_waits;

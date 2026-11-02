@@ -41,6 +41,8 @@ const MCP_ACTS: readonly McpServerAct[] = ["reconnect", "turn_on", "turn_off", "
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const cells = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0 && (value as number) <= 65535;
+/** A kept style set is named by 32 hex digits. */
+const KEPT_HASH = /^[0-9a-f]{32}$/;
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
 // **A request main cannot read is not a lost connection**: an answer missing from a list here
 // was told to the owner as Fleet not connected, while it was (16 Oct 2026).
@@ -314,6 +316,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.readSessionLoadout, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.loadout(sessionId) ?? unsent) : unread));
   ipc.handle(CHANNELS.readAttachmentHistory, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.attachmentHistory(sessionId) ?? unsent) : unread,
+  );
+  // A hash and nothing else crosses: the renderer cannot name a path or an address through this.
+  ipc.handle(CHANNELS.readKeptStyles, (_event, hash: unknown) =>
+    typeof hash === "string" && KEPT_HASH.test(hash) ? (connection()?.sessions.keptStyles(hash) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.readLoadoutItem, (_event, sessionId: string, item: unknown) => {
     const asked = loadoutItemAsk(item);
