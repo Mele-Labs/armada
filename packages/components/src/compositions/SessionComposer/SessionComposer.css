@@ -189,9 +189,13 @@
 .armada-session-composer {
   container-type: inline-size;
 }
-@container (max-width: 400px) {
+@container (max-width: 560px) {
   .armada-session-composer__bar {
     gap: var(--space-1);
+  }
+  /* The context ring keeps its place and loses its words; its label and tooltip still say the percent. */
+  .armada-session-composer__figure .armada-context-ring__percent {
+    display: none;
   }
   .armada-session-composer__pick {
     min-width: 0;
