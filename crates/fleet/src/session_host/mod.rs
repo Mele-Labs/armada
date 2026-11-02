@@ -34,6 +34,7 @@ pub(crate) mod styling;
 pub(crate) mod sketching;
 pub(crate) mod following;
 mod finishing;
+pub(crate) mod job_command;
 mod later;
 mod fork_point;
 mod forking;

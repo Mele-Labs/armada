@@ -62,6 +62,8 @@ pub mod document;
 /// The agent's door: the MCP half of the HTTP surface, and the tool set
 /// `build.rs` emits from `operations/`'s own `agent_access` column.
 pub mod door;
+/// `armada job`'s half of the door: the list it asks for, the call it makes and the answer it reads.
+pub mod job_cli;
 /// Whether the repository still has what `armada.yml` names. **A read of the
 /// repository**, where `reading` is a read of the file — a `run` line naming a
 /// deleted script parses perfectly and says nothing.

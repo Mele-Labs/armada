@@ -6,6 +6,14 @@
 /** 5 frames a second: a pulse still reads as a pulse, and a spinner as turning. */
 const TICK_MS = 200;
 
+const followers = new Set<() => void>();
+
+/** Draws on the clock's own tick, for a canvas's loop, so it costs no frame of its own. Not called in a window that is still or idle. Returns the way to stop. */
+export function onLoopTick(follow: () => void): () => void {
+  followers.add(follow);
+  return () => followers.delete(follow);
+}
+
 /** Takes over each infinite animation as it appears, and keeps its phase. A window nobody is using moves none of them, and a loop out of sight moves nothing anyone would see, though its move would still cost a frame. `styles/index.css` still decides what stands still. */
 export function startLoopClock(): () => void {
   const root = document.documentElement;
@@ -19,6 +27,7 @@ export function startLoopClock(): () => void {
   });
   const tick = (): void => {
     if (root.hasAttribute("data-still")) return;
+    if (!root.hasAttribute("data-idle")) for (const follow of followers) follow();
     const now = Number(document.timeline.currentTime);
     const idle = root.hasAttribute("data-idle");
     for (const one of document.getAnimations()) {

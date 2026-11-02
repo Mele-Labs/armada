@@ -32,9 +32,6 @@
      translate only. */
   --duration-enter: var(--duration-base);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  /* The backdrop behind the glass: a drift too slow to watch, only to notice
-     it has moved. */
-  --duration-drift: 90s;
   --tooltip-delay: 400ms;
   /* How long a tooltip group stays warm after one closes. Inside it the next
      tooltip opens instantly, so crossing a row of eight annotated chips is one
