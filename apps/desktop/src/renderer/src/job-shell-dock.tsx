@@ -101,12 +101,18 @@ export function useShellArrivals(
   told.current = docked;
   useEffect(() => {
     if (shells === null) return;
-    const offOpened = shells.onOpened((opened) => {
+    const offOpened = shells.onOpened((opened, key) => {
       // A shell the agent opens while the Job is not on screen waits behind its Terminal key, which pulses while it prints.
       if (opened !== sessionId || !viewingNow(sessionId)) return;
-      if (place === "page" && shells.hasWindow(sessionId) && toWindow(shells, place, sessionId))
+      // The window holds the Job's first shell; another one opens in a tab.
+      if (
+        place === "page" &&
+        key === sessionId &&
+        shells.hasWindow(sessionId) &&
+        toWindow(shells, place, sessionId)
+      )
         return;
-      shells.show(place, sessionId, true);
+      shells.show(place, key, true);
       told.current?.();
     });
     if (place !== "page") return offOpened;
@@ -174,15 +180,20 @@ function shellPane(
 }
 
 /**
- * The Job's docked shell as the Terminal tab draws it, in a pane of its own. Null while it is put away. A shell the agent opens is
+ * The Job's docked shell `terminal` (the first, without one) as the Terminal tab draws it, in a pane of its own. Null while it is put away. A shell the agent opens is
  * heard by `TerminalSync`, which is drawn whether or not a Terminal tab is.
  */
-export function useDeckShell(sessionId: string, served: boolean): ShellPaneProps | null {
+export function useDeckShell(
+  sessionId: string,
+  served: boolean,
+  terminal?: string,
+): ShellPaneProps | null {
   const shells = served ? shellsOf(window.armada) : null;
-  const { shell, shown } = useJobShell(shells, "page", sessionId);
+  const key = shells?.keyOf(sessionId, terminal) ?? sessionId;
+  const { shell, shown } = useJobShell(shells, "page", key);
   return shells === null || !shown || shell === undefined
     ? null
-    : shellPane(shells, "page", sessionId, shell);
+    : shellPane(shells, "page", key, shell);
 }
 
 /** The Job's shell as Flight control's Terminal tile reads and presses it, where the Job has no panes: whether it shows docked or in its window. */

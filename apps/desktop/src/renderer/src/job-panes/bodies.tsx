@@ -1,6 +1,6 @@
 // The bodies of the tabs that stand on their own. A tab that needs the Job's thread or its story is drawn by `SessionWorkspace`, which holds both.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { File, Folder, FolderOpen } from "lucide-react";
 import {
   Button,
@@ -19,7 +19,7 @@ import { attachmentsOf, linkedOf, type Session } from "@armada/screens/src/draft
 import { searchFiles } from "../commands";
 import { JobBrowserPane } from "../job-browser/JobBrowserPane";
 import { browserTabIds, reportTabs, useJobBrowser } from "../job-browser/store";
-import { shellsOf, useJobShell } from "../job-shell";
+import { shellsOf, useJobShell, useShownShells } from "../job-shell";
 import { useDeckShell, useShellArrivals } from "../job-shell-dock";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { fileDiffOf } from "../shared-panel/pull-request-patches";
@@ -33,8 +33,8 @@ import { PullRow } from "../session-view/LedgerRow";
 import { Groups } from "../session-view/SessionLayers";
 import { artifactsOf, linkedSessionsOf } from "../session-view/artifacts";
 import { IssueJobCard } from "../issues-tab/marks";
-import { jobOpens, savedOfPage, useJobPanes } from "./store";
-import { hasKind, paneById, paneOfTab, type Tab } from "./tree";
+import { jobOpensTerminal, savedOfPage, useJobPanes } from "./store";
+import { paneById, paneOfTab, type Tab } from "./tree";
 import { usePaneZoomed } from "./zoom";
 
 /**
@@ -71,19 +71,21 @@ export function BrowserTabsSync({ jobId }: { jobId: string }) {
   return null;
 }
 
-/** The Job's shell. The Cockpit's Terminal tile shows the same shell, which is why it asks for it shown while a Terminal tab is open. */
-export function TerminalBody({ jobId }: { jobId: string }) {
+/** The tab's own shell, or the Job's first where the tab names none. The Cockpit's Terminal tile shows the first, which is why it asks for it shown while a Terminal tab is open. */
+export function TerminalBody({ jobId, tab }: { jobId: string; tab: Tab }) {
   const draft = useSessionsDraft();
   const served = draft?.terminalRuns !== undefined;
-  const pane = useDeckShell(jobId, served);
+  const pane = useDeckShell(jobId, served, tab.terminal);
   const shells = served ? shellsOf(window.armada) : null;
-  const { shown, windowed } = useJobShell(shells, "page", jobId);
+  const key = shells?.keyOf(jobId, tab.terminal) ?? jobId;
+  const { shown, windowed } = useJobShell(shells, "page", key);
   // As the tab opens, and again when the shell's window closes and puts it away: a tab with no screen would be blank.
   useEffect(() => {
-    if (shells !== null && !shown && !windowed) shells.want("page", jobId);
+    if (shells !== null && !shown && !windowed) shells.want("page", key);
   }, [
     shown,
     windowed,
+    key,
   ]);
   // The shell is in its window, which is the only place it draws.
   if (windowed && shells !== null) {
@@ -492,25 +494,19 @@ export function DraftBody({ jobId, tab }: { jobId: string; tab: Tab }) {
 }
 
 /**
- * The Cockpit's Terminal tile and a Terminal tab are one shell. A shell shown with no tab for it opens one, as a tab the Job opens itself does; the last tab closed puts the shell away.
+ * A shell shown with no tab for it opens one, behind the tab in front: the agent's, or the Cockpit's Terminal tile's.
  * Hears the shells the agent opens. Draws nothing.
  */
 export function TerminalSync({ jobId }: { jobId: string }) {
   const draft = useSessionsDraft();
   const shells = draft?.terminalRuns !== undefined ? shellsOf(window.armada) : null;
-  const { shown } = useJobShell(shells, "page", jobId);
   // A shell the agent opens shows in this Job, or in the window it already has, with or without a tab for it.
   useShellArrivals(shells, "page", jobId);
-  const has = hasKind(useJobPanes(jobId).arrangement, "terminal");
-  const was = useRef(has);
+  const shown = useShownShells(shells, "page", jobId);
   useEffect(() => {
-    const closed = was.current && !has;
-    was.current = has;
-    if (closed) return void shells?.show("page", jobId, false);
-    if (shown && !has) jobOpens(jobId, "terminal");
+    for (const one of shown) jobOpensTerminal(jobId, one.terminal, one.first);
   }, [
     shown,
-    has,
   ]);
   return null;
 }

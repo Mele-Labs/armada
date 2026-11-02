@@ -107,7 +107,12 @@ export type RingedNotes = {
 /** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it. */
 export type JobTerminalChange = JobTerminal & {
   change: "opened" | "exited";
+  /** Which of the Job's shells, by the ID Fleet minted for it. Absent from a Fleet that serves one. */
+  terminal?: string;
 };
+
+/** What `openTerminal` asks for in place of an ID: a new shell, whatever the Job already holds. */
+export const NEW_TERMINAL = "new";
 
 /**
  * A shell moved from its own window back into Bridge, docked. `shell` is the Job's last shell main followed,
@@ -386,7 +391,17 @@ export type SessionsApi = {
     sessionId: string,
     cols?: number,
     rows?: number,
-  ) => Promise<SessionActed<SessionRunUnderway>>;
+    /** The shell by its ID, or `NEW_TERMINAL` for a new one. Absent is the Job's first. Fleet mints the ID and answers with it. */
+    terminal?: string,
+  ) => Promise<
+    SessionActed<
+      SessionRunUnderway & {
+        terminal?: string;
+      }
+    >
+  >;
+  /** Whether a program is running in the Job's shell `terminal`, as against an idle prompt. Absent where Fleet does not say. */
+  terminalRunning?: (sessionId: string, terminal?: string) => Promise<boolean>;
   /** Runs `command` in the directory `dir` with no Job behind it, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without). Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`, and typing, resizing and stopping it are the run calls on that id. */
   startTerminalRun: (
     command: string,

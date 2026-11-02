@@ -29,10 +29,11 @@ export const TAB_KINDS = [
 ] as const;
 export type TabKind = (typeof TAB_KINDS)[number];
 
-/** `label` is what the tab reads where its kind alone would not tell two apart: a terminal's shell. `page` names the page a browser tab shows where the tab's own id does not (a page the Job opened itself). */
+/** `label` is what the tab reads where its kind alone would not tell two apart: a terminal's name, once the person has given it one. `page` names the page a browser tab shows where the tab's own id does not (a page the Job opened itself). */
 /**
  * `mod` is a Custom tab's mod by its folder name, kept with the tab so it comes back bound to that mod, and through it to the Mod Job that made it, after a restart.
  * Nothing in this file reads it: the tab's view and its Job are `custom.ts`'s. `row` is a Draft tab's card in the Job's thread, by its row's id.
+ * `terminal` is a Terminal tab's shell, by the ID Fleet minted for it; without one the tab draws the Job's first shell.
  */
 export type Tab = {
   id: string;
@@ -41,6 +42,7 @@ export type Tab = {
   page?: string;
   mod?: string;
   row?: string;
+  terminal?: string;
 };
 export type Pane = {
   type: "pane";
@@ -427,6 +429,45 @@ export function showPage(arrangement: Arrangement, tabId: string, page: string):
   return activate(shown, tabId);
 }
 
+/**
+ * A tab for a shell the Job opened itself joins the pane that holds Terminal tabs, behind the one in front and without taking the focus,
+ * or opens as a split on the right of everything.
+ */
+export function arriveTerminalBehind(
+  arrangement: Arrangement,
+  terminal: string | undefined,
+): Arrangement {
+  const holder = holderOf(arrangement, "terminal");
+  const arrived = arrive(arrangement, "terminal", undefined, undefined, undefined, undefined, terminal);
+  if (holder === undefined) return { ...arrived, focus: arrangement.focus };
+  return {
+    ...arrived,
+    focus: arrangement.focus,
+    root: mapPane(arrived.root, holder.id, (one) => ({
+      ...(one as Pane),
+      active: holder.active,
+    })),
+  };
+}
+
+/** A terminal tab reads this name, or its default again where `label` is empty. */
+export function renameTab(arrangement: Arrangement, tabId: string, label: string): Arrangement {
+  const pane = paneOfTab(arrangement, tabId);
+  const named = label.trim();
+  if (pane === undefined || (tabById(arrangement, tabId)?.label ?? "") === named) return arrangement;
+  return {
+    ...arrangement,
+    root: mapPane(arrangement.root, pane.id, (one) => ({
+      ...(one as Pane),
+      tabs: (one as Pane).tabs.map((tab) => {
+        if (tab.id !== tabId) return tab;
+        const { label: _was, ...rest } = tab;
+        return named === "" ? rest : { ...rest, label: named };
+      }),
+    })),
+  };
+}
+
 /** A Custom tab's mod, kept on the tab so it comes back bound to its mod after a restart. */
 export function markTabMod(arrangement: Arrangement, tabId: string, mod: string): Arrangement {
   const pane = paneOfTab(arrangement, tabId);
@@ -465,6 +506,7 @@ const tabOf = (
   page?: string,
   mod?: string,
   row?: string,
+  terminal?: string,
 ): Tab => ({
   id,
   kind,
@@ -488,6 +530,11 @@ const tabOf = (
     : {
         row,
       }),
+  ...(terminal === undefined
+    ? {}
+    : {
+        terminal,
+      }),
 });
 
 /** A new tab at the end of a pane, in front. */
@@ -499,10 +546,11 @@ export function addTab(
   page?: string,
   mod?: string,
   row?: string,
+  terminal?: string,
 ): Arrangement {
   if (paneById(arrangement, paneId) === undefined) return arrangement;
   const [id, next] = mint(arrangement, "t");
-  const made = tabOf(id, kind, distinct(arrangement, label), page, mod, row);
+  const made = tabOf(id, kind, distinct(arrangement, label), page, mod, row, terminal);
   return {
     ...next,
     focus: paneId,
@@ -833,9 +881,11 @@ export function arrive(
   page?: string,
   mod?: string,
   row?: string,
+  terminal?: string,
 ): Arrangement {
   const holder = holderOf(arrangement, kind);
-  if (holder !== undefined) return addTab(arrangement, holder.id, kind, label, page, mod, row);
+  if (holder !== undefined)
+    return addTab(arrangement, holder.id, kind, label, page, mod, row, terminal);
   const [splitId, afterSplit] = mint(arrangement, "s");
   const [fresh, afterPane] = mint(afterSplit, "p");
   const [tabId, next] = mint(afterPane, "t");
@@ -843,7 +893,7 @@ export function arrive(
     type: "pane",
     id: fresh,
     tabs: [
-      tabOf(tabId, kind, distinct(arrangement, label), page, mod, row),
+      tabOf(tabId, kind, distinct(arrangement, label), page, mod, row, terminal),
     ],
     active: tabId,
   };

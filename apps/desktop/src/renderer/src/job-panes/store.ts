@@ -9,6 +9,7 @@ import { forgetKept, readKept, writeKept } from "@armada/components";
 import {
   TAB_KINDS,
   arrive,
+  arriveTerminalBehind,
   build,
   copyOf,
   hasKind,
@@ -489,6 +490,22 @@ export function jobOpens(
     look(jobId, (arrangement) => arrive(arrangement, kind, label, page, mod));
   else
     rearrange(jobId, (arrangement) => arrive(arrangement, kind, label, page, mod), undefined, true);
+}
+
+/** A shell the Job opened itself, the agent's among them, gets a tab behind the one in front and the focus stays where it was. One that has a tab already is left alone. `first` is the Job's first shell, which a tab with no ID draws. */
+export function jobOpensTerminal(jobId: string, terminal: string | null, first: boolean): void {
+  const arrangement = peek(jobId);
+  const has = panesOf(arrangement.root).some((one) =>
+    one.tabs.some(
+      (tab) =>
+        tab.kind === "terminal" &&
+        ((terminal !== null && tab.terminal === terminal) || (first && tab.terminal === undefined)),
+    ),
+  );
+  if (has) return;
+  const change = (now: Arrangement) => arriveTerminalBehind(now, terminal ?? undefined);
+  if (hasKind(arrangement, "terminal")) look(jobId, change);
+  else rearrange(jobId, change, undefined, true);
 }
 
 /** A saved request, as the page a Requests tab shows: its collection and its id. */

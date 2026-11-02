@@ -1,13 +1,15 @@
-// Each Job's shell as this window holds it: the run it is, everything it printed, whether its pane is showing
+// Each of a Job's shells as this window holds it: the run it is, everything it printed, whether its pane is showing
 // in each place a Job's dock is drawn, and whether it has a window of its own. **Kept here for the window's life, by run**, so a pane
 // mounted late draws the whole of it: main follows a shell once and Fleet replays only to a new
 // follower, so a pane put away, or a Job switched away from, would otherwise come back to an empty screen.
+// **A shell is kept under a key**: the Job's id for its first shell, which every caller without a tab means, and the Job's id with the
+// shell's ID for any other. `keyOf` makes it.
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { SessionRunMessage } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
-import type { SessionsApi, TerminalMovedBack } from "../../shared/api/sessions";
+import { NEW_TERMINAL, type SessionsApi, type TerminalMovedBack } from "../../shared/api/sessions";
 
 type ShellApi = Pick<
   SessionsApi,
@@ -28,6 +30,7 @@ type ShellApi = Pick<
       | "onTerminalWindows"
       | "moveTerminalBack"
       | "onTerminalMovedBack"
+      | "terminalRunning"
     >
   >;
 
@@ -60,6 +63,12 @@ const trimmed = (out: string) => {
   return cut === -1 ? out.slice(-KEEP) : out.slice(cut + 1);
 };
 
+/** A shell a pane should be drawing: its ID, null until Fleet has said, and whether it is the Job's first. */
+export type ShownShell = {
+  terminal: string | null;
+  first: boolean;
+};
+
 export class JobShells {
   private readonly shells = new Map<string, JobShell>();
   private readonly ofRun = new Map<string, string>();
@@ -81,16 +90,30 @@ export class JobShells {
     }
   >();
   private readonly listeners = new Set<() => void>();
-  private readonly opened = new Set<(sessionId: string) => void>();
+  private readonly opened = new Set<(sessionId: string, key: string) => void>();
   private screens = 0;
   /** The Jobs whose shell has a window of its own, as main last said. */
   private windowed: ReadonlySet<string> = new Set();
   private readonly movedBack = new Set<(move: TerminalMovedBack) => void>();
+  /** Which Job and which of its shells a key is. The Job's first has no terminal until Fleet has said which it is. */
+  private readonly ids = new Map<
+    string,
+    {
+      session: string;
+      terminal?: string;
+    }
+  >();
+  /** The ID of the shell each Job's own key holds. */
+  private readonly firsts = new Map<string, string>();
+  /** The Jobs with a new shell being asked for, whose tab the asker is about to open. */
+  private readonly minting = new Map<string, number>();
 
   constructor(private readonly api: ShellApi) {
     api.onSessionRunMessage((runId, message) => this.message(runId, message));
-    api.onSessionTerminal(({ session_id, run_id, change }) =>
-      change === "opened" ? this.adopt(session_id, run_id, true) : this.end(run_id),
+    api.onSessionTerminal(({ session_id, run_id, change, terminal }) =>
+      change === "opened"
+        ? this.adopt(this.route(session_id, terminal), run_id, true)
+        : this.end(run_id),
     );
     let heard = false;
     api.onTerminalWindows?.((sessionIds) => {
@@ -109,14 +132,99 @@ export class JobShells {
     return () => void this.listeners.delete(listener);
   };
 
-  /** Hears each shell Fleet says opened, the agent's among them, by its Job. */
-  onOpened(listener: (sessionId: string) => void): () => void {
+  /** Hears each shell Fleet says opened, the agent's among them, by its Job and its key. */
+  onOpened(listener: (sessionId: string, key: string) => void): () => void {
     this.opened.add(listener);
     return () => void this.opened.delete(listener);
   }
 
+  /** The key of the Job's shell `terminal`; without one, of the Job's first. */
+  keyOf(sessionId: string, terminal?: string): string {
+    if (terminal === undefined || this.firsts.get(sessionId) === terminal) return sessionId;
+    const key = `${sessionId}#${terminal}`;
+    if (!this.ids.has(key))
+      this.ids.set(key, {
+        session: sessionId,
+        terminal,
+      });
+    return key;
+  }
+
+  /** The key a shell Fleet named belongs under: one that is the Job's first, or is opening it, takes the Job's own key. */
+  private route(sessionId: string, terminal: string | undefined): string {
+    if (terminal === undefined) return sessionId;
+    if (this.firsts.get(sessionId) === terminal) return sessionId;
+    const own = `${sessionId}#${terminal}`;
+    if (this.shells.has(own)) return own;
+    const first = this.shells.get(sessionId);
+    if (first === undefined || (first.runId === null && !first.ended)) {
+      this.learn(sessionId, terminal);
+      return sessionId;
+    }
+    return this.keyOf(sessionId, terminal);
+  }
+
+  /** The Job's own key is the shell Fleet says it is. */
+  private learn(sessionId: string, terminal: string): void {
+    this.firsts.set(sessionId, terminal);
+    this.ids.set(sessionId, {
+      session: sessionId,
+      terminal,
+    });
+  }
+
   shell(sessionId: string): JobShell | undefined {
     return this.shells.get(sessionId);
+  }
+
+  /** The Job's shells shown in `place` and not ended, by their IDs, for the tabs that should draw them. None while a new shell is asked for, whose tab its asker opens. */
+  shownOf(place: ShellPlace, sessionId: string): ShownShell[] {
+    if ((this.minting.get(sessionId) ?? 0) > 0) return [];
+    const keys = [
+      ...this.shells.keys(),
+    ].filter(
+      (key) =>
+        (this.ids.get(key)?.session ?? key) === sessionId &&
+        this.shown.has(`${place}:${key}`) &&
+        this.shells.get(key)?.ended === false,
+    );
+    return keys.map((key) => ({
+      terminal: this.ids.get(key)?.terminal ?? null,
+      first: key === sessionId,
+    }));
+  }
+
+  /**
+   * A new shell in the Job, which Fleet gives an ID. `opened` hears it before the shell is heard of anywhere else, and
+   * opens its tab; the Job's agent opening one at the same time has its tab opened after.
+   */
+  async openNew(sessionId: string, opened: (terminal: string | undefined) => void): Promise<void> {
+    this.minting.set(sessionId, (this.minting.get(sessionId) ?? 0) + 1);
+    this.opening += 1;
+    try {
+      const answer = await this.api.openTerminal(sessionId, 80, 24, NEW_TERMINAL);
+      // A Fleet that names no shell serves one: its tab draws the Job's first, and so does a refusal, which it then says.
+      const terminal = answer.ok ? answer.value.terminal : undefined;
+      if (answer.ok) {
+        const key = this.route(sessionId, terminal);
+        if (this.shells.get(key)?.runId !== answer.value.run_id)
+          this.catchUp(key, answer.value.run_id);
+      }
+      opened(terminal);
+    } finally {
+      this.opening -= 1;
+      if (this.opening === 0) this.held = [];
+      this.minting.set(sessionId, (this.minting.get(sessionId) ?? 1) - 1);
+      this.changed();
+    }
+  }
+
+  /** Whether a program is running in the shell, as against its prompt. False for one that is not open, and where Fleet does not say. */
+  async busy(key: string): Promise<boolean> {
+    const now = this.shells.get(key);
+    if (now === undefined || now.ended || this.api.terminalRunning === undefined) return false;
+    const id = this.ids.get(key);
+    return (await this.api.terminalRunning(id?.session ?? key, id?.terminal)) === true;
   }
 
   /** Whether the Job's shell is in a window of its own now. */
@@ -225,6 +333,12 @@ export class JobShells {
     if (runId !== null && runId !== undefined) void this.api.stopSessionRun(runId);
   }
 
+  /** Its tab is closed: the shell is put away first, so nothing opens a tab for it while it ends. */
+  closeShell(key: string): void {
+    this.show("page", key, false);
+    this.stop(key);
+  }
+
   private async open(sessionId: string, cols: number, rows: number): Promise<void> {
     const asked = this.shells.get(sessionId)!;
     this.set(sessionId, {
@@ -232,12 +346,17 @@ export class JobShells {
       waiting: false,
     });
     this.opening += 1;
-    const answer = await this.api.openTerminal(sessionId, cols, rows);
+    const id = this.ids.get(sessionId);
+    const answer = await this.api.openTerminal(id?.session ?? sessionId, cols, rows, id?.terminal);
     this.opening -= 1;
     const now = this.shells.get(sessionId);
     // Fleet's opening, heard first, already holds it; or a newer shell took its place.
     if (now?.screen === asked.screen && now.runId === null) {
-      if (answer.ok) this.catchUp(sessionId, answer.value.run_id);
+      if (answer.ok) {
+        if (answer.value.terminal !== undefined && id?.terminal === undefined)
+          this.learn(sessionId, answer.value.terminal);
+        this.catchUp(sessionId, answer.value.run_id);
+      }
       else
         this.set(sessionId, {
           ...now,
@@ -305,7 +424,7 @@ export class JobShells {
       if (opening && size !== undefined)
         void this.api.resizeSessionRun(runId, size.cols, size.rows);
     }
-    if (told) this.opened.forEach((one) => one(sessionId));
+    if (told) this.opened.forEach((one) => one(this.ids.get(sessionId)?.session ?? sessionId, sessionId));
   }
 
   private message(runId: string, message: SessionRunMessage): void {
@@ -409,4 +528,24 @@ export function useJobShell(
     shown,
     windowed,
   };
+}
+
+/** The Job's shells shown in `place` and not ended, drawn again as they change. */
+export function useShownShells(
+  shells: JobShells | null,
+  place: ShellPlace,
+  sessionId: string,
+): ShownShell[] {
+  const subscribe = useCallback(
+    (listener: () => void) => shells?.subscribe(listener) ?? (() => undefined),
+    [
+      shells,
+    ],
+  );
+  const said = useSyncExternalStore(subscribe, () =>
+    JSON.stringify(shells?.shownOf(place, sessionId) ?? []),
+  );
+  return useMemo(() => JSON.parse(said) as ShownShell[], [
+    said,
+  ]);
 }
