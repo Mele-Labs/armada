@@ -29,6 +29,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         waiting_for: Vec::new(),
         done_since: None,
         done_summary: None,
+        so_far: None,
         held_until: None,
         context_breakdown: None,
         loadout_summary: None,

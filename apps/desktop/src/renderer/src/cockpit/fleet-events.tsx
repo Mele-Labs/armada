@@ -116,7 +116,7 @@ export const titleOf = (subject: Subject): string => (subject.kind === "main" ? 
 /** How a subject stands, from its newest event: the order the lanes group in. */
 export type Standing = "ask" | "bad" | "stuck" | "run" | "idle" | "done";
 
-export const STANDINGS: readonly { id: Standing; said: string }[] = [
+const STANDINGS: readonly { id: Standing; said: string }[] = [
   { id: "ask", said: "Needs you" },
   { id: "bad", said: "Failing" },
   { id: "stuck", said: "Stuck" },

@@ -782,6 +782,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     // Kept after the Job ends: Fleet marks each `ended` there, and the owner still finds what he closed.
     ...((record.closed?.length ?? 0) === 0 ? {} : { closed: record.closed }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since, ...(record.done_summary === undefined ? {} : { summary: record.done_summary }) } }),
+    ...(ended || record.so_far === undefined ? {} : { soFar: record.so_far }),
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
     ...(ended || hosted?.start === undefined ? {} : { start: { asksDelivery: hosted.start.asks_delivery, ...(hosted.start.picked === undefined ? {} : { picked: hosted.start.picked }), ...(hosted.start.message === undefined ? {} : { message: hosted.start.message }), ...(hosted.start.queued === true ? { queued: true } : {}) } }),
     ...(ended || record.waits === undefined ? {} : { waits: waitOfWire(record.waits) }),

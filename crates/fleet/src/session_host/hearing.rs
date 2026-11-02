@@ -430,6 +430,7 @@ where
     }
 
     async fn turn_ended(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, cost_micros: u64) {
+        self.so_far_wanted(id);
         let now = self.now().as_str().to_string();
         let mut named = (None, None);
         let mut cwd = None;

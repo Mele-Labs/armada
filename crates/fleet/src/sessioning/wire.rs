@@ -140,6 +140,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         waiting_for: Vec::new(),
         done_since: None,
         done_summary: None,
+        so_far: None,
         standing: None,
         held_until: None,
         context_breakdown: None,

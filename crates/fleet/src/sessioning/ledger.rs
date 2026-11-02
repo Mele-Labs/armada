@@ -280,6 +280,7 @@ where
         if session.state == store::SessionState::Live {
             record.done_since = reads.waiting.done.as_deref().map(wire_instant);
             record.done_summary = reads.waiting.done_summary.clone();
+            record.so_far = reads.waiting.so_far.clone();
             record.held_until = reads.limited.as_deref().map(wire_instant);
         }
         record.context_breakdown = reads

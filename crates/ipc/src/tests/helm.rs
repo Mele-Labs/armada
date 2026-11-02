@@ -145,6 +145,7 @@ fn a_helm_record() -> SessionRecord {
         waiting_for: Vec::new(),
         done_since: None,
         done_summary: None,
+        so_far: None,
         standing: None,
         held_until: None,
         context_breakdown: None,
