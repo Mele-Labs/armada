@@ -426,3 +426,99 @@ test("asked for the retro items, the Logbook opens on Retros, and turns to it ag
   rerender(at(2));
   await expect.element(page.getByText("The retro items")).toBeVisible();
 });
+
+// The common look (`docs/concepts/logbook.md`): the controls are the log panel's own strip, the head is the thread's 36px one, and
+// the Record and Evidence are flat rows under a legend.
+
+const RICH = entry("11", {
+  section: "repo",
+  repository: "/Users/user/widgets",
+  title: "Specs through bin/rspec",
+  text: "Run specs with bin/rspec, never rake.",
+  topic: "testing",
+  evidence: [{ job_id: "j-1", job_title: "Fix the specs", cite: "refusal:1", at: AT }],
+  history: [{ text: "Folded in.", until: AT, by: "merged" as const }],
+});
+
+/** The log panel the entries are drawn in, and the page's own top. */
+const logPanel = () => entries().element().closest(".armada-logbook__log")!;
+const root = () => document.querySelector(".armada-logbook")!;
+const top = (one: Element) => Math.round(one.getBoundingClientRect().top);
+
+test("State, Topic and Organize are in the log panel's strip, and nothing sits between the page's top and the panels", async () => {
+  opened([RICH]);
+  await expect.element(entries()).toBeVisible();
+  for (const name of ["State", "Topic", "Organize"]) {
+    const control = page.getByRole("button", { name }).element();
+    expect(control.closest(".armada-logbook__log"), name).toBe(logPanel());
+  }
+  // The log starts at the page's own top edge, so no row of controls is above it.
+  expect(top(logPanel())).toBe(top(root()));
+  expect(top(logPanel().firstElementChild!)).toBe(top(root()));
+});
+
+test("neither the entries nor an open entry's Record, Evidence and Earlier draw a column heading", async () => {
+  opened([RICH]);
+  await expect.element(page.getByRole("table", { name: "Evidence" })).toBeVisible();
+  await expect.element(page.getByRole("table", { name: "Earlier" })).toBeVisible();
+  expect(page.getByRole("columnheader").elements()).toHaveLength(0);
+});
+
+test("the open entry's head holds its title and its acts, and the Record's first row is the id", async () => {
+  opened([RICH]);
+  const title = detail().getByRole("heading", { level: 2, name: "Specs through bin/rspec" });
+  await expect.element(title).toBeVisible();
+  const head = title.element().parentElement!;
+  for (const name of [/^Edit/, /^Lock/, /^Forget/]) {
+    expect(head.contains(detail().getByRole("button", { name }).element()), String(name)).toBe(true);
+  }
+  // What it is is the Record's, so the head does not repeat the kind.
+  expect(head.textContent).not.toMatch(/Convention/);
+  const first = detail().getByRole("table", { name: "Record" }).getByRole("row").first().element();
+  expect(first.textContent).toBe("Id11");
+});
+
+test("the entry's acts are ghost, and Save stays primary", async () => {
+  opened([RICH]);
+  for (const name of [/^Edit/, /^Lock/, /^Forget/]) await expect.element(detail().getByRole("button", { name })).toHaveAttribute("data-variant", "ghost");
+  await detail().getByRole("button", { name: /^Edit/ }).click();
+  await expect.element(detail().getByRole("button", { name: "Save" })).toHaveAttribute("data-variant", "primary");
+});
+
+test("Organize's Apply all stays primary, and the card's own Apply and Dismiss are ghost", async () => {
+  opened([WIDGETS, DUPLICATE], { held: HELD_MERGE });
+  const proposal = page.getByRole("region", { name: "Proposal" });
+  await expect.element(proposal.getByRole("button", { name: "Apply all" })).toHaveAttribute("data-variant", "primary");
+  await expect.element(proposal.getByRole("button", { name: "Apply", exact: true })).toHaveAttribute("data-variant", "ghost");
+  await expect.element(proposal.getByRole("button", { name: "Dismiss" })).toHaveAttribute("data-variant", "ghost");
+});
+
+test("s, t and o open State, Topic and Organize from the list", async () => {
+  opened([RICH]);
+  await expect.element(entries()).toBeVisible();
+  (entries().element() as HTMLElement).focus();
+  await userEvent.keyboard("s");
+  await expect.element(page.getByRole("menuitem", { name: "In use" })).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  expect(page.getByRole("menu").elements()).toHaveLength(0);
+  (entries().element() as HTMLElement).focus();
+  await userEvent.keyboard("t");
+  await expect.element(page.getByRole("menuitem", { name: "All topics" })).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  expect(page.getByRole("menu").elements()).toHaveLength(0);
+  (entries().element() as HTMLElement).focus();
+  await userEvent.keyboard("o");
+  await expect.element(page.getByRole("menuitem", { name: "Merge duplicates" })).toBeVisible();
+});
+
+test("the arrows move the open entry, Enter goes to it and Esc comes back to the list", async () => {
+  opened([WIDGETS, LEDGER]);
+  await expect.element(detail().getByRole("heading", { name: "Run specs with bin/rspec" })).toBeVisible();
+  (entries().element() as HTMLElement).focus();
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.element(detail().getByRole("heading", { name: "Migrations run on port 5433" })).toBeVisible();
+  await userEvent.keyboard("{Enter}");
+  await expect.element(detail()).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(entries()).toHaveFocus();
+});
