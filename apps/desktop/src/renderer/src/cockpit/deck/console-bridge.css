@@ -1,5 +1,5 @@
 /* The Flight controls as a starship console, the third take: `?console=bridge`. Mock-only, like `console.css`: nothing applies without `data-console="bridge"` on the root.
-   The drama is structure: stepped bezels, recesses, hard shadows, masks and motion. No gradients, no glow. The Job's grid and the editor (`data-subject`) stay plain.
+   The drama is structure: stepped bezels, recesses, hard shadows, masks and motion. No gradients, no glow. The Job's grid and the editor (`data-subject`) are not the console: they wear the quiet panel, like the columns.
    The small mono codes are decoration (`content` with an empty alternative), and the instrument parts are `aria-hidden` spans. */
 
 :root[data-console="bridge"] {
@@ -25,10 +25,8 @@
 
   & .deck-foot { --cb-dial: calc(var(--tile) * 1.75); }
 
-  /* ---- The bezel: a chamfered frame of steps, a rivet row on each side and a screw at each corner. ---- */
-  & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch),
-  & .deck-right > .deck-bays,
-  & .deck-left > .deck-list {
+  /* ---- The bezel: a chamfered frame of steps, a rivet row on each side and a screw at each corner. Only the console wears it; the columns are quiet (below). ---- */
+  & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch) {
     position: relative;
     border: calc(var(--border-width) * 2) solid var(--border-strong);
     border-radius: 0;
@@ -58,7 +56,33 @@
       mask-position: left 3px top 3px, right 3px top 3px, left 3px bottom 3px, right 3px bottom 3px, 24px top 0, 24px bottom 0, left 0 12px, right 0 12px;
     }
   }
-  & :is(.deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch), .deck-right > .deck-bays, .deck-left > .deck-list) > .deck-band { padding-inline: var(--space-6); }
+  & .deck-foot > :is(.deck-controls:has(> .deck-controls__block:not([data-subject])), .deck-dispatch) > .deck-band { padding-inline: var(--space-6); }
+
+  /* ---- The quiet panel: square, a hairline round it and a heavier one along its head, the console's hood at rest. The Cockpit's columns and every panel of an open Job wear the same one, so moving between them is one ship. ---- */
+  & :is(.deck-right > .deck-bays, .deck-left > .deck-list, .job-pane, .sv-panel:not(.job-pane__body *), .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])) {
+    --edge: var(--border-default);
+    --radius-md: var(--border-width);
+    --radius-lg: var(--border-width);
+    border: var(--border-width) solid var(--border-default);
+    border-top: calc(var(--border-width) * 2) solid var(--border-strong);
+    border-radius: 0;
+    background: var(--bg-raised);
+    box-shadow: none;
+  }
+  & .job-pane[data-focused] { --edge: var(--border-strong); border-color: var(--border-strong); }
+  & .job-pane__strip { background: var(--bg-sunken); }
+  & :is(.job-pane__strip, .sv-panel__band) { font-family: var(--font-mono); }
+  & .sv-panel:not(.job-pane__body *) > .sv-panel__band { background: var(--bg-sunken); border-bottom-color: var(--border-subtle); }
+  /* The Job's tile grid stays a grid, in the columns' strips. */
+  & .deck-controls__block[data-subject] .deck-tile {
+    border: var(--border-width) solid var(--border-subtle);
+    border-radius: 0;
+    background: var(--bg-sunken);
+    box-shadow: none;
+    font-family: var(--font-mono);
+    &:hover { background: var(--bg-hover); }
+    &:is([aria-pressed="true"], [data-on]) { border-color: var(--accent); background: var(--accent-muted); }
+  }
 
   /* ---- The glass: a recess with its stencilled code along the top. ---- */
   & :is(.deck-controls__block:not([data-subject]), .deck-dispatch__block) {
@@ -341,9 +365,9 @@
   /* ---- The berth rack: the worktree bays as a docking rack, a berth to a row. ---- */
   & .deck-right > .deck-bays {
     flex: 1 1 0;
-    & > .deck-bays__rows { margin: 0 var(--space-3) var(--space-3); padding: var(--space-2); gap: var(--space-3); border: calc(var(--border-width) * 2) solid var(--border-default); background: var(--bg-base); box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat); }
+    & > .deck-bays__rows { margin: 0; padding: var(--space-2); gap: var(--space-3); }
     & .deck-list__band { border: 0; margin: 0; }
-    & .deck-bays__head { padding: 0 0 var(--space-1); border-bottom: calc(var(--border-width) * 2) solid var(--border-default); margin-bottom: var(--space-2); }
+    & .deck-bays__head { padding: 0 0 var(--space-1); border-bottom: var(--border-width) solid var(--border-subtle); margin-bottom: var(--space-2); }
     & .deck-list__repository { --repository-pad: 0; font-family: var(--font-mono); font-size: var(--cb-code); letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-subtle); padding: 0; }
     & .deck-bays__rows .deck-list__group { gap: var(--space-2); }
   }
@@ -351,88 +375,78 @@
     --lamp: var(--space-2);
     position: relative;
     min-height: calc(var(--space-12) + var(--space-1));
-    border: calc(var(--border-width) * 2) solid var(--border-strong);
+    border: var(--border-width) solid var(--border-subtle);
     border-radius: 0;
-    background: var(--bg-raised);
-    box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 calc(var(--border-width) * 2) 0 var(--deck-key-lo);
+    background: var(--bg-sunken);
+    box-shadow: none;
     font-family: var(--font-mono);
-    &:hover, &[data-hover] { border-color: var(--hue); background: var(--bg-hover); }
+    &:hover, &[data-hover] { border-color: var(--border-strong); background: var(--bg-hover); }
     &[data-selected] { border-color: var(--accent); background: var(--accent-muted); }
-    /* The door: the stencilled berth number, its lamp square in the corner. */
-    & .deck-bay__door { width: calc(var(--space-12) + var(--space-1)); border-right: calc(var(--border-width) * 2) solid var(--border-strong); background: var(--bg-sunken); }
+    /* The door: the berth number, its lamp square in the corner. */
+    & .deck-bay__door { width: calc(var(--space-12) + var(--space-1)); border-right: var(--border-width) solid var(--border-subtle); background: none; }
     & .deck-bay__door::before { top: var(--space-1); inset-inline-start: var(--space-1); width: var(--space-2); height: var(--space-2); border-radius: 0; background: var(--hue); }
-    & .deck-bay__door::after { content: "BTH" / ""; position: absolute; bottom: var(--space-1); font-size: var(--cb-code); line-height: 1; letter-spacing: 0.14em; color: var(--fg-subtle); }
-    & .deck-bay__name { font-size: var(--text-xl); line-height: 1; }
+    & .deck-bay__name { font-size: var(--text-lg); line-height: 1; }
     & .deck-bay__body { justify-content: center; gap: 0; padding: var(--space-1) var(--space-2); }
     & .deck-bay__who { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-body); letter-spacing: 0.02em; }
     & .deck-bay__branch { color: var(--fg-subtle); }
-    &[data-live] .deck-bay__door::before { animation: cb-blink calc(var(--duration-pulse) * 0.75) steps(2) infinite; }
     /* Free: a dark, recessed berth with its lamp unlit. */
-    &[data-bay="free"] { background: var(--bg-base); border-style: solid; box-shadow: inset 0 calc(var(--border-width) * 4) 0 var(--deck-key-seat); }
-    &[data-bay="free"] .deck-bay__door { border-right-style: solid; border-right-color: var(--border-default); }
+    &[data-bay="free"] { background: none; border-style: solid; }
+    &[data-bay="free"] .deck-bay__door { border-right-style: solid; border-right-color: var(--border-subtle); }
     &[data-bay="free"] .deck-bay__door::before { background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--hue); }
     &[data-bay="free"] .deck-bay__name { color: var(--fg-subtle); }
     /* Closed: shuttered, its slats a scale across the body. */
-    &[data-bay="closed"] { background: var(--bg-base); border-color: var(--border-default); }
+    &[data-bay="closed"] { background: none; }
     &[data-bay="closed"] .deck-bay__door::before { background: var(--border-strong); }
     &[data-bay="closed"] .deck-bay__body::before { content: ""; position: absolute; inset: var(--space-1) var(--space-2) var(--space-1) calc(var(--space-12) + var(--space-3)); background: var(--border-default); mask-image: var(--cb-slot); mask-size: 100% 6px; mask-repeat: repeat-y; pointer-events: none; }
-    /* Stranded: a hazard edge across the head of the berth. */
-    &[data-bay="stranded"] { background: var(--bg-raised); border-color: var(--border-strong); }
-    &[data-bay="stranded"]::before { content: ""; position: absolute; z-index: 1; inset: 0 0 auto; height: var(--space-2); background: var(--cb-amber); mask-image: var(--cb-hazard); mask-size: var(--space-2) 100%; mask-repeat: repeat-x; pointer-events: none; }
+    &[data-bay="stranded"] { background: var(--bg-sunken); }
     /* The holder gone: the whole door is hazard. */
     &:has(.deck-bay__who[data-gone]) .deck-bay__door { background: var(--bg-sunken); }
-    &:has(.deck-bay__who[data-gone]) .deck-bay__door::after { inset: auto 0 0; bottom: 0; height: var(--space-3); background: var(--cb-amber); mask-image: var(--cb-hazard); mask-size: var(--space-2) 100%; mask-repeat: repeat-x; content: ""; }
+    &:has(.deck-bay__who[data-gone]) .deck-bay__door::after { inset: auto 0 0; bottom: 0; height: var(--space-3); background: var(--cb-amber); mask-image: var(--cb-hazard); mask-size: var(--space-2) 100%; mask-repeat: repeat-x; content: ""; position: absolute; }
   }
 
   /* ---- The Jobs list as a flight-strip board: a plate for each repository, a strip for each Job. Same markup, same presses. ---- */
   & .deck-left > .deck-list {
-    & > .deck-list__rows { margin: 0 var(--space-3) var(--space-3); padding: var(--space-2); gap: var(--space-3); border: calc(var(--border-width) * 2) solid var(--border-default); background: var(--bg-base); box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat); }
+    & > .deck-list__rows { margin: 0; padding: var(--space-2); gap: var(--space-3); }
     & .deck-list__band, & .deck-list .deck-list__band + .deck-list__band { margin: 0; border: 0; }
     & .deck-list__band + .deck-list__band { margin-top: var(--space-3); }
     & .deck-list__group { gap: var(--space-1); }
     & .deck-list__item + .deck-list__item { border-top: 0; }
-    /* The plate: stencilled, with a screw at each end. */
+    /* The plate: stencilled, on a hairline. */
     & .deck-list__head {
       position: relative;
       min-height: var(--space-6);
-      margin-bottom: var(--space-2);
-      padding: 0 var(--space-6);
-      border: calc(var(--border-width) * 2) solid var(--border-strong);
+      margin-bottom: var(--space-1);
+      padding: 0 var(--space-2);
+      border-bottom: var(--border-width) solid var(--border-subtle);
       border-radius: 0;
-      background: var(--bg-sunken);
-      box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--deck-key-seat), 0 calc(var(--border-width) * 2) 0 var(--deck-key-lo);
+      background: none;
+      box-shadow: none;
       font-size: var(--cb-code);
       letter-spacing: 0.18em;
       color: var(--fg-muted);
-      &::before, &::after { content: ""; position: absolute; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; background: var(--fg-subtle); opacity: 0.7; mask-image: var(--cb-screw); mask-size: 100% 100%; }
-      &::before { left: var(--space-2); }
-      &::after { right: var(--space-2); }
     }
   }
   /* A strip: a lamp bar down its left edge, the title in mono, the state glyphs unchanged at its right. */
   & .deck-left > .deck-list .deck-row {
     --lamp-ink: var(--border-strong);
     min-height: calc(var(--space-6) + var(--space-3));
-    padding-inline: var(--space-4) var(--space-2);
-    border: calc(var(--border-width) * 2) solid var(--border-strong);
+    padding-inline: var(--space-3) var(--space-2);
+    border: var(--border-width) solid var(--border-subtle);
     border-radius: 0;
-    background: var(--bg-raised);
-    box-shadow: inset 0 0 0 var(--border-width) var(--bg-sunken), 0 calc(var(--border-width) * 2) 0 var(--deck-key-lo);
+    background: var(--bg-sunken);
+    box-shadow: none;
     font-family: var(--font-mono);
     letter-spacing: 0.02em;
-    &::before { content: ""; position: absolute; z-index: 1; inset: 0 auto 0 0; width: var(--space-2); background: var(--lamp-ink); pointer-events: none; }
+    &::before { content: ""; position: absolute; z-index: 1; inset: 0 auto 0 0; width: var(--space-1); background: var(--lamp-ink); pointer-events: none; }
     &:hover, &[data-hover], &[data-cursor] { background: var(--bg-hover); }
     &:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
     &[data-lamp="running"] { --lamp-ink: var(--cb-cyan); }
     &[data-lamp="failed"] { --lamp-ink: var(--status-completed-failed); }
     &[data-lamp="done"] { --lamp-ink: var(--status-completed-success); }
     &[data-lamp="idle"] { --lamp-ink: var(--border-strong); }
-    /* Needs him: the bar is hazard, and the strip keeps its own pulse. */
-    &[data-lamp="needs"] { --lamp-ink: var(--cb-amber); border-color: var(--cb-amber); }
-    &[data-lamp="needs"]::before { width: var(--space-3); mask-image: var(--cb-hazard); mask-size: var(--space-2) var(--space-2); mask-repeat: repeat-y; }
-    &[data-lamp="needs"]::after { opacity: 0.1; }
-    /* Seated like a pressed key. */
-    &[data-selected] { border-color: var(--accent); background: var(--accent-muted); box-shadow: inset 0 calc(var(--border-width) * 3) 0 var(--deck-key-seat); }
+    /* Needs him: an amber lamp, and the strip's own pulse. */
+    &[data-lamp="needs"] { --lamp-ink: var(--cb-amber); }
+    &[data-selected] { border-color: var(--accent); background: var(--accent-muted); }
     &[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
     &[data-queued] { border-style: dashed; }
     &[data-queued]::before { display: none; }
@@ -451,13 +465,13 @@
     perspective-origin: 50% 30%;
     &::after { content: ""; position: absolute; z-index: -1; inset: auto var(--space-3) var(--space-1); height: var(--space-3); border-bottom: calc(var(--border-width) * 2) solid var(--border-strong); border-radius: 0 0 50% 50% / 0 0 100% 100%; pointer-events: none; }
   }
-  &:not([data-console-pixi]) .console-bay[data-n="1"] { transform: translateY(calc(var(--space-2) * -1.5)) rotateY(26deg); }
-  &:not([data-console-pixi]) .console-bay[data-n="2"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(13deg); }
+  &:not([data-console-pixi]) .console-bay[data-n="1"] { transform: translateY(calc(var(--space-2) * -1)) rotateY(15deg); }
+  &:not([data-console-pixi]) .console-bay[data-n="2"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(7deg); }
   &:not([data-console-pixi]) .console-bay[data-n="3"] { transform: translateY(var(--space-1)) translateZ(var(--space-6)); z-index: 1; }
-  &:not([data-console-pixi]) .console-bay[data-n="4"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(-13deg); }
-  &:not([data-console-pixi]) .console-bay[data-n="5"] { transform: translateY(calc(var(--space-2) * -1.5)) rotateY(-26deg); }
+  &:not([data-console-pixi]) .console-bay[data-n="4"] { transform: translateY(calc(var(--space-1) * -1.5)) rotateY(-7deg); }
+  &:not([data-console-pixi]) .console-bay[data-n="5"] { transform: translateY(calc(var(--space-2) * -1)) rotateY(-15deg); }
   &:not([data-console-pixi]) .deck-foot { perspective: 900px; perspective-origin: 30% 50%; }
-  &:not([data-console-pixi]) .deck-foot > .deck-dispatch { transform: translateY(calc(var(--space-2) * -1)) rotateY(-16deg); transform-origin: 0 50%; }
+  &:not([data-console-pixi]) .deck-foot > .deck-dispatch { transform: translateY(calc(var(--space-2) * -1)) rotateY(-9deg); transform-origin: 0 50%; }
 
   /* ---- Drawn on a canvas (`console-stage.ts`): the picture is Pixi's, and what stands over it is each facet's own button, unseen. ---- */
   &[data-console-pixi] {

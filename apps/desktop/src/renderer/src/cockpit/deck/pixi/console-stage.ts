@@ -34,7 +34,7 @@ const SPILL = 0.4;
 
 // ---- The projection: a pinhole over a cone ----------------------------------------------------------------
 
-const CONE = { R: 1250, U: 150, slope: (30 * Math.PI) / 180, step: 0.16, behind: 1100, focal: 1500, lipY: -190, raise: 60, thick: 30, rim: 17, key: 2.4, rib: 0.0034 };
+const CONE = { R: 1800, U: 150, slope: (30 * Math.PI) / 180, step: 0.11, behind: 550, focal: 1500, lipY: -190, raise: 34, thick: 30, rim: 17, key: 2.4, rib: 0.00236 };
 
 /** A piece of a structural rib, by the face it crosses and which of its three columns: lit, flat, shaded. */
 type RibFace = "rim" | "deck" | "lip" | "wall";
@@ -341,9 +341,10 @@ export class ConsoleStage {
       const texels = app.renderer.resolution * TEXELS;
       const [tw, th] = [Math.ceil(across * texels), Math.ceil(down * texels)];
       if (f.tex.width !== tw || f.tex.height !== th) {
-        f.tex.destroy(true);
+        const was = f.tex;
         f.tex = RenderTexture.create({ width: tw, height: th, resolution: 1, antialias: true });
         f.mesh.texture = f.tex;
+        was.destroy(true);
         f.mesh.setCorners(q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y);
       }
       f.art.scale.set(tw / W, th / H);
@@ -351,9 +352,10 @@ export class ConsoleStage {
       if (f.light !== undefined) {
         const [lw, lh] = [Math.ceil(across * LIGHT_TEXELS), Math.ceil(down * LIGHT_TEXELS)];
         if (f.light.tex.width !== lw || f.light.tex.height !== lh) {
-          f.light.tex.destroy(true);
+          const was = f.light.tex;
           f.light.tex = RenderTexture.create({ width: lw, height: lh, resolution: 1 });
           f.light.mesh.texture = f.light.tex;
+          was.destroy(true);
         }
         f.light.mesh.setCorners(q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y);
         f.light.art.scale.set(lw / W, lh / H);
