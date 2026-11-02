@@ -48,7 +48,7 @@ test("starting is two acts: the guard lifts, then the switch flips", async () =>
   expect(isOn()).toBe(false);
 
   // With the guard down the switch does nothing.
-  lever().element().click();
+  (lever().element() as HTMLElement).click();
   expect(start).not.toHaveBeenCalled();
 
   await hardware().getByRole("button", { name: "Lift guard" }).click();

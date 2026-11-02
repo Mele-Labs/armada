@@ -197,7 +197,7 @@ test("the lamp lights while answers wait, carries no count, and answers are not 
   // Nothing waiting: unlit, and it does nothing.
   expect(lamp().element().getAttribute("data-lit")).toBeNull();
   expect(lamp().element().getAttribute("aria-disabled")).toBe("true");
-  await lamp().element().click();
+  (lamp().element() as HTMLElement).click();
   expect(document.querySelector('[data-hud="autopilot-answers"]')).toBeNull();
 });
 
