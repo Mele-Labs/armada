@@ -50,7 +50,7 @@ Since 27 Oct 2026, after a Job edited its design document six seconds after his 
 A page never shown keeps it held.
 Recording again without `walk` clears it.
 The receipt says `held` when the recording is not put to him yet, so the agent does not tell him it waits on his approval, and names each window in `held_by` with what settles it.
-Sleep mode leaves it for the morning, and `answer_waiting` refuses it: a plan is approved, or sent changes, from its own card.
+`answer_waiting` refuses it: a plan is approved, or sent changes, from its own card. A plan is a kind [Autopilot](../autopilot.md) may approve.
 
 **"Not yet" puts the plan away.**
 Dismissing the plan's call (`plan:<version>`) sets `set_aside_at` on that version, which is kept with the plan, and drops the call as it drops any derived item.

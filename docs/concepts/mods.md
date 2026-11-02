@@ -169,7 +169,7 @@ Two rules for one word and place are different when their `matches` differ, and 
 | `blocks_merge` | The Job has an open pull request that cannot merge now: its required checks failed, it conflicts, or the merge queue marked it unmergeable | The ledger's `pr` rows for the Job (their `checks`), and the forge reading the pull request watch last made (`mergeable`, the queue) |
 | `open_pull_request` | The Job has an open pull request, a draft included | The ledger's `pr` rows for the Job, standing and `open` or `draft` |
 | `working` | The Job's agent is in the middle of a turn | The Job's turn in Fleet's memory |
-| `owner_away` | Sleep mode is on | The sleep switch |
+| `owner_away` | The Job's repository has an Autopilot running | The repository's Autopilot state. A paused or stopped one is not away |
 
 **Unknown does not hold.** Nothing here calls the forge when a notice is sent, so a pull request the forge has not yet been read for, a merge the forge is still computing and a pull request behind its base (nothing Fleet keeps says so) do not block a merge.
 With no condition holding, the rule's own `does` stands. A condition tested twice in one rule is a problem, since the second could never be reached.

@@ -23,7 +23,7 @@ It has its own source and act so the Cockpit draws no reply box for it and a pre
 No `unsent` attachment stands for it.
 `answer_waiting` refuses the item, since Start is the answer.
 Start settles the item, and ending the Job discards both.
-While sleep is on, the item is left on the list and not decided for him.
+Autopilot never answers it: Start is the person's press.
 
 Nothing runs before Start, and no step prompt goes out either: the first turn carries the workflow line, the step's instructions and the message (*The rail*).
 

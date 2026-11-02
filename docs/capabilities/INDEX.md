@@ -18,6 +18,6 @@ only its steps does not need one.
 
 - [`autopilot.md`](autopilot.md) — a repository works its own backlog from one
   plain-language instruction, every pick an ordinary Job, within caps a person
-  sets, until they pause or stop it.
+  sets, answering the decisions they check, until a cap or the switch stops it.
 - [`merge-line.md`](merge-line.md) — the retired merge line, and what replaces
   each part of it. The full design is archived.

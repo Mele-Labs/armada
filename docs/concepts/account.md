@@ -85,8 +85,8 @@ The choice is kept in this machine's store for each profile, and a kind switched
 
 | Where | What |
 | --- | --- |
-| Title bar menu | One account row (the login, or Sign in), Sleep, Settings with its key |
-| Menu button | The moon while Sleep is on, an amber dot while signed out; the turn while a sign-in waits, the end's glyph once one failed |
+| Title bar menu | One account row (the login, or Sign in), Settings with its key |
+| Menu button | An amber dot while signed out; the turn while a sign-in waits, the end's glyph once one failed |
 | Account | One page in the work area like Settings, reached from the menu row and from Settings, that holds everything below and keeps a sign-in in flight when it is left |
 | Account contents | A page header with the title and this machine's name, then glass under a mono band: one tile for each profile, and under them what signing in turns on |
 | Sign-in that ended | Denied, expired, not reached or refused: Fleet's sentence beside a mark, and Try again, inside its own tile in the amber frame |

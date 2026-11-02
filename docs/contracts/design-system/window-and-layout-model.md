@@ -10,8 +10,8 @@ breakpoint.
 Frameless, `titleBarStyle: 'hiddenInset'`, macOS traffic lights inset over
 the **title row** — the bar across the window's top carrying the one bar,
 the plan's limits, Helm's reopen control, Fleet's status dot and one menu
-holding the account, Sleep, Settings and Doctor. A wordmark starts the row, and the
-window's tabs are drawn in its centre (Navigation, below). The menu button carries a moon while Sleep is on and an
+holding the account, Settings and Doctor. A wordmark starts the row, and the
+window's tabs are drawn in its centre (Navigation, below). The menu button carries an
 amber dot while signed out. **The one bar searches** (the owner, 10 Oct 2026): it opens the palette, centred
 across the window and not on the bar, and the palette offers what was typed as the work too, so the row draws no
 Dispatch button. Dispatching is its own sheet, centred across the window and not hung from the bar, and `n` opens it without the palette; the Cockpit's deck holds a
@@ -38,7 +38,7 @@ title row   wordmark · tabs · search · plan limits · Helm · Fleet dot · me
 tabs        Cockpit · Jobs · Studios · Logbook · Reviews · Issues · Projects · System        ⌘1 to ⌘8, the drawn ones
 System      one page, a sidebar of entries beside the picked entry
             Kit (kinds, Workflows, Models, Prompts, Harness) · Fleet (settings) · Bridge (Theme, Layout, Keyboard shortcuts, Guides, and the rest)
-menu        account · Sleep · Settings (⌘,) · Doctor
+menu        account · Settings (⌘,) · Doctor
 ```
 
 > **Rule.** The window's places are declared, not derived from the surface roster.
