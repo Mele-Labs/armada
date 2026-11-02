@@ -3,19 +3,21 @@
 // while he is in another app. `styles/index.css` pauses every animation under `data-still`, and the loop clock
 // holds every loop under `data-idle`, which a minute with no input sets (the owner, 15 Oct 2026: the machine over the motion).
 
+import { startLoopClock } from "./loop-clock";
+
 /** How long with no pointer, key or wheel before the map stands still. */
 export const IDLE_MS = 60_000;
 /** How often the idle mark is looked at: an event only stamps the time, so a moving mouse costs nothing. */
 const LOOK_MS = 5_000;
 
-/** Marks the root `data-still` while the window is hidden or does not have focus, and `data-idle` after `IDLE_MS` with no input. Returns the way to stop. */
-export function watchStill(): () => void {
+/** Marks the root `data-still` while the window is hidden or, unless `focus` is off, does not have focus, and `data-idle` after `IDLE_MS` with no input. Returns the way to stop. */
+export function watchStill({ focus = true }: { focus?: boolean } = {}): () => void {
   const root = document.documentElement;
   let last = Date.now();
   const set = (): void => {
     root.toggleAttribute(
       "data-still",
-      document.visibilityState === "hidden" || !document.hasFocus(),
+      document.visibilityState === "hidden" || (focus && !document.hasFocus()),
     );
   };
   const look = (): void => {
@@ -53,4 +55,14 @@ export function watchStill(): () => void {
     root.removeAttribute("data-still");
     root.removeAttribute("data-idle");
   };
+}
+
+/**
+ * What every Bridge document starts, since its loops would otherwise hold the display's rate for as long as it is open:
+ * the still and idle marks, and the clock that reads them. `focus` off is for the page, bar and panel of a walk window,
+ * which share one window and hold its focus in turn, so the two not being used are not stopped for it.
+ */
+export function startMotionRules(options: { focus?: boolean } = {}): void {
+  watchStill(options);
+  startLoopClock();
 }
