@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, net, Notification, shell } from "electron";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -1080,7 +1080,31 @@ void app.whenReady().then(() => {
     connection: () => connection,
   });
   // Talk, heard on this Mac and never by Fleet: Armada Voice for Apple's recogniser and Whisper, macOS's own Dictation.
-  const voiceHelper = helperPath(app.isPackaged, app.getAppPath(), process.resourcesPath);
+  const voiceHelper = helperPath(
+    app.isPackaged,
+    process.defaultApp,
+    app.getAppPath(),
+    process.resourcesPath,
+  );
+  const voiceHelperHere = (): string | null =>
+    process.platform === "darwin" && existsSync(voiceHelper) ? voiceHelper : null;
+  // A dev Bridge that starts without the helper builds it once in the background, so Talk finds it by the next press.
+  if (DEV_BUILD && process.platform === "darwin" && voiceHelperHere() === null)
+    execFile(
+      process.execPath,
+      [
+        join(app.getAppPath(), "native", "voice", "build.mjs"),
+      ],
+      {
+        env: {
+          ...process.env,
+          ELECTRON_RUN_AS_NODE: "1",
+        },
+      },
+      (error) => {
+        if (error !== null) console.warn(`Armada Voice did not build: ${error.message}`);
+      },
+    );
   const whisperDir = join(app.getPath("userData"), "whisper");
   handleVoice({
     ipc: ipcMain,
@@ -1091,7 +1115,7 @@ void app.whenReady().then(() => {
     ),
     openPane: (address) => void shell.openExternal(address),
     voice: {
-      helper: process.platform === "darwin" && existsSync(voiceHelper) ? voiceHelper : null,
+      helper: voiceHelperHere,
       spawn: (file, args) =>
         spawn(file, args, {
           stdio: [

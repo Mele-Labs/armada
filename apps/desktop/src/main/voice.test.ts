@@ -18,13 +18,14 @@ type Fake = VoiceChild & {
 function setUp(over: Partial<VoiceHosts> = {}) {
   const started: Fake[] = [];
   const dictated: string[] = [];
+  const installs: number[] = [];
   const timers: {
     ms: number;
     run: () => void;
     cancelled: boolean;
   }[] = [];
   const hosts: VoiceHosts = {
-    helper: "/Armada Voice.app/Contents/MacOS/armada-voice",
+    helper: () => "/Armada Voice.app/Contents/MacOS/armada-voice",
     whisper: () => ({
       library: "/w/whisper",
       model: "/w/model.bin",
@@ -52,6 +53,7 @@ function setUp(over: Partial<VoiceHosts> = {}) {
       started.push(fake);
       return fake;
     },
+    installWhisper: () => installs.push(1),
     dictate: (action) => dictated.push(action),
     after: (ms, run) => {
       const timer = {
@@ -76,6 +78,7 @@ function setUp(over: Partial<VoiceHosts> = {}) {
   return {
     started,
     dictated,
+    installs,
     timers,
     words,
     ends,
@@ -217,17 +220,6 @@ describe("hearing, by engine", () => {
     expect(timers[0]?.cancelled).toBe(true);
   });
 
-  it("Whisper not installed starts nothing and says so", () => {
-    const { started, ends, start } = setUp({
-      whisper: () => null,
-    });
-    start("whisper");
-    expect(started).toEqual([]);
-    expect(ends).toEqual([
-      "whisper_absent",
-    ]);
-  });
-
   it("macOS Dictation starts and stops the system's own, and gives no words itself", () => {
     const { started, dictated, words, ends, start } = setUp();
     const stop = start("dictation");
@@ -244,38 +236,6 @@ describe("hearing, by engine", () => {
     expect(words).toEqual([]);
     expect(ends).toEqual([
       undefined,
-    ]);
-  });
-
-  it("a Bridge built without the helper says so rather than hearing nothing", () => {
-    const { ends, start } = setUp({
-      helper: null,
-    });
-    start("apple");
-    expect(ends).toEqual([
-      "helper_missing",
-    ]);
-  });
-
-  it("ends early on the helper's error, and on its dying unreleased", () => {
-    const denied = setUp();
-    denied.start("apple");
-    denied.started[0]!.print(
-      line({
-        kind: "error",
-        code: "speech_denied",
-        message: "",
-      }),
-    );
-    expect(denied.ends).toEqual([
-      "speech_denied",
-    ]);
-
-    const died = setUp();
-    died.start("apple");
-    died.started[0]!.exit(null);
-    expect(died.ends).toEqual([
-      "helper_failed",
     ]);
   });
 
@@ -304,11 +264,212 @@ describe("hearing, by engine", () => {
   });
 });
 
-it("finds the helper beside its sources in development and in Contents/Helpers packaged", () => {
-  expect(helperPath(false, "/repo/apps/desktop", "/unused")).toBe(
-    "/repo/apps/desktop/native/voice/build/Armada Voice.app/Contents/MacOS/armada-voice",
-  );
-  expect(helperPath(true, "/unused", "/Applications/Armada.app/Contents/Resources")).toBe(
-    "/Applications/Armada.app/Contents/Helpers/Armada Voice.app/Contents/MacOS/armada-voice",
-  );
+const LISTEN = [
+  "listen",
+];
+const WHISPER = [
+  "whisper",
+  "/w/whisper",
+  "/w/model.bin",
+];
+
+describe("a voice that cannot hear", () => {
+  it("Whisper chosen and not installed is fetched unasked, and Apple hears meanwhile with no card", () => {
+    const { started, installs, ends, start } = setUp({
+      whisper: () => null,
+    });
+    start("whisper");
+    expect(installs).toHaveLength(1);
+    expect(started.map((one) => one.args)).toEqual([
+      LISTEN,
+    ]);
+    expect(ends).toEqual([]);
+  });
+
+  it("Whisper is never fetched because it is next in line behind Apple", () => {
+    const { started, dictated, installs, ends, start } = setUp({
+      whisper: () => null,
+    });
+    start("apple");
+    started[0]!.exit(null);
+    expect(installs).toEqual([]);
+    expect(dictated).toEqual([
+      "startDictation:",
+    ]);
+    expect(ends).toEqual([]);
+  });
+
+  it("with no helper, Apple and Whisper both go to Dictation with no card", () => {
+    for (const engine of [
+      "apple",
+      "whisper",
+    ] as const) {
+      const { started, dictated, ends, start } = setUp({
+        helper: () => null,
+      });
+      start(engine);
+      expect(started).toEqual([]);
+      expect(dictated).toEqual([
+        "startDictation:",
+      ]);
+      expect(ends).toEqual([]);
+    }
+  });
+
+  it("a helper built since the last press is found at the next", () => {
+    let built = false;
+    const { started, dictated, start } = setUp({
+      helper: () => (built ? "/built/armada-voice" : null),
+    });
+    start("apple")();
+    expect(started).toEqual([]);
+    expect(dictated).toEqual([
+      "startDictation:",
+      "stopDictation:",
+    ]);
+    built = true;
+    start("apple");
+    expect(started.map((one) => one.args)).toEqual([
+      LISTEN,
+    ]);
+  });
+
+  it("moves through the voices in order, for what each chosen engine can fall to", () => {
+    const apple = setUp();
+    apple.start("apple");
+    apple.started[0]!.print(
+      line({
+        kind: "error",
+        code: "on_device_unavailable",
+      }),
+    );
+    expect(apple.started.map((one) => one.args)).toEqual([
+      LISTEN,
+      WHISPER,
+    ]);
+    apple.started[1]!.print(
+      line({
+        kind: "error",
+        code: "whisper_model_unloadable",
+      }),
+    );
+    expect(apple.dictated).toEqual([
+      "startDictation:",
+    ]);
+    expect(apple.ends).toEqual([]);
+
+    const whisper = setUp();
+    whisper.start("whisper");
+    whisper.started[0]!.exit(null);
+    expect(whisper.started.map((one) => one.args)).toEqual([
+      WHISPER,
+      LISTEN,
+    ]);
+    expect(whisper.ends).toEqual([]);
+  });
+
+  it("the release stops whichever voice took over, and ends the hearing once", () => {
+    const { started, dictated, ends, start } = setUp({
+      whisper: () => null,
+    });
+    const stop = start("apple");
+    started[0]!.exit(null);
+    stop();
+    expect(dictated).toEqual([
+      "startDictation:",
+      "stopDictation:",
+    ]);
+    expect(ends).toEqual([
+      undefined,
+    ]);
+  });
+
+  it("a refused permission or no microphone ends it with the reason, and starts nothing else", () => {
+    for (const code of [
+      "microphone_denied",
+      "speech_denied",
+      "microphone_unavailable",
+    ] as const) {
+      const { started, dictated, ends, start } = setUp();
+      start("apple");
+      started[0]!.print(
+        line({
+          kind: "error",
+          code,
+        }),
+      );
+      expect(started).toHaveLength(1);
+      expect(dictated).toEqual([]);
+      expect(ends).toEqual([
+        code,
+      ]);
+    }
+  });
+
+  it("failing after a word ends quietly: the next voice would miss what was said", () => {
+    const { started, dictated, words, ends, start } = setUp();
+    start("apple");
+    started[0]!.print(
+      line({
+        kind: "partial",
+        text: "one two",
+      }) +
+        line({
+          kind: "partial",
+          text: "one two three",
+        }),
+    );
+    started[0]!.print(
+      line({
+        kind: "error",
+        code: "recognition_failed",
+      }),
+    );
+    expect(words).toEqual([
+      "one",
+      "two",
+    ]);
+    expect(started).toHaveLength(1);
+    expect(dictated).toEqual([]);
+    expect(ends).toEqual([
+      undefined,
+    ]);
+  });
+
+  it("failing after the release ends quietly: nobody is talking for the next voice to hear", () => {
+    const { started, dictated, ends, start } = setUp();
+    const stop = start("whisper");
+    stop();
+    started[0]!.print(
+      line({
+        kind: "error",
+        code: "whisper_model_unloadable",
+      }),
+    );
+    expect(started).toHaveLength(1);
+    expect(dictated).toEqual([]);
+    expect(ends).toEqual([
+      undefined,
+    ]);
+  });
+});
+
+describe("where the helper is found", () => {
+  const DEV = "/repo/apps/desktop/native/voice/build/Armada Voice.app/Contents/MacOS/armada-voice";
+
+  it("beside its sources on Electron's own binary", () => {
+    expect(helperPath(false, true, "/repo/apps/desktop", "/unused")).toBe(DEV);
+  });
+
+  it("beside its sources on the dev copy named Armada, which Electron reads as packaged", () => {
+    expect(helperPath(true, true, "/repo/apps/desktop", "/unused")).toBe(DEV);
+  });
+
+  it("in Contents/Helpers in a real Armada", () => {
+    expect(
+      helperPath(true, undefined, "/unused", "/Applications/Armada.app/Contents/Resources"),
+    ).toBe(
+      "/Applications/Armada.app/Contents/Helpers/Armada Voice.app/Contents/MacOS/armada-voice",
+    );
+  });
 });

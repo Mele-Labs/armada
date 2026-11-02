@@ -19,11 +19,13 @@ export type WhisperState =
     };
 
 /**
- * Why hearing ended early, or why an install did not finish. `helper_missing`: Armada Voice was not built into this
- * Bridge. `microphone_denied`, `speech_denied`: the owner said no in macOS's prompt, or in System Settings since.
- * `on_device_unavailable`: this Mac has no on-device recogniser for its language. `whisper_absent`: Install was never
- * pressed. `download_failed`, `digest_mismatch`, `unpack_failed`: Install stopped and Whisper is absent again.
- * `helper_failed`: anything else the helper said, or its dying without saying.
+ * Why hearing ended early, or why an install did not finish. Only `microphone_denied`, `speech_denied` and
+ * `microphone_unavailable` reach the card; for any other main tries the next voice. `helper_missing` never does: a
+ * dev Bridge builds a missing helper at start, and a voice that cannot start is skipped. `microphone_denied`,
+ * `speech_denied`: the owner said no in macOS's prompt, or in System Settings since. `on_device_unavailable`: this Mac
+ * has no on-device recogniser for its language. `whisper_absent`: Install was never pressed. `download_failed`,
+ * `digest_mismatch`, `unpack_failed`: Install stopped and Whisper is absent again. `helper_failed`: anything else the
+ * helper said, or its dying without saying.
  */
 export type VoiceWhy =
   | "helper_missing"
@@ -40,7 +42,7 @@ export type VoiceWhy =
   | "unpack_failed";
 
 /** The System Settings panes Talk's guide opens. The same as `TalkPane` in `@armada/components`' `thread-look.ts`. */
-export type VoicePane = "microphone" | "speech" | "sound";
+export type VoicePane = "microphone" | "speech";
 
 export type VoiceApi = {
   /** **Absent in the mock**, whose look source plays Talk from a script. */
@@ -56,7 +58,7 @@ export type VoiceApi = {
       onWord: (word: string) => void,
       onEnd?: (why?: VoiceWhy) => void,
     ) => () => void;
-    /** Opens the System Settings pane that holds what Talk was refused: Microphone, Speech Recognition, or Sound's input list. */
+    /** Opens the System Settings pane that holds what Talk was refused: Microphone or Speech Recognition. */
     openSettings: (pane: VoicePane) => void;
     whisper: () => Promise<WhisperState>;
     onWhisper: (listener: (state: WhisperState) => void) => () => void;
