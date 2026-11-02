@@ -26,8 +26,8 @@ import { accountGroupOf, accountNowOf } from "../session-activity";
 import { useModsMade } from "../mods-made";
 import { stateOf as jobStateOf } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { openInPanel } from "../shared-panel/store";
 import { draftPanelOf } from "../shared-panel/rule";
+import { openDraftCard } from "../job-panes/focus";
 import { showLayer } from "./layers";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
@@ -237,10 +237,10 @@ export function StoryColumn({ session, entries, work, id, manifestId, acts, ed, 
       <ul className="sv-beats" aria-label="Now">
         {asking === undefined ? null : <AskBeat said="Waiting on you" text={asking} />}
         {owed.map((one) => {
-          // A draft opens its card beside the thread, a rule's in the rule's panel; a document waiting on him opens over the Job. Each is answered where it opens.
+          // A draft opens its card as a tab on a Job in panes and beside the thread otherwise, a rule's in the rule's panel; a document waiting on him opens over the Job. Each is answered where it opens.
           const card = draftPanelOf(session, one.id);
           const page = one.source === "document" ? one.id.replace(/^document:/, "") : undefined;
-          const open = card !== undefined ? () => openInPanel(card) : page !== undefined ? () => showLayer(session.id, "document", page) : undefined;
+          const open = card !== undefined ? () => openDraftCard(session, card) : page !== undefined ? () => showLayer(session.id, "document", page) : undefined;
           return <AskBeat key={one.id} said="Waiting on you" text={one.text} {...(open === undefined ? {} : { onOpen: open })} />;
         })}
         {walks.map((one) => (one.kind === "window" ? <WalkBeat key={one.id} title={one.title} takes={one.takes} onOpen={() => draft?.openWindow?.(id, one.url)} /> : null))}

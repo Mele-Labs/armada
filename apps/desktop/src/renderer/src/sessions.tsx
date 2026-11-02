@@ -130,6 +130,7 @@ import { askToTell } from "./tell";
 import { SessionRefs } from "./helm-refs";
 import { openInPanel } from "./shared-panel/store";
 import { draftPanelOf } from "./shared-panel/rule";
+import { openDraftCard } from "./job-panes/focus";
 import { TeachHereContext, batchNotices, teachHereOf, useNoticeRules, useTeachFrom, wordsOfQuote } from "./teach";
 import type { TeachHere } from "./teach";
 import { useShownFiles } from "./session-shown-file";
@@ -614,7 +615,7 @@ export function entriesOf(
     const other = act?.kind === "message" && act.target !== session.id ? sessions.find((that) => that.id === act.target) : undefined;
     const childStart = startOfHeldJob(one.source === "held_child" ? other : undefined, begin);
     const proposed = one.source === "draft" ? proposedOf(session, one.id, scopes) : undefined;
-    // Any other draft is pressed open as its card beside the thread, never approved here with its text out of sight.
+    // Any other draft is pressed open as its card, a tab of its own on a Job in panes, never approved here with its text out of sight.
     const card = one.source === "draft" && proposed === undefined;
     const panel = card ? draftPanelOf(session, one.id) : undefined;
     // Fleet's offer of a restart reads its sentence, with the key beside it and Skip at its end.
@@ -663,7 +664,7 @@ export function entriesOf(
       ...(childStart === undefined ? {} : { start: childStart }),
       onOpen: () => {
         if (other !== undefined) return open(other.id);
-        if (panel !== undefined && openInPanel(panel)) return;
+        if (panel !== undefined && openDraftCard(session, panel)) return;
         if (one.steps !== undefined) return read({ kind: "steps", id: one.id });
         if (act === undefined || restart !== undefined) return;
         if (act.kind === "walk") openWindow(act.target);

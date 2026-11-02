@@ -1,6 +1,6 @@
 // What a tab can be: its name, and the glyph it wears. The glyphs are first choices, kept in one place so the registry's can replace them.
 
-import { Activity, Circle, CircleCheck, Cpu, Diff, Files, FolderTree, GitPullRequest, Globe, LayoutGrid, Link, ListChecks, MessageSquareText, PanelTop, Send, SquareTerminal, Ticket, Waypoints, Workflow, type LucideIcon } from "lucide-react";
+import { Activity, Circle, CircleCheck, Cpu, Diff, Files, FolderTree, GitPullRequest, Globe, LayoutGrid, Link, ListChecks, MessageSquareText, NotebookPen, PanelTop, Send, SquareTerminal, Ticket, Waypoints, Workflow, type LucideIcon } from "lucide-react";
 
 import { glyphOf } from "../cockpit/deck/flight-glyphs";
 import type { TabKind } from "./tree";
@@ -27,4 +27,5 @@ export const KINDS: Readonly<Record<TabKind, { label: string; Glyph: LucideIcon 
   bays: { label: "Bays", Glyph: LayoutGrid },
   spine: { label: "Spine", Glyph: Waypoints },
   custom: { label: "Custom", Glyph: PanelTop },
+  draft: { label: "Draft", Glyph: NotebookPen },
 };

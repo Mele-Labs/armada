@@ -1,6 +1,6 @@
 // A rule on a Job's lanes, in the side panel. One that is waiting on the person for something shows the drafted ask as its own card, with its acts, answered here; the card is the
 // thread's (`DraftRow`), so Send, Edit and Withdraw are the ones the thread shows and answering here settles the same item. One that has acts Fleet kept says what each is and where it
-// stands, for each instance it was done to. A draft no rule left is answered here the same way, from its own card.
+// stands, for each instance it was done to. A draft no rule left is answered the same way from its own card: here for a Job not in panes, in a Draft tab for one in panes.
 
 import { useRef } from "react";
 import { Ban, Check, Clock, MessageCircleQuestion } from "lucide-react";
@@ -71,27 +71,44 @@ function ActsPanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
   );
 }
 
-/** A draft card from the Job's thread, answered beside it: `heading` where the panel is named for something other than the card, as a rule is. */
-function DraftSide({ sessionId, rowId, crumb, heading }: { sessionId: string; rowId: string; crumb: string; heading?: string }) {
+type DraftCardRow = Extract<Session["rows"][number], { kind: "draft" }>;
+
+/** The draft card as last read. Held, so a read that comes a beat late never takes the card away. */
+function useHeldDraft(session: Session | undefined, rowId: string): DraftCardRow | undefined {
+  const found = session?.rows.find((one) => one.id === rowId);
+  const held = useRef<DraftCardRow | undefined>(undefined);
+  if (found !== undefined && found.kind === "draft") held.current = found;
+  return held.current;
+}
+
+/** A draft card from the Job's thread with the thread's answers, so answering it settles the same item. **Sending leaves the card where it is**, settled to what was sent. */
+export function DraftCard({ sessionId, rowId }: { sessionId: string; rowId: string }) {
   const session = useSessions().find((one) => one.id === sessionId);
   const draft = useSessionsDraft();
+  const row = useHeldDraft(session, rowId);
+  if (session === undefined || row === undefined) return null;
+  return (
+    <ul className="sv-lanes__ask" aria-label="Waiting on you">
+      <DraftRow
+        row={row}
+        keep={`draft:${session.id}:${row.id}`}
+        {...(draft?.answerWaiting === undefined ? {} : { onAnswer: (rowId: string, answer: DraftAnswer) => void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer) })}
+        {...(draft?.answerWaiting === undefined ? {} : { onWithdraw: (rowId: string, reason?: string) => void dismissWaiting(session.id, `draft:${rowId}`, reason) })}
+      />
+    </ul>
+  );
+}
+
+/** A draft card answered beside the thread: `heading` where the panel is named for something other than the card, as a rule is. The way back stays once it is sent. */
+function DraftSide({ sessionId, rowId, crumb, heading }: { sessionId: string; rowId: string; crumb: string; heading?: string }) {
+  const session = useSessions().find((one) => one.id === sessionId);
   const back = useBack();
-  const found = session?.rows.find((one) => one.id === rowId);
-  // **Sending leaves the panel as it is**: the card settles to what was sent, and the way back stays. The last card read is held, so a read that comes a beat late never takes the panel away.
-  const held = useRef<{ row: Extract<NonNullable<typeof found>, { kind: "draft" }>; title: string } | undefined>(undefined);
-  if (found !== undefined && found.kind === "draft") held.current = { row: found, title: heading ?? found.title };
-  if (session === undefined || held.current === undefined) return null;
-  const { row, title } = held.current;
+  const row = useHeldDraft(session, rowId);
+  if (session === undefined || row === undefined) return null;
+  const title = heading ?? row.title;
   return (
     <SidePanel title={`${crumb}: ${title}`} heading={title} crumb={crumb} back={back} onClose={closePanel}>
-      <ul className="sv-lanes__ask" aria-label="Waiting on you">
-        <DraftRow
-          row={row}
-          keep={`draft:${session.id}:${row.id}`}
-          {...(draft?.answerWaiting === undefined ? {} : { onAnswer: (rowId: string, answer: DraftAnswer) => void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer) })}
-          {...(draft?.answerWaiting === undefined ? {} : { onWithdraw: (rowId: string, reason?: string) => void dismissWaiting(session.id, `draft:${rowId}`, reason) })}
-        />
-      </ul>
+      <DraftCard sessionId={sessionId} rowId={rowId} />
     </SidePanel>
   );
 }
@@ -104,7 +121,7 @@ export function RulePanel({ item }: { item: Extract<PanelItem, { kind: "rule" }>
   return <DraftSide sessionId={item.sessionId} rowId={item.row} crumb="Rule" {...(rule === undefined ? {} : { heading: rule.label })} />;
 }
 
-/** A draft a Job put to the person, answered beside the thread it may sit far back in. */
+/** A draft a Job put to the person, answered beside the thread it may sit far back in, on a Job not drawn in panes. One in panes opens as a tab (`job-panes/focus.ts`). */
 export function DraftPanel({ item }: { item: Extract<PanelItem, { kind: "draft" }> }) {
   return <DraftSide sessionId={item.sessionId} rowId={item.row} crumb="Draft" />;
 }

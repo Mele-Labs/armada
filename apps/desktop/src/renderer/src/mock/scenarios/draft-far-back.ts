@@ -1,5 +1,5 @@
-// A Job whose agent put a pull request description to him early, then worked on for hundreds of rows, so the draft's card sits behind Show earlier.
-// Needs you lists the draft, and its press opens the card beside the thread. Approve, Approve with fixes and Send back settle the card and drop its
+// A Job in panes whose agent put a pull request description to him early, then worked on for hundreds of rows, so the draft's card sits behind Show earlier.
+// Needs you lists the draft, and its press opens the card as a tab of its own beside Thread. Approve, Approve with fixes and Send back settle the card and drop its
 // waiting item, as Fleet does; Withdraw dismisses it, which the mock's store settles `withdrawn`. The walk `draft-far-back` plays it.
 
 import type { DraftHow, WaitingItem } from "@armada/protocol";
@@ -46,6 +46,7 @@ const job: Session = {
   turn: { state: "idle" },
   standing: "replied",
   lastTurnAt: new Date().toISOString(),
+  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
   rows: [
     { id: "f-1", at: "10:02:00", kind: "message", from: { kind: "you" }, text: "Group the settings page, and draft the description for #57 first." },
     { id: OPEN, at: "10:04:00", kind: "draft", title: TITLE, text: TEXT },
@@ -58,7 +59,7 @@ const job: Session = {
 export const draftFarBack: Scenario = {
   ...s200Sessions,
   name: "draft-far-back",
-  says: "A Job whose drafted pull request description is hundreds of rows back in its thread: Needs you lists it, and its press opens the card beside the thread",
+  says: "A Job whose drafted pull request description is hundreds of rows back in its thread: Needs you lists it, and its press opens the card as a tab on the Job",
   draft: {
     sessions: (board) => {
       const store = s200Sessions.draft!.sessions!(board, [job]);
