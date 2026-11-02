@@ -5,7 +5,11 @@
 //! oldest first. The sketches it embeds are checked as `show_sketch` checks one, and a Job whose page
 //! holds one that will not draw is told. The write is never refused. **Each revision kept is put to
 //! the person**, read off the page kept here and never off the tool call: `document_answers` answers it.
+//! **A page is asked only of the Job that changed it.** The file stays in a slot that changes hands, so a
+//! Job that took another's place is given the page's history, and any other Job passes over a page
+//! another Job left as it kept it. `docs/concepts/document.md`.
 
+use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -13,7 +17,9 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Sessions;
 use ipc::{AttachmentReport, SessionFact, SessionId, SessionReport, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION};
+use store::{Holder, KeptAttachment};
 
+use super::document_answers::is_document;
 use super::document_page::{sketches_in, title_of};
 use crate::daemon::Fleet;
 
@@ -82,14 +88,80 @@ where
     }
 
     /// The turn ended: every page under `<cwd>/.armada/documents/` is read again, so one a script or a
-    /// shell changed is kept too. A page whose bytes the newest revision holds keeps nothing.
+    /// shell changed is kept too. A page whose bytes the newest revision holds keeps nothing, and neither
+    /// does one another Job left here as it kept it.
     pub(super) async fn pages_reread(self: &Arc<Self>, id: &str, cwd: &str) {
         let folder = Path::new(cwd).join(DOCUMENTS.trim_matches('/'));
         let Ok(pages) = tokio::task::spawn_blocking(move || pages_under(&folder)).await else { return };
         for page in pages {
-            self.page_written(id, page).await;
+            if !self.left_by_another(id, &page).await {
+                self.page_written(id, page).await;
+            }
         }
     }
+
+    /// Whether the page at `path` is another Job's as that Job kept it: this Job holds no row for it and
+    /// the file holds the bytes of another's newest revision. A slot handed over is not cleaned, and Jobs
+    /// can share a checkout.
+    async fn left_by_another(&self, id: &str, path: &str) -> bool {
+        let rows = self.store().lock().await.attachments_at("artifact", path, None).unwrap_or_default();
+        let pages: Vec<KeptAttachment> = rows.into_iter().filter(|one| is_document(&one.detail)).collect();
+        if pages.iter().any(|one| one.holder.id == id) {
+            return false;
+        }
+        let newest: Vec<String> = pages.iter().filter_map(|one| revisions_named(&one.detail).pop()).collect();
+        let path = path.to_string();
+        tokio::task::spawn_blocking(move || {
+            let Ok(now) = std::fs::read(&path) else { return false };
+            newest.iter().any(|kept| std::fs::read(kept).is_ok_and(|bytes| bytes == now))
+        })
+        .await
+        .unwrap_or(false)
+    }
+
+    /// Job `new` took the place of `old`: it holds each page from here, with the revisions copied to its
+    /// own folder, the newest revision's number and his answer or dismissal, so only a real edit asks
+    /// again. `old` keeps its own, so a hand undone has lost nothing.
+    pub(super) async fn pages_carried(&self, old: &str, new: &str) {
+        let (held, dismissed) = {
+            let store = self.store().lock().await;
+            (store.attachments_of(&Holder::session(old)).unwrap_or_default(), store.dismissed_waiting(old).unwrap_or_default())
+        };
+        for page in held.into_iter().filter(|one| one.kind == "artifact" && is_document(&one.detail)) {
+            let folder = self.documents_of(new).join(folder_of(&page.target));
+            let kept = revisions_named(&page.detail);
+            let Ok(Ok(copied)) = tokio::task::spawn_blocking(move || copied_to(&folder, &kept)).await else { continue };
+            let Ok(encoded) = ipc::encode(&copied) else { continue };
+            let mut detail = page.detail.clone();
+            detail.insert("revisions".to_string(), encoded);
+            let now = self.instant().as_str().to_string();
+            let item = format!("{DOCUMENT_ITEM_PREFIX}{}", page.target);
+            let mut store = self.store().lock().await;
+            let carried = KeptAttachment { holder: Holder::session(new), detail, since: now.clone(), changed_at: now, ..page };
+            let _ = store.attach(&carried, false);
+            if dismissed.contains(&item) {
+                let _ = store.dismiss_waiting(new, &item);
+            }
+        }
+    }
+}
+
+/// The paths a document's `revisions` names, oldest first, and none where it names none.
+fn revisions_named(detail: &BTreeMap<String, String>) -> Vec<String> {
+    detail.get("revisions").and_then(|kept| ipc::decode("a document's revisions", kept.as_bytes()).ok()).unwrap_or_default()
+}
+
+/// The revisions at `kept` copied into `folder` under their own names, as the paths they now have.
+fn copied_to(folder: &Path, kept: &[String]) -> io::Result<Vec<String>> {
+    std::fs::create_dir_all(folder)?;
+    kept.iter()
+        .map(|one| {
+            let from = Path::new(one);
+            let to = folder.join(from.file_name().unwrap_or_default());
+            std::fs::copy(from, &to)?;
+            Ok(to.to_string_lossy().into_owned())
+        })
+        .collect()
 }
 
 /// Every `.html` file under `folder`, its subfolders too, as `written_job_page` allows them. A

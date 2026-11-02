@@ -36,7 +36,7 @@ This rule said notes were the only feedback until the owner approved asking for 
 **Rule.** A Job writes its page to `.armada/documents/<name>.html` in its worktree.
 Why: `.armada/*` is gitignored, so the page is never in the diff.
 
-**Rule.** Fleet hears every Write or Edit to such a file and keeps a copy of each different write as the next revision, in its own store.
+**Rule.** Fleet hears every Write or Edit to such a file, reads the folder again where each turn ends, and keeps a copy of each different write as the next revision, in its own store.
 A rewrite to the same path is the next revision, and an identical write is none.
 The copies are `r1.html`, `r2.html` and on, under the machine's `attachments/documents/<job id>/<page>/`, outside every worktree, so a released slot keeps them.
 A revision is kept once the tool has answered, so a failed write keeps nothing.
@@ -79,7 +79,22 @@ Why: a design plan's page takes its Job's name, and the name opened the Job it w
 
 **Rule.** A new revision writes the detail afresh, so it drops `settled` and asks again, and lifts a dismissal; the same bytes written again ask nothing.
 
-**Rule.** A step can end on it: `document_approved` in a workflow's `ends_on` holds once he approves the newest revision of any page the Job wrote.
+**Rule.** A step can end on it: `document_approved` in a workflow's `ends_on` holds once he approves the newest revision of any page the Job holds, a page handed to it included.
+
+## A Job that takes another's place
+
+**Rule.** A page is put to the person only by the Job that changed it.
+Why: on 1 Nov 2026 a page he approved at r13 came back as r1 on the Job that took over its slot, with Approve and Send back, though that Job had only read it.
+
+**Rule.** A new Job that takes another's place holds each of the old Job's pages from the hand: its row, a copy of each revision in the new Job's own folder, `revision`, and his answer or dismissal.
+The next real edit is the next revision and asks again, and the same bytes ask nothing.
+A page he had not answered waits on the new Job.
+The old Job keeps its own, so a hand undone has lost nothing.
+
+**Rule.** The turn's end passes over a page this Job holds no row for where the file holds the bytes of another Job's newest revision.
+A lease cleans the page out of a slot, but a slot handed to another Job is not cleaned, and Jobs can share a checkout.
+Once the bytes differ the page is this Job's, and its first revision asks.
+A Write or Edit is always kept, since the tool call says the Job wrote it.
 
 ## The page
 
