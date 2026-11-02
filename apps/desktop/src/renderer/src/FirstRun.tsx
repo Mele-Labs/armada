@@ -6,12 +6,28 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Folder, FolderOpen, GitBranch } from "lucide-react";
-import { Button, Checkbox, Input, KbdChord, Stamp, Switch, Tooltip, useKept } from "@armada/components";
+import {
+  Button,
+  Checkbox,
+  Input,
+  KbdChord,
+  Stamp,
+  Switch,
+  Tooltip,
+  useKept,
+} from "@armada/components";
 import type { ImportFolder } from "@armada/protocol";
 
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
-import { addRepository, chooseFolder, createProject, installAgentMod, listImportFolders, pickRepository } from "./commands";
+import {
+  addRepository,
+  chooseFolder,
+  createProject,
+  installAgentMod,
+  listImportFolders,
+  pickRepository,
+} from "./commands";
 import { claudeFolderOf, defaultParent, homeRelative, rootOfImport } from "./run-places";
 import { useSessionsDraft } from "./sessions-draft";
 import { startOn } from "./start-on";
@@ -79,13 +95,15 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     const [first, ...rest] = roots;
     if (draft === undefined || first === undefined) return;
     const added = served ? undefined : await addRepository(first);
-    if (added !== undefined && added.state !== "located") return onTell?.(added.state === "refused" ? added.saying : "Folder not added");
+    if (added !== undefined && added.state !== "located")
+      return onTell?.(added.state === "refused" ? added.saying : "Folder not added");
     const top = added === undefined ? first : added.repository.root;
     await startOn(draft, top);
     pickRepository(top);
     for (const path of rest) {
       const more = await addRepository(path);
-      if (more.state !== "located") onTell?.(more.state === "refused" ? more.saying : "Folder not added");
+      if (more.state !== "located")
+        onTell?.(more.state === "refused" ? more.saying : "Folder not added");
     }
   }
 
@@ -94,13 +112,21 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     setMaking(true);
     const made = await createProject(where, name);
     setMaking(false);
-    if (made.state !== "located") return onTell?.(made.state === "refused" ? made.saying : "Project not made");
+    if (made.state !== "located")
+      return onTell?.(made.state === "refused" ? made.saying : "Project not made");
     clearName();
-    await open([made.repository.root], true);
+    await open(
+      [
+        made.repository.root,
+      ],
+      true,
+    );
   }
 
   /** The folders ticked, as Fleet serves them: a folder inside a repository is that repository, once. */
-  const chosen = (): string[] => [...new Set((listed ?? []).filter((one) => ticked.has(one.path)).map(rootOfImport))];
+  const chosen = (): string[] => [
+    ...new Set((listed ?? []).filter((one) => ticked.has(one.path)).map(rootOfImport)),
+  ];
 
   /** The mod's install is the press on the switch and Add; Fleet refuses one that was not asked for. It takes minutes, so the Job does not wait on it. */
   async function install(): Promise<void> {
@@ -128,7 +154,10 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   /** The folder dialog. A folder opens the Job; cancelling leaves the menu as it was. */
   async function choose(): Promise<void> {
     const picked = await chooseFolder();
-    if (picked !== null) await open([picked]);
+    if (picked !== null)
+      await open([
+        picked,
+      ]);
   }
 
   const pick = (to: Order["to"], from: number) => {
@@ -137,8 +166,16 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     else setStage(to);
   };
   // Importing is off where Fleet could not read the folders, or has none.
-  const none = unlisted ?? (listed !== null && listed.length === 0 ? "No sessions to import" : undefined);
-  const starts: readonly Order[] = ORDERS.map((one) => (one.to !== "found" || none === undefined ? one : { ...one, off: none }));
+  const none =
+    unlisted ?? (listed !== null && listed.length === 0 ? "No sessions to import" : undefined);
+  const starts: readonly Order[] = ORDERS.map((one) =>
+    one.to !== "found" || none === undefined
+      ? one
+      : {
+          ...one,
+          off: none,
+        },
+  );
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape" && stage !== "choose") {
@@ -148,14 +185,34 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     } else if (stage === "choose") {
       const at = Number(event.key) - 1;
       const start = starts[at];
-      if (start !== undefined && start.off === undefined && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (
+        start !== undefined &&
+        start.off === undefined &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
         event.preventDefault();
         pick(start.to, at);
-      } else if (["j", "k", "ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(event.key)) {
+      } else if (
+        [
+          "j",
+          "k",
+          "ArrowDown",
+          "ArrowUp",
+          "ArrowRight",
+          "ArrowLeft",
+        ].includes(event.key)
+      ) {
         event.preventDefault();
-        const all = [...(root.current?.querySelectorAll<HTMLButtonElement>(".armada-start__order:not(:disabled)") ?? [])];
+        const all = [
+          ...(root.current?.querySelectorAll<HTMLButtonElement>(
+            ".armada-start__order:not(:disabled)",
+          ) ?? []),
+        ];
         const now = all.indexOf(document.activeElement as HTMLButtonElement);
-        const forward = event.key === "j" || event.key === "ArrowDown" || event.key === "ArrowRight";
+        const forward =
+          event.key === "j" || event.key === "ArrowDown" || event.key === "ArrowRight";
         all[(Math.max(now, 0) + (forward ? 1 : all.length - 1)) % all.length]?.focus();
       }
     } else if (stage === "new") {
@@ -166,18 +223,37 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
     } else if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
       event.preventDefault();
       void add();
-    } else if (["j", "k", "ArrowDown", "ArrowUp"].includes(event.key)) {
+    } else if (
+      [
+        "j",
+        "k",
+        "ArrowDown",
+        "ArrowUp",
+      ].includes(event.key)
+    ) {
       event.preventDefault();
-      const all = [...(root.current?.querySelectorAll<HTMLInputElement>("input") ?? [])];
+      const all = [
+        ...(root.current?.querySelectorAll<HTMLInputElement>("input") ?? []),
+      ];
       const now = all.indexOf(document.activeElement as HTMLInputElement);
-      all[Math.min(all.length - 1, Math.max(0, now + (event.key === "j" || event.key === "ArrowDown" ? 1 : -1)))]?.focus();
+      all[
+        Math.min(
+          all.length - 1,
+          Math.max(0, now + (event.key === "j" || event.key === "ArrowDown" ? 1 : -1)),
+        )
+      ]?.focus();
     }
   };
 
   const back = (
     <Button variant="ghost" size="sm" onClick={() => setStage("choose")}>
       Back
-      <KbdChord keys={["Esc"]} aria-hidden />
+      <KbdChord
+        keys={[
+          "Esc",
+        ]}
+        aria-hidden
+      />
     </Button>
   );
 
@@ -187,18 +263,38 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
       <div className="armada-first-run__frame">
         <div className="armada-first-run__where">
           <Tooltip label="Change location">
-            <button type="button" className="armada-first-run__chip" aria-label={`Location ${where === null ? "" : homeRelative(where)}`.trim()} data-chosen="" onClick={() => void place()}>
+            <button
+              type="button"
+              className="armada-first-run__chip"
+              aria-label={`Location ${where === null ? "" : homeRelative(where)}`.trim()}
+              data-chosen=""
+              onClick={() => void place()}
+            >
               <FolderOpen size={12} strokeWidth={2} aria-hidden />
-              <span className="armada-first-run__name">{where === null ? "" : homeRelative(where)}</span>
+              <span className="armada-first-run__name">
+                {where === null ? "" : homeRelative(where)}
+              </span>
             </button>
           </Tooltip>
           <span className="armada-first-run__slash" aria-hidden>
             /
           </span>
-          <Input aria-label="Name" mono autoFocus value={name} onChange={(event) => setName(event.target.value)} />
+          <Input
+            aria-label="Name"
+            mono
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         </div>
         <div className="armada-first-run__acts">
-          <Button variant="primary" size="sm" pending={making} disabled={!NAMED.test(name)} onClick={() => void create()}>
+          <Button
+            variant="primary"
+            size="sm"
+            pending={making}
+            disabled={!NAMED.test(name)}
+            onClick={() => void create()}
+          >
             Create
           </Button>
         </div>
@@ -216,7 +312,20 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
               key={one.path}
               autoFocus={at === 0}
               checked={ticked.has(one.path)}
-              onChange={(event) => setTicked((was) => (event.target.checked ? new Set([...was, one.path]) : new Set([...was].filter((it) => it !== one.path))))}
+              onChange={(event) =>
+                setTicked((was) =>
+                  event.target.checked
+                    ? new Set([
+                        ...was,
+                        one.path,
+                      ])
+                    : new Set(
+                        [
+                          ...was,
+                        ].filter((it) => it !== one.path),
+                      ),
+                )
+              }
             >
               <span className="armada-first-run__row">
                 <span className="armada-first-run__path">{homeRelative(one.path)}</span>
@@ -224,19 +333,38 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
                   <Stamp still first="age" at={one.lastAt} className="armada-first-run__age" />
                 </Tooltip>
                 <Tooltip label={one.git ? "Git repository" : "Not a git repository"}>
-                  <span className="armada-first-run__git" role="img" aria-label={one.git ? "Git repository" : "Not a git repository"} data-git={one.git ? "" : undefined}>
-                    {one.git ? <GitBranch size={12} strokeWidth={2} aria-hidden /> : <Folder size={12} strokeWidth={2} aria-hidden />}
+                  <span
+                    className="armada-first-run__git"
+                    role="img"
+                    aria-label={one.git ? "Git repository" : "Not a git repository"}
+                    data-git={one.git ? "" : undefined}
+                  >
+                    {one.git ? (
+                      <GitBranch size={12} strokeWidth={2} aria-hidden />
+                    ) : (
+                      <Folder size={12} strokeWidth={2} aria-hidden />
+                    )}
                   </span>
                 </Tooltip>
               </span>
             </Checkbox>
           ))}
         </div>
-        <Switch checked={mod} onChange={(event) => setMod(event.target.checked)} description="Terminal Claude Code sessions appear as Jobs">
+        <Switch
+          checked={mod}
+          onChange={(event) => setMod(event.target.checked)}
+          description="Terminal Claude Code sessions appear as Jobs"
+        >
           Install the Armada mod
         </Switch>
         <div className="armada-first-run__acts">
-          <Button variant="primary" size="sm" pending={adding} disabled={ticked.size === 0 && !mod} onClick={() => void add()}>
+          <Button
+            variant="primary"
+            size="sm"
+            pending={adding}
+            disabled={ticked.size === 0 && !mod}
+            onClick={() => void add()}
+          >
             Add
           </Button>
         </div>
@@ -249,7 +377,13 @@ export function FirstRun({ onTell }: { onTell?: ((sentence: string) => void) | u
   return (
     <>
       <StartField preview={preview} folders={(found ?? []).map((one) => one.path)} />
-      <section ref={root} className="armada-first-run" data-stage={stage} aria-label="First Job" onKeyDown={keys}>
+      <section
+        ref={root}
+        className="armada-first-run"
+        data-stage={stage}
+        aria-label="First Job"
+        onKeyDown={keys}
+      >
         {stage === "choose" ? (
           <StartMenu at={on} last={last} orders={starts} onPick={pick} onFocus={setOn} />
         ) : stage === "new" ? (

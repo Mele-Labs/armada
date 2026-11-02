@@ -26,14 +26,26 @@ export function FileView({ origin, id, path }: { origin: string; id: string; pat
       gone = true;
       if (shown?.kind === "image") URL.revokeObjectURL(shown.url);
     };
-  }, [machine?.origin, id, path]);
+  }, [
+    machine?.origin,
+    id,
+    path,
+  ]);
   return (
     <section className="pk-screen" aria-label={nameOf(path)}>
       <Band title={nameOf(path)} onBack={() => go(jobPath(origin, id))} back="Back to the Job" />
       <div className="pk-body pk-shown">
         {shown?.kind === "refused" ? <Trouble says={shown.says} /> : null}
-        {shown?.kind === "image" ? <img className="pk-shown__image" src={shown.url} alt={nameOf(path)} /> : null}
-        {shown?.kind === "text" ? (/\.(md|markdown)$/i.test(path) ? <Prose text={shown.text} /> : <pre className="pk-shown__text">{shown.text}</pre>) : null}
+        {shown?.kind === "image" ? (
+          <img className="pk-shown__image" src={shown.url} alt={nameOf(path)} />
+        ) : null}
+        {shown?.kind === "text" ? (
+          /\.(md|markdown)$/i.test(path) ? (
+            <Prose text={shown.text} />
+          ) : (
+            <pre className="pk-shown__text">{shown.text}</pre>
+          )
+        ) : null}
       </div>
     </section>
   );
@@ -44,17 +56,30 @@ export function SketchView({ origin, id, sketch }: { origin: string; id: string;
   useEffect(() => void start(), []);
   const machine = macOf(origin)?.machine;
   const [read] = useJob(machine, id);
-  const drawn = read.thread === undefined ? undefined : sketchOf(sessionOfThread(read.thread), sketch);
+  const drawn =
+    read.thread === undefined ? undefined : sketchOf(sessionOfThread(read.thread), sketch);
   const title = drawn?.title ?? sketch.replace(/^sketch:/, "");
   return (
     <section className="pk-screen" aria-label={title}>
       <Band title={title} onBack={() => go(jobPath(origin, id))} back="Back to the Job" />
       <div className="pk-body pk-shown">
         {drawn === undefined ? (
-          <Trouble says={read.error ?? (read.thread === undefined ? "" : "That Job did not show that sketch.")} />
+          <Trouble
+            says={
+              read.error ?? (read.thread === undefined ? "" : "That Job did not show that sketch.")
+            }
+          />
         ) : (
           <WithKeptStyles machine={machine}>
-            <SketchScene scene={drawn.scene} {...(drawn.against === undefined ? {} : { against: drawn.against })} title={drawn.title} />
+            <SketchScene
+              scene={drawn.scene}
+              {...(drawn.against === undefined
+                ? {}
+                : {
+                    against: drawn.against,
+                  })}
+              title={drawn.title}
+            />
           </WithKeptStyles>
         )}
       </div>

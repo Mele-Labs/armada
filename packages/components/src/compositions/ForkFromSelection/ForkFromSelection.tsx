@@ -9,10 +9,17 @@ import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMe
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /** What was selected, and the message it was selected in. */
-export type ForkPick = { rowId: string; quote: string };
+export type ForkPick = {
+  rowId: string;
+  quote: string;
+};
 
 /** Where the selection is: its first line, and the foot of its last. */
-type Spot = ForkPick & { left: number; top: number; foot: number };
+type Spot = ForkPick & {
+  left: number;
+  top: number;
+  foot: number;
+};
 
 /** The attribute that makes a block of text forkable, holding the id of the message it belongs to. */
 export const FORK_ROW = "data-fork-row";
@@ -58,18 +65,48 @@ function read(scope: HTMLElement): Spot | undefined {
   // Out of sight in the thread's own box: scrolled away.
   const box = scope.getBoundingClientRect();
   if (box.height > 0 && (last.bottom < box.top || first.top > box.bottom)) return undefined;
-  return { rowId: block.getAttribute(FORK_ROW)!, quote: quoteOf(words), left: first.left + Math.min(first.width, pixels("--space-12") * 2) / 2, top: first.top, foot: last.bottom };
+  return {
+    rowId: block.getAttribute(FORK_ROW)!,
+    quote: quoteOf(words),
+    left: first.left + Math.min(first.width, pixels("--space-12") * 2) / 2,
+    top: first.top,
+    foot: last.bottom,
+  };
 }
 
 /** The words as the right-click menu holds them: where it opens, and the pick it was opened on, kept because opening it may take the selection. */
-type Opened = { x: number; y: number; pick: ForkPick };
+type Opened = {
+  x: number;
+  y: number;
+  pick: ForkPick;
+};
 
-const TEACH = { id: "teach", label: "Teach", icon: GraduationCap } as const;
-const REPLY = { id: "reply", label: "Reply", icon: Reply } as const;
-const FORK = { id: "fork", label: "Fork from here", icon: GitFork } as const;
+const TEACH = {
+  id: "teach",
+  label: "Teach",
+  icon: GraduationCap,
+} as const;
+const REPLY = {
+  id: "reply",
+  label: "Reply",
+  icon: Reply,
+} as const;
+const FORK = {
+  id: "fork",
+  label: "Fork from here",
+  icon: GitFork,
+} as const;
 /** The menu lists Teach first, the act the person came for; the bar keeps Reply and Fork where they were and adds Teach after them. */
-const IN_MENU = [TEACH, REPLY, FORK];
-const ON_BAR = [REPLY, FORK, TEACH];
+const IN_MENU = [
+  TEACH,
+  REPLY,
+  FORK,
+];
+const ON_BAR = [
+  REPLY,
+  FORK,
+  TEACH,
+];
 
 /**
  * A small bar above the words selected in a message, with up to three acts: reply to those words, fork the
@@ -92,12 +129,25 @@ export function ForkFromSelection({
 }) {
   const [spot, setSpot] = useState<Spot>();
   const [menu, setMenu] = useState<Opened>();
-  const acts = { teach: onTeach, reply: onReply, fork: onFork };
+  const acts = {
+    teach: onTeach,
+    reply: onReply,
+    fork: onFork,
+  };
   const onBar = ON_BAR.filter((one) => acts[one.id] !== undefined);
-  const live = useRef({ offered: onBar.length, menu: false });
-  live.current = { offered: onBar.length, menu: menu !== undefined };
+  const live = useRef({
+    offered: onBar.length,
+    menu: false,
+  });
+  live.current = {
+    offered: onBar.length,
+    menu: menu !== undefined,
+  };
   const bar = useRef<HTMLDivElement>(null);
-  const [placed, setPlaced] = useState<{ left: number; top: number }>();
+  const [placed, setPlaced] = useState<{
+    left: number;
+    top: number;
+  }>();
 
   useEffect(() => {
     const home = scope.current;
@@ -125,7 +175,14 @@ export function ForkFromSelection({
       if (there === undefined) return;
       event.preventDefault();
       event.stopPropagation();
-      setMenu({ x: there.left, y: there.foot, pick: { rowId: there.rowId, quote: there.quote } });
+      setMenu({
+        x: there.left,
+        y: there.foot,
+        pick: {
+          rowId: there.rowId,
+          quote: there.quote,
+        },
+      });
     };
     const key = (event: KeyboardEvent) => {
       // With the menu open, Esc closes the menu and leaves the words selected.
@@ -137,13 +194,32 @@ export function ForkFromSelection({
     // own (Fleet's notice) keeps it for every press that is not on selected words.
     const context = (event: MouseEvent) => {
       const there = live.current.offered === 0 ? undefined : read(home);
-      if (there === undefined || !(event.target instanceof Node) || blockOf(event.target)?.getAttribute(FORK_ROW) !== there.rowId) return;
+      if (
+        there === undefined ||
+        !(event.target instanceof Node) ||
+        blockOf(event.target)?.getAttribute(FORK_ROW) !== there.rowId
+      )
+        return;
       const range = window.getSelection()?.getRangeAt(0);
       const box = range?.getBoundingClientRect();
-      if (box === undefined || event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) return;
+      if (
+        box === undefined ||
+        event.clientX < box.left ||
+        event.clientX > box.right ||
+        event.clientY < box.top ||
+        event.clientY > box.bottom
+      )
+        return;
       event.preventDefault();
       event.stopPropagation();
-      setMenu({ x: event.clientX, y: event.clientY, pick: { rowId: there.rowId, quote: there.quote } });
+      setMenu({
+        x: event.clientX,
+        y: event.clientY,
+        pick: {
+          rowId: there.rowId,
+          quote: there.quote,
+        },
+      });
     };
     home.addEventListener("contextmenu", context, true);
     home.addEventListener("mousedown", down);
@@ -163,7 +239,9 @@ export function ForkFromSelection({
       home.removeEventListener("scroll", look, true);
       window.removeEventListener("resize", look);
     };
-  }, [scope]);
+  }, [
+    scope,
+  ]);
 
   // Centred over the first line, and kept inside the window; under the last line where there is no room above.
   useLayoutEffect(() => {
@@ -177,7 +255,9 @@ export function ForkFromSelection({
       left: Math.min(Math.max(spot.left - width / 2, edge), window.innerWidth - width - edge),
       top: above >= edge ? above : spot.foot + gap,
     });
-  }, [spot]);
+  }, [
+    spot,
+  ]);
 
   // Taking an act lets go of the selection, as a press on any of them does.
   const take = (act: (pick: ForkPick) => void, pick: ForkPick) => {
@@ -190,9 +270,19 @@ export function ForkFromSelection({
     return (
       <DropdownMenu
         triggerLabel="Selection"
-        at={{ x: menu.x, y: menu.y }}
+        at={{
+          x: menu.x,
+          y: menu.y,
+        }}
         open
-        entries={IN_MENU.filter((one) => acts[one.id] !== undefined).map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, icon: one.icon }))}
+        entries={IN_MENU.filter((one) => acts[one.id] !== undefined).map(
+          (one): DropdownMenuEntry => ({
+            kind: "item",
+            id: one.id,
+            label: one.label,
+            icon: one.icon,
+          }),
+        )}
         onOpenChange={(open) => {
           if (!open) setMenu(undefined);
         }}
@@ -210,13 +300,33 @@ export function ForkFromSelection({
       className="armada-fork-from-selection"
       role="toolbar"
       aria-label="Selection"
-      style={placed === undefined ? { visibility: "hidden", left: 0, top: 0 } : placed}
+      style={
+        placed === undefined
+          ? {
+              visibility: "hidden",
+              left: 0,
+              top: 0,
+            }
+          : placed
+      }
       // A press must not take the selection with it.
       onMouseDown={(event) => event.preventDefault()}
     >
       {onBar.map(({ id, label, icon: Glyph }) => (
         <Tooltip key={id} label={label} beside>
-          <Button type="button" variant="ghost" size="sm" iconOnly aria-label={label} onClick={() => take(acts[id]!, { rowId: spot.rowId, quote: spot.quote })}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label={label}
+            onClick={() =>
+              take(acts[id]!, {
+                rowId: spot.rowId,
+                quote: spot.quote,
+              })
+            }
+          >
             <Glyph size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>

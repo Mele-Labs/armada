@@ -7,7 +7,8 @@ import { motion } from "./mounted";
 
 const REDUCED = "(prefers-reduced-motion: reduce)";
 
-const sheet = (): string => getComputedStyle(document.documentElement).getPropertyValue("--duration-sheet").trim();
+const sheet = (): string =>
+  getComputedStyle(document.documentElement).getPropertyValue("--duration-sheet").trim();
 
 test("a test runs with reduced motion unless it asks for motion", () => {
   expect(window.matchMedia(REDUCED).matches).toBe(true);

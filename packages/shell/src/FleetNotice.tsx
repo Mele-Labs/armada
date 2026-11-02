@@ -20,12 +20,26 @@ import type { Failure } from "./failures";
 export const RESTART_WAIT_MS = 30_000;
 
 /** What the button costs a working Drone, in the words a person weighs it by. */
-const RESTART_TOOLTIP = "Restart Fleet. Working Drones are adopted and cannot be redirected until they finish.";
+const RESTART_TOOLTIP =
+  "Restart Fleet. Working Drones are adopted and cannot be redirected until they finish.";
 
 type Phase =
-  | { at: "idle" }
-  | { at: "working"; pid: number | null }
-  | { at: "failed"; restart: Extract<FleetRestart, { ok: false }> };
+  | {
+      at: "idle";
+    }
+  | {
+      at: "working";
+      pid: number | null;
+    }
+  | {
+      at: "failed";
+      restart: Extract<
+        FleetRestart,
+        {
+          ok: false;
+        }
+      >;
+    };
 
 export type FleetNoticeProps = {
   fleet: Failure;
@@ -37,7 +51,9 @@ export type FleetNoticeProps = {
 };
 
 export function FleetNotice({ fleet, fleetPid, bridge, onCopied, restart }: FleetNoticeProps) {
-  const [phase, setPhase] = useState<Phase>({ at: "idle" });
+  const [phase, setPhase] = useState<Phase>({
+    at: "idle",
+  });
   const mismatch = fleet.payload.code === "bridge.fleet.protocol_mismatch";
   const working = phase.at === "working";
   // A new pid under a notice that is still here: Fleet came back, and it still does not match.
@@ -46,22 +62,47 @@ export function FleetNotice({ fleet, fleetPid, bridge, onCopied, restart }: Flee
   useEffect(() => {
     if (!working || apart) return;
     const timer = window.setTimeout(
-      () => setPhase({ at: "failed", restart: { ok: false, why: "no_answer", detail: `no new runtime file in ${RESTART_WAIT_MS / 1000}s` } }),
+      () =>
+        setPhase({
+          at: "failed",
+          restart: {
+            ok: false,
+            why: "no_answer",
+            detail: `no new runtime file in ${RESTART_WAIT_MS / 1000}s`,
+          },
+        }),
       RESTART_WAIT_MS,
     );
     return () => window.clearTimeout(timer);
-  }, [working, apart]);
+  }, [
+    working,
+    apart,
+  ]);
 
   const press = () => {
-    setPhase({ at: "working", pid: fleetPid });
+    setPhase({
+      at: "working",
+      pid: fleetPid,
+    });
     void restart().then((answer) => {
-      if (!answer.ok) setPhase({ at: "failed", restart: answer });
+      if (!answer.ok)
+        setPhase({
+          at: "failed",
+          restart: answer,
+        });
     });
   };
 
   const button = !mismatch ? null : (
     <Tooltip label={RESTART_TOOLTIP}>
-      <Button variant="ghost" size="sm" ground="sunken" pending={working && !apart} disabled={working} onClick={press}>
+      <Button
+        variant="ghost"
+        size="sm"
+        ground="sunken"
+        pending={working && !apart}
+        disabled={working}
+        onClick={press}
+      >
         {working && !apart ? (
           <LoaderCircle size={16} strokeWidth={2} aria-hidden="true" />
         ) : (
@@ -77,7 +118,8 @@ export function FleetNotice({ fleet, fleetPid, bridge, onCopied, restart }: Flee
       <FailureBlock failure={fleet} onCopied={onCopied} acts={button} />
       {apart ? (
         <Alert tone="escalated" title="Still not matching">
-          Fleet restarted on the installed build, and it is not this Bridge's. Update Armada, then reopen Bridge.
+          Fleet restarted on the installed build, and it is not this Bridge's. Update Armada, then
+          reopen Bridge.
         </Alert>
       ) : null}
       {phase.at === "failed" ? (
@@ -85,7 +127,11 @@ export function FleetNotice({ fleet, fleetPid, bridge, onCopied, restart }: Flee
           failure={fleetRestartFailure(phase.restart, bridge)}
           onCopied={onCopied}
           reloadable={false}
-          onDismiss={() => setPhase({ at: "idle" })}
+          onDismiss={() =>
+            setPhase({
+              at: "idle",
+            })
+          }
         />
       ) : null}
     </>

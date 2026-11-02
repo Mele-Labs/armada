@@ -11,7 +11,14 @@ import { DEFAULT_LOOK } from "./thread-look";
 const meta: Meta<typeof ThreadSettings> = {
   title: "Compositions/Thread settings",
   component: ThreadSettings,
-  args: { look: { ...DEFAULT_LOOK, agentName: "Xavier" }, onChange: fn(), keep: "story:thread-settings" },
+  args: {
+    look: {
+      ...DEFAULT_LOOK,
+      agentName: "Xavier",
+    },
+    onChange: fn(),
+    keep: "story:thread-settings",
+  },
 };
 
 export default meta;
@@ -19,7 +26,10 @@ type Story = StoryObj<typeof ThreadSettings>;
 
 /** In the Aa panel, for one Job: no Voice, which System holds. */
 export const InThePanel: Story = {
-  args: { inPanel: true, jobId: "job-1" },
+  args: {
+    inPanel: true,
+    jobId: "job-1",
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByLabelText("Agent name")).toHaveValue("Xavier");
@@ -29,7 +39,14 @@ export const InThePanel: Story = {
 
 /** In System › Thread, with Voice and Whisper not yet installed. */
 export const InSystem: Story = {
-  args: { voice: { whisper: { state: "absent" }, onInstall: fn() } },
+  args: {
+    voice: {
+      whisper: {
+        state: "absent",
+      },
+      onInstall: fn(),
+    },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByLabelText("Voice").length).toBeGreaterThan(0);

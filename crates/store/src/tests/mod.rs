@@ -45,6 +45,7 @@ mod session_rail;
 mod session_tells;
 mod session_later;
 mod session_done;
+mod session_init;
 mod session_so_far;
 mod later_marks;
 mod claim_misreads;
@@ -94,3 +95,6 @@ pub fn at(value: &str) -> Timestamp {
 pub fn open(dir: &TempDir) -> Store {
     Store::open(&dir.db()).expect("a fresh store opens")
 }
+mod autopilot_boxes;
+mod autopilot_decisions;
+mod sleep_folded;

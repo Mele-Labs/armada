@@ -7,9 +7,16 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { useCollapse, useFlightExpanded } from "./collapse";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 beforeEach(() => localStorage.clear());
 afterEach(() => {
   vi.restoreAllMocks();
@@ -37,7 +44,10 @@ function mount(id: string): HTMLElement {
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(<Panel id={id} />));
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   return host;
 }
 
@@ -56,7 +66,17 @@ test("pressing the band folds the panel and a second press opens it", () => {
 
 test("Enter and Space on the band fold it, a key anywhere else does not", () => {
   const host = mount("plan");
-  const press = (key: string, on: Element) => act(() => void on.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true })));
+  const press = (key: string, on: Element) =>
+    act(
+      () =>
+        void on.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key,
+            bubbles: true,
+            cancelable: true,
+          }),
+        ),
+    );
   press("Enter", band(host));
   expect(folded(host)).toBe(true);
   press(" ", band(host));
@@ -99,7 +119,10 @@ function mountExpander(): HTMLButtonElement {
   document.body.append(host);
   const root = createRoot(host);
   act(() => root.render(<Expander />));
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   return host.querySelector("button")!;
 }
 

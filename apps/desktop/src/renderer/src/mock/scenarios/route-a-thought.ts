@@ -14,32 +14,59 @@ import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted, pullRequest } from "../sessions-fleet";
 import { COMMANDS, helmFleetOn } from "../helm-carry";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 /** A repository served beside armada, set up. */
 function elsewhere(name: string): RepositorySummary {
   return {
     root: `/Users/user/code/${name}`,
     records_root: `/records/${name}`,
-    manifest: { ...repository().manifest!, id: name, repository: name, path: `${name}/armada.yml` },
+    manifest: {
+      ...repository().manifest!,
+      id: name,
+      repository: name,
+      path: `${name}/armada.yml`,
+    },
   };
 }
 
-const SERVED = [ARMADA, elsewhere("storefront"), elsewhere("billing")];
+const SERVED = [
+  ARMADA,
+  elsewhere("storefront"),
+  elsewhere("billing"),
+];
 
 const now = () => new Date().toISOString();
 
 /** An attachment of another repository's: `held` writes armada's. */
-const of = (manifest: string, attachment: ReturnType<typeof held>) => ({ ...attachment, manifest_id: manifest });
+const of = (manifest: string, attachment: ReturnType<typeof held>) => ({
+  ...attachment,
+  manifest_id: manifest,
+});
 
 const records = () => [
   hosted("01LISTVIEWSAAAAAAAAAAAAAAA", {
     title: "Sessions list views",
     last_turn_at: now(),
-    hosted: { turn: { state: "working" }, mode: "auto", running: true, commands: COMMANDS },
+    hosted: {
+      turn: {
+        state: "working",
+      },
+      mode: "auto",
+      running: true,
+      commands: COMMANDS,
+    },
     attachments: [
       held("slot", "3"),
-      held("branch", "sessions/list-views", { slot: "3" }),
+      held("branch", "sessions/list-views", {
+        slot: "3",
+      }),
       pullRequest(1851, {
         title: "Sessions page: Active, Quiet and Ended views, with a status for each",
         branch: "sessions/list-views",
@@ -51,26 +78,56 @@ const records = () => [
   hosted("01RELEASENOTESBBBBBBBBBBBB", {
     title: "Release notes script",
     last_turn_at: now(),
-    attachments: [held("slot", "5"), held("branch", "rel/notes-script", { slot: "5" }), pullRequest(1847, { title: "Release notes from merged pull requests", branch: "rel/notes-script" })],
+    attachments: [
+      held("slot", "5"),
+      held("branch", "rel/notes-script", {
+        slot: "5",
+      }),
+      pullRequest(1847, {
+        title: "Release notes from merged pull requests",
+        branch: "rel/notes-script",
+      }),
+    ],
   }),
   hosted("01MIGRATIONSCCCCCCCCCCCCCC", {
     title: "Store migration spike",
     last_turn_at: now(),
-    attachments: [held("slot", "7"), held("branch", "spike/store-migrations", { slot: "7" })],
+    attachments: [
+      held("slot", "7"),
+      held("branch", "spike/store-migrations", {
+        slot: "7",
+      }),
+    ],
   }),
   hosted("01CARTROUNDINGDDDDDDDDDDDD", {
     title: "Cart totals rounding",
     manifest_id: "storefront",
     cwd: "/Users/user/code/storefront",
     last_turn_at: now(),
-    attachments: [of("storefront", held("slot", "4")), of("storefront", held("branch", "fix/cart-rounding", { slot: "4" }))],
+    attachments: [
+      of("storefront", held("slot", "4")),
+      of(
+        "storefront",
+        held("branch", "fix/cart-rounding", {
+          slot: "4",
+        }),
+      ),
+    ],
   }),
   hosted("01INVOICEPDFEEEEEEEEEEEEEE", {
     title: "Invoice PDF layout",
     manifest_id: "billing",
     cwd: "/Users/user/code/billing",
     last_turn_at: now(),
-    attachments: [of("billing", held("slot", "6")), of("billing", held("branch", "invoice/pdf-layout", { slot: "6" }))],
+    attachments: [
+      of("billing", held("slot", "6")),
+      of(
+        "billing",
+        held("branch", "invoice/pdf-layout", {
+          slot: "6",
+        }),
+      ),
+    ],
   }),
 ];
 
@@ -82,13 +139,29 @@ const REPLY = [
 ].join("\n\n");
 
 function build(): Scenario {
-  const base = holding("route-a-thought", "Helm routes a thought into running work: live Sessions in three repositories, and Helm's dock open on armada");
+  const base = holding(
+    "route-a-thought",
+    "Helm routes a thought into running work: live Sessions in three repositories, and Helm's dock open on armada",
+  );
   const board: Scenario = {
     ...base,
     state: {
       ...base.state,
-      holds: { ...base.state.holds, repositories: SERVED, manifests: SERVED.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest])) },
-      helm: { state: "pointed", manifestId: "armada" },
+      holds: {
+        ...base.state.holds,
+        repositories: SERVED,
+        manifests: SERVED.flatMap((one) =>
+          one.manifest === undefined
+            ? []
+            : [
+                one.manifest,
+              ],
+        ),
+      },
+      helm: {
+        state: "pointed",
+        manifestId: "armada",
+      },
     },
   };
   const served = new FakeSessionsFleet(records(), {}).scenario(board);

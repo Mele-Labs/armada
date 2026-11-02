@@ -30,7 +30,9 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
-.armada-system-side > .armada-input-field { margin-inline: var(--space-2); }
+.armada-system-side > .armada-input-field {
+  margin-inline: var(--space-2);
+}
 
 /* The groups scroll under the search, which stays at the top of the column. */
 .armada-system-side__scroll {
@@ -138,10 +140,23 @@
   overflow: hidden;
 }
 /* The last section takes what the pane has over; one with the catalogue after it keeps its own height and the catalogue takes it. */
-.armada-system__pane > .armada-system__section { flex: 0 1 auto; min-height: 0; }
-.armada-system__pane > .armada-system__section:last-child { flex: 1 1 auto; }
-.armada-system__section > .armada-card { flex: 1 1 auto; min-height: 0; }
-.armada-system__section > .armada-card > .armada-card-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.armada-system__pane > .armada-system__section {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+.armada-system__pane > .armada-system__section:last-child {
+  flex: 1 1 auto;
+}
+.armada-system__section > .armada-card {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.armada-system__section > .armada-card > .armada-card-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 /* An entry that holds a header above its own body: the Harness name and home. */
 .armada-system__heading {

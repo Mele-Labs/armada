@@ -14,16 +14,27 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { sheet, mountApp, type Mounted, studying, toSystemPage } from "@armada/desktop/mock";
 
-const SLICES = { slices: ["core", "studios"] } as const;
+const SLICES = {
+  slices: [
+    "core",
+    "studios",
+  ],
+} as const;
 
-const windows: { app: Mounted; host: HTMLElement }[] = [];
+const windows: {
+  app: Mounted;
+  host: HTMLElement;
+}[] = [];
 
 function open(scenario: Parameters<typeof mountApp>[0]): Mounted {
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
   const app = mountApp(scenario, host, undefined, SLICES);
-  windows.push({ app, host });
+  windows.push({
+    app,
+    host,
+  });
   return app;
 }
 
@@ -34,23 +45,48 @@ afterEach(() => {
   }
 });
 
-const node = (name: RegExp) => page.getByRole("group", { name });
+const node = (name: RegExp) =>
+  page.getByRole("group", {
+    name,
+  });
 /** The bar hovering over what is picked: a row of presses, not a menu — 28 Sep 2026. */
-const bar = () => page.getByRole("group", { name: "What is picked" });
+const bar = () =>
+  page.getByRole("group", {
+    name: "What is picked",
+  });
 /** One act on the bar, by its accessible name, which a glyph-only press carries too. */
 async function act(name: string): Promise<void> {
-  await bar().getByRole("button", { name, exact: true }).click();
+  await bar()
+    .getByRole("button", {
+      name,
+      exact: true,
+    })
+    .click();
 }
 
 /** The instance Fleet is holding, as `list_servers` answers it. */
 const SERVING: ServerState = {
   id: "01SERVERSTORYBOOK000000000",
   name: "storybook_dev",
-  checkout: { path: "/repos/armada", commit: "cf4bcaea", behind: 0 },
+  checkout: {
+    path: "/repos/armada",
+    commit: "cf4bcaea",
+    behind: 0,
+  },
   phase: "serving",
   serve: "pnpm -C packages/components exec storybook dev -p 41207 --no-open --ci",
-  ports: [{ name: "storybook", port: 41207 }],
-  links: [{ url: "http://localhost:41207", name: "Storybook" }],
+  ports: [
+    {
+      name: "storybook",
+      port: 41207,
+    },
+  ],
+  links: [
+    {
+      url: "http://localhost:41207",
+      name: "Storybook",
+    },
+  ],
   started_by: "person",
   started_at: "2026-09-17T08:30:00Z",
   serving_since: "2026-09-17T08:30:12Z",
@@ -67,7 +103,10 @@ function servingStudio(): Studio {
     kind: "run",
     run_id: SERVING.id,
     held: "server",
-    position: { x: 0, y: 0 },
+    position: {
+      x: 0,
+      y: 0,
+    },
     created_at: AT,
   };
   return {
@@ -76,24 +115,42 @@ function servingStudio(): Studio {
     name: "The app, running",
     created_at: AT,
     touched_at: AT,
-    nodes: [held],
+    nodes: [
+      held,
+    ],
     edges: [],
   };
 }
 
 /** `studying`, with the server Fleet holds and the run sheet the checkout declares. */
 function serving() {
-  const fleet = studying([servingStudio()]);
+  const fleet = studying([
+    servingStudio(),
+  ]);
   return {
     ...fleet,
     scenario: {
       ...fleet.scenario,
-      state: { ...fleet.scenario.state, servers: { servers: [SERVING] } },
+      state: {
+        ...fleet.scenario.state,
+        servers: {
+          servers: [
+            SERVING,
+          ],
+        },
+      },
       behaves: (handle: Parameters<NonNullable<typeof fleet.scenario.behaves>>[0]) => ({
         ...fleet.scenario.behaves?.(handle),
         watchCheckoutRunSheet: async (want: boolean) =>
           handle.publish({
-            checkoutRunSheet: want ? { state: "read" as const, sheet: sheet() } : { state: "none" as const },
+            checkoutRunSheet: want
+              ? {
+                  state: "read" as const,
+                  sheet: sheet(),
+                }
+              : {
+                  state: "none" as const,
+                },
           }),
       }),
     },
@@ -102,8 +159,17 @@ function serving() {
 
 async function openTheStudio(): Promise<void> {
   await toSystemPage("Studios");
-  await page.getByRole("cell", { name: "The app, running", exact: true }).click();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page
+    .getByRole("cell", {
+      name: "The app, running",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Continue",
+    })
+    .click();
 }
 
 /**
@@ -120,7 +186,9 @@ test("a server node reads serving with its link and Stop, and the link leaves Br
   await expect.element(node(/^Run: storybook_dev, serving/)).toBeVisible();
   await expect.element(page.getByText("localhost:41207")).toBeVisible();
 
-  node(/^Run: storybook_dev/).element().focus();
+  node(/^Run: storybook_dev/)
+    .element()
+    .focus();
   await userEvent.keyboard("{Enter}");
 
   const openServerLink = vi.spyOn(app.api, "openServerLink");
@@ -145,15 +213,35 @@ test("the Run control starts a declared server through start_studio_server", asy
   await openTheStudio();
 
   const startStudioServer = vi.spyOn(app.api, "startStudioServer");
-  await page.getByRole("button", { name: "Run", exact: true }).click();
-  await page.getByRole("menuitem", { name: "storybook_dev", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Run",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("menuitem", {
+      name: "storybook_dev",
+      exact: true,
+    })
+    .click();
   await expect.poll(() => startStudioServer.mock.calls.length).toBe(1);
   expect(startStudioServer.mock.calls[0]![1]).toBe("storybook_dev");
 
   // And a Check goes to the other one, which is the whole of the difference.
   const startStudioRun = vi.spyOn(app.api, "startStudioRun");
-  await page.getByRole("button", { name: "Run", exact: true }).click();
-  await page.getByRole("menuitem", { name: "typecheck", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Run",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("menuitem", {
+      name: "typecheck",
+      exact: true,
+    })
+    .click();
   await expect.poll(() => startStudioRun.mock.calls.length).toBe(1);
   expect(startStudioRun.mock.calls[0]![1]).toBe("typecheck");
 });
@@ -170,7 +258,9 @@ test("capture on a running server's page names the server and its own link", asy
   await openTheStudio();
 
   await expect.element(node(/^Run: storybook_dev, serving/)).toBeVisible();
-  node(/^Run: storybook_dev/).element().focus();
+  node(/^Run: storybook_dev/)
+    .element()
+    .focus();
   await userEvent.keyboard("{Enter}");
 
   const openCaptureWindow = vi.spyOn(app.api, "openCaptureWindow");

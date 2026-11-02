@@ -18,16 +18,26 @@ import { installUiSounds, setUiSounds } from "./ui-sounds";
  * A Session opens on the Cockpit. Anything else lands on the Cockpit itself, the overlays down
  * first: the press asked for the work, not for the composer that happened to be up.
  */
-export function useSummoned(go: () => void, then: (act: NonNullable<Summons["then"]>, sessionId: string) => void): void {
+export function useSummoned(
+  go: () => void,
+  then: (act: NonNullable<Summons["then"]>, sessionId: string) => void,
+): void {
   // The latest, because the listener is installed once.
-  const latest = useRef({ go, then });
-  latest.current = { go, then };
+  const latest = useRef({
+    go,
+    then,
+  });
+  latest.current = {
+    go,
+    then,
+  };
   useEffect(
     () =>
       window.armada.onSummoned((to) => {
         if (to.sessionId === undefined) return latest.current.go();
         // A walk window's panel asked for more than the Session: a Check or its Loadout opens over it, a surface or a link replaces it.
-        if (to.then === undefined || to.then.kind === "check" || to.then.kind === "loadout") askToOpenSession(to.sessionId);
+        if (to.then === undefined || to.then.kind === "check" || to.then.kind === "loadout")
+          askToOpenSession(to.sessionId);
         if (to.then !== undefined) latest.current.then(to.then, to.sessionId);
       }),
     [],
@@ -40,10 +50,17 @@ export function useSummoned(go: () => void, then: (act: NonNullable<Summons["the
  * call land, and the taker clears the token so it is not acted on twice.
  */
 export function useLandings() {
-  const [bringing, setBringing] = useState<{ key: string; at: number } | null>(null);
+  const [bringing, setBringing] = useState<{
+    key: string;
+    at: number;
+  } | null>(null);
   return {
     bringing,
-    bring: (key: string) => setBringing({ key, at: Date.now() }),
+    bring: (key: string) =>
+      setBringing({
+        key,
+        at: Date.now(),
+      }),
     brought: () => setBringing(null),
   };
 }
@@ -52,24 +69,50 @@ export function useLandings() {
 export function useUiSounds(settings: SettingsList | null): void {
   useEffect(() => installUiSounds(), []);
   const on = settings?.settings.find((one) => one.key === "features.uiSounds")?.value !== false;
-  useEffect(() => setUiSounds(on), [on]);
+  useEffect(
+    () => setUiSounds(on),
+    [
+      on,
+    ],
+  );
 }
 
 /**
  * A link to a pull request opened from outside (`armada://pull/...`, behind `features.deepLinks`): Reviews opens on its page, `go` having taken the window there.
  * **Held until a repository is drawn**, since a link that launched the app arrives before the window has read which ones Fleet serves. A refusal is `say`'s, never a dead press.
  */
-export function usePullLinks(go: () => void, repositories: readonly RepositorySummary[], say: (words: string) => void): (link: PullLink) => void {
+export function usePullLinks(
+  go: () => void,
+  repositories: readonly RepositorySummary[],
+  say: (words: string) => void,
+): (link: PullLink) => void {
   const store = useReviewStore();
   const [waiting, setWaiting] = useState<PullLink | undefined>(undefined);
-  const latest = useRef({ go, say });
-  latest.current = { go, say };
-  useEffect(() => (store === undefined ? undefined : window.armada.onPullLink(setWaiting)), [store]);
+  const latest = useRef({
+    go,
+    say,
+  });
+  latest.current = {
+    go,
+    say,
+  };
+  useEffect(
+    () => (store === undefined ? undefined : window.armada.onPullLink(setWaiting)),
+    [
+      store,
+    ],
+  );
   useEffect(() => {
     if (waiting === undefined || store === undefined || repositories.length === 0) return;
     setWaiting(undefined);
     latest.current.go();
-    void openLinked(store, repositories, waiting).then((refused) => refused === undefined || latest.current.say(refused));
-  }, [waiting, store, repositories]);
+    void openLinked(store, repositories, waiting).then(
+      (refused) => refused === undefined || latest.current.say(refused),
+    );
+  }, [
+    waiting,
+    store,
+    repositories,
+  ]);
   return setWaiting;
 }

@@ -13,7 +13,12 @@ export function BudgetSection({ draft, onDraft, problems }: ManifestFormProps) {
         value={draft.costCap}
         invalid={problems["budget.cost"] !== undefined}
         message={problems["budget.cost"]}
-        onChange={(event) => onDraft({ ...draft, costCap: event.target.value })}
+        onChange={(event) =>
+          onDraft({
+            ...draft,
+            costCap: event.target.value,
+          })
+        }
       />
       <Input
         label="Turn cap per Job"
@@ -22,7 +27,12 @@ export function BudgetSection({ draft, onDraft, problems }: ManifestFormProps) {
         value={draft.turnCap}
         invalid={problems["budget.turns"] !== undefined}
         message={problems["budget.turns"]}
-        onChange={(event) => onDraft({ ...draft, turnCap: event.target.value })}
+        onChange={(event) =>
+          onDraft({
+            ...draft,
+            turnCap: event.target.value,
+          })
+        }
       />
     </Section>
   );

@@ -25,16 +25,43 @@ export type McpServerRow = {
  * A hosted Job's MCP servers, live. `servers` is absent while the first read is out, and the group draws the agent's
  * own report meanwhile. `said` is Fleet's words for a read it refused.
  */
-export type McpGroup = { servers?: readonly McpServerRow[]; said?: string; onAct: (server: string, act: McpAct) => void };
+export type McpGroup = {
+  servers?: readonly McpServerRow[];
+  said?: string;
+  onAct: (server: string, act: McpAct) => void;
+};
 
 /** How a row opens its item: which one is open, and the press. Absent draws the rows as text. */
-export type Opens = { open: string | undefined; onOpen: (item: LoadoutRef) => void } | undefined;
+export type Opens =
+  | {
+      open: string | undefined;
+      onOpen: (item: LoadoutRef) => void;
+    }
+  | undefined;
 
-const ACT_SAID: Record<McpAct, { label: string; underway: string }> = {
-  reconnect: { label: "Reconnect", underway: "Reconnecting" },
-  turn_on: { label: "Turn on", underway: "Turning on" },
-  turn_off: { label: "Turn off", underway: "Turning off" },
-  sign_in: { label: "Sign in", underway: "Signing in" },
+const ACT_SAID: Record<
+  McpAct,
+  {
+    label: string;
+    underway: string;
+  }
+> = {
+  reconnect: {
+    label: "Reconnect",
+    underway: "Reconnecting",
+  },
+  turn_on: {
+    label: "Turn on",
+    underway: "Turning on",
+  },
+  turn_off: {
+    label: "Turn off",
+    underway: "Turning off",
+  },
+  sign_in: {
+    label: "Sign in",
+    underway: "Signing in",
+  },
 };
 
 /** The act on a row's face for where its server stands. A server still connecting offers none. */
@@ -46,13 +73,31 @@ export function mcpActOf(row: Pick<McpServerRow, "state" | "signedIn">): McpAct 
 export function mcpActsOf(row: Pick<McpServerRow, "state" | "signedIn">): readonly McpAct[] {
   switch (row.state) {
     case "connected":
-      return ["turn_off", "reconnect"];
+      return [
+        "turn_off",
+        "reconnect",
+      ];
     case "failed":
-      return ["reconnect", "turn_off"];
+      return [
+        "reconnect",
+        "turn_off",
+      ];
     case "needs_sign_in":
-      return row.signedIn === true ? ["reconnect", "sign_in", "turn_off"] : ["sign_in", "reconnect", "turn_off"];
+      return row.signedIn === true
+        ? [
+            "reconnect",
+            "sign_in",
+            "turn_off",
+          ]
+        : [
+            "sign_in",
+            "reconnect",
+            "turn_off",
+          ];
     case "off":
-      return ["turn_on"];
+      return [
+        "turn_on",
+      ];
     case "connecting":
       return [];
   }
@@ -76,16 +121,52 @@ function stateSaid(row: McpServerRow): string {
 /** The Loadout item a live row stands for, so a press opens the same panel the agent's report would. */
 export function mcpRefOf(name: string, items: readonly LoadoutItem[]): LoadoutRef {
   const reported = items.find((one) => one.kind === "mcp_server" && one.name === name);
-  return reported === undefined ? { kind: "mcp_server", name, source: "mcp", from: name } : { kind: "mcp_server", name, source: reported.source, ...(reported.from === undefined ? {} : { from: reported.from }) };
+  return reported === undefined
+    ? {
+        kind: "mcp_server",
+        name,
+        source: "mcp",
+        from: name,
+      }
+    : {
+        kind: "mcp_server",
+        name,
+        source: reported.source,
+        ...(reported.from === undefined
+          ? {}
+          : {
+              from: reported.from,
+            }),
+      };
 }
 
-function McpRow({ row, item, opens, onAct }: { row: McpServerRow; item: LoadoutRef; opens: Opens; onAct: McpGroup["onAct"] }) {
+function McpRow({
+  row,
+  item,
+  opens,
+  onAct,
+}: {
+  row: McpServerRow;
+  item: LoadoutRef;
+  opens: Opens;
+  onAct: McpGroup["onAct"];
+}) {
   // An act sent from the menu takes the face while it is out, so the row shows what it is waiting on.
   const act = row.acting ?? mcpActOf(row);
   const menu = mcpActsOf(row).filter((one) => one !== act);
   // Every row offers one of four words, so the name says which server a press is for.
-  const worded = act === undefined ? "" : row.acting === undefined ? ACT_SAID[act].label : ACT_SAID[act].underway;
-  const refused = row.refused === undefined ? {} : { answer: "refused" as const };
+  const worded =
+    act === undefined
+      ? ""
+      : row.acting === undefined
+        ? ACT_SAID[act].label
+        : ACT_SAID[act].underway;
+  const refused =
+    row.refused === undefined
+      ? {}
+      : {
+          answer: "refused" as const,
+        };
   const said = (
     <>
       <span className="armada-loadout__name">{row.name}</span>
@@ -98,12 +179,24 @@ function McpRow({ row, item, opens, onAct }: { row: McpServerRow; item: LoadoutR
       {opens === undefined ? (
         <span className="armada-loadout__row armada-loadout__mcp-said">{said}</span>
       ) : (
-        <button type="button" className="armada-loadout__row armada-loadout__press" aria-current={opens.open === loadoutKeyOf(item) ? "true" : undefined} onClick={() => opens.onOpen(item)}>
+        <button
+          type="button"
+          className="armada-loadout__row armada-loadout__press"
+          aria-current={opens.open === loadoutKeyOf(item) ? "true" : undefined}
+          onClick={() => opens.onOpen(item)}
+        >
           {said}
         </button>
       )}
       {act === undefined ? null : menu.length === 0 ? (
-        <Button variant="secondary" size="sm" aria-label={`${worded} ${row.name}`} pending={row.acting !== undefined} {...refused} onClick={() => onAct(row.name, act)}>
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={`${worded} ${row.name}`}
+          pending={row.acting !== undefined}
+          {...refused}
+          onClick={() => onAct(row.name, act)}
+        >
           {worded}
         </Button>
       ) : (
@@ -113,7 +206,10 @@ function McpRow({ row, item, opens, onAct }: { row: McpServerRow; item: LoadoutR
           menuLabel={`More for ${row.name}`}
           pending={row.acting !== undefined}
           {...refused}
-          items={menu.map((one) => ({ label: ACT_SAID[one].label, onSelect: () => onAct(row.name, one) }))}
+          items={menu.map((one) => ({
+            label: ACT_SAID[one].label,
+            onSelect: () => onAct(row.name, one),
+          }))}
           onAction={() => onAct(row.name, act)}
         >
           {worded}
@@ -128,13 +224,32 @@ function McpRow({ row, item, opens, onAct }: { row: McpServerRow; item: LoadoutR
 export function useRevealed(reveal: boolean) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (reveal) ref.current?.scrollIntoView({ block: "start" });
-  }, [reveal]);
+    if (reveal)
+      ref.current?.scrollIntoView({
+        block: "start",
+      });
+  }, [
+    reveal,
+  ]);
   return ref;
 }
 
 /** A hosted Job's MCP servers, each with its state's act and the others it takes behind a caret. Connected draws no mark, and nothing is counted. */
-export function McpServers({ servers, items, said, opens, onAct, reveal }: { servers: readonly McpServerRow[]; items: readonly LoadoutItem[]; said: string | undefined; opens: Opens; onAct: McpGroup["onAct"]; reveal: boolean }) {
+export function McpServers({
+  servers,
+  items,
+  said,
+  opens,
+  onAct,
+  reveal,
+}: {
+  servers: readonly McpServerRow[];
+  items: readonly LoadoutItem[];
+  said: string | undefined;
+  opens: Opens;
+  onAct: McpGroup["onAct"];
+  reveal: boolean;
+}) {
   const ref = useRevealed(reveal);
   return (
     <section ref={ref} className="armada-loadout__group" aria-label="MCP servers">
@@ -145,7 +260,13 @@ export function McpServers({ servers, items, said, opens, onAct, reveal }: { ser
       ) : (
         <ul className="armada-loadout__rows">
           {servers.map((row) => (
-            <McpRow key={row.name} row={row} item={mcpRefOf(row.name, items)} opens={opens} onAct={onAct} />
+            <McpRow
+              key={row.name}
+              row={row}
+              item={mcpRefOf(row.name, items)}
+              opens={opens}
+              onAct={onAct}
+            />
           ))}
         </ul>
       )}

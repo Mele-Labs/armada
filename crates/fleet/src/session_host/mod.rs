@@ -34,6 +34,7 @@ pub(crate) mod styling;
 pub(crate) mod sketching;
 pub(crate) mod following;
 mod finishing;
+pub(crate) mod job_command;
 mod later;
 mod fork_point;
 mod forking;
@@ -46,6 +47,7 @@ pub(crate) mod replacing;
 pub(crate) mod linking;
 mod hearing;
 mod tools_missing;
+mod init_kept;
 mod mod_moved;
 pub mod keeper;
 /// A hosted job's MCP servers, read and acted on through control lines: `get_session_mcp`,

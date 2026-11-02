@@ -4,18 +4,34 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
-import type { AgentTask, Session, SessionTodo, SessionWork, SessionWorkActs, WorkGroup } from "@armada/screens/src/draft/sessions";
+import type {
+  AgentTask,
+  Session,
+  SessionTodo,
+  SessionWork,
+  SessionWorkActs,
+  WorkGroup,
+} from "@armada/screens/src/draft/sessions";
 
 import { StoryColumn } from "./StoryColumn";
 import { pressBand, resetFolds } from "./story";
 
 // The mod list is Fleet's, read through `window.armada`; no Job here made a mod.
-vi.mock("../mod-list", () => ({ useModList: () => [] }));
+vi.mock("../mod-list", () => ({
+  useModList: () => [],
+}));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const ID = "story-steps-s1";
-const roots: { root: Root; host: HTMLElement }[] = [];
+const roots: {
+  root: Root;
+  host: HTMLElement;
+}[] = [];
 afterEach(() => {
   resetFolds(ID);
   localStorage.clear();
@@ -25,63 +41,213 @@ afterEach(() => {
   }
 });
 
-const STEPS = ["Propose", "Discuss", "Approve plan", "Walk", "Refine", "Deliver"] as const;
+const STEPS = [
+  "Propose",
+  "Discuss",
+  "Approve plan",
+  "Walk",
+  "Refine",
+  "Deliver",
+] as const;
 // Discuss and Approve plan are each visited twice: the Job went back from Approve plan to Discuss.
 const VISITS = [
-  { step: 0, since: "2026-10-27T09:02:00Z" },
-  { step: 1, since: "2026-10-27T09:10:00Z" },
-  { step: 2, since: "2026-10-27T09:40:00Z" },
-  { step: 1, since: "2026-10-27T09:55:00Z" },
-  { step: 2, since: "2026-10-27T10:20:00Z" },
-  { step: 3, since: "2026-10-27T10:40:00Z" },
+  {
+    step: 0,
+    since: "2026-10-27T09:02:00Z",
+  },
+  {
+    step: 1,
+    since: "2026-10-27T09:10:00Z",
+  },
+  {
+    step: 2,
+    since: "2026-10-27T09:40:00Z",
+  },
+  {
+    step: 1,
+    since: "2026-10-27T09:55:00Z",
+  },
+  {
+    step: 2,
+    since: "2026-10-27T10:20:00Z",
+  },
+  {
+    step: 3,
+    since: "2026-10-27T10:40:00Z",
+  },
 ];
 
-const group = (id: string, title: string, changedAt: string | undefined, state: "done" | "open" = "done"): WorkGroup =>
-  ({ id, title, agent: "rust-engineer", paths: [], tasks: [{ id: `${id}-t`, text: `Task of ${title}`, state, ...(changedAt === undefined ? {} : { changedAt }) }] }) as unknown as WorkGroup;
+const group = (
+  id: string,
+  title: string,
+  changedAt: string | undefined,
+  state: "done" | "open" = "done",
+): WorkGroup =>
+  ({
+    id,
+    title,
+    agent: "rust-engineer",
+    paths: [],
+    tasks: [
+      {
+        id: `${id}-t`,
+        text: `Task of ${title}`,
+        state,
+        ...(changedAt === undefined
+          ? {}
+          : {
+              changedAt,
+            }),
+      },
+    ],
+  }) as unknown as WorkGroup;
 
-type Own = { at?: number; visits?: typeof VISITS | undefined; groups?: WorkGroup[]; railOff?: true; workflow?: boolean; attachments?: unknown[]; trail?: unknown; started?: Session["started"]; extra?: Partial<Session>; acts?: SessionWorkActs; proposal?: SessionWork["proposal"]; bare?: true; tasks?: readonly AgentTask[] };
+type Own = {
+  at?: number;
+  visits?: typeof VISITS | undefined;
+  groups?: WorkGroup[];
+  railOff?: true;
+  workflow?: boolean;
+  attachments?: unknown[];
+  trail?: unknown;
+  started?: Session["started"];
+  extra?: Partial<Session>;
+  acts?: SessionWorkActs;
+  proposal?: SessionWork["proposal"];
+  bare?: true;
+  tasks?: readonly AgentTask[];
+};
 
-function build(own: Own = {}): { session: Session; work: SessionWork } {
-  const groups = own.groups ?? [group("g1", "Alpha", "2026-10-27T09:30:00Z"), group("g2", "Live work", undefined, "open")];
-  const plan = { scope: [], approved: true, groups };
+function build(own: Own = {}): {
+  session: Session;
+  work: SessionWork;
+} {
+  const groups = own.groups ?? [
+    group("g1", "Alpha", "2026-10-27T09:30:00Z"),
+    group("g2", "Live work", undefined, "open"),
+  ];
+  const plan = {
+    scope: [],
+    approved: true,
+    groups,
+  };
   const work = {
-    ...(own.bare === true ? {} : { plan }),
-    ...(own.tasks === undefined ? {} : { tasks: own.tasks }),
-    ...(own.workflow === false ? {} : { workflow: { name: "Product", steps: STEPS, at: own.at ?? 3, ...("visits" in own ? (own.visits === undefined ? {} : { visits: own.visits }) : { visits: VISITS }) } }),
-    ...(own.railOff === true ? { railOff: true } : {}),
-    ...(own.proposal === undefined ? {} : { proposal: own.proposal }),
+    ...(own.bare === true
+      ? {}
+      : {
+          plan,
+        }),
+    ...(own.tasks === undefined
+      ? {}
+      : {
+          tasks: own.tasks,
+        }),
+    ...(own.workflow === false
+      ? {}
+      : {
+          workflow: {
+            name: "Product",
+            steps: STEPS,
+            at: own.at ?? 3,
+            ...("visits" in own
+              ? own.visits === undefined
+                ? {}
+                : {
+                    visits: own.visits,
+                  }
+              : {
+                  visits: VISITS,
+                }),
+          },
+        }),
+    ...(own.railOff === true
+      ? {
+          railOff: true,
+        }
+      : {}),
+    ...(own.proposal === undefined
+      ? {}
+      : {
+          proposal: own.proposal,
+        }),
   } as unknown as SessionWork;
   const session = {
     id: ID,
     title: "Issues tab",
     attachments: own.attachments ?? [],
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     work,
     trail: own.trail,
-    ...(own.started === undefined ? {} : { started: own.started }),
-    rows: [{ id: "m1", at: "2026-10-27T09:02:00Z", kind: "message", from: { kind: "you" }, text: "Add an Issues tab beside Reviews" }],
+    ...(own.started === undefined
+      ? {}
+      : {
+          started: own.started,
+        }),
+    rows: [
+      {
+        id: "m1",
+        at: "2026-10-27T09:02:00Z",
+        kind: "message",
+        from: {
+          kind: "you",
+        },
+        text: "Add an Issues tab beside Reviews",
+      },
+    ],
     ...own.extra,
   } as unknown as Session;
-  return { session, work };
+  return {
+    session,
+    work,
+  };
 }
 
 function mount(own: Own = {}, opened: (id: string) => void = () => undefined): HTMLElement {
   const { session, work } = build(own);
-  const ed = work.plan === undefined ? undefined : { id: ID, plan: work.plan, marks: [], set: () => undefined, send: () => undefined };
+  const ed =
+    work.plan === undefined
+      ? undefined
+      : {
+          id: ID,
+          plan: work.plan,
+          marks: [],
+          set: () => undefined,
+          send: () => undefined,
+        };
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   act(() =>
     root.render(
-      <StoryColumn session={session} entries={[]} work={work} id={ID} manifestId={undefined} acts={own.acts} ed={ed} onOpenSketch={() => undefined} onOpenSession={opened} live={undefined} />,
+      <StoryColumn
+        session={session}
+        entries={[]}
+        work={work}
+        id={ID}
+        manifestId={undefined}
+        acts={own.acts}
+        ed={ed}
+        onOpenSketch={() => undefined}
+        onOpenSession={opened}
+        live={undefined}
+      />,
     ),
   );
-  roots.push({ root, host });
+  roots.push({
+    root,
+    host,
+  });
   return host;
 }
 
-const zone = (host: HTMLElement, label: string) => host.querySelector<HTMLElement>(`section[aria-label="${label}"]`)!;
-const zones = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>("section.sv-panel")].map((one) => one.getAttribute("aria-label"));
+const zone = (host: HTMLElement, label: string) =>
+  host.querySelector<HTMLElement>(`section[aria-label="${label}"]`)!;
+const zones = (host: HTMLElement) =>
+  [
+    ...host.querySelectorAll<HTMLElement>("section.sv-panel"),
+  ].map((one) => one.getAttribute("aria-label"));
 const shut = (one: HTMLElement) => one.getAttribute("data-collapsed") === "true";
 const band = (one: HTMLElement) => one.querySelector<HTMLElement>(".sv-panel__band")!;
 
@@ -103,28 +269,47 @@ test("the Brief is the first zone, folded to one line", () => {
 
 test("a Job at a step of a workflow has one zone for each step, in the workflow's order, and no Done, Now or Open", () => {
   const host = mount();
-  expect(zones(host)).toEqual(["Brief", ...STEPS]);
+  expect(zones(host)).toEqual([
+    "Brief",
+    ...STEPS,
+  ]);
 });
 
 test("a finished step is folded with a Done marker, the current step is open, and steps to come are dashed", () => {
   const host = mount();
-  for (const name of ["Propose", "Discuss", "Approve plan"]) {
+  for (const name of [
+    "Propose",
+    "Discuss",
+    "Approve plan",
+  ]) {
     expect(shut(zone(host, name)), name).toBe(true);
     expect(zone(host, name).querySelector('[role="img"][aria-label="Done"]'), name).not.toBeNull();
     expect(zone(host, name).getAttribute("data-area")).toBe("step-done");
   }
   expect(zone(host, "Walk").getAttribute("data-area")).toBe("step-now");
   expect(shut(zone(host, "Walk"))).toBe(false);
-  for (const name of ["Refine", "Deliver"]) expect(zone(host, name).getAttribute("data-area"), name).toBe("step-next");
+  for (const name of [
+    "Refine",
+    "Deliver",
+  ])
+    expect(zone(host, name).getAttribute("data-area"), name).toBe("step-next");
 });
 
 test("the current step holds Now, with the plan groups not yet started beneath the live work", () => {
-  const host = mount({ groups: [group("g1", "Alpha", "2026-10-27T09:30:00Z"), group("g2", "Live work", undefined, "open"), group("g3", "Later work", undefined, "open")] });
+  const host = mount({
+    groups: [
+      group("g1", "Alpha", "2026-10-27T09:30:00Z"),
+      group("g2", "Live work", undefined, "open"),
+      group("g3", "Later work", undefined, "open"),
+    ],
+  });
   const walk = zone(host, "Walk");
   expect(walk.querySelector('ul[aria-label="Now"]')).not.toBeNull();
   expect(walk.textContent).toContain("Live work");
   expect(walk.textContent).toContain("Later work");
-  expect(walk.textContent!.indexOf("Live work")).toBeLessThan(walk.textContent!.indexOf("Later work"));
+  expect(walk.textContent!.indexOf("Live work")).toBeLessThan(
+    walk.textContent!.indexOf("Later work"),
+  );
 });
 
 test("the last step holds the landing that Open held", () => {
@@ -137,7 +322,10 @@ test("the last step holds the landing that Open held", () => {
 });
 
 test("a Walk step not reached yet, with no walk shown, carries the mark for the walk to come", () => {
-  const host = mount({ at: 1, visits: VISITS.slice(0, 2) });
+  const host = mount({
+    at: 1,
+    visits: VISITS.slice(0, 2),
+  });
   expect(zone(host, "Walk").querySelector('[aria-label="Walk, not shown yet"]')).not.toBeNull();
   expect(zone(host, "Refine").querySelector('[aria-label="Walk, not shown yet"]')).toBeNull();
 });
@@ -167,43 +355,96 @@ test("a finished group stands under the step whose visit covers its time, and a 
 });
 
 test("a finished group with no time stands under the last done step", () => {
-  const host = mount({ groups: [group("g1", "Untimed", undefined), group("gw", "Live work", undefined, "open")] });
+  const host = mount({
+    groups: [
+      group("g1", "Untimed", undefined),
+      group("gw", "Live work", undefined, "open"),
+    ],
+  });
   expect(zone(host, "Approve plan").textContent).toContain("Untimed");
   expect(zone(host, "Discuss").textContent).not.toContain("Untimed");
 });
 
 test("with no visits at all, everything finished stands under the last done step", () => {
-  const host = mount({ visits: undefined, groups: [group("g1", "Early", "2026-10-27T09:05:00Z"), group("gw", "Live work", undefined, "open")] });
+  const host = mount({
+    visits: undefined,
+    groups: [
+      group("g1", "Early", "2026-10-27T09:05:00Z"),
+      group("gw", "Live work", undefined, "open"),
+    ],
+  });
   expect(zone(host, "Approve plan").textContent).toContain("Early");
   expect(zone(host, "Propose").textContent).not.toContain("Early");
 });
 
 test("a time after the current step began stands under the last done step, never under the current one", () => {
-  const host = mount({ groups: [group("g1", "Late", "2026-10-27T11:00:00Z"), group("gw", "Live work", undefined, "open")] });
+  const host = mount({
+    groups: [
+      group("g1", "Late", "2026-10-27T11:00:00Z"),
+      group("gw", "Live work", undefined, "open"),
+    ],
+  });
   expect(zone(host, "Approve plan").textContent).toContain("Late");
 });
 
 test("a finished pull request stands under the step its opening time falls in", () => {
-  const pr = { kind: "pull_request", number: 3012, title: "Search the issues", branch: "armada/issues", address: "https://forge/3012", checks: { state: "passed" }, state: "merged", auto: false };
-  const host = mount({ attachments: [pr], trail: { started: "2026-10-27T09:02:00Z", opened: { 3012: "2026-10-27T10:10:00Z" } } });
+  const pr = {
+    kind: "pull_request",
+    number: 3012,
+    title: "Search the issues",
+    branch: "armada/issues",
+    address: "https://forge/3012",
+    checks: {
+      state: "passed",
+    },
+    state: "merged",
+    auto: false,
+  };
+  const host = mount({
+    attachments: [
+      pr,
+    ],
+    trail: {
+      started: "2026-10-27T09:02:00Z",
+      opened: {
+        3012: "2026-10-27T10:10:00Z",
+      },
+    },
+  });
   // 10:10 falls in Discuss's second visit (from 09:55), before Approve plan's second (10:20).
   expect(zone(host, "Discuss").textContent).toContain("Search the issues");
   expect(zone(host, "Approve plan").textContent).not.toContain("Search the issues");
 });
 
 test("a Job with no workflow keeps Brief, Done, Now and Open", () => {
-  const host = mount({ workflow: false });
-  expect(zones(host)).toEqual(["Brief", "Done", "Now", "Open"]);
+  const host = mount({
+    workflow: false,
+  });
+  expect(zones(host)).toEqual([
+    "Brief",
+    "Done",
+    "Now",
+    "Open",
+  ]);
   expect(host.querySelector(".sv-workflow")).toBeNull();
 });
 
 test("a Job whose workflows are off keeps Brief, Done, Now and Open", () => {
-  const host = mount({ railOff: true });
-  expect(zones(host)).toEqual(["Brief", "Done", "Now", "Open"]);
+  const host = mount({
+    railOff: true,
+  });
+  expect(zones(host)).toEqual([
+    "Brief",
+    "Done",
+    "Now",
+    "Open",
+  ]);
 });
 
 test("a Job with no workflow starts with Done folded, Now and Open open, and a press on Done opens it", () => {
-  const host = mount({ workflow: false });
+  const host = mount({
+    workflow: false,
+  });
   expect(shut(zone(host, "Done"))).toBe(true);
   expect(shut(zone(host, "Now"))).toBe(false);
   expect(shut(zone(host, "Open"))).toBe(false);
@@ -212,8 +453,24 @@ test("a Job with no workflow starts with Done folded, Now and Open open, and a p
 });
 
 test("a Job with workflows off folds Done too, and a question it is held on stays in Now, under Waiting on you", () => {
-  const host = mount({ railOff: true, extra: { asked: { questions: [{ question: "Cap retries at 3 or at 5?" }] } as unknown as Session["asked"] } });
-  expect(zones(host)).toEqual(["Brief", "Done", "Now", "Open"]);
+  const host = mount({
+    railOff: true,
+    extra: {
+      asked: {
+        questions: [
+          {
+            question: "Cap retries at 3 or at 5?",
+          },
+        ],
+      } as unknown as Session["asked"],
+    },
+  });
+  expect(zones(host)).toEqual([
+    "Brief",
+    "Done",
+    "Now",
+    "Open",
+  ]);
   expect(shut(zone(host, "Done"))).toBe(true);
   expect(zone(host, "Now").textContent).toContain("Cap retries at 3 or at 5?");
   expect(zone(host, "Now").getAttribute("data-state")).toBe("asks");
@@ -222,7 +479,9 @@ test("a Job with workflows off folds Done too, and a question it is held on stay
 });
 
 test("the Brief sits above Done and is not drawn inside it", () => {
-  const host = mount({ workflow: false });
+  const host = mount({
+    workflow: false,
+  });
   expect(zone(host, "Done").textContent).not.toContain("Add an Issues tab beside Reviews");
   expect(zone(host, "Done").querySelector('ol[aria-label="By step"]')).not.toBeNull();
 });
@@ -230,8 +489,15 @@ test("the Brief sits above Done and is not drawn inside it", () => {
 test("⌥1 folds and unfolds all the done steps, ⌥2 the current step, ⌥3 the steps to come", () => {
   const host = mount();
   const { session } = build();
-  const done = ["Propose", "Discuss", "Approve plan"];
-  const coming = ["Refine", "Deliver"];
+  const done = [
+    "Propose",
+    "Discuss",
+    "Approve plan",
+  ];
+  const coming = [
+    "Refine",
+    "Deliver",
+  ];
 
   act(() => pressBand(session, "done"));
   for (const name of done) expect(shut(zone(host, name)), `${name} opened`).toBe(false);
@@ -256,57 +522,143 @@ test("pressing one done step opens it alone, and ⌥1 afterwards sets them all",
   expect(shut(zone(host, "Discuss"))).toBe(false);
   expect(shut(zone(host, "Propose"))).toBe(true);
   act(() => pressBand(session, "done"));
-  for (const name of ["Propose", "Discuss", "Approve plan"]) expect(shut(zone(host, name)), name).toBe(false);
+  for (const name of [
+    "Propose",
+    "Discuss",
+    "Approve plan",
+  ])
+    expect(shut(zone(host, name)), name).toBe(false);
 });
 
 // ---- The Brief ----
 
 const brief = (host: HTMLElement) => zone(host, "Brief");
-const press = (host: HTMLElement) => brief(host).querySelector<HTMLButtonElement>("button[aria-expanded]")!;
-const rows = (host: HTMLElement) => Object.fromEntries([...brief(host).querySelectorAll("dl > div")].map((one) => [one.querySelector("dt")!.textContent, one.querySelector("dd")!.textContent]));
+const press = (host: HTMLElement) =>
+  brief(host).querySelector<HTMLButtonElement>("button[aria-expanded]")!;
+const rows = (host: HTMLElement) =>
+  Object.fromEntries(
+    [
+      ...brief(host).querySelectorAll("dl > div"),
+    ].map((one) => [
+      one.querySelector("dt")!.textContent,
+      one.querySelector("dd")!.textContent,
+    ]),
+  );
 
 test("pressing the Brief shows the whole text and the start settings", () => {
   const host = mount({
-    started: { workflow: "Product", delivery: "open_pr", model: "opus", effort: "high", mode: "auto" },
+    started: {
+      workflow: "Product",
+      delivery: "open_pr",
+      model: "opus",
+      effort: "high",
+      mode: "auto",
+    },
   });
   act(() => press(host).click());
   expect(press(host).getAttribute("aria-expanded")).toBe("true");
-  expect(brief(host).querySelector(".sv-brief__text")!.textContent).toBe("Add an Issues tab beside Reviews");
-  expect(rows(host)).toEqual({ Workflow: "Product", Delivery: "Open PR only", Model: "opus", Effort: "high", Mode: "Auto" });
+  expect(brief(host).querySelector(".sv-brief__text")!.textContent).toBe(
+    "Add an Issues tab beside Reviews",
+  );
+  expect(rows(host)).toEqual({
+    Workflow: "Product",
+    Delivery: "Open PR only",
+    Model: "opus",
+    Effort: "high",
+    Mode: "Auto",
+  });
   act(() => press(host).click());
   expect(press(host).getAttribute("aria-expanded")).toBe("false");
 });
 
 test("what the Job started with wins over what it holds now", () => {
   const host = mount({
-    started: { workflow: "Bug fix", delivery: "keep_local", model: "sonnet", effort: "low", mode: "plan" },
-    extra: { model: "opus", effort: "high", mode: "auto", start: { picked: { choice: "auto_land" } } } as unknown as Partial<Session>,
+    started: {
+      workflow: "Bug fix",
+      delivery: "keep_local",
+      model: "sonnet",
+      effort: "low",
+      mode: "plan",
+    },
+    extra: {
+      model: "opus",
+      effort: "high",
+      mode: "auto",
+      start: {
+        picked: {
+          choice: "auto_land",
+        },
+      },
+    } as unknown as Partial<Session>,
   });
   act(() => press(host).click());
-  expect(rows(host)).toEqual({ Workflow: "Bug fix", Delivery: "Keep local", Model: "sonnet", Effort: "low", Mode: "Plan" });
+  expect(rows(host)).toEqual({
+    Workflow: "Bug fix",
+    Delivery: "Keep local",
+    Model: "sonnet",
+    Effort: "low",
+    Mode: "Plan",
+  });
 });
 
 test("without `started`, the grid falls back to the picked delivery, model, effort, mode and the workflow's name", () => {
-  const host = mount({ extra: { model: "opus", effort: "high", mode: "accept_edits", start: { picked: { choice: "auto_land" } } } as unknown as Partial<Session> });
+  const host = mount({
+    extra: {
+      model: "opus",
+      effort: "high",
+      mode: "accept_edits",
+      start: {
+        picked: {
+          choice: "auto_land",
+        },
+      },
+    } as unknown as Partial<Session>,
+  });
   act(() => press(host).click());
-  expect(rows(host)).toEqual({ Workflow: "Product", Delivery: "Auto land", Model: "opus", Effort: "high", Mode: "Accept edits" });
+  expect(rows(host)).toEqual({
+    Workflow: "Product",
+    Delivery: "Auto land",
+    Model: "opus",
+    Effort: "high",
+    Mode: "Accept edits",
+  });
 });
 
 test("a setting with no value is left out of the grid", () => {
-  const host = mount({ workflow: false, started: { model: "opus" } });
+  const host = mount({
+    workflow: false,
+    started: {
+      model: "opus",
+    },
+  });
   act(() => press(host).click());
-  expect(rows(host)).toEqual({ Model: "opus" });
+  expect(rows(host)).toEqual({
+    Model: "opus",
+  });
 });
 
 test("a Job with nothing to say about how it started draws no grid", () => {
-  const host = mount({ workflow: false });
+  const host = mount({
+    workflow: false,
+  });
   act(() => press(host).click());
   expect(brief(host).querySelector("dl")).toBeNull();
 });
 
 test("Started by is the Job it came from, and pressing it opens that Job", () => {
   const opened = vi.fn();
-  const host = mount({ started: { model: "opus", by: { job: "one-view-1", title: "Retry the slot lease" } } }, opened);
+  const host = mount(
+    {
+      started: {
+        model: "opus",
+        by: {
+          job: "one-view-1",
+          title: "Retry the slot lease",
+        },
+      },
+    },
+    opened,
+  );
   act(() => press(host).click());
   expect(rows(host)["Started by"]).toBe("Retry the slot lease");
   act(() => brief(host).querySelector<HTMLButtonElement>(".sv-brief__by")!.click());
@@ -314,92 +666,295 @@ test("Started by is the Job it came from, and pressing it opens that Job", () =>
 });
 
 test("a Job with no one it was started by draws no Started by row", () => {
-  const host = mount({ started: { model: "opus" } });
+  const host = mount({
+    started: {
+      model: "opus",
+    },
+  });
   act(() => press(host).click());
   expect(rows(host)["Started by"]).toBeUndefined();
 });
 
 // The agent's own task list on the spine. Fleet sets `task` on an item it matched to a plan task, and that task's row already shows it. The plan's live group has
 // one task being worked, "gw-t", which is what makes it the group the list follows.
-const LIVE = { ...group("gw", "Live work", undefined, "open"), tasks: [{ id: "gw-t", text: "Name the live task", state: "working" }] } as unknown as WorkGroup;
-const PLAN = [group("g1", "Alpha", "2026-10-27T09:30:00Z"), LIVE];
+const LIVE = {
+  ...group("gw", "Live work", undefined, "open"),
+  tasks: [
+    {
+      id: "gw-t",
+      text: "Name the live task",
+      state: "working",
+    },
+  ],
+} as unknown as WorkGroup;
+const PLAN = [
+  group("g1", "Alpha", "2026-10-27T09:30:00Z"),
+  LIVE,
+];
 const REPORTED: SessionTodo[] = [
-  { text: "Read the retention setting", state: "done" },
-  { text: "Name the live task", state: "doing", task: "gw-t" },
-  { text: "Document the retention", state: "todo" },
+  {
+    text: "Read the retention setting",
+    state: "done",
+  },
+  {
+    text: "Name the live task",
+    state: "doing",
+    task: "gw-t",
+  },
+  {
+    text: "Document the retention",
+    state: "todo",
+  },
 ];
 const agentList = (host: HTMLElement) => host.querySelector<HTMLElement>("ul.sv-agent-tasks")!;
-const subjects = (host: HTMLElement) => [...agentList(host).querySelectorAll(".sv-agent-tasks__subject")].map((one) => one.textContent);
+const subjects = (host: HTMLElement) =>
+  [
+    ...agentList(host).querySelectorAll(".sv-agent-tasks__subject"),
+  ].map((one) => one.textContent);
 
 test("with an approved plan, an item Fleet matched to a plan task draws no row of its own, and the rest follow the plan's tasks", () => {
-  const host = mount({ groups: PLAN, extra: { activity: { todos: REPORTED } } });
-  expect(subjects(host)).toEqual(["Read the retention setting", "Document the retention"]);
+  const host = mount({
+    groups: PLAN,
+    extra: {
+      activity: {
+        todos: REPORTED,
+      },
+    },
+  });
+  expect(subjects(host)).toEqual([
+    "Read the retention setting",
+    "Document the retention",
+  ]);
   // The plan's own row says it, once.
   expect(host.textContent!.split("Name the live task")).toHaveLength(2);
   // It stands in the current step, after the working group's rows.
   const walk = zone(host, "Walk");
   expect(walk.contains(agentList(host))).toBe(true);
-  expect(walk.textContent!.indexOf("Live work")).toBeLessThan(walk.textContent!.indexOf("Read the retention setting"));
+  expect(walk.textContent!.indexOf("Live work")).toBeLessThan(
+    walk.textContent!.indexOf("Read the retention setting"),
+  );
   expect(host.querySelectorAll("ul.sv-agent-tasks")).toHaveLength(1);
 });
 
 test("a list whose every item Fleet matched to a plan task draws nothing, and does not fall back to the build record's tasks", () => {
-  const host = mount({ groups: PLAN, tasks: [{ id: "a", subject: "From the build record", state: "open" }], extra: { activity: { todos: [{ text: "Name the live task", state: "doing", task: "gw-t" }] } } });
+  const host = mount({
+    groups: PLAN,
+    tasks: [
+      {
+        id: "a",
+        subject: "From the build record",
+        state: "open",
+      },
+    ],
+    extra: {
+      activity: {
+        todos: [
+          {
+            text: "Name the live task",
+            state: "doing",
+            task: "gw-t",
+          },
+        ],
+      },
+    },
+  });
   expect(host.querySelector("ul.sv-agent-tasks")).toBeNull();
   expect(host.textContent).not.toContain("From the build record");
 });
 
 test("with no plan, the whole list draws under the current step", () => {
-  const host = mount({ bare: true, at: 0, visits: VISITS.slice(0, 1), extra: { activity: { todos: REPORTED.map(({ text, state }) => ({ text, state })) } } });
-  expect(subjects(host)).toEqual(["Read the retention setting", "Name the live task", "Document the retention"]);
+  const host = mount({
+    bare: true,
+    at: 0,
+    visits: VISITS.slice(0, 1),
+    extra: {
+      activity: {
+        todos: REPORTED.map(({ text, state }) => ({
+          text,
+          state,
+        })),
+      },
+    },
+  });
+  expect(subjects(host)).toEqual([
+    "Read the retention setting",
+    "Name the live task",
+    "Document the retention",
+  ]);
   expect(zone(host, "Propose").contains(agentList(host))).toBe(true);
 });
 
 test("with no workflow, the list draws under the Agent row, ahead of the plan's groups", () => {
-  const host = mount({ workflow: false, groups: PLAN, extra: { activity: { todos: REPORTED } } });
-  expect(subjects(host)).toEqual(["Read the retention setting", "Document the retention"]);
+  const host = mount({
+    workflow: false,
+    groups: PLAN,
+    extra: {
+      activity: {
+        todos: REPORTED,
+      },
+    },
+  });
+  expect(subjects(host)).toEqual([
+    "Read the retention setting",
+    "Document the retention",
+  ]);
   const now = zone(host, "Now");
   const beats = now.querySelector('ul[aria-label="Now"]')!;
   expect(beats.querySelector(".sv-beat__label")?.textContent).toBe("Agent");
   expect(beats.nextElementSibling).toBe(agentList(host));
-  expect(now.textContent!.indexOf("Read the retention setting")).toBeLessThan(now.textContent!.indexOf("Live work"));
+  expect(now.textContent!.indexOf("Read the retention setting")).toBeLessThan(
+    now.textContent!.indexOf("Live work"),
+  );
 });
 
 test("with the turn idle the list still draws, and the task being done does not breathe; while the turn runs it does", () => {
-  const doing = (host: HTMLElement) => agentList(host).querySelector<HTMLElement>('.armada-task-mark[data-state="working"]');
-  const idle = mount({ workflow: false, extra: { turn: { state: "idle" }, activity: { todos: [{ text: "Rotate the file", state: "doing" }] } } as Own["extra"] });
-  expect(subjects(idle)).toEqual(["Rotate the file"]);
+  const doing = (host: HTMLElement) =>
+    agentList(host).querySelector<HTMLElement>('.armada-task-mark[data-state="working"]');
+  const idle = mount({
+    workflow: false,
+    extra: {
+      turn: {
+        state: "idle",
+      },
+      activity: {
+        todos: [
+          {
+            text: "Rotate the file",
+            state: "doing",
+          },
+        ],
+      },
+    } as Own["extra"],
+  });
+  expect(subjects(idle)).toEqual([
+    "Rotate the file",
+  ]);
   expect(doing(idle)).not.toBeNull();
   expect(doing(idle)!.hasAttribute("data-pulsing")).toBe(false);
 
-  const running = mount({ workflow: false, extra: { turn: { state: "working" }, activity: { todos: [{ text: "Rotate the file", state: "doing" }] } } as Own["extra"] });
+  const running = mount({
+    workflow: false,
+    extra: {
+      turn: {
+        state: "working",
+      },
+      activity: {
+        todos: [
+          {
+            text: "Rotate the file",
+            state: "doing",
+          },
+        ],
+      },
+    } as Own["extra"],
+  });
   expect(doing(running)!.hasAttribute("data-pulsing")).toBe(true);
 });
 
 test("with no list reported, the build record's tasks draw in its place", () => {
   const tasks: AgentTask[] = [
-    { id: "a", subject: "Read the runner", state: "done" },
-    { id: "b", subject: "Rename the files", state: "working" },
-    { id: "c", subject: "Update the tests", state: "open" },
+    {
+      id: "a",
+      subject: "Read the runner",
+      state: "done",
+    },
+    {
+      id: "b",
+      subject: "Rename the files",
+      state: "working",
+    },
+    {
+      id: "c",
+      subject: "Update the tests",
+      state: "open",
+    },
   ];
-  for (const activity of [undefined, { todos: [] }]) {
-    const host = mount({ workflow: false, tasks, extra: { ...(activity === undefined ? {} : { activity }) } });
-    expect(subjects(host)).toEqual(["Read the runner", "Rename the files", "Update the tests"]);
-    expect([...agentList(host).querySelectorAll(".armada-task-mark")].map((one) => one.getAttribute("data-state"))).toEqual(["done", "working", "open"]);
+  for (const activity of [
+    undefined,
+    {
+      todos: [],
+    },
+  ]) {
+    const host = mount({
+      workflow: false,
+      tasks,
+      extra: {
+        ...(activity === undefined
+          ? {}
+          : {
+              activity,
+            }),
+      },
+    });
+    expect(subjects(host)).toEqual([
+      "Read the runner",
+      "Rename the files",
+      "Update the tests",
+    ]);
+    expect(
+      [
+        ...agentList(host).querySelectorAll(".armada-task-mark"),
+      ].map((one) => one.getAttribute("data-state")),
+    ).toEqual([
+      "done",
+      "working",
+      "open",
+    ]);
   }
 });
 
 test("a document waiting on his answer stands in Now and not in Done, and under Done once he approved it", () => {
   const PAGE = "/work/.armada/documents/script.html";
-  const page = { kind: "artifact", form: "document", id: PAGE, title: "Video script", revisions: ["/s/r1.html"], asked: true, revision: "1", kept: "2026-10-27T10:30:00Z" };
-  const item = { id: `document:${PAGE}`, text: "Video script", since: "2026-10-27T10:30:00Z", source: "document", act: { kind: "message", target: ID } };
+  const page = {
+    kind: "artifact",
+    form: "document",
+    id: PAGE,
+    title: "Video script",
+    revisions: [
+      "/s/r1.html",
+    ],
+    asked: true,
+    revision: "1",
+    kept: "2026-10-27T10:30:00Z",
+  };
+  const item = {
+    id: `document:${PAGE}`,
+    text: "Video script",
+    since: "2026-10-27T10:30:00Z",
+    source: "document",
+    act: {
+      kind: "message",
+      target: ID,
+    },
+  };
 
-  const waiting = mount({ railOff: true, attachments: [page], extra: { waitingFor: [item] } as Partial<Session> });
+  const waiting = mount({
+    railOff: true,
+    attachments: [
+      page,
+    ],
+    extra: {
+      waitingFor: [
+        item,
+      ],
+    } as Partial<Session>,
+  });
   act(() => band(zone(waiting, "Done")).click());
   expect(zone(waiting, "Now").textContent).toContain("Video script");
   expect(zone(waiting, "Done").textContent).not.toContain("Video script");
 
-  const approved = mount({ railOff: true, attachments: [{ ...page, settled: { how: "approved", at: "2026-10-27T10:35:00Z" } }] });
+  const approved = mount({
+    railOff: true,
+    attachments: [
+      {
+        ...page,
+        settled: {
+          how: "approved",
+          at: "2026-10-27T10:35:00Z",
+        },
+      },
+    ],
+  });
   act(() => band(zone(approved, "Done")).click());
   expect(zone(approved, "Now").textContent).not.toContain("Video script");
   expect(zone(approved, "Done").textContent).toContain("Video script");

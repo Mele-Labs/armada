@@ -1,10 +1,23 @@
 /* Progress: the issues the Session works on, as rows. They are reference, so they read below the plan: no frame, the muted ink, a state in the
    glyph's hue (finished work the advanced hue, a Check running the running hue and one failing red). No glow, no gradient. Tokens only. */
 
-.sv-issues { display: flex; flex-direction: column; gap: var(--space-2); }
-.sv-rows { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.sv-issues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.sv-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 /* The pull requests that work an issue, indented under its row. */
-.sv-rows__nested { margin-inline-start: var(--space-4); }
+.sv-rows__nested {
+  margin-inline-start: var(--space-4);
+}
 
 .sv-row {
   display: grid;
@@ -23,13 +36,39 @@
   text-align: start;
   cursor: pointer;
 }
-.sv-row:hover { background: var(--bg-hover); color: var(--fg-default); }
-.sv-row[data-kind="report"]:hover { background: none; color: inherit; }
-.sv-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
-.sv-row__num { color: var(--accent); font-size: var(--text-2xs); }
-.sv-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sv-row > .armada-tooltip { display: inline-flex; align-items: center; }
+.sv-row:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+.sv-row[data-kind="report"]:hover {
+  background: none;
+  color: inherit;
+}
+.sv-row:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -1);
+}
+.sv-row__num {
+  color: var(--accent);
+  font-size: var(--text-2xs);
+}
+.sv-row__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sv-row > .armada-tooltip {
+  display: inline-flex;
+  align-items: center;
+}
 
 /* The glyph's hue is the state: an open issue the accent. A pull request's row is `PullRequestChip`, which draws its own. */
-.sv-row__mark { display: inline-flex; align-items: center; color: var(--accent); }
-.sv-row__mark[data-state="closed"] { color: var(--step-advanced); }
+.sv-row__mark {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+}
+.sv-row__mark[data-state="closed"] {
+  color: var(--step-advanced);
+}

@@ -119,7 +119,7 @@ export const StillRunning: Story = {
         id: "judge",
         says: "Waiting for every check to finish",
         identifier: "The Judge — a panel of 3",
-    identifierIsAName: true,
+        identifierIsAName: true,
         result: "queued",
         named: "queued",
       },
@@ -168,13 +168,22 @@ export const ACheckThatFailed: Story = {
  * is absent, not disabled.
  */
 export const TheOpenOutputSaysSo: Story = {
-  args: { rows: finished, openId: "chk-bench", label: "Checks" },
+  args: {
+    rows: finished,
+    openId: "chk-bench",
+    label: "Checks",
+  },
   play: async ({ canvas }) => {
-    const open = canvas.getByRole("button", { name: "output · 96 lines", pressed: true });
+    const open = canvas.getByRole("button", {
+      name: "output · 96 lines",
+      pressed: true,
+    });
     await expect(open).toBeVisible();
 
     // Every other row's control is a control, and says it is not the open one.
-    const rest = canvas.getAllByRole("button", { pressed: false });
+    const rest = canvas.getAllByRole("button", {
+      pressed: false,
+    });
     await expect(rest).toHaveLength(3);
   },
 };
@@ -187,14 +196,29 @@ const onRunHere = fn();
  */
 export const RunItHereBesideTheOutput: Story = {
   args: {
-    rows: finished.map((row) => (row.id === "chk-suite" ? { ...row, onRunHere } : row)),
+    rows: finished.map((row) =>
+      row.id === "chk-suite"
+        ? {
+            ...row,
+            onRunHere,
+          }
+        : row,
+    ),
     label: "Checks",
   },
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Run it here" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Run it here",
+      }),
+    );
     await expect(onRunHere).toHaveBeenCalled();
     // The output control beside it is untouched.
-    await expect(canvas.getByRole("button", { name: "output · 2,180 lines" })).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "output · 2,180 lines",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -220,8 +244,20 @@ export const ASkippedCheckSaysWhy: Story = {
   args: {
     label: "Checks",
     rows: [
-      { id: "build", says: "Passed", identifier: "build", named: "passed", output: "implement.1.0.log" },
-      { id: "test", says: "Passed", identifier: "test", named: "passed", output: "implement.1.1.log" },
+      {
+        id: "build",
+        says: "Passed",
+        identifier: "build",
+        named: "passed",
+        output: "implement.1.0.log",
+      },
+      {
+        id: "test",
+        says: "Passed",
+        identifier: "test",
+        named: "passed",
+        output: "implement.1.1.log",
+      },
       {
         id: "typecheck",
         says: "Not run",
@@ -238,7 +274,12 @@ export const ASkippedCheckSaysWhy: Story = {
         result:
           "no changed file is under apps/**, packages/**, crates/core-model/domain/**, protocol-version.toml, package.json, pnpm-lock.yaml or pnpm-workspace.yaml",
       },
-      { id: "diff_nonempty", says: "Passed", identifier: "diff_nonempty", named: "passed" },
+      {
+        id: "diff_nonempty",
+        says: "Passed",
+        identifier: "diff_nonempty",
+        named: "passed",
+      },
     ],
   },
 };
@@ -253,7 +294,11 @@ export const FoldedToOneRow: Story = {
     rows: finished,
     label: "Implement the change",
     summary: {
-      outcome: { status: "completed-success", icon: ShieldCheck, label: "Advanced" },
+      outcome: {
+        status: "completed-success",
+        icon: ShieldCheck,
+        label: "Advanced",
+      },
       reading: "3 Checks passed · Judge: 2 of 3 criteria refused",
     },
   },

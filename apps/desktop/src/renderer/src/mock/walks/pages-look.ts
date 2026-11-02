@@ -5,13 +5,30 @@ import { button, systemPage, toSystemPage, viaPalette, walk } from "../walk";
 
 const pagesLook = walk("pages-look", [
   ...toSystemPage("Studios", "Studios"),
-  { press: button("Open", { exact: true }), say: "The board in its panel" },
+  {
+    press: button("Open", {
+      exact: true,
+    }),
+    say: "The board in its panel",
+  },
   ...viaPalette("Doctor", "Doctor"),
   ...toSystemPage("Kit", "Kit"),
-  { press: systemPage("Mods"), say: "Mods" },
-  { press: systemPage("Settings"), say: "Settings" },
-  { press: systemPage("Guides"), say: "Guides" },
-  { press: systemPage("Workflows"), say: "Workflows" },
+  {
+    press: systemPage("Mods"),
+    say: "Mods",
+  },
+  {
+    press: systemPage("Settings"),
+    say: "Settings",
+  },
+  {
+    press: systemPage("Guides"),
+    say: "Guides",
+  },
+  {
+    press: systemPage("Workflows"),
+    say: "Workflows",
+  },
   ...viaPalette("Worktrees", "Worktree slots"),
 ]);
 

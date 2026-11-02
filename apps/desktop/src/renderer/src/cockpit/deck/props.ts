@@ -11,7 +11,13 @@ export type CockpitProps = Hosts & {
   now: number;
   picked: RepositorySummary | null;
   /** A call an alert asked for, brought to the front once this is on screen. `at` makes a second press land. */
-  bring?: { key: string; at: number } | null | undefined;
+  bring?:
+    | {
+        key: string;
+        at: number;
+      }
+    | null
+    | undefined;
   /** Taken, so the token is not acted on twice. */
   onBrought?: (() => void) | undefined;
 };
@@ -21,4 +27,6 @@ export type CockpitProps = Hosts & {
  * what a Session waits on**, so the next update can carry the call again; a call is held gone until an update
  * stops carrying it, and this is the longest that holds before the call is allowed back. An object so a test can shorten it.
  */
-export const holdFor = { ms: 30_000 };
+export const holdFor = {
+  ms: 30_000,
+};

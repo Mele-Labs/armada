@@ -19,7 +19,7 @@ assuming it is restated here.
 | [cockpit.md](cockpit.md) | Bridge's first tab: the flight deck, with every Job, the calls waiting on a person, the worktree slots and the merge queue on one screen |
 | [document.md](document.md) | The HTML page a Job designs to hand a person what it found: where it is written, how it is sealed and read, noted in place and revised by the Job's reply |
 | [doctor.md](doctor.md) | The health-check surface — a passive per-module grid that gates nothing |
-| [autopilot.md](autopilot.md) | A repository working its own backlog: one instruction, caps, and every issue it picked, started or set aside |
+| [autopilot.md](autopilot.md) | A repository working its own backlog: one instruction, caps, every issue it picked, started or set aside, and the decisions it answered |
 | [file-panel.md](file-panel.md) | Any file Bridge opens, in the one side panel in a code editor: where it may come from, how it saves, what stops a save |
 | [fleet.md](fleet.md) | The Rust daemon that hosts Jobs, leases worktree slots, keeps the merge line and reads the forge |
 | [helm.md](helm.md) | The conversational orchestrator agent that reasons across a Fleet |

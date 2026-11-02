@@ -5,7 +5,10 @@ import type { BayHistory, Outcome } from "@armada/protocol";
 import type { BayHistoryRead } from "../shared/api/bay-history";
 import { ask } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 /** The query string for one bay: both asked for, the repository encoded. */
 export function slotHistoryPath(manifestId: string, slot: number): string {
@@ -21,8 +24,20 @@ export class BayHistoryHost {
 
   async get(manifestId: string, slot: number): Promise<BayHistoryRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, "GET", slotHistoryPath(manifestId, slot));
-    return answer.ok === true ? { ok: true, value: answer.body as BayHistory } : { ok: false, outcome: answer.outcome };
+    return answer.ok === true
+      ? {
+          ok: true,
+          value: answer.body as BayHistory,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 }

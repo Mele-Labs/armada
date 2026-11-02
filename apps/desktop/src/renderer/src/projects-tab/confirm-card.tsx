@@ -7,7 +7,12 @@ import { Button } from "@armada/components";
 
 type Props = {
   /** The item it asks about, in the window. */
-  target: { left: number; top: number; width: number; height: number };
+  target: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
   title: string;
   children: ReactNode;
   confirmLabel: string;
@@ -35,12 +40,38 @@ export function ConfirmCard({ target, title, children, confirmLabel, onConfirm, 
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("mousedown", onDown);
     };
-  }, [onCancel]);
+  }, [
+    onCancel,
+  ]);
   return createPortal(
     <>
-      <div className="projects-confirm__hole" aria-hidden style={{ left: target.left, top: target.top, width: target.width, height: target.height }} />
-      <div ref={card} className="projects-confirm" role="alertdialog" aria-label={title} style={{ left: target.left + target.width + 12, top: target.top }}>
-        <span className="projects-confirm__pointer" aria-hidden style={{ top: target.height / 2 }} />
+      <div
+        className="projects-confirm__hole"
+        aria-hidden
+        style={{
+          left: target.left,
+          top: target.top,
+          width: target.width,
+          height: target.height,
+        }}
+      />
+      <div
+        ref={card}
+        className="projects-confirm"
+        role="alertdialog"
+        aria-label={title}
+        style={{
+          left: target.left + target.width + 12,
+          top: target.top,
+        }}
+      >
+        <span
+          className="projects-confirm__pointer"
+          aria-hidden
+          style={{
+            top: target.height / 2,
+          }}
+        />
         <p className="projects-confirm__title">{title}</p>
         <p className="projects-confirm__body">{children}</p>
         <div className="projects-confirm__acts">

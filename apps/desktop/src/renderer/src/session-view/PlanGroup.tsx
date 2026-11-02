@@ -21,10 +21,22 @@ import { TaskAge, agedAt, useStale } from "./TaskAge";
  * The issue a group names, on a meta line of its own under the title: the ticket glyph, the key and the issue's title, muted and cut with an ellipsis, all one
  * press that opens the issue. A tracker's key can be long, so it never shares the title's line.
  */
-export function GroupIssue({ issue, manifestId }: { issue: Issue; manifestId: string | undefined }) {
+export function GroupIssue({
+  issue,
+  manifestId,
+}: {
+  issue: Issue;
+  manifestId: string | undefined;
+}) {
   return (
     <Tooltip asChild label={issue.state === "closed" ? `${issue.title}, closed` : issue.title}>
-      <button type="button" className="sv-issue" data-state={issue.state} aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`} onClick={() => openIssuePanel(issue, manifestId)}>
+      <button
+        type="button"
+        className="sv-issue"
+        data-state={issue.state}
+        aria-label={`Issue ${issueLabel(issue.number)} ${issue.title}`}
+        onClick={() => openIssuePanel(issue, manifestId)}
+      >
         <span className="sv-issue__mark" aria-hidden="true">
           <Ticket size={12} strokeWidth={2} aria-hidden />
         </span>
@@ -38,7 +50,11 @@ export function GroupIssue({ issue, manifestId }: { issue: Issue; manifestId: st
 /** Where a group stands in the plan: finished, the one being worked, or still to come. */
 export type Step = "done" | "current" | "upcoming";
 
-const LEAD_SAID: Record<Step, string> = { done: "Done", current: "Working on this now", upcoming: "Not started" };
+const LEAD_SAID: Record<Step, string> = {
+  done: "Done",
+  current: "Working on this now",
+  upcoming: "Not started",
+};
 
 /** The mark that leads a group's row in the stepper: a check once done, the breathing mark while it is the one being worked, a dot while it waits. */
 export function StepMark({ step }: { step: Step }) {
@@ -46,12 +62,22 @@ export function StepMark({ step }: { step: Step }) {
   return (
     <Tooltip label={said}>
       {step === "current" ? (
-        <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label={said}>
+        <span
+          className="armada-session-mark armada-task-mark"
+          data-state="working"
+          data-pulsing
+          role="img"
+          aria-label={said}
+        >
           <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
         </span>
       ) : (
         <span className="sv-group__lead" data-step={step} role="img" aria-label={said}>
-          {step === "done" ? <Check size={12} strokeWidth={2} aria-hidden /> : <Dot size={12} strokeWidth={2} aria-hidden />}
+          {step === "done" ? (
+            <Check size={12} strokeWidth={2} aria-hidden />
+          ) : (
+            <Dot size={12} strokeWidth={2} aria-hidden />
+          )}
         </span>
       )}
     </Tooltip>
@@ -59,24 +85,49 @@ export function StepMark({ step }: { step: Step }) {
 }
 
 /** The task a group's live line is about: the first one running. */
-export const hereOf = (group: ViewGroup): string | undefined => group.tasks.find((task) => task.state === "working")?.id;
+export const hereOf = (group: ViewGroup): string | undefined =>
+  group.tasks.find((task) => task.state === "working")?.id;
 
 /**
  * One task's line: its state glyph and the plan's words, with what the turn is doing under it where it is the one being worked. A mark in progress that carries
  * the time of its last change (`TaskAge`) reads that age at the right, and dims once it is old; it then claims nothing about what the turn is on, which the
  * detected line at the head of Now says.
  */
-export function TaskLine({ task, here, now, issue }: { task: ViewGroup["tasks"][number]; here: boolean; now: string | undefined; /** The issue its group works, on a line of its own under the live line. */ issue?: ReactNode }) {
+export function TaskLine({
+  task,
+  here,
+  now,
+  issue,
+}: {
+  task: ViewGroup["tasks"][number];
+  here: boolean;
+  now:
+    | string
+    | undefined /** The issue its group works, on a line of its own under the live line. */;
+  issue?: ReactNode;
+}) {
   const since = agedAt(task);
   // Fleet's own reading dims a mark first; the age past `STALE_AFTER_MS` is the fallback where Fleet sent none.
   const stale = useStale(since) || task.stale !== undefined;
   const aged = since !== undefined;
   const lit = here && !aged;
   return (
-    <li className="sv-group__task" data-state={task.state} data-here={lit || undefined} data-aged={aged || undefined} data-stale={stale || undefined}>
+    <li
+      className="sv-group__task"
+      data-state={task.state}
+      data-here={lit || undefined}
+      data-aged={aged || undefined}
+      data-stale={stale || undefined}
+    >
       {lit ? (
         <Tooltip asChild label="Working on this now">
-          <span className="armada-session-mark armada-task-mark" data-state="working" data-pulsing role="img" aria-label="Working on this now">
+          <span
+            className="armada-session-mark armada-task-mark"
+            data-state="working"
+            data-pulsing
+            role="img"
+            aria-label="Working on this now"
+          >
             <TASK_GLYPH.working size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
@@ -109,12 +160,35 @@ function Tasks({ group, now }: { group: ViewGroup; now: string | undefined }) {
  * **A group handed to a Job is that Job's card** (`ChildJob.tsx`). Only the agent hands a group off; the owner's press is not drawn. A group marked `ownJob` that is
  * not handed yet is the placeholder Job card (`JobCard`) alone, its issue a chip in it: the Job plans its own tasks, so the group's are not drawn.
  */
-export function Group({ group, now, step, opened = false, ed, parent, manifestId, onOpenSession }: { group: ViewGroup; /** What the turn is doing in this group, in his words, drawn under the task being worked. */ now?: string; /** Stands open until he presses it: the blueprint of a plan being drafted shows every task. */ opened?: boolean; /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */ step?: Step; ed: PlanEditing; parent: Session | undefined; manifestId?: string | undefined; onOpenSession: (id: string) => void }) {
+export function Group({
+  group,
+  now,
+  step,
+  opened = false,
+  ed,
+  parent,
+  manifestId,
+  onOpenSession,
+}: {
+  group: ViewGroup /** What the turn is doing in this group, in his words, drawn under the task being worked. */;
+  now?: string /** Stands open until he presses it: the blueprint of a plan being drafted shows every task. */;
+  opened?: boolean /** Draws the group as a step of the plan: done and to-come ones as one muted line, the current one open and raised. */;
+  step?: Step;
+  ed: PlanEditing;
+  parent: Session | undefined;
+  manifestId?: string | undefined;
+  onOpenSession: (id: string) => void;
+}) {
   // A group stands shut until he presses it, and a press is kept. A drafted group's tasks are up either way: what opens is its head and its paths.
-  const [pressed, setPressed] = useState<boolean | undefined>(() => (wasOpen(ed.id, group.id) ? true : undefined));
+  const [pressed, setPressed] = useState<boolean | undefined>(() =>
+    wasOpen(ed.id, group.id) ? true : undefined,
+  );
   const open = pressed ?? false;
   const sessions = useSessions();
-  const child = parent === undefined ? undefined : childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
+  const child =
+    parent === undefined
+      ? undefined
+      : childrenOf(sessions, parent).find((one) => one.group === group.id)?.session;
   // The issue it names, when the Session holds it: the group is that issue's place, with its pull requests under the tasks.
   const named = parent === undefined ? undefined : issueOfGroup(parent, group.issue);
   const live = group.tasks.some((task) => task.state === "working");
@@ -130,33 +204,82 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
   // The Job takes the group's row, as it does on the spine: its tasks are the Job's work, which opening the Job shows.
   if (child !== undefined) {
     return (
-      <section className="sv-group" data-group={group.id} data-step={step} data-handed="" aria-label={group.title}>
-        <ChildJob child={child} group={group.title} issue={named?.issue} manifestId={manifestId} onOpen={onOpenSession} />
+      <section
+        className="sv-group"
+        data-group={group.id}
+        data-step={step}
+        data-handed=""
+        aria-label={group.title}
+      >
+        <ChildJob
+          child={child}
+          group={group.title}
+          issue={named?.issue}
+          manifestId={manifestId}
+          onOpen={onOpenSession}
+        />
       </section>
     );
   }
-  const prs = named === undefined || group.issue === undefined || named.prs.length === 0 ? null : (
-    <div className="sv-group__prs">
-      <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />
-    </div>
-  );
+  const prs =
+    named === undefined || group.issue === undefined || named.prs.length === 0 ? null : (
+      <div className="sv-group__prs">
+        <GroupPullRequests prs={named.prs} issue={group.issue} manifestId={manifestId} />
+      </div>
+    );
   // A group that goes to a Job of its own and has none yet is that Job's placeholder card alone, its issue a chip in it, where the Job's card stands once it is handed.
   if (group.ownJob === true) {
     return (
-      <section className="sv-group" data-group={group.id} data-step={step} data-placeholder="" aria-label={group.title}>
+      <section
+        className="sv-group"
+        data-group={group.id}
+        data-step={step}
+        data-placeholder=""
+        aria-label={group.title}
+      >
         <JobCard placeholder={group.title} {...cardIssueOf(named?.issue, manifestId)} />
         {prs}
       </section>
     );
   }
   return (
-    <section className="sv-group" data-group={group.id} data-step={step} data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} aria-label={group.title}>
+    <section
+      className="sv-group"
+      data-group={group.id}
+      data-step={step}
+      data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined}
+      data-open={open || undefined}
+      aria-label={group.title}
+    >
       {opened ? (
         // A drafted group's title is the editable one, so the row holds two presses: the title to rename it and the chevron to open its subagent type and paths.
         <div className="sv-group__row" data-editable="">
           {step === undefined ? null : <StepMark step={step} />}
-          <EditText label="Group" className="sv-group__title" value={group.title} was={group.was} onSave={(to) => ed.set(rename(ed.plan, ed.marks, { group: group.id }, to))} />
-          <button type="button" className="sv-group__head" aria-expanded={open} aria-label={`Subagent type and paths of ${group.title}`} onClick={() => setPressed(!open)}>
+          <EditText
+            label="Group"
+            className="sv-group__title"
+            value={group.title}
+            was={group.was}
+            onSave={(to) =>
+              ed.set(
+                rename(
+                  ed.plan,
+                  ed.marks,
+                  {
+                    group: group.id,
+                  },
+                  to,
+                ),
+              )
+            }
+          />
+          <button
+            type="button"
+            className="sv-group__head"
+            aria-expanded={open}
+            aria-label={`Subagent type and paths of ${group.title}`}
+            onClick={() => setPressed(!open)}
+          >
             {seen}
             <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
           </button>
@@ -166,17 +289,33 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
         <div className="sv-group__row" data-split="">
           {step === undefined ? null : <StepMark step={step} />}
           <Tooltip asChild label="Open the issue">
-            <button type="button" className="sv-group__title" onClick={() => openIssuePanel(named.issue, manifestId)}>
+            <button
+              type="button"
+              className="sv-group__title"
+              onClick={() => openIssuePanel(named.issue, manifestId)}
+            >
               {group.title}
             </button>
           </Tooltip>
-          <button type="button" className="sv-group__head" aria-expanded={open} aria-label={`Subagent type of ${group.title}`} onClick={() => setPressed(!open)}>
+          <button
+            type="button"
+            className="sv-group__head"
+            aria-expanded={open}
+            aria-label={`Subagent type of ${group.title}`}
+            onClick={() => setPressed(!open)}
+          >
             {seen}
             <ChevronDown className="sv-group__chevron" size={12} strokeWidth={2} aria-hidden />
           </button>
         </div>
       ) : (
-        <button type="button" className="sv-group__row" aria-expanded={open} aria-label={group.title} onClick={() => setPressed(!open)}>
+        <button
+          type="button"
+          className="sv-group__row"
+          aria-expanded={open}
+          aria-label={group.title}
+          onClick={() => setPressed(!open)}
+        >
           {step === undefined ? null : <StepMark step={step} />}
           <span className="sv-group__title">{group.title}</span>
           <span className="sv-group__head">
@@ -194,7 +333,17 @@ export function Group({ group, now, step, opened = false, ed, parent, manifestId
       {open || opened ? (
         <div className="sv-expand">
           <div className="sv-group__body">
-            <GroupEditor group={group} ed={ed} titled={false} head={!opened || open} {...(opened ? { onEdit: () => setPressed(true) } : {})} />
+            <GroupEditor
+              group={group}
+              ed={ed}
+              titled={false}
+              head={!opened || open}
+              {...(opened
+                ? {
+                    onEdit: () => setPressed(true),
+                  }
+                : {})}
+            />
           </div>
         </div>
       ) : null}

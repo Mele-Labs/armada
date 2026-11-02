@@ -8,9 +8,15 @@ import type { DiffSide, ReviewPlace } from "@armada/protocol";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
 /** A line of a file on one side of the change, as the forge numbers it. */
-export type Place = { line: number; side: DiffSide };
+export type Place = {
+  line: number;
+  side: DiffSide;
+};
 
-export type Counted = { old: number | undefined; now: number | undefined };
+export type Counted = {
+  old: number | undefined;
+  now: number | undefined;
+};
 
 const HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 
@@ -23,12 +29,30 @@ export function counted(lines: readonly DiffLine[]): Counted[] {
       const header = HEADER.exec(one.text);
       old = header === null ? undefined : Number(header[1]);
       now = header === null ? undefined : Number(header[2]);
-      return { old: undefined, now: undefined };
+      return {
+        old: undefined,
+        now: undefined,
+      };
     }
-    if (old === undefined || now === undefined) return { old: undefined, now: undefined };
-    if (one.kind === "removed") return { old: old++, now: undefined };
-    if (one.kind === "added") return { old: undefined, now: now++ };
-    return { old: old++, now: now++ };
+    if (old === undefined || now === undefined)
+      return {
+        old: undefined,
+        now: undefined,
+      };
+    if (one.kind === "removed")
+      return {
+        old: old++,
+        now: undefined,
+      };
+    if (one.kind === "added")
+      return {
+        old: undefined,
+        now: now++,
+      };
+    return {
+      old: old++,
+      now: now++,
+    };
   });
 }
 
@@ -36,13 +60,24 @@ export function counted(lines: readonly DiffLine[]): Counted[] {
 export function placeOfLine(lines: readonly DiffLine[], index: number): Place | undefined {
   const at = counted(lines)[index];
   if (at === undefined) return undefined;
-  if (at.now !== undefined) return { line: at.now, side: "right" };
-  return at.old === undefined ? undefined : { line: at.old, side: "left" };
+  if (at.now !== undefined)
+    return {
+      line: at.now,
+      side: "right",
+    };
+  return at.old === undefined
+    ? undefined
+    : {
+        line: at.old,
+        side: "left",
+      };
 }
 
 /** The index of the line a place names, or -1 where the patch does not hold it. A context line answers to either side. */
 export function indexOfPlace(lines: readonly DiffLine[], place: Place): number {
-  return counted(lines).findIndex((one) => (place.side === "right" ? one.now : one.old) === place.line);
+  return counted(lines).findIndex(
+    (one) => (place.side === "right" ? one.now : one.old) === place.line,
+  );
 }
 
 /** How many lines of the change are kept either side of the place an explanation names. */
@@ -61,7 +96,10 @@ export function sliceAround(lines: readonly DiffLine[], place: ReviewPlace): Dif
     return number !== undefined && number >= place.start && number <= place.end;
   };
   const first = nums.findIndex((_, at) => covered(at));
-  if (first < 0) return [...lines];
+  if (first < 0)
+    return [
+      ...lines,
+    ];
   let last = first;
   for (let at = first; at < lines.length; at += 1) if (covered(at)) last = at;
   let low = first;
@@ -88,7 +126,13 @@ export function sliceAround(lines: readonly DiffLine[], place: ReviewPlace): Dif
   const old = start("old", header === null ? 1 : Number(header[1]));
   const now = start("now", header === null ? 1 : Number(header[2]));
   const text = `@@ -${old},${inside.filter((one) => one.old !== undefined).length} +${now},${inside.filter((one) => one.now !== undefined).length} @@`;
-  return [{ kind: "hunk", text }, ...kept];
+  return [
+    {
+      kind: "hunk",
+      text,
+    },
+    ...kept,
+  ];
 }
 
 /** The lines of one file's patch as the forge printed it (hunks only, no `diff --git` header). */

@@ -15,98 +15,193 @@ import { mergeLineViews, recentSessionsOf } from "./merge-line";
 const SERVED = served as MergeLines;
 const PULL = "https://git.example/armada-dev/armada/pull/";
 const REPOSITORIES = [
-  { root: "/repo", records_root: "/records/repo" },
-  { root: "/other", records_root: "/records/other" },
+  {
+    root: "/repo",
+    records_root: "/records/repo",
+  },
+  {
+    root: "/other",
+    records_root: "/records/other",
+  },
 ];
-const views = (lines: MergeLines | null, picked: string | null) => mergeLineViews(lines, picked, REPOSITORIES);
+const views = (lines: MergeLines | null, picked: string | null) =>
+  mergeLineViews(lines, picked, REPOSITORIES);
 
 describe("the merge line Fleet serves", () => {
   test("folds onto the panel's rows: places, the batch, the runner's words, what landed and what was sent back", () => {
-    expect(views(SERVED, null)).toEqual([{
-      root: "/repo",
-      line: [
-        {
-          branch: "docs/wire-lock-signed",
-          place: 1,
-          state: "preparing",
-          doing: "reading verify-foundations against main",
-          batch: "docs/wire-lock-signed",
-        },
-        {
-          branch: "worktree-agent-a",
-          place: 2,
-          state: "gating",
-          batch: "docs/wire-lock-signed",
-          checks: [
-            { name: "build", state: "passed" },
-            { name: "screens_test", state: "running" },
-            { name: "desktop_test", state: "waiting" },
-          ],
-        },
-        {
-          branch: "fleet/gate-policy-every-run",
-          place: 3,
-          state: "preparing",
-          doing: "merging main (c527f60e09) into fleet/gate-policy-every-run",
-          batch: "docs/wire-lock-signed",
-        },
-        { branch: "fleet/push-the-base", place: 4, state: "merging", doing: "pushing the merge onto main" },
-        { branch: "fleet/helm-kills-processes", place: 5, state: "waiting" },
-        {
-          branch: "fleet/read-in-cluster-membership",
-          place: 6,
-          pr: { number: 1770, url: `${PULL}1770` },
-          state: "waiting",
-        },
-      ],
-      landed: [
-        {
-          branch: "bridge/land-board-reads-plainly",
-          pr: {
-            number: 1769,
-            url: `${PULL}1769`,
-            settled: { status: "completed-success", icon: GitMerge, label: "Merged" },
+    expect(views(SERVED, null)).toEqual([
+      {
+        root: "/repo",
+        line: [
+          {
+            branch: "docs/wire-lock-signed",
+            place: 1,
+            state: "preparing",
+            doing: "reading verify-foundations against main",
+            batch: "docs/wire-lock-signed",
           },
-          state: "landed",
-          merge: "29064cc27a",
-        },
-        { branch: "fleet/an-older-landing", state: "landed" },
-      ],
-      sentBack: [
-        { branch: "bridge/overview-strip-width", state: "conflict", conflicts: ["apps/desktop/src/renderer/src/App.tsx"] },
-        {
-          branch: "fleet/pulse-log-rows",
-          pr: { number: 1768, url: `${PULL}1768` },
-          state: "red",
-          failed: ["desktop_test", "screens_test"],
-          checks: [
-            { name: "build", state: "passed" },
-            { name: "desktop_test", state: "failed" },
-            { name: "screens_test", state: "timed_out" },
-          ],
-        },
-      ],
-    }]);
+          {
+            branch: "worktree-agent-a",
+            place: 2,
+            state: "gating",
+            batch: "docs/wire-lock-signed",
+            checks: [
+              {
+                name: "build",
+                state: "passed",
+              },
+              {
+                name: "screens_test",
+                state: "running",
+              },
+              {
+                name: "desktop_test",
+                state: "waiting",
+              },
+            ],
+          },
+          {
+            branch: "fleet/gate-policy-every-run",
+            place: 3,
+            state: "preparing",
+            doing: "merging main (c527f60e09) into fleet/gate-policy-every-run",
+            batch: "docs/wire-lock-signed",
+          },
+          {
+            branch: "fleet/push-the-base",
+            place: 4,
+            state: "merging",
+            doing: "pushing the merge onto main",
+          },
+          {
+            branch: "fleet/helm-kills-processes",
+            place: 5,
+            state: "waiting",
+          },
+          {
+            branch: "fleet/read-in-cluster-membership",
+            place: 6,
+            pr: {
+              number: 1770,
+              url: `${PULL}1770`,
+            },
+            state: "waiting",
+          },
+        ],
+        landed: [
+          {
+            branch: "bridge/land-board-reads-plainly",
+            pr: {
+              number: 1769,
+              url: `${PULL}1769`,
+              settled: {
+                status: "completed-success",
+                icon: GitMerge,
+                label: "Merged",
+              },
+            },
+            state: "landed",
+            merge: "29064cc27a",
+          },
+          {
+            branch: "fleet/an-older-landing",
+            state: "landed",
+          },
+        ],
+        sentBack: [
+          {
+            branch: "bridge/overview-strip-width",
+            state: "conflict",
+            conflicts: [
+              "apps/desktop/src/renderer/src/App.tsx",
+            ],
+          },
+          {
+            branch: "fleet/pulse-log-rows",
+            pr: {
+              number: 1768,
+              url: `${PULL}1768`,
+            },
+            state: "red",
+            failed: [
+              "desktop_test",
+              "screens_test",
+            ],
+            checks: [
+              {
+                name: "build",
+                state: "passed",
+              },
+              {
+                name: "desktop_test",
+                state: "failed",
+              },
+              {
+                name: "screens_test",
+                state: "timed_out",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
   });
 
   test("a turn that has run no Check yet reads as preparing, and one in its Checks as gating", () => {
     const [one] = views(SERVED, "/repo");
-    expect(one?.line.map((row) => [row.branch, row.state])).toEqual([
-      ["docs/wire-lock-signed", "preparing"],
-      ["worktree-agent-a", "gating"],
-      ["fleet/gate-policy-every-run", "preparing"],
-      ["fleet/push-the-base", "merging"],
-      ["fleet/helm-kills-processes", "waiting"],
-      ["fleet/read-in-cluster-membership", "waiting"],
+    expect(
+      one?.line.map((row) => [
+        row.branch,
+        row.state,
+      ]),
+    ).toEqual([
+      [
+        "docs/wire-lock-signed",
+        "preparing",
+      ],
+      [
+        "worktree-agent-a",
+        "gating",
+      ],
+      [
+        "fleet/gate-policy-every-run",
+        "preparing",
+      ],
+      [
+        "fleet/push-the-base",
+        "merging",
+      ],
+      [
+        "fleet/helm-kills-processes",
+        "waiting",
+      ],
+      [
+        "fleet/read-in-cluster-membership",
+        "waiting",
+      ],
     ]);
   });
 
   test("a turn whose Check is red on main too is held, and what waits behind it still waits", () => {
     const noticed = {
-      lines: SERVED.lines.map((one) => ({ ...one, notice: { kind: "main", check: "screens_test", branch: "worktree-agent-a" } })),
+      lines: SERVED.lines.map((one) => ({
+        ...one,
+        notice: {
+          kind: "main",
+          check: "screens_test",
+          branch: "worktree-agent-a",
+        },
+      })),
     } as MergeLines;
     const [one] = views(noticed, "/repo");
-    expect(one?.line.map((row) => row.state)).toEqual(["held", "held", "held", "held", "waiting", "waiting"]);
+    expect(one?.line.map((row) => row.state)).toEqual([
+      "held",
+      "held",
+      "held",
+      "held",
+      "waiting",
+      "waiting",
+    ]);
   });
 
   test("the line is ordered by what merges next, and the number is the position in that order", () => {
@@ -115,10 +210,29 @@ describe("the merge line Fleet serves", () => {
         {
           root: "/repo",
           line: [
-            { place: 1, branch: "idle", state: "waiting", why: "kept" } as MergeLines["lines"][0]["line"][0],
-            { place: 2, branch: "a", state: "gating", batch: "a" },
-            { place: 3, branch: "b", state: "gating", batch: "a" },
-            { place: 4, branch: "c", state: "waiting" },
+            {
+              place: 1,
+              branch: "idle",
+              state: "waiting",
+              why: "kept",
+            } as MergeLines["lines"][0]["line"][0],
+            {
+              place: 2,
+              branch: "a",
+              state: "gating",
+              batch: "a",
+            },
+            {
+              place: 3,
+              branch: "b",
+              state: "gating",
+              batch: "a",
+            },
+            {
+              place: 4,
+              branch: "c",
+              state: "waiting",
+            },
           ],
           off: [],
           landed: [],
@@ -127,24 +241,59 @@ describe("the merge line Fleet serves", () => {
       ],
     };
     const [one] = views(kept, null);
-    expect(one?.line.map((row) => [row.place, row.branch, row.why])).toEqual([
-      [1, "a", undefined],
-      [2, "b", undefined],
-      [3, "idle", "kept"],
-      [4, "c", undefined],
+    expect(
+      one?.line.map((row) => [
+        row.place,
+        row.branch,
+        row.why,
+      ]),
+    ).toEqual([
+      [
+        1,
+        "a",
+        undefined,
+      ],
+      [
+        2,
+        "b",
+        undefined,
+      ],
+      [
+        3,
+        "idle",
+        "kept",
+      ],
+      [
+        4,
+        "c",
+        undefined,
+      ],
     ]);
   });
 
   test("a landed pull request wears the Job's own badge for how it ended, and one in line its number alone", () => {
     const [one] = views(SERVED, "/repo");
-    expect(one?.line.find((row) => row.pr !== undefined)?.pr).toEqual({ number: 1770, url: `${PULL}1770` });
+    expect(one?.line.find((row) => row.pr !== undefined)?.pr).toEqual({
+      number: 1770,
+      url: `${PULL}1770`,
+    });
     const closed: MergeLines = {
       lines: [
         {
           root: "/repo",
           line: [],
           off: [],
-          landed: [{ branch: "a", state: "landed", pull_request: { number: 2, url: "u", settled: "closed_unmerged" } }],
+          landed: [
+            {
+              branch: "a",
+              state: "landed",
+              pull_request: {
+                number: 2,
+                url: "u",
+                settled: "closed_unmerged",
+              },
+            },
+          ],
           sent_back: [],
         },
       ],
@@ -154,7 +303,19 @@ describe("the merge line Fleet serves", () => {
 
   test("a picked repository draws its own line, unnamed, and one without a line draws none", () => {
     const picked = views(SERVED, "/repo");
-    expect(picked.map((one) => [one.root, one.name, one.line.length])).toEqual([["/repo", undefined, 6]]);
+    expect(
+      picked.map((one) => [
+        one.root,
+        one.name,
+        one.line.length,
+      ]),
+    ).toEqual([
+      [
+        "/repo",
+        undefined,
+        6,
+      ],
+    ]);
     expect(views(SERVED, "/elsewhere")).toEqual([]);
   });
 
@@ -163,30 +324,96 @@ describe("the merge line Fleet serves", () => {
   });
 
   test("a line nobody is in still draws, with what landed and what was sent back", () => {
-    const emptied: MergeLines = { lines: [{ ...SERVED.lines[0]!, line: [] }] };
+    const emptied: MergeLines = {
+      lines: [
+        {
+          ...SERVED.lines[0]!,
+          line: [],
+        },
+      ],
+    };
     const [one] = views(emptied, "/repo");
     expect(one?.line).toEqual([]);
     expect(one?.landed).toHaveLength(2);
     expect(one?.sentBack).toHaveLength(2);
-    const never: MergeLines = { lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [] }] };
-    expect(views(never, null)).toEqual([{ root: "/repo", line: [], landed: [], sentBack: [] }]);
+    const never: MergeLines = {
+      lines: [
+        {
+          root: "/repo",
+          line: [],
+          off: [],
+          landed: [],
+          sent_back: [],
+        },
+      ],
+    };
+    expect(views(never, null)).toEqual([
+      {
+        root: "/repo",
+        line: [],
+        landed: [],
+        sentBack: [],
+      },
+    ]);
   });
 
   test("All draws one panel per repository with a line, each named by its repository", () => {
-    const two: MergeLines = { lines: [SERVED.lines[0]!, { ...SERVED.lines[0]!, root: "/other", line: [] }] };
-    expect(views(two, null).map((one) => [one.root, one.name])).toEqual([
-      ["/repo", "repo"],
-      ["/other", "other"],
+    const two: MergeLines = {
+      lines: [
+        SERVED.lines[0]!,
+        {
+          ...SERVED.lines[0]!,
+          root: "/other",
+          line: [],
+        },
+      ],
+    };
+    expect(
+      views(two, null).map((one) => [
+        one.root,
+        one.name,
+      ]),
+    ).toEqual([
+      [
+        "/repo",
+        "repo",
+      ],
+      [
+        "/other",
+        "other",
+      ],
     ]);
-    expect(views(two, "/other").map((one) => [one.root, one.name])).toEqual([["/other", undefined]]);
+    expect(
+      views(two, "/other").map((one) => [
+        one.root,
+        one.name,
+      ]),
+    ).toEqual([
+      [
+        "/other",
+        undefined,
+      ],
+    ]);
   });
 });
 
 describe("the hub Fleet serves beside the line", () => {
-  const SESSION = { id: "session-1", title: "Cache the manifest read" };
+  const SESSION = {
+    id: "session-1",
+    title: "Cache the manifest read",
+  };
   const COMMIT = "a".repeat(40);
   const hubbed = (hub: MergeLineHub): MergeLines => ({
-    lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [], hub }],
+    lines: [
+      {
+        root: "/repo",
+        line: [],
+        off: [],
+        landed: [],
+        sent_back: [],
+        hub,
+      },
+    ],
   });
   const hubOf = (hub: MergeLineHub) => views(hubbed(hub), null)[0]?.hub;
 
@@ -202,8 +429,27 @@ describe("the hub Fleet serves beside the line", () => {
             sent_back: [],
             hub: {
               pull_requests: [
-                { number: 7, title: "t", branch: "armada/cache", url: `${PULL}7`, ci: "passed", queue: { state: "queued", position: 2 } },
-                { number: 8, title: "t", branch: "nick/docs", url: `${PULL}8`, ci: "running", queue: { state: "waiting_for_ci" } },
+                {
+                  number: 7,
+                  title: "t",
+                  branch: "armada/cache",
+                  url: `${PULL}7`,
+                  ci: "passed",
+                  queue: {
+                    state: "queued",
+                    position: 2,
+                  },
+                },
+                {
+                  number: 8,
+                  title: "t",
+                  branch: "nick/docs",
+                  url: `${PULL}8`,
+                  ci: "running",
+                  queue: {
+                    state: "waiting_for_ci",
+                  },
+                },
               ],
             },
           },
@@ -213,17 +459,70 @@ describe("the hub Fleet serves beside the line", () => {
       REPOSITORIES,
     )[0]?.hub;
     expect(hub?.pulls).toEqual([
-      { number: 7, url: `${PULL}7`, branch: "armada/cache", ci: "passed", queue: { state: "queued", position: 2 } },
-      { number: 8, url: `${PULL}8`, branch: "nick/docs", ci: "running", queue: { state: "waiting_for_ci" } },
+      {
+        number: 7,
+        url: `${PULL}7`,
+        branch: "armada/cache",
+        ci: "passed",
+        queue: {
+          state: "queued",
+          position: 2,
+        },
+      },
+      {
+        number: 8,
+        url: `${PULL}8`,
+        branch: "nick/docs",
+        ci: "running",
+        queue: {
+          state: "waiting_for_ci",
+        },
+      },
     ]);
   });
 
   test("the queue draws first by position, then pull requests waiting for ci, then the rest as listed", () => {
-    const pull = (number: number, queue?: { state: string; position?: number }) => ({ number, title: "t", branch: `b/${number}`, url: `${PULL}${number}`, ...(queue === undefined ? {} : { queue }) });
-    const hub = hubOf({
-      pull_requests: [pull(1), pull(2, { state: "waiting_for_ci" }), pull(3, { state: "queued", position: 2 }), pull(4), pull(5, { state: "in_queue", position: 1 })],
+    const pull = (
+      number: number,
+      queue?: {
+        state: string;
+        position?: number;
+      },
+    ) => ({
+      number,
+      title: "t",
+      branch: `b/${number}`,
+      url: `${PULL}${number}`,
+      ...(queue === undefined
+        ? {}
+        : {
+            queue,
+          }),
     });
-    expect(hub?.pulls.map((one) => one.number)).toEqual([5, 3, 2, 1, 4]);
+    const hub = hubOf({
+      pull_requests: [
+        pull(1),
+        pull(2, {
+          state: "waiting_for_ci",
+        }),
+        pull(3, {
+          state: "queued",
+          position: 2,
+        }),
+        pull(4),
+        pull(5, {
+          state: "in_queue",
+          position: 1,
+        }),
+      ],
+    });
+    expect(hub?.pulls.map((one) => one.number)).toEqual([
+      5,
+      3,
+      2,
+      1,
+      4,
+    ]);
   });
 
   test("an open pull request carries its author, dates, draft, mergeable, review and size, and a bare one carries no key", () => {
@@ -243,7 +542,12 @@ describe("the hub Fleet serves beside the line", () => {
           additions: 120,
           deletions: 0,
         },
-        { number: 8, title: "t", branch: "nick/new", url: `${PULL}8` },
+        {
+          number: 8,
+          title: "t",
+          branch: "nick/new",
+          url: `${PULL}8`,
+        },
       ],
     });
     expect(hub?.pulls).toEqual([
@@ -260,25 +564,66 @@ describe("the hub Fleet serves beside the line", () => {
         additions: 120,
         deletions: 0,
       },
-      { number: 8, url: `${PULL}8`, branch: "nick/new" },
+      {
+        number: 8,
+        url: `${PULL}8`,
+        branch: "nick/new",
+      },
     ]);
   });
 
   test("a green main is a mark, and each open pull request keeps its ci and nothing it was not told", () => {
     const hub = hubOf({
-      main: { state: "green", commit: COMMIT, read_at: "2026-10-06T10:00:00Z" },
+      main: {
+        state: "green",
+        commit: COMMIT,
+        read_at: "2026-10-06T10:00:00Z",
+      },
       pull_requests: [
-        { number: 7, title: "t", branch: "armada/cache", url: `${PULL}7`, ci: "passed" },
-        { number: 8, title: "t", branch: "nick/docs", url: `${PULL}8`, ci: "waiting_on_main" },
-        { number: 9, title: "t", branch: "nick/new", url: `${PULL}9` },
+        {
+          number: 7,
+          title: "t",
+          branch: "armada/cache",
+          url: `${PULL}7`,
+          ci: "passed",
+        },
+        {
+          number: 8,
+          title: "t",
+          branch: "nick/docs",
+          url: `${PULL}8`,
+          ci: "waiting_on_main",
+        },
+        {
+          number: 9,
+          title: "t",
+          branch: "nick/new",
+          url: `${PULL}9`,
+        },
       ],
     });
     expect(hub).toEqual({
-      main: { state: "green" },
+      main: {
+        state: "green",
+      },
       pulls: [
-        { number: 7, url: `${PULL}7`, branch: "armada/cache", ci: "passed" },
-        { number: 8, url: `${PULL}8`, branch: "nick/docs", ci: "waiting_on_main" },
-        { number: 9, url: `${PULL}9`, branch: "nick/new" },
+        {
+          number: 7,
+          url: `${PULL}7`,
+          branch: "armada/cache",
+          ci: "passed",
+        },
+        {
+          number: 8,
+          url: `${PULL}8`,
+          branch: "nick/docs",
+          ci: "waiting_on_main",
+        },
+        {
+          number: 9,
+          url: `${PULL}9`,
+          branch: "nick/new",
+        },
       ],
     });
   });
@@ -290,11 +635,31 @@ describe("the hub Fleet serves beside the line", () => {
         commit: COMMIT,
         read_at: "2026-10-06T10:00:00Z",
         failed: [
-          { name: "ci", check: "screens_test", tests: ["merge-line.test.ts > folds", "second"] },
-          { name: "test-all", tests: [] },
-          { name: "lint-all", tests: ["tests::one"] },
+          {
+            name: "ci",
+            check: "screens_test",
+            tests: [
+              "merge-line.test.ts > folds",
+              "second",
+            ],
+          },
+          {
+            name: "test-all",
+            tests: [],
+          },
+          {
+            name: "lint-all",
+            tests: [
+              "tests::one",
+            ],
+          },
         ],
-        merge: { number: 1812, url: `${PULL}1812`, branch: "armada/cache", session: SESSION },
+        merge: {
+          number: 1812,
+          url: `${PULL}1812`,
+          branch: "armada/cache",
+          session: SESSION,
+        },
       },
       fixing_session: SESSION,
     });
@@ -303,31 +668,141 @@ describe("the hub Fleet serves beside the line", () => {
       red: {
         check: "screens_test",
         test: "merge-line.test.ts > folds",
-        also: [{ check: "test-all", unmapped: true }, { check: "lint-all", unmapped: true, test: "tests::one" }],
-        merge: { number: 1812, url: `${PULL}1812`, branch: "armada/cache", session: SESSION },
+        also: [
+          {
+            check: "test-all",
+            unmapped: true,
+          },
+          {
+            check: "lint-all",
+            unmapped: true,
+            test: "tests::one",
+          },
+        ],
+        merge: {
+          number: 1812,
+          url: `${PULL}1812`,
+          branch: "armada/cache",
+          session: SESSION,
+        },
       },
       takenBySession: SESSION,
     });
   });
 
   test("another machine's claim on a red rides on the red, and a green or an unclaimed red carries none", () => {
-    const failed = { state: "red" as const, commit: COMMIT, read_at: "x", failed: [{ name: "test-all" }] };
-    const claim = { machine: "work-mac-mini", holder: { kind: "session" as const, id: "7be40d15" }, since: "2026-10-14T21:00:00Z" };
-    expect(hubOf({ main: failed, fixing_elsewhere: claim })?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true }, elsewhere: claim });
-    expect(hubOf({ main: failed })?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });
-    expect(hubOf({ main: { state: "green", commit: COMMIT, read_at: "x" }, fixing_elsewhere: claim })?.main).toEqual({ state: "green" });
+    const failed = {
+      state: "red" as const,
+      commit: COMMIT,
+      read_at: "x",
+      failed: [
+        {
+          name: "test-all",
+        },
+      ],
+    };
+    const claim = {
+      machine: "work-mac-mini",
+      holder: {
+        kind: "session" as const,
+        id: "7be40d15",
+      },
+      since: "2026-10-14T21:00:00Z",
+    };
+    expect(
+      hubOf({
+        main: failed,
+        fixing_elsewhere: claim,
+      })?.main,
+    ).toEqual({
+      state: "red",
+      red: {
+        check: "test-all",
+        unmapped: true,
+      },
+      elsewhere: claim,
+    });
+    expect(
+      hubOf({
+        main: failed,
+      })?.main,
+    ).toEqual({
+      state: "red",
+      red: {
+        check: "test-all",
+        unmapped: true,
+      },
+    });
+    expect(
+      hubOf({
+        main: {
+          state: "green",
+          commit: COMMIT,
+          read_at: "x",
+        },
+        fixing_elsewhere: claim,
+      })?.main,
+    ).toEqual({
+      state: "green",
+    });
   });
 
   test("a red carries the instant main first read red, and none where the wire gave none", () => {
     const red = (since?: string) =>
-      hubOf({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "test-all" }], ...(since === undefined ? {} : { red_since: since }) } })?.main;
-    expect(red("2026-10-13T13:00:00Z")).toEqual({ state: "red", red: { check: "test-all", unmapped: true, since: "2026-10-13T13:00:00Z" } });
-    expect(red()).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });
+      hubOf({
+        main: {
+          state: "red",
+          commit: COMMIT,
+          read_at: "x",
+          failed: [
+            {
+              name: "test-all",
+            },
+          ],
+          ...(since === undefined
+            ? {}
+            : {
+                red_since: since,
+              }),
+        },
+      })?.main;
+    expect(red("2026-10-13T13:00:00Z")).toEqual({
+      state: "red",
+      red: {
+        check: "test-all",
+        unmapped: true,
+        since: "2026-10-13T13:00:00Z",
+      },
+    });
+    expect(red()).toEqual({
+      state: "red",
+      red: {
+        check: "test-all",
+        unmapped: true,
+      },
+    });
   });
 
   test("a red nothing named a merge for draws no Broke in, and a bare job draws no Test", () => {
-    const hub = hubOf({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "test-all" }] } });
-    expect(hub?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });
+    const hub = hubOf({
+      main: {
+        state: "red",
+        commit: COMMIT,
+        read_at: "x",
+        failed: [
+          {
+            name: "test-all",
+          },
+        ],
+      },
+    });
+    expect(hub?.main).toEqual({
+      state: "red",
+      red: {
+        check: "test-all",
+        unmapped: true,
+      },
+    });
   });
 
   test("a red a Session merged names the Session, by its branch where it has no title", () => {
@@ -337,27 +812,82 @@ describe("the hub Fleet serves beside the line", () => {
           state: "red",
           commit: COMMIT,
           read_at: "x",
-          failed: [{ name: "ci" }],
-          merge: { number: 2175, branch: "armada/session-c279e883", session },
+          failed: [
+            {
+              name: "ci",
+            },
+          ],
+          merge: {
+            number: 2175,
+            branch: "armada/session-c279e883",
+            session,
+          },
         },
       })?.main;
     const merge = (session: { id: string; title?: string }) => {
       const main = red(session);
       return main?.state === "red" ? main.red.merge : undefined;
     };
-    expect(merge({ id: "c279", title: "Session Messages Fail to Send" })?.session).toEqual({ id: "c279", title: "Session Messages Fail to Send" });
-    expect(merge({ id: "c279" })?.session).toEqual({ id: "c279", title: "armada/session-c279e883" });
+    expect(
+      merge({
+        id: "c279",
+        title: "Session Messages Fail to Send",
+      })?.session,
+    ).toEqual({
+      id: "c279",
+      title: "Session Messages Fail to Send",
+    });
+    expect(
+      merge({
+        id: "c279",
+      })?.session,
+    ).toEqual({
+      id: "c279",
+      title: "armada/session-c279e883",
+    });
   });
 
   test("a main still running, one nothing ran on, and one not read draw no mark", () => {
-    for (const state of ["running", "nothing_ran"]) {
-      expect(hubOf({ main: { state, commit: COMMIT, read_at: "x" } })).toEqual({ pulls: [] });
+    for (const state of [
+      "running",
+      "nothing_ran",
+    ]) {
+      expect(
+        hubOf({
+          main: {
+            state,
+            commit: COMMIT,
+            read_at: "x",
+          },
+        }),
+      ).toEqual({
+        pulls: [],
+      });
     }
-    expect(hubOf({ pull_requests: [] })).toEqual({ pulls: [] });
+    expect(
+      hubOf({
+        pull_requests: [],
+      }),
+    ).toEqual({
+      pulls: [],
+    });
   });
 
   test("a line from a Fleet before the hub draws none and keeps its own landed rows", () => {
-    const [none] = views({ lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [] }] }, null);
+    const [none] = views(
+      {
+        lines: [
+          {
+            root: "/repo",
+            line: [],
+            off: [],
+            landed: [],
+            sent_back: [],
+          },
+        ],
+      },
+      null,
+    );
     expect(none && "hub" in none).toBe(false);
     const before = views(SERVED, null)[0];
     expect(before?.landed.length).toBeGreaterThan(0);
@@ -367,36 +897,115 @@ describe("the hub Fleet serves beside the line", () => {
     const commit = "c".repeat(40);
     const lines = hubbed({
       merged: [
-        { number: 1839, title: "Add it", branch: "armada/it", url: `${PULL}1839`, merged_at: "2026-10-06T21:00:00Z", commit },
-        { number: 1838, title: "Fix it", branch: "nick/fix", url: `${PULL}1838`, merged_at: "2026-10-06T20:00:00Z" },
+        {
+          number: 1839,
+          title: "Add it",
+          branch: "armada/it",
+          url: `${PULL}1839`,
+          merged_at: "2026-10-06T21:00:00Z",
+          commit,
+        },
+        {
+          number: 1838,
+          title: "Fix it",
+          branch: "nick/fix",
+          url: `${PULL}1838`,
+          merged_at: "2026-10-06T20:00:00Z",
+        },
       ],
     });
-    const [view] = views({ lines: [{ ...lines.lines[0]!, landed: SERVED.lines[0]!.landed }] }, null);
+    const [view] = views(
+      {
+        lines: [
+          {
+            ...lines.lines[0]!,
+            landed: SERVED.lines[0]!.landed,
+          },
+        ],
+      },
+      null,
+    );
     expect(view?.landed).toEqual([
-      { branch: "armada/it", pr: { number: 1839, url: `${PULL}1839` }, state: "landed", merge: "cccccccccc" },
-      { branch: "nick/fix", pr: { number: 1838, url: `${PULL}1838` }, state: "landed" },
+      {
+        branch: "armada/it",
+        pr: {
+          number: 1839,
+          url: `${PULL}1839`,
+        },
+        state: "landed",
+        merge: "cccccccccc",
+      },
+      {
+        branch: "nick/fix",
+        pr: {
+          number: 1838,
+          url: `${PULL}1838`,
+        },
+        state: "landed",
+      },
     ]);
   });
 
   test("each merged pull request carries the CI run on its merge commit, and a state this build does not know draws none", () => {
     const commit = "c".repeat(40);
-    const merged = (number: number, main_run?: { state: string; failed?: string[] }) => ({
+    const merged = (
+      number: number,
+      main_run?: {
+        state: string;
+        failed?: string[];
+      },
+    ) => ({
       number,
       title: "t",
       branch: `b/${number}`,
       url: `${PULL}${number}`,
       merged_at: "2026-10-06T21:00:00Z",
       commit,
-      ...(main_run === undefined ? {} : { main_run }),
+      ...(main_run === undefined
+        ? {}
+        : {
+            main_run,
+          }),
     });
     const lines = hubbed({
-      merged: [merged(3, { state: "running" }), merged(2, { state: "failed", failed: ["ci", "lint"] }), merged(1, { state: "passed" }), merged(4, { state: "later" }), merged(5)],
+      merged: [
+        merged(3, {
+          state: "running",
+        }),
+        merged(2, {
+          state: "failed",
+          failed: [
+            "ci",
+            "lint",
+          ],
+        }),
+        merged(1, {
+          state: "passed",
+        }),
+        merged(4, {
+          state: "later",
+        }),
+        merged(5),
+      ],
     });
     const [view] = views(lines, null);
     expect(view?.landed.map((row) => row.mainRun)).toEqual([
-      { state: "running", branch: `main@${commit}` },
-      { state: "failed", failed: ["ci", "lint"], branch: `main@${commit}` },
-      { state: "passed", branch: `main@${commit}` },
+      {
+        state: "running",
+        branch: `main@${commit}`,
+      },
+      {
+        state: "failed",
+        failed: [
+          "ci",
+          "lint",
+        ],
+        branch: `main@${commit}`,
+      },
+      {
+        state: "passed",
+        branch: `main@${commit}`,
+      },
       undefined,
       undefined,
     ]);
@@ -410,42 +1019,160 @@ describe("the hub Fleet serves beside the line", () => {
         commit,
         read_at: "x",
         red_commit: "a".repeat(40),
-        failed: [{ name: "ci", check: "test" }],
-        checking: [{ commit, pull_request: { number: 1852, url: `${PULL}1852` } }, { commit: "e".repeat(40) }],
+        failed: [
+          {
+            name: "ci",
+            check: "test",
+          },
+        ],
+        checking: [
+          {
+            commit,
+            pull_request: {
+              number: 1852,
+              url: `${PULL}1852`,
+            },
+          },
+          {
+            commit: "e".repeat(40),
+          },
+        ],
       },
     });
     expect(hub?.main).toEqual({
       state: "red",
-      red: { check: "test" },
-      checking: [{ commit, number: 1852, url: `${PULL}1852` }, { commit: "e".repeat(40) }],
+      red: {
+        check: "test",
+      },
+      checking: [
+        {
+          commit,
+          number: 1852,
+          url: `${PULL}1852`,
+        },
+        {
+          commit: "e".repeat(40),
+        },
+      ],
     });
-    const green = hubOf({ main: { state: "green", commit, read_at: "x", checking: [{ commit, pull_request: { number: 1852 } }] } });
-    expect(green?.main).toEqual({ state: "green", checking: [{ commit, number: 1852 }] });
-    const plain = hubOf({ main: { state: "red", commit, read_at: "x", failed: [{ name: "ci", check: "test" }], checking: [] } });
-    expect(plain?.main).toEqual({ state: "red", red: { check: "test" } });
+    const green = hubOf({
+      main: {
+        state: "green",
+        commit,
+        read_at: "x",
+        checking: [
+          {
+            commit,
+            pull_request: {
+              number: 1852,
+            },
+          },
+        ],
+      },
+    });
+    expect(green?.main).toEqual({
+      state: "green",
+      checking: [
+        {
+          commit,
+          number: 1852,
+        },
+      ],
+    });
+    const plain = hubOf({
+      main: {
+        state: "red",
+        commit,
+        read_at: "x",
+        failed: [
+          {
+            name: "ci",
+            check: "test",
+          },
+        ],
+        checking: [],
+      },
+    });
+    expect(plain?.main).toEqual({
+      state: "red",
+      red: {
+        check: "test",
+      },
+    });
   });
 });
 
 describe("the Sessions main's red can go back to", () => {
-  const session = (id: string, title: string | undefined, lastTurnAt: string, extra: Partial<Session> = {}): Session =>
-    ({ id, ...(title === undefined ? {} : { title }), turn: { state: "idle" }, rows: [], attachments: [{ kind: "branch", name: `armada/${id}`, slot: 1 }], lastTurnAt, ...extra }) as Session;
+  const session = (
+    id: string,
+    title: string | undefined,
+    lastTurnAt: string,
+    extra: Partial<Session> = {},
+  ): Session =>
+    ({
+      id,
+      ...(title === undefined
+        ? {}
+        : {
+            title,
+          }),
+      turn: {
+        state: "idle",
+      },
+      rows: [],
+      attachments: [
+        {
+          kind: "branch",
+          name: `armada/${id}`,
+          slot: 1,
+        },
+      ],
+      lastTurnAt,
+      ...extra,
+    }) as Session;
   const held = [
     session("a", "Older", "2026-10-12T09:00:00Z"),
     session("b", "Newer", "2026-10-12T10:00:00Z"),
     session("c", undefined, "2026-10-12T11:00:00Z"),
-    session("d", "Closed", "2026-10-12T12:00:00Z", { dead: "ended" }),
+    session("d", "Closed", "2026-10-12T12:00:00Z", {
+      dead: "ended",
+    }),
   ];
 
   test("are the named, living ones in the registry, newest first, with their branch", () => {
     expect(recentSessionsOf(held)).toEqual([
-      { id: "b", title: "Newer", branch: "armada/b" },
-      { id: "a", title: "Older", branch: "armada/a" },
+      {
+        id: "b",
+        title: "Newer",
+        branch: "armada/b",
+      },
+      {
+        id: "a",
+        title: "Older",
+        branch: "armada/a",
+      },
     ]);
   });
 
   test("hold the Session that merged first, though the registry does not", () => {
-    expect(recentSessionsOf(held, { id: "gone", title: "Given back" }).map((one) => one.id)).toEqual(["gone", "b", "a"]);
-    expect(recentSessionsOf(held, { id: "a", title: "Older" }).map((one) => one.id)).toEqual(["b", "a"]);
+    expect(
+      recentSessionsOf(held, {
+        id: "gone",
+        title: "Given back",
+      }).map((one) => one.id),
+    ).toEqual([
+      "gone",
+      "b",
+      "a",
+    ]);
+    expect(
+      recentSessionsOf(held, {
+        id: "a",
+        title: "Older",
+      }).map((one) => one.id),
+    ).toEqual([
+      "b",
+      "a",
+    ]);
   });
 });
-

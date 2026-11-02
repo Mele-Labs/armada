@@ -30,30 +30,98 @@ const TEXT = [
   "2. Every option is still reachable from search",
 ].join("\n");
 
-const WORK = ["Moved the theme picker under Appearance.", "Moved the sound toggle under Notifications.", "Renamed the history option to Keep history.", "Checked the group folds with the keyboard."];
+const WORK = [
+  "Moved the theme picker under Appearance.",
+  "Moved the sound toggle under Notifications.",
+  "Renamed the history option to Keep history.",
+  "Checked the group folds with the keyboard.",
+];
 
 /** Far more than the thread first draws, each its own item, so the draft is behind Show earlier. */
-const LATER: SessionRow[] = Array.from({ length: 200 }, (_, at): SessionRow[] => [
-  { id: `f-you-${at}`, at: "10:10:00", kind: "message", from: { kind: "you" }, text: `Next, section ${at + 1}.` },
-  { id: `f-agent-${at}`, at: "10:10:30", kind: "message", from: { kind: "agent" }, text: `Section ${at + 1}: ${WORK[at % WORK.length]}` },
-]).flat();
+const LATER: SessionRow[] = Array.from(
+  {
+    length: 200,
+  },
+  (_, at): SessionRow[] => [
+    {
+      id: `f-you-${at}`,
+      at: "10:10:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: `Next, section ${at + 1}.`,
+    },
+    {
+      id: `f-agent-${at}`,
+      at: "10:10:30",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: `Section ${at + 1}: ${WORK[at % WORK.length]}`,
+    },
+  ],
+).flat();
 
-const call: WaitingItem = { id: ITEM, text: TITLE, since: new Date().toISOString(), source: "draft", act: { kind: "answer", target: ITEM }, options: [{ label: "Approve" }] };
+const call: WaitingItem = {
+  id: ITEM,
+  text: TITLE,
+  since: new Date().toISOString(),
+  source: "draft",
+  act: {
+    kind: "answer",
+    target: ITEM,
+  },
+  options: [
+    {
+      label: "Approve",
+    },
+  ],
+};
 
 const job: Session = {
   id: JOB,
   title: "Tidy the settings page",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   standing: "replied",
   lastTurnAt: new Date().toISOString(),
-  work: { workflow: { name: "Feature", steps: ["Plan the change", "Implement", "Review the change"], at: 1 } },
+  work: {
+    workflow: {
+      name: "Feature",
+      steps: [
+        "Plan the change",
+        "Implement",
+        "Review the change",
+      ],
+      at: 1,
+    },
+  },
   rows: [
-    { id: "f-1", at: "10:02:00", kind: "message", from: { kind: "you" }, text: "Group the settings page, and draft the description for #57 first." },
-    { id: OPEN, at: "10:04:00", kind: "draft", title: TITLE, text: TEXT },
+    {
+      id: "f-1",
+      at: "10:02:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Group the settings page, and draft the description for #57 first.",
+    },
+    {
+      id: OPEN,
+      at: "10:04:00",
+      kind: "draft",
+      title: TITLE,
+      text: TEXT,
+    },
     ...LATER,
   ],
   attachments: [],
-  waitingFor: [call],
+  waitingFor: [
+    call,
+  ],
 };
 
 export const draftFarBack: Scenario = {
@@ -62,19 +130,52 @@ export const draftFarBack: Scenario = {
   says: "A Job whose drafted pull request description is hundreds of rows back in its thread: Needs you lists it, and its press opens the card as a tab on the Job",
   draft: {
     sessions: (board) => {
-      const store = s200Sessions.draft!.sessions!(board, [job]);
+      const store = s200Sessions.draft!.sessions!(board, [
+        job,
+      ]);
       return {
         ...store,
         answerWaiting: (id, itemId, given) => {
           if (itemId !== ITEM) return store.answerWaiting?.(id, itemId, given);
-          const how: DraftHow = given.fixed !== undefined ? "fixed" : given.text !== undefined ? "sent_back" : "approved";
+          const how: DraftHow =
+            given.fixed !== undefined
+              ? "fixed"
+              : given.text !== undefined
+                ? "sent_back"
+                : "approved";
           const words = given.fixed ?? given.text;
           const at = new Date().toISOString();
           store.edit(id, (one) => ({
             ...one,
             rows: [
-              ...one.rows.map((row) => (row.id === OPEN && row.kind === "draft" ? { ...row, settled: { how, ...(words === undefined ? {} : { words }), at } } : row)),
-              { id: "f-done", at: "10:40:00", kind: "message", from: { kind: "agent" }, text: how === "sent_back" ? "Understood. I will redraft #57." : "Updated #57 with the description." },
+              ...one.rows.map((row) =>
+                row.id === OPEN && row.kind === "draft"
+                  ? {
+                      ...row,
+                      settled: {
+                        how,
+                        ...(words === undefined
+                          ? {}
+                          : {
+                              words,
+                            }),
+                        at,
+                      },
+                    }
+                  : row,
+              ),
+              {
+                id: "f-done",
+                at: "10:40:00",
+                kind: "message",
+                from: {
+                  kind: "agent",
+                },
+                text:
+                  how === "sent_back"
+                    ? "Understood. I will redraft #57."
+                    : "Updated #57 with the description.",
+              },
             ],
             waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== ITEM),
           }));

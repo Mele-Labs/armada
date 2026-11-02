@@ -3,16 +3,45 @@
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
 
-const brief = region("Brief", { exact: true });
-const approvePlan = region("Approve plan", { exact: true });
-const deliver = region("Deliver", { exact: true });
+const brief = region("Brief", {
+  exact: true,
+});
+const approvePlan = region("Approve plan", {
+  exact: true,
+});
+const deliver = region("Deliver", {
+  exact: true,
+});
 
 export const spineTopBrief = walk("spine-top-brief", [
-  { press: deckRow("Issues tab beside Reviews"), say: "A Job at its fourth step" },
-  { look: button(/^Workflow Product/), say: "The header holds the workflow's name, its picker and the mark for the proposer's pick. The steps are the zones below" },
-  { look: brief, say: "The Brief is the first beat on the spine, shown as one line" },
-  { press: inside(approvePlan, button(/Approve plan/)), say: "A finished step is a check on the line, folded. Press it to open what was made during it" },
-  { look: inside(approvePlan, role("list", "Done")), say: "The plan's finished groups and their pull requests, under the step they were made in" },
-  { look: region("Walk", { exact: true }), say: "The current step is open, with what is happening in it" },
-  { look: inside(deliver, role("list", "Ahead")), say: "The last step holds the landing, still to come" },
+  {
+    press: deckRow("Issues tab beside Reviews"),
+    say: "A Job at its fourth step",
+  },
+  {
+    look: button(/^Workflow Product/),
+    say: "The header holds the workflow's name, its picker and the mark for the proposer's pick. The steps are the zones below",
+  },
+  {
+    look: brief,
+    say: "The Brief is the first beat on the spine, shown as one line",
+  },
+  {
+    press: inside(approvePlan, button(/Approve plan/)),
+    say: "A finished step is a check on the line, folded. Press it to open what was made during it",
+  },
+  {
+    look: inside(approvePlan, role("list", "Done")),
+    say: "The plan's finished groups and their pull requests, under the step they were made in",
+  },
+  {
+    look: region("Walk", {
+      exact: true,
+    }),
+    say: "The current step is open, with what is happening in it",
+  },
+  {
+    look: inside(deliver, role("list", "Ahead")),
+    say: "The last step holds the landing, still to come",
+  },
 ]);

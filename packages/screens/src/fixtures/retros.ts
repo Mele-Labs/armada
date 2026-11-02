@@ -9,22 +9,35 @@ import { sessionRetro } from "../lessons/session-retro";
 const WRITTEN_NEWER = "2026-10-02T22:05:00.000Z";
 const WRITTEN_OLDER = "2026-10-01T21:10:00.000Z";
 
-const NEWER = { id: "01M2SESSIONRETRO3WRITTEN", title: "Retire guides 8 and 20, add validation that" };
-const OLDER = { id: "01M2SESSIONRETRO2WRITTEN", title: "Pin the Bridge store clock" };
+const NEWER = {
+  id: "01M2SESSIONRETRO3WRITTEN",
+  title: "Retire guides 8 and 20, add validation that",
+};
+const OLDER = {
+  id: "01M2SESSIONRETRO2WRITTEN",
+  title: "Pin the Bridge store clock",
+};
 
 /** The older Session's retro: written before an item had a title, a what or a fix. */
-function olderRetro(): { retro: Retro; lessons: Lesson[] } {
+function olderRetro(): {
+  retro: Retro;
+  lessons: Lesson[];
+} {
   const item = {
     id: "01M2LESSON2DOCKWAIT",
     who: "owner" as const,
     statement: "The question waited in the dock while the plan was read twice.",
-    evidence: ["ask:1"],
+    evidence: [
+      "ask:1",
+    ],
   };
   const retro: Retro = {
     session: OLDER,
     state: "written",
     at: WRITTEN_OLDER,
-    items: [item],
+    items: [
+      item,
+    ],
     record: {
       asks: [
         {
@@ -38,16 +51,37 @@ function olderRetro(): { retro: Retro; lessons: Lesson[] } {
       ],
     },
   };
-  return { retro, lessons: [{ handle: OLDER.id, session: OLDER, at: WRITTEN_OLDER, ...item, state: "open" }] };
+  return {
+    retro,
+    lessons: [
+      {
+        handle: OLDER.id,
+        session: OLDER,
+        at: WRITTEN_OLDER,
+        ...item,
+        state: "open",
+      },
+    ],
+  };
 }
 
 /** Both Sessions' retros by Session id, and the Lessons listing over both, newest retro first, every item still open. */
-export function retroFixtures(): { retros: Record<string, Retro>; lessons: Lesson[] } {
+export function retroFixtures(): {
+  retros: Record<string, Retro>;
+  lessons: Lesson[];
+} {
   const newer = sessionRetro(NEWER, WRITTEN_NEWER);
   const older = olderRetro();
   return {
     // The newer is read by its retro number as the listing names it, and the older, whose item has none, by its Session.
-    retros: { [NEWER.id]: newer.retro, [`${NEWER.id}-r1`]: newer.retro, [OLDER.id]: older.retro },
-    lessons: [...newer.lessons, ...older.lessons],
+    retros: {
+      [NEWER.id]: newer.retro,
+      [`${NEWER.id}-r1`]: newer.retro,
+      [OLDER.id]: older.retro,
+    },
+    lessons: [
+      ...newer.lessons,
+      ...older.lessons,
+    ],
   };
 }

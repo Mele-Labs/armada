@@ -15,12 +15,40 @@ test("opening a Job of another repository picks that repository and opens the Jo
   mount("cockpit-list-by-repository");
   await onScreen();
   // The window is on one repository, which leaves out the Job asked for.
-  await userEvent.click(page.getByRole("button", { name: "Repository", exact: true }));
-  await userEvent.click(page.getByRole("menuitem", { name: "armada Armada configuration" }));
-  await expect.element(page.getByRole("button", { name: "Round the cart totals" })).not.toBeInTheDocument();
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Repository",
+      exact: true,
+    }),
+  );
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "armada Armada configuration",
+    }),
+  );
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Round the cart totals",
+      }),
+    )
+    .not.toBeInTheDocument();
 
   askToOpenSession(STOREFRONT_JOB);
 
-  await expect.element(page.getByRole("button", { name: "Repository", exact: true })).toHaveTextContent("storefront");
-  await expect.element(page.getByRole("region", { name: "Job: Round the cart totals" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Repository",
+        exact: true,
+      }),
+    )
+    .toHaveTextContent("storefront");
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Job: Round the cart totals",
+      }),
+    )
+    .toBeVisible();
 });

@@ -14,7 +14,10 @@ test("the Jobs list's filter chip does not lie over the first row", async () => 
   mount("job-browser");
   await onScreen();
   await toPlace("Cockpit");
-  const list = page.getByRole("region", { name: "Jobs", exact: true });
+  const list = page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
   await list.hover();
   const chip = list.element().querySelector(".deck-band")!;
   const row = list.element().querySelector(".deck-row")!;

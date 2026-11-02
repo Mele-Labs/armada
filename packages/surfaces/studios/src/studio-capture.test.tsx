@@ -7,15 +7,26 @@ import { page, userEvent } from "vitest/browser";
 
 import { mountApp, type Mounted, studying, toPlace, toSystemPage } from "@armada/desktop/mock";
 
-const SLICES = { slices: ["core", "studios"] } as const;
+const SLICES = {
+  slices: [
+    "core",
+    "studios",
+  ],
+} as const;
 
-let open: { app: Mounted; host: HTMLElement } | null = null;
+let open: {
+  app: Mounted;
+  host: HTMLElement;
+} | null = null;
 
 function window_(scenario: Parameters<typeof mountApp>[0]): void {
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  open = { app: mountApp(scenario, host, undefined, SLICES), host };
+  open = {
+    app: mountApp(scenario, host, undefined, SLICES),
+    host,
+  };
 }
 
 afterEach(() => {
@@ -30,17 +41,37 @@ async function binding(): Promise<void> {
 }
 
 /** The title bar's System tab: what capture points at where the rail's Studios row was. */
-const systemPlace = () => page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "System" });
+const systemPlace = () =>
+  page
+    .getByRole("navigation", {
+      name: "Places",
+    })
+    .getByRole("tab", {
+      name: "System",
+    });
 
-const bar = () => page.getByRole("status").filter({ hasText: "Capturing" });
+const bar = () =>
+  page.getByRole("status").filter({
+    hasText: "Capturing",
+  });
 
 test("a Studio open, a press on another surface, and the note lands on it", async () => {
   const fleet = studying([]);
   window_(fleet.scenario);
 
   await toSystemPage("Studios");
-  await page.getByRole("button", { name: "New Studio" }).click();
-  await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "New Studio",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("heading", {
+        name: "Untitled Studio",
+      }),
+    )
+    .toBeVisible();
 
   // Away to Overview: what is wrong is on the surface a person is looking at,
   // and the aim is the Studio they left open.
@@ -50,13 +81,25 @@ test("a Studio open, a press on another surface, and the note lands on it", asyn
 
   const pointed = systemPlace();
   await pointed.click();
-  const card = page.getByRole("dialog", { name: "Capture a note" });
+  const card = page.getByRole("dialog", {
+    name: "Capture a note",
+  });
   await expect.element(card).toBeVisible();
   // The press was swallowed: capture points, and the rail did not move.
-  expect(page.getByRole("heading", { name: "Studios" }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("heading", {
+        name: "Studios",
+      })
+      .query(),
+  ).toBeNull();
 
   await userEvent.fill(card.getByLabelText("Note"), "The rail's count is stale after a kill");
-  await card.getByRole("button", { name: "Capture" }).click();
+  await card
+    .getByRole("button", {
+      name: "Capture",
+    })
+    .click();
   // Capturing ends with the note, so the app is usable again without a second press.
   await expect.poll(() => bar().query()).toBeNull();
 
@@ -78,19 +121,48 @@ test("a Studio open, a press on another surface, and the note lands on it", asyn
 
   // And on the Studio, reopened from the list.
   await toSystemPage("Studios");
-  await page.getByRole("cell", { name: "Untitled Studio", exact: true }).click();
-  await expect.element(page.getByRole("group", { name: /^Note: The rail's count is stale/ })).toBeVisible();
+  await page
+    .getByRole("cell", {
+      name: "Untitled Studio",
+      exact: true,
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("group", {
+        name: /^Note: The rail's count is stale/,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("with no Studio open the bar says so, and the card offers no Capture", async () => {
   window_(studying([]).scenario);
-  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Cockpit" })).toBeVisible();
+  await expect
+    .element(
+      page
+        .getByRole("navigation", {
+          name: "Places",
+        })
+        .getByRole("tab", {
+          name: "Cockpit",
+        }),
+    )
+    .toBeVisible();
 
   await binding();
   await expect.element(bar()).toHaveTextContent("No Studio open");
 
   await systemPlace().click();
-  const card = page.getByRole("dialog", { name: "Capture a note" });
+  const card = page.getByRole("dialog", {
+    name: "Capture a note",
+  });
   await userEvent.fill(card.getByLabelText("Note"), "nowhere to land");
-  await expect.element(card.getByRole("button", { name: "Capture" })).toBeDisabled();
+  await expect
+    .element(
+      card.getByRole("button", {
+        name: "Capture",
+      }),
+    )
+    .toBeDisabled();
 });

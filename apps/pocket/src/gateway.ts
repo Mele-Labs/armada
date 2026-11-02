@@ -8,7 +8,10 @@ export type LiveChange = {
   session_id?: string;
 };
 
-export type PhoneChoice = { label: string; description?: string };
+export type PhoneChoice = {
+  label: string;
+  description?: string;
+};
 
 export type PhoneQuestion = {
   question: string;
@@ -43,7 +46,10 @@ export type PhoneSession = {
   /** Held on its start card: a draft Job, which runs nothing until Send. */
   held: boolean;
   /** The Job that started it. */
-  from?: { id: string; title: string };
+  from?: {
+    id: string;
+    title: string;
+  };
   context_tokens?: number;
   context_window?: number;
   /** The Job said, through all_done, that nothing is left. Present while the claim stands. */
@@ -52,10 +58,15 @@ export type PhoneSession = {
 };
 
 /** GET /api/sessions: the live Sessions only. The phone takes Needs you from the ones waiting. */
-export type SessionsBody = { sessions: PhoneSession[] };
+export type SessionsBody = {
+  sessions: PhoneSession[];
+};
 
 /** One question's choice: the option labels, or the person's own words. */
-export type ChosenAnswer = { question: string; chosen: string[] };
+export type ChosenAnswer = {
+  question: string;
+  chosen: string[];
+};
 
 /**
  * POST /api/sessions/answer. 204 on success; 409 for a Session not
@@ -80,14 +91,23 @@ export type { ModelChoices as ModelsBody } from "@armada/protocol";
  * `/api/sessions/tune` (`TuneSession`), `/api/sessions/waiting/dismiss` (`DismissWaiting`).
  * `/api/sessions/run/start` (`StartSessionRun`) answers 202 with `SessionRunUnderway`.
  */
-export type JobOnly = { session_id: string };
+export type JobOnly = {
+  session_id: string;
+};
 
 /** POST /api/sessions/fork `{ session_id }`. 201 with the new Job. */
-export type ForkedBody = { session: PhoneSession };
+export type ForkedBody = {
+  session: PhoneSession;
+};
 
 /** GET /api/repositories: the labels `DispatchBody.repository` may be. */
 export type RepositoriesBody = string[];
 
 /** POST /api/sessions. 201 with the Session the text started; 400 for an unknown repository. */
-export type DispatchBody = { text: string; repository: string };
-export type DispatchedBody = { session: PhoneSession };
+export type DispatchBody = {
+  text: string;
+  repository: string;
+};
+export type DispatchedBody = {
+  session: PhoneSession;
+};

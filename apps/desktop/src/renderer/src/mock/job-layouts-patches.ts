@@ -70,7 +70,15 @@ export function patchesOf(manifestId: string, number: number, patch: string): Pa
     .filter((one) => one !== "")
     .map((one) => {
       const path = /^a\/(\S+) b\//.exec(one)?.[1] ?? "";
-      return { manifest_id: manifestId, number, path, patch: one.slice(one.indexOf("@@")).trimEnd() };
+      return {
+        manifest_id: manifestId,
+        number,
+        path,
+        patch: one.slice(one.indexOf("@@")).trimEnd(),
+      };
     });
-  return { ok: true, files };
+  return {
+    ok: true,
+    files,
+  };
 }

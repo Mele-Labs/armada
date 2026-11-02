@@ -29,7 +29,17 @@ function shellFleet() {
   const watching = new Set<(change: JobTerminalChange) => void>();
   const shells = new Map<string, FakeShell>();
   const openIn = new Map<string, string>();
-  const calls = { opened: [] as { sessionId: string; cols?: number; rows?: number }[], stopped: [] as string[], started: [] as string[], written: [] as string[], windows: [] as string[] };
+  const calls = {
+    opened: [] as {
+      sessionId: string;
+      cols?: number;
+      rows?: number;
+    }[],
+    stopped: [] as string[],
+    started: [] as string[],
+    written: [] as string[],
+    windows: [] as string[],
+  };
   let minted = 0;
   // Main's half: what each shell printed, for a window that comes to it late, and the Jobs with a window of their own.
   const printed = new Map<string, string>();
@@ -37,13 +47,24 @@ function shellFleet() {
   const windowsHeard = new Set<(sessionIds: readonly string[]) => void>();
   const raisedHeard = new Set<(sessionId: string) => void>();
   const movesHeard = new Set<(move: TerminalMovedBack) => void>();
-  const lastShell = new Map<string, { runId: string; ended: boolean }>();
+  const lastShell = new Map<
+    string,
+    {
+      runId: string;
+      ended: boolean;
+    }
+  >();
   const send = (runId: string, message: SessionRunMessage) => {
     if (message.kind === "output") printed.set(runId, (printed.get(runId) ?? "") + message.text);
     hearing.forEach((one) => one(runId, message));
   };
   const tell = (change: JobTerminalChange) => watching.forEach((one) => one(change));
-  const windowsChanged = () => windowsHeard.forEach((one) => one([...windowed]));
+  const windowsChanged = () =>
+    windowsHeard.forEach((one) =>
+      one([
+        ...windowed,
+      ]),
+    );
   /** The person closing the Job's window, or main closing it for a move back. */
   const closeWindow = (sessionId: string) => {
     if (windowed.delete(sessionId)) windowsChanged();
@@ -55,18 +76,41 @@ function shellFleet() {
     const runId = `shell-${(minted += 1)}`;
     calls.started.push(runId);
     openIn.set(sessionId, runId);
-    lastShell.set(sessionId, { runId, ended: false });
+    lastShell.set(sessionId, {
+      runId,
+      ended: false,
+    });
     // Main follows the shell before the window hears it opened, so nothing it prints is missed.
-    tell({ session_id: sessionId, run_id: runId, change: "opened" });
+    tell({
+      session_id: sessionId,
+      run_id: runId,
+      change: "opened",
+    });
     const shell = startShell(
       WORKTREE,
-      (text) => send(runId, { kind: "output", text }),
+      (text) =>
+        send(runId, {
+          kind: "output",
+          text,
+        }),
       (code) => {
         shells.delete(runId);
         if (openIn.get(sessionId) === runId) openIn.delete(sessionId);
-        if (lastShell.get(sessionId)?.runId === runId) lastShell.set(sessionId, { runId, ended: true });
-        send(runId, { kind: "exited", code, stopped: code === null });
-        tell({ session_id: sessionId, run_id: runId, change: "exited" });
+        if (lastShell.get(sessionId)?.runId === runId)
+          lastShell.set(sessionId, {
+            runId,
+            ended: true,
+          });
+        send(runId, {
+          kind: "exited",
+          code,
+          stopped: code === null,
+        });
+        tell({
+          session_id: sessionId,
+          run_id: runId,
+          change: "exited",
+        });
       },
     );
     shells.set(runId, shell);
@@ -85,22 +129,57 @@ function shellFleet() {
       const runId = open(sessionId);
       window.setTimeout(() => shells.get(runId)?.write(`${words}\r`), 400);
     },
-    dispose: () => [...shells.values()].forEach((one) => one.stop()),
+    dispose: () =>
+      [
+        ...shells.values(),
+      ].forEach((one) => one.stop()),
     api: {
       openTerminal: async (sessionId: string, cols?: number, rows?: number) => {
-        calls.opened.push({ sessionId, ...(cols === undefined ? {} : { cols }), ...(rows === undefined ? {} : { rows }) });
-        return { ok: true as const, value: { run_id: open(sessionId) } };
+        calls.opened.push({
+          sessionId,
+          ...(cols === undefined
+            ? {}
+            : {
+                cols,
+              }),
+          ...(rows === undefined
+            ? {}
+            : {
+                rows,
+              }),
+        });
+        return {
+          ok: true as const,
+          value: {
+            run_id: open(sessionId),
+          },
+        };
       },
       writeSessionRun: async (runId: string, data: string) => {
         calls.written.push(data);
         shells.get(runId)?.write(data);
-        return { ok: true as const, value: { run_id: runId } };
+        return {
+          ok: true as const,
+          value: {
+            run_id: runId,
+          },
+        };
       },
-      resizeSessionRun: async (runId: string) => ({ ok: true as const, value: { run_id: runId } }),
+      resizeSessionRun: async (runId: string) => ({
+        ok: true as const,
+        value: {
+          run_id: runId,
+        },
+      }),
       stopSessionRun: async (runId: string) => {
         calls.stopped.push(runId);
         shells.get(runId)?.stop();
-        return { ok: true as const, value: { run_id: runId } };
+        return {
+          ok: true as const,
+          value: {
+            run_id: runId,
+          },
+        };
       },
       onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => {
         hearing.add(on);
@@ -120,7 +199,9 @@ function shellFleet() {
         windowed.add(sessionId);
         windowsChanged();
       },
-      getTerminalWindows: async () => [...windowed],
+      getTerminalWindows: async () => [
+        ...windowed,
+      ],
       onTerminalWindows: (on: (sessionIds: readonly string[]) => void) => {
         windowsHeard.add(on);
         return () => void windowsHeard.delete(on);
@@ -129,7 +210,17 @@ function shellFleet() {
       moveTerminalBack: async (sessionId: string, to: TerminalMovedBack["to"]) => {
         closeWindow(sessionId);
         const shell = lastShell.get(sessionId);
-        movesHeard.forEach((one) => one({ sessionId, to, ...(shell === undefined ? {} : { shell }) }));
+        movesHeard.forEach((one) =>
+          one({
+            sessionId,
+            to,
+            ...(shell === undefined
+              ? {}
+              : {
+                  shell,
+                }),
+          }),
+        );
       },
       onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => {
         movesHeard.add(on);
@@ -146,7 +237,8 @@ export const shellCalls = () => live?.calls;
 export const closeTerminalWindow = (sessionId: string) => live?.closeWindow(sessionId);
 
 /** The mock's window for a Job hearing its window asked for again, which brings it to the front. */
-export const onTerminalWindowRaised = (on: (sessionId: string) => void): (() => void) => live?.onRaised(on) ?? (() => undefined);
+export const onTerminalWindowRaised = (on: (sessionId: string) => void): (() => void) =>
+  live?.onRaised(on) ?? (() => undefined);
 
 /** The shell's half of Fleet for a scenario in another file: this window's shells, which a Job's Terminal tab and Flight control's Terminal open. */
 export function shellApi(): ShellFleet["api"] {
@@ -164,10 +256,26 @@ export const s322SessionShell: Scenario = {
   name: "session-shell",
   says: "A Job's shell, open in its worktree, which the person and the Job's agent both type into",
   // A served line, so the Cockpit draws the merge queue under the Job and the docked shell between them.
-  state: { ...base.state, mergeLines: { lines: [{ root: repository().root, line: [], off: [], landed: [], sent_back: [] }] } },
+  state: {
+    ...base.state,
+    mergeLines: {
+      lines: [
+        {
+          root: repository().root,
+          line: [],
+          off: [],
+          landed: [],
+          sent_back: [],
+        },
+      ],
+    },
+  },
   behaves: (fleet) => {
     live = shellFleet();
-    return { ...base.behaves?.(fleet), ...live.api };
+    return {
+      ...base.behaves?.(fleet),
+      ...live.api,
+    };
   },
   draft: {
     ...base.draft,
@@ -179,7 +287,21 @@ export const s322SessionShell: Scenario = {
         later: () => {
           store.later();
           const at = new Date().toISOString();
-          store.edit(SHELL_JOB, (one) => ({ ...one, rows: [...one.rows, { id: `sh${(rows += 1)}`, at, kind: "message", from: { kind: "agent" }, text: "Starting the dev server in the terminal." }] }));
+          store.edit(SHELL_JOB, (one) => ({
+            ...one,
+            rows: [
+              ...one.rows,
+              {
+                id: `sh${(rows += 1)}`,
+                at,
+                kind: "message",
+                from: {
+                  kind: "agent",
+                },
+                text: "Starting the dev server in the terminal.",
+              },
+            ],
+          }));
           live?.agentTypes(SHELL_JOB, AGENT_TYPES);
         },
         dispose: () => {

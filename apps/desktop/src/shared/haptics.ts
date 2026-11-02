@@ -5,7 +5,10 @@
 
 export type Pattern = "alignment" | "level_change";
 
-const PATTERNS: readonly string[] = ["alignment", "level_change"] satisfies Pattern[];
+const PATTERNS: readonly string[] = [
+  "alignment",
+  "level_change",
+] satisfies Pattern[];
 
 /** Whether what the renderer sent is one of the two. Main plays nothing else. */
 export function isPattern(value: unknown): value is Pattern {

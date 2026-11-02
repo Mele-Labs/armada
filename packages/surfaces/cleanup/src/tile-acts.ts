@@ -6,7 +6,14 @@
 
 import { useState } from "react";
 import type { TileRow } from "@armada/components";
-import type { ChangeSlotPool, Outcome, RescueAct, RescueSlot, SlotAct, SlotRescued } from "@armada/protocol";
+import type {
+  ChangeSlotPool,
+  Outcome,
+  RescueAct,
+  RescueSlot,
+  SlotAct,
+  SlotRescued,
+} from "@armada/protocol";
 
 import { said } from "@armada/screens/src/copy";
 import { releaseRefusal } from "@armada/screens/src/releasing";
@@ -45,7 +52,10 @@ function refusal(lead: string, outcome: Outcome): string {
 
 /** What a Scrap, a Stash or a Pick up did, in git's words. The branch a Scrap kept; the commit a Stash or a Pick up made. */
 function receipt(act: RescueAct, got: SlotRescued): string | undefined {
-  if (act === "scrap") return got.branch_kept === true && got.branch !== undefined ? `Branch ${got.branch} kept` : undefined;
+  if (act === "scrap")
+    return got.branch_kept === true && got.branch !== undefined
+      ? `Branch ${got.branch} kept`
+      : undefined;
   if (act !== "stash" && act !== "pick_up") return undefined;
   const on = got.branch === undefined ? "" : ` on ${got.branch}`;
   return got.committed === undefined ? undefined : `Committed ${got.committed.slice(0, 7)}${on}`;
@@ -80,13 +90,26 @@ export function useTileActs({ onChange, onRescue }: TileActsIn) {
   }
 
   const refuse = (key: string, lead: string, outcome: Outcome) =>
-    setRefused((was) => ({ ...was, [key]: refusal(lead, outcome) }));
+    setRefused((was) => ({
+      ...was,
+      [key]: refusal(lead, outcome),
+    }));
 
   async function act(manifestId: string, act: SlotAct, slot?: number): Promise<void> {
     if (onChange === undefined) return;
     const key = keyOf(manifestId, slot);
     await run(key, async () => {
-      const outcome = await onChange(manifestId, slot === undefined ? { act } : { act, slot });
+      const outcome = await onChange(
+        manifestId,
+        slot === undefined
+          ? {
+              act,
+            }
+          : {
+              act,
+              slot,
+            },
+      );
       if (!outcome.ok) refuse(key, NOT[act], outcome);
     });
   }
@@ -96,15 +119,32 @@ export function useTileActs({ onChange, onRescue }: TileActsIn) {
     if (onChange === undefined) return;
     const key = keyOf(manifestId, slot);
     await run(key, async () => {
-      const outcome = await onChange(manifestId, { act: "release", slot, holder });
+      const outcome = await onChange(manifestId, {
+        act: "release",
+        slot,
+        holder,
+      });
       if (!outcome.ok) {
         const refusal = releaseRefusal(outcome);
-        if (refusal.working) setWorkingSession((was) => ({ ...was, [key]: holder }));
-        return setRefused((was) => ({ ...was, [key]: refusal.said }));
+        if (refusal.working)
+          setWorkingSession((was) => ({
+            ...was,
+            [key]: holder,
+          }));
+        return setRefused((was) => ({
+          ...was,
+          [key]: refusal.said,
+        }));
       }
       const released = outcome.slotChanged?.released;
-      const said = released?.saved == null ? "Slot released" : `Committed to ${released.branch}, slot released`;
-      setReceipts((was) => ({ ...was, [key]: said }));
+      const said =
+        released?.saved == null
+          ? "Slot released"
+          : `Committed to ${released.branch}, slot released`;
+      setReceipts((was) => ({
+        ...was,
+        [key]: said,
+      }));
     });
   }
 
@@ -112,25 +152,65 @@ export function useTileActs({ onChange, onRescue }: TileActsIn) {
     if (onRescue === undefined) return;
     const key = keyOf(manifestId, slot);
     await run(key, async () => {
-      const outcome = await onRescue(manifestId, { act, slot });
+      const outcome = await onRescue(manifestId, {
+        act,
+        slot,
+      });
       if (!outcome.ok) return refuse(key, NOT_RESCUED[act], outcome);
       const got = receipt(act, outcome.rescued);
-      if (got !== undefined) setReceipts((was) => ({ ...was, [key]: got }));
+      if (got !== undefined)
+        setReceipts((was) => ({
+          ...was,
+          [key]: got,
+        }));
     });
   }
 
   /** What a tile adds to its bay: what happened. */
   const worked = (key: string): Partial<TileRow> => ({
-    ...(refused[key] === undefined ? {} : { refused: refused[key] }),
-    ...(workingSession[key] === undefined ? {} : { openSession: workingSession[key] }),
-    ...(receipts[key] === undefined ? {} : { said: receipts[key] }),
-    ...(acting.has(key) ? { acting: true } : {}),
+    ...(refused[key] === undefined
+      ? {}
+      : {
+          refused: refused[key],
+        }),
+    ...(workingSession[key] === undefined
+      ? {}
+      : {
+          openSession: workingSession[key],
+        }),
+    ...(receipts[key] === undefined
+      ? {}
+      : {
+          said: receipts[key],
+        }),
+    ...(acting.has(key)
+      ? {
+          acting: true,
+        }
+      : {}),
   });
 
   const acts = (manifestId: string) => ({
-    ...(onChange === undefined ? {} : { onAct: (one: SlotAct, slot?: number) => void act(manifestId, one, slot) }),
-    ...(onChange === undefined ? {} : { onRelease: (slot: number, holder: string) => void release(manifestId, slot, holder) }),
-    ...(onRescue === undefined ? {} : { onRescue: (one: RescueAct, slot: number) => void rescue(manifestId, one, slot) }),
+    ...(onChange === undefined
+      ? {}
+      : {
+          onAct: (one: SlotAct, slot?: number) => void act(manifestId, one, slot),
+        }),
+    ...(onChange === undefined
+      ? {}
+      : {
+          onRelease: (slot: number, holder: string) => void release(manifestId, slot, holder),
+        }),
+    ...(onRescue === undefined
+      ? {}
+      : {
+          onRescue: (one: RescueAct, slot: number) => void rescue(manifestId, one, slot),
+        }),
   });
-  return { worked, acts, acting, refused };
+  return {
+    worked,
+    acts,
+    acting,
+    refused,
+  };
 }

@@ -10,7 +10,10 @@ import type { BridgeState } from "../../shared/bridge";
 type Facts = Pick<BridgeState, "mods">;
 
 /** One tweak mod's checked stylesheet. */
-export type TweakSheet = { name: string; css: string };
+export type TweakSheet = {
+  name: string;
+  css: string;
+};
 
 /** What the tweaks are read from: `window.armada` in the app, a fake in a test. */
 export type FleetTweaks = {
@@ -27,20 +30,39 @@ export interface TweakSource {
 const NONE: readonly TweakSheet[] = [];
 
 /** A window that lays nothing over its theme: safe mode, and a window that was given no source. */
-export const NO_TWEAKS: TweakSource = { get: () => NONE, subscribe: () => () => undefined };
+export const NO_TWEAKS: TweakSource = {
+  get: () => NONE,
+  subscribe: () => () => undefined,
+};
 
 export function createFleetTweaks(fleet: FleetTweaks): TweakSource {
   let held: readonly TweakSheet[] = NONE;
-  let rows: readonly { name: string; at: string }[] = [];
+  let rows: readonly {
+    name: string;
+    at: string;
+  }[] = [];
   let seen = "";
-  const read = new Map<string, { at: string; css: string }>();
+  const read = new Map<
+    string,
+    {
+      at: string;
+      css: string;
+    }
+  >();
   const asking = new Set<string>();
   const listeners = new Set<() => void>();
 
   const refresh = () => {
     const next = rows.flatMap((row) => {
       const css = read.get(row.name)?.css;
-      return css === undefined ? [] : [{ name: row.name, css }];
+      return css === undefined
+        ? []
+        : [
+            {
+              name: row.name,
+              css,
+            },
+          ];
     });
     if (JSON.stringify(next) === JSON.stringify(held)) return;
     held = next;
@@ -56,7 +78,11 @@ export function createFleetTweaks(fleet: FleetTweaks): TweakSource {
         asking.delete(key);
         if (checked === null) return;
         // A tweak that no longer passes is not laid over the theme; the one before it is not kept.
-        if (checked.valid && checked.css !== undefined) read.set(row.name, { at: row.at, css: checked.css });
+        if (checked.valid && checked.css !== undefined)
+          read.set(row.name, {
+            at: row.at,
+            css: checked.css,
+          });
         else read.delete(row.name);
         refresh();
       },
@@ -67,13 +93,19 @@ export function createFleetTweaks(fleet: FleetTweaks): TweakSource {
   const ingest = (next: Facts) => {
     const on = (next.mods?.mods ?? [])
       .filter((row) => row.kind === "tweak" && row.valid && row.enabled)
-      .map((row) => ({ name: row.name, at: row.changed_at ?? "" }))
+      .map((row) => ({
+        name: row.name,
+        at: row.changed_at ?? "",
+      }))
       .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     const key = JSON.stringify(on);
     if (key === seen) return;
     seen = key;
     rows = on;
-    for (const name of [...read.keys()]) if (!on.some((row) => row.name === name)) read.delete(name);
+    for (const name of [
+      ...read.keys(),
+    ])
+      if (!on.some((row) => row.name === name)) read.delete(name);
     refresh();
     on.forEach(ask);
   };

@@ -18,12 +18,21 @@ const RUNNING: Session = {
   title: "Pin the store clock",
   manifestId: OWNER,
   cwd: ROOT,
-  turn: { state: "working" },
+  turn: {
+    state: "working",
+  },
   standing: "working",
   rows: [],
   attachments: [
-    { kind: "slot", slot: 4 },
-    { kind: "branch", name: "fix/pin-store-clock", slot: 4 },
+    {
+      kind: "slot",
+      slot: 4,
+    },
+    {
+      kind: "branch",
+      name: "fix/pin-store-clock",
+      slot: 4,
+    },
   ],
 };
 
@@ -34,14 +43,48 @@ const ASKING: Session = {
   title: "Rebuild the stage grid",
   manifestId: OWNER,
   cwd: ROOT,
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(6),
-  rows: [{ id: "g-1", at: ago(6), kind: "message", from: { kind: "agent" }, text: "Two grids fit the stage." }],
-  attachments: [
-    { kind: "slot", slot: 5 },
-    { kind: "branch", name: "fix/stage-grid", slot: 5 },
+  rows: [
+    {
+      id: "g-1",
+      at: ago(6),
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "Two grids fit the stage.",
+    },
   ],
-  waitingFor: [{ id: "ask:grid:0", text: "Which grid should the stage use?", since: ago(5), source: "ask_card", options: [{ label: "Twelve columns" }, { label: "Sixteen columns" }] }],
+  attachments: [
+    {
+      kind: "slot",
+      slot: 5,
+    },
+    {
+      kind: "branch",
+      name: "fix/stage-grid",
+      slot: 5,
+    },
+  ],
+  waitingFor: [
+    {
+      id: "ask:grid:0",
+      text: "Which grid should the stage use?",
+      since: ago(5),
+      source: "ask_card",
+      options: [
+        {
+          label: "Twelve columns",
+        },
+        {
+          label: "Sixteen columns",
+        },
+      ],
+    },
+  ],
 };
 
 const PARKED: Session = {
@@ -49,24 +92,46 @@ const PARKED: Session = {
   title: "Move the dock handle",
   manifestId: OWNER,
   cwd: ROOT,
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   standing: "idle",
   paused: true,
   lastTurnAt: ago(90),
   rows: [],
-  attachments: [{ kind: "branch", name: "fix/dock-handle", slot: 6 }],
+  attachments: [
+    {
+      kind: "branch",
+      name: "fix/dock-handle",
+      slot: 6,
+    },
+  ],
 };
 
-const MINE = new Set([RUNNING.id, ASKING.id, PARKED.id]);
+const MINE = new Set([
+  RUNNING.id,
+  ASKING.id,
+  PARKED.id,
+]);
 
 function build(): Scenario {
-  const base = holding("pausing-a-session", "The flight deck with one working Session and one waiting on him, each holding a slot and a branch");
+  const base = holding(
+    "pausing-a-session",
+    "The flight deck with one working Session and one waiting on him, each holding a slot and a branch",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: null },
+    state: {
+      ...base.state,
+      repository: null,
+    },
     draft: {
       sessions: () => {
-        const store = sessionsStore([RUNNING, ASKING, PARKED]);
+        const store = sessionsStore([
+          RUNNING,
+          ASKING,
+          PARKED,
+        ]);
         let from: readonly Session[] | undefined;
         let only: readonly Session[] = [];
         const closed = new Set<string>();
@@ -82,17 +147,48 @@ function build(): Scenario {
           },
           // The slot goes back with the work committed; the Session keeps its branch.
           pause: async (id) => {
-            store.edit(id, ({ paused: _, ...one }) => ({ ...one, paused: true, turn: { state: "idle" }, standing: "idle", attachments: one.attachments.filter((it) => it.kind !== "slot") }));
+            store.edit(id, ({ paused: _, ...one }) => ({
+              ...one,
+              paused: true,
+              turn: {
+                state: "idle",
+              },
+              standing: "idle",
+              attachments: one.attachments.filter((it) => it.kind !== "slot"),
+            }));
             // Fleet tells the Job something while it is parked: the notice waits in its thread, and the Job stays paused.
             if (id === ASKING.id) {
-              window.setTimeout(() => store.edit(id, (one) => ({ ...one, rows: [...one.rows, { id: "g-n", at: new Date().toISOString(), kind: "message", from: { kind: "session", id: "fleet", title: "Fleet" }, text: "main moved 3 commits ahead of fix/stage-grid.", notice: "behind_base" }] })), 1200);
+              window.setTimeout(
+                () =>
+                  store.edit(id, (one) => ({
+                    ...one,
+                    rows: [
+                      ...one.rows,
+                      {
+                        id: "g-n",
+                        at: new Date().toISOString(),
+                        kind: "message",
+                        from: {
+                          kind: "session",
+                          id: "fleet",
+                          title: "Fleet",
+                        },
+                        text: "main moved 3 commits ahead of fix/stage-grid.",
+                        notice: "behind_base",
+                      },
+                    ],
+                  })),
+                1200,
+              );
             }
             return true;
           },
           // The mock's end: the row goes.
           close: (id) => {
             closed.add(id);
-            store.edit(id, (one) => ({ ...one }));
+            store.edit(id, (one) => ({
+              ...one,
+            }));
           },
           // The note answers what it was asking, so the Job has nothing owed to him once it is sent.
           send: (id, sent) => {
@@ -103,7 +199,20 @@ function build(): Scenario {
             // Resume starts no turn: the Job that was waiting on him is waiting again, and the one that was working works.
             const waiting = id === ASKING.id;
             const bay = waiting ? 5 : 4;
-            store.edit(id, ({ paused: _, ...one }) => ({ ...one, turn: { state: waiting ? "idle" : "working" }, standing: waiting ? "idle" : "working", attachments: [{ kind: "slot", slot: bay }, ...one.attachments] }));
+            store.edit(id, ({ paused: _, ...one }) => ({
+              ...one,
+              turn: {
+                state: waiting ? "idle" : "working",
+              },
+              standing: waiting ? "idle" : "working",
+              attachments: [
+                {
+                  kind: "slot",
+                  slot: bay,
+                },
+                ...one.attachments,
+              ],
+            }));
             return true;
           },
         };

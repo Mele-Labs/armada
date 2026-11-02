@@ -13,7 +13,11 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 unmountAfterEach();
 
 /** The control beside the pick. Its name is read off the surface roster, never retyped here. */
-const openManifest = () => page.getByRole("button", { name: "Open the Manifest", exact: true });
+const openManifest = () =>
+  page.getByRole("button", {
+    name: "Open the Manifest",
+    exact: true,
+  });
 
 /** A ULID, which is what `ManifestId` is — so it is what a label must never be. */
 const ULID = /^01[0-9A-HJKMNP-TV-Z]{24}$/;
@@ -22,7 +26,10 @@ test("the picker names a repository, and never its Manifest's minted id", async 
   mount("studios");
   await onScreen();
 
-  const field = page.getByRole("button", { name: "Repository", exact: true });
+  const field = page.getByRole("button", {
+    name: "Repository",
+    exact: true,
+  });
   await expect.element(field).toBeVisible();
   const shown = field.element().textContent ?? "";
   expect(shown).toMatch(/armada/);
@@ -35,7 +42,13 @@ test("the control beside the pick opens that repository's Manifest", async () =>
 
   await openManifest().click();
   // The surface's own file tab, named by the path it reads.
-  await expect.element(page.getByRole("tab", { name: /armada\.yml/ })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: /armada\.yml/,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("on All repositories the control still opens the surface, which asks which one", async () => {

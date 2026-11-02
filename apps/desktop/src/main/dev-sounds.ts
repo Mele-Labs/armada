@@ -20,7 +20,9 @@ import { join } from "node:path";
 export function installSounds(from: string, into: string): string[] {
   const written: string[] = [];
   try {
-    mkdirSync(into, { recursive: true });
+    mkdirSync(into, {
+      recursive: true,
+    });
     for (const name of readdirSync(from).filter((file) => file.endsWith(".wav"))) {
       const source = join(from, name);
       const target = join(into, name);

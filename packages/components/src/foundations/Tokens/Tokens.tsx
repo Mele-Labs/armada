@@ -39,8 +39,17 @@ export function Tokens({ label, note, names, as = "fill" }: TokensProps) {
     const el = host.current;
     if (el === null) return;
     const style = getComputedStyle(el);
-    setResolved(Object.fromEntries(names.map((n) => [n, style.getPropertyValue(`--${n}`).trim()])));
-  }, [names]);
+    setResolved(
+      Object.fromEntries(
+        names.map((n) => [
+          n,
+          style.getPropertyValue(`--${n}`).trim(),
+        ]),
+      ),
+    );
+  }, [
+    names,
+  ]);
 
   return (
     <section className="armada-tokens" ref={host}>
@@ -71,16 +80,43 @@ function Sample({ as, name }: { as: TokensProps["as"]; name: string }) {
   const value = `var(--${name})`;
   if (as === "text") {
     return (
-      <span className="armada-tokens__type" style={{ font: value, fontSize: value }}>
+      <span
+        className="armada-tokens__type"
+        style={{
+          font: value,
+          fontSize: value,
+        }}
+      >
         The quick brown fox
       </span>
     );
   }
   if (as === "size") {
-    return <span className="armada-tokens__bar" style={{ width: value }} />;
+    return (
+      <span
+        className="armada-tokens__bar"
+        style={{
+          width: value,
+        }}
+      />
+    );
   }
   if (as === "duration") {
-    return <span className="armada-tokens__mark" style={{ transitionDuration: value }} />;
+    return (
+      <span
+        className="armada-tokens__mark"
+        style={{
+          transitionDuration: value,
+        }}
+      />
+    );
   }
-  return <span className="armada-tokens__chip" style={{ background: value }} />;
+  return (
+    <span
+      className="armada-tokens__chip"
+      style={{
+        background: value,
+      }}
+    />
+  );
 }

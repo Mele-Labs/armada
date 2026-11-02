@@ -70,7 +70,13 @@ export function Standing({
           single line; this is the same reading with the four runtime-file
           answers and the log under it. */}
       {fleet === null ? null : (
-        <FleetNotice fleet={fleet} fleetPid={"fleet" in connection ? connection.fleet.pid : null} bridge={bridge} onCopied={onCopied} restart={onRestartFleet} />
+        <FleetNotice
+          fleet={fleet}
+          fleetPid={"fleet" in connection ? connection.fleet.pid : null}
+          bridge={bridge}
+          onCopied={onCopied}
+          restart={onRestartFleet}
+        />
       )}
 
       {/* Fleet's own Manifest read. **Here and not in the status bar**, which

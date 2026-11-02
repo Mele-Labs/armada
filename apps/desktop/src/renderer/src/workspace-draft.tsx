@@ -8,7 +8,13 @@ import type { ReactNode } from "react";
 import type { AutonomyLayer, Repository, Rule, Workspace } from "@armada/components";
 
 /** A Workspace as the mock keeps it: its name, the repositories in it by name, and where it is kept. A committed one names the repository it lives in. */
-export type WorkspaceRecord = { id: string; name: string; repositories: readonly string[]; kept: "mac" | "repository"; home?: string };
+export type WorkspaceRecord = {
+  id: string;
+  name: string;
+  repositories: readonly string[];
+  kept: "mac" | "repository";
+  home?: string;
+};
 
 /** The layers the mock keeps, by the level that sets them: `everywhere`, `workspace:<id>` and `repository:<name>`. */
 export type Layers = Readonly<Record<string, AutonomyLayer>>;
@@ -16,9 +22,16 @@ export type Layers = Readonly<Record<string, AutonomyLayer>>;
 /** What a scenario hands: the Workspace, and the changes an agent comes back with when it is asked for one in these words. */
 export type WorkspaceSeed = {
   workspace: Workspace;
-  proposals: readonly { asked: string; rule: Rule }[];
+  proposals: readonly {
+    asked: string;
+    rule: Rule;
+  }[];
   /** Every repository Fleet serves, the Workspaces they are in, and what each level already sets. The Workspace above holds the pieces (lifecycles, rules) all of them share. */
-  workspaces?: { served: readonly Repository[]; records: readonly WorkspaceRecord[]; layers?: Layers };
+  workspaces?: {
+    served: readonly Repository[];
+    records: readonly WorkspaceRecord[];
+    layers?: Layers;
+  };
 };
 
 /** The Workspace as the window holds it. */
@@ -38,7 +51,13 @@ const Held = createContext<WorkspaceHeld | undefined>(undefined);
 /** The Workspace the window holds, or none. */
 export const useWorkspaceHeld = (): WorkspaceHeld | undefined => useContext(Held);
 
-export function WorkspaceFrom({ seed, children }: { seed: WorkspaceSeed | undefined; children: ReactNode }) {
+export function WorkspaceFrom({
+  seed,
+  children,
+}: {
+  seed: WorkspaceSeed | undefined;
+  children: ReactNode;
+}) {
   return seed === undefined ? <>{children}</> : <Kept seed={seed}>{children}</Kept>;
 }
 
@@ -49,7 +68,18 @@ function Kept({ seed, children }: { seed: WorkspaceSeed; children: ReactNode }) 
       workspace,
       change: setWorkspace,
       ask: (text) => seed.proposals.find((one) => text.toLowerCase().includes(one.asked))?.rule,
-      add: (rule) => setWorkspace((was) => (was.rules.some((one) => one.id === rule.id) ? was : { ...was, rules: [...was.rules, rule] })),
+      add: (rule) =>
+        setWorkspace((was) =>
+          was.rules.some((one) => one.id === rule.id)
+            ? was
+            : {
+                ...was,
+                rules: [
+                  ...was.rules,
+                  rule,
+                ],
+              },
+        ),
     };
     const served = seed.workspaces?.served;
     if (served === undefined) return base;
@@ -59,10 +89,30 @@ function Kept({ seed, children }: { seed: WorkspaceSeed; children: ReactNode }) 
       ...base,
       at: (repository) => {
         const record = records.find((one) => one.repositories.includes(repository));
-        const repositories = (record?.repositories ?? [repository]).map((id): Repository => ({ id, name: nameOf(id) }));
-        return { ...base, workspace: { ...workspace, id: record?.id ?? "", name: record?.name ?? "", repositories } };
+        const repositories = (
+          record?.repositories ?? [
+            repository,
+          ]
+        ).map(
+          (id): Repository => ({
+            id,
+            name: nameOf(id),
+          }),
+        );
+        return {
+          ...base,
+          workspace: {
+            ...workspace,
+            id: record?.id ?? "",
+            name: record?.name ?? "",
+            repositories,
+          },
+        };
       },
     };
-  }, [workspace, seed]);
+  }, [
+    workspace,
+    seed,
+  ]);
   return <Held.Provider value={held}>{children}</Held.Provider>;
 }

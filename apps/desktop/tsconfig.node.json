@@ -5,7 +5,9 @@
     // one more thing to ignore by hand.
     "tsBuildInfoFile": "./out/tsconfig.node.tsbuildinfo",
     "target": "ES2022",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
@@ -17,7 +19,9 @@
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["electron-vite/node"]
+    "types": [
+      "electron-vite/node"
+    ]
   },
   "include": [
     "src/main/**/*.ts",

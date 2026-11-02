@@ -56,6 +56,15 @@ const MCP_CONNECT_TIMEOUT: (&str, &str) = ("MCP_TIMEOUT", "120000");
 /// `docs/contracts/agent-prompt.md`, *The session rules*.
 pub const SESSION_RULES: &str = include_str!("session_rules.md");
 
+/// What a Job is told of its own id. **Here and not only in the mod's `armadaSession` note**, because
+/// an organization's Claude Code can pass over the mod's prompt hooks, and a start argument is
+/// Fleet's own. `docs/contracts/agent-prompt/5f-the-job-rules.md`.
+fn job_named(session: &str) -> String {
+    format!(
+        "Your Armada job id is {session}. `armada job` passes it itself, and where an act takes a `session_id`, this is it."
+    )
+}
+
 /// Everything one process of a hosted session is started with.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HostedLaunch {
@@ -309,8 +318,9 @@ impl HeadlessAgent {
             "--name".into(),
             hosted.name.clone(),
         ];
-        // One argument, since the CLI reads the last of several. The rules lead; a note adds to them.
-        let told: Vec<&str> = [Some(SESSION_RULES.trim()), hosted.note.as_deref(), hosted.fork_note.as_deref()]
+        // One argument, since the CLI reads the last of several. The rules lead, then the Job's id; a note adds to them.
+        let named = job_named(&hosted.session);
+        let told: Vec<&str> = [Some(SESSION_RULES.trim()), Some(named.as_str()), hosted.note.as_deref(), hosted.fork_note.as_deref()]
             .into_iter()
             .flatten()
             .collect();

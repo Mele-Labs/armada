@@ -5,9 +5,18 @@
 import { button, text, walk } from "../walk";
 
 const buildFailedToast = walk("build-failed-toast", [
-  { later: button(/^Fleet — /), say: "Fleet's next read of the build says the preview restart failed" },
-  { look: text("Preview build failed: error[E0432]: unresolved import crate::drones"), say: "The toast names the build and the line Fleet reports" },
-  { look: button("Dispatch job"), say: "Dispatch job is the face of its control, and Dismiss is beside it" },
+  {
+    later: button(/^Fleet — /),
+    say: "Fleet's next read of the build says the preview restart failed",
+  },
+  {
+    look: text("Preview build failed: error[E0432]: unresolved import crate::drones"),
+    say: "The toast names the build and the line Fleet reports",
+  },
+  {
+    look: button("Dispatch job"),
+    say: "Dispatch job is the face of its control, and Dismiss is beside it",
+  },
 ]);
 
 export { buildFailedToast as "build-failed-toast" };

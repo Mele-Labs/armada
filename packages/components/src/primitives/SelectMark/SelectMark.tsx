@@ -5,7 +5,10 @@ import type { ButtonHTMLAttributes } from "react";
  * lit square. One press, a `checkbox` to assistive tech, and it holds no state. `sm` is the same mark a size down, for a
  * row that stands under another.
  */
-export type SelectMarkProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick" | "type" | "role"> & {
+export type SelectMarkProps = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "children" | "onClick" | "type" | "role"
+> & {
   checked: boolean;
   onToggle: () => void;
   /** The accessible name: `Select <the row>`. */
@@ -13,7 +16,14 @@ export type SelectMarkProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "chi
   size?: "sm";
 };
 
-export function SelectMark({ checked, onToggle, label, size, className, ...rest }: SelectMarkProps) {
+export function SelectMark({
+  checked,
+  onToggle,
+  label,
+  size,
+  className,
+  ...rest
+}: SelectMarkProps) {
   return (
     <button
       {...rest}

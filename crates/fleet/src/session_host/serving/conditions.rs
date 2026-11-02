@@ -40,7 +40,7 @@ where
     async fn condition_holds(&self, condition: ipc::Condition, session: &str, manifest: &str) -> bool {
         match condition {
             ipc::Condition::Working => matches!(self.hosts().of(session).state().turn, ipc::SessionTurn::Working { .. }),
-            ipc::Condition::OwnerAway => self.sleeping().await,
+            ipc::Condition::OwnerAway => self.autopilot_running(manifest).await,
             ipc::Condition::OpenPullRequest => !self.held_open_pulls(session).await.is_empty(),
             ipc::Condition::BlocksMerge => self.a_pull_of_blocks(session, manifest).await,
         }

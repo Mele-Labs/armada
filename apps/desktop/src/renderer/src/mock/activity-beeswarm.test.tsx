@@ -8,13 +8,23 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const dots = () => [...document.querySelectorAll<HTMLElement>('[data-hud="activity"] .armada-tl__dot')];
-const card = () => document.querySelector('[data-hud="activity"] .armada-tooltip__bubble:not([hidden]) .armada-tl__hour')?.textContent ?? "";
+const dots = () => [
+  ...document.querySelectorAll<HTMLElement>('[data-hud="activity"] .armada-tl__dot'),
+];
+const card = () =>
+  document.querySelector(
+    '[data-hud="activity"] .armada-tooltip__bubble:not([hidden]) .armada-tl__hour',
+  )?.textContent ?? "";
 
 async function hud() {
   mount("activity-beeswarm");
   await onScreen();
-  await page.getByRole("button", { name: "Activity", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Activity",
+      exact: true,
+    })
+    .click();
   await expect.poll(() => dots().length).toBeGreaterThan(20);
 }
 
@@ -31,7 +41,11 @@ test("a dot's card names its events, and pressing it picks its event and rings i
   expect(card()).toContain(said);
 
   await userEvent.click(page.elementLocator(dot));
-  await expect.poll(() => dots().filter((one) => one.hasAttribute("data-lit"))).toEqual([dot]);
+  await expect
+    .poll(() => dots().filter((one) => one.hasAttribute("data-lit")))
+    .toEqual([
+      dot,
+    ]);
 });
 
 test("the arrow keys step along the dots, and no dot carries its place as an attribute that every event would rewrite", async () => {

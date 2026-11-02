@@ -19,7 +19,16 @@ function Screen({ route }: { route: Route }) {
     case "home":
       return <Home />;
     case "pair":
-      return <Pair code={route.code} {...(route.origin === undefined ? {} : { origin: route.origin })} />;
+      return (
+        <Pair
+          code={route.code}
+          {...(route.origin === undefined
+            ? {}
+            : {
+                origin: route.origin,
+              })}
+        />
+      );
     case "dispatch":
       return <Dispatch />;
     case "job":
@@ -44,7 +53,11 @@ export function App({ path }: { path: string }) {
       subscribed = true;
       void subscribe(fleet.macs.map((mac) => mac.machine)).catch(() => undefined);
     }
-  }, [fleet.loaded, fleet.macs.length, route.screen]);
+  }, [
+    fleet.loaded,
+    fleet.macs.length,
+    route.screen,
+  ]);
   return (
     <main className="pk-app" aria-label="Armada">
       <Screen route={route} />

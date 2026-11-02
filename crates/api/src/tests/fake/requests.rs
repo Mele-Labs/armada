@@ -3,8 +3,9 @@
 use std::sync::Arc;
 
 use ipc::{
-    DeleteRequestEnvironment, RequestBy, RequestSaved, RequestSent, RequestToSend, Requests as RequestsRead, RunPlace,
-    SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SendRequest, SessionId,
+    DeleteRequestEnvironment, RequestBy, RequestLine, RequestSaved, RequestSent, RequestToSend, Requests as RequestsRead,
+    RequestsSent, RunPlace, SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SendRequest,
+    SendRequests, SessionId,
 };
 
 use super::FakeDaemon;
@@ -44,6 +45,23 @@ impl Requests for FakeDaemon {
             note: None,
             saved: None,
         })
+    }
+
+    /// One line for each body file, named for the template's address, so a test reads what arrived.
+    async fn send_requests(&self, _caller: Option<Caller>, send: SendRequests) -> Result<RequestsSent, Refusal> {
+        let lines = send
+            .body_files
+            .iter()
+            .map(|file| RequestLine {
+                name: format!("{}:{file}", send.template.url),
+                status: Some(200),
+                ms: 0,
+                saved: None,
+                error: None,
+                skipped: false,
+            })
+            .collect();
+        Ok(RequestsSent { folder: String::new(), lines, note: None })
     }
 
     async fn get_requests(

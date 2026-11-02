@@ -11,18 +11,70 @@ const wand = inside(frame, button("Name it for me"));
 
 const nameItForMe = walk("name-it-for-me", [
   toSessions,
-  { press: inside(region("Jobs", { exact: true }), button(long)), say: "The Job's title is the first line of the note it started from" },
-  { look: inside(frame, button(`${long}, rename`)), say: "Too long to be a name" },
-  { hover: wand, say: "The wand after the title has Fleet name it" },
-  { press: wand, say: "Pressed" },
-  { look: inside(frame, button("Name it for me", { exact: true })), say: "The wand is busy while Fleet answers" },
-  { look: inside(frame, button(`${short}, rename`)), say: "The short name is the title" },
-  { press: inside(frame, button(`${short}, rename`)), say: "A press on the title edits it where it stands, as before" },
-  { look: inside(frame, role("textbox", "Job name")), say: "The title is a field" },
-  { key: "Escape", on: inside(frame, role("textbox", "Job name")), say: "Escape leaves the title as it was" },
-  { context: inside(region("Jobs", { exact: true }), button(short)), say: "A right press on the Job's row" },
-  { look: role("menuitem", "Name it for me"), say: "Name it for me is one of the Job's acts" },
-  { look: role("menuitem", "Close"), say: "Close sits with them, above View" },
+  {
+    press: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      button(long),
+    ),
+    say: "The Job's title is the first line of the note it started from",
+  },
+  {
+    look: inside(frame, button(`${long}, rename`)),
+    say: "Too long to be a name",
+  },
+  {
+    hover: wand,
+    say: "The wand after the title has Fleet name it",
+  },
+  {
+    press: wand,
+    say: "Pressed",
+  },
+  {
+    look: inside(
+      frame,
+      button("Name it for me", {
+        exact: true,
+      }),
+    ),
+    say: "The wand is busy while Fleet answers",
+  },
+  {
+    look: inside(frame, button(`${short}, rename`)),
+    say: "The short name is the title",
+  },
+  {
+    press: inside(frame, button(`${short}, rename`)),
+    say: "A press on the title edits it where it stands, as before",
+  },
+  {
+    look: inside(frame, role("textbox", "Job name")),
+    say: "The title is a field",
+  },
+  {
+    key: "Escape",
+    on: inside(frame, role("textbox", "Job name")),
+    say: "Escape leaves the title as it was",
+  },
+  {
+    context: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      button(short),
+    ),
+    say: "A right press on the Job's row",
+  },
+  {
+    look: role("menuitem", "Name it for me"),
+    say: "Name it for me is one of the Job's acts",
+  },
+  {
+    look: role("menuitem", "Close"),
+    say: "Close sits with them, above View",
+  },
 ]);
 
 export { nameItForMe as "name-it-for-me" };

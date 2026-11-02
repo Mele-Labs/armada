@@ -10,13 +10,21 @@ const OPEN_RETRO = "armada:open-retro";
  * The Session whose retro the Retros tab opens on: its id, and the name it is read by. **`n` names
  * the retro** from the Session's thread card, which is one of several; absent, the newest.
  */
-export type RetroAsked = { id: string; label: string; n?: number };
+export type RetroAsked = {
+  id: string;
+  label: string;
+  n?: number;
+};
 
 let waiting: RetroAsked | undefined;
 
 export function askToOpenRetro(asked: RetroAsked): void {
   waiting = asked;
-  window.dispatchEvent(new CustomEvent<RetroAsked>(OPEN_RETRO, { detail: asked }));
+  window.dispatchEvent(
+    new CustomEvent<RetroAsked>(OPEN_RETRO, {
+      detail: asked,
+    }),
+  );
 }
 
 /**
@@ -35,7 +43,9 @@ export function useOpenRetroAsked(open: () => void): void {
   useEffect(() => {
     window.addEventListener(OPEN_RETRO, open);
     return () => window.removeEventListener(OPEN_RETRO, open);
-  }, [open]);
+  }, [
+    open,
+  ]);
 }
 
 const OPEN_FIXES = "armada:open-fixes";
@@ -63,5 +73,7 @@ export function useFixesAsked(show: () => void): void {
     };
     window.addEventListener(OPEN_FIXES, heard);
     return () => window.removeEventListener(OPEN_FIXES, heard);
-  }, [show]);
+  }, [
+    show,
+  ]);
 }

@@ -12,7 +12,16 @@ function read(): Record<string, number> {
   try {
     const stored: unknown = JSON.parse(window.localStorage.getItem(KEY) ?? "{}");
     if (typeof stored !== "object" || stored === null || Array.isArray(stored)) return {};
-    return Object.fromEntries(Object.entries(stored).filter((one): one is [string, number] => typeof one[1] === "number"));
+    return Object.fromEntries(
+      Object.entries(stored).filter(
+        (
+          one,
+        ): one is [
+          string,
+          number,
+        ] => typeof one[1] === "number",
+      ),
+    );
   } catch {
     return {};
   }
@@ -29,7 +38,8 @@ const changed = (): void => {
   listeners.forEach((one) => one());
 };
 
-const visible = (): boolean => typeof document === "undefined" || document.visibilityState !== "hidden";
+const visible = (): boolean =>
+  typeof document === "undefined" || document.visibilityState !== "hidden";
 
 /** The last instant he was in this Session: now, while it is on screen; 0 where he never was. */
 export function viewedAt(sessionId: string): number {
@@ -42,16 +52,29 @@ export function viewedAt(sessionId: string): number {
 export const AWAY_MS = 60_000;
 let lastInput = Date.now();
 if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
-  for (const kind of ["keydown", "pointerdown", "pointermove", "wheel"]) window.addEventListener(kind, () => void (lastInput = Date.now()), { passive: true, capture: true });
+  for (const kind of [
+    "keydown",
+    "pointerdown",
+    "pointermove",
+    "wheel",
+  ])
+    window.addEventListener(kind, () => void (lastInput = Date.now()), {
+      passive: true,
+      capture: true,
+    });
 }
 
 /** Whether this Session is on screen in this window now, the window visible and he at the machine. */
-export const viewingNow = (sessionId: string, now: number = Date.now()): boolean => (viewing.get(sessionId) ?? 0) > 0 && visible() && now - lastInput < AWAY_MS;
+export const viewingNow = (sessionId: string, now: number = Date.now()): boolean =>
+  (viewing.get(sessionId) ?? 0) > 0 && visible() && now - lastInput < AWAY_MS;
 
 /** Record that he was in this Session at `at`. */
 export function markViewed(sessionId: string, at: number = Date.now()): void {
   held ??= read();
-  held = { ...held, [sessionId]: Math.max(at, held[sessionId] ?? 0) };
+  held = {
+    ...held,
+    [sessionId]: Math.max(at, held[sessionId] ?? 0),
+  };
   try {
     window.localStorage.setItem(KEY, JSON.stringify(held));
   } catch {
@@ -105,7 +128,9 @@ export function useViewing(sessionId: string | undefined): void {
       else viewing.delete(sessionId);
       if (visible()) markViewed(sessionId);
     };
-  }, [sessionId]);
+  }, [
+    sessionId,
+  ]);
 }
 
 // Another Bridge window (a walk's Session panel) wrote a time: read it again.

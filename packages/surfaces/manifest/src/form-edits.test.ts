@@ -13,27 +13,81 @@ const DECLARED: ManifestDeclared = {
       check: {
         run: "cargo build --workspace --locked",
         expect_exit_code: 101,
-        narrow: { run: "cargo build --locked", each: "-p {}", under: "crates" },
+        narrow: {
+          run: "cargo build --locked",
+          each: "-p {}",
+          under: "crates",
+        },
       },
     },
-    { name: "bridge_test", check: { run: "pnpm bridge-test", requires: ["bootstrap"], when: ["packages/**", "apps/**"] } },
+    {
+      name: "bridge_test",
+      check: {
+        run: "pnpm bridge-test",
+        requires: [
+          "bootstrap",
+        ],
+        when: [
+          "packages/**",
+          "apps/**",
+        ],
+      },
+    },
   ],
   commands: [
-    { name: "bootstrap", command: { run: "pnpm install --frozen-lockfile", destructive: false } },
-    { name: "clean", command: { run: "cargo clean", destructive: true } },
+    {
+      name: "bootstrap",
+      command: {
+        run: "pnpm install --frozen-lockfile",
+        destructive: false,
+      },
+    },
+    {
+      name: "clean",
+      command: {
+        run: "cargo clean",
+        destructive: true,
+      },
+    },
     {
       name: "storybook_dev",
       command: {
         destructive: false,
         serve: "pnpm storybook",
         ready: "curl -sf localhost:6006",
-        links: [{ url: "http://localhost:6006", name: "Storybook" }],
+        links: [
+          {
+            url: "http://localhost:6006",
+            name: "Storybook",
+          },
+        ],
       },
     },
   ],
-  ports: [{ name: "web", port: { container: 3000, env: "PORT" } }],
-  auto_merge: { written: "never", offered: ["never", "checks-pass", "always"] },
-  review_gate: { written: "human_always", offered: ["human_always", "auto_if_judge_passes"] },
+  ports: [
+    {
+      name: "web",
+      port: {
+        container: 3000,
+        env: "PORT",
+      },
+    },
+  ],
+  auto_merge: {
+    written: "never",
+    offered: [
+      "never",
+      "checks-pass",
+      "always",
+    ],
+  },
+  review_gate: {
+    written: "human_always",
+    offered: [
+      "human_always",
+      "auto_if_judge_passes",
+    ],
+  },
   cost_cap_micros_per_job: 1_234_567,
   turn_cap_per_job: 300,
   base: "main",
@@ -42,12 +96,18 @@ const DECLARED: ManifestDeclared = {
     ready: "curl -sf localhost:6006",
     run: "pnpm exec playwright test {}",
     frames: ".armada/frames",
-    never: ["/__notes"],
+    never: [
+      "/__notes",
+    ],
   },
-  setup_requires: ["bootstrap"],
+  setup_requires: [
+    "bootstrap",
+  ],
   quiet_after_seconds: 300,
   poke_limit: 2,
-  exclude_paths: ["target"],
+  exclude_paths: [
+    "target",
+  ],
 };
 
 describe("a draft", () => {
@@ -57,27 +117,66 @@ describe("a draft", () => {
 
   it("adds a Check with only the keys it declares", () => {
     const draft = draftOf(DECLARED);
-    draft.checks.push({ name: "clippy", run: " cargo clippy ", expectExitCode: "", requires: [], when: "\n", narrow: null });
+    draft.checks.push({
+      name: "clippy",
+      run: " cargo clippy ",
+      expectExitCode: "",
+      requires: [],
+      when: "\n",
+      narrow: null,
+    });
     expect(editsOf(DECLARED, draft)).toEqual([
-      { edit: "add_check", name: "clippy", check: { run: "cargo clippy" } },
+      {
+        edit: "add_check",
+        name: "clippy",
+        check: {
+          run: "cargo clippy",
+        },
+      },
     ]);
   });
 
   it("edits a name removed and declared again in place, so its comment stays", () => {
     const draft = draftOf(DECLARED);
     draft.commands = draft.commands.filter((command) => command.name !== "clean");
-    draft.commands.push({ name: "clean", run: "cargo clean -p fleet", destructive: true, serve: "", ready: "", links: [] });
+    draft.commands.push({
+      name: "clean",
+      run: "cargo clean -p fleet",
+      destructive: true,
+      serve: "",
+      ready: "",
+      links: [],
+    });
     expect(editsOf(DECLARED, draft)).toEqual([
-      { edit: "set_command_run", name: "clean", run: "cargo clean -p fleet" },
+      {
+        edit: "set_command_run",
+        name: "clean",
+        run: "cargo clean -p fleet",
+      },
     ]);
   });
 
   it("removes before it adds", () => {
     const draft = draftOf(DECLARED);
-    draft.ports = [{ name: "api", container: "8080", env: "" }];
+    draft.ports = [
+      {
+        name: "api",
+        container: "8080",
+        env: "",
+      },
+    ];
     expect(editsOf(DECLARED, draft)).toEqual([
-      { edit: "remove_port", name: "web" },
-      { edit: "add_port", name: "api", port: { container: 8080 } },
+      {
+        edit: "remove_port",
+        name: "web",
+      },
+      {
+        edit: "add_port",
+        name: "api",
+        port: {
+          container: 8080,
+        },
+      },
     ]);
   });
 
@@ -88,9 +187,24 @@ describe("a draft", () => {
     test.requires = [];
     draft.checks[0]!.narrow = null;
     expect(editsOf(DECLARED, draft)).toEqual([
-      { edit: "set_check_narrow", name: "build", narrow: null },
-      { edit: "set_check_requires", name: "bridge_test", requires: [] },
-      { edit: "set_check_when", name: "bridge_test", when: ["packages/**", "crates/ipc/**"] },
+      {
+        edit: "set_check_narrow",
+        name: "build",
+        narrow: null,
+      },
+      {
+        edit: "set_check_requires",
+        name: "bridge_test",
+        requires: [],
+      },
+      {
+        edit: "set_check_when",
+        name: "bridge_test",
+        when: [
+          "packages/**",
+          "crates/ipc/**",
+        ],
+      },
     ]);
   });
 
@@ -98,10 +212,21 @@ describe("a draft", () => {
     const draft = draftOf(DECLARED);
     draft.commands[0]!.destructive = true;
     draft.commands[2]!.ready = "  ";
-    draft.commands[2]!.links.push({ url: "", name: "" });
+    draft.commands[2]!.links.push({
+      url: "",
+      name: "",
+    });
     expect(editsOf(DECLARED, draft)).toEqual([
-      { edit: "set_command_destructive", name: "bootstrap", destructive: true },
-      { edit: "set_command_ready", name: "storybook_dev", ready: null },
+      {
+        edit: "set_command_destructive",
+        name: "bootstrap",
+        destructive: true,
+      },
+      {
+        edit: "set_command_ready",
+        name: "storybook_dev",
+        ready: null,
+      },
     ]);
   });
 
@@ -109,28 +234,57 @@ describe("a draft", () => {
     const draft = draftOf(DECLARED);
     expect(draft.freeze).toBe(false);
     draft.freeze = true;
-    expect(editsOf(DECLARED, draft)).toEqual([{ edit: "set_freeze", freeze: true }]);
-    const frozen = { ...DECLARED, freeze: true };
+    expect(editsOf(DECLARED, draft)).toEqual([
+      {
+        edit: "set_freeze",
+        freeze: true,
+      },
+    ]);
+    const frozen = {
+      ...DECLARED,
+      freeze: true,
+    };
     const lifted = draftOf(frozen);
     expect(editsOf(frozen, lifted)).toEqual([]);
     lifted.freeze = false;
-    expect(editsOf(frozen, lifted)).toEqual([{ edit: "set_freeze", freeze: false }]);
+    expect(editsOf(frozen, lifted)).toEqual([
+      {
+        edit: "set_freeze",
+        freeze: false,
+      },
+    ]);
   });
 
   it("reads the Draft default off pr_mode and sends it only where the switch moved", () => {
     const draft = draftOf(DECLARED);
     expect(draft.draftPr).toBe(false);
     draft.draftPr = true;
-    expect(editsOf(DECLARED, draft)).toEqual([{ edit: "set_pr_mode", pr_mode: "draft" }]);
-    const drafted = { ...DECLARED, pr_mode: "draft" };
+    expect(editsOf(DECLARED, draft)).toEqual([
+      {
+        edit: "set_pr_mode",
+        pr_mode: "draft",
+      },
+    ]);
+    const drafted = {
+      ...DECLARED,
+      pr_mode: "draft",
+    };
     const off = draftOf(drafted);
     expect(off.draftPr).toBe(true);
     expect(editsOf(drafted, off)).toEqual([]);
     // Off removes the key, so this machine's default holds.
     off.draftPr = false;
-    expect(editsOf(drafted, off)).toEqual([{ edit: "set_pr_mode", pr_mode: null }]);
+    expect(editsOf(drafted, off)).toEqual([
+      {
+        edit: "set_pr_mode",
+        pr_mode: null,
+      },
+    ]);
     // A file that says `ready` is a switch that is off, and left alone it stays.
-    const ready = { ...DECLARED, pr_mode: "ready" };
+    const ready = {
+      ...DECLARED,
+      pr_mode: "ready",
+    };
     expect(draftOf(ready).draftPr).toBe(false);
     expect(editsOf(ready, draftOf(ready))).toEqual([]);
   });
@@ -142,10 +296,23 @@ describe("a draft", () => {
     draft.costCap = "5";
     draft.turnCap = "";
     expect(editsOf(DECLARED, draft)).toEqual([
-      { edit: "set_port_container", name: "web", container: null },
-      { edit: "set_auto_merge", auto_merge: "checks-pass" },
-      { edit: "set_cost_cap_micros_per_job", cost_cap_micros_per_job: 5_000_000 },
-      { edit: "set_turn_cap_per_job", turn_cap_per_job: null },
+      {
+        edit: "set_port_container",
+        name: "web",
+        container: null,
+      },
+      {
+        edit: "set_auto_merge",
+        auto_merge: "checks-pass",
+      },
+      {
+        edit: "set_cost_cap_micros_per_job",
+        cost_cap_micros_per_job: 5_000_000,
+      },
+      {
+        edit: "set_turn_cap_per_job",
+        turn_cap_per_job: null,
+      },
     ]);
   });
 });
@@ -160,23 +327,64 @@ describe("the rest of the schema", () => {
     evidence.ready = "";
     evidence.frames = " .armada/shots ";
     evidence.never = "/__notes\n/settings";
-    draft.afterMerge = ["build"];
+    draft.afterMerge = [
+      "build",
+    ];
     draft.setup = [];
     draft.quietAfter = "600";
     draft.pokeLimit = "0";
     draft.excludePaths = "";
     expect(editsOf(DECLARED, draft)).toEqual([
-      { edit: "set_check_expect_exit_code", name: "build", expect_exit_code: 0 },
-      { edit: "set_base", base: null },
-      { edit: "set_evidence_serve", serve: null },
-      { edit: "set_evidence_ready", ready: null },
-      { edit: "set_evidence_frames", frames: ".armada/shots" },
-      { edit: "set_evidence_never", never: ["/__notes", "/settings"] },
-      { edit: "set_after_merge_checks", checks: ["build"] },
-      { edit: "set_setup_requires", requires: [] },
-      { edit: "set_quiet_after_seconds", quiet_after_seconds: 600 },
-      { edit: "set_poke_limit", poke_limit: 0 },
-      { edit: "set_exclude_paths", exclude_paths: [] },
+      {
+        edit: "set_check_expect_exit_code",
+        name: "build",
+        expect_exit_code: 0,
+      },
+      {
+        edit: "set_base",
+        base: null,
+      },
+      {
+        edit: "set_evidence_serve",
+        serve: null,
+      },
+      {
+        edit: "set_evidence_ready",
+        ready: null,
+      },
+      {
+        edit: "set_evidence_frames",
+        frames: ".armada/shots",
+      },
+      {
+        edit: "set_evidence_never",
+        never: [
+          "/__notes",
+          "/settings",
+        ],
+      },
+      {
+        edit: "set_after_merge_checks",
+        checks: [
+          "build",
+        ],
+      },
+      {
+        edit: "set_setup_requires",
+        requires: [],
+      },
+      {
+        edit: "set_quiet_after_seconds",
+        quiet_after_seconds: 600,
+      },
+      {
+        edit: "set_poke_limit",
+        poke_limit: 0,
+      },
+      {
+        edit: "set_exclude_paths",
+        exclude_paths: [],
+      },
     ]);
   });
 
@@ -184,28 +392,68 @@ describe("the rest of the schema", () => {
     const off = draftOf(DECLARED);
     off.evidence = null;
     off.commands = off.commands.filter((command) => command.name !== "clean");
-    expect(editsOf(DECLARED, off)).toEqual([{ edit: "remove_command", name: "clean" }, { edit: "remove_evidence" }]);
+    expect(editsOf(DECLARED, off)).toEqual([
+      {
+        edit: "remove_command",
+        name: "clean",
+      },
+      {
+        edit: "remove_evidence",
+      },
+    ]);
 
     const { evidence: _gone, ...without } = DECLARED;
     const on = draftOf(without);
-    on.evidence = { serve: "", ready: "", run: " node capture.js {} ", frames: "out", never: "" };
+    on.evidence = {
+      serve: "",
+      ready: "",
+      run: " node capture.js {} ",
+      frames: "out",
+      never: "",
+    };
     expect(editsOf(without, on)).toEqual([
-      { edit: "add_evidence", evidence: { run: "node capture.js {}", frames: "out" } },
+      {
+        edit: "add_evidence",
+        evidence: {
+          run: "node capture.js {}",
+          frames: "out",
+        },
+      },
     ]);
   });
 
   it("declares a Check with its exit code", () => {
     const draft = draftOf(DECLARED);
-    draft.checks.push({ name: "flaky", run: "make flaky", expectExitCode: "1", requires: [], when: "", narrow: null });
+    draft.checks.push({
+      name: "flaky",
+      run: "make flaky",
+      expectExitCode: "1",
+      requires: [],
+      when: "",
+      narrow: null,
+    });
     expect(editsOf(DECLARED, draft)).toEqual([
-      { edit: "add_check", name: "flaky", check: { run: "make flaky", expect_exit_code: 1 } },
+      {
+        edit: "add_check",
+        name: "flaky",
+        check: {
+          run: "make flaky",
+          expect_exit_code: 1,
+        },
+      },
     ]);
   });
 
   it("keeps Save back for a value the form can tell is wrong, keyed where the file spells it", () => {
     const draft = draftOf(DECLARED);
     draft.checks[0]!.expectExitCode = "1.5";
-    draft.evidence = { serve: "pnpm storybook", ready: "", run: "no spec", frames: "", never: "" };
+    draft.evidence = {
+      serve: "pnpm storybook",
+      ready: "",
+      run: "no spec",
+      frames: "",
+      never: "",
+    };
     draft.quietAfter = "0";
     draft.pokeLimit = "-1";
     const problems = problemsOf(draft);
@@ -222,7 +470,9 @@ describe("the rest of the schema", () => {
   it("leaves a name another section no longer declares to Fleet, as a Check's requires is", () => {
     const draft = draftOf(DECLARED);
     draft.commands = draft.commands.filter((command) => command.name !== "bootstrap");
-    draft.afterMerge = ["gone"];
+    draft.afterMerge = [
+      "gone",
+    ];
     expect(problemsOf(draft)).toEqual({});
   });
 });
@@ -234,7 +484,14 @@ describe("what keeps Save back", () => {
 
   it("names each field the form can tell is wrong, by where the file spells it", () => {
     const draft = draftOf(DECLARED);
-    draft.checks.push({ name: "clippy", run: "", expectExitCode: "", requires: [], when: "", narrow: null });
+    draft.checks.push({
+      name: "clippy",
+      run: "",
+      expectExitCode: "",
+      requires: [],
+      when: "",
+      narrow: null,
+    });
     draft.ports[0]!.container = "80a";
     draft.costCap = "-1";
     draft.turnCap = "1.5";

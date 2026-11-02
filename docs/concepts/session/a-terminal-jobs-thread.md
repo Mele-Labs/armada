@@ -14,6 +14,7 @@ The transcript names the model and never its window, so the window is the parent
 It reads that one path and no other, for hosted and terminal jobs alike.
 Bridge reads it again while the subagent runs.
 **The engine's stop settles it**: the mod's `SubagentStop` hook makes the row `spent` and stamps when, even on a row already spent, because a transcript can end on a line that reads as still working (13 Oct 2026).
+Where Claude Code passes that hook over, the subagent's own `turn.complete` is the same word and settles it (*Where Claude Code skips the mod's hooks*).
 Where no stop came, a `standing` row is shown `spent` once its transcript shows a turn that ended, and the first `get_session_subagent` that sees it finished settles it.
 **A parent can send a settled subagent more work**, which is no new spawn and no hook, so Fleet looks every two seconds (`subagents_followed`) at the transcripts of the settled subagents of live jobs, a `stat` each until one grows: one whose last line is work stamped after the row settled is `standing` again, and the timeline enters `Subagent resumed`.
 Work stamped before the stop opens nothing (14 Oct 2026).

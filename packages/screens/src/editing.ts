@@ -23,7 +23,15 @@ import type {
 export { fileNameOf } from "./file-name";
 
 /** `GET /manifest/file`, read into the app. */
-export type ManifestFileRead = { ok: true; file: ManifestFile } | { ok: false; outcome: Outcome };
+export type ManifestFileRead =
+  | {
+      ok: true;
+      file: ManifestFile;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /**
  * `POST /manifest/save_file`, read into the app.
@@ -33,10 +41,19 @@ export type ManifestFileRead = { ok: true; file: ManifestFile } | { ok: false; o
  * reconcile rather than retry.
  */
 export type ManifestSaveAnswer =
-  | { state: "saved"; saved: ManifestSaved }
+  | {
+      state: "saved";
+      saved: ManifestSaved;
+    }
   /** What is on disk now, or `null` where the file is no longer there. */
-  | { state: "moved"; onDisk: string | null }
-  | { state: "failed"; outcome: Outcome };
+  | {
+      state: "moved";
+      onDisk: string | null;
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    };
 
 /**
  * `POST /manifest/edit`, read into the app.
@@ -46,11 +63,27 @@ export type ManifestSaveAnswer =
  * and `faults` is empty for the last two, whose sentence says it all.
  */
 export type ManifestEditAnswer =
-  | { state: "edited"; edited: ManifestEdited }
+  | {
+      state: "edited";
+      edited: ManifestEdited;
+    }
   /** What is on disk now, or `null` where the file is no longer there. */
-  | { state: "moved"; onDisk: string | null }
-  | { state: "refused"; saying: string; faults: { key: string; fault: string }[] }
-  | { state: "failed"; outcome: Outcome };
+  | {
+      state: "moved";
+      onDisk: string | null;
+    }
+  | {
+      state: "refused";
+      saying: string;
+      faults: {
+        key: string;
+        fault: string;
+      }[];
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    };
 
 /**
  * Which of the surface's views is showing: running, the forms, or the file.
@@ -60,9 +93,16 @@ export type ManifestView = "run" | "form" | "file";
 
 /** What the file view is holding. */
 export type HeldFile =
-  | { state: "none" }
-  | { state: "reading" }
-  | { state: "failed"; outcome: Outcome }
+  | {
+      state: "none";
+    }
+  | {
+      state: "reading";
+    }
+  | {
+      state: "failed";
+      outcome: Outcome;
+    }
   | {
       state: "open";
       path: string;
@@ -74,7 +114,9 @@ export type HeldFile =
       /** The last save that landed. */
       saved?: ManifestSaved;
       /** The last save met a different file. */
-      moved?: { onDisk: string | null };
+      moved?: {
+        onDisk: string | null;
+      };
       /** The last save did not reach the disk. */
       failure?: Outcome;
     };
@@ -107,17 +149,38 @@ export function settledBy(saved: ManifestSaved, reading: ManifestReading | null)
  */
 export function fileAnswered(held: HeldFile, answer: ManifestFileRead): HeldFile {
   if (!answer.ok) {
-    return held.state === "open" ? held : { state: "failed", outcome: answer.outcome };
+    return held.state === "open"
+      ? held
+      : {
+          state: "failed",
+          outcome: answer.outcome,
+        };
   }
   const file = answer.file;
   if (held.state !== "open") {
-    return { state: "open", path: file.path, read: file.text, text: file.text, saving: false };
+    return {
+      state: "open",
+      path: file.path,
+      read: file.text,
+      text: file.text,
+      saving: false,
+    };
   }
   if (held.moved !== undefined) {
-    return { ...held, moved: { onDisk: file.text } };
+    return {
+      ...held,
+      moved: {
+        onDisk: file.text,
+      },
+    };
   }
   if (held.saving || held.text !== held.read) return held;
-  return { ...held, path: file.path, read: file.text, text: file.text };
+  return {
+    ...held,
+    path: file.path,
+    read: file.text,
+    text: file.text,
+  };
 }
 
 /**
@@ -146,9 +209,21 @@ export function saveAnswered(
     case "moved":
       // The receipt of an earlier save is about a file that is no longer
       // there, so it goes with the conflict rather than sitting beside it.
-      return { ...held, saving: false, saved: undefined, failure: undefined, moved: { onDisk: answer.onDisk } };
+      return {
+        ...held,
+        saving: false,
+        saved: undefined,
+        failure: undefined,
+        moved: {
+          onDisk: answer.onDisk,
+        },
+      };
     case "failed":
-      return { ...held, saving: false, failure: answer.outcome };
+      return {
+        ...held,
+        saving: false,
+        failure: answer.outcome,
+      };
   }
 }
 
@@ -159,5 +234,11 @@ export function saveAnswered(
 export function takenOnDisk(held: HeldFile): HeldFile {
   if (held.state !== "open" || held.moved === undefined || held.moved.onDisk === null) return held;
   const onDisk = held.moved.onDisk;
-  return { state: "open", path: held.path, read: onDisk, text: onDisk, saving: false };
+  return {
+    state: "open",
+    path: held.path,
+    read: onDisk,
+    text: onDisk,
+    saving: false,
+  };
 }

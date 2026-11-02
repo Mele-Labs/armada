@@ -8,7 +8,14 @@ type Answer = {
   checks: readonly {
     check: string;
     member: string;
-    tests: readonly { test: string; file: string; source: "measured" | "static" | "reading" | "declared"; grain: "test" | "file"; commit: string; stale: boolean }[];
+    tests: readonly {
+      test: string;
+      file: string;
+      source: "measured" | "static" | "reading" | "declared";
+      grain: "test" | "file";
+      commit: string;
+      stale: boolean;
+    }[];
   }[];
   unreached: readonly string[];
   holds_edges: boolean;
@@ -23,32 +30,90 @@ const FORGE = "apps/desktop/src/main/forge.ts";
 const ANSWER: Answer = {
   holds_edges: true,
   // Five paths were asked. Nothing was asked of the removed file, the doc, the picture or the rename.
-  unreached: [FORGE],
+  unreached: [
+    FORGE,
+  ],
   checks: [
     {
       check: "desktop:test",
       member: "",
       tests: [
-        { test: "opens the held pull request from the ledger", file: SESSION, source: "measured", grain: "test", commit: "3fc86fa", stale: false },
-        { test: "apps/desktop/src/renderer/src/session-pull-request.test.tsx", file: SESSION, source: "measured", grain: "file", commit: "3fc86fa", stale: false },
+        {
+          test: "opens the held pull request from the ledger",
+          file: SESSION,
+          source: "measured",
+          grain: "test",
+          commit: "3fc86fa",
+          stale: false,
+        },
+        {
+          test: "apps/desktop/src/renderer/src/session-pull-request.test.tsx",
+          file: SESSION,
+          source: "measured",
+          grain: "file",
+          commit: "3fc86fa",
+          stale: false,
+        },
       ],
     },
     {
       check: "components:test",
       member: "",
       tests: [
-        { test: "PullRequestPanel floats the file list beside the panel", file: PANEL, source: "measured", grain: "test", commit: "ed96c0f", stale: true },
-        { test: "PullRequestPanel puts Open in browser on the panel", file: PANEL, source: "measured", grain: "test", commit: "3fc86fa", stale: false },
-        { test: "PullRequestTabs draws the commits", file: TABS, source: "static", grain: "test", commit: "3fc86fa", stale: false },
-        { test: "packages/components/src/compositions/PullRequestPanel/PullRequestPanel.stories.tsx", file: TABS, source: "static", grain: "file", commit: "3fc86fa", stale: false },
+        {
+          test: "PullRequestPanel floats the file list beside the panel",
+          file: PANEL,
+          source: "measured",
+          grain: "test",
+          commit: "ed96c0f",
+          stale: true,
+        },
+        {
+          test: "PullRequestPanel puts Open in browser on the panel",
+          file: PANEL,
+          source: "measured",
+          grain: "test",
+          commit: "3fc86fa",
+          stale: false,
+        },
+        {
+          test: "PullRequestTabs draws the commits",
+          file: TABS,
+          source: "static",
+          grain: "test",
+          commit: "3fc86fa",
+          stale: false,
+        },
+        {
+          test: "packages/components/src/compositions/PullRequestPanel/PullRequestPanel.stories.tsx",
+          file: TABS,
+          source: "static",
+          grain: "file",
+          commit: "3fc86fa",
+          stale: false,
+        },
       ],
     },
     {
       check: "rust:test",
       member: "config",
       tests: [
-        { test: "settings_default_opens_in_armada", file: SETTINGS, source: "reading", grain: "test", commit: "3fc86fa", stale: false },
-        { test: "crates/config/tests/settings.rs", file: SETTINGS, source: "reading", grain: "file", commit: "3fc86fa", stale: false },
+        {
+          test: "settings_default_opens_in_armada",
+          file: SETTINGS,
+          source: "reading",
+          grain: "test",
+          commit: "3fc86fa",
+          stale: false,
+        },
+        {
+          test: "crates/config/tests/settings.rs",
+          file: SETTINGS,
+          source: "reading",
+          grain: "file",
+          commit: "3fc86fa",
+          stale: false,
+        },
       ],
     },
   ],
@@ -60,10 +125,27 @@ const ANSWER: Answer = {
  */
 export function reachOf(answer: Answer): FilesReach | undefined {
   if (!answer.holds_edges) return undefined;
-  const out: Record<string, { tests: ReachTest[] }> = {};
-  for (const path of answer.unreached) out[path] = { tests: [] };
+  const out: Record<
+    string,
+    {
+      tests: ReachTest[];
+    }
+  > = {};
+  for (const path of answer.unreached)
+    out[path] = {
+      tests: [],
+    };
   for (const one of answer.checks)
-    for (const edge of one.tests) (out[edge.file] ??= { tests: [] }).tests.push({ check: one.check, test: edge.test, source: edge.source, grain: edge.grain, stale: edge.stale });
+    for (const edge of one.tests)
+      (out[edge.file] ??= {
+        tests: [],
+      }).tests.push({
+        check: one.check,
+        test: edge.test,
+        source: edge.source,
+        grain: edge.grain,
+        stale: edge.stale,
+      });
   return out;
 }
 

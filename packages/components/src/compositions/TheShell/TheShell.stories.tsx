@@ -26,10 +26,22 @@ const shell: ComponentProps<typeof TheShell> = {
   places: (
     <Tabs
       items={[
-        { id: "cockpit", label: "Cockpit" },
-        { id: "jobs", label: "Jobs" },
-        { id: "sessions", label: "Sessions" },
-        { id: "system", label: "System" },
+        {
+          id: "cockpit",
+          label: "Cockpit",
+        },
+        {
+          id: "jobs",
+          label: "Jobs",
+        },
+        {
+          id: "sessions",
+          label: "Sessions",
+        },
+        {
+          id: "system",
+          label: "System",
+        },
       ]}
       value="cockpit"
     />
@@ -39,12 +51,27 @@ const shell: ComponentProps<typeof TheShell> = {
     state: "running",
     label: "Running",
     rows: [
-      { label: "pid", value: "4417" },
-      { label: "port", value: "7411" },
-      { label: "protocol", value: "14.5" },
-      { label: "up", value: "2h 14m" },
+      {
+        label: "pid",
+        value: "4417",
+      },
+      {
+        label: "port",
+        value: "7411",
+      },
+      {
+        label: "protocol",
+        value: "14.5",
+      },
+      {
+        label: "up",
+        value: "2h 14m",
+      },
     ],
-    doctor: { outcome: "pass", checked: "Fleet, SQLite, Manifest, System stats" },
+    doctor: {
+      outcome: "pass",
+      checked: "Fleet, SQLite, Manifest, System stats",
+    },
     open: true,
     onOpenChange: () => {},
   },
@@ -59,7 +86,10 @@ const inWindow = (args: ComponentProps<typeof TheShell>) => (
   </div>
 );
 
-export const Shell: Story = { args: shell, render: inWindow };
+export const Shell: Story = {
+  args: shell,
+  render: inWindow,
+};
 
 /**
  * No left column and the content from edge to edge. What a column would have held, Fleet's panel, opens from the title row's dot.
@@ -69,19 +99,37 @@ export const FleetInAPopover: Story = {
   args: shell,
   render: inWindow,
   play: async ({ canvas, canvasElement, userEvent }) => {
-    await expect(canvas.queryByRole("navigation", { name: "Work" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("separator", { name: "Resize the left column" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("navigation", {
+        name: "Work",
+      }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("separator", {
+        name: "Resize the left column",
+      }),
+    ).not.toBeInTheDocument();
     await expect(canvas.getByText("The list mounts here — 1d")).toBeVisible();
     // The content starts where the window does, less its own gutter.
     const window = canvasElement.querySelector(".armada-screen__window")!.getBoundingClientRect();
     const work = canvasElement.querySelector(".armada-shell__work")!.getBoundingClientRect();
     await expect(work.left - window.left).toBeLessThan(window.width / 20);
     // The dot opens Fleet's panel, with its Doctor row.
-    await userEvent.click(canvas.getByRole("button", { name: "Fleet — Running" }));
-    const panel = canvas.getByRole("dialog", { name: "Fleet" });
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Fleet — Running",
+      }),
+    );
+    const panel = canvas.getByRole("dialog", {
+      name: "Fleet",
+    });
     await expect(within(panel).getByText("Doctor")).toBeVisible();
     // Below the dot, and inside the window.
-    const dot = canvas.getByRole("button", { name: "Fleet — Running" }).getBoundingClientRect();
+    const dot = canvas
+      .getByRole("button", {
+        name: "Fleet — Running",
+      })
+      .getBoundingClientRect();
     const opened = panel.getBoundingClientRect();
     await expect(opened.top).toBeGreaterThanOrEqual(dot.bottom);
     await expect(opened.right).toBeLessThanOrEqual(window.right);
@@ -125,13 +173,23 @@ export const AScreenTallerThanTheWindow: Story = {
     ...shell,
     children: (
       <div className="armada-screen__mounted">
-      <div className="armada-screen__pane">
-        {Array.from({ length: 40 }, (_, at) => (
-          <div key={at} style={{ flex: "none" }}>
-            {`Row ${at + 1} of 40 — the pane scrolls, the frame does not`}
-          </div>
-        ))}
-      </div>
+        <div className="armada-screen__pane">
+          {Array.from(
+            {
+              length: 40,
+            },
+            (_, at) => (
+              <div
+                key={at}
+                style={{
+                  flex: "none",
+                }}
+              >
+                {`Row ${at + 1} of 40 — the pane scrolls, the frame does not`}
+              </div>
+            ),
+          )}
+        </div>
       </div>
     ),
   },
@@ -140,7 +198,14 @@ export const AScreenTallerThanTheWindow: Story = {
 
 function WithDock(args: ComponentProps<typeof TheShell>) {
   const [open, setOpen] = useState(args.dock?.open ?? false);
-  const dock = args.dock === undefined ? undefined : { ...args.dock, open, onOpen: setOpen };
+  const dock =
+    args.dock === undefined
+      ? undefined
+      : {
+          ...args.dock,
+          open,
+          onOpen: setOpen,
+        };
   return <TheShell {...args} dock={dock} />;
 }
 
@@ -148,13 +213,29 @@ function WithDock(args: ComponentProps<typeof TheShell>) {
 function WithResizableDock(args: ComponentProps<typeof TheShell>) {
   const [open, setOpen] = useState(args.dock?.open ?? false);
   const [width, setWidth] = useState(args.dock?.width ?? 380);
-  const dock = args.dock === undefined ? undefined : { ...args.dock, open, width, onOpen: setOpen, onResize: setWidth };
+  const dock =
+    args.dock === undefined
+      ? undefined
+      : {
+          ...args.dock,
+          open,
+          width,
+          onOpen: setOpen,
+          onResize: setWidth,
+        };
   return <TheShell {...args} dock={dock} />;
 }
 
 /** At `--layout-breakpoint` and wider: Helm's dock over the content, on every surface. */
 export const DockOverTheContent: Story = {
-  args: { ...shell, dock: { open: true, binding: "⌘J", onOpen: () => {} } },
+  args: {
+    ...shell,
+    dock: {
+      open: true,
+      binding: "⌘J",
+      onOpen: () => {},
+    },
+  },
   render: (args) => (
     <div className="armada-screen">
       <div className="armada-screen__window">
@@ -170,13 +251,36 @@ export const DockOverTheContent: Story = {
  * the dock over the content. **This is how Bridge opens** (#1583).
  */
 export const DockClosedAtWidth: Story = {
-  args: { ...shell, dock: { open: false, binding: "⌘J", onOpen: () => {} } },
+  args: {
+    ...shell,
+    dock: {
+      open: false,
+      binding: "⌘J",
+      onOpen: () => {},
+    },
+  },
   render: DockOverTheContent.render,
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.queryByRole("complementary", { name: "Helm" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("button", { name: /Open Helm/ })).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Helm" }));
-    await expect(canvas.getByRole("complementary", { name: "Helm" })).toBeVisible();
+    await expect(
+      canvas.queryByRole("complementary", {
+        name: "Helm",
+      }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /Open Helm/,
+      }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Helm",
+      }),
+    );
+    await expect(
+      canvas.getByRole("complementary", {
+        name: "Helm",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -190,7 +294,14 @@ export const DockClosedAtWidth: Story = {
  * looks at can tell 1192px from 812px without a second frame beside it.
  */
 export const DockTakesNoWidthFromTheContent: Story = {
-  args: { ...shell, dock: { open: false, binding: "⌘J", onOpen: () => {} } },
+  args: {
+    ...shell,
+    dock: {
+      open: false,
+      binding: "⌘J",
+      onOpen: () => {},
+    },
+  },
   render: DockOverTheContent.render,
   play: async ({ canvas, canvasElement, userEvent }) => {
     const panel = (): number => {
@@ -199,10 +310,22 @@ export const DockTakesNoWidthFromTheContent: Story = {
       return Math.round(element.getBoundingClientRect().width);
     };
     const shut = panel();
-    await userEvent.click(canvas.getByRole("button", { name: "Helm" }));
-    await expect(canvas.getByRole("complementary", { name: "Helm" })).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Helm",
+      }),
+    );
+    await expect(
+      canvas.getByRole("complementary", {
+        name: "Helm",
+      }),
+    ).toBeVisible();
     await expect(panel()).toBe(shut);
-    await userEvent.click(canvas.getByRole("button", { name: /^Close/ }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /^Close/,
+      }),
+    );
     await expect(panel()).toBe(shut);
   },
 };
@@ -227,9 +350,18 @@ export const DockWithQuestions: Story = {
               detail: "Your settings would have to allow Bash(pnpm test:*).",
               waiting: "22m",
               answers: [
-                { id: "allow_once", label: "Allow once" },
-                { id: "allow_and_remember", label: "Allow and remember" },
-                { id: "refuse", label: "Refuse" },
+                {
+                  id: "allow_once",
+                  label: "Allow once",
+                },
+                {
+                  id: "allow_and_remember",
+                  label: "Allow and remember",
+                },
+                {
+                  id: "refuse",
+                  label: "Refuse",
+                },
               ],
               note: "Open Armada on this machine to answer.",
             },
@@ -241,9 +373,18 @@ export const DockWithQuestions: Story = {
               detail: "Your settings would have to allow Bash(cargo nextest run:*).",
               waiting: "1m",
               answers: [
-                { id: "allow_once", label: "Allow once" },
-                { id: "allow_and_remember", label: "Allow and remember" },
-                { id: "refuse", label: "Refuse" },
+                {
+                  id: "allow_once",
+                  label: "Allow once",
+                },
+                {
+                  id: "allow_and_remember",
+                  label: "Allow and remember",
+                },
+                {
+                  id: "refuse",
+                  label: "Refuse",
+                },
               ],
               note: "Open Armada on this machine to answer.",
             },
@@ -262,7 +403,16 @@ export const DockWithQuestions: Story = {
  * above is that case.
  */
 export const DockResizable: Story = {
-  args: { ...shell, dock: { open: true, binding: "⌘J", width: 380, onOpen: () => {}, onResize: () => {} } },
+  args: {
+    ...shell,
+    dock: {
+      open: true,
+      binding: "⌘J",
+      width: 380,
+      onOpen: () => {},
+      onResize: () => {},
+    },
+  },
   render: (args) => (
     <div className="armada-screen">
       <div className="armada-screen__window">
@@ -271,7 +421,9 @@ export const DockResizable: Story = {
     </div>
   ),
   play: async ({ canvas, userEvent }) => {
-    const handle = canvas.getByRole("separator", { name: "Resize Helm" });
+    const handle = canvas.getByRole("separator", {
+      name: "Resize Helm",
+    });
     await expect(handle).toHaveAttribute("aria-valuenow", "380");
     await userEvent.click(handle);
     await expect(handle).toHaveFocus();
@@ -290,23 +442,62 @@ export const DockResizable: Story = {
 export const DockFoldedToASheet: Story = {
   args: {
     ...shell,
-    dock: { open: false, folded: true, questions: 3, binding: "⌘J", onOpen: () => {} },
+    dock: {
+      open: false,
+      folded: true,
+      questions: 3,
+      binding: "⌘J",
+      onOpen: () => {},
+    },
   },
   render: (args) => (
-    <div className="armada-screen" style={{ width: "var(--layout-breakpoint-narrow)" }}>
+    <div
+      className="armada-screen"
+      style={{
+        width: "var(--layout-breakpoint-narrow)",
+      }}
+    >
       <div className="armada-screen__window">
         <WithDock {...args} />
       </div>
     </div>
   ),
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.queryByRole("dialog", { name: "Helm" })).toBeNull();
-    await expect(canvas.queryByRole("button", { name: /Open Helm/ })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Helm",
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /Open Helm/,
+      }),
+    ).not.toBeInTheDocument();
     // At this width the title row is behind its menu, and Helm is in it.
-    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await userEvent.click(canvas.getByRole("button", { name: /^Helm 3/ }));
-    await expect(canvas.getByRole("dialog", { name: "Helm" })).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: /^Close/ }));
-    await expect(canvas.queryByRole("dialog", { name: "Helm" })).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Menu",
+      }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /^Helm 3/,
+      }),
+    );
+    await expect(
+      canvas.getByRole("dialog", {
+        name: "Helm",
+      }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /^Close/,
+      }),
+    );
+    await expect(
+      canvas.queryByRole("dialog", {
+        name: "Helm",
+      }),
+    ).toBeNull();
   },
 };

@@ -62,6 +62,8 @@ pub mod document;
 /// The agent's door: the MCP half of the HTTP surface, and the tool set
 /// `build.rs` emits from `operations/`'s own `agent_access` column.
 pub mod door;
+/// `armada job`'s half of the door: the list it asks for, the call it makes and the answer it reads.
+pub mod job_cli;
 /// Whether the repository still has what `armada.yml` names. **A read of the
 /// repository**, where `reading` is a read of the file — a `run` line naming a
 /// deleted script parses perfectly and says nothing.
@@ -78,6 +80,9 @@ mod editing;
 mod enums;
 mod error;
 mod event;
+/// The text of Copy debug report, and the reading of Fleet's log it holds names from.
+pub mod debug_report;
+pub mod log_trouble;
 /// What `search_files` found under the checkout, for the `@` mention popup.
 mod files;
 /// What Fleet can say about its own health, and what it cannot. **Not
@@ -170,6 +175,8 @@ mod repositories;
 mod requester;
 /// Requests: an HTTP request the owner or an agent sends, its collections and environments.
 mod requests;
+/// `send_requests`: one template sent for each body file and each value, answered a line each.
+mod requests_batch;
 /// A Judge on demand: a read-only call on one artifact of a Job, answered with notes.
 mod judge;
 /// What an agent says about one pull request, and the review tools it is asked with.
@@ -234,8 +241,8 @@ mod test_map;
 mod act_failed;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
-/// Sleep mode: the switch and the night it keeps.
-mod sleep;
+/// What a running Autopilot answered for the person, to review.
+mod autopilot_decisions;
 /// How much of the plan's windows is used.
 mod plan_usage;
 /// The default model stepping down while the weekly window runs out.
@@ -347,6 +354,7 @@ pub use event::{
     Cursor, Delivered, Event, Missed, Resync, StreamMessage,
 };
 pub use files::FilesFound;
+pub use debug_report::DebugReport;
 pub use health::{
     FleetHealth, HelmActionAuthority, Probe, Unprobed,
 };
@@ -510,6 +518,7 @@ pub use rehearsal::{
 pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
 };
+pub use requests_batch::{RequestLine, RequestTemplate, RequestVary, RequestsSent, SendRequests};
 pub use requests::{
     DeleteRequestEnvironment, Placed, RequestBy, RequestCollection, RequestEnvironment, RequestEnvironmentRead,
     RequestBodySaved, RequestEnvironmentWrite, RequestHeader, RequestPlace, RequestSaved, RequestSent,
@@ -645,8 +654,11 @@ pub use job_browser::{
 };
 pub use act_failed::{ActFailed, BackgroundAct};
 pub use autopilot::{
-    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
-    AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
+    Autopilot, AutopilotCap, AutopilotDecision, AutopilotList, AutopilotPick, AutopilotPickState,
+    AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, AutopilotWork, ProposeAutopilot,
+};
+pub use autopilot_decisions::{
+    AutopilotDecided, AutopilotDecisions, OverrideAutopilotDecision, ReviewAutopilotDecision,
 };
 pub use context_breakdown::{
     ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,
@@ -684,10 +696,6 @@ pub use plan_usage::{
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
     SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
-};
-pub use sleep::{
-    OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState,
-    SleepWalk,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,

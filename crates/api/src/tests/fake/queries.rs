@@ -58,6 +58,10 @@ impl Queries for FakeDaemon {
         Ok(shapes::health())
     }
 
+    async fn get_debug_report(&self, _root: Option<String>) -> Result<ipc::DebugReport, Refusal> {
+        Ok(ipc::DebugReport { text: String::from("Armada debug report") })
+    }
+
     /// A Manifest this fake does not hold is a 422 and never a 404: the request
     /// is well-formed and names something not in the record.
     async fn get_manifest(&self, manifest_id: ManifestId) -> Result<ManifestConfig, Refusal> {

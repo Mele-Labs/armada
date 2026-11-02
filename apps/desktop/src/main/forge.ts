@@ -35,16 +35,32 @@ function addressable(address: string): boolean {
 
 /** The act that ends with the address, once it is read. */
 async function opened(address: string | undefined): Promise<Followed> {
-  if (address === undefined) return { ok: false, why: "no_address" };
-  if (!addressable(address)) return { ok: false, why: "not_addressable", address };
+  if (address === undefined)
+    return {
+      ok: false,
+      why: "no_address",
+    };
+  if (!addressable(address))
+    return {
+      ok: false,
+      why: "not_addressable",
+      address,
+    };
 
   try {
     await shell.openExternal(address);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   } catch (error) {
     // The OS explaining itself, carried through rather than replaced with a
     // sentence Bridge made up — `open.ts`'s rule for the same class of failure.
-    return { ok: false, why: "refused", address, detail: String(error) };
+    return {
+      ok: false,
+      why: "refused",
+      address,
+      detail: String(error),
+    };
   }
 }
 

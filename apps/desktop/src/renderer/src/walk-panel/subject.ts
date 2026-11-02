@@ -4,17 +4,27 @@
 
 import { useEffect, useState } from "react";
 
-export type WalkSubject = { kind: "session"; id: string };
+export type WalkSubject = {
+  kind: "session";
+  id: string;
+};
 
 /** The Session this panel was opened on, or nothing where the query names none. */
 export function subjectOf(search: string): WalkSubject | null {
   const id = new URLSearchParams(search).get("session");
-  return id === null || id === "" ? null : { kind: "session", id };
+  return id === null || id === ""
+    ? null
+    : {
+        kind: "session",
+        id,
+      };
 }
 
 /** The Job of the walk on screen, live. `undefined`: a pull request's walk, which has no Job. */
 export function useWalkSubject(): string | undefined {
-  const [sessionId, setSessionId] = useState<string | undefined>(() => subjectOf(window.location.search)?.id);
+  const [sessionId, setSessionId] = useState<string | undefined>(
+    () => subjectOf(window.location.search)?.id,
+  );
   useEffect(() => window.armada.walkPanel.subject(setSessionId), []);
   return sessionId;
 }

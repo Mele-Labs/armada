@@ -293,7 +293,9 @@
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  transition:
+    background var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
 }
 
 .armada-sheet__close:hover {

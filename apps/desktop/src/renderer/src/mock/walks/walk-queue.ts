@@ -9,10 +9,32 @@ const walks = inside(frame, button(/^Walks, /));
 const takes = inside(frame, button(/^Takes, /));
 
 export const walkQueue = walk("walk-queue", [
-  { key: "Alt+Meta+ArrowDown", on: walks, say: "⌥⌘↓ opens the walks" },
-  { press: role("menuitem", /Store tests/), say: "Choose a walk" },
-  { key: "Alt+Meta+ArrowRight", on: walks, say: "⌥⌘→ is the next walk" },
-  { key: "Alt+Meta+t", on: takes, say: "⌥⌘T opens the takes" },
-  { press: role("menuitem", /Task marks/), say: "Pick a take" },
-  { key: "Meta+Enter", on: walks, say: "⌘↵ approves" },
+  {
+    key: "Alt+Meta+ArrowDown",
+    on: walks,
+    say: "⌥⌘↓ opens the walks",
+  },
+  {
+    press: role("menuitem", /Store tests/),
+    say: "Choose a walk",
+  },
+  {
+    key: "Alt+Meta+ArrowRight",
+    on: walks,
+    say: "⌥⌘→ is the next walk",
+  },
+  {
+    key: "Alt+Meta+t",
+    on: takes,
+    say: "⌥⌘T opens the takes",
+  },
+  {
+    press: role("menuitem", /Task marks/),
+    say: "Pick a take",
+  },
+  {
+    key: "Meta+Enter",
+    on: walks,
+    say: "⌘↵ approves",
+  },
 ]);

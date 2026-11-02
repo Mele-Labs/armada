@@ -6,16 +6,35 @@ import tokens from "@armada/tokens/tokens.json";
 
 import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened, SessionRecord, WalkStep, WindowTake } from "@armada/protocol";
-import { originsOfWindow, readSteps, stepsOfWindow, takesOfWindow, titleOfWindow } from "../session-file";
+import {
+  originsOfWindow,
+  readSteps,
+  stepsOfWindow,
+  takesOfWindow,
+  titleOfWindow,
+} from "../session-file";
 import type { ShownReviewWalk, ShownReviewWalkOutcome } from "../../shared/review-walk";
 import { stepsOfRequests } from "../../shared/review-walk";
 import { isPinned, passThrough, pinned, webOrigin } from "./address";
 import { sessionReadiness } from "./readiness";
 import type { PanelSubject, ReviewWalkOwner } from "./layout";
-import { jobName, questionOf, reviewWalkKey, sessionWalkKey, standingWalks, type StandingWalk } from "./queue";
+import {
+  jobName,
+  questionOf,
+  reviewWalkKey,
+  sessionWalkKey,
+  standingWalks,
+  type StandingWalk,
+} from "./queue";
 import { startRunner } from "./runner";
 import { WalkWindow, type Queued, type WalkWindowBoard } from "./walk-window";
-import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes } from "./window";
+import {
+  CaptureWindow,
+  type CaptureBoard,
+  type LandsOn,
+  type PanelKept,
+  type WalkSizes,
+} from "./window";
 
 /** One spacing token, in CSS pixels. */
 function token(name: string): number {
@@ -45,7 +64,9 @@ export class CaptureWindows {
   /** The sessions main last published, which each Job's walk reads its waiting items and its question off. */
   private sessions: readonly SessionRecord[] | null = null;
   /** Whether the panel is drawn, as last left on a window of each kind. Drawn until a press folds it. */
-  private readonly panelOpen = { session: true };
+  private readonly panelOpen = {
+    session: true,
+  };
   /** Where each `window_ask` was asked, by its waiting item, as Bridge heard it asked: the walk it marks. */
   private readonly askedIn = new Map<string, string>();
   /** The walks approved here, by when each was shown, so the publish before Fleet settles one does not queue it again. */
@@ -66,21 +87,37 @@ export class CaptureWindows {
     state: BridgeState,
     serverId: string,
     url: string,
-    studio: { id: string; name: string | null } | null,
+    studio: {
+      id: string;
+      name: string | null;
+    } | null,
   ): CaptureOpened {
     // A server's window needs its Studio, for what is pointed at there to land on.
-    const landsOn: LandsOn | null = studio !== null ? { studio } : null;
-    if (landsOn === null) return { ok: false, why: "no_studio" };
+    const landsOn: LandsOn | null =
+      studio !== null
+        ? {
+            studio,
+          }
+        : null;
+    if (landsOn === null)
+      return {
+        ok: false,
+        why: "no_studio",
+      };
     const standing = this.open.get(serverId);
     if (standing !== undefined && standing.open) {
       standing.raise();
-      return { ok: true };
+      return {
+        ok: true,
+      };
     }
     const pin = pinned(state, serverId, url);
     if (!isPinned(pin)) return pin;
     const opened = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn));
     this.open.set(serverId, opened);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /**
@@ -106,16 +143,32 @@ export class CaptureWindows {
     pressed = false,
   ): CaptureOpened {
     const origin = webOrigin(url);
-    if (origin === null || takes.some((one) => webOrigin(one.url) === null)) return { ok: false, why: "no_address" };
+    if (origin === null || takes.some((one) => webOrigin(one.url) === null))
+      return {
+        ok: false,
+        why: "no_address",
+      };
     const through = passThrough(origins);
     const key = sessionWalkKey(sessionId, url);
     const standing = this.walks?.open === true ? this.walks.find(key) : undefined;
-    const walk = this.sessionWalk(sessionId, title, url, origin, through, takes, signIn, steps, standing?.since ?? this.sinceOf(sessionId, url));
+    const walk = this.sessionWalk(
+      sessionId,
+      title,
+      url,
+      origin,
+      through,
+      takes,
+      signIn,
+      steps,
+      standing?.since ?? this.sinceOf(sessionId, url),
+    );
     if (standing === undefined) return this.join(walk, pressed);
     // A page shown again with a sign-in is a sign-in to run, so its page is made afresh.
     if (standing.shape !== walk.shape || signIn.length > 0) this.walks?.replace(walk);
     if (pressed) this.toScreen(key);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /**
@@ -128,34 +181,62 @@ export class CaptureWindows {
   async openForReview(shown: ShownReviewWalk): Promise<ShownReviewWalkOutcome> {
     const key = reviewWalkKey(shown.manifestId, shown.number);
     const standing = this.walks?.open === true ? this.walks.find(key) : undefined;
-    if (standing !== undefined && standing.held?.walkId === shown.walkId) return { ok: true };
+    if (standing !== undefined && standing.held?.walkId === shown.walkId)
+      return {
+        ok: true,
+      };
     const requests = shown.requests;
     const steps = requests !== undefined ? stepsOfRequests(requests) : readSteps(shown.steps);
-    if (steps.length === 0) return { ok: false, why: "no_steps" };
-    if (webOrigin(shown.address) === null) return { ok: false, why: "no_address" };
+    if (steps.length === 0)
+      return {
+        ok: false,
+        why: "no_steps",
+      };
+    if (webOrigin(shown.address) === null)
+      return {
+        ok: false,
+        why: "no_address",
+      };
     let runner: Awaited<ReturnType<typeof startRunner>> | null = null;
     if (requests !== undefined) {
       try {
         runner = await startRunner(shown.address, requests);
       } catch {
-        return { ok: false, why: "runner_failed" };
+        return {
+          ok: false,
+          why: "runner_failed",
+        };
       }
     }
     const url = runner === null ? shown.address : runner.url;
     const origin = webOrigin(url);
     if (origin === null) {
       await runner?.stop();
-      return { ok: false, why: "no_address" };
+      return {
+        ok: false,
+        why: "no_address",
+      };
     }
     // One cookie jar per repository, as a Job's: a sign-in on a preview holds for the next walk of that repository.
-    const pin = { run: key, name: shown.title, origin, url, manifestId: shown.manifestId, through: [] };
+    const pin = {
+      run: key,
+      name: shown.title,
+      origin,
+      url,
+      manifestId: shown.manifestId,
+      through: [],
+    };
     const review: ReviewWalkOwner = {
       walkId: shown.walkId,
       manifestId: shown.manifestId,
       number: shown.number,
       title: shown.title,
       address: shown.address,
-      ...(shown.holder === undefined ? {} : { holder: shown.holder }),
+      ...(shown.holder === undefined
+        ? {}
+        : {
+            holder: shown.holder,
+          }),
     };
     const stopping = runner;
     const name = shown.title.replace(/^#\d+\s*/, "");
@@ -163,7 +244,20 @@ export class CaptureWindows {
       key,
       since: standing?.since ?? new Date().toISOString(),
       url,
-      make: (seat) => new CaptureWindow(pin, { review }, this.board, sizes(), null, [], [], steps, seat),
+      make: (seat) =>
+        new CaptureWindow(
+          pin,
+          {
+            review,
+          },
+          this.board,
+          sizes(),
+          null,
+          [],
+          [],
+          steps,
+          seat,
+        ),
       walk: null,
       seen: false,
       left: () => {
@@ -179,21 +273,39 @@ export class CaptureWindows {
         aim: `Notes go to ${shown.holder?.title ?? "Armada"}`,
       }),
       shape: shown.walkId,
-      held: { manifestId: shown.manifestId, walkId: shown.walkId },
+      held: {
+        manifestId: shown.manifestId,
+        walkId: shown.walkId,
+      },
     };
     if (standing === undefined) {
       this.join(walk, false);
-      return { ok: true };
+      return {
+        ok: true,
+      };
     }
     // The earlier walk of this pull request is over: its held walk closes, and its runner stops.
     standing.left();
     this.walks?.replace(walk);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /** The held walks in the walk window now, so Bridge can close them at Fleet as it quits. */
-  heldWalks(): { manifestId: string; walkId: string }[] {
-    return this.walks?.open === true ? this.walks.queued.flatMap((one) => (one.held === undefined ? [] : [one.held])) : [];
+  heldWalks(): {
+    manifestId: string;
+    walkId: string;
+  }[] {
+    return this.walks?.open === true
+      ? this.walks.queued.flatMap((one) =>
+          one.held === undefined
+            ? []
+            : [
+                one.held,
+              ],
+        )
+      : [];
   }
 
   /**
@@ -202,13 +314,30 @@ export class CaptureWindows {
    * no window up opens it on that walk. `window` is the address the Job showed, and `itemId` the waiting item the question
    * is, where it is known; the question itself, and the page it moves to, are read off what Fleet published.
    */
-  askedFor(sessionId: string, title: string, window: string, _place: string, itemId?: string): CaptureOpened {
+  askedFor(
+    sessionId: string,
+    title: string,
+    window: string,
+    _place: string,
+    itemId?: string,
+  ): CaptureOpened {
     if (itemId !== undefined) this.askedIn.set(itemId, window);
-    const queued = this.walks?.open === true && this.walks.find(sessionWalkKey(sessionId, window)) !== undefined;
+    const queued =
+      this.walks?.open === true && this.walks.find(sessionWalkKey(sessionId, window)) !== undefined;
     const record = this.record(sessionId);
     const opened = queued
-      ? ({ ok: true } as const)
-      : this.openForSession(sessionId, title, window, takesOfWindow(record, window), originsOfWindow(record, window), [], stepsOfWindow(record, window));
+      ? ({
+          ok: true,
+        } as const)
+      : this.openForSession(
+          sessionId,
+          title,
+          window,
+          takesOfWindow(record, window),
+          originsOfWindow(record, window),
+          [],
+          stepsOfWindow(record, window),
+        );
     this.ask();
     this.walks?.refresh();
     return opened;
@@ -216,7 +345,15 @@ export class CaptureWindows {
 
   /** The addresses of the Job walks in the walk window now. */
   sessionAddresses(): string[] {
-    return this.walks?.open === true ? this.walks.queued.flatMap((one) => (one.sessionId === undefined ? [] : [one.url])) : [];
+    return this.walks?.open === true
+      ? this.walks.queued.flatMap((one) =>
+          one.sessionId === undefined
+            ? []
+            : [
+                one.url,
+              ],
+        )
+      : [];
   }
 
   /** The owner chose another walk on the bar, by its place: only the walk window's own bar is answered. */
@@ -227,8 +364,14 @@ export class CaptureWindows {
   /** The walk on screen shows its Job's oldest open question asked about it, or none. */
   private ask(): void {
     const on = this.walks?.open === true ? this.walks.onScreen : null;
-    if (on === null || on.walk === null || on.sessionId === undefined || this.sessions === null) return;
-    on.walk.question(questionOf(this.record(on.sessionId), on.walk.origins, { url: on.url, askedIn: this.askedIn }));
+    if (on === null || on.walk === null || on.sessionId === undefined || this.sessions === null)
+      return;
+    on.walk.question(
+      questionOf(this.record(on.sessionId), on.walk.origins, {
+        url: on.url,
+        askedIn: this.askedIn,
+      }),
+    );
   }
 
   /**
@@ -248,7 +391,8 @@ export class CaptureWindows {
     }
     this.follow();
     const on = this.walks?.open === true ? this.walks.onScreen : null;
-    if (on?.walk != null && on.sessionId !== undefined) on.walk.setReadiness(sessionReadiness(this.record(on.sessionId), on.url));
+    if (on?.walk != null && on.sessionId !== undefined)
+      on.walk.setReadiness(sessionReadiness(this.record(on.sessionId), on.url));
     this.ask();
     this.walks?.refresh();
   }
@@ -263,14 +407,23 @@ export class CaptureWindows {
     const walks = this.walks;
     if (walks === null || !walks.open || this.sessions === null) return;
     const standing = standingWalks(this.sessions);
-    const items = new Map(standing.map((one) => [one.key, one]));
-    for (const [key, at] of this.approved) if (items.get(key)?.since !== at) this.approved.delete(key);
-    for (const one of [...walks.queued]) {
+    const items = new Map(
+      standing.map((one) => [
+        one.key,
+        one,
+      ]),
+    );
+    for (const [key, at] of this.approved)
+      if (items.get(key)?.since !== at) this.approved.delete(key);
+    for (const one of [
+      ...walks.queued,
+    ]) {
       if (one.sessionId === undefined) continue;
       const item = items.get(one.key);
       if (item !== undefined) {
         one.seen = true;
-        const fresh = one.kept === true && item.since !== one.since ? this.standingWalk(item) : null;
+        const fresh =
+          one.kept === true && item.since !== one.since ? this.standingWalk(item) : null;
         if (fresh !== null && walks.open) walks.replace(fresh);
       } else if (!one.seen || !walks.open) continue;
       else if (sessionReadiness(this.record(one.sessionId), one.url) === "working") one.kept = true;
@@ -288,23 +441,49 @@ export class CaptureWindows {
     const record = this.record(one.sessionId);
     const origin = webOrigin(one.url);
     if (origin === null) return null;
-    const walk = this.sessionWalk(one.sessionId, titleOfWindow(record, one.url) ?? one.title, one.url, origin, passThrough(originsOfWindow(record, one.url)), takesOfWindow(record, one.url), [], stepsOfWindow(record, one.url), one.since);
-    return { ...walk, seen: true };
+    const walk = this.sessionWalk(
+      one.sessionId,
+      titleOfWindow(record, one.url) ?? one.title,
+      one.url,
+      origin,
+      passThrough(originsOfWindow(record, one.url)),
+      takesOfWindow(record, one.url),
+      [],
+      stepsOfWindow(record, one.url),
+      one.since,
+    );
+    return {
+      ...walk,
+      seen: true,
+    };
   }
 
   /** A walk into the walk window, opening it behind on that walk where none is up, with every walk standing beside it. */
   private join(walk: Queued, pressed: boolean): CaptureOpened {
     if (this.walks === null || !this.walks.open) {
-      const walks = new WalkWindow(sizes(), this.walkBoard(), walk.sessionId === undefined ? null : { kind: "session", id: walk.sessionId });
+      const walks = new WalkWindow(
+        sizes(),
+        this.walkBoard(),
+        walk.sessionId === undefined
+          ? null
+          : {
+              kind: "session",
+              id: walk.sessionId,
+            },
+      );
       this.walks = walks;
       walks.add(walk, true);
       this.follow();
       walks.reveal(pressed);
-      return { ok: true };
+      return {
+        ok: true,
+      };
     }
     this.walks.add(walk, false);
     if (pressed) this.toScreen(walk.key);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   /** The owner pressed a walk open: the walk window comes forward on it. */
@@ -318,7 +497,12 @@ export class CaptureWindows {
   /** When Fleet says a Job's walk at `url` was shown, or now where it says nothing yet. */
   private sinceOf(sessionId: string, url: string): string {
     const record = this.record(sessionId);
-    const item = record === undefined ? undefined : standingWalks([record]).find((one) => one.url === url);
+    const item =
+      record === undefined
+        ? undefined
+        : standingWalks([
+            record,
+          ]).find((one) => one.url === url);
     return item?.since ?? new Date().toISOString();
   }
 
@@ -342,7 +526,10 @@ export class CaptureWindows {
     since: string,
   ): Queued {
     const key = sessionWalkKey(sessionId, url);
-    const origins = [origin, ...takes.flatMap((one) => webOrigin(one.url) ?? [])];
+    const origins = [
+      origin,
+      ...takes.flatMap((one) => webOrigin(one.url) ?? []),
+    ];
     let held = signIn;
     return {
       key,
@@ -351,10 +538,32 @@ export class CaptureWindows {
       url,
       make: (seat) => {
         const record = this.record(sessionId);
-        const pin = { run: key, name: title, origin, url, manifestId: record?.manifest_id ?? null, through };
+        const pin = {
+          run: key,
+          name: title,
+          origin,
+          url,
+          manifestId: record?.manifest_id ?? null,
+          through,
+        };
         // The Job by its own name, as the Jobs list calls it: `title` is the window's.
-        const landsOn = { session: { id: sessionId, title: jobName(record, sessionId) } };
-        const walk = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes, held, steps, seat);
+        const landsOn = {
+          session: {
+            id: sessionId,
+            title: jobName(record, sessionId),
+          },
+        };
+        const walk = new CaptureWindow(
+          pin,
+          landsOn,
+          this.board,
+          sizes(),
+          this.kept(landsOn),
+          takes,
+          held,
+          steps,
+          seat,
+        );
         held = [];
         walk.setReadiness(sessionReadiness(record, url));
         return walk;
@@ -366,18 +575,35 @@ export class CaptureWindows {
         const record = this.record(sessionId);
         const job = jobName(record, sessionId);
         const readiness = sessionReadiness(record, url);
-        const asked = onScreen ? null : questionOf(record, origins, { url, askedIn: this.askedIn });
+        const asked = onScreen
+          ? null
+          : questionOf(record, origins, {
+              url,
+              askedIn: this.askedIn,
+            });
         return {
           id: key,
           name: job,
           title,
           address: url,
           aim: `Notes go to ${job}`,
-          ...(readiness === undefined ? {} : { readiness }),
-          ...(asked === null ? {} : { asking: asked.question }),
+          ...(readiness === undefined
+            ? {}
+            : {
+                readiness,
+              }),
+          ...(asked === null
+            ? {}
+            : {
+                asking: asked.question,
+              }),
         };
       },
-      shape: JSON.stringify({ takes, steps, through }),
+      shape: JSON.stringify({
+        takes,
+        steps,
+        through,
+      }),
     };
   }
 
@@ -388,7 +614,13 @@ export class CaptureWindows {
       shown: (walk) => {
         if (walk.walk === null || walk.sessionId === undefined) return;
         walk.walk.setReadiness(sessionReadiness(this.record(walk.sessionId), walk.url));
-        walk.walk.question(questionOf(this.record(walk.sessionId), walk.walk.origins, { url: walk.url, askedIn: this.askedIn }), false);
+        walk.walk.question(
+          questionOf(this.record(walk.sessionId), walk.walk.origins, {
+            url: walk.url,
+            askedIn: this.askedIn,
+          }),
+          false,
+        );
       },
       // Taking focus dims Bridge behind and moves it to no Job: the owner, 19 Oct 2026, asked when it should, said Never.
       focused: (on) => this.board.focused(WALKS, on),
@@ -404,14 +636,22 @@ export class CaptureWindows {
   private kept(landsOn: LandsOn): PanelKept | null {
     const kind = "session" in landsOn ? "session" : null;
     if (kind === null) return null;
-    return { open: this.panelOpen[kind], keep: (open) => void (this.panelOpen[kind] = open) };
+    return {
+      open: this.panelOpen[kind],
+      keep: (open) => void (this.panelOpen[kind] = open),
+    };
   }
 
   /** The Job an IPC call's panel holds: the walk window's walk on screen. `null` where the call came from anything but its panel, or the walk has no Job. */
   panelFrom(contents: Electron.WebContents): PanelSubject | null {
     if (this.walks?.open === true && this.walks.isPanel(contents)) {
       const sessionId = this.walks.onScreen?.sessionId;
-      return sessionId === undefined ? null : { kind: "session", id: sessionId };
+      return sessionId === undefined
+        ? null
+        : {
+            kind: "session",
+            id: sessionId,
+          };
     }
     return null;
   }
@@ -425,7 +665,11 @@ export class CaptureWindows {
   /** Every panel's document, to be told the state Bridge's own windows are told. */
   panels(): Electron.WebContents[] {
     const panel = this.walks?.open === true ? this.walks.panelContents : null;
-    return panel === null ? [] : [panel];
+    return panel === null
+      ? []
+      : [
+          panel,
+        ];
   }
 
   /** The window an IPC call came from, or `null` where it came from anything else. In the walk window, the walk on screen. */
@@ -450,4 +694,3 @@ export class CaptureWindows {
 const WALKS = "walks";
 
 export { questionOf };
-

@@ -15,33 +15,71 @@ const world = vi.hoisted(() => ({
   scripts: [] as string[],
   /** Every `StepWalk` made, with what it was told. */
   steps: [] as Array<{
-    host: { stuck: (why: string) => void };
+    host: {
+      stuck: (why: string) => void;
+    };
     begun: number;
     stopped: number;
     acted: string[];
   }>,
   /** What the Job was told: `[address, why]`. */
-  told: [] as Array<[string, string]>,
+  told: [] as Array<
+    [
+      string,
+      string,
+    ]
+  >,
 }));
 
 vi.mock("electron", () => ({
   BaseWindow: class {},
-  screen: { getPrimaryDisplay: () => ({ workAreaSize: { width: 1920 } }) },
+  screen: {
+    getPrimaryDisplay: () => ({
+      workAreaSize: {
+        width: 1920,
+      },
+    }),
+  },
   shell: {},
 }));
-vi.mock("./views", () => ({ barView: () => view(false), pageView: () => view(true), panelView: () => view(false) }));
-vi.mock("./finder", () => ({ PageFinder: class {} }));
+vi.mock("./views", () => ({
+  barView: () => view(false),
+  pageView: () => view(true),
+  panelView: () => view(false),
+}));
+vi.mock("./finder", () => ({
+  PageFinder: class {},
+}));
 vi.mock("./stepwalk", async () => ({
   ...(await vi.importActual<typeof import("./stepwalk")>("./stepwalk")),
   StepWalk: class {
     begun = 0;
     stopped = 0;
     acted: string[] = [];
-    constructor(_name: string, _steps: unknown, readonly host: { stuck: (why: string) => void }) {
+    constructor(
+      _name: string,
+      _steps: unknown,
+      readonly host: {
+        stuck: (why: string) => void;
+      },
+    ) {
       world.steps.push(this);
     }
     state() {
-      return { name: "steps", at: 1, of: 2, said: "", autoplay: false, ready: false, done: false, stopped: false, guide: { box: null, folded: false } };
+      return {
+        name: "steps",
+        at: 1,
+        of: 2,
+        said: "",
+        autoplay: false,
+        ready: false,
+        done: false,
+        stopped: false,
+        guide: {
+          box: null,
+          folded: false,
+        },
+      };
     }
     begin() {
       this.begun += 1;
@@ -61,10 +99,26 @@ import { CaptureWindow } from "./window";
 import type { WalkSeat } from "./window";
 
 const ADDRESS = "https://app.example.com/page";
-const PAGE_WALK = JSON.stringify({ name: "Mock", at: 1, of: 3, said: "Hello", autoplay: false, ready: true, done: false });
+const PAGE_WALK = JSON.stringify({
+  name: "Mock",
+  at: 1,
+  of: 3,
+  said: "Hello",
+  autoplay: false,
+  ready: true,
+  done: false,
+});
 const HELD_MS = 1000;
 
-const STEPS: WalkStep[] = [{ say: "The stock table", look: { role: "table", name: "Stock" } }];
+const STEPS: WalkStep[] = [
+  {
+    say: "The stock table",
+    look: {
+      role: "table",
+      name: "Stock",
+    },
+  },
+];
 
 /** A view whose page is always at the address it was shown, and answers a walk read as `world.walk` says. */
 function view(page: boolean) {
@@ -74,7 +128,11 @@ function view(page: boolean) {
     webContents: {
       id: 1,
       on: (event: string, listener: () => void) => {
-        if (page) world.handlers.set(event, [...(world.handlers.get(event) ?? []), listener]);
+        if (page)
+          world.handlers.set(event, [
+            ...(world.handlers.get(event) ?? []),
+            listener,
+          ]);
       },
       send: () => {},
       isDestroyed: () => false,
@@ -93,8 +151,14 @@ function view(page: boolean) {
 }
 
 const native = () => ({
-  contentView: { addChildView: () => {}, removeChildView: () => {} },
-  getContentBounds: () => ({ width: 1280, height: 900 }),
+  contentView: {
+    addChildView: () => {},
+    removeChildView: () => {},
+  },
+  getContentBounds: () => ({
+    width: 1280,
+    height: 900,
+  }),
   isDestroyed: () => false,
   isMinimized: () => false,
   setTitle: () => {},
@@ -114,26 +178,63 @@ function window(steps: readonly WalkStep[] = STEPS): CaptureWindow {
     bar: view(false),
     panel: null,
     onScreen: () => true,
-    queue: () => ({ entries: [], at: 0 }),
+    queue: () => ({
+      entries: [],
+      at: 0,
+    }),
     key: () => {},
     settled: () => {},
   } as unknown as WalkSeat;
-  const pin = { run: "run", name: "app", origin: "https://app.example.com", url: ADDRESS, manifestId: null, through: [] };
+  const pin = {
+    run: "run",
+    name: "app",
+    origin: "https://app.example.com",
+    url: ADDRESS,
+    manifestId: null,
+    through: [],
+  };
   const board = {
     focused: () => {},
     heldOn: () => 0,
-    sessionFailed: (_id: string, address: string, why: string) => void world.told.push([address, why]),
+    sessionFailed: (_id: string, address: string, why: string) =>
+      void world.told.push([
+        address,
+        why,
+      ]),
   } as never;
-  shown = new CaptureWindow(pin, { session: { id: "job" } } as never, board, { bar: 40, panel: 300, floor: 100 }, null, [], [], steps, seat);
+  shown = new CaptureWindow(
+    pin,
+    {
+      session: {
+        id: "job",
+      },
+    } as never,
+    board,
+    {
+      bar: 40,
+      panel: 300,
+      floor: 100,
+    },
+    null,
+    [],
+    [],
+    steps,
+    seat,
+  );
   return shown;
 }
 
 /** The page finished loading: its listeners run, as Electron runs them. */
 function loaded(): void {
-  for (const event of ["dom-ready", "did-finish-load"]) for (const listener of world.handlers.get(event) ?? []) listener();
+  for (const event of [
+    "dom-ready",
+    "did-finish-load",
+  ])
+    for (const listener of world.handlers.get(event) ?? []) listener();
 }
 
-const hosted = (): number => world.scripts.filter((script) => script.includes("hostCard(true)")).length;
+const hosted = (): number =>
+  world.scripts.filter((script) => script.includes("hostCard(true)")).length;
 const SET_ASIDE = "steps set aside: this page plays its own walk";
 
 beforeEach(() => {
@@ -160,7 +261,12 @@ it("drops the steps for the page's own walk, hands the card to the bar and tells
   expect(steps?.stopped).toBe(1);
   expect(steps?.begun).toBe(0);
   expect(hosted()).toBe(1);
-  expect(world.told).toEqual([[ADDRESS, SET_ASIDE]]);
+  expect(world.told).toEqual([
+    [
+      ADDRESS,
+      SET_ASIDE,
+    ],
+  ]);
 });
 
 it("keeps looking for the page's walk past the usual tries while the steps stand, then drops them when it mounts", async () => {
@@ -175,7 +281,12 @@ it("keeps looking for the page's walk past the usual tries while the steps stand
   world.walk = PAGE_WALK;
   await vi.advanceTimersByTimeAsync(1000);
   expect(steps?.stopped).toBe(1);
-  expect(world.told).toEqual([[ADDRESS, SET_ASIDE]]);
+  expect(world.told).toEqual([
+    [
+      ADDRESS,
+      SET_ASIDE,
+    ],
+  ]);
 });
 
 it("runs the bar's act on the page's walk, not on the steps, once they are dropped", async () => {
@@ -226,11 +337,16 @@ it("ignores Back and Replay until the steps have begun, and passes them on after
   await page.walkAct("replay");
   expect(world.steps[0]?.acted).toEqual([]);
   await page.walkAct("next");
-  expect(world.steps[0]?.acted).toEqual(["next"]);
+  expect(world.steps[0]?.acted).toEqual([
+    "next",
+  ]);
 
   await vi.advanceTimersByTimeAsync(HELD_MS);
   await page.walkAct("replay");
-  expect(world.steps[0]?.acted).toEqual(["next", "replay"]);
+  expect(world.steps[0]?.acted).toEqual([
+    "next",
+    "replay",
+  ]);
 });
 
 it("tells the Job a step is stuck while the steps stand, and nothing from an act still in flight after they are dropped", async () => {
@@ -239,10 +355,18 @@ it("tells the Job a step is stuck while the steps stand, and nothing from an act
   await vi.advanceTimersByTimeAsync(HELD_MS);
   const [steps] = world.steps;
   steps?.host.stuck("step 1: held at the table");
-  expect(world.told).toEqual([[ADDRESS, "step 1: held at the table"]]);
+  expect(world.told).toEqual([
+    [
+      ADDRESS,
+      "step 1: held at the table",
+    ],
+  ]);
 
   world.walk = PAGE_WALK;
   await vi.advanceTimersByTimeAsync(1000);
   steps?.host.stuck("step 1: late report");
-  expect(world.told.map(([, why]) => why)).toEqual(["step 1: held at the table", SET_ASIDE]);
+  expect(world.told.map(([, why]) => why)).toEqual([
+    "step 1: held at the table",
+    SET_ASIDE,
+  ]);
 });

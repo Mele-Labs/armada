@@ -62,7 +62,12 @@ import type {
 } from "@armada/protocol";
 
 import { said } from "@armada/screens/src/copy";
-import { openServerLink, openStudioNode, type OpenServerLink, type OpenStudioNode } from "@armada/screens/src/opening";
+import {
+  openServerLink,
+  openStudioNode,
+  type OpenServerLink,
+  type OpenStudioNode,
+} from "@armada/screens/src/opening";
 import {
   framesDrawn,
   UNTITLED_STUDIO,
@@ -95,7 +100,8 @@ const PAST_THE_BOUND = "Select this Note to draw it.";
  * what to do with an address is owed both halves of the offer. It goes when
  * #1293 lands and this screen calls its operation instead.
  */
-const READING_IN_UNBUILT = "Reading an address in is not built yet. Keep the link, and read it in when it is.";
+const READING_IN_UNBUILT =
+  "Reading an address in is not built yet. Keep the link, and read it in when it is.";
 
 /**
  * The kinds a person puts on a Studio by hand, as the rail draws them — the
@@ -107,11 +113,25 @@ const READING_IN_UNBUILT = "Reading an address in is not built yet. Keep the lin
  * cannot draw two icons for one act. The glyphs are `packages/icons/icons/`,
  * group `Canvas rail`.
  */
-const ADD_BY_HAND: readonly ({ kind: StudioNodeByHandKind } & RailFace)[] = [
-  { kind: "note", ...faceOf("add_note") },
-  { kind: "link", ...faceOf("add_link") },
-  { kind: "sketch", ...faceOf("add_sketch") },
-  { kind: "zone", ...faceOf("add_zone") },
+const ADD_BY_HAND: readonly ({
+  kind: StudioNodeByHandKind;
+} & RailFace)[] = [
+  {
+    kind: "note",
+    ...faceOf("add_note"),
+  },
+  {
+    kind: "link",
+    ...faceOf("add_link"),
+  },
+  {
+    kind: "sketch",
+    ...faceOf("add_sketch"),
+  },
+  {
+    kind: "zone",
+    ...faceOf("add_zone"),
+  },
 ];
 
 type RailFace = Pick<GraphCanvasRailAct, "icon" | "shortcut">;
@@ -120,9 +140,17 @@ type RailFace = Pick<GraphCanvasRailAct, "icon" | "shortcut">;
 function faceOf(act: string): RailFace {
   const icon = ACTION[act]?.icon;
   // The binding is read when drawn, so a key rebound in Settings → Keyboard is the one on the rail.
-  const face: RailFace = icon == null ? {} : { icon };
+  const face: RailFace =
+    icon == null
+      ? {}
+      : {
+          icon,
+        };
   if (ACTION[act] !== undefined) {
-    Object.defineProperty(face, "shortcut", { enumerable: true, get: () => keyFor(act) });
+    Object.defineProperty(face, "shortcut", {
+      enumerable: true,
+      get: () => keyFor(act),
+    });
   }
   return face;
 }
@@ -151,10 +179,18 @@ const PICKED_LABEL = "What is picked";
  * `position` is on the board, where it is drawn; `landed` is the Zone it goes
  * in and its spot there, which is what is sent.
  */
-type Draft = { id: string; kind: StudioNodeWrittenKind; position: StudioPosition; landed: StudioWhiteboardLanding };
+type Draft = {
+  id: string;
+  kind: StudioNodeWrittenKind;
+  position: StudioPosition;
+  landed: StudioWhiteboardLanding;
+};
 
 /** A spot in whole units, which is what Fleet keeps. */
-const whole = (at: { x: number; y: number }): StudioPosition => ({ x: Math.round(at.x), y: Math.round(at.y) });
+const whole = (at: { x: number; y: number }): StudioPosition => ({
+  x: Math.round(at.x),
+  y: Math.round(at.y),
+});
 
 const DRAFT = "draft";
 
@@ -166,7 +202,10 @@ const same = (held: readonly string[], ids: readonly string[]): boolean =>
   held.length === ids.length && held.every((id, at) => id === ids[at]);
 
 /** Which Studio is open, and whether Continue has been pressed on it. */
-export type OpenStudio = { id: string; editable: boolean };
+export type OpenStudio = {
+  id: string;
+  editable: boolean;
+};
 
 export type StudiosProps = {
   /** The repository's list, as main holds it. */
@@ -192,7 +231,11 @@ export type StudiosProps = {
    * Put a Note, a Link, a Sketch or a File on the open Studio, where the person
    * is looking — or in the Zone they pressed, with `position` from its corner.
    */
-  onAddNode: (node: StudioNodeByHand, position: StudioPosition, within?: string | null) => Promise<Outcome>;
+  onAddNode: (
+    node: StudioNodeByHand,
+    position: StudioPosition,
+    within?: string | null,
+  ) => Promise<Outcome>;
   /** Where a pasted file is on disk, or `""` for one that is not — a screenshot. Main's to know. */
   pathOfFile: (file: File) => string;
   /** Put a pasted picture on the open Studio, as a Picture. Main stages the bytes; Fleet keeps them. */
@@ -201,7 +244,11 @@ export type StudiosProps = {
    * Put a Sketch drawn on the pad on the open Studio — 1 Oct 2026. Bytes in for
    * a new picture, as a pasted Picture's; main stages them.
    */
-  onAddSketch: (drawing: SketchToKeep, position: StudioPosition, within?: string | null) => Promise<Outcome>;
+  onAddSketch: (
+    drawing: SketchToKeep,
+    position: StudioPosition,
+    within?: string | null,
+  ) => Promise<Outcome>;
   /** Keep the whole drawing a person left on a Sketch's pad. */
   onSaveSketch: (nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
   /**
@@ -211,7 +258,14 @@ export type StudiosProps = {
    */
   onDispatchSketch?: (nodeId: string, drawing: Drawing) => void;
   /** Where a person put a node down: its spot from the corner of the frame it landed in, `null` the board. */
-  onMoveNode: (nodeId: string, position: { x: number; y: number }, within: string | null) => Promise<Outcome>;
+  onMoveNode: (
+    nodeId: string,
+    position: {
+      x: number;
+      y: number;
+    },
+    within: string | null,
+  ) => Promise<Outcome>;
   /**
    * Delete everything picked, as one write — #1411. **The only delete**, one
    * node or eighteen, and **all of them or none**: Fleet takes the whole
@@ -268,7 +322,11 @@ export type StudiosProps = {
 };
 
 export function Studios(props: StudiosProps) {
-  return props.open === null ? <StudioList {...props} /> : <OpenedStudio {...props} open={props.open} />;
+  return props.open === null ? (
+    <StudioList {...props} />
+  ) : (
+    <OpenedStudio {...props} open={props.open} />
+  );
 }
 
 function StudioList({ studios, live, onOpen, onCreate, onRename, nameOf }: StudiosProps) {
@@ -276,14 +334,29 @@ function StudioList({ studios, live, onOpen, onCreate, onRename, nameOf }: Studi
     return (
       <div className="armada-screen__pane armada-studios-page">
         <h1 className="armada-page__title">Studios</h1>
-        <StudiosPanel title={studios.state === "none" ? "Studios" : (nameOf?.(studios.manifestId) ?? "Studios")} studios={studios} live={live} onOpen={onOpen} onCreate={() => onCreate()} onRename={onRename} />
+        <StudiosPanel
+          title={studios.state === "none" ? "Studios" : (nameOf?.(studios.manifestId) ?? "Studios")}
+          studios={studios}
+          live={live}
+          onOpen={onOpen}
+          onCreate={() => onCreate()}
+          onRename={onRename}
+        />
       </div>
     );
   }
   // All repositories: a panel for each repository that keeps any, in name order. One that keeps none draws none.
   const panels = studios.reads
-    .filter((one) => one.state === "failed" || one.state === "reading" || (one.state === "read" && one.list.studios.length > 0))
-    .map((one) => ({ one, name: nameOf?.(one.manifestId) ?? one.manifestId }))
+    .filter(
+      (one) =>
+        one.state === "failed" ||
+        one.state === "reading" ||
+        (one.state === "read" && one.list.studios.length > 0),
+    )
+    .map((one) => ({
+      one,
+      name: nameOf?.(one.manifestId) ?? one.manifestId,
+    }))
     .sort((x, y) => x.name.localeCompare(y.name));
   return (
     <div className="armada-screen__pane armada-studios-page">
@@ -346,7 +419,14 @@ function StudiosPanel({
       <CardHeader className="armada-studio__head">
         <CardTitle>{title}</CardTitle>
         <Tooltip label={creating ? "Starting a Studio" : "New Studio"} asChild>
-          <Button variant="ghost" iconOnly aria-label="New Studio" pending={creating} disabled={!live} onClick={create}>
+          <Button
+            variant="ghost"
+            iconOnly
+            aria-label="New Studio"
+            pending={creating}
+            disabled={!live}
+            onClick={create}
+          >
             <Plus size={16} aria-hidden="true" />
           </Button>
         </Tooltip>
@@ -373,7 +453,11 @@ type ListBodyProps = {
   onRename: (studioId: string, name: string) => void;
 };
 
-const PENDING_ROWS = [0, 1, 2];
+const PENDING_ROWS = [
+  0,
+  1,
+  2,
+];
 
 function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
   if (studios.state === "failed") {
@@ -486,7 +570,16 @@ function Row({
           variant="ghost"
           menuLabel={`More for ${shown}`}
           onAction={() => onOpen(studio.id)}
-          items={live ? [{ label: "Rename", onSelect: () => setNaming(true) }] : []}
+          items={
+            live
+              ? [
+                  {
+                    label: "Rename",
+                    onSelect: () => setNaming(true),
+                  },
+                ]
+              : []
+          }
         >
           Open
         </SplitButton>
@@ -495,7 +588,11 @@ function Row({
   );
 }
 
-function OpenedStudio(props: StudiosProps & { open: OpenStudio }) {
+function OpenedStudio(
+  props: StudiosProps & {
+    open: OpenStudio;
+  },
+) {
   const { studio, open } = props;
   if (studio.state === "read" && studio.studio.id === open.id) {
     return <Board {...props} graph={studio.studio} />;
@@ -520,7 +617,12 @@ function OpenedStudio(props: StudiosProps & { open: OpenStudio }) {
  * hook cannot sit under an early return: narrowing happens in `OpenedStudio`, which already only
  * draws this when the read is one.
  */
-function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
+function Board(
+  props: StudiosProps & {
+    open: OpenStudio;
+    graph: Studio;
+  },
+) {
   const { graph: studio, open, live, selectedNode, onSelectNode, onContinue } = props;
   const [refused, setRefused] = useState<string | null>(null);
   /** Whether the confirmation for deleting what is picked is up — #1411. */
@@ -539,10 +641,16 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
   const [arming, setArming] = useState<StudioNodeByHandKind | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [out, setOut] = useState<string | null>(null);
-  const [addRefused, setAddRefused] = useState<{ id: string; said: string } | null>(null);
+  const [addRefused, setAddRefused] = useState<{
+    id: string;
+    said: string;
+  } | null>(null);
   /** What the open draft would send now, so a second placement can send it. */
   const written = useRef<StudioNodeByHand | null>(null);
-  const onWritten = useCallback((node: StudioNodeByHand | null) => void (written.current = node), []);
+  const onWritten = useCallback(
+    (node: StudioNodeByHand | null) => void (written.current = node),
+    [],
+  );
   /** The draft on the board as of the last render, which an answer from Fleet is read against. */
   const showing = useRef<string | null>(null);
   showing.current = draft?.id ?? null;
@@ -565,15 +673,30 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     };
     window.addEventListener("keydown", away);
     return () => window.removeEventListener("keydown", away);
-  }, [arming]);
+  }, [
+    arming,
+  ]);
   // The pictures the Notes kept, and the `blob:` each one becomes — #1352.
   const frames = useStudioFrames(props.onReadFrame, open.id);
   const editable = open.editable && live;
   const drawn = framesDrawn(studio, selectedNode);
   // `want` sends nothing twice, so asking again on every render asks once.
-  useEffect(() => void frames.want([...drawn]), [drawn, frames]);
+  useEffect(
+    () =>
+      void frames.want([
+        ...drawn,
+      ]),
+    [
+      drawn,
+      frames,
+    ],
+  );
   const frameOf = (nodeId: string) =>
-    drawn.has(nodeId) ? (frames.of(nodeId) ?? {}) : { why: PAST_THE_BOUND };
+    drawn.has(nodeId)
+      ? (frames.of(nodeId) ?? {})
+      : {
+          why: PAST_THE_BOUND,
+        };
   // The Sketch open on the pad, placed or opened — 1 Oct 2026.
   const sketch = useStudioSketch({
     editable,
@@ -585,8 +708,12 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     (node) => node.id === opened && (node.kind === "note" || node.kind === "picture"),
   );
   const onBoard = picked.filter((id) => studio.nodes.some((node) => node.id === id));
-  const selected = onBoard.length === 1 ? studio.nodes.find((node) => node.id === onBoard[0]) : undefined;
-  const board = { servers: props.servers, now: props.now };
+  const selected =
+    onBoard.length === 1 ? studio.nodes.find((node) => node.id === onBoard[0]) : undefined;
+  const board = {
+    servers: props.servers,
+    now: props.now,
+  };
   // The instance a picked Run node holds, while Fleet still holds it — #1345.
   // **The live holder, never the node**: what a server is doing is Fleet's, and
   // a node that kept a result is one whose server is already gone.
@@ -598,7 +725,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
 
   // A refusal says Fleet's own why, as other surfaces' do: `said` leaves a refused one blank.
   function answered(outcome: Outcome): void {
-    setRefused(outcome.ok ? null : outcome.why === "refused" ? outcome.error.message : said(outcome));
+    setRefused(
+      outcome.ok ? null : outcome.why === "refused" ? outcome.error.message : said(outcome),
+    );
   }
 
   const promotion = useStudioPromotion({
@@ -627,10 +756,19 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
    * A draft already open goes first — written, it is sent; blank, it is
    * dropped. Two open at once would be two fields with one caret.
    */
-  function place(at: { x: number; y: number }, landed: StudioWhiteboardLanding): void {
+  function place(
+    at: {
+      x: number;
+      y: number;
+    },
+    landed: StudioWhiteboardLanding,
+  ): void {
     if (arming === null) return;
     if (draft !== null && out !== draft.id && written.current !== null) add(draft, written.current);
-    const into = { within: landed.within, position: whole(landed.position) };
+    const into = {
+      within: landed.within,
+      position: whole(landed.position),
+    };
     // A Sketch is drawn rather than written, so it opens the pad where it was
     // put down, and lands on the Studio when the pad closes.
     if (arming === "sketch") {
@@ -644,13 +782,26 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     if (arming === "zone") {
       setDraft(null);
       setArming(null);
-      void props.onAddNode({ kind: "zone" }, into.position, into.within).then(answered);
+      void props
+        .onAddNode(
+          {
+            kind: "zone",
+          },
+          into.position,
+          into.within,
+        )
+        .then(answered);
       return;
     }
     drafted += 1;
     written.current = null;
     setAddRefused(null);
-    setDraft({ id: `${DRAFT}-${drafted}`, kind: arming, position: whole(at), landed: into });
+    setDraft({
+      id: `${DRAFT}-${drafted}`,
+      kind: arming,
+      position: whole(at),
+      landed: into,
+    });
     setArming(null);
   }
 
@@ -666,7 +817,11 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
     void props.onAddNode(node, sent.landed.position, sent.landed.within).then((outcome) => {
       setOut((held) => (held === sent.id ? null : held));
       if (outcome.ok) setDraft((held) => (held?.id === sent.id ? null : held));
-      else if (showing.current === sent.id) setAddRefused({ id: sent.id, said: said(outcome) });
+      else if (showing.current === sent.id)
+        setAddRefused({
+          id: sent.id,
+          said: said(outcome),
+        });
       else answered(outcome);
     });
   }
@@ -710,22 +865,49 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
    * surface, and a control inside a node is a press fighting a drag. Opening an
    * address or a picture is reading, so a read-only Studio offers both.
    */
-  const own: (StudioPickedAct & { press: () => void })[] = [
+  const own: (StudioPickedAct & {
+    press: () => void;
+  })[] = [
     ...(selected !== undefined && keepsAnAddress(selected)
-      ? [{ id: "open", label: "Open", icon: ExternalLink, press: () => openAddress(selected.id) }]
+      ? [
+          {
+            id: "open",
+            label: "Open",
+            icon: ExternalLink,
+            press: () => openAddress(selected.id),
+          },
+        ]
       : []),
     // **The pad is how a Sketch is read**, so a read-only Studio opens it too,
     // drawn on by nobody. Dispatch opens the composer with the drawing on it.
     ...(selected?.kind === "sketch"
       ? [
-          { id: "sketch", label: "Open", press: () => sketch.opened(selected) },
+          {
+            id: "sketch",
+            label: "Open",
+            press: () => sketch.opened(selected),
+          },
           ...(live && props.onDispatchSketch !== undefined
-            ? [{ id: "sketch-dispatch", label: "Dispatch", press: () => dispatchSketch(selected) }]
+            ? [
+                {
+                  id: "sketch-dispatch",
+                  label: "Dispatch",
+                  press: () => dispatchSketch(selected),
+                },
+              ]
             : []),
         ]
       : []),
-    ...(selected?.kind === "picture" || (selected?.kind === "note" && selected.capture?.frame !== undefined)
-      ? [{ id: "frame", label: "Open frame", icon: Image, press: () => setOpened(selected.id) }]
+    ...(selected?.kind === "picture" ||
+    (selected?.kind === "note" && selected.capture?.frame !== undefined)
+      ? [
+          {
+            id: "frame",
+            label: "Open frame",
+            icon: Image,
+            press: () => setOpened(selected.id),
+          },
+        ]
       : []),
     // **A server's links and its Stop are acts on the node**, for the reason
     // every act here is: the board is a drag surface, and a button inside a card
@@ -735,7 +917,8 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       : serving.links.map((link, at) => ({
           id: `link-${at}`,
           label: `Open ${link.name ?? link.url}`,
-          press: () => void openServerLink(props.onOpenServerLink, serving.id, link.url).then(setRefused),
+          press: () =>
+            void openServerLink(props.onOpenServerLink, serving.id, link.url).then(setRefused),
         }))),
     // **Capture is its own act beside Open**, and not a mode on it: one hands
     // the address to the browser a person already uses, the other opens a
@@ -779,15 +962,41 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
    * again into a `blob:` of the composer's own**: the board's are revoked when
    * it goes, and the composer outlives it.
    */
-  function dispatchSketch(node: Extract<typeof studio.nodes[number], { kind: "sketch" }>): void {
+  function dispatchSketch(
+    node: Extract<
+      (typeof studio.nodes)[number],
+      {
+        kind: "sketch";
+      }
+    >,
+  ): void {
     const drawing = padOf(node.drawing);
     void Promise.all(
       drawing.pictures.map(async (one) => {
         const read = await props.onReadFrame(studio.id, node.id, one.id);
-        const src = read.ok ? URL.createObjectURL(new Blob([read.bytes as BlobPart], { type: read.type })) : "";
-        return { ...one, src };
+        const src = read.ok
+          ? URL.createObjectURL(
+              new Blob(
+                [
+                  read.bytes as BlobPart,
+                ],
+                {
+                  type: read.type,
+                },
+              ),
+            )
+          : "";
+        return {
+          ...one,
+          src,
+        };
       }),
-    ).then((pictures) => props.onDispatchSketch?.(node.id, { ...drawing, pictures }));
+    ).then((pictures) =>
+      props.onDispatchSketch?.(node.id, {
+        ...drawing,
+        pictures,
+      }),
+    );
   }
 
   /** Hand the node's address to whatever browses the web here — #1406. */
@@ -847,14 +1056,27 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             // The whiteboard refuses a move while read-only already. This is the second lock.
             if (!editable) return;
             void props
-              .onMoveNode(nodeId, { x: Math.round(position.x), y: Math.round(position.y) }, within)
+              .onMoveNode(
+                nodeId,
+                {
+                  x: Math.round(position.x),
+                  y: Math.round(position.y),
+                },
+                within,
+              )
               .then(answered);
           }}
           onSelectionChange={(ids) => {
             // **The same list keeps its identity.** React Flow re-subscribes whenever this handler
             // changes, and re-subscribing calls it — so a fresh array here is a state change that
             // re-renders, re-subscribes and calls it again, which is an update loop with no end.
-            setPicked((held) => (same(held, ids) ? held : [...ids]));
+            setPicked((held) =>
+              same(held, ids)
+                ? held
+                : [
+                    ...ids,
+                  ],
+            );
             // Helm is told one node, the first: its footer names what a person is looking at, and
             // a cluster of four is not a place.
             onSelectNode(ids[0] ?? null);
@@ -871,8 +1093,16 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
             />
           }
           placing={editable ? arming : null}
-          {...(editable ? { onPaste: pasted } : {})}
-          {...(editable && arming !== null ? { onPanePress: place } : {})}
+          {...(editable
+            ? {
+                onPaste: pasted,
+              }
+            : {})}
+          {...(editable && arming !== null
+            ? {
+                onPanePress: place,
+              }
+            : {})}
           draft={
             editable && draft !== null
               ? {
@@ -883,7 +1113,14 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
                   onMoved: (at, landed) =>
                     setDraft((held) =>
                       held?.id === draft.id
-                        ? { ...held, position: whole(at), landed: { within: landed.within, position: whole(landed.position) } }
+                        ? {
+                            ...held,
+                            position: whole(at),
+                            landed: {
+                              within: landed.within,
+                              position: whole(landed.position),
+                            },
+                          }
                         : held,
                     ),
                   field: (
@@ -896,7 +1133,11 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
                       onAdd={(node) => add(draft, node)}
                       readIn={READING_IN_UNBUILT}
                       saving={out === draft.id}
-                      {...(addRefused?.id === draft.id ? { refused: addRefused.said } : {})}
+                      {...(addRefused?.id === draft.id
+                        ? {
+                            refused: addRefused.said,
+                          }
+                        : {})}
                     />
                   ),
                 }
@@ -907,7 +1148,10 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
               <StudioPicked
                 // Reading first, then what a rung makes of the node. The
                 // delete is in `own` and the bar draws it last wherever it sits.
-                acts={[...own, ...(editable ? promotion.acts : [])]}
+                acts={[
+                  ...own,
+                  ...(editable ? promotion.acts : []),
+                ]}
                 onAct={(id) => {
                   const mine = own.find((act) => act.id === id);
                   return mine === undefined ? promotion.onAct(id) : mine.press();
@@ -924,7 +1168,13 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
       {openedNote === undefined ? null : (
         <StudioFrameSheet
           open
-          {...(openedNote.kind === "note" ? { said: openedNote.said } : { picture: true })}
+          {...(openedNote.kind === "note"
+            ? {
+                said: openedNote.said,
+              }
+            : {
+                picture: true,
+              })}
           frame={frameOf(openedNote.id)}
           onClose={() => setOpened(null)}
         />
@@ -938,7 +1188,9 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
         confirmLabel={clearingLabel(onBoard.length)}
         onCancel={() => setClearing(false)}
         onConfirm={() => {
-          const going = [...onBoard];
+          const going = [
+            ...onBoard,
+          ];
           setClearing(false);
           onSelectNode(null);
           void props.onRemoveNodes(going).then(answered);
@@ -1013,23 +1265,50 @@ function AddRail({
   // A menu shut by Run going off stays shut when it comes back on.
   useEffect(() => {
     if (!runOn) setRunning(false);
-  }, [runOn]);
+  }, [
+    runOn,
+  ]);
   const kinds: GraphCanvasRailAct[] = ADD_BY_HAND.map(({ kind, icon, shortcut }) => ({
     id: kind,
     name: `Add a ${STUDIO_NODE_KIND[kind]}`,
-    ...(icon === undefined ? {} : { icon }),
+    ...(icon === undefined
+      ? {}
+      : {
+          icon,
+        }),
     pressed: armed === kind,
     // Off, the key is dead too, so the tooltip offers no binding beside the reason.
-    ...(off === undefined ? (shortcut === undefined ? {} : { shortcut }) : { disabled: true, why: off }),
+    ...(off === undefined
+      ? shortcut === undefined
+        ? {}
+        : {
+            shortcut,
+          }
+      : {
+          disabled: true,
+          why: off,
+        }),
     onPress: () => onArm(kind),
   }));
   const run: GraphCanvasRailAct = {
     id: "run",
     name: STUDIO_NODE_KIND.run,
-    ...(RUN_FACE.icon === undefined ? {} : { icon: RUN_FACE.icon }),
+    ...(RUN_FACE.icon === undefined
+      ? {}
+      : {
+          icon: RUN_FACE.icon,
+        }),
     disabled: !runOn,
     // Off, `R` is dead too, so the tooltip offers no binding beside the reason.
-    ...(why === undefined ? (RUN_FACE.shortcut === undefined ? {} : { shortcut: RUN_FACE.shortcut }) : { why }),
+    ...(why === undefined
+      ? RUN_FACE.shortcut === undefined
+        ? {}
+        : {
+            shortcut: RUN_FACE.shortcut,
+          }
+      : {
+          why,
+        }),
     menu: {
       open: running,
       onOpenChange: setRunning,
@@ -1040,5 +1319,13 @@ function AddRail({
       },
     },
   };
-  return <GraphCanvasRailGroup label={RAIL_LABEL} acts={[...kinds, run]} />;
+  return (
+    <GraphCanvasRailGroup
+      label={RAIL_LABEL}
+      acts={[
+        ...kinds,
+        run,
+      ]}
+    />
+  );
 }

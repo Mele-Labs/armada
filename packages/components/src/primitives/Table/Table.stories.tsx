@@ -29,13 +29,36 @@ type Condition = {
 };
 
 const conditions: Condition[] = [
-  { module: "Fleet daemon", result: "ok", detail: "pid 4417, uptime 6d", checked: "2m ago" },
-  { module: "Git", result: "ok", detail: "worktrees clean", checked: "2m ago" },
-  { module: "Disk", result: "low", detail: "4% free where Fleet writes", checked: "2m ago" },
+  {
+    module: "Fleet daemon",
+    result: "ok",
+    detail: "pid 4417, uptime 6d",
+    checked: "2m ago",
+  },
+  {
+    module: "Git",
+    result: "ok",
+    detail: "worktrees clean",
+    checked: "2m ago",
+  },
+  {
+    module: "Disk",
+    result: "low",
+    detail: "4% free where Fleet writes",
+    checked: "2m ago",
+  },
 ];
 
 function Grid({ children }: { children: ReactNode }) {
-  return <div style={{ maxWidth: "88ch" }}>{children}</div>;
+  return (
+    <div
+      style={{
+        maxWidth: "88ch",
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 function Header() {

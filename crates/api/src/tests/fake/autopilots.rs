@@ -31,6 +31,8 @@ impl Autopilots for FakeDaemon {
                 until: None,
                 spend_cap_micros: None,
                 session_cap: None,
+                on_autopilot: Default::default(),
+                decisions: Default::default(),
             },
             quoted: Default::default(),
         })
@@ -85,6 +87,21 @@ impl Autopilots for FakeDaemon {
         _manifest_id: ManifestId,
         _pick_id: String,
     ) -> Result<Autopilot, Refusal> {
+        Err(none_here())
+    }
+
+    async fn get_autopilot_decisions(&self) -> Result<ipc::AutopilotDecisions, Refusal> {
+        Ok(ipc::AutopilotDecisions::default())
+    }
+
+    async fn review_autopilot_decision(&self, _review: ipc::ReviewAutopilotDecision) -> Result<ipc::AutopilotDecisions, Refusal> {
+        Err(none_here())
+    }
+
+    async fn override_autopilot_decision(
+        self: std::sync::Arc<Self>,
+        _over: ipc::OverrideAutopilotDecision,
+    ) -> Result<ipc::AutopilotDecisions, Refusal> {
         Err(none_here())
     }
 }

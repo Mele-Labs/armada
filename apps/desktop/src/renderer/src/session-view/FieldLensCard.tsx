@@ -16,14 +16,23 @@ const REVEAL_MS = 1_200;
 /** A reveal draws again at most this often. */
 const STEP_MS = 33;
 
-const still = (): boolean => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const still = (): boolean =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const base = (path: string): string => path.split("/").pop() || path;
 
-const MARK: Record<LensLine["kind"], string> = { added: "+", removed: "-", context: " " };
+const MARK: Record<LensLine["kind"], string> = {
+  added: "+",
+  removed: "-",
+  context: " ",
+};
 
 /** How many characters of the new lines are shown, counting up from none to `total` once per `n`. Whole at once under reduced motion. */
-function useReveal(total: number, n: number | undefined, onTyping: (typing: boolean) => void): number {
+function useReveal(
+  total: number,
+  n: number | undefined,
+  onTyping: (typing: boolean) => void,
+): number {
   const [shown, setShown] = useState(total);
   useEffect(() => {
     if (total === 0 || n === undefined || still()) {
@@ -54,11 +63,21 @@ function useReveal(total: number, n: number | undefined, onTyping: (typing: bool
       cancelAnimationFrame(frame);
       onTyping(false);
     };
-  }, [n]);
+  }, [
+    n,
+  ]);
   return Math.min(shown, total);
 }
 
-export const FieldLensCard = memo(function FieldLensCard({ card, large, onTyping }: { card: CardIn; large: boolean; onTyping: (typing: boolean) => void }) {
+export const FieldLensCard = memo(function FieldLensCard({
+  card,
+  large,
+  onTyping,
+}: {
+  card: CardIn;
+  large: boolean;
+  onTyping: (typing: boolean) => void;
+}) {
   const { diff, newest } = card;
   const most = large ? LINES_LARGE : LINES;
   const all = newest?.hunk.lines ?? [];
@@ -67,15 +86,29 @@ export const FieldLensCard = memo(function FieldLensCard({ card, large, onTyping
   // Only the lines new since the last read type out, and only those the card holds.
   const read = Math.max(0, (newest?.read ?? all.length) - skipped);
   const fresh = lines.slice(read).reduce((sum, one) => sum + one.text.length + 1, 0);
-  const shown = useReveal(fresh, newest === undefined || read >= lines.length ? undefined : newest.n, onTyping);
+  const shown = useReveal(
+    fresh,
+    newest === undefined || read >= lines.length ? undefined : newest.n,
+    onTyping,
+  );
   let left = shown;
   return (
-    <div className="sv-lens" role="group" aria-label={`Lens: ${base(card.path)}`} data-large={large || undefined} style={{ ["--tabs" as string]: card.tabs.length }}>
+    <div
+      className="sv-lens"
+      role="group"
+      aria-label={`Lens: ${base(card.path)}`}
+      data-large={large || undefined}
+      style={{
+        ["--tabs" as string]: card.tabs.length,
+      }}
+    >
       {card.tabs
         .map((tab, k) => (
           <div key={tab.path} className="sv-lens__tab" data-k={k + 1}>
             <span className="sv-lens__name">{base(tab.path)}</span>
-            {tab.diff === undefined ? null : <span className="sv-lens__counts">{countsOf(tab.diff)}</span>}
+            {tab.diff === undefined ? null : (
+              <span className="sv-lens__counts">{countsOf(tab.diff)}</span>
+            )}
           </div>
         ))
         .reverse()}
@@ -99,7 +132,9 @@ export const FieldLensCard = memo(function FieldLensCard({ card, large, onTyping
               }
               return (
                 <div key={k} className="sv-lens__line" data-kind={one.kind}>
-                  <span className="sv-lens__mark" aria-hidden="true">{MARK[one.kind]}</span>
+                  <span className="sv-lens__mark" aria-hidden="true">
+                    {MARK[one.kind]}
+                  </span>
                   <span className="sv-lens__text">{text}</span>
                   {typing ? <span className="sv-lens__caret" aria-hidden="true" /> : null}
                 </div>

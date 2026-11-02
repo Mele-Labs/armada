@@ -50,7 +50,14 @@ export type AlertProps = {
   actionOn?: "block" | "title";
 };
 
-export function Alert({ tone = "escalated", title, children, icon, action, actionOn = "block" }: AlertProps) {
+export function Alert({
+  tone = "escalated",
+  title,
+  children,
+  icon,
+  action,
+  actionOn = "block",
+}: AlertProps) {
   // On the head, or in the trailing slot — never both, and never the head
   // when there is no title to draw a head from.
   const onHead = Boolean(action) && actionOn === "title" && Boolean(title);

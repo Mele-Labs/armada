@@ -1,13 +1,34 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
+  type RefObject,
+} from "react";
 import { ChevronLeft, X } from "lucide-react";
 import { Button } from "../Button/Button";
 import { KbdBinding } from "../Kbd/Kbd";
-import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } from "../../dock-handle";
+import {
+  DockHandle,
+  clampToRange,
+  defaultDockWidth,
+  dockWidthRange,
+  tokenPx,
+} from "../../dock-handle";
 import { rememberSheetWidth, useSheetWidth } from "../../sheet-width";
 import { useMarking, type Mark } from "../../marking";
 
 /** `glass.css` drops the blur beneath a scrim, which is a rule about the document. */
-const SCRIMMED: readonly Mark[] = [{ of: ":root", as: "data-scrimmed" }];
+const SCRIMMED: readonly Mark[] = [
+  {
+    of: ":root",
+    as: "data-scrimmed",
+  },
+];
 
 /**
  * A panel that enters from an edge. The contract gives it exactly one line —
@@ -250,7 +271,9 @@ export function Sheet({
       scrimRef.current = element;
       scrimmed(element);
     },
-    [scrimmed],
+    [
+      scrimmed,
+    ],
   );
   const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -262,7 +285,10 @@ export function Sheet({
   };
   const neighbour = useSheetWidth(beside);
   // A neighbour nobody dragged draws its own `size`, which is not always the dock's.
-  const neighbourDrawn = useWidthOfKind(beside, open && floating && !floor && beside !== undefined && neighbour === undefined);
+  const neighbourDrawn = useWidthOfKind(
+    beside,
+    open && floating && !floor && beside !== undefined && neighbour === undefined,
+  );
 
   // At the floor the sheet is flush to both edges, and there is nothing to
   // resize. Everywhere else there is no ceiling but the area under the scrim
@@ -274,7 +300,12 @@ export function Sheet({
   const room = useWidthOf(scrimRef, open && resizes);
   const atRest = useWidthOf(sheetRef, open && resizes && wanted === undefined);
   const space = tokenPx("--space-4");
-  const followed = follows ? clampToRange(neighbour ?? (neighbourDrawn > 0 ? neighbourDrawn : defaultDockWidth()), rangeIn(room - 2 * space)) : 0;
+  const followed = follows
+    ? clampToRange(
+        neighbour ?? (neighbourDrawn > 0 ? neighbourDrawn : defaultDockWidth()),
+        rangeIn(room - 2 * space),
+      )
+    : 0;
   const range = rangeIn(follows ? room - followed - 4 * space : room - (floating ? 2 : 1) * space);
   // Not measured yet (a first render, or no layout at all): as given.
   const drawn = wanted === undefined || room === 0 ? wanted : clampToRange(wanted, range);
@@ -282,8 +313,13 @@ export function Sheet({
   useEffect(() => {
     // `preventScroll`: a sheet that is still travelling in sits past the
     // edge, and focusing its close scrolls whatever holds it to reach it.
-    if (open) closeRef.current?.focus({ preventScroll: true });
-  }, [open]);
+    if (open)
+      closeRef.current?.focus({
+        preventScroll: true,
+      });
+  }, [
+    open,
+  ]);
 
   // Esc closes an overlay, per the global tier — and stops there. Bound in the
   // capture phase because the other clause of the same registry row, "returns
@@ -295,7 +331,8 @@ export function Sheet({
       // A popover over the sheet is the top layer. Either it took the press already, or it is still
       // open and will: listeners on one window run in no order this can rely on.
       if (event.defaultPrevented) return;
-      if (closeRef.current?.closest('[role="dialog"]')?.querySelector(".armada-popover__panel")) return;
+      if (closeRef.current?.closest('[role="dialog"]')?.querySelector(".armada-popover__panel"))
+        return;
       // Something drawn in the sheet that holds Esc wherever focus is, for as long as it is drawn: a Job's Workflow opened over its parent's, where Esc is Back.
       if (sheetRef.current?.querySelector("[data-holds-esc]")) return;
       // The command palette opens over every surface, a sheet included, and takes the press for the same reason.
@@ -308,7 +345,12 @@ export function Sheet({
       // page, not the order they opened in**: a Check's log opened from a strip inside another
       // sheet closes first, and which listener was added first says nothing about which is on top.
       const sheets = document.querySelectorAll(".armada-sheet");
-      if (sheetRef.current !== null && sheets.length > 0 && sheets[sheets.length - 1] !== sheetRef.current) return;
+      if (
+        sheetRef.current !== null &&
+        sheets.length > 0 &&
+        sheets[sheets.length - 1] !== sheetRef.current
+      )
+        return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -317,7 +359,11 @@ export function Sheet({
     }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, under, onClose]);
+  }, [
+    open,
+    under,
+    onClose,
+  ]);
 
   // A closed sheet stays drawn for --duration-exit, leaving, so it eases away instead of vanishing.
   const [wasOpen, setWasOpen] = useState(open);
@@ -328,10 +374,15 @@ export function Sheet({
   }
   useEffect(() => {
     if (!leaving) return;
-    const ms = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--duration-exit"), 10);
+    const ms = Number.parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue("--duration-exit"),
+      10,
+    );
     const timer = window.setTimeout(() => setLeaving(false), Number.isNaN(ms) ? 140 : ms);
     return () => window.clearTimeout(timer);
-  }, [leaving]);
+  }, [
+    leaving,
+  ]);
 
   if (!open && !leaving) return null;
 
@@ -378,19 +429,34 @@ export function Sheet({
     <div
       ref={scrimmedRef}
       className="armada-sheet-scrim"
-      style={follows && room > 0 ? ({ "--armada-sheet-beside": `${followed}px` } as CSSProperties) : undefined}
+      style={
+        follows && room > 0
+          ? ({
+              "--armada-sheet-beside": `${followed}px`,
+            } as CSSProperties)
+          : undefined
+      }
       data-contained={(contained && !floating) || undefined}
       data-floating={floating || undefined}
       data-beside={(floating && beside !== undefined) || undefined}
       data-through={through || undefined}
       data-leaving={!open || undefined}
     >
-      {aside === undefined || floor || side !== "right" ? null : <div className="armada-sheet__aside">{aside}</div>}
+      {aside === undefined || floor || side !== "right" ? null : (
+        <div className="armada-sheet__aside">{aside}</div>
+      )}
       {resizes && side === "right" ? handle : null}
       <div
         ref={sheetRef}
         className="armada-sheet"
-        style={drawn === undefined ? undefined : { width: `${drawn}px`, maxWidth: "none" }}
+        style={
+          drawn === undefined
+            ? undefined
+            : {
+                width: `${drawn}px`,
+                maxWidth: "none",
+              }
+        }
         data-floating={floating || undefined}
         data-side={side}
         data-size={size}
@@ -399,7 +465,9 @@ export function Sheet({
         role="dialog"
         // Beside another sheet, the pair is the one modal layer: marking both
         // modal would hide each from the other.
-        aria-modal={(floating && beside !== undefined) || through || aside !== undefined ? undefined : "true"}
+        aria-modal={
+          (floating && beside !== undefined) || through || aside !== undefined ? undefined : "true"
+        }
         aria-label={title}
       >
         <div className="armada-sheet__head">
@@ -411,7 +479,9 @@ export function Sheet({
               <Button
                 variant="ghost"
                 size="sm"
-                title={back.binding === undefined ? back.tooltip : `${back.tooltip} — ${back.binding}`}
+                title={
+                  back.binding === undefined ? back.tooltip : `${back.tooltip} — ${back.binding}`
+                }
                 onClick={back.onBack}
               >
                 <ChevronLeft size={12} strokeWidth={2} aria-hidden="true" />
@@ -430,9 +500,7 @@ export function Sheet({
               <span className="armada-sheet__subtitle">{subtitle}</span>
             )}
           </div>
-          {controls === undefined ? null : (
-            <div className="armada-sheet__controls">{controls}</div>
-          )}
+          {controls === undefined ? null : <div className="armada-sheet__controls">{controls}</div>}
           {back === undefined ? close : null}
         </div>
         {bands === undefined ? null : <div className="armada-sheet__bands">{bands}</div>}
@@ -449,14 +517,20 @@ export function Sheet({
 /** `--w-dock-min` up to all of `open`, the width the sheet can cover. */
 function rangeIn(open: number) {
   const { min, max } = dockWidthRange(Number.NaN);
-  return { min, max: Number.isFinite(open) ? Math.max(min, open) : max };
+  return {
+    min,
+    max: Number.isFinite(open) ? Math.max(min, open) : max,
+  };
 }
 
 /** The width of the open sheet of `kind`, kept current: 0 while none is open or `on` is false. */
 function useWidthOfKind(kind: string | undefined, on: boolean): number {
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
-    const element = kind === undefined ? null : document.querySelector<HTMLElement>(`.armada-sheet[data-kind="${kind}"]`);
+    const element =
+      kind === undefined
+        ? null
+        : document.querySelector<HTMLElement>(`.armada-sheet[data-kind="${kind}"]`);
     if (!on || element === null) return;
     const read = (): void => setWidth(element.getBoundingClientRect().width);
     read();
@@ -464,7 +538,10 @@ function useWidthOfKind(kind: string | undefined, on: boolean): number {
     const observer = new ResizeObserver(read);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [kind, on]);
+  }, [
+    kind,
+    on,
+  ]);
   return width;
 }
 
@@ -484,6 +561,9 @@ function useWidthOf(ref: RefObject<HTMLElement | null>, on: boolean): number {
     const observer = new ResizeObserver(read);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [ref, on]);
+  }, [
+    ref,
+    on,
+  ]);
   return width;
 }

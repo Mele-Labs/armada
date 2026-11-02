@@ -3,7 +3,17 @@
 //
 // Main answers each channel from Fleet's routes (`main/logbook.ts`); the mock answers them in a walk.
 
-import type { LogbookAnswer, LogbookForgotten, LogbookOrganizeApplied, LogbookOrganizeDismissed, LogbookOrganizing, LogbookRead, LogbookTidied, OrganizeAction, OrganizeProposal } from "@armada/protocol";
+import type {
+  LogbookAnswer,
+  LogbookForgotten,
+  LogbookOrganizeApplied,
+  LogbookOrganizeDismissed,
+  LogbookOrganizing,
+  LogbookRead,
+  LogbookTidied,
+  OrganizeAction,
+  OrganizeProposal,
+} from "@armada/protocol";
 
 export type LogbookApi = {
   /** Every section: each repository's, Habits and This Mac. Forgotten entries are never read. */
@@ -21,7 +31,10 @@ export type LogbookApi = {
   /** Clears the Organize result Fleet holds, unapplied. */
   dismissOrganizeLogbook: () => Promise<LogbookOrganizeDismissed>;
   /** Carries out the proposals a person kept, as Organize answered them. */
-  applyOrganizeLogbook: (action: OrganizeAction, proposals: OrganizeProposal[]) => Promise<LogbookOrganizeApplied>;
+  applyOrganizeLogbook: (
+    action: OrganizeAction,
+    proposals: OrganizeProposal[],
+  ) => Promise<LogbookOrganizeApplied>;
 };
 
 export const LOGBOOK_CHANNELS = {

@@ -35,14 +35,23 @@ export function Keycap({
 }) {
   const cap = (
     <span className="armada-keycap" data-primary={primary || undefined}>
-      <Button variant={primary ? "primary" : "secondary"} pending={pending} disabled={disabled} onClick={onPress}>
+      <Button
+        variant={primary ? "primary" : "secondary"}
+        pending={pending}
+        disabled={disabled}
+        onClick={onPress}
+      >
         <Kbd>{keys}</Kbd>
         <span className="armada-keycap__verb">{label}</span>
       </Button>
     </span>
   );
   // The cap clips a long label to two lines, so the whole of it is on hover.
-  return <Tooltip label={says ?? label} asChild>{cap}</Tooltip>;
+  return (
+    <Tooltip label={says ?? label} asChild>
+      {cap}
+    </Tooltip>
+  );
 }
 
 /**
@@ -82,7 +91,10 @@ export function CoveredKeycap({
 }
 
 /** A cover that lifts on one press and lets go on its own: `lifted`, and the press that says whether to do the act. */
-export function useCover(act: () => void): { lifted: boolean; press: () => void } {
+export function useCover(act: () => void): {
+  lifted: boolean;
+  press: () => void;
+} {
   const [lifted, setLifted] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -97,14 +109,27 @@ export function useCover(act: () => void): { lifted: boolean; press: () => void 
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setLifted(false), COVER_MS);
   };
-  return { lifted, press };
+  return {
+    lifted,
+    press,
+  };
 }
 
 /**
  * The calls behind the one in front, as a strip along the console's edge: one slim row each, its kind's
  * glyph and its title, the one put off dashed. Pressing one brings it forward.
  */
-export function Queue({ edge, put, recall, first }: { edge: readonly Item[]; put: readonly string[]; recall: (key: string) => void; first: string }) {
+export function Queue({
+  edge,
+  put,
+  recall,
+  first,
+}: {
+  edge: readonly Item[];
+  put: readonly string[];
+  recall: (key: string) => void;
+  first: string;
+}) {
   if (edge.length === 0) return null;
   return (
     <section className="armada-queue" aria-label="Waiting">

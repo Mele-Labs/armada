@@ -7,9 +7,23 @@ const panel = region("Nothing left to do");
 
 const doneSummary = walk("session-all-done", [
   toSessions,
-  { press: inside(region("Jobs", { exact: true }), button(/Pin the store clock/)), say: "A Job that said it is done, after eleven pull requests" },
-  { look: inside(panel, button("Nothing left to do")), say: "The summary stands first, then the pull requests, which scroll" },
-  { look: inside(panel, button("End job")), say: "End job and Keep going stay in view" },
+  {
+    press: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      button(/Pin the store clock/),
+    ),
+    say: "A Job that said it is done, after eleven pull requests",
+  },
+  {
+    look: inside(panel, button("Nothing left to do")),
+    say: "The summary stands first, then the pull requests, which scroll",
+  },
+  {
+    look: inside(panel, button("End job")),
+    say: "End job and Keep going stay in view",
+  },
 ]);
 
 export { doneSummary as "done-summary" };

@@ -27,13 +27,31 @@ const forget = (keep: string) => {
 
 /** The panel at the width the thread's side column gives it. */
 function Beside({ children }: { children: ReactNode }): ReactElement {
-  return <div style={{ width: "var(--w-sheet)", background: "var(--bg-sunken)", padding: "var(--space-4)" }}>{children}</div>;
+  return (
+    <div
+      style={{
+        width: "var(--w-sheet)",
+        background: "var(--bg-sunken)",
+        padding: "var(--space-4)",
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 const meta: Meta<typeof StepsPanel> = {
   title: "Compositions/Steps panel",
   component: StepsPanel,
-  args: { name: NAME, address: ADDRESS, steps: STEPS, keep: keyOf("fresh"), onOpenAddress: fn(), onOpenInBrowser: fn(), onSend: fn() },
+  args: {
+    name: NAME,
+    address: ADDRESS,
+    steps: STEPS,
+    keep: keyOf("fresh"),
+    onOpenAddress: fn(),
+    onOpenInBrowser: fn(),
+    onSend: fn(),
+  },
   render: (args) => (
     <Beside>
       <StepsPanel {...args} />
@@ -50,47 +68,124 @@ export const Fresh: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByRole("checkbox")).toHaveLength(STEPS.length);
-    await expect(canvas.getByRole("button", { name: ADDRESS })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Send" })).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Done" }));
+    await expect(
+      canvas.getByRole("button", {
+        name: ADDRESS,
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Send",
+      }),
+    ).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Done",
+      }),
+    );
     await expect(args.onSend).toHaveBeenCalledWith("Done");
   },
 };
 
 /** The ticks are the person's own place-keeping: the key stays Done, and typing turns it into Send. */
 export const SomeTicked: Story = {
-  args: { keep: keyOf("ticked") },
+  args: {
+    keep: keyOf("ticked"),
+  },
   beforeEach: () => {
     forget(keyOf("ticked"));
-    writeKept(`${keyOf("ticked")}:ticked`, [0, 2]);
+    writeKept(
+      `${keyOf("ticked")}:ticked`,
+      [
+        0,
+        2,
+      ],
+    );
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("checkbox", { name: STEPS[0] })).toBeChecked();
-    await expect(canvas.getByRole("checkbox", { name: STEPS[1] })).not.toBeChecked();
-    await expect(canvas.getByRole("checkbox", { name: STEPS[2] })).toBeChecked();
-    await expect(canvas.getByRole("button", { name: "Done" })).toBeVisible();
-    await userEvent.type(canvas.getByRole("textbox", { name: `Reply to ${NAME}` }), "Registered");
-    await expect(canvas.getByRole("button", { name: "Send" })).toBeVisible();
+    await expect(
+      canvas.getByRole("checkbox", {
+        name: STEPS[0],
+      }),
+    ).toBeChecked();
+    await expect(
+      canvas.getByRole("checkbox", {
+        name: STEPS[1],
+      }),
+    ).not.toBeChecked();
+    await expect(
+      canvas.getByRole("checkbox", {
+        name: STEPS[2],
+      }),
+    ).toBeChecked();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Done",
+      }),
+    ).toBeVisible();
+    await userEvent.type(
+      canvas.getByRole("textbox", {
+        name: `Reply to ${NAME}`,
+      }),
+      "Registered",
+    );
+    await expect(
+      canvas.getByRole("button", {
+        name: "Send",
+      }),
+    ).toBeVisible();
   },
 };
 
-const FIXES: StepFixes = { edited: { 1: "Homepage and callback both http://127.0.0.1:8470" }, dropped: [3], added: ["Leave the Client secret alone"] };
+const FIXES: StepFixes = {
+  edited: {
+    1: "Homepage and callback both http://127.0.0.1:8470",
+  },
+  dropped: [
+    3,
+  ],
+  added: [
+    "Leave the Client secret alone",
+  ],
+};
 
 /** One step reworded, one dropped (struck through, kept, and brought back by its own key) and one added at the end. */
 export const Corrected: Story = {
-  args: { keep: keyOf("corrected") },
+  args: {
+    keep: keyOf("corrected"),
+  },
   beforeEach: () => {
     forget(keyOf("corrected"));
     writeKept(`${keyOf("corrected")}:fixes`, FIXES);
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("checkbox", { name: FIXES.edited[1] })).toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: `Step 2 was ${STEPS[1]}` })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Bring back step 4" })).toBeVisible();
-    await expect(canvas.getByRole("checkbox", { name: FIXES.added[0] })).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Done" }));
+    await expect(
+      canvas.getByRole("checkbox", {
+        name: FIXES.edited[1],
+      }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("img", {
+        name: `Step 2 was ${STEPS[1]}`,
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Bring back step 4",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("checkbox", {
+        name: FIXES.added[0],
+      }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Done",
+      }),
+    );
     await expect(args.onSend).toHaveBeenCalledWith(
       [
         "Done",
@@ -106,16 +201,26 @@ export const Corrected: Story = {
 
 /** The steps are not about a page, so the key at the top is not drawn. */
 export const NoAddress: Story = {
-  args: { address: undefined, keep: keyOf("no-address") },
+  args: {
+    address: undefined,
+    keep: keyOf("no-address"),
+  },
   beforeEach: () => forget(keyOf("no-address")),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByRole("checkbox")).toHaveLength(STEPS.length);
-    await expect(canvas.queryByRole("button", { name: "Open in browser" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Open in browser",
+      }),
+    ).toBeNull();
   },
 };
 
-const RUNS = ["Run `git fetch origin`", "Run `make broken`"];
+const RUNS = [
+  "Run `git fetch origin`",
+  "Run `make broken`",
+];
 
 /** A command with a runner gets Run: a clean exit ticks its step, and a failed one leaves it as it was. */
 export const RunsCommands: Story = {
@@ -125,20 +230,47 @@ export const RunsCommands: Story = {
     steps: RUNS,
     runner: (command, on) => {
       setTimeout(() => {
-        if (command === "make broken") on({ kind: "out", text: "make: *** No rule\r\n" });
-        on({ kind: "end", code: command === "make broken" ? 2 : 0 });
+        if (command === "make broken")
+          on({
+            kind: "out",
+            text: "make: *** No rule\r\n",
+          });
+        on({
+          kind: "end",
+          code: command === "make broken" ? 2 : 0,
+        });
       }, 0);
-      return { stop: () => {} };
+      return {
+        stop: () => {},
+      };
     },
   },
   beforeEach: () => forget(keyOf("runs")),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const [fetch, broken] = canvas.getAllByRole("button", { name: "Run" });
+    const [fetch, broken] = canvas.getAllByRole("button", {
+      name: "Run",
+    });
     await userEvent.click(fetch!);
-    await waitFor(() => expect(canvas.getByRole("checkbox", { name: "Run git fetch origin" })).toBeChecked());
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("checkbox", {
+          name: "Run git fetch origin",
+        }),
+      ).toBeChecked(),
+    );
     await userEvent.click(broken!);
-    await waitFor(() => expect(canvas.getAllByRole("button", { name: "Run again" })).toHaveLength(2));
-    await expect(canvas.getByRole("checkbox", { name: "Run make broken" })).not.toBeChecked();
+    await waitFor(() =>
+      expect(
+        canvas.getAllByRole("button", {
+          name: "Run again",
+        }),
+      ).toHaveLength(2),
+    );
+    await expect(
+      canvas.getByRole("checkbox", {
+        name: "Run make broken",
+      }),
+    ).not.toBeChecked();
   },
 };

@@ -8,9 +8,21 @@ import type { Pr } from "./ship";
 // ---- Pull requests as payloads -------------------------------------------------------------------------
 
 /** How far along its route to the objective a pull request has got, by where it stands. */
-export const ALONG: Record<Pr["stage"], number> = { checking: 0.22, red: 0.22, ready: 0.55, queued: 0.74, landed: 1 };
+export const ALONG: Record<Pr["stage"], number> = {
+  checking: 0.22,
+  red: 0.22,
+  ready: 0.55,
+  queued: 0.74,
+  landed: 1,
+};
 
-export const STAGE_SAID: Record<Pr["stage"], string> = { checking: "Checks running", red: "Checks failed", ready: "Ready", queued: "In the queue", landed: "Merged" };
+export const STAGE_SAID: Record<Pr["stage"], string> = {
+  checking: "Checks running",
+  red: "Checks failed",
+  ready: "Ready",
+  queued: "In the queue",
+  landed: "Merged",
+};
 
 // ---- The activity log as motion ------------------------------------------------------------------------
 
@@ -25,7 +37,15 @@ export const STAGE_SAID: Record<Pr["stage"], string> = { checking: "Checks runni
  *  flare    the objective's beacon flares: main went red or green
  *  dock     a subagent that has finished flies back into the drone that sent it, and is gone
  */
-export type PlayKind = "launch" | "sweep" | "payload" | "capture" | "tracer" | "blip" | "flare" | "dock";
+export type PlayKind =
+  | "launch"
+  | "sweep"
+  | "payload"
+  | "capture"
+  | "tracer"
+  | "blip"
+  | "flare"
+  | "dock";
 
 export type Play = {
   id: string;
@@ -61,7 +81,10 @@ export const TRAIL_MS = 45 * 60_000;
 export const MOST_PLAYING = 12;
 
 /** The key of the drone an event happened to, through the pull request's owner where it is one's. */
-export function droneOfEvent(event: TimelineEvent, ownerOf: (number: number) => string | undefined): string | undefined {
+export function droneOfEvent(
+  event: TimelineEvent,
+  ownerOf: (number: number) => string | undefined,
+): string | undefined {
   const { subject } = event;
   if (subject.kind === "session") return `session:${subject.id}`;
   if (subject.kind === "pull_request") return ownerOf(subject.number);
@@ -69,17 +92,47 @@ export function droneOfEvent(event: TimelineEvent, ownerOf: (number: number) => 
 }
 
 /** One event as the play it is, or nothing where it only leaves a trail. A replay and a focused row both play events this way. */
-export function playOfEvent(event: TimelineEvent, id: string, ownerOf: (number: number) => string | undefined, rootOf: (manifest: string | undefined) => string | undefined): Play | undefined {
+export function playOfEvent(
+  event: TimelineEvent,
+  id: string,
+  ownerOf: (number: number) => string | undefined,
+  rootOf: (manifest: string | undefined) => string | undefined,
+): Play | undefined {
   const kind = PLAYS[event.kind];
   if (kind === undefined) return undefined;
   const key = droneOfEvent(event, ownerOf);
   const root = rootOf(event.manifest_id);
   const number = event.subject.kind === "pull_request" ? event.subject.number : undefined;
-  return { id, kind, at: Date.now(), delay: 0, ...(key === undefined ? {} : { key }), ...(root === undefined ? {} : { root }), ...(number === undefined ? {} : { number }) };
+  return {
+    id,
+    kind,
+    at: Date.now(),
+    delay: 0,
+    ...(key === undefined
+      ? {}
+      : {
+          key,
+        }),
+    ...(root === undefined
+      ? {}
+      : {
+          root,
+        }),
+    ...(number === undefined
+      ? {}
+      : {
+          number,
+        }),
+  };
 }
 
 /** The events recent enough to move, newest first, as plays. */
-export function playsOf(events: readonly TimelineEvent[], now: number, ownerOf: (number: number) => string | undefined, rootOf: (manifest: string | undefined) => string | undefined): Play[] {
+export function playsOf(
+  events: readonly TimelineEvent[],
+  now: number,
+  ownerOf: (number: number) => string | undefined,
+  rootOf: (manifest: string | undefined) => string | undefined,
+): Play[] {
   return events
     .flatMap((event): Play[] => {
       const kind = PLAYS[event.kind];
@@ -88,15 +141,44 @@ export function playsOf(events: readonly TimelineEvent[], now: number, ownerOf: 
       const key = droneOfEvent(event, ownerOf);
       const root = rootOf(event.manifest_id);
       const number = event.subject.kind === "pull_request" ? event.subject.number : undefined;
-      return [{ id: `event:${event.id}`, kind, at, delay: 0, ...(key === undefined ? {} : { key }), ...(root === undefined ? {} : { root }), ...(number === undefined ? {} : { number }) }];
+      return [
+        {
+          id: `event:${event.id}`,
+          kind,
+          at,
+          delay: 0,
+          ...(key === undefined
+            ? {}
+            : {
+                key,
+              }),
+          ...(root === undefined
+            ? {}
+            : {
+                root,
+              }),
+          ...(number === undefined
+            ? {}
+            : {
+                number,
+              }),
+        },
+      ];
     })
     .sort((a, b) => b.at - a.at)
     .slice(0, MOST_PLAYING)
-    .map((play, i) => ({ ...play, delay: i * 220 }));
+    .map((play, i) => ({
+      ...play,
+      delay: i * 220,
+    }));
 }
 
 /** When a drone was last dispatched, from the events, for the contrail it left. Absent where there is none or it is long gone. */
-export function trailsOf(events: readonly TimelineEvent[], now: number, ownerOf: (number: number) => string | undefined): Map<string, number> {
+export function trailsOf(
+  events: readonly TimelineEvent[],
+  now: number,
+  ownerOf: (number: number) => string | undefined,
+): Map<string, number> {
   const trails = new Map<string, number>();
   for (const event of events) {
     if (event.kind !== "session.started" && event.kind !== "slot.leased") continue;
@@ -107,4 +189,3 @@ export function trailsOf(events: readonly TimelineEvent[], now: number, ownerOf:
   }
   return trails;
 }
-

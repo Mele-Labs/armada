@@ -53,7 +53,9 @@ function useUnder(token: string): boolean {
     const changed = (event: MediaQueryListEvent) => setUnder(event.matches);
     media.addEventListener("change", changed);
     return () => media.removeEventListener("change", changed);
-  }, [token]);
+  }, [
+    token,
+  ]);
 
   return under;
 }

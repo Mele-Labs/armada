@@ -4,7 +4,15 @@
 import type { ModelDownshiftState, Outcome } from "@armada/protocol";
 
 /** What reading or answering the offer came to: the state as Fleet holds it now, or the refusal to word. */
-export type ModelDownshiftRead = { ok: true; value: ModelDownshiftState } | { ok: false; outcome: Outcome };
+export type ModelDownshiftRead =
+  | {
+      ok: true;
+      value: ModelDownshiftState;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type ModelDownshiftApi = {
   /** Whether the default model is offered a step down, stepped down, or due back. */

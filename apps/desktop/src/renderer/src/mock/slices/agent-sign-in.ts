@@ -9,8 +9,14 @@ export const agentSignIn: Slice<AgentSignInApi, Record<string, never>> = {
   name: "agentSignIn",
   state: {},
   api: () => ({
-    getAgentSignIn: async () => ({ ok: false, outcome: unanswered("/agent/sign_in") }),
-    startAgentSignIn: async () => ({ ok: false, outcome: unanswered("/agent/sign_in") }),
+    getAgentSignIn: async () => ({
+      ok: false,
+      outcome: unanswered("/agent/sign_in"),
+    }),
+    startAgentSignIn: async () => ({
+      ok: false,
+      outcome: unanswered("/agent/sign_in"),
+    }),
     onAgentSignInChanged: () => () => {},
   }),
 };

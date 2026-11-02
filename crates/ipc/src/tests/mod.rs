@@ -10,6 +10,7 @@
 /// An empty optional field leaves no key rather than a `null`.
 mod absent;
 mod bug_reports;
+mod debug_report;
 mod lifecycles;
 mod piece_saving;
 mod accounts;
@@ -27,6 +28,7 @@ mod drafts;
 /// The agent's door: a tool call becomes a request on the HTTP surface, and an
 /// answer too large to carry says so.
 mod door;
+mod job_cli;
 /// What the stream carries, under the names `operations/` declares.
 mod events;
 mod helm;
@@ -88,3 +90,4 @@ mod taught_mods;
 mod watch_wire;
 mod workflow_changes;
 mod workflows_off;
+mod autopilot_boxes;

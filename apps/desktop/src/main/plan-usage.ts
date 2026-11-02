@@ -6,7 +6,10 @@ import type { Outcome, PlanUsage } from "@armada/protocol";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import { ask } from "./request";
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 export class PlanUsageHost {
   private readonly port: () => number | null;
@@ -38,11 +41,27 @@ export class PlanUsageHost {
 
   async get(): Promise<PlanUsageRead> {
     const port = this.port();
-    if (port === null) return this.held === null ? { ok: false, outcome: NOT_CONNECTED } : { ok: true, value: this.held };
+    if (port === null)
+      return this.held === null
+        ? {
+            ok: false,
+            outcome: NOT_CONNECTED,
+          }
+        : {
+            ok: true,
+            value: this.held,
+          };
     const answer = await ask(port, "GET", "/plan_usage");
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    if (answer.ok !== true)
+      return {
+        ok: false,
+        outcome: answer.outcome,
+      };
     this.held = answer.body as PlanUsage;
     this.keep(this.held);
-    return { ok: true, value: this.held };
+    return {
+      ok: true,
+      value: this.held,
+    };
   }
 }

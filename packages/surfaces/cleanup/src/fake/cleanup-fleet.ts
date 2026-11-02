@@ -10,19 +10,36 @@ export function gridHeld(now: number): WorktreesHeld {
   const ago = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
   const base = slotsHeld(now);
   const mapped = (base.slots ?? []).map((one) => {
-    if (one.slot === 3) return { ...one, closed: true };
+    if (one.slot === 3)
+      return {
+        ...one,
+        closed: true,
+      };
     // An agent session whose checkout holds files nobody committed, and a clean one.
     if (one.slot === 2) {
       return {
         ...one,
-        held: { state: "session" as const, holder: "nvim (pid 44698)" },
-        stranded: { uncommitted: ["packages/screens/src/SlotPools.tsx", "notes/release.md"], commits: [], unpushed: 0 },
+        held: {
+          state: "session" as const,
+          holder: "nvim (pid 44698)",
+        },
+        stranded: {
+          uncommitted: [
+            "packages/screens/src/SlotPools.tsx",
+            "notes/release.md",
+          ],
+          commits: [],
+          unpushed: 0,
+        },
       };
     }
     if (one.slot === 6) {
       return {
         ...one,
-        held: { state: "session" as const, holder: "zsh (pid 4120)" },
+        held: {
+          state: "session" as const,
+          holder: "zsh (pid 4120)",
+        },
         branch: "fleet/slot-lease-record",
         since: ago(42),
         warm: true,
@@ -35,20 +52,29 @@ export function gridHeld(now: number): WorktreesHeld {
   const slots = [
     ...mapped,
     bay(9, {
-      held: { state: "hosted_session", session_id: "s-theme-audit", session_title: "Theme token audit" },
+      held: {
+        state: "hosted_session",
+        session_id: "s-theme-audit",
+        session_title: "Theme token audit",
+      },
       branch: "fleet/theme-token-audit",
       since: ago(18),
       warm: true,
       behind: 1,
     }),
     bay(10, {
-      held: { state: "hosted_session", session_id: "s-pr-panel", session_title: "Pull Request Panel Design" },
+      held: {
+        state: "hosted_session",
+        session_id: "s-pr-panel",
+        session_title: "Pull Request Panel Design",
+      },
       branch: "fleet/pull-request-panel",
       since: ago(7),
       warm: true,
       behind: 0,
     }),
   ];
-  return { slots };
+  return {
+    slots,
+  };
 }
-

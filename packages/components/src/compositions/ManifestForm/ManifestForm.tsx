@@ -51,10 +51,17 @@ export type ManifestFormCommand = {
   /** Non-empty makes it a server. */
   serve: string;
   ready: string;
-  links: { url: string; name: string }[];
+  links: {
+    url: string;
+    name: string;
+  }[];
 };
 
-export type ManifestFormPort = { name: string; container: string; env: string };
+export type ManifestFormPort = {
+  name: string;
+  container: string;
+  env: string;
+};
 
 /** `evidence:`, as typed. */
 export type ManifestFormEvidence = {
@@ -106,92 +113,142 @@ export type ManifestFormProps = {
   /** What keeps Save back, keyed as the file spells where — `checks.lint.run`. */
   problems: Record<string, string>;
   /** `id` and `version`, shown and never edited. Absent where Fleet did not say. */
-  identity?: { id: string; version: number };
+  identity?: {
+    id: string;
+    version: number;
+  };
   /** Whether the draft would send any edit. Save is offered only then. */
   changed: boolean;
   saving?: boolean;
   onSave: () => void;
   onDiscard: () => void;
   /** The last save went out as a pull request the forge would not auto-merge, so a person merges it: its number opens it, and Sessions' acts sit beside. */
-  mergeByHand?: { number: number; checks: PullRequestActsProps["checks"]; pending?: PullRequestActsProps["pending"]; onOpen: () => void; onAct: PullRequestActsProps["onAct"] };
+  mergeByHand?: {
+    number: number;
+    checks: PullRequestActsProps["checks"];
+    pending?: PullRequestActsProps["pending"];
+    onOpen: () => void;
+    onAct: PullRequestActsProps["onAct"];
+  };
   /** When the last save landed, an RFC 3339 instant: the line beside the path says it, or says there is none. */
   saved?: string;
   /** What Fleet would not write, with its faults key by key. */
-  refused?: { saying: string; faults: { key: string; fault: string }[] };
+  refused?: {
+    saying: string;
+    faults: {
+      key: string;
+      fault: string;
+    }[];
+  };
   /** The file changed after the form read it. Nothing was written. */
-  moved?: { gone: boolean; onReadAgain: () => void; onSaveOver?: () => void };
+  moved?: {
+    gone: boolean;
+    onReadAgain: () => void;
+    onSaveOver?: () => void;
+  };
 };
 
 export function ManifestForm(props: ManifestFormProps) {
-  const { path, identity, changed, saving = false, onSave, onDiscard, saved, refused, moved, problems, mergeByHand } = props;
+  const {
+    path,
+    identity,
+    changed,
+    saving = false,
+    onSave,
+    onDiscard,
+    saved,
+    refused,
+    moved,
+    problems,
+    mergeByHand,
+  } = props;
   const blocked = Object.keys(problems).length > 0;
   return (
     <div className="armada-manifest-form">
       {/* One sticky block, so a refusal is on screen wherever Save was pressed. */}
       <div className="armada-manifest-form__top">
-      <div className="armada-manifest-form__head">
-        <span className="armada-manifest-form__path">{path}</span>
-        <span className="armada-manifest-form__receipt">
-          {saved === undefined ? (
-            changed ? "Not saved." : null
-          ) : (
-            <>
-              Saved <Stamp at={saved} />.{changed ? " Changed since." : ""}
-            </>
-          )}
-        </span>
-        <Button variant="secondary" size="sm" disabled={!changed || saving} onClick={onDiscard}>
-          Discard changes
-        </Button>
-        <Button variant="primary" size="sm" disabled={!changed || saving || blocked} onClick={onSave}>
-          {saving ? "Saving" : "Save"}
-        </Button>
-      </div>
-
-      {mergeByHand === undefined ? null : (
-        <p className="armada-manifest-form__by-hand">
-          <Button variant="ghost" size="sm" onClick={mergeByHand.onOpen}>
-            {`#${mergeByHand.number}`}
-          </Button>
-          <PullRequestActs state="open" checks={mergeByHand.checks} auto={false} {...(mergeByHand.pending === undefined ? {} : { pending: mergeByHand.pending })} onAct={mergeByHand.onAct} />
-        </p>
-      )}
-
-      {refused === undefined ? null : (
-        <Alert tone="escalated" title="Not saved">
-          <p className="armada-manifest-form__said">{refused.saying}</p>
-          {refused.faults.length === 0 ? null : (
-            <ul className="armada-manifest-form__faults">
-              {refused.faults.map((fault) => (
-                <li key={`${fault.key}:${fault.fault}`}>
-                  <span className="armada-manifest-form__key">{fault.key}</span> {fault.fault}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Alert>
-      )}
-
-      {moved === undefined ? null : (
-        <Alert
-          tone="caution"
-          title={moved.gone ? "The file is no longer there" : "The file changed after you opened it"}
-        >
-          <p className="armada-manifest-form__said">
-            Nothing was saved, and your changes are still here.
-          </p>
-          <div className="armada-manifest-form__acts">
-            <Button variant="secondary" size="sm" disabled={saving} onClick={moved.onReadAgain}>
-              Discard my changes and read it again
-            </Button>
-            {moved.onSaveOver === undefined ? null : (
-              <Button variant="primary" size="sm" disabled={saving} onClick={moved.onSaveOver}>
-                Make my changes to it as it is now
-              </Button>
+        <div className="armada-manifest-form__head">
+          <span className="armada-manifest-form__path">{path}</span>
+          <span className="armada-manifest-form__receipt">
+            {saved === undefined ? (
+              changed ? (
+                "Not saved."
+              ) : null
+            ) : (
+              <>
+                Saved <Stamp at={saved} />.{changed ? " Changed since." : ""}
+              </>
             )}
-          </div>
-        </Alert>
-      )}
+          </span>
+          <Button variant="secondary" size="sm" disabled={!changed || saving} onClick={onDiscard}>
+            Discard changes
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!changed || saving || blocked}
+            onClick={onSave}
+          >
+            {saving ? "Saving" : "Save"}
+          </Button>
+        </div>
+
+        {mergeByHand === undefined ? null : (
+          <p className="armada-manifest-form__by-hand">
+            <Button variant="ghost" size="sm" onClick={mergeByHand.onOpen}>
+              {`#${mergeByHand.number}`}
+            </Button>
+            <PullRequestActs
+              state="open"
+              checks={mergeByHand.checks}
+              auto={false}
+              {...(mergeByHand.pending === undefined
+                ? {}
+                : {
+                    pending: mergeByHand.pending,
+                  })}
+              onAct={mergeByHand.onAct}
+            />
+          </p>
+        )}
+
+        {refused === undefined ? null : (
+          <Alert tone="escalated" title="Not saved">
+            <p className="armada-manifest-form__said">{refused.saying}</p>
+            {refused.faults.length === 0 ? null : (
+              <ul className="armada-manifest-form__faults">
+                {refused.faults.map((fault) => (
+                  <li key={`${fault.key}:${fault.fault}`}>
+                    <span className="armada-manifest-form__key">{fault.key}</span> {fault.fault}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Alert>
+        )}
+
+        {moved === undefined ? null : (
+          <Alert
+            tone="caution"
+            title={
+              moved.gone ? "The file is no longer there" : "The file changed after you opened it"
+            }
+          >
+            <p className="armada-manifest-form__said">
+              Nothing was saved, and your changes are still here.
+            </p>
+            <div className="armada-manifest-form__acts">
+              <Button variant="secondary" size="sm" disabled={saving} onClick={moved.onReadAgain}>
+                Discard my changes and read it again
+              </Button>
+              {moved.onSaveOver === undefined ? null : (
+                <Button variant="primary" size="sm" disabled={saving} onClick={moved.onSaveOver}>
+                  Make my changes to it as it is now
+                </Button>
+              )}
+            </div>
+          </Alert>
+        )}
       </div>
 
       {identity === undefined ? null : (

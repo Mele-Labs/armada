@@ -275,49 +275,6 @@ pub(crate) async fn start_agent_sign_in<D: HostedSessions>(State(served): State<
     }
 }
 
-/// Whether sleep mode is on and what the night holds.
-pub(crate) async fn get_sleep<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().get_sleep().await {
-        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-pub(crate) async fn set_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let set: ipc::SetSleep = match ipc::decode_body("a sleep switch", &body) {
-        Ok(set) => set,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().set_sleep(set).await {
-        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// The owner corrects one decision. 200 with the night; 409 where no decision holds the id.
-pub(crate) async fn override_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let over: ipc::OverrideSleep = match ipc::decode_body("a correction of a sleep decision", &body) {
-        Ok(over) => over,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().override_sleep(over).await {
-        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// The owner keeps one decision. 200 with the night; 409 where no decision holds the id.
-pub(crate) async fn review_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let review: ipc::ReviewSleep = match ipc::decode_body("a kept sleep decision", &body) {
-        Ok(review) => review,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().review_sleep(review).await {
-        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
 pub(crate) async fn tune_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

@@ -4,18 +4,42 @@ import type { Box } from "../../../shared/annotations";
 import { placeCard, type CardSize, type Metrics, type Viewport } from "./place";
 
 /** The tokens `annotate.css` declares: `--space-2`, `--h-badge`, `--space-3`. */
-const M: Metrics = { gap: 8, pinSize: 20, pinInset: 12 };
+const M: Metrics = {
+  gap: 8,
+  pinSize: 20,
+  pinInset: 12,
+};
 
 /** The owner's window, less the layer's own status bar at the foot of it. */
-const OWNER: Viewport = { width: 1324, height: 922, floor: 880 };
+const OWNER: Viewport = {
+  width: 1324,
+  height: 922,
+  floor: 880,
+};
 
 /** The note card as it draws with a text box and two buttons. */
-const CARD: CardSize = { width: 340, height: 336 };
+const CARD: CardSize = {
+  width: 340,
+  height: 336,
+};
 
-const box = (x: number, y: number, width: number, height: number): Box => ({ x, y, width, height });
+const box = (x: number, y: number, width: number, height: number): Box => ({
+  x,
+  y,
+  width,
+  height,
+});
 
 /** Everything the card draws is inside the window on all four edges. */
-function inside(at: { x: number; y: number; maxHeight: number }, card: CardSize, view: Viewport): void {
+function inside(
+  at: {
+    x: number;
+    y: number;
+    maxHeight: number;
+  },
+  card: CardSize,
+  view: Viewport,
+): void {
   const height = Math.min(card.height, at.maxHeight);
   expect(at.x).toBeGreaterThanOrEqual(0);
   expect(at.y).toBeGreaterThanOrEqual(0);
@@ -63,7 +87,11 @@ describe("placeCard", () => {
   });
 
   it("keeps a card beside the element above the status bar, level with the element's top where it can be", () => {
-    const short: Viewport = { width: 1324, height: 500, floor: 458 };
+    const short: Viewport = {
+      width: 1324,
+      height: 500,
+      floor: 458,
+    };
     const level = placeCard(box(432, 8, 480, 460), CARD, short, M);
     expect(level.side).toBe("beside");
     expect(level.y).toBe(8);
@@ -98,7 +126,11 @@ describe("placeCard", () => {
   });
 
   it("caps a card taller than the window, which then scrolls inside itself", () => {
-    const short: Viewport = { width: 1324, height: 320, floor: 278 };
+    const short: Viewport = {
+      width: 1324,
+      height: 320,
+      floor: 278,
+    };
     const at = placeCard(box(8, 60, 1308, 260), CARD, short, M);
     expect(at.side).toBe("over");
     expect(at.maxHeight).toBeLessThan(CARD.height);
@@ -113,11 +145,40 @@ describe("placeCard", () => {
   // Every window a person can drag to, against every element they can pick,
   // including elements off the top or bottom of the window after a scroll.
   it("is inside the window for any element in any window", () => {
-    for (const height of [200, 320, 480, 700, 922, 1600]) {
-      for (const width of [400, 768, 1324, 2200]) {
-        const view: Viewport = { width, height, floor: Math.max(height - 42, 0) };
-        for (const y of [-400, -20, 0, 40, height / 2, height - 30, height + 100]) {
-          for (const h of [8, 120, height, height * 2]) {
+    for (const height of [
+      200,
+      320,
+      480,
+      700,
+      922,
+      1600,
+    ]) {
+      for (const width of [
+        400,
+        768,
+        1324,
+        2200,
+      ]) {
+        const view: Viewport = {
+          width,
+          height,
+          floor: Math.max(height - 42, 0),
+        };
+        for (const y of [
+          -400,
+          -20,
+          0,
+          40,
+          height / 2,
+          height - 30,
+          height + 100,
+        ]) {
+          for (const h of [
+            8,
+            120,
+            height,
+            height * 2,
+          ]) {
             const at = placeCard(box(-50, y, 480, h), CARD, view, M);
             inside(at, CARD, view);
           }

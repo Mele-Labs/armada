@@ -40,7 +40,8 @@ export const TASK_GLYPH: Record<TaskMarkState, LucideIcon> = {
  */
 export function taskMarkSaid(state: TaskMarkState): string {
   const verb = TASK_STATE[state]?.verb;
-  if (verb === undefined || verb === null) throw new Error(`verbs.task_state has no row for ${state}`);
+  if (verb === undefined || verb === null)
+    throw new Error(`verbs.task_state has no row for ${state}`);
   return verb.charAt(0).toUpperCase() + verb.slice(1);
 }
 
@@ -55,7 +56,12 @@ export type TaskMarkProps = {
   /** Fleet's proof where it set the state itself ("commit 1a2b3c4 names it"). The same mark, with the proof added to what hovering says. */
   marked?: string | undefined;
   /** A task in progress that looks left behind: the reason, and when it was last touched. The mark is dimmed, and hovering says why and how long. */
-  stale?: { why: string; since: string } | undefined;
+  stale?:
+    | {
+        why: string;
+        since: string;
+      }
+    | undefined;
 };
 
 /**
@@ -77,8 +83,16 @@ export function TaskMark({ state, marked, stale }: TaskMarkProps) {
   const now = useNowWhile(stale !== undefined);
   const lines = [
     taskMarkSaid(state),
-    ...(marked === undefined ? [] : [`Marked by Fleet: ${marked}`]),
-    ...(stale === undefined ? [] : [`Stale: ${stale.why}, ${Number.isNaN(Date.parse(stale.since)) ? stale.since : ageOf(Date.parse(stale.since), now)}`]),
+    ...(marked === undefined
+      ? []
+      : [
+          `Marked by Fleet: ${marked}`,
+        ]),
+    ...(stale === undefined
+      ? []
+      : [
+          `Stale: ${stale.why}, ${Number.isNaN(Date.parse(stale.since)) ? stale.since : ageOf(Date.parse(stale.since), now)}`,
+        ]),
   ];
   const said = lines.join(". ");
   return (
@@ -96,9 +110,22 @@ export function TaskMark({ state, marked, stale }: TaskMarkProps) {
         )
       }
     >
-      <span className="armada-task-mark" data-state={state} data-stale={stale === undefined ? undefined : ""} role="img" aria-label={said}>
+      <span
+        className="armada-task-mark"
+        data-state={state}
+        data-stale={stale === undefined ? undefined : ""}
+        role="img"
+        aria-label={said}
+      >
         <Icon size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />
-        {state === "handed_in" ? <PencilOff className="armada-task-mark__unseen" size={UNSEEN_ICON} strokeWidth={MARK_STROKE} aria-hidden /> : null}
+        {state === "handed_in" ? (
+          <PencilOff
+            className="armada-task-mark__unseen"
+            size={UNSEEN_ICON}
+            strokeWidth={MARK_STROKE}
+            aria-hidden
+          />
+        ) : null}
       </span>
     </Tooltip>
   );

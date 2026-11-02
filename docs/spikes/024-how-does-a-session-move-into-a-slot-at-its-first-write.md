@@ -53,6 +53,13 @@ place of them.
 
 ## What this does not cover
 
+**Option (a) was measured with `path` only.** On 2 Nov 2026 a hosted Job in auto
+mode called `EnterWorktree` with `name`, and it was let through and cut a tree
+under `.claude/worktrees/`. The transcript then holds a `worktree-state` entry,
+and `--resume` with the slot as cwd kept the session in that tree: `pwd` was the
+tree, and the harness refused writes in the slot. The gate now refuses the tool.
+That reading comes from one Job's transcript; this spike did not re-run it.
+
 **A shell line is read by its words and not by what it does.** The hook cannot
 see what `make` writes, so a line Fleet does not recognise as a read leases a
 slot first. A line that runs in the slot but names the main checkout by absolute

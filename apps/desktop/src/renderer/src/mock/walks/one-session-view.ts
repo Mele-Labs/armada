@@ -10,111 +10,481 @@ const places = role("navigation", "Places");
 const stage = region(/^Job: /);
 // The Feature workflow is Plan, Build, Verify, Pull request, and its steps are the zones of the story; the Job is at Plan until it builds.
 const workflow = button(/^Workflow /);
-const plan = region("Plan", { exact: true });
-const building = region("Build", { exact: true });
-const verified = region("Verify", { exact: true });
-const wholePlanIn = (zone: typeof plan) => ({ press: inside(zone, button("Whole plan")), say: "One press opens the whole plan" } as const);
+const plan = region("Plan", {
+  exact: true,
+});
+const building = region("Build", {
+  exact: true,
+});
+const verified = region("Verify", {
+  exact: true,
+});
+const wholePlanIn = (zone: typeof plan) =>
+  ({
+    press: inside(zone, button("Whole plan")),
+    say: "One press opens the whole plan",
+  }) as const;
 const ask = role("article", "Waiting on you");
 
 export const oneSessionView = walk("one-session-view", [
-  { look: places, say: "A Job is viewed on the Cockpit, selected from its list" },
-  { look: role("button", "Activity"), say: "The Cockpit with no Job selected. Activity is a bay of the console" },
-  { look: region("Bays"), say: "Bays, on the right" },
-  { drag: role("separator", "Resize the left column"), by: { x: 60, y: 0 }, say: "A gap between columns is a handle: the left column widens and the middle gives the width" },
-  { key: "Home", on: role("separator", "Resize the left column"), say: "Back to its width. Sizes are kept for this layout and come back as left" },
-  { press: deckRow("Retry the slot lease"), say: "A Job is selected. Its thread and composer fill the middle. The console and Bays give way, and the right column tells the Job's story: Done, Now and Open, with the Field under the Jobs list" },
-  { look: role("button", /^Context/), say: "The header with every mark live: the state glyph leads the title, then the context tank, the fresh start mark and the stale mod. Back is the far right item. A clash is the glyph on the Bays key, not a mark in the bar" },
-  { look: role("button", "More"), say: "Everything he does to the Job is behind the three dots. The pull request chip is gone, since Artifacts has it" },
-  { press: role("button", "More"), say: "Open the Job page, Retro and End job, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended" },
-  { key: "Escape", on: role("menu"), say: "Esc shuts the menu" },
-  { look: role("combobox", "Model"), say: "The agent has begun on its own. The name is in the header, and the proposer has preset the model and the effort in the composer's own dropdowns, each marked as picked by it" },
-  { look: plan, say: "The proposed workflow heads the story and its steps are the zones below, with the first step open. There is no Start" },
-  { press: workflow, say: "The workflow's name opens a menu of the others" },
-  { press: role("menuitem", "Bug fix"), say: "A different workflow, changed while the agent works. The change reaches the agent at once" },
-  { look: role("region", "Workflow changed"), say: "An event row in his colour, in the style of Slot leased: the workflow, what it was and what it is" },
-  { look: text("Following Bug fix"), say: "The agent adjusts and names the steps it will follow. Mid-turn it would have read the note at its next tool call, and idle it is woken" },
-  { look: text("Reproduce"), say: "Its steps replace the others at the head of the story" },
-  { press: workflow, say: "The menu again" },
-  { press: role("menuitem", "Feature"), say: "Feature again, told the same way" },
-  { type: "medium", into: role("combobox", "Effort"), say: "Less effort, in the composer. This wakes nobody and the mark on it goes" },
-  { press: inside(stage, button(/^Needs you/)), say: "The question is in its Needs you panel, on the composer, and the panel opens on it" },
-  { look: inside(stage, ask), say: "The agent read first and asks before it plans, in the thread. Now has no plan yet, and the Field has the Job's own drone reading Fleet" },
-  { press: inside(ask, role("radio", "Five")), say: "An answer to the agent's question" },
-  { press: inside(ask, button("Answer")), say: "Answered. A new turn starts" },
-  { look: role("region", "Effort changed"), say: "The effort change is a row where that turn starts, and the agent is told in it" },
-  { later: places, say: "The agent records its plan" },
-  { look: inside(stage, role("article", "Plan to approve")), say: "The plan arrives as a compact card in the thread, whole above the composer: each group a closed row with its subagent type, title and a mark per task, a thumbnail of the sketch the agent drew with it, and Approve" },
-  { look: plan, say: "Now on the right already holds the plan, open and editable, with Approve at its foot beside the card in the thread" },
-  { hover: inside(plan, role("button", "Ask for an update")), say: "Ask for an update sits in Now's header. It tells the agent to bring its task list up to date with the plan's own task text, then say where it stands. A press does not fold the panel" },
-  { press: inside(plan, button("Sketch")), say: "While the plan is a draft, Now's Sketch glyph opens the sketch on its own, as a sketch opens anywhere" },
-  { press: role("button", "Close"), say: "Closed" },
-  { press: inside(plan, role("button", /^Subagent type and paths of Retry the slot lease when the pool is contended, with back off$/)), say: "A drafted group stands open on its tasks. Its chevron brings in the subagent type and its paths" },
-  { press: inside(plan, role("button", /^Subagent type and paths of Retry the slot lease when the pool is contended, with back off$/)), say: "And closes again" },
-  { press: inside(stage, role("article", "Plan to approve")), say: "A press on the card, anywhere but Approve, opens the plan in a large overlay to review" },
-  { look: role("button", "Approve"), say: "Every group is open with its paths and its tasks, the sketch is large and playing, and Approve is at the foot. Every title and task takes edits where it stands. Esc or Close shuts it" },
-  { press: role("button", /^Task: Show the attempt on the bay tile/), say: "Rename a task in place: press its text" },
-  { type: "Show the attempt count on the bay tile", into: role("textbox", "Task"), say: "The new words" },
-  { key: "Enter", on: role("textbox", "Task"), say: "Enter keeps them, and the old text stays beside it, struck through. The plan itself has not changed: this is a mark on it" },
-  { hover: role("button", /^Task: Back off between attempts/), say: "A task shows its glyphs on hover: a suggestion and remove" },
-  { press: role("button", "Remove task Back off between attempts"), say: "Removed. The task is struck, not gone, and its glyph turns to undo until it is sent" },
-  { hover: role("button", /^Group: Attempt count on the wire/), say: "A group shows the same glyphs, with its subagent type beside it as a select, and a task can be dragged onto another group" },
-  { press: role("button", "Suggest on group Attempt count on the wire"), say: "A suggestion pinned to the group: a one line box for what he would ask" },
-  { type: "Could this reuse an existing field instead of a new one?", into: role("textbox", "Suggest on Attempt count on the wire"), say: "The question" },
-  { key: "Enter", on: role("textbox", "Suggest on Attempt count on the wire"), say: "Pinned to the group as a marker, with a glyph to take it back" },
-  { look: role("button", "Send changes"), say: "With marks on the plan the foot offers Send changes beside Approve, whose tooltip now says it approves with the changes" },
-  { press: role("button", "Send changes"), say: "Send changes: one message to the agent with a line for each edit and note, against its group or task. The overlay closes" },
-  { look: role("region", "Changes to the plan"), say: "In the thread it is his message, drawn compactly with the list" },
-  { look: text(/Keeping a new field on the wire/), say: "The agent answers each: it takes the rename and the removal, and pushes back on the note with a reason, and says it will record the plan again" },
-  { look: inside(stage, role("list", "Changed since the last plan")), say: "The plan again, as a card for his approval, listing what changed since the last one: a task added, a task renamed with its old text, a task removed" },
-  { press: inside(stage, role("article", "Plan to approve")), say: "Opened to review" },
-  { look: role("button", "Approve"), say: "It opens on the diff the card draws: the new task added, the renamed one with its old text, the removed one struck. Edit plan reaches the rows" },
-  { press: role("button", "Approve"), say: "Approved from the overlay. It closes and the card settles in the thread" },
-  { look: inside(stage, role("article", "Plan approved")), say: "The settled card stays where the plan was recorded, with its groups and the sketch thumbnail, and no press left but a click to read it again" },
-  { look: region("Field"), say: "The build starts. Two subagents hover over the parts of the codebase they touch, the Job's own drone with them," },
-  { look: building, say: "Build is the current step among the workflow's zones" },
-  { look: building, say: "Now lists the group being worked, with its tasks" },
+  {
+    look: places,
+    say: "A Job is viewed on the Cockpit, selected from its list",
+  },
+  {
+    look: role("button", "Activity"),
+    say: "The Cockpit with no Job selected. Activity is a bay of the console",
+  },
+  {
+    look: region("Bays"),
+    say: "Bays, on the right",
+  },
+  {
+    drag: role("separator", "Resize the left column"),
+    by: {
+      x: 60,
+      y: 0,
+    },
+    say: "A gap between columns is a handle: the left column widens and the middle gives the width",
+  },
+  {
+    key: "Home",
+    on: role("separator", "Resize the left column"),
+    say: "Back to its width. Sizes are kept for this layout and come back as left",
+  },
+  {
+    press: deckRow("Retry the slot lease"),
+    say: "A Job is selected. Its thread and composer fill the middle. The console and Bays give way, and the right column tells the Job's story: Done, Now and Open, with the Field under the Jobs list",
+  },
+  {
+    look: role("button", /^Context/),
+    say: "The header with every mark live: the state glyph leads the title, then the context tank, the fresh start mark and the stale mod. Back is the far right item. A clash is the glyph on the Bays key, not a mark in the bar",
+  },
+  {
+    look: role("button", "More"),
+    say: "Everything he does to the Job is behind the three dots. The pull request chip is gone, since Artifacts has it",
+  },
+  {
+    press: role("button", "More"),
+    say: "Open the Job page, Retro and End job, each with its glyph. Stop joins them while a turn runs, Fork on one that has ended",
+  },
+  {
+    key: "Escape",
+    on: role("menu"),
+    say: "Esc shuts the menu",
+  },
+  {
+    look: role("combobox", "Model"),
+    say: "The agent has begun on its own. The name is in the header, and the proposer has preset the model and the effort in the composer's own dropdowns, each marked as picked by it",
+  },
+  {
+    look: plan,
+    say: "The proposed workflow heads the story and its steps are the zones below, with the first step open. There is no Start",
+  },
+  {
+    press: workflow,
+    say: "The workflow's name opens a menu of the others",
+  },
+  {
+    press: role("menuitem", "Bug fix"),
+    say: "A different workflow, changed while the agent works. The change reaches the agent at once",
+  },
+  {
+    look: role("region", "Workflow changed"),
+    say: "An event row in his colour, in the style of Slot leased: the workflow, what it was and what it is",
+  },
+  {
+    look: text("Following Bug fix"),
+    say: "The agent adjusts and names the steps it will follow. Mid-turn it would have read the note at its next tool call, and idle it is woken",
+  },
+  {
+    look: text("Reproduce"),
+    say: "Its steps replace the others at the head of the story",
+  },
+  {
+    press: workflow,
+    say: "The menu again",
+  },
+  {
+    press: role("menuitem", "Feature"),
+    say: "Feature again, told the same way",
+  },
+  {
+    type: "medium",
+    into: role("combobox", "Effort"),
+    say: "Less effort, in the composer. This wakes nobody and the mark on it goes",
+  },
+  {
+    press: inside(stage, button(/^Needs you/)),
+    say: "The question is in its Needs you panel, on the composer, and the panel opens on it",
+  },
+  {
+    look: inside(stage, ask),
+    say: "The agent read first and asks before it plans, in the thread. Now has no plan yet, and the Field has the Job's own drone reading Fleet",
+  },
+  {
+    press: inside(ask, role("radio", "Five")),
+    say: "An answer to the agent's question",
+  },
+  {
+    press: inside(ask, button("Answer")),
+    say: "Answered. A new turn starts",
+  },
+  {
+    look: role("region", "Effort changed"),
+    say: "The effort change is a row where that turn starts, and the agent is told in it",
+  },
+  {
+    later: places,
+    say: "The agent records its plan",
+  },
+  {
+    look: inside(stage, role("article", "Plan to approve")),
+    say: "The plan arrives as a compact card in the thread, whole above the composer: each group a closed row with its subagent type, title and a mark per task, a thumbnail of the sketch the agent drew with it, and Approve",
+  },
+  {
+    look: plan,
+    say: "Now on the right already holds the plan, open and editable, with Approve at its foot beside the card in the thread",
+  },
+  {
+    hover: inside(plan, role("button", "Ask for an update")),
+    say: "Ask for an update sits in Now's header. It tells the agent to bring its task list up to date with the plan's own task text, then say where it stands. A press does not fold the panel",
+  },
+  {
+    press: inside(plan, button("Sketch")),
+    say: "While the plan is a draft, Now's Sketch glyph opens the sketch on its own, as a sketch opens anywhere",
+  },
+  {
+    press: role("button", "Close"),
+    say: "Closed",
+  },
+  {
+    press: inside(
+      plan,
+      role(
+        "button",
+        /^Subagent type and paths of Retry the slot lease when the pool is contended, with back off$/,
+      ),
+    ),
+    say: "A drafted group stands open on its tasks. Its chevron brings in the subagent type and its paths",
+  },
+  {
+    press: inside(
+      plan,
+      role(
+        "button",
+        /^Subagent type and paths of Retry the slot lease when the pool is contended, with back off$/,
+      ),
+    ),
+    say: "And closes again",
+  },
+  {
+    press: inside(stage, role("article", "Plan to approve")),
+    say: "A press on the card, anywhere but Approve, opens the plan in a large overlay to review",
+  },
+  {
+    look: role("button", "Approve"),
+    say: "Every group is open with its paths and its tasks, the sketch is large and playing, and Approve is at the foot. Every title and task takes edits where it stands. Esc or Close shuts it",
+  },
+  {
+    press: role("button", /^Task: Show the attempt on the bay tile/),
+    say: "Rename a task in place: press its text",
+  },
+  {
+    type: "Show the attempt count on the bay tile",
+    into: role("textbox", "Task"),
+    say: "The new words",
+  },
+  {
+    key: "Enter",
+    on: role("textbox", "Task"),
+    say: "Enter keeps them, and the old text stays beside it, struck through. The plan itself has not changed: this is a mark on it",
+  },
+  {
+    hover: role("button", /^Task: Back off between attempts/),
+    say: "A task shows its glyphs on hover: a suggestion and remove",
+  },
+  {
+    press: role("button", "Remove task Back off between attempts"),
+    say: "Removed. The task is struck, not gone, and its glyph turns to undo until it is sent",
+  },
+  {
+    hover: role("button", /^Group: Attempt count on the wire/),
+    say: "A group shows the same glyphs, with its subagent type beside it as a select, and a task can be dragged onto another group",
+  },
+  {
+    press: role("button", "Suggest on group Attempt count on the wire"),
+    say: "A suggestion pinned to the group: a one line box for what he would ask",
+  },
+  {
+    type: "Could this reuse an existing field instead of a new one?",
+    into: role("textbox", "Suggest on Attempt count on the wire"),
+    say: "The question",
+  },
+  {
+    key: "Enter",
+    on: role("textbox", "Suggest on Attempt count on the wire"),
+    say: "Pinned to the group as a marker, with a glyph to take it back",
+  },
+  {
+    look: role("button", "Send changes"),
+    say: "With marks on the plan the foot offers Send changes beside Approve, whose tooltip now says it approves with the changes",
+  },
+  {
+    press: role("button", "Send changes"),
+    say: "Send changes: one message to the agent with a line for each edit and note, against its group or task. The overlay closes",
+  },
+  {
+    look: role("region", "Changes to the plan"),
+    say: "In the thread it is his message, drawn compactly with the list",
+  },
+  {
+    look: text(/Keeping a new field on the wire/),
+    say: "The agent answers each: it takes the rename and the removal, and pushes back on the note with a reason, and says it will record the plan again",
+  },
+  {
+    look: inside(stage, role("list", "Changed since the last plan")),
+    say: "The plan again, as a card for his approval, listing what changed since the last one: a task added, a task renamed with its old text, a task removed",
+  },
+  {
+    press: inside(stage, role("article", "Plan to approve")),
+    say: "Opened to review",
+  },
+  {
+    look: role("button", "Approve"),
+    say: "It opens on the diff the card draws: the new task added, the renamed one with its old text, the removed one struck. Edit plan reaches the rows",
+  },
+  {
+    press: role("button", "Approve"),
+    say: "Approved from the overlay. It closes and the card settles in the thread",
+  },
+  {
+    look: inside(stage, role("article", "Plan approved")),
+    say: "The settled card stays where the plan was recorded, with its groups and the sketch thumbnail, and no press left but a click to read it again",
+  },
+  {
+    look: region("Field"),
+    say: "The build starts. Two subagents hover over the parts of the codebase they touch, the Job's own drone with them,",
+  },
+  {
+    look: building,
+    say: "Build is the current step among the workflow's zones",
+  },
+  {
+    look: building,
+    say: "Now lists the group being worked, with its tasks",
+  },
   wholePlanIn(building),
-  { look: building, say: "Tasks tick in the plan as the agent reports them. The pencil on a group is edits Fleet saw" },
-  { press: inside(building, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "The same edits work from the whole plan once it is approved: a group opens" },
-  { press: inside(building, role("button", "Suggest on task Retry the lease when the pool is contended")), say: "A suggestion on a task, mid-build" },
-  { type: "Log each attempt so the bay tile can show it", into: role("textbox", "Suggest on Retry the lease when the pool is contended"), say: "What he asks" },
-  { key: "Enter", on: role("textbox", "Suggest on Retry the lease when the pool is contended"), say: "Pinned to the task" },
-  { press: inside(building, role("button", "Send changes")), say: "Sent from the panel, the same way" },
-  { look: role("region", "Changes to the plan"), say: "His message is in the thread, and the agent folds it into the tasks still open" },
-  { press: inside(building, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "The group closes" },
-  { later: places, say: "The first two tasks finish and two more start" },
-  { look: region("Field"), say: "The rust subagent stays, the protocol one is done and a bridge one has joined" },
-  { look: region("Jobs", { exact: true }), say: "A Job calling him pulses its row here, and nothing is" },
-  { look: role("button", "Judge"), say: "Flight control's tiles fill the panel, in two rows of four at this size and one row of seven where the panel is wide and low. The Judge tile is the sixth, on the 6 key, Release the seventh, and Artifacts, Subagents and Checks take 8, 9 and 0" },
-  { later: places, say: "Another Job asks for something" },
-  { look: deckRow("Name the store migrations"), say: "Its row in Jobs pulses" },
-  { later: places, say: "The agent finishes and runs its checks" },
-  { press: inside(verified, button(/Verify/)), say: "The step before the current one holds the finished groups, folded until pressed" },
-  { look: inside(verified, text("Retry the lease when the pool is contended")), say: "Every task is done in the whole plan" },
-  { look: region("Pull request", { exact: true }), say: "The workflow is at Pull request" },
-  { press: button("Artifacts", { exact: true }), say: "There is no Ledger. The branch and the bay are not drawn while nothing is wrong with them, and the draft pull request is a row in Artifacts" },
-  { look: inside(region("Artifacts", { exact: true }), region("Pull requests", { exact: true })), say: "The draft pull request, with its state and checks" },
-  { press: inside(region("Artifacts", { exact: true }), button("Back")), say: "Back returns to the thread where it was" },
-  { press: inside(verified, role("button", /Verify/)), say: "A press on a header folds the panel to it. Every panel in the view does this, Done, Now, Open, the Field, Jobs and Flight control too" },
-  { press: inside(verified, role("button", /Verify/)), say: "A second press opens it. What he folds or opens by hand holds, kept for the Job" },
-  { press: deckRow("Rotate the audit log"), say: "Another Job, on a workflow of twelve steps" },
-  { look: region("Smoke", { exact: true }), say: "A workflow of twelve steps is twelve zones, the current one open and those before it folded" },
-  { press: deckRow("Fold Jobs into Sessions"), say: "A plan at size: six groups and twenty-five tasks for one change, Jobs taking in Jobs. Subagent types are mixed and the groups are unevenly spread, eight tasks in one and two in another" },
-  { look: inside(stage, role("article", "Plan to approve")), say: "The compact card in the thread, six closed rows with a mark for each task, the sketch as a thumbnail and Approve, whole above the composer" },
-  { press: inside(stage, role("article", "Plan to approve")), say: "A press on the card opens the review overlay" },
-  { look: role("region", "Plan tool in Fleet"), say: "Every group open with its paths and its tasks, the long ones scrolling in the left column and the sketch large beside them. Approve is in the header" },
-  { press: role("button", "Approve"), say: "Approved from the overlay. The plan is mid-build" },
+  {
+    look: building,
+    say: "Tasks tick in the plan as the agent reports them. The pencil on a group is edits Fleet saw",
+  },
+  {
+    press: inside(
+      building,
+      role("button", /^Retry the slot lease when the pool is contended, with back off$/),
+    ),
+    say: "The same edits work from the whole plan once it is approved: a group opens",
+  },
+  {
+    press: inside(
+      building,
+      role("button", "Suggest on task Retry the lease when the pool is contended"),
+    ),
+    say: "A suggestion on a task, mid-build",
+  },
+  {
+    type: "Log each attempt so the bay tile can show it",
+    into: role("textbox", "Suggest on Retry the lease when the pool is contended"),
+    say: "What he asks",
+  },
+  {
+    key: "Enter",
+    on: role("textbox", "Suggest on Retry the lease when the pool is contended"),
+    say: "Pinned to the task",
+  },
+  {
+    press: inside(building, role("button", "Send changes")),
+    say: "Sent from the panel, the same way",
+  },
+  {
+    look: role("region", "Changes to the plan"),
+    say: "His message is in the thread, and the agent folds it into the tasks still open",
+  },
+  {
+    press: inside(
+      building,
+      role("button", /^Retry the slot lease when the pool is contended, with back off$/),
+    ),
+    say: "The group closes",
+  },
+  {
+    later: places,
+    say: "The first two tasks finish and two more start",
+  },
+  {
+    look: region("Field"),
+    say: "The rust subagent stays, the protocol one is done and a bridge one has joined",
+  },
+  {
+    look: region("Jobs", {
+      exact: true,
+    }),
+    say: "A Job calling him pulses its row here, and nothing is",
+  },
+  {
+    look: role("button", "Judge"),
+    say: "Flight control's tiles fill the panel, in two rows of four at this size and one row of seven where the panel is wide and low. The Judge tile is the sixth, on the 6 key, Release the seventh, and Artifacts, Subagents and Checks take 8, 9 and 0",
+  },
+  {
+    later: places,
+    say: "Another Job asks for something",
+  },
+  {
+    look: deckRow("Name the store migrations"),
+    say: "Its row in Jobs pulses",
+  },
+  {
+    later: places,
+    say: "The agent finishes and runs its checks",
+  },
+  {
+    press: inside(verified, button(/Verify/)),
+    say: "The step before the current one holds the finished groups, folded until pressed",
+  },
+  {
+    look: inside(verified, text("Retry the lease when the pool is contended")),
+    say: "Every task is done in the whole plan",
+  },
+  {
+    look: region("Pull request", {
+      exact: true,
+    }),
+    say: "The workflow is at Pull request",
+  },
+  {
+    press: button("Artifacts", {
+      exact: true,
+    }),
+    say: "There is no Ledger. The branch and the bay are not drawn while nothing is wrong with them, and the draft pull request is a row in Artifacts",
+  },
+  {
+    look: inside(
+      region("Artifacts", {
+        exact: true,
+      }),
+      region("Pull requests", {
+        exact: true,
+      }),
+    ),
+    say: "The draft pull request, with its state and checks",
+  },
+  {
+    press: inside(
+      region("Artifacts", {
+        exact: true,
+      }),
+      button("Back"),
+    ),
+    say: "Back returns to the thread where it was",
+  },
+  {
+    press: inside(verified, role("button", /Verify/)),
+    say: "A press on a header folds the panel to it. Every panel in the view does this, Done, Now, Open, the Field, Jobs and Flight control too",
+  },
+  {
+    press: inside(verified, role("button", /Verify/)),
+    say: "A second press opens it. What he folds or opens by hand holds, kept for the Job",
+  },
+  {
+    press: deckRow("Rotate the audit log"),
+    say: "Another Job, on a workflow of twelve steps",
+  },
+  {
+    look: region("Smoke", {
+      exact: true,
+    }),
+    say: "A workflow of twelve steps is twelve zones, the current one open and those before it folded",
+  },
+  {
+    press: deckRow("Fold Jobs into Sessions"),
+    say: "A plan at size: six groups and twenty-five tasks for one change, Jobs taking in Jobs. Subagent types are mixed and the groups are unevenly spread, eight tasks in one and two in another",
+  },
+  {
+    look: inside(stage, role("article", "Plan to approve")),
+    say: "The compact card in the thread, six closed rows with a mark for each task, the sketch as a thumbnail and Approve, whole above the composer",
+  },
+  {
+    press: inside(stage, role("article", "Plan to approve")),
+    say: "A press on the card opens the review overlay",
+  },
+  {
+    look: role("region", "Plan tool in Fleet"),
+    say: "Every group open with its paths and its tasks, the long ones scrolling in the left column and the sketch large beside them. Approve is in the header",
+  },
+  {
+    press: role("button", "Approve"),
+    say: "Approved from the overlay. The plan is mid-build",
+  },
   wholePlanIn(building),
-  { look: plan, say: "Now carries the plan on the right, opened to the whole plan: closed rows with a mark for each task, the panel scrolling past what fits. Done, working, handed in and open marks sit together, and one task failed, which frames its group in red" },
-  { later: places, say: "Time passes and groups tick" },
-  { look: plan, say: "More tasks done, the next ones working" },
-  { later: places, say: "And again" },
-  { look: plan, say: "The Fleet group is nearly through, the wire done, the judge group started" },
-  { press: deckRow("Queue session for later"), say: "A plan pending with four groups, ten tasks and ten scope paths, and his own message last" },
-  { look: text(/^Update the plan: the queue should survive a restart/), say: "His message is the last of the thread and the plan card after it is the thread's last card" },
-  { press: button("Artifacts", { exact: true }), say: "Artifacts lists what the Job made, the page it showed among it" },
-  { look: inside(region("Artifacts", { exact: true }), text("Queue for later walk")), say: "The page it showed" },
-  { press: inside(region("Artifacts", { exact: true }), button("Back")), say: "Back" },
-  { press: inside(stage, button("Plan")), say: "The plan card folds on its header to one line" },
-  { look: inside(stage, role("img", "Plan waiting for approval")), say: "The plan glyph, Plan, its version and its state, with Approve still on the line" },
+  {
+    look: plan,
+    say: "Now carries the plan on the right, opened to the whole plan: closed rows with a mark for each task, the panel scrolling past what fits. Done, working, handed in and open marks sit together, and one task failed, which frames its group in red",
+  },
+  {
+    later: places,
+    say: "Time passes and groups tick",
+  },
+  {
+    look: plan,
+    say: "More tasks done, the next ones working",
+  },
+  {
+    later: places,
+    say: "And again",
+  },
+  {
+    look: plan,
+    say: "The Fleet group is nearly through, the wire done, the judge group started",
+  },
+  {
+    press: deckRow("Queue session for later"),
+    say: "A plan pending with four groups, ten tasks and ten scope paths, and his own message last",
+  },
+  {
+    look: text(/^Update the plan: the queue should survive a restart/),
+    say: "His message is the last of the thread and the plan card after it is the thread's last card",
+  },
+  {
+    press: button("Artifacts", {
+      exact: true,
+    }),
+    say: "Artifacts lists what the Job made, the page it showed among it",
+  },
+  {
+    look: inside(
+      region("Artifacts", {
+        exact: true,
+      }),
+      text("Queue for later walk"),
+    ),
+    say: "The page it showed",
+  },
+  {
+    press: inside(
+      region("Artifacts", {
+        exact: true,
+      }),
+      button("Back"),
+    ),
+    say: "Back",
+  },
+  {
+    press: inside(stage, button("Plan")),
+    say: "The plan card folds on its header to one line",
+  },
+  {
+    look: inside(stage, role("img", "Plan waiting for approval")),
+    say: "The plan glyph, Plan, its version and its state, with Approve still on the line",
+  },
 ]);

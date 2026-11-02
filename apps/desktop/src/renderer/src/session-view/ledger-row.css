@@ -2,89 +2,332 @@
    A kind's glyph wears the kind's hue. A pull request is framed in its state's hue as the Merge line colours its chips: open running, draft dormant, merged
    advanced, closed rejected, and failed where its Checks refused. */
 
-.sv-ledger { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; column-gap: var(--space-1); }
-.sv-ledger + .sv-ledger { border-top: var(--border-width) solid var(--border-subtle); }
-.sv-ledger[data-acts] { grid-template-columns: minmax(0, 1fr) auto; }
+.sv-ledger {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-1);
+}
+.sv-ledger + .sv-ledger {
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.sv-ledger[data-acts] {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
 
-.sv-ledger__main { display: grid; grid-template-columns: var(--space-3) minmax(0, 1fr); column-gap: var(--space-2); align-items: start; box-sizing: border-box; min-width: 0; width: 100%; padding: var(--space-2); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font: inherit; font-family: var(--font-sans); text-align: start; }
-button.sv-ledger__main { cursor: pointer; }
-button.sv-ledger__main:hover { background: var(--bg-hover); }
-button.sv-ledger__main:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--border-width) * -1); }
+.sv-ledger__main {
+  display: grid;
+  grid-template-columns: var(--space-3) minmax(0, 1fr);
+  column-gap: var(--space-2);
+  align-items: start;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-family: var(--font-sans);
+  text-align: start;
+}
+button.sv-ledger__main {
+  cursor: pointer;
+}
+button.sv-ledger__main:hover {
+  background: var(--bg-hover);
+}
+button.sv-ledger__main:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -1);
+}
 
 /* The glyph's box is the first line's height, so it centres on that line whatever the title does under it. */
-.sv-ledger__glyph { display: inline-flex; align-items: center; justify-content: center; flex: none; height: var(--leading-2xs); color: var(--fg-muted); }
-.sv-ledger__main > .sv-ledger__glyph { height: var(--leading-xs); }
+.sv-ledger__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+.sv-ledger__main > .sv-ledger__glyph {
+  height: var(--leading-xs);
+}
 
 /* Kind: each artifact kind's own hue. */
-.sv-ledger { --hue: var(--fg-muted); }
-.sv-ledger[data-kind="pull_request"] { --hue: var(--step-running); }
-.sv-ledger[data-kind="issue"], .sv-ledger[data-kind="link"], .sv-ledger[data-kind="session"] { --hue: var(--accent); }
-.sv-ledger[data-kind="commit"] { --hue: var(--step-advanced); }
-.sv-ledger[data-kind="page"] { --hue: var(--tool-look); }
-.sv-ledger[data-kind="file"] { --hue: var(--tool-change); }
-.sv-ledger[data-kind="doc"] { --hue: var(--status-handed-in); }
-.sv-ledger[data-kind="sketch"] { --hue: var(--status-escalated); }
-.sv-ledger[data-kind="subagent"], .sv-ledger[data-kind="studio"] { --hue: var(--status-rejected); }
-.sv-ledger[data-kind="command"] { --hue: var(--tool-run); }
-.sv-ledger__main > .sv-ledger__glyph { color: var(--hue); }
+.sv-ledger {
+  --hue: var(--fg-muted);
+}
+.sv-ledger[data-kind="pull_request"] {
+  --hue: var(--step-running);
+}
+.sv-ledger[data-kind="issue"],
+.sv-ledger[data-kind="link"],
+.sv-ledger[data-kind="session"] {
+  --hue: var(--accent);
+}
+.sv-ledger[data-kind="commit"] {
+  --hue: var(--step-advanced);
+}
+.sv-ledger[data-kind="page"] {
+  --hue: var(--tool-look);
+}
+.sv-ledger[data-kind="file"] {
+  --hue: var(--tool-change);
+}
+.sv-ledger[data-kind="doc"] {
+  --hue: var(--status-handed-in);
+}
+.sv-ledger[data-kind="sketch"] {
+  --hue: var(--status-escalated);
+}
+.sv-ledger[data-kind="subagent"],
+.sv-ledger[data-kind="studio"] {
+  --hue: var(--status-rejected);
+}
+.sv-ledger[data-kind="command"] {
+  --hue: var(--tool-run);
+}
+.sv-ledger__main > .sv-ledger__glyph {
+  color: var(--hue);
+}
 
 /* State: a pull request's row is framed in its state's hue, with the edge heavier on the leading side. */
-.sv-ledger[data-tone] { margin-block: var(--space-1); border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--hue) 7%, var(--bg-raised)); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue); }
-.sv-ledger[data-tone="open"] { --hue: var(--step-running); }
-.sv-ledger[data-tone="draft"] { --hue: var(--status-not-started); }
-.sv-ledger[data-tone="merged"] { --hue: var(--step-advanced); }
-.sv-ledger[data-tone="closed"] { --hue: var(--status-rejected); }
-.sv-ledger[data-tone="failed"] { --hue: var(--step-failed); }
-.sv-ledger[data-tone]:hover { background: color-mix(in srgb, var(--hue) 13%, var(--bg-raised)); }
-.sv-ledger[data-tone] button.sv-ledger__main:hover { background: none; }
-.sv-ledger[data-tone] .sv-ledger__title { font-weight: var(--weight-medium); }
-.sv-ledger[data-tone] .sv-ledger__num { color: var(--hue); font-weight: var(--weight-heading); }
+.sv-ledger[data-tone] {
+  margin-block: var(--space-1);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 7%, var(--bg-raised));
+  box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--hue);
+}
+.sv-ledger[data-tone="open"] {
+  --hue: var(--step-running);
+}
+.sv-ledger[data-tone="draft"] {
+  --hue: var(--status-not-started);
+}
+.sv-ledger[data-tone="merged"] {
+  --hue: var(--step-advanced);
+}
+.sv-ledger[data-tone="closed"] {
+  --hue: var(--status-rejected);
+}
+.sv-ledger[data-tone="failed"] {
+  --hue: var(--step-failed);
+}
+.sv-ledger[data-tone]:hover {
+  background: color-mix(in srgb, var(--hue) 13%, var(--bg-raised));
+}
+.sv-ledger[data-tone] button.sv-ledger__main:hover {
+  background: none;
+}
+.sv-ledger[data-tone] .sv-ledger__title {
+  font-weight: var(--weight-medium);
+}
+.sv-ledger[data-tone] .sv-ledger__num {
+  color: var(--hue);
+  font-weight: var(--weight-heading);
+}
 
-.sv-ledger__title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; min-width: 0; overflow: hidden; overflow-wrap: anywhere; font-size: var(--text-xs); line-height: var(--leading-xs); }
-.sv-ledger__num { margin-inline-end: var(--space-1); color: var(--accent); font-size: var(--text-2xs); line-height: inherit; }
+.sv-ledger__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.sv-ledger__num {
+  margin-inline-end: var(--space-1);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  line-height: inherit;
+}
 
-.sv-ledger__meta { grid-column: 2; display: flex; align-items: center; gap: var(--space-2); min-width: 0; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); white-space: nowrap; }
-.sv-ledger__meta:empty { display: none; }
+.sv-ledger__meta {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  white-space: nowrap;
+}
+.sv-ledger__meta:empty {
+  display: none;
+}
 /* The branch or path is a mono chip on a fill. */
-.sv-ledger__sub { min-width: 0; padding-inline: var(--space-1); overflow: hidden; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 8%, transparent); color: var(--fg-muted); font-family: var(--font-mono); font-size: inherit; text-overflow: ellipsis; }
+.sv-ledger__sub {
+  min-width: 0;
+  padding-inline: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: inherit;
+  text-overflow: ellipsis;
+}
 /* The kind's word is a chip in the kind's hue. */
-.sv-ledger__word { flex: none; padding-inline: var(--space-1); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--hue) 14%, transparent); color: var(--hue); font-weight: var(--weight-medium); }
-.sv-ledger__fact { --fact: var(--fg-muted); display: inline-flex; flex: none; align-items: center; gap: var(--space-1); }
-.sv-ledger__meta .armada-pr-card__check { display: inline-flex; align-items: center; height: var(--leading-2xs); }
+.sv-ledger__word {
+  flex: none;
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hue) 14%, transparent);
+  color: var(--hue);
+  font-weight: var(--weight-medium);
+}
+.sv-ledger__fact {
+  --fact: var(--fg-muted);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+.sv-ledger__meta .armada-pr-card__check {
+  display: inline-flex;
+  align-items: center;
+  height: var(--leading-2xs);
+}
 
 /* A fact with a state is a chip filled with the state's hue: the glyph and the word the same colour. */
-.sv-ledger__fact[data-state] { padding-inline: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fact) 14%, transparent); color: var(--fact); font-weight: var(--weight-medium); }
-.sv-ledger__fact[data-state] .sv-ledger__glyph, .sv-ledger__fact[data-state] .armada-pr-card__check { color: inherit; }
-.sv-ledger__fact[data-state="passed"], .sv-ledger__fact[data-state="merged"] { --fact: var(--step-advanced); }
-.sv-ledger__fact[data-state="running"], .sv-ledger__fact[data-state="open"] { --fact: var(--step-running); }
-.sv-ledger__fact[data-state="failed"] { --fact: var(--step-failed); }
-.sv-ledger__fact[data-state="waiting"] { --fact: var(--status-awaiting-review); }
-.sv-ledger__fact[data-state="queued"] { --fact: var(--accent); }
-.sv-ledger__fact[data-state="draft"], .sv-ledger__fact[data-state="stopped"] { --fact: var(--status-not-started); }
+.sv-ledger__fact[data-state] {
+  padding-inline: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fact) 14%, transparent);
+  color: var(--fact);
+  font-weight: var(--weight-medium);
+}
+.sv-ledger__fact[data-state] .sv-ledger__glyph,
+.sv-ledger__fact[data-state] .armada-pr-card__check {
+  color: inherit;
+}
+.sv-ledger__fact[data-state="passed"],
+.sv-ledger__fact[data-state="merged"] {
+  --fact: var(--step-advanced);
+}
+.sv-ledger__fact[data-state="running"],
+.sv-ledger__fact[data-state="open"] {
+  --fact: var(--step-running);
+}
+.sv-ledger__fact[data-state="failed"] {
+  --fact: var(--step-failed);
+}
+.sv-ledger__fact[data-state="waiting"] {
+  --fact: var(--status-awaiting-review);
+}
+.sv-ledger__fact[data-state="queued"] {
+  --fact: var(--accent);
+}
+.sv-ledger__fact[data-state="draft"],
+.sv-ledger__fact[data-state="stopped"] {
+  --fact: var(--status-not-started);
+}
 
 /* The act is centred on the row and its column stays where a row carries none. */
-.sv-ledger__act { display: inline-flex; align-items: center; justify-content: flex-end; min-width: var(--h-control-sm); }
+.sv-ledger__act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: var(--h-control-sm);
+}
 /* A quiet word on the second line, such as the screen a note was written on. */
-.sv-ledger__said { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sv-ledger__said {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* A note's picture stands where an act would, wider than one. */
-.sv-ledger[data-kind="note"] .sv-ledger__act { width: auto; }
-.sv-ledger__thumb { display: block; width: calc(var(--space-8) + var(--space-4)); height: var(--space-8); object-fit: cover; border: var(--border-width) solid var(--border-default); border-radius: var(--radius-sm); }
+.sv-ledger[data-kind="note"] .sv-ledger__act {
+  width: auto;
+}
+.sv-ledger__thumb {
+  display: block;
+  width: calc(var(--space-8) + var(--space-4));
+  height: var(--space-8);
+  object-fit: cover;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
 
 /* A stacked pull request: what is stacked sits in one 28px lane beside its card whatever the depth. The stack's root stands flush left, and the line starts
    under it, at its glyph; a 14px tick enters each stacked card at glyph height, and the last one ends the line there. */
-.sv-stack-item { display: flex; align-items: stretch; }
-.sv-stack-item > .sv-ledger { flex: 1; min-width: 0; }
-.sv-stack-item[data-root] { position: relative; }
-.sv-stack-item[data-root]::after { content: ""; position: absolute; left: 14px; width: 2px; top: calc(100% - var(--space-1)); bottom: 0; background: var(--fg-subtle); }
-.sv-lane { position: relative; flex: none; width: 28px; }
-.sv-lane::before, .sv-lane::after { content: ""; position: absolute; left: 14px; background: var(--fg-subtle); }
-.sv-lane::before { top: 0; bottom: 0; width: 2px; }
-.sv-lane[data-last]::before { bottom: auto; height: 22px; }
-.sv-lane::after { top: 22px; width: 14px; height: 2px; }
+.sv-stack-item {
+  display: flex;
+  align-items: stretch;
+}
+.sv-stack-item > .sv-ledger {
+  flex: 1;
+  min-width: 0;
+}
+.sv-stack-item[data-root] {
+  position: relative;
+}
+.sv-stack-item[data-root]::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  width: 2px;
+  top: calc(100% - var(--space-1));
+  bottom: 0;
+  background: var(--fg-subtle);
+}
+.sv-lane {
+  position: relative;
+  flex: none;
+  width: 28px;
+}
+.sv-lane::before,
+.sv-lane::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  background: var(--fg-subtle);
+}
+.sv-lane::before {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+.sv-lane[data-last]::before {
+  bottom: auto;
+  height: 22px;
+}
+.sv-lane::after {
+  top: 22px;
+  width: 14px;
+  height: 2px;
+}
 /* A root with children says what it is based on. */
-.sv-ledger__word[data-base] { background: color-mix(in srgb, var(--fg-muted) 14%, transparent); color: var(--fg-muted); }
+.sv-ledger__word[data-base] {
+  background: color-mix(in srgb, var(--fg-muted) 14%, transparent);
+  color: var(--fg-muted);
+}
 /* The chip that names the parent, and the row it finds. */
-.sv-ledger__on { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); padding-inline: var(--space-1); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: var(--weight-medium); cursor: pointer; }
-.sv-ledger__on:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); }
-.sv-ledger__on:focus-visible { outline: var(--focus-ring); }
-[data-pr][data-found] .sv-ledger { outline: var(--focus-ring); }
+.sv-ledger__on {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.sv-ledger__on:hover {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.sv-ledger__on:focus-visible {
+  outline: var(--focus-ring);
+}
+[data-pr][data-found] .sv-ledger {
+  outline: var(--focus-ring);
+}

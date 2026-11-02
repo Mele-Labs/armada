@@ -22,15 +22,44 @@
 // **The walk stays once they are sent**, reading Still changing, as main's `follow()` keeps it while its Job works; the
 // scenario queues it again under its id with a newer `since` when the Job shows the page again, and it is made afresh.
 
-import { StrictMode, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import {
+  StrictMode,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { ACTION, Button, CaptureBar, StudioCapture, WindowQuestion, variationLetter, type CaptureBarApproval, type CaptureBarQueue, type CaptureBarReadiness, type CaptureBarWalk, type CaptureBox } from "@armada/components";
+import {
+  ACTION,
+  Button,
+  CaptureBar,
+  StudioCapture,
+  WindowQuestion,
+  variationLetter,
+  type CaptureBarApproval,
+  type CaptureBarQueue,
+  type CaptureBarReadiness,
+  type CaptureBarWalk,
+  type CaptureBox,
+} from "@armada/components";
 
 /**
  * Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. `stopped`: the walk stopped on this step
  * and goes no further, which main tells the Job. Main reads a page that does not say as not stopped.
  */
-export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean; stopped: boolean };
+export type WalkState = {
+  name: string;
+  at: number;
+  of: number;
+  said: string;
+  autoplay: boolean;
+  ready: boolean;
+  done: boolean;
+  stopped: boolean;
+};
 
 /**
  * **What the walk in a page offers the window that frames it**, on the page's `window.__armadaWalk`.
@@ -58,13 +87,24 @@ declare global {
 }
 
 /** What a press inside the page picked, as a walk note describes it. */
-export type Picked = { element: string; selector: string; location: string; variation?: Taken };
+export type Picked = {
+  element: string;
+  selector: string;
+  location: string;
+  variation?: Taken;
+};
 
 /** One take of a change, a page of its own. */
-export type Variation = { name: string; url: string };
+export type Variation = {
+  name: string;
+  url: string;
+};
 
 /** The take on screen, as a note and an Approve name it: `B, Cards`. */
-export type Taken = { letter: string; name: string };
+export type Taken = {
+  letter: string;
+  name: string;
+};
 
 export type WalkWindowOptions = {
   /** What a note goes to, as the bar names it: a Job's handle, or a Session's title. */
@@ -79,7 +119,18 @@ export type WalkWindowOptions = {
   onOpenOwner?: () => void;
   onNote: (said: string, picked: Picked) => void;
   /** Approve, pressed on the page at `address`: what the Job or the Session is told. */
-  onApprove?: (address: string, variation?: Taken) => Promise<{ ok: true } | { ok: false; said: string }>;
+  onApprove?: (
+    address: string,
+    variation?: Taken,
+  ) => Promise<
+    | {
+        ok: true;
+      }
+    | {
+        ok: false;
+        said: string;
+      }
+  >;
   /** The takes shown, the first on screen. **Absent: the one page at `url`.** */
   variations?: readonly Variation[];
   /** Ready or still changing, as the opener says when it opens it. `markWalkWindow` moves it after. */
@@ -96,7 +147,10 @@ export type WalkWindowOptions = {
 /** What a walk in the queue adds to a window's options. */
 export type QueuedWalkOptions = WalkWindowOptions & {
   /** What its entry on the bar reads as: the Job's own name, or a pull request's title with its number. */
-  entry: { name: string; pull?: number };
+  entry: {
+    name: string;
+    pull?: number;
+  };
   /** When the walk was shown. The queue runs oldest first. */
   since: string;
   /** The Job whose view the panel beside the page draws while this walk is on screen. Absent: no panel. */
@@ -109,7 +163,15 @@ export type QueuedWalkOptions = WalkWindowOptions & {
    * Notes taken on this walk are held on `panelFor`'s Job rather than handed to `onNote`, and this sends them all as one
    * turn. **Absent: each note goes to `onNote` as it is saved.**
    */
-  onSendNotes?: (notes: readonly HeldMockNote[]) => Promise<{ ok: true } | { ok: false; said: string }>;
+  onSendNotes?: (notes: readonly HeldMockNote[]) => Promise<
+    | {
+        ok: true;
+      }
+    | {
+        ok: false;
+        said: string;
+      }
+  >;
 };
 
 /**
@@ -121,8 +183,16 @@ export type HeldMockNote = {
   at: string;
   said: string;
   on: string;
-  crop?: { media_type: string; data: string };
-  ring?: { x: number; y: number; width: number; height: number };
+  crop?: {
+    media_type: string;
+    data: string;
+  };
+  ring?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 };
 
 let heldNotes = new Map<string, readonly HeldMockNote[]>();
@@ -164,26 +234,57 @@ export function forgetHeldNotes(): void {
 export function editHeldNote(jobId: string, id: string, said: string): boolean {
   const notes = heldNotes.get(jobId) ?? NONE_HELD;
   if (said.trim() === "" || !notes.some((one) => one.id === id)) return false;
-  setHeld(jobId, notes.map((one) => (one.id === id ? { ...one, said: said.trim() } : one)));
+  setHeld(
+    jobId,
+    notes.map((one) =>
+      one.id === id
+        ? {
+            ...one,
+            said: said.trim(),
+          }
+        : one,
+    ),
+  );
   return true;
 }
 
 export function removeHeldNote(jobId: string, id: string): boolean {
   const notes = heldNotes.get(jobId) ?? NONE_HELD;
   if (!notes.some((one) => one.id === id)) return false;
-  setHeld(jobId, notes.filter((one) => one.id !== id));
+  setHeld(
+    jobId,
+    notes.filter((one) => one.id !== id),
+  );
   return true;
 }
 
 /** Every note held on the Job, as one turn; dropped once taken, kept when refused. */
-export async function sendHeldNotes(jobId: string): Promise<{ ok: true } | { ok: false; said: string }> {
+export async function sendHeldNotes(jobId: string): Promise<
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      said: string;
+    }
+> {
   const notes = heldNotes.get(jobId) ?? NONE_HELD;
   const send = senders.get(jobId);
-  if (notes.length === 0) return { ok: true };
-  if (send === undefined) return { ok: false, said: "Nothing in the mock takes these notes." };
+  if (notes.length === 0)
+    return {
+      ok: true,
+    };
+  if (send === undefined)
+    return {
+      ok: false,
+      said: "Nothing in the mock takes these notes.",
+    };
   const answer = await send(notes);
   if (answer.ok) {
-    setHeld(jobId, (heldNotes.get(jobId) ?? NONE_HELD).filter((one) => !notes.includes(one)));
+    setHeld(
+      jobId,
+      (heldNotes.get(jobId) ?? NONE_HELD).filter((one) => !notes.includes(one)),
+    );
     workingOn(jobId);
   }
   return answer;
@@ -192,22 +293,60 @@ export async function sendHeldNotes(jobId: string): Promise<{ ok: true } | { ok:
 /** The Job took the notes and is changing its page: each walk it holds notes for stays, and reads Still changing. */
 function workingOn(jobId: string): void {
   if (queue === null) return;
-  const walks = queue.walks.map((one) => (one.options.panelFor === jobId && one.options.onSendNotes !== undefined ? { ...one, options: { ...one.options, readiness: "working" as const } } : one));
-  setQueue({ ...queue, walks });
+  const walks = queue.walks.map((one) =>
+    one.options.panelFor === jobId && one.options.onSendNotes !== undefined
+      ? {
+          ...one,
+          options: {
+            ...one.options,
+            readiness: "working" as const,
+          },
+        }
+      : one,
+  );
+  setQueue({
+    ...queue,
+    walks,
+  });
 }
 
 function holdNote(jobId: string, said: string, picked: Picked): void {
-  const on = picked.variation === undefined ? picked.element : `${picked.variation.letter}, ${picked.element}`;
-  setHeld(jobId, [...(heldNotes.get(jobId) ?? NONE_HELD), { id: `held-${(heldMinted += 1)}`, at: new Date().toISOString(), said, on }]);
+  const on =
+    picked.variation === undefined
+      ? picked.element
+      : `${picked.variation.letter}, ${picked.element}`;
+  setHeld(jobId, [
+    ...(heldNotes.get(jobId) ?? NONE_HELD),
+    {
+      id: `held-${(heldMinted += 1)}`,
+      at: new Date().toISOString(),
+      said,
+      on,
+    },
+  ]);
 }
 
 /** A walk waiting in the window, or on screen. `asking` is what its Job asked while the walk was not on screen. */
-export type QueuedWalk = { id: string; run: string; url: string; options: QueuedWalkOptions; asking?: string };
+export type QueuedWalk = {
+  id: string;
+  run: string;
+  url: string;
+  options: QueuedWalkOptions;
+  asking?: string;
+};
 
 /** The queue as the window and the app beside it read it: the walks, the one on screen, and the element the panel is drawn into. */
-export type WalkQueue = { walks: readonly QueuedWalk[]; at: string; panelHost: HTMLElement | null };
+export type WalkQueue = {
+  walks: readonly QueuedWalk[];
+  at: string;
+  panelHost: HTMLElement | null;
+};
 
-let held: { root: Root; host: HTMLElement; onClose?: () => void } | null = null;
+let held: {
+  root: Root;
+  host: HTMLElement;
+  onClose?: () => void;
+} | null = null;
 let mark: ((readiness: CaptureBarReadiness) => void) | null = null;
 let queue: WalkQueue | null = null;
 const hearing = new Set<() => void>();
@@ -229,35 +368,86 @@ export function useWalkQueue(): WalkQueue | null {
 }
 
 /** The walk on screen, if the window is a queued one. */
-export const walkOnScreen = (of: WalkQueue | null): QueuedWalk | undefined => of?.walks.find((one) => one.id === of.at);
+export const walkOnScreen = (of: WalkQueue | null): QueuedWalk | undefined =>
+  of?.walks.find((one) => one.id === of.at);
 
 /**
  * A walk joins the window. **Opens it only when none is open**; otherwise the walk goes in its place by
  * `since` and the page stays, and a walk already queued under `id` is updated where it stands.
  */
 export function queueWalk(id: string, run: string, url: string, options: QueuedWalkOptions): void {
-  const walk: QueuedWalk = { id, run, url, options, ...(options.asking === undefined ? {} : { asking: options.asking }) };
-  if (options.panelFor !== undefined && options.onSendNotes !== undefined) senders.set(options.panelFor, options.onSendNotes);
+  const walk: QueuedWalk = {
+    id,
+    run,
+    url,
+    options,
+    ...(options.asking === undefined
+      ? {}
+      : {
+          asking: options.asking,
+        }),
+  };
+  if (options.panelFor !== undefined && options.onSendNotes !== undefined)
+    senders.set(options.panelFor, options.onSendNotes);
   if (queue === null) {
     closeWalkWindow();
     mountWindow((host) => <QueuedWalkWindow host={host} />);
-    setQueue({ walks: [walk], at: id, panelHost: null });
+    setQueue({
+      walks: [
+        walk,
+      ],
+      at: id,
+      panelHost: null,
+    });
     return;
   }
   const standing = queue.walks.find((one) => one.id === id);
   if (standing !== undefined) {
-    setQueue({ ...queue, walks: queue.walks.map((one) => (one.id === id ? { ...walk, ...(one.asking === undefined ? {} : { asking: one.asking }) } : one)) });
+    setQueue({
+      ...queue,
+      walks: queue.walks.map((one) =>
+        one.id === id
+          ? {
+              ...walk,
+              ...(one.asking === undefined
+                ? {}
+                : {
+                    asking: one.asking,
+                  }),
+            }
+          : one,
+      ),
+    });
     return;
   }
-  const after = queue.walks.findIndex((one) => Date.parse(one.options.since) > Date.parse(options.since));
-  const walks = after < 0 ? [...queue.walks, walk] : [...queue.walks.slice(0, after), walk, ...queue.walks.slice(after)];
-  setQueue({ ...queue, walks });
+  const after = queue.walks.findIndex(
+    (one) => Date.parse(one.options.since) > Date.parse(options.since),
+  );
+  const walks =
+    after < 0
+      ? [
+          ...queue.walks,
+          walk,
+        ]
+      : [
+          ...queue.walks.slice(0, after),
+          walk,
+          ...queue.walks.slice(after),
+        ];
+  setQueue({
+    ...queue,
+    walks,
+  });
 }
 
 /** Press on an entry, or ⌥⌘ and an arrow: the page changes to that walk. */
 export function jumpToWalk(id: string): void {
   if (queue === null || queue.at === id || !queue.walks.some((one) => one.id === id)) return;
-  setQueue({ ...queue, at: id, panelHost: null });
+  setQueue({
+    ...queue,
+    at: id,
+    panelHost: null,
+  });
 }
 
 /**
@@ -266,7 +456,19 @@ export function jumpToWalk(id: string): void {
  */
 export function askFromWalk(id: string, asking: string | undefined): void {
   if (queue === null) return;
-  setQueue({ ...queue, walks: queue.walks.map((one) => (one.id !== id ? one : asking === undefined ? withoutAsking(one) : { ...one, asking })) });
+  setQueue({
+    ...queue,
+    walks: queue.walks.map((one) =>
+      one.id !== id
+        ? one
+        : asking === undefined
+          ? withoutAsking(one)
+          : {
+              ...one,
+              asking,
+            },
+    ),
+  });
 }
 
 const withoutAsking = ({ asking, ...rest }: QueuedWalk): QueuedWalk => {
@@ -286,13 +488,21 @@ function settleWalk(id: string): void {
   }
   // The one that followed it, or the first again when it was the last.
   const next = rest[at] ?? rest[0]!;
-  setQueue({ walks: rest, at: queue.at === id ? next.id : queue.at, panelHost: queue.at === id ? null : queue.panelHost });
+  setQueue({
+    walks: rest,
+    at: queue.at === id ? next.id : queue.at,
+    panelHost: queue.at === id ? null : queue.panelHost,
+  });
   done?.options.onClose?.();
 }
 
 /** Where the panel beside the page is drawn. Set by the walk on screen as it mounts, and put away as it goes. */
 function publishPanelHost(element: HTMLElement | null): void {
-  if (queue !== null && queue.panelHost !== element) setQueue({ ...queue, panelHost: element });
+  if (queue !== null && queue.panelHost !== element)
+    setQueue({
+      ...queue,
+      panelHost: element,
+    });
 }
 
 /** Bridge's window for a queued walk: the frame, and the walk on screen in it. */
@@ -311,12 +521,24 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
     entries: now.walks.map((one) => ({
       id: one.id,
       name: one.options.entry.name,
-      ...(one.options.entry.pull === undefined ? {} : { pull: one.options.entry.pull }),
+      ...(one.options.entry.pull === undefined
+        ? {}
+        : {
+            pull: one.options.entry.pull,
+          }),
       title: one.options.title ?? one.run,
       address: one.options.address ?? new URL(one.url).origin,
       aim: `Notes go to ${one.options.job}`,
-      ...(one.options.readiness === undefined ? {} : { readiness: one.options.readiness }),
-      ...(one.asking === undefined ? {} : { asking: one.asking }),
+      ...(one.options.readiness === undefined
+        ? {}
+        : {
+            readiness: one.options.readiness,
+          }),
+      ...(one.asking === undefined
+        ? {}
+        : {
+            asking: one.asking,
+          }),
     })),
     at,
     onPick: (to) => jumpToWalk(now.walks[to]!.id),
@@ -333,7 +555,11 @@ function QueuedWalkWindow({ host }: { host: HTMLElement }) {
         {...shown}
         queue={row}
         menuLayer={layer}
-        {...(walk.asking === undefined ? {} : { asking: walk.asking })}
+        {...(walk.asking === undefined
+          ? {}
+          : {
+              asking: walk.asking,
+            })}
         onAsked={(said) => {
           options.onAnswer?.(said);
           askFromWalk(walk.id, undefined);
@@ -378,7 +604,15 @@ function mountWindow(draw: (host: HTMLElement) => ReactNode, onClose?: () => voi
   document.body.append(host);
   const root = createRoot(host);
   root.render(<StrictMode>{draw(host)}</StrictMode>);
-  held = { root, host, ...(onClose === undefined ? {} : { onClose }) };
+  held = {
+    root,
+    host,
+    ...(onClose === undefined
+      ? {}
+      : {
+          onClose,
+        }),
+  };
 }
 
 /**
@@ -402,7 +636,11 @@ export function openWalkWindow(run: string, url: string, options: WalkWindowOpti
 
 /** ⌥⌘A or ⌥⌘C, the two chords main's window takes before its page does. */
 const isChord = (event: KeyboardEvent): boolean =>
-  (event.code === "KeyA" || event.code === "KeyC") && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
+  (event.code === "KeyA" || event.code === "KeyC") &&
+  event.metaKey &&
+  event.altKey &&
+  !event.ctrlKey &&
+  !event.shiftKey;
 
 /**
  * The chord, claimed while a stand-in is open. **Listened for at import**, so
@@ -428,33 +666,75 @@ if (typeof window !== "undefined") {
  * The window itself, which stays put as the walk in it changes: its place and size are the person's, and
  * a walk coming on screen draws inside it. `wide` makes room for the panel beside the page.
  */
-function WalkFrame({ run, wide = false, layerRef, children }: { run: string; host: HTMLElement; wide?: boolean; layerRef?: (frame: HTMLDivElement | null) => void; children: ReactNode }) {
+function WalkFrame({
+  run,
+  wide = false,
+  layerRef,
+  children,
+}: {
+  run: string;
+  host: HTMLElement;
+  wide?: boolean;
+  layerRef?: (frame: HTMLDivElement | null) => void;
+  children: ReactNode;
+}) {
   return (
-    <div ref={layerRef} role="dialog" aria-label={`Bridge's window on ${run}`} className="armada-mock-walk-window__frame" data-panel={wide ? "" : undefined}>
+    <div
+      ref={layerRef}
+      role="dialog"
+      aria-label={`Bridge's window on ${run}`}
+      className="armada-mock-walk-window__frame"
+      data-panel={wide ? "" : undefined}
+    >
       {children}
     </div>
   );
 }
 
-type EntryProps = { run: string; url: string; host: HTMLElement } & WalkWindowOptions & {
-  /** The window's queue, where it holds more than one walk. */
-  queue?: CaptureBarQueue;
-  /** Where the bar draws its menus: the window's own frame. */
-  menuLayer?: HTMLElement | null;
-  /** The Job whose view the panel draws. Absent: no panel. */
-  panelFor?: string;
-  /** Approve was taken: the walk is done and the window moves on. */
-  onSettled?: () => void;
-  /** What the Job asked about this page: the bar says so, and one press draws the question over the page. */
-  asking?: string;
-  /** The question was answered, in these words. */
-  onAsked?: (said: string) => void;
-  /** Notes are held on `panelFor`'s Job and sent as one turn. */
-  onSendNotes?: QueuedWalkOptions["onSendNotes"];
-};
+type EntryProps = {
+  run: string;
+  url: string;
+  host: HTMLElement;
+} & WalkWindowOptions & {
+    /** The window's queue, where it holds more than one walk. */
+    queue?: CaptureBarQueue;
+    /** Where the bar draws its menus: the window's own frame. */
+    menuLayer?: HTMLElement | null;
+    /** The Job whose view the panel draws. Absent: no panel. */
+    panelFor?: string;
+    /** Approve was taken: the walk is done and the window moves on. */
+    onSettled?: () => void;
+    /** What the Job asked about this page: the bar says so, and one press draws the question over the page. */
+    asking?: string;
+    /** The question was answered, in these words. */
+    onAsked?: (said: string) => void;
+    /** Notes are held on `panelFor`'s Job and sent as one turn. */
+    onSendNotes?: QueuedWalkOptions["onSendNotes"];
+  };
 
 /** One walk on screen: its strip, its bar, its page and the panel beside it. A new walk is a new one of these, so nothing of the last is kept. */
-function WalkEntry({ run, url: first, host, job, into = "Job", title, address, onOpenOwner, onNote, onApprove, variations, readiness: opened, loading: neverLoads, queue: row, menuLayer, panelFor, onSettled, asking, onAsked, onSendNotes }: EntryProps) {
+function WalkEntry({
+  run,
+  url: first,
+  host,
+  job,
+  into = "Job",
+  title,
+  address,
+  onOpenOwner,
+  onNote,
+  onApprove,
+  variations,
+  readiness: opened,
+  loading: neverLoads,
+  queue: row,
+  menuLayer,
+  panelFor,
+  onSettled,
+  asking,
+  onAsked,
+  onSendNotes,
+}: EntryProps) {
   const [readiness, setReadiness] = useState(opened);
   useEffect(() => {
     mark = setReadiness;
@@ -463,8 +743,20 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
     };
   }, []);
   // The queue's own readiness moves too: Send notes leaves the walk working on its Job.
-  useEffect(() => setReadiness(opened), [opened]);
-  const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
+  useEffect(
+    () => setReadiness(opened),
+    [
+      opened,
+    ],
+  );
+  const testing =
+    (
+      import.meta as {
+        env?: {
+          MODE?: string;
+        };
+      }
+    ).env?.MODE === "test";
   // The address the frame last finished loading. A test's frame holds no page, so it is never loading.
   const [loaded, setLoaded] = useState<string | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -477,14 +769,26 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
   const holdsOn = onSendNotes === undefined ? undefined : panelFor;
   const held = useHeldNotes(holdsOn);
   // Approving one take approves it alone: another on screen is Approve again, and pressing it moves the approval.
-  const [approval, setApproval] = useState<{ at: number; state: CaptureBarApproval } | undefined>(undefined);
+  const [approval, setApproval] = useState<
+    | {
+        at: number;
+        state: CaptureBarApproval;
+      }
+    | undefined
+  >(undefined);
   const [at, setAt] = useState(0);
   const [panelOpen, setPanelOpen] = useState(true);
   const [questioning, setQuestioning] = useState(false);
   const [reply, setReply] = useState("");
   const walking = useWalkOn(frame, testing);
   const url = variations?.[at]?.url ?? first;
-  const taken: Taken | undefined = variations?.[at] === undefined ? undefined : { letter: variationLetter(at), name: variations[at].name };
+  const taken: Taken | undefined =
+    variations?.[at] === undefined
+      ? undefined
+      : {
+          letter: variationLetter(at),
+          name: variations[at].name,
+        };
   const loading = neverLoads === true || (!testing && loaded !== url);
 
   // **Bridge dims behind the window while it has focus**, as main dims its own
@@ -503,7 +807,9 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       document.removeEventListener("pointerdown", pressed, true);
       window.removeEventListener("blur", left);
     };
-  }, [host]);
+  }, [
+    host,
+  ]);
 
   // The chord, from this page and from the page inside the frame — whose own
   // annotation layer it reaches first, being the frame's earliest listener
@@ -533,21 +839,47 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
     if (row === undefined) return undefined;
     const keyed = (event: KeyboardEvent) => {
       const alone = event.metaKey && !event.ctrlKey && !event.shiftKey;
-      const step = (event.key === "ArrowRight" || event.key === "ArrowLeft" || event.key === "ArrowDown" || event.code === "KeyT") && alone && event.altKey;
+      const step =
+        (event.key === "ArrowRight" ||
+          event.key === "ArrowLeft" ||
+          event.key === "ArrowDown" ||
+          event.code === "KeyT") &&
+        alone &&
+        event.altKey;
       const approve = (event.key === "Enter" || event.code === "KeyR") && alone && !event.altKey;
       const target = event.target;
-      if (!event.isTrusted || !(step || approve) || !(target instanceof HTMLElement) || host.contains(target)) return;
+      if (
+        !event.isTrusted ||
+        !(step || approve) ||
+        !(target instanceof HTMLElement) ||
+        host.contains(target)
+      )
+        return;
       if (target.isContentEditable || target.closest("input, textarea, select") !== null) return;
       const bar = host.querySelector(".armada-capture-bar");
       if (bar === null) return;
       event.preventDefault();
       event.stopPropagation();
       const { key, code, metaKey, altKey, ctrlKey, shiftKey } = event;
-      bar.dispatchEvent(new KeyboardEvent("keydown", { key, code, metaKey, altKey, ctrlKey, shiftKey, bubbles: true, cancelable: true }));
+      bar.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key,
+          code,
+          metaKey,
+          altKey,
+          ctrlKey,
+          shiftKey,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     };
     window.addEventListener("keydown", keyed, true);
     return () => window.removeEventListener("keydown", keyed, true);
-  }, [row === undefined, host]);
+  }, [
+    row === undefined,
+    host,
+  ]);
 
   // Armed: the page is held still, the element under the pointer is ringed,
   // and a press picks it rather than acting on it.
@@ -574,7 +906,10 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       page.removeEventListener("mouseover", over, true);
       page.removeEventListener("click", press, true);
     };
-  }, [armed, at]);
+  }, [
+    armed,
+    at,
+  ]);
 
   /** What a press inside the page picked, named as a note names it. Capture is over once something is picked. */
   function pick(target: HTMLElement): void {
@@ -583,10 +918,19 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       element: described(target),
       selector: selectorOf(target),
       location: page == null ? "" : page.location.pathname + page.location.search,
-      ...(taken === undefined ? {} : { variation: taken }),
+      ...(taken === undefined
+        ? {}
+        : {
+            variation: taken,
+          }),
     });
     const at = target.getBoundingClientRect();
-    setBox({ x: at.left, y: at.top, width: at.width, height: at.height });
+    setBox({
+      x: at.left,
+      y: at.top,
+      width: at.width,
+      height: at.height,
+    });
     setArmed(false);
   }
 
@@ -594,7 +938,13 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
   function under(event: React.MouseEvent<HTMLElement>): HTMLElement | null {
     const page = frame.current;
     const box = page?.getBoundingClientRect();
-    const found = box === undefined ? null : (page?.contentDocument?.elementFromPoint(event.clientX - box.left, event.clientY - box.top) ?? null);
+    const found =
+      box === undefined
+        ? null
+        : (page?.contentDocument?.elementFromPoint(
+            event.clientX - box.left,
+            event.clientY - box.top,
+          ) ?? null);
     // The page's own document is another realm, so its elements are no `HTMLElement` of this one.
     return (found ?? page?.contentDocument?.documentElement ?? null) as HTMLElement | null;
   }
@@ -614,9 +964,24 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
   function approveNow(): void {
     if (onApprove === undefined) return;
     const pressed = at;
-    setApproval({ at: pressed, state: { state: "pending" } });
+    setApproval({
+      at: pressed,
+      state: {
+        state: "pending",
+      },
+    });
     void onApprove(url, taken).then((answer) => {
-      setApproval({ at: pressed, state: answer.ok ? { state: "approved" } : { state: "refused", said: answer.said } });
+      setApproval({
+        at: pressed,
+        state: answer.ok
+          ? {
+              state: "approved",
+            }
+          : {
+              state: "refused",
+              said: answer.said,
+            },
+      });
       if (answer.ok) onSettled?.();
     });
   }
@@ -633,7 +998,13 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
         run={title === null ? undefined : (title ?? run)}
         address={address ?? (title === null ? url : new URL(url).origin)}
         studio={null}
-        {...(into === "Session" ? { session: job } : { job })}
+        {...(into === "Session"
+          ? {
+              session: job,
+            }
+          : {
+              job,
+            })}
         // Bridge comes forward, as main raises its window over this one.
         onOpenOwner={() => {
           document.documentElement.removeAttribute("data-walking");
@@ -649,9 +1020,21 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
           frame.current.src = url;
         }}
         onFollowRefused={() => {}}
-        binding={["⌥", "⌘", "A"]}
-        {...(onApprove === undefined ? {} : { onApprove: approveNow })}
-        {...(approval?.at !== at ? {} : { approval: approval.state })}
+        binding={[
+          "⌥",
+          "⌘",
+          "A",
+        ]}
+        {...(onApprove === undefined
+          ? {}
+          : {
+              onApprove: approveNow,
+            })}
+        {...(approval?.at !== at
+          ? {}
+          : {
+              approval: approval.state,
+            })}
         {...(holdsOn === undefined || held.length === 0
           ? {}
           : {
@@ -659,19 +1042,75 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
                 notes: held.length === 1 ? ("one" as const) : ("several" as const),
                 onSendAndApprove: () => {
                   const pressed = at;
-                  setApproval({ at: pressed, state: { state: "pending" } });
-                  void sendHeldNotes(holdsOn).then((sent) => (sent.ok ? approveNow() : setApproval({ at: pressed, state: { state: "refused", said: sent.said } })));
+                  setApproval({
+                    at: pressed,
+                    state: {
+                      state: "pending",
+                    },
+                  });
+                  void sendHeldNotes(holdsOn).then((sent) =>
+                    sent.ok
+                      ? approveNow()
+                      : setApproval({
+                          at: pressed,
+                          state: {
+                            state: "refused",
+                            said: sent.said,
+                          },
+                        }),
+                  );
                 },
               },
             })}
-        {...(variations === undefined ? {} : { variations: { names: variations.map((one) => one.name), at, onPick: setAt } })}
-        {...(readiness === undefined ? {} : { readiness })}
-        {...(loading ? { loading } : {})}
-        {...(walking === null ? {} : { walk: walking })}
-        {...(row === undefined ? {} : { queue: row })}
-        {...(menuLayer === undefined ? {} : { menuLayer })}
-        {...(asking === undefined ? {} : { question: asking, onShowQuestion: () => setQuestioning(true) })}
-        {...(panelFor === undefined ? {} : { panel: { kind: "session" as const, open: panelOpen, onToggle: setPanelOpen } })}
+        {...(variations === undefined
+          ? {}
+          : {
+              variations: {
+                names: variations.map((one) => one.name),
+                at,
+                onPick: setAt,
+              },
+            })}
+        {...(readiness === undefined
+          ? {}
+          : {
+              readiness,
+            })}
+        {...(loading
+          ? {
+              loading,
+            }
+          : {})}
+        {...(walking === null
+          ? {}
+          : {
+              walk: walking,
+            })}
+        {...(row === undefined
+          ? {}
+          : {
+              queue: row,
+            })}
+        {...(menuLayer === undefined
+          ? {}
+          : {
+              menuLayer,
+            })}
+        {...(asking === undefined
+          ? {}
+          : {
+              question: asking,
+              onShowQuestion: () => setQuestioning(true),
+            })}
+        {...(panelFor === undefined
+          ? {}
+          : {
+              panel: {
+                kind: "session" as const,
+                open: panelOpen,
+                onToggle: setPanelOpen,
+              },
+            })}
       />
       {asking === undefined || !questioning ? null : (
         <WindowQuestion
@@ -687,14 +1126,26 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
       )}
       <div className="armada-mock-walk-window__body">
         <div className="armada-mock-walk-window__page">
-          <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} onLoad={() => setLoaded(url)} />
+          <iframe
+            ref={frame}
+            title={`${run}, served`}
+            src={testing ? "about:blank" : url}
+            data-armed={armed || undefined}
+            onLoad={() => setLoaded(url)}
+          />
           {armed ? (
             <button
               type="button"
               className="armada-mock-walk-window__pick"
               aria-label="Pick on the page"
               // The ring is drawn by the page's own listener, told what is under the pointer.
-              onMouseMove={(event) => under(event)?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))}
+              onMouseMove={(event) =>
+                under(event)?.dispatchEvent(
+                  new MouseEvent("mouseover", {
+                    bubbles: true,
+                  }),
+                )
+              }
               onClick={(event) => {
                 const element = under(event);
                 if (element !== null) pick(element);
@@ -705,12 +1156,20 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
             <StudioCapture
               aim={`Onto ${job}`}
               aimed
-              binding={[...(ACTION.capture_note?.shortcut ?? "")]}
+              binding={[
+                ...(ACTION.capture_note?.shortcut ?? ""),
+              ]}
               note={said}
               onNote={setSaid}
               onSave={save}
               onCancel={cancel}
-              held={{ box, chain: picked.variation === undefined ? picked.element : `${picked.variation.letter}, ${picked.element}` }}
+              held={{
+                box,
+                chain:
+                  picked.variation === undefined
+                    ? picked.element
+                    : `${picked.variation.letter}, ${picked.element}`,
+              }}
             />
           )}
         </div>
@@ -730,7 +1189,10 @@ function WalkEntry({ run, url: first, host, job, into = "Job", title, address, o
  * **No page under test**, so a test gets a walk of its own over three steps: the bar's row and its keys
  * are what it holds.
  */
-function useWalkOn(frame: RefObject<HTMLIFrameElement | null>, testing: boolean): CaptureBarWalk | null {
+function useWalkOn(
+  frame: RefObject<HTMLIFrameElement | null>,
+  testing: boolean,
+): CaptureBarWalk | null {
   const [handle, setHandle] = useState<WalkHandle | null>(null);
   const [state, setState] = useState<WalkState | null>(null);
 
@@ -770,7 +1232,11 @@ function useWalkOn(frame: RefObject<HTMLIFrameElement | null>, testing: boolean)
         return true;
       };
       // The walk mounts a moment after the page loads.
-      if (!look()) poll = window.setInterval(() => (look() || (tries += 1) > 50) && window.clearInterval(poll), 100);
+      if (!look())
+        poll = window.setInterval(
+          () => (look() || (tries += 1) > 50) && window.clearInterval(poll),
+          100,
+        );
     };
     inner.addEventListener("load", connect);
     connect();
@@ -779,7 +1245,10 @@ function useWalkOn(frame: RefObject<HTMLIFrameElement | null>, testing: boolean)
       window.clearInterval(poll);
       off();
     };
-  }, [frame, testing]);
+  }, [
+    frame,
+    testing,
+  ]);
 
   if (handle === null || state === null) return null;
   return {
@@ -799,7 +1268,11 @@ function useWalkOn(frame: RefObject<HTMLIFrameElement | null>, testing: boolean)
 
 /** A walk over three steps held in memory, for a window with no page in its frame. */
 const testWalk: WalkHandle = (() => {
-  const said = ["First step", "Second step", "Third step"];
+  const said = [
+    "First step",
+    "Second step",
+    "Third step",
+  ];
   const hearing = new Set<() => void>();
   let at = 0;
   let autoplay = false;
@@ -807,10 +1280,28 @@ const testWalk: WalkHandle = (() => {
     at = to;
     hearing.forEach((hear) => hear());
   };
-  let snapshot: WalkState = { name: "a walk", at: 1, of: 3, said: said[0]!, autoplay, ready: true, done: false, stopped: false };
+  let snapshot: WalkState = {
+    name: "a walk",
+    at: 1,
+    of: 3,
+    said: said[0]!,
+    autoplay,
+    ready: true,
+    done: false,
+    stopped: false,
+  };
   const state = () => {
     if (snapshot.at !== Math.min(at + 1, 3) || snapshot.autoplay !== autoplay) {
-      snapshot = { name: "a walk", at: Math.min(at + 1, 3), of: 3, said: said[Math.min(at, 2)]!, autoplay, ready: at < 3, done: at >= 3, stopped: false };
+      snapshot = {
+        name: "a walk",
+        at: Math.min(at + 1, 3),
+        of: 3,
+        said: said[Math.min(at, 2)]!,
+        autoplay,
+        ready: at < 3,
+        done: at >= 3,
+        stopped: false,
+      };
     }
     return snapshot;
   };
@@ -834,16 +1325,26 @@ const testWalk: WalkHandle = (() => {
 /** What was picked, the way a person names it: its role or tag and its words. */
 function described(element: HTMLElement): string {
   const role = element.getAttribute("role") ?? element.tagName.toLowerCase();
-  const words = (element.getAttribute("aria-label") ?? element.textContent ?? "").trim().replace(/\s+/g, " ");
+  const words = (element.getAttribute("aria-label") ?? element.textContent ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
   return words === "" ? role : `${role} “${words.length > 48 ? `${words.slice(0, 47)}…` : words}”`;
 }
 
 /** A path of tags and classes down to it, short enough to read. */
 function selectorOf(element: HTMLElement): string {
   const parts: string[] = [];
-  for (let at: HTMLElement | null = element; at !== null && parts.length < 4; at = at.parentElement) {
-    const first = [...at.classList][0];
-    parts.unshift(first === undefined ? at.tagName.toLowerCase() : `${at.tagName.toLowerCase()}.${first}`);
+  for (
+    let at: HTMLElement | null = element;
+    at !== null && parts.length < 4;
+    at = at.parentElement
+  ) {
+    const first = [
+      ...at.classList,
+    ][0];
+    parts.unshift(
+      first === undefined ? at.tagName.toLowerCase() : `${at.tagName.toLowerCase()}.${first}`,
+    );
   }
   return parts.join(" > ");
 }
@@ -855,7 +1356,10 @@ function dragging(host: HTMLElement) {
     const frame = host.querySelector<HTMLElement>(".armada-mock-walk-window__frame");
     if (frame === null) return;
     const from = frame.getBoundingClientRect();
-    const start = { x: down.clientX - from.left, y: down.clientY - from.top };
+    const start = {
+      x: down.clientX - from.left,
+      y: down.clientY - from.top,
+    };
     frame.style.pointerEvents = "none";
     const move = (at: PointerEvent) => {
       frame.style.left = `${Math.max(0, at.clientX - start.x)}px`;

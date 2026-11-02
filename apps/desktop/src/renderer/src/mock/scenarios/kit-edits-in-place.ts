@@ -5,7 +5,10 @@ import { KIT_SERVERS, manifesting, PLUGIN_KIT_INVENTORY } from "../manifest-fake
 import type { Scenario } from "../moment";
 
 export const kitEditsInPlace: Scenario = {
-  ...manifesting({ kitInventory: PLUGIN_KIT_INVENTORY, kitServers: KIT_SERVERS }),
+  ...manifesting({
+    kitInventory: PLUGIN_KIT_INVENTORY,
+    kitServers: KIT_SERVERS,
+  }),
   name: "kit-edits-in-place",
   says: "Kit: a skill's SKILL.md or a sub agent's file is edited in the detail, and a plugin offers Show in Finder",
 };

@@ -31,7 +31,10 @@ function store(key: string | null): void {
 }
 
 /** Raises a toast for a failed restart the report newly carries. */
-export function useBuildFailed(report: FleetBuildReport | null, raise: (failed: BuildFailed) => void): void {
+export function useBuildFailed(
+  report: FleetBuildReport | null,
+  raise: (failed: BuildFailed) => void,
+): void {
   /** The build the last restart under way was moving onto: by the time it fails, the report no longer says. */
   const target = useRef<BuildSource | undefined>(undefined);
   useEffect(() => {
@@ -48,10 +51,21 @@ export function useBuildFailed(report: FleetBuildReport | null, raise: (failed: 
     if (stored() === key) return;
     store(key);
     raise({
-      ...(target.current === undefined ? {} : { build: target.current }),
+      ...(target.current === undefined
+        ? {}
+        : {
+            build: target.current,
+          }),
       running: report.on,
-      ...(report.commit === undefined ? {} : { commit: report.commit }),
+      ...(report.commit === undefined
+        ? {}
+        : {
+            commit: report.commit,
+          }),
       line: report.failed,
     });
-  }, [report, raise]);
+  }, [
+    report,
+    raise,
+  ]);
 }

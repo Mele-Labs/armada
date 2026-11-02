@@ -24,11 +24,32 @@ type Story = StoryObj<typeof ConsoleOutput>;
  * compile folded away, and the 309 tests after it folded away too.
  */
 const around: ConsoleRow[] = [
-  { row: "fold", at: 1940, says: "compiling chrono-lite v0.4.2 (18.4s) — 62 lines" },
-  { row: "fold", at: 2003, says: "running 315 tests", open: true },
-  { row: "line", at: 2004, text: "test parses_rfc3339_offset ... ok" },
-  { row: "line", at: 2005, text: "test parses_rfc2822_obsolete_zone ... ok" },
-  { row: "line", at: 2006, text: "test parses_loose_no_separator ... ok" },
+  {
+    row: "fold",
+    at: 1940,
+    says: "compiling chrono-lite v0.4.2 (18.4s) — 62 lines",
+  },
+  {
+    row: "fold",
+    at: 2003,
+    says: "running 315 tests",
+    open: true,
+  },
+  {
+    row: "line",
+    at: 2004,
+    text: "test parses_rfc3339_offset ... ok",
+  },
+  {
+    row: "line",
+    at: 2005,
+    text: "test parses_rfc2822_obsolete_zone ... ok",
+  },
+  {
+    row: "line",
+    at: 2006,
+    text: "test parses_loose_no_separator ... ok",
+  },
   {
     row: "line",
     at: 2007,
@@ -42,11 +63,31 @@ const around: ConsoleRow[] = [
     text: "test parses_loose_trailing_whitespace ... ok",
     note: "ran and passed at HEAD~1 · never ran here",
   },
-  { row: "line", at: 2009, text: "test rejects_empty_string ... ok" },
-  { row: "line", at: 2010, text: "test rejects_year_zero ... ok" },
-  { row: "fold", at: 2011, says: "309 further tests, all ok — 309 lines" },
-  { row: "line", at: 2321, text: "test result: ok. 315 passed; 0 failed; finished in 2.41s" },
-  { row: "line", at: 2322, text: "at HEAD~1: 316 passed; 0 failed; finished in 2.38s" },
+  {
+    row: "line",
+    at: 2009,
+    text: "test rejects_empty_string ... ok",
+  },
+  {
+    row: "line",
+    at: 2010,
+    text: "test rejects_year_zero ... ok",
+  },
+  {
+    row: "fold",
+    at: 2011,
+    says: "309 further tests, all ok — 309 lines",
+  },
+  {
+    row: "line",
+    at: 2321,
+    text: "test result: ok. 315 passed; 0 failed; finished in 2.41s",
+  },
+  {
+    row: "line",
+    at: 2322,
+    text: "at HEAD~1: 316 passed; 0 failed; finished in 2.38s",
+  },
 ];
 
 /**
@@ -83,10 +124,27 @@ export const TheReadingASelectorLandsOn: Story = {
 export const ExpandedWithItsTools: Story = {
   args: {
     rows: [
-      { row: "fold", at: 1996, says: "running 315 tests", open: true },
-      { row: "line", at: 1997, text: "test parses_rfc3339_offset ... ok" },
-      { row: "line", at: 1998, text: "test parses_rfc3339_z ... ok" },
-      { row: "line", at: 1999, text: "test parses_loose_no_separator ... ok" },
+      {
+        row: "fold",
+        at: 1996,
+        says: "running 315 tests",
+        open: true,
+      },
+      {
+        row: "line",
+        at: 1997,
+        text: "test parses_rfc3339_offset ... ok",
+      },
+      {
+        row: "line",
+        at: 1998,
+        text: "test parses_rfc3339_z ... ok",
+      },
+      {
+        row: "line",
+        at: 1999,
+        text: "test parses_loose_no_separator ... ok",
+      },
       {
         row: "line",
         at: 2007,
@@ -107,7 +165,11 @@ export const ExpandedWithItsTools: Story = {
         ),
         note: "ran and passed at HEAD~1 · deleted in tests/loose.rs",
       },
-      { row: "line", at: 2009, text: "test rejects_empty_string ... ok" },
+      {
+        row: "line",
+        at: 2009,
+        text: "test rejects_empty_string ... ok",
+      },
       {
         row: "fold",
         at: 2012,
@@ -120,7 +182,11 @@ export const ExpandedWithItsTools: Story = {
           </>
         ),
       },
-      { row: "line", at: 2013, text: "test loose_ignores_leading_space ... ok" },
+      {
+        row: "line",
+        at: 2013,
+        text: "test loose_ignores_leading_space ... ok",
+      },
       {
         row: "line",
         at: 2014,
@@ -132,17 +198,34 @@ export const ExpandedWithItsTools: Story = {
           </>
         ),
       },
-      { row: "fold", at: 2015, says: "306 further tests, all ok — 306 lines" },
-      { row: "line", at: 2321, text: "test result: ok. 315 passed; 0 failed; finished in 2.41s" },
-      { row: "line", at: 2322, text: "at HEAD~1: 316 passed; 0 failed; finished in 2.38s" },
+      {
+        row: "fold",
+        at: 2015,
+        says: "306 further tests, all ok — 306 lines",
+      },
+      {
+        row: "line",
+        at: 2321,
+        text: "test result: ok. 315 passed; 0 failed; finished in 2.41s",
+      },
+      {
+        row: "line",
+        at: 2322,
+        text: "at HEAD~1: 316 passed; 0 failed; finished in 2.38s",
+      },
     ],
     region: {
       says: "lines 1,996–2,322 of 2,180",
       why: "folds containing matches are opened automatically",
     },
     tools: {
-      find: { term: "trailing", found: "3 in 2 folds" },
-      differences: { says: "1 of 1 difference" },
+      find: {
+        term: "trailing",
+        found: "3 in 2 folds",
+      },
+      differences: {
+        says: "1 of 1 difference",
+      },
       acts: (
         <>
           <Button size="sm" variant="secondary" ground="sunken">
@@ -172,12 +255,37 @@ export const StillWriting: Story = {
   args: {
     following: true,
     rows: [
-      { row: "fold", at: 1, says: "compiling core-api v2.9.0 (41.8s) — 118 lines" },
-      { row: "fold", at: 119, says: "running 1,204 tests", open: true },
-      { row: "line", at: 1122, text: "test dispatch::rejects_unknown_workflow ... ok" },
-      { row: "line", at: 1123, text: "test dispatch::lists_carried_workflows ... ok" },
-      { row: "line", at: 1124, text: "test dispatch::accepts_known_workflow ... ok" },
-      { row: "line", at: 1125, text: "test resolver::unknown_is_edge_rejected ... running" },
+      {
+        row: "fold",
+        at: 1,
+        says: "compiling core-api v2.9.0 (41.8s) — 118 lines",
+      },
+      {
+        row: "fold",
+        at: 119,
+        says: "running 1,204 tests",
+        open: true,
+      },
+      {
+        row: "line",
+        at: 1122,
+        text: "test dispatch::rejects_unknown_workflow ... ok",
+      },
+      {
+        row: "line",
+        at: 1123,
+        text: "test dispatch::lists_carried_workflows ... ok",
+      },
+      {
+        row: "line",
+        at: 1124,
+        text: "test dispatch::accepts_known_workflow ... ok",
+      },
+      {
+        row: "line",
+        at: 1125,
+        text: "test resolver::unknown_is_edge_rejected ... running",
+      },
     ],
     region: {
       says: "1,124 of 1,204 · 6.1s elapsed",
@@ -195,7 +303,10 @@ export const NothingWritten: Story = {
   args: {
     rows: [],
     emptyNote: "This check wrote no output before it exited.",
-    region: { says: "0 lines", path: ".armada/jobs/733/checks/query_budget.log" },
+    region: {
+      says: "0 lines",
+      path: ".armada/jobs/733/checks/query_budget.log",
+    },
   },
 };
 
@@ -210,9 +321,22 @@ export const NothingWritten: Story = {
 export const AFoldSaysWhetherItIsOpen: Story = {
   args: {
     rows: [
-      { row: "fold", at: 1940, says: "compiling chrono-lite v0.4.2 (18.4s) — 62 lines" },
-      { row: "fold", at: 2003, says: "running 315 tests", open: true },
-      { row: "line", at: 2004, text: "test parses_rfc3339_offset ... ok" },
+      {
+        row: "fold",
+        at: 1940,
+        says: "compiling chrono-lite v0.4.2 (18.4s) — 62 lines",
+      },
+      {
+        row: "fold",
+        at: 2003,
+        says: "running 315 tests",
+        open: true,
+      },
+      {
+        row: "line",
+        at: 2004,
+        text: "test parses_rfc3339_offset ... ok",
+      },
     ],
   },
   play: async ({ canvas }) => {
@@ -221,7 +345,9 @@ export const AFoldSaysWhetherItIsOpen: Story = {
     });
     await expect(closed).toHaveAttribute("aria-expanded", "false");
 
-    const open = canvas.getByRole("button", { name: /running 315 tests/ });
+    const open = canvas.getByRole("button", {
+      name: /running 315 tests/,
+    });
     await expect(open).toHaveAttribute("aria-expanded", "true");
   },
 };
@@ -236,17 +362,39 @@ const LONG =
  */
 export const ALineWrapsOnlyWhenAsked: Story = {
   render: () => (
-    <div style={{ width: 360 }}>
+    <div
+      style={{
+        width: 360,
+      }}
+    >
       <div data-testid="unasked">
-        <ConsoleOutput rows={[{ row: "line", at: 41, text: LONG }]} />
+        <ConsoleOutput
+          rows={[
+            {
+              row: "line",
+              at: 41,
+              text: LONG,
+            },
+          ]}
+        />
       </div>
       <div data-testid="asked">
-        <ConsoleOutput rows={[{ row: "line", at: 41, text: LONG }]} wrap />
+        <ConsoleOutput
+          rows={[
+            {
+              row: "line",
+              at: 41,
+              text: LONG,
+            },
+          ]}
+          wrap
+        />
       </div>
     </div>
   ),
   play: async ({ canvas }) => {
-    const rows = (id: string) => canvas.getByTestId(id).querySelector<HTMLElement>(".armada-console__rows")!;
+    const rows = (id: string) =>
+      canvas.getByTestId(id).querySelector<HTMLElement>(".armada-console__rows")!;
     await expect(rows("unasked").scrollWidth).toBeGreaterThan(rows("unasked").clientWidth);
     await expect(rows("asked").scrollWidth).toBeLessThanOrEqual(rows("asked").clientWidth);
   },
@@ -260,16 +408,30 @@ export const ALineWrapsOnlyWhenAsked: Story = {
 export const TheWrapToggle: Story = {
   render: () => <ConsoleWrapToggle wrap onToggle={() => undefined} />,
   play: async ({ canvas }) => {
-    const toggle = canvas.getByRole("button", { name: "Wrap lines" });
+    const toggle = canvas.getByRole("button", {
+      name: "Wrap lines",
+    });
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await expect(toggle.querySelector("svg.lucide-text-wrap")).not.toBeNull();
   },
 };
 
 const NUMBERED: ConsoleRow[] = [
-  { row: "line", at: 39, text: "The question, which is yes or no:" },
-  { row: "line", at: 40, text: "" },
-  { row: "line", at: 41, text: "Does this change alter an existing assertion so that it asserts less than it did?" },
+  {
+    row: "line",
+    at: 39,
+    text: "The question, which is yes or no:",
+  },
+  {
+    row: "line",
+    at: 40,
+    text: "",
+  },
+  {
+    row: "line",
+    at: 41,
+    text: "Does this change alter an existing assertion so that it asserts less than it did?",
+  },
 ];
 
 /**
@@ -278,7 +440,9 @@ const NUMBERED: ConsoleRow[] = [
  * hue the text does not share, and `--space-3` between the two.
  */
 export const TheGutterStandsApart: Story = {
-  args: { rows: NUMBERED },
+  args: {
+    rows: NUMBERED,
+  },
   play: async ({ canvasElement }) => {
     const line = canvasElement.querySelector<HTMLElement>(".armada-console__line")!;
     const at = line.querySelector<HTMLElement>(".armada-console__at")!;
@@ -311,16 +475,19 @@ export const TheGutterInLight: Story = {
  */
 export const TheGutterRunsTheFullHeight: Story = {
   render: () => (
-    <div style={{ display: "grid", height: "calc(var(--space-12) * 8)" }}>
+    <div
+      style={{
+        display: "grid",
+        height: "calc(var(--space-12) * 8)",
+      }}
+    >
       <ConsoleOutput rows={NUMBERED.slice(0, 2)} />
     </div>
   ),
   play: async ({ canvasElement }) => {
     const rows = canvasElement.querySelector<HTMLElement>(".armada-console__rows")!;
     const console_ = canvasElement.querySelector<HTMLElement>(".armada-console")!;
-    const last = canvasElement.querySelector<HTMLElement>(
-      ".armada-console__line:last-child",
-    )!;
+    const last = canvasElement.querySelector<HTMLElement>(".armada-console__line:last-child")!;
     // The scroller reaches the bottom of the console, well past the last line,
     // and paints the gutter's stripe there.
     await expect(rows.getBoundingClientRect().bottom).toBeCloseTo(

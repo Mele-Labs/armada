@@ -28,7 +28,9 @@
 /* Something is waiting on the owner: the frame takes the call's hue, and its edge is lit. It does not move. */
 .armada-view[data-waiting] {
   border-color: var(--hue);
-  box-shadow: inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--hue) 16%, transparent), 0 0 var(--space-6) color-mix(in srgb, var(--hue) 16%, transparent);
+  box-shadow:
+    inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--hue) 16%, transparent),
+    0 0 var(--space-6) color-mix(in srgb, var(--hue) 16%, transparent);
 }
 
 .armada-view__band {
@@ -46,7 +48,9 @@
   font-size: var(--text-xs);
 }
 
-.armada-view__band > svg { flex: none; }
+.armada-view__band > svg {
+  flex: none;
+}
 
 /* The merge line along the foot of the panel: dots moving toward main's light at the right end. Under the stage, so a call over the glass never covers it. */
 .armada-view__horizon {
@@ -69,7 +73,9 @@
   min-width: 0;
 }
 
-.armada-view__line > svg { flex: none; }
+.armada-view__line > svg {
+  flex: none;
+}
 
 /* A dot on the horizon, a landing or a pull request, coloured by its state. Solid where a queue holds it, a ring where it is open.
    The trigger is only the hit area; the dot is its `::before`, so the loop below moves the dot alone and never the card that opens inside the trigger. */
@@ -94,35 +100,85 @@
   border-radius: 50%;
 }
 
-span.armada-view__dot { cursor: default; }
-.armada-view__dot[data-queued]::before { background: var(--dot); }
-.armada-view__dot[data-state="queued"] { --dot: var(--status-not-started); }
-.armada-view__dot[data-state="blocked"] { --dot: var(--status-escalated); }
-.armada-view__dot[data-state="running"] { --dot: var(--status-running); }
-.armada-view__dot[data-state="ready"] { --dot: var(--status-completed-success); }
-.armada-view__dot[data-state="failing"] { --dot: var(--status-completed-failed); }
-.armada-view__dot:hover::before { box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--dot) 30%, transparent); }
-.armada-view__dot:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: 50%; }
+span.armada-view__dot {
+  cursor: default;
+}
+.armada-view__dot[data-queued]::before {
+  background: var(--dot);
+}
+.armada-view__dot[data-state="queued"] {
+  --dot: var(--status-not-started);
+}
+.armada-view__dot[data-state="blocked"] {
+  --dot: var(--status-escalated);
+}
+.armada-view__dot[data-state="running"] {
+  --dot: var(--status-running);
+}
+.armada-view__dot[data-state="ready"] {
+  --dot: var(--status-completed-success);
+}
+.armada-view__dot[data-state="failing"] {
+  --dot: var(--status-completed-failed);
+}
+.armada-view__dot:hover::before {
+  box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--dot) 30%, transparent);
+}
+.armada-view__dot:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: 50%;
+}
 
 /* The one loop on the horizon: a running dot breathes, slowly, in opacity alone so nothing beside it moves. */
-.armada-view__dot[data-state="running"]::before { animation: armada-dot-breathe var(--duration-pulse) var(--ease) infinite; }
+.armada-view__dot[data-state="running"]::before {
+  animation: armada-dot-breathe var(--duration-pulse) var(--ease) infinite;
+}
 
 @keyframes armada-dot-breathe {
-  50% { opacity: 0.5; }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-view__dot[data-state="running"]::before { animation: none; }
+  .armada-view__dot[data-state="running"]::before {
+    animation: none;
+  }
 }
 
-.armada-view__keys { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto; }
+.armada-view__keys {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
 
 /* The panel's body: what is picked, and the pane of the one under the cursor beside it. */
-.armada-view__body { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; }
-.armada-view__body[data-pane] { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
-.armada-view__pane { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-4) var(--space-4) 0; }
+.armada-view__body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+.armada-view__body[data-pane] {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+}
+.armada-view__pane {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-4) var(--space-4) 0;
+}
 
-.armada-view__stage { position: relative; display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.armada-view__stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
 
 /* The glass: a faint ruled grid, so the instruments read as standing on something. */
 .armada-tiles.armada-view__grid {
@@ -140,13 +196,22 @@ span.armada-view__dot { cursor: default; }
   list-style: none;
   outline: none;
   background:
-    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
-    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    );
   background-size: var(--space-6) var(--space-6);
 }
 
 /* A call is in front: the glass is dimmed behind it, and still. */
-.armada-tiles.armada-view__grid[data-recessed] { opacity: 0.4; }
+.armada-tiles.armada-view__grid[data-recessed] {
+  opacity: 0.4;
+}
 
 /* ---- The call, in front, and the calls stacked behind it ------------------------------------- */
 
@@ -180,30 +245,89 @@ span.armada-view__dot { cursor: default; }
 /* With nothing in front, the stack waits at the bottom edge on its own. */
 
 /* A card made only of acts: the decision on the left, the quiet ghosts on the right, one row that wraps as a pair. */
-.armada-callcard__acts[data-split] { justify-content: space-between; row-gap: var(--space-2); }
+.armada-callcard__acts[data-split] {
+  justify-content: space-between;
+  row-gap: var(--space-2);
+}
 .armada-callcard__decide,
-.armada-callcard__quiet { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-.armada-callcard__quiet { margin-left: auto; gap: var(--space-1); }
+.armada-callcard__quiet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.armada-callcard__quiet {
+  margin-left: auto;
+  gap: var(--space-1);
+}
 .armada-callcard__decide .armada-kbd,
-.armada-callcard__quiet .armada-kbd { margin-left: var(--space-1); }
+.armada-callcard__quiet .armada-kbd {
+  margin-left: var(--space-1);
+}
 
 /* A Session's own box under the acts, as the Session draws it. */
-.armada-callcard__composer { display: flex; flex-direction: column; min-height: 0; }
+.armada-callcard__composer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 
 /* ---- The key sheet -------------------------------------------------------------------------- */
 
-.armada-keys { display: flex; flex-direction: column; gap: var(--space-6); margin: 0; padding: var(--space-4); }
-.armada-keys__group { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; border: 0; }
-.armada-keys__head { margin: 0 0 var(--space-1); font-size: var(--text-sm); font-weight: var(--weight-heading); color: var(--fg-default); }
-.armada-keys__row { display: grid; grid-template-columns: calc(var(--space-12) * 3) 1fr; align-items: center; gap: var(--space-3); margin: 0; font-size: var(--text-sm); color: var(--fg-muted); }
-.armada-keys__row dt { display: inline-flex; gap: var(--space-1); }
-.armada-keys__row dd { margin: 0; }
+.armada-keys {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  padding: var(--space-4);
+}
+.armada-keys__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.armada-keys__head {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+.armada-keys__row {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) * 3) 1fr;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+.armada-keys__row dt {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+.armada-keys__row dd {
+  margin: 0;
+}
 
 /* Bays: the work in every bay, and what waits for one, as metro lines through the same stations. The
    line is the work's status colour; a stop it reached is the state at that station; the stop it is at
    now is large, says what to know inside it, and fills its ring with the Job's steps. */
 
-.armada-metro__part { display: flex; align-items: center; min-height: var(--space-6); padding: 0 var(--space-4); border-top: var(--border-width) solid var(--border-subtle); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: 0.08em; text-transform: uppercase; }
+.armada-metro__part {
+  display: flex;
+  align-items: center;
+  min-height: var(--space-6);
+  padding: 0 var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 
 /* A release asked for under its line: the confirm, or what Fleet refused. */
 
@@ -229,28 +353,66 @@ span.armada-view__dot { cursor: default; }
   width: 100%;
   padding-top: 0;
 }
-.armada-stack[data-consoled] > .armada-callcard { grid-column: 2; grid-row: 1; border-width: calc(var(--border-width) * 2); box-shadow: none; }
-.armada-stack[data-consoled] .armada-callcard__band span:first-of-type { font-family: var(--font-mono); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.armada-stack[data-consoled] > .armada-callcard {
+  grid-column: 2;
+  grid-row: 1;
+  border-width: calc(var(--border-width) * 2);
+  box-shadow: none;
+}
+.armada-stack[data-consoled] .armada-callcard__band span:first-of-type {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
 
-.armada-console--left, .armada-console--right { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; width: min(100%, calc(var(--space-12) * 4.2)); }
-.armada-console--left { grid-column: 1; grid-row: 1; justify-self: end; }
-.armada-console--right { grid-column: 3; grid-row: 1; justify-self: start; align-self: stretch; }
-.armada-console--right .armada-console__plate { flex: 1 1 auto; }
+.armada-console--left,
+.armada-console--right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  width: min(100%, calc(var(--space-12) * 4.2));
+}
+.armada-console--left {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+}
+.armada-console--right {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: start;
+  align-self: stretch;
+}
+.armada-console--right .armada-console__plate {
+  flex: 1 1 auto;
+}
 
 .armada-console__plate {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
 }
-.armada-console__rule { width: 100%; margin: var(--space-1) 0; border: 0; border-top: var(--border-width) solid var(--border-default); }
+.armada-console__rule {
+  width: 100%;
+  margin: var(--space-1) 0;
+  border: 0;
+  border-top: var(--border-width) solid var(--border-default);
+}
 /* The last rule takes whatever height is left, so the covered act sits at the foot of the plate. */
-.armada-console__plate > .armada-console__rule:last-of-type { margin-top: auto; }
+.armada-console__plate > .armada-console__rule:last-of-type {
+  margin-top: auto;
+}
 
-.armada-keycap { display: flex; min-width: 0; }
+.armada-keycap {
+  display: flex;
+  min-width: 0;
+}
 .armada-keycap > .armada-button[data-variant] {
   flex: 1 1 auto;
   justify-content: flex-start;
@@ -271,31 +433,93 @@ span.armada-view__dot { cursor: default; }
   white-space: normal;
   line-height: var(--leading-xs);
 }
-.armada-keycap > .armada-button[data-variant]:active:not(:disabled) { transform: translateY(calc(var(--border-width) * 3)); border-bottom-width: calc(var(--border-width) * 2); }
-.armada-keycap .armada-kbd { flex: none; min-width: var(--space-6); height: var(--space-6); margin: 0; font-size: var(--text-sm); }
-.armada-keycap__verb { min-width: 0; text-align: left; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.armada-keycap > .armada-button[data-variant]:active:not(:disabled) {
+  transform: translateY(calc(var(--border-width) * 3));
+  border-bottom-width: calc(var(--border-width) * 2);
+}
+.armada-keycap .armada-kbd {
+  flex: none;
+  min-width: var(--space-6);
+  height: var(--space-6);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.armada-keycap__verb {
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
 
 /* What an errand's act names, one line in its own case: selectable, and whole on hover where it is cut. */
-.armada-callcard__target { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
+.armada-callcard__target {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
 /* The run on the card is a terminal under the command, and the thread above gives some height up to it. */
-.armada-callcard__thread[data-ran] { max-height: calc(var(--space-12) * 2); }
+.armada-callcard__thread[data-ran] {
+  max-height: calc(var(--space-12) * 2);
+}
 
 /* The cover: down it is a dashed outline of the key; lifted, the key shows in the failed hue. */
-.armada-keycap[data-cover] > .armada-button[data-variant] { border-style: dashed; background: transparent; color: var(--fg-muted); }
+.armada-keycap[data-cover] > .armada-button[data-variant] {
+  border-style: dashed;
+  background: transparent;
+  color: var(--fg-muted);
+}
 .armada-keycap[data-cover="lifted"] > .armada-button[data-variant] {
   border-style: solid;
   border-color: var(--status-completed-failed);
   background: color-mix(in srgb, var(--status-completed-failed) 16%, var(--bg-raised));
   color: var(--fg-default);
 }
-.armada-keycap__glyph { flex: none; margin-left: auto; }
-.armada-keycap[data-cover="lifted"] .armada-keycap__glyph { color: var(--status-completed-failed); }
+.armada-keycap__glyph {
+  flex: none;
+  margin-left: auto;
+}
+.armada-keycap[data-cover="lifted"] .armada-keycap__glyph {
+  color: var(--status-completed-failed);
+}
 
 /* What waits behind the card: a strip of slim rows, one each, along the console's edge. */
-.armada-queue { border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-sunken); overflow: hidden; }
-.armada-queue__band { display: flex; align-items: center; padding: var(--space-1) var(--space-3); border-bottom: var(--border-width) solid var(--border-default); background: var(--bg-raised); color: var(--fg-muted); }
-.armada-queue__band > span { display: inline-flex; }
-.armada-queue__list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2); list-style: none; }
+.armada-queue {
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.armada-queue__band {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+.armada-queue__band > span {
+  display: inline-flex;
+}
+.armada-queue__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+}
 .armada-queue__strip {
   display: flex;
   align-items: center;
@@ -313,25 +537,69 @@ span.armada-view__dot { cursor: default; }
   text-align: left;
   cursor: pointer;
 }
-.armada-queue__strip > svg { flex: none; color: var(--hue); }
-.armada-queue__strip > span { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.armada-queue__strip:hover { border-color: var(--hue); }
-.armada-queue__strip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.armada-queue__strip[data-deferred] { border-style: dashed; border-left-style: solid; color: var(--fg-muted); }
+.armada-queue__strip > svg {
+  flex: none;
+  color: var(--hue);
+}
+.armada-queue__strip > span {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.armada-queue__strip:hover {
+  border-color: var(--hue);
+}
+.armada-queue__strip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.armada-queue__strip[data-deferred] {
+  border-style: dashed;
+  border-left-style: solid;
+  color: var(--fg-muted);
+}
 
 /* Remove, for an item the agent stated, at the card's foot; its reason box opens across the card under it. */
-.armada-callcard__remove { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
-.armada-callcard__remove > .armada-session-ledger__remove { flex-basis: 100%; padding: 0; }
+.armada-callcard__remove {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.armada-callcard__remove > .armada-session-ledger__remove {
+  flex-basis: 100%;
+  padding: 0;
+}
 
 /* With consoles, the row under the card is only for the glass too narrow to hold them. */
-.armada-callcard__acts[data-consoled] { display: none; }
+.armada-callcard__acts[data-consoled] {
+  display: none;
+}
 /* armada-allow-off-contract: a container condition cannot read a custom property, same as @media. It reads the glass, not the window.
    docs/contracts/design-system.md */
 @container scrim (max-width: 1100px) {
-  .armada-stack[data-consoled] { display: block; width: min(100%, calc(var(--space-12) * 14)); }
-  .armada-console--right { display: none; }
-  .armada-console--left { width: 100%; margin-bottom: var(--space-3); }
-  .armada-queue__list { flex-direction: row; overflow-x: auto; }
-  .armada-queue__strip { width: auto; max-width: calc(var(--space-12) * 4); }
-  .armada-callcard__acts[data-consoled] { display: flex; }
+  .armada-stack[data-consoled] {
+    display: block;
+    width: min(100%, calc(var(--space-12) * 14));
+  }
+  .armada-console--right {
+    display: none;
+  }
+  .armada-console--left {
+    width: 100%;
+    margin-bottom: var(--space-3);
+  }
+  .armada-queue__list {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .armada-queue__strip {
+    width: auto;
+    max-width: calc(var(--space-12) * 4);
+  }
+  .armada-callcard__acts[data-consoled] {
+    display: flex;
+  }
 }

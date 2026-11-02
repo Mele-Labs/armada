@@ -5,7 +5,10 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 
 /** Built in, drawn by `light.css` or by the tokens' own defaults. Anything else is a mod's name. */
-export const BUILT_IN_THEMES = ["dark", "light"] as const;
+export const BUILT_IN_THEMES = [
+  "dark",
+  "light",
+] as const;
 const DARK = "dark";
 
 /**
@@ -23,8 +26,15 @@ export type ThemeMod = {
   /** The branch of the repository it was put on, once it has been. */
   branch?: string;
   /** The pull request Promote opened for it, and the Job that holds that pull request. */
-  pull?: { number: number; title: string; address: string };
-  job?: { id: string; title: string };
+  pull?: {
+    number: number;
+    title: string;
+    address: string;
+  };
+  job?: {
+    id: string;
+    title: string;
+  };
   /** Ships with Armada rather than written into the mod folder. Its name carries a `built-in:` prefix, which no mod's name has. */
   builtIn?: boolean;
   /** Its preview colours, from the CSS Fleet checked. Absent until that CSS has been read. */
@@ -76,16 +86,25 @@ export interface ModsSource extends ThemeSource {
 const isBuiltIn = (id: string) => (BUILT_IN_THEMES as readonly string[]).includes(id);
 /** A mod Bridge may draw: switched on, and nothing wrong with it. */
 export const offered = (mod: ThemeMod) => mod.enabled && mod.problem === undefined;
-const usable = (state: ThemeState, id: string) => isBuiltIn(id) || state.catalogue.some((one) => one.id === id) || state.mods.some((mod) => mod.name === id && offered(mod));
+const usable = (state: ThemeState, id: string) =>
+  isBuiltIn(id) ||
+  state.catalogue.some((one) => one.id === id) ||
+  state.mods.some((mod) => mod.name === id && offered(mod));
 
 /**
  * A source held in memory: the mock runs on it. Bridge runs on `fleet-themes.ts`, which answers the
  * same interface from Fleet's mod list and the saved theme preference.
  */
 export function createThemeSource(
-  initial: () => ThemeState = () => ({ mods: [], catalogue: [], active: DARK }),
+  initial: () => ThemeState = () => ({
+    mods: [],
+    catalogue: [],
+    active: DARK,
+  }),
   /** What Promote leaves on the mod: the branch, and where a promote opens one, the pull request and its Job. */
-  promoted: (name: string) => Pick<ThemeMod, "branch" | "pull" | "job"> = (name) => ({ branch: `armada/mod-${name}-${Date.now()}` }),
+  promoted: (name: string) => Pick<ThemeMod, "branch" | "pull" | "job"> = (name) => ({
+    branch: `armada/mod-${name}-${Date.now()}`,
+  }),
 ): ModsSource & {
   /** A mod arriving, the way a Session writing one into the mod folder would. */
   install(mod: ThemeMod): void;
@@ -94,20 +113,51 @@ export function createThemeSource(
   let held = initial();
   const listeners = new Set<() => void>();
   const set = (next: ThemeState) => {
-    held = usable(next, next.active) ? next : { ...next, active: DARK };
+    held = usable(next, next.active)
+      ? next
+      : {
+          ...next,
+          active: DARK,
+        };
     listeners.forEach((on) => on());
   };
-  const edit = (name: string, change: Partial<ThemeMod>) => set({ ...held, mods: held.mods.map((mod) => (mod.name === name ? { ...mod, ...change } : mod)) });
+  const edit = (name: string, change: Partial<ThemeMod>) =>
+    set({
+      ...held,
+      mods: held.mods.map((mod) =>
+        mod.name === name
+          ? {
+              ...mod,
+              ...change,
+            }
+          : mod,
+      ),
+    });
   return {
     get: () => held,
     subscribe: (on) => {
       listeners.add(on);
       return () => void listeners.delete(on);
     },
-    setActive: (id) => set({ ...held, active: id }),
-    setEnabled: (name, enabled) => edit(name, { enabled }),
+    setActive: (id) =>
+      set({
+        ...held,
+        active: id,
+      }),
+    setEnabled: (name, enabled) =>
+      edit(name, {
+        enabled,
+      }),
     promote: (name) => edit(name, promoted(name)),
-    install: (mod) => held.mods.some((one) => one.name === mod.name) || set({ ...held, mods: [...held.mods, mod] }),
+    install: (mod) =>
+      held.mods.some((one) => one.name === mod.name) ||
+      set({
+        ...held,
+        mods: [
+          ...held.mods,
+          mod,
+        ],
+      }),
     reset: () => set(initial()),
   };
 }
@@ -115,14 +165,23 @@ export function createThemeSource(
 /** The same source with every mod hidden: safe mode. Built-in and catalogue themes still choose. */
 export function withoutMods(source: ModsSource): ModsSource {
   let from: ThemeState | undefined;
-  let shown: ThemeState = { mods: [], catalogue: [], active: DARK };
+  let shown: ThemeState = {
+    mods: [],
+    catalogue: [],
+    active: DARK,
+  };
   return {
     get: () => {
       const state = source.get();
       if (state !== from) {
         from = state;
-        const kept = isBuiltIn(state.active) || state.catalogue.some((one) => one.id === state.active);
-        shown = { mods: [], catalogue: state.catalogue, active: kept ? state.active : DARK };
+        const kept =
+          isBuiltIn(state.active) || state.catalogue.some((one) => one.id === state.active);
+        shown = {
+          mods: [],
+          catalogue: state.catalogue,
+          active: kept ? state.active : DARK,
+        };
       }
       return shown;
     },
@@ -131,7 +190,11 @@ export function withoutMods(source: ModsSource): ModsSource {
       const state = source.get();
       if (isBuiltIn(id) || state.catalogue.some((one) => one.id === id)) source.setActive(id);
     },
-    ...(source.fellBack === undefined ? {} : { fellBack: (id: string) => source.fellBack?.(id) }),
+    ...(source.fellBack === undefined
+      ? {}
+      : {
+          fellBack: (id: string) => source.fellBack?.(id),
+        }),
     setEnabled: () => undefined,
     promote: () => undefined,
   };
@@ -143,8 +206,13 @@ const ThemeSourceContext = createContext<ModsSource>(LOCAL);
 export const ThemeSourceProvider = ThemeSourceContext.Provider;
 
 /** The source in force, and its state as it stands. */
-export function useThemes(): ThemeState & { source: ModsSource } {
+export function useThemes(): ThemeState & {
+  source: ModsSource;
+} {
   const source = useContext(ThemeSourceContext);
   const state = useSyncExternalStore(source.subscribe, source.get);
-  return { ...state, source };
+  return {
+    ...state,
+    source,
+  };
 }

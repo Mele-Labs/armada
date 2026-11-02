@@ -47,30 +47,54 @@ export type StudioNodeContent =
    * there to read; present is partial — the record is gone and this is all
    * there is. Since 14.10, #1289; `held` since 16.2, #1345.
    */
-  | { kind: "run"; run_id: string; held?: StudioRunHeld; kept?: StudioRunKept }
+  | {
+      kind: "run";
+      run_id: string;
+      held?: StudioRunHeld;
+      kept?: StudioRunKept;
+    }
   /** What a person pointed at and said, fixed at capture. `capture` since 14.11, #1290. */
-  | { kind: "note"; said: string; capture?: StudioCapture }
+  | {
+      kind: "note";
+      said: string;
+      capture?: StudioCapture;
+    }
   /**
    * Notes a person accepted as one thing, drawn as a frame round them: the
    * nodes whose `within` names it. A Note is in one at a time. Since 23.0.
    */
-  | { kind: "cluster"; title: string }
+  | {
+      kind: "cluster";
+      title: string;
+    }
   /**
    * Other nodes, ringed off so they move together: the nodes whose `within`
    * names it. Nothing of its own. Everything a read-in brings back lands in
    * one. Since 23.0, #1620.
    */
-  | { kind: "zone" }
+  | {
+      kind: "zone";
+    }
   /** What a scout was asked, and from its start what it read. Since 14.7. */
-  | ({ kind: "finding" } & StudioFinding)
+  | ({
+      kind: "finding";
+    } & StudioFinding)
   /** `answer` only where a person ended it as Resolved here. Since 14.11. */
-  | { kind: "contradiction"; first: string; second: string; answer?: string }
+  | {
+      kind: "contradiction";
+      first: string;
+      second: string;
+      answer?: string;
+    }
   /**
    * The drawing the dispatch composer's pad makes, kept on the Studio — the
    * owner's call of 1 Oct 2026. Since 20.0, where it was `body`, the diagram
    * written as text; a Sketch kept as text reads as one box holding it.
    */
-  | { kind: "sketch"; drawing: SketchDrawing }
+  | {
+      kind: "sketch";
+      drawing: SketchDrawing;
+    }
   /**
    * A board, document, page or session — **an address no adapter recognised**
    * — kept with the line a person wrote beside it (`said`, since 14.15,
@@ -81,19 +105,30 @@ export type StudioNodeContent =
    * An address that *is* recognised is one of the three below instead, since
    * 14.18, #1394. A Link offers no Dispatch.
    */
-  | { kind: "link"; address: string; said?: string; named?: string }
+  | {
+      kind: "link";
+      address: string;
+      said?: string;
+      named?: string;
+    }
   /**
    * A path to a file, kept as a person pasted it — absolute, under `~` or
    * relative to the repository — and trimmed. Fleet neither resolves it nor
    * checks that it exists. Since 19.3.
    */
-  | { kind: "file"; path: string }
+  | {
+      kind: "file";
+      path: string;
+    }
   /**
    * An image a person pasted: the frame Fleet kept, named as a Note's
    * `capture.frame` is and fetched from `get_studio_frame` the same way. No
    * words are asked for. Since 19.3.
    */
-  | { kind: "picture"; frame: CaptureFrame }
+  | {
+      kind: "picture";
+      frame: CaptureFrame;
+    }
   /**
    * An issue on a forge. Since 14.18, #1394.
    *
@@ -103,18 +138,49 @@ export type StudioNodeContent =
    * to know and the gate refuses its name anywhere else, so what a surface
    * offers on an address is decided by the kind Fleet wrote.
    */
-  | { kind: "issue"; address: string; number: string; said?: string; title?: string; state?: ForgeState }
+  | {
+      kind: "issue";
+      address: string;
+      number: string;
+      said?: string;
+      title?: string;
+      state?: ForgeState;
+    }
   /** A pull request on a forge. An Issue's fields; `state` also holds `merged`. Since 14.18. */
-  | { kind: "pull_request"; address: string; number: string; said?: string; title?: string; state?: ForgeState }
+  | {
+      kind: "pull_request";
+      address: string;
+      number: string;
+      said?: string;
+      title?: string;
+      state?: ForgeState;
+    }
   /**
    * What a forge calls a set of issues under one address. **No state and a
    * count instead**: what matters is how much of it is on the Studio, which is
    * what reading it in answers. Since 14.18, #1394.
    */
-  | { kind: "epic"; address: string; number: string; said?: string; title?: string; read_in?: EpicRead }
-  | { kind: "deferral"; what: string }
-  | { kind: "outline"; body: string }
-  | { kind: "issue_draft"; title: string; body: string };
+  | {
+      kind: "epic";
+      address: string;
+      number: string;
+      said?: string;
+      title?: string;
+      read_in?: EpicRead;
+    }
+  | {
+      kind: "deferral";
+      what: string;
+    }
+  | {
+      kind: "outline";
+      body: string;
+    }
+  | {
+      kind: "issue_draft";
+      title: string;
+      body: string;
+    };
 
 /** Where something on a forge stands. Since 14.18, #1394. */
 export type ForgeState = "open" | "closed" | "merged";
@@ -164,7 +230,10 @@ export type StudioRunKept = {
 };
 
 /** Where a person left a node, in whole canvas units. */
-export type StudioPosition = { x: number; y: number };
+export type StudioPosition = {
+  x: number;
+  y: number;
+};
 
 export type StudioNode = StudioNodeContent & {
   id: string;
@@ -222,24 +291,60 @@ export type StudioHelmActed = HelmStudioAct & {
  * unasked ones; the last two are what Helm takes on a person's ask. Since 14.11, #1291.
  */
 export type HelmStudioAct =
-  | { act: "added_node"; node_id: string }
-  | { act: "proposed_edge"; edge_id: string }
-  | { act: "named"; name: string }
-  | { act: "wrote_up"; from: string; node_id: string }
-  | { act: "read_in"; from: string; node_ids: string[] }
-  | { act: "dispatched"; from: string; node_ids: string[] };
+  | {
+      act: "added_node";
+      node_id: string;
+    }
+  | {
+      act: "proposed_edge";
+      edge_id: string;
+    }
+  | {
+      act: "named";
+      name: string;
+    }
+  | {
+      act: "wrote_up";
+      from: string;
+      node_id: string;
+    }
+  | {
+      act: "read_in";
+      from: string;
+      node_ids: string[];
+    }
+  | {
+      act: "dispatched";
+      from: string;
+      node_ids: string[];
+    };
 
 /** One box on a Sketch: where a person put it, and the words in it. Since 20.0. */
-export type SketchBox = { id: string; x: number; y: number; body: string };
+export type SketchBox = {
+  id: string;
+  x: number;
+  y: number;
+  body: string;
+};
 
 /** Two parts joined, boxes or pictures, in the direction drawn. */
-export type SketchJoin = { id: string; from: string; to: string };
+export type SketchJoin = {
+  id: string;
+  from: string;
+  to: string;
+};
 
 /** One place on a Sketch, in whole pad units. */
-export type SketchPoint = { x: number; y: number };
+export type SketchPoint = {
+  x: number;
+  y: number;
+};
 
 /** A line drawn by hand, as its points. Two at least. */
-export type SketchStroke = { id: string; points: SketchPoint[] };
+export type SketchStroke = {
+  id: string;
+  points: SketchPoint[];
+};
 
 /**
  * A picture on a Sketch: where it sits, the size it is drawn at, and the frame
@@ -272,10 +377,14 @@ export type SketchDrawing = {
  * `frame`**: a kept frame is a file name Fleet chose, and Fleet's decoder
  * refuses a write naming one.
  */
-export type SketchPictureDrawn = Omit<SketchPicture, "frame"> & { staged?: StagedFrame };
+export type SketchPictureDrawn = Omit<SketchPicture, "frame"> & {
+  staged?: StagedFrame;
+};
 
 /** A Sketch's drawing as `add_node` and `edit_sketch` carry it. Since 20.0. */
-export type SketchDrawn = Omit<SketchDrawing, "pictures"> & { pictures: SketchPictureDrawn[] };
+export type SketchDrawn = Omit<SketchDrawing, "pictures"> & {
+  pictures: SketchPictureDrawn[];
+};
 
 /**
  * `POST /studios/:studio_id/edit_sketch`: the whole drawing a person left on
@@ -283,7 +392,10 @@ export type SketchDrawn = Omit<SketchDrawing, "pictures"> & { pictures: SketchPi
  * none under is `fleet.studio_sketch_picture_not_kept`; a drawing with nothing
  * on it is `fleet.studio_node_blank`. Since 20.0.
  */
-export type EditStudioSketch = { node_id: string; drawing: SketchDrawn };
+export type EditStudioSketch = {
+  node_id: string;
+  drawing: SketchDrawn;
+};
 
 /**
  * A drawing as the renderer hands it to main to keep. **Bytes in, never a
@@ -291,14 +403,20 @@ export type EditStudioSketch = { node_id: string; drawing: SketchDrawn };
  * stages them; one with no bytes is a picture the node already keeps.
  */
 export type SketchToKeep = Omit<SketchDrawing, "pictures"> & {
-  pictures: (Omit<SketchPicture, "frame"> & { bytes?: Uint8Array })[];
+  pictures: (Omit<SketchPicture, "frame"> & {
+    bytes?: Uint8Array;
+  })[];
 };
 
 /** `POST /studios/create?manifest_id=`. A blank or absent name is untitled. */
-export type CreateStudio = { name?: string };
+export type CreateStudio = {
+  name?: string;
+};
 
 /** `POST /studios/:studio_id/rename`. A blank name is refused. */
-export type RenameStudio = { name: string };
+export type RenameStudio = {
+  name: string;
+};
 
 /**
  * `POST /studios/:studio_id/add_node`. A node starts in its kind's first state.
@@ -308,9 +426,23 @@ export type RenameStudio = { name: string };
  * by Fleet's decoder, since a kept frame is a file name Fleet chose. Since 19.3.
  */
 export type AddStudioNode = (
-  | Exclude<StudioNodeContent, { kind: "picture" } | { kind: "sketch" }>
-  | { kind: "picture"; staged: StagedFrame }
-  | { kind: "sketch"; drawing: SketchDrawn }
+  | Exclude<
+      StudioNodeContent,
+      | {
+          kind: "picture";
+        }
+      | {
+          kind: "sketch";
+        }
+    >
+  | {
+      kind: "picture";
+      staged: StagedFrame;
+    }
+  | {
+      kind: "sketch";
+      drawing: SketchDrawn;
+    }
 ) & {
   position: StudioPosition;
   produced_by?: string;
@@ -334,7 +466,10 @@ export type AddStudioNode = (
  */
 export type StudioNodeByHand =
   /** Typed here rather than pointed at, so it carries no `capture`: that is `capture_studio_note`'s. */
-  | { kind: "note"; said: string }
+  | {
+      kind: "note";
+      said: string;
+    }
   /**
    * An address, whatever it turns out to name. `said` is the line taken at
    * paste time, absent where none was typed. Since 14.15, #1378.
@@ -344,12 +479,24 @@ export type StudioNodeByHand =
    * address and nothing here may claim what one names: Fleet asks the adapter
    * and writes the kind that follows. #1394.
    */
-  | { kind: "link"; address: string; said?: string }
-  | { kind: "sketch"; drawing: SketchDrawn }
+  | {
+      kind: "link";
+      address: string;
+      said?: string;
+    }
+  | {
+      kind: "sketch";
+      drawing: SketchDrawn;
+    }
   /** A path, as pasted. A blank one is refused as `fleet.studio_node_blank`. Since 19.3. */
-  | { kind: "file"; path: string }
+  | {
+      kind: "file";
+      path: string;
+    }
   /** A Zone, empty, to put nodes in. Since 23.0, #1620. */
-  | { kind: "zone" }
+  | {
+      kind: "zone";
+    }
   /**
    * An image, as the PNG staged on disk. **Only Bridge's main builds this**,
    * from bytes it staged itself: the renderer never names a path, and Fleet
@@ -357,7 +504,10 @@ export type StudioNodeByHand =
    * it. Over 4 MiB is refused as `fleet.studio_frame_too_large`, and a file
    * Fleet cannot read as `fleet.studio_frame_unreadable`. Since 19.3.
    */
-  | { kind: "picture"; staged: StagedFrame };
+  | {
+      kind: "picture";
+      staged: StagedFrame;
+    };
 
 /**
  * What a Note keeps of where a person pointed — the development annotation
@@ -370,13 +520,25 @@ export type StudioCapture = {
   /** The components above it, nearest first — the parent chain. */
   owners?: string[];
   selector: string;
-  element: { tag: string; text: string; label?: string };
+  element: {
+    tag: string;
+    text: string;
+    label?: string;
+  };
   screen?: string;
   layer?: string;
   location: string;
   /** Where the element sat in the window, in CSS pixels. */
-  bounds: { x: number; y: number; width: number; height: number };
-  window: { width: number; height: number };
+  bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  window: {
+    width: number;
+    height: number;
+  };
   /** `getComputedStyle`, for the properties Bridge declares it reads. */
   styles?: Record<string, string>;
   markup: string;
@@ -400,17 +562,30 @@ export type StudioCapture = {
  * instance Fleet held, what the Manifest calls it, and the origin the window
  * was pinned to. `location` above is the path within that origin.
  */
-export type CaptureServed = { run: string; name: string; address: string };
+export type CaptureServed = {
+  run: string;
+  name: string;
+  address: string;
+};
 
 /**
  * A frame Fleet kept beside the Studio's records: its file name under the
  * Studio's own directory, what it weighs, and its pixels. A Note's capture
  * keeps one, and a Picture is one.
  */
-export type CaptureFrame = { filename: string; byte_size: number; width: number; height: number };
+export type CaptureFrame = {
+  filename: string;
+  byte_size: number;
+  width: number;
+  height: number;
+};
 
 /** The PNG Bridge took, written to disk before the request. Never read back. */
-export type StagedFrame = { staged_path: string; width: number; height: number };
+export type StagedFrame = {
+  staged_path: string;
+  width: number;
+  height: number;
+};
 
 /**
  * `POST /studios/:studio_id/capture_note`. A person's act and no agent's:
@@ -429,10 +604,16 @@ export type CaptureStudioNote = {
  * `POST /studios/:studio_id/move_node`. Where it sits only: `within` is the
  * frame it is put down in, and absent is the board. Since 23.0.
  */
-export type MoveStudioNode = { node_id: string; within?: string; position: StudioPosition };
+export type MoveStudioNode = {
+  node_id: string;
+  within?: string;
+  position: StudioPosition;
+};
 
 /** `POST /studios/:studio_id/remove_node`. Takes the node's edges with it. */
-export type RemoveStudioNode = { node_id: string };
+export type RemoveStudioNode = {
+  node_id: string;
+};
 
 /**
  * `POST /studios/:studio_id/propose_edge`. Lands `proposed`. `produced` does not
@@ -445,7 +626,10 @@ export type ProposeStudioEdge = {
 };
 
 /** `POST /studios/:studio_id/decide_edge`. A rejected edge is removed. */
-export type DecideStudioEdge = { edge_id: string; accepted: boolean };
+export type DecideStudioEdge = {
+  edge_id: string;
+  accepted: boolean;
+};
 
 /**
  * A Finding. `asked` alone while Proposed; `checkout` from the scout's start;
@@ -469,7 +653,10 @@ export type StudioFinding = {
   ended?: ScoutEnded;
 };
 
-export type ScoutCheckout = { commit: string; uncommitted: boolean };
+export type ScoutCheckout = {
+  commit: string;
+  uncommitted: boolean;
+};
 
 /**
  * A source a scout was handed beyond the checkout: the Link's address, what it
@@ -477,17 +664,30 @@ export type ScoutCheckout = { commit: string; uncommitted: boolean };
  * `thread` — and how many characters were cut where it did not fit. Since
  * 14.16, #1293.
  */
-export type ScoutSource = { address: string; kind: string; cut: number };
+export type ScoutSource = {
+  address: string;
+  kind: string;
+  cut: number;
+};
 
 /**
  * How a scout ended. `cost_micros` is millionths of a dollar, **absent where
  * the agent reported none** — never nought in its place.
  */
 export type ScoutEnded = (
-  | { outcome: "answered" }
-  | { outcome: "stopped" }
-  | { outcome: "failed"; why: string }
-) & { cost_micros?: number };
+  | {
+      outcome: "answered";
+    }
+  | {
+      outcome: "stopped";
+    }
+  | {
+      outcome: "failed";
+      why: string;
+    }
+) & {
+  cost_micros?: number;
+};
 
 /**
  * `POST /studios/:studio_id/ask_scout`. A person's ask: a Finding is added
@@ -500,13 +700,17 @@ export type AskScout = {
 };
 
 /** `POST /studios/:studio_id/start_scout`. Starts a Proposed Finding. */
-export type StartScout = { node_id: string };
+export type StartScout = {
+  node_id: string;
+};
 
 /**
  * `POST /studios/:studio_id/stop_scout`. Answers the Studio before the Finding
  * ends; the ended one, with no state, arrives on `studio.changed`.
  */
-export type StopScout = { node_id: string };
+export type StopScout = {
+  node_id: string;
+};
 
 /**
  * `POST /studios/:studio_id/read_in`. The Link named is read in: Fleet fetches
@@ -590,15 +794,34 @@ export type StudioServerStarted = {
 // renderer can reach for what a person does in one place.
 
 /** What a group of nodes becomes: the two kinds that are made of other nodes. */
-export type StudioGroup = { kind: "cluster"; title: string } | { kind: "outline"; body: string };
+export type StudioGroup =
+  | {
+      kind: "cluster";
+      title: string;
+    }
+  | {
+      kind: "outline";
+      body: string;
+    };
 
 /** How a person ended a Contradiction, where the outcome writes nothing else down. */
-export type StudioSettlement = { outcome: "not_a_problem" } | { outcome: "resolved_here"; answer: string };
+export type StudioSettlement =
+  | {
+      outcome: "not_a_problem";
+    }
+  | {
+      outcome: "resolved_here";
+      answer: string;
+    };
 
 /** One rung of promotion, as Bridge asks for it. */
 export type StudioPromotion =
   /** `POST /studios/:studio_id/group_nodes`. The order of `from` is the order kept. */
-  | ({ act: "group"; from: string[]; position: StudioPosition } & StudioGroup)
+  | ({
+      act: "group";
+      from: string[];
+      position: StudioPosition;
+    } & StudioGroup)
   /** `POST /studios/:studio_id/defer`. Only a person. */
   | {
       act: "defer";
@@ -616,20 +839,37 @@ export type StudioPromotion =
       position: StudioPosition;
     }
   /** `POST /studios/:studio_id/edit_draft`. Only a person. */
-  | { act: "edit_draft"; node_id: string; title: string; body: string }
+  | {
+      act: "edit_draft";
+      node_id: string;
+      title: string;
+      body: string;
+    }
   /**
    * `POST /studios/:studio_id/edit_link`. The line beside a Link's address and never the
    * address itself. A blank `said` clears the line. Since 14.15, #1378.
    */
-  | { act: "edit_link"; node_id: string; said: string }
+  | {
+      act: "edit_link";
+      node_id: string;
+      said: string;
+    }
   /** `POST /studios/:studio_id/settle`. The two outcomes that make no node. */
-  | ({ act: "settle"; node_id: string } & StudioSettlement)
+  | ({
+      act: "settle";
+      node_id: string;
+    } & StudioSettlement)
   /**
    * `POST /studios/:studio_id/read_in`. The Link stays, and what came back
    * hangs off it. `take` is asked on an Epic alone. Since 14.16, #1293;
    * `take` since 14.20, #1405.
    */
-  | { act: "read_in"; node_id: string; position: StudioPosition; take?: EpicTake };
+  | {
+      act: "read_in";
+      node_id: string;
+      position: StudioPosition;
+      take?: EpicTake;
+    };
 
 /** Every act `StudioPromotion` spells, so main can refuse one it does not know. */
 export const STUDIO_PROMOTIONS = [

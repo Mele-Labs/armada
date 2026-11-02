@@ -9,8 +9,25 @@ import type { ClashFileAnswer } from "../../shared/api/clashes";
 const NO_ROUTE = "This Fleet cannot show the files of a clash.";
 
 export function clashFileRead(answer: ClashFileAnswer): ClashFileRead {
-  if (answer.ok) return { ok: true, ours: answer.value.ours, theirs: answer.value.theirs };
+  if (answer.ok)
+    return {
+      ok: true,
+      ours: answer.value.ours,
+      theirs: answer.value.theirs,
+    };
   const { outcome } = answer;
-  if (outcome.ok === false && outcome.why === "transport" && outcome.fault.why === "unanswerable" && outcome.fault.status === 404) return { ok: false, said: NO_ROUTE };
-  return { ok: false, said: refusalWords(outcome) };
+  if (
+    outcome.ok === false &&
+    outcome.why === "transport" &&
+    outcome.fault.why === "unanswerable" &&
+    outcome.fault.status === 404
+  )
+    return {
+      ok: false,
+      said: NO_ROUTE,
+    };
+  return {
+    ok: false,
+    said: refusalWords(outcome),
+  };
 }

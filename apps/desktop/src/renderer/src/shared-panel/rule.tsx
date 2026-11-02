@@ -17,33 +17,89 @@ import { closePanel } from "./store";
 import type { PanelItem } from "./store";
 
 /** How an act stands, as Fleet keeps it: the glyph the rule's chip uses for the same, and the word. */
-const STANDING: Readonly<Record<string, { Glyph: LucideIcon; said: string }>> = {
-  planned: { Glyph: Clock, said: "Planned" },
-  asked: { Glyph: MessageCircleQuestion, said: "Asked" },
-  stuck: { Glyph: MessageCircleQuestion, said: "Stuck" },
-  done: { Glyph: Check, said: "Done" },
-  skipped: { Glyph: Ban, said: "Skipped" },
-  told: { Glyph: Check, said: "Told the agent" },
-  not_carried: { Glyph: Clock, said: "Not carried" },
+const STANDING: Readonly<
+  Record<
+    string,
+    {
+      Glyph: LucideIcon;
+      said: string;
+    }
+  >
+> = {
+  planned: {
+    Glyph: Clock,
+    said: "Planned",
+  },
+  asked: {
+    Glyph: MessageCircleQuestion,
+    said: "Asked",
+  },
+  stuck: {
+    Glyph: MessageCircleQuestion,
+    said: "Stuck",
+  },
+  done: {
+    Glyph: Check,
+    said: "Done",
+  },
+  skipped: {
+    Glyph: Ban,
+    said: "Skipped",
+  },
+  told: {
+    Glyph: Check,
+    said: "Told the agent",
+  },
+  not_carried: {
+    Glyph: Clock,
+    said: "Not carried",
+  },
 };
 
 /** What a rule did on each instance, from what the Job's rules kept. */
-function ActsPanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
+function ActsPanel({
+  item,
+}: {
+  item: Extract<
+    PanelItem,
+    {
+      kind: "rule";
+    }
+  >;
+}) {
   const session = useSessions().find((one) => one.id === item.sessionId);
   const back = useBack();
   const job = session?.lanes?.job;
   const rule = job?.copy.rules.find((one) => one.id === item.rule);
-  const done = (job?.fired ?? []).filter((one) => one.rule === item.rule && (one.acts?.length ?? 0) > 0);
-  if (session === undefined || job === undefined || rule === undefined || done.length === 0) return null;
+  const done = (job?.fired ?? []).filter(
+    (one) => one.rule === item.rule && (one.acts?.length ?? 0) > 0,
+  );
+  if (session === undefined || job === undefined || rule === undefined || done.length === 0)
+    return null;
   return (
-    <SidePanel title={`Rule: ${rule.label}`} heading={rule.label} crumb="Rule" back={back} onClose={closePanel}>
+    <SidePanel
+      title={`Rule: ${rule.label}`}
+      heading={rule.label}
+      crumb="Rule"
+      back={back}
+      onClose={closePanel}
+    >
       <div className="sv-lanes__acts">
         {done.map((one) => (
-          <section key={one.instance} className="sv-lanes__triage" aria-label={job.instances.find((each) => each.id === one.instance)?.label ?? rule.label}>
-            <h4 className="sv-lanes__triage-head">{job.instances.find((each) => each.id === one.instance)?.label ?? rule.label}</h4>
+          <section
+            key={one.instance}
+            className="sv-lanes__triage"
+            aria-label={job.instances.find((each) => each.id === one.instance)?.label ?? rule.label}
+          >
+            <h4 className="sv-lanes__triage-head">
+              {job.instances.find((each) => each.id === one.instance)?.label ?? rule.label}
+            </h4>
             <ul className="sv-lanes__comments">
               {(one.acts ?? []).map((act, at) => {
-                const { Glyph, said } = STANDING[act.standing] ?? { Glyph: Clock, said: act.standing };
+                const { Glyph, said } = STANDING[act.standing] ?? {
+                  Glyph: Clock,
+                  said: act.standing,
+                };
                 return (
                   <li key={at} className="sv-lanes__item">
                     <div className="sv-lanes__act" data-standing={act.standing}>
@@ -53,9 +109,13 @@ function ActsPanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
                       </span>
                       <span className="sv-lanes__words">
                         <span className="sv-lanes__text">{act.text}</span>
-                        {act.said === undefined ? null : <span className="sv-lanes__why">{act.said}</span>}
+                        {act.said === undefined ? null : (
+                          <span className="sv-lanes__why">{act.said}</span>
+                        )}
                       </span>
-                      <span className="sv-lanes__course">{act.course === "asks" ? "Asks" : "Acts"}</span>
+                      <span className="sv-lanes__course">
+                        {act.course === "asks" ? "Asks" : "Acts"}
+                      </span>
                       <Tooltip asChild label="Time">
                         <span className="sv-lanes__at">{act.at}</span>
                       </Tooltip>
@@ -71,7 +131,12 @@ function ActsPanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
   );
 }
 
-type DraftCardRow = Extract<Session["rows"][number], { kind: "draft" }>;
+type DraftCardRow = Extract<
+  Session["rows"][number],
+  {
+    kind: "draft";
+  }
+>;
 
 /** The draft card as last read. Held, so a read that comes a beat late never takes the card away. */
 function useHeldDraft(session: Session | undefined, rowId: string): DraftCardRow | undefined {
@@ -92,37 +157,92 @@ export function DraftCard({ sessionId, rowId }: { sessionId: string; rowId: stri
       <DraftRow
         row={row}
         keep={`draft:${session.id}:${row.id}`}
-        {...(draft?.answerWaiting === undefined ? {} : { onAnswer: (rowId: string, answer: DraftAnswer) => void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer) })}
-        {...(draft?.answerWaiting === undefined ? {} : { onWithdraw: (rowId: string, reason?: string) => void dismissWaiting(session.id, `draft:${rowId}`, reason) })}
+        {...(draft?.answerWaiting === undefined
+          ? {}
+          : {
+              onAnswer: (rowId: string, answer: DraftAnswer) =>
+                void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer),
+            })}
+        {...(draft?.answerWaiting === undefined
+          ? {}
+          : {
+              onWithdraw: (rowId: string, reason?: string) =>
+                void dismissWaiting(session.id, `draft:${rowId}`, reason),
+            })}
       />
     </ul>
   );
 }
 
 /** A draft card answered beside the thread: `heading` where the panel is named for something other than the card, as a rule is. The way back stays once it is sent. */
-function DraftSide({ sessionId, rowId, crumb, heading }: { sessionId: string; rowId: string; crumb: string; heading?: string }) {
+function DraftSide({
+  sessionId,
+  rowId,
+  crumb,
+  heading,
+}: {
+  sessionId: string;
+  rowId: string;
+  crumb: string;
+  heading?: string;
+}) {
   const session = useSessions().find((one) => one.id === sessionId);
   const back = useBack();
   const row = useHeldDraft(session, rowId);
   if (session === undefined || row === undefined) return null;
   const title = heading ?? row.title;
   return (
-    <SidePanel title={`${crumb}: ${title}`} heading={title} crumb={crumb} back={back} onClose={closePanel}>
+    <SidePanel
+      title={`${crumb}: ${title}`}
+      heading={title}
+      crumb={crumb}
+      back={back}
+      onClose={closePanel}
+    >
       <DraftCard sessionId={sessionId} rowId={rowId} />
     </SidePanel>
   );
 }
 
-export function RulePanel({ item }: { item: Extract<PanelItem, { kind: "rule" }> }) {
+export function RulePanel({
+  item,
+}: {
+  item: Extract<
+    PanelItem,
+    {
+      kind: "rule";
+    }
+  >;
+}) {
   const rule = useSessions()
     .find((one) => one.id === item.sessionId)
     ?.lanes?.job.copy.rules.find((one) => one.id === item.rule);
   if (item.row === undefined) return <ActsPanel item={item} />;
-  return <DraftSide sessionId={item.sessionId} rowId={item.row} crumb="Rule" {...(rule === undefined ? {} : { heading: rule.label })} />;
+  return (
+    <DraftSide
+      sessionId={item.sessionId}
+      rowId={item.row}
+      crumb="Rule"
+      {...(rule === undefined
+        ? {}
+        : {
+            heading: rule.label,
+          })}
+    />
+  );
 }
 
 /** A draft a Job put to the person, answered beside the thread it may sit far back in, on a Job not drawn in panes. One in panes opens as a tab (`job-panes/focus.ts`). */
-export function DraftPanel({ item }: { item: Extract<PanelItem, { kind: "draft" }> }) {
+export function DraftPanel({
+  item,
+}: {
+  item: Extract<
+    PanelItem,
+    {
+      kind: "draft";
+    }
+  >;
+}) {
   return <DraftSide sessionId={item.sessionId} rowId={item.row} crumb="Draft" />;
 }
 
@@ -135,6 +255,18 @@ export function draftPanelOf(session: Session, itemId: string): PanelItem | unde
   const row = rowId === undefined ? undefined : session.rows.find((one) => one.id === rowId);
   if (rowId === undefined || row === undefined || row.kind !== "draft") return undefined;
   const fired = session.lanes?.job.fired.find((one) => one.needs === rowId);
-  if (fired !== undefined) return { kind: "rule", sessionId: session.id, rule: fired.rule, row: rowId };
-  return row.workflow !== undefined || row.change !== undefined ? undefined : { kind: "draft", sessionId: session.id, row: rowId };
+  if (fired !== undefined)
+    return {
+      kind: "rule",
+      sessionId: session.id,
+      rule: fired.rule,
+      row: rowId,
+    };
+  return row.workflow !== undefined || row.change !== undefined
+    ? undefined
+    : {
+        kind: "draft",
+        sessionId: session.id,
+        row: rowId,
+      };
 }

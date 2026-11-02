@@ -12,7 +12,12 @@ import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import { serversOf } from "./request";
-import { CheckoutRunCommands, CheckoutRunSocket, CheckoutSheetReader, DriftReader } from "./checkout-runs";
+import {
+  CheckoutRunCommands,
+  CheckoutRunSocket,
+  CheckoutSheetReader,
+  DriftReader,
+} from "./checkout-runs";
 import { ServerCommands } from "./servers";
 import { Picked, type PickedByWindow } from "./picked";
 
@@ -52,7 +57,10 @@ export class RehearsalConnection {
     this.pickedByWindow = wiring.pickedByWindow;
     // Never held with a real listing: `startServer`'s own default, exercised only where a
     // caller supplies no `picked` — every real one does.
-    this.servers = new ServerCommands({ port: this.port, picked: new Picked() });
+    this.servers = new ServerCommands({
+      port: this.port,
+      picked: new Picked(),
+    });
   }
 
   /** This window's own Manifest surface facades, built on first ask. */
@@ -61,11 +69,17 @@ export class RehearsalConnection {
     if (found === undefined) {
       const picked = this.pickedByWindow.of(windowId);
       const checkoutFollow = new CheckoutRunSocket(
-        (checkoutRunFollowed) => this.publishToWindow(windowId, { checkoutRunFollowed }),
+        (checkoutRunFollowed) =>
+          this.publishToWindow(windowId, {
+            checkoutRunFollowed,
+          }),
         picked,
       );
       const checkoutSheet = new CheckoutSheetReader(
-        (checkoutRunSheet) => this.publishToWindow(windowId, { checkoutRunSheet }),
+        (checkoutRunSheet) =>
+          this.publishToWindow(windowId, {
+            checkoutRunSheet,
+          }),
         picked,
       );
       const checkoutRuns = new CheckoutRunCommands({
@@ -74,8 +88,19 @@ export class RehearsalConnection {
         follow: (port, runId) => checkoutFollow.open(port, runId),
         refreshSheet: (port) => checkoutSheet.again(port),
       });
-      const drift = new DriftReader((manifestDrift) => this.publishToWindow(windowId, { manifestDrift }), picked);
-      found = { checkoutSheet, checkoutFollow, checkoutRuns, drift };
+      const drift = new DriftReader(
+        (manifestDrift) =>
+          this.publishToWindow(windowId, {
+            manifestDrift,
+          }),
+        picked,
+      );
+      found = {
+        checkoutSheet,
+        checkoutFollow,
+        checkoutRuns,
+        drift,
+      };
       this.windows.set(windowId, found);
     }
     return found;
@@ -99,7 +124,10 @@ export class RehearsalConnection {
    * `/events` keeps the list current from there — see `onServerEvent`. */
   async readServers(port: number): Promise<void> {
     const servers = await serversOf(port);
-    if (servers !== null) this.publish({ servers });
+    if (servers !== null)
+      this.publish({
+        servers,
+      });
   }
 
   /**
@@ -128,7 +156,10 @@ export class RehearsalConnection {
   onServerEvent(current: readonly ServerState[], row: ServerState): ServerState[] {
     return current.some((one) => one.id === row.id)
       ? current.map((one) => (one.id === row.id ? row : one))
-      : [row, ...current];
+      : [
+          row,
+          ...current,
+        ];
   }
 
   /** Read what this window's own picked repository's Manifest declares, or `false` to stop. */

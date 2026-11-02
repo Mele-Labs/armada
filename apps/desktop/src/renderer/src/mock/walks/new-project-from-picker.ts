@@ -3,18 +3,52 @@
 
 import { button, inside, region, role, walk } from "../walk";
 
-const combobox = role("button", "Repository", { exact: true });
+const combobox = role("button", "Repository", {
+  exact: true,
+});
 const dialog = role("dialog", "New project");
 
 const newProjectFromPicker = walk("new-project-from-picker", [
-  { press: combobox, say: "The repository picker" },
-  { press: role("menuitem", "New project"), say: "New project sits above Add a repository, and opens the dialog on a new project" },
-  { look: inside(dialog, role("textbox", "Location")), say: "The location starts where most projects are kept, here ~/code" },
-  { press: inside(dialog, button("Choose a folder")), say: "Choose a folder changes it, and ~/Developer is chosen" },
-  { type: "my-app", into: inside(dialog, role("textbox", "Name")), say: "The name. The other two ways in stay under the fields" },
-  { press: inside(dialog, button("Create project")), say: "Create project makes ~/Developer/my-app as a git repository" },
-  { look: inside(region("Jobs", { exact: true }), role("heading", "my-app", { exact: true })), say: "The picker stays on All repositories, and the new Job sits under a my-app heading" },
-  { look: role("textbox", "Message"), say: "The Job is open, its message box focused" },
+  {
+    press: combobox,
+    say: "The repository picker",
+  },
+  {
+    press: role("menuitem", "New project"),
+    say: "New project sits above Add a repository, and opens the dialog on a new project",
+  },
+  {
+    look: inside(dialog, role("textbox", "Location")),
+    say: "The location starts where most projects are kept, here ~/code",
+  },
+  {
+    press: inside(dialog, button("Choose a folder")),
+    say: "Choose a folder changes it, and ~/Developer is chosen",
+  },
+  {
+    type: "my-app",
+    into: inside(dialog, role("textbox", "Name")),
+    say: "The name. The other two ways in stay under the fields",
+  },
+  {
+    press: inside(dialog, button("Create project")),
+    say: "Create project makes ~/Developer/my-app as a git repository",
+  },
+  {
+    look: inside(
+      region("Jobs", {
+        exact: true,
+      }),
+      role("heading", "my-app", {
+        exact: true,
+      }),
+    ),
+    say: "The picker stays on All repositories, and the new Job sits under a my-app heading",
+  },
+  {
+    look: role("textbox", "Message"),
+    say: "The Job is open, its message box focused",
+  },
 ]);
 
 export { newProjectFromPicker as "new-project-from-picker" };

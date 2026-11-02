@@ -41,7 +41,9 @@
   line-height: var(--leading-xs);
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
+  transition:
+    background var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease);
 }
 
 .armada-quick__chip:hover {

@@ -242,7 +242,13 @@
 
 /* In a menu with picks, the picked row's label is the strong colour and the rest sit in the muted one;
  * weight is the same on every row so no width jumps. Disabled, danger and finished rows keep their own. */
-.armada-dropdown-menu__panel[data-checks] > .armada-dropdown-menu__item:not([aria-current], [aria-disabled="true"], [data-muted], .armada-dropdown-menu__item--danger) {
+.armada-dropdown-menu__panel[data-checks]
+  > .armada-dropdown-menu__item:not(
+    [aria-current],
+    [aria-disabled="true"],
+    [data-muted],
+    .armada-dropdown-menu__item--danger
+  ) {
   color: var(--fg-muted);
 }
 .armada-dropdown-menu__panel[data-checks] > .armada-dropdown-menu__item[aria-current] {
@@ -263,7 +269,9 @@
 
 /* A searchable menu's rows are ruled, so a long list reads row by row. */
 .armada-dropdown-menu__panel[data-searchable] > .armada-dropdown-menu__search,
-.armada-dropdown-menu__panel[data-searchable] > .armada-dropdown-menu__item + .armada-dropdown-menu__item {
+.armada-dropdown-menu__panel[data-searchable]
+  > .armada-dropdown-menu__item
+  + .armada-dropdown-menu__item {
   border-bottom: none;
   border-top: var(--border-width) solid var(--border-subtle);
 }
@@ -426,7 +434,10 @@
     /* Below the trigger, the panel's inline-end edge on the trigger's — the
      * same placement `right: 0` drew. */
     position-area: block-end span-inline-start;
-    position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+    position-try-fallbacks:
+      flip-inline,
+      flip-block,
+      flip-block flip-inline;
     /* The fallback's insets are physical and would fight the area. */
     inset: auto;
     /* Logical, so flip-block moves the gap to the other side with the panel. */

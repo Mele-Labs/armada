@@ -17,16 +17,47 @@ function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typ
   return (
     <>
       {replay === undefined ? null : <ReplayMark />}
-      {replay !== undefined || picked === undefined ? null : <FocusChip event={picked} now={props.now} onReplay={reaches ? () => startReplay(Date.parse(picked.at)) : undefined} />}
-      {replay === undefined ? null : <ReplayBar events={ordered} replay={replay} onLive={stopReplay} />}
+      {replay !== undefined || picked === undefined ? null : (
+        <FocusChip
+          event={picked}
+          now={props.now}
+          onReplay={reaches ? () => startReplay(Date.parse(picked.at)) : undefined}
+        />
+      )}
+      {replay === undefined ? null : (
+        <ReplayBar events={ordered} replay={replay} onLive={stopReplay} />
+      )}
     </>
   );
 }
 
-export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Ship; listed: readonly Subject[] }) {
+export function MapView({
+  props,
+  ship,
+  listed,
+}: {
+  props: CockpitProps;
+  ship: Ship;
+  listed: readonly Subject[];
+}) {
   const cursor = useDeck((deck) => deck.cursor);
   const field = useField(props, ship, listed, props.picked?.root);
-  const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey, builds, outposts } = field;
+  const {
+    replay,
+    calls,
+    repos,
+    drones,
+    pads,
+    goals,
+    crates,
+    flightTrails,
+    drawn,
+    facts,
+    clashes,
+    focusKey,
+    builds,
+    outposts,
+  } = field;
   return (
     <section className="deck-pane" data-bare="" aria-label="Flight map">
       <div className="deck-map">
@@ -54,7 +85,9 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
           onClear={() => moveCursor(undefined)}
           onPad={(key) => void openSlotKeyInPanel(key)}
           onGoal={(root) => {
-            const pr = ship.prs.find((one) => one.root === root && one.stage !== "landed") ?? ship.prs.find((one) => one.root === root);
+            const pr =
+              ship.prs.find((one) => one.root === root && one.stage !== "landed") ??
+              ship.prs.find((one) => one.root === root);
             if (pr !== undefined) openPullRequestInPanel(pr);
           }}
           onPr={(key) => {

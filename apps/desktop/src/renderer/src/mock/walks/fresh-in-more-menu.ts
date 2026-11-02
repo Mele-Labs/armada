@@ -4,15 +4,29 @@
 
 import { button, inside, region, role, walk } from "../walk";
 
-const sessions = region("Jobs", { exact: true });
+const sessions = region("Jobs", {
+  exact: true,
+});
 const head = region(/^Job s-01FRESH3/);
 const more = inside(head, button("More"));
 
 const freshInMoreMenu = walk("session-fresh", [
-  { press: inside(sessions, button(/Cart totals rounding/)), say: "Big, so it used to wear a mark" },
-  { look: head, say: "The header has no mark after the context figure" },
-  { press: more, say: "More" },
-  { look: role("menu"), say: "New Job and Fork" },
+  {
+    press: inside(sessions, button(/Cart totals rounding/)),
+    say: "Big, so it used to wear a mark",
+  },
+  {
+    look: head,
+    say: "The header has no mark after the context figure",
+  },
+  {
+    press: more,
+    say: "More",
+  },
+  {
+    look: role("menu"),
+    say: "New Job and Fork",
+  },
 ]);
 
 export { freshInMoreMenu };

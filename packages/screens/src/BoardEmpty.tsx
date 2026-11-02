@@ -35,5 +35,7 @@ export function BoardEmpty({
     );
   }
   // A fresh install: a dispatch would send a person to a composer with nothing to name.
-  return nothingServed ? <BoardEmptyState quiet>{`${NOTHING_SERVED.title}. ${NOTHING_SERVED.next}`}</BoardEmptyState> : null;
+  return nothingServed ? (
+    <BoardEmptyState quiet>{`${NOTHING_SERVED.title}. ${NOTHING_SERVED.next}`}</BoardEmptyState>
+  ) : null;
 }

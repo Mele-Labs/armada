@@ -33,7 +33,10 @@ export const PENDING_ROUTES: readonly PendingRoute[] = [];
 export function sentOf(body: unknown): Record<string, string> {
   if (body === null || typeof body !== "object") return {};
   return Object.fromEntries(
-    Object.entries(body).map(([key, value]) => [key, typeof value === "string" ? value : JSON.stringify(value)]),
+    Object.entries(body).map(([key, value]) => [
+      key,
+      typeof value === "string" ? value : JSON.stringify(value),
+    ]),
   );
 }
 
@@ -43,7 +46,10 @@ export function issueLink(issue: number): string {
 }
 
 /** A pending route a request was sent to, and what the request filled each `{name}` with. */
-export type PendingAsked = { route: PendingRoute; filled: Record<string, string> };
+export type PendingAsked = {
+  route: PendingRoute;
+  filled: Record<string, string>;
+};
 
 /**
  * The pending route `method` and `path` name, or `null`. `path` is what was
@@ -64,7 +70,11 @@ export function pendingAt(method: string, path: string): PendingAsked | null {
       filled[name] = decodeURIComponent(segment);
       return segment !== "";
     });
-    if (matches) return { route, filled };
+    if (matches)
+      return {
+        route,
+        filled,
+      };
   }
   return null;
 }

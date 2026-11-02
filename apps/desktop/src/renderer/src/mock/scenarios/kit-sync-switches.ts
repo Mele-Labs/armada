@@ -20,9 +20,21 @@ const INVENTORY: KitInventory = {
           read: {
             what: "read",
             items: [
-              { name: "impeccable@impeccable", says: "version 4.7.0", source: `${PLUGINS}/impeccable/impeccable/4.7.0` },
-              { name: "github@official", says: "version 1.0.0", source: `${PLUGINS}/official/github/1.0.0` },
-              { name: "code-simplifier@official", says: "version 1.0.0", source: `${PLUGINS}/code-simplifier/1.0.0` },
+              {
+                name: "impeccable@impeccable",
+                says: "version 4.7.0",
+                source: `${PLUGINS}/impeccable/impeccable/4.7.0`,
+              },
+              {
+                name: "github@official",
+                says: "version 1.0.0",
+                source: `${PLUGINS}/official/github/1.0.0`,
+              },
+              {
+                name: "code-simplifier@official",
+                says: "version 1.0.0",
+                source: `${PLUGINS}/code-simplifier/1.0.0`,
+              },
             ],
             unreadable: [],
           },
@@ -32,18 +44,43 @@ const INVENTORY: KitInventory = {
 
 /** Every plugin row as Fleet would read it with Plugins on; What syncs narrows what is drawn. */
 const ROWS: SharedRow[] = [
-  { kind: "plugins", name: "impeccable@impeccable", state: "here" },
-  { kind: "plugins", name: "github@official", state: "here" },
-  { kind: "plugins", name: "code-simplifier@official", state: "same" },
+  {
+    kind: "plugins",
+    name: "impeccable@impeccable",
+    state: "here",
+  },
+  {
+    kind: "plugins",
+    name: "github@official",
+    state: "here",
+  },
+  {
+    kind: "plugins",
+    name: "code-simplifier@official",
+    state: "same",
+  },
 ];
 
 function build(): Scenario {
-  const base = manifesting({ kitInventory: INVENTORY });
+  const base = manifesting({
+    kitInventory: INVENTORY,
+  });
   return {
     ...base,
     name: "kit-sync-switches",
     says: "Kit's Plugins with every kind off in What syncs: one plugin switched on by itself, then the whole kind",
-    draft: { ...(base.draft ?? {}), sharedHome: { account: "nickmele", repository: "armada-home", rows: ROWS, syncs: { kinds: [], items: [] } } },
+    draft: {
+      ...(base.draft ?? {}),
+      sharedHome: {
+        account: "nickmele",
+        repository: "armada-home",
+        rows: ROWS,
+        syncs: {
+          kinds: [],
+          items: [],
+        },
+      },
+    },
   };
 }
 

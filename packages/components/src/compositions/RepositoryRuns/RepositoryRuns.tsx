@@ -41,12 +41,21 @@ export function RunLine({
   const word = row.waiting ?? `Kept ${placePhrase(place)}`;
   const where = row.workspace === undefined ? "" : `${row.workspace} `;
   return (
-    <li className="armada-runs__row" aria-label={`${where}${row.job}`} data-row={row.id} data-workspaces={workspaces || undefined} data-drop={onDrop !== undefined || undefined} tabIndex={tabIndex}>
+    <li
+      className="armada-runs__row"
+      aria-label={`${where}${row.job}`}
+      data-row={row.id}
+      data-workspaces={workspaces || undefined}
+      data-drop={onDrop !== undefined || undefined}
+      tabIndex={tabIndex}
+    >
       {!workspaces ? null : <code className="armada-runs__workspace">{row.workspace ?? ""}</code>}
       <span className="armada-runs__job">{row.job}</span>
       <span className="armada-runs__how">
         <code className="armada-runs__command">{row.command ?? ""}</code>
-        {row.port === undefined ? null : <code className="armada-runs__port">{`:${row.port}`}</code>}
+        {row.port === undefined ? null : (
+          <code className="armada-runs__port">{`:${row.port}`}</code>
+        )}
       </span>
       <Tooltip label={word}>
         <span className="armada-runs__state" role="img" aria-label={`${where}${row.job}: ${word}`}>
@@ -55,7 +64,13 @@ export function RunLine({
       </Tooltip>
       {onDrop === undefined ? null : (
         <Tooltip label="Do not keep" shortcut="x">
-          <button type="button" tabIndex={-1} className="armada-runs__drop" aria-label={`Do not keep ${where}${row.job}`} onClick={onDrop}>
+          <button
+            type="button"
+            tabIndex={-1}
+            className="armada-runs__drop"
+            aria-label={`Do not keep ${where}${row.job}`}
+            onClick={onDrop}
+          >
             <Ban size={12} strokeWidth={2} aria-hidden />
           </button>
         </Tooltip>

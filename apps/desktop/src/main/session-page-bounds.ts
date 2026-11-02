@@ -6,11 +6,19 @@
 import type { PageBounds } from "@armada/screens/src/draft/sessions";
 
 /** Whether a key event in the page's view is Esc going down, which the panel answers by closing. */
-export const isEscape = (input: { type: string; key: string }): boolean => input.type === "keyDown" && input.key === "Escape";
+export const isEscape = (input: { type: string; key: string }): boolean =>
+  input.type === "keyDown" && input.key === "Escape";
 
-const whole = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0);
+const whole = (value: unknown): number =>
+  typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0;
 
-export function boundsOf(value: unknown, content: { width: number; height: number }): PageBounds {
+export function boundsOf(
+  value: unknown,
+  content: {
+    width: number;
+    height: number;
+  },
+): PageBounds {
   const box = (typeof value === "object" && value !== null ? value : {}) as Record<string, unknown>;
   const x = Math.min(Math.max(whole(box["x"]), 0), content.width);
   const y = Math.min(Math.max(whole(box["y"]), 0), content.height);

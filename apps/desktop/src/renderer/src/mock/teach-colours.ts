@@ -11,7 +11,14 @@ export const LOUDER: Tweak = {
   token: "--status-awaiting-review",
   was: "#E5A93D",
   now: "#FFC233",
-  places: ["Calls and call cards", "Workflow steps waiting on you", "Stranded bays", "Title bar alerts", "Timeline marks", "Doctor warnings"],
+  places: [
+    "Calls and call cards",
+    "Workflow steps waiting on you",
+    "Stranded bays",
+    "Title bar alerts",
+    "Timeline marks",
+    "Doctor warnings",
+  ],
 };
 
 /** The grey of a stopped Job, made lighter: seeded as a tweak taught before the walk starts. */
@@ -21,5 +28,8 @@ export const LIGHTER: Tweak = {
   token: "--status-killed",
   was: "#9BA3AC",
   now: "#B4BBC3",
-  places: ["Stopped Job rows", "Timeline marks"],
+  places: [
+    "Stopped Job rows",
+    "Timeline marks",
+  ],
 };

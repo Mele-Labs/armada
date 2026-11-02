@@ -38,9 +38,53 @@ import {
 import type { RuleFields, StepFields } from "../LaneCanvas/edit";
 import { LaneCanvas } from "../LaneCanvas/LaneCanvas";
 import type { LaneEditing, LanePick } from "../LaneCanvas/LaneCanvas";
-import { DEFAULT, END_ITEM, PENDING_SAID, START_ITEM, clashAt, differSaid, existsAt, isWorkspaceLevel, layersAt, levelName, levelsOf, lifecyclesAt, listed, nodeId, ownersOf, readsAt, ruleAt, stateDiffers, stateExistsAt, stateLabelAt, stateOwners, stepDiffers, stepsAt, whenSaid, workspaceLevel, workspacesOf } from "../LaneCanvas/model";
-import type { Autonomy, Clash, LifecycleDef, PendingKind, Ref, Rule, StateDef, Waits, Workspace } from "../LaneCanvas/model";
-import { MOMENTS, endsOnOf, fireGroupsOf, momentOf, subjectsOf, waitsOf } from "../LaneCanvas/waits";
+import {
+  DEFAULT,
+  END_ITEM,
+  PENDING_SAID,
+  START_ITEM,
+  clashAt,
+  differSaid,
+  existsAt,
+  isWorkspaceLevel,
+  layersAt,
+  levelName,
+  levelsOf,
+  lifecyclesAt,
+  listed,
+  nodeId,
+  ownersOf,
+  readsAt,
+  ruleAt,
+  stateDiffers,
+  stateExistsAt,
+  stateLabelAt,
+  stateOwners,
+  stepDiffers,
+  stepsAt,
+  whenSaid,
+  workspaceLevel,
+  workspacesOf,
+} from "../LaneCanvas/model";
+import type {
+  Autonomy,
+  Clash,
+  LifecycleDef,
+  PendingKind,
+  Ref,
+  Rule,
+  StateDef,
+  Waits,
+  Workspace,
+} from "../LaneCanvas/model";
+import {
+  MOMENTS,
+  endsOnOf,
+  fireGroupsOf,
+  momentOf,
+  subjectsOf,
+  waitsOf,
+} from "../LaneCanvas/waits";
 import type { WaitSubject } from "../LaneCanvas/waits";
 import { SessionComposer } from "../SessionComposer/SessionComposer";
 import type { SentFromComposer } from "../SessionComposer/SessionComposer";
@@ -76,7 +120,13 @@ export type WorkspaceEditing = {
   /** Nothing a change could be saved to: the lanes are drawn, and no field or handle changes them. */
   readOnly?: true;
   /** Where the picked rule or lifecycle is kept, drawn under its fields: the acts on it, for the tab it is picked on. Absent, nothing stands there. */
-  pieceActs?: (pick: { kind: "rule" | "lifecycle"; id: string }, tab: string) => ReactNode;
+  pieceActs?: (
+    pick: {
+      kind: "rule" | "lifecycle";
+      id: string;
+    },
+    tab: string,
+  ) => ReactNode;
   /** Whether a rule, as it stands, lands on a node of the lanes, which is how it is drawn and picked. Absent, every rule does. */
   lands?: (rule: LifecycleRule) => boolean;
   /** Whether a connector from one node to another makes a rule Fleet can run. A pair that does not is offered no landing. Absent, any pair does. */
@@ -99,26 +149,65 @@ export type LanePanel = {
 
 /** A change to the workflow's own steps, which the host writes to the definition. */
 export type StepsChange =
-  | { kind: "label"; id: string; label: string }
-  | { kind: "add"; after: string; id: string; label: string }
-  | { kind: "remove"; id: string }
+  | {
+      kind: "label";
+      id: string;
+      label: string;
+    }
+  | {
+      kind: "add";
+      after: string;
+      id: string;
+      label: string;
+    }
+  | {
+      kind: "remove";
+      id: string;
+    }
   /** The order the steps now run in. */
-  | { kind: "order"; ids: readonly string[] };
+  | {
+      kind: "order";
+      ids: readonly string[];
+    };
 
 const NONE: readonly never[] = [];
 
 /** Whether a change touched the workflow's own steps, which a copy of the workflow holds, and not only the lifecycles and rules, which are pieces. */
 const stepsDiffer = (a: Workspace, b: Workspace): boolean => {
-  const steps = (workspace: Workspace) => JSON.stringify(Object.entries(workspace.workflows).map(([id, place]) => [id, place.steps, place.layers, place.added]));
+  const steps = (workspace: Workspace) =>
+    JSON.stringify(
+      Object.entries(workspace.workflows).map(([id, place]) => [
+        id,
+        place.steps,
+        place.layers,
+        place.added,
+      ]),
+    );
   return steps(a) !== steps(b);
 };
 
 const NOBODY = () => undefined;
 
-const AUTONOMY_SAID: Readonly<Record<Autonomy, string>> = { acts: "Acts", asks: "Asks", off: "Off" };
+const AUTONOMY_SAID: Readonly<Record<Autonomy, string>> = {
+  acts: "Acts",
+  asks: "Asks",
+  off: "Off",
+};
 
-const refOf = (id: string): { lane: string; item: string } => ({ lane: id.slice(0, id.indexOf("/")), item: id.slice(id.indexOf("/") + 1) });
-const splitValues = (text: string): string[] => text.split(",").map((one) => one.trim()).filter((one) => one !== "");
+const refOf = (
+  id: string,
+): {
+  lane: string;
+  item: string;
+} => ({
+  lane: id.slice(0, id.indexOf("/")),
+  item: id.slice(id.indexOf("/") + 1),
+});
+const splitValues = (text: string): string[] =>
+  text
+    .split(",")
+    .map((one) => one.trim())
+    .filter((one) => one !== "");
 
 /** The fields a step's card takes when the panel draws it, each given the id of the row label that names it. */
 export type StepRows = {
@@ -142,7 +231,11 @@ export type StepRows = {
  * A tab the editor can stand on below the default, and what it says: the id the lanes are drawn for, its name in "Changed for", and the way back to the level above. The way back is said for a piece:
  * `owners` are the levels that set it, so it names the Workspace whose piece the tab would read, and the default where the Workspaces' pieces clash.
  */
-type Level = { id: string; name: string; back: (owners?: readonly string[], clash?: Clash) => string };
+type Level = {
+  id: string;
+  name: string;
+  back: (owners?: readonly string[], clash?: Clash) => string;
+};
 
 /** What the panel holds for the pick: its fields, or a box to tell an agent about it. */
 type Mode = "fields" | "tell";
@@ -187,7 +280,11 @@ export function WorkspaceEditor({
     scope === DEFAULT
       ? undefined
       : isWorkspaceLevel(scope)
-        ? { id: scope, name: levelName(workspace, scope), back: () => "Use the default" }
+        ? {
+            id: scope,
+            name: levelName(workspace, scope),
+            back: () => "Use the default",
+          }
         : {
             id: scope,
             name: repository?.name ?? scope,
@@ -195,20 +292,81 @@ export function WorkspaceEditor({
               // One Workspace above is the one named. Where two hold the repository, the one that sets the piece; where neither does, or they clash, the default.
               const held = levelsOf(scope, workspace, clash).filter(isWorkspaceLevel);
               const above = held.length === 1 ? held[0] : held.find((one) => owners?.includes(one));
-              return above === undefined ? "Use the default" : `Use ${levelName(workspace, above)}'s`;
+              return above === undefined
+                ? "Use the default"
+                : `Use ${levelName(workspace, above)}'s`;
             },
           };
-  useEffect(() => setScope(DEFAULT), [workflow.id]);
+  useEffect(
+    () => setScope(DEFAULT),
+    [
+      workflow.id,
+    ],
+  );
   // The steps are held while a copy's are read, so the canvas is not taken away and drawn again as the person's own copy opens.
   const read = useRef(workflow.steps);
   if (workflow.steps.length > 0) read.current = workflow.steps;
   const defined = workflow.steps.length > 0 ? workflow.steps : read.current;
   const place = workspace.workflows[workflow.id];
   /** The steps as they run on this tab: the definition's, and the ones added at this level or above. */
-  const steps = useMemo(() => stepsAt(defined, place, scope, workspace, (one): ManagedStep => ({ id: one.id, label: one.label, ends: "", words: one.words ?? "" })), [defined, place, scope, workspace]);
+  const steps = useMemo(
+    () =>
+      stepsAt(
+        defined,
+        place,
+        scope,
+        workspace,
+        (one): ManagedStep => ({
+          id: one.id,
+          label: one.label,
+          ends: "",
+          words: one.words ?? "",
+        }),
+      ),
+    [
+      defined,
+      place,
+      scope,
+      workspace,
+    ],
+  );
   /** The rules drawn as added: a change's, and those a draft would keep. */
-  const adding = useMemo(() => (editing.drafted === undefined ? proposed : [...proposed, ...editing.drafted]), [proposed, editing.drafted]);
-  const drawn = useMemo(() => editorLanes({ workspace, workflow: workflow.id, steps, proposed: adding, scope, ...(editing.pending === undefined ? {} : { pending: editing.pending }) }), [workspace, workflow.id, steps, adding, scope, editing.pending]);
+  const adding = useMemo(
+    () =>
+      editing.drafted === undefined
+        ? proposed
+        : [
+            ...proposed,
+            ...editing.drafted,
+          ],
+    [
+      proposed,
+      editing.drafted,
+    ],
+  );
+  const drawn = useMemo(
+    () =>
+      editorLanes({
+        workspace,
+        workflow: workflow.id,
+        steps,
+        proposed: adding,
+        scope,
+        ...(editing.pending === undefined
+          ? {}
+          : {
+              pending: editing.pending,
+            }),
+      }),
+    [
+      workspace,
+      workflow.id,
+      steps,
+      adding,
+      scope,
+      editing.pending,
+    ],
+  );
 
   // **The first change on Armada's workflow makes the person's own copy**, without a word: the change is made on the Workspace as it is, and the host makes the copy behind it.
   const change = (next: Workspace) => {
@@ -217,26 +375,65 @@ export function WorkspaceEditor({
     if (!editable && (editing.pieces !== true || stepsDiffer(workspace, next))) onMakeCopy();
   };
   const writeSteps = onSteps;
-  const subjects = useMemo(() => subjectsOf(workspace), [workspace]);
+  const subjects = useMemo(
+    () => subjectsOf(workspace),
+    [
+      workspace,
+    ],
+  );
 
   const names = useMemo(() => {
-    const out = new Map<string, { label: string; lane: string }>();
-    for (const lane of drawn.lanes) for (const node of lane.nodes) out.set(node.id, { label: node.label, lane: lane.title });
+    const out = new Map<
+      string,
+      {
+        label: string;
+        lane: string;
+      }
+    >();
+    for (const lane of drawn.lanes)
+      for (const node of lane.nodes)
+        out.set(node.id, {
+          label: node.label,
+          lane: lane.title,
+        });
     return out;
-  }, [drawn]);
+  }, [
+    drawn,
+  ]);
 
-  const nameOfPick = (at: LanePick): { title: string; heading: string; crumb: string } => {
+  const nameOfPick = (
+    at: LanePick,
+  ): {
+    title: string;
+    heading: string;
+    crumb: string;
+  } => {
     if (at.kind === "rule") {
-      const found = [...workspace.rules, ...adding].find((one) => one.id === at.id);
+      const found = [
+        ...workspace.rules,
+        ...adding,
+      ].find((one) => one.id === at.id);
       const rule = found === undefined ? undefined : ruleAt(found, scope, workspace);
-      return { title: `Rule: ${rule?.label ?? at.id}`, heading: rule?.label ?? at.id, crumb: "Rule" };
+      return {
+        title: `Rule: ${rule?.label ?? at.id}`,
+        heading: rule?.label ?? at.id,
+        crumb: "Rule",
+      };
     }
     if (at.kind === "lane") {
       const label = workspace.lifecycles.find((one) => one.id === at.id)?.label ?? at.id;
-      return { title: label, heading: label, crumb: "Lifecycle" };
+      return {
+        title: label,
+        heading: label,
+        crumb: "Lifecycle",
+      };
     }
     const named = names.get(at.id);
-    return { title: `${named?.lane ?? ""}: ${named?.label ?? at.id}`.replace(/^: /, ""), heading: named?.label ?? at.id, crumb: named?.lane ?? "" };
+    return {
+      title: `${named?.lane ?? ""}: ${named?.label ?? at.id}`.replace(/^: /, ""),
+      heading: named?.label ?? at.id,
+      crumb: named?.lane ?? "",
+    };
   };
 
   const pick = (next: LanePick | undefined, then: Mode = "fields") => {
@@ -254,10 +451,18 @@ export function WorkspaceEditor({
       setMode("fields");
     }
     was.current = panel.open;
-  }, [panel.open]);
+  }, [
+    panel.open,
+  ]);
   // Leaving the workflow takes its panel with it.
-  const held = useRef({ picked, close: panel.close });
-  held.current = { picked, close: panel.close };
+  const held = useRef({
+    picked,
+    close: panel.close,
+  });
+  held.current = {
+    picked,
+    close: panel.close,
+  };
   useEffect(
     () => () => {
       if (held.current.picked !== undefined) held.current.close();
@@ -271,30 +476,67 @@ export function WorkspaceEditor({
     if (picked !== undefined && panel.open && named !== undefined) panel.show(named);
     // Only a new name asks the panel again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [named?.title]);
+  }, [
+    named?.title,
+  ]);
 
   /** Edit goes to the first field of what is picked, in the panel, once the panel shows it. */
   const toFields = () => {
     setMode("fields");
-    window.setTimeout(() => panel.slot?.querySelector<HTMLElement>("input:not([type='radio']), textarea, select")?.focus({ preventScroll: true }), 0);
+    window.setTimeout(
+      () =>
+        panel.slot
+          ?.querySelector<HTMLElement>("input:not([type='radio']), textarea, select")
+          ?.focus({
+            preventScroll: true,
+          }),
+      0,
+    );
   };
 
   const addAfter = (at: LanePick) => {
     if (at.kind !== "node") return;
     const { lane, item } = refOf(at.id);
     if (lane === "workflow") {
-      const id = uniqueId("New step", [...defined.map((one) => one.id), ...(place?.added ?? []).map((one) => one.id)]);
+      const id = uniqueId("New step", [
+        ...defined.map((one) => one.id),
+        ...(place?.added ?? []).map((one) => one.id),
+      ]);
       // On the default a step joins the workflow itself. Below it the step is that level's own: it runs there and under it, and the definition does not hold it.
       if (level === undefined) {
-        change(withStepAfter(workspace, workflow.id, stepsOf(workspace, workflow.id, steps), item, id));
-        writeSteps({ kind: "add", after: item, id, label: "New step" });
-      } else change(withStepAddedAt(workspace, workflow.id, stepsOf(workspace, workflow.id, steps), item, id, "New step", scope));
-      pick({ kind: "node", id: nodeId("workflow", id) });
+        change(
+          withStepAfter(workspace, workflow.id, stepsOf(workspace, workflow.id, steps), item, id),
+        );
+        writeSteps({
+          kind: "add",
+          after: item,
+          id,
+          label: "New step",
+        });
+      } else
+        change(
+          withStepAddedAt(
+            workspace,
+            workflow.id,
+            stepsOf(workspace, workflow.id, steps),
+            item,
+            id,
+            "New step",
+            scope,
+          ),
+        );
+      pick({
+        kind: "node",
+        id: nodeId("workflow", id),
+      });
       return;
     }
     const made = withStateAfter(workspace, workflow.id, lane, item, "New state", scope);
     change(made.workspace);
-    pick({ kind: "node", id: nodeId(lane, made.id) });
+    pick({
+      kind: "node",
+      id: nodeId(lane, made.id),
+    });
   };
 
   const remove = (at: LanePick) => {
@@ -304,7 +546,11 @@ export function WorkspaceEditor({
       const { lane, item } = refOf(at.id);
       if (lane === "workflow") {
         change(withoutStep(workspace, workflow.id, item));
-        if (!(place?.added ?? []).some((one) => one.id === item)) writeSteps({ kind: "remove", id: item });
+        if (!(place?.added ?? []).some((one) => one.id === item))
+          writeSteps({
+            kind: "remove",
+            id: item,
+          });
       } else change(withoutState(workspace, lane, item));
     }
     pick(undefined);
@@ -320,13 +566,33 @@ export function WorkspaceEditor({
       const ids = steps.map((one) => one.id).filter((one) => one !== b.item);
       ids.splice(ids.indexOf(a.item) + 1, 0, b.item);
       change(withStepsOrder(workspace, workflow.id, stepsOf(workspace, workflow.id, steps), ids));
-      writeSteps({ kind: "order", ids });
-      pick({ kind: "node", id: to });
+      writeSteps({
+        kind: "order",
+        ids,
+      });
+      pick({
+        kind: "node",
+        id: to,
+      });
       return;
     }
-    const rule = ruleBetween(workspace, workflow.id, a, b, { from: names.get(from)?.label ?? a.item, to: names.get(to)?.label ?? b.item, lane: names.get(to)?.lane ?? b.lane }, scope);
+    const rule = ruleBetween(
+      workspace,
+      workflow.id,
+      a,
+      b,
+      {
+        from: names.get(from)?.label ?? a.item,
+        to: names.get(to)?.label ?? b.item,
+        lane: names.get(to)?.lane ?? b.lane,
+      },
+      scope,
+    );
     change(withNewRule(workspace, rule));
-    pick({ kind: "rule", id: rule.id });
+    pick({
+      kind: "rule",
+      id: rule.id,
+    });
   };
 
   /** A tab deletes what it added, and the default what the workflow holds. */
@@ -338,8 +604,12 @@ export function WorkspaceEditor({
     }
     if (at.kind === "lane") return lifecycleDeletable(at.id);
     const { lane, item } = refOf(at.id);
-    if (lane === "workflow") return ((place?.added ?? []).find((one) => one.id === item)?.scope ?? DEFAULT) === scope;
-    return (workspace.lifecycles.find((one) => one.id === lane)?.states.find((one) => one.id === item)?.scope ?? DEFAULT) === scope;
+    if (lane === "workflow")
+      return ((place?.added ?? []).find((one) => one.id === item)?.scope ?? DEFAULT) === scope;
+    return (
+      (workspace.lifecycles.find((one) => one.id === lane)?.states.find((one) => one.id === item)
+        ?.scope ?? DEFAULT) === scope
+    );
   };
 
   const pieces = editing.pieces === true;
@@ -349,7 +619,15 @@ export function WorkspaceEditor({
     if (found === undefined || (found.scope ?? DEFAULT) !== scope) return false;
     if (pieces && (found.kept === undefined || found.kept === "armada")) return false;
     const named = `"lifecycle":"${id}"`;
-    return !workspace.rules.some((rule) => rule.from.lane === id || rule.to.lane === id || [rule.wire, ...(rule.overrides ?? []).map((one) => one.wire)].some((wire) => wire !== undefined && JSON.stringify(wire).includes(named)));
+    return !workspace.rules.some(
+      (rule) =>
+        rule.from.lane === id ||
+        rule.to.lane === id ||
+        [
+          rule.wire,
+          ...(rule.overrides ?? []).map((one) => one.wire),
+        ].some((wire) => wire !== undefined && JSON.stringify(wire).includes(named)),
+    );
   };
   /** Where the lifecycles and rules are pieces, a node is added only where something can keep it: the workflow's steps on the default, and the states of a lifecycle the tracker reads. */
   const canAdd = (at: LanePick): boolean => {
@@ -362,7 +640,14 @@ export function WorkspaceEditor({
   const canConnect = (from: string, to: string): boolean => {
     const a = refOf(from);
     const b = refOf(to);
-    if (from === to || [a.item, b.item].some((one) => one === START_ITEM || one === END_ITEM)) return false;
+    if (
+      from === to ||
+      [
+        a.item,
+        b.item,
+      ].some((one) => one === START_ITEM || one === END_ITEM)
+    )
+      return false;
     // Between two steps it is order, which is the workflow's own and is set on the default.
     if (a.lane === "workflow" && b.lane === "workflow") return !pieces || level === undefined;
     return editing.canConnect?.(a, b) ?? true;
@@ -373,7 +658,11 @@ export function WorkspaceEditor({
     canAdd,
     canConnect,
     // An agent drafts a change to the workflow's steps, so where the lifecycles and rules are pieces kept apart from it, only a step can be told.
-    ...(editing.pieces === true ? { canTell: (at: LanePick) => at.kind === "node" && refOf(at.id).lane === "workflow" } : {}),
+    ...(editing.pieces === true
+      ? {
+          canTell: (at: LanePick) => at.kind === "node" && refOf(at.id).lane === "workflow",
+        }
+      : {}),
     onEdit: toFields,
     onTell: () => setMode("tell"),
     onAddAfter: addAfter,
@@ -386,7 +675,10 @@ export function WorkspaceEditor({
   const inspected = (() => {
     if (picked === undefined) return null;
     if (picked.kind === "rule") {
-      const rule = [...workspace.rules, ...adding].find((one) => one.id === picked.id);
+      const rule = [
+        ...workspace.rules,
+        ...adding,
+      ].find((one) => one.id === picked.id);
       if (rule === undefined) return null;
       const added = adding.includes(rule);
       const wire = ruleAt(rule, scope, workspace).wire;
@@ -395,7 +687,8 @@ export function WorkspaceEditor({
         const here = lifecyclesOf(workspace, scope);
         // Workspaces that both change the rule leave the repository on the default's: each button keeps one's piece as the repository's own.
         const aside = clashAt(rule.clash, scope, workspace, ownersOf(rule));
-        const wireOf = (at: string): LifecycleRule | undefined => (rule.scope === at ? rule.wire : rule.overrides?.find((one) => one.scope === at)?.wire);
+        const wireOf = (at: string): LifecycleRule | undefined =>
+          rule.scope === at ? rule.wire : rule.overrides?.find((one) => one.scope === at)?.wire;
         return (
           <div className="armada-wm-step">
             <Differing
@@ -405,10 +698,19 @@ export function WorkspaceEditor({
               runsDefault={rule.scope === DEFAULT}
               uses={aside.flatMap((at) => {
                 const piece = wireOf(at);
-                return piece === undefined ? [] : [{ name: levelName(workspace, at), use: () => change(withRuleWireAt(workspace, rule.id, scope, piece)) }];
+                return piece === undefined
+                  ? []
+                  : [
+                      {
+                        name: levelName(workspace, at),
+                        use: () => change(withRuleWireAt(workspace, rule.id, scope, piece)),
+                      },
+                    ];
               })}
             />
-            {pendingOf(`rule:${rule.id}`) === undefined ? null : <Pending kind={pendingOf(`rule:${rule.id}`)!} />}
+            {pendingOf(`rule:${rule.id}`) === undefined ? null : (
+              <Pending kind={pendingOf(`rule:${rule.id}`)!} />
+            )}
             <dl className="armada-wm-step__facts">
               <RuleForm
                 key={`${rule.id}/${scope}`}
@@ -419,7 +721,14 @@ export function WorkspaceEditor({
                 lands={editing.lands ?? (() => true)}
                 onChange={(next) => change(withRuleWireAt(workspace, rule.id, scope, next))}
               />
-              {level === undefined || !(rule.overrides ?? []).some((one) => one.scope === scope) ? null : <Changed name={level.name} back={level.back(ownersOf(rule), rule.clash)} onUseAbove={() => change(withoutRuleOverride(workspace, rule.id, scope))} />}
+              {level === undefined ||
+              !(rule.overrides ?? []).some((one) => one.scope === scope) ? null : (
+                <Changed
+                  name={level.name}
+                  back={level.back(ownersOf(rule), rule.clash)}
+                  onUseAbove={() => change(withoutRuleOverride(workspace, rule.id, scope))}
+                />
+              )}
             </dl>
           </div>
         );
@@ -446,9 +755,19 @@ export function WorkspaceEditor({
           key={lifecycle.id}
           lifecycle={lifecycle}
           pending={pendingOf(`lifecycle:${lifecycle.id}`)}
-          named={(lifecycle.scope ?? DEFAULT) === scope && !(pieces && lifecycle.kept === undefined)}
+          named={
+            (lifecycle.scope ?? DEFAULT) === scope && !(pieces && lifecycle.kept === undefined)
+          }
           onName={(label) => change(withLifecycleLabel(workspace, lifecycle.id, label))}
-          onDelete={lifecycleDeletable(lifecycle.id) ? () => remove({ kind: "lane", id: lifecycle.id }) : undefined}
+          onDelete={
+            lifecycleDeletable(lifecycle.id)
+              ? () =>
+                  remove({
+                    kind: "lane",
+                    id: lifecycle.id,
+                  })
+              : undefined
+          }
         />
       );
     }
@@ -463,14 +782,53 @@ export function WorkspaceEditor({
       const mine = added !== undefined && added.scope === scope;
       /** A step as it reads at a level: its name, words, what ends it and what passes it over. */
       const readAt = (at: string) => {
-        const laid = stepsOf(workspace, workflow.id, steps, at).find((one) => one.id === step.id) ?? { id: step.id, label: step.label, col: index };
-        const words = layersAt(place, step.id, at, workspace).reduce((now, one) => one.words ?? now, step.words);
-        return { laid, label: laid.label, words, ends: waitsOf(laid, "ends", step.ends, subjects), passedOver: waitsOf(laid, "passedOver", step.passedOver, subjects), endsOn: laid.endsOn };
+        const laid = stepsOf(workspace, workflow.id, steps, at).find(
+          (one) => one.id === step.id,
+        ) ?? {
+          id: step.id,
+          label: step.label,
+          col: index,
+        };
+        const words = layersAt(place, step.id, at, workspace).reduce(
+          (now, one) => one.words ?? now,
+          step.words,
+        );
+        return {
+          laid,
+          label: laid.label,
+          words,
+          ends: waitsOf(laid, "ends", step.ends, subjects),
+          passedOver: waitsOf(laid, "passedOver", step.passedOver, subjects),
+          endsOn: laid.endsOn,
+        };
       };
       const here = readAt(scope);
       const upper = level === undefined ? undefined : readAt(levelsOf(scope, workspace)[1]!);
-      const above = (): StepFields => ({ ...(upper === undefined ? {} : { label: upper.label, words: upper.words, ...(upper.ends === undefined ? {} : { ends: upper.ends }), ...(upper.endsOn === undefined ? {} : { endsOn: upper.endsOn }), ...(upper.passedOver === undefined ? {} : { passedOver: upper.passedOver }) }) });
-      const layer = (patch: StepFields) => change(withStepLayer(workspace, workflow.id, step.id, scope, patch, above()));
+      const above = (): StepFields => ({
+        ...(upper === undefined
+          ? {}
+          : {
+              label: upper.label,
+              words: upper.words,
+              ...(upper.ends === undefined
+                ? {}
+                : {
+                    ends: upper.ends,
+                  }),
+              ...(upper.endsOn === undefined
+                ? {}
+                : {
+                    endsOn: upper.endsOn,
+                  }),
+              ...(upper.passedOver === undefined
+                ? {}
+                : {
+                    passedOver: upper.passedOver,
+                  }),
+            }),
+      });
+      const layer = (patch: StepFields) =>
+        change(withStepLayer(workspace, workflow.id, step.id, scope, patch, above()));
       const waits = (which: "ends" | "passedOver") => (labelledBy: string) => (
         <WaitsPair
           labelledBy={labelledBy}
@@ -478,8 +836,23 @@ export function WorkspaceEditor({
           value={here[which]}
           onChange={(next) => {
             const on = endsOnOf(next, subjects);
-            if (level === undefined || mine) change(withStepWhen(workspace, workflow.id, placed, step.id, which, next, on));
-            else layer(which === "ends" ? { ends: next, ...(on === undefined ? {} : { endsOn: on }) } : { passedOver: next });
+            if (level === undefined || mine)
+              change(withStepWhen(workspace, workflow.id, placed, step.id, which, next, on));
+            else
+              layer(
+                which === "ends"
+                  ? {
+                      ends: next,
+                      ...(on === undefined
+                        ? {}
+                        : {
+                            endsOn: on,
+                          }),
+                    }
+                  : {
+                      passedOver: next,
+                    },
+              );
           }}
         />
       );
@@ -487,18 +860,103 @@ export function WorkspaceEditor({
       // Where lifecycles and rules are pieces, what the workflow's definition holds is saved by the page: the name and order of its steps on the default. What a level below the default would change of a step, and
       // what ends it or passes it over, have nothing to be kept in, so they are not offered.
       if (pieces) {
-        return stepCard({ ...step, label: here.label, words: here.words }, index, {
-          ...(level === undefined ? { name: (labelledBy: string) => <Field labelledBy={labelledBy} value={here.label} onCommit={(label) => label !== "" && writeSteps({ kind: "label", id: step.id, label })} /> } : { fixed: true as const }),
-          keep: `${workflow.id}/${step.id}/${scope}`,
-        });
+        return stepCard(
+          {
+            ...step,
+            label: here.label,
+            words: here.words,
+          },
+          index,
+          {
+            ...(level === undefined
+              ? {
+                  name: (labelledBy: string) => (
+                    <Field
+                      labelledBy={labelledBy}
+                      value={here.label}
+                      onCommit={(label) =>
+                        label !== "" &&
+                        writeSteps({
+                          kind: "label",
+                          id: step.id,
+                          label,
+                        })
+                      }
+                    />
+                  ),
+                }
+              : {
+                  fixed: true as const,
+                }),
+            keep: `${workflow.id}/${step.id}/${scope}`,
+          },
+        );
       }
-      return stepCard({ ...step, label: here.label, words: here.words }, index, {
-        name: (labelledBy) => <Field labelledBy={labelledBy} value={here.label} onCommit={(label) => label !== "" && (mine ? change(withAddedStep(workspace, workflow.id, step.id, { label })) : level === undefined ? writeSteps({ kind: "label", id: step.id, label }) : layer({ label }))} />,
-        ends: waits("ends"),
-        ...(step.passedOver === undefined && here.laid.passedOver === undefined ? {} : { passedOver: waits("passedOver") }),
-        ...(level === undefined ? {} : { save: async (words: string) => (mine ? change(withAddedStep(workspace, workflow.id, step.id, { words })) : layer({ words }), true), keep: `${workflow.id}/${step.id}/${scope}` }),
-        after: own && level !== undefined ? <Changed name={level.name} back={level.back()} onUseAbove={() => change(withoutStepLayer(workspace, workflow.id, step.id, scope))} /> : null,
-      });
+      return stepCard(
+        {
+          ...step,
+          label: here.label,
+          words: here.words,
+        },
+        index,
+        {
+          name: (labelledBy) => (
+            <Field
+              labelledBy={labelledBy}
+              value={here.label}
+              onCommit={(label) =>
+                label !== "" &&
+                (mine
+                  ? change(
+                      withAddedStep(workspace, workflow.id, step.id, {
+                        label,
+                      }),
+                    )
+                  : level === undefined
+                    ? writeSteps({
+                        kind: "label",
+                        id: step.id,
+                        label,
+                      })
+                    : layer({
+                        label,
+                      }))
+              }
+            />
+          ),
+          ends: waits("ends"),
+          ...(step.passedOver === undefined && here.laid.passedOver === undefined
+            ? {}
+            : {
+                passedOver: waits("passedOver"),
+              }),
+          ...(level === undefined
+            ? {}
+            : {
+                save: async (words: string) => (
+                  mine
+                    ? change(
+                        withAddedStep(workspace, workflow.id, step.id, {
+                          words,
+                        }),
+                      )
+                    : layer({
+                        words,
+                      }),
+                  true
+                ),
+                keep: `${workflow.id}/${step.id}/${scope}`,
+              }),
+          after:
+            own && level !== undefined ? (
+              <Changed
+                name={level.name}
+                back={level.back()}
+                onUseAbove={() => change(withoutStepLayer(workspace, workflow.id, step.id, scope))}
+              />
+            ) : null,
+        },
+      );
     }
     const lifecycle = workspace.lifecycles.find((one) => one.id === lane);
     const state = lifecycle?.states.find((one) => one.id === item);
@@ -527,34 +985,83 @@ export function WorkspaceEditor({
   };
 
   // A tab that differs from the level above carries the changed glyph, and names what it is changed for.
-  const tab = (id: string, label: string, name: string | undefined, workspaceName?: string): TabsItem => {
+  const tab = (
+    id: string,
+    label: string,
+    name: string | undefined,
+    workspaceName?: string,
+  ): TabsItem => {
     const changed = name !== undefined && changedAt(workspace, workflow.id, defined, id);
-    const hint = workspaceName === undefined ? (changed ? `Changed for ${name}` : undefined) : changed ? `Workspace ${workspaceName}, changed` : `Workspace ${workspaceName}`;
-    return { id, label, ...(changed ? { icon: Split } : {}), ...(hint === undefined ? {} : { hint }) };
+    const hint =
+      workspaceName === undefined
+        ? changed
+          ? `Changed for ${name}`
+          : undefined
+        : changed
+          ? `Workspace ${workspaceName}, changed`
+          : `Workspace ${workspaceName}`;
+    return {
+      id,
+      label,
+      ...(changed
+        ? {
+            icon: Split,
+          }
+        : {}),
+      ...(hint === undefined
+        ? {}
+        : {
+            hint,
+          }),
+    };
   };
   /** The default's tab; the Workspaces' that hold the repository the page is on; then the repositories of them. A repository in no Workspace has the first and the last alone. */
   const groups: TabsItem[][] = [
-    [tab(DEFAULT, "Default", undefined)],
+    [
+      tab(DEFAULT, "Default", undefined),
+    ],
     workspacesOf(workspace).map((one) => tab(workspaceLevel(one.id), one.name, one.name, one.name)),
     workspace.repositories.map((one) => tab(one.id, one.name, one.name)),
   ].filter((one) => one.length > 0);
 
-  const content = picked === undefined ? null : mode === "tell" ? <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} /> : inspected;
+  const content =
+    picked === undefined ? null : mode === "tell" ? (
+      <TellBox keep={`${workflow.id}/${picked.id}`} onSend={tell} />
+    ) : (
+      inspected
+    );
   /** The rule or lifecycle the pick is of, for the acts on where it is kept. A step is the workflow's. */
   const piece =
     picked === undefined || mode === "tell"
       ? undefined
       : picked.kind === "rule"
-        ? ({ kind: "rule", id: picked.id } as const)
+        ? ({
+            kind: "rule",
+            id: picked.id,
+          } as const)
         : picked.kind === "lane"
-          ? ({ kind: "lifecycle", id: picked.id } as const)
+          ? ({
+              kind: "lifecycle",
+              id: picked.id,
+            } as const)
           : refOf(picked.id).lane === "workflow"
             ? undefined
-            : ({ kind: "lifecycle", id: refOf(picked.id).lane } as const);
+            : ({
+                kind: "lifecycle",
+                id: refOf(picked.id).lane,
+              } as const);
   const acts = piece === undefined ? null : (editing.pieceActs?.(piece, scope) ?? null);
 
   return (
-    <section className="armada-wm-lanes" aria-label="Workflow" style={{ "--lanes": drawn.lanes.length } as CSSProperties}>
+    <section
+      className="armada-wm-lanes"
+      aria-label="Workflow"
+      style={
+        {
+          "--lanes": drawn.lanes.length,
+        } as CSSProperties
+      }
+    >
       <div className="armada-wm-scope" role="group" aria-label="Runs in">
         <span className="armada-wm-scope__label" aria-hidden="true">
           Runs in
@@ -562,12 +1069,20 @@ export function WorkspaceEditor({
         <div className="armada-wm-scope__tabs">
           {groups.map((items, at) => (
             <Fragment key={items[0]!.id}>
-              {at === 0 ? null : <span className="armada-wm-scope__rule" role="separator" aria-orientation="vertical" />}
+              {at === 0 ? null : (
+                <span
+                  className="armada-wm-scope__rule"
+                  role="separator"
+                  aria-orientation="vertical"
+                />
+              )}
               <Tabs icons items={items} value={scope} onChange={setScope} />
             </Fragment>
           ))}
         </div>
-        <p className="armada-wm-scope__says">{SAYS(scope, levelName(workspace, scope), repository?.name)}</p>
+        <p className="armada-wm-scope__says">
+          {SAYS(scope, levelName(workspace, scope), repository?.name)}
+        </p>
         {editing.readOnly === true ? null : (
           <Button
             type="button"
@@ -576,7 +1091,10 @@ export function WorkspaceEditor({
             onClick={() => {
               const made = withLifecycleAdded(workspace, "New lifecycle", scope);
               change(made.workspace);
-              pick({ kind: "lane", id: made.id });
+              pick({
+                kind: "lane",
+                id: made.id,
+              });
             }}
           >
             <Plus size={16} strokeWidth={2} aria-hidden="true" />
@@ -586,12 +1104,28 @@ export function WorkspaceEditor({
       </div>
       {above}
       {/* Drawn once the steps are read: lanes that fill in after they open would pan to what arrived. */}
-      {steps.length === 0 ? null : <LaneCanvas label={`${workflow.id} workflow`} lanes={drawn.lanes} rules={drawn.rules} picked={picked} onPick={(next) => pick(next)} editing={editing.readOnly === true ? undefined : handles} coveredBy={panel.open ? panel.slot : null} />}
+      {steps.length === 0 ? null : (
+        <LaneCanvas
+          label={`${workflow.id} workflow`}
+          lanes={drawn.lanes}
+          rules={drawn.rules}
+          picked={picked}
+          onPick={(next) => pick(next)}
+          editing={editing.readOnly === true ? undefined : handles}
+          coveredBy={panel.open ? panel.slot : null}
+        />
+      )}
       {content === null || panel.slot === null
         ? null
         : createPortal(
             <div className="armada-wm-inspector">
-              {editing.readOnly === true ? <fieldset className="armada-wm-inspector__fixed" disabled>{content}</fieldset> : content}
+              {editing.readOnly === true ? (
+                <fieldset className="armada-wm-inspector__fixed" disabled>
+                  {content}
+                </fieldset>
+              ) : (
+                content
+              )}
               {acts}
             </div>,
             panel.slot,
@@ -604,7 +1138,17 @@ export function WorkspaceEditor({
 const lifecyclesOf = (workspace: Workspace, scope: string): RuleFormLifecycle[] =>
   workspace.lifecycles
     .filter((one) => existsAt(one.scope, scope, workspace))
-    .map((one) => ({ id: one.id, name: one.label, kind: one.kind, states: one.states.filter((state) => stateExistsAt(state, scope, workspace)).map((state) => ({ id: state.id, label: stateLabelAt(state, scope, workspace) })) }));
+    .map((one) => ({
+      id: one.id,
+      name: one.label,
+      kind: one.kind,
+      states: one.states
+        .filter((state) => stateExistsAt(state, scope, workspace))
+        .map((state) => ({
+          id: state.id,
+          label: stateLabelAt(state, scope, workspace),
+        })),
+    }));
 
 /** The mark on a piece that waits on a pull request removing it or a draft keeping it: a glyph, with the sentence in its tooltip. */
 function Pending({ kind }: { kind: PendingKind }) {
@@ -622,14 +1166,36 @@ function Pending({ kind }: { kind: PendingKind }) {
 }
 
 /** A lifecycle: its name, where Fleet reads its states from, and deleting it. A tab that did not add it reads the name and cannot delete it, and neither can one that no file keeps yet, which only a draft holds. */
-function LifecycleFacts({ lifecycle, pending, named, onName, onDelete }: { lifecycle: LifecycleDef; pending: PendingKind | undefined; named: boolean; onName: (label: string) => void; onDelete: (() => void) | undefined }) {
+function LifecycleFacts({
+  lifecycle,
+  pending,
+  named,
+  onName,
+  onDelete,
+}: {
+  lifecycle: LifecycleDef;
+  pending: PendingKind | undefined;
+  named: boolean;
+  onName: (label: string) => void;
+  onDelete: (() => void) | undefined;
+}) {
   const id = useId();
   return (
     <div className="armada-wm-step">
       {pending === undefined ? null : <Pending kind={pending} />}
       <dl className="armada-wm-step__facts">
         <dt id={`${id}-name`}>Name</dt>
-        <dd>{named ? <Field labelledBy={`${id}-name`} value={lifecycle.label} onCommit={(label) => label !== "" && onName(label)} /> : lifecycle.label}</dd>
+        <dd>
+          {named ? (
+            <Field
+              labelledBy={`${id}-name`}
+              value={lifecycle.label}
+              onCommit={(label) => label !== "" && onName(label)}
+            />
+          ) : (
+            lifecycle.label
+          )}
+        </dd>
         <dt>Read from</dt>
         <dd>{lifecycle.from}</dd>
         {onDelete === undefined ? null : (
@@ -647,10 +1213,20 @@ function LifecycleFacts({ lifecycle, pending, named, onName, onDelete }: { lifec
 
 /** What an edit on a tab changes, said under the tabs. */
 const SAYS = (scope: string, workspace: string, repository: string | undefined): string =>
-  scope === DEFAULT ? "Edits here change every Workspace and repository that keeps the default" : isWorkspaceLevel(scope) ? `Edits here change ${workspace}'s repositories that keep ${workspace}'s` : `Edits here change ${repository ?? scope} only`;
+  scope === DEFAULT
+    ? "Edits here change every Workspace and repository that keeps the default"
+    : isWorkspaceLevel(scope)
+      ? `Edits here change ${workspace}'s repositories that keep ${workspace}'s`
+      : `Edits here change ${repository ?? scope} only`;
 
 /** The box that tells an agent what to change about what is picked, answered with the diff the page draws. */
-function TellBox({ keep, onSend }: { keep: string; onSend: (sent: SentFromComposer) => Promise<boolean> }) {
+function TellBox({
+  keep,
+  onSend,
+}: {
+  keep: string;
+  onSend: (sent: SentFromComposer) => Promise<boolean>;
+}) {
   return (
     <div className="armada-wm-tell">
       <SessionComposer
@@ -679,25 +1255,54 @@ function TellBox({ keep, onSend }: { keep: string; onSend: (sent: SentFromCompos
 }
 
 /** What a step is ended by, or passed over for: the thing, then its state. Choosing another thing takes its first state. */
-function WaitsPair({ labelledBy, subjects, value, onChange }: { labelledBy: string; subjects: readonly WaitSubject[]; value: Waits | undefined; onChange: (next: Waits) => void }) {
+function WaitsPair({
+  labelledBy,
+  subjects,
+  value,
+  onChange,
+}: {
+  labelledBy: string;
+  subjects: readonly WaitSubject[];
+  value: Waits | undefined;
+  onChange: (next: Waits) => void;
+}) {
   const subject = subjects.find((one) => one.id === value?.on);
   return (
     <Pair
       labelledBy={labelledBy}
       first={{
         value: value?.on ?? "",
-        groups: [{ items: subjects.map((one) => ({ value: one.id, label: one.label })) }],
+        groups: [
+          {
+            items: subjects.map((one) => ({
+              value: one.id,
+              label: one.label,
+            })),
+          },
+        ],
         onChange: (on) => {
           const next = subjects.find((one) => one.id === on);
           const state = next?.states[0];
-          if (next !== undefined && state !== undefined) onChange({ on: next.id, state: state.id });
+          if (next !== undefined && state !== undefined)
+            onChange({
+              on: next.id,
+              state: state.id,
+            });
         },
       }}
       second={{
         value: value?.state ?? "",
         hidden: "state",
-        items: (subject?.states ?? []).map((one) => ({ value: one.id, label: one.label })),
-        onChange: (state) => value !== undefined && onChange({ on: value.on, state }),
+        items: (subject?.states ?? []).map((one) => ({
+          value: one.id,
+          label: one.label,
+        })),
+        onChange: (state) =>
+          value !== undefined &&
+          onChange({
+            on: value.on,
+            state,
+          }),
       }}
     />
   );
@@ -721,7 +1326,22 @@ function Differs({ name, children }: { name: string; children: ReactNode }) {
  * Where the Workspaces that hold the repository both change a piece, Fleet runs neither: the line says which and what the repository runs instead, and each button keeps one Workspace's as the
  * repository's own. A state has no button, since its pieces are the lifecycle's.
  */
-function Differing({ names, what, repository, runsDefault, uses }: { names: readonly string[]; what: string; repository: string; runsDefault: boolean; uses?: readonly { name: string; use: () => void }[] }) {
+function Differing({
+  names,
+  what,
+  repository,
+  runsDefault,
+  uses,
+}: {
+  names: readonly string[];
+  what: string;
+  repository: string;
+  runsDefault: boolean;
+  uses?: readonly {
+    name: string;
+    use: () => void;
+  }[];
+}) {
   if (names.length === 0) return null;
   return (
     <div className="armada-wm-clash" role="group" aria-label={differSaid(names)}>
@@ -740,7 +1360,15 @@ function Differing({ names, what, repository, runsDefault, uses }: { names: read
 }
 
 /** What a tab says of a value it changes: where it differs from the level above, named for the tab, and the way back to the one above's. */
-function Changed({ name, back, onUseAbove }: { name: string; back: string; onUseAbove: () => void }) {
+function Changed({
+  name,
+  back,
+  onUseAbove,
+}: {
+  name: string;
+  back: string;
+  onUseAbove: () => void;
+}) {
   return (
     <dd className="armada-wm-inspector__changed">
       <Differs name={name}>{`Changed for ${name}`}</Differs>
@@ -777,14 +1405,27 @@ function StateFacts({
   const scope = level?.id ?? DEFAULT;
   // A state this tab added is this tab's own, so there is no level above to differ from.
   const mine = state.scope === scope;
-  const sources = [...new Set(state.reads.map((one) => one.source))];
+  const sources = [
+    ...new Set(state.reads.map((one) => one.source)),
+  ];
   return (
     <div className="armada-wm-step">
-      <Differing names={clashAt(state.clash, scope, workspace, stateOwners(state)).map((one) => levelName(workspace, one))} what={stateLabelAt(state, scope, workspace)} repository={level?.name ?? scope} runsDefault />
+      <Differing
+        names={clashAt(state.clash, scope, workspace, stateOwners(state)).map((one) =>
+          levelName(workspace, one),
+        )}
+        what={stateLabelAt(state, scope, workspace)}
+        repository={level?.name ?? scope}
+        runsDefault
+      />
       <dl className="armada-wm-step__facts">
         <dt id={`${id}-name`}>Name</dt>
         <dd>
-          <Field labelledBy={`${id}-name`} value={stateLabelAt(state, scope, workspace)} onCommit={(label) => label !== "" && onLabel(label)} />
+          <Field
+            labelledBy={`${id}-name`}
+            value={stateLabelAt(state, scope, workspace)}
+            onCommit={(label) => label !== "" && onLabel(label)}
+          />
         </dd>
         {sources.length === 1 && sources[0] === lifecycle.from ? null : (
           <>
@@ -793,7 +1434,8 @@ function StateFacts({
           </>
         )}
         {sources.flatMap((source, at) => {
-          const above = level === undefined ? [] : (readsAt(state, source, scope, workspace, true) ?? []);
+          const above =
+            level === undefined ? [] : (readsAt(state, source, scope, workspace, true) ?? []);
           const shown = readsAt(state, source, scope, workspace) ?? [];
           return [
             <dt key={`${source}:name`} id={`${id}-${at}`}>{`${source} statuses`}</dt>,
@@ -805,13 +1447,26 @@ function StateFacts({
                 onCommit={(text) => {
                   const values = splitValues(text);
                   // Below the default, the level above's own words are no override.
-                  onReads({ source, scope, values: level !== undefined && !mine && values.join(", ") === above.join(", ") ? [] : values });
+                  onReads({
+                    source,
+                    scope,
+                    values:
+                      level !== undefined && !mine && values.join(", ") === above.join(", ")
+                        ? []
+                        : values,
+                  });
                 }}
               />
             </dd>,
           ];
         })}
-        {level === undefined || mine || !stateDiffers(state).includes(scope) ? null : <Changed name={level.name} back={level.back(stateOwners(state), state.clash)} onUseAbove={onUseAbove} />}
+        {level === undefined || mine || !stateDiffers(state).includes(scope) ? null : (
+          <Changed
+            name={level.name}
+            back={level.back(stateOwners(state), state.clash)}
+            onUseAbove={onUseAbove}
+          />
+        )}
       </dl>
     </div>
   );
@@ -836,7 +1491,10 @@ function RuleFacts({
   rule: Rule;
   workflow: string;
   workspace: Workspace;
-  steps: readonly { id: string; label: string }[];
+  steps: readonly {
+    id: string;
+    label: string;
+  }[];
   /** The level whose tab is picked; absent on the default. */
   level: Level | undefined;
   /** A rule the proposed change would add is not the Workspace's yet: it is shown, and Approve makes it. */
@@ -855,7 +1513,29 @@ function RuleFacts({
   const groups = fireGroupsOf(steps, lifecycles);
   const from = nodeId(here.from.lane, here.from.item);
   // A node the workflow does not draw still names its place, so the choice shows what the rule has.
-  const held: readonly { label?: string; items: readonly Choice[] }[] = groups.some((group) => group.items.some((one) => one.value === from)) ? groups : [{ items: [{ value: from, label: whenSaid({ ...here, at: undefined }, lifecycles, steps) }] }, ...groups];
+  const held: readonly {
+    label?: string;
+    items: readonly Choice[];
+  }[] = groups.some((group) => group.items.some((one) => one.value === from))
+    ? groups
+    : [
+        {
+          items: [
+            {
+              value: from,
+              label: whenSaid(
+                {
+                  ...here,
+                  at: undefined,
+                },
+                lifecycles,
+                steps,
+              ),
+            },
+          ],
+        },
+        ...groups,
+      ];
   const moments = here.from.lane === "workflow" ? MOMENTS.step : MOMENTS.state;
   return (
     <div className="armada-wm-step" data-added={added || undefined}>
@@ -877,7 +1557,16 @@ function RuleFacts({
           <>
             <dt id={`${id}-name`}>Name</dt>
             <dd>
-              <Field labelledBy={`${id}-name`} value={here.label} onCommit={(label) => label !== "" && onChange({ label })} />
+              <Field
+                labelledBy={`${id}-name`}
+                value={here.label}
+                onCommit={(label) =>
+                  label !== "" &&
+                  onChange({
+                    label,
+                  })
+                }
+              />
             </dd>
           </>
         ) : null}
@@ -891,10 +1580,21 @@ function RuleFacts({
                 groups: held,
                 onChange: (value) => {
                   const ref = refOf(value);
-                  onChange({ from: ref, at: ref.lane === "workflow" ? "starts" : "enters" });
+                  onChange({
+                    from: ref,
+                    at: ref.lane === "workflow" ? "starts" : "enters",
+                  });
                 },
               }}
-              second={{ value: momentOf(here), hidden: "moment", items: moments, onChange: (at) => onChange({ at: at as NonNullable<Rule["at"]> }) }}
+              second={{
+                value: momentOf(here),
+                hidden: "moment",
+                items: moments,
+                onChange: (at) =>
+                  onChange({
+                    at: at as NonNullable<Rule["at"]>,
+                  }),
+              }}
             />
           ) : (
             whenSaid(here, workspace.lifecycles, steps)
@@ -905,7 +1605,16 @@ function RuleFacts({
             <dt id={`${id}-if`}>If</dt>
             <dd>
               {writing ? (
-                <Lines labelledBy={`${id}-if`} keep={`workflows:if:${rule.id}/${scope}`} lines={here.ifs} onCommit={(ifs) => onChange({ ifs })} />
+                <Lines
+                  labelledBy={`${id}-if`}
+                  keep={`workflows:if:${rule.id}/${scope}`}
+                  lines={here.ifs}
+                  onCommit={(ifs) =>
+                    onChange({
+                      ifs,
+                    })
+                  }
+                />
               ) : (
                 <ul className="armada-wm-step__ends" aria-labelledby={`${id}-if`}>
                   {here.ifs.map((one) => (
@@ -919,7 +1628,19 @@ function RuleFacts({
         <dt id={`${id}-do`}>Do</dt>
         <dd>
           {writing ? (
-            <Lines labelledBy={`${id}-do`} keep={`workflows:do:${rule.id}/${scope}`} lines={here.does.map((one) => one.text)} onCommit={(lines) => onChange({ does: lines.map((text, at) => ({ act: here.does[at]?.act ?? kind, text })) })} />
+            <Lines
+              labelledBy={`${id}-do`}
+              keep={`workflows:do:${rule.id}/${scope}`}
+              lines={here.does.map((one) => one.text)}
+              onCommit={(lines) =>
+                onChange({
+                  does: lines.map((text, at) => ({
+                    act: here.does[at]?.act ?? kind,
+                    text,
+                  })),
+                })
+              }
+            />
           ) : (
             <ul className="armada-wm-step__ends" aria-labelledby={`${id}-do`}>
               {here.does.map((one) => (
@@ -931,21 +1652,55 @@ function RuleFacts({
         <dt id={`${id}-autonomy`}>Autonomy</dt>
         <dd>
           <RadioGroup labelledBy={`${id}-autonomy`}>
-            {(["acts", "asks", "off"] as const).map((one) => (
-              <Radio key={one} name={`autonomy:${rule.id}`} checked={here.autonomy === one} disabled={added} onChange={() => onChange({ autonomy: one })}>
+            {(
+              [
+                "acts",
+                "asks",
+                "off",
+              ] as const
+            ).map((one) => (
+              <Radio
+                key={one}
+                name={`autonomy:${rule.id}`}
+                checked={here.autonomy === one}
+                disabled={added}
+                onChange={() =>
+                  onChange({
+                    autonomy: one,
+                  })
+                }
+              >
                 {AUTONOMY_SAID[one]}
               </Radio>
             ))}
           </RadioGroup>
         </dd>
-        {level === undefined || !(rule.overrides ?? []).some((one) => one.scope === scope) ? null : <Changed name={level.name} back={level.back(ownersOf(rule), rule.clash)} onUseAbove={onUseAbove} />}
+        {level === undefined ||
+        !(rule.overrides ?? []).some((one) => one.scope === scope) ? null : (
+          <Changed
+            name={level.name}
+            back={level.back(ownersOf(rule), rule.clash)}
+            onUseAbove={onUseAbove}
+          />
+        )}
       </dl>
     </div>
   );
 }
 
 /** One rule a proposed change adds, drawn as the step cards of a proposal are: its place and name, then its facts. */
-export function RuleChangeCard({ rule, workspace, steps }: { rule: Rule; workspace: Workspace; steps: readonly { id: string; label: string }[] }) {
+export function RuleChangeCard({
+  rule,
+  workspace,
+  steps,
+}: {
+  rule: Rule;
+  workspace: Workspace;
+  steps: readonly {
+    id: string;
+    label: string;
+  }[];
+}) {
   return (
     <div role="group" aria-label={rule.label} className="armada-wm-diff__card" data-kind="added">
       <div className="armada-wm-diff__card-band">

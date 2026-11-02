@@ -37,14 +37,29 @@ async function endsOnTheRightEdge(canvasElement: HTMLElement) {
 export const Wide: Story = {
   args: {
     figures: [
-      { label: "Processes", value: "None", wrong: true },
-      { label: "Worktree", value: "gone", wrong: true },
-      { label: "Size on disk", value: "1.2 GiB" },
+      {
+        label: "Processes",
+        value: "None",
+        wrong: true,
+      },
+      {
+        label: "Worktree",
+        value: "gone",
+        wrong: true,
+      },
+      {
+        label: "Size on disk",
+        value: "1.2 GiB",
+      },
     ],
   },
   decorators: [
     (Story) => (
-      <div style={{ width: "var(--w-run-column)" }}>
+      <div
+        style={{
+          width: "var(--w-run-column)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -59,15 +74,31 @@ export const Fit: Story = {
   args: {
     column: "fit",
     figures: [
-      { label: "pid", value: "4242" },
-      { label: "port", value: "7878" },
-      { label: "protocol", value: "14.5" },
-      { label: "up", value: "171h 00m" },
+      {
+        label: "pid",
+        value: "4242",
+      },
+      {
+        label: "port",
+        value: "7878",
+      },
+      {
+        label: "protocol",
+        value: "14.5",
+      },
+      {
+        label: "up",
+        value: "171h 00m",
+      },
     ],
   },
   decorators: [
     (Story) => (
-      <div style={{ width: "var(--sidebar-min)" }}>
+      <div
+        style={{
+          width: "var(--sidebar-min)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -90,12 +121,33 @@ export const Strip: Story = {
   args: {
     column: "strip",
     figures: [
-      { label: "Drones running", value: "3" },
-      { label: "Checks running", value: "1" },
-      { label: "Judges running", value: "0" },
-      { label: "Spend", value: "~$9.20", detail: "of $30.00", apart: true },
-      { label: "Turns", value: "1204", detail: "of 3000" },
-      { label: "Processes", value: "5" },
+      {
+        label: "Drones running",
+        value: "3",
+      },
+      {
+        label: "Checks running",
+        value: "1",
+      },
+      {
+        label: "Judges running",
+        value: "0",
+      },
+      {
+        label: "Spend",
+        value: "~$9.20",
+        detail: "of $30.00",
+        apart: true,
+      },
+      {
+        label: "Turns",
+        value: "1204",
+        detail: "of 3000",
+      },
+      {
+        label: "Processes",
+        value: "5",
+      },
     ],
   },
   play: async ({ canvasElement }) => {
@@ -113,7 +165,9 @@ export const Strip: Story = {
     // **The band reaches the right edge, and the figures after the rule share
     // the way there** (owner, 29 Sep). Packed, `Turns` over `of 3000` and a
     // bare `5` are two different widths and the row stops short of the edge.
-    const rows = canvas.getAllByRole("term").map((term) => term.parentElement!.getBoundingClientRect());
+    const rows = canvas
+      .getAllByRole("term")
+      .map((term) => term.parentElement!.getBoundingClientRect());
     const edge = canvasElement.querySelector("dl")!.getBoundingClientRect().right;
     const [turns, processes] = rows.slice(-2);
     await expect(Math.abs(turns!.width - processes!.width)).toBeLessThanOrEqual(1);
@@ -131,14 +185,27 @@ export const FitAtColumnMinimum: Story = {
   args: {
     column: "fit",
     figures: [
-      { label: "protocol", value: "14.6" },
-      { label: "up", value: "171h 55m" },
-      { label: "size", value: "1.2 GiB" },
+      {
+        label: "protocol",
+        value: "14.6",
+      },
+      {
+        label: "up",
+        value: "171h 55m",
+      },
+      {
+        label: "size",
+        value: "1.2 GiB",
+      },
     ],
   },
   decorators: [
     (Story) => (
-      <div style={{ width: "var(--sidebar-min)" }}>
+      <div
+        style={{
+          width: "var(--sidebar-min)",
+        }}
+      >
         <Story />
       </div>
     ),

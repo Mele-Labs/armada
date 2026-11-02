@@ -32,7 +32,11 @@ export type SystemWorktree = {
 };
 
 /** A file Fleet keeps for the Job: `session.log`, or the agent's transcript. */
-export type SystemLog = { name: string; path: string; bytes: number };
+export type SystemLog = {
+  name: string;
+  path: string;
+  bytes: number;
+};
 
 /** `get_session_system`. A figure that could not be read is absent, never zero. */
 export type SessionSystem = {
@@ -53,7 +57,14 @@ export type SessionSystem = {
 };
 
 /** `stop_process`: exactly one of `pid` and `port`. `session_id` is read only where the connection places no hosted Session. */
-export type StopProcess = { session_id?: string; pid?: number; port?: number };
+export type StopProcess = {
+  session_id?: string;
+  pid?: number;
+  port?: number;
+};
 
 /** What `stop_process` answers: the process that was ended. */
-export type ProcessStopped = { pid: number; command: string };
+export type ProcessStopped = {
+  pid: number;
+  command: string;
+};

@@ -10,7 +10,13 @@ import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 import { onTimePassing } from "../time-passes";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 const AT = "2026-10-15T01:20:00.000Z";
 const ID = "e07cfe09-5b21-4c3a-9d0e-7a6f1c2b8d44";
@@ -27,29 +33,88 @@ const CLIMBED = 840_000;
 const HEAVY = 720_000;
 
 const breakdown = (total: number): ContextBreakdown => {
-  const fixed = { system: 3_100, tools: 12_400, mcp: 8_200, memory: 4_600, skills: 1_900 };
+  const fixed = {
+    system: 3_100,
+    tools: 12_400,
+    mcp: 8_200,
+    memory: 4_600,
+    skills: 1_900,
+  };
   const messages = total - Object.values(fixed).reduce((a, b) => a + b, 0);
   const buffer = Math.min(WINDOW - THRESHOLD, WINDOW - total);
   return {
     categories: [
-      { name: "System prompt", tokens: fixed.system, kind: "used" },
-      { name: "System tools", tokens: fixed.tools, kind: "used" },
-      { name: "MCP tools", tokens: fixed.mcp, kind: "used" },
-      { name: "Memory files", tokens: fixed.memory, kind: "used" },
-      { name: "Skills", tokens: fixed.skills, kind: "used" },
-      { name: "Messages", tokens: messages, kind: "used" },
-      { name: "Free space", tokens: WINDOW - total - buffer, kind: "free" },
-      { name: "Autocompact buffer", tokens: buffer, kind: "buffer" },
+      {
+        name: "System prompt",
+        tokens: fixed.system,
+        kind: "used",
+      },
+      {
+        name: "System tools",
+        tokens: fixed.tools,
+        kind: "used",
+      },
+      {
+        name: "MCP tools",
+        tokens: fixed.mcp,
+        kind: "used",
+      },
+      {
+        name: "Memory files",
+        tokens: fixed.memory,
+        kind: "used",
+      },
+      {
+        name: "Skills",
+        tokens: fixed.skills,
+        kind: "used",
+      },
+      {
+        name: "Messages",
+        tokens: messages,
+        kind: "used",
+      },
+      {
+        name: "Free space",
+        tokens: WINDOW - total - buffer,
+        kind: "free",
+      },
+      {
+        name: "Autocompact buffer",
+        tokens: buffer,
+        kind: "buffer",
+      },
     ],
     memory_files: [
-      { path: "NOTES.md", tokens: 2_100 },
-      { path: ".notes/MEMORY.md", tokens: 1_800 },
-      { path: "apps/NOTES.md", tokens: 700 },
+      {
+        path: "NOTES.md",
+        tokens: 2_100,
+      },
+      {
+        path: ".notes/MEMORY.md",
+        tokens: 1_800,
+      },
+      {
+        path: "apps/NOTES.md",
+        tokens: 700,
+      },
     ],
     mcp_tools: [
-      { name: "list_jobs", server: "armada-fleet", tokens: 2_600 },
-      { name: "get_job", server: "armada-fleet", tokens: 2_400 },
-      { name: "query", server: "gitnexus", tokens: 1_500 },
+      {
+        name: "list_jobs",
+        server: "armada-fleet",
+        tokens: 2_600,
+      },
+      {
+        name: "get_job",
+        server: "armada-fleet",
+        tokens: 2_400,
+      },
+      {
+        name: "query",
+        server: "gitnexus",
+        tokens: 1_500,
+      },
     ],
     total_tokens: total,
     max_tokens: WINDOW,
@@ -57,7 +122,10 @@ const breakdown = (total: number): ContextBreakdown => {
   };
 };
 
-const used = (context_tokens: number) => ({ context_tokens, context_window: WINDOW });
+const used = (context_tokens: number) => ({
+  context_tokens,
+  context_window: WINDOW,
+});
 
 const records = () => [
   hosted(ID, {
@@ -66,8 +134,19 @@ const records = () => [
     last_turn_at: new Date().toISOString(),
     usage: used(TOKENS),
     context_breakdown: breakdown(TOKENS),
-    attachments: [held("slot", "3"), held("branch", "docs/github-interface")],
-    hosted: { turn: { state: "working" }, mode: "auto", running: true, model: "opus", resolved_model: "claude-opus-5-5" },
+    attachments: [
+      held("slot", "3"),
+      held("branch", "docs/github-interface"),
+    ],
+    hosted: {
+      turn: {
+        state: "working",
+      },
+      mode: "auto",
+      running: true,
+      model: "opus",
+      resolved_model: "claude-opus-5-5",
+    },
   }),
   hosted(HEAVY_ID, {
     title: "Cart totals rounding",
@@ -75,8 +154,19 @@ const records = () => [
     last_turn_at: new Date().toISOString(),
     usage: used(HEAVY),
     context_breakdown: breakdown(HEAVY),
-    attachments: [held("slot", "4"), held("branch", "fix/cart-totals")],
-    hosted: { turn: { state: "idle" }, mode: "auto", running: true, model: "opus", resolved_model: "claude-opus-5-5" },
+    attachments: [
+      held("slot", "4"),
+      held("branch", "fix/cart-totals"),
+    ],
+    hosted: {
+      turn: {
+        state: "idle",
+      },
+      mode: "auto",
+      running: true,
+      model: "opus",
+      resolved_model: "claude-opus-5-5",
+    },
   }),
   // A Session that said it is done: its state mark is `power`, beside the act that ends it.
   hosted(DONE_ID, {
@@ -87,26 +177,76 @@ const records = () => [
     done_summary: "A rule that starts a Job now uses the workflow defined in the rule",
     usage: used(HEAVY),
     context_breakdown: breakdown(HEAVY),
-    attachments: [held("slot", "2"), held("branch", "docs/release-notes")],
-    hosted: { turn: { state: "idle" }, mode: "auto", running: true, model: "opus", resolved_model: "claude-opus-5-5" },
+    attachments: [
+      held("slot", "2"),
+      held("branch", "docs/release-notes"),
+    ],
+    hosted: {
+      turn: {
+        state: "idle",
+      },
+      mode: "auto",
+      running: true,
+      model: "opus",
+      resolved_model: "claude-opus-5-5",
+    },
   }),
 ];
 
 const threads = (): Record<string, SessionRow[]> => ({
   [ID]: [
-    { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "How does armada interface with GitHub?" },
-    { kind: "tool", id: "t1", at: AT, text: "Read crates/adapters/src/forge.rs" },
-    { kind: "message", id: "m2", at: AT, from: { kind: "agent" }, text: "Everything goes through the gh CLI, one adapter, behind the forge trait." },
+    {
+      kind: "message",
+      id: "m1",
+      at: AT,
+      from: {
+        kind: "you",
+      },
+      text: "How does armada interface with GitHub?",
+    },
+    {
+      kind: "tool",
+      id: "t1",
+      at: AT,
+      text: "Read crates/adapters/src/forge.rs",
+    },
+    {
+      kind: "message",
+      id: "m2",
+      at: AT,
+      from: {
+        kind: "agent",
+      },
+      text: "Everything goes through the gh CLI, one adapter, behind the forge trait.",
+    },
   ],
   [DONE_ID]: [
-    { kind: "message", id: "d1", at: AT, from: { kind: "you" }, text: "Draft the release notes." },
-    { kind: "message", id: "d2", at: AT, from: { kind: "agent" }, text: "Drafted in docs/release-notes.md." },
+    {
+      kind: "message",
+      id: "d1",
+      at: AT,
+      from: {
+        kind: "you",
+      },
+      text: "Draft the release notes.",
+    },
+    {
+      kind: "message",
+      id: "d2",
+      at: AT,
+      from: {
+        kind: "agent",
+      },
+      text: "Drafted in docs/release-notes.md.",
+    },
   ],
 });
 
 function build(): Scenario {
   const board = onBoard({
-    repositories: [ARMADA],
+    repositories: [
+      ARMADA,
+    ],
     picked: ARMADA.root,
   });
   const fleet = new FakeSessionsFleet(records(), threads());
@@ -118,7 +258,9 @@ function build(): Scenario {
     behaves: (handle) => {
       const own = served.behaves!(handle);
       // After the window has registered its own hook; the latest wins.
-      queueMicrotask(() => onTimePassing(() => fleet.fillTo(ID, used(CLIMBED), breakdown(CLIMBED))));
+      queueMicrotask(() =>
+        onTimePassing(() => fleet.fillTo(ID, used(CLIMBED), breakdown(CLIMBED))),
+      );
       return own;
     },
   };

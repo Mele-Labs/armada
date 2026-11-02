@@ -14,17 +14,43 @@ export const newProjectFromPicker: Scenario = {
   ...ship,
   name: "new-project-from-picker",
   says: "The ship at rest: New project in the repository picker makes a folder and opens a Job on it",
-  draft: { ...ship.draft, sessions: shipSessionsStarting((root) => (root.startsWith(`${HOME}/Developer/`) ? manifestOf(root) : undefined)) },
+  draft: {
+    ...ship.draft,
+    sessions: shipSessionsStarting((root) =>
+      root.startsWith(`${HOME}/Developer/`) ? manifestOf(root) : undefined,
+    ),
+  },
   behaves: (fleet) => ({
     ...ship.behaves?.(fleet),
     chooseFolder: async () => `${HOME}/Developer`,
     createProject: async (parent, name) => {
       const root = `${parent.replace(/^~(?=\/|$)/, HOME).replace(/\/$/, "")}/${name}`;
       const id = manifestOf(root);
-      const one: RepositorySummary = { root, records_root: `${HOME}/Library/Application Support/Armada/records/${id}`, manifest: { ...repository().manifest!, id, repository: id, path: `${root}/armada.yml` } };
+      const one: RepositorySummary = {
+        root,
+        records_root: `${HOME}/Library/Application Support/Armada/records/${id}`,
+        manifest: {
+          ...repository().manifest!,
+          id,
+          repository: id,
+          path: `${root}/armada.yml`,
+        },
+      };
       const held = fleet.state().holds.repositories ?? [];
-      if (!held.some((it) => it.root === root)) fleet.publish({ holds: { ...fleet.state().holds, repositories: [...held, one] } });
-      return { state: "located", repository: one };
+      if (!held.some((it) => it.root === root))
+        fleet.publish({
+          holds: {
+            ...fleet.state().holds,
+            repositories: [
+              ...held,
+              one,
+            ],
+          },
+        });
+      return {
+        state: "located",
+        repository: one,
+      };
     },
   }),
 };

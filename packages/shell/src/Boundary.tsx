@@ -33,19 +33,27 @@ export type BoundaryProps = {
   children: ReactNode;
 };
 
-type BoundaryState = { caught: Caught | null };
+type BoundaryState = {
+  caught: Caught | null;
+};
 
 export class Boundary extends Component<BoundaryProps, BoundaryState> {
-  override state: BoundaryState = { caught: null };
+  override state: BoundaryState = {
+    caught: null,
+  };
 
   /** Runs before `componentDidCatch`, and is what stops the blank frame. */
   static getDerivedStateFromError(thrown: unknown): BoundaryState {
-    return { caught: read(thrown, null) };
+    return {
+      caught: read(thrown, null),
+    };
   }
 
   /** The component stack arrives here and nowhere else. */
   override componentDidCatch(thrown: unknown, info: ErrorInfo): void {
-    this.setState({ caught: read(thrown, info.componentStack ?? null) });
+    this.setState({
+      caught: read(thrown, info.componentStack ?? null),
+    });
   }
 
   override render(): ReactNode {
@@ -67,7 +75,12 @@ export class Boundary extends Component<BoundaryProps, BoundaryState> {
 function read(thrown: unknown, where: string | null): Caught {
   const message = thrown instanceof Error ? thrown.message : String(thrown);
   const stack = thrown instanceof Error ? (thrown.stack ?? null) : null;
-  return { message, component: firstFrame(where), where, stack };
+  return {
+    message,
+    component: firstFrame(where),
+    where,
+    stack,
+  };
 }
 
 /**

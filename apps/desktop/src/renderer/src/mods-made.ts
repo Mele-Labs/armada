@@ -8,7 +8,13 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { useModList } from "./mod-list";
 import { askToTell } from "./tell";
 
-export type ModMade = { name: string; title: string; kind: ModKind; enabled: boolean; changedAt?: string };
+export type ModMade = {
+  name: string;
+  title: string;
+  kind: ModKind;
+  enabled: boolean;
+  changedAt?: string;
+};
 
 /** A mod's folder name as a person reads it, as the Mods page titles a theme: `dusk` is Dusk, `built-in:calm` is Calm. */
 export const modTitle = (name: string): string => {
@@ -16,7 +22,14 @@ export const modTitle = (name: string): string => {
   return bare.charAt(0).toUpperCase() + bare.slice(1);
 };
 
-const madeBy = (jobId: string) => (row: ModSummary): row is ModSummary & { kind: ModKind } => row.made_by === jobId && row.kind !== undefined;
+const madeBy =
+  (jobId: string) =>
+  (
+    row: ModSummary,
+  ): row is ModSummary & {
+    kind: ModKind;
+  } =>
+    row.made_by === jobId && row.kind !== undefined;
 
 /** Fleet's own `set_mod_enabled`, whose refusal is told as the Mods page tells it. */
 export function setModEnabled(name: string, enabled: boolean): void {
@@ -26,8 +39,31 @@ export function setModEnabled(name: string, enabled: boolean): void {
 }
 
 /** The Job's mods, and the switch for each: Fleet's own `set_mod_enabled`, whose refusal is told as the Mods page tells it. */
-export function useModsMade(jobId: string): { mods: readonly ModMade[]; setEnabled: (name: string, enabled: boolean) => void } {
+export function useModsMade(jobId: string): {
+  mods: readonly ModMade[];
+  setEnabled: (name: string, enabled: boolean) => void;
+} {
   const listed = useModList();
-  const mods = useMemo(() => listed.filter(madeBy(jobId)).map((row) => ({ name: row.name, title: modTitle(row.name), kind: row.kind, enabled: row.enabled, ...(row.changed_at === undefined ? {} : { changedAt: row.changed_at }) })), [listed, jobId]);
-  return { mods, setEnabled: setModEnabled };
+  const mods = useMemo(
+    () =>
+      listed.filter(madeBy(jobId)).map((row) => ({
+        name: row.name,
+        title: modTitle(row.name),
+        kind: row.kind,
+        enabled: row.enabled,
+        ...(row.changed_at === undefined
+          ? {}
+          : {
+              changedAt: row.changed_at,
+            }),
+      })),
+    [
+      listed,
+      jobId,
+    ],
+  );
+  return {
+    mods,
+    setEnabled: setModEnabled,
+  };
 }

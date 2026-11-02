@@ -19,7 +19,11 @@ class OwnStorage implements Storage {
     return this.held.get(key) ?? null;
   }
   key(index: number) {
-    return [...this.held.keys()][index] ?? null;
+    return (
+      [
+        ...this.held.keys(),
+      ][index] ?? null
+    );
   }
   removeItem(key: string) {
     this.held.delete(key);
@@ -32,11 +36,20 @@ class OwnStorage implements Storage {
 const own = new OwnStorage();
 // `Object.keys(localStorage)` lists stored keys, as the real one does.
 const storage = new Proxy(own, {
-  ownKeys: (target) => [...target.held.keys()],
+  ownKeys: (target) => [
+    ...target.held.keys(),
+  ],
   getOwnPropertyDescriptor: (target, key) =>
     typeof key === "string" && target.held.has(key)
-      ? { configurable: true, enumerable: true, value: target.getItem(key) }
+      ? {
+          configurable: true,
+          enumerable: true,
+          value: target.getItem(key),
+        }
       : undefined,
 });
 
-Object.defineProperty(window, "localStorage", { configurable: true, value: storage });
+Object.defineProperty(window, "localStorage", {
+  configurable: true,
+  value: storage,
+});

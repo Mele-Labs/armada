@@ -9,14 +9,17 @@
 // an ask that stopped a conversation is drawn under the thread.
 
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { copyHelmRecord, DockQuestions, HelmComposer, HelmRecord, HelmThread, ProseRefs, ThoughtCard } from "@armada/components";
-import { useRecentRepositories } from "@armada/shell";
-import type {
-  DockQuestion,
-  HelmBox,
-  ProseReferences,
-  SentFromComposer,
+import {
+  copyHelmRecord,
+  DockQuestions,
+  HelmComposer,
+  HelmRecord,
+  HelmThread,
+  ProseRefs,
+  ThoughtCard,
 } from "@armada/components";
+import { useRecentRepositories } from "@armada/shell";
+import type { DockQuestion, HelmBox, ProseReferences, SentFromComposer } from "@armada/components";
 import type {
   HelmContext,
   HelmDebugInfo,
@@ -26,7 +29,14 @@ import type {
 import type { HelmState } from "./api";
 import { locationOf, type StudioNamed } from "./helm-context";
 import { recentManifestIds } from "./recent-manifests";
-import type { HeldWords, HelmOutgoing, RouteTarget, ThoughtCarry, ThoughtReading, ThoughtRouting } from "./thought-routing";
+import type {
+  HeldWords,
+  HelmOutgoing,
+  RouteTarget,
+  ThoughtCarry,
+  ThoughtReading,
+  ThoughtRouting,
+} from "./thought-routing";
 
 export type HelmDockProps = {
   helm: HelmState["helm"];
@@ -95,10 +105,22 @@ export type HelmDockProps = {
  * A thought the person sent: being read, matched to running work, or offered a new home. **They
  * queue in the order typed**, and the first one is the card in front.
  */
-type Thought = { id: number; text: string; carry: ThoughtCarry; held?: HeldWords } & (
-  | { stage: "routing" }
-  | { stage: "match"; match: RouteTarget }
-  | { stage: "new" }
+type Thought = {
+  id: number;
+  text: string;
+  carry: ThoughtCarry;
+  held?: HeldWords;
+} & (
+  | {
+      stage: "routing";
+    }
+  | {
+      stage: "match";
+      match: RouteTarget;
+    }
+  | {
+      stage: "new";
+    }
 );
 
 export function HelmDock({
@@ -127,14 +149,23 @@ export function HelmDock({
   // A thought's number is its place in the queue; one answered or dismissed leaves `held`, so its reading is let go.
   const counted = useRef(0);
   const held = useRef(new Set<number>());
-  const [record, setRecord] = useState<Read>({ open: false });
+  const [record, setRecord] = useState<Read>({
+    open: false,
+  });
   const current = helm.state === "none" ? undefined : helm.manifestId;
   const [recentRoots, remember] = useRecentRepositories();
   const options = repositories
-    .filter((one): one is RepositorySummary & { manifest: NonNullable<RepositorySummary["manifest"]> } =>
-      one.manifest !== undefined,
+    .filter(
+      (
+        one,
+      ): one is RepositorySummary & {
+        manifest: NonNullable<RepositorySummary["manifest"]>;
+      } => one.manifest !== undefined,
     )
-    .map((one) => ({ id: one.manifest.id, label: one.manifest.repository }));
+    .map((one) => ({
+      id: one.manifest.id,
+      label: one.manifest.repository,
+    }));
   const recent = recentManifestIds(repositories, recentRoots);
   function switchTo(manifestId: string): void {
     const picked = repositories.find((one) => one.manifest?.id === manifestId);
@@ -149,9 +180,21 @@ export function HelmDock({
    * than none.
    */
   function openRecord(): void {
-    setRecord({ open: true });
+    setRecord({
+      open: true,
+    });
     void onReadRecord().then((read) =>
-      setRecord(read.ok ? { open: true, record: read.record } : { open: true, failed: whyRecord(read) }),
+      setRecord(
+        read.ok
+          ? {
+              open: true,
+              record: read.record,
+            }
+          : {
+              open: true,
+              failed: whyRecord(read),
+            },
+      ),
     );
   }
 
@@ -181,7 +224,11 @@ export function HelmDock({
 
   function send(sent: SentFromComposer): void {
     const text = sent.text.trim();
-    const carry: ThoughtCarry = { files: sent.files, tags: sent.tags, sketches: box?.drawn ?? [] };
+    const carry: ThoughtCarry = {
+      files: sent.files,
+      tags: sent.tags,
+      sketches: box?.drawn ?? [],
+    };
     const goesWith = carry.files.length + carry.tags.length + carry.sketches.length > 0;
     if (text === "" && !goesWith) return;
     // Sketches went with this message and do not wait for the next.
@@ -192,9 +239,24 @@ export function HelmDock({
     if (routing === undefined || text === "") return ask(text, carry, words);
     const id = (counted.current += 1);
     held.current.add(id);
-    setThoughts((was) => [...was, { id, text, carry, ...(words === undefined ? {} : { held: words }), stage: "routing" }]);
+    setThoughts((was) => [
+      ...was,
+      {
+        id,
+        text,
+        carry,
+        ...(words === undefined
+          ? {}
+          : {
+              held: words,
+            }),
+        stage: "routing",
+      },
+    ]);
     // A read that cannot be had is a question: the words go to Helm and are never lost.
-    const asQuestion = (): ThoughtReading => ({ kind: "question" });
+    const asQuestion = (): ThoughtReading => ({
+      kind: "question",
+    });
     void Promise.resolve()
       .then(() => routing.read(text))
       .catch(asQuestion)
@@ -205,7 +267,24 @@ export function HelmDock({
           leave(id);
           ask(text, carry, words);
         } else {
-          change(id, { id, text, carry, ...(words === undefined ? {} : { held: words }), ...(reading.match === undefined ? { stage: "new" as const } : { stage: "match" as const, match: reading.match }) });
+          change(id, {
+            id,
+            text,
+            carry,
+            ...(words === undefined
+              ? {}
+              : {
+                  held: words,
+                }),
+            ...(reading.match === undefined
+              ? {
+                  stage: "new" as const,
+                }
+              : {
+                  stage: "match" as const,
+                  match: reading.match,
+                }),
+          });
         }
       });
   }
@@ -238,7 +317,11 @@ export function HelmDock({
    * not: a refusal marks them Not sent, with a Retry, and leaves the card for another try, for N or for H.
    * Where they went is the thread's own row, drawn when Fleet's record of the delivery reaches `helm`.
    */
-  function place(one: Thought & { stage: "match" }): void {
+  function place(
+    one: Thought & {
+      stage: "match";
+    },
+  ): void {
     if (routing === undefined || delivering.current) return;
     delivering.current = true;
     const go = () => routing.send(one.match, one.text, one.carry);
@@ -285,7 +368,11 @@ export function HelmDock({
   }
 
   return (
-    <div className="armada-helm-dock" data-hosted={hosted === undefined ? undefined : ""} onKeyDownCapture={keyed}>
+    <div
+      className="armada-helm-dock"
+      data-hosted={hosted === undefined ? undefined : ""}
+      onKeyDownCapture={keyed}
+    >
       {hosted?.holds}
       {hosted === undefined ? (
         <HelmThread rows={[]} notice={notice} />
@@ -334,7 +421,11 @@ export function HelmDock({
         onSwitch={switchTo}
         onCopyRecord={current === undefined ? undefined : copyRecord}
         onOpenRecord={current === undefined ? undefined : openRecord}
-        {...(box === undefined ? {} : { box })}
+        {...(box === undefined
+          ? {}
+          : {
+              box,
+            })}
         onSend={send}
         disabled={!live || current === undefined}
       />
@@ -343,7 +434,11 @@ export function HelmDock({
         record={record.record}
         failed={record.failed}
         onCopied={onCopied}
-        onClose={() => setRecord({ open: false })}
+        onClose={() =>
+          setRecord({
+            open: false,
+          })
+        }
       />
     </div>
   );
@@ -351,7 +446,17 @@ export function HelmDock({
 
 /** A thought offered a new home, with its words and what went with them kept. */
 function restaged(one: Thought): Thought {
-  return { id: one.id, text: one.text, carry: one.carry, ...(one.held === undefined ? {} : { held: one.held }), stage: "new" };
+  return {
+    id: one.id,
+    text: one.text,
+    carry: one.carry,
+    ...(one.held === undefined
+      ? {}
+      : {
+          held: one.held,
+        }),
+    stage: "new",
+  };
 }
 
 /** Whether the message box holds anything: from then on a letter is a word and not an answer to the card. */
@@ -365,13 +470,24 @@ function onlyIfCarried(carry: ThoughtCarry): ThoughtCarry | undefined {
 }
 
 /** The record sheet's own state, held for as long as it is open and no longer. */
-type Read = { open: boolean; record?: HelmDebugInfo; failed?: string };
+type Read = {
+  open: boolean;
+  record?: HelmDebugInfo;
+  failed?: string;
+};
 
 /**
  * Why the record could not be read, in one sentence. **Fleet's own refusal
  * where it gave one**, and the connection's where the request never left.
  */
-function whyRecord(read: Extract<HelmDebugRead, { ok: false }>): string {
+function whyRecord(
+  read: Extract<
+    HelmDebugRead,
+    {
+      ok: false;
+    }
+  >,
+): string {
   const outcome = read.outcome;
   if (outcome.ok) return "The job could not be read.";
   if (outcome.why === "not_connected") return "Fleet is not connected, so the job cannot be read.";

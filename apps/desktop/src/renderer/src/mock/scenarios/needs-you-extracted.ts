@@ -18,7 +18,10 @@ const QUESTION = "Should the registry be read once at start, or on every Studio 
 const COMMAND = "pnpm vitest run packages/studios";
 const RUN = "Run the Studio tests with this command.";
 const APPROVE = "Approve #2714 and it lands.";
-const LATER = ["I will file the slow fixture load once this lands.", "The Studio icon tooltip is still owed."];
+const LATER = [
+  "I will file the slow fixture load once this lands.",
+  "The Studio icon tooltip is still owed.",
+];
 
 const REPLY = [
   "The registry is read in Studio start and the Studio tests pass.",
@@ -34,31 +37,103 @@ const REPLY = [
 const SESSION: Session = {
   id: "ne-1",
   title: "Read the Studio registry on start",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ENDED,
   standing: "replied",
   rows: [
-    { id: "ne-u", at: "14:02:00", kind: "message", from: { kind: "you" }, text: "Read the Studio registry when Studio starts." },
-    { id: "ne-a", at: "14:19:40", kind: "message", from: { kind: "agent" }, text: REPLY },
+    {
+      id: "ne-u",
+      at: "14:02:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Read the Studio registry when Studio starts.",
+    },
+    {
+      id: "ne-a",
+      at: "14:19:40",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: REPLY,
+    },
   ],
   attachments: [],
-  work: { proposal: { workflow: null } },
+  work: {
+    proposal: {
+      workflow: null,
+    },
+  },
   // The agent called waiting_for with the approval alone. The reply's own copy of it is folded into that item, so it is not listed twice.
   waitingFor: [
     // A question of the shape "X, or Y?" carries its alternatives as options, read from its own words.
-    { id: `replied:${ENDED}:0`, text: QUESTION, since: ENDED, source: "replied", act: { kind: "answer", target: "" }, options: [{ label: "Once at start" }, { label: "On every Studio open" }] },
-    { id: `replied:${ENDED}:1`, text: RUN, since: ENDED, source: "replied", act: { kind: "run", target: COMMAND } },
-    { id: "w-approve", text: APPROVE, since: ago(4), source: "agent", act: { kind: "approve_pr", target: "#2714" } },
+    {
+      id: `replied:${ENDED}:0`,
+      text: QUESTION,
+      since: ENDED,
+      source: "replied",
+      act: {
+        kind: "answer",
+        target: "",
+      },
+      options: [
+        {
+          label: "Once at start",
+        },
+        {
+          label: "On every Studio open",
+        },
+      ],
+    },
+    {
+      id: `replied:${ENDED}:1`,
+      text: RUN,
+      since: ENDED,
+      source: "replied",
+      act: {
+        kind: "run",
+        target: COMMAND,
+      },
+    },
+    {
+      id: "w-approve",
+      text: APPROVE,
+      since: ago(4),
+      source: "agent",
+      act: {
+        kind: "approve_pr",
+        target: "#2714",
+      },
+    },
   ],
-  later: LATER.map((text, at) => ({ id: `later-${at + 1}`, text, at: ENDED })),
+  later: LATER.map((text, at) => ({
+    id: `later-${at + 1}`,
+    text,
+    at: ENDED,
+  })),
 };
 
 function build(): Scenario {
-  const base = holding("needs-you-extracted", "A reply that closes with three asks and two follow-ups: three Needs you items, the approval shown once, and the follow-ups under Deferred in Delivery");
+  const base = holding(
+    "needs-you-extracted",
+    "A reply that closes with three asks and two follow-ups: three Needs you items, the approval shown once, and the follow-ups under Deferred in Delivery",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: repository().root },
-    draft: { sessions: () => sessionsStore([SESSION]) },
+    state: {
+      ...base.state,
+      repository: repository().root,
+    },
+    draft: {
+      sessions: () =>
+        sessionsStore([
+          SESSION,
+        ]),
+    },
   };
 }
 

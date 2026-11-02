@@ -6,8 +6,14 @@ import type { SetupApi } from "../api";
 
 /** The two refusals a route with no Fleet behind it gives, which the app's fake supplies. */
 export type SetupRoutes = {
-  refused: (route: string) => { ok: false; outcome: Outcome };
-  unread: (route: string) => { state: "failed"; outcome: Outcome };
+  refused: (route: string) => {
+    ok: false;
+    outcome: Outcome;
+  };
+  unread: (route: string) => {
+    state: "failed";
+    outcome: Outcome;
+  };
 };
 
 export const setupApi = ({ refused, unread }: SetupRoutes): SetupApi => ({

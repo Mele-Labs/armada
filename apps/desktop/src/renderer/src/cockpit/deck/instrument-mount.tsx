@@ -9,11 +9,27 @@ import { Contained, useTabModule } from "../../job-panes/tab-host";
 import { TAB_GLYPHS } from "../../job-panes/tab-glyph";
 import { TAB_UI } from "../../job-panes/tab-ui";
 import { keepBays, useBays } from "./ConsoleBays";
-import { faceRegistered, forgetMount, mountLoaded, renderThrew, seatsFollowing, slotOf, useInstruments, type InstrumentHost } from "./instrument-mods";
+import {
+  faceRegistered,
+  forgetMount,
+  mountLoaded,
+  renderThrew,
+  seatsFollowing,
+  slotOf,
+  useInstruments,
+  type InstrumentHost,
+} from "./instrument-mods";
 
 /** Says the fault out of the boundary's render, where nothing may be set. */
 function Threw({ name, load, why }: { name: string; load: number; why: string }) {
-  React.useEffect(() => renderThrew(name, load, why), [name, load, why]);
+  React.useEffect(
+    () => renderThrew(name, load, why),
+    [
+      name,
+      load,
+      why,
+    ],
+  );
   return null;
 }
 
@@ -22,9 +38,41 @@ function InstrumentMount({ name }: { name: string }) {
   const loaded = Component !== undefined;
   const refused = problems[0];
   // After the component's own effects, which is what lets a face registered at once stand through a reload.
-  React.useEffect(() => mountLoaded(name, { load, loaded, refused, off }), [name, load, loaded, refused, off]);
-  React.useEffect(() => () => forgetMount(name), [name]);
-  const host = React.useMemo<InstrumentHost>(() => ({ React, armada: window.armada, ui: TAB_UI, glyphs: TAB_GLYPHS, face: (paint, options) => faceRegistered(name, load, paint, options?.moves === true) }), [name, load]);
+  React.useEffect(
+    () =>
+      mountLoaded(name, {
+        load,
+        loaded,
+        refused,
+        off,
+      }),
+    [
+      name,
+      load,
+      loaded,
+      refused,
+      off,
+    ],
+  );
+  React.useEffect(
+    () => () => forgetMount(name),
+    [
+      name,
+    ],
+  );
+  const host = React.useMemo<InstrumentHost>(
+    () => ({
+      React,
+      armada: window.armada,
+      ui: TAB_UI,
+      glyphs: TAB_GLYPHS,
+      face: (paint, options) => faceRegistered(name, load, paint, options?.moves === true),
+    }),
+    [
+      name,
+      load,
+    ],
+  );
   if (Component === undefined) return null;
   return createPortal(
     <Contained key={load} fault={(why) => <Threw name={name} load={load} why={why} />}>
@@ -42,7 +90,10 @@ export function InstrumentMounts() {
   React.useEffect(() => {
     const next = seatsFollowing(seated, rows);
     if (next !== seated) keepBays(next);
-  }, [seated, rows]);
+  }, [
+    seated,
+    rows,
+  ]);
   const held = mods.filter((one) => seated.includes(one.seat));
   return (
     <>

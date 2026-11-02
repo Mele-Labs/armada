@@ -7,7 +7,7 @@ use std::future::Future;
 
 use ipc::{
     DeleteRequestEnvironment, RequestBy, RequestSaved, RequestSent, Requests as RequestsRead, SaveRequestCollection,
-    SaveRequestEnvironment, SaveRequestToCollection, SendRequest, SessionId,
+    RequestsSent, SaveRequestEnvironment, SaveRequestToCollection, SendRequest, SendRequests, SessionId,
 };
 
 use crate::daemon::Refusal;
@@ -24,6 +24,16 @@ pub trait Requests: Send + Sync + 'static {
         by: RequestBy,
         send: SendRequest,
     ) -> impl Future<Output = Result<RequestSent, Refusal>> + Send;
+
+    /// `send_requests` — one template sent for each body file and each value, with a few in
+    /// flight and a stop after a run of failures; one line each, never a body. `caller` places
+    /// the Job, which must have an open thread to hold the saved answers.
+    /// [`Refusal::Unacceptable`] for a batch that cannot be sent.
+    fn send_requests(
+        &self,
+        caller: Option<crate::Caller>,
+        send: SendRequests,
+    ) -> impl Future<Output = Result<RequestsSent, Refusal>> + Send;
 
     /// `get_requests` — both files for the repository `repository` names, or the Job `caller` or
     /// `session_id` places, and the Job's servers.

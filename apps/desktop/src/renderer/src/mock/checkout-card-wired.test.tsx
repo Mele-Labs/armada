@@ -19,31 +19,83 @@ const SAFE = "880 commits behind main";
 const LIGHT = `Main is green in armada, checkout ${SAFE}`;
 
 /** The walk's scenario as a real window has it: the same fleet, and no Sessions draft. */
-const wired = { ...s257CheckoutHeldBack, draft: { ...s257CheckoutHeldBack.draft, sessions: undefined } };
+const wired = {
+  ...s257CheckoutHeldBack,
+  draft: {
+    ...s257CheckoutHeldBack.draft,
+    sessions: undefined,
+  },
+};
 
 async function opened() {
   const app = mount(wired);
   await onScreen();
-  await page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: LIGHT }).click();
-  return { app, section: page.getByRole("dialog", { name: LIGHT }).getByRole("region", { name: "Your checkout" }) };
+  await page
+    .getByRole("region", {
+      name: "Merge queue",
+    })
+    .getByRole("button", {
+      name: LIGHT,
+    })
+    .click();
+  return {
+    app,
+    section: page
+      .getByRole("dialog", {
+        name: LIGHT,
+      })
+      .getByRole("region", {
+        name: "Your checkout",
+      }),
+  };
 }
 
-const opacityOf = (button: Element) => getComputedStyle(button.closest(".armada-prose__run-acts")!).opacity;
+const opacityOf = (button: Element) =>
+  getComputedStyle(button.closest(".armada-prose__run-acts")!).opacity;
 
 test("a window with no Sessions read yet still has Run on the card's command, and Copy and Run show without hover", async () => {
   const { section } = await opened();
-  const run = section.getByRole("button", { name: "Run" });
+  const run = section.getByRole("button", {
+    name: "Run",
+  });
   await expect.element(run).toBeVisible();
-  await expect.element(section.getByRole("button", { name: "Copy" })).toBeVisible();
+  await expect
+    .element(
+      section.getByRole("button", {
+        name: "Copy",
+      }),
+    )
+    .toBeVisible();
   expect(opacityOf(run.element())).toBe("1");
-  expect(opacityOf(section.getByRole("button", { name: "Copy" }).element())).toBe("1");
+  expect(
+    opacityOf(
+      section
+        .getByRole("button", {
+          name: "Copy",
+        })
+        .element(),
+    ),
+  ).toBe("1");
 });
 
 test("Run asks Fleet to catch the repository up by its Manifest alone, and sends no command", async () => {
   const { app, section } = await opened();
   const catchUp = vi.spyOn(app.api, "catchUpCheckout");
-  await section.getByRole("button", { name: "Run" }).click();
-  await expect.poll(() => section.getByRole("log", { name: "Output" }).element().textContent ?? "").not.toBe("");
+  await section
+    .getByRole("button", {
+      name: "Run",
+    })
+    .click();
+  await expect
+    .poll(
+      () =>
+        section
+          .getByRole("log", {
+            name: "Output",
+          })
+          .element().textContent ?? "",
+    )
+    .not.toBe("");
   await expect.poll(() => catchUp.mock.calls.length).toBe(1);
   expect(catchUp.mock.calls[0]).toHaveLength(1);
   expect(typeof catchUp.mock.calls[0]?.[0]).toBe("string");
@@ -51,8 +103,13 @@ test("Run asks Fleet to catch the repository up by its Manifest alone, and sends
 
 test("Pull request asks Fleet by the repository's Manifest alone, and waits for the hold to carry the pull request", async () => {
   const { app, section } = await opened();
-  const send = vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({ ok: true, value: {} });
-  const button = section.getByRole("button", { name: "Pull request" });
+  const send = vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({
+    ok: true,
+    value: {},
+  });
+  const button = section.getByRole("button", {
+    name: "Pull request",
+  });
   await userEvent.click(button);
   await expect.poll(() => send.mock.calls.length).toBe(1);
   expect(send.mock.calls[0]).toHaveLength(1);
@@ -67,34 +124,71 @@ function holdingTheSend() {
   let fleet: FleetHandle | undefined;
   const lines = s257CheckoutHeldBack.state.mergeLines!;
   const { sent } = checkoutHeld(lines, lines.lines[0]!.root);
-  const scenario = { ...wired, behaves: (handle: FleetHandle) => ((fleet = handle), wired.behaves?.(handle) ?? {}) };
-  return { scenario, carryThePullRequest: () => fleet!.publish(sent) };
+  const scenario = {
+    ...wired,
+    behaves: (handle: FleetHandle) => ((fleet = handle), wired.behaves?.(handle) ?? {}),
+  };
+  return {
+    scenario,
+    carryThePullRequest: () => fleet!.publish(sent),
+  };
 }
 
 /** Fleet's `act.failed`, heard by whatever listens when the test fires it. */
 function failures(app: { api: object }) {
   const heard = new Set<(failed: ActFailed) => void>();
-  vi.spyOn(app.api as { onActFailed: (on: (failed: ActFailed) => void) => () => void }, "onActFailed").mockImplementation((on) => {
+  vi.spyOn(
+    app.api as {
+      onActFailed: (on: (failed: ActFailed) => void) => () => void;
+    },
+    "onActFailed",
+  ).mockImplementation((on) => {
     heard.add(on);
     return () => heard.delete(on);
   });
-  return { fire: (failed: ActFailed) => heard.forEach((on) => on(failed)) };
+  return {
+    fire: (failed: ActFailed) => heard.forEach((on) => on(failed)),
+  };
 }
 
 const failedFor = (manifest_id: string): ActFailed => ({
   act: "checkout_to_pull_request",
   manifest_id,
-  error: { code: "fleet.push_refused", message: "The push was refused", run_id: "r", fields: {}, chain: [] },
+  error: {
+    code: "fleet.push_refused",
+    message: "The push was refused",
+    run_id: "r",
+    fields: {},
+    chain: [],
+  },
 });
 
 test("Pull request frees when the hold carries the pull request, and the chip takes its place", async () => {
   const held = holdingTheSend();
   const app = mount(held.scenario);
   await onScreen();
-  await page.getByRole("region", { name: "Merge queue" }).getByRole("button", { name: LIGHT }).click();
-  const section = page.getByRole("dialog", { name: LIGHT }).getByRole("region", { name: "Your checkout" });
-  vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({ ok: true, value: {} });
-  const button = section.getByRole("button", { name: "Pull request" });
+  await page
+    .getByRole("region", {
+      name: "Merge queue",
+    })
+    .getByRole("button", {
+      name: LIGHT,
+    })
+    .click();
+  const section = page
+    .getByRole("dialog", {
+      name: LIGHT,
+    })
+    .getByRole("region", {
+      name: "Your checkout",
+    });
+  vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({
+    ok: true,
+    value: {},
+  });
+  const button = section.getByRole("button", {
+    name: "Pull request",
+  });
   await userEvent.click(button);
   await expect.element(button).toHaveAttribute("aria-busy", "true");
   held.carryThePullRequest();
@@ -104,15 +198,23 @@ test("Pull request frees when the hold carries the pull request, and the chip ta
 
 test("a send that fails after Fleet's answer frees the button again, and another repository's failure does not", async () => {
   const { app, section } = await opened();
-  const send = vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({ ok: true, value: {} });
+  const send = vi.spyOn(app.api, "sendCheckoutAsPullRequest").mockResolvedValue({
+    ok: true,
+    value: {},
+  });
   const { fire } = failures(app);
-  const button = section.getByRole("button", { name: "Pull request" });
+  const button = section.getByRole("button", {
+    name: "Pull request",
+  });
   await userEvent.click(button);
   await expect.poll(() => send.mock.calls.length).toBe(1);
   const manifest = send.mock.calls[0]![0];
   await expect.element(button).toHaveAttribute("aria-busy", "true");
   fire(failedFor("some-other-manifest"));
-  fire({ ...failedFor(manifest), act: "commit_to_repository" });
+  fire({
+    ...failedFor(manifest),
+    act: "commit_to_repository",
+  });
   // A failure that was not this one's would free it on the next render; give it one.
   await new Promise((done) => setTimeout(done, 100));
   await expect.element(button).toHaveAttribute("aria-busy", "true");
@@ -128,10 +230,18 @@ test("a refused Pull request frees the button again", async () => {
     outcome: {
       ok: false,
       why: "refused",
-      error: { code: "fleet.checkout_not_catchable", message: "an uncommitted file also changed on `main`: armada.yml", run_id: "r", fields: {}, chain: [] },
+      error: {
+        code: "fleet.checkout_not_catchable",
+        message: "an uncommitted file also changed on `main`: armada.yml",
+        run_id: "r",
+        fields: {},
+        chain: [],
+      },
     },
   });
-  const button = section.getByRole("button", { name: "Pull request" });
+  const button = section.getByRole("button", {
+    name: "Pull request",
+  });
   await userEvent.click(button);
   await expect.poll(() => send.mock.calls.length).toBe(1);
   await expect.element(button).not.toHaveAttribute("aria-busy");
@@ -142,9 +252,13 @@ test("a path in Uncommitted opens the change Fleet reads for it, and a second pr
   const { app, section } = await opened();
   const read = vi.spyOn(app.api, "readCheckoutDiff").mockResolvedValue({
     ok: true,
-    value: { diff: "diff --git a/armada.yml b/armada.yml\n--- a/armada.yml\n+++ b/armada.yml\n@@ -1,1 +1,2 @@\n x: 1\n+auto_merge: checks-pass\n" },
+    value: {
+      diff: "diff --git a/armada.yml b/armada.yml\n--- a/armada.yml\n+++ b/armada.yml\n@@ -1,1 +1,2 @@\n x: 1\n+auto_merge: checks-pass\n",
+    },
   });
-  const path = section.getByRole("button", { name: "armada.yml" });
+  const path = section.getByRole("button", {
+    name: "armada.yml",
+  });
   await expect.element(path).toHaveAttribute("aria-expanded", "false");
   await userEvent.click(path);
   await expect.element(section.getByText("+auto_merge: checks-pass")).toBeVisible();
@@ -152,7 +266,9 @@ test("a path in Uncommitted opens the change Fleet reads for it, and a second pr
   // The change sits inside the card and the card inside the window.
   const card = section.element().closest("[role=dialog]")!.getBoundingClientRect();
   expect(card.bottom).toBeLessThanOrEqual(window.innerHeight);
-  expect(section.element().querySelector(".deck-checkout__diff")!.getBoundingClientRect().bottom).toBeLessThanOrEqual(card.bottom);
+  expect(
+    section.element().querySelector(".deck-checkout__diff")!.getBoundingClientRect().bottom,
+  ).toBeLessThanOrEqual(card.bottom);
   await userEvent.click(path);
   await expect.element(section.getByText("+auto_merge: checks-pass")).not.toBeInTheDocument();
   expect(read.mock.calls.length).toBeLessThanOrEqual(1);
@@ -162,8 +278,15 @@ test("a change Fleet cut is drawn with one line after it saying how much", async
   const { app, section } = await opened();
   vi.spyOn(app.api, "readCheckoutDiff").mockResolvedValue({
     ok: true,
-    value: { diff: "diff --git a/armada.yml b/armada.yml\n--- a/armada.yml\n+++ b/armada.yml\n@@ -1,1 +1,3 @@\n x: 1\n+y: 2\n+z: 3\n", cut: true },
+    value: {
+      diff: "diff --git a/armada.yml b/armada.yml\n--- a/armada.yml\n+++ b/armada.yml\n@@ -1,1 +1,3 @@\n x: 1\n+y: 2\n+z: 3\n",
+      cut: true,
+    },
   });
-  await userEvent.click(section.getByRole("button", { name: "armada.yml" }));
+  await userEvent.click(
+    section.getByRole("button", {
+      name: "armada.yml",
+    }),
+  );
   await expect.element(section.getByRole("note")).toHaveTextContent("First 4 lines");
 });

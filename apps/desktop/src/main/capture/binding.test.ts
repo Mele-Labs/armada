@@ -10,7 +10,15 @@ vi.mock("electron", () => ({}));
 const { isCaptureBinding } = await import("./window");
 
 const press = (code: string, over: Partial<Electron.Input> = {}): Electron.Input =>
-  ({ type: "keyDown", code, meta: true, alt: true, control: false, shift: false, ...over }) as Electron.Input;
+  ({
+    type: "keyDown",
+    code,
+    meta: true,
+    alt: true,
+    control: false,
+    shift: false,
+    ...over,
+  }) as Electron.Input;
 
 describe("the capture window's chords", () => {
   it("takes ⌥⌘C and ⌥⌘A", () => {
@@ -19,9 +27,27 @@ describe("the capture window's chords", () => {
   });
 
   it("leaves everything else to the page", () => {
-    expect(isCaptureBinding(press("KeyA", { shift: true }))).toBe(false);
-    expect(isCaptureBinding(press("KeyA", { alt: false }))).toBe(false);
+    expect(
+      isCaptureBinding(
+        press("KeyA", {
+          shift: true,
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isCaptureBinding(
+        press("KeyA", {
+          alt: false,
+        }),
+      ),
+    ).toBe(false);
     expect(isCaptureBinding(press("KeyB"))).toBe(false);
-    expect(isCaptureBinding(press("KeyA", { type: "keyUp" }))).toBe(false);
+    expect(
+      isCaptureBinding(
+        press("KeyA", {
+          type: "keyUp",
+        }),
+      ),
+    ).toBe(false);
   });
 });

@@ -14,13 +14,38 @@ test("Reply: a no-act item opens a box, keeps its draft, and a send answers it",
   await onScreen();
   await toSession(/Pin the store clock/);
 
-  const section = page.getByRole("region", { name: "Needs you" });
-  await userEvent.click(section.getByRole("button", { name: /^Needs you/ }));
-  await expect.element(section.getByRole("img", { name: "Reply", exact: true }).first()).toBeVisible();
-  const row = section.getByRole("button", { name: "Open Which date should the clock pin to?" });
+  const section = page.getByRole("region", {
+    name: "Needs you",
+  });
+  await userEvent.click(
+    section.getByRole("button", {
+      name: /^Needs you/,
+    }),
+  );
+  await expect
+    .element(
+      section
+        .getByRole("img", {
+          name: "Reply",
+          exact: true,
+        })
+        .first(),
+    )
+    .toBeVisible();
+  const row = section.getByRole("button", {
+    name: "Open Which date should the clock pin to?",
+  });
   await userEvent.click(row);
-  const box = section.getByRole("textbox", { name: /^Reply to Which date/ });
-  await expect.element(section.getByRole("button", { name: "Send" })).toBeDisabled();
+  const box = section.getByRole("textbox", {
+    name: /^Reply to Which date/,
+  });
+  await expect
+    .element(
+      section.getByRole("button", {
+        name: "Send",
+      }),
+    )
+    .toBeDisabled();
 
   await userEvent.type(box, "Pin it to the first of March");
   await userEvent.keyboard("{Escape}");
@@ -29,7 +54,16 @@ test("Reply: a no-act item opens a box, keeps its draft, and a send answers it",
   await expect.element(box).toHaveValue("Pin it to the first of March");
 
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: "Thread" }).getByText(/Pin it to the first of March/).first()).toBeVisible();
+  await expect
+    .element(
+      page
+        .getByRole("region", {
+          name: "Thread",
+        })
+        .getByText(/Pin it to the first of March/)
+        .first(),
+    )
+    .toBeVisible();
   await expect.element(row).not.toBeInTheDocument();
 });
 
@@ -38,12 +72,38 @@ test("Reply: an answer item with no choices and no question in the thread opens 
   await onScreen();
   await toSession(/Pin the store clock/);
 
-  const section = page.getByRole("region", { name: "Needs you" });
-  await userEvent.click(section.getByRole("button", { name: /^Needs you/ }));
-  const row = section.getByRole("button", { name: "Open Name the helper eventually, or settle?" });
+  const section = page.getByRole("region", {
+    name: "Needs you",
+  });
+  await userEvent.click(
+    section.getByRole("button", {
+      name: /^Needs you/,
+    }),
+  );
+  const row = section.getByRole("button", {
+    name: "Open Name the helper eventually, or settle?",
+  });
   await userEvent.click(row);
-  await userEvent.type(section.getByRole("textbox", { name: /^Reply to Name the helper/ }), "Call it settle");
+  await userEvent.type(
+    section.getByRole("textbox", {
+      name: /^Reply to Name the helper/,
+    }),
+    "Call it settle",
+  );
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: "Thread" }).getByRole("region", { name: "You answered" }).getByRole("img", { name: "Answered: Name the helper eventually, or settle?" })).toBeVisible();
+  await expect
+    .element(
+      page
+        .getByRole("region", {
+          name: "Thread",
+        })
+        .getByRole("region", {
+          name: "You answered",
+        })
+        .getByRole("img", {
+          name: "Answered: Name the helper eventually, or settle?",
+        }),
+    )
+    .toBeVisible();
   await expect.element(row).not.toBeInTheDocument();
 });

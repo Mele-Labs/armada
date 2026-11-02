@@ -18,18 +18,36 @@ const sessions: Session[] = [
   {
     id: "s15",
     title: "Header looks wrong",
-    turn: { state: "idle" },
+    turn: {
+      state: "idle",
+    },
     lastTurnAt: minutesAgo(1),
     rows: [
       {
         id: "r1",
         at: "14:39:50",
         kind: "message",
-        from: { kind: "you" },
+        from: {
+          kind: "you",
+        },
         text: "The header sits too low in this screenshot",
-        files: [{ id: "f1", name: "header-screenshot.png", src: PICTURE }],
+        files: [
+          {
+            id: "f1",
+            name: "header-screenshot.png",
+            src: PICTURE,
+          },
+        ],
       },
-      { id: "r2", at: "14:40:02", kind: "message", from: { kind: "agent" }, text: "Found it: the header has a stray margin." },
+      {
+        id: "r2",
+        at: "14:40:02",
+        kind: "message",
+        from: {
+          kind: "agent",
+        },
+        text: "Found it: the header has a stray margin.",
+      },
     ],
     attachments: [],
   },
@@ -39,5 +57,7 @@ export const s256EnlargeAPicture: Scenario = {
   ...s200Sessions,
   name: "enlarge-a-picture",
   says: "A Session whose person sent a picture, pressed to open it larger",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, sessions) },
+  draft: {
+    sessions: (board) => s200Sessions.draft!.sessions!(board, sessions),
+  },
 };

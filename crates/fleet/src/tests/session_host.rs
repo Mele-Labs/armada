@@ -129,7 +129,7 @@ pub(super) struct Rig {
 
 /// An `init` that lacks nothing, so a stand-in process is not restarted for what it never launched with.
 pub(super) fn whole() -> HarnessReading {
-    HarnessReading { name: String::from("stand-in"), update: String::from("stand-in"), version: String::from("stand-in"), mod_loaded: true, door_connected: true, task_tools: true }
+    HarnessReading { name: String::from("stand-in"), update: String::from("stand-in"), version: String::from("stand-in"), mod_loaded: true, door_connected: true, task_tools: true, door: String::from("connected"), tools: Vec::new(), skills: Vec::new() }
 }
 
 fn rig() -> Rig {
@@ -997,6 +997,24 @@ async fn asked_on(rig: &Rig, id: &SessionId) -> ipc::HelmCallInFlight {
     })
     .await;
     seen.into_inner().unwrap().unwrap()
+}
+
+/// `armada job` runs with no card, and the same line with a second command after it is still put
+/// to the person: the shortcut is for the one command and nothing the shell would do besides.
+#[tokio::test]
+async fn armada_job_runs_without_a_card_and_a_second_command_after_it_still_asks() {
+    let rig = rig();
+    let id = rig.start().await;
+
+    let alone = bash_call(&rig, &id, "armada job show_file path=~/Desktop/a.md");
+    let allowed = tokio::time::timeout(Duration::from_secs(5), alone).await.expect("no card held it").unwrap();
+    assert!(matches!(allowed.unwrap(), ipc::RunOrNot::Allow { .. }));
+    let held = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
+    assert!(held.is_none(), "nothing was put to the person: {held:?}");
+
+    let _chained = bash_call(&rig, &id, "armada job status; cp a ~/Desktop/b");
+    let card = asked_on(&rig, &id).await;
+    assert!(card.detail.contains("cp a"), "the whole line is what is asked about: {card:?}");
 }
 
 /// A write through `$HOME/x:$PATH` names `$HOME/x`, so its card offers the folder answers and not

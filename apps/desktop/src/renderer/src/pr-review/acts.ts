@@ -12,24 +12,51 @@ import { useReviewStore } from "./store";
 const textOf = (pr: ReviewPr, findings: readonly Finding[]): string =>
   findings.length === 1
     ? `Review finding on #${pr.number}, ${placeSaid(findings[0]!.at)}: ${findings[0]!.title}\n\n${findings[0]!.body}`
-    : [`Review findings on #${pr.number}`, ...findings.map((one) => `${placeSaid(one.at)}: ${one.title}\n${one.body}`)].join("\n\n");
+    : [
+        `Review findings on #${pr.number}`,
+        ...findings.map((one) => `${placeSaid(one.at)}: ${one.title}\n${one.body}`),
+      ].join("\n\n");
 
 /** Send findings to the Session that holds `pr`, and open it on the Cockpit. Absent where none of his Sessions does. */
-export function useSendFindings(pr: ReviewPr | undefined): ((findings: readonly Finding[]) => void) | undefined {
+export function useSendFindings(
+  pr: ReviewPr | undefined,
+): ((findings: readonly Finding[]) => void) | undefined {
   const draft = useSessionsDraft();
   const store = useReviewStore();
   const holder = pr?.holder;
   const send = useCallback(
     (findings: readonly Finding[]) => {
-      if (pr === undefined || holder === undefined || draft === undefined || store === undefined || findings.length === 0) return;
-      void Promise.resolve(draft.send(holder.id, { text: textOf(pr, findings), files: [], sketches: [], tags: [] })).then((went) => {
+      if (
+        pr === undefined ||
+        holder === undefined ||
+        draft === undefined ||
+        store === undefined ||
+        findings.length === 0
+      )
+        return;
+      void Promise.resolve(
+        draft.send(holder.id, {
+          text: textOf(pr, findings),
+          files: [],
+          sketches: [],
+          tags: [],
+        }),
+      ).then((went) => {
         if (went === false) return;
-        store.sent(pr.key, findings.map((one) => one.id));
+        store.sent(
+          pr.key,
+          findings.map((one) => one.id),
+        );
         // The Session is on the Cockpit, where the findings are read by the agent that holds the pull request.
         askToOpenSession(holder.id);
       });
     },
-    [pr, holder, draft, store],
+    [
+      pr,
+      holder,
+      draft,
+      store,
+    ],
   );
   return holder === undefined || draft === undefined ? undefined : send;
 }

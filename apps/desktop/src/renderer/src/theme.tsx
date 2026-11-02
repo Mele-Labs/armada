@@ -14,10 +14,20 @@ import type { ModsSource } from "@armada/settings";
 
 import { createThemeLoader, skipsMods } from "./theme-loader";
 
-type ThemedProps = { source: ModsSource; noMods?: boolean; children?: ReactNode };
+type ThemedProps = {
+  source: ModsSource;
+  noMods?: boolean;
+  children?: ReactNode;
+};
 
 export function Themed({ source, noMods = skipsMods(), children }: ThemedProps) {
-  const shown = useMemo(() => (noMods ? withoutMods(source) : source), [source, noMods]);
+  const shown = useMemo(
+    () => (noMods ? withoutMods(source) : source),
+    [
+      source,
+      noMods,
+    ],
+  );
 
   // Layout, not passive: Dark's or Light's theme is on the document before the first paint. A
   // catalogue theme or a mod's arrives a moment after, as its file is read or checked.
@@ -38,8 +48,15 @@ export function Themed({ source, noMods = skipsMods(), children }: ThemedProps) 
       };
       try {
         const { active, mods, catalogue } = shown.get();
-        const loads = (mods.find((one) => one.name === active && offered(one)) ?? catalogue.find((one) => one.id === active))?.load;
-        if (loads !== undefined) loads().then((css) => finish(active, css), (why) => (console.warn("theme not read", why), finish(active, null)));
+        const loads = (
+          mods.find((one) => one.name === active && offered(one)) ??
+          catalogue.find((one) => one.id === active)
+        )?.load;
+        if (loads !== undefined)
+          loads().then(
+            (css) => finish(active, css),
+            (why) => (console.warn("theme not read", why), finish(active, null)),
+          );
         else finish(active, null);
       } catch (why) {
         console.warn("theme source failed, using Dark", why);
@@ -53,7 +70,9 @@ export function Themed({ source, noMods = skipsMods(), children }: ThemedProps) 
       off();
       loader.clear();
     };
-  }, [shown]);
+  }, [
+    shown,
+  ]);
 
   return <ThemeSourceProvider value={shown}>{children}</ThemeSourceProvider>;
 }

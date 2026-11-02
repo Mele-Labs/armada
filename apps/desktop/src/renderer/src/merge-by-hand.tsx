@@ -11,7 +11,8 @@ import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { useRepositoryActs } from "./sessions-draft";
 
-const checksOf = (ci: string | undefined): "pending" | "passed" | "failed" => (ci === "passed" ? "passed" : ci === "failed" ? "failed" : "pending");
+const checksOf = (ci: string | undefined): "pending" | "passed" | "failed" =>
+  ci === "passed" ? "passed" : ci === "failed" ? "failed" : "pending";
 
 /** The act pressed that Fleet has not answered, and the press that sends one. */
 function useByHandAct(root: string, number: number) {
@@ -21,30 +22,74 @@ function useByHandAct(root: string, number: number) {
     setPending(what);
     void (act?.(root, number, what) ?? Promise.resolve(false)).finally(() => setPending(undefined));
   };
-  return { pending, press };
+  return {
+    pending,
+    press,
+  };
 }
 
 /** Sessions' own acts on one pull request: Merge once its checks have passed. */
 export function ByHandActs({ root, number, ci }: { root: string; number: number; ci?: string }) {
   const { pending, press } = useByHandAct(root, number);
-  return <PullRequestActs state="open" checks={checksOf(ci)} auto={false} {...(pending === undefined ? {} : { pending })} onAct={press} />;
+  return (
+    <PullRequestActs
+      state="open"
+      checks={checksOf(ci)}
+      auto={false}
+      {...(pending === undefined
+        ? {}
+        : {
+            pending,
+          })}
+      onAct={press}
+    />
+  );
 }
 
 /**
  * The pull request waiting for a person, where the merge line holds one: what the Manifest form draws under Save, and the panel
  * its number opens. The panel goes when the pull request does.
  */
-export function useMergeByHand(state: Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed">, onOpenLink: (address: string) => void) {
-  const view = viewsOf(state).find((one) => one.hub?.pulls.some((pull) => pull.mergeByHand === true));
+export function useMergeByHand(
+  state: Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed">,
+  onOpenLink: (address: string) => void,
+) {
+  const view = viewsOf(state).find((one) =>
+    one.hub?.pulls.some((pull) => pull.mergeByHand === true),
+  );
   const pull = view?.hub?.pulls.find((one) => one.mergeByHand === true);
-  const row = state.mergeLines?.lines.find((line) => line.root === view?.root)?.hub?.pull_requests?.find((one) => one.number === pull?.number);
+  const row = state.mergeLines?.lines
+    .find((line) => line.root === view?.root)
+    ?.hub?.pull_requests?.find((one) => one.number === pull?.number);
   const [open, setOpen] = useState(false);
   const { pending, press } = useByHandAct(view?.root ?? "", pull?.number ?? 0);
-  if (pull === undefined) return { mergeByHand: undefined, panel: null as ReactNode };
+  if (pull === undefined)
+    return {
+      mergeByHand: undefined,
+      panel: null as ReactNode,
+    };
   const checks = checksOf(pull.ci);
-  const panelChecks: PullRequestChecks = checks === "failed" ? { state: "failed", failing: [] } : { state: checks };
+  const panelChecks: PullRequestChecks =
+    checks === "failed"
+      ? {
+          state: "failed",
+          failing: [],
+        }
+      : {
+          state: checks,
+        };
   return {
-    mergeByHand: { number: pull.number, checks, ...(pending === undefined ? {} : { pending }), onOpen: () => setOpen(true), onAct: press },
+    mergeByHand: {
+      number: pull.number,
+      checks,
+      ...(pending === undefined
+        ? {}
+        : {
+            pending,
+          }),
+      onOpen: () => setOpen(true),
+      onAct: press,
+    },
     panel: open ? (
       <PullRequestPanel
         number={pull.number}
@@ -54,7 +99,11 @@ export function useMergeByHand(state: Pick<BridgeState, "mergeLines" | "reposito
         state="open"
         checks={panelChecks}
         auto={false}
-        {...(pending === undefined ? {} : { pending })}
+        {...(pending === undefined
+          ? {}
+          : {
+              pending,
+            })}
         onAct={press}
         onOpenLink={onOpenLink}
         onClose={() => setOpen(false)}

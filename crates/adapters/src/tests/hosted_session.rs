@@ -157,7 +157,7 @@ fn a_fork_that_has_run_resumes_itself_and_not_the_one_it_came_from() {
 fn every_process_of_a_fork_is_told_it_is_one() {
     for resuming in [false, true] {
         let args = rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
-        assert_eq!(appended(&args), format!("{}\n\n{NOTE}", rules()), "resuming: {resuming}");
+        assert_eq!(appended(&args), format!("{}\n\n{}\n\n{NOTE}", rules(), naming()), "resuming: {resuming}");
     }
 }
 
@@ -172,17 +172,37 @@ fn appended(args: &[String]) -> String {
     value_after(args, "--append-system-prompt").expect("appended")
 }
 
-/// Armada's rules ride every launch, plain, noted, forked or resuming, and are the whole of a
-/// plain one.
+/// What a Job is told of its own id: Fleet's words, so a Claude Code that passes the mod's prompt
+/// hooks over (an organization's) still has it.
+fn naming() -> String {
+    format!("Your Armada job id is {ID}. `armada job` passes it itself, and where an act takes a `session_id`, this is it.")
+}
+
+/// Armada's rules ride every launch, plain, noted, forked or resuming, and with the Job's id are
+/// the whole of a plain one.
 #[test]
 fn every_launch_carries_the_session_rules_once() {
     for resuming in [false, true] {
         let plain = rendered(&launching(resuming, SessionMode::Auto));
-        assert_eq!(appended(&plain), rules(), "resuming: {resuming}");
+        assert_eq!(appended(&plain), format!("{}\n\n{}", rules(), naming()), "resuming: {resuming}");
         let noted = rendered(&launching(resuming, SessionMode::Auto).noting("You are Helm."));
         assert_eq!(appended(&noted).matches(rules()).count(), 1, "resuming: {resuming}");
         let forked = rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
         assert_eq!(appended(&forked).matches(rules()).count(), 1, "resuming: {resuming}");
+    }
+}
+
+/// The id is Fleet's own start argument, so it is told once to every kind of launch and comes
+/// before a note, which adds to it.
+#[test]
+fn every_launch_tells_the_job_its_id_once_after_the_rules() {
+    for resuming in [false, true] {
+        let noted = appended(&rendered(&launching(resuming, SessionMode::Auto).noting("You are Helm.")));
+        assert_eq!(noted.matches(&naming()).count(), 1, "resuming: {resuming}");
+        let rules_end = noted.find(rules()).expect("the rules") + rules().len();
+        assert!(noted[rules_end..].starts_with(&format!("\n\n{}\n\nYou are Helm.", naming())), "resuming: {resuming}");
+        let forked = appended(&rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable")));
+        assert_eq!(forked.matches(&naming()).count(), 1, "resuming: {resuming}");
     }
 }
 
@@ -298,23 +318,19 @@ fn the_output_style_carries_the_rules_verbatim() {
     }
 }
 
-/// A CLI lists the task and armada tools by name only until they are loaded, so the rules hand the
-/// agent the one `ToolSearch` line that loads them. Without it an agent calls `waiting_for` blind.
+/// The rules teach `armada job` first: every act is one shell command, the list and the help are
+/// the CLI's own, `dispatch` is named, and the MCP tools are the stated alternative. The harness's
+/// task tools are not acts, so they keep the one `ToolSearch` line that loads them.
 #[test]
-fn the_rules_name_the_one_tool_search_line_that_loads_the_task_and_armada_tools() {
+fn the_rules_teach_armada_job_and_keep_the_one_line_that_loads_the_task_tools() {
     let tools = rules().split("\n\n").find(|block| block.starts_with("Tools.")).expect("a tools paragraph");
-    // The paragraph also names the bare `select:` prefix, for any other tool; only a line with tools after it loads some.
-    let loading = || tools.split('`').filter(|quoted| quoted.starts_with("select:") && quoted.len() > "select:".len());
-    let line = loading().next().expect("a select: line in backticks");
-    let door = format!("mcp__{}__waiting_for", ipc::door::SERVER);
-    for named in ["TaskCreate", "TaskUpdate", door.as_str()] {
-        assert!(line.split([':', ',']).any(|one| one == named), "{named} in {line}");
+    for named in ["`armada job <act>`", "`armada job`", "`armada job <act> --help`", "`armada job status`", "armada job dispatch repo=", "-` with the body on stdin"] {
+        assert!(tools.contains(named), "{named} in the tools paragraph");
     }
     let prefix = format!("mcp__{}__", ipc::door::SERVER);
-    for tool in line.trim_start_matches("select:").split(',').filter_map(|tool| tool.strip_prefix(prefix.as_str())) {
-        assert!(ipc::door::REACHABLE.iter().any(|row| row.operation == tool), "{tool} is a door tool");
-    }
-    assert_eq!(loading().count(), 1, "one line, not several calls");
+    assert!(tools.contains(&format!("`{prefix}<act>`")), "the MCP tools are named as the alternative");
+    let line = tools.split('`').find(|quoted| quoted.starts_with("select:")).expect("a select: line in backticks");
+    assert_eq!(line, "select:TaskCreate,TaskUpdate", "only the harness's own tools are loaded by search");
 }
 
 /// Helm's note is appended to every process of its Session after the rules, and a blank one is
@@ -324,10 +340,10 @@ fn helms_note_is_appended_to_every_process_of_its_session() {
     let note = "You are Helm, docked in Armada over repository armada.";
     for resuming in [false, true] {
         let args = rendered(&launching(resuming, SessionMode::Auto).noting(note));
-        assert_eq!(appended(&args), format!("{}\n\n{note}", rules()), "resuming: {resuming}");
+        assert_eq!(appended(&args), format!("{}\n\n{}\n\n{note}", rules(), naming()), "resuming: {resuming}");
     }
     let blank = rendered(&launching(false, SessionMode::Auto).noting("  \n "));
-    assert_eq!(appended(&blank), rules());
+    assert_eq!(appended(&blank), format!("{}\n\n{}", rules(), naming()));
 }
 
 /// A fork of a Session that has a note is told both, in one argument and not two, which the CLI
@@ -339,7 +355,7 @@ fn a_note_and_a_forks_note_are_one_appended_prompt() {
         .expect("portable")
         .noting("You are Helm.");
     let args = rendered(&launch);
-    assert_eq!(appended(&args), format!("{}\n\nYou are Helm.\n\n{NOTE}", rules()));
+    assert_eq!(appended(&args), format!("{}\n\n{}\n\nYou are Helm.\n\n{NOTE}", rules(), naming()));
 }
 
 #[test]

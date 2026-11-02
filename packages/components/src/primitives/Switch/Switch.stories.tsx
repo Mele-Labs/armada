@@ -36,7 +36,9 @@ export const On: Story = {
     </Card>
   ),
   play: async ({ canvas }) => {
-    const on = canvas.getByRole("switch", { name: "Escalate on stall" });
+    const on = canvas.getByRole("switch", {
+      name: "Escalate on stall",
+    });
     await expect(on).toBeChecked();
     await expect(on.closest("label")).not.toHaveAttribute("data-size");
     await expect(canvas.getByText("ON")).toBeInTheDocument();
@@ -60,13 +62,21 @@ export const Off: Story = {
 export const Words: Story = {
   render: () => (
     <Card>
-      <Switch words={{ on: "24H", off: "12H" }} defaultChecked>
+      <Switch
+        words={{
+          on: "24H",
+          off: "12H",
+        }}
+        defaultChecked
+      >
         24-hour clock
       </Switch>
     </Card>
   ),
   play: async ({ canvas, userEvent }) => {
-    const clock = canvas.getByRole("switch", { name: "24-hour clock" });
+    const clock = canvas.getByRole("switch", {
+      name: "24-hour clock",
+    });
     await expect(clock).toBeChecked();
     await expect(canvas.getByText("24H")).toBeInTheDocument();
     await expect(canvas.getByText("12H")).toBeInTheDocument();
@@ -86,7 +96,13 @@ export const Small: Story = {
     </Card>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("switch", { name: "Autopilot" }).closest("label")).toHaveAttribute("data-size", "sm");
+    await expect(
+      canvas
+        .getByRole("switch", {
+          name: "Autopilot",
+        })
+        .closest("label"),
+    ).toHaveAttribute("data-size", "sm");
   },
 };
 
@@ -100,12 +116,23 @@ export const Bare: Story = {
         <button type="button" onClick={onChange}>
           Open Dusk
         </button>
-        <SwitchControl label="Dusk" size="sm" words={{ on: "Y", off: "N" }} defaultChecked onChange={(event) => onChange(event.target.checked)} />
+        <SwitchControl
+          label="Dusk"
+          size="sm"
+          words={{
+            on: "Y",
+            off: "N",
+          }}
+          defaultChecked
+          onChange={(event) => onChange(event.target.checked)}
+        />
       </Card>
     );
   },
   play: async ({ canvas, userEvent }) => {
-    const control = canvas.getByRole("switch", { name: "Dusk" });
+    const control = canvas.getByRole("switch", {
+      name: "Dusk",
+    });
     await expect(control).toBeChecked();
     await expect(control.closest("label")).toHaveAttribute("data-size", "sm");
     await expect(control.closest("label")).toHaveAttribute("data-control", "");
@@ -147,7 +174,9 @@ export const Disabled: Story = {
    * surface had already said was not available.
    */
   play: async ({ canvas, userEvent }) => {
-    const on = canvas.getByRole("switch", { name: "Escalate on stall" });
+    const on = canvas.getByRole("switch", {
+      name: "Escalate on stall",
+    });
     await expect(on).toBeChecked();
 
     await userEvent.click(canvas.getByText("Escalate on stall"));

@@ -6,7 +6,13 @@ import { modelSaid } from "../SessionFrame/model-said";
  * until it is known, and nothing stands in for it. The context figure beside them is the Session's own
  * `ContextFigure`.
  */
-export function SubagentMarks({ type, model }: { type?: string | undefined; model?: string | undefined }) {
+export function SubagentMarks({
+  type,
+  model,
+}: {
+  type?: string | undefined;
+  model?: string | undefined;
+}) {
   if (type === undefined && model === undefined) return null;
   return (
     <span className="armada-subagent-marks">

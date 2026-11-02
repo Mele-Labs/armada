@@ -9,16 +9,30 @@ import type { Scenario } from "../moment";
 import { cleanTitle } from "@armada/screens/src/sessions-wire";
 import { s200Sessions } from "./sessions";
 
-const idle = { state: "idle" } as const;
+const idle = {
+  state: "idle",
+} as const;
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const pull = (number: number, checks: "passed" | "pending" | "failed", state: "open" | "merged" = "open"): SessionAttachment => ({
+const pull = (
+  number: number,
+  checks: "passed" | "pending" | "failed",
+  state: "open" | "merged" = "open",
+): SessionAttachment => ({
   kind: "pull_request",
   number,
   title: `Retire sleeps, part ${number - 1850}`,
   branch: `fix/retire-sleeps-${number - 1850}`,
   address: `https://example.com/pull/${number}`,
-  checks: checks === "failed" ? { state: "failed", failing: "store: 2 failed" } : { state: checks },
+  checks:
+    checks === "failed"
+      ? {
+          state: "failed",
+          failing: "store: 2 failed",
+        }
+      : {
+          state: checks,
+        },
   state,
   auto: false,
 });
@@ -31,26 +45,56 @@ const more: Session[] = [
     turn: idle,
     lastTurnAt: minutesAgo(31),
     rows: [],
-    attachments: [{ kind: "branch", name: "review/ledger-change", slot: 1 }],
+    attachments: [
+      {
+        kind: "branch",
+        name: "review/ledger-change",
+        slot: 1,
+      },
+    ],
   },
   {
     id: "s8",
     title: "Draft the migration notes",
-    turn: { state: "working" },
+    turn: {
+      state: "working",
+    },
     lastTurnAt: minutesAgo(1),
     rows: [],
-    attachments: [{ kind: "slot", slot: 4 }, pull(1870, "pending")],
+    attachments: [
+      {
+        kind: "slot",
+        slot: 4,
+      },
+      pull(1870, "pending"),
+    ],
   },
   {
     id: "s9",
     title: "Prune the stale branches",
     turn: idle,
-    asked: { command: "git push --force origin prune/stale" },
+    asked: {
+      command: "git push --force origin prune/stale",
+    },
     lastTurnAt: minutesAgo(12),
     rows: [],
-    attachments: [{ kind: "slot", slot: 6 }, pull(1871, "passed")],
+    attachments: [
+      {
+        kind: "slot",
+        slot: 6,
+      },
+      pull(1871, "passed"),
+    ],
   },
-  { id: "s10", terminal: true, title: "Scratch", turn: idle, blank: true, rows: [], attachments: [] },
+  {
+    id: "s10",
+    terminal: true,
+    title: "Scratch",
+    turn: idle,
+    blank: true,
+    rows: [],
+    attachments: [],
+  },
   {
     id: "s6",
     terminal: true,
@@ -59,8 +103,15 @@ const more: Session[] = [
     lastTurnAt: minutesAgo(3 * 24 * 60),
     rows: [],
     attachments: [
-      { kind: "slot", slot: 2 },
-      { kind: "branch", name: "fix/retire-sleeps-1", slot: 2 },
+      {
+        kind: "slot",
+        slot: 2,
+      },
+      {
+        kind: "branch",
+        name: "fix/retire-sleeps-1",
+        slot: 2,
+      },
       pull(1851, "passed", "merged"),
       pull(1852, "passed", "merged"),
       pull(1853, "passed", "merged"),
@@ -83,7 +134,13 @@ const more: Session[] = [
     turn: idle,
     lastTurnAt: minutesAgo(5 * 24 * 60),
     rows: [],
-    attachments: [{ kind: "branch", name: "spike/untitled", slot: 3 }],
+    attachments: [
+      {
+        kind: "branch",
+        name: "spike/untitled",
+        slot: 3,
+      },
+    ],
   },
 ];
 
@@ -91,5 +148,7 @@ export const s201SessionNames: Scenario = {
   ...s200Sessions,
   name: "session-names",
   says: "The Sessions list with the name over its ledger, and a Session renamed from its header",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, more) },
+  draft: {
+    sessions: (board) => s200Sessions.draft!.sessions!(board, more),
+  },
 };

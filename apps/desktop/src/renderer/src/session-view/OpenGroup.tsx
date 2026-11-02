@@ -15,16 +15,38 @@ export const useOpenGroupShown = (): boolean => useSetting(KEY) !== false;
 
 /** The group's panel with its hide menu, at the pointer on a right press. */
 export function OpenGroupMenu({ children }: { children: ReactNode }) {
-  const [at, setAt] = useState<{ x: number; y: number }>();
+  const [at, setAt] = useState<{
+    x: number;
+    y: number;
+  }>();
   return (
-    <div style={{ display: "contents" }} onContextMenu={(event) => (event.preventDefault(), event.stopPropagation(), setAt({ x: event.clientX, y: event.clientY }))}>
+    <div
+      style={{
+        display: "contents",
+      }}
+      onContextMenu={(event) => (
+        event.preventDefault(),
+        event.stopPropagation(),
+        setAt({
+          x: event.clientX,
+          y: event.clientY,
+        })
+      )}
+    >
       {children}
       {at === undefined ? null : (
         <DropdownMenu
           triggerLabel="Open group"
           at={at}
           open
-          entries={[{ kind: "item", id: "hide", label: "Hide Open group", icon: EyeOff }]}
+          entries={[
+            {
+              kind: "item",
+              id: "hide",
+              label: "Hide Open group",
+              icon: EyeOff,
+            },
+          ]}
           onOpenChange={(open) => open || setAt(undefined)}
           onSelect={() => void saveSetting(KEY, false)}
         />

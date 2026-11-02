@@ -16,9 +16,15 @@ export type PathPickerProps = {
 };
 
 /** Each folder `path` passes through, from the first below the root to the path itself. */
-export function foldersOf(path: string): { name: string; folder: string }[] {
+export function foldersOf(path: string): {
+  name: string;
+  folder: string;
+}[] {
   const parts = path.split("/").filter((part) => part.length > 0);
-  return parts.map((name, at) => ({ name, folder: `/${parts.slice(0, at + 1).join("/")}` }));
+  return parts.map((name, at) => ({
+    name,
+    folder: `/${parts.slice(0, at + 1).join("/")}`,
+  }));
 }
 
 export function PathPicker({ path, chosen, onChoose, label }: PathPickerProps) {

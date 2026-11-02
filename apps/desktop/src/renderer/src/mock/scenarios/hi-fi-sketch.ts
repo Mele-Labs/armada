@@ -10,8 +10,20 @@ import { s200Sessions } from "./sessions";
 const hifier: Session = {
   id: HIFIER,
   title: "One card sketches",
-  turn: { state: "idle" },
-  rows: [{ id: "h1", at: "14:44:10", kind: "message", from: { kind: "agent" }, text: "Ask me to draw a screen." }],
+  turn: {
+    state: "idle",
+  },
+  rows: [
+    {
+      id: "h1",
+      at: "14:44:10",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "Ask me to draw a screen.",
+    },
+  ],
   attachments: [],
 };
 
@@ -19,5 +31,10 @@ export const s343HiFiSketch: Scenario = {
   ...s200Sessions,
   name: "hi-fi-sketch",
   says: "A Session whose agent draws one card as hi-fi parts in the repository's own stylesheets",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [hifier]) },
+  draft: {
+    sessions: (board) =>
+      s200Sessions.draft!.sessions!(board, [
+        hifier,
+      ]),
+  },
 };

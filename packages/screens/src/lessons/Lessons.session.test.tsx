@@ -17,10 +17,20 @@ afterEach(unmount);
 
 const AT = "2026-10-02T22:05:00.000Z";
 
-const SESSION = { id: "s-01K6Q3", title: "Retire two guides" };
+const SESSION = {
+  id: "s-01K6Q3",
+  title: "Retire two guides",
+};
 
 function lesson(over: Partial<Lesson> & Pick<Lesson, "id" | "statement" | "who">): Lesson {
-  return { handle: "s-01K6Q3", session: SESSION, at: AT, evidence: [], state: "open", ...over };
+  return {
+    handle: "s-01K6Q3",
+    session: SESSION,
+    at: AT,
+    evidence: [],
+    state: "open",
+    ...over,
+  };
 }
 
 const ARMADA = lesson({
@@ -54,24 +64,61 @@ const MANIFEST = lesson({
 const BRIEF = "The gate blamed the Drone for Fleet's own mistake\n\nCompare against origin/main.";
 const started = (id: string): LessonSessionRead => ({
   ok: true,
-  started: { lesson: { ...ARMADA, id, state: "agreed", session_proposed: "s-01J8ZQ4M" }, session_id: "s-01J8ZQ4M", brief: BRIEF },
+  started: {
+    lesson: {
+      ...ARMADA,
+      id,
+      state: "agreed",
+      session_proposed: "s-01J8ZQ4M",
+    },
+    session_id: "s-01J8ZQ4M",
+    brief: BRIEF,
+  },
 });
 const refusal: Outcome = {
   ok: false,
   why: "refused",
-  error: { code: "fleet.lesson_armada_not_served", message: "This Fleet does not serve Armada.", run_id: "r", fields: {}, chain: [] },
+  error: {
+    code: "fleet.lesson_armada_not_served",
+    message: "This Fleet does not serve Armada.",
+    run_id: "r",
+    fields: {},
+    chain: [],
+  },
 };
 
-const card = (title: RegExp | string) => page.getByRole("listitem").filter({ hasText: title });
-const no = async () => ({ ok: false as const, outcome: { ok: false as const, why: "not_connected" as const } });
+const card = (title: RegExp | string) =>
+  page.getByRole("listitem").filter({
+    hasText: title,
+  });
+const no = async () => ({
+  ok: false as const,
+  outcome: {
+    ok: false as const,
+    why: "not_connected" as const,
+  },
+});
 
-function opened(items: Lesson[], start: (id: string) => Promise<LessonSessionRead> = async (id) => started(id)) {
+function opened(
+  items: Lesson[],
+  start: (id: string) => Promise<LessonSessionRead> = async (id) => started(id),
+) {
   const startSession = vi.fn(start);
   const openSession = vi.fn();
   mount(
     <Lessons
-      onReadLessons={async () => ({ ok: true, lessons: items })}
-      onReadRetro={async () => ({ ok: true, retro: { session: SESSION, state: "pending", record: {} } })}
+      onReadLessons={async () => ({
+        ok: true,
+        lessons: items,
+      })}
+      onReadRetro={async () => ({
+        ok: true,
+        retro: {
+          session: SESSION,
+          state: "pending",
+          record: {},
+        },
+      })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
       onStartSession={startSession}
@@ -80,28 +127,58 @@ function opened(items: Lesson[], start: (id: string) => Promise<LessonSessionRea
       floor={false}
     />,
   );
-  return { startSession, openSession };
+  return {
+    startSession,
+    openSession,
+  };
 }
 
 const buttonsOf = (title: RegExp) =>
   card(title)
-    .getByRole("button", { name: /^(Start Job|Accept|Update Kit|Reject change)$/ })
+    .getByRole("button", {
+      name: /^(Start Job|Accept|Update Kit|Reject change)$/,
+    })
     .elements()
     .map((one) => one.textContent);
 
 test("Start Job sits before Reject change on an Armada or Manifest item, and not on a Kit item", async () => {
-  opened([ARMADA, KIT, MANIFEST]);
+  opened([
+    ARMADA,
+    KIT,
+    MANIFEST,
+  ]);
   await expect.element(card(/every Rust test/)).toBeVisible();
-  expect(buttonsOf(/blamed the Drone/)).toEqual(["Start Job", "Reject change"]);
-  expect(buttonsOf(/every Rust test/)).toEqual(["Start Job", "Reject change"]);
-  expect(buttonsOf(/grep to be allowed/)).toEqual(["Accept", "Reject change"]);
+  expect(buttonsOf(/blamed the Drone/)).toEqual([
+    "Start Job",
+    "Reject change",
+  ]);
+  expect(buttonsOf(/every Rust test/)).toEqual([
+    "Start Job",
+    "Reject change",
+  ]);
+  expect(buttonsOf(/grep to be allowed/)).toEqual([
+    "Accept",
+    "Reject change",
+  ]);
 });
 
 test("the page offers no Start Job where the host gave it no Session to open", async () => {
   mount(
     <Lessons
-      onReadLessons={async () => ({ ok: true, lessons: [ARMADA] })}
-      onReadRetro={async () => ({ ok: true, retro: { session: SESSION, state: "pending", record: {} } })}
+      onReadLessons={async () => ({
+        ok: true,
+        lessons: [
+          ARMADA,
+        ],
+      })}
+      onReadRetro={async () => ({
+        ok: true,
+        retro: {
+          session: SESSION,
+          state: "pending",
+          record: {},
+        },
+      })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
       repository={null}
@@ -109,37 +186,95 @@ test("the page offers no Start Job where the host gave it no Session to open", a
     />,
   );
   await expect.element(card(/blamed the Drone/)).toBeVisible();
-  expect(page.getByRole("button", { name: "Start Job" }).elements()).toHaveLength(0);
+  expect(
+    page
+      .getByRole("button", {
+        name: "Start Job",
+      })
+      .elements(),
+  ).toHaveLength(0);
 });
 
 test("pressing it starts the Session, opens it, and leaves the card as Job started with a link", async () => {
-  const { startSession, openSession } = opened([ARMADA]);
-  await page.getByRole("button", { name: "Start Job" }).click();
+  const { startSession, openSession } = opened([
+    ARMADA,
+  ]);
+  await page
+    .getByRole("button", {
+      name: "Start Job",
+    })
+    .click();
   expect(startSession).toHaveBeenCalledWith("l-armada");
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M"));
   const one = card(/blamed the Drone/);
-  await expect.element(one.getByText("Job started", { exact: true })).toBeVisible();
+  await expect
+    .element(
+      one.getByText("Job started", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   expect(buttonsOf(/blamed the Drone/)).toEqual([]);
-  await one.getByRole("button", { name: "Open Job" }).click();
+  await one
+    .getByRole("button", {
+      name: "Open Job",
+    })
+    .click();
   expect(openSession).toHaveBeenLastCalledWith("s-01J8ZQ4M");
 });
 
 test("a refusal is the card's alert in Fleet's words, nothing opens, and both buttons stay", async () => {
-  const { openSession } = opened([ARMADA], async () => ({ ok: false, outcome: refusal }));
-  await page.getByRole("button", { name: "Start Job" }).click();
+  const { openSession } = opened(
+    [
+      ARMADA,
+    ],
+    async () => ({
+      ok: false,
+      outcome: refusal,
+    }),
+  );
+  await page
+    .getByRole("button", {
+      name: "Start Job",
+    })
+    .click();
   await expect.element(page.getByText("The answer was not taken")).toBeVisible();
   await expect.element(page.getByText("This Fleet does not serve Armada.")).toBeVisible();
   expect(openSession).not.toHaveBeenCalled();
-  expect(buttonsOf(/blamed the Drone/)).toEqual(["Start Job", "Reject change"]);
+  expect(buttonsOf(/blamed the Drone/)).toEqual([
+    "Start Job",
+    "Reject change",
+  ]);
 });
 
 test("while the Session is being started the other answer is held", async () => {
   let release: (read: LessonSessionRead) => void = () => {};
-  opened([ARMADA], () => new Promise<LessonSessionRead>((done) => (release = done)));
-  await page.getByRole("button", { name: "Start Job" }).click();
-  await expect.element(page.getByRole("button", { name: "Reject change" })).toBeDisabled();
+  opened(
+    [
+      ARMADA,
+    ],
+    () => new Promise<LessonSessionRead>((done) => (release = done)),
+  );
+  await page
+    .getByRole("button", {
+      name: "Start Job",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Reject change",
+      }),
+    )
+    .toBeDisabled();
   release(started("l-armada"));
-  await expect.element(page.getByText("Job started", { exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByText("Job started", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("an item Fleet lists as agreed by a Session reads Job started, and its link opens that Session", async () => {
@@ -165,20 +300,47 @@ test("an item Fleet lists as agreed by a Session reads Job started, and its link
   const openSession = vi.fn();
   mount(
     <SessionRetroSheet
-      subject={{ kind: "session", id: "s-01K6Q3" }}
+      subject={{
+        kind: "session",
+        id: "s-01K6Q3",
+      }}
       session="Retire two guides"
-      read={async () => ({ ok: true, retro })}
+      read={async () => ({
+        ok: true,
+        retro,
+      })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
-      sessions={{ start: async (id) => started(id), open: openSession }}
+      sessions={{
+        start: async (id) => started(id),
+        open: openSession,
+      }}
       floor={false}
       onClose={() => {}}
     />,
   );
-  const sheet = page.getByRole("dialog", { name: "Retro" });
-  await expect.element(sheet.getByText("Job started", { exact: true })).toBeVisible();
-  expect(sheet.getByRole("button", { name: "Start Job" }).elements()).toHaveLength(0);
-  await sheet.getByRole("button", { name: "Open Job" }).click();
+  const sheet = page.getByRole("dialog", {
+    name: "Retro",
+  });
+  await expect
+    .element(
+      sheet.getByText("Job started", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  expect(
+    sheet
+      .getByRole("button", {
+        name: "Start Job",
+      })
+      .elements(),
+  ).toHaveLength(0);
+  await sheet
+    .getByRole("button", {
+      name: "Open Job",
+    })
+    .click();
   expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M");
 });
 
@@ -187,23 +349,50 @@ test("the retro sheet offers Start Job on an open Armada item and starts it", as
     session: SESSION,
     state: "written",
     record: {},
-    items: [{ id: "l-armada", who: "fleet", lands_in: "armada", statement: "s", title: "Open one", what: "w", fix: "f", evidence: [], state: "open" }],
+    items: [
+      {
+        id: "l-armada",
+        who: "fleet",
+        lands_in: "armada",
+        statement: "s",
+        title: "Open one",
+        what: "w",
+        fix: "f",
+        evidence: [],
+        state: "open",
+      },
+    ],
   };
   const openSession = vi.fn();
   mount(
     <SessionRetroSheet
-      subject={{ kind: "session", id: "s-01K6Q3" }}
+      subject={{
+        kind: "session",
+        id: "s-01K6Q3",
+      }}
       session="Retire two guides"
-      read={async () => ({ ok: true, retro })}
+      read={async () => ({
+        ok: true,
+        retro,
+      })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
-      sessions={{ start: async (id) => started(id), open: openSession }}
+      sessions={{
+        start: async (id) => started(id),
+        open: openSession,
+      }}
       floor={false}
       onClose={() => {}}
     />,
   );
-  const sheet = page.getByRole("dialog", { name: "Retro" });
-  await sheet.getByRole("button", { name: "Start Job" }).click();
+  const sheet = page.getByRole("dialog", {
+    name: "Retro",
+  });
+  await sheet
+    .getByRole("button", {
+      name: "Start Job",
+    })
+    .click();
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M"));
 });
 
@@ -212,8 +401,21 @@ test("in the review a started Session advances like any answer", async () => {
   const openSession = vi.fn();
   mount(
     <Lessons
-      onReadLessons={async () => ({ ok: true, lessons: [ARMADA, MANIFEST] })}
-      onReadRetro={async () => ({ ok: true, retro: { session: SESSION, state: "pending", record: {} } })}
+      onReadLessons={async () => ({
+        ok: true,
+        lessons: [
+          ARMADA,
+          MANIFEST,
+        ],
+      })}
+      onReadRetro={async () => ({
+        ok: true,
+        retro: {
+          session: SESSION,
+          state: "pending",
+          record: {},
+        },
+      })}
       onAgreeLesson={no}
       onDisagreeLesson={no}
       onStartSession={startSession}
@@ -223,41 +425,106 @@ test("in the review a started Session advances like any answer", async () => {
         review: {
           model: "sonnet",
           entries: [
-            { lesson_id: "l-armada", merged_ids: [], reason: "First." },
-            { lesson_id: "l-manifest", merged_ids: [], reason: "Second." },
+            {
+              lesson_id: "l-armada",
+              merged_ids: [],
+              reason: "First.",
+            },
+            {
+              lesson_id: "l-manifest",
+              merged_ids: [],
+              reason: "Second.",
+            },
           ],
           set_aside: [],
         },
       })}
-      onAskLesson={async () => ({ ok: true, answer: { answer: "x" } })}
+      onAskLesson={async () => ({
+        ok: true,
+        answer: {
+          answer: "x",
+        },
+      })}
       repository={null}
       floor={false}
     />,
   );
-  await page.getByRole("button", { name: "Review", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Review",
+      exact: true,
+    })
+    .click();
   await expect.element(page.getByText("1 of 2")).toBeVisible();
-  await page.getByRole("button", { name: "Start Job" }).click();
+  await page
+    .getByRole("button", {
+      name: "Start Job",
+    })
+    .click();
   expect(startSession).toHaveBeenCalledWith("l-armada");
   await expect.element(page.getByText("2 of 2")).toBeVisible();
-  await expect.element(page.getByRole("heading", { name: /set off every Rust test/ })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("heading", {
+        name: /set off every Rust test/,
+      }),
+    )
+    .toBeVisible();
   expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M");
 });
 
 test("a Session that started but whose brief did not go is opened, and the card says why in Fleet's words", async () => {
-  const { openSession } = opened([ARMADA], async (id) => {
-    const ok = started(id);
-    return ok.ok ? { ok: true, started: { ...ok.started, send_failed: "The agent could not be reached." } } : ok;
-  });
-  await page.getByRole("button", { name: "Start Job" }).click();
+  const { openSession } = opened(
+    [
+      ARMADA,
+    ],
+    async (id) => {
+      const ok = started(id);
+      return ok.ok
+        ? {
+            ok: true,
+            started: {
+              ...ok.started,
+              send_failed: "The agent could not be reached.",
+            },
+          }
+        : ok;
+    },
+  );
+  await page
+    .getByRole("button", {
+      name: "Start Job",
+    })
+    .click();
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M"));
-  await expect.element(page.getByText("The Job started, but the request was not sent")).toBeVisible();
+  await expect
+    .element(page.getByText("The Job started, but the request was not sent"))
+    .toBeVisible();
   await expect.element(page.getByText("The agent could not be reached.")).toBeVisible();
-  await expect.element(page.getByText("Job started", { exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByText("Job started", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("the button says plainly that it begins work now", async () => {
-  opened([ARMADA]);
-  await expect.element(page.getByRole("button", { name: "Start Job" })).toBeVisible();
-  await page.getByRole("button", { name: "Start Job" }).hover();
+  opened([
+    ARMADA,
+  ]);
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Start Job",
+      }),
+    )
+    .toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Start Job",
+    })
+    .hover();
   await expect.element(page.getByText(/begins work at once/)).toBeVisible();
 });

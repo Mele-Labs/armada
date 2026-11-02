@@ -23,6 +23,7 @@ import type { Engine, Register, ToolCallResult } from 'claude-code'
 
 import {
   answersIn,
+  apiErrorIn,
   artifactOf,
   usedFact,
   customTitleIn,
@@ -75,6 +76,7 @@ import {
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, OutsideBrowser, RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, Report, Task } from './fleet'
+import { isOneArmadaJob, waitingItemsOfJob } from './jobcommand'
 import { turnedAway, wholeRead, WHOLE_READ_MOST } from './reading'
 
 const HARNESS = 'claude_code'
@@ -89,7 +91,13 @@ const ASK_EVERY_MS = 2000
 const HELD_WAIT_MS = 25_000
 const HELD_FETCH_MS = 35_000
 const SILENT_MS = 30_000
+const UNSENT_MOST = 200
 const DOCS_ACTS = ['create', 'batch', 'update']
+// How long a turn that died on an API error is given to write the failure into the transcript, and how often it is looked at.
+const FAILURE_READS = 3
+const FAILURE_WAIT_MS = 500
+// Turns that ended with no settings hook heard, before the mod says its hooks are not being run.
+const QUIET_TURNS = 2
 
 type Dollar = Door & Pick<Engine, 'command' | 'process' | 'prompt' | 'session'>
 
@@ -120,6 +128,8 @@ type Known = {
   calls: number
   /** Whether the session was reminded of the Job browser, which is done once. */
   reminded: boolean
+  /** What Fleet was told when the settings hooks were not run for this session, which is told once. */
+  skipped?: Fact
 }
 
 /** What the Loadout is made from, the list Fleet last heard, and when the turn its uses go under began. */
@@ -140,6 +150,15 @@ type Tuning = Extract<Fact, { kind: 'tuned' }>
 type Reading = { tokens?: number; window?: number; usd?: number; limits: RateLimit[]; changed: string[] }
 
 const known = new Map<string, Known>()
+/**
+ * Whether any of this mod's settings (`classic.*`) hooks has run since it loaded. **Where Claude Code
+ * passes them over (an organization's, `cc-plugin-sec-default`), none ever does**, and what they
+ * report is read from the events that still run, by the fallbacks that ask this. Where they run, they
+ * stay the source and the fallbacks stay quiet.
+ */
+let classicHeard = false
+/** Main-thread turns that ended with no settings hook heard. */
+let quietTurns = 0
 let measuredAt = Number.NEGATIVE_INFINITY
 /** The newest reading the throttle held back, told when its ten seconds are up. */
 let measureHeld: Reading | undefined
@@ -169,16 +188,28 @@ function everything(): Report[] {
     ]),
     ...(one.tasks.length === 0 ? [] : [told(id, { kind: 'tasks', tasks: one.tasks })]),
     ...one.prompts.slice(0, 1).map(open => told(id, promptFact(open))),
+    ...(one.skipped === undefined ? [] : [told(id, one.skipped)]),
     ...(one.loadout.told === undefined ? [] : [told(id, { kind: 'equipped', loadout: { items: one.loadout.told } })]),
   ])
 }
 
-// What was dropped while Fleet was out of reach is not replayed, so what the
-// sessions hold is told again from `everything` when it answers.
+// While Fleet is out of reach what the sessions hold is told again from `everything` when it
+// answers, and what happened meanwhile waits in `unsent` and goes out behind it, in order.
 let queue: Promise<void> = Promise.resolve()
 let silentUntil = 0
 let wasOut = false
+/** The reports owed to Fleet, oldest first. Past `UNSENT_MOST` the oldest are dropped. */
+let unsent: Report[] = []
 
+
+/** What the session's `waiting_for` call set, as the Stop hook reads it. */
+async function listSet($: Dollar, items: WaitingItem[] | undefined): Promise<void> {
+  const one = known.get(await $.session.id())
+  if (items === undefined || one === undefined) return
+  one.waiting = items
+  one.sawWaiting = true
+  one.turn.setWaiting = true
+}
 
 async function portOf($: Door): Promise<number | undefined> {
   const home = await $.env.get('HOME')
@@ -207,16 +238,27 @@ async function post($: Door, report: Report): Promise<boolean> {
   return true
 }
 
+function owe(reports: Report[]): void {
+  unsent = [...unsent, ...reports].slice(-UNSENT_MOST)
+}
+
 async function deliver($: Door, report: Report): Promise<void> {
   const now = await $.clock.now()
-  if (now < silentUntil) return
+  if (now < silentUntil) return owe([report])
+  // What was held is taken now, so a report that arrives while these go out is owed behind them.
+  const state = wasOut ? everything() : []
+  const reports = [...state, ...unsent, report]
+  unsent = []
+  let sent = 0
   try {
-    const reports = wasOut ? [...everything(), report] : [report]
     for (const one of reports) {
       if (!(await post($, one))) throw new Error('out of reach')
+      sent += 1
     }
     wasOut = false
   } catch {
+    // The state is retold from `everything` next time, so only what happened since is kept.
+    unsent = [...reports.slice(Math.max(sent, state.length)), ...unsent].slice(-UNSENT_MOST)
     silentUntil = now + SILENT_MS
     wasOut = true
   }
@@ -503,7 +545,7 @@ const SHOW_SKETCH = "To show the owner a diagram, a flow, an architecture or a l
 const SHOW_FILE = "To put a file in front of the owner to read or edit, call show_file with its path, passing session_id; it opens in Bridge's side panel.";
 
 function idNote(id: string): string {
-  return `Your Armada job id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. To walk him through a page step by step, pass steps, a list of {say, plus one verb: press, look, hover, later, paste, type with into, key with on, select with in, or drag with by} aimed at {role, name}: Bridge rings each target and acts on it when he presses Next. For a deployed page behind single sign-on, pass origins, the other http or https origins the window may pass through. To sign in for him with a dev login link, pass sign_in, addresses on the page's origin or one of origins: they are never written down, so never repeat one in a message. Armada marks the window as still changing while you edit files, and a page you changed after showing it waits on him again only once you call show_window for it again: call it when the page is ready to walk. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} runs the command in a terminal on his card, where he can answer a prompt, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. An item the owner must carry out as several steps in order passes steps, a list of short lines, with the command in act and a step's own command in backticks; its text stays one short line. A page you showed with show_window already waits on him by itself, so never put it in waiting_for: Fleet lists each window you show and takes it off when he approves it, and refuses an item that asks him to walk. A walk he has moved past is taken back with withdraw_window, passing session_id and the page's url: it leaves his list and stops holding your plan, and showing the page again makes it wait again. A sketch he has moved past is taken back the same way with withdraw_sketch, passing session_id and the title. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. A pull request in the merge queue or with auto-merge on is not done: the work ends when it is merged into main, so while one of yours is open do not call finish_up or all_done, and end your turn; Fleet watches it and tells you when it merges, fails or conflicts. The merge is not the owner's to do, so never put a wait on it in waiting_for: Fleet takes such an item off Needs you. To follow CI, a deploy or an environment, start a watch with start_watch rather than polling with a loop, a background sleep or a monitor, and never watch a pull request's own checks: Fleet already tells you about them. list_watch_recipes names the recipes there are, two of them shipped with Armada. Try a command once with try_watch before you start it: it runs in your folder with your login shell's environment, as the watch will, and names your scratch folder, where you may write a script, chmod it and run it. Keep a script worth reusing with save_watch_recipe. To wait for text in your terminal, start a watch with in_terminal. If a watch tool is not in your list, load it with ToolSearch: select:mcp__armada-fleet__start_watch,mcp__armada-fleet__try_watch,mcp__armada-fleet__list_watch_recipes,mcp__armada-fleet__save_watch_recipe,mcp__armada-fleet__weigh_watch,mcp__armada-fleet__stop_watch,mcp__armada-fleet__delete_watch,mcp__armada-fleet__list_watches. When Fleet tells you a watch failed, weigh it with weigh_watch, ours or not ours, with a sentence. Before you weigh a part not ours, gather the links to what you watched, the logs, saved in your scratch folder, and the exact error lines, and pass them as evidence: links, logs and errors. Delete an ended watch you no longer need with delete_watch; stop a live one first. A live watch is a wait like an open pull request: do not call finish_up or all_done while one runs, never put it in waiting_for, and end your turn; Fleet tells you when it ends. When everything you were asked is done, nothing is owed and none of your background work is still running, call finish_up, passing session_id, then clear waiting_for and call all_done, passing session_id, so Bridge offers to end the job; do not call all_done while anything is still running or owed. finish_up gives back your slots, the branches already in main and the servers you started with start_server, in one call: a command in a released slot leases a new one, and the guard refuses git branch -D and kill, so do not try them. Read what it kept and say it. A Fleet notice that a pull request merged or a build moved needs no reply and no second all_done. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. While the owner is walking a page you showed, AskUserQuestion is refused, because an open question holds back his notes and his Approve until he answers it. Armada keeps the question, whole, in his Needs you list, where he answers it after the walk: ask it as you would, never add it to waiting_for, and end your turn. Ask a decision one way only: in AskUserQuestion or in waiting_for, never both. Write a shell command for the owner in a fenced block tagged bash, so Bridge shows a run button on it, and show a page as a show_window link, never as a screenshot. ${ASK_IN_WINDOW} ${PROPOSE_DRAFT} ${SHOW_SKETCH} ${SHOW_FILE}`
+  return `Your Armada job id is ${id}. Everything you do with your Job is \`armada job <act>\` run from Bash, which passes your job id itself: \`armada job\` lists the acts and \`armada job <act> --help\` says what one takes. The same acts are MCP tools. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. To walk him through a page step by step, pass steps, a list of {say, plus one verb: press, look, hover, later, paste, type with into, key with on, select with in, or drag with by} aimed at {role, name}: Bridge rings each target and acts on it when he presses Next. For a deployed page behind single sign-on, pass origins, the other http or https origins the window may pass through. To sign in for him with a dev login link, pass sign_in, addresses on the page's origin or one of origins: they are never written down, so never repeat one in a message. Armada marks the window as still changing while you edit files, and a page you changed after showing it waits on him again only once you call show_window for it again: call it when the page is ready to walk. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} runs the command in a terminal on his card, where he can answer a prompt, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. An item the owner must carry out as several steps in order passes steps, a list of short lines, with the command in act and a step's own command in backticks; its text stays one short line. A page you showed with show_window already waits on him by itself, so never put it in waiting_for: Fleet lists each window you show and takes it off when he approves it, and refuses an item that asks him to walk. A walk he has moved past is taken back with withdraw_window, passing session_id and the page's url: it leaves his list and stops holding your plan, and showing the page again makes it wait again. A sketch he has moved past is taken back the same way with withdraw_sketch, passing session_id and the title. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. A pull request in the merge queue or with auto-merge on is not done: the work ends when it is merged into main, so while one of yours is open do not call finish_up or all_done, and end your turn; Fleet watches it and tells you when it merges, fails or conflicts. The merge is not the owner's to do, so never put a wait on it in waiting_for: Fleet takes such an item off Needs you. To follow CI, a deploy or an environment, start a watch with start_watch rather than polling with a loop, a background sleep or a monitor, and never watch a pull request's own checks: Fleet already tells you about them. list_watch_recipes names the recipes there are, two of them shipped with Armada. Try a command once with try_watch before you start it: it runs in your folder with your login shell's environment, as the watch will, and names your scratch folder, where you may write a script, chmod it and run it. Keep a script worth reusing with save_watch_recipe. To wait for text in your terminal, start a watch with in_terminal. If a watch tool is not in your list, load it with ToolSearch: select:mcp__armada-fleet__start_watch,mcp__armada-fleet__try_watch,mcp__armada-fleet__list_watch_recipes,mcp__armada-fleet__save_watch_recipe,mcp__armada-fleet__weigh_watch,mcp__armada-fleet__stop_watch,mcp__armada-fleet__delete_watch,mcp__armada-fleet__list_watches. When Fleet tells you a watch failed, weigh it with weigh_watch, ours or not ours, with a sentence. Before you weigh a part not ours, gather the links to what you watched, the logs, saved in your scratch folder, and the exact error lines, and pass them as evidence: links, logs and errors. Delete an ended watch you no longer need with delete_watch; stop a live one first. A live watch is a wait like an open pull request: do not call finish_up or all_done while one runs, never put it in waiting_for, and end your turn; Fleet tells you when it ends. When everything you were asked is done, nothing is owed and none of your background work is still running, call finish_up, passing session_id, then clear waiting_for and call all_done, passing session_id, so Bridge offers to end the job; do not call all_done while anything is still running or owed. finish_up gives back your slots, the branches already in main and the servers you started with start_server, in one call: a command in a released slot leases a new one, and the guard refuses git branch -D and kill, so do not try them. Read what it kept and say it. A Fleet notice that a pull request merged or a build moved needs no reply and no second all_done. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. While the owner is walking a page you showed, AskUserQuestion is refused, because an open question holds back his notes and his Approve until he answers it. Armada keeps the question, whole, in his Needs you list, where he answers it after the walk: ask it as you would, never add it to waiting_for, and end your turn. Ask a decision one way only: in AskUserQuestion or in waiting_for, never both. Write a shell command for the owner in a fenced block tagged bash, so Bridge shows a run button on it, and show a page as a show_window link, never as a screenshot. ${ASK_IN_WINDOW} ${PROPOSE_DRAFT} ${SHOW_SKETCH} ${SHOW_FILE}`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -623,6 +665,56 @@ async function seen($: Dollar, mode: string | undefined, effort: unknown): Promi
   } catch {
     // What the terminal runs on is a nicety: nothing here is worth a session's turn.
   }
+}
+
+/**
+ * A main-thread turn ended with no settings hook heard in this load. After `QUIET_TURNS` of them
+ * Fleet is told once, as an attachment of kind `hooks_skipped` (**told, never asked of the agent**).
+ * Bridge draws no row for the kind; the Job's record keeps it for the debug report to name.
+ */
+async function quiet($: Dollar): Promise<void> {
+  quietTurns += 1
+  if (quietTurns < QUIET_TURNS) return
+  const [id, one] = await current($)
+  if (one.skipped !== undefined) return
+  one.skipped = hooksSkipped(quietTurns)
+  say($, id, one.skipped)
+}
+
+function hooksSkipped(turns: number): Fact {
+  return { kind: 'attached', attachment: { kind: 'hooks_skipped', target: 'classic', detail: { turns: String(turns) } } }
+}
+
+/**
+ * What a turn that died on an API error died of, for where `StopFailure` is not run: the failure is the
+ * transcript's last assistant line, which is given a moment to be written.
+ */
+async function failedOn($: Dollar, id: string, cwd: string): Promise<string | undefined> {
+  const home = await $.env.get('HOME')
+  if (!home) return undefined
+  const dirs = [...new Set([cwd, await $.session.cwd(), await $.session.root()])]
+  for (let tried = 0; tried < FAILURE_READS; tried += 1) {
+    let read = false
+    for (const dir of dirs) {
+      const text = await $.fs.read(transcriptPath(home, dir, id)).catch(() => undefined)
+      if (typeof text !== 'string') continue
+      read = true
+      const kind = apiErrorIn(text)
+      if (kind !== undefined) return kind
+      break
+    }
+    if (!read) return undefined
+    await $.clock.sleep(FAILURE_WAIT_MS)
+  }
+  return undefined
+}
+
+async function failed($: Dollar): Promise<void> {
+  if (await $.env.get('ARMADA_DRONE')) return
+  const [id, one] = await current($)
+  const kind = await failedOn($, id, one.cwd)
+  if (kind === 'rate_limit') await limited($)
+  if (kind === 'authentication_failed') say($, id, { kind: 'signed_out' })
 }
 
 /** The session's id, starting it first where it began without a `session.start`. */
@@ -957,9 +1049,21 @@ function promptFact(open: Prompt): Fact {
  */
 async function promptOpened($: Dollar, tool: string, input: unknown): Promise<void> {
   const [id, one] = await current($)
+  // Told once however it was heard: the settings hook and the engine's verdict can both say it.
+  const calls = underway.get(callKey(tool, (input ?? {}) as Record<string, unknown>)) ?? []
+  const call = calls.find(each => !each.opened)
+  if (calls.length > 0 && call === undefined) return
+  if (call !== undefined) call.opened = true
   const open = { tool, detail: promptDetail((input ?? {}) as Record<string, unknown>) }
   one.prompts.push(open)
   if (one.prompts.length === 1) say($, id, promptFact(open))
+}
+
+/** An ask the engine put to a person: not one the auto mode's classifier answers, which opens no prompt. */
+async function asking($: Dollar, tool: string, input: unknown): Promise<void> {
+  if (known.get(await $.session.id())?.tuned?.mode === 'auto') return
+  await promptOpened($, tool, input)
+  await promptPut($, tool, input)
 }
 
 /**
@@ -981,7 +1085,7 @@ async function promptSettled($: Dollar, tool: string, input: Record<string, unkn
 }
 
 /** A tool call under way whose terminal prompt Bridge may answer first. */
-type Underway = { answer: (asked: Asked) => void; over: { done: boolean }; put: boolean }
+type Underway = { answer: (asked: Asked) => void; over: { done: boolean }; put: boolean; opened: boolean }
 
 // The calls under way by `callKey`, oldest first, and the ones Bridge allowed, which `tool.check` lets
 // run again without the terminal's prompt.
@@ -1130,6 +1234,7 @@ export const register: Register = on => {
 
   // Again at every start (startup, resume, clear, compact), so the id is never out of view.
   on('classic.SessionStart', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     if (await $.env.get('ARMADA_DRONE')) return out
     const id = await $.session.id()
@@ -1279,6 +1384,7 @@ export const register: Register = on => {
   // the session as stuck. Told only where a prompt opens: a hook beneath that decided opens none.
   // **Only told**: the terminal's prompt is what answers it.
   on('classic.PermissionRequest', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     if (out.decision === undefined) {
       void promptOpened($, e.tool_name, e.tool_input).catch(() => undefined)
@@ -1296,7 +1402,7 @@ export const register: Register = on => {
     const key = callKey(e.tool, input)
     let answer: (asked: Asked) => void = () => undefined
     const bridge = new Promise<Asked>(resolve => (answer = resolve))
-    const call: Underway = { answer, over: { done: false }, put: false }
+    const call: Underway = { answer, over: { done: false }, put: false, opened: false }
     underway.set(key, [...(underway.get(key) ?? []), call])
     try {
       const terminal = next(e).then(ran => ({ ran }))
@@ -1325,9 +1431,16 @@ export const register: Register = on => {
     }
   })
 
-  on('tool.check', async ($, e, next) =>
-    allowedInBridge.has(callKey(e.tool, (e.input ?? {}) as Record<string, unknown>)) ? { decision: 'allow' as const } : next(e),
-  )
+  // Where the settings hook that says a prompt opened is not run, the engine's own verdict of `ask` is
+  // the word: a call it is put to a person for. **Only told**, as there.
+  on('tool.check', async ($, e, next) => {
+    if (allowedInBridge.has(callKey(e.tool, (e.input ?? {}) as Record<string, unknown>))) return { decision: 'allow' as const }
+    const verdict = await next(e)
+    if (!classicHeard && verdict.decision === 'ask' && e.tool_use_id !== undefined && e.approver !== 'host') {
+      void asking($, e.tool, e.input).catch(() => undefined)
+    }
+    return verdict
+  })
 
   for (const tool of ['Artifact', 'Write', 'Read', ...DOCS_ACTS.map(act => `mcp__claude_ai_Claude_Docs__${act}`)]) {
     on('tool.call', { tool }, async ($, e, next) => {
@@ -1373,6 +1486,8 @@ export const register: Register = on => {
   // The Logbook goes in the prompt: Claude Code's own SubagentStart hook carries no prompt, so it could not
   // tell which paths the subagent works under.
   on('agent.spawn', async ($, e, next) => {
+    // The parent's permission mode is on the spawn: the one place left to read it where the settings hooks are not run.
+    if (!classicHeard && e.parentAgentId === undefined) void seen($, e.permissionMode, undefined)
     const told = (await $.env.get('ARMADA_DRONE')) ? '' : await logbookFor($, e.prompt)
     const out = await next(told === '' ? e : { ...e, prompt: `${e.prompt}\n\n${told}` })
     if (out.deny === undefined) {
@@ -1444,6 +1559,7 @@ export const register: Register = on => {
   // Its own transcript can end on a line that says it is still working (13 Oct 2026), so the
   // engine's word that it stopped is what settles it.
   on('classic.SubagentStop', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     void current($)
       .then(([id]) => settle($, id, 'subagent', e.agent_id, 'spent'))
@@ -1475,6 +1591,8 @@ export const register: Register = on => {
   // The engine measures at a turn's end and when a plan window moves, so a long turn would go unread
   // between them: each main-thread request is a reading of the context.
   on('turn.step', async function* ($, e, next) {
+    // Where the settings hook that carries the effort is not run, each main-thread request names it.
+    if (!classicHeard && e.agentId === undefined) void seen($, undefined, e.effort)
     const out = yield* next(e)
     if (e.agentId === undefined && out.usage !== null) {
       void measured($, stepTokens(out.usage)).catch(() => undefined)
@@ -1484,13 +1602,17 @@ export const register: Register = on => {
 
   // The terminal's permission mode and effort are on the settings-hook inputs and nowhere else.
   on('classic.UserPromptSubmit', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     void seen($, e.permission_mode, e.effort)
     return out
   })
 
-  // What the owner owes is read from the reply here, where the stop can still be turned back.
+  // What the owner owes is read from the reply here, where the stop can still be turned back. Only here:
+  // `turn.complete` cannot hold a stop, and what is left puts text in front of the model, which an
+  // organization's Claude Code keeps from a mod, so where this hook is not run the reply goes unchecked.
   on('classic.Stop', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     void seen($, e.permission_mode, e.effort)
     if (e.agent_id !== undefined || out.block !== undefined) return out
@@ -1498,26 +1620,33 @@ export const register: Register = on => {
     return reason === undefined ? out : { ...out, block: reason }
   })
 
-  // The list a session keeps in Bridge is what the Stop hook holds a reply to.
+  // The list a session keeps in Bridge is what the Stop hook holds a reply to. It is set by the
+  // tool or by `armada job waiting_for`, which is a Bash call and reads the same.
   on('tool.call', { tool: 'mcp__armada-fleet__waiting_for' }, async ($, e, next) => {
     const ran = await next(e)
-    if (ran.deny === undefined && ran.isError !== true) {
-      const items = waitingItemsOf(e as Record<string, unknown>)
-      const one = known.get(await $.session.id())
-      if (items !== undefined && one !== undefined) {
-        one.waiting = items
-        one.sawWaiting = true
-        one.turn.setWaiting = true
-      }
-    }
+    if (ran.deny === undefined && ran.isError !== true) await listSet($, waitingItemsOf(e as Record<string, unknown>))
     return ran
   })
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny === undefined && ran.isError !== true) await listSet($, waitingItemsOfJob(e.command))
+    return ran
+  })
+
+  // One `armada job` command asks nobody: the door it speaks to refuses what the Job may not reach.
+  // A Drone has no such door, so it is left to the prompt.
+  on('tool.check', { tool: 'Bash' }, async ($, e, next) =>
+    isOneArmadaJob((e.input as { command?: unknown } | undefined)?.command) && !(await $.env.get('ARMADA_DRONE'))
+      ? { decision: 'allow' as const }
+      : next(e),
+  )
 
 
   // A turn that died on an API error finished nothing, and Fleet reads a finished turn as the end
   // of a hold for the limit, so the failed one is not told. A sign-in that ran out signs every Job
   // out, and Fleet wakes this one once the account works again.
   on('classic.StopFailure', async ($, e, next) => {
+    classicHeard = true
     const out = await next(e)
     if (await $.env.get('ARMADA_DRONE')) return out
     if (e.error === 'rate_limit') void limited($).catch(() => undefined)
@@ -1527,7 +1656,14 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     const out = await next(e)
-    if (e.agentId === undefined && e.reason !== 'error') {
+    // Where the settings hooks are not run, a subagent's end is told from here, and a turn that died on an API error is read from the transcript.
+    if (e.agentId !== undefined) {
+      if (!classicHeard) void current($).then(([id]) => settle($, id, 'subagent', e.agentId as string, 'spent')).catch(() => undefined)
+      return out
+    }
+    if (e.reason === 'error' && !classicHeard) void failed($).catch(() => undefined)
+    if (e.reason === 'answer' && !classicHeard) void quiet($).catch(() => undefined)
+    if (e.reason !== 'error') {
       void current($)
         .then(([id, one]) => {
           one.prompts = []

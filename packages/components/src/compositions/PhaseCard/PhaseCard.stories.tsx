@@ -37,8 +37,18 @@ const CHECKS_FAILED: PhaseCardProps = {
   state: "failed",
   stands: "1 of 2 failed",
   rows: [
-    { label: "cargo nextest run --workspace", mono: true, state: "cleared", result: "exit 0" },
-    { label: "cargo build --workspace", mono: true, state: "failed", result: "exit 101" },
+    {
+      label: "cargo nextest run --workspace",
+      mono: true,
+      state: "cleared",
+      result: "exit 0",
+    },
+    {
+      label: "cargo build --workspace",
+      mono: true,
+      state: "failed",
+      result: "exit 101",
+    },
   ],
 };
 
@@ -48,8 +58,14 @@ const JUDGE: PhaseCardProps = {
   state: "current",
   stands: "2 criteria",
   rows: [
-    { label: "Selectors import without the store", state: "cleared" },
-    { label: "No behaviour change in the reducer", state: "failed" },
+    {
+      label: "Selectors import without the store",
+      state: "cleared",
+    },
+    {
+      label: "No behaviour change in the reducer",
+      state: "failed",
+    },
   ],
 };
 
@@ -71,14 +87,18 @@ const YOU: PhaseCardProps = {
  * drawing gives it a bare shield outline and the icon registry has none.
  * Reported.
  */
-export const Checks: Story = { args: CHECKS };
+export const Checks: Story = {
+  args: CHECKS,
+};
 
 /**
  * **A Check that failed.** The same card, one row red — and the closing line is
  * why that is enough: a command and an exit code, nothing to interpret, and
  * the same answer every time it is run.
  */
-export const AChecksFailed: Story = { args: CHECKS_FAILED };
+export const AChecksFailed: Story = {
+  args: CHECKS_FAILED,
+};
 
 /**
  * **A Check the step's paths never reached**, and the row that overflowed the
@@ -179,7 +199,9 @@ export const RowsThatOpenWhatTheyProduced: Story = {
  * and `not_met` is a machine key and a verdict; what a person needs is the
  * sentence they were judged against.
  */
-export const Judge: Story = { args: JUDGE };
+export const Judge: Story = {
+  args: JUDGE,
+};
 
 /**
  * **A refusal, with its citation.** The citation is the whole persuasive
@@ -197,7 +219,11 @@ export const JudgeRefusedAndWhy: Story = {
     state: "failed",
     stands: "1 of 2 refused",
     rows: [
-      { label: "Selectors import without the store", named: "met", result: "met" },
+      {
+        label: "Selectors import without the store",
+        named: "met",
+        result: "met",
+      },
       {
         label: "No behaviour change in the reducer",
         named: "not_met",
@@ -259,7 +285,9 @@ export const JudgeAsAPanel: Story = {
  * step sitting here is stopped with nothing wrong — the one shape that must
  * not read as a failure. Amber, not red.
  */
-export const You: Story = { args: YOU };
+export const You: Story = {
+  args: YOU,
+};
 
 /**
  * **A human tier that can never ask, given nothing but its kind and its
@@ -360,10 +388,17 @@ export const TheHumanTierAlreadyAnswered: Story = {
  * stays inside the panel and still points at itself.
  */
 export const FloatingOffTheStrip: Story = {
-  args: { ...CHECKS, floating: true },
+  args: {
+    ...CHECKS,
+    floating: true,
+  },
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-4) 0" }}>
+      <div
+        style={{
+          padding: "var(--space-4) 0",
+        }}
+      >
         <Story />
       </div>
     ),

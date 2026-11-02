@@ -19,11 +19,20 @@ export const THEN_ROWS = 160;
  * so a live thread is never shorter than the person last saw it.
  */
 export function useBackfilled<T>(rows: readonly T[], key: string): readonly T[] {
-  const [held, setHeld] = useState<{ key: string; hidden: number | undefined }>({ key, hidden: undefined });
+  const [held, setHeld] = useState<{
+    key: string;
+    hidden: number | undefined;
+  }>({
+    key,
+    hidden: undefined,
+  });
   let hidden = held.key === key ? held.hidden : undefined;
   if (hidden === undefined && rows.length > 0) {
     hidden = Math.max(0, rows.length - FIRST_ROWS);
-    setHeld({ key, hidden });
+    setHeld({
+      key,
+      hidden,
+    });
   }
   useEffect(() => {
     if (hidden === undefined || hidden === 0) return;
@@ -31,12 +40,23 @@ export function useBackfilled<T>(rows: readonly T[], key: string): readonly T[] 
     // After the paint: a frame is asked for, and the step is taken once it has been drawn.
     const frame = requestAnimationFrame(() => {
       const target = Math.max(0, rows.length - THEN_ROWS);
-      timer = setTimeout(() => setHeld({ key, hidden: hidden > target ? target : 0 }), 0);
+      timer = setTimeout(
+        () =>
+          setHeld({
+            key,
+            hidden: hidden > target ? target : 0,
+          }),
+        0,
+      );
     });
     return () => {
       cancelAnimationFrame(frame);
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [hidden, key, rows.length]);
+  }, [
+    hidden,
+    key,
+    rows.length,
+  ]);
   return hidden === undefined || hidden === 0 ? rows : rows.slice(hidden);
 }

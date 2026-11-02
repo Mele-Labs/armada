@@ -7,20 +7,39 @@
 // of the page, never its surface.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isPressed, keyFor, StudioCapture as CaptureOverlay, type CaptureBox, type Press } from "@armada/components";
+import {
+  isPressed,
+  keyFor,
+  StudioCapture as CaptureOverlay,
+  type CaptureBox,
+  type Press,
+} from "@armada/components";
 import type { Outcome, StudioCapture } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 
 import { captureOf, chainOf, namedOf } from "./note";
 
 /** The binding as this person has it, one cap per character: `⌥⌘C` unless Settings → Keyboard moved it. */
-const bindingNow = (): string[] => [...keyFor("capture_note")];
+const bindingNow = (): string[] => [
+  ...keyFor("capture_note"),
+];
 
 /** Pointer events capture takes from the app, so a press points rather than acts. */
-const SWALLOWED = ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick", "contextmenu"] as const;
+const SWALLOWED = [
+  "pointerdown",
+  "pointerup",
+  "mousedown",
+  "mouseup",
+  "click",
+  "dblclick",
+  "contextmenu",
+] as const;
 
 /** What a capture aims at: the Studio a person last had open and continued. */
-export type CaptureAim = { id: string; name: string } | null;
+export type CaptureAim = {
+  id: string;
+  name: string;
+} | null;
 
 export type CaptureLayerProps = {
   aim: CaptureAim;
@@ -28,15 +47,24 @@ export type CaptureLayerProps = {
   onCapture: (studioId: string, said: string, capture: StudioCapture) => Promise<Outcome>;
 };
 
-type Held = { element: Element; capture: StudioCapture };
+type Held = {
+  element: Element;
+  capture: StudioCapture;
+};
 
 const boxOf = (element: Element): CaptureBox => {
   const rect = element.getBoundingClientRect();
-  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  return {
+    x: rect.x,
+    y: rect.y,
+    width: rect.width,
+    height: rect.height,
+  };
 };
 
 function inLayer(target: EventTarget | null): boolean {
-  const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
+  const element =
+    target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
   return element?.closest("[data-armada-capture]") != null;
 }
 
@@ -52,10 +80,19 @@ export function isCaptureBinding(event: Press): boolean {
 }
 
 /** What the bar says capture is pointed at, and whether a press can land. */
-export function aimed(aim: CaptureAim): { aim: string; aimed: boolean } {
+export function aimed(aim: CaptureAim): {
+  aim: string;
+  aimed: boolean;
+} {
   return aim === null
-    ? { aim: "No Studio open — open one on Studios and press Continue to capture onto it", aimed: false }
-    : { aim: `Onto ${aim.name}`, aimed: true };
+    ? {
+        aim: "No Studio open — open one on Studios and press Continue to capture onto it",
+        aimed: false,
+      }
+    : {
+        aim: `Onto ${aim.name}`,
+        aimed: true,
+      };
 }
 
 export function CaptureLayer({ aim, onCapture }: CaptureLayerProps) {
@@ -66,7 +103,10 @@ export function CaptureLayer({ aim, onCapture }: CaptureLayerProps) {
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<string | undefined>(undefined);
   // Boxes are measured each frame, so an outline follows what it points at.
-  const [boxes, setBoxes] = useState<{ hovered: CaptureBox | null; held: CaptureBox | null }>({
+  const [boxes, setBoxes] = useState<{
+    hovered: CaptureBox | null;
+    held: CaptureBox | null;
+  }>({
     hovered: null,
     held: null,
   });
@@ -94,7 +134,10 @@ export function CaptureLayer({ aim, onCapture }: CaptureLayerProps) {
     if (on) return;
     setHovered(null);
     close();
-  }, [on, close]);
+  }, [
+    on,
+    close,
+  ]);
 
   useEffect(() => {
     if (!on) return undefined;
@@ -111,7 +154,10 @@ export function CaptureLayer({ aim, onCapture }: CaptureLayerProps) {
       // A note half written is not thrown away by a stray press.
       if (element === null || noted.current.trim() !== "") return;
       setRefused(undefined);
-      setHeld({ element, capture: captureOf(element, new Date()) });
+      setHeld({
+        element,
+        capture: captureOf(element, new Date()),
+      });
     }
     window.addEventListener("pointermove", moved, true);
     for (const type of SWALLOWED) window.addEventListener(type, swallowed, true);
@@ -119,7 +165,9 @@ export function CaptureLayer({ aim, onCapture }: CaptureLayerProps) {
       window.removeEventListener("pointermove", moved, true);
       for (const type of SWALLOWED) window.removeEventListener(type, swallowed, true);
     };
-  }, [on]);
+  }, [
+    on,
+  ]);
 
   // Compared before it is set, so a still page costs no render.
   useEffect(() => {
@@ -140,7 +188,11 @@ export function CaptureLayer({ aim, onCapture }: CaptureLayerProps) {
     };
     tick();
     return () => cancelAnimationFrame(frame);
-  }, [on, hovered, held]);
+  }, [
+    on,
+    hovered,
+    held,
+  ]);
 
   async function save(): Promise<void> {
     if (held === null || aim === null) return;
@@ -168,10 +220,20 @@ export function CaptureLayer({ aim, onCapture }: CaptureLayerProps) {
       saving={saving}
       refused={refused}
       {...(hovered !== null && boxes.hovered !== null && held === null
-        ? { hovered: { box: boxes.hovered, named: namedOf(hovered) } }
+        ? {
+            hovered: {
+              box: boxes.hovered,
+              named: namedOf(hovered),
+            },
+          }
         : {})}
       {...(held !== null && boxes.held !== null
-        ? { held: { box: boxes.held, chain: chainOf(held.capture) } }
+        ? {
+            held: {
+              box: boxes.held,
+              chain: chainOf(held.capture),
+            },
+          }
         : {})}
     />
   );

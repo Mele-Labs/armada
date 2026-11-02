@@ -15,25 +15,66 @@ import { mount, onScreen, toSession, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 const AT = "2026-10-07T13:48:02.000Z";
 const LIVE = "01LIVEAAAAAAAAAAAAAAAAAAAA";
 
-const FOUND = "The test builds its expected timestamp from the wall clock, and the store stamps the row from its own read of it.";
+const FOUND =
+  "The test builds its expected timestamp from the wall clock, and the store stamps the row from its own read of it.";
 const WORDS = "the store stamps the row from its own read of it";
 
 const thread = (): Record<string, SessionRow[]> => ({
   [LIVE]: [
-    { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "store_open fails about one run in ten. Find out why." },
-    { kind: "message", id: "m2", at: AT, from: { kind: "agent" }, text: FOUND },
-    { kind: "message", id: "m3", at: AT, from: { kind: "you" }, text: "Is that the only place it reads the clock?" },
-    { kind: "message", id: "m4", at: AT, from: { kind: "agent" }, text: "No. Two more: the retention sweep and a fixture helper." },
+    {
+      kind: "message",
+      id: "m1",
+      at: AT,
+      from: {
+        kind: "you",
+      },
+      text: "store_open fails about one run in ten. Find out why.",
+    },
+    {
+      kind: "message",
+      id: "m2",
+      at: AT,
+      from: {
+        kind: "agent",
+      },
+      text: FOUND,
+    },
+    {
+      kind: "message",
+      id: "m3",
+      at: AT,
+      from: {
+        kind: "you",
+      },
+      text: "Is that the only place it reads the clock?",
+    },
+    {
+      kind: "message",
+      id: "m4",
+      at: AT,
+      from: {
+        kind: "agent",
+      },
+      text: "No. Two more: the retention sweep and a fixture helper.",
+    },
   ],
 });
 
 function served(fleet: FakeSessionsFleet): Scenario {
   const board = onBoard({
-    repositories: [ARMADA],
+    repositories: [
+      ARMADA,
+    ],
     picked: ARMADA.root,
   });
   return fleet.scenario(board);
@@ -44,13 +85,23 @@ async function open() {
 }
 
 /** The text node under `row` holding `words`. */
-function holding(row: string, words: string): { node: Text; at: number } {
+function holding(
+  row: string,
+  words: string,
+): {
+  node: Text;
+  at: number;
+} {
   const block = document.querySelector(`[data-fork-row="${row}"]`);
   if (block === null) throw new Error(`no message ${row} is on the page`);
   const all = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
   for (let node = all.nextNode(); node !== null; node = all.nextNode()) {
     const at = node.textContent?.indexOf(words) ?? -1;
-    if (at >= 0) return { node: node as Text, at };
+    if (at >= 0)
+      return {
+        node: node as Text,
+        at,
+      };
   }
   throw new Error(`message ${row} does not hold "${words}"`);
 }
@@ -62,15 +113,41 @@ function select(row: string, words: string) {
   document.dispatchEvent(new Event("selectionchange"));
 }
 
-const bar = () => page.getByRole("toolbar", { name: "Selection" });
-const reply = () => page.getByRole("button", { name: "Reply" });
-const forkHere = () => page.getByRole("button", { name: "Fork from here" });
-const message = () => page.getByRole("textbox", { name: "Message" });
+const bar = () =>
+  page.getByRole("toolbar", {
+    name: "Selection",
+  });
+const reply = () =>
+  page.getByRole("button", {
+    name: "Reply",
+  });
+const forkHere = () =>
+  page.getByRole("button", {
+    name: "Fork from here",
+  });
+const message = () =>
+  page.getByRole("textbox", {
+    name: "Message",
+  });
 /** The quotes the box draws, one per quoted line; the `> ` that marks them in the text is not on screen. */
-const quoted = () => Array.from(message().element().querySelectorAll("blockquote > *")).map((line) => line.textContent);
+const quoted = () =>
+  Array.from(message().element().querySelectorAll("blockquote > *")).map(
+    (line) => line.textContent,
+  );
 
 test("Words selected inside one message of a live Session offer Fork from here, and Esc takes the bar away", async () => {
-  mount(served(new FakeSessionsFleet([hosted(LIVE, { title: "A live hosted one" })], thread())));
+  mount(
+    served(
+      new FakeSessionsFleet(
+        [
+          hosted(LIVE, {
+            title: "A live hosted one",
+          }),
+        ],
+        thread(),
+      ),
+    ),
+  );
   await onScreen();
   await open();
 
@@ -84,7 +161,18 @@ test("Words selected inside one message of a live Session offer Fork from here, 
 });
 
 test("A selection that runs from one message into the next offers nothing", async () => {
-  mount(served(new FakeSessionsFleet([hosted(LIVE, { title: "A live hosted one" })], thread())));
+  mount(
+    served(
+      new FakeSessionsFleet(
+        [
+          hosted(LIVE, {
+            title: "A live hosted one",
+          }),
+        ],
+        thread(),
+      ),
+    ),
+  );
   await onScreen();
   await open();
 
@@ -97,7 +185,14 @@ test("A selection that runs from one message into the next offers nothing", asyn
 });
 
 test("Fork from here asks Fleet to fork at that message, quotes the words, and folds the conversation up to it and no further", async () => {
-  const fleet = new FakeSessionsFleet([hosted(LIVE, { title: "A live hosted one" })], thread());
+  const fleet = new FakeSessionsFleet(
+    [
+      hosted(LIVE, {
+        title: "A live hosted one",
+      }),
+    ],
+    thread(),
+  );
   mount(served(fleet));
   await onScreen();
   await open();
@@ -105,21 +200,50 @@ test("Fork from here asks Fleet to fork at that message, quotes the words, and f
   select("m2", WORDS);
   await userEvent.click(forkHere());
 
-  await expect.poll(() => fleet.calls.forkedAt).toEqual([{ sessionId: LIVE, at: "m2" }]);
-  const folded = page.getByRole("group", { name: "Forked from A live hosted one" });
+  await expect
+    .poll(() => fleet.calls.forkedAt)
+    .toEqual([
+      {
+        sessionId: LIVE,
+        at: "m2",
+      },
+    ]);
+  const folded = page.getByRole("group", {
+    name: "Forked from A live hosted one",
+  });
   await expect.element(folded).toBeVisible();
-  await expect.poll(quoted).toEqual([WORDS]);
+  await expect.poll(quoted).toEqual([
+    WORDS,
+  ]);
 
-  await userEvent.click(page.getByRole("button", { name: "Forked from A live hosted one", exact: true }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Forked from A live hosted one",
+      exact: true,
+    }),
+  );
   await expect.element(folded.getByText("Find out why.")).toBeVisible();
-  await expect.element(folded.getByText(WORDS, { exact: false })).toBeVisible();
+  await expect
+    .element(
+      folded.getByText(WORDS, {
+        exact: false,
+      }),
+    )
+    .toBeVisible();
   // What was said after the message it was forked at is not in the copy.
   await expect.element(folded.getByText("Is that the only place")).not.toBeInTheDocument();
   await expect.element(folded.getByText("Two more")).not.toBeInTheDocument();
 });
 
 test("Reply quotes the words into this Session's own box, forks nothing, and a second Reply goes under the first", async () => {
-  const fleet = new FakeSessionsFleet([hosted(LIVE, { title: "A live hosted one" })], thread());
+  const fleet = new FakeSessionsFleet(
+    [
+      hosted(LIVE, {
+        title: "A live hosted one",
+      }),
+    ],
+    thread(),
+  );
   mount(served(fleet));
   await onScreen();
   await open();
@@ -129,12 +253,17 @@ test("Reply quotes the words into this Session's own box, forks nothing, and a s
   await userEvent.click(reply());
 
   await expect.element(bar()).not.toBeInTheDocument();
-  await expect.poll(quoted).toEqual([WORDS]);
+  await expect.poll(quoted).toEqual([
+    WORDS,
+  ]);
   await expect.element(message()).toHaveFocus();
   expect(fleet.calls.forkedAt).toEqual([]);
 
   select("m4", "the retention sweep");
   await userEvent.click(reply());
-  await expect.poll(quoted).toEqual([WORDS, "the retention sweep"]);
+  await expect.poll(quoted).toEqual([
+    WORDS,
+    "the retention sweep",
+  ]);
   expect(fleet.calls.forkedAt).toEqual([]);
 });

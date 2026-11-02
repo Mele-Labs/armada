@@ -24,13 +24,19 @@ export type SessionMcpServer = {
  * 422 `fleet.session_mcp_unreachable` for a terminal Job or one with no process running, 422
  * `fleet.session_mcp_refused` where the process refused or did not answer, 409 `fleet.session_closed`.
  */
-export type SessionMcp = { servers: SessionMcpServer[] };
+export type SessionMcp = {
+  servers: SessionMcpServer[];
+};
 
 /** What a person can do to one server. */
 export type McpServerAct = "reconnect" | "turn_on" | "turn_off" | "sign_in";
 
 /** `POST /sessions/mcp/act`. Answered with `SessionMcpActed`, refused as `SessionMcp` is. */
-export type ActOnSessionMcp = { session_id: string; server: string; act: McpServerAct };
+export type ActOnSessionMcp = {
+  session_id: string;
+  server: string;
+  act: McpServerAct;
+};
 
 /** Where a person signs a server in. */
 export type McpSignIn = {

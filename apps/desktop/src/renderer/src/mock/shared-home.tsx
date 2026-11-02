@@ -18,7 +18,13 @@ import { installBroughtMod } from "./system-mods";
 
 const SYNCING_MS = 1400;
 
-function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; children: ReactNode }) {
+function Held({
+  home,
+  children,
+}: {
+  home: NonNullable<MockDraft["sharedHome"]>;
+  children: ReactNode;
+}) {
   // Against an account that has not signed in yet there is no home to draw.
   const signedIn = useSignedIn();
   const synced = useSyncedKinds(home.account);
@@ -31,28 +37,58 @@ function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; 
   const takes = useCallback(
     (row: SharedRow) =>
       syncs !== undefined
-        ? syncs.kinds.includes(row.kind) || syncs.items.some((one) => one.kind === row.kind && one.name === row.name)
+        ? syncs.kinds.includes(row.kind) ||
+          syncs.items.some((one) => one.kind === row.kind && one.name === row.name)
         : synced === undefined || (synced as readonly string[]).includes(row.kind),
-    [syncs, synced],
+    [
+      syncs,
+      synced,
+    ],
   );
   useEffect(() => {
     if (!syncing) return undefined;
     const timer = window.setTimeout(() => {
-      const stays = (row: SharedRow) => home.staysHere?.find((one) => one.kind === row.kind && one.name === row.name);
+      const stays = (row: SharedRow) =>
+        home.staysHere?.find((one) => one.kind === row.kind && one.name === row.name);
       // A kind switched off in What syncs is not synced.
       const goes = (row: SharedRow) => row.state === "here" && takes(row);
       const left = rows.flatMap((row) => (goes(row) ? (stays(row) ?? []) : []));
-      setRows((was) => was.map((row) => (goes(row) && stays(row) === undefined ? { ...row, state: "same" } : row)));
+      setRows((was) =>
+        was.map((row) =>
+          goes(row) && stays(row) === undefined
+            ? {
+                ...row,
+                state: "same",
+              }
+            : row,
+        ),
+      );
       setSyncing(false);
       left.forEach((one) => askToTell(one.why));
-      if (syncs !== undefined && syncs.kinds.length === 0 && syncs.items.length === 0) askToTell(NOTHING_SYNCS);
+      if (syncs !== undefined && syncs.kinds.length === 0 && syncs.items.length === 0)
+        askToTell(NOTHING_SYNCS);
     }, SYNCING_MS);
     return () => window.clearTimeout(timer);
-  }, [syncing, rows, home, syncs, takes]);
+  }, [
+    syncing,
+    rows,
+    home,
+    syncs,
+    takes,
+  ]);
 
   const value = useMemo<SharedHome>(() => {
     const settle = (row: SharedRow, change: Partial<SharedRow>) =>
-      setRows((was) => was.map((one) => (one.kind === row.kind && one.name === row.name ? { ...one, ...change } : one)));
+      setRows((was) =>
+        was.map((one) =>
+          one.kind === row.kind && one.name === row.name
+            ? {
+                ...one,
+                ...change,
+              }
+            : one,
+        ),
+      );
     return {
       account: home.account,
       repository: home.repository,
@@ -64,33 +100,94 @@ function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; 
             syncs,
             // Switched on, it goes to the home at once, as Fleet's Sync runs.
             setKind: (kind: string, on: boolean) => {
-              setSyncs((was) => was && { ...was, kinds: on ? [...was.kinds, kind] : was.kinds.filter((one) => one !== kind) });
+              setSyncs(
+                (was) =>
+                  was && {
+                    ...was,
+                    kinds: on
+                      ? [
+                          ...was.kinds,
+                          kind,
+                        ]
+                      : was.kinds.filter((one) => one !== kind),
+                  },
+              );
               if (on) setSyncing(true);
             },
-            setItem: (item: { kind: string; name: string }, on: boolean) => {
-              setSyncs((was) => was && { ...was, items: on ? [...was.items, item] : was.items.filter((one) => one.kind !== item.kind || one.name !== item.name) });
+            setItem: (
+              item: {
+                kind: string;
+                name: string;
+              },
+              on: boolean,
+            ) => {
+              setSyncs(
+                (was) =>
+                  was && {
+                    ...was,
+                    items: on
+                      ? [
+                          ...was.items,
+                          item,
+                        ]
+                      : was.items.filter((one) => one.kind !== item.kind || one.name !== item.name),
+                  },
+              );
               if (on) setSyncing(true);
             },
           }),
-      ...(account?.home === false ? { made: false, owners: profile?.orgs ?? [] } : {}),
+      ...(account?.home === false
+        ? {
+            made: false,
+            owners: profile?.orgs ?? [],
+          }
+        : {}),
       choose: (row, side) => {
         const kept = side === "here" ? row.here : row.there;
-        settle(row, { state: "same", ...(kept === undefined ? {} : { here: kept, there: kept }) });
+        settle(row, {
+          state: "same",
+          ...(kept === undefined
+            ? {}
+            : {
+                here: kept,
+                there: kept,
+              }),
+        });
       },
-      add: (row) => settle(row, { state: "same" }),
+      add: (row) =>
+        settle(row, {
+          state: "same",
+        }),
       bring: (row) => {
-        settle(row, { state: "same" });
+        settle(row, {
+          state: "same",
+        });
         const as = row.modKind ?? "theme";
-        if (row.kind === "mods" && (as === "theme" || as === "layout")) installBroughtMod(as, row.name);
+        if (row.kind === "mods" && (as === "theme" || as === "layout"))
+          installBroughtMod(as, row.name);
       },
       sync: () => setSyncing(true),
     };
-  }, [home, rows, syncing, syncs, takes, account?.home, profile?.orgs]);
+  }, [
+    home,
+    rows,
+    syncing,
+    syncs,
+    takes,
+    account?.home,
+    profile?.orgs,
+  ]);
 
   return <SharedHomeProvider value={signedIn ? value : undefined}>{children}</SharedHomeProvider>;
 }
 
 /** Hands the window the home a scenario carries. Nothing carried, nothing is drawn. */
-export function SharedHomeFrom({ home, children }: { home: MockDraft["sharedHome"]; children: ReactNode }) {
+export function SharedHomeFrom({
+  home,
+  children,
+}: {
+  home: MockDraft["sharedHome"];
+  children: ReactNode;
+}) {
   return home === undefined ? <>{children}</> : <Held home={home}>{children}</Held>;
 }

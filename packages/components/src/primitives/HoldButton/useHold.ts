@@ -114,7 +114,10 @@ export function useHold<T extends HTMLElement>({
   // A hold does not survive the control going off or the hold stopping being offered.
   useEffect(() => {
     if (inert || reduced) cancel();
-  }, [inert, reduced]);
+  }, [
+    inert,
+    reduced,
+  ]);
   useEffect(
     () => () => {
       if (timer.current !== null) clearTimeout(timer.current);

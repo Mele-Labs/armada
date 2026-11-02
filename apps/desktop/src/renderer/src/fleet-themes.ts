@@ -12,7 +12,13 @@
 // **What Promote opened is Fleet's to keep.** The list carries a mod's open pull request and the Job holding it, so a
 // window read again offers no second Promote; the answer to a press draws them before the list arrives.
 
-import type { ModChecked, ModPromoted, ModSummary, Outcome, SavePreference } from "@armada/protocol";
+import type {
+  ModChecked,
+  ModPromoted,
+  ModSummary,
+  Outcome,
+  SavePreference,
+} from "@armada/protocol";
 import { BUILT_IN_THEMES, offered } from "@armada/settings";
 import type { CatalogueTheme, ModsSource, ThemeMod, ThemeState } from "@armada/settings";
 import { refusalWords } from "@armada/screens/src/refusal-words";
@@ -49,15 +55,38 @@ export const promotedOf = (done: ModPromoted): Promoted => {
   const number = done.pull_request === undefined ? undefined : pullNumberOf(done.pull_request);
   return {
     branch: done.branch,
-    ...(done.pull_request === undefined || number === undefined ? {} : { pull: { number, title: done.title, address: done.pull_request } }),
-    job: { id: done.session_id, title: done.title },
+    ...(done.pull_request === undefined || number === undefined
+      ? {}
+      : {
+          pull: {
+            number,
+            title: done.title,
+            address: done.pull_request,
+          },
+        }),
+    job: {
+      id: done.session_id,
+      title: done.title,
+    },
   };
 };
 
 /** What Fleet's list keeps of a promote: the pull request while it is open, and its Job. */
 export const keptOf = (row: ModSummary): Promoted => {
   const open = row.pull_request;
-  return open === undefined ? {} : { pull: { number: open.number, title: open.title, address: open.address }, job: { id: open.session_id, title: open.title } };
+  return open === undefined
+    ? {}
+    : {
+        pull: {
+          number: open.number,
+          title: open.title,
+          address: open.address,
+        },
+        job: {
+          id: open.session_id,
+          title: open.title,
+        },
+      };
 };
 
 /** How a theme is previewed: Dark and Light by id, and a mod from the stylesheet Fleet checked. */
@@ -67,7 +96,12 @@ export type Colours = {
   ofMod: (css: string) => readonly string[];
 };
 
-export function createFleetThemes(fleet: FleetThemes, catalogue: readonly CatalogueTheme[], colours: Colours, tell: (sentence: string) => void = askToTell): ModsSource {
+export function createFleetThemes(
+  fleet: FleetThemes,
+  catalogue: readonly CatalogueTheme[],
+  colours: Colours,
+  tell: (sentence: string) => void = askToTell,
+): ModsSource {
   let facts: Facts["mods"] = null;
   let chosen = DARK;
   // The id the loader could not draw: shown as Dark until the list changes, and never forgotten.
@@ -77,7 +111,13 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
   // What the answer to a Promote said, until Fleet's list says otherwise.
   const promoted = new Map<string, Promoted>();
   // A mod's strip, kept with the `changed_at` it was read at, so an edited mod is read again.
-  const strips = new Map<string, { at: string; swatch: readonly string[] }>();
+  const strips = new Map<
+    string,
+    {
+      at: string;
+      swatch: readonly string[];
+    }
+  >();
   const reading = new Set<string>();
   const stamp = (name: string) => facts?.mods.find((row) => row.name === name)?.changed_at ?? "";
 
@@ -86,8 +126,13 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
     try {
       const swatch = colours.ofMod(css);
       const before = strips.get(name);
-      strips.set(name, { at: stamp(name), swatch });
-      return before === undefined || before.at !== stamp(name) || before.swatch.join() !== swatch.join();
+      strips.set(name, {
+        at: stamp(name),
+        swatch,
+      });
+      return (
+        before === undefined || before.at !== stamp(name) || before.swatch.join() !== swatch.join()
+      );
     } catch {
       return false;
     }
@@ -98,7 +143,8 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
   const loadOf = (name: string) => async (): Promise<string> => {
     const checked = await fleet.validateMod(name);
     if (checked === null) throw new Error(`${name} could not be checked`);
-    if (!checked.valid || checked.css === undefined) throw new Error(checked.problems[0] ?? `${name} did not pass its checks`);
+    if (!checked.valid || checked.css === undefined)
+      throw new Error(checked.problems[0] ?? `${name} did not pass its checks`);
     if (keep(name, checked.css)) refresh();
     return checked.css;
   };
@@ -108,17 +154,37 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
       name: row.name,
       title: row.name.startsWith(BUILT_IN_MOD) ? row.name.slice(BUILT_IN_MOD.length) : row.name,
       enabled: row.enabled,
-      ...(row.valid ? {} : { problem: row.reason ?? "Did not pass its checks" }),
-      ...(row.origin === "built_in" ? { builtIn: true } : {}),
+      ...(row.valid
+        ? {}
+        : {
+            problem: row.reason ?? "Did not pass its checks",
+          }),
+      ...(row.origin === "built_in"
+        ? {
+            builtIn: true,
+          }
+        : {}),
       ...(row.pull_request === undefined ? promoted.get(row.name) : keptOf(row)),
-      ...(strips.get(row.name)?.at === (row.changed_at ?? "") ? { swatch: strips.get(row.name)!.swatch } : {}),
+      ...(strips.get(row.name)?.at === (row.changed_at ?? "")
+        ? {
+            swatch: strips.get(row.name)!.swatch,
+          }
+        : {}),
       load: loadOf(row.name),
     }));
 
   const stateNow = (): ThemeState => {
     const mods = modsNow();
-    const drawable = isBuiltIn(chosen) || catalogue.some((one) => one.id === chosen) || mods.some((mod) => mod.name === chosen && offered(mod));
-    return { mods, catalogue, active: drawable && declined !== chosen ? chosen : DARK, swatches: colours.builtIn };
+    const drawable =
+      isBuiltIn(chosen) ||
+      catalogue.some((one) => one.id === chosen) ||
+      mods.some((mod) => mod.name === chosen && offered(mod));
+    return {
+      mods,
+      catalogue,
+      active: drawable && declined !== chosen ? chosen : DARK,
+      swatches: colours.builtIn,
+    };
   };
 
   let held = stateNow();
@@ -131,12 +197,19 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
   const preview = () => {
     for (const row of facts?.mods ?? []) {
       const key = `${row.name}@${row.changed_at ?? ""}`;
-      if (!row.valid || !row.enabled || strips.get(row.name)?.at === (row.changed_at ?? "") || reading.has(key)) continue;
+      if (
+        !row.valid ||
+        !row.enabled ||
+        strips.get(row.name)?.at === (row.changed_at ?? "") ||
+        reading.has(key)
+      )
+        continue;
       reading.add(key);
       fleet.validateMod(row.name).then(
         (checked) => {
           reading.delete(key);
-          if (checked?.valid === true && checked.css !== undefined && keep(row.name, checked.css)) refresh();
+          if (checked?.valid === true && checked.css !== undefined && keep(row.name, checked.css))
+            refresh();
         },
         () => void reading.delete(key),
       );
@@ -150,7 +223,11 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
     chosen = id;
     declined = null;
     refresh();
-    const outcome = await fleet.savePreference({ name: "theme", value: false, text: id });
+    const outcome = await fleet.savePreference({
+      name: "theme",
+      value: false,
+      text: id,
+    });
     saving -= 1;
     if (outcome.ok) return;
     if (chosen === id) {
@@ -162,20 +239,33 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
 
   const ingest = (next: Facts) => {
     const theme = next.preferences.theme ?? DARK;
-    const key = JSON.stringify([next.mods, theme]);
+    const key = JSON.stringify([
+      next.mods,
+      theme,
+    ]);
     if (key === seen) return;
     seen = key;
     // Only a theme mod is a theme. A layout mod is listed from the layout source, a tweak is laid over whichever theme is chosen,
     // words and Fleet rules are what a teaching made, and a tracker mod is Fleet's alone.
-    facts = next.mods === null ? null : { mods: next.mods.mods.filter((row) => row.kind === undefined || row.kind === "theme") };
+    facts =
+      next.mods === null
+        ? null
+        : {
+            mods: next.mods.mods.filter((row) => row.kind === undefined || row.kind === "theme"),
+          };
     // A promote the list now keeps is the list's from here, so it is gone once its pull request merges.
-    for (const row of facts?.mods ?? []) if (row.pull_request !== undefined) promoted.delete(row.name);
+    for (const row of facts?.mods ?? [])
+      if (row.pull_request !== undefined) promoted.delete(row.name);
     declined = null;
     if (saving === 0) chosen = theme;
     refresh();
     preview();
     // A mod the owner chose that is no longer there, or no longer on, is not chosen any more.
-    const gone = !isBuiltIn(chosen) && !chosen.startsWith(CATALOGUE) && facts !== null && !facts.mods.some((row) => row.name === chosen && row.enabled);
+    const gone =
+      !isBuiltIn(chosen) &&
+      !chosen.startsWith(CATALOGUE) &&
+      facts !== null &&
+      !facts.mods.some((row) => row.name === chosen && row.enabled);
     if (gone && saving === 0) void save(DARK, true);
   };
 
@@ -189,7 +279,10 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
       return () => void listeners.delete(on);
     },
     setActive: (id) => {
-      const offeredNow = isBuiltIn(id) || catalogue.some((one) => one.id === id) || held.mods.some((mod) => mod.name === id && offered(mod));
+      const offeredNow =
+        isBuiltIn(id) ||
+        catalogue.some((one) => one.id === id) ||
+        held.mods.some((mod) => mod.name === id && offered(mod));
       void save(offeredNow ? id : DARK, false);
     },
     fellBack: (id) => {

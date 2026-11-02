@@ -12,12 +12,24 @@ type Handler = (event: unknown, ...args: unknown[]) => unknown;
 
 function channels(connection: FleetConnection | null): Map<string, Handler> {
   const handlers = new Map<string, Handler>();
-  handleAccounts({ ipc: { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) } as unknown as IpcMain, connection: () => connection });
+  handleAccounts({
+    ipc: {
+      handle: (channel: string, handler: Handler) => handlers.set(channel, handler),
+    } as unknown as IpcMain,
+    connection: () => connection,
+  });
   return handlers;
 }
 
 const called: string[] = [];
-const said = (name: string) => async (...args: unknown[]) => (called.push(`${name} ${JSON.stringify(args)}`), { ok: true });
+const said =
+  (name: string) =>
+  async (...args: unknown[]) => (
+    called.push(`${name} ${JSON.stringify(args)}`),
+    {
+      ok: true,
+    }
+  );
 const accounts = {
   sharedHome: said("read"),
   syncSharedHome: said("sync"),
@@ -29,22 +41,60 @@ const accounts = {
   setHomeItem: said("item"),
   setHomeRepository: said("repository"),
 };
-const connected = { accounts } as unknown as FleetConnection;
-const unread = { ok: false, outcome: { ok: false, why: "not_understood" } };
+const connected = {
+  accounts,
+} as unknown as FleetConnection;
+const unread = {
+  ok: false,
+  outcome: {
+    ok: false,
+    why: "not_understood",
+  },
+};
 
 describe("the shared home's channels", () => {
   it("pass a well-formed call to the host, a row as the fields Fleet takes and nothing more", async () => {
     called.length = 0;
     const handlers = channels(connected);
-    const note = { login: "nickmele", kind: "memory", name: "Walks, not pictures", repository: "armada", state: "here" };
+    const note = {
+      login: "nickmele",
+      kind: "memory",
+      name: "Walks, not pictures",
+      repository: "armada",
+      state: "here",
+    };
     await handlers.get(CHANNELS.getSharedHome)?.({}, "nickmele");
     await handlers.get(CHANNELS.syncSharedHome)?.({}, "nickmele");
     await handlers.get(CHANNELS.addToSharedHome)?.({}, note);
-    await handlers.get(CHANNELS.bringFromSharedHome)?.({}, { login: "nickmele", kind: "mods", name: "ember" });
-    await handlers.get(CHANNELS.chooseSharedHomeSide)?.({}, { login: "nickmele", kind: "mods", name: "dusk" }, "there");
+    await handlers.get(CHANNELS.bringFromSharedHome)?.(
+      {},
+      {
+        login: "nickmele",
+        kind: "mods",
+        name: "ember",
+      },
+    );
+    await handlers.get(CHANNELS.chooseSharedHomeSide)?.(
+      {},
+      {
+        login: "nickmele",
+        kind: "mods",
+        name: "dusk",
+      },
+      "there",
+    );
     await handlers.get(CHANNELS.getHomeKinds)?.({}, "nickmele");
     await handlers.get(CHANNELS.setHomeKind)?.({}, "nickmele", "mods", true);
-    await handlers.get(CHANNELS.setHomeItem)?.({}, { login: "nickmele", kind: "plugins", name: "impeccable@impeccable", state: "here" }, true);
+    await handlers.get(CHANNELS.setHomeItem)?.(
+      {},
+      {
+        login: "nickmele",
+        kind: "plugins",
+        name: "impeccable@impeccable",
+        state: "here",
+      },
+      true,
+    );
     await handlers.get(CHANNELS.setHomeRepository)?.({}, "nickmele", "mele-labs", "armada-home");
     expect(called).toEqual([
       'read ["nickmele"]',
@@ -64,19 +114,60 @@ describe("the shared home's channels", () => {
     const handlers = channels(connected);
     expect(await handlers.get(CHANNELS.getSharedHome)?.({}, "")).toEqual(unread);
     expect(await handlers.get(CHANNELS.syncSharedHome)?.({}, 3)).toEqual(unread);
-    expect(await handlers.get(CHANNELS.addToSharedHome)?.({}, { login: "nickmele", kind: "agent_file", name: "AGENTS.md" })).toEqual(unread);
+    expect(
+      await handlers.get(CHANNELS.addToSharedHome)?.(
+        {},
+        {
+          login: "nickmele",
+          kind: "agent_file",
+          name: "AGENTS.md",
+        },
+      ),
+    ).toEqual(unread);
     expect(await handlers.get(CHANNELS.bringFromSharedHome)?.({}, null)).toEqual(unread);
-    expect(await handlers.get(CHANNELS.chooseSharedHomeSide)?.({}, { login: "nickmele", kind: "mods", name: "dusk" }, "both")).toEqual(unread);
-    expect(await handlers.get(CHANNELS.setHomeKind)?.({}, "nickmele", "mods", "yes")).toEqual(unread);
-    expect(await handlers.get(CHANNELS.setHomeItem)?.({}, { login: "nickmele", kind: "plugins", name: "impeccable" }, "on")).toEqual(unread);
-    expect(await handlers.get(CHANNELS.setHomeRepository)?.({}, "nickmele", "", "armada-home")).toEqual(unread);
+    expect(
+      await handlers.get(CHANNELS.chooseSharedHomeSide)?.(
+        {},
+        {
+          login: "nickmele",
+          kind: "mods",
+          name: "dusk",
+        },
+        "both",
+      ),
+    ).toEqual(unread);
+    expect(await handlers.get(CHANNELS.setHomeKind)?.({}, "nickmele", "mods", "yes")).toEqual(
+      unread,
+    );
+    expect(
+      await handlers.get(CHANNELS.setHomeItem)?.(
+        {},
+        {
+          login: "nickmele",
+          kind: "plugins",
+          name: "impeccable",
+        },
+        "on",
+      ),
+    ).toEqual(unread);
+    expect(
+      await handlers.get(CHANNELS.setHomeRepository)?.({}, "nickmele", "", "armada-home"),
+    ).toEqual(unread);
     expect(called).toEqual([]);
   });
 
   it("say Fleet is not connected when there is no connection", async () => {
     const handlers = channels(null);
-    const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const unsent = {
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "not_connected",
+      },
+    };
     expect(await handlers.get(CHANNELS.getSharedHome)?.({}, "nickmele")).toEqual(unsent);
-    expect(await handlers.get(CHANNELS.setHomeKind)?.({}, "nickmele", "mods", true)).toEqual(unsent);
+    expect(await handlers.get(CHANNELS.setHomeKind)?.({}, "nickmele", "mods", true)).toEqual(
+      unsent,
+    );
   });
 });

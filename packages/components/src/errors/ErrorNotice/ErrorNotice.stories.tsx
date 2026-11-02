@@ -16,12 +16,21 @@ const REFUSED: DebugPayload = {
   drone_id: "drn_4c8",
   step_id: "verify",
   fields: [
-    { key: "criterion", value: "2" },
+    {
+      key: "criterion",
+      value: "2",
+    },
     // The tier, not the vendor's id for it. Every other story in this package
     // says `sonnet` for the same reason the vendor-literal rule refuses the
     // other spelling: a model name typed into a sample is a second roster.
-    { key: "judge_model", value: "sonnet" },
-    { key: "response_bytes", value: "1184" },
+    {
+      key: "judge_model",
+      value: "sonnet",
+    },
+    {
+      key: "response_bytes",
+      value: "1184",
+    },
   ],
   chain: [
     "judge: no verdict parsed from response",
@@ -57,9 +66,18 @@ export const Inline: Story = {
     message: "Job 12 was not approved. The gate had already closed on step 3.",
     act: "Redispatch to start a fresh attempt from the same brief.",
     fields: [
-      { label: "Job", value: "job_2d90bb" },
-      { label: "Step", value: "3 of 5" },
-      { label: "Fleet run", value: "01J9Z4K7QW" },
+      {
+        label: "Job",
+        value: "job_2d90bb",
+      },
+      {
+        label: "Step",
+        value: "3 of 5",
+      },
+      {
+        label: "Fleet run",
+        value: "01J9Z4K7QW",
+      },
     ],
   },
 };
@@ -84,7 +102,12 @@ export const Toast: Story = {
     placement: "toast",
     code: "bridge.clipboard.denied",
     message: "The branch name did not copy. The system refused the clipboard write.",
-    fields: [{ label: "Value", value: "auth/session-expiry" }],
+    fields: [
+      {
+        label: "Value",
+        value: "auth/session-expiry",
+      },
+    ],
   },
 };
 
@@ -106,9 +129,18 @@ export const Banner: Story = {
       "The Job Board stopped updating 4 minutes ago. Fleet is alive on its port and has not answered.",
     act: "Nothing to do yet. Bridge reconnects on its own, and re-reads rather than patching what it has.",
     fields: [
-      { label: "Pid", value: "48213" },
-      { label: "Port", value: "7681" },
-      { label: "Last read", value: "16:42:08" },
+      {
+        label: "Pid",
+        value: "48213",
+      },
+      {
+        label: "Port",
+        value: "7681",
+      },
+      {
+        label: "Last read",
+        value: "16:42:08",
+      },
     ],
     actions: (
       <Button variant="secondary" size="sm">
@@ -133,8 +165,14 @@ export const BannerFault: Story = {
     message: "No Job dispatched since 14:02. Fleet speaks protocol 3 and Bridge speaks 4.",
     act: "Update Fleet, or run an older Bridge. The v0 routes still list and kill Jobs meanwhile.",
     fields: [
-      { label: "Fleet", value: "0.4.1" },
-      { label: "Bridge", value: "0.5.0" },
+      {
+        label: "Fleet",
+        value: "0.4.1",
+      },
+      {
+        label: "Bridge",
+        value: "0.5.0",
+      },
     ],
     actions: (
       <Button variant="secondary" size="sm">
@@ -165,8 +203,14 @@ export const FullSurface: Story = {
     message: "Fleet is not running, so there are no Jobs to show.",
     act: "Start Fleet from a terminal. Bridge cannot start it, and Jobs keep progressing once it is up.",
     fields: [
-      { label: "Runtime file", value: "no file at its path" },
-      { label: "Bridge run", value: "01J9Z4K7QW" },
+      {
+        label: "Runtime file",
+        value: "no file at its path",
+      },
+      {
+        label: "Bridge run",
+        value: "01J9Z4K7QW",
+      },
     ],
     actions: (
       <Button variant="secondary" size="sm">
@@ -182,7 +226,10 @@ export const FullSurface: Story = {
  * appears on this surface, it only leaves it.
  */
 export const InlineWithPayload: Story = {
-  args: { ...(Inline.args as object), payload: REFUSED } as Story["args"],
+  args: {
+    ...(Inline.args as object),
+    payload: REFUSED,
+  } as Story["args"],
 };
 
 /**
@@ -211,7 +258,10 @@ export const ToastWithPayload: Story = {
  * place and the surface keeps working beneath it.
  */
 export const BannerWithPayload: Story = {
-  args: { ...(Banner.args as object), payload: REFUSED } as Story["args"],
+  args: {
+    ...(Banner.args as object),
+    payload: REFUSED,
+  } as Story["args"],
 };
 
 /**
@@ -276,8 +326,14 @@ export const CodelessPayload: Story = {
     payload: {
       message: "Cannot read properties of undefined (reading 'status')",
       fields: [
-        { key: "region", value: "the job board" },
-        { key: "component", value: "JobRowStacked" },
+        {
+          key: "region",
+          value: "the job board",
+        },
+        {
+          key: "component",
+          value: "JobRowStacked",
+        },
       ],
       chain: [
         "at JobRowStacked (JobRowStacked.tsx:88:19)",

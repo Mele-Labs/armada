@@ -6,7 +6,10 @@
 has got.** `crates/adapters/src/session_rules.md`, read at build by `include_str!`
 into `hosted_session::SESSION_RULES`, which `render_hosted_session` puts first in
 the one `--append-system-prompt` argument of every process: plain, Helm, fork,
-move and resuming alike. Helm's note (5a) and a fork's note follow it, and the Logbook note follows those ([Logbook](../../concepts/logbook.md), *Recall*).
+move and resuming alike.
+The Job's own id follows the rules, as one sentence: it names the id, says `armada job` passes it itself, and says it is the `session_id` where an act takes one.
+The mod's `armadaSession` note says it too, but an organization's Claude Code can pass the mod's prompt hooks over, and a start argument is Fleet's own (`docs/concepts/session/how-a-job-gets-in.md`, *Where Claude Code skips the mod's hooks*).
+Helm's note (5a) and a fork's note follow it, and the Logbook note follows those ([Logbook](../../concepts/logbook.md), *Recall*).
 
 **Compiled in, and no settings key.** Layer 1 is unreachable from config, and so
 is this. A text a person can edit away is a rule the job can fall back out
@@ -21,7 +24,7 @@ stays empty. The rules ride the system prompt, which no style replaces.
 
 | Block | Action it names | Why it is in the rules |
 | --- | --- | --- |
-| **Tools** | Load the task tools and the armada tools the rules name with one ToolSearch `select:` line before the first call | Current CLIs list both by name only until loaded, and a job without the mod has no other note that names them |
+| **Tools** | Do everything with the Job as `armada job <act>` from Bash: `armada job` lists the acts, `<act> --help` says what one takes, `status` says which Job this is, `dispatch` starts a Job in another repository; the acts are also MCP tools; load the harness's task tools with one ToolSearch `select:` line | The CLI needs no discovery step, and its list is the door's own, so an act added to the inventory is callable the day it ships. A job without the mod has no other note that names it |
 | **Needs** | Put anything the person must do, decide, run or approve in `waiting_for`; a restart is an item whose `act` is `{"kind": "run", "target": "<the command>"}`; ask a decision in the prompt or in `waiting_for`, never both; remove an item once settled | Bridge reads needs from `waiting_for` and not from a reply. Asked both ways, a decision is two cards. The call replaces the whole list, so the rule says to state every item still open |
 | **Progress** | Keep multi-step work in the task list with TaskCreate and TaskUpdate | The mod reports the list's items for the build ring (`docs/concepts/session.md`, *The build record*) |
 | **Planning** | For work of more than one sitting or agent, settle the plan with the person, call `record_plan` with a plain `summary` and a `gives` line per group, wait for approval, treat his marks as proposals and record again; record no plan while he says he is not ready | A plan the person never saw is a plan he cannot steer. Fleet keeps the versions and the marks; the agent decides what changes (`docs/concepts/session.md`, *The plan*) |

@@ -2,12 +2,23 @@
 // the dialog, so a clone still running when it closes is still running when it opens again.
 
 import { useEffect, useRef, useState } from "react";
-import { Alert, Button, LocateForm, type LocateFormProps, type LocateMode } from "@armada/components";
+import {
+  Alert,
+  Button,
+  LocateForm,
+  type LocateFormProps,
+  type LocateMode,
+} from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { said } from "@armada/screens/src/copy";
-import { DESTINATION_OCCUPIED, isAbsolute, landsIn, type LocateAnswer } from "@armada/screens/src/locate-reads";
+import {
+  DESTINATION_OCCUPIED,
+  isAbsolute,
+  landsIn,
+  type LocateAnswer,
+} from "@armada/screens/src/locate-reads";
 
 /** What Locate asks of the host. */
 export type LocateSlice = {
@@ -28,7 +39,10 @@ export type LocateSlice = {
   /** Fleet has listed nothing: the dialog opens by itself, since there is nothing else to do. */
   nothingServed?: boolean;
   /** A clone main heard land, from any window. Announced here unless this window's own send is taking it (#926). */
-  landed?: { repository: RepositorySummary; at: number } | null;
+  landed?: {
+    repository: RepositorySummary;
+    at: number;
+  } | null;
 };
 
 export type Locating = {
@@ -50,7 +64,8 @@ const FOLDER_NAME = "Letters, digits, dots, dashes and underscores.";
 const NAMED = /^[A-Za-z0-9._-]+$/;
 
 /** A new project's place: absolute, or under home, which main spells out. */
-const placed = (place: string): boolean => isAbsolute(place) || place.trim() === "~" || place.trim().startsWith("~/");
+const placed = (place: string): boolean =>
+  isAbsolute(place) || place.trim() === "~" || place.trim().startsWith("~/");
 
 export function useLocate(slice: LocateSlice): Locating {
   const [open, setOpen] = useState(false);
@@ -64,14 +79,23 @@ export function useLocate(slice: LocateSlice): Locating {
   const [sending, setSending] = useState(false);
   const [refusal, setRefusal] = useState<LocateFormProps["refusal"]>(undefined);
   const [late, setLate] = useState<RepositorySummary | null>(null);
-  const [resolved, setResolved] = useState<{ parent: string; folder: string | null } | null>(null);
+  const [resolved, setResolved] = useState<{
+    parent: string;
+    folder: string | null;
+  } | null>(null);
   const latest = useRef(slice);
   latest.current = slice;
   const shown = useRef(open);
   shown.current = open;
   const mountedAt = useRef(Date.now());
   // This window's own send, and what it located: that answer is this window's to act on, not to announce.
-  const own = useRef<{ out: boolean; took: string | null }>({ out: false, took: null });
+  const own = useRef<{
+    out: boolean;
+    took: string | null;
+  }>({
+    out: false,
+    took: null,
+  });
 
   // Heard after this window opened, and not its own: said as late, which moves no pick.
   useEffect(() => {
@@ -79,11 +103,15 @@ export function useLocate(slice: LocateSlice): Locating {
     if (heard == null || heard.at < mountedAt.current) return;
     if (own.current.out || heard.repository.root === own.current.took) return;
     setLate(heard.repository);
-  }, [slice.landed]);
+  }, [
+    slice.landed,
+  ]);
 
   useEffect(() => {
     if (slice.nothingServed === true) setOpen(true);
-  }, [slice.nothingServed]);
+  }, [
+    slice.nothingServed,
+  ]);
 
   // Fleet canonicalises the parent, so the preview asks main for the same spelling.
   useEffect(() => {
@@ -91,20 +119,33 @@ export function useLocate(slice: LocateSlice): Locating {
     if (!isAbsolute(asked)) return undefined;
     let current = true;
     void latest.current.onResolveFolder(asked).then((folder) => {
-      if (current) setResolved({ parent: asked, folder });
+      if (current)
+        setResolved({
+          parent: asked,
+          folder,
+        });
     });
     return () => {
       current = false;
     };
-  }, [parent]);
+  }, [
+    parent,
+  ]);
   const canonical = resolved?.parent === parent.trim() ? resolved.folder : null;
   const destination = landsIn(url, canonical ?? parent);
   const where = place ?? slice.newPlace;
-  const ready = mode === "folder" ? isAbsolute(path) : mode === "new" ? NAMED.test(name) && placed(where) : url.trim() !== "" && destination !== null;
-  const edited = <T,>(set: (value: T) => void) => (value: T) => {
-    set(value);
-    setRefusal(undefined);
-  };
+  const ready =
+    mode === "folder"
+      ? isAbsolute(path)
+      : mode === "new"
+        ? NAMED.test(name) && placed(where)
+        : url.trim() !== "" && destination !== null;
+  const edited =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setRefusal(undefined);
+    };
 
   function reset(): void {
     setMode("folder");
@@ -197,7 +238,12 @@ export function useLocate(slice: LocateSlice): Locating {
 
 /** What an answer that did not locate says, in the dialog. */
 function refusalOf(
-  answer: Exclude<LocateAnswer, { state: "located" }>,
+  answer: Exclude<
+    LocateAnswer,
+    {
+      state: "located";
+    }
+  >,
   mode: LocateMode,
 ): NonNullable<LocateFormProps["refusal"]> {
   switch (answer.state) {
@@ -205,20 +251,46 @@ function refusalOf(
       return {
         title: titleOf(answer.code, mode),
         saying: sentence(answer.saying),
-        ...(answer.code === DESTINATION_OCCUPIED ? { next: mode === "new" ? "Choose another name or location." : "Choose another folder to clone into." } : {}),
+        ...(answer.code === DESTINATION_OCCUPIED
+          ? {
+              next:
+                mode === "new"
+                  ? "Choose another name or location."
+                  : "Choose another folder to clone into.",
+            }
+          : {}),
       };
     case "busy":
-      return { title: "Not sent", saying: "A repository is already being added, cloned or made." };
+      return {
+        title: "Not sent",
+        saying: "A repository is already being added, cloned or made.",
+      };
     case "failed":
-      return { title: answer.outcome.ok === false && answer.outcome.why === "transport" ? "No answer from Fleet" : "Not sent", saying: said(answer.outcome) };
+      return {
+        title:
+          answer.outcome.ok === false && answer.outcome.why === "transport"
+            ? "No answer from Fleet"
+            : "Not sent",
+        saying: said(answer.outcome),
+      };
   }
 }
 
 /** Fleet's own clone codes mean nothing landed; any other refusal of a clone came after git, and the clone stays. */
-const CLONE_CODES = new Set(["fleet.clone_refused", DESTINATION_OCCUPIED, "fleet.no_such_folder", "fleet.clone_not_finished"]);
+const CLONE_CODES = new Set([
+  "fleet.clone_refused",
+  DESTINATION_OCCUPIED,
+  "fleet.no_such_folder",
+  "fleet.clone_not_finished",
+]);
 
 /** Fleet's own codes for a new project mean no folder was left; any other came after git started it, and the folder stays. */
-const CREATE_CODES = new Set(["fleet.project_name_refused", DESTINATION_OCCUPIED, "fleet.no_such_folder", "fleet.project_not_started"]);
+const CREATE_CODES = new Set([
+  "fleet.project_name_refused",
+  DESTINATION_OCCUPIED,
+  "fleet.no_such_folder",
+  "fleet.project_not_started",
+]);
 
 function titleOf(code: string, mode: LocateMode): string {
   if (mode === "new") return CREATE_CODES.has(code) ? "Not made" : "Made, and not added";
@@ -241,10 +313,21 @@ export function Locate({ locating }: { locating: Locating }) {
  * A clone that finished after its dialog closed, said wherever the person is. **It never moves the
  * window**: Open is theirs to press, and until then the pick stays where they left it.
  */
-export function LocatedNotice({ locating, repositories }: { locating: Locating; repositories: readonly RepositorySummary[] }) {
+export function LocatedNotice({
+  locating,
+  repositories,
+}: {
+  locating: Locating;
+  repositories: readonly RepositorySummary[];
+}) {
   const { late } = locating;
   if (late === null) return null;
-  const listed = repositories.some((one) => one.root === late.root) ? repositories : [...repositories, late];
+  const listed = repositories.some((one) => one.root === late.root)
+    ? repositories
+    : [
+        ...repositories,
+        late,
+      ];
   return (
     <Alert
       tone="neutral"

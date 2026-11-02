@@ -48,6 +48,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("save_request_to_collection", shape::of::<crate::SaveRequestToCollection>()),
         ("scaffold_mod", shape::of::<crate::ScaffoldMod>()),
         ("send_request", shape::of::<crate::SendRequest>()),
+        ("send_requests", shape::of::<crate::SendRequests>()),
         ("settle_later", shape::of::<crate::SettleLater>()),
         ("show_file", shape::of::<crate::ShowFile>()),
         ("show_sketch", shape::of::<crate::ShowSketch>()),

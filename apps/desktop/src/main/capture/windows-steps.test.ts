@@ -8,7 +8,11 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({}));
 
-const made = vi.hoisted(() => ({ windows: [] as unknown[][], closed: 0, raised: 0 }));
+const made = vi.hoisted(() => ({
+  windows: [] as unknown[][],
+  closed: 0,
+  raised: 0,
+}));
 vi.mock("./window", () => ({
   CaptureWindow: class {
     open = true;
@@ -16,7 +20,11 @@ vi.mock("./window", () => ({
     origins: string[] = [];
     constructor(...args: unknown[]) {
       made.windows.push(args);
-      this.address = (args[0] as { url: string }).url;
+      this.address = (
+        args[0] as {
+          url: string;
+        }
+      ).url;
     }
     raise = () => void (made.raised += 1);
     close = () => void (made.closed += 1);
@@ -25,7 +33,9 @@ vi.mock("./window", () => ({
     question = () => {};
   },
 }));
-vi.mock("./walk-window", async () => ({ WalkWindow: (await import("./walk-window.fake")).FakeWalkWindow }));
+vi.mock("./walk-window", async () => ({
+  WalkWindow: (await import("./walk-window.fake")).FakeWalkWindow,
+}));
 
 import { NOTHING_YET } from "../../shared/bridge";
 import { CaptureWindows } from "./windows";
@@ -33,14 +43,34 @@ import { CaptureWindows } from "./windows";
 const PAGE = "http://localhost:5173/depot";
 
 const DEPOT: WalkStep[] = [
-  { say: "The stock table", look: { role: "table", name: "Stock" } },
-  { say: "Open the receiving tab", press: { role: "tab", name: "Receiving" } },
+  {
+    say: "The stock table",
+    look: {
+      role: "table",
+      name: "Stock",
+    },
+  },
+  {
+    say: "Open the receiving tab",
+    press: {
+      role: "tab",
+      name: "Receiving",
+    },
+  },
 ];
 
 function windows(): CaptureWindows {
-  const board = { windowsChanged: () => {} } as unknown as ConstructorParameters<typeof CaptureWindows>[0];
+  const board = {
+    windowsChanged: () => {},
+  } as unknown as ConstructorParameters<typeof CaptureWindows>[0];
   const shown = new CaptureWindows(board);
-  shown.changed({ ...NOTHING_YET, sessions: { state: "read", sessions: [] } });
+  shown.changed({
+    ...NOTHING_YET,
+    sessions: {
+      state: "read",
+      sessions: [],
+    },
+  });
   return shown;
 }
 
@@ -62,15 +92,39 @@ it("a page shown again with the same steps is left as it is", () => {
   const shown = windows();
   shown.openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
   shown.openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
-  expect([made.windows.length, made.raised, made.closed]).toEqual([1, 0, 0]);
+  expect([
+    made.windows.length,
+    made.raised,
+    made.closed,
+  ]).toEqual([
+    1,
+    0,
+    0,
+  ]);
 });
 
 it("a page shown again with other steps is made afresh with them", () => {
   const shown = windows();
   shown.openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
-  const other: WalkStep[] = [{ say: "Only this", look: { role: "status", name: "Saved" } }];
+  const other: WalkStep[] = [
+    {
+      say: "Only this",
+      look: {
+        role: "status",
+        name: "Saved",
+      },
+    },
+  ];
   shown.openForSession("a", "Depot", PAGE, [], [], [], other);
-  expect([made.windows.length, made.raised, made.closed]).toEqual([2, 0, 1]);
+  expect([
+    made.windows.length,
+    made.raised,
+    made.closed,
+  ]).toEqual([
+    2,
+    0,
+    1,
+  ]);
   expect(made.windows[1]?.[7]).toEqual(other);
 });
 
@@ -78,9 +132,32 @@ it("a page shown again with the same steps and a sign-in to run is made afresh, 
   const shown = windows();
   const link = "http://localhost:5173/dev/login";
   shown.openForSession("a", "Depot", PAGE, [], [], [], DEPOT);
-  shown.openForSession("a", "Depot", PAGE, [], [], [link], DEPOT);
-  expect([made.windows.length, made.raised, made.closed]).toEqual([2, 0, 1]);
-  expect(made.windows[1]?.slice(6, 8)).toEqual([[link], DEPOT]);
+  shown.openForSession(
+    "a",
+    "Depot",
+    PAGE,
+    [],
+    [],
+    [
+      link,
+    ],
+    DEPOT,
+  );
+  expect([
+    made.windows.length,
+    made.raised,
+    made.closed,
+  ]).toEqual([
+    2,
+    0,
+    1,
+  ]);
+  expect(made.windows[1]?.slice(6, 8)).toEqual([
+    [
+      link,
+    ],
+    DEPOT,
+  ]);
 });
 
 it("a page shown without steps is made with none, and a mock that plays its own walk keeps doing so", () => {

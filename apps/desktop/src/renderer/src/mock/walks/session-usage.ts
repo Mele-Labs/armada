@@ -8,7 +8,9 @@ import { dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const sessions = region("Jobs", { exact: true });
+const sessions = region("Jobs", {
+  exact: true,
+});
 const limits = role("button", "5-hour limit");
 const card = dialog("Plan limits");
 const limitMark = role("img", "Limit reached");
@@ -18,30 +20,89 @@ function context(title: string, address: string, said: string): Step[] {
   const figure = inside(region(`Job ${address}`), role("button", "Context"));
   return [
     toSessions,
-    { press: inside(sessions, role("button", new RegExp(title))), say: title },
-    { look: figure, say: said },
-    { hover: figure, say: "Hover for what fills the window" },
-    { press: figure, say: "A press keeps the card open" },
-    { key: "Escape", on: figure, say: "Esc closes it" },
+    {
+      press: inside(sessions, role("button", new RegExp(title))),
+      say: title,
+    },
+    {
+      look: figure,
+      say: said,
+    },
+    {
+      hover: figure,
+      say: "Hover for what fills the window",
+    },
+    {
+      press: figure,
+      say: "A press keeps the card open",
+    },
+    {
+      key: "Escape",
+      on: figure,
+      say: "Esc closes it",
+    },
   ];
 }
 
 const usage = walk("session-usage", [
-  { look: limits, say: "The plan's limits, one ring: 5 hours outside, the week inside" },
-  { hover: limits, say: "Hover for the card: each limit, how much is used and when it resets" },
-  { press: limits, say: "A press keeps the card open" },
-  { look: inside(card, region("Weekly limit")), say: "The weekly limit" },
-  { key: "Escape", on: limits, say: "Esc closes it" },
-  { later: limits, say: "Later in the week" },
-  { look: limits, say: "Amber from 80%, red from 95%" },
-  { hover: limits, say: "The figures in the card take the same tones" },
+  {
+    look: limits,
+    say: "The plan's limits, one ring: 5 hours outside, the week inside",
+  },
+  {
+    hover: limits,
+    say: "Hover for the card: each limit, how much is used and when it resets",
+  },
+  {
+    press: limits,
+    say: "A press keeps the card open",
+  },
+  {
+    look: inside(card, region("Weekly limit")),
+    say: "The weekly limit",
+  },
+  {
+    key: "Escape",
+    on: limits,
+    say: "Esc closes it",
+  },
+  {
+    later: limits,
+    say: "Later in the week",
+  },
+  {
+    look: limits,
+    say: "Amber from 80%, red from 95%",
+  },
+  {
+    hover: limits,
+    say: "The figures in the card take the same tones",
+  },
   toSessions,
-  { look: inside(sessions, limitMark), say: "A Job held for the limit wears this on its row" },
-  { hover: inside(sessions, limitMark), say: "Hover for when it resumes" },
-  { press: inside(sessions, role("button", /Invoice PDF layout/)), say: "Invoice PDF layout" },
-  { look: inside(region("Job s-01CTXLIM"), limitMark), say: "The same mark in its header" },
-  { hover: inside(region("Job s-01CTXLIM"), limitMark), say: "Same tooltip" },
-  { hover: inside(region("Job s-01CTXLIM"), role("button", "Context")), say: "Context at 96% is red" },
+  {
+    look: inside(sessions, limitMark),
+    say: "A Job held for the limit wears this on its row",
+  },
+  {
+    hover: inside(sessions, limitMark),
+    say: "Hover for when it resumes",
+  },
+  {
+    press: inside(sessions, role("button", /Invoice PDF layout/)),
+    say: "Invoice PDF layout",
+  },
+  {
+    look: inside(region("Job s-01CTXLIM"), limitMark),
+    say: "The same mark in its header",
+  },
+  {
+    hover: inside(region("Job s-01CTXLIM"), limitMark),
+    say: "Same tooltip",
+  },
+  {
+    hover: inside(region("Job s-01CTXLIM"), role("button", "Context")),
+    say: "Context at 96% is red",
+  },
   ...context("Release notes script", "s-01CTXLOW", "53.8k · 5%"),
   ...context("Store migration spike", "s-01CTXMID", "142k · 71%"),
   ...context("Cart totals rounding", "s-01CTXHIG", "188k · 94%, amber"),

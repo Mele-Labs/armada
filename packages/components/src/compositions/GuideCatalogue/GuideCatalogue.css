@@ -224,7 +224,11 @@
   padding-inline: var(--pad-card);
   box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--head-rule, var(--border-subtle));
 }
-.armada-guides__panel-head > .armada-guides__eyebrow { flex: none; order: 1; margin-inline-start: auto; }
+.armada-guides__panel-head > .armada-guides__eyebrow {
+  flex: none;
+  order: 1;
+  margin-inline-start: auto;
+}
 
 /* The number and the group: machine reference and a filing, so both recede.
    The card carries neither, and this is the room the card did not have. */

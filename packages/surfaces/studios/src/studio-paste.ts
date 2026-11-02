@@ -12,20 +12,34 @@ import type { StudioNodeByHand } from "@armada/components";
 /** The clipboard as a paste reads it: its plain text, and each file with its path on disk, or `""`. */
 export type Pasted = {
   text: string;
-  files: readonly { type: string; path: string; bytes: Blob }[];
+  files: readonly {
+    type: string;
+    path: string;
+    bytes: Blob;
+  }[];
 };
 
 /**
  * What a paste lands as. **A picture carries its bytes**, which only main may stage for Fleet,
  * so it is no `StudioNodeByHand` the renderer could send. `null` is nothing to land.
  */
-export type Landing = StudioNodeByHand | { kind: "picture"; bytes: Blob } | null;
+export type Landing =
+  | StudioNodeByHand
+  | {
+      kind: "picture";
+      bytes: Blob;
+    }
+  | null;
 
 /** Read a paste while it is happening — a `DataTransfer` is empty once the event is over. */
 export function pastedOf(clipboard: DataTransfer, pathOf: (file: File) => string): Pasted {
   return {
     text: clipboard.getData("text/plain"),
-    files: Array.from(clipboard.files, (file) => ({ type: file.type, path: pathOf(file), bytes: file })),
+    files: Array.from(clipboard.files, (file) => ({
+      type: file.type,
+      path: pathOf(file),
+      bytes: file,
+    })),
   };
 }
 
@@ -52,12 +66,31 @@ export function isPath(text: string): boolean {
 /** What the paste lands as. A file on disk first, then a picture, then the text. */
 export function landingOf({ text, files }: Pasted): Landing {
   const onDisk = files.find((file) => file.path !== "");
-  if (onDisk !== undefined) return { kind: "file", path: onDisk.path };
+  if (onDisk !== undefined)
+    return {
+      kind: "file",
+      path: onDisk.path,
+    };
   const picture = files.find((file) => file.type.startsWith("image/"));
-  if (picture !== undefined) return { kind: "picture", bytes: picture.bytes };
+  if (picture !== undefined)
+    return {
+      kind: "picture",
+      bytes: picture.bytes,
+    };
   const said = text.trim();
   if (said === "") return null;
-  if (ADDRESS.test(said)) return { kind: "link", address: said };
-  if (isPath(said)) return { kind: "file", path: said };
-  return { kind: "note", said };
+  if (ADDRESS.test(said))
+    return {
+      kind: "link",
+      address: said,
+    };
+  if (isPath(said))
+    return {
+      kind: "file",
+      path: said,
+    };
+  return {
+    kind: "note",
+    said,
+  };
 }

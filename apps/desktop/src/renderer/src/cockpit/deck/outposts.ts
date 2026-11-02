@@ -26,10 +26,25 @@ export type Outpost = {
   lines: readonly string[];
 };
 
-const FIXED: Record<string, { glyph: OutpostGlyph; rank: number }> = {
-  forge: { glyph: "forge", rank: 0 },
-  tracker: { glyph: "ticket", rank: 1 },
-  web: { glyph: "globe", rank: 2 },
+const FIXED: Record<
+  string,
+  {
+    glyph: OutpostGlyph;
+    rank: number;
+  }
+> = {
+  forge: {
+    glyph: "forge",
+    rank: 0,
+  },
+  tracker: {
+    glyph: "ticket",
+    rank: 1,
+  },
+  web: {
+    glyph: "globe",
+    rank: 2,
+  },
 };
 
 /** A service's name as a label: `the web` is `Web`, and a name already capitalised is left alone. */
@@ -42,27 +57,43 @@ const when = (event: TimelineEvent): number => Date.parse(event.at);
 
 /** The calls up to `clock`, newest first. */
 const calledOf = (events: readonly TimelineEvent[], clock: number): TimelineEvent[] =>
-  events.filter((one) => one.kind === "session.called" && one.call !== undefined && when(one) <= clock).sort((a, b) => when(b) - when(a) || b.id - a.id);
+  events
+    .filter((one) => one.kind === "session.called" && one.call !== undefined && when(one) <= clock)
+    .sort((a, b) => when(b) - when(a) || b.id - a.id);
 
 /**
  * The outposts as they stand at `clock`: the forge, the issue tracker and the web in that order when they have been called, then the other
  * services alphabetically. `keep` drops the calls the map does not draw.
  */
-export function outpostsOf(events: readonly TimelineEvent[], clock: number, keep: (event: TimelineEvent) => boolean = () => true): Outpost[] {
+export function outpostsOf(
+  events: readonly TimelineEvent[],
+  clock: number,
+  keep: (event: TimelineEvent) => boolean = () => true,
+): Outpost[] {
   const by = new Map<string, TimelineEvent[]>();
   for (const event of calledOf(events, clock)) {
     if (!keep(event)) continue;
     const service = event.call!.service;
-    by.set(service, [...(by.get(service) ?? []), event]);
+    by.set(service, [
+      ...(by.get(service) ?? []),
+      event,
+    ]);
   }
   const nameOf = (service: string): string => labelOf(by.get(service)![0]!.call!.name);
-  return [...by.keys()]
-    .sort((a, b) => (FIXED[a]?.rank ?? 3) - (FIXED[b]?.rank ?? 3) || nameOf(a).localeCompare(nameOf(b)))
+  return [
+    ...by.keys(),
+  ]
+    .sort(
+      (a, b) => (FIXED[a]?.rank ?? 3) - (FIXED[b]?.rank ?? 3) || nameOf(a).localeCompare(nameOf(b)),
+    )
     .map((service) => ({
       service,
       name: nameOf(service),
       glyph: FIXED[service]?.glyph ?? "plug",
-      lines: by.get(service)!.slice(0, MOST_CALLS).map((one) => `${one.title ?? "Job"} · ${one.call!.line} · ${agoOf(one.at, clock) ?? ""}`),
+      lines: by
+        .get(service)!
+        .slice(0, MOST_CALLS)
+        .map((one) => `${one.title ?? "Job"} · ${one.call!.line} · ${agoOf(one.at, clock) ?? ""}`),
     }));
 }
 
@@ -83,6 +114,11 @@ export function withCalling(
   }
   return drones.map((drone) => {
     const seen = latest.get(drone.key);
-    return seen !== undefined && drone.working && when(seen) + FRESH_MS > clock ? { ...drone, calling: seen.call!.service } : drone;
+    return seen !== undefined && drone.working && when(seen) + FRESH_MS > clock
+      ? {
+          ...drone,
+          calling: seen.call!.service,
+        }
+      : drone;
   });
 }

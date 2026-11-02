@@ -3,7 +3,10 @@
 
 const ESC = String.fromCharCode(27);
 const BEL = String.fromCharCode(7);
-const SEQUENCE = new RegExp(`${ESC}(?:\\[[0-?]*[ -/]*[@-~]|\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)|[ -/][ -~]|[@-Z\\\\^_=>])|${BEL}`, "g");
+const SEQUENCE = new RegExp(
+  `${ESC}(?:\\[[0-?]*[ -/]*[@-~]|\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)|[ -/][ -~]|[@-Z\\\\^_=>])|${BEL}`,
+  "g",
+);
 
 export function plainOf(bytes: string): string {
   return bytes

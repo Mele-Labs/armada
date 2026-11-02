@@ -4,12 +4,16 @@
 const { existsSync } = require("node:fs");
 const { join } = require("node:path");
 
-const MOD_FILES = [".claude-plugin/marketplace.json", "armada/.claude-plugin/plugin.json"];
+const MOD_FILES = [
+  ".claude-plugin/marketplace.json",
+  "armada/.claude-plugin/plugin.json",
+];
 
 exports.default = async function afterPack(context) {
   const app = `${context.packager.appInfo.productFilename}.app`;
   const mod = join(context.appOutDir, app, "Contents", "Resources", "mod");
   for (const file of MOD_FILES) {
-    if (!existsSync(join(mod, file))) throw new Error(`The mod did not reach the app: ${join(mod, file)} is missing.`);
+    if (!existsSync(join(mod, file)))
+      throw new Error(`The mod did not reach the app: ${join(mod, file)} is missing.`);
   }
 };

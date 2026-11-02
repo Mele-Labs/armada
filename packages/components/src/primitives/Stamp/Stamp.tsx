@@ -25,7 +25,10 @@ export type StampProps = {
   className?: string;
 };
 
-type Surface = { flipped: boolean; flip: () => void };
+type Surface = {
+  flipped: boolean;
+  flip: () => void;
+};
 const SurfaceContext = createContext<Surface | null>(null);
 
 /**
@@ -34,7 +37,15 @@ const SurfaceContext = createContext<Surface | null>(null);
  */
 export function StampSurface({ children }: { children: ReactNode }) {
   const [flipped, setFlipped] = useState(false);
-  const value = useMemo<Surface>(() => ({ flipped, flip: () => setFlipped((was) => !was) }), [flipped]);
+  const value = useMemo<Surface>(
+    () => ({
+      flipped,
+      flip: () => setFlipped((was) => !was),
+    }),
+    [
+      flipped,
+    ],
+  );
   return <SurfaceContext.Provider value={value}>{children}</SurfaceContext.Provider>;
 }
 

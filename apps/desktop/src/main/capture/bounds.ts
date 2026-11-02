@@ -21,10 +21,17 @@ const MOST_STYLE_VALUE = 200;
 const text = (value: unknown, most: number): string | null =>
   typeof value === "string" ? value.slice(0, most) : null;
 
-const whole = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0);
+const whole = (value: unknown): number =>
+  typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0;
 
 /** A rectangle, clamped so a negative or an infinite one cannot reach a crop. */
-export function rectOf(value: unknown, viewport: { width: number; height: number }): CaptureRect {
+export function rectOf(
+  value: unknown,
+  viewport: {
+    width: number;
+    height: number;
+  },
+): CaptureRect {
   const box = (value ?? {}) as Record<string, unknown>;
   const x = Math.min(Math.max(whole(box["x"]), 0), viewport.width);
   const y = Math.min(Math.max(whole(box["y"]), 0), viewport.height);
@@ -37,10 +44,19 @@ export function rectOf(value: unknown, viewport: { width: number; height: number
 }
 
 /** The box and the name an aim answers with, or `null` where it answered nothing. */
-export function aimed(answer: unknown, viewport: { width: number; height: number }): CaptureAimed | null {
+export function aimed(
+  answer: unknown,
+  viewport: {
+    width: number;
+    height: number;
+  },
+): CaptureAimed | null {
   if (typeof answer !== "object" || answer === null) return null;
   const said = answer as Record<string, unknown>;
-  return { box: rectOf(said["box"], viewport), named: text(said["named"], MOST_NAME) ?? "element" };
+  return {
+    box: rectOf(said["box"], viewport),
+    named: text(said["named"], MOST_NAME) ?? "element",
+  };
 }
 
 /**
@@ -53,7 +69,10 @@ export function aimed(answer: unknown, viewport: { width: number; height: number
  */
 export function bounded(
   answer: unknown,
-  viewport: { width: number; height: number },
+  viewport: {
+    width: number;
+    height: number;
+  },
   served: CaptureServed,
 ): StudioCapture | null {
   if (typeof answer !== "object" || answer === null) return null;
@@ -78,19 +97,42 @@ export function bounded(
     : [];
 
   return {
-    ...(component === null ? {} : { component }),
-    ...(owners.length === 0 ? {} : { owners }),
+    ...(component === null
+      ? {}
+      : {
+          component,
+        }),
+    ...(owners.length === 0
+      ? {}
+      : {
+          owners,
+        }),
     selector,
     element: {
       tag,
       text: text(element["text"], MOST_TEXT) ?? "",
-      ...(label === null ? {} : { label }),
+      ...(label === null
+        ? {}
+        : {
+            label,
+          }),
     },
-    ...(screen === null ? {} : { screen }),
-    ...(layer === null ? {} : { layer }),
+    ...(screen === null
+      ? {}
+      : {
+          screen,
+        }),
+    ...(layer === null
+      ? {}
+      : {
+          layer,
+        }),
     location: text(capture["location"], 600) ?? "/",
     bounds: rectOf(capture["bounds"], viewport),
-    window: { width: whole(viewport.width), height: whole(viewport.height) },
+    window: {
+      width: whole(viewport.width),
+      height: whole(viewport.height),
+    },
     styles: styled(capture["styles"]),
     markup,
     served,
@@ -98,7 +140,11 @@ export function bounded(
 }
 
 /** What a take read beside the capture: a Session's note carries it, a Studio's Note does not. */
-export type PageRead = { stamp?: string; nearby: string[]; selected: string[] };
+export type PageRead = {
+  stamp?: string;
+  nearby: string[];
+  selected: string[];
+};
 
 const strings = (value: unknown, most: number, longest: number): string[] =>
   Array.isArray(value)
@@ -110,12 +156,24 @@ const strings = (value: unknown, most: number, longest: number): string[] =>
 
 /** The stamp, nearby names and marked state a take answered with, each re-bounded. A stamp not shaped `path:line` is dropped. */
 export function readOf(answer: unknown): PageRead {
-  const capture = typeof answer === "object" && answer !== null ? (answer as Record<string, unknown>)["capture"] : null;
-  const said = (typeof capture === "object" && capture !== null ? capture : {}) as Record<string, unknown>;
-  const state = (typeof said["state"] === "object" && said["state"] !== null ? said["state"] : {}) as Record<string, unknown>;
+  const capture =
+    typeof answer === "object" && answer !== null
+      ? (answer as Record<string, unknown>)["capture"]
+      : null;
+  const said = (typeof capture === "object" && capture !== null ? capture : {}) as Record<
+    string,
+    unknown
+  >;
+  const state = (
+    typeof said["state"] === "object" && said["state"] !== null ? said["state"] : {}
+  ) as Record<string, unknown>;
   const stamp = text(said["stamp"], 600);
   return {
-    ...(stamp !== null && /^[^:\s][^\s]*:[1-9]\d*$/.test(stamp) ? { stamp } : {}),
+    ...(stamp !== null && /^[^:\s][^\s]*:[1-9]\d*$/.test(stamp)
+      ? {
+          stamp,
+        }
+      : {}),
     nearby: strings(said["nearby"], 8, MOST_TEXT),
     selected: strings(state["selected"], 12, MOST_NAME),
   };
@@ -146,7 +204,10 @@ export function styled(value: unknown): Record<string, string> {
  * code, and the seam between the two builds is not an import path.
  */
 export function chainOf(capture: StudioCapture): string {
-  const names = [capture.component, ...(capture.owners ?? [])].filter((name): name is string => name !== undefined);
+  const names = [
+    capture.component,
+    ...(capture.owners ?? []),
+  ].filter((name): name is string => name !== undefined);
   const steps = capture.selector.split(" > ");
   const shown = steps.length > 2 ? `… > ${steps.slice(-2).join(" > ")}` : capture.selector;
   return `${names.length > 0 ? names.slice(0, 4).join(" ← ") : capture.element.tag} · ${shown}`;

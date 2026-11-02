@@ -22,12 +22,21 @@ export type SwitchProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "
 
 type Look = {
   /** What the track says in each state, a word or two short. ON and OFF where absent. */
-  words?: { on: string; off: string };
+  words?: {
+    on: string;
+    off: string;
+  };
   /** `sm` for a switch in a band or a bar. */
   size?: "sm";
 };
 
-function Control({ words = { on: "ON", off: "OFF" }, ...rest }: Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size"> & Pick<Look, "words">) {
+function Control({
+  words = {
+    on: "ON",
+    off: "OFF",
+  },
+  ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size"> & Pick<Look, "words">) {
   return (
     <>
       <input {...rest} type="checkbox" role="switch" className="armada-switch__input" />
@@ -46,7 +55,11 @@ function Control({ words = { on: "ON", off: "OFF" }, ...rest }: Omit<InputHTMLAt
 
 export function Switch({ children, description, size, ...rest }: SwitchProps) {
   return (
-    <label className="armada-switch" data-described={description !== undefined || undefined} data-size={size}>
+    <label
+      className="armada-switch"
+      data-described={description !== undefined || undefined}
+      data-size={size}
+    >
       <span className="armada-switch__text">
         <span>{children}</span>
         {description !== undefined && (
@@ -62,7 +75,14 @@ export function Switch({ children, description, size, ...rest }: SwitchProps) {
  * The switch alone, for a row whose text beside it does something else when pressed. `label` names it for a screen reader,
  * and only the control itself toggles.
  */
-export function SwitchControl({ label, size, ...rest }: Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "children" | "size"> & Look & { label: string }) {
+export function SwitchControl({
+  label,
+  size,
+  ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "children" | "size"> &
+  Look & {
+    label: string;
+  }) {
   return (
     <label className="armada-switch" data-control="" data-size={size}>
       <Control {...rest} aria-label={label} />

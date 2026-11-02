@@ -14,11 +14,15 @@ if (typeof window !== "undefined") {
   window.addEventListener(
     "keydown",
     (event) => {
-      const chord = event.code === "KeyA" && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
-      if (!chord || toggles.size === 0 || document.querySelector("[data-armada-annotate]") !== null) return;
+      const chord =
+        event.code === "KeyA" && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
+      if (!chord || toggles.size === 0 || document.querySelector("[data-armada-annotate]") !== null)
+        return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      [...toggles].at(-1)?.();
+      [
+        ...toggles,
+      ].at(-1)?.();
     },
     true,
   );

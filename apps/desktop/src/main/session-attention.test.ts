@@ -6,14 +6,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionRecord, WaitingItem } from "@armada/protocol";
 import { QUIET_MS, SessionAttention } from "./session-attention";
 
-const item = (id: string, source: WaitingItem["source"] = "agent", text = `text ${id}`, since = "2026-10-19T10:00:00Z"): WaitingItem => ({
+const item = (
+  id: string,
+  source: WaitingItem["source"] = "agent",
+  text = `text ${id}`,
+  since = "2026-10-19T10:00:00Z",
+): WaitingItem => ({
   id,
   text,
   since,
   source,
 });
 
-function session(id: string, waiting: WaitingItem[] = [], extra: Partial<SessionRecord> = {}): SessionRecord {
+function session(
+  id: string,
+  waiting: WaitingItem[] = [],
+  extra: Partial<SessionRecord> = {},
+): SessionRecord {
   return {
     id,
     harness: "claude",
@@ -25,14 +34,23 @@ function session(id: string, waiting: WaitingItem[] = [], extra: Partial<Session
     usage: {},
     attachments: [],
     title: `Job ${id}`,
-    ...(waiting.length > 0 ? { waiting_for: waiting } : {}),
+    ...(waiting.length > 0
+      ? {
+          waiting_for: waiting,
+        }
+      : {}),
     ...extra,
   } as SessionRecord;
 }
 
 function attention() {
   const show = vi.fn();
-  return { attention: new SessionAttention({ show }), show };
+  return {
+    attention: new SessionAttention({
+      show,
+    }),
+    show,
+  };
 }
 
 beforeEach(() => vi.useFakeTimers());
@@ -41,7 +59,14 @@ afterEach(() => vi.useRealTimers());
 describe("SessionAttention", () => {
   it("tells nothing of what was already waiting at the first reading", () => {
     const { attention: a, show } = attention();
-    a.read([session("a", [item("1")])], 1);
+    a.read(
+      [
+        session("a", [
+          item("1"),
+        ]),
+      ],
+      1,
+    );
     vi.advanceTimersByTime(QUIET_MS * 2);
     expect(show).not.toHaveBeenCalled();
   });
@@ -49,81 +74,269 @@ describe("SessionAttention", () => {
   it("tells nothing before Fleet has answered once, and the next reading is still the first", () => {
     const { attention: a, show } = attention();
     a.read([], null);
-    a.read([session("a", [item("1")])], 1);
+    a.read(
+      [
+        session("a", [
+          item("1"),
+        ]),
+      ],
+      1,
+    );
     vi.advanceTimersByTime(QUIET_MS * 2);
     expect(show).not.toHaveBeenCalled();
   });
 
   it("tells a new item once the quiet window ends", () => {
     const { attention: a, show } = attention();
-    a.read([session("a")], 1);
-    a.read([session("a", [item("1", "agent", "Pick a slot")])], 2);
+    a.read(
+      [
+        session("a"),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session("a", [
+          item("1", "agent", "Pick a slot"),
+        ]),
+      ],
+      2,
+    );
     vi.advanceTimersByTime(QUIET_MS - 1);
     expect(show).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(show).toHaveBeenCalledTimes(1);
-    expect(show).toHaveBeenCalledWith({ sessionId: "a", title: "Job a", body: "Pick a slot", tone: "waiting" });
+    expect(show).toHaveBeenCalledWith({
+      sessionId: "a",
+      title: "Job a",
+      body: "Pick a slot",
+      tone: "waiting",
+    });
   });
 
   it("stays quiet for an item re-posted under the same id", () => {
     const { attention: a, show } = attention();
-    a.read([session("a")], 1);
-    a.read([session("a", [item("1")])], 2);
+    a.read(
+      [
+        session("a"),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session("a", [
+          item("1"),
+        ]),
+      ],
+      2,
+    );
     vi.advanceTimersByTime(QUIET_MS);
-    a.read([session("a", [{ ...item("1"), text: "worded again", since: "2026-10-19T11:00:00Z" }])], 3);
+    a.read(
+      [
+        session("a", [
+          {
+            ...item("1"),
+            text: "worded again",
+            since: "2026-10-19T11:00:00Z",
+          },
+        ]),
+      ],
+      3,
+    );
     vi.advanceTimersByTime(QUIET_MS * 2);
     expect(show).toHaveBeenCalledTimes(1);
   });
 
   it("tells two items inside the window as one banner that lands on the first", () => {
     const { attention: a, show } = attention();
-    a.read([session("a"), session("b")], 1);
-    a.read([session("a", [item("1", "agent", "First", "2026-10-19T10:00:00Z")]), session("b")], 2);
+    a.read(
+      [
+        session("a"),
+        session("b"),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session("a", [
+          item("1", "agent", "First", "2026-10-19T10:00:00Z"),
+        ]),
+        session("b"),
+      ],
+      2,
+    );
     vi.advanceTimersByTime(1500);
-    a.read([session("a", [item("1")]), session("b", [item("2", "agent", "Second", "2026-10-19T10:00:01Z")])], 3);
+    a.read(
+      [
+        session("a", [
+          item("1"),
+        ]),
+        session("b", [
+          item("2", "agent", "Second", "2026-10-19T10:00:01Z"),
+        ]),
+      ],
+      3,
+    );
     // The second entry does not push the window out.
     vi.advanceTimersByTime(500);
     expect(show).toHaveBeenCalledTimes(1);
-    expect(show).toHaveBeenCalledWith({ sessionId: "a", title: "Job a", body: "First\nand 1 more", tone: "waiting" });
+    expect(show).toHaveBeenCalledWith({
+      sessionId: "a",
+      title: "Job a",
+      body: "First\nand 1 more",
+      tone: "waiting",
+    });
   });
 
-  it.each(["ask_card", "permission", "window_ask", "plan", "slot_choice", "delivery", "task_done"] as const)("sounds blocked for a %s item", (source) => {
+  it.each([
+    "ask_card",
+    "permission",
+    "window_ask",
+    "plan",
+    "slot_choice",
+    "delivery",
+    "task_done",
+  ] as const)("sounds blocked for a %s item", (source) => {
     const { attention: a, show } = attention();
-    a.read([session("a")], 1);
-    a.read([session("a", [item("1", source)])], 2);
+    a.read(
+      [
+        session("a"),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session("a", [
+          item("1", source),
+        ]),
+      ],
+      2,
+    );
     vi.advanceTimersByTime(QUIET_MS);
     expect(show.mock.calls[0]![0].tone).toBe("blocked");
   });
 
-  it.each(["agent", "walk", "first_message", "replied", "done"] as const)("sounds waiting for a %s item", (source) => {
+  it.each([
+    "agent",
+    "walk",
+    "first_message",
+    "replied",
+    "done",
+  ] as const)("sounds waiting for a %s item", (source) => {
     const { attention: a, show } = attention();
-    a.read([session("a")], 1);
-    a.read([session("a", [item("1", source)])], 2);
+    a.read(
+      [
+        session("a"),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session("a", [
+          item("1", source),
+        ]),
+      ],
+      2,
+    );
     vi.advanceTimersByTime(QUIET_MS);
     expect(show.mock.calls[0]![0].tone).toBe("waiting");
   });
 
   it("sounds blocked when one item of a batch is a call", () => {
     const { attention: a, show } = attention();
-    a.read([session("a")], 1);
-    a.read([session("a", [item("1", "walk"), item("2", "permission")])], 2);
+    a.read(
+      [
+        session("a"),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session("a", [
+          item("1", "walk"),
+          item("2", "permission"),
+        ]),
+      ],
+      2,
+    );
     vi.advanceTimersByTime(QUIET_MS);
     expect(show.mock.calls[0]![0].tone).toBe("blocked");
   });
 
   it("does not tell for a Session that has ended", () => {
     const { attention: a, show } = attention();
-    a.read([session("a", [item("1")], { state: "ended" })], 1);
-    a.read([session("a", [item("1")], { state: "ended" }), session("b")], 2);
-    a.read([session("a", [item("1")], { state: "ended" }), session("b", [item("2")], { state: "ended" })], 3);
+    a.read(
+      [
+        session(
+          "a",
+          [
+            item("1"),
+          ],
+          {
+            state: "ended",
+          },
+        ),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session(
+          "a",
+          [
+            item("1"),
+          ],
+          {
+            state: "ended",
+          },
+        ),
+        session("b"),
+      ],
+      2,
+    );
+    a.read(
+      [
+        session(
+          "a",
+          [
+            item("1"),
+          ],
+          {
+            state: "ended",
+          },
+        ),
+        session(
+          "b",
+          [
+            item("2"),
+          ],
+          {
+            state: "ended",
+          },
+        ),
+      ],
+      3,
+    );
     vi.advanceTimersByTime(QUIET_MS);
     expect(show).not.toHaveBeenCalled();
   });
 
   it("drops what is collected when closed", () => {
     const { attention: a, show } = attention();
-    a.read([session("a")], 1);
-    a.read([session("a", [item("1")])], 2);
+    a.read(
+      [
+        session("a"),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session("a", [
+          item("1"),
+        ]),
+      ],
+      2,
+    );
     a.close();
     vi.advanceTimersByTime(QUIET_MS * 2);
     expect(show).not.toHaveBeenCalled();
@@ -131,21 +344,74 @@ describe("SessionAttention", () => {
 
   it("tells a Job that arrives held on its start card as blocking", () => {
     const { attention: a, show } = attention();
-    const held = (id: string): SessionRecord => session(id, [], { hosted: { start: { asks_delivery: true } } as SessionRecord["hosted"] });
-    a.read([session("a")], 1);
-    a.read([session("a"), held("b")], 2);
+    const held = (id: string): SessionRecord =>
+      session(id, [], {
+        hosted: {
+          start: {
+            asks_delivery: true,
+          },
+        } as SessionRecord["hosted"],
+      });
+    a.read(
+      [
+        session("a"),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session("a"),
+        held("b"),
+      ],
+      2,
+    );
     vi.advanceTimersByTime(QUIET_MS);
-    expect(show).toHaveBeenCalledWith({ sessionId: "b", title: "Job b", body: "Not started", tone: "blocked" });
+    expect(show).toHaveBeenCalledWith({
+      sessionId: "b",
+      title: "Job b",
+      body: "Not started",
+      tone: "blocked",
+    });
   });
 
   it("tells nothing of a Job he parked, neither at the reading nor after it, and does not tell what it held again on resume", () => {
     const { attention: a, show } = attention();
-    const paused = { hosted: { paused: { at: "2026-10-19T10:00:00Z", resuming: false } } } as Partial<SessionRecord>;
-    a.read([session("a", [], paused)], 1);
-    a.read([session("a", [item("1", "ask_card", "Pick a slot")], paused)], 2);
+    const paused = {
+      hosted: {
+        paused: {
+          at: "2026-10-19T10:00:00Z",
+          resuming: false,
+        },
+      },
+    } as Partial<SessionRecord>;
+    a.read(
+      [
+        session("a", [], paused),
+      ],
+      1,
+    );
+    a.read(
+      [
+        session(
+          "a",
+          [
+            item("1", "ask_card", "Pick a slot"),
+          ],
+          paused,
+        ),
+      ],
+      2,
+    );
     vi.advanceTimersByTime(QUIET_MS * 2);
     expect(show).not.toHaveBeenCalled();
-    a.read([session("a", [item("1", "ask_card", "Pick a slot")])], 3);
+    a.read(
+      [
+        session("a", [
+          item("1", "ask_card", "Pick a slot"),
+        ]),
+      ],
+      3,
+    );
     vi.advanceTimersByTime(QUIET_MS * 2);
     expect(show).not.toHaveBeenCalled();
   });

@@ -13,21 +13,78 @@ import { entriesOf } from "./sessions";
 const AT = "2026-10-12T09:14:02.000Z";
 const JOB = "draft-needs-you-job";
 const TITLE = "Description for the queue pull request";
-const goes = { onGoTo: vi.fn(), onOpenLink: vi.fn(), onOpenCheck: vi.fn(), onOpenLoadout: vi.fn() };
+const goes = {
+  onGoTo: vi.fn(),
+  onOpenLink: vi.fn(),
+  onOpenCheck: vi.fn(),
+  onOpenLoadout: vi.fn(),
+};
 
 // Fleet's waiting item for a draft: `Approve` is the one option it offers.
-const waiting = { id: "draft:d1", text: TITLE, since: AT, source: "draft", act: { kind: "answer", target: "draft:d1" }, options: [{ label: "Approve" }] };
+const waiting = {
+  id: "draft:d1",
+  text: TITLE,
+  since: AT,
+  source: "draft",
+  act: {
+    kind: "answer",
+    target: "draft:d1",
+  },
+  options: [
+    {
+      label: "Approve",
+    },
+  ],
+};
 
 const jobWith = (row: Record<string, unknown>): Session =>
-  ({ id: JOB, attachments: [], turn: { state: "idle" }, rows: [{ id: "d1", at: AT, kind: "draft", title: TITLE, text: "Retries the lease once.", ...row }], waitingFor: [waiting] }) as unknown as Session;
+  ({
+    id: JOB,
+    attachments: [],
+    turn: {
+      state: "idle",
+    },
+    rows: [
+      {
+        id: "d1",
+        at: AT,
+        kind: "draft",
+        title: TITLE,
+        text: "Retries the lease once.",
+        ...row,
+      },
+    ],
+    waitingFor: [
+      waiting,
+    ],
+  }) as unknown as Session;
 
 function needsYou(session: Session) {
   const answerWaiting = vi.fn();
-  const rows = entriesOf(session, goes, vi.fn(), vi.fn(), [session], vi.fn(), vi.fn(), answerWaiting, vi.fn(), { slots: [] }, undefined);
+  const rows = entriesOf(
+    session,
+    goes,
+    vi.fn(),
+    vi.fn(),
+    [
+      session,
+    ],
+    vi.fn(),
+    vi.fn(),
+    answerWaiting,
+    vi.fn(),
+    {
+      slots: [],
+    },
+    undefined,
+  );
   return rows.find((one) => one.kind === "waiting");
 }
 
-const draftTabs = () => panesOf(peek(JOB).root).flatMap((pane) => pane.tabs).filter((tab) => tab.kind === "draft");
+const draftTabs = () =>
+  panesOf(peek(JOB).root)
+    .flatMap((pane) => pane.tabs)
+    .filter((tab) => tab.kind === "draft");
 
 let release: (() => void) | undefined;
 beforeEach(() => {
@@ -48,7 +105,9 @@ test("pressing the draft's row opens a tab named for the draft beside the thread
   const row = needsYou(jobWith({}));
   expect(row, "the draft is listed in Needs you").toBeDefined();
   row!.onOpen();
-  expect(draftTabs().map(labelOf)).toEqual([TITLE]);
+  expect(draftTabs().map(labelOf)).toEqual([
+    TITLE,
+  ]);
   const pane = holderOf(peek(JOB), "draft")!;
   expect(pane.tabs.map((tab) => tab.kind)).toContain("thread");
   expect(pane.tabs.find((tab) => tab.id === pane.active)?.kind).toBe("draft");
@@ -63,11 +122,26 @@ test("pressing the draft's row opens a tab named for the draft beside the thread
 });
 
 test("a proposed workflow still lists with its facts and an Approve", () => {
-  const row = needsYou(jobWith({ change: 7, workflow: { name: "nightly-sweep", scope: "repository" }, text: '```json\n{"steps":[]}\n```' }));
+  const row = needsYou(
+    jobWith({
+      change: 7,
+      workflow: {
+        name: "nightly-sweep",
+        scope: "repository",
+      },
+      text: '```json\n{"steps":[]}\n```',
+    }),
+  );
   expect(row, "the draft is listed in Needs you").toBeDefined();
-  expect(row!.card?.facts.map((fact) => fact.label)).toEqual(["Name", "Scope", "Definition"]);
+  expect(row!.card?.facts.map((fact) => fact.label)).toEqual([
+    "Name",
+    "Scope",
+    "Definition",
+  ]);
   expect(row!.card?.facts[0]?.value).toBe("nightly-sweep");
-  expect(row!.options?.map((option) => option.label)).toEqual(["Approve"]);
+  expect(row!.options?.map((option) => option.label)).toEqual([
+    "Approve",
+  ]);
   row!.onOpen();
   expect(draftTabs()).toHaveLength(0);
 });

@@ -134,6 +134,7 @@ WebSocket event stream, read this first.
 | [A Job's plan and its file touches](protocol/a-jobs-plan-and-its-file-touches.md) |
 | [Protocol 23.91: a Job's request is read, and its workflow is on the record](protocol/protocol-23-91-a-jobs-request-is-read-and-its-workflow-is-on-the-record.md) |
 | [A terminal's permission prompt is a call](protocol/a-terminals-permission-prompt-is-a-call.md) |
+| [A Job whose settings hooks are skipped](protocol/a-job-whose-settings-hooks-are-skipped.md) |
 | [Helm is a Job](protocol/helm-is-a-job.md) |
 | [A waiting item's steps](protocol/a-waiting-items-steps.md) |
 | [A Job moves to another repository](protocol/a-job-moves-to-another-repository.md) |
@@ -187,6 +188,9 @@ WebSocket event stream, read this first.
 | [The pull request a plan's group lands in: `lands_in`](protocol/the-pull-request-a-plan-groups-lands-in.md) |
 | [The Job browser: seven acts held for Bridge, `answer_browser_request`, and the `browser_reminder` row](protocol/the-job-browser.md) |
 | [Several Jobs started in one call: `jobs` on `start_another_session`](protocol/several-jobs-started-in-one-call.md) |
+| [Autopilot's boxes: `on_autopilot` and `decisions`](protocol/autopilot-boxes.md) |
+| [Autopilot's answers: `get_autopilot_decisions`, `review_autopilot_decision`, `override_autopilot_decision`](protocol/autopilot-decisions.md) |
+| [Sleep leaves the wire](protocol/sleep-leaves-the-wire.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -767,7 +771,8 @@ Bridge's half is `packages/protocol/src/requests.ts` and the `requested` and `sa
 | `save_request_environment` (`POST /requests/environments`, `No`) | Bridge sends one environment whole | `SaveRequestEnvironment` `{ repository?, session_id?, environment }`, each variable a `VariableWrite`, **the one type holding a secret's value**; answers `Requests`. 422 `fleet.request_environment_refused`, 409 `fleet.requests_unread`, 500 `fleet.requests_unwritable` or `fleet.request_secret_unkept` |
 | `delete_request_environment` (`POST /requests/environments/delete`, `No`) | Bridge sends one environment's name | `DeleteRequestEnvironment` `{ repository?, session_id?, name }`; answers `Requests`. 404 `fleet.no_such_request_environment` where the person's own holds none of that name, 409 `fleet.requests_unread`, 500 `fleet.requests_unwritable` or `fleet.request_secret_unkept` |
 | `save_request_to_collection` (`POST /requests/collections/request`, `Yes`) | An agent sends | `SaveRequestToCollection` `{ session_id?, collection, request }`, `collection` an id or a name and `request` a `RequestToSave` `{ name, method, url, headers[], body? }`; answers `RequestSaved` `{ collection_id, request_id }` |
-| `send_request` (`POST /requests/send`, `Yes`) | Bridge or an agent sends, Fleet answers 200 | `SendRequest` `{ session_id?, repository?, saved? \| method, url, collection?, environment?, headers[], body? }`, `saved` being `{ collection, request }`; answers `RequestSent` `{ url, status?, ms, headers[], body, truncated, error?, note?, saved? }`, `saved` a `RequestBodySaved` `{ path, bytes, truncated }` on an agent's send alone. 422 `fleet.request_refused`, 500 `fleet.request_secret_unkept` or `fleet.request_unsent` |
+| `send_request` (`POST /requests/send`, `Yes`) | Bridge or an agent sends, Fleet answers 200 | `SendRequest` `{ session_id?, repository?, saved? \| method, url, collection?, environment?, headers[], body? \| body_file? }`, `saved` being `{ collection, request }`; answers `RequestSent` `{ url, status?, ms, headers[], body, truncated, error?, note?, saved? }`, `saved` a `RequestBodySaved` `{ path, bytes, truncated }` on an agent's send alone. 422 `fleet.request_refused`, 500 `fleet.request_secret_unkept` or `fleet.request_unsent` |
+| `send_requests` (`POST /requests/send_many`, `Yes`) | An agent sends one template for each body file and each value, Fleet answers 200 | `SendRequests` `{ session_id?, repository?, environment?, template { method, url, headers[], collection? }, body_files[], vary? { name, values[] }, concurrency?, stop_after? }`; answers `RequestsSent` `{ folder, lines[], note? }`, each line `{ name, status?, ms, saved?, error?, skipped? }`. 422 `fleet.request_refused` or `fleet.requests_unplaced`, 500 `fleet.request_secret_unkept` or `fleet.request_unsent` |
 | `SessionRow::Requested` (`kind: "requested"`) | Fleet writes, Bridge reads | `{ id, at, by, method, url, environment?, headers?, body?, status?, ms, error?, response, truncated? }`, `by` one of `owner`, `agent`; `cookie_host` and `kept_header` are gone |
 | `SessionRow::Saved` (`kind: "saved"`) | Fleet writes, Bridge reads | `{ id, at, name, collection, collection_id, request }`, `request` the saved request's id |
 
@@ -1360,6 +1365,28 @@ The protocol ID moves with `crates/ipc/src`, and Bridge's half is `so_far` on `S
 **Why a field on the record.** The summary is the Job's and not one message's, so it does not live on `activity`, which a message from him clears.
 **When it goes out.** Fleet publishes `session.changed` when the summary changes, after a turn ends and after a question or permission is put to him.
 **Skew.** An older Fleet sends no `so_far`, and Bridge draws nothing from it.
+
+## The debug report: `get_debug_report`
+
+Since 2 Nov 2026. The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `DebugReport` in `packages/protocol/src/debug-report.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_debug_report` (`GET /debug_report?root=`, `agent_access = "Yes"`) | Bridge writes, Fleet reads | Optional `root`, a repository root: with it the report has a `This repository` block, without it none. Answers `DebugReport` `{ text }` |
+
+**One string, laid out as the Doctor and error payloads are**: no fences, rows indented two spaces, labels padded to the longest plus three.
+`Install`, `Mod`, `This repository <name>`, a `Job <title>` block for each live Job, `Recent trouble`, and a last line `fleet protocol <id>  taken <time>`.
+**Names, versions and states only.** No message, prompt or file content, no log sentence, and the home folder is `~`. Nothing is uploaded: a person copies the text.
+**The builder is `ipc::debug_report::render`**, one pure function over gathered facts, so Fleet and the CLI lay out the same text.
+A Job's `tools` and `skills` are the names its opening line gave, with another server's tools and another plugin's skills already dropped (*A Job that came up without its tools*).
+**`Recent trouble` reads Fleet's log file**, the newest of where launchd's plist says it writes, `~/Library/Logs/Armada/<label>.log` and `scripts/dev`'s file in the temp folder, from its last 200 lines and no further back than a day.
+A line is kept for its time, level and target, and its `fields.code` where that is a lowercase name.
+Its `msg` and every other field are free text and are never read, and a line that is not JSON has no level and is left out.
+A newest file last written more than a day ago is named as such and its lines are not printed.
+**`armada report`** prints the same text on standard output and exits 0. Where Fleet does not answer it prints `Install`, the line `Fleet   did not answer`, `Recent trouble` and `taken <time>`, with no fleet protocol.
+**Bridge adds its own protocol** by putting `bridge protocol <id>  ` ahead of the last line of either text, since only Bridge knows it.
+It reads Fleet's text over the connection and, where that fails or Fleet is not connected, has main run `armada report` (`apps/desktop/src/main/debug-report.ts`).
 
 ## Open questions
 

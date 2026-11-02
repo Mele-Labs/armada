@@ -19,7 +19,9 @@ const HELD = 2_000;
 export class LandFollowSocket {
   private readonly publish: (landFollowed: FollowedLandLog) => void;
   private socket: WebSocket | null = null;
-  private held: FollowedLandLog = { state: "none" };
+  private held: FollowedLandLog = {
+    state: "none",
+  };
 
   constructor(publish: (landFollowed: FollowedLandLog) => void) {
     this.publish = publish;
@@ -34,15 +36,28 @@ export class LandFollowSocket {
     if (at !== null && held.state !== "none" && held.state !== "failed" && same(held, at)) return;
     this.close();
     if (at === null) {
-      this.set({ state: "none" });
+      this.set({
+        state: "none",
+      });
       return;
     }
-    const asked = { root: at.root, branch: at.branch, check: at.check };
+    const asked = {
+      root: at.root,
+      branch: at.branch,
+      check: at.check,
+    };
     if (port === null) {
-      this.set({ state: "failed", ...asked, detail: "Fleet is not connected." });
+      this.set({
+        state: "failed",
+        ...asked,
+        detail: "Fleet is not connected.",
+      });
       return;
     }
-    this.set({ state: "opening", ...asked });
+    this.set({
+      state: "opening",
+      ...asked,
+    });
 
     const query = new URLSearchParams(asked).toString();
     const socket = new WebSocket(`ws://${HOST}:${port}/merge_lines/checks/observe?${query}`);
@@ -76,20 +91,35 @@ export class LandFollowSocket {
       return;
     }
     if (message.message === "opened") {
-      this.set({ state: "following", ...at, fromLine: message.skipped + 1, lines: [] });
+      this.set({
+        state: "following",
+        ...at,
+        fromLine: message.skipped + 1,
+        lines: [],
+      });
       return;
     }
     const held = this.held;
     if (held.state !== "following") return;
     if (message.message === "lines") {
-      const all = [...held.lines, ...message.lines];
+      const all = [
+        ...held.lines,
+        ...message.lines,
+      ];
       const dropped = Math.max(0, all.length - HELD);
-      this.set({ ...held, lines: all.slice(dropped), fromLine: held.fromLine + dropped });
+      this.set({
+        ...held,
+        lines: all.slice(dropped),
+        fromLine: held.fromLine + dropped,
+      });
       return;
     }
     // Let go first, so the socket's own `close` cannot overwrite the reason.
     this.close();
-    this.set({ ...held, ended: message.because });
+    this.set({
+      ...held,
+      ended: message.because,
+    });
   }
 
   /** The socket went without a sentence. What had arrived stays arrived. */
@@ -99,10 +129,17 @@ export class LandFollowSocket {
     this.socket = null;
     const held = this.held;
     if (held.state === "following") {
-      this.set({ ...held, ended: held.ended ?? "broke" });
+      this.set({
+        ...held,
+        ended: held.ended ?? "broke",
+      });
       return;
     }
-    this.set({ state: "failed", ...at, detail });
+    this.set({
+      state: "failed",
+      ...at,
+      detail,
+    });
   }
 }
 
@@ -114,8 +151,13 @@ export class LandFollowSocket {
 export function landCheckAt(sent: unknown): LandCheckAt | null {
   if (typeof sent !== "object" || sent === null) return null;
   const { root, branch, check } = sent as Record<string, unknown>;
-  if (typeof root !== "string" || typeof branch !== "string" || typeof check !== "string") return null;
-  return { root, branch, check };
+  if (typeof root !== "string" || typeof branch !== "string" || typeof check !== "string")
+    return null;
+  return {
+    root,
+    branch,
+    check,
+  };
 }
 
 function same(one: LandCheckAt, other: LandCheckAt): boolean {

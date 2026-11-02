@@ -19,7 +19,13 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
   const [link, setLink] = useState("");
   const [trouble, setTrouble] = useState(again === undefined ? "" : (macOf(again)?.why ?? ""));
   const here = window.location.origin;
-  const target = fromUrl !== "" ? { origin: here, code: fromUrl } : linkOf(link, here);
+  const target =
+    fromUrl !== ""
+      ? {
+          origin: here,
+          code: fromUrl,
+        }
+      : linkOf(link, here);
   const pair = async () => {
     if (target === undefined) return;
     setTrouble("");
@@ -38,32 +44,78 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
     const kept = await named(machine);
     await addMac(kept);
     const held = fleet.macs.map((mac) => (mac.machine.origin === kept.origin ? kept : mac.machine));
-    void subscribe(held.some((one) => one.origin === kept.origin) ? held : [...held, kept]).catch(() => undefined);
+    void subscribe(
+      held.some((one) => one.origin === kept.origin)
+        ? held
+        : [
+            ...held,
+            kept,
+          ],
+    ).catch(() => undefined);
     go("/", true);
   };
   const paired = fleet.macs.length > 0;
   return (
     <section className="pk-screen" aria-label="Pair">
-      <Band title="Pair" {...(paired ? { onBack: () => go("/"), back: "Home" } : {})} />
+      <Band
+        title="Pair"
+        {...(paired
+          ? {
+              onBack: () => go("/"),
+              back: "Home",
+            }
+          : {})}
+      />
       <div className="pk-body pk-pair">
         <div className="pk-code" data-phase={phase} aria-hidden="true">
-          {Array.from({ length: 169 }, (_, i) => <i key={i} data-on={((i * 7 + (i >> 3) * 5) % 3 === 0) || i % 13 === 0} />)}
+          {Array.from(
+            {
+              length: 169,
+            },
+            (_, i) => (
+              <i key={i} data-on={(i * 7 + (i >> 3) * 5) % 3 === 0 || i % 13 === 0} />
+            ),
+          )}
         </div>
         {phase === "link" ? (
           <>
             {fromUrl === "" && (
-              <input className="pk-line" aria-label="Pairing link" placeholder="Pairing link" value={link} autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={(event) => setLink(event.target.value)} />
+              <input
+                className="pk-line"
+                aria-label="Pairing link"
+                placeholder="Pairing link"
+                value={link}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                onChange={(event) => setLink(event.target.value)}
+              />
             )}
-            <input className="pk-line" aria-label="Name" value={name} autoCapitalize="words" onChange={(event) => setName(event.target.value)} />
+            <input
+              className="pk-line"
+              aria-label="Name"
+              value={name}
+              autoCapitalize="words"
+              onChange={(event) => setName(event.target.value)}
+            />
             <Trouble says={trouble} />
           </>
         ) : (
-          <p className="pk-fact pk-waiting"><LoaderCircle className="pk-spin" aria-hidden="true" /> Waiting for Confirm on your Mac</p>
+          <p className="pk-fact pk-waiting">
+            <LoaderCircle className="pk-spin" aria-hidden="true" /> Waiting for Confirm on your Mac
+          </p>
         )}
       </div>
       {phase === "link" && (
         <footer className="pk-bar">
-          <Button variant="primary" className="pk-big" disabled={target === undefined || name.trim() === ""} onClick={() => void pair()}>Pair</Button>
+          <Button
+            variant="primary"
+            className="pk-big"
+            disabled={target === undefined || name.trim() === ""}
+            onClick={() => void pair()}
+          >
+            Pair
+          </Button>
         </footer>
       )}
     </section>

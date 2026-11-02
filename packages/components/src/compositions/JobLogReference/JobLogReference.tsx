@@ -70,7 +70,9 @@ export type JobLogReferenceRow = {
  * different things to say, and which one it was is known by the surface that
  * asked, not by this block.
  */
-export type NotOpened = { because: string } | null;
+export type NotOpened = {
+  because: string;
+} | null;
 
 /** How one row opens. */
 export type JobLogReferenceOpen = {
@@ -109,10 +111,21 @@ const ACTION_ICON = 16;
  * another's — and a trailing ellipsis eats exactly that. A trailing separator
  * belongs to the last segment, so a directory keeps its name.
  */
-function halves(value: string): [string, string] {
+function halves(value: string): [
+  string,
+  string,
+] {
   const end = value.endsWith("/") ? value.length - 1 : value.length;
   const cut = value.lastIndexOf("/", end - 1);
-  return cut <= 0 ? [value, ""] : [value.slice(0, cut + 1), value.slice(cut + 1)];
+  return cut <= 0
+    ? [
+        value,
+        "",
+      ]
+    : [
+        value.slice(0, cut + 1),
+        value.slice(cut + 1),
+      ];
 }
 
 export function JobLogReference({ rows, children, actions, onCopied }: JobLogReferenceProps) {
@@ -123,7 +136,10 @@ export function JobLogReference({ rows, children, actions, onCopied }: JobLogRef
    * screen is worse than the one the person just clicked, and a message that
    * outlived its press would report a path as missing after it came back.
    */
-  const [unopened, setUnopened] = useState<{ row: number; because: string } | null>(null);
+  const [unopened, setUnopened] = useState<{
+    row: number;
+    because: string;
+  } | null>(null);
   /** The row with an open in flight. A second press does not send a second. */
   const [opening, setOpening] = useState<number | null>(null);
 
@@ -137,7 +153,9 @@ export function JobLogReference({ rows, children, actions, onCopied }: JobLogRef
         () => onCopied?.(value),
       );
     },
-    [onCopied],
+    [
+      onCopied,
+    ],
   );
 
   const open = useCallback((row: number, go: () => Promise<NotOpened>) => {
@@ -148,7 +166,11 @@ export function JobLogReference({ rows, children, actions, onCopied }: JobLogRef
         // Nothing visible happens when a file opens behind the window, so the
         // silent case is the one that worked. The failure is the one that has
         // to speak, and it speaks on the row it was pressed on.
-        if (why !== null) setUnopened({ row, because: why.because });
+        if (why !== null)
+          setUnopened({
+            row,
+            because: why.because,
+          });
       })
       .finally(() => setOpening(null));
   }, []);
@@ -163,7 +185,9 @@ export function JobLogReference({ rows, children, actions, onCopied }: JobLogRef
           <Fragment key={i}>
             <div className="armada-log-ref__row" data-separated={row.separated || undefined}>
               <span className="armada-log-ref__mark">
-                {row.icon ? <row.icon size={ROW_ICON} strokeWidth={ROW_STROKE} aria-hidden /> : null}
+                {row.icon ? (
+                  <row.icon size={ROW_ICON} strokeWidth={ROW_STROKE} aria-hidden />
+                ) : null}
                 {row.iconLabel ? <span className="armada-log-ref__sr">{row.iconLabel}</span> : null}
               </span>
               {/* The title carries the whole value however narrow the row gets,

@@ -41,26 +41,66 @@ export function sessionNoteBody(held: SessionNoteHeld): SendSessionNote {
     said: held.said.trim(),
     address: held.address,
     place: {
-      ...(capture.component === undefined ? {} : { component: capture.component }),
+      ...(capture.component === undefined
+        ? {}
+        : {
+            component: capture.component,
+          }),
       owners: capture.owners ?? [],
       selector: capture.selector,
       element: {
         tag: capture.element.tag,
         text: cutText(capture.element.text),
-        ...(capture.element.label === undefined ? {} : { label: capture.element.label }),
+        ...(capture.element.label === undefined
+          ? {}
+          : {
+              label: capture.element.label,
+            }),
       },
       nearby: read.nearby.slice(0, MOST_NEARBY),
-      ...(read.stamp === undefined ? {} : { stamp: read.stamp }),
+      ...(read.stamp === undefined
+        ? {}
+        : {
+            stamp: read.stamp,
+          }),
       location: capture.location,
-      ...(capture.screen === undefined ? {} : { screen: capture.screen }),
-      ...(capture.layer === undefined ? {} : { layer: capture.layer }),
+      ...(capture.screen === undefined
+        ? {}
+        : {
+            screen: capture.screen,
+          }),
+      ...(capture.layer === undefined
+        ? {}
+        : {
+            layer: capture.layer,
+          }),
     },
     state: {
       selected: read.selected.slice(0, MOST_SELECTED),
-      ...(walk === null ? {} : { walk: { name: walk.name, step: walk.at, of: walk.of } }),
-      ...(held.take === undefined ? {} : { take: held.take }),
-      ...(scenario === null ? {} : { scenario }),
+      ...(walk === null
+        ? {}
+        : {
+            walk: {
+              name: walk.name,
+              step: walk.at,
+              of: walk.of,
+            },
+          }),
+      ...(held.take === undefined
+        ? {}
+        : {
+            take: held.take,
+          }),
+      ...(scenario === null
+        ? {}
+        : {
+            scenario,
+          }),
     },
-    ...(crop === undefined ? {} : { crop }),
+    ...(crop === undefined
+      ? {}
+      : {
+          crop,
+        }),
   };
 }

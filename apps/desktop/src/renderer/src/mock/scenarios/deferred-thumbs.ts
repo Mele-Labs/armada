@@ -13,27 +13,80 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 const SESSION: Session = {
   id: "dt-1",
   title: "Read the Studio registry on start",
-  turn: { state: "idle" },
+  turn: {
+    state: "idle",
+  },
   lastTurnAt: ago(2),
-  work: { proposal: { workflow: null } },
-  attachments: [{ kind: "issue", number: "2731", title: "Slow fixture load", address: "https://git.example/app/issues/2731", state: "open" }],
+  work: {
+    proposal: {
+      workflow: null,
+    },
+  },
+  attachments: [
+    {
+      kind: "issue",
+      number: "2731",
+      title: "Slow fixture load",
+      address: "https://git.example/app/issues/2731",
+      state: "open",
+    },
+  ],
   rows: [
-    { id: "dt-u", at: "14:02:00", kind: "message", from: { kind: "you" }, text: "Read the Studio registry when Studio starts." },
-    { id: "dt-a", at: "14:19:40", kind: "message", from: { kind: "agent" }, text: "The registry is read in Studio start and the Studio tests pass." },
+    {
+      id: "dt-u",
+      at: "14:02:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Read the Studio registry when Studio starts.",
+    },
+    {
+      id: "dt-a",
+      at: "14:19:40",
+      kind: "message",
+      from: {
+        kind: "agent",
+      },
+      text: "The registry is read in Studio start and the Studio tests pass.",
+    },
   ],
   later: [
-    { id: "later-1", text: "The Studio icon tooltip is still owed.", at: ago(5) },
-    { id: "later-2", text: "Rename the registry loader once the Studio page lands.", at: ago(4) },
-    { id: "later-3", text: "The empty Studio state needs a second look.", at: ago(3) },
+    {
+      id: "later-1",
+      text: "The Studio icon tooltip is still owed.",
+      at: ago(5),
+    },
+    {
+      id: "later-2",
+      text: "Rename the registry loader once the Studio page lands.",
+      at: ago(4),
+    },
+    {
+      id: "later-3",
+      text: "The empty Studio state needs a second look.",
+      at: ago(3),
+    },
   ],
 };
 
 function build(): Scenario {
-  const base = holding("deferred-thumbs", "A Job whose Landing holds Deferred: three kept follow-ups with Remind and thumbs, and one filed issue without");
+  const base = holding(
+    "deferred-thumbs",
+    "A Job whose Landing holds Deferred: three kept follow-ups with Remind and thumbs, and one filed issue without",
+  );
   return {
     ...base,
-    state: { ...base.state, repository: repository().root },
-    draft: { sessions: () => sessionsStore([SESSION]) },
+    state: {
+      ...base.state,
+      repository: repository().root,
+    },
+    draft: {
+      sessions: () =>
+        sessionsStore([
+          SESSION,
+        ]),
+    },
   };
 }
 

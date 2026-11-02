@@ -4,4 +4,8 @@
 import type { Scenario } from "../moment";
 import { videoScriptScenario } from "../video-script-job";
 
-export const documentHandedOn: Scenario = videoScriptScenario("document-handed-on", "A Job that took another's place, holding the page he approved", "handed_on");
+export const documentHandedOn: Scenario = videoScriptScenario(
+  "document-handed-on",
+  "A Job that took another's place, holding the page he approved",
+  "handed_on",
+);

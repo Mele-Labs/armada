@@ -13,7 +13,10 @@ afterEach(unmount);
 const shown = (fleet: NonNullable<TeachReading["fleet"]>) =>
   mount(
     <TeachPanel
-      source={{ kind: "notice", text: "3 commits behind main" }}
+      source={{
+        kind: "notice",
+        text: "3 commits behind main",
+      }}
       say="Batch these, and tell me only when it blocks a merge"
       onSay={() => undefined}
       keep="teach-panel-fleet"
@@ -21,7 +24,9 @@ const shown = (fleet: NonNullable<TeachReading["fleet"]>) =>
       reach="repository"
       onReach={() => undefined}
       stage="shown"
-      reading={{ fleet }}
+      reading={{
+        fleet,
+      }}
       onTeach={() => undefined}
       onRule={() => undefined}
       onChange={() => undefined}
@@ -30,26 +35,74 @@ const shown = (fleet: NonNullable<TeachReading["fleet"]>) =>
   );
 
 test("a rule draws the notice, what it matches as code, what it does with its condition, and where", async () => {
-  shown({ notice: "Slot behind notice", matches: "\\d+ commits behind main", does: "Batch, and tell only when it blocks a merge", scope: "armada" });
-  const section = page.getByRole("region", { name: "Fleet" });
+  shown({
+    notice: "Slot behind notice",
+    matches: "\\d+ commits behind main",
+    does: "Batch, and tell only when it blocks a merge",
+    scope: "armada",
+  });
+  const section = page.getByRole("region", {
+    name: "Fleet",
+  });
 
   await expect.element(section.getByText("Slot behind notice")).toBeVisible();
-  await expect.element(section.getByText("Matches", { exact: true })).toBeVisible();
+  await expect
+    .element(
+      section.getByText("Matches", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   await expect.element(section.getByText("\\d+ commits behind main")).toHaveClass("mono");
-  await expect.element(section.getByText("Batch, and tell only when it blocks a merge")).toBeVisible();
-  await expect.element(section.getByText("armada", { exact: true })).toBeVisible();
+  await expect
+    .element(section.getByText("Batch, and tell only when it blocks a merge"))
+    .toBeVisible();
+  await expect
+    .element(
+      section.getByText("armada", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   await expect.element(section.getByText(/Fleet cannot test/)).not.toBeInTheDocument();
 });
 
 test("a rule with no pattern draws no Matches row", async () => {
-  shown({ notice: "Slot behind notice", does: "Batch", scope: "armada" });
+  shown({
+    notice: "Slot behind notice",
+    does: "Batch",
+    scope: "armada",
+  });
 
-  await expect.element(page.getByRole("region", { name: "Fleet" }).getByText("Does", { exact: true })).toBeVisible();
-  await expect.element(page.getByText("Matches", { exact: true })).not.toBeInTheDocument();
+  await expect
+    .element(
+      page
+        .getByRole("region", {
+          name: "Fleet",
+        })
+        .getByText("Does", {
+          exact: true,
+        }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText("Matches", {
+        exact: true,
+      }),
+    )
+    .not.toBeInTheDocument();
 });
 
 test("what Fleet cannot test is one line under the rule", async () => {
-  shown({ notice: "Slot behind notice", does: "Batch", scope: "armada", untestable: "Fleet cannot test: the build is green, it is Friday" });
+  shown({
+    notice: "Slot behind notice",
+    does: "Batch",
+    scope: "armada",
+    untestable: "Fleet cannot test: the build is green, it is Friday",
+  });
 
-  await expect.element(page.getByText("Fleet cannot test: the build is green, it is Friday")).toBeVisible();
+  await expect
+    .element(page.getByText("Fleet cannot test: the build is green, it is Friday"))
+    .toBeVisible();
 });

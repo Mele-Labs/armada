@@ -8,7 +8,10 @@ import { Tooltip } from "../Tooltip/Tooltip";
  * names it lists (its skills and commands, the built-ins among them). Bridge provides it for a terminal
  * Session only; absent, inline code is drawn as plain code.
  */
-export type SlashCommands = { send: (command: string) => void; names: ReadonlySet<string> };
+export type SlashCommands = {
+  send: (command: string) => void;
+  names: ReadonlySet<string>;
+};
 
 export const ProseCommand = createContext<SlashCommands | null>(null);
 
@@ -30,7 +33,9 @@ export function SlashCommand({ text, send }: { text: string; send: (command: str
     if (!sent) return;
     const handle = window.setTimeout(() => setSent(false), SENT_MS);
     return () => window.clearTimeout(handle);
-  }, [sent]);
+  }, [
+    sent,
+  ]);
   return (
     <Tooltip label={sent ? "Sent" : "Run in this Job"} asChild>
       <button

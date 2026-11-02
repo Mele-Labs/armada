@@ -4,18 +4,45 @@
 
 import { button, deckRow, inside, region, role, text, walk } from "../walk";
 
-const list = region("Jobs", { exact: true });
+const list = region("Jobs", {
+  exact: true,
+});
 const needs = region("Needs you");
 
 const replyAsksOrTells = walk("reply-asks-or-tells", [
-  { look: deckRow("Retry cap"), say: "Retry cap ended its turn on a question. Its row is yellow and pulses while it needs him" },
-  { look: deckRow("Pin the store clock"), say: "Pin the store clock only told him something. Its row keeps its place and wears a small faint mark" },
-  { hover: inside(deckRow("Trim the log lines"), role("img", "Unread reply")), say: "Unread reply. The second one, with no call" },
-  { look: deckRow("Migration notes"), say: "Migration notes is idle, with no mark" },
-  { key: "c", on: list, say: "c goes to the first row that needs him" },
-  { press: deckRow("Retry cap"), say: "Enter or a press on the row opens the Job" },
-  { press: inside(needs, button(/^Needs you/)), say: "Needs you, at the foot of the thread" },
-  { look: inside(needs, text(/Should the retry cap be five or ten/)), say: "The line that asks" },
+  {
+    look: deckRow("Retry cap"),
+    say: "Retry cap ended its turn on a question. Its row is yellow and pulses while it needs him",
+  },
+  {
+    look: deckRow("Pin the store clock"),
+    say: "Pin the store clock only told him something. Its row keeps its place and wears a small faint mark",
+  },
+  {
+    hover: inside(deckRow("Trim the log lines"), role("img", "Unread reply")),
+    say: "Unread reply. The second one, with no call",
+  },
+  {
+    look: deckRow("Migration notes"),
+    say: "Migration notes is idle, with no mark",
+  },
+  {
+    key: "c",
+    on: list,
+    say: "c goes to the first row that needs him",
+  },
+  {
+    press: deckRow("Retry cap"),
+    say: "Enter or a press on the row opens the Job",
+  },
+  {
+    press: inside(needs, button(/^Needs you/)),
+    say: "Needs you, at the foot of the thread",
+  },
+  {
+    look: inside(needs, text(/Should the retry cap be five or ten/)),
+    say: "The line that asks",
+  },
 ]);
 
 export { replyAsksOrTells as "reply-asks-or-tells" };

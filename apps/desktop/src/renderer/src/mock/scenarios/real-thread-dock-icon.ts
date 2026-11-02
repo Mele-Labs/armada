@@ -12,5 +12,9 @@ export const s341bRealThreadDockIcon: Scenario = realThreadScenario({
   branch: "armada/session-c307370a",
   slot: 7,
   rows: DOCK_ICON_ROWS,
-  asked: ["Tell me when it lands", "Anything for me?", "Thanks"],
+  asked: [
+    "Tell me when it lands",
+    "Anything for me?",
+    "Thanks",
+  ],
 });

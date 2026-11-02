@@ -17,7 +17,11 @@ const keepOf = (sessionId: string, number: number) => `pull-request:${sessionId}
  * the panel without tabs and without the box, and says why. A refused write says why and keeps the
  * draft; a write that went through clears it.
  */
-export function usePullRequestPage(sessionId: string, number: number, draft: SessionsDraft | undefined) {
+export function usePullRequestPage(
+  sessionId: string,
+  number: number,
+  draft: SessionsDraft | undefined,
+) {
   const held = useRef(draft);
   held.current = draft;
   const [read, setRead] = useState<PullRequestPageRead | undefined>(undefined);
@@ -44,7 +48,11 @@ export function usePullRequestPage(sessionId: string, number: number, draft: Ses
     return () => {
       current = false;
     };
-  }, [served, sessionId, number]);
+  }, [
+    served,
+    sessionId,
+    number,
+  ]);
 
   const send = () => {
     const write = held.current?.writePullRequest;
@@ -52,7 +60,14 @@ export function usePullRequestPage(sessionId: string, number: number, draft: Ses
     const body = text.trim();
     setPending(true);
     setSaid(undefined);
-    void write(sessionId, number, { kind, ...(body === "" ? {} : { body }) }).then((answer) => {
+    void write(sessionId, number, {
+      kind,
+      ...(body === ""
+        ? {}
+        : {
+            body,
+          }),
+    }).then((answer) => {
       if (answer.ok) forgetKept(keepOf(sessionId, number));
       if (!here.current) return;
       setPending(false);
@@ -69,7 +84,24 @@ export function usePullRequestPage(sessionId: string, number: number, draft: Ses
   const page: PullRequestPage | undefined = read?.ok === true ? read.page : undefined;
   const composer: PullRequestComposerProps | undefined =
     page !== undefined && draft?.writePullRequest !== undefined
-      ? { kind, onKind: setKind, value: text, onChange: setText, keep: keepOf(sessionId, number), pending, ...(said === undefined ? {} : { said }), onSend: send }
+      ? {
+          kind,
+          onKind: setKind,
+          value: text,
+          onChange: setText,
+          keep: keepOf(sessionId, number),
+          pending,
+          ...(said === undefined
+            ? {}
+            : {
+                said,
+              }),
+          onSend: send,
+        }
       : undefined;
-  return { page, pageSaid: read?.ok === false ? read.said : undefined, composer };
+  return {
+    page,
+    pageSaid: read?.ok === false ? read.said : undefined,
+    composer,
+  };
 }

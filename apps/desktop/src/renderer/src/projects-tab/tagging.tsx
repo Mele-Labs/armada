@@ -16,21 +16,52 @@ import type { Linked, LinkedPull, TaskLinks } from "./model";
 import { useProjectsStore } from "./store";
 
 /** The open issues the repository's tracker lists, read as the Issues tab reads them, and what it said where the read failed. */
-export function useOpenIssues(manifestId: string): { issues: readonly Linked[]; failed?: string } {
+export function useOpenIssues(manifestId: string): {
+  issues: readonly Linked[];
+  failed?: string;
+} {
   const issues = useIssuesStore();
   const { trackers } = useIssues();
   const tracker = trackers?.find((one) => one.manifestId === manifestId);
   const query = tracker?.state === "read" ? tracker.open : undefined;
-  useEffect(() => issues?.readTrackers([manifestId]), [issues, manifestId]);
+  useEffect(
+    () =>
+      issues?.readTrackers([
+        manifestId,
+      ]),
+    [
+      issues,
+      manifestId,
+    ],
+  );
   useEffect(() => {
     if (query !== undefined) issues?.run(manifestId, query);
-  }, [issues, manifestId, query]);
+  }, [
+    issues,
+    manifestId,
+    query,
+  ]);
   const run = query === undefined ? undefined : issues?.runOf(manifestId, query);
-  if (run?.state === "failed") return { issues: [], failed: run.said };
-  return { issues: run?.state === "read" ? run.tickets.map((one) => ({ reference: one.reference, title: one.title, url: one.url, state: one.state })) : [] };
+  if (run?.state === "failed")
+    return {
+      issues: [],
+      failed: run.said,
+    };
+  return {
+    issues:
+      run?.state === "read"
+        ? run.tickets.map((one) => ({
+            reference: one.reference,
+            title: one.title,
+            url: one.url,
+            state: one.state,
+          }))
+        : [],
+  };
 }
 
-const said = (title: string, reference: string): string => (title.startsWith(`${reference} `) ? title.slice(reference.length + 1) : title);
+const said = (title: string, reference: string): string =>
+  title.startsWith(`${reference} `) ? title.slice(reference.length + 1) : title;
 const referenceOf = (tag: ComposerTag): string => (/^\d+$/.test(tag.id) ? `#${tag.id}` : tag.id);
 
 export function useTagField(manifestId: string, words: string, onWords: (next: string) => void) {
@@ -39,22 +70,44 @@ export function useTagField(manifestId: string, words: string, onWords: (next: s
   const elsewhere = useNumbered(manifestId);
   const sessions: Offered[] = useSessions()
     .filter((one) => one.manifestId === manifestId && one.dead === undefined)
-    .map((one) => ({ id: one.id, title: jobTitle(one) }));
+    .map((one) => ({
+      id: one.id,
+      title: jobTitle(one),
+    }));
   const pulls = store.pullsOf(manifestId);
   const numbered = useMemo((): ComposerNumbered => {
     const own: NumberedHit[] = [
       ...issues.map((one) => issueHit(one)),
       ...pulls.map((one): NumberedHit => {
         const { tag } = pullRequestHit(one);
-        return one.state === "merged" ? { tag, standing: "Merged" } : one.state === "closed" ? { tag, standing: "Closed" } : { tag };
+        return one.state === "merged"
+          ? {
+              tag,
+              standing: "Merged",
+            }
+          : one.state === "closed"
+            ? {
+                tag,
+                standing: "Closed",
+              }
+            : {
+                tag,
+              };
       }),
     ];
     const held = new Set(own.map((one) => `${one.tag.kind}:${one.tag.id}`));
     return {
-      open: [...own, ...(elsewhere?.open ?? []).filter((one) => !held.has(`${one.tag.kind}:${one.tag.id}`))],
+      open: [
+        ...own,
+        ...(elsewhere?.open ?? []).filter((one) => !held.has(`${one.tag.kind}:${one.tag.id}`)),
+      ],
       find: elsewhere?.find ?? (() => Promise.resolve(undefined)),
     };
-  }, [issues, pulls, elsewhere]);
+  }, [
+    issues,
+    pulls,
+    elsewhere,
+  ]);
   // Tags looked up by number are not among the open ones, so each chosen is kept until the words are sent.
   const chosen = useRef<ComposerTag[]>([]);
   // The words last written, ahead of the field: a pick writes them before they are drawn, and a caret read off the old text
@@ -64,35 +117,97 @@ export function useTagField(manifestId: string, words: string, onWords: (next: s
     latest.current = next;
     onWords(next);
   };
-  const at = useAtMenu(words, write, { sessions, numbered, searchFiles: (query) => searchFiles(query, manifestId), onTag: (tag) => void chosen.current.push(tag) }, `projects-tag-${useId()}`);
+  const at = useAtMenu(
+    words,
+    write,
+    {
+      sessions,
+      numbered,
+      searchFiles: (query) => searchFiles(query, manifestId),
+      onTag: (tag) => void chosen.current.push(tag),
+    },
+    `projects-tag-${useId()}`,
+  );
 
   /** The words as a title, and the links their tags name. A tag typed by number, not picked, is read the same. */
-  const resolve = (text: string): { title: string; links: TaskLinks } => {
+  const resolve = (
+    text: string,
+  ): {
+    title: string;
+    links: TaskLinks;
+  } => {
     let title = ` ${text} `;
     const issueLinks: Linked[] = [];
     const pullLinks: LinkedPull[] = [];
-    const known = [...chosen.current, ...numbered.open.map((one) => one.tag)];
+    const known = [
+      ...chosen.current,
+      ...numbered.open.map((one) => one.tag),
+    ];
     for (const tag of known) {
       const reference = referenceOf(tag);
-      const whole = title.includes(` ${tag.title} `) ? tag.title : title.includes(` ${reference} `) ? reference : undefined;
+      const whole = title.includes(` ${tag.title} `)
+        ? tag.title
+        : title.includes(` ${reference} `)
+          ? reference
+          : undefined;
       if (whole === undefined) continue;
       title = title.replace(` ${whole} `, " ");
       if (tag.kind === "issue" && !issueLinks.some((one) => one.reference === reference)) {
         const open = issues.find((one) => one.reference === reference);
-        issueLinks.push(open ?? { reference, title: said(tag.title, reference), url: tag.url ?? "", state: "open" });
-      } else if (tag.kind === "pull_request" && !pullLinks.some((one) => one.number === Number(tag.id))) {
+        issueLinks.push(
+          open ?? {
+            reference,
+            title: said(tag.title, reference),
+            url: tag.url ?? "",
+            state: "open",
+          },
+        );
+      } else if (
+        tag.kind === "pull_request" &&
+        !pullLinks.some((one) => one.number === Number(tag.id))
+      ) {
         const served = pulls.find((one) => one.number === Number(tag.id));
-        pullLinks.push(served ?? { number: Number(tag.id), title: said(tag.title, reference), url: tag.url ?? "", state: "open" });
+        pullLinks.push(
+          served ?? {
+            number: Number(tag.id),
+            title: said(tag.title, reference),
+            url: tag.url ?? "",
+            state: "open",
+          },
+        );
       }
     }
     // The longest title first, so one Job's title inside another's is not taken for it.
-    const job = [...sessions].sort((a, b) => b.title.length - a.title.length).find((one) => title.includes(`@${one.title}`));
+    const job = [
+      ...sessions,
+    ]
+      .sort((a, b) => b.title.length - a.title.length)
+      .find((one) => title.includes(`@${one.title}`));
     if (job !== undefined) title = title.replace(`@${job.title}`, " ");
     chosen.current = [];
     const left = title.replace(/\s+/g, " ").trim();
     return {
       title: left !== "" ? left : (issueLinks[0]?.title ?? pullLinks[0]?.title ?? job?.title ?? ""),
-      links: { ...(job === undefined ? {} : { job: { id: job.id, title: job.title } }), ...(issueLinks.length === 0 ? {} : { issues: issueLinks }), ...(pullLinks.length === 0 ? {} : { pulls: pullLinks }) },
+      links: {
+        ...(job === undefined
+          ? {}
+          : {
+              job: {
+                id: job.id,
+                title: job.title,
+              },
+            }),
+        ...(issueLinks.length === 0
+          ? {}
+          : {
+              issues: issueLinks,
+            }),
+        ...(pullLinks.length === 0
+          ? {}
+          : {
+              pulls: pullLinks,
+            }),
+      },
     };
   };
 
@@ -130,6 +245,16 @@ export function useTagField(manifestId: string, words: string, onWords: (next: s
       onKeyDown: at.onKeyDown,
       onBlur: at.onBlur,
     },
-    menu: !at.open ? null : <SessionMenu id={at.listId} label={at.label} numbered={at.numbered} rows={at.offered} active={at.active} onHover={at.setActive} onChoose={at.choose} />,
+    menu: !at.open ? null : (
+      <SessionMenu
+        id={at.listId}
+        label={at.label}
+        numbered={at.numbered}
+        rows={at.offered}
+        active={at.active}
+        onHover={at.setActive}
+        onChoose={at.choose}
+      />
+    ),
   };
 }

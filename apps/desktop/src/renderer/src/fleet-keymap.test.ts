@@ -7,8 +7,19 @@ import { keyFor, parseSlots, rebind, setKeyBindingSaver, setKeyBindings } from "
 
 import { wireFleetKeymap, type FleetKeymap } from "./fleet-keymap";
 
-const prefs = (key_bindings?: string): { preferences: Preferences } => ({
-  preferences: { where_things_are_open: false, ...(key_bindings === undefined ? {} : { key_bindings }) },
+const prefs = (
+  key_bindings?: string,
+): {
+  preferences: Preferences;
+} => ({
+  preferences: {
+    where_things_are_open: false,
+    ...(key_bindings === undefined
+      ? {}
+      : {
+          key_bindings,
+        }),
+  },
 });
 
 function fleet(start: string | undefined, answer: Outcome) {
@@ -21,7 +32,11 @@ function fleet(start: string | undefined, answer: Outcome) {
     savePreference: async (save) => (saved.push(save), answer),
   };
   wireFleetKeymap(api, (sentence) => told.push(sentence));
-  return { saved, told, publish: (text?: string) => hear(prefs(text)) };
+  return {
+    saved,
+    told,
+    publish: (text?: string) => hear(prefs(text)),
+  };
 }
 
 const settle = () => new Promise((done) => setTimeout(done, 0));
@@ -33,7 +48,9 @@ afterEach(() => {
 
 describe("key bindings over Fleet", () => {
   it("lays what Fleet holds over the registry, and follows what it publishes", async () => {
-    const one = fleet('{"version":1,"bindings":{"copy_debug_info":["y"]}}', { ok: true });
+    const one = fleet('{"version":1,"bindings":{"copy_debug_info":["y"]}}', {
+      ok: true,
+    });
     await settle();
     expect(keyFor("copy_debug_info")).toBe("y");
     one.publish("");
@@ -41,14 +58,25 @@ describe("key bindings over Fleet", () => {
   });
 
   it("saves a change as the key_bindings preference", async () => {
-    const one = fleet(undefined, { ok: true });
+    const one = fleet(undefined, {
+      ok: true,
+    });
     await settle();
     rebind("copy_debug_info", parseSlots("y"));
-    expect(one.saved).toEqual([{ name: "key_bindings", value: false, text: '{"version":1,"bindings":{"copy_debug_info":["y"]}}' }]);
+    expect(one.saved).toEqual([
+      {
+        name: "key_bindings",
+        value: false,
+        text: '{"version":1,"bindings":{"copy_debug_info":["y"]}}',
+      },
+    ]);
   });
 
   it("puts Fleet's keys back and says why when the save is refused", async () => {
-    const refused: Outcome = { ok: false, why: "not_connected" };
+    const refused: Outcome = {
+      ok: false,
+      why: "not_connected",
+    };
     const one = fleet(undefined, refused);
     await settle();
     rebind("copy_debug_info", parseSlots("y"));

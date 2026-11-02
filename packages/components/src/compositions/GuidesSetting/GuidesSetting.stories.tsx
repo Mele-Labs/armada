@@ -14,7 +14,13 @@ const meta: Meta<typeof GuidesSetting> = {
   decorators: [
     (Story) => (
       <GuidanceProvider remembered={false}>
-        <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)", maxWidth: "var(--w-dialog-wide)" }}>
+        <div
+          style={{
+            padding: "var(--space-6)",
+            background: "var(--surface-canvas)",
+            maxWidth: "var(--w-dialog-wide)",
+          }}
+        >
           <Card>
             <CardHeader>
               <CardTitle>Guides</CardTitle>
@@ -34,7 +40,9 @@ type Story = StoryObj<typeof GuidesSetting>;
 
 /** On, which is where a new window starts. */
 export const AsSettingsDrawsIt: Story = {
-  args: { onReadGuides: fn() },
+  args: {
+    onReadGuides: fn(),
+  },
 };
 
 /** No catalogue to send anybody to. The switch is the whole card. */
@@ -58,10 +66,16 @@ export const TurnsThemAllOff: Story = {
 
     // A piece arrives that nobody has met. With first contact off, nothing
     // opens — and the `?` is still there to ask with.
-    await userEvent.click(canvas.getByRole("button", { name: "A piece arrives" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "A piece arrives",
+      }),
+    );
     await expect(within(document.body).queryAllByRole("dialog")).toHaveLength(0);
     await expect(
-      canvas.getByRole("button", { name: `Open guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}` }),
+      canvas.getByRole("button", {
+        name: `Open guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}`,
+      }),
     ).toBeVisible();
   },
 };

@@ -48,8 +48,20 @@ async function show(): Promise<void> {
 
 /** ⌘K, then the palette's Mock scenario row. */
 async function openFinder(): Promise<void> {
-  await userEvent.click(page.getByRole("button", { name: /Search, or describe work/ }));
-  await userEvent.fill(page.getByRole("dialog", { name: "Command palette" }).getByRole("combobox").element() as HTMLInputElement, "Mock scenario");
+  await userEvent.click(
+    page.getByRole("button", {
+      name: /Search, or describe work/,
+    }),
+  );
+  await userEvent.fill(
+    page
+      .getByRole("dialog", {
+        name: "Command palette",
+      })
+      .getByRole("combobox")
+      .element() as HTMLInputElement,
+    "Mock scenario",
+  );
   await userEvent.keyboard("{Enter}");
   await expect.element(field()).toBeVisible();
 }
@@ -73,8 +85,13 @@ function intercept(): string[] {
   return went;
 }
 
-const field = () => page.getByRole("textbox", { name: "Find a scenario" });
-const rows = () => [...document.querySelectorAll<HTMLAnchorElement>(".armada-mock-picker__row")];
+const field = () =>
+  page.getByRole("textbox", {
+    name: "Find a scenario",
+  });
+const rows = () => [
+  ...document.querySelectorAll<HTMLAnchorElement>(".armada-mock-picker__row"),
+];
 const names = () => rows().map((row) => row.textContent ?? "");
 
 /** Typed into the field, replacing whatever was there. */
@@ -87,9 +104,27 @@ test("the title row has no scenario button, and the palette lists the finder", a
   expect(document.querySelector('.armada-title-bar [aria-label^="Mock scenario"]')).toBeNull();
   expect(document.getElementById("picker")?.children.length).toBe(0);
 
-  await userEvent.click(page.getByRole("button", { name: /Search, or describe work/ }));
-  await userEvent.fill(page.getByRole("dialog", { name: "Command palette" }).getByRole("combobox").element() as HTMLInputElement, "Mock scenario");
-  await expect.element(page.getByRole("option", { name: /^Mock scenario/ })).toBeVisible();
+  await userEvent.click(
+    page.getByRole("button", {
+      name: /Search, or describe work/,
+    }),
+  );
+  await userEvent.fill(
+    page
+      .getByRole("dialog", {
+        name: "Command palette",
+      })
+      .getByRole("combobox")
+      .element() as HTMLInputElement,
+    "Mock scenario",
+  );
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: /^Mock scenario/,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("the finder is a centred layer, closed until the row runs", async () => {
@@ -141,7 +176,11 @@ test("choosing one mounts it — the reload `?scenario=` is read on", async () =
 
   await openFinder();
   await find("fleet-not-running");
-  await page.getByRole("link", { name: "fleet-not-running" }).click();
+  await page
+    .getByRole("link", {
+      name: "fleet-not-running",
+    })
+    .click();
 
   expect(went).toHaveLength(1);
   const asked = new URL(went[0]!).searchParams.get("scenario");
@@ -154,7 +193,13 @@ test("choosing one mounts it — the reload `?scenario=` is read on", async () =
   const app = mountApp(asked!, host2);
   await app.onScreen;
   // The Cockpit powers on over a Fleet that is down, so the title row's Fleet button is what names it (`cockpit/boot.ts`).
-  await expect.element(page.getByRole("button", { name: "Fleet — Not running" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Fleet — Not running",
+      }),
+    )
+    .toBeVisible();
   app.unmount();
   host2.remove();
 });
@@ -165,7 +210,11 @@ test("a walk is a row too, and choosing one plays it — the reload `?walk=` is 
 
   await openFinder();
   await find("cockpit sessions list");
-  await page.getByRole("link", { name: "cockpit sessions list" }).click();
+  await page
+    .getByRole("link", {
+      name: "cockpit sessions list",
+    })
+    .click();
 
   expect(went).toHaveLength(1);
   const asked = new URL(went[0]!).searchParams;
@@ -211,7 +260,9 @@ test("on a walk page the finder marks the walk's row", async () => {
   document.body.append(host);
   takePicker = mountPicker("cockpitSessionsList", host, true);
   await openFinder();
-  const current = document.querySelectorAll<HTMLAnchorElement>(".armada-mock-picker__row[data-current]");
+  const current = document.querySelectorAll<HTMLAnchorElement>(
+    ".armada-mock-picker__row[data-current]",
+  );
   expect(current).toHaveLength(1);
   expect(current[0]?.textContent).toBe("cockpit sessions list");
   expect(current[0]?.href).toContain("walk=cockpitSessionsList");

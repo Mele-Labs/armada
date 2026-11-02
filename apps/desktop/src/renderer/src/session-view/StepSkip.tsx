@@ -30,6 +30,23 @@ export function SkipStep({ skipped, onPress }: { skipped: boolean; onPress: () =
 
 /** The band's menu for a step that can be skipped, or whose skip can be undone. */
 export function skipMenu(skipped: boolean, onPress: () => void): BandMenu {
-  const entry: DropdownMenuEntry = skipped ? { kind: "item", id: "skip", label: UNDO_SAID, icon: Undo2 } : { kind: "item", id: "skip", label: SKIP_SAID, icon: SkipForward };
-  return { entries: [entry], onSelect: (chosen) => chosen === "skip" && onPress() };
+  const entry: DropdownMenuEntry = skipped
+    ? {
+        kind: "item",
+        id: "skip",
+        label: UNDO_SAID,
+        icon: Undo2,
+      }
+    : {
+        kind: "item",
+        id: "skip",
+        label: SKIP_SAID,
+        icon: SkipForward,
+      };
+  return {
+    entries: [
+      entry,
+    ],
+    onSelect: (chosen) => chosen === "skip" && onPress(),
+  };
 }

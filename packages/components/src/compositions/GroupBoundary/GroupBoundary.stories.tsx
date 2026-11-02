@@ -8,7 +8,13 @@ const meta: Meta<typeof GroupBoundary> = {
   component: GroupBoundary,
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)", maxWidth: "var(--w-step-panel-min)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+          maxWidth: "var(--w-step-panel-min)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -18,10 +24,21 @@ export default meta;
 
 type Story = StoryObj<typeof GroupBoundary>;
 
-const NAMES = ["typecheck", "format", "screens_test", "components_test", "bridge_build", "storybook", "acceptance"];
+const NAMES = [
+  "typecheck",
+  "format",
+  "screens_test",
+  "components_test",
+  "bridge_build",
+  "storybook",
+  "acceptance",
+];
 
 const all = (reads: GroupBoundaryCheck["reads"]): GroupBoundaryCheck[] =>
-  NAMES.map((name) => ({ name, reads }));
+  NAMES.map((name) => ({
+    name,
+    reads,
+  }));
 
 /**
  * Nothing has reached it: seven segments, no verdict and no commit.
@@ -35,13 +52,19 @@ export const NotRun: Story = {
     checks: all("not run"),
   },
   play: async ({ canvas, canvasElement }) => {
-    const strip = canvas.getAllByRole("button", { expanded: false })[0]!;
+    const strip = canvas.getAllByRole("button", {
+      expanded: false,
+    })[0]!;
     await expect(canvas.queryByText("screens_test")).toBeNull();
     await expect(canvasElement.querySelectorAll(".armada-step-bar__segment")).toHaveLength(7);
     await userEvent.click(strip);
     await expect(canvas.getByText("screens_test")).toBeVisible();
     // Nothing ran, so there is no log to open and no Check is a button.
-    await expect(canvas.queryByRole("button", { name: "screens_test, not run" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "screens_test, not run",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -56,19 +79,45 @@ export const OneInFlight: Story = {
   args: {
     checks: NAMES.map((name, at): GroupBoundaryCheck => {
       const reads = at < 3 ? "passed" : at === 3 ? "running" : "not run";
-      return reads === "not run" ? { name, reads } : { name, reads, onOpen: fn() };
+      return reads === "not run"
+        ? {
+            name,
+            reads,
+          }
+        : {
+            name,
+            reads,
+            onOpen: fn(),
+          };
     }),
     verdictSays: "running now",
   },
   play: async ({ canvas, args }) => {
-    const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
+    const checks = canvas.getByRole("region", {
+      name: "Checks at this boundary",
+    });
     // Shut, so the press is on the segment and not on a row.
-    await expect(within(checks).getAllByRole("button")[0]).toHaveAttribute("aria-expanded", "false");
-    await userEvent.click(within(checks).getByRole("button", { name: "components_test, running" }));
+    await expect(within(checks).getAllByRole("button")[0]).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await userEvent.click(
+      within(checks).getByRole("button", {
+        name: "components_test, running",
+      }),
+    );
     const running = args.checks!.find((check) => check.name === "components_test")!;
     await expect(running.onOpen).toHaveBeenCalledOnce();
-    await expect(within(checks).getByRole("button", { name: "typecheck, passed" })).toBeVisible();
-    await expect(within(checks).queryByRole("button", { name: "bridge_build, not run" })).toBeNull();
+    await expect(
+      within(checks).getByRole("button", {
+        name: "typecheck, passed",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(checks).queryByRole("button", {
+        name: "bridge_build, not run",
+      }),
+    ).toBeNull();
     await expect(checks.querySelectorAll(".armada-step-bar__segment")).toHaveLength(7);
   },
 };
@@ -81,15 +130,28 @@ export const AllPassed: Story = {
     verdictNamed: "passed",
     commit: "7a2f0c5",
     tests: [
-      { id: "c-panel", spec: "packages/screens/src/Running.test.tsx", reads: "owed" },
-      { id: "c-board", spec: "packages/screens/src/Board.test.tsx", reads: "not covered" },
+      {
+        id: "c-panel",
+        spec: "packages/screens/src/Running.test.tsx",
+        reads: "owed",
+      },
+      {
+        id: "c-board",
+        spec: "packages/screens/src/Board.test.tsx",
+        reads: "not covered",
+      },
     ],
   },
   play: async ({ canvas }) => {
     // A boundary that passed stays shut, which is what makes a failed one
     // opening itself a reading rather than the default.
-    const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
-    await expect(within(checks).getAllByRole("button")[0]).toHaveAttribute("aria-expanded", "false");
+    const checks = canvas.getByRole("region", {
+      name: "Checks at this boundary",
+    });
+    await expect(within(checks).getAllByRole("button")[0]).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     await expect(checks).toHaveTextContent("all passed");
     await expect(checks).toHaveTextContent("7a2f0c5");
   },
@@ -116,14 +178,20 @@ export const OneFailed: Story = {
             result: "1 of 1384 failed: the Drones row opened the Board",
             onOpen: fn(),
           }
-        : { name, reads: "passed", onOpen: fn() },
+        : {
+            name,
+            reads: "passed",
+            onOpen: fn(),
+          },
     ),
     verdictSays: "screens_test failed",
     verdictNamed: "failed",
     retrySays: "attempt 2",
   },
   play: async ({ canvas, args }) => {
-    const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
+    const checks = canvas.getByRole("region", {
+      name: "Checks at this boundary",
+    });
     // **The break test.** What failed is why anybody is on the card, so the
     // strip opens itself — shut, every assertion below would read nothing and
     // the screen would be hiding the one thing it exists to show.
@@ -144,16 +212,24 @@ export const OneFailed: Story = {
     await expect(checks).not.toHaveTextContent("What the gate wrote down");
     await expect(checks).not.toHaveTextContent("The run's whole output is kept");
     // The guide's `?` is beside the label and never leads the Checks.
-    await expect(checks.querySelector(".armada-boundary__checks > li")).toHaveTextContent("screens_test");
+    await expect(checks.querySelector(".armada-boundary__checks > li")).toHaveTextContent(
+      "screens_test",
+    );
     // A Check is a button to its log.
-    const failed = within(checks).getByRole("button", { name: "screens_test, failed" });
+    const failed = within(checks).getByRole("button", {
+      name: "screens_test, failed",
+    });
     await userEvent.click(failed);
     const screens = args.checks!.find((check) => check.name === "screens_test")!;
     await expect(screens.onOpen).toHaveBeenCalledOnce();
     // The two sentences the owner cut on 28 Sep. The ordering rule is guide
     // 4's, and the reason there is no case named Fleet and not this Job.
     await expect(checks).not.toHaveTextContent("No task of group");
-    await expect(canvas.queryByRole("region", { name: "Tests at this boundary" })).toBeNull();
+    await expect(
+      canvas.queryByRole("region", {
+        name: "Tests at this boundary",
+      }),
+    ).toBeNull();
   },
 };
 
@@ -165,18 +241,38 @@ export const OneFailed: Story = {
 export const OneSkipped: Story = {
   args: {
     checks: [
-      { name: "build", reads: "skipped", why: "no changed file is under paths no workspace owns" },
-      { name: "typecheck", reads: "passed", onOpen: fn() },
+      {
+        name: "build",
+        reads: "skipped",
+        why: "no changed file is under paths no workspace owns",
+      },
+      {
+        name: "typecheck",
+        reads: "passed",
+        onOpen: fn(),
+      },
     ],
     verdictSays: "none failed",
   },
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getAllByRole("button", { expanded: false })[0]!);
+    await userEvent.click(
+      canvas.getAllByRole("button", {
+        expanded: false,
+      })[0]!,
+    );
     await expect(canvas.getByText("build").closest("[title]")).toHaveAttribute(
       "title",
       "no changed file is under paths no workspace owns",
     );
-    await expect(canvas.queryByRole("button", { name: "build, skipped" })).toBeNull();
-    await expect(canvas.getByRole("button", { name: "typecheck, passed" })).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "build, skipped",
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("button", {
+        name: "typecheck, passed",
+      }),
+    ).toBeVisible();
   },
 };

@@ -9,17 +9,29 @@ import type { Scenario } from "../moment";
 import { FakeSessionsFleet } from "../sessions-fleet";
 import { noticeSessions, noticeThreads } from "../sessions/mute-notice";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 function build(): Scenario {
-  const board = onBoard({ repositories: [ARMADA], picked: ARMADA.root });
+  const board = onBoard({
+    repositories: [
+      ARMADA,
+    ],
+    picked: ARMADA.root,
+  });
   const served = new FakeSessionsFleet(noticeSessions(), noticeThreads()).scenario(board);
   return {
     ...served,
     name: "mute-fleet-notice",
     says: "A right press on Fleet's behind-base notice offers a Disable header over For job, For repo and For 1 hour",
     // A Fleet of its own for each window, so a walk told twice starts from the same Job.
-    behaves: (handle) => new FakeSessionsFleet(noticeSessions(), noticeThreads()).scenario(board).behaves!(handle),
+    behaves: (handle) =>
+      new FakeSessionsFleet(noticeSessions(), noticeThreads()).scenario(board).behaves!(handle),
   };
 }
 

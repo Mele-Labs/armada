@@ -1,25 +1,9 @@
 /* The title row's one menu: a button that carries the state that matters, and the entries it opens.
-   Sleep on is the moon on the button and the filled chip on its entry, the way the moon read when it
-   stood in the row. Signed out is an amber dot, the "needs you" hue. Tokens only. */
+   Signed out is an amber dot, the "needs you" hue. Tokens only. */
 
 .armada-title-menu__button {
   position: relative;
   display: inline-flex;
-}
-
-.armada-title-menu__moon {
-  position: absolute;
-  top: calc(var(--space-1) / -2);
-  right: calc(var(--space-1) / -2);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-4);
-  height: var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--fg-inverse);
-  pointer-events: none;
 }
 
 .armada-title-menu__attention {

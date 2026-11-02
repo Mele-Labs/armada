@@ -16,8 +16,30 @@ export function readQueuedIdeas(): readonly QueuedIdea[] {
     const raw = JSON.parse(window.localStorage.getItem(QUEUED_KEY) ?? "[]") as unknown;
     if (!Array.isArray(raw)) return [];
     return raw.flatMap((one: Record<string, unknown> | null): QueuedIdea[] =>
-      one !== null && typeof one === "object" && text(one.id) && text(one.text) && text(one.root) && text(one.repository)
-        ? [{ id: one.id, text: one.text, root: one.root, repository: one.repository, ...(text(one.model) ? { model: one.model } : {}), ...(text(one.effort) ? { effort: one.effort } : {}) }]
+      one !== null &&
+      typeof one === "object" &&
+      text(one.id) &&
+      text(one.text) &&
+      text(one.root) &&
+      text(one.repository)
+        ? [
+            {
+              id: one.id,
+              text: one.text,
+              root: one.root,
+              repository: one.repository,
+              ...(text(one.model)
+                ? {
+                    model: one.model,
+                  }
+                : {}),
+              ...(text(one.effort)
+                ? {
+                    effort: one.effort,
+                  }
+                : {}),
+            },
+          ]
         : [],
     );
   } catch {
@@ -44,4 +66,5 @@ export function hearQueuedIdeas(on: () => void): () => void {
 let made = 0;
 
 /** A key for a new idea: unique across windows and launches. */
-export const newIdeaId = (): string => `q-${Date.now().toString(36)}-${(made += 1).toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+export const newIdeaId = (): string =>
+  `q-${Date.now().toString(36)}-${((made += 1)).toString(36)}-${Math.random().toString(36).slice(2, 6)}`;

@@ -18,9 +18,13 @@ export const KEPT_SAID = "Proposed for every Job";
 type Adding = "step" | "lifecycle" | "rule";
 
 /** The words a change is listed under: the step, the rule or the lifecycle it changed, as the lanes name them. */
-export function changedName(lanes: SessionLanes, change: Pick<JobChange, "lane" | "item" | "name">): string {
+export function changedName(
+  lanes: SessionLanes,
+  change: Pick<JobChange, "lane" | "item" | "name">,
+): string {
   const { copy } = lanes.job;
-  if (change.lane === "workflow") return copy.steps.find((one) => one.id === change.item)?.label ?? change.item;
+  if (change.lane === "workflow")
+    return copy.steps.find((one) => one.id === change.item)?.label ?? change.item;
   if (change.lane === "rule") return change.name ?? change.item;
   const lifecycle = copy.lifecycles.find((one) => one.id === change.lane);
   const state = lifecycle?.states.find((one) => one.id === change.item)?.label;
@@ -28,29 +32,74 @@ export function changedName(lanes: SessionLanes, change: Pick<JobChange, "lane" 
 }
 
 /** `+` and the form it opens: nothing is drawn where nothing serves the acts. */
-export function AddToJob({ sessionId, lanes, acts }: { sessionId: string; lanes: SessionLanes; acts: JobCopyActs }) {
+export function AddToJob({
+  sessionId,
+  lanes,
+  acts,
+}: {
+  sessionId: string;
+  lanes: SessionLanes;
+  acts: JobCopyActs;
+}) {
   const [adding, setAdding] = useState<Adding | undefined>();
   const entries: DropdownMenuEntry[] = [
-    ...(lanes.job.copy.steps.length === 0 ? [] : [{ kind: "item" as const, id: "step", label: "Step" }]),
-    { kind: "item", id: "lifecycle", label: "Lifecycle" },
-    { kind: "item", id: "rule", label: "Rule" },
+    ...(lanes.job.copy.steps.length === 0
+      ? []
+      : [
+          {
+            kind: "item" as const,
+            id: "step",
+            label: "Step",
+          },
+        ]),
+    {
+      kind: "item",
+      id: "lifecycle",
+      label: "Lifecycle",
+    },
+    {
+      kind: "item",
+      id: "rule",
+      label: "Rule",
+    },
   ];
   return (
     <div className="sv-lanes__add">
       <div className="sv-lanes__bar">
-        <DropdownMenu triggerLabel={ADD_SAID} icon={SquarePlus} align="start" entries={entries} onSelect={(id) => setAdding(id as Adding)} />
+        <DropdownMenu
+          triggerLabel={ADD_SAID}
+          icon={SquarePlus}
+          align="start"
+          entries={entries}
+          onSelect={(id) => setAdding(id as Adding)}
+        />
       </div>
       {adding === undefined ? null : adding === "step" ? (
-        <StepForm key="step" sessionId={sessionId} lanes={lanes} act={acts.step} onDone={() => setAdding(undefined)} />
+        <StepForm
+          key="step"
+          sessionId={sessionId}
+          lanes={lanes}
+          act={acts.step}
+          onDone={() => setAdding(undefined)}
+        />
       ) : (
-        <PieceForm key={adding} sessionId={sessionId} kind={adding} act={acts.piece} onDone={() => setAdding(undefined)} />
+        <PieceForm
+          key={adding}
+          sessionId={sessionId}
+          kind={adding}
+          act={acts.piece}
+          onDone={() => setAdding(undefined)}
+        />
       )}
     </div>
   );
 }
 
 /** Esc puts the form away; ⌘↵ or Ctrl↵ adds from any field. */
-function keysOf(onCancel: () => void, onAdd: () => void): (event: KeyboardEvent<HTMLFormElement>) => void {
+function keysOf(
+  onCancel: () => void,
+  onAdd: () => void,
+): (event: KeyboardEvent<HTMLFormElement>) => void {
   return (event) => {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -76,17 +125,47 @@ function useAdding(run: () => Promise<string | undefined>, onDone: () => void) {
     if (said === undefined) onDone();
     else setRefused(said);
   };
-  return { pending, refused, add };
+  return {
+    pending,
+    refused,
+    add,
+  };
 }
 
-function StepForm({ sessionId, lanes, act, onDone }: { sessionId: string; lanes: SessionLanes; act: JobCopyActs["step"]; onDone: () => void }) {
+function StepForm({
+  sessionId,
+  lanes,
+  act,
+  onDone,
+}: {
+  sessionId: string;
+  lanes: SessionLanes;
+  act: JobCopyActs["step"];
+  onDone: () => void;
+}) {
   const { steps } = lanes.job.copy;
   const [label, setLabel] = useState("");
   const [instructions, setInstructions] = useState("");
   // After the step the Job is at, or the last one where it is past them all.
-  const [after, setAfter] = useState(steps[Math.min(Math.max(lanes.at, 0), steps.length - 1)]?.id ?? "");
+  const [after, setAfter] = useState(
+    steps[Math.min(Math.max(lanes.at, 0), steps.length - 1)]?.id ?? "",
+  );
   const { pending, refused, add } = useAdding(
-    () => act(sessionId, { kind: "add", ...(after === "" ? {} : { after }), label, ...(instructions.trim() === "" ? {} : { instructions }) }),
+    () =>
+      act(sessionId, {
+        kind: "add",
+        ...(after === ""
+          ? {}
+          : {
+              after,
+            }),
+        label,
+        ...(instructions.trim() === ""
+          ? {}
+          : {
+              instructions,
+            }),
+      }),
     onDone,
   );
   const submit = (event: FormEvent) => {
@@ -94,9 +173,24 @@ function StepForm({ sessionId, lanes, act, onDone }: { sessionId: string; lanes:
     void add();
   };
   return (
-    <form className="sv-lanes__form" aria-label="Add a step to this Job" onSubmit={submit} onKeyDown={keysOf(onDone, () => void add())}>
-      <Input label="Label" value={label} onChange={(event) => setLabel(event.target.value)} autoFocus />
-      <Textarea label="Instructions" rows={3} value={instructions} onChange={(event) => setInstructions(event.target.value)} />
+    <form
+      className="sv-lanes__form"
+      aria-label="Add a step to this Job"
+      onSubmit={submit}
+      onKeyDown={keysOf(onDone, () => void add())}
+    >
+      <Input
+        label="Label"
+        value={label}
+        onChange={(event) => setLabel(event.target.value)}
+        autoFocus
+      />
+      <Textarea
+        label="Instructions"
+        rows={3}
+        value={instructions}
+        onChange={(event) => setInstructions(event.target.value)}
+      />
       <Select label="After" value={after} onChange={(event) => setAfter(event.target.value)}>
         <option value="">First</option>
         {steps.map((step) => (
@@ -110,7 +204,17 @@ function StepForm({ sessionId, lanes, act, onDone }: { sessionId: string; lanes:
   );
 }
 
-function PieceForm({ sessionId, kind, act, onDone }: { sessionId: string; kind: "lifecycle" | "rule"; act: JobCopyActs["piece"]; onDone: () => void }) {
+function PieceForm({
+  sessionId,
+  kind,
+  act,
+  onDone,
+}: {
+  sessionId: string;
+  kind: "lifecycle" | "rule";
+  act: JobCopyActs["piece"];
+  onDone: () => void;
+}) {
   const [text, setText] = useState("");
   const { pending, refused, add } = useAdding(() => act(sessionId, kind, "", text), onDone);
   const submit = (event: FormEvent) => {
@@ -119,14 +223,37 @@ function PieceForm({ sessionId, kind, act, onDone }: { sessionId: string; kind: 
   };
   const name = kind === "rule" ? "Rule file" : "Lifecycle file";
   return (
-    <form className="sv-lanes__form" data-file="" aria-label={`Add a ${kind} to this Job`} onSubmit={submit} onKeyDown={keysOf(onDone, () => void add())}>
-      <Textarea label={name} rows={8} spellCheck={false} value={text} onChange={(event) => setText(event.target.value)} autoFocus />
+    <form
+      className="sv-lanes__form"
+      data-file=""
+      aria-label={`Add a ${kind} to this Job`}
+      onSubmit={submit}
+      onKeyDown={keysOf(onDone, () => void add())}
+    >
+      <Textarea
+        label={name}
+        rows={8}
+        spellCheck={false}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        autoFocus
+      />
       <FormActs pending={pending} refused={refused} blank={text.trim() === ""} onCancel={onDone} />
     </form>
   );
 }
 
-function FormActs({ pending, refused, blank, onCancel }: { pending: boolean; refused: string | undefined; blank: boolean; onCancel: () => void }) {
+function FormActs({
+  pending,
+  refused,
+  blank,
+  onCancel,
+}: {
+  pending: boolean;
+  refused: string | undefined;
+  blank: boolean;
+  onCancel: () => void;
+}) {
   return (
     <>
       {refused === undefined ? null : (
@@ -147,13 +274,36 @@ function FormActs({ pending, refused, blank, onCancel }: { pending: boolean; ref
 }
 
 /** One changed rule or lifecycle, kept as a piece: the id it declares, or none for a row of the workflow. A piece the Job dropped has nothing left to keep. */
-function pieceOf(change: JobChange): { kind: "lifecycle" | "rule"; id: string } | undefined {
+function pieceOf(change: JobChange):
+  | {
+      kind: "lifecycle" | "rule";
+      id: string;
+    }
+  | undefined {
   if (change.lane === "workflow" || change.dropped === true) return undefined;
-  return change.lane === "rule" ? { kind: "rule", id: change.item } : { kind: "lifecycle", id: change.lane };
+  return change.lane === "rule"
+    ? {
+        kind: "rule",
+        id: change.item,
+      }
+    : {
+        kind: "lifecycle",
+        id: change.lane,
+      };
 }
 
 /** What a changed rule or lifecycle row offers: Keep for every Job on that one piece, or a check once it is proposed. */
-function KeepPiece({ name, kept, pending, onKeep }: { name: string; kept: boolean; pending: boolean; onKeep: () => void }) {
+function KeepPiece({
+  name,
+  kept,
+  pending,
+  onKeep,
+}: {
+  name: string;
+  kept: boolean;
+  pending: boolean;
+  onKeep: () => void;
+}) {
   return kept ? (
     <Tooltip label={KEPT_SAID} asChild>
       <span className="sv-lanes__kept" role="img" aria-label={`${KEPT_SAID}: ${name}`}>
@@ -162,7 +312,14 @@ function KeepPiece({ name, kept, pending, onKeep }: { name: string; kept: boolea
     </Tooltip>
   ) : (
     <Tooltip label={KEEP_SAID} asChild>
-      <Button variant="ghost" size="sm" iconOnly aria-label={`${KEEP_SAID}: ${name}`} pending={pending} onClick={onKeep}>
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
+        aria-label={`${KEEP_SAID}: ${name}`}
+        pending={pending}
+        onClick={onKeep}
+      >
         <BookMarked size={16} aria-hidden />
       </Button>
     </Tooltip>
@@ -173,7 +330,15 @@ function KeepPiece({ name, kept, pending, onKeep }: { name: string; kept: boolea
  * What was changed on this Job, a row for each, under the canvas. **Keep for every Job is in the head, once, and only where a step of the workflow changed**: it proposes the
  * workflow the Job holds, whole. **A changed rule or lifecycle has its own Keep on its row**, since each proposes one piece; a dropped one has none.
  */
-export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lanes: SessionLanes; acts: JobCopyActs | undefined }) {
+export function JobChanges({
+  sessionId,
+  lanes,
+  acts,
+}: {
+  sessionId: string;
+  lanes: SessionLanes;
+  acts: JobCopyActs | undefined;
+}) {
   const { changes } = lanes.job;
   const workflow = changes.filter((one) => one.lane === "workflow");
   const signature = workflow.map((one) => one.id).join("\n");
@@ -193,7 +358,13 @@ export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lane
     if (said === undefined) setKept(signature);
     else setRefused(said);
   };
-  const keepPiece = async (change: JobChange, piece: { kind: "lifecycle" | "rule"; id: string }) => {
+  const keepPiece = async (
+    change: JobChange,
+    piece: {
+      kind: "lifecycle" | "rule";
+      id: string;
+    },
+  ) => {
     if (acts === undefined || pendingRow !== undefined) return;
     setPendingRow(change.id);
     setRefused(undefined);
@@ -204,7 +375,10 @@ export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lane
   };
   return (
     <section className="sv-lanes__triage" aria-label="Changed on this Job">
-      <h4 className="sv-lanes__triage-head" data-acts={acts !== undefined && workflow.length > 0 ? "true" : undefined}>
+      <h4
+        className="sv-lanes__triage-head"
+        data-acts={acts !== undefined && workflow.length > 0 ? "true" : undefined}
+      >
         Changed on this Job
         {acts === undefined || workflow.length === 0 ? null : kept === signature ? (
           <Tooltip label={KEPT_SAID} asChild>
@@ -214,7 +388,14 @@ export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lane
           </Tooltip>
         ) : (
           <Tooltip label={KEEP_SAID} asChild>
-            <Button variant="ghost" size="sm" iconOnly aria-label={KEEP_SAID} pending={pending} onClick={() => void keep()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={KEEP_SAID}
+              pending={pending}
+              onClick={() => void keep()}
+            >
               <BookMarked size={16} aria-hidden />
             </Button>
           </Tooltip>
@@ -231,11 +412,21 @@ export function JobChanges({ sessionId, lanes, acts }: { sessionId: string; lane
           return (
             <li key={one.id} className="sv-lanes__item">
               <div className="sv-lanes__change">
-                <GitCompare className="sv-lanes__change-mark" size={14} strokeWidth={2} aria-hidden />
+                <GitCompare
+                  className="sv-lanes__change-mark"
+                  size={14}
+                  strokeWidth={2}
+                  aria-hidden
+                />
                 <span className="sv-lanes__author">{changedName(lanes, one)}</span>
                 <span className="sv-lanes__text">{one.text}</span>
                 {piece === undefined ? null : (
-                  <KeepPiece name={changedName(lanes, one)} kept={keptRows.has(one.id)} pending={pendingRow === one.id} onKeep={() => void keepPiece(one, piece)} />
+                  <KeepPiece
+                    name={changedName(lanes, one)}
+                    kept={keptRows.has(one.id)}
+                    pending={pendingRow === one.id}
+                    onKeep={() => void keepPiece(one, piece)}
+                  />
                 )}
               </div>
             </li>

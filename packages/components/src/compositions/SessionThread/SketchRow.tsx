@@ -1,4 +1,12 @@
-import { BadgeCheck, BellRing, ChevronDown, ChevronRight, Maximize2, PencilRuler, Reply } from "lucide-react";
+import {
+  BadgeCheck,
+  BellRing,
+  ChevronDown,
+  ChevronRight,
+  Maximize2,
+  PencilRuler,
+  Reply,
+} from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -17,8 +25,14 @@ import type { SketchAnswer, SketchSettled } from "./sketch-answer";
 export type { SketchAnswer, SketchSettled } from "./sketch-answer";
 
 const SETTLED = {
-  approved: { said: "Approved", Glyph: BadgeCheck },
-  sent_back: { said: "Sent back", Glyph: Reply },
+  approved: {
+    said: "Approved",
+    Glyph: BadgeCheck,
+  },
+  sent_back: {
+    said: "Sent back",
+    Glyph: Reply,
+  },
 } as const;
 
 /**
@@ -26,13 +40,33 @@ const SETTLED = {
  * ended once it has, and Approve with Send back while it waits. One part for the thread card, the panel and the Needs you
  * row, so they answer it the same way and a note written in one is kept under `keep`. `id` is handed back with the answer.
  */
-export function ApprovalAnswers({ id, keep, settled, open, onAnswer, onWithdraw }: { id: string; keep: string; settled?: SketchSettled; open: boolean; onAnswer?: (id: string, answer: SketchAnswer) => void; /** Where passed, the footer offers Withdraw: take it back without answering. Documents pass none. */ onWithdraw?: (id: string) => void }) {
+export function ApprovalAnswers({
+  id,
+  keep,
+  settled,
+  open,
+  onAnswer,
+  onWithdraw,
+}: {
+  id: string;
+  keep: string;
+  settled?: SketchSettled;
+  open: boolean;
+  onAnswer?: (
+    id: string,
+    answer: SketchAnswer,
+  ) => void /** Where passed, the footer offers Withdraw: take it back without answering. Documents pass none. */;
+  onWithdraw?: (id: string) => void;
+}) {
   const noteKey = `${keep}:note`;
   const [noting, setNoting] = useState(() => readKept<string>(noteKey) !== undefined);
   const [note, setNote] = useState("");
   useEffect(() => {
     if (settled !== undefined) forgetKept(noteKey);
-  }, [settled, noteKey]);
+  }, [
+    settled,
+    noteKey,
+  ]);
   const state = settled === undefined ? undefined : SETTLED[settled.how];
   const cancel = () => {
     forgetKept(noteKey);
@@ -41,8 +75,19 @@ export function ApprovalAnswers({ id, keep, settled, open, onAnswer, onWithdraw 
   };
   return (
     <>
-      {open && noting ? <Textarea aria-label="Note" rows={3} autoFocus keep={noteKey} value={note} onChange={(event) => setNote(event.currentTarget.value)} /> : null}
-      {settled?.how === "sent_back" && settled.words !== undefined ? <blockquote className="armada-session-sketch__note">{settled.words}</blockquote> : null}
+      {open && noting ? (
+        <Textarea
+          aria-label="Note"
+          rows={3}
+          autoFocus
+          keep={noteKey}
+          value={note}
+          onChange={(event) => setNote(event.currentTarget.value)}
+        />
+      ) : null}
+      {settled?.how === "sent_back" && settled.words !== undefined ? (
+        <blockquote className="armada-session-sketch__note">{settled.words}</blockquote>
+      ) : null}
       {state === undefined ? null : (
         <p className="armada-session-sketch__settled" data-how={settled!.how}>
           <Tooltip label={state.said}>
@@ -57,7 +102,16 @@ export function ApprovalAnswers({ id, keep, settled, open, onAnswer, onWithdraw 
         <CardFooter role="group" aria-label="Answers">
           {noting ? (
             <>
-              <Button size="sm" variant="primary" disabled={note.trim() === ""} onClick={() => onAnswer(id, { text: note.trim() })}>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={note.trim() === ""}
+                onClick={() =>
+                  onAnswer(id, {
+                    text: note.trim(),
+                  })
+                }
+              >
                 Send back
               </Button>
               <Button size="sm" variant="ghost" onClick={cancel}>
@@ -66,7 +120,15 @@ export function ApprovalAnswers({ id, keep, settled, open, onAnswer, onWithdraw 
             </>
           ) : (
             <>
-              <Button size="sm" variant="primary" onClick={() => onAnswer(id, { choice: 0 })}>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() =>
+                  onAnswer(id, {
+                    choice: 0,
+                  })
+                }
+              >
                 Approve
               </Button>
               <Button size="sm" variant="secondary" onClick={() => setNoting(true)}>
@@ -85,22 +147,66 @@ export function ApprovalAnswers({ id, keep, settled, open, onAnswer, onWithdraw 
   );
 }
 
-type Against = { title: string; scene: Scene };
+type Against = {
+  title: string;
+  scene: Scene;
+};
 
 /**
  * What a sketch with `revisions` reads as at revision `picked`, the newest where none is: **each revision against the one before
  * it**, and the first plain. The newest keeps the sketch the agent named as `against` where it named one (`named`), found or not. `earlier` is a revision
  * before the newest, read only: a note on it, or an answer, would be about a drawing that no longer stands.
  */
-export function sketchAtRevision(revisions: readonly Scene[] | undefined, picked: number | undefined, newest: { scene: Scene; against?: Against; named?: boolean }): { revision?: number; scene: Scene; against?: Against; earlier: boolean } {
-  if (revisions === undefined || revisions.length === 0) return { ...newest, earlier: false };
+export function sketchAtRevision(
+  revisions: readonly Scene[] | undefined,
+  picked: number | undefined,
+  newest: {
+    scene: Scene;
+    against?: Against;
+    named?: boolean;
+  },
+): {
+  revision?: number;
+  scene: Scene;
+  against?: Against;
+  earlier: boolean;
+} {
+  if (revisions === undefined || revisions.length === 0)
+    return {
+      ...newest,
+      earlier: false,
+    };
   const count = revisions.length;
   const revision = Math.min(picked ?? count, count);
   const before = revision > 1 ? revisions[revision - 2] : undefined;
-  const previous = before === undefined ? {} : { against: { title: `Revision ${String(revision - 1)}`, scene: before } };
-  const own = newest.against === undefined ? {} : { against: newest.against };
-  if (revision === count) return { revision, scene: newest.scene, ...(newest.named === true || newest.against !== undefined ? own : previous), earlier: false };
-  return { revision, scene: revisions[revision - 1] ?? newest.scene, ...previous, earlier: true };
+  const previous =
+    before === undefined
+      ? {}
+      : {
+          against: {
+            title: `Revision ${String(revision - 1)}`,
+            scene: before,
+          },
+        };
+  const own =
+    newest.against === undefined
+      ? {}
+      : {
+          against: newest.against,
+        };
+  if (revision === count)
+    return {
+      revision,
+      scene: newest.scene,
+      ...(newest.named === true || newest.against !== undefined ? own : previous),
+      earlier: false,
+    };
+  return {
+    revision,
+    scene: revisions[revision - 1] ?? newest.scene,
+    ...previous,
+    earlier: true,
+  };
 }
 
 /** The revision a sketch's menu shows, `undefined` for the newest, and the menu itself wherever the sketch has revisions, one included, as a document's. */
@@ -109,9 +215,17 @@ function useSketchRevision(revisions: readonly Scene[] | undefined, align: "star
   const count = revisions?.length ?? 0;
   const menu =
     count === 0 ? null : (
-      <RevisionMenu count={count} revision={Math.min(picked ?? count, count)} align={align} onPick={(revision) => setPicked(revision === count ? undefined : revision)} />
+      <RevisionMenu
+        count={count}
+        revision={Math.min(picked ?? count, count)}
+        align={align}
+        onPick={(revision) => setPicked(revision === count ? undefined : revision)}
+      />
     );
-  return { picked, menu };
+  return {
+    picked,
+    menu,
+  };
 }
 
 /**
@@ -123,16 +237,49 @@ function useSketchRevision(revisions: readonly Scene[] | undefined, align: "star
  * **The newest card of a sketch with revisions offers each one** at its top right, as a document does even with one; an earlier one is drawn as a
  * change to the one before it, and Approve and Send back still answer the newest.
  */
-export function SketchRow({ row, keep, onOpen, onAnswer, onWithdraw }: { row: Extract<SessionThreadRow, { kind: "sketch" }>; keep?: string; onOpen?: (sketch: string) => void; onAnswer?: (sketch: string, answer: SketchAnswer) => void; onWithdraw?: (sketch: string) => void }) {
+export function SketchRow({
+  row,
+  keep,
+  onOpen,
+  onAnswer,
+  onWithdraw,
+}: {
+  row: Extract<
+    SessionThreadRow,
+    {
+      kind: "sketch";
+    }
+  >;
+  keep?: string;
+  onOpen?: (sketch: string) => void;
+  onAnswer?: (sketch: string, answer: SketchAnswer) => void;
+  onWithdraw?: (sketch: string) => void;
+}) {
   // The steps loop while the card is pointed at or focused, and the card is a still drawing the rest of the time.
   const [pointed, setPointed] = useState(false);
   const [focused, setFocused] = useState(false);
   const settled = row.settled;
-  const open = row.asked === true && row.withdrawn !== true && settled === undefined && row.replaced !== true && onAnswer !== undefined;
+  const open =
+    row.asked === true &&
+    row.withdrawn !== true &&
+    settled === undefined &&
+    row.replaced !== true &&
+    onAnswer !== undefined;
   const revisions = row.replaced === true ? undefined : row.revisions;
   const { picked, menu } = useSketchRevision(revisions, "end");
   // The agent's own `against` is a card it named; the revisions' is the drawing before. The first wins on the newest, as it always has.
-  const shown = sketchAtRevision(revisions, picked, { scene: row.drawing, named: row.against !== undefined, ...(row.against === undefined || row.againstScene === undefined ? {} : { against: { title: row.against, scene: row.againstScene } }) });
+  const shown = sketchAtRevision(revisions, picked, {
+    scene: row.drawing,
+    named: row.against !== undefined,
+    ...(row.against === undefined || row.againstScene === undefined
+      ? {}
+      : {
+          against: {
+            title: row.against,
+            scene: row.againstScene,
+          },
+        }),
+  });
   const press = (
     <button
       type="button"
@@ -147,32 +294,80 @@ export function SketchRow({ row, keep, onOpen, onAnswer, onWithdraw }: { row: Ex
       <span className="armada-session-sketch__band">
         <PencilRuler size={12} strokeWidth={2} aria-hidden />
         <span className="armada-session-sketch__title">{row.title}</span>
-        {row.replaced === true ? <span className="armada-session-sketch__state">Replaced</span> : null}
-        {row.against === undefined || shown.earlier ? null : <span className="armada-session-sketch__state">Against {row.against}</span>}
+        {row.replaced === true ? (
+          <span className="armada-session-sketch__state">Replaced</span>
+        ) : null}
+        {row.against === undefined || shown.earlier ? null : (
+          <span className="armada-session-sketch__state">Against {row.against}</span>
+        )}
         <Stamp still at={row.at} className="armada-session-sketch__at" />
       </span>
       <span className="armada-session-sketch__glass">
-        <SketchScene key={shown.revision} scene={shown.scene} {...(shown.against === undefined ? {} : { against: shown.against.scene })} preview playing={pointed || focused} />
+        <SketchScene
+          key={shown.revision}
+          scene={shown.scene}
+          {...(shown.against === undefined
+            ? {}
+            : {
+                against: shown.against.scene,
+              })}
+          preview
+          playing={pointed || focused}
+        />
       </span>
     </button>
   );
   // The menu is a button of its own, so it stands over the press's band and never inside the press.
-  const revision = menu === null ? null : <span className="armada-session-sketch__revision">{menu}</span>;
+  const revision =
+    menu === null ? null : <span className="armada-session-sketch__revision">{menu}</span>;
   if ((row.asked !== true || row.withdrawn === true) && settled === undefined) {
     return (
-      <li className="armada-session-sketch" data-replaced={row.replaced || undefined} data-revisions={menu === null ? undefined : ""}>
+      <li
+        className="armada-session-sketch"
+        data-replaced={row.replaced || undefined}
+        data-revisions={menu === null ? undefined : ""}
+      >
         {press}
         {revision}
       </li>
     );
   }
   return (
-    <li className="armada-session-sketch" data-replaced={row.replaced || undefined} data-revisions={menu === null ? undefined : ""} data-asked>
-      <div className="armada-session-sketch__asked" role="article" aria-label={`Sketch: ${row.title}`} data-settled={settled?.how}>
+    <li
+      className="armada-session-sketch"
+      data-replaced={row.replaced || undefined}
+      data-revisions={menu === null ? undefined : ""}
+      data-asked
+    >
+      <div
+        className="armada-session-sketch__asked"
+        role="article"
+        aria-label={`Sketch: ${row.title}`}
+        data-settled={settled?.how}
+      >
         {press}
         {!open && settled === undefined ? null : (
           <div className="armada-session-sketch__answers">
-            <ApprovalAnswers id={row.sketch} keep={keep ?? `sketch:${row.id}`} {...(settled === undefined ? {} : { settled })} open={open} {...(onAnswer === undefined ? {} : { onAnswer })} {...(onWithdraw === undefined ? {} : { onWithdraw })} />
+            <ApprovalAnswers
+              id={row.sketch}
+              keep={keep ?? `sketch:${row.id}`}
+              {...(settled === undefined
+                ? {}
+                : {
+                    settled,
+                  })}
+              open={open}
+              {...(onAnswer === undefined
+                ? {}
+                : {
+                    onAnswer,
+                  })}
+              {...(onWithdraw === undefined
+                ? {}
+                : {
+                    onWithdraw,
+                  })}
+            />
           </div>
         )}
       </div>
@@ -186,19 +381,55 @@ export function SketchRow({ row, keep, onOpen, onAnswer, onWithdraw }: { row: Ex
  * the sketch it was drawn against, it is read as a change to it** (added green, removed red,
  * changed amber), and a band offers the whole drawing instead. `menu`, a revision menu, ends the band.
  */
-export function SketchReading({ scene, title, against, notes, marked, answer, menu }: { scene: unknown; title?: string; against?: { title: string; scene: unknown }; notes?: ViewerNotesScope; marked?: readonly string[]; /** Present while the sketch waits on him: the same Approve and Send back the thread card has. */ answer?: { sketch: string; keep: string; onAnswer: (sketch: string, answer: SketchAnswer) => void; onWithdraw?: (sketch: string) => void }; menu?: ReactNode }) {
+export function SketchReading({
+  scene,
+  title,
+  against,
+  notes,
+  marked,
+  answer,
+  menu,
+}: {
+  scene: unknown;
+  title?: string;
+  against?: {
+    title: string;
+    scene: unknown;
+  };
+  notes?: ViewerNotesScope;
+  marked?: readonly string[] /** Present while the sketch waits on him: the same Approve and Send back the thread card has. */;
+  answer?: {
+    sketch: string;
+    keep: string;
+    onAnswer: (sketch: string, answer: SketchAnswer) => void;
+    onWithdraw?: (sketch: string) => void;
+  };
+  menu?: ReactNode;
+}) {
   const [changes, setChanges] = useState(true);
   return (
     <div className="armada-session-sketch-read">
       {against === undefined && menu === undefined ? null : (
         <div className="armada-session-sketch-read__band">
-          <span className="armada-session-sketch-read__against">{against === undefined ? null : `Against ${against.title}`}</span>
+          <span className="armada-session-sketch-read__against">
+            {against === undefined ? null : `Against ${against.title}`}
+          </span>
           {against === undefined ? null : (
             <span className="armada-session-sketch-read__reads" role="group" aria-label="Read as">
-              <Button size="sm" variant={changes ? "secondary" : "ghost"} aria-pressed={changes} onClick={() => setChanges(true)}>
+              <Button
+                size="sm"
+                variant={changes ? "secondary" : "ghost"}
+                aria-pressed={changes}
+                onClick={() => setChanges(true)}
+              >
                 Changes
               </Button>
-              <Button size="sm" variant={changes ? "ghost" : "secondary"} aria-pressed={!changes} onClick={() => setChanges(false)}>
+              <Button
+                size="sm"
+                variant={changes ? "ghost" : "secondary"}
+                aria-pressed={!changes}
+                onClick={() => setChanges(false)}
+              >
                 Whole
               </Button>
             </span>
@@ -206,10 +437,43 @@ export function SketchReading({ scene, title, against, notes, marked, answer, me
           {menu}
         </div>
       )}
-      <SketchScene scene={scene} autoplay {...(title === undefined ? {} : { title })} {...(against === undefined || !changes ? {} : { against: against.scene })} {...(notes === undefined ? {} : { notes })} {...(marked === undefined ? {} : { marked })} />
+      <SketchScene
+        scene={scene}
+        autoplay
+        {...(title === undefined
+          ? {}
+          : {
+              title,
+            })}
+        {...(against === undefined || !changes
+          ? {}
+          : {
+              against: against.scene,
+            })}
+        {...(notes === undefined
+          ? {}
+          : {
+              notes,
+            })}
+        {...(marked === undefined
+          ? {}
+          : {
+              marked,
+            })}
+      />
       {answer === undefined ? null : (
         <div className="armada-session-sketch__answers">
-          <ApprovalAnswers id={answer.sketch} keep={answer.keep} open onAnswer={answer.onAnswer} {...(answer.onWithdraw === undefined ? {} : { onWithdraw: answer.onWithdraw })} />
+          <ApprovalAnswers
+            id={answer.sketch}
+            keep={answer.keep}
+            open
+            onAnswer={answer.onAnswer}
+            {...(answer.onWithdraw === undefined
+              ? {}
+              : {
+                  onWithdraw: answer.onWithdraw,
+                })}
+          />
         </div>
       )}
     </div>
@@ -217,7 +481,28 @@ export function SketchReading({ scene, title, against, notes, marked, answer, me
 }
 
 /** A sketch waiting on the person, pinned as the plan to approve is. */
-export type SketchPinProps = { sketch: string; title: string; scene: Scene; against?: { title: string; scene: Scene }; /** Where his notes on it are held, and the key the note he types is kept under. */ notes?: ViewerNotesScope; keep: string; onAnswer: (sketch: string, answer: SketchAnswer) => void; /** Takes it back without answering; Withdraw shows where this is passed. */ onWithdraw?: (sketch: string) => void; /** Opens it in the side panel, bigger, as the thread card's press does. */ onOpen?: (sketch: string) => void; /** Each drawing kept under the title, oldest first, the newest `scene`: offered at the header's right. */ revisions?: readonly Scene[] };
+export type SketchPinProps = {
+  sketch: string;
+  title: string;
+  scene: Scene;
+  against?: {
+    title: string;
+    scene: Scene;
+  } /** Where his notes on it are held, and the key the note he types is kept under. */;
+  notes?: ViewerNotesScope;
+  keep: string;
+  onAnswer: (
+    sketch: string,
+    answer: SketchAnswer,
+  ) => void /** Takes it back without answering; Withdraw shows where this is passed. */;
+  onWithdraw?: (
+    sketch: string,
+  ) => void /** Opens it in the side panel, bigger, as the thread card's press does. */;
+  onOpen?: (
+    sketch: string,
+  ) => void /** Each drawing kept under the title, oldest first, the newest `scene`: offered at the header's right. */;
+  revisions?: readonly Scene[];
+};
 
 /**
  * A sketch put to the person, as the thread's last card where the plan to approve stands: the drawing with the canvas's own pan, zoom
@@ -225,20 +510,49 @@ export type SketchPinProps = { sketch: string; title: string; scene: Scene; agai
  * **A chevron folds it to its header line**, the glyph, the title and the bell with the keys at its end, as the plan folds to its band.
  * Folded, Send back opens the note under that line, and the drawing stays folded.
  */
-export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer, onWithdraw, onOpen, revisions }: SketchPinProps) {
+export function SketchPin({
+  sketch,
+  title,
+  scene,
+  against,
+  notes,
+  keep,
+  onAnswer,
+  onWithdraw,
+  onOpen,
+  revisions,
+}: SketchPinProps) {
   const [folded, setFolded] = useState(false);
   const { picked, menu } = useSketchRevision(revisions, "end");
-  const shown = sketchAtRevision(revisions, picked, { scene, ...(against === undefined ? {} : { against }) });
+  const shown = sketchAtRevision(revisions, picked, {
+    scene,
+    ...(against === undefined
+      ? {}
+      : {
+          against,
+        }),
+  });
   const Fold = folded ? ChevronRight : ChevronDown;
   const said = folded ? "Unfold" : "Fold";
   return (
-    <Card flat className="armada-session-thread__ask armada-session-sketch-pin" role="article" aria-label={`Sketch to approve: ${title}`} data-folded={folded || undefined}>
+    <Card
+      flat
+      className="armada-session-thread__ask armada-session-sketch-pin"
+      role="article"
+      aria-label={`Sketch to approve: ${title}`}
+      data-folded={folded || undefined}
+    >
       <div className="armada-session-thread__plan-head">
         <span className="armada-session-sketch-pin__band">
           <PencilRuler size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-thread__eyebrow">{title}</span>
           <Tooltip label="Sketch waiting for approval">
-            <span className="armada-session-thread__settled" role="img" aria-label="Sketch waiting for approval" data-state="waiting">
+            <span
+              className="armada-session-thread__settled"
+              role="img"
+              aria-label="Sketch waiting for approval"
+              data-state="waiting"
+            >
               <BellRing size={16} strokeWidth={2} aria-hidden />
             </span>
           </Tooltip>
@@ -246,13 +560,28 @@ export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer
             {menu}
             {onOpen === undefined ? null : (
               <Tooltip label="Open in the panel">
-                <Button className="armada-session-sketch-pin__open" variant="ghost" size="sm" iconOnly aria-label="Open in the panel" onClick={() => onOpen(sketch)}>
+                <Button
+                  className="armada-session-sketch-pin__open"
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label="Open in the panel"
+                  onClick={() => onOpen(sketch)}
+                >
                   <Maximize2 size={12} strokeWidth={2} aria-hidden />
                 </Button>
               </Tooltip>
             )}
             <Tooltip label={said}>
-              <Button className="armada-session-sketch-pin__fold" variant="ghost" size="sm" iconOnly aria-label={said} aria-expanded={!folded} onClick={() => setFolded(!folded)}>
+              <Button
+                className="armada-session-sketch-pin__fold"
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label={said}
+                aria-expanded={!folded}
+                onClick={() => setFolded(!folded)}
+              >
                 <Fold size={12} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
@@ -261,11 +590,35 @@ export function SketchPin({ sketch, title, scene, against, notes, keep, onAnswer
       </div>
       {folded ? null : (
         <div className="armada-session-sketch-pin__read">
-          <SketchReading key={shown.revision} scene={shown.scene} title={title} {...(shown.against === undefined ? {} : { against: shown.against })} {...(notes === undefined || shown.earlier ? {} : { notes })} />
+          <SketchReading
+            key={shown.revision}
+            scene={shown.scene}
+            title={title}
+            {...(shown.against === undefined
+              ? {}
+              : {
+                  against: shown.against,
+                })}
+            {...(notes === undefined || shown.earlier
+              ? {}
+              : {
+                  notes,
+                })}
+          />
         </div>
       )}
       <div className="armada-session-sketch__answers">
-        <ApprovalAnswers id={sketch} keep={keep} open onAnswer={onAnswer} {...(onWithdraw === undefined ? {} : { onWithdraw })} />
+        <ApprovalAnswers
+          id={sketch}
+          keep={keep}
+          open
+          onAnswer={onAnswer}
+          {...(onWithdraw === undefined
+            ? {}
+            : {
+                onWithdraw,
+              })}
+        />
       </div>
     </Card>
   );

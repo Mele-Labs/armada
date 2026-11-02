@@ -126,7 +126,9 @@ function wordFor(change: string): string {
  * drawn clause in the same grammar. Reported.
  */
 export function changedFilesSummary(files: ChangedFile[], planDeclared?: boolean): string {
-  const parts = [`${files.length} ${files.length === 1 ? "file" : "files"}`];
+  const parts = [
+    `${files.length} ${files.length === 1 ? "file" : "files"}`,
+  ];
 
   // The same `+61 −4` a row draws, over the whole list. One spelling, so the
   // header cannot say `+94 -31` while the rows say `+61 −4`.
@@ -135,7 +137,14 @@ export function changedFilesSummary(files: ChangedFile[], planDeclared?: boolean
     deleted: sum(files, (file) => file.deleted),
   });
   if (churn !== undefined) {
-    parts.push([churn.added, churn.deleted].filter((n) => n !== undefined).join(" "));
+    parts.push(
+      [
+        churn.added,
+        churn.deleted,
+      ]
+        .filter((n) => n !== undefined)
+        .join(" "),
+    );
   }
 
   if (planDeclared === true) {
@@ -147,7 +156,10 @@ export function changedFilesSummary(files: ChangedFile[], planDeclared?: boolean
 }
 
 /** A total, or nothing where no file in the list carried the count. */
-function sum(files: ChangedFile[], of: (file: ChangedFile) => number | undefined): number | undefined {
+function sum(
+  files: ChangedFile[],
+  of: (file: ChangedFile) => number | undefined,
+): number | undefined {
   const counted = files.map(of).filter((n) => n !== undefined);
   return counted.length === 0 ? undefined : counted.reduce((a, b) => a + b, 0);
 }
@@ -161,12 +173,18 @@ function sum(files: ChangedFile[], of: (file: ChangedFile) => number | undefined
  * count on this screen already carries.
  */
 function countsOf({ added, deleted }: { added?: number; deleted?: number }):
-  | { added?: string; deleted?: string }
+  | {
+      added?: string;
+      deleted?: string;
+    }
   | undefined {
   const plus = added === undefined || added === 0 ? undefined : `+${added}`;
   const minus = deleted === undefined || deleted === 0 ? undefined : `\u2212${deleted}`;
   if (plus === undefined && minus === undefined) return undefined;
-  return { added: plus, deleted: minus };
+  return {
+    added: plus,
+    deleted: minus,
+  };
 }
 
 export function ChangedFiles({ files, emptyNote, note, onCopied }: ChangedFilesProps) {
@@ -175,7 +193,9 @@ export function ChangedFiles({ files, emptyNote, note, onCopied }: ChangedFilesP
       event.stopPropagation();
       void navigator.clipboard.writeText(value).then(() => onCopied?.(value));
     },
-    [onCopied],
+    [
+      onCopied,
+    ],
   );
 
   if (files.length === 0) {

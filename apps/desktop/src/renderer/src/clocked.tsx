@@ -4,7 +4,11 @@
 import type { ComponentType } from "react";
 import { useNow } from "@armada/components";
 
-export function clocked<P extends { now?: number }>(Component: ComponentType<P>): ComponentType<Omit<P, "now">> {
+export function clocked<
+  P extends {
+    now?: number;
+  },
+>(Component: ComponentType<P>): ComponentType<Omit<P, "now">> {
   function Clocked(props: Omit<P, "now">) {
     return <Component {...(props as P)} now={useNow()} />;
   }

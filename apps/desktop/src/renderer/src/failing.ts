@@ -32,7 +32,13 @@
 
 import type { BridgeIdentity, Connection, Outcome } from "@armada/protocol";
 import type { BuildFailed, Failure, Statement, Uncaught } from "@armada/shell";
-import { buildFailedFailure, fleetFailure, refusalFailure, transportFailure, uncaughtFailure } from "@armada/shell";
+import {
+  buildFailedFailure,
+  fleetFailure,
+  refusalFailure,
+  transportFailure,
+  uncaughtFailure,
+} from "@armada/shell";
 import { statementOf } from "@armada/shell";
 import { said, servesNothing } from "@armada/screens";
 
@@ -107,7 +113,19 @@ export function guidanceOf(outcome: Outcome | null): string | null {
 }
 
 /** One toast: a command that failed or was not sent, a throw no boundary saw, or a restart Fleet reports as failed. */
-export type Raised = { key: number } & ({ outcome: Outcome } | { uncaught: Uncaught } | { buildFailed: BuildFailed });
+export type Raised = {
+  key: number;
+} & (
+  | {
+      outcome: Outcome;
+    }
+  | {
+      uncaught: Uncaught;
+    }
+  | {
+      buildFailed: BuildFailed;
+    }
+);
 
 /** The failure a toast draws. */
 export function raisedFailure(one: Raised, bridge: BridgeIdentity): Failure | null {

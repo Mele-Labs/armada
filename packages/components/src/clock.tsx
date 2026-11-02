@@ -16,7 +16,10 @@ function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   timer ??= setInterval(() => {
     current = Date.now();
-    for (const one of [...listeners]) one();
+    for (const one of [
+      ...listeners,
+    ])
+      one();
   }, TICK_MS);
   return () => {
     listeners.delete(listener);
@@ -43,15 +46,18 @@ export function useNow(step: number = TICK_MS): number {
 
 /** The time while `active`, and a fixed 0 otherwise: a reader that only needs it in one state draws on no tick outside it. */
 export function useNowWhile(active: boolean): number {
-  return useSyncExternalStore(
-    active ? subscribe : QUIET,
-    () => (active ? read() : 0),
-  );
+  return useSyncExternalStore(active ? subscribe : QUIET, () => (active ? read() : 0));
 }
 
 const QUIET = (): (() => void) => () => undefined;
 
 /** Draws `children` on the clock, so a screen that takes `now` as a prop can be given it without its parent reading it. */
-export function Ticking({ children, step }: { children: (now: number) => ReactNode; step?: number }) {
+export function Ticking({
+  children,
+  step,
+}: {
+  children: (now: number) => ReactNode;
+  step?: number;
+}) {
   return <>{children(useNow(step))}</>;
 }

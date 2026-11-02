@@ -10,8 +10,18 @@ export const bayHistory: Slice<BayHistoryApi, Record<string, never>> = {
   state: {},
   api: (scenario) => ({
     getSlotHistory: async (manifestId, slot) => {
-      const own = scenario.draft?.bayHistories?.find((one) => one.manifest_id === manifestId && one.slot === slot);
-      return own === undefined ? { ok: false, outcome: unanswered(`/slot_history?manifest_id=${manifestId}&slot=${slot}`) } : { ok: true, value: own };
+      const own = scenario.draft?.bayHistories?.find(
+        (one) => one.manifest_id === manifestId && one.slot === slot,
+      );
+      return own === undefined
+        ? {
+            ok: false,
+            outcome: unanswered(`/slot_history?manifest_id=${manifestId}&slot=${slot}`),
+          }
+        : {
+            ok: true,
+            value: own,
+          };
     },
   }),
 };

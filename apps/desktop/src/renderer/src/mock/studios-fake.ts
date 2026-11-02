@@ -22,5 +22,7 @@ type DesktopStudioFleet = StudioFleet<BridgeState, BridgeApi>;
 export const studying = (seeded?: readonly Studio[]): DesktopStudioFleet =>
   studyingOver<BridgeState, BridgeApi>(NOTHING_YET, seeded);
 export const zoning = (): DesktopStudioFleet => zoningOver<BridgeState, BridgeApi>(NOTHING_YET);
-export const zoneProposing = (): DesktopStudioFleet => zoneProposingOver<BridgeState, BridgeApi>(NOTHING_YET);
-export const readingNothing = (): DesktopStudioFleet => readingNothingOver<BridgeState, BridgeApi>(NOTHING_YET);
+export const zoneProposing = (): DesktopStudioFleet =>
+  zoneProposingOver<BridgeState, BridgeApi>(NOTHING_YET);
+export const readingNothing = (): DesktopStudioFleet =>
+  readingNothingOver<BridgeState, BridgeApi>(NOTHING_YET);

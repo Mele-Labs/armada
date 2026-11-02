@@ -1,6 +1,16 @@
 /* A Mod Job's empty thread: a grid of small cards, two a row; the picked one takes the accent edge and a check, as the Cockpit's glyph picker does. Tokens only. */
-.sv-mod-empty__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.sv-mod-empty__item { display: flex; min-width: 0; }
+.sv-mod-empty__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sv-mod-empty__item {
+  display: flex;
+  min-width: 0;
+}
 .sv-mod-empty__card {
   flex: 1;
   display: grid;
@@ -20,11 +30,39 @@
   text-align: left;
   cursor: pointer;
 }
-.sv-mod-empty__card:hover { background: var(--bg-hover); }
-.sv-mod-empty__card:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.sv-mod-empty__card[aria-checked="true"] { border-color: var(--accent); background: var(--accent-muted); }
-.sv-mod-empty__glyph { color: var(--fg-muted); }
-.sv-mod-empty__card[aria-checked="true"] .sv-mod-empty__glyph { color: var(--fg-default); }
-.sv-mod-empty__name { color: var(--fg-default); font-weight: var(--weight-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sv-mod-empty__check { grid-column: 3; grid-row: 1; color: var(--accent); }
-.sv-mod-empty__what { grid-column: 1 / -1; color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-mod-empty__card:hover {
+  background: var(--bg-hover);
+}
+.sv-mod-empty__card:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.sv-mod-empty__card[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+.sv-mod-empty__glyph {
+  color: var(--fg-muted);
+}
+.sv-mod-empty__card[aria-checked="true"] .sv-mod-empty__glyph {
+  color: var(--fg-default);
+}
+.sv-mod-empty__name {
+  color: var(--fg-default);
+  font-weight: var(--weight-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sv-mod-empty__check {
+  grid-column: 3;
+  grid-row: 1;
+  color: var(--accent);
+}
+.sv-mod-empty__what {
+  grid-column: 1 / -1;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

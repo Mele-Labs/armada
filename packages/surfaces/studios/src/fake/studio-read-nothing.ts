@@ -5,7 +5,13 @@
 import type { Studio } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
-import { READS_AS_NOTHING, studying, type StudioFleet, type StudyingApi, type StudyingState } from "./studio-fleet";
+import {
+  READS_AS_NOTHING,
+  studying,
+  type StudioFleet,
+  type StudyingApi,
+  type StudyingState,
+} from "./studio-fleet";
 
 const AT = "2026-10-02T09:00:00Z";
 
@@ -20,15 +26,29 @@ function aLinkToNothing(): Studio {
     created_at: AT,
     touched_at: AT,
     nodes: [
-      { id: "nothing-link", kind: "link", address: READS_AS_NOTHING, position: { x: 0, y: 0 }, created_at: AT, added_by: "person" },
+      {
+        id: "nothing-link",
+        kind: "link",
+        address: READS_AS_NOTHING,
+        position: {
+          x: 0,
+          y: 0,
+        },
+        created_at: AT,
+        added_by: "person",
+      },
     ],
     edges: [],
   };
 }
 
 /** The `studio-read-nothing` scenario: one Link, whose read-in finds nothing. */
-export function readingNothing<S extends StudyingState, A extends StudyingApi>(nothingYet: S): StudioFleet<S, A> {
-  const fleet = studying<S, A>(nothingYet, [aLinkToNothing()]);
+export function readingNothing<S extends StudyingState, A extends StudyingApi>(
+  nothingYet: S,
+): StudioFleet<S, A> {
+  const fleet = studying<S, A>(nothingYet, [
+    aLinkToNothing(),
+  ]);
   return {
     ...fleet,
     scenario: {

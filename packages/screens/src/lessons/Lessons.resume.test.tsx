@@ -21,26 +21,100 @@ afterEach(unmount);
 const AT = "2026-10-02T22:05:00.000Z";
 
 function lesson(over: Partial<Lesson> & Pick<Lesson, "id" | "statement" | "who">): Lesson {
-  return { handle: "s-01K6Q3", session: { id: "s-01K6Q3", title: "Retire two guides" }, at: AT, evidence: [], state: "open", ...over };
+  return {
+    handle: "s-01K6Q3",
+    session: {
+      id: "s-01K6Q3",
+      title: "Retire two guides",
+    },
+    at: AT,
+    evidence: [],
+    state: "open",
+    ...over,
+  };
 }
 
-const ARMADA = lesson({ id: "l-armada", who: "fleet", lands_in: "armada", statement: "s", title: "The gate blamed the Drone", what: "w", fix: "f" });
-const TWIN = lesson({ ...ARMADA, id: "l-twin", handle: "s-02FIXGATE", session: { id: "s-02FIXGATE", title: "Fix the gate" }, title: "A stale main blamed the Drone" });
-const KIT = lesson({ id: "l-kit", who: "drone", lands_in: "kit", statement: "s", title: "A Drone waited on grep", what: "w", fix: "f" });
-const MANIFEST = lesson({ id: "l-manifest", who: "fleet", lands_in: "manifest", statement: "s", title: "A docs edit set off every Rust test", what: "w", fix: "f" });
-const STALE = lesson({ id: "l-stale", who: "owner", lands_in: "manifest", statement: "Old.", title: "A very old complaint" });
+const ARMADA = lesson({
+  id: "l-armada",
+  who: "fleet",
+  lands_in: "armada",
+  statement: "s",
+  title: "The gate blamed the Drone",
+  what: "w",
+  fix: "f",
+});
+const TWIN = lesson({
+  ...ARMADA,
+  id: "l-twin",
+  handle: "s-02FIXGATE",
+  session: {
+    id: "s-02FIXGATE",
+    title: "Fix the gate",
+  },
+  title: "A stale main blamed the Drone",
+});
+const KIT = lesson({
+  id: "l-kit",
+  who: "drone",
+  lands_in: "kit",
+  statement: "s",
+  title: "A Drone waited on grep",
+  what: "w",
+  fix: "f",
+});
+const MANIFEST = lesson({
+  id: "l-manifest",
+  who: "fleet",
+  lands_in: "manifest",
+  statement: "s",
+  title: "A docs edit set off every Rust test",
+  what: "w",
+  fix: "f",
+});
+const STALE = lesson({
+  id: "l-stale",
+  who: "owner",
+  lands_in: "manifest",
+  statement: "Old.",
+  title: "A very old complaint",
+});
 
 const review: LessonReview = {
   model: "sonnet",
   entries: [
-    { lesson_id: "l-armada", merged_ids: ["l-twin"], reason: "First reason." },
-    { lesson_id: "l-kit", merged_ids: [], reason: "Second reason." },
-    { lesson_id: "l-manifest", merged_ids: [], reason: "Third reason." },
+    {
+      lesson_id: "l-armada",
+      merged_ids: [
+        "l-twin",
+      ],
+      reason: "First reason.",
+    },
+    {
+      lesson_id: "l-kit",
+      merged_ids: [],
+      reason: "Second reason.",
+    },
+    {
+      lesson_id: "l-manifest",
+      merged_ids: [],
+      reason: "Third reason.",
+    },
   ],
-  set_aside: [{ lesson_id: "l-stale", why: "Fixed since." }],
+  set_aside: [
+    {
+      lesson_id: "l-stale",
+      why: "Fixed since.",
+    },
+  ],
 };
 
-const all = [ARMADA, TWIN, KIT, MANIFEST, STALE];
+const all = [
+  ARMADA,
+  TWIN,
+  KIT,
+  MANIFEST,
+  STALE,
+];
 
 /** A page over `hold`, as the host mounts it. Each call is one visit to Retros. */
 function visit(
@@ -52,14 +126,53 @@ function visit(
     asked?: () => Promise<AskLessonRead>;
   } = {},
 ) {
-  const reviewLessons = vi.fn(over.reviewed ?? (async () => ({ ok: true as const, review })));
-  const askLesson = vi.fn(over.asked ?? (async () => ({ ok: true as const, answer: { answer: "Two Sessions." } })));
+  const reviewLessons = vi.fn(
+    over.reviewed ??
+      (async () => ({
+        ok: true as const,
+        review,
+      })),
+  );
+  const askLesson = vi.fn(
+    over.asked ??
+      (async () => ({
+        ok: true as const,
+        answer: {
+          answer: "Two Sessions.",
+        },
+      })),
+  );
   mount(
     <Lessons
-      onReadLessons={async () => ({ ok: true, lessons: over.lessons ?? all })}
-      onReadRetro={async () => ({ ok: true, retro: { session: { id: "s-01K6Q3" }, state: "pending", record: {} } })}
-      onAgreeLesson={async () => ({ ok: true, lesson: { ...KIT, state: "accepted" } })}
-      onDisagreeLesson={async (id) => ({ ok: true, lesson: lesson({ ...ARMADA, id, state: "discarded" }) })}
+      onReadLessons={async () => ({
+        ok: true,
+        lessons: over.lessons ?? all,
+      })}
+      onReadRetro={async () => ({
+        ok: true,
+        retro: {
+          session: {
+            id: "s-01K6Q3",
+          },
+          state: "pending",
+          record: {},
+        },
+      })}
+      onAgreeLesson={async () => ({
+        ok: true,
+        lesson: {
+          ...KIT,
+          state: "accepted",
+        },
+      })}
+      onDisagreeLesson={async (id) => ({
+        ok: true,
+        lesson: lesson({
+          ...ARMADA,
+          id,
+          state: "discarded",
+        }),
+      })}
       onReviewLessons={reviewLessons}
       onAskLesson={askLesson}
       hold={hold}
@@ -67,23 +180,54 @@ function visit(
       floor={false}
     />,
   );
-  return { reviewLessons, askLesson };
+  return {
+    reviewLessons,
+    askLesson,
+  };
 }
 
 const start = async () => {
-  await expect.element(page.getByRole("button", { name: "Review", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Review", exact: true }).click();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Review",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Review",
+      exact: true,
+    })
+    .click();
 };
 
 test("leaving mid-review and coming back resumes at the same card with its thread, and asks the model nothing", async () => {
   const hold = createReviewHold();
   const first = visit(hold);
   await start();
-  await page.getByRole("textbox", { name: "Ask about this item" }).fill("Which Sessions?");
-  await page.getByRole("button", { name: "Send" }).click();
+  await page
+    .getByRole("textbox", {
+      name: "Ask about this item",
+    })
+    .fill("Which Sessions?");
+  await page
+    .getByRole("button", {
+      name: "Send",
+    })
+    .click();
   await expect.element(page.getByText("Two Sessions.")).toBeVisible();
-  await page.getByRole("textbox", { name: "Ask about this item" }).fill("half a thought");
-  await page.getByRole("button", { name: "Skip" }).click();
+  await page
+    .getByRole("textbox", {
+      name: "Ask about this item",
+    })
+    .fill("half a thought");
+  await page
+    .getByRole("button", {
+      name: "Skip",
+    })
+    .click();
   await expect.element(page.getByText("2 of 3")).toBeVisible();
   expect(first.reviewLessons).toHaveBeenCalledTimes(1);
 
@@ -91,28 +235,63 @@ test("leaving mid-review and coming back resumes at the same card with its threa
   const back = visit(hold);
   // Straight into the review: no Review press, and the same second card.
   await expect.element(page.getByText("2 of 3")).toBeVisible();
-  await expect.element(page.getByRole("heading", { name: "A Drone waited on grep" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("heading", {
+        name: "A Drone waited on grep",
+      }),
+    )
+    .toBeVisible();
   expect(back.reviewLessons).not.toHaveBeenCalled();
   // The first card's thread and half-typed question are there to go back to.
-  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Back",
+      exact: true,
+    })
+    .click();
   await expect.element(page.getByText("Which Sessions?")).toBeVisible();
   await expect.element(page.getByText("Two Sessions.")).toBeVisible();
-  await expect.element(page.getByRole("textbox", { name: "Ask about this item" })).toHaveValue("half a thought");
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Ask about this item",
+      }),
+    )
+    .toHaveValue("half a thought");
 });
 
 test("what was put back and the duplicate box are kept", async () => {
   const hold = createReviewHold();
   visit(hold);
   await start();
-  await page.getByRole("checkbox", { name: "Also reject the 1 duplicate" }).click();
-  await page.getByRole("button", { name: "Set aside (1)" }).click();
-  await page.getByRole("button", { name: "Put back in the queue" }).click();
+  await page
+    .getByRole("checkbox", {
+      name: "Also reject the 1 duplicate",
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Set aside (1)",
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Put back in the queue",
+    })
+    .click();
   await expect.element(page.getByText("1 of 4")).toBeVisible();
 
   unmount();
   visit(hold);
   await expect.element(page.getByText("1 of 4")).toBeVisible();
-  await expect.element(page.getByRole("checkbox", { name: "Also reject the 1 duplicate" })).toBeChecked();
+  await expect
+    .element(
+      page.getByRole("checkbox", {
+        name: "Also reject the 1 duplicate",
+      }),
+    )
+    .toBeChecked();
 });
 
 test("an item answered meanwhile is gone on return, and the order of the rest is not changed", async () => {
@@ -123,9 +302,21 @@ test("an item answered meanwhile is gone on return, and the order of the rest is
 
   unmount();
   // The first item was answered elsewhere, say from its Session's own sheet.
-  const back = visit(hold, { lessons: [KIT, MANIFEST, STALE] });
+  const back = visit(hold, {
+    lessons: [
+      KIT,
+      MANIFEST,
+      STALE,
+    ],
+  });
   await expect.element(page.getByText("1 of 2")).toBeVisible();
-  await expect.element(page.getByRole("heading", { name: "A Drone waited on grep" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("heading", {
+        name: "A Drone waited on grep",
+      }),
+    )
+    .toBeVisible();
   expect(back.reviewLessons).not.toHaveBeenCalled();
 });
 
@@ -134,13 +325,30 @@ test("Review mode itself is remembered, and so is the list", async () => {
   visit(hold);
   await start();
   await expect.element(page.getByText("1 of 3")).toBeVisible();
-  await page.getByRole("button", { name: "Back to the list" }).click();
-  await expect.element(page.getByRole("tab", { name: "Armada" })).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Back to the list",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "Armada",
+      }),
+    )
+    .toBeVisible();
 
   unmount();
   visit(hold);
   // Left on the list, so the list is what comes back, with Review beside the tabs.
-  await expect.element(page.getByRole("button", { name: "Review", exact: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Review",
+        exact: true,
+      }),
+    )
+    .toBeVisible();
   expect(page.getByText("1 of 3").elements()).toHaveLength(0);
 });
 
@@ -148,8 +356,16 @@ test("pressing Review after the list resumes the held review and makes no new ca
   const hold = createReviewHold();
   const one = visit(hold);
   await start();
-  await page.getByRole("button", { name: "Skip" }).click();
-  await page.getByRole("button", { name: "Back to the list" }).click();
+  await page
+    .getByRole("button", {
+      name: "Skip",
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Back to the list",
+    })
+    .click();
   await start();
   await expect.element(page.getByText("2 of 3")).toBeVisible();
   expect(one.reviewLessons).toHaveBeenCalledTimes(1);
@@ -160,13 +376,29 @@ test("it says how old the review is, and Review again asks on purpose and starts
   const one = visit(hold);
   await start();
   await expect.element(page.getByText("Reviewed 12 minutes ago")).toBeVisible();
-  await page.getByRole("textbox", { name: "Ask about this item" }).fill("Which Sessions?");
-  await page.getByRole("button", { name: "Send" }).click();
+  await page
+    .getByRole("textbox", {
+      name: "Ask about this item",
+    })
+    .fill("Which Sessions?");
+  await page
+    .getByRole("button", {
+      name: "Send",
+    })
+    .click();
   await expect.element(page.getByText("Two Sessions.")).toBeVisible();
-  await page.getByRole("button", { name: "Skip" }).click();
+  await page
+    .getByRole("button", {
+      name: "Skip",
+    })
+    .click();
   await expect.element(page.getByText("2 of 3")).toBeVisible();
 
-  await page.getByRole("button", { name: "Review again" }).click();
+  await page
+    .getByRole("button", {
+      name: "Review again",
+    })
+    .click();
   await expect.element(page.getByText("1 of 3")).toBeVisible();
   expect(one.reviewLessons).toHaveBeenCalledTimes(2);
   // The held thread went with the old review.
@@ -175,19 +407,29 @@ test("it says how old the review is, and Review again asks on purpose and starts
 
 test("another repository pick has its own review, and the first is still held", async () => {
   const hold = createReviewHold();
-  const one = visit(hold, { repository: "/work/a" });
+  const one = visit(hold, {
+    repository: "/work/a",
+  });
   await start();
-  await page.getByRole("button", { name: "Skip" }).click();
+  await page
+    .getByRole("button", {
+      name: "Skip",
+    })
+    .click();
   await expect.element(page.getByText("2 of 3")).toBeVisible();
 
   unmount();
   // Reviewing is on, so the new pick starts its own review without a press.
-  const other = visit(hold, { repository: "/work/b" });
+  const other = visit(hold, {
+    repository: "/work/b",
+  });
   await expect.element(page.getByText("1 of 3")).toBeVisible();
   expect(other.reviewLessons).toHaveBeenCalledTimes(1);
 
   unmount();
-  const first = visit(hold, { repository: "/work/a" });
+  const first = visit(hold, {
+    repository: "/work/a",
+  });
   await expect.element(page.getByText("2 of 3")).toBeVisible();
   expect(first.reviewLessons).not.toHaveBeenCalled();
   expect(one.reviewLessons).toHaveBeenCalledTimes(1);
@@ -196,12 +438,17 @@ test("another repository pick has its own review, and the first is still held", 
 test("leaving while Fleet is still reading: the answer lands, and coming back finds it with no second call", async () => {
   const hold = createReviewHold();
   let release: (read: LessonReviewRead) => void = () => {};
-  const one = visit(hold, { reviewed: () => new Promise<LessonReviewRead>((done) => (release = done)) });
+  const one = visit(hold, {
+    reviewed: () => new Promise<LessonReviewRead>((done) => (release = done)),
+  });
   await start();
   await expect.element(page.getByText("Fleet is reading the open items")).toBeVisible();
 
   unmount();
-  release({ ok: true, review });
+  release({
+    ok: true,
+    review,
+  });
   const back = visit(hold);
   await expect.element(page.getByText("1 of 3")).toBeVisible();
   expect(back.reviewLessons).not.toHaveBeenCalled();
@@ -211,14 +458,35 @@ test("leaving while Fleet is still reading: the answer lands, and coming back fi
 test("a question still out when the person leaves is answered into the held thread", async () => {
   const hold = createReviewHold();
   let release: (read: AskLessonRead) => void = () => {};
-  visit(hold, { asked: () => new Promise<AskLessonRead>((done) => (release = done)) });
+  visit(hold, {
+    asked: () => new Promise<AskLessonRead>((done) => (release = done)),
+  });
   await start();
-  await page.getByRole("textbox", { name: "Ask about this item" }).fill("Which Sessions?");
-  await page.getByRole("button", { name: "Send" }).click();
-  await expect.element(page.getByRole("textbox", { name: "Ask about this item" })).toBeDisabled();
+  await page
+    .getByRole("textbox", {
+      name: "Ask about this item",
+    })
+    .fill("Which Sessions?");
+  await page
+    .getByRole("button", {
+      name: "Send",
+    })
+    .click();
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Ask about this item",
+      }),
+    )
+    .toBeDisabled();
 
   unmount();
-  release({ ok: true, answer: { answer: "Two Sessions." } });
+  release({
+    ok: true,
+    answer: {
+      answer: "Two Sessions.",
+    },
+  });
   await vi.waitFor(() => expect(hold.get("")?.threads["l-armada"]?.pending).toBe(false));
   visit(hold);
   await expect.element(page.getByText("Two Sessions.")).toBeVisible();
@@ -228,11 +496,27 @@ test("a failed review is held as failed, and Retry asks again", async () => {
   const hold = createReviewHold();
   let calls = 0;
   const one = visit(hold, {
-    reviewed: async () => (++calls === 1 ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, review }),
+    reviewed: async () =>
+      ++calls === 1
+        ? {
+            ok: false,
+            outcome: {
+              ok: false,
+              why: "not_connected",
+            },
+          }
+        : {
+            ok: true,
+            review,
+          },
   });
   await start();
   await expect.element(page.getByText("The review could not be made")).toBeVisible();
-  await page.getByRole("button", { name: "Retry" }).click();
+  await page
+    .getByRole("button", {
+      name: "Retry",
+    })
+    .click();
   await expect.element(page.getByText("1 of 3")).toBeVisible();
   expect(one.reviewLessons).toHaveBeenCalledTimes(2);
 });

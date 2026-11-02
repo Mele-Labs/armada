@@ -39,14 +39,26 @@ function write(next: Stored): void {
  * passes `false`: what is over is read on purpose, the rule the Board's own
  * Done fold was built under.
  */
-export function usePanelOpen(panel: string, absent = true): [boolean, (open: boolean) => void] {
+export function usePanelOpen(
+  panel: string,
+  absent = true,
+): [
+  boolean,
+  (open: boolean) => void,
+] {
   const [stored, setStored] = useState(read);
 
   function press(open: boolean): void {
-    const next = { ...stored, [panel]: open };
+    const next = {
+      ...stored,
+      [panel]: open,
+    };
     setStored(next);
     write(next);
   }
 
-  return [stored[panel] ?? absent, press];
+  return [
+    stored[panel] ?? absent,
+    press,
+  ];
 }

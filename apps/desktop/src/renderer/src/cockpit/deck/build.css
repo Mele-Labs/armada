@@ -2,22 +2,89 @@
 
 /* ---- What the card says of it ----------------------------------------------------------------------------- */
 
-.bf-build { display: flex; flex-direction: column; gap: var(--space-2); }
-.bf-build__phase { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
-.bf-build__glyph { display: inline-flex; color: var(--fg-muted); }
-.bf-build__quiet { margin-left: auto; color: var(--status-awaiting-review); }
-.bf-build__plan { display: flex; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.bf-build__seg { flex: 1 1 0; min-width: 3px; height: 6px; box-sizing: border-box; border-radius: 2px; background: color-mix(in srgb, var(--fg-subtle) 30%, transparent); }
-.bf-build__seg[data-piece="solid"] { background: color-mix(in srgb, var(--fg-default) 70%, transparent); }
-.bf-build__seg[data-piece="hollow"] { background: transparent; border: var(--border-width) solid var(--fg-default); }
-.bf-build__seg[data-piece="scaffold"] { background: var(--status-escalated); }
-.bf-build__stops { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.bf-build__stop { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
-.bf-build__stops { border-top: var(--border-width) solid var(--border-glass); padding-top: var(--space-2); }
-.bf-build__stop { color: var(--fg-default); }
-.bf-build__stop[data-faint] { color: var(--fg-subtle); opacity: 0.7; }
-.bf-build__stop time { margin-left: auto; color: var(--fg-subtle); }
+.bf-build {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bf-build__phase {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.bf-build__glyph {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+.bf-build__quiet {
+  margin-left: auto;
+  color: var(--status-awaiting-review);
+}
+.bf-build__plan {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bf-build__seg {
+  flex: 1 1 0;
+  min-width: 3px;
+  height: 6px;
+  box-sizing: border-box;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--fg-subtle) 30%, transparent);
+}
+.bf-build__seg[data-piece="solid"] {
+  background: color-mix(in srgb, var(--fg-default) 70%, transparent);
+}
+.bf-build__seg[data-piece="hollow"] {
+  background: transparent;
+  border: var(--border-width) solid var(--fg-default);
+}
+.bf-build__seg[data-piece="scaffold"] {
+  background: var(--status-escalated);
+}
+.bf-build__stops {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bf-build__stop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+.bf-build__stops {
+  border-top: var(--border-width) solid var(--border-glass);
+  padding-top: var(--space-2);
+}
+.bf-build__stop {
+  color: var(--fg-default);
+}
+.bf-build__stop[data-faint] {
+  color: var(--fg-subtle);
+  opacity: 0.7;
+}
+.bf-build__stop time {
+  margin-left: auto;
+  color: var(--fg-subtle);
+}
 
 /* Ask for an update: it sits at the end of whatever row it is in, and reads sent in the accent until the reply. */
-.bf-ask { display: inline-flex; margin-left: auto; }
-.bf-ask[data-sent] { color: var(--accent); }
+.bf-ask {
+  display: inline-flex;
+  margin-left: auto;
+}
+.bf-ask[data-sent] {
+  color: var(--accent);
+}

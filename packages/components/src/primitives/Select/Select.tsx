@@ -38,15 +38,15 @@ export function Select({ label, invalid = false, message, id, children, ...rest 
         </label>
       )}
       <span className="armada-select-shell">
-      <select
-        {...rest}
-        id={selectId}
-        className="armada-select"
-        aria-invalid={invalid || undefined}
-        aria-describedby={showMessage ? messageId : undefined}
-      >
-        {children}
-      </select>
+        <select
+          {...rest}
+          id={selectId}
+          className="armada-select"
+          aria-invalid={invalid || undefined}
+          aria-describedby={showMessage ? messageId : undefined}
+        >
+          {children}
+        </select>
         <ChevronDown className="armada-select__caret" size={16} strokeWidth={2} aria-hidden />
       </span>
       {showMessage && (

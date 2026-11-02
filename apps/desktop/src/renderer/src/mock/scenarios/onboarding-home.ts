@@ -8,7 +8,21 @@ import type { Scenario } from "../moment";
 import { WORK_ITEMS, withPlanUsage } from "../onboarding-items";
 import { sharedHome } from "./shared-home";
 
-const LEVEL = (row: SharedRow): SharedRow => ({ kind: row.kind, name: row.name, state: "same", ...(row.source === undefined ? {} : { source: row.source }), ...(row.says === undefined ? {} : { says: row.says }) });
+const LEVEL = (row: SharedRow): SharedRow => ({
+  kind: row.kind,
+  name: row.name,
+  state: "same",
+  ...(row.source === undefined
+    ? {}
+    : {
+        source: row.source,
+      }),
+  ...(row.says === undefined
+    ? {}
+    : {
+        says: row.says,
+      }),
+});
 
 function build(): Scenario {
   const home = sharedHome.draft?.sharedHome;
@@ -19,10 +33,25 @@ function build(): Scenario {
     behaves: withPlanUsage(sharedHome.behaves),
     draft: {
       ...(sharedHome.draft ?? {}),
-      ...(home === undefined ? {} : { sharedHome: { ...home, rows: home.rows.map(LEVEL) } }),
+      ...(home === undefined
+        ? {}
+        : {
+            sharedHome: {
+              ...home,
+              rows: home.rows.map(LEVEL),
+            },
+          }),
       account: {
-        signIn: { login: "nickmele", code: "WDJB-MJHT", repository: "armada-home" },
-        add: { login: "mele-work", code: "KQXP-4N7D", items: WORK_ITEMS },
+        signIn: {
+          login: "nickmele",
+          code: "WDJB-MJHT",
+          repository: "armada-home",
+        },
+        add: {
+          login: "mele-work",
+          code: "KQXP-4N7D",
+          items: WORK_ITEMS,
+        },
         machine: "studio-mac",
       },
     },

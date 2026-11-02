@@ -21,14 +21,21 @@ function open(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(OLD)) db.createObjectStore(OLD);
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "origin" });
+      if (!db.objectStoreNames.contains(STORE))
+        db.createObjectStore(STORE, {
+          keyPath: "origin",
+        });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-async function run<T>(stores: string[], mode: IDBTransactionMode, use: (tx: IDBTransaction) => IDBRequest<T>): Promise<T> {
+async function run<T>(
+  stores: string[],
+  mode: IDBTransactionMode,
+  use: (tx: IDBTransaction) => IDBRequest<T>,
+): Promise<T> {
   const db = await open();
   try {
     return await new Promise<T>((resolve, reject) => {
@@ -41,24 +48,62 @@ async function run<T>(stores: string[], mode: IDBTransactionMode, use: (tx: IDBT
   }
 }
 
-type Kept = Machine & { order: number };
+type Kept = Machine & {
+  order: number;
+};
 
 /**
  * A phone paired before there were several Macs kept one key and one id, for the Mac that served the
  * app. It becomes that Mac's entry, named once the Mac says its name.
  */
 async function carryOver(): Promise<Kept | undefined> {
-  const key = await run<CryptoKey | undefined>([OLD], "readonly", (tx) => tx.objectStore(OLD).get("key"));
-  const deviceId = await run<string | undefined>([OLD], "readonly", (tx) => tx.objectStore(OLD).get("device_id"));
+  const key = await run<CryptoKey | undefined>(
+    [
+      OLD,
+    ],
+    "readonly",
+    (tx) => tx.objectStore(OLD).get("key"),
+  );
+  const deviceId = await run<string | undefined>(
+    [
+      OLD,
+    ],
+    "readonly",
+    (tx) => tx.objectStore(OLD).get("device_id"),
+  );
   if (key === undefined || deviceId === undefined) return undefined;
-  const kept: Kept = { origin: window.location.origin, name: "", deviceId, key, order: 0 };
-  await run([STORE], "readwrite", (tx) => tx.objectStore(STORE).put(kept));
-  await run([OLD], "readwrite", (tx) => tx.objectStore(OLD).clear());
+  const kept: Kept = {
+    origin: window.location.origin,
+    name: "",
+    deviceId,
+    key,
+    order: 0,
+  };
+  await run(
+    [
+      STORE,
+    ],
+    "readwrite",
+    (tx) => tx.objectStore(STORE).put(kept),
+  );
+  await run(
+    [
+      OLD,
+    ],
+    "readwrite",
+    (tx) => tx.objectStore(OLD).clear(),
+  );
   return kept;
 }
 
 export async function machines(): Promise<Machine[]> {
-  const kept = await run<Kept[]>([STORE], "readonly", (tx) => tx.objectStore(STORE).getAll());
+  const kept = await run<Kept[]>(
+    [
+      STORE,
+    ],
+    "readonly",
+    (tx) => tx.objectStore(STORE).getAll(),
+  );
   if (kept.length === 0) {
     const old = await carryOver();
     if (old !== undefined) kept.push(old);
@@ -68,10 +113,33 @@ export async function machines(): Promise<Machine[]> {
 
 /** Keeps a Mac, or replaces the one at its origin and keeps its place. */
 export async function keepMachine(machine: Machine): Promise<void> {
-  const kept = await run<Kept[]>([STORE], "readonly", (tx) => tx.objectStore(STORE).getAll());
+  const kept = await run<Kept[]>(
+    [
+      STORE,
+    ],
+    "readonly",
+    (tx) => tx.objectStore(STORE).getAll(),
+  );
   const was = kept.find((one) => one.origin === machine.origin);
   const order = was?.order ?? kept.reduce((top, one) => Math.max(top, one.order + 1), 0);
-  await run([STORE], "readwrite", (tx) => tx.objectStore(STORE).put({ ...machine, order }));
+  await run(
+    [
+      STORE,
+    ],
+    "readwrite",
+    (tx) =>
+      tx.objectStore(STORE).put({
+        ...machine,
+        order,
+      }),
+  );
 }
 
-export const forgetMachine = (origin: string) => run([STORE], "readwrite", (tx) => tx.objectStore(STORE).delete(origin));
+export const forgetMachine = (origin: string) =>
+  run(
+    [
+      STORE,
+    ],
+    "readwrite",
+    (tx) => tx.objectStore(STORE).delete(origin),
+  );

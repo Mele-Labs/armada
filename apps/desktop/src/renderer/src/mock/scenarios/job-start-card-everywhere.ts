@@ -10,57 +10,161 @@ import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted } from "../sessions-fleet";
 
-const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
+const ARMADA: RepositorySummary = {
+  ...repository(),
+  manifest: {
+    ...repository().manifest!,
+    id: "armada",
+  },
+};
 
 /** A repository served beside armada, set up, so the Dispatch sheet draws its row of chips as it does for four. */
 function elsewhere(name: string): RepositorySummary {
   return {
     root: `/Users/user/code/${name}`,
     records_root: `/records/${name}`,
-    manifest: { ...repository().manifest!, id: name, repository: name, path: `${name}/armada.yml` },
+    manifest: {
+      ...repository().manifest!,
+      id: name,
+      repository: name,
+      path: `${name}/armada.yml`,
+    },
   };
 }
 
 /** The repository's workflows, which the Workflow select lists. */
 const WORKFLOWS = [
-  { id: "feature", name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] },
-  { id: "bug", name: "Bug", steps: ["Reproduce", "Fix", "Verify", "Pull request"] },
-  { id: "review", name: "Review", steps: ["Read", "Review", "Report"] },
-].map((one): WorkflowSummary => ({ id: one.id, name: one.name, version: 1, manifest_id: "armada", steps: one.steps.map((label) => ({ step_id: label.toLowerCase(), label, checks: [], judge_checks: [] })) }) as unknown as WorkflowSummary);
+  {
+    id: "feature",
+    name: "Feature",
+    steps: [
+      "Plan",
+      "Build",
+      "Verify",
+      "Pull request",
+    ],
+  },
+  {
+    id: "bug",
+    name: "Bug",
+    steps: [
+      "Reproduce",
+      "Fix",
+      "Verify",
+      "Pull request",
+    ],
+  },
+  {
+    id: "review",
+    name: "Review",
+    steps: [
+      "Read",
+      "Review",
+      "Report",
+    ],
+  },
+].map(
+  (one): WorkflowSummary =>
+    ({
+      id: one.id,
+      name: one.name,
+      version: 1,
+      manifest_id: "armada",
+      steps: one.steps.map((label) => ({
+        step_id: label.toLowerCase(),
+        label,
+        checks: [],
+        judge_checks: [],
+      })),
+    }) as unknown as WorkflowSummary,
+);
 
 /** How long the proposer reads a dispatched request before it lands on a workflow. */
 const READ_MS = 1200;
 
-const SERVED = [ARMADA, elsewhere("storefront"), elsewhere("billing"), elsewhere("docs-site")];
+const SERVED = [
+  ARMADA,
+  elsewhere("storefront"),
+  elsewhere("billing"),
+  elsewhere("docs-site"),
+];
 
 const AT = "2026-10-12T09:14:02.000Z";
 const DEBUG = "01DEBUGCAPAAAAAAAAAAAAAAAA";
 
-const records = () => [hosted(DEBUG, { title: "Debug the retry cap", last_turn_at: AT, attachments: [held("slot", "3"), held("branch", "fix/retry-cap")] })];
+const records = () => [
+  hosted(DEBUG, {
+    title: "Debug the retry cap",
+    last_turn_at: AT,
+    attachments: [
+      held("slot", "3"),
+      held("branch", "fix/retry-cap"),
+    ],
+  }),
+];
 
 const threads = (): Record<string, SessionRow[]> => ({
   [DEBUG]: [
-    { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "The retry loop ran 5 attempts with the cap set to 3. Find out why." },
-    { kind: "message", id: "m2", at: AT, from: { kind: "agent" }, text: "The loop reads the cap once at startup. Separately, the settings loader seems to ignore a cap set for one repository." },
+    {
+      kind: "message",
+      id: "m1",
+      at: AT,
+      from: {
+        kind: "you",
+      },
+      text: "The retry loop ran 5 attempts with the cap set to 3. Find out why.",
+    },
+    {
+      kind: "message",
+      id: "m2",
+      at: AT,
+      from: {
+        kind: "agent",
+      },
+      text: "The loop reads the cap once at startup. Separately, the settings loader seems to ignore a cap set for one repository.",
+    },
   ],
 });
 
-const START = "Read crates/settings/src/loader.rs and find out whether a cap set for one repository is ever read. Report where the value is dropped.";
+const START =
+  "Read crates/settings/src/loader.rs and find out whether a cap set for one repository is ever read. Report where the value is dropped.";
 
 /** What the agent reads of a pinned note: his words, then the lines about the spot, then the handoff, as `noting.rs` composes them. */
 function turnOf(note: SessionNote): string {
   const { element, stamp, component, owners } = note.place;
   const named = (element.label ?? "").trim() || element.text.trim();
-  const lines = ["Where he pointed, to find the code; not the request:", `Pointed at: ${element.tag}${named === "" ? "" : ` "${named}"`}${note.note_id === undefined ? "" : ` (note ${note.note_id})`}`];
-  if (stamp !== undefined) lines.push("Candidates:", `1. ${stamp} — the page's stamp, checked`, `   <${element.tag} aria-label="${named === "" ? component : named}">`);
+  const lines = [
+    "Where he pointed, to find the code; not the request:",
+    `Pointed at: ${element.tag}${named === "" ? "" : ` "${named}"`}${note.note_id === undefined ? "" : ` (note ${note.note_id})`}`,
+  ];
+  if (stamp !== undefined)
+    lines.push(
+      "Candidates:",
+      `1. ${stamp} — the page's stamp, checked`,
+      `   <${element.tag} aria-label="${named === "" ? component : named}">`,
+    );
   lines.push(`Page: ${note.address}`);
-  const chain = [...(component === undefined ? [] : [component]), ...(owners ?? [])].slice(0, 3);
+  const chain = [
+    ...(component === undefined
+      ? []
+      : [
+          component,
+        ]),
+    ...(owners ?? []),
+  ].slice(0, 3);
   if (chain.length > 0) lines.push(`Inside: component chain ${chain.join(" ← ")}`);
-  return [note.said.trim(), "", ...lines].join("\n");
+  return [
+    note.said.trim(),
+    "",
+    ...lines,
+  ].join("\n");
 }
 
 function build(): Scenario {
-  const board = onBoard({ repositories: SERVED, workflows: WORKFLOWS });
+  const board = onBoard({
+    repositories: SERVED,
+    workflows: WORKFLOWS,
+  });
   const served = new FakeSessionsFleet(records(), threads()).scenario(board);
   return {
     ...served,
@@ -78,18 +182,48 @@ function build(): Scenario {
         if (send.session_id === DEBUG) {
           if (!said.includes("start a session")) return;
           void fake.agentTurn(DEBUG, [
-            { kind: "tool", id: "a1", at: AT, text: "Start session Settings loader and the cap" },
+            {
+              kind: "tool",
+              id: "a1",
+              at: AT,
+              text: "Start session Settings loader and the cap",
+            },
             () => {
               const title = "Settings loader and the cap";
-              const id = fake.agentStarts(DEBUG, { title, message: START });
-              return { kind: "started", id: "a2", at: AT, session: { id, title }, fork: false };
+              const id = fake.agentStarts(DEBUG, {
+                title,
+                message: START,
+              });
+              return {
+                kind: "started",
+                id: "a2",
+                at: AT,
+                session: {
+                  id,
+                  title,
+                },
+                fork: false,
+              };
             },
           ]);
           return;
         }
         void fake.agentTurn(send.session_id, [
-          { kind: "tool", id: `p1-${send.session_id}`, at: AT, text: "Read crates/store/src/client.rs" },
-          { kind: "message", id: `p2-${send.session_id}`, at: AT, from: { kind: "agent" }, text: "Read the first message. Starting with the client." },
+          {
+            kind: "tool",
+            id: `p1-${send.session_id}`,
+            at: AT,
+            text: "Read crates/store/src/client.rs",
+          },
+          {
+            kind: "message",
+            id: `p2-${send.session_id}`,
+            at: AT,
+            from: {
+              kind: "agent",
+            },
+            text: "Read the first message. Starting with the client.",
+          },
         ]);
       };
       return {
@@ -104,19 +238,56 @@ function build(): Scenario {
             const id = started.value.id;
             // A Job the layer started has a title: the notes sent next are its first message.
             if (title !== undefined) noted.set(id, []);
-            fake.proposes(id, { reading: true });
-            window.setTimeout(() => fake.proposes(id, { workflow: "feature", picked: ["workflow"], landing: { choice: "auto_land", from: "usual" } }), READ_MS);
+            fake.proposes(id, {
+              reading: true,
+            });
+            window.setTimeout(
+              () =>
+                fake.proposes(id, {
+                  workflow: "feature",
+                  picked: [
+                    "workflow",
+                  ],
+                  landing: {
+                    choice: "auto_land",
+                    from: "usual",
+                  },
+                }),
+              READ_MS,
+            );
             return started;
           }
-          if (title === undefined || request !== undefined || after !== undefined) return own.startSession!(title, root, request, tuning, after, holds);
-          const started = await own.startSession!(undefined, root, undefined, undefined, undefined, true);
+          if (title === undefined || request !== undefined || after !== undefined)
+            return own.startSession!(title, root, request, tuning, after, holds);
+          const started = await own.startSession!(
+            undefined,
+            root,
+            undefined,
+            undefined,
+            undefined,
+            true,
+          );
           if (!started.ok) return started;
-          const record = { ...started.value, title, hosted: { ...started.value.hosted!, start: { asks_delivery: true } } };
+          const record = {
+            ...started.value,
+            title,
+            hosted: {
+              ...started.value.hosted!,
+              start: {
+                asks_delivery: true,
+              },
+            },
+          };
           fake.changed(record);
           noted.set(record.id, []);
-          return { ok: true, value: record };
+          return {
+            ok: true,
+            value: record,
+          };
         },
-        stageAttachment: async (_bytes, filename) => ({ path: `/tmp/${filename}` }),
+        stageAttachment: async (_bytes, filename) => ({
+          path: `/tmp/${filename}`,
+        }),
         sendSessionMessage: async (send) => {
           await own.watchSession!(send.session_id);
           return own.sendSessionMessage!(send);
@@ -127,9 +298,23 @@ function build(): Scenario {
           const notes = send.notes.map(({ note }) => note);
           const turns = noted.get(send.session_id);
           if (turns !== undefined) turns.push(...notes.map(turnOf));
-          const said = notes.length === 1 ? notes[0]!.said : notes.map((one, at) => `${at + 1}. ${one.said}`).join("\n");
-          const sent = await own.sendSessionMessage!({ session_id: send.session_id, text: turns === undefined ? said : turns.join("\n\n") });
-          return sent.ok ? { ok: true, value: { session: sent.value, candidates: notes.map(() => []) } } : sent;
+          const said =
+            notes.length === 1
+              ? notes[0]!.said
+              : notes.map((one, at) => `${at + 1}. ${one.said}`).join("\n");
+          const sent = await own.sendSessionMessage!({
+            session_id: send.session_id,
+            text: turns === undefined ? said : turns.join("\n\n"),
+          });
+          return sent.ok
+            ? {
+                ok: true,
+                value: {
+                  session: sent.value,
+                  candidates: notes.map(() => []),
+                },
+              }
+            : sent;
         },
       };
     },

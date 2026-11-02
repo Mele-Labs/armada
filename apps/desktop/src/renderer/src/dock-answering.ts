@@ -26,7 +26,11 @@ export function useDockAnswering(commands: ReturnType<typeof useCommands>): Dock
     const id = outstandingId(question);
     setRefusals(({ [id]: _dropped, ...rest }) => rest);
     const outcome = await sent(latest.current, question, answer);
-    if (!outcome.ok) setRefusals((was) => ({ ...was, [id]: refusalWords(outcome) }));
+    if (!outcome.ok)
+      setRefusals((was) => ({
+        ...was,
+        [id]: refusalWords(outcome),
+      }));
   }, []);
 
   return useMemo(
@@ -35,7 +39,11 @@ export function useDockAnswering(commands: ReturnType<typeof useCommands>): Dock
       answering: (question: Outstanding) => commands.answeringHelm === question.call.call,
       refusalFor: (question: Outstanding) => refusals[outstandingId(question)],
     }),
-    [onAnswer, refusals, commands.answeringHelm],
+    [
+      onAnswer,
+      refusals,
+      commands.answeringHelm,
+    ],
   );
 }
 
@@ -49,7 +57,14 @@ export function useDockCards(
   commands: ReturnType<typeof useCommands>,
 ) {
   const answering = useDockAnswering(commands);
-  return useMemo(() => dockQuestionsOf(questions, repositories, null, answering), [questions, repositories, answering]);
+  return useMemo(
+    () => dockQuestionsOf(questions, repositories, null, answering),
+    [
+      questions,
+      repositories,
+      answering,
+    ],
+  );
 }
 
 function sent(

@@ -7,5 +7,12 @@
   // `tsc -b` from here checks both. Plain `tsc --noEmit` checks neither: this
   // project owns no files on purpose.
   "files": [],
-  "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.web.json" }]
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    },
+    {
+      "path": "./tsconfig.web.json"
+    }
+  ]
 }

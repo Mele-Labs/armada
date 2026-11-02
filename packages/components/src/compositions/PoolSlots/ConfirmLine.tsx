@@ -3,7 +3,19 @@ import type { ReactNode } from "react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
-export function Line({ Glyph, said, word, figure, children }: { Glyph: LucideIcon; said: string; word: string; figure?: ReactNode; children?: ReactNode }) {
+export function Line({
+  Glyph,
+  said,
+  word,
+  figure,
+  children,
+}: {
+  Glyph: LucideIcon;
+  said: string;
+  word: string;
+  figure?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <div className="armada-confirm__row">
       <div className="armada-confirm__line">

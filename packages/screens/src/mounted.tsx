@@ -20,7 +20,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { onTestFinished } from "vitest";
 import { commands } from "vitest/browser";
 
-let held: { root: Root; host: HTMLElement } | null = null;
+let held: {
+  root: Root;
+  host: HTMLElement;
+} | null = null;
 
 /**
  * Put a screen on the page. **One at a time**, so a query for a role finds the
@@ -32,7 +35,10 @@ export function mount(screen: ReactElement): void {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  held = { root, host };
+  held = {
+    root,
+    host,
+  };
   // Synchronous on purpose: the test's next line queries the DOM, and
   // `createRoot().render` is not.
   //

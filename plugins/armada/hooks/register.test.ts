@@ -387,6 +387,54 @@ test('what Fleet missed is told again when it answers, and nothing is lost to th
   expect(facts(posts)).toContainEqual({ kind: 'titled', title: 'fix the ledger' })
 })
 
+test('what happened while Fleet was out of reach is sent behind the state when it answers, in order', async ($, on) => {
+  let up = false
+  const { posts, clock } = world(on, { running: () => up })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  await $.prompt.submit({ text: 'fix the ledger', origin: { kind: 'user' } } as never)
+  await $.turn.complete({ answer: 'done', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+  await clock.settle()
+  expect(posts).toEqual([])
+
+  up = true
+  await clock.advance(31_000)
+  await $.turn.complete({ answer: 'and again', durationMs: 1, isAborted: false, turnId: 't2', reason: 'answer' })
+  await clock.settle()
+
+  const told = kinds(posts)
+  expect(told[0]).toBe('started')
+  expect(told.indexOf('titled')).toBeGreaterThan(0)
+  const turns = told.map((kind, at) => (kind === 'turn_completed' ? at : -1)).filter(at => at >= 0)
+  expect(turns.length).toBeGreaterThanOrEqual(2)
+  expect(told.indexOf('titled')).toBeLessThan(turns[0]!)
+  expect(told.at(-1)).toBe(told[turns.at(-1)!])
+})
+
+test('the reports owed to Fleet are bounded and the oldest go first', async ($, on) => {
+  let up = false
+  const { posts, clock } = world(on, { running: () => up })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  for (let at = 0; at < 260; at += 1) {
+    await $.turn.complete({ answer: `a${at}`, durationMs: 1, isAborted: false, turnId: `t${at}`, reason: 'answer' })
+  }
+  await clock.settle()
+  expect(posts).toEqual([])
+
+  up = true
+  await clock.advance(31_000)
+  await $.turn.complete({ answer: 'last', durationMs: 1, isAborted: false, turnId: 'last', reason: 'answer' })
+  await clock.settle()
+
+  const turns = facts(posts).filter(fact => fact.kind === 'turn_completed')
+  // The 200 newest of the 260 owed, then the report that found Fleet back.
+  expect(turns.length).toBe(201)
+  expect(turns[0]).toMatchObject({ said: 'a60' })
+  expect(turns.at(-2)).toMatchObject({ said: 'a259' })
+  expect(turns.at(-1)).toMatchObject({ said: 'last' })
+})
+
 test('a Fleet that is slow to answer is waited on for a moment and is not treated as gone', async ($, on) => {
   const { attempts, clock } = world(on, { slowReports: true })
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
@@ -1601,6 +1649,41 @@ test('a session that puts the lines in waiting_for after it is sent back stops, 
   expect(waitingPosts(posts)).toEqual([])
 })
 
+test('a list set by armada job waiting_for from Bash reads as a list set, as the tool does', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '{}', stderr: '', interrupted: false }, text: '{}' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'build the detector', origin: { kind: 'user' } } as never)
+  expect((await $.classic.Stop(stop(OWED))).block).toBeDefined()
+
+  await $.tool.call({
+    tool: 'Bash',
+    command: `armada job waiting_for '{"items":[{"id":"merge","text":"Approve the detector"}]}'`,
+  } as never)
+  const second = await $.classic.Stop(stop('Both are in Bridge now.', { stop_hook_active: true }))
+  await clock.settle()
+  expect(second.block).toBeUndefined()
+  expect(waitingPosts(posts)).toEqual([])
+})
+
+test('one armada job command is allowed without a prompt, and the same line with a second command is not', async ($, on) => {
+  world(on)
+  on('tool.check', () => ({ decision: 'ask' as const }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  const decide = async (command: string) => (await $.tool.check({ tool: 'Bash', input: { command } })).decision
+
+  expect(await decide('armada job dispatch repo=web title="Fix it"')).toBe('allow')
+  expect(await decide('armada job status; rm -rf ~')).toBe('ask')
+  expect(await decide('cargo build')).toBe('ask')
+})
+
+test('a Drone is not given the armada job shortcut', async ($, on) => {
+  world(on, { env: { ARMADA_DRONE: '1' } })
+  on('tool.check', () => ({ decision: 'ask' as const }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  expect((await $.tool.check({ tool: 'Bash', input: { command: 'armada job status' } })).decision).toBe('ask')
+})
+
 test('a list that already holds the lines, a question asked, or no lines at all lets the turn stop', async ($, on) => {
   const { clock } = world(on)
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
@@ -1894,5 +1977,231 @@ test('a Drone is not reminded of the Job browser', async ($, on) => {
   await clock.settle()
 
   expect(ran.context).toBeUndefined()
+  expect(posts).toEqual([])
+})
+
+// An organization's Claude Code can pass the mod's settings (`classic.*`) hooks over. These tests run
+// the mod with none of them firing, and again with one heard, where the fallbacks stay quiet.
+const TURN = { durationMs: 1, isAborted: false, turnId: 't1' }
+const classicRuns = async ($: any) => {
+  await $.classic.UserPromptSubmit({ prompt: 'go' })
+}
+const step = async ($: any, fields: { effort?: string; agentId?: string }) => {
+  const stream = $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 1, ...fields })
+  for await (const _ of stream) void _
+  await stream.result
+}
+const RESPONDED = { turnId: 't1', index: 0, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage: null }
+
+test('with no settings hook run, a subagent that ends is settled from its own turn, and the main thread\'s end is not a subagent\'s', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ ...TURN, answer: 'done', agentId: 'a1b2', reason: 'answer' })
+  await clock.settle()
+
+  expect(facts(posts).filter(fact => fact.kind === 'settled')).toEqual([{ kind: 'settled', attachment: { kind: 'subagent', target: 'a1b2' }, state: 'spent' }])
+  expect(kinds(posts)).not.toContain('turn_completed')
+})
+
+test('with a settings hook run, a subagent that ends is settled once, by the SubagentStop hook', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('classic.SubagentStop', () => ({}))
+  on('classic.UserPromptSubmit', () => ({}))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await classicRuns($)
+  await $.turn.complete({ ...TURN, answer: 'done', agentId: 'a1b2', reason: 'answer' })
+  await $.classic.SubagentStop({ stop_hook_active: false, agent_id: 'a1b2', agent_transcript_path: '/t.jsonl', agent_type: 'Explore' })
+  await clock.settle()
+
+  expect(facts(posts).filter(fact => fact.kind === 'settled')).toEqual([{ kind: 'settled', attachment: { kind: 'subagent', target: 'a1b2' }, state: 'spent' }])
+})
+
+test('with no settings hook run, the effort is read from the main thread\'s model request, and a subagent\'s is not', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('turn.step', async function* () {
+    return RESPONDED
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  await step($, { effort: 'max', agentId: 'a1' })
+  await clock.settle()
+  expect(facts(posts).filter(fact => fact.kind === 'tuned' && fact.effort !== undefined)).toEqual([])
+
+  await step($, { effort: 'high' })
+  await clock.settle()
+  expect(facts(posts)).toContainEqual({ kind: 'tuned', model: 'haiku', effort: 'high' })
+})
+
+test('with a settings hook run, the effort is left to it', async ($, on) => {
+  on('classic.UserPromptSubmit', () => ({}))
+  const { posts, clock } = world(on)
+  on('turn.step', async function* () {
+    return RESPONDED
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await classicRuns($)
+  await step($, { effort: 'high' })
+  await clock.settle()
+
+  expect(facts(posts).filter(fact => fact.kind === 'tuned' && fact.effort !== undefined)).toEqual([])
+})
+
+test('with no settings hook run, the permission mode is read from the main thread\'s subagent spawn, and a subagent\'s is not', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('agent.spawn', () => ({ model: 'm', agentId: 'a1' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  const spawn = (fields: object) => $.agent.spawn({ prompt: 'x', description: 'd', subagentType: 'Explore', tool_use_id: 'toolu_1', parentModel: 'm', background: false, ...fields } as never)
+  await spawn({ permissionMode: 'auto', parentAgentId: 'a9' })
+  await clock.settle()
+  expect(facts(posts).filter(fact => fact.kind === 'tuned' && fact.mode !== undefined)).toEqual([])
+
+  await spawn({ permissionMode: 'plan' })
+  await clock.settle()
+  expect(facts(posts)).toContainEqual({ kind: 'tuned', model: 'haiku', mode: 'plan' })
+})
+
+const FAILED = (error: string) => `{"type":"user"}\n{"type":"assistant","isApiErrorMessage":true,"error":"${error}","message":{}}\n`
+const FULL = [{ kind: 'five_hour', percentUsed: 100, resetsAt: '2026-10-12T22:40:00Z' }]
+
+test('with no settings hook run, a turn that died on the plan limit is read from the transcript, and held for it', async ($, on) => {
+  const { posts, clock } = world(on, { transcript: FAILED('rate_limit'), limits: FULL })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ ...TURN, answer: '', reason: 'error' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'limited', resets_at: '2026-10-12T22:40:00.000Z' })
+  expect(kinds(posts)).not.toContain('turn_completed')
+})
+
+test('with no settings hook run, a turn that died on a sign-in that ran out tells Fleet it signed out', async ($, on) => {
+  const { posts, clock } = world(on, { transcript: FAILED('authentication_failed') })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ ...TURN, answer: '', reason: 'error' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'signed_out' })
+})
+
+test('a turn that died on another failure, or whose transcript holds none, tells Fleet nothing', async ($, on) => {
+  const other = world(on, { transcript: FAILED('overloaded'), limits: FULL })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ ...TURN, answer: '', reason: 'error' })
+  await other.clock.settle()
+  expect(kinds(other.posts)).not.toContain('limited')
+  expect(kinds(other.posts)).not.toContain('signed_out')
+})
+
+test('a turn that died with its transcript unread, or a Drone\'s, tells Fleet nothing', async ($, on) => {
+  const drone = world(on, { env: { ARMADA_DRONE: '1' }, transcript: FAILED('authentication_failed') })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ ...TURN, answer: '', reason: 'error' })
+  await drone.clock.settle()
+  expect(drone.posts).toEqual([])
+})
+
+test('with a settings hook run, a failed turn is left to StopFailure and told once', async ($, on) => {
+  on('classic.UserPromptSubmit', () => ({}))
+  const { posts, clock } = world(on, { transcript: FAILED('authentication_failed') })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await classicRuns($)
+  await $.turn.complete({ ...TURN, answer: '', reason: 'error' })
+  await $.classic.StopFailure({ error: 'authentication_failed' })
+  await clock.settle()
+
+  expect(facts(posts).filter(fact => fact.kind === 'signed_out')).toHaveLength(1)
+})
+
+// The engine raises the PermissionRequest hook itself where an ask is put to a person, so a hook that
+// decides there is what tells the engine's verdict from the settings hook's word.
+const ASKED = { kind: 'permission_asked', tool: 'Bash', detail: 'cargo build' }
+const DECIDED = { decision: { behavior: 'allow' } }
+
+test('with no settings hook run, an ask the engine puts to a person is told from its verdict, and the call ending settles it', async ($, on) => {
+  const { posts, clock } = world(on, { permission: DECIDED })
+  on('tool.check', () => ({ decision: 'ask' as const }))
+  on('tool.call', () => ({ result: {}, text: 'built' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Bash', command: 'cargo build\n--release' })
+  await clock.settle()
+
+  const told = facts(posts.slice(before)).filter(fact => fact.kind.startsWith('permission'))
+  expect(told).toEqual([ASKED, { kind: 'permission_settled' }])
+})
+
+test('with a settings hook run, the engine\'s ask is left to the PermissionRequest hook, which a deciding hook silences', async ($, on) => {
+  on('classic.UserPromptSubmit', () => ({}))
+  const { posts, clock } = world(on, { permission: DECIDED })
+  on('tool.check', () => ({ decision: 'ask' as const }))
+  on('tool.call', () => ({ result: {}, text: 'built' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await classicRuns($)
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Bash', command: 'cargo build' })
+  await clock.settle()
+
+  expect(kinds(posts.slice(before))).not.toContain('permission_asked')
+})
+
+test('a prompt told by both the engine\'s verdict and the PermissionRequest hook is told once', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.check', () => ({ decision: 'ask' as const }))
+  on('tool.call', () => ({ result: {}, text: 'built' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Bash', command: 'cargo build' })
+  await clock.settle()
+
+  expect(facts(posts.slice(before)).filter(fact => fact.kind === 'permission_asked')).toEqual([ASKED])
+})
+
+const hooksSkipped = (posts: Posted[]) => facts(posts).filter(fact => fact.kind === 'attached' && fact.attachment.kind === 'hooks_skipped')
+
+test('two turns that end with no settings hook heard tell Fleet once that they are not run', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ ...TURN, answer: 'one', reason: 'answer' })
+  await clock.settle()
+  expect(hooksSkipped(posts)).toEqual([])
+
+  await $.turn.complete({ ...TURN, answer: 'two', reason: 'answer' })
+  await $.turn.complete({ ...TURN, answer: 'three', reason: 'answer' })
+  await clock.settle()
+  expect(hooksSkipped(posts)).toEqual([{ kind: 'attached', attachment: { kind: 'hooks_skipped', target: 'classic', detail: { turns: '2' } } }])
+})
+
+test('turns that end after a settings hook ran tell Fleet nothing of skipped hooks', async ($, on) => {
+  on('classic.UserPromptSubmit', () => ({}))
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await classicRuns($)
+  for (const answer of ['one', 'two', 'three']) await $.turn.complete({ ...TURN, answer, reason: 'answer' })
+  await clock.settle()
+
+  expect(hooksSkipped(posts)).toEqual([])
+})
+
+test('turns that were interrupted or died tell Fleet nothing of skipped hooks', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  for (const reason of ['aborted', 'aborted', 'aborted'] as const) await $.turn.complete({ ...TURN, answer: '', reason })
+  await clock.settle()
+
+  expect(hooksSkipped(posts)).toEqual([])
+})
+
+test('a Drone whose settings hooks are not run tells Fleet nothing', async ($, on) => {
+  const { posts, clock } = world(on, { env: { ARMADA_DRONE: '1' } })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  for (const answer of ['one', 'two', 'three']) await $.turn.complete({ ...TURN, answer, reason: 'answer' })
+  await clock.settle()
+
   expect(posts).toEqual([])
 })

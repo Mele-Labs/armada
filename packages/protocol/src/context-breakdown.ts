@@ -5,13 +5,24 @@
 export type ContextKind = "used" | "free" | "buffer" | "deferred";
 
 /** One row, as `/context` lists it beside the grid. */
-export type ContextCategory = { name: string; tokens: number; kind: ContextKind };
+export type ContextCategory = {
+  name: string;
+  tokens: number;
+  kind: ContextKind;
+};
 
 /** A memory file in the context: a project's instructions, a rules file, an auto-memory entry. */
-export type ContextMemoryFile = { path: string; tokens: number };
+export type ContextMemoryFile = {
+  path: string;
+  tokens: number;
+};
 
 /** One MCP tool's schema in the context. */
-export type ContextMcpTool = { name: string; server: string; tokens: number };
+export type ContextMcpTool = {
+  name: string;
+  server: string;
+  tokens: number;
+};
 
 /** The latest breakdown a session's mod reported, carried on `SessionRecord.context_breakdown`. */
 export type ContextBreakdown = {

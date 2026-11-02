@@ -12,19 +12,52 @@ unmountAfterEach();
 
 const PARENT = "Go through app feedback";
 
-const lanes = () => page.getByRole("group", { name: "Workflow", exact: true });
-const head = () => page.getByRole("button", { name: "Open Workflow: Fix cart rounding", exact: true });
-const back = () => page.getByRole("button", { name: `Back to ${PARENT}`, exact: true });
-const cart = () => page.getByRole("button", { name: "Fix cart rounding: PR open, ticket ARM-52, In review", exact: true });
-const own = () => page.getByRole("button", { name: "ARM-52: In review, assigned to you", exact: true });
+const lanes = () =>
+  page.getByRole("group", {
+    name: "Workflow",
+    exact: true,
+  });
+const head = () =>
+  page.getByRole("button", {
+    name: "Open Workflow: Fix cart rounding",
+    exact: true,
+  });
+const back = () =>
+  page.getByRole("button", {
+    name: `Back to ${PARENT}`,
+    exact: true,
+  });
+const cart = () =>
+  page.getByRole("button", {
+    name: "Fix cart rounding: PR open, ticket ARM-52, In review",
+    exact: true,
+  });
+const own = () =>
+  page.getByRole("button", {
+    name: "ARM-52: In review, assigned to you",
+    exact: true,
+  });
 
 /** The parent's Workflow, from the Cockpit. */
 async function onTheLanes() {
   mount("ticket-on-job-lane");
   await onScreen();
   await walkThrough([
-    { press: deckRow(PARENT), say: "" },
-    { press: inside(role("toolbar", "Views", { exact: true }), button("Workflow", { exact: true })), say: "" },
+    {
+      press: deckRow(PARENT),
+      say: "",
+    },
+    {
+      press: inside(
+        role("toolbar", "Views", {
+          exact: true,
+        }),
+        button("Workflow", {
+          exact: true,
+        }),
+      ),
+      say: "",
+    },
   ]);
   await expect.element(cart()).toBeVisible();
 }
@@ -38,7 +71,13 @@ async function opened() {
 
 test("a double-click on the head of a Job's lane opens that Job's Workflow under Back and its title, with focus on Back", async () => {
   await opened();
-  await expect.element(page.getByRole("heading", { name: "Fix cart rounding" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("heading", {
+        name: "Fix cart rounding",
+      }),
+    )
+    .toBeVisible();
   await expect.element(back()).toHaveFocus();
   // The parent's lanes stay under it, out of reach: the canvas draws each node visible whatever holds it, so nothing of them is for a key or a reader.
   await expect.element(cart()).toBeInTheDocument();
@@ -68,7 +107,13 @@ test("Esc goes back one level wherever focus is while a Job's Workflow is open",
   await opened();
   // On the page, off the canvas and off Back.
   (document.activeElement as HTMLElement).blur();
-  await expect.element(page.getByRole("button", { name: `Back to ${PARENT}` })).not.toHaveFocus();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: `Back to ${PARENT}`,
+      }),
+    )
+    .not.toHaveFocus();
   await userEvent.keyboard("{Escape}");
   await expect.element(back()).not.toBeInTheDocument();
   await expect.element(cart()).toBeVisible();
@@ -93,6 +138,18 @@ test("Esc at the top closes the Workflow", async () => {
 
 test("a lane whose Job has no lanes to open has no button on its head", async () => {
   await onTheLanes();
-  await expect.element(lanes().getByText("Tidy the PR panel landing", { exact: true })).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Open Workflow: Tidy the PR panel landing" })).not.toBeInTheDocument();
+  await expect
+    .element(
+      lanes().getByText("Tidy the PR panel landing", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("button", {
+        name: "Open Workflow: Tidy the PR panel landing",
+      }),
+    )
+    .not.toBeInTheDocument();
 });

@@ -4,8 +4,15 @@ import { createReviewHold } from "./review-hold";
 import { ageWords } from "./lesson-review";
 import type { LessonReview, LessonReviewRead } from "./review-wire";
 
-const review: LessonReview = { model: "sonnet", entries: [], set_aside: [] };
-const ok = async (): Promise<LessonReviewRead> => ({ ok: true, review });
+const review: LessonReview = {
+  model: "sonnet",
+  entries: [],
+  set_aside: [],
+};
+const ok = async (): Promise<LessonReviewRead> => ({
+  ok: true,
+  review,
+});
 
 test("begin asks once per pick and a second begin is the same review", async () => {
   const hold = createReviewHold();
@@ -33,8 +40,17 @@ test("again throws the place away, and an answer to the earlier run is not the n
   hold.begin("a", () => new Promise<LessonReviewRead>((done) => (late = done)));
   hold.again("a", ok);
   await vi.waitFor(() => expect(hold.get("a")?.made.state).toBe("ready"));
-  hold.update("a", (was) => ({ ...was, at: 3 }));
-  late({ ok: false, outcome: { ok: false, why: "not_connected" } });
+  hold.update("a", (was) => ({
+    ...was,
+    at: 3,
+  }));
+  late({
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "not_connected",
+    },
+  });
   await Promise.resolve();
   expect(hold.get("a")?.made.state).toBe("ready");
   hold.again("a", ok);
@@ -46,7 +62,14 @@ test("an update from an earlier run is dropped", async () => {
   hold.begin("a", ok);
   const was = hold.get("a")!.generation;
   hold.again("a", ok);
-  hold.update("a", (one) => ({ ...one, at: 9 }), was);
+  hold.update(
+    "a",
+    (one) => ({
+      ...one,
+      at: 9,
+    }),
+    was,
+  );
   expect(hold.get("a")?.at).toBe(0);
 });
 
@@ -65,7 +88,19 @@ test("listeners hear a change, and the mode is held", () => {
 
 test("the age is in whole units, rounded down", () => {
   const minute = 60_000;
-  expect([0, 59_000, minute, 90_000, 12 * minute, 60 * minute, 150 * minute, 24 * 60 * minute, 49 * 60 * minute].map(ageWords)).toEqual([
+  expect(
+    [
+      0,
+      59_000,
+      minute,
+      90_000,
+      12 * minute,
+      60 * minute,
+      150 * minute,
+      24 * 60 * minute,
+      49 * 60 * minute,
+    ].map(ageWords),
+  ).toEqual([
     "just now",
     "just now",
     "1 minute ago",

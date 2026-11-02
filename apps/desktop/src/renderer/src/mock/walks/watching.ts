@@ -7,30 +7,92 @@ import { button, deckRow, dialog, inside, region, role, tab, walk } from "../wal
 
 const showEnded = role("switch", "Show ended");
 
-const landing = region("Now", { exact: true });
+const landing = region("Now", {
+  exact: true,
+});
 const watchingBlock = inside(landing, region("Watching"));
-const jobs = region("Jobs", { exact: true });
+const jobs = region("Jobs", {
+  exact: true,
+});
 const panel = dialog("Watch QA deploy");
 const staging = dialog("Watch Staging deploy");
 
 const watching = walk("watching", [
-  { press: deckRow("Ship the rate limit to QA"), say: "A Job in the middle of a QA deploy" },
-  { look: watchingBlock, say: "Watching, in Now: each live watch's state, name, last sentence and age" },
-  { press: inside(watchingBlock, showEnded), say: "Show ended draws the ended ones too, and under the failed one what the agent made of it" },
-  { hover: inside(watchingBlock, role("img", "Failed")), say: "A state is its glyph, named on hover" },
-  { press: inside(landing, button("Watch QA deploy", { exact: true })), say: "The failed watch opens in the side panel" },
-  { look: panel, say: "Its readings over time, newest first, each verdict under the reading it weighed, and the link out on the heading's line" },
-  { press: inside(panel, tab("Parts")), say: "Its parts: the one set aside is struck through, with the sentence that set it aside" },
-  { press: inside(panel, tab("Command")), say: "The whole command Fleet runs for the Job, and how often" },
-  { key: "Escape", on: panel, say: "Esc closes it" },
-  { hover: inside(jobs, role("img", "Held open by Staging deploy")), say: "A Job whose turn ended with a deploy still running: Held open by Staging deploy" },
-  { press: deckRow("Raise the upload limit"), say: "Its header wears the same glyph" },
-  { hover: inside(region(/^Job /), role("img", /^Held open by Staging deploy/)), say: "Held open by Staging deploy" },
-  { press: inside(landing, button("Watch Staging deploy")), say: "The watch that holds it" },
-  { press: inside(staging, button("Stop")), say: "Stop ends the watch, and nothing holds the Job open" },
-  { key: "Escape", on: staging, say: "Esc" },
-  { press: inside(watchingBlock, showEnded), say: "Ended now, it shows on Show ended" },
-  { look: watchingBlock, say: "Staging deploy reads Stopped" },
+  {
+    press: deckRow("Ship the rate limit to QA"),
+    say: "A Job in the middle of a QA deploy",
+  },
+  {
+    look: watchingBlock,
+    say: "Watching, in Now: each live watch's state, name, last sentence and age",
+  },
+  {
+    press: inside(watchingBlock, showEnded),
+    say: "Show ended draws the ended ones too, and under the failed one what the agent made of it",
+  },
+  {
+    hover: inside(watchingBlock, role("img", "Failed")),
+    say: "A state is its glyph, named on hover",
+  },
+  {
+    press: inside(
+      landing,
+      button("Watch QA deploy", {
+        exact: true,
+      }),
+    ),
+    say: "The failed watch opens in the side panel",
+  },
+  {
+    look: panel,
+    say: "Its readings over time, newest first, each verdict under the reading it weighed, and the link out on the heading's line",
+  },
+  {
+    press: inside(panel, tab("Parts")),
+    say: "Its parts: the one set aside is struck through, with the sentence that set it aside",
+  },
+  {
+    press: inside(panel, tab("Command")),
+    say: "The whole command Fleet runs for the Job, and how often",
+  },
+  {
+    key: "Escape",
+    on: panel,
+    say: "Esc closes it",
+  },
+  {
+    hover: inside(jobs, role("img", "Held open by Staging deploy")),
+    say: "A Job whose turn ended with a deploy still running: Held open by Staging deploy",
+  },
+  {
+    press: deckRow("Raise the upload limit"),
+    say: "Its header wears the same glyph",
+  },
+  {
+    hover: inside(region(/^Job /), role("img", /^Held open by Staging deploy/)),
+    say: "Held open by Staging deploy",
+  },
+  {
+    press: inside(landing, button("Watch Staging deploy")),
+    say: "The watch that holds it",
+  },
+  {
+    press: inside(staging, button("Stop")),
+    say: "Stop ends the watch, and nothing holds the Job open",
+  },
+  {
+    key: "Escape",
+    on: staging,
+    say: "Esc",
+  },
+  {
+    press: inside(watchingBlock, showEnded),
+    say: "Ended now, it shows on Show ended",
+  },
+  {
+    look: watchingBlock,
+    say: "Staging deploy reads Stopped",
+  },
 ]);
 
 export { watching };

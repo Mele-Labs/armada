@@ -8,16 +8,31 @@ import { lineForTop, topForLine, type Mark } from "./scroll-lock";
  * between two marks is a proportion of the way between their places, so the view moves smoothly through a long block
  * rather than jumping from one to the next. The last mark is the end of the text.
  */
-const meta: Meta = { title: "Compositions/File panel/Scroll lock", render: () => <span /> };
+const meta: Meta = {
+  title: "Compositions/File panel/Scroll lock",
+  render: () => <span />,
+};
 export default meta;
 
 type Story = StoryObj;
 
 const MARKS: Mark[] = [
-  { line: 1, top: 0 },
-  { line: 3, top: 40 },
-  { line: 13, top: 240 },
-  { line: 21, top: 300 },
+  {
+    line: 1,
+    top: 0,
+  },
+  {
+    line: 3,
+    top: 40,
+  },
+  {
+    line: 13,
+    top: 240,
+  },
+  {
+    line: 21,
+    top: 300,
+  },
 ];
 
 /** A line that starts a block is that block's place; one inside a block is in proportion; one past the end stays at the end. */

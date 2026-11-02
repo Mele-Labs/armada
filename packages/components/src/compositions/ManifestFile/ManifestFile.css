@@ -74,7 +74,8 @@
    the element keeps a long `run:` line on its own line for the same reason. */
 .armada-manifest-file__well .armada-textarea {
   flex: 1 1 auto;
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--fg-subtle) 30%, var(--border-subtle));
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--fg-subtle) 30%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: var(--bg-base);
   min-height: 0;

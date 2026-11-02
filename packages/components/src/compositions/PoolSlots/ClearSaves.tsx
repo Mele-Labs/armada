@@ -33,11 +33,23 @@ export function ClearSaves({
         <Mono label="Uncommitted files" items={files} />
       </Line>
       {slot === undefined ? (
-        <Line Glyph={Folder} said="git worktree remove. The files are on the branch first" word={`Removes the worktree at ${path}`} />
+        <Line
+          Glyph={Folder}
+          said="git worktree remove. The files are on the branch first"
+          word={`Removes the worktree at ${path}`}
+        />
       ) : (
-        <Line Glyph={Folder} said="The pool takes the slot back for its next lease" word={`Releases ${slot}`} />
+        <Line
+          Glyph={Folder}
+          said="The pool takes the slot back for its next lease"
+          word={`Releases ${slot}`}
+        />
       )}
-      <Line Glyph={GitBranch} said="The WIP commit stays on the branch" word={`Keeps branch ${branch}`} />
+      <Line
+        Glyph={GitBranch}
+        said="The WIP commit stays on the branch"
+        word={`Keeps branch ${branch}`}
+      />
     </>
   );
 }

@@ -10,16 +10,29 @@ import type { ComposerFile, ComposerTag, ThoughtTarget } from "@armada/component
  * The Session a thought may go to. `id` is what the acts below take, and `manifestId` the
  * repository Fleet placed it in, which the wire's target is built back from.
  */
-export type RouteTarget = ThoughtTarget & { id: string; manifestId?: string };
+export type RouteTarget = ThoughtTarget & {
+  id: string;
+  manifestId?: string;
+};
 
 /** What Helm made of the words: a question for itself, or a thought for other work, with the best match if any. */
-export type ThoughtReading = { kind: "question" } | { kind: "thought"; match?: RouteTarget };
+export type ThoughtReading =
+  | {
+      kind: "question";
+    }
+  | {
+      kind: "thought";
+      match?: RouteTarget;
+    };
 
 /** What went with the words: pictures and files, sketches, and the issues, pull requests and Sessions tagged in them. */
 export type ThoughtCarry = {
   files: readonly ComposerFile[];
   tags: readonly ComposerTag[];
-  sketches: readonly { id: string; title: string }[];
+  sketches: readonly {
+    id: string;
+    title: string;
+  }[];
 };
 
 /**
@@ -35,7 +48,9 @@ export type HeldWords = {
 };
 
 /** Where Helm's box puts words the moment they are sent. */
-export type HelmOutgoing = { hold: (text: string, carry: ThoughtCarry) => HeldWords };
+export type HelmOutgoing = {
+  hold: (text: string, carry: ThoughtCarry) => HeldWords;
+};
 
 export type ThoughtRouting = {
   /** Fleet's reading of the words. **A read that failed is a question**, so the words are never lost. */
@@ -54,19 +69,37 @@ export type ThoughtRouting = {
 };
 
 /** A repository's name as the picker draws it, or its id where the repository is not one Fleet serves. */
-export function repositoryName(repositories: readonly RepositorySummary[], manifestId: string | undefined): string {
-  return repositories.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "";
+export function repositoryName(
+  repositories: readonly RepositorySummary[],
+  manifestId: string | undefined,
+): string {
+  return (
+    repositories.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ??
+    manifestId ??
+    ""
+  );
 }
 
 /** The wire's target, drawn: the repository named rather than its id. */
-export function routeTargetOf(target: ThoughtOnTheWire, repositories: readonly RepositorySummary[]): RouteTarget {
+export function routeTargetOf(
+  target: ThoughtOnTheWire,
+  repositories: readonly RepositorySummary[],
+): RouteTarget {
   return {
     kind: target.kind,
     id: target.id,
     title: target.title,
     repository: repositoryName(repositories, target.manifest_id),
-    ...(target.manifest_id === undefined ? {} : { manifestId: target.manifest_id }),
-    ...(target.slot === undefined ? {} : { slot: target.slot }),
+    ...(target.manifest_id === undefined
+      ? {}
+      : {
+          manifestId: target.manifest_id,
+        }),
+    ...(target.slot === undefined
+      ? {}
+      : {
+          slot: target.slot,
+        }),
   };
 }
 
@@ -76,7 +109,15 @@ export function wireTargetOf(target: RouteTarget): ThoughtOnTheWire {
     kind: target.kind,
     id: target.id,
     title: target.title,
-    ...(target.manifestId === undefined ? {} : { manifest_id: target.manifestId }),
-    ...(target.slot === undefined ? {} : { slot: target.slot }),
+    ...(target.manifestId === undefined
+      ? {}
+      : {
+          manifest_id: target.manifestId,
+        }),
+    ...(target.slot === undefined
+      ? {}
+      : {
+          slot: target.slot,
+        }),
   };
 }

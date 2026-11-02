@@ -14,7 +14,9 @@ import {
 const meta: Meta<typeof SketchPad> = {
   title: "Compositions/Sketch pad",
   component: SketchPad,
-  parameters: { layout: "padded" },
+  parameters: {
+    layout: "padded",
+  },
 };
 export default meta;
 
@@ -22,14 +24,37 @@ type Story = StoryObj<typeof SketchPad>;
 
 /** What the arc's person drew: the stat, the panel it opens, and the read behind it. */
 const BOXES: SketchBox[] = [
-  { id: "b1", x: 0, y: 0, body: "Drones 1 of 2" },
-  { id: "b2", x: 0, y: 160, body: "a panel under it, one Drone to a line" },
-  { id: "b3", x: 300, y: 160, body: "the Job and the step each Drone is on" },
+  {
+    id: "b1",
+    x: 0,
+    y: 0,
+    body: "Drones 1 of 2",
+  },
+  {
+    id: "b2",
+    x: 0,
+    y: 160,
+    body: "a panel under it, one Drone to a line",
+  },
+  {
+    id: "b3",
+    x: 300,
+    y: 160,
+    body: "the Job and the step each Drone is on",
+  },
 ];
 
 const LINES: SketchLine[] = [
-  { id: "b1-b2", from: "b1", to: "b2" },
-  { id: "b2-b3", from: "b2", to: "b3" },
+  {
+    id: "b1-b2",
+    from: "b1",
+    to: "b2",
+  },
+  {
+    id: "b2-b3",
+    from: "b2",
+    to: "b3",
+  },
 ];
 
 /** A ring round the two boxes the panel is made of — what no box and no join says. */
@@ -37,14 +62,38 @@ const STROKES: SketchStroke[] = [
   {
     id: "s1",
     points: [
-      { x: -40, y: 126 },
-      { x: 280, y: 108 },
-      { x: 570, y: 132 },
-      { x: 588, y: 214 },
-      { x: 280, y: 248 },
-      { x: -30, y: 230 },
-      { x: -46, y: 160 },
-      { x: -40, y: 126 },
+      {
+        x: -40,
+        y: 126,
+      },
+      {
+        x: 280,
+        y: 108,
+      },
+      {
+        x: 570,
+        y: 132,
+      },
+      {
+        x: 588,
+        y: 214,
+      },
+      {
+        x: 280,
+        y: 248,
+      },
+      {
+        x: -30,
+        y: 230,
+      },
+      {
+        x: -46,
+        y: 160,
+      },
+      {
+        x: -40,
+        y: 126,
+      },
     ],
   },
 ];
@@ -79,7 +128,13 @@ function Held({
       strokes={strokes}
       pictures={pictures}
       onDraw={(points: readonly SketchPoint[]) =>
-        setStrokes((current) => [...current, { id: `s${String(current.length + 1)}`, points }])
+        setStrokes((current) => [
+          ...current,
+          {
+            id: `s${String(current.length + 1)}`,
+            points,
+          },
+        ])
       }
       onUndo={() => setStrokes((current) => current.slice(0, -1))}
       said={said}
@@ -87,21 +142,57 @@ function Held({
       onAdd={(at, body) =>
         setBoxes((current) => [
           ...current,
-          { id: `b${String(current.length + 1)}`, x: at.x, y: at.y, body },
+          {
+            id: `b${String(current.length + 1)}`,
+            x: at.x,
+            y: at.y,
+            body,
+          },
         ])
       }
       onPicture={(picture, at) =>
         setPictures((current) => [
           ...current,
-          { id: `p${String(current.length + 1)}`, ...at, ...picture },
+          {
+            id: `p${String(current.length + 1)}`,
+            ...at,
+            ...picture,
+          },
         ])
       }
       onBody={(id, body) =>
-        setBoxes((current) => current.map((box) => (box.id === id ? { ...box, body } : box)))
+        setBoxes((current) =>
+          current.map((box) =>
+            box.id === id
+              ? {
+                  ...box,
+                  body,
+                }
+              : box,
+          ),
+        )
       }
       onMove={(id, at) => {
-        setBoxes((current) => current.map((box) => (box.id === id ? { ...box, ...at } : box)));
-        setPictures((current) => current.map((one) => (one.id === id ? { ...one, ...at } : one)));
+        setBoxes((current) =>
+          current.map((box) =>
+            box.id === id
+              ? {
+                  ...box,
+                  ...at,
+                }
+              : box,
+          ),
+        );
+        setPictures((current) =>
+          current.map((one) =>
+            one.id === id
+              ? {
+                  ...one,
+                  ...at,
+                }
+              : one,
+          ),
+        );
       }}
       onRemove={(ids) => {
         setBoxes((current) => current.filter((box) => !ids.includes(box.id)));
@@ -111,7 +202,14 @@ function Held({
         );
       }}
       onJoin={(from, to) =>
-        setLines((current) => [...current, { id: `${from}-${to}`, from, to }])
+        setLines((current) => [
+          ...current,
+          {
+            id: `${from}-${to}`,
+            from,
+            to,
+          },
+        ])
       }
     />
   );
@@ -140,13 +238,26 @@ const args = {
  * A picture already drawn, made from a Studio node: boxes, the joins between
  * them, and a ring round the two the panel is made of.
  */
-export const Drawn: Story = { args, render: (props) => <Held {...props} /> };
+export const Drawn: Story = {
+  args,
+  render: (props) => <Held {...props} />,
+};
 
 /** A Studio's Sketch in its sheet: the pad fills its box, with no line about a request. */
 export const Filling: Story = {
-  args: { ...args, said: undefined, onSaid: undefined, from: undefined, fills: true },
+  args: {
+    ...args,
+    said: undefined,
+    onSaid: undefined,
+    from: undefined,
+    fills: true,
+  },
   render: (props) => (
-    <div style={{ height: "calc(var(--h-sketch-pad) * 2)" }}>
+    <div
+      style={{
+        height: "calc(var(--h-sketch-pad) * 2)",
+      }}
+    >
       <Held {...props} />
     </div>
   ),
@@ -154,7 +265,10 @@ export const Filling: Story = {
 
 /** The boxes on their own, which is every pad drawn before the pen existed. */
 export const NoHand: Story = {
-  args: { ...args, strokes: [] },
+  args: {
+    ...args,
+    strokes: [],
+  },
   render: (props) => <Held {...props} />,
 };
 
@@ -163,13 +277,23 @@ export const NoHand: Story = {
  * under the controls says nothing about what it is for.
  */
 export const Nothing: Story = {
-  args: { ...args, boxes: [], lines: [], strokes: [], said: "", from: undefined },
+  args: {
+    ...args,
+    boxes: [],
+    lines: [],
+    strokes: [],
+    said: "",
+    from: undefined,
+  },
   render: (props) => <Held {...props} />,
 };
 
 /** Nothing may be drawn while the connection is not live. */
 export const NotLive: Story = {
-  args: { ...args, disabled: true },
+  args: {
+    ...args,
+    disabled: true,
+  },
   render: (props) => <Held {...props} />,
 };
 
@@ -183,30 +307,67 @@ export const NotLive: Story = {
  * no reason reads as broken.
  */
 export const Drawing: Story = {
-  args: { ...args, boxes: [], lines: [], strokes: [], said: "" },
+  args: {
+    ...args,
+    boxes: [],
+    lines: [],
+    strokes: [],
+    said: "",
+  },
   render: (props) => <Held {...props} />,
   play: async ({ canvas, userEvent, step }) => {
-    const add = canvas.getByRole("button", { name: "Add a box" });
-    const join = () => canvas.getByRole("button", { name: "Join" });
-    const remove = () => canvas.getByRole("button", { name: "Remove" });
+    const add = canvas.getByRole("button", {
+      name: "Add a box",
+    });
+    const join = () =>
+      canvas.getByRole("button", {
+        name: "Join",
+      });
+    const remove = () =>
+      canvas.getByRole("button", {
+        name: "Remove",
+      });
 
     await step("nothing is picked, so the bar is not drawn at all", async () => {
-      await expect(canvas.queryByRole("button", { name: "Join" })).toBeNull();
-      await expect(canvas.queryByRole("button", { name: "Remove" })).toBeNull();
+      await expect(
+        canvas.queryByRole("button", {
+          name: "Join",
+        }),
+      ).toBeNull();
+      await expect(
+        canvas.queryByRole("button", {
+          name: "Remove",
+        }),
+      ).toBeNull();
     });
 
     await step("a box added is empty, and writing in it names it", async () => {
       await userEvent.click(add);
-      const box = await canvas.findByRole("group", { name: "An empty box" });
+      const box = await canvas.findByRole("group", {
+        name: "An empty box",
+      });
       await expect(box).toBeVisible();
-      await userEvent.type(canvas.getByRole("textbox", { name: "The words in this box" }), "the stat");
+      await userEvent.type(
+        canvas.getByRole("textbox", {
+          name: "The words in this box",
+        }),
+        "the stat",
+      );
       await waitFor(() =>
-        expect(canvas.getByRole("group", { name: "Box: the stat" })).toBeVisible(),
+        expect(
+          canvas.getByRole("group", {
+            name: "Box: the stat",
+          }),
+        ).toBeVisible(),
       );
     });
 
     await step("one box picked offers Remove, and Join says what it wants", async () => {
-      await userEvent.click(canvas.getByRole("group", { name: "Box: the stat" }));
+      await userEvent.click(
+        canvas.getByRole("group", {
+          name: "Box: the stat",
+        }),
+      );
       await waitFor(() => expect(remove()).toBeEnabled());
       await expect(join()).toBeDisabled();
       await expect(join()).toHaveAccessibleDescription("Pick two boxes to join them.");
@@ -214,24 +375,48 @@ export const Drawing: Story = {
 
     await step("two boxes picked draw a line between them", async () => {
       await userEvent.click(add);
-      const second = await canvas.findByRole("group", { name: "An empty box" });
+      const second = await canvas.findByRole("group", {
+        name: "An empty box",
+      });
       await userEvent.click(second);
       await userEvent.keyboard("{Meta>}");
-      await userEvent.click(canvas.getByRole("group", { name: "Box: the stat" }));
+      await userEvent.click(
+        canvas.getByRole("group", {
+          name: "Box: the stat",
+        }),
+      );
       await userEvent.keyboard("{/Meta}");
       await waitFor(() => expect(join()).toBeEnabled());
       await userEvent.click(join());
-      await waitFor(() => expect(canvas.getAllByRole("group", { name: /^A line from / })).toHaveLength(1));
+      await waitFor(() =>
+        expect(
+          canvas.getAllByRole("group", {
+            name: /^A line from /,
+          }),
+        ).toHaveLength(1),
+      );
     });
 
     await step("a box taken off takes the line that hung on it", async () => {
-      await userEvent.click(canvas.getByRole("group", { name: "Box: the stat" }));
+      await userEvent.click(
+        canvas.getByRole("group", {
+          name: "Box: the stat",
+        }),
+      );
       await waitFor(() => expect(remove()).toBeEnabled());
       await userEvent.click(remove());
       await waitFor(() =>
-        expect(canvas.queryByRole("group", { name: "Box: the stat" })).toBeNull(),
+        expect(
+          canvas.queryByRole("group", {
+            name: "Box: the stat",
+          }),
+        ).toBeNull(),
       );
-      await expect(canvas.queryAllByRole("group", { name: /^A line from / })).toHaveLength(0);
+      await expect(
+        canvas.queryAllByRole("group", {
+          name: /^A line from /,
+        }),
+      ).toHaveLength(0);
     });
   },
 };
@@ -250,12 +435,26 @@ const A_HAND_LINE = "Drawn by hand";
  */
 function drag(graph: HTMLElement, through: readonly SketchPoint[]): void {
   const at = graph.getBoundingClientRect();
-  const place = (point: SketchPoint) => ({ x: at.x + point.x, y: at.y + point.y });
+  const place = (point: SketchPoint) => ({
+    x: at.x + point.x,
+    y: at.y + point.y,
+  });
   const start = place(through[0]!);
   const pen = document.elementFromPoint(start.x, start.y);
   if (pen === null) throw new Error("Nothing is under the pen.");
-  const event = (kind: string, where: { x: number; y: number }) =>
-    new PointerEvent(kind, { clientX: where.x, clientY: where.y, bubbles: true, button: 0 });
+  const event = (
+    kind: string,
+    where: {
+      x: number;
+      y: number;
+    },
+  ) =>
+    new PointerEvent(kind, {
+      clientX: where.x,
+      clientY: where.y,
+      bubbles: true,
+      button: 0,
+    });
 
   pen.dispatchEvent(event("pointerdown", start));
   for (const point of through.slice(1)) window.dispatchEvent(event("pointermove", place(point)));
@@ -272,11 +471,22 @@ function drag(graph: HTMLElement, through: readonly SketchPoint[]): void {
  * invites, an invisible stroke sitting in the picture.
  */
 export const ByHand: Story = {
-  args: { ...args, boxes: [], lines: [], strokes: [], said: "", from: undefined },
+  args: {
+    ...args,
+    boxes: [],
+    lines: [],
+    strokes: [],
+    said: "",
+    from: undefined,
+  },
   render: (props) => <Held {...props} />,
   play: async ({ canvas, userEvent, step }) => {
-    const draw = canvas.getByRole("button", { name: "Draw" });
-    const undo = canvas.getByRole("button", { name: "Undo" });
+    const draw = canvas.getByRole("button", {
+      name: "Draw",
+    });
+    const undo = canvas.getByRole("button", {
+      name: "Undo",
+    });
     const graph = canvas.getByLabelText(args.label);
 
     await step("nothing is drawn by hand, so Undo is off and says so", async () => {
@@ -294,42 +504,100 @@ export const ByHand: Story = {
 
     await step("a drag leaves a line, and Undo comes alive", async () => {
       drag(graph, [
-        { x: 60, y: 60 },
-        { x: 110, y: 90 },
-        { x: 160, y: 60 },
-        { x: 210, y: 120 },
+        {
+          x: 60,
+          y: 60,
+        },
+        {
+          x: 110,
+          y: 90,
+        },
+        {
+          x: 160,
+          y: 60,
+        },
+        {
+          x: 210,
+          y: 120,
+        },
       ]);
-      await waitFor(() => expect(canvas.getAllByRole("img", { name: A_HAND_LINE })).toHaveLength(1));
+      await waitFor(() =>
+        expect(
+          canvas.getAllByRole("img", {
+            name: A_HAND_LINE,
+          }),
+        ).toHaveLength(1),
+      );
       await expect(undo).toBeEnabled();
     });
 
     await step("a press that goes nowhere is not a line", async () => {
-      drag(graph, [{ x: 240, y: 200 }]);
-      await expect(canvas.getAllByRole("img", { name: A_HAND_LINE })).toHaveLength(1);
+      drag(graph, [
+        {
+          x: 240,
+          y: 200,
+        },
+      ]);
+      await expect(
+        canvas.getAllByRole("img", {
+          name: A_HAND_LINE,
+        }),
+      ).toHaveLength(1);
     });
 
     await step("a second line goes on top, and Undo takes back only the last", async () => {
       drag(graph, [
-        { x: 80, y: 190 },
-        { x: 150, y: 190 },
-        { x: 220, y: 175 },
+        {
+          x: 80,
+          y: 190,
+        },
+        {
+          x: 150,
+          y: 190,
+        },
+        {
+          x: 220,
+          y: 175,
+        },
       ]);
-      await waitFor(() => expect(canvas.getAllByRole("img", { name: A_HAND_LINE })).toHaveLength(2));
+      await waitFor(() =>
+        expect(
+          canvas.getAllByRole("img", {
+            name: A_HAND_LINE,
+          }),
+        ).toHaveLength(2),
+      );
       await userEvent.click(undo);
-      await waitFor(() => expect(canvas.getAllByRole("img", { name: A_HAND_LINE })).toHaveLength(1));
+      await waitFor(() =>
+        expect(
+          canvas.getAllByRole("img", {
+            name: A_HAND_LINE,
+          }),
+        ).toHaveLength(1),
+      );
       await expect(undo).toBeEnabled();
     });
 
     await step("the last line back leaves the pad empty and Undo off again", async () => {
       await userEvent.click(undo);
-      await waitFor(() => expect(canvas.queryAllByRole("img", { name: A_HAND_LINE })).toHaveLength(0));
+      await waitFor(() =>
+        expect(
+          canvas.queryAllByRole("img", {
+            name: A_HAND_LINE,
+          }),
+        ).toHaveLength(0),
+      );
       await expect(undo).toBeDisabled();
     });
 
     await step("any other act puts the pen down", async () => {
       // The pen has been down throughout: nothing above it puts it away.
       await expect(draw).toHaveAttribute("aria-pressed", "true");
-      await userEvent.click(canvas.getByRole("button", { name: "Add a box" }));
+      await userEvent.click(
+        canvas.getByRole("button", {
+          name: "Add a box",
+        }),
+      );
       await waitFor(() => expect(draw).toHaveAttribute("aria-pressed", "false"));
     });
   },
@@ -344,7 +612,11 @@ function paste(target: Element, fill: (data: DataTransfer) => void): void {
   const data = new DataTransfer();
   fill(data);
   target.dispatchEvent(
-    new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: data }),
+    new ClipboardEvent("paste", {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: data,
+    }),
   );
 }
 
@@ -355,8 +627,18 @@ async function screenshot(): Promise<File> {
   if (pen === null) throw new Error("No 2D context to draw the screenshot with.");
   pen.fillStyle = "gray";
   pen.fillRect(0, 0, 2880, 1800);
-  const png = await canvas.convertToBlob({ type: "image/png" });
-  return new File([png], "image.png", { type: "image/png" });
+  const png = await canvas.convertToBlob({
+    type: "image/png",
+  });
+  return new File(
+    [
+      png,
+    ],
+    "image.png",
+    {
+      type: "image/png",
+    },
+  );
 }
 
 /**
@@ -368,7 +650,14 @@ async function screenshot(): Promise<File> {
  * rule about what does *not* happen.
  */
 export const Pasted: Story = {
-  args: { ...args, boxes: [], lines: [], strokes: [], said: "", from: undefined },
+  args: {
+    ...args,
+    boxes: [],
+    lines: [],
+    strokes: [],
+    said: "",
+    from: undefined,
+  },
   render: (props) => <Held {...props} />,
   play: async ({ canvas, userEvent, step }) => {
     const graph = canvas.getByLabelText(args.label);
@@ -377,7 +666,9 @@ export const Pasted: Story = {
       paste(graph, (data) => data.setData("text/plain", "  https://example.com/ticket/42 \n"));
       await waitFor(() =>
         expect(
-          canvas.getByRole("group", { name: "Box: https://example.com/ticket/42" }),
+          canvas.getByRole("group", {
+            name: "Box: https://example.com/ticket/42",
+          }),
         ).toBeVisible(),
       );
     });
@@ -385,7 +676,9 @@ export const Pasted: Story = {
     await step("a screenshot pasted on the pad is a picture on it, not an attachment", async () => {
       const shot = await screenshot();
       paste(graph, (data) => data.items.add(shot));
-      const picture = await canvas.findByRole("group", { name: "A pasted picture" });
+      const picture = await canvas.findByRole("group", {
+        name: "A pasted picture",
+      });
       await expect(picture).toBeVisible();
       // Scaled down to sit inside the pad, rather than drawn at its own size.
       const pad = graph.getBoundingClientRect();
@@ -395,25 +688,55 @@ export const Pasted: Story = {
     });
 
     await step("a paste into a box's own field makes nothing new", async () => {
-      const field = canvas.getByRole("textbox", { name: "The words in this box" });
+      const field = canvas.getByRole("textbox", {
+        name: "The words in this box",
+      });
       await userEvent.click(field);
       paste(field, (data) => data.setData("text/plain", "more words"));
       // A second paste on the pad, waited for, so a box the field's paste made
       // would be drawn by now too — an absence read straight after a paste
       // reads before React has drawn anything.
       paste(graph, (data) => data.setData("text/plain", "the panel"));
-      await waitFor(() => expect(canvas.getByRole("group", { name: "Box: the panel" })).toBeVisible());
-      await expect(canvas.queryByRole("group", { name: "Box: more words" })).toBeNull();
-      await expect(canvas.getAllByRole("group", { name: /^Box: / })).toHaveLength(2);
-      await expect(canvas.getAllByRole("group", { name: "A pasted picture" })).toHaveLength(1);
+      await waitFor(() =>
+        expect(
+          canvas.getByRole("group", {
+            name: "Box: the panel",
+          }),
+        ).toBeVisible(),
+      );
+      await expect(
+        canvas.queryByRole("group", {
+          name: "Box: more words",
+        }),
+      ).toBeNull();
+      await expect(
+        canvas.getAllByRole("group", {
+          name: /^Box: /,
+        }),
+      ).toHaveLength(2);
+      await expect(
+        canvas.getAllByRole("group", {
+          name: "A pasted picture",
+        }),
+      ).toHaveLength(1);
     });
 
     await step("the picture comes off under Remove, like a box", async () => {
-      await userEvent.click(canvas.getByRole("group", { name: "A pasted picture" }));
-      const remove = await canvas.findByRole("button", { name: "Remove" });
+      await userEvent.click(
+        canvas.getByRole("group", {
+          name: "A pasted picture",
+        }),
+      );
+      const remove = await canvas.findByRole("button", {
+        name: "Remove",
+      });
       await userEvent.click(remove);
       await waitFor(() =>
-        expect(canvas.queryByRole("group", { name: "A pasted picture" })).toBeNull(),
+        expect(
+          canvas.queryByRole("group", {
+            name: "A pasted picture",
+          }),
+        ).toBeNull(),
       );
     });
   },
@@ -424,12 +747,22 @@ export const Pasted: Story = {
  * (the decision `2026-10-01-a-paste-lands-at-once.md`, on `studios/paste`).
  * Each text shape carries `text/plain`; what differs is what rides beside it.
  */
-const CLIPBOARDS: { from: string; text: string; beside: Record<string, string> }[] = [
-  { from: "an address bar", text: "https://example.com/tickets/1545", beside: {} },
+const CLIPBOARDS: {
+  from: string;
+  text: string;
+  beside: Record<string, string>;
+}[] = [
+  {
+    from: "an address bar",
+    text: "https://example.com/tickets/1545",
+    beside: {},
+  },
   {
     from: "a page's text",
     text: "the count goes stale",
-    beside: { "text/html": "<p>the count goes stale</p>" },
+    beside: {
+      "text/html": "<p>the count goes stale</p>",
+    },
   },
   {
     from: "a terminal",
@@ -463,7 +796,10 @@ function inView(graph: HTMLElement, node: HTMLElement): boolean {
  * that a screenshot is still a picture.
  */
 export const PastedOnADrawing: Story = {
-  args: { ...args, strokes: [] },
+  args: {
+    ...args,
+    strokes: [],
+  },
   render: (props) => <Held {...props} />,
   play: async ({ canvas, step }) => {
     const graph = canvas.getByLabelText(args.label);
@@ -474,7 +810,9 @@ export const PastedOnADrawing: Story = {
           data.setData("text/plain", clipboard.text);
           for (const [type, value] of Object.entries(clipboard.beside)) data.setData(type, value);
         });
-        const box = await canvas.findByRole("group", { name: `Box: ${clipboard.text}` });
+        const box = await canvas.findByRole("group", {
+          name: `Box: ${clipboard.text}`,
+        });
         await waitFor(() => expect(inView(graph, box)).toBe(true));
       });
     }
@@ -482,7 +820,9 @@ export const PastedOnADrawing: Story = {
     await step("a screenshot is still a picture, and lands in view", async () => {
       const shot = await screenshot();
       paste(graph, (data) => data.items.add(shot));
-      const picture = await canvas.findByRole("group", { name: "A pasted picture" });
+      const picture = await canvas.findByRole("group", {
+        name: "A pasted picture",
+      });
       const pad = graph.getBoundingClientRect();
       await waitFor(() => {
         const drawn = picture.getBoundingClientRect();
@@ -492,7 +832,9 @@ export const PastedOnADrawing: Story = {
 
     await step("text pasted after a picture is drawn over it, not hidden under it", async () => {
       paste(graph, (data) => data.setData("text/plain", "over the picture"));
-      const box = await canvas.findByRole("group", { name: "Box: over the picture" });
+      const box = await canvas.findByRole("group", {
+        name: "Box: over the picture",
+      });
       await waitFor(() => expect(inView(graph, box)).toBe(true));
     });
   },

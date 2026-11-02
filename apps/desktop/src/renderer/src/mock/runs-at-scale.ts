@@ -13,7 +13,11 @@ const fact = (workspace: string, kind: RunFactKind, command: string, port?: numb
   workspace,
   kind,
   command,
-  ...(port === undefined ? {} : { port }),
+  ...(port === undefined
+    ? {}
+    : {
+        port,
+      }),
   succeeded: true,
   last_ran: "2026-10-18T16:20:00Z",
   source: "jobs",

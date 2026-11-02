@@ -13,7 +13,11 @@ const NONE: readonly never[] = [];
 const NOBODY = () => undefined;
 
 export function JudgeTab({ job, title }: { job: string; title: string }) {
-  const artifact = { kind: "job", id: job, title } as const;
+  const artifact = {
+    kind: "job",
+    id: job,
+    title,
+  } as const;
   const api = useJudgeApi();
   const record = useJudgeRecord(job, artifact);
   const draftKey = `judge:${job}`;
@@ -24,7 +28,9 @@ export function JudgeTab({ job, title }: { job: string; title: string }) {
     if (!asked) return;
     setAt((was) => was + 1);
     notesBrought();
-  }, [asked]);
+  }, [
+    asked,
+  ]);
   if (api === undefined) return null;
   return (
     <div className="judge-tab">
@@ -47,7 +53,12 @@ export function JudgeTab({ job, title }: { job: string; title: string }) {
               </p>
             ) : record.notes.length === 0 ? (
               <p className="judge-tab__said">
-                <CircleCheck className="judge-act__clean" size={16} strokeWidth={2} aria-hidden="true" />
+                <CircleCheck
+                  className="judge-act__clean"
+                  size={16}
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
                 Nothing missed
               </p>
             ) : (
@@ -57,8 +68,14 @@ export function JudgeTab({ job, title }: { job: string; title: string }) {
         )}
       </div>
       <div className="judge-tab__foot">
-        <p className="judge-tab__what">A Judge reads this Job once on the strongest model, read-only. It sees what you asked for, the work and the repository, and never the agent's account of it. A note reaches the agent only if you send it.</p>
-        <p className="judge-tab__what">Say what to verify. Left empty, it looks for what was missed.</p>
+        <p className="judge-tab__what">
+          A Judge reads this Job once on the strongest model, read-only. It sees what you asked for,
+          the work and the repository, and never the agent's account of it. A note reaches the agent
+          only if you send it.
+        </p>
+        <p className="judge-tab__what">
+          Say what to verify. Left empty, it looks for what was missed.
+        </p>
         <SessionComposer
           textOnly
           working={false}
@@ -79,9 +96,22 @@ export function JudgeTab({ job, title }: { job: string; title: string }) {
           onDraw={NOBODY}
           onRemoveDrawn={NOBODY}
           draftKey={draftKey}
-          {...(at === 0 ? {} : { focusFor: { key: draftKey, at } })}
+          {...(at === 0
+            ? {}
+            : {
+                focusFor: {
+                  key: draftKey,
+                  at,
+                },
+              })}
           grows="panel"
-          onSend={(sent) => api.ask({ job, artifact, prompt: sent.text.trim() })}
+          onSend={(sent) =>
+            api.ask({
+              job,
+              artifact,
+              prompt: sent.text.trim(),
+            })
+          }
         />
       </div>
     </div>

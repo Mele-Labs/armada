@@ -27,7 +27,16 @@ export type RowLinkProps = {
   onOpen?: () => void;
 };
 
-export function RowLink({ mark, children, mono = false, says, tone, label, hint, onOpen }: RowLinkProps) {
+export function RowLink({
+  mark,
+  children,
+  mono = false,
+  says,
+  tone,
+  label,
+  hint,
+  onOpen,
+}: RowLinkProps) {
   const line = (
     <>
       <span className="armada-row-link__mark" aria-hidden={label === undefined ? undefined : true}>
@@ -44,7 +53,14 @@ export function RowLink({ mark, children, mono = false, says, tone, label, hint,
       {line}
     </span>
   ) : (
-    <button type="button" className="armada-row-link" data-tone={tone} aria-label={label} title={hint} onClick={onOpen}>
+    <button
+      type="button"
+      className="armada-row-link"
+      data-tone={tone}
+      aria-label={label}
+      title={hint}
+      onClick={onOpen}
+    >
       {line}
     </button>
   );

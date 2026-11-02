@@ -6,8 +6,16 @@ import { NO_SETTINGS } from "../shared/site-permissions";
 import { SiteSettingsStore } from "./site-permission-store";
 
 function disk(first: string | null = null) {
-  const held = { text: first };
-  return { held, io: { read: () => held.text, write: (text: string) => void (held.text = text) } };
+  const held = {
+    text: first,
+  };
+  return {
+    held,
+    io: {
+      read: () => held.text,
+      write: (text: string) => void (held.text = text),
+    },
+  };
 }
 
 describe("kept site settings", () => {
@@ -23,7 +31,9 @@ describe("kept site settings", () => {
     first.choose("repo", "login.example.com", "local_network", "allow");
     first.setDefault("repo", "camera", "block");
     const again = new SiteSettingsStore(disk(file.held.text).io).settingsOf("repo");
-    expect(again.sites["login.example.com"]).toEqual({ local_network: "allow" });
+    expect(again.sites["login.example.com"]).toEqual({
+      local_network: "allow",
+    });
     expect(again.defaults.camera).toBe("block");
     expect(again.defaults.microphone).toBe("ask");
   });
@@ -35,6 +45,9 @@ describe("kept site settings", () => {
   });
 
   it("start again from the defaults when the file is corrupt", () => {
-    expect(new SiteSettingsStore(disk("{not json").io).settingsOf("repo")).toEqual({ sites: {}, defaults: NO_SETTINGS.defaults });
+    expect(new SiteSettingsStore(disk("{not json").io).settingsOf("repo")).toEqual({
+      sites: {},
+      defaults: NO_SETTINGS.defaults,
+    });
   });
 });

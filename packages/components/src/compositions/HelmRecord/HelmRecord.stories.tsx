@@ -9,9 +9,17 @@ import { helmRecord } from "./record";
 const meta: Meta<typeof HelmRecord> = {
   title: "Compositions/Helm record",
   component: HelmRecord,
-  parameters: { layout: "fullscreen" },
+  parameters: {
+    layout: "fullscreen",
+  },
   render: (args) => (
-    <div style={{ position: "relative", height: "100vh", background: "var(--bg-sunken)" }}>
+    <div
+      style={{
+        position: "relative",
+        height: "100vh",
+        background: "var(--bg-sunken)",
+      }}
+    >
       <HelmRecord {...args} />
     </div>
   ),
@@ -35,16 +43,41 @@ const record: HelmDebugInfo = {
   model: "a-model",
   note: NOTE,
   door: "armada-fleet",
-  tools: ["list_jobs", "get_job", "get_events_since", "start_checkout_run", "ask_the_person", "approve_dispatch"],
+  tools: [
+    "list_jobs",
+    "get_job",
+    "get_events_since",
+    "start_checkout_run",
+    "ask_the_person",
+    "approve_dispatch",
+  ],
   session: "63a1f0d2-2f2b-4a07-9f0e-5d0d2c4d1b77",
   thread: [
-    { at: "2026-09-17T14:29:40.000Z", line: "asked", text: { text: "Read docs/scope.md and tell me what is out." } },
-    { at: "2026-09-17T14:29:44.000Z", line: "called", tool: "Read", detail: "/work/armada/docs/scope.md" },
-    { at: "2026-09-17T14:29:46.000Z", line: "refused", tool: "Read", because: "the person refused it" },
+    {
+      at: "2026-09-17T14:29:40.000Z",
+      line: "asked",
+      text: {
+        text: "Read docs/scope.md and tell me what is out.",
+      },
+    },
+    {
+      at: "2026-09-17T14:29:44.000Z",
+      line: "called",
+      tool: "Read",
+      detail: "/work/armada/docs/scope.md",
+    },
+    {
+      at: "2026-09-17T14:29:46.000Z",
+      line: "refused",
+      tool: "Read",
+      because: "the person refused it",
+    },
     {
       at: "2026-09-17T14:29:52.000Z",
       line: "said",
-      text: { text: "I cannot read that file, so I have nothing to answer from." },
+      text: {
+        text: "I cannot read that file, so I have nothing to answer from.",
+      },
     },
   ],
   cut: 12,
@@ -52,8 +85,14 @@ const record: HelmDebugInfo = {
     from: 41,
     upto: 58,
     kinds: [
-      { kind: "job.state_changed", count: 9 },
-      { kind: "drone.spawned", count: 8 },
+      {
+        kind: "job.state_changed",
+        count: 9,
+      },
+      {
+        kind: "drone.spawned",
+        count: 8,
+      },
     ],
   },
   run_id: "01K5RJ0F5H7TZ8QK6M9R1V2WXY",
@@ -67,11 +106,16 @@ const record: HelmDebugInfo = {
  * note, the roster, the authority and what was refused.
  */
 export const Read: Story = {
-  args: { open: true, record },
+  args: {
+    open: true,
+    record,
+  },
   play: async ({ canvas }) => {
     const shown = canvas.getByText(/armada helm session/);
     const written = helmRecord(record);
-    await expect(shown).toHaveTextContent("acting, on your ask", { normalizeWhitespace: false });
+    await expect(shown).toHaveTextContent("acting, on your ask", {
+      normalizeWhitespace: false,
+    });
     await expect(shown.textContent).toBe(written);
     // The four things the issue says decide an answer, in the one string.
     await expect(written).toContain("You are Helm, in Armada.");
@@ -89,16 +133,25 @@ export const Read: Story = {
  * reads what was written.
  */
 export const Copied: Story = {
-  args: { open: true, record },
+  args: {
+    open: true,
+    record,
+  },
   play: async ({ canvas, args }) => {
     const written: string[] = [];
     // `navigator.clipboard` is a getter, so the write is replaced rather than
     // the object — which is also what a headless browser leaves undefined.
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
-      value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+      value: {
+        writeText: (text: string) => (written.push(text), Promise.resolve()),
+      },
     });
-    await userEvent.click(canvas.getByRole("button", { name: "Copy debug info" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Copy debug info",
+      }),
+    );
     await expect(written[0]).toBe(helmRecord(args.record!));
     await userEvent.keyboard("c");
     await expect(written).toHaveLength(2);
@@ -108,7 +161,9 @@ export const Copied: Story = {
 
 /** Fleet was asked and has not answered: **the sheet draws nothing under its head** until it does. */
 export const Reading: Story = {
-  args: { open: true },
+  args: {
+    open: true,
+  },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("status")).toBeNull();
     await expect(canvas.queryByText(/Reading the session/)).toBeNull();
@@ -117,7 +172,10 @@ export const Reading: Story = {
 
 /** Fleet would not answer, in its own words. */
 export const Unreadable: Story = {
-  args: { open: true, failed: "Fleet is not connected, so the job cannot be read." },
+  args: {
+    open: true,
+    failed: "Fleet is not connected, so the job cannot be read.",
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("status")).toHaveTextContent("Fleet is not connected");
   },
@@ -125,7 +183,16 @@ export const Unreadable: Story = {
 
 /** Nothing has been said yet: the record still names what bounds the answers. */
 export const NothingSaidYet: Story = {
-  args: { open: true, record: { ...record, thread: [], cut: 0, session: undefined, polled: undefined } },
+  args: {
+    open: true,
+    record: {
+      ...record,
+      thread: [],
+      cut: 0,
+      session: undefined,
+      polled: undefined,
+    },
+  },
   play: async ({ canvas }) => {
     await expect(canvas.getByText(/armada helm session/)).toHaveTextContent(
       "thread — nothing has been said in this conversation yet",

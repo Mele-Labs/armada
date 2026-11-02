@@ -16,7 +16,10 @@ const CHART = `<svg viewBox="0 0 120 60" class="chart" role="img" aria-label="Fa
 </svg>`;
 
 const svgOf = (html: string) => readPage(`<h1>T</h1>${html}`).root.querySelector("svg");
-const names = (el: Element | null) => [...(el?.querySelectorAll("*") ?? [])].map((one) => one.localName);
+const names = (el: Element | null) =>
+  [
+    ...(el?.querySelectorAll("*") ?? []),
+  ].map((one) => one.localName);
 
 describe("a chart drawn as inline SVG in a Job's page", () => {
   it("keeps the shapes, text, viewBox and presentation attributes", () => {
@@ -26,7 +29,24 @@ describe("a chart drawn as inline SVG in a Job's page", () => {
     expect(chart?.getAttribute("viewBox")).toBe("0 0 120 60");
     expect(chart?.getAttribute("role")).toBe("img");
     expect(chart?.getAttribute("aria-label")).toBe("Failures by week");
-    expect(names(chart)).toEqual(["title", "defs", "clippath", "rect", "g", "rect", "circle", "path", "line", "polyline", "polygon", "ellipse", "text", "tspan"].map((one) => (one === "clippath" ? "clipPath" : one)));
+    expect(names(chart)).toEqual(
+      [
+        "title",
+        "defs",
+        "clippath",
+        "rect",
+        "g",
+        "rect",
+        "circle",
+        "path",
+        "line",
+        "polyline",
+        "polygon",
+        "ellipse",
+        "text",
+        "tspan",
+      ].map((one) => (one === "clippath" ? "clipPath" : one)),
+    );
     expect(chart?.querySelector("rect.d-bar")?.getAttribute("fill")).toBe("var(--accent)");
     expect(chart?.querySelector("circle")?.getAttribute("stroke-width")).toBe("2");
     expect(chart?.querySelector("tspan")?.textContent).toBe("Mon");
@@ -46,8 +66,12 @@ describe("a chart drawn as inline SVG in a Job's page", () => {
   });
 
   it("drops a script inside the svg with what it holds", () => {
-    const chart = svgOf(`<svg viewBox="0 0 1 1"><script>steal()</script><rect width="1" height="1"/></svg>`);
-    expect(names(chart)).toEqual(["rect"]);
+    const chart = svgOf(
+      `<svg viewBox="0 0 1 1"><script>steal()</script><rect width="1" height="1"/></svg>`,
+    );
+    expect(names(chart)).toEqual([
+      "rect",
+    ]);
     expect(chart?.outerHTML).not.toContain("steal");
   });
 
@@ -55,18 +79,26 @@ describe("a chart drawn as inline SVG in a Job's page", () => {
     const chart = svgOf(
       `<svg viewBox="0 0 1 1"><foreignObject><div><p>embedded</p></div></foreignObject><use href="http://example.com/x.svg#a"/><image href="http://example.com/x.png"/><animate attributeName="x"/><set attributeName="x"/><rect width="1" height="1"/></svg>`,
     );
-    expect(names(chart)).toEqual(["rect"]);
+    expect(names(chart)).toEqual([
+      "rect",
+    ]);
     expect(chart?.textContent).not.toContain("embedded");
   });
 
   it("drops a link with any address and unwraps one without", () => {
-    const chart = svgOf(`<svg viewBox="0 0 1 1"><a href="http://example.com"><text>out</text></a><a xlink:href="javascript:steal()"><text>js</text></a><a><text>plain</text></a></svg>`);
-    expect(names(chart)).toEqual(["text"]);
+    const chart = svgOf(
+      `<svg viewBox="0 0 1 1"><a href="http://example.com"><text>out</text></a><a xlink:href="javascript:steal()"><text>js</text></a><a><text>plain</text></a></svg>`,
+    );
+    expect(names(chart)).toEqual([
+      "text",
+    ]);
     expect(chart?.textContent).toBe("plain");
   });
 
   it("drops a value that reaches for an address", () => {
-    const chart = svgOf(`<svg viewBox="0 0 1 1"><rect width="1" height="1" fill="url(http://example.com/p.svg#x)" stroke="url(#other)" clip-path="url(javascript:steal())"/></svg>`);
+    const chart = svgOf(
+      `<svg viewBox="0 0 1 1"><rect width="1" height="1" fill="url(http://example.com/p.svg#x)" stroke="url(#other)" clip-path="url(javascript:steal())"/></svg>`,
+    );
     const rect = chart?.querySelector("rect");
     expect(rect?.hasAttribute("fill")).toBe(false);
     expect(rect?.getAttribute("stroke")).toBe("url(#d-other)");
@@ -83,29 +115,100 @@ describe("the kept styles of a page's mocks", () => {
   const B = "fedcba9876543210fedcba9876543210";
   const SCENE = {
     nodes: [
-      { id: "card", kind: "mock", x: 0, y: 0, w: 320, html: "<p>One</p>" },
-      { id: "row", kind: "mock", x: 0, y: 200, w: 320, html: "<p>Two</p>", kept: "ffffffffffffffffffffffffffffffff" },
-      { id: "plain", kind: "box", x: 400, y: 0, body: "A box" },
+      {
+        id: "card",
+        kind: "mock",
+        x: 0,
+        y: 0,
+        w: 320,
+        html: "<p>One</p>",
+      },
+      {
+        id: "row",
+        kind: "mock",
+        x: 0,
+        y: 200,
+        w: 320,
+        html: "<p>Two</p>",
+        kept: "ffffffffffffffffffffffffffffffff",
+      },
+      {
+        id: "plain",
+        kind: "box",
+        x: 400,
+        y: 0,
+        body: "A box",
+      },
     ],
     edges: [],
   };
-  const sketchesOf = (title: string) => readPage(`<h1>T</h1><armada-sketch title="${title}"><script type="application/json">${JSON.stringify(SCENE)}</script></armada-sketch>`).sketches;
+  const sketchesOf = (title: string) =>
+    readPage(
+      `<h1>T</h1><armada-sketch title="${title}"><script type="application/json">${JSON.stringify(SCENE)}</script></armada-sketch>`,
+    ).sketches;
 
   it("land on the node the key names, in the sketch the key names", () => {
     const [sketch] = sketchesOf("Flow");
-    const scene = sceneWithKept("Flow", sketch!.scene, { "Flow#card": A, "Other#row": B }) as typeof SCENE;
-    expect(scene.nodes.map((one) => (one as { kept?: string }).kept)).toEqual([A, undefined, undefined]);
+    const scene = sceneWithKept("Flow", sketch!.scene, {
+      "Flow#card": A,
+      "Other#row": B,
+    }) as typeof SCENE;
+    expect(
+      scene.nodes.map(
+        (one) =>
+          (
+            one as {
+              kept?: string;
+            }
+          ).kept,
+      ),
+    ).toEqual([
+      A,
+      undefined,
+      undefined,
+    ]);
   });
 
   it("are Fleet's: a kept the page wrote is dropped, and a box is left alone", () => {
     const [sketch] = sketchesOf("Flow");
-    const scene = sceneWithKept("Flow", sketch!.scene, { "Flow#plain": B }) as typeof SCENE;
-    expect(scene.nodes.map((one) => (one as { kept?: string }).kept)).toEqual([undefined, undefined, undefined]);
+    const scene = sceneWithKept("Flow", sketch!.scene, {
+      "Flow#plain": B,
+    }) as typeof SCENE;
+    expect(
+      scene.nodes.map(
+        (one) =>
+          (
+            one as {
+              kept?: string;
+            }
+          ).kept,
+      ),
+    ).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
     expect(scene.nodes[2]).toEqual(SCENE.nodes[2]);
   });
 
   it("leave a scene that is not one as it is", () => {
-    expect(sceneWithKept("Flow", undefined, { "Flow#card": A })).toBeUndefined();
-    expect(sceneWithKept("Flow", { nodes: "no" }, { "Flow#card": A })).toEqual({ nodes: "no" });
+    expect(
+      sceneWithKept("Flow", undefined, {
+        "Flow#card": A,
+      }),
+    ).toBeUndefined();
+    expect(
+      sceneWithKept(
+        "Flow",
+        {
+          nodes: "no",
+        },
+        {
+          "Flow#card": A,
+        },
+      ),
+    ).toEqual({
+      nodes: "no",
+    });
   });
 });

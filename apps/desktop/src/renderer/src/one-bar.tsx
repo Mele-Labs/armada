@@ -4,7 +4,13 @@
 // Task and Project, where the window keeps projects, file the words in them instead (`projects-tab/palette.ts`).
 
 import { useEffect, useRef, useState } from "react";
-import { adds, isPressed, type AddKind, type BarKind, type PaletteDispatch } from "@armada/components";
+import {
+  adds,
+  isPressed,
+  type AddKind,
+  type BarKind,
+  type PaletteDispatch,
+} from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { holdsText } from "@armada/screens/src/keys";
 
@@ -14,7 +20,13 @@ import { useProjectsFiling } from "./projects-tab/palette";
 /** The title bar's field, which the strip a send leaves hangs from. */
 export const ONE_BAR = ".armada-title-bar__search";
 
-export function useOneBar({ live, dispatching, open, picked, repositories }: {
+export function useOneBar({
+  live,
+  dispatching,
+  open,
+  picked,
+  repositories,
+}: {
   live: boolean;
   dispatching: Dispatching;
   /** Whether the palette is up: closed, Tab's Task or Project goes back to the sheet's kind. */
@@ -27,8 +39,18 @@ export function useOneBar({ live, dispatching, open, picked, repositories }: {
   const [adding, setAdding] = useState<AddKind>();
   useEffect(() => {
     if (!open) setAdding(undefined);
-  }, [open]);
-  const kinds: BarKind[] = [...dispatching.kinds, ...(filing === undefined ? [] : (["task", "project"] as const))];
+  }, [
+    open,
+  ]);
+  const kinds: BarKind[] = [
+    ...dispatching.kinds,
+    ...(filing === undefined
+      ? []
+      : ([
+          "task",
+          "project",
+        ] as const)),
+  ];
 
   return {
     kind: adding ?? dispatching.kind,
@@ -36,10 +58,20 @@ export function useOneBar({ live, dispatching, open, picked, repositories }: {
     // Tab past the sheet's kinds puts the sheet back on its first, so the palette opens on Job again once Task or Project was chosen.
     ...(kinds.length < 2
       ? {}
-      : { onKind: (next: BarKind) => (adds(next) ? (setAdding(next), dispatching.choose(dispatching.kinds[0] ?? "session")) : (setAdding(undefined), dispatching.choose(next))) }),
-    onDispatch: (words, kind, chosen) => (adds(kind) ? filing?.add(words, kind, chosen) : dispatching.openSheet(words)),
+      : {
+          onKind: (next: BarKind) =>
+            adds(next)
+              ? (setAdding(next), dispatching.choose(dispatching.kinds[0] ?? "session"))
+              : (setAdding(undefined), dispatching.choose(next)),
+        }),
+    onDispatch: (words, kind, chosen) =>
+      adds(kind) ? filing?.add(words, kind, chosen) : dispatching.openSheet(words),
     // A task's row names the repository and the project it goes to before ↵ files it.
-    ...(filing === undefined || adding !== "task" ? {} : { chips: filing.chips }),
+    ...(filing === undefined || adding !== "task"
+      ? {}
+      : {
+          chips: filing.chips,
+        }),
   };
 }
 
@@ -48,9 +80,21 @@ export function useOneBar({ live, dispatching, open, picked, repositories }: {
  * hears the key. A key with no modifier, such as a bare `n` someone binds, leaves a field alone; ⌘N does not. Neither acts over an open dialog, which owns the keyboard.
  * Where a sheet was put away holding words, they are the draft and the sheet comes back holding them.
  */
-function useOpenedToDispatch(live: boolean, open: () => void, openAfter: (() => void) | undefined): void {
-  const held = useRef({ live, open, openAfter });
-  held.current = { live, open, openAfter };
+function useOpenedToDispatch(
+  live: boolean,
+  open: () => void,
+  openAfter: (() => void) | undefined,
+): void {
+  const held = useRef({
+    live,
+    open,
+    openAfter,
+  });
+  held.current = {
+    live,
+    open,
+    openAfter,
+  };
   useEffect(() => {
     function press(event: KeyboardEvent): void {
       if (event.repeat || event.defaultPrevented || !held.current.live) return;
@@ -66,8 +110,17 @@ function useOpenedToDispatch(live: boolean, open: () => void, openAfter: (() => 
       if (!isPressed("new_job", event)) return;
       const modified = event.metaKey || event.ctrlKey || event.altKey;
       // A row that marks `n` its own, such as a drift's Not a drift on the Workflows page, keeps a bare key.
-      if (!modified && event.target instanceof Element && event.target.closest("[data-own-keys~='n']") !== null) return;
-      if ((!modified && holdsText(event.target)) || document.querySelector('[role="dialog"]') !== null) return;
+      if (
+        !modified &&
+        event.target instanceof Element &&
+        event.target.closest("[data-own-keys~='n']") !== null
+      )
+        return;
+      if (
+        (!modified && holdsText(event.target)) ||
+        document.querySelector('[role="dialog"]') !== null
+      )
+        return;
       event.preventDefault();
       event.stopPropagation();
       held.current.open();

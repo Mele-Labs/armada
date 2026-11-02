@@ -21,7 +21,12 @@ import type { Scenario } from "@armada/desktop/mock";
 unmountAfterEach();
 
 // Core and Helm only: what the dock reads is its own slice's.
-const SLICES = { slices: ["core", "helm"] } as const;
+const SLICES = {
+  slices: [
+    "core",
+    "helm",
+  ],
+} as const;
 
 /** Helm pointed at a repository, idle. */
 function talking(): Scenario {
@@ -29,8 +34,18 @@ function talking(): Scenario {
     name: "helm-idle",
     says: "Helm is pointed at a repository and idle",
     state: {
-      ...connected([workflow()], [repository()]),
-      helm: { state: "pointed", manifestId: MANIFEST_ID },
+      ...connected(
+        [
+          workflow(),
+        ],
+        [
+          repository(),
+        ],
+      ),
+      helm: {
+        state: "pointed",
+        manifestId: MANIFEST_ID,
+      },
     },
     behaves: () => ({}),
   };
@@ -52,7 +67,9 @@ test("repositories set up and Helm pointed at none: the thread says nothing, and
   mount("default", SLICES);
   await openHelm();
 
-  const switcher = page.getByRole("button", { name: "Point Helm at a repository" });
+  const switcher = page.getByRole("button", {
+    name: "Point Helm at a repository",
+  });
   await expect.element(switcher).toBeVisible();
   threadSaysNothing();
   // The switch stands at an entry of its own, not at whichever repository is
@@ -69,13 +86,21 @@ test("one repository set up and Helm pointed at none: the thread says nothing, a
   mount("empty-store", SLICES);
   await openHelm();
 
-  const switcher = page.getByRole("button", { name: "Point Helm at a repository" });
+  const switcher = page.getByRole("button", {
+    name: "Point Helm at a repository",
+  });
   await expect.element(switcher).toBeVisible();
   threadSaysNothing();
   // Standing at its own entry, with the one repository under it to pick.
   await expect.element(switcher).toHaveTextContent("Choose a repository");
   await switcher.click();
-  await expect.element(page.getByRole("menuitem", { name: "armada" })).toBeInTheDocument();
+  await expect
+    .element(
+      page.getByRole("menuitem", {
+        name: "armada",
+      }),
+    )
+    .toBeInTheDocument();
 });
 
 test("nothing set up: the thread says nothing, and there is no switch to offer", async () => {
@@ -87,7 +112,13 @@ test("nothing set up: the thread says nothing, and there is no switch to offer",
   await expect.element(page.getByText("No repository to ask yet")).toBeVisible();
   threadSaysNothing();
   // And no switch, though the dock hands the composer its handler in every state.
-  expect(page.getByRole("button", { name: /^Point Helm at a/ }).query()).toBeNull();
+  expect(
+    page
+      .getByRole("button", {
+        name: /^Point Helm at a/,
+      })
+      .query(),
+  ).toBeNull();
 });
 
 // Where Start fresh is drawn — the owner's note of 18 Sep 2026. It waits on a
@@ -99,7 +130,9 @@ test("Start fresh sits in the dock's head, beside Close and above the conversati
   mount(talking(), SLICES);
   await openHelm();
 
-  const fresh = page.getByRole("button", { name: "Start fresh" });
+  const fresh = page.getByRole("button", {
+    name: "Start fresh",
+  });
   await expect.element(fresh).toBeVisible();
   await expect.element(fresh).toBeEnabled();
 
@@ -107,12 +140,22 @@ test("Start fresh sits in the dock's head, beside Close and above the conversati
   // the trailing edge. No role carries where a control was drawn, and where
   // this one is drawn is the whole of the note.
   const act = fresh.element().getBoundingClientRect();
-  const close = page.getByRole("button", { name: /^Close/ }).element().getBoundingClientRect();
+  const close = page
+    .getByRole("button", {
+      name: /^Close/,
+    })
+    .element()
+    .getBoundingClientRect();
   expect(Math.abs(act.top - close.top)).toBeLessThan(2);
   expect(act.right).toBeLessThanOrEqual(close.left);
 
   // And above the composer it left — the head of the dock, not the head of the
   // composer, which is the length of the conversation further down.
-  const field = page.getByRole("textbox", { name: "Ask Helm" }).element().getBoundingClientRect();
+  const field = page
+    .getByRole("textbox", {
+      name: "Ask Helm",
+    })
+    .element()
+    .getBoundingClientRect();
   expect(act.bottom).toBeLessThan(field.top);
 });

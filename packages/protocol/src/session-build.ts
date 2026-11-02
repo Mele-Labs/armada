@@ -22,7 +22,13 @@ export type BuildPieceKind = "solid" | "hollow" | "scaffold" | "ghost";
  * drawn with its worker; absent for the Session's own tasks. It stays after the subagent ends. `working`: the agent's
  * task tool has it in progress; left out otherwise, so an unfinished task without it is open.
  */
-export type BuildPiece = { id: string; text: string; piece: BuildPieceKind; working?: boolean; by?: string };
+export type BuildPiece = {
+  id: string;
+  text: string;
+  piece: BuildPieceKind;
+  working?: boolean;
+  by?: string;
+};
 
 /**
  * A place on the road from the Session's edits to main: a walk shown after the first edit, a `git push` that updated a
@@ -32,7 +38,10 @@ export type BuildPiece = { id: string; text: string; piece: BuildPieceKind; work
 export type BuildStopId = "walk" | "pushed" | "pr" | "checks" | "auto_merge";
 
 /** One stop of the road. `at` is absent where it has not been reached, and the stop is a forecast, drawn faint. */
-export type BuildStop = { id: BuildStopId; at?: string };
+export type BuildStop = {
+  id: BuildStopId;
+  at?: string;
+};
 
 /** Carried on `SessionRecord.build`. Absent from the row of a Session that has done nothing Fleet observed. */
 export type SessionBuild = {
@@ -66,4 +75,9 @@ export type ReportedTaskStatus = "pending" | "in_progress" | "completed";
  * One task of the list a mod heard the agent write. The mod sends the whole list on every change. `by` is the
  * `agentId` of the subagent that wrote it: subagents share the Session's task list. Absent for the Session's own.
  */
-export type ReportedTask = { id: string; text: string; status: ReportedTaskStatus; by?: string };
+export type ReportedTask = {
+  id: string;
+  text: string;
+  status: ReportedTaskStatus;
+  by?: string;
+};

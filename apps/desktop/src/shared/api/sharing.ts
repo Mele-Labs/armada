@@ -17,10 +17,26 @@ import type {
 } from "@armada/protocol";
 
 /** What one of these came to: Fleet's answer, or the refusal to word. */
-export type SharingAnswer<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+export type SharingAnswer<T> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 /** What saving a package came to. A dialog closed without a place is not a failure. */
-export type PackageSaved = { saved: true; name: string } | { saved: false; why: "cancelled" | "failed" };
+export type PackageSaved =
+  | {
+      saved: true;
+      name: string;
+    }
+  | {
+      saved: false;
+      why: "cancelled" | "failed";
+    };
 
 export type SharingApi = {
   /** `POST /repositories/commit`: copy one piece onto the open Job's branch and commit it there. */

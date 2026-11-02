@@ -28,7 +28,15 @@ import type {
 import type { ReviewWalkNote, ShownReviewWalk, ShownReviewWalkOutcome } from "../review-walk";
 
 /** What a review act came to: the thing Fleet answered with, or the refusal to word. The forge's own sentence rides in the outcome. */
-export type ReviewActed<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+export type ReviewActed<T> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type ReviewsApi = {
   /** The four lists, read from the forge now. **Called when the tab opens and on Refresh, never on a timer.** */
@@ -36,13 +44,26 @@ export type ReviewsApi = {
   /** One pull request's page, any open one of a repository Fleet serves, named by the repository's manifest id. */
   readReviewPage: (manifestId: string, number: number) => Promise<ReviewActed<PullRequestPage>>;
   /** One file of it as a patch, read when the file is opened. */
-  readReviewFile: (manifestId: string, number: number, path: string) => Promise<ReviewActed<PullRequestFilePatch>>;
+  readReviewFile: (
+    manifestId: string,
+    number: number,
+    path: string,
+  ) => Promise<ReviewActed<PullRequestFilePatch>>;
   /** Every file of it as a patch, in the forge's order, from one read. */
-  readReviewPatches: (manifestId: string, number: number) => Promise<ReviewActed<PullRequestFilePatches>>;
+  readReviewPatches: (
+    manifestId: string,
+    number: number,
+  ) => Promise<ReviewActed<PullRequestFilePatches>>;
   /** A review: the verdict, its summary and its line comments, posted as one. Answers the page read again. */
-  writeReview: (manifestId: string, write: WritePullRequest) => Promise<ReviewActed<PullRequestPage>>;
+  writeReview: (
+    manifestId: string,
+    write: WritePullRequest,
+  ) => Promise<ReviewActed<PullRequestPage>>;
   /** Resolves or opens again one conversation on the diff. */
-  resolveReviewThread: (manifestId: string, resolve: ResolvePullThread) => Promise<ReviewActed<PullThreadResolved>>;
+  resolveReviewThread: (
+    manifestId: string,
+    resolve: ResolvePullThread,
+  ) => Promise<ReviewActed<PullThreadResolved>>;
   /** The review tools and explanations a repository has, resolved Kit's over the repository's, which is over Armada's, and the files left out. */
   listReviewTools: (manifestId: string) => Promise<ReviewActed<ReviewTools>>;
   /** Writes one tool or explanation in Kit's folder or the repository's own. Answers the tools read again. */

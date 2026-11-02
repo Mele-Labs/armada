@@ -7,7 +7,10 @@ const meta: Meta<typeof TeachPanel> = {
   title: "Compositions/Teach panel",
   component: TeachPanel,
   args: {
-    source: { kind: "notice", text: "Branch is 3 commits behind main" },
+    source: {
+      kind: "notice",
+      text: "Branch is 3 commits behind main",
+    },
     say: "Rebase quietly, and tell me only when it conflicts",
     onSay: fn(),
     keep: "story:teach-panel",
@@ -22,7 +25,13 @@ const meta: Meta<typeof TeachPanel> = {
   },
   decorators: [
     (Story) => (
-      <div style={{ padding: "var(--space-6)", background: "var(--surface-canvas)", maxWidth: "var(--w-dialog-wide)" }}>
+      <div
+        style={{
+          padding: "var(--space-6)",
+          background: "var(--surface-canvas)",
+          maxWidth: "var(--w-dialog-wide)",
+        }}
+      >
         <Story />
       </div>
     ),
@@ -35,31 +44,57 @@ type Story = StoryObj<typeof TeachPanel>;
 export const Writing: Story = {
   play: async ({ canvasElement, args }) => {
     const panel = within(canvasElement);
-    await expect(panel.getByRole("region", { name: "Notice" })).toBeVisible();
-    await userEvent.click(panel.getByRole("button", { name: /Teach/ }));
+    await expect(
+      panel.getByRole("region", {
+        name: "Notice",
+      }),
+    ).toBeVisible();
+    await userEvent.click(
+      panel.getByRole("button", {
+        name: /Teach/,
+      }),
+    );
     await expect(args.onTeach).toHaveBeenCalledTimes(1);
   },
 };
 
 /** Nothing said, so there is nothing to teach. */
 export const NothingSaid: Story = {
-  args: { say: "" },
+  args: {
+    say: "",
+  },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole("button", { name: /Teach/ })).toBeDisabled();
+    await expect(
+      within(canvasElement).getByRole("button", {
+        name: /Teach/,
+      }),
+    ).toBeDisabled();
   },
 };
 
 export const EveryRepository: Story = {
-  args: { reach: "all" },
+  args: {
+    reach: "all",
+  },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole("button", { name: "Every repository" })).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      within(canvasElement).getByRole("button", {
+        name: "Every repository",
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
   },
 };
 
 export const Reading: Story = {
-  args: { stage: "reading" },
+  args: {
+    stage: "reading",
+  },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole("status", { name: "Reading what you wrote" })).toBeVisible();
+    await expect(
+      within(canvasElement).getByRole("status", {
+        name: "Reading what you wrote",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -87,15 +122,31 @@ export const Shown: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const panel = within(canvasElement);
-    await expect(panel.getByRole("region", { name: "Agents" })).toBeVisible();
-    const bridge = panel.getByRole("region", { name: "Bridge" });
+    await expect(
+      panel.getByRole("region", {
+        name: "Agents",
+      }),
+    ).toBeVisible();
+    const bridge = panel.getByRole("region", {
+      name: "Bridge",
+    });
     await expect(within(bridge).getByText("Found in the origin remote")).toBeVisible();
-    const fleet = panel.getByRole("region", { name: "Fleet" });
+    const fleet = panel.getByRole("region", {
+      name: "Fleet",
+    });
     await expect(within(fleet).getByText("Matches")).toBeVisible();
     await expect(within(fleet).getByText("Quietly cannot be tested")).toBeVisible();
-    await userEvent.click(panel.getByRole("button", { name: "Change" }));
+    await userEvent.click(
+      panel.getByRole("button", {
+        name: "Change",
+      }),
+    );
     await expect(args.onChange).toHaveBeenCalledTimes(1);
-    await userEvent.click(panel.getByRole("button", { name: /Save/ }));
+    await userEvent.click(
+      panel.getByRole("button", {
+        name: /Save/,
+      }),
+    );
     await expect(args.onSave).toHaveBeenCalledTimes(1);
   },
 };
@@ -104,10 +155,18 @@ export const Shown: Story = {
 export const BridgeWithoutAnAddress: Story = {
   args: {
     stage: "shown",
-    reading: { bridge: { name: "Issue numbers", pattern: "#\\d+", example: "#2822" } },
+    reading: {
+      bridge: {
+        name: "Issue numbers",
+        pattern: "#\\d+",
+        example: "#2822",
+      },
+    },
   },
   play: async ({ canvasElement }) => {
-    const bridge = within(canvasElement).getByRole("region", { name: "Bridge" });
+    const bridge = within(canvasElement).getByRole("region", {
+      name: "Bridge",
+    });
     await expect(within(bridge).queryByText("#2822")).toBeNull();
   },
 };
@@ -116,10 +175,18 @@ export const BridgeWithoutAnAddress: Story = {
 export const FleetEveryNotice: Story = {
   args: {
     stage: "shown",
-    reading: { fleet: { notice: "Branch is behind main", does: "Rebases the branch when it is idle", scope: "armada" } },
+    reading: {
+      fleet: {
+        notice: "Branch is behind main",
+        does: "Rebases the branch when it is idle",
+        scope: "armada",
+      },
+    },
   },
   play: async ({ canvasElement }) => {
-    const fleet = within(canvasElement).getByRole("region", { name: "Fleet" });
+    const fleet = within(canvasElement).getByRole("region", {
+      name: "Fleet",
+    });
     await expect(within(fleet).queryByText("Matches")).toBeNull();
   },
 };
@@ -127,7 +194,10 @@ export const FleetEveryNotice: Story = {
 /** Teach on Bridge itself: a shared colour, laid over whichever theme is chosen. No reach, and no note for agents. */
 export const ThemeTweak: Story = {
   args: {
-    source: { kind: "panel", text: "Cockpit" },
+    source: {
+      kind: "panel",
+      text: "Cockpit",
+    },
     say: "The accent is too quiet",
     stage: "shown",
     reading: {
@@ -136,27 +206,53 @@ export const ThemeTweak: Story = {
         token: "--accent",
         was: "var(--accent-muted)",
         now: "var(--accent-hover)",
-        places: ["Job row", "Tab strip", "Primary button"],
+        places: [
+          "Job row",
+          "Tab strip",
+          "Primary button",
+        ],
       },
     },
   },
   play: async ({ canvasElement }) => {
     const panel = within(canvasElement);
-    await expect(panel.getByRole("region", { name: "Theme tweak" })).toBeVisible();
-    await expect(panel.getByRole("list", { name: "Also drawn in" })).toBeVisible();
-    await expect(panel.queryByRole("button", { name: "Every repository" })).toBeNull();
+    await expect(
+      panel.getByRole("region", {
+        name: "Theme tweak",
+      }),
+    ).toBeVisible();
+    await expect(
+      panel.getByRole("list", {
+        name: "Also drawn in",
+      }),
+    ).toBeVisible();
+    await expect(
+      panel.queryByRole("button", {
+        name: "Every repository",
+      }),
+    ).toBeNull();
   },
 };
 
 export const LayoutChange: Story = {
   args: {
-    source: { kind: "row", text: "Hold on failed checks" },
+    source: {
+      kind: "row",
+      text: "Hold on failed checks",
+    },
     say: "Hide the branch column",
     stage: "shown",
-    reading: { layout: { hides: "Branch column", where: "Jobs list" } },
+    reading: {
+      layout: {
+        hides: "Branch column",
+        where: "Jobs list",
+      },
+    },
   },
   play: async ({ canvasElement }) => {
-    const layout = within(canvasElement).getByRole("region", { name: "Layout" });
+    const layout = within(canvasElement).getByRole("region", {
+      name: "Layout",
+    });
     await expect(within(layout).getByText("Branch column")).toBeVisible();
   },
 };
@@ -164,7 +260,10 @@ export const LayoutChange: Story = {
 /** A lifecycle rule read from a pull request: When, If and Do change in place, and what Fleet cannot test is one line under it. */
 export const Rule: Story = {
   args: {
-    source: { kind: "pull_request", text: "#2712 Pin the clock" },
+    source: {
+      kind: "pull_request",
+      text: "#2712 Pin the clock",
+    },
     say: "When this is approved, move its tickets to Done",
     stage: "shown",
     reading: {
@@ -172,16 +271,69 @@ export const Rule: Story = {
         rule: {
           id: "move_its_tickets_to_done",
           name: "Move its tickets to Done",
-          scope: { kind: "within", id: "armada" },
-          when: { kind: "enters", lifecycle: "pull_request", state: "approved" },
+          scope: {
+            kind: "within",
+            id: "armada",
+          },
+          when: {
+            kind: "enters",
+            lifecycle: "pull_request",
+            state: "approved",
+          },
           conditions: [],
-          does: [{ what: { act: "tracker_move", to: "done", target: { among: { kind: "linked_from", lifecycle: "ticket" } } }, kind: "tracker_write", autonomy: "asks" }],
+          does: [
+            {
+              what: {
+                act: "tracker_move",
+                to: "done",
+                target: {
+                  among: {
+                    kind: "linked_from",
+                    lifecycle: "ticket",
+                  },
+                },
+              },
+              kind: "tracker_write",
+              autonomy: "asks",
+            },
+          ],
           autonomy: "asks",
-          on_failure: { retries: 2, then: "ask_owner" },
+          on_failure: {
+            retries: 2,
+            then: "ask_owner",
+          },
         },
         lifecycles: [
-          { id: "ticket", name: "Ticket", kind: "tracker", states: [{ id: "todo", label: "To do" }, { id: "done", label: "Done" }] },
-          { id: "pull_request", name: "Pull request", kind: "forge", states: [{ id: "ready", label: "Ready" }, { id: "approved", label: "Approved" }] },
+          {
+            id: "ticket",
+            name: "Ticket",
+            kind: "tracker",
+            states: [
+              {
+                id: "todo",
+                label: "To do",
+              },
+              {
+                id: "done",
+                label: "Done",
+              },
+            ],
+          },
+          {
+            id: "pull_request",
+            name: "Pull request",
+            kind: "forge",
+            states: [
+              {
+                id: "ready",
+                label: "Ready",
+              },
+              {
+                id: "approved",
+                label: "Approved",
+              },
+            ],
+          },
         ],
         steps: [],
         workflows: [],
@@ -190,9 +342,15 @@ export const Rule: Story = {
     },
   },
   play: async ({ canvasElement, args }) => {
-    const rule = within(canvasElement).getByRole("region", { name: "Rule" });
+    const rule = within(canvasElement).getByRole("region", {
+      name: "Rule",
+    });
     await expect(within(rule).getByText("Fleet cannot test: the build is green")).toBeVisible();
-    await userEvent.click(within(rule).getByText("Acts", { exact: true }));
+    await userEvent.click(
+      within(rule).getByText("Acts", {
+        exact: true,
+      }),
+    );
     await expect(args.onRule).toHaveBeenCalledTimes(1);
   },
 };

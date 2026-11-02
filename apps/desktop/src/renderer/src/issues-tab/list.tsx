@@ -6,15 +6,52 @@
 
 import { useEffect, useState } from "react";
 import { LoaderCircle, Pencil, Puzzle, X } from "lucide-react";
-import { Button, DropdownMenu, Input, Kbd, ListCard, ListCardChip, ListCardMark, ListCardPending, ListCardTime, PrMark, SearchField, Skeleton, Textarea, Tooltip, forgetKept, sendsOn, useKept } from "@armada/components";
+import {
+  Button,
+  DropdownMenu,
+  Input,
+  Kbd,
+  ListCard,
+  ListCardChip,
+  ListCardMark,
+  ListCardPending,
+  ListCardTime,
+  PrMark,
+  SearchField,
+  Skeleton,
+  Textarea,
+  Tooltip,
+  forgetKept,
+  sendsOn,
+  useKept,
+} from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import { jobIdOf } from "@armada/shell";
 
 import { useSessions } from "../sessions-draft";
-import { askedOf, bandsIn, issueHoldings, readable, savedNames, type Asked, type Band } from "./bands";
+import {
+  askedOf,
+  bandsIn,
+  issueHoldings,
+  readable,
+  savedNames,
+  type Asked,
+  type Band,
+} from "./bands";
 import { ISSUES_KEYS, capOf } from "./key-table";
-import { ClosedMark, FixedMark, JobMark, KeptMark, LinkedPullRequestMark, UnreadMark, jobTitle, loudestHolder, toneOfHolders, useHolders } from "./marks";
+import {
+  ClosedMark,
+  FixedMark,
+  JobMark,
+  KeptMark,
+  LinkedPullRequestMark,
+  UnreadMark,
+  jobTitle,
+  loudestHolder,
+  toneOfHolders,
+  useHolders,
+} from "./marks";
 import { ASSIGNED, CLOSED, DESCRIBE, OPEN, savedChoice, savedName } from "./model";
 import type { ReadTracker, ReportedBug, Ticket } from "./model";
 import { jobOfReport, reportsShown } from "./reports";
@@ -22,9 +59,18 @@ import { issueFieldOf, issueViewEntries, useIssueView } from "./row-view";
 import { useIssues, useIssuesStore } from "./store";
 
 const BUILT_INS = [
-  { id: OPEN, label: "Open" },
-  { id: ASSIGNED, label: "Assigned to me" },
-  { id: CLOSED, label: "Closed" },
+  {
+    id: OPEN,
+    label: "Open",
+  },
+  {
+    id: ASSIGNED,
+    label: "Assigned to me",
+  },
+  {
+    id: CLOSED,
+    label: "Closed",
+  },
 ];
 
 const DESCRIBE_KEEP = "issues:describe";
@@ -34,24 +80,59 @@ const SEARCH_KEEP = "issues:search";
 const matches = (ticket: Ticket, words: string): boolean => {
   const wanted = words.trim().toLowerCase();
   if (wanted === "") return true;
-  const labels = ticket.fields.filter((one) => /^labels?$/i.test(one.name)).flatMap((one) => one.values);
-  return [ticket.title, ticket.reference, ...labels].some((one) => one.toLowerCase().includes(wanted));
+  const labels = ticket.fields
+    .filter((one) => /^labels?$/i.test(one.name))
+    .flatMap((one) => one.values);
+  return [
+    ticket.title,
+    ticket.reference,
+    ...labels,
+  ].some((one) => one.toLowerCase().includes(wanted));
 };
 
 /** The query chosen for a scope, kept across leaving the tab: a repository's Manifest id, or All. */
-export function useChoice(picked: RepositorySummary | null): [string, (next: string) => void] {
-  const [kept, choose] = useKept<string>(`issues:query:${picked === null ? "all" : (jobIdOf(picked) ?? picked.root)}`, OPEN);
-  return [kept, choose];
+export function useChoice(picked: RepositorySummary | null): [
+  string,
+  (next: string) => void,
+] {
+  const [kept, choose] = useKept<string>(
+    `issues:query:${picked === null ? "all" : (jobIdOf(picked) ?? picked.root)}`,
+    OPEN,
+  );
+  return [
+    kept,
+    choose,
+  ];
 }
 
-export function IssuesList({ picked, repositories, onTeach }: { picked: RepositorySummary | null; repositories: readonly RepositorySummary[]; onTeach: (band: Band) => void }) {
+export function IssuesList({
+  picked,
+  repositories,
+  onTeach,
+}: {
+  picked: RepositorySummary | null;
+  repositories: readonly RepositorySummary[];
+  onTeach: (band: Band) => void;
+}) {
   const store = useIssuesStore()!;
   const snap = useIssues();
   const [kept, choose] = useChoice(picked);
   const [narrow, setNarrow] = useKept<string>(SEARCH_KEEP, "");
-  const scope = (picked === null ? repositories : [picked]).flatMap((one) => jobIdOf(one) ?? []);
+  const scope = (
+    picked === null
+      ? repositories
+      : [
+          picked,
+        ]
+  ).flatMap((one) => jobIdOf(one) ?? []);
   const scopeKey = scope.join("\n");
-  useEffect(() => store.readTrackers(scope), [store, scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(
+    () => store.readTrackers(scope),
+    [
+      store,
+      scopeKey,
+    ],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bands = bandsIn(picked, repositories, snap.trackers ?? []);
   // Until the trackers have answered or been refused, the list is the shape of what is coming. Trackers read with nothing in them are not this.
@@ -61,40 +142,108 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
   const choice = savedName(kept) !== undefined && !names.includes(savedName(kept)!) ? OPEN : kept;
   const describing = snap.describing;
   const boxed = describing?.phase === "box";
-  const asked = bands.map((band) => ({ band, asked: readable(band) ? askedOf(band, choice, describing) : undefined }));
+  const asked = bands.map((band) => ({
+    band,
+    asked: readable(band) ? askedOf(band, choice, describing) : undefined,
+  }));
 
   // Each query runs when a list first needs it. Nothing reads it again until it changes.
-  const runs = asked.flatMap(({ band, asked: one }) => (one?.state === "query" ? [[band.manifestId, one.query] as const] : []));
+  const runs = asked.flatMap(({ band, asked: one }) =>
+    one?.state === "query"
+      ? [
+          [
+            band.manifestId,
+            one.query,
+          ] as const,
+        ]
+      : [],
+  );
   const runsKey = runs.map((one) => one.join("\n")).join("\n\n");
   useEffect(() => {
     for (const [manifestId, query] of runs) store.run(manifestId, query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, runsKey]);
+  }, [
+    store,
+    runsKey,
+  ]);
 
   // A Job that takes or gives back an issue changes the card in place: the lists drawn are read again for that repository.
   const sessions = useSessions();
-  const holdingsKey = [...new Set(runs.map(([manifestId]) => manifestId))].map((id) => `${id}\n${issueHoldings(sessions, id)}`).join("\n\n");
+  const holdingsKey = [
+    ...new Set(runs.map(([manifestId]) => manifestId)),
+  ]
+    .map((id) => `${id}\n${issueHoldings(sessions, id)}`)
+    .join("\n\n");
   useEffect(() => {
     for (const manifestId of new Set(runs.map(([id]) => id))) {
-      store.refreshHolders(manifestId, runs.filter(([id]) => id === manifestId).map(([, query]) => query), issueHoldings(sessions, manifestId));
+      store.refreshHolders(
+        manifestId,
+        runs.filter(([id]) => id === manifestId).map(([, query]) => query),
+        issueHoldings(sessions, manifestId),
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, holdingsKey]);
+  }, [
+    store,
+    holdingsKey,
+  ]);
 
   const shown = reportsShown(picked, repositories);
   const only = picked === null ? undefined : bands[0];
   const here = boxed || describing?.phase === "written" ? DESCRIBE : choice;
   const entries: DropdownMenuEntry[] = [
-    ...BUILT_INS.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.label, selected: here === one.id })),
-    ...(names.length === 0 ? [] : [{ kind: "separator", id: "saved-rule" } as const, { kind: "label", id: "saved-label", label: "Saved" } as const]),
-    ...names.map((name): DropdownMenuEntry => ({ kind: "item", id: savedChoice(name), label: name, selected: here === savedChoice(name) })),
-    { kind: "separator", id: "describe-rule" },
-    { kind: "item", id: DESCRIBE, label: "Describe a query…", selected: here === DESCRIBE, shortcut: capOf(ISSUES_KEYS.describe) },
+    ...BUILT_INS.map(
+      (one): DropdownMenuEntry => ({
+        kind: "item",
+        id: one.id,
+        label: one.label,
+        selected: here === one.id,
+      }),
+    ),
+    ...(names.length === 0
+      ? []
+      : [
+          {
+            kind: "separator",
+            id: "saved-rule",
+          } as const,
+          {
+            kind: "label",
+            id: "saved-label",
+            label: "Saved",
+          } as const,
+        ]),
+    ...names.map(
+      (name): DropdownMenuEntry => ({
+        kind: "item",
+        id: savedChoice(name),
+        label: name,
+        selected: here === savedChoice(name),
+      }),
+    ),
+    {
+      kind: "separator",
+      id: "describe-rule",
+    },
+    {
+      kind: "item",
+      id: DESCRIBE,
+      label: "Describe a query…",
+      selected: here === DESCRIBE,
+      shortcut: capOf(ISSUES_KEYS.describe),
+    },
   ];
   // A right press on the list, or the menu key on a row, opens the View menu (`row-view.ts`) where it was pressed.
-  const [menu, setMenu] = useState<{ x: number; y: number; row: HTMLElement | null }>();
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    row: HTMLElement | null;
+  }>();
   const [view, toggleField] = useIssueView();
-  const triggerLabel = here === DESCRIBE ? "Describe a query" : (BUILT_INS.find((one) => one.id === choice)?.label ?? savedName(choice) ?? "");
+  const triggerLabel =
+    here === DESCRIBE
+      ? "Describe a query"
+      : (BUILT_INS.find((one) => one.id === choice)?.label ?? savedName(choice) ?? "");
 
   return (
     <section
@@ -105,7 +254,11 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
         const target = event.target as Element;
         if (target.closest("input, textarea, [role='menu']") !== null) return;
         event.preventDefault();
-        setMenu({ x: event.clientX, y: event.clientY, row: target.closest<HTMLElement>(".issues-row") });
+        setMenu({
+          x: event.clientX,
+          y: event.clientY,
+          row: target.closest<HTMLElement>(".issues-row"),
+        });
       }}
       onKeyDown={(event) => {
         if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
@@ -113,7 +266,11 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
         if (row === null) return;
         event.preventDefault();
         const box = row.getBoundingClientRect();
-        setMenu({ x: box.left + box.width / 2, y: box.bottom, row });
+        setMenu({
+          x: box.left + box.width / 2,
+          y: box.bottom,
+          row,
+        });
       }}
     >
       {only !== undefined && only.tracker.state === "refused" ? (
@@ -121,7 +278,12 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
       ) : (
         <>
           <div className="issues-list__search">
-            <SearchField label="Search the issues" value={narrow} onValue={setNarrow} cap={ISSUES_KEYS.search} />
+            <SearchField
+              label="Search the issues"
+              value={narrow}
+              onValue={setNarrow}
+              cap={ISSUES_KEYS.search}
+            />
           </div>
           <div className="deck-scope issues-list__pick">
             <DropdownMenu
@@ -137,7 +299,11 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
                 choose(id);
               }}
             />
-            {only !== undefined && only.tracker.state === "read" && only.tracker.mod !== undefined ? <ModMark mod={only.tracker.mod} /> : null}
+            {only !== undefined &&
+            only.tracker.state === "read" &&
+            only.tracker.mod !== undefined ? (
+              <ModMark mod={only.tracker.mod} />
+            ) : null}
             <Tooltip label="Open the queries" shortcut={capOf(ISSUES_KEYS.queries)}>
               <Kbd>{capOf(ISSUES_KEYS.queries)}</Kbd>
             </Tooltip>
@@ -151,11 +317,19 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
                   {snap.failed}
                 </p>
               )}
-              {describing?.phase === "written" ? <SaveWritten key={describing.words} words={describing.words} onSaved={(name) => choose(savedChoice(name))} /> : null}
+              {describing?.phase === "written" ? (
+                <SaveWritten
+                  key={describing.words}
+                  words={describing.words}
+                  onSaved={(name) => choose(savedChoice(name))}
+                />
+              ) : null}
               {only !== undefined ? (
                 <>
                   {shown ? <Reported narrow={narrow} choice={choice} alone /> : null}
-                  {asked[0]?.asked === undefined ? null : <QueryHead band={only} asked={asked[0].asked} />}
+                  {asked[0]?.asked === undefined ? null : (
+                    <QueryHead band={only} asked={asked[0].asked} />
+                  )}
                   <Rows band={only} asked={asked[0]?.asked} narrow={narrow} />
                 </>
               ) : (
@@ -167,7 +341,9 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
                       <li key={band.manifestId} className="deck-list__band" aria-label={band.label}>
                         <h3 className="issues-list__repository">
                           {band.label}
-                          {band.tracker.state === "read" && band.tracker.mod !== undefined ? <ModMark mod={band.tracker.mod} /> : null}
+                          {band.tracker.state === "read" && band.tracker.mod !== undefined ? (
+                            <ModMark mod={band.tracker.mod} />
+                          ) : null}
                         </h3>
                         {band.tracker.state === "refused" ? (
                           <Refused band={band} onTeach={onTeach} />
@@ -189,7 +365,10 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
       {menu === undefined ? null : (
         <DropdownMenu
           triggerLabel="Issues"
-          at={{ x: menu.x, y: menu.y }}
+          at={{
+            x: menu.x,
+            y: menu.y,
+          }}
           open
           entries={issueViewEntries(view)}
           onOpenChange={(open) => {
@@ -201,7 +380,9 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
             const field = issueFieldOf(chosen);
             if (field === undefined) return;
             toggleField(field);
-            setMenu({ ...menu });
+            setMenu({
+              ...menu,
+            });
           }}
         />
       )}
@@ -212,22 +393,48 @@ export function IssuesList({ picked, repositories, onTeach }: { picked: Reposito
 /** Whether a report answers the words in the bar: its title or the Job it came from. */
 const reportMatches = (report: ReportedBug, words: string): boolean => {
   const wanted = words.trim().toLowerCase();
-  return wanted === "" || [report.title, report.job_title].some((one) => one.toLowerCase().includes(wanted));
+  return (
+    wanted === "" ||
+    [
+      report.title,
+      report.job_title,
+    ].some((one) => one.toLowerCase().includes(wanted))
+  );
 };
 
 /** The bugs agents reported in Armada, in a band over the repositories' issues. A fixed report is under Closed and nowhere else. With no report, nothing is drawn. */
-function Reported({ narrow, choice, alone = false }: { narrow: string; choice: string; alone?: boolean }) {
+function Reported({
+  narrow,
+  choice,
+  alone = false,
+}: {
+  narrow: string;
+  choice: string;
+  alone?: boolean;
+}) {
   const store = useIssuesStore()!;
   const snap = useIssues();
-  useEffect(() => store.readReports(), [store]);
-  const reports = snap.reports.filter((one) => (one.fixed !== undefined) === (choice === CLOSED) && reportMatches(one, narrow));
+  useEffect(
+    () => store.readReports(),
+    [
+      store,
+    ],
+  );
+  const reports = snap.reports.filter(
+    (one) => (one.fixed !== undefined) === (choice === CLOSED) && reportMatches(one, narrow),
+  );
   if (reports.length === 0) return null;
   const band = (
     <li className="deck-list__band" aria-label="Reported bugs">
       <h3 className="issues-list__repository">Reported bugs</h3>
       <ul className="deck-list__group">
         {reports.map((report) => (
-          <ReportRow key={report.id} report={report} unread={!report.kept && !snap.seen.includes(report.id)} open={snap.openReport === report.id} />
+          <ReportRow
+            key={report.id}
+            report={report}
+            unread={!report.kept && !snap.seen.includes(report.id)}
+            open={snap.openReport === report.id}
+          />
         ))}
       </ul>
     </li>
@@ -235,7 +442,15 @@ function Reported({ narrow, choice, alone = false }: { narrow: string; choice: s
   return alone ? <ul className="deck-list__rows issues-list__rows">{band}</ul> : band;
 }
 
-function ReportRow({ report, unread, open }: { report: ReportedBug; unread: boolean; open: boolean }) {
+function ReportRow({
+  report,
+  unread,
+  open,
+}: {
+  report: ReportedBug;
+  unread: boolean;
+  open: boolean;
+}) {
   const store = useIssuesStore()!;
   const job = jobOfReport(useSessions(), report.id);
   return (
@@ -250,9 +465,15 @@ function ReportRow({ report, unread, open }: { report: ReportedBug; unread: bool
         wrap
         marks={
           <>
-            <ListCardMark>{report.fixed === undefined ? null : <FixedMark pullRequest={report.fixed.pull_request} />}</ListCardMark>
+            <ListCardMark>
+              {report.fixed === undefined ? null : (
+                <FixedMark pullRequest={report.fixed.pull_request} />
+              )}
+            </ListCardMark>
             <ListCardMark>{job === undefined ? null : <JobMark session={job} />}</ListCardMark>
-            <ListCardMark>{report.kept ? <KeptMark /> : unread ? <UnreadMark /> : null}</ListCardMark>
+            <ListCardMark>
+              {report.kept ? <KeptMark /> : unread ? <UnreadMark /> : null}
+            </ListCardMark>
           </>
         }
         tag={<span className="issues-row__from">{report.job_title}</span>}
@@ -280,7 +501,12 @@ function Refused({ band, onTeach }: { band: Band; onTeach: (band: Band) => void 
   return (
     <div className="issues-refused">
       <p className="issues-refused__said">{band.tracker.said}</p>
-      <Button variant="secondary" size="sm" className="issues-refused__teach" onClick={() => onTeach(band)}>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="issues-refused__teach"
+        onClick={() => onTeach(band)}
+      >
         Teach Armada this tracker
       </Button>
     </div>
@@ -298,11 +524,17 @@ function QueryHead({ band, asked }: { band: Band; asked: Asked }) {
       </div>
     );
   }
-  if (asked.state === "failed") return <p className="issues-list__said" role="alert">{asked.said}</p>;
+  if (asked.state === "failed")
+    return (
+      <p className="issues-list__said" role="alert">
+        {asked.said}
+      </p>
+    );
   // A built-in's text is the tracker's and never changes, so it is not drawn.
   if (asked.saved === undefined && asked.written === undefined) return null;
   const saved = asked.saved;
-  if (saved !== undefined && editing?.manifestId === band.manifestId && editing.id === saved.id) return <EditQuery band={band} saved={saved} />;
+  if (saved !== undefined && editing?.manifestId === band.manifestId && editing.id === saved.id)
+    return <EditQuery band={band} saved={saved} />;
   return (
     <div className="issues-query">
       <code className="issues-query__text mono" aria-label="Query">
@@ -319,12 +551,24 @@ function QueryHead({ band, asked }: { band: Band; asked: Asked }) {
         {saved === undefined ? null : (
           <span className="issues-query__acts">
             <Tooltip label="Edit the query">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Edit the query" onClick={() => store.edit(band.manifestId, saved.id)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label="Edit the query"
+                onClick={() => store.edit(band.manifestId, saved.id)}
+              >
                 <Pencil size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
             <Tooltip label="Remove this query">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Remove this query" onClick={() => store.remove(band.manifestId, saved.id)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label="Remove this query"
+                onClick={() => store.remove(band.manifestId, saved.id)}
+              >
                 <X size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
@@ -343,7 +587,10 @@ function EditQuery({ band, saved }: { band: Band; saved: ReadTracker["saved"][nu
   const save = () => {
     if (text.trim() === "") return;
     forgetKept(keep);
-    store.saveEdited(band.manifestId, { ...saved, query: text.trim() });
+    store.saveEdited(band.manifestId, {
+      ...saved,
+      query: text.trim(),
+    });
   };
   return (
     <form
@@ -363,14 +610,22 @@ function EditQuery({ band, saved }: { band: Band; saved: ReadTracker["saved"][nu
         value={text}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
-          if ((sendsOn(event) || (event.key === "Enter" && !event.shiftKey)) && !event.nativeEvent.isComposing) {
+          if (
+            (sendsOn(event) || (event.key === "Enter" && !event.shiftKey)) &&
+            !event.nativeEvent.isComposing
+          ) {
             event.preventDefault();
             save();
           }
         }}
       />
       <span className="issues-query__acts">
-        <Button variant="ghost" size="sm" type="button" onClick={() => (forgetKept(keep), store.edit(undefined))}>
+        <Button
+          variant="ghost"
+          size="sm"
+          type="button"
+          onClick={() => (forgetKept(keep), store.edit(undefined))}
+        >
           Cancel
         </Button>
         <Button variant="secondary" size="sm" type="submit" disabled={text.trim() === ""}>
@@ -412,14 +667,22 @@ function DescribeBox({ manifestIds }: { manifestIds: readonly string[] }) {
         value={words}
         onChange={(event) => setWords(event.target.value)}
         onKeyDown={(event) => {
-          if ((sendsOn(event) || (event.key === "Enter" && !event.shiftKey)) && !event.nativeEvent.isComposing) {
+          if (
+            (sendsOn(event) || (event.key === "Enter" && !event.shiftKey)) &&
+            !event.nativeEvent.isComposing
+          ) {
             event.preventDefault();
             send();
           }
         }}
       />
       <Tooltip label="A model writes the query once, on send" asChild>
-        <Button variant="secondary" size="sm" type="submit" disabled={words.trim() === "" || manifestIds.length === 0}>
+        <Button
+          variant="secondary"
+          size="sm"
+          type="submit"
+          disabled={words.trim() === "" || manifestIds.length === 0}
+        >
           Send
         </Button>
       </Tooltip>
@@ -432,7 +695,9 @@ function SaveWritten({ words, onSaved }: { words: string; onSaved: (name: string
   const store = useIssuesStore()!;
   const { describing } = useIssues();
   const [name, setName] = useState(words);
-  const ready = describing?.phase === "written" && Object.values(describing.written).some((one) => one.state === "read");
+  const ready =
+    describing?.phase === "written" &&
+    Object.values(describing.written).some((one) => one.state === "read");
   const save = () => {
     const kept = name.trim();
     if (kept === "" || !ready) return;
@@ -452,7 +717,14 @@ function SaveWritten({ words, onSaved }: { words: string; onSaved: (name: string
         Save
       </Button>
       <Tooltip label="Discard">
-        <Button variant="ghost" size="sm" iconOnly type="button" aria-label="Discard" onClick={() => store.stopDescribing()}>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          type="button"
+          aria-label="Discard"
+          onClick={() => store.stopDescribing()}
+        >
           <X size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
@@ -460,7 +732,17 @@ function SaveWritten({ words, onSaved }: { words: string; onSaved: (name: string
   );
 }
 
-function Rows({ band, asked, narrow, nested = false }: { band: Band; asked: Asked | undefined; narrow: string; nested?: boolean }) {
+function Rows({
+  band,
+  asked,
+  narrow,
+  nested = false,
+}: {
+  band: Band;
+  asked: Asked | undefined;
+  narrow: string;
+  nested?: boolean;
+}) {
   const store = useIssuesStore()!;
   const snap = useIssues();
   if (band.tracker.state !== "read" || asked?.state !== "query") return null;
@@ -475,13 +757,33 @@ function Rows({ band, asked, narrow, nested = false }: { band: Band; asked: Aske
   }
   if (run?.state === "failed") {
     const tool = run.missing ?? run.needsSetup;
-    return tool === undefined ? <p className="issues-list__said" role="alert">{run.said}</p> : <MissingTool manifestId={band.manifestId} query={asked.query} said={run.said} tool={tool} setup={run.missing === undefined} />;
+    return tool === undefined ? (
+      <p className="issues-list__said" role="alert">
+        {run.said}
+      </p>
+    ) : (
+      <MissingTool
+        manifestId={band.manifestId}
+        query={asked.query}
+        said={run.said}
+        tool={tool}
+        setup={run.missing === undefined}
+      />
+    );
   }
   const tickets = run?.state === "read" ? run.tickets.filter((one) => matches(one, narrow)) : [];
   return (
     <ul className={nested ? "deck-list__group" : "deck-list__rows issues-list__rows"}>
       {tickets.map((ticket) => (
-        <Row key={ticket.reference} band={band} ticket={ticket} fields={asked.fields} open={snap.open?.manifestId === band.manifestId && snap.open.reference === ticket.reference} />
+        <Row
+          key={ticket.reference}
+          band={band}
+          ticket={ticket}
+          fields={asked.fields}
+          open={
+            snap.open?.manifestId === band.manifestId && snap.open.reference === ticket.reference
+          }
+        />
       ))}
     </ul>
   );
@@ -491,11 +793,16 @@ function Rows({ band, asked, narrow, nested = false }: { band: Band; asked: Aske
 function PendingRows({ count }: { count: number }) {
   return (
     <>
-      {Array.from({ length: count }, (_, at) => (
-        <li key={at} className="deck-list__item">
-          <ListCardPending width={`${72 - ((at * 11) % 24)}%`} />
-        </li>
-      ))}
+      {Array.from(
+        {
+          length: count,
+        },
+        (_, at) => (
+          <li key={at} className="deck-list__item">
+            <ListCardPending width={`${72 - ((at * 11) % 24)}%`} />
+          </li>
+        ),
+      )}
     </>
   );
 }
@@ -505,16 +812,21 @@ function PendingBands({ bands }: { bands: number }) {
   if (bands === 0) return <PendingRows count={4} />;
   return (
     <>
-      {Array.from({ length: bands }, (_, at) => (
-        <li key={at} className="deck-list__band" aria-hidden>
-          <h3 className="issues-list__repository" data-pending>
-            <Skeleton width="30%" />
-          </h3>
-          <ul className="deck-list__group">
-            <PendingRows count={3} />
-          </ul>
-        </li>
-      ))}
+      {Array.from(
+        {
+          length: bands,
+        },
+        (_, at) => (
+          <li key={at} className="deck-list__band" aria-hidden>
+            <h3 className="issues-list__repository" data-pending>
+              <Skeleton width="30%" />
+            </h3>
+            <ul className="deck-list__group">
+              <PendingRows count={3} />
+            </ul>
+          </li>
+        ),
+      )}
     </>
   );
 }
@@ -523,27 +835,72 @@ function PendingBands({ bands }: { bands: number }) {
 const called = (tool: string) => (tool === "bd" ? "beads" : tool);
 
 /** A search that could not run for want of a program, or of its project (`setup`). Nothing installs or sets up until the button is pressed; a failure keeps its words and offers no second press. */
-export function MissingTool({ manifestId, query, said, tool, setup = false }: { manifestId: string; query: string; said: string; tool: string; setup?: boolean }) {
+export function MissingTool({
+  manifestId,
+  query,
+  said,
+  tool,
+  setup = false,
+}: {
+  manifestId: string;
+  query: string;
+  said: string;
+  tool: string;
+  setup?: boolean;
+}) {
   const store = useIssuesStore()!;
   useIssues();
   const install = store.installOf(manifestId, tool);
-  if (install?.state === "failed") return <p className="issues-list__said" role="alert">{install.said}</p>;
+  if (install?.state === "failed")
+    return (
+      <p className="issues-list__said" role="alert">
+        {install.said}
+      </p>
+    );
   const installing = install?.state === "installing";
   return (
     <div className="issues-list__missing">
-      <p className="issues-list__said" role="alert">{said}</p>
-      <Button variant="secondary" size="sm" pending={installing} onClick={() => store.install(manifestId, tool, query)}>
-        {setup ? (installing ? `Setting up ${called(tool)}` : `Set up ${called(tool)}`) : installing ? `Installing ${tool}` : `Install ${tool}`}
+      <p className="issues-list__said" role="alert">
+        {said}
+      </p>
+      <Button
+        variant="secondary"
+        size="sm"
+        pending={installing}
+        onClick={() => store.install(manifestId, tool, query)}
+      >
+        {setup
+          ? installing
+            ? `Setting up ${called(tool)}`
+            : `Set up ${called(tool)}`
+          : installing
+            ? `Installing ${tool}`
+            : `Install ${tool}`}
       </Button>
     </div>
   );
 }
 
-function Row({ band, ticket, fields, open }: { band: Band; ticket: Ticket; fields: readonly string[]; open: boolean }) {
+function Row({
+  band,
+  ticket,
+  fields,
+  open,
+}: {
+  band: Band;
+  ticket: Ticket;
+  fields: readonly string[];
+  open: boolean;
+}) {
   const store = useIssuesStore()!;
   const [view] = useIssueView();
   const holders = useHolders(ticket.holders);
-  const values = fields.flatMap((name) => (ticket.fields.find((one) => one.name === name)?.values ?? []).map((value) => ({ name, value })));
+  const values = fields.flatMap((name) =>
+    (ticket.fields.find((one) => one.name === name)?.values ?? []).map((value) => ({
+      name,
+      value,
+    })),
+  );
   const tone = toneOfHolders(holders);
   const lines = [
     !view.job || holders.length === 0 ? null : (
@@ -579,13 +936,29 @@ function Row({ band, ticket, fields, open }: { band: Band; ticket: Ticket; field
         wrap
         marks={
           <>
-            <ListCardMark>{ticket.linked_pull_request ? <LinkedPullRequestMark /> : null}</ListCardMark>
-            <ListCardMark>{!view.state ? null : ticket.state === "closed" ? <ClosedMark /> : loudestHolder(holders) === undefined ? null : <JobMark session={loudestHolder(holders)!} />}</ListCardMark>
+            <ListCardMark>
+              {ticket.linked_pull_request ? <LinkedPullRequestMark /> : null}
+            </ListCardMark>
+            <ListCardMark>
+              {!view.state ? null : ticket.state === "closed" ? (
+                <ClosedMark />
+              ) : loudestHolder(holders) === undefined ? null : (
+                <JobMark session={loudestHolder(holders)!} />
+              )}
+            </ListCardMark>
           </>
         }
-        {...(view.number ? { tag: <ListCardChip>{ticket.reference}</ListCardChip> } : {})}
+        {...(view.number
+          ? {
+              tag: <ListCardChip>{ticket.reference}</ListCardChip>,
+            }
+          : {})}
         at={<ListCardTime at={ticket.updated_at} said="Last updated" />}
-        {...(lines.length === 0 ? {} : { lines })}
+        {...(lines.length === 0
+          ? {}
+          : {
+              lines,
+            })}
       />
     </li>
   );

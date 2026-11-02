@@ -12,7 +12,9 @@ export function SubagentsAtWork({ rows }: { rows: readonly SubagentAtWork[] }) {
         <li key={one.id} className="sv-subagents__row">
           <TaskMark state="working" />
           <span className="sv-subagents__task">{one.task}</span>
-          {one.agentType === undefined ? null : <code className="sv-subagents__type">{one.agentType}</code>}
+          {one.agentType === undefined ? null : (
+            <code className="sv-subagents__type">{one.agentType}</code>
+          )}
         </li>
       ))}
     </ul>

@@ -12,10 +12,19 @@ import type { HeldRow, HoldsReleased, Session } from "@armada/screens/src/draft/
 
 import { heldKey, releaseKeyOf, type Held } from "./session-tiles";
 
-const GLYPH: Record<Held["kind"], LucideIcon> = { slot: KeyRound, branch: GitBranch, pr: GitPullRequest };
-const SAID: Record<Held["kind"], string> = { slot: "Slot", branch: "Branch", pr: "Pull request" };
+const GLYPH: Record<Held["kind"], LucideIcon> = {
+  slot: KeyRound,
+  branch: GitBranch,
+  pr: GitPullRequest,
+};
+const SAID: Record<Held["kind"], string> = {
+  slot: "Slot",
+  branch: "Branch",
+  pr: "Pull request",
+};
 
-const kindOf = (kind: string): Held["kind"] | undefined => (Object.hasOwn(GLYPH, kind) ? (kind as Held["kind"]) : undefined);
+const kindOf = (kind: string): Held["kind"] | undefined =>
+  Object.hasOwn(GLYPH, kind) ? (kind as Held["kind"]) : undefined;
 
 function Mark({ kind, said }: { kind: Held["kind"]; said: string }) {
   const Glyph = GLYPH[kind];
@@ -100,7 +109,10 @@ export function ReleaseHoldsDialog({
       <ul className="deck-holds" aria-label={`What ${name} holds`}>
         {held.map((one) => (
           <li key={keyOf(one)} className="deck-holds__row">
-            <Checkbox checked={ticked.has(keyOf(one))} onChange={(event) => tick(keyOf(one), event.target.checked)}>
+            <Checkbox
+              checked={ticked.has(keyOf(one))}
+              onChange={(event) => tick(keyOf(one), event.target.checked)}
+            >
               <Mark kind={one.kind} said={one.said} />
               <span className="deck-holds__text">{one.name}</span>
             </Checkbox>
@@ -111,7 +123,8 @@ export function ReleaseHoldsDialog({
         {target === undefined
           ? "Each slot ticked has its uncommitted files committed to its branch, then is freed. No branch or file is deleted."
           : `Each slot ticked moves to ${target.title ?? target.address ?? target.id} as it stands, uncommitted files included.`}{" "}
-        A slot takes the branch it has checked out with it, and a running turn is stopped where a slot is ticked.
+        A slot takes the branch it has checked out with it, and a running turn is stopped where a
+        slot is ticked.
       </p>
     </Dialog>
   );
@@ -121,7 +134,15 @@ export function ReleaseHoldsDialog({
  * Release on one ledger row: the one thing named, given back with no target. The owner, 16 Oct 2026: "I should also be able to
  * release items from the ledger panel one by one." `send` resolves to whether Fleet took it.
  */
-export function ReleaseRowDialog({ held, send, onCancel }: { held: Held; send: (row: Held) => Promise<boolean>; onCancel: () => void }) {
+export function ReleaseRowDialog({
+  held,
+  send,
+  onCancel,
+}: {
+  held: Held;
+  send: (row: Held) => Promise<boolean>;
+  onCancel: () => void;
+}) {
   const [sending, setSending] = useState(false);
   const confirm = async () => {
     if (sending) return;
@@ -131,7 +152,15 @@ export function ReleaseRowDialog({ held, send, onCancel }: { held: Held; send: (
     if (!done) onCancel();
   };
   return (
-    <Dialog open tone="destructive" title={`Release ${held.name}`} confirmLabel="Release" confirmDisabled={sending} onConfirm={() => void confirm()} onCancel={onCancel}>
+    <Dialog
+      open
+      tone="destructive"
+      title={`Release ${held.name}`}
+      confirmLabel="Release"
+      confirmDisabled={sending}
+      onConfirm={() => void confirm()}
+      onCancel={onCancel}
+    >
       <ul className="deck-holds" aria-label="What is released">
         <Row kind={held.kind} said={held.said}>
           {held.name}
@@ -163,14 +192,35 @@ export function HoldsReleasedBox({
 }) {
   const moved = released.moved.flatMap((row) => {
     const kind = kindOf(row.kind);
-    return kind === undefined ? [] : [{ row, kind }];
+    return kind === undefined
+      ? []
+      : [
+          {
+            row,
+            kind,
+          },
+        ];
   });
   const kept = [
     ...released.kept.flatMap((row) => {
       const kind = kindOf(row.kind);
-      return kind === undefined ? [] : [{ row, kind }];
+      return kind === undefined
+        ? []
+        : [
+            {
+              row,
+              kind,
+            },
+          ];
     }),
-    ...unticked.map((one) => ({ row: { kind: one.kind, target: one.target, why: "Not ticked" }, kind: one.kind })),
+    ...unticked.map((one) => ({
+      row: {
+        kind: one.kind,
+        target: one.target,
+        why: "Not ticked",
+      },
+      kind: one.kind,
+    })),
   ];
   const where = to === undefined ? "Released" : `Handed to ${to.title ?? to.address ?? to.id}`;
   return (

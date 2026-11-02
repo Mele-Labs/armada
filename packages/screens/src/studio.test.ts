@@ -30,18 +30,103 @@ const STUDIO: Studio = {
   created_at: AT,
   touched_at: AT,
   nodes: [
-    { id: "n1", kind: "note", said: "The legend is unreadable", position: { x: 0, y: 0 }, created_at: AT },
-    { id: "n2", kind: "finding", asked: "Where do its colours come from?", state: "gathering", position: { x: 300, y: 0 }, created_at: AT },
-    { id: "n4", kind: "run", run_id: "r1", position: { x: 0, y: 300 }, created_at: AT },
-    { id: "n5", kind: "outline", body: "\nLegend, then width\nand more", position: { x: 300, y: 300 }, created_at: AT },
-    { id: "n6", kind: "link", address: LONG_ADDRESS, said: "the owner's own report", position: { x: 600, y: 300 }, created_at: AT },
-    { id: "n7", kind: "link", address: LONG_ADDRESS, position: { x: 900, y: 300 }, created_at: AT },
+    {
+      id: "n1",
+      kind: "note",
+      said: "The legend is unreadable",
+      position: {
+        x: 0,
+        y: 0,
+      },
+      created_at: AT,
+    },
+    {
+      id: "n2",
+      kind: "finding",
+      asked: "Where do its colours come from?",
+      state: "gathering",
+      position: {
+        x: 300,
+        y: 0,
+      },
+      created_at: AT,
+    },
+    {
+      id: "n4",
+      kind: "run",
+      run_id: "r1",
+      position: {
+        x: 0,
+        y: 300,
+      },
+      created_at: AT,
+    },
+    {
+      id: "n5",
+      kind: "outline",
+      body: "\nLegend, then width\nand more",
+      position: {
+        x: 300,
+        y: 300,
+      },
+      created_at: AT,
+    },
+    {
+      id: "n6",
+      kind: "link",
+      address: LONG_ADDRESS,
+      said: "the owner's own report",
+      position: {
+        x: 600,
+        y: 300,
+      },
+      created_at: AT,
+    },
+    {
+      id: "n7",
+      kind: "link",
+      address: LONG_ADDRESS,
+      position: {
+        x: 900,
+        y: 300,
+      },
+      created_at: AT,
+    },
   ],
   edges: [
-    { id: "e1", from: "n1", to: "n2", kind: "produced", standing: "accepted", created_at: AT },
-    { id: "e2", from: "n2", to: "n5", kind: "answers", standing: "proposed", created_at: AT, added_by: "helm" },
-    { id: "e3", from: "n1", to: "n5", kind: "blocks", standing: "accepted", created_at: AT },
-    { id: "e4", from: "n1", to: "n4", kind: "a_kind_from_a_newer_fleet", standing: "proposed", created_at: AT },
+    {
+      id: "e1",
+      from: "n1",
+      to: "n2",
+      kind: "produced",
+      standing: "accepted",
+      created_at: AT,
+    },
+    {
+      id: "e2",
+      from: "n2",
+      to: "n5",
+      kind: "answers",
+      standing: "proposed",
+      created_at: AT,
+      added_by: "helm",
+    },
+    {
+      id: "e3",
+      from: "n1",
+      to: "n5",
+      kind: "blocks",
+      standing: "accepted",
+      created_at: AT,
+    },
+    {
+      id: "e4",
+      from: "n1",
+      to: "n4",
+      kind: "a_kind_from_a_newer_fleet",
+      standing: "proposed",
+      created_at: AT,
+    },
   ],
 };
 
@@ -52,7 +137,9 @@ const KEPT: StudioRunKept = {
   expect_exit_code: 0,
   stopped: false,
   duration_ms: 8400,
-  lines: ["Found 1 error."],
+  lines: [
+    "Found 1 error.",
+  ],
   total_lines: 96,
   whole: false,
 };
@@ -60,19 +147,38 @@ const KEPT: StudioRunKept = {
 /** A Studio holding one Run node, kept as given. */
 const ran = (kept: StudioRunKept): Studio => ({
   ...STUDIO,
-  nodes: [{ id: "n4", kind: "run", run_id: "r1", kept, position: { x: 0, y: 0 }, created_at: AT }],
+  nodes: [
+    {
+      id: "n4",
+      kind: "run",
+      run_id: "r1",
+      kept,
+      position: {
+        x: 0,
+        y: 0,
+      },
+      created_at: AT,
+    },
+  ],
   edges: [],
 });
 
 test("an untitled Studio is called one, and a named one by its name", () => {
   expect(studioName({})).toBe(UNTITLED_STUDIO);
-  expect(studioName({ name: "The legend" })).toBe("The legend");
+  expect(
+    studioName({
+      name: "The legend",
+    }),
+  ).toBe("The legend");
 });
 
 test("a node draws where a person left it, titled from what it holds", () => {
   const nodes = whiteboardNodes(STUDIO);
   expect(nodes.map((one) => one.position)).toEqual(STUDIO.nodes.map((one) => one.position));
-  expect(nodes[0]!.node).toEqual({ kind: "note", title: "The legend is unreadable" });
+  expect(nodes[0]!.node).toEqual({
+    kind: "note",
+    title: "The legend is unreadable",
+  });
   // A scout asked about the code was handed no source, so the card says nothing about one.
   expect(nodes[1]!.node).toEqual({
     kind: "finding",
@@ -80,45 +186,110 @@ test("a node draws where a person left it, titled from what it holds", () => {
     title: "Where do its colours come from?",
     facts: [],
   });
-  expect(nodes[3]!.node).toMatchObject({ kind: "outline", state: "draft", title: "Legend, then width" });
+  expect(nodes[3]!.node).toMatchObject({
+    kind: "outline",
+    state: "draft",
+    title: "Legend, then width",
+  });
 });
 
 test("a Link is titled by the person's line, and by its address where nobody wrote one", () => {
   const nodes = whiteboardNodes(STUDIO);
-  expect(nodes[4]!.node).toEqual({ kind: "link", address: LONG_ADDRESS, title: "the owner's own report" });
+  expect(nodes[4]!.node).toEqual({
+    kind: "link",
+    address: LONG_ADDRESS,
+    title: "the owner's own report",
+  });
   // A Link never stops being its address: with no line, the address is the
   // title, and the card says it once rather than twice — #1378.
-  expect(nodes[5]!.node).toEqual({ kind: "link", address: LONG_ADDRESS, title: LONG_ADDRESS });
+  expect(nodes[5]!.node).toEqual({
+    kind: "link",
+    address: LONG_ADDRESS,
+    title: LONG_ADDRESS,
+  });
   expect(nodeNamed(STUDIO, "n6")).toBe("Link the owner's own report");
 });
 
 test("a Run the Studio has not kept says so, and keeps its id as a fact rather than a title", () => {
-  expect(whiteboardNodes(STUDIO)[2]!.node).toEqual({ kind: "run", title: "Not read yet", facts: ["r1"] });
+  expect(whiteboardNodes(STUDIO)[2]!.node).toEqual({
+    kind: "run",
+    title: "Not read yet",
+    facts: [
+      "r1",
+    ],
+  });
 });
 
 test("a kept Run reads as the run sheet reads it: the name, the command, the exit and how long", () => {
-  const kept = { ...KEPT, exit_code: 1, duration_ms: 12300 };
+  const kept = {
+    ...KEPT,
+    exit_code: 1,
+    duration_ms: 12300,
+  };
   expect(whiteboardNodes(ran(kept))[0]!.node).toEqual({
     kind: "run",
     state: "failed",
     title: "typecheck",
-    facts: ["pnpm typecheck", "exit 1 (expects 0)", "12.3s"],
+    facts: [
+      "pnpm typecheck",
+      "exit 1 (expects 0)",
+      "12.3s",
+    ],
   });
-  expect(whiteboardNodes(ran({ ...KEPT, exit_code: 0 }))[0]!.node).toMatchObject({ state: "passed" });
+  expect(
+    whiteboardNodes(
+      ran({
+        ...KEPT,
+        exit_code: 0,
+      }),
+    )[0]!.node,
+  ).toMatchObject({
+    state: "passed",
+  });
   // Killed before it exited: no exit line, and the state is what says it stopped.
-  expect(whiteboardNodes(ran({ ...KEPT, stopped: true }))[0]!.node).toEqual({
+  expect(
+    whiteboardNodes(
+      ran({
+        ...KEPT,
+        stopped: true,
+      }),
+    )[0]!.node,
+  ).toEqual({
     kind: "run",
     state: "stopped",
     title: "typecheck",
-    facts: ["pnpm typecheck", "8.4s"],
+    facts: [
+      "pnpm typecheck",
+      "8.4s",
+    ],
   });
 });
 
 /** A Studio holding one Run node that holds a server — #1345. */
-const holding = (over: Partial<Extract<StudioNode, { kind: "run" }>> = {}): Studio => ({
+const holding = (
+  over: Partial<
+    Extract<
+      StudioNode,
+      {
+        kind: "run";
+      }
+    >
+  > = {},
+): Studio => ({
   ...STUDIO,
   nodes: [
-    { id: "n4", kind: "run", run_id: "sv1", held: "server", position: { x: 0, y: 0 }, created_at: AT, ...over },
+    {
+      id: "n4",
+      kind: "run",
+      run_id: "sv1",
+      held: "server",
+      position: {
+        x: 0,
+        y: 0,
+      },
+      created_at: AT,
+      ...over,
+    },
   ],
   edges: [],
 });
@@ -127,11 +298,25 @@ const holding = (over: Partial<Extract<StudioNode, { kind: "run" }>> = {}): Stud
 const SERVING: ServerState = {
   id: "sv1",
   name: "storybook_dev",
-  checkout: { path: "/repos/armada", commit: "cf4bcaea", behind: 0 },
+  checkout: {
+    path: "/repos/armada",
+    commit: "cf4bcaea",
+    behind: 0,
+  },
   phase: "serving",
   serve: "pnpm storybook dev -p 41207",
-  ports: [{ name: "storybook", port: 41207 }],
-  links: [{ url: "http://localhost:41207", name: "Storybook" }],
+  ports: [
+    {
+      name: "storybook",
+      port: 41207,
+    },
+  ],
+  links: [
+    {
+      url: "http://localhost:41207",
+      name: "Storybook",
+    },
+  ],
   started_by: "person",
   started_at: "2026-09-17T09:59:00Z",
   serving_since: "2026-09-17T09:59:12Z",
@@ -142,58 +327,166 @@ const SERVING: ServerState = {
 const NOW = Date.parse("2026-09-17T10:04:12Z");
 
 test("a server node reads off the live holder: starting, then serving with how long it has been up", () => {
-  const starting = { ...SERVING, phase: "starting", serving_since: undefined };
-  expect(whiteboardNodes(holding(), undefined, { servers: [starting], now: NOW })[0]!.node).toEqual({
+  const starting = {
+    ...SERVING,
+    phase: "starting",
+    serving_since: undefined,
+  };
+  expect(
+    whiteboardNodes(holding(), undefined, {
+      servers: [
+        starting,
+      ],
+      now: NOW,
+    })[0]!.node,
+  ).toEqual({
     kind: "run",
     state: "starting",
     title: "storybook_dev",
-    facts: ["pnpm storybook dev -p 41207"],
+    facts: [
+      "pnpm storybook dev -p 41207",
+    ],
   });
-  expect(whiteboardNodes(holding(), undefined, { servers: [SERVING], now: NOW })[0]!.node).toEqual({
+  expect(
+    whiteboardNodes(holding(), undefined, {
+      servers: [
+        SERVING,
+      ],
+      now: NOW,
+    })[0]!.node,
+  ).toEqual({
     kind: "run",
     state: "serving",
     title: "storybook_dev",
-    facts: ["up 5m 00s", "localhost:41207"],
+    facts: [
+      "up 5m 00s",
+      "localhost:41207",
+    ],
   });
 });
 
 test("a server nobody is holding and that kept nothing says so rather than drawing its id", () => {
-  expect(whiteboardNodes(holding(), undefined, { servers: [], now: NOW })[0]!.node).toEqual({
+  expect(
+    whiteboardNodes(holding(), undefined, {
+      servers: [],
+      now: NOW,
+    })[0]!.node,
+  ).toEqual({
     kind: "run",
     title: "Not read yet",
-    facts: ["sv1"],
+    facts: [
+      "sv1",
+    ],
   });
 });
 
 test("a server that exited reads off what its node kept, as a failure with its code and never passed", () => {
-  const kept = { ...KEPT, name: "storybook_dev", command: SERVING.serve, exit_code: 0, duration_ms: 252000 };
-  const node = holding({ kept });
+  const kept = {
+    ...KEPT,
+    name: "storybook_dev",
+    command: SERVING.serve,
+    exit_code: 0,
+    duration_ms: 252000,
+  };
+  const node = holding({
+    kept,
+  });
   // **Exit zero and still failed.** Staying up is the whole of what a server is
   // for, so `expect_exit_code` decides nothing here — `stopped` does.
-  expect(whiteboardNodes(node, undefined, { servers: [], now: NOW })[0]!.node).toEqual({
+  expect(
+    whiteboardNodes(node, undefined, {
+      servers: [],
+      now: NOW,
+    })[0]!.node,
+  ).toEqual({
     kind: "run",
     state: "failed",
     title: "storybook_dev",
-    facts: [SERVING.serve, "exit 0", "up 252.0s"],
+    facts: [
+      SERVING.serve,
+      "exit 0",
+      "up 252.0s",
+    ],
   });
   expect(
-    whiteboardNodes(holding({ kept: { ...kept, stopped: true } }), undefined, { servers: [], now: NOW })[0]!.node,
-  ).toMatchObject({ state: "stopped" });
+    whiteboardNodes(
+      holding({
+        kept: {
+          ...kept,
+          stopped: true,
+        },
+      }),
+      undefined,
+      {
+        servers: [],
+        now: NOW,
+      },
+    )[0]!.node,
+  ).toMatchObject({
+    state: "stopped",
+  });
 });
 
 test("what a node kept wins over an instance that has exited, so a restart does not change what it says", () => {
-  const kept = { ...KEPT, name: "storybook_dev", command: SERVING.serve, exit_code: 7, duration_ms: 1000 };
-  const exited = { ...SERVING, phase: "exited", exit_code: 7, stopped: false };
+  const kept = {
+    ...KEPT,
+    name: "storybook_dev",
+    command: SERVING.serve,
+    exit_code: 7,
+    duration_ms: 1000,
+  };
+  const exited = {
+    ...SERVING,
+    phase: "exited",
+    exit_code: 7,
+    stopped: false,
+  };
   expect(
-    whiteboardNodes(holding({ kept }), undefined, { servers: [exited], now: NOW })[0]!.node,
-  ).toMatchObject({ state: "failed", facts: [SERVING.serve, "exit 7", "up 1.0s"] });
+    whiteboardNodes(
+      holding({
+        kept,
+      }),
+      undefined,
+      {
+        servers: [
+          exited,
+        ],
+        now: NOW,
+      },
+    )[0]!.node,
+  ).toMatchObject({
+    state: "failed",
+    facts: [
+      SERVING.serve,
+      "exit 7",
+      "up 1.0s",
+    ],
+  });
 });
 
 test("edges keep their standing, and a kind this build does not know is left off", () => {
   expect(whiteboardEdges(STUDIO)).toEqual([
-    { id: "e1", source: "n1", target: "n2", kind: "produced" },
-    { id: "e2", source: "n2", target: "n5", kind: "answers", proposed: true, proposer: "Helm proposes" },
-    { id: "e3", source: "n1", target: "n5", kind: "blocks", proposed: false },
+    {
+      id: "e1",
+      source: "n1",
+      target: "n2",
+      kind: "produced",
+    },
+    {
+      id: "e2",
+      source: "n2",
+      target: "n5",
+      kind: "answers",
+      proposed: true,
+      proposer: "Helm proposes",
+    },
+    {
+      id: "e3",
+      source: "n1",
+      target: "n5",
+      kind: "blocks",
+      proposed: false,
+    },
   ]);
   expect(nodeNamed(STUDIO, "gone")).toBe("gone");
 });
@@ -206,21 +499,74 @@ test("edges keep their standing, and a kind this build does not know is left off
 test("a relation the record cannot attribute is proposed and names nobody", () => {
   const kept: Studio = {
     ...STUDIO,
-    edges: [{ id: "old", from: "n2", to: "n5", kind: "answers", standing: "proposed", created_at: AT }],
+    edges: [
+      {
+        id: "old",
+        from: "n2",
+        to: "n5",
+        kind: "answers",
+        standing: "proposed",
+        created_at: AT,
+      },
+    ],
   };
-  expect(whiteboardEdges(kept)).toEqual([{ id: "old", source: "n2", target: "n5", kind: "answers", proposed: true }]);
+  expect(whiteboardEdges(kept)).toEqual([
+    {
+      id: "old",
+      source: "n2",
+      target: "n5",
+      kind: "answers",
+      proposed: true,
+    },
+  ]);
 });
 
 test("a Studio Fleet wrote replaces its row, and the list stays last touched first", () => {
-  const older: StudioSummary = { id: "a", manifest_id: "armada", created_at: AT, touched_at: "2026-09-16T09:00:00Z" };
-  const newer: StudioSummary = { id: "b", manifest_id: "armada", created_at: AT, touched_at: "2026-09-17T09:00:00Z" };
-  const touched = { ...older, name: "Now named", touched_at: "2026-09-17T11:00:00Z" };
-  expect(foldStudio([newer, older], { ...touched, nodes: [], edges: [] } as StudioSummary).map((one) => one.id)).toEqual([
+  const older: StudioSummary = {
+    id: "a",
+    manifest_id: "armada",
+    created_at: AT,
+    touched_at: "2026-09-16T09:00:00Z",
+  };
+  const newer: StudioSummary = {
+    id: "b",
+    manifest_id: "armada",
+    created_at: AT,
+    touched_at: "2026-09-17T09:00:00Z",
+  };
+  const touched = {
+    ...older,
+    name: "Now named",
+    touched_at: "2026-09-17T11:00:00Z",
+  };
+  expect(
+    foldStudio(
+      [
+        newer,
+        older,
+      ],
+      {
+        ...touched,
+        nodes: [],
+        edges: [],
+      } as StudioSummary,
+    ).map((one) => one.id),
+  ).toEqual([
     "a",
     "b",
   ]);
-  expect(foldStudio([newer, older], touched)[0]).toEqual(touched);
-  expect(foldStudio([], newer)).toEqual([newer]);
+  expect(
+    foldStudio(
+      [
+        newer,
+        older,
+      ],
+      touched,
+    )[0],
+  ).toEqual(touched);
+  expect(foldStudio([], newer)).toEqual([
+    newer,
+  ]);
 });
 
 /** A Note that kept a picture, and one that did not. `#1352`. */
@@ -232,30 +578,72 @@ const noted = (id: string, kept: boolean): Studio["nodes"][number] => ({
     ? {
         capture: {
           selector: "button",
-          element: { tag: "button", text: "Queued 3" },
+          element: {
+            tag: "button",
+            text: "Queued 3",
+          },
           location: "/",
-          bounds: { x: 0, y: 0, width: 10, height: 10 },
-          window: { width: 1440, height: 900 },
+          bounds: {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+          },
+          window: {
+            width: 1440,
+            height: 900,
+          },
           markup: "<button/>",
-          frame: { filename: `${id}.png`, byte_size: 41_000, width: 1440, height: 900 },
+          frame: {
+            filename: `${id}.png`,
+            byte_size: 41_000,
+            width: 1440,
+            height: 900,
+          },
         },
       }
     : {}),
-  position: { x: 0, y: 0 },
+  position: {
+    x: 0,
+    y: 0,
+  },
   created_at: AT,
 });
 
 const many = (count: number): Studio => ({
   ...STUDIO,
-  nodes: Array.from({ length: count }, (_, at) => noted(`n${at}`, true)),
+  nodes: Array.from(
+    {
+      length: count,
+    },
+    (_, at) => noted(`n${at}`, true),
+  ),
   edges: [],
 });
 
 test("only a Note that kept a frame draws a plate, and the caller resolves what is on it", () => {
-  const studio: Studio = { ...STUDIO, nodes: [noted("with", true), noted("without", false)], edges: [] };
+  const studio: Studio = {
+    ...STUDIO,
+    nodes: [
+      noted("with", true),
+      noted("without", false),
+    ],
+    edges: [],
+  };
   const drawn = framesDrawn(studio, null);
-  const nodes = whiteboardNodes(studio, (nodeId) => (drawn.has(nodeId) ? { src: `blob:${nodeId}` } : {}));
-  expect(nodes[0]!.node).toMatchObject({ kind: "note", frame: { src: "blob:with" } });
+  const nodes = whiteboardNodes(studio, (nodeId) =>
+    drawn.has(nodeId)
+      ? {
+          src: `blob:${nodeId}`,
+        }
+      : {},
+  );
+  expect(nodes[0]!.node).toMatchObject({
+    kind: "note",
+    frame: {
+      src: "blob:with",
+    },
+  });
   // A Note that kept none carries no `frame` at all, which is what draws no box.
   expect(nodes[1]!.node).not.toHaveProperty("frame");
 });
@@ -274,22 +662,32 @@ test("a board past the bound draws the first frames, and the selected Note where
 });
 
 test("a Link read in is titled by what the source calls itself, with a person's own line first", () => {
-  const read = whiteboardNodes(
-    {
-      ...STUDIO,
-      nodes: [
-        { id: "a", kind: "link", address: "https://x/issues/1293", position: { x: 0, y: 0 }, created_at: AT },
-        {
-          id: "b",
-          kind: "link",
-          address: "https://x/issues/1291",
-          named: "#1291 Promotion — closed",
-          position: { x: 0, y: 200 },
-          created_at: AT,
+  const read = whiteboardNodes({
+    ...STUDIO,
+    nodes: [
+      {
+        id: "a",
+        kind: "link",
+        address: "https://x/issues/1293",
+        position: {
+          x: 0,
+          y: 0,
         },
-      ],
-    },
-  );
+        created_at: AT,
+      },
+      {
+        id: "b",
+        kind: "link",
+        address: "https://x/issues/1291",
+        named: "#1291 Promotion — closed",
+        position: {
+          x: 0,
+          y: 200,
+        },
+        created_at: AT,
+      },
+    ],
+  });
   // A Link nobody has read in is its address, because that is all it has.
   expect(read[0]!.node).toEqual({
     kind: "link",
@@ -305,53 +703,72 @@ test("a Link read in is titled by what the source calls itself, with a person's 
   });
   // **A person's own line wins over what a read-in learned**, because it is
   // theirs — #1378 beside #1293.
-  const both = whiteboardNodes(
-    {
-      ...STUDIO,
-      nodes: [
-        {
-          id: "c",
-          kind: "link",
-          address: "https://x/issues/1291",
-          said: "why I kept it",
-          named: "#1291 Promotion — closed",
-          position: { x: 0, y: 0 },
-          created_at: AT,
+  const both = whiteboardNodes({
+    ...STUDIO,
+    nodes: [
+      {
+        id: "c",
+        kind: "link",
+        address: "https://x/issues/1291",
+        said: "why I kept it",
+        named: "#1291 Promotion — closed",
+        position: {
+          x: 0,
+          y: 0,
         },
-      ],
-    },
-  );
-  expect(both[0]!.node).toMatchObject({ title: "why I kept it" });
+        created_at: AT,
+      },
+    ],
+  });
+  expect(both[0]!.node).toMatchObject({
+    title: "why I kept it",
+  });
 });
 
 test("a Finding says what it was handed beyond the checkout, and what was cut", () => {
-  const read = whiteboardNodes(
-    {
-      ...STUDIO,
-      nodes: [
-        {
-          id: "a",
-          kind: "finding",
-          asked: "Read in armada:thread",
-          sources: [
-            { address: "armada:thread", kind: "thread", cut: 0 },
-            { address: "https://x/page", kind: "page", cut: 12_400 },
-          ],
-          position: { x: 0, y: 0 },
-          created_at: AT,
+  const read = whiteboardNodes({
+    ...STUDIO,
+    nodes: [
+      {
+        id: "a",
+        kind: "finding",
+        asked: "Read in armada:thread",
+        sources: [
+          {
+            address: "armada:thread",
+            kind: "thread",
+            cut: 0,
+          },
+          {
+            address: "https://x/page",
+            kind: "page",
+            cut: 12_400,
+          },
+        ],
+        position: {
+          x: 0,
+          y: 0,
         },
-      ],
-    },
-  );
+        created_at: AT,
+      },
+    ],
+  });
   expect(read[0]!.node).toMatchObject({
-    facts: ["Read this repository's Helm thread", "Read a page, 12,400 characters cut"],
+    facts: [
+      "Read this repository's Helm thread",
+      "Read a page, 12,400 characters cut",
+    ],
   });
   // Ended, it holds no state, and never reads as one nobody started.
   expect(read[0]!.node).not.toHaveProperty("state");
 });
 
 test("an Epic says which of its issues it took, how many that left out and how many it kept", () => {
-  const epics = (read: StudioNode[]) => whiteboardNodes({ ...STUDIO, nodes: read });
+  const epics = (read: StudioNode[]) =>
+    whiteboardNodes({
+      ...STUDIO,
+      nodes: read,
+    });
   const epic = (id: string, read_in: EpicRead): StudioNode => ({
     id,
     kind: "epic",
@@ -359,23 +776,66 @@ test("an Epic says which of its issues it took, how many that left out and how m
     number: "17",
     title: "Studio",
     read_in,
-    position: { x: 0, y: 0 },
+    position: {
+      x: 0,
+      y: 0,
+    },
     created_at: AT,
   });
 
   // A whole milestone says how many it holds, rather than the same number twice.
-  expect(epics([epic("a", { issues: 30, total: 30, took: "everything", left_out: 0, kept: 0 })])[0]!.node).toMatchObject({
-    facts: ["#17", "30 issues", "Every issue"],
+  expect(
+    epics([
+      epic("a", {
+        issues: 30,
+        total: 30,
+        took: "everything",
+        left_out: 0,
+        kept: 0,
+      }),
+    ])[0]!.node,
+  ).toMatchObject({
+    facts: [
+      "#17",
+      "30 issues",
+      "Every issue",
+    ],
   });
   // Narrowed: which state it took, what that left out, and what it kept
   // because somebody had worked on it — #1405.
-  expect(epics([epic("b", { issues: 14, total: 30, took: "open", left_out: 16, kept: 2 })])[0]!.node).toMatchObject({
-    facts: ["#17", "14 of 30 issues", "Open issues only", "16 left out", "2 kept, worked on"],
+  expect(
+    epics([
+      epic("b", {
+        issues: 14,
+        total: 30,
+        took: "open",
+        left_out: 16,
+        kept: 2,
+      }),
+    ])[0]!.node,
+  ).toMatchObject({
+    facts: [
+      "#17",
+      "14 of 30 issues",
+      "Open issues only",
+      "16 left out",
+      "2 kept, worked on",
+    ],
   });
   // **An Epic read in before 14.20 says nothing about an answer nobody gave
   // it**, and still says how much of it is here.
-  expect(epics([epic("c", { issues: 12, total: 30 })])[0]!.node).toMatchObject({
-    facts: ["#17", "12 of 30 issues"],
+  expect(
+    epics([
+      epic("c", {
+        issues: 12,
+        total: 30,
+      }),
+    ])[0]!.node,
+  ).toMatchObject({
+    facts: [
+      "#17",
+      "12 of 30 issues",
+    ],
   });
 });
 
@@ -386,31 +846,144 @@ const ZONED: Studio = {
   created_at: AT,
   touched_at: AT,
   nodes: [
-    { id: "issue", kind: "issue", address: LONG_ADDRESS, number: "1657", position: { x: 0, y: 0 }, created_at: AT },
-    { id: "zone", kind: "zone", position: { x: 340, y: 0 }, created_at: AT },
-    { id: "finding", kind: "finding", asked: "Read in #1657", within: "zone", position: { x: 24, y: 48 }, created_at: AT },
-    { id: "cluster", kind: "cluster", title: "Risks to watch", within: "zone", position: { x: 364, y: 48 }, created_at: AT },
-    { id: "note", kind: "note", said: "Watch for a scope change", within: "cluster", position: { x: 24, y: 48 }, created_at: AT },
-    { id: "loose", kind: "note", said: "Somebody's own", position: { x: 0, y: 400 }, created_at: AT },
+    {
+      id: "issue",
+      kind: "issue",
+      address: LONG_ADDRESS,
+      number: "1657",
+      position: {
+        x: 0,
+        y: 0,
+      },
+      created_at: AT,
+    },
+    {
+      id: "zone",
+      kind: "zone",
+      position: {
+        x: 340,
+        y: 0,
+      },
+      created_at: AT,
+    },
+    {
+      id: "finding",
+      kind: "finding",
+      asked: "Read in #1657",
+      within: "zone",
+      position: {
+        x: 24,
+        y: 48,
+      },
+      created_at: AT,
+    },
+    {
+      id: "cluster",
+      kind: "cluster",
+      title: "Risks to watch",
+      within: "zone",
+      position: {
+        x: 364,
+        y: 48,
+      },
+      created_at: AT,
+    },
+    {
+      id: "note",
+      kind: "note",
+      said: "Watch for a scope change",
+      within: "cluster",
+      position: {
+        x: 24,
+        y: 48,
+      },
+      created_at: AT,
+    },
+    {
+      id: "loose",
+      kind: "note",
+      said: "Somebody's own",
+      position: {
+        x: 0,
+        y: 400,
+      },
+      created_at: AT,
+    },
   ],
   edges: [
-    { id: "to-zone", from: "issue", to: "zone", kind: "produced", standing: "accepted", created_at: AT },
-    { id: "to-finding", from: "issue", to: "finding", kind: "produced", standing: "accepted", created_at: AT },
-    { id: "to-cluster", from: "issue", to: "cluster", kind: "produced", standing: "accepted", created_at: AT },
-    { id: "to-note", from: "issue", to: "note", kind: "produced", standing: "accepted", created_at: AT },
-    { id: "member", from: "note", to: "cluster", kind: "produced", standing: "accepted", created_at: AT },
-    { id: "own", from: "issue", to: "loose", kind: "produced", standing: "accepted", created_at: AT },
-    { id: "relation", from: "loose", to: "note", kind: "blocks", standing: "accepted", created_at: AT },
+    {
+      id: "to-zone",
+      from: "issue",
+      to: "zone",
+      kind: "produced",
+      standing: "accepted",
+      created_at: AT,
+    },
+    {
+      id: "to-finding",
+      from: "issue",
+      to: "finding",
+      kind: "produced",
+      standing: "accepted",
+      created_at: AT,
+    },
+    {
+      id: "to-cluster",
+      from: "issue",
+      to: "cluster",
+      kind: "produced",
+      standing: "accepted",
+      created_at: AT,
+    },
+    {
+      id: "to-note",
+      from: "issue",
+      to: "note",
+      kind: "produced",
+      standing: "accepted",
+      created_at: AT,
+    },
+    {
+      id: "member",
+      from: "note",
+      to: "cluster",
+      kind: "produced",
+      standing: "accepted",
+      created_at: AT,
+    },
+    {
+      id: "own",
+      from: "issue",
+      to: "loose",
+      kind: "produced",
+      standing: "accepted",
+      created_at: AT,
+    },
+    {
+      id: "relation",
+      from: "loose",
+      to: "note",
+      kind: "blocks",
+      standing: "accepted",
+      created_at: AT,
+    },
   ],
 };
 
 test("a read-in draws one line to its Zone, and a Cluster's Notes draw none to it", () => {
-  expect(whiteboardEdges(ZONED).map((edge) => edge.id)).toEqual(["to-zone", "own", "relation"]);
+  expect(whiteboardEdges(ZONED).map((edge) => edge.id)).toEqual([
+    "to-zone",
+    "own",
+    "relation",
+  ]);
 });
 
 test("a node in a frame names it, and a Zone is drawn with no words", () => {
   const drawn = whiteboardNodes(ZONED);
   expect(drawn.find((node) => node.id === "note")?.within).toBe("cluster");
   expect(drawn.find((node) => node.id === "issue")?.within).toBeUndefined();
-  expect(drawn.find((node) => node.id === "zone")?.node).toEqual({ kind: "zone", title: "" });
+  expect(drawn.find((node) => node.id === "zone")?.node).toEqual({
+    kind: "zone",
+    title: "",
+  });
 });

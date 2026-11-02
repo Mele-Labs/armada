@@ -12,16 +12,43 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Pull requests" });
-const reader = (number: number) => page.getByRole("region", { name: `Pull request #${number}` });
-const yours = () => page.getByRole("region", { name: "Your review" });
-const tile = (name: string) => page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name, exact: true });
-const row = (number: number) => list().getByRole("button", { name: new RegExp(`^#${number} `) });
+const list = () =>
+  page.getByRole("region", {
+    name: "Pull requests",
+  });
+const reader = (number: number) =>
+  page.getByRole("region", {
+    name: `Pull request #${number}`,
+  });
+const yours = () =>
+  page.getByRole("region", {
+    name: "Your review",
+  });
+const tile = (name: string) =>
+  page
+    .getByRole("region", {
+      name: "Flight controls",
+    })
+    .getByRole("button", {
+      name,
+      exact: true,
+    });
+const row = (number: number) =>
+  list().getByRole("button", {
+    name: new RegExp(`^#${number} `),
+  });
 
 async function reviews() {
   const app = mount(s262PrReview);
   await onScreen();
-  await page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Reviews" }).click();
+  await page
+    .getByRole("navigation", {
+      name: "Places",
+    })
+    .getByRole("tab", {
+      name: "Reviews",
+    })
+    .click();
   await expect.element(list()).toBeVisible();
   return app;
 }
@@ -30,12 +57,26 @@ async function reviews() {
 async function open(number: number) {
   await row(number).click();
   await expect.element(reader(number)).toBeVisible();
-  await expect.element(page.getByRole("dialog", { name: `Pull request #${number}` })).not.toBeInTheDocument();
+  await expect
+    .element(
+      page.getByRole("dialog", {
+        name: `Pull request #${number}`,
+      }),
+    )
+    .not.toBeInTheDocument();
 }
 
 async function choose(name: string) {
-  await list().getByRole("button", { name: "List" }).click();
-  await page.getByRole("menuitem", { name }).click();
+  await list()
+    .getByRole("button", {
+      name: "List",
+    })
+    .click();
+  await page
+    .getByRole("menuitem", {
+      name,
+    })
+    .click();
 }
 
 test("the tab lists the four lists as the forge answered them", async () => {
@@ -50,7 +91,13 @@ test("the tab lists the four lists as the forge answered them", async () => {
   await expect.element(row(1907)).toBeVisible();
   // A pull request on two lists is on both, with the team that was asked named on the Team list's row.
   await expect.element(row(1899)).toBeVisible();
-  await expect.element(list().getByRole("note", { name: "@Mele-Labs/bridge" })).toBeVisible();
+  await expect
+    .element(
+      list().getByRole("note", {
+        name: "@Mele-Labs/bridge",
+      }),
+    )
+    .toBeVisible();
   await expect.element(row(212)).not.toBeInTheDocument();
 
   await choose("Assigned");
@@ -77,70 +124,227 @@ test("a review goes out as one call with its line comment placed, and then it is
   await expect.element(reader(1899)).toBeVisible();
   // The changes are in the explanation, which an agent reads once he has said it may run.
   await tile("How it works").click();
-  await page.getByRole("dialog", { name: "How it works" }).getByRole("button", { name: "Run" }).click();
-  await expect.element(reader(1899).getByRole("region", { name: "Theme: Fleet keeps the last read" })).toBeVisible();
-  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
-  const serve = reader(1899).getByRole("article", { name: "Change: Serve it while it is fresh" });
-  const form = reader(1899).getByRole("form", { name: "Comment" });
+  await page
+    .getByRole("dialog", {
+      name: "How it works",
+    })
+    .getByRole("button", {
+      name: "Run",
+    })
+    .click();
+  await expect
+    .element(
+      reader(1899).getByRole("region", {
+        name: "Theme: Fleet keeps the last read",
+      }),
+    )
+    .toBeVisible();
+  await reader(1899)
+    .getByRole("tab", {
+      name: "Review",
+      exact: true,
+    })
+    .click();
+  const serve = reader(1899).getByRole("article", {
+    name: "Change: Serve it while it is fresh",
+  });
+  const form = reader(1899).getByRole("form", {
+    name: "Comment",
+  });
   const addComment = async (words: string) => {
-    await reader(1899).getByRole("textbox", { name: "Comment" }).fill(words);
-    await form.getByRole("button", { name: "Add to review" }).click();
+    await reader(1899)
+      .getByRole("textbox", {
+        name: "Comment",
+      })
+      .fill(words);
+    await form
+      .getByRole("button", {
+        name: "Add to review",
+      })
+      .click();
   };
 
   // A line of the hunk, and then the change itself.
-  await serve.getByRole("button", { name: "Show diff" }).click();
-  await serve.getByRole("button", { name: /Comment on \+ let mut held = self\.held\.lock/ }).click();
+  await serve
+    .getByRole("button", {
+      name: "Show diff",
+    })
+    .click();
+  await serve
+    .getByRole("button", {
+      name: /Comment on \+ let mut held = self\.held\.lock/,
+    })
+    .click();
   await addComment("Take the lock after the call.");
-  await serve.getByRole("button", { name: "Comment on Serve it while it is fresh" }).click();
+  await serve
+    .getByRole("button", {
+      name: "Comment on Serve it while it is fresh",
+    })
+    .click();
   await addComment("This whole method wants a test.");
-  await expect.element(yours().getByRole("list", { name: "Pending comments" })).toBeVisible();
+  await expect
+    .element(
+      yours().getByRole("list", {
+        name: "Pending comments",
+      }),
+    )
+    .toBeVisible();
 
-  await yours().getByRole("textbox", { name: "Summary" }).fill("The lock goes after the call.");
-  await yours().getByRole("tab", { name: "Request changes" }).click();
-  await yours().getByRole("button", { name: "Submit review" }).click();
+  await yours()
+    .getByRole("textbox", {
+      name: "Summary",
+    })
+    .fill("The lock goes after the call.");
+  await yours()
+    .getByRole("tab", {
+      name: "Request changes",
+    })
+    .click();
+  await yours()
+    .getByRole("button", {
+      name: "Submit review",
+    })
+    .click();
 
-  await expect.element(yours().getByRole("list", { name: "Submitted reviews" })).toBeVisible();
-  await expect.element(yours().getByRole("list", { name: "Pending comments" })).not.toBeInTheDocument();
-  await expect.element(list().getByRole("img", { name: "Changes requested" })).toBeVisible();
+  await expect
+    .element(
+      yours().getByRole("list", {
+        name: "Submitted reviews",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      yours().getByRole("list", {
+        name: "Pending comments",
+      }),
+    )
+    .not.toBeInTheDocument();
+  await expect
+    .element(
+      list().getByRole("img", {
+        name: "Changes requested",
+      }),
+    )
+    .toBeVisible();
 
   expect(wrote).toHaveLength(1);
   const sent = wrote[0]!;
-  expect(sent).toMatchObject({ pull_request: 1899, kind: "request_changes", body: "The lock goes after the call." });
+  expect(sent).toMatchObject({
+    pull_request: 1899,
+    kind: "request_changes",
+    body: "The lock goes after the call.",
+  });
   expect(sent.commit).toBeTruthy();
   // A line is a place in a file, not an index into the drawn lines; the change's own comment is on its file.
   expect(sent.comments).toEqual([
-    { kind: "line", path: expect.stringContaining("/"), line: 31, side: "right", body: "Take the lock after the call." },
-    { kind: "file", path: expect.stringContaining("/"), body: "This whole method wants a test." },
+    {
+      kind: "line",
+      path: expect.stringContaining("/"),
+      line: 31,
+      side: "right",
+      body: "Take the lock after the call.",
+    },
+    {
+      kind: "file",
+      path: expect.stringContaining("/"),
+      body: "This whole method wants a test.",
+    },
   ]);
 });
 
 test("a review the forge refuses keeps the comment and the summary, and says why", async () => {
   const app = await reviews();
-  (app.api as typeof app.api & Pick<MockForge, "refuseNextWrite">).refuseNextWrite("Can not approve your own pull request");
+  (app.api as typeof app.api & Pick<MockForge, "refuseNextWrite">).refuseNextWrite(
+    "Can not approve your own pull request",
+  );
 
   await open(1899);
-  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
-  await yours().getByRole("textbox", { name: "Summary" }).fill("Looks right to me.");
-  await yours().getByRole("tab", { name: "Approve" }).click();
-  await yours().getByRole("button", { name: "Submit review" }).click();
+  await reader(1899)
+    .getByRole("tab", {
+      name: "Review",
+      exact: true,
+    })
+    .click();
+  await yours()
+    .getByRole("textbox", {
+      name: "Summary",
+    })
+    .fill("Looks right to me.");
+  await yours()
+    .getByRole("tab", {
+      name: "Approve",
+    })
+    .click();
+  await yours()
+    .getByRole("button", {
+      name: "Submit review",
+    })
+    .click();
 
-  await expect.element(yours().getByRole("alert")).toHaveTextContent("Can not approve your own pull request");
-  await expect.element(yours().getByRole("textbox", { name: "Summary" })).toHaveValue("Looks right to me.");
-  await expect.element(yours().getByRole("list", { name: "Submitted reviews" })).not.toBeInTheDocument();
+  await expect
+    .element(yours().getByRole("alert"))
+    .toHaveTextContent("Can not approve your own pull request");
+  await expect
+    .element(
+      yours().getByRole("textbox", {
+        name: "Summary",
+      }),
+    )
+    .toHaveValue("Looks right to me.");
+  await expect
+    .element(
+      yours().getByRole("list", {
+        name: "Submitted reviews",
+      }),
+    )
+    .not.toBeInTheDocument();
 
   // Pressed again, the forge takes it.
-  await yours().getByRole("button", { name: "Submit review" }).click();
-  await expect.element(yours().getByRole("list", { name: "Submitted reviews" })).toBeVisible();
+  await yours()
+    .getByRole("button", {
+      name: "Submit review",
+    })
+    .click();
+  await expect
+    .element(
+      yours().getByRole("list", {
+        name: "Submitted reviews",
+      }),
+    )
+    .toBeVisible();
   await expect.element(yours().getByRole("alert")).not.toBeInTheDocument();
 });
 
 test("a tool that found nothing draws its picture and says what it checked", async () => {
   await reviews();
   await open(212);
-  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Risks" }).click();
-  await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
-  const results = page.getByRole("region", { name: "Risks results" });
-  await expect.element(results.getByRole("img", { name: "Nothing found" })).toBeVisible();
+  await page
+    .getByRole("region", {
+      name: "Flight controls",
+    })
+    .getByRole("button", {
+      name: "Risks",
+    })
+    .click();
+  await page
+    .getByRole("dialog", {
+      name: "Risks",
+    })
+    .getByRole("button", {
+      name: "Run",
+    })
+    .click();
+  const results = page.getByRole("region", {
+    name: "Risks results",
+  });
+  await expect
+    .element(
+      results.getByRole("img", {
+        name: "Nothing found",
+      }),
+    )
+    .toBeVisible();
   await expect.element(results.getByText(/^No risks in \d+ changes?$/)).toBeVisible();
 });
 
@@ -148,27 +352,94 @@ test("a pull request one of his Sessions holds opens with what was kept for it, 
   await reviews();
   await choose("My PRs");
   await open(1896);
-  await expect.element(reader(1896).getByRole("button", { name: "Job: Fix the reconnect wait" })).toBeVisible();
-  const how = reader(1896).getByRole("region", { name: "How it works" });
-  await expect.element(how.getByRole("img", { name: /^Kept/ })).toBeVisible();
+  await expect
+    .element(
+      reader(1896).getByRole("button", {
+        name: "Job: Fix the reconnect wait",
+      }),
+    )
+    .toBeVisible();
+  const how = reader(1896).getByRole("region", {
+    name: "How it works",
+  });
+  await expect
+    .element(
+      how.getByRole("img", {
+        name: /^Kept/,
+      }),
+    )
+    .toBeVisible();
   await tile("Why").click();
-  await expect.element(reader(1896).getByRole("region", { name: "Why" }).getByRole("img", { name: /^Kept/ })).toBeVisible();
+  await expect
+    .element(
+      reader(1896)
+        .getByRole("region", {
+          name: "Why",
+        })
+        .getByRole("img", {
+          name: /^Kept/,
+        }),
+    )
+    .toBeVisible();
   await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
 });
 
 test("a run that fails shows Fleet's reason where the result would be, and Run again starts another", async () => {
   const app = await reviews();
-  (app.api as typeof app.api & Pick<MockForge, "failNextRun">).failNextRun("The answer was not valid JSON");
+  (app.api as typeof app.api & Pick<MockForge, "failNextRun">).failNextRun(
+    "The answer was not valid JSON",
+  );
   await open(212);
-  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Risks" }).click();
-  await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
-  const results = page.getByRole("region", { name: "Risks results" });
-  await expect.element(results.getByRole("alert")).toHaveTextContent("The answer was not valid JSON");
-  await expect.element(results.getByRole("img", { name: "Nothing found" })).not.toBeInTheDocument();
+  await page
+    .getByRole("region", {
+      name: "Flight controls",
+    })
+    .getByRole("button", {
+      name: "Risks",
+    })
+    .click();
+  await page
+    .getByRole("dialog", {
+      name: "Risks",
+    })
+    .getByRole("button", {
+      name: "Run",
+    })
+    .click();
+  const results = page.getByRole("region", {
+    name: "Risks results",
+  });
+  await expect
+    .element(results.getByRole("alert"))
+    .toHaveTextContent("The answer was not valid JSON");
+  await expect
+    .element(
+      results.getByRole("img", {
+        name: "Nothing found",
+      }),
+    )
+    .not.toBeInTheDocument();
 
-  await results.getByRole("button", { name: "Run again" }).click();
-  await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
-  await expect.element(results.getByRole("img", { name: "Nothing found" })).toBeVisible();
+  await results
+    .getByRole("button", {
+      name: "Run again",
+    })
+    .click();
+  await page
+    .getByRole("dialog", {
+      name: "Risks",
+    })
+    .getByRole("button", {
+      name: "Run",
+    })
+    .click();
+  await expect
+    .element(
+      results.getByRole("img", {
+        name: "Nothing found",
+      }),
+    )
+    .toBeVisible();
   await expect.element(results.getByRole("alert")).not.toBeInTheDocument();
 });
 
@@ -185,7 +456,11 @@ test("Esc in the list leaves the pull request open: only another row changes it"
 
 test("a pull request opened by its link has a row above whichever list is chosen", async () => {
   await reviews();
-  await list().getByRole("textbox", { name: "Pull request link" }).fill("https://forge.example/mele-labs/armada/pull/1905");
+  await list()
+    .getByRole("textbox", {
+      name: "Pull request link",
+    })
+    .fill("https://forge.example/mele-labs/armada/pull/1905");
   await userEvent.keyboard("{Enter}");
   await expect.element(reader(1905)).toBeVisible();
   await expect.element(row(1905)).toHaveAttribute("aria-current", "true");
@@ -198,26 +473,91 @@ test("a pull request opened by its link has a row above whichever list is chosen
 test("Review, a tab beside Commits, shows his review, with Comment, Approve and Request changes", async () => {
   await reviews();
   await open(1899);
-  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
-  await expect.element(yours().getByRole("tab", { name: "Approve" })).toBeVisible();
-  await expect.element(yours().getByRole("tab", { name: "Request changes" })).toBeVisible();
-  await expect.element(yours().getByRole("button", { name: "Submit review" })).toBeVisible();
+  await reader(1899)
+    .getByRole("tab", {
+      name: "Review",
+      exact: true,
+    })
+    .click();
+  await expect
+    .element(
+      yours().getByRole("tab", {
+        name: "Approve",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      yours().getByRole("tab", {
+        name: "Request changes",
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      yours().getByRole("button", {
+        name: "Submit review",
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a pending comment says the file, line and code it is on, and a press goes to it in the diff", async () => {
   await reviews();
   await open(1899);
-  await reader(1899).getByRole("tab", { name: "Review", exact: true }).click();
-  await reader(1899).getByRole("button", { name: /^Comment on \+ let mut held = self\.held\.lock/ }).click();
-  await reader(1899).getByRole("textbox", { name: "Comment" }).fill("Take the lock after the call.");
-  await reader(1899).getByRole("form", { name: "Comment" }).getByRole("button", { name: "Add to review" }).click();
-  await expect.element(reader(1899).getByRole("tab", { name: "Review · 1" })).toBeVisible();
+  await reader(1899)
+    .getByRole("tab", {
+      name: "Review",
+      exact: true,
+    })
+    .click();
+  await reader(1899)
+    .getByRole("button", {
+      name: /^Comment on \+ let mut held = self\.held\.lock/,
+    })
+    .click();
+  await reader(1899)
+    .getByRole("textbox", {
+      name: "Comment",
+    })
+    .fill("Take the lock after the call.");
+  await reader(1899)
+    .getByRole("form", {
+      name: "Comment",
+    })
+    .getByRole("button", {
+      name: "Add to review",
+    })
+    .click();
+  await expect
+    .element(
+      reader(1899).getByRole("tab", {
+        name: "Review · 1",
+      }),
+    )
+    .toBeVisible();
 
-  const pending = yours().getByRole("button", { name: /^Go to your comment on .+:31$/ });
+  const pending = yours().getByRole("button", {
+    name: /^Go to your comment on .+:31$/,
+  });
   await expect.element(pending).toHaveTextContent("let mut held = self.held.lock");
-  const card = reader(1899).getByRole("article", { name: "Pending comment" });
-  const change = reader(1899).getByRole("article", { name: /^Change: / }).filter({ has: page.getByRole("article", { name: "Pending comment" }) });
-  await change.getByRole("button", { name: "Hide diff" }).click();
+  const card = reader(1899).getByRole("article", {
+    name: "Pending comment",
+  });
+  const change = reader(1899)
+    .getByRole("article", {
+      name: /^Change: /,
+    })
+    .filter({
+      has: page.getByRole("article", {
+        name: "Pending comment",
+      }),
+    });
+  await change
+    .getByRole("button", {
+      name: "Hide diff",
+    })
+    .click();
   await expect.element(card).not.toBeInTheDocument();
 
   await pending.click();
@@ -228,10 +568,29 @@ test("Flight control holds the explanations beside the tools, and no Comments ti
   await reviews();
   await open(1899);
   await expect.element(tile("Comments")).not.toBeInTheDocument();
-  await expect.element(reader(1899).getByRole("region", { name: "Quick actions" })).not.toBeInTheDocument();
+  await expect
+    .element(
+      reader(1899).getByRole("region", {
+        name: "Quick actions",
+      }),
+    )
+    .not.toBeInTheDocument();
   await tile("How it works").click();
-  await page.getByRole("dialog", { name: "How it works" }).getByRole("button", { name: "Run" }).click();
-  await expect.element(reader(1899).getByRole("region", { name: "Theme: Fleet keeps the last read" })).toBeVisible();
+  await page
+    .getByRole("dialog", {
+      name: "How it works",
+    })
+    .getByRole("button", {
+      name: "Run",
+    })
+    .click();
+  await expect
+    .element(
+      reader(1899).getByRole("region", {
+        name: "Theme: Fleet keeps the last read",
+      }),
+    )
+    .toBeVisible();
   await expect.element(tile("How it works")).toHaveAttribute("aria-pressed", "true");
   await expect.element(tile("Risks")).toBeVisible();
 });
@@ -239,11 +598,40 @@ test("Flight control holds the explanations beside the tools, and no Comments ti
 test("a tool whose name is taken is refused in Fleet's words, beside Save", async () => {
   await reviews();
   await open(1899);
-  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Add a tool" }).click();
-  const sheet = page.getByRole("dialog", { name: "Add a tool" });
-  await sheet.getByRole("textbox", { name: "Name" }).fill("Test gaps");
-  await sheet.getByRole("textbox", { name: "What it checks" }).fill("What no test would notice.");
-  await sheet.getByRole("button", { name: "Save" }).click();
-  await expect.element(sheet.getByRole("alert")).toHaveTextContent("test-gaps.md is already in the Kit");
-  await expect.element(sheet.getByRole("list", { name: "Left out" })).toBeVisible();
+  await page
+    .getByRole("region", {
+      name: "Flight controls",
+    })
+    .getByRole("button", {
+      name: "Add a tool",
+    })
+    .click();
+  const sheet = page.getByRole("dialog", {
+    name: "Add a tool",
+  });
+  await sheet
+    .getByRole("textbox", {
+      name: "Name",
+    })
+    .fill("Test gaps");
+  await sheet
+    .getByRole("textbox", {
+      name: "What it checks",
+    })
+    .fill("What no test would notice.");
+  await sheet
+    .getByRole("button", {
+      name: "Save",
+    })
+    .click();
+  await expect
+    .element(sheet.getByRole("alert"))
+    .toHaveTextContent("test-gaps.md is already in the Kit");
+  await expect
+    .element(
+      sheet.getByRole("list", {
+        name: "Left out",
+      }),
+    )
+    .toBeVisible();
 });

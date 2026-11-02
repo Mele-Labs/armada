@@ -8,9 +8,21 @@ import type { Step, Target, Walk } from "./walk";
 
 const targetOf = (one: WalkTarget): Target => ({
   role: one.role,
-  ...(one.name === undefined ? {} : { name: one.name }),
-  ...(one.exact === undefined ? {} : { exact: one.exact }),
-  ...(one.within === undefined ? {} : { within: targetOf(one.within) }),
+  ...(one.name === undefined
+    ? {}
+    : {
+        name: one.name,
+      }),
+  ...(one.exact === undefined
+    ? {}
+    : {
+        exact: one.exact,
+      }),
+  ...(one.within === undefined
+    ? {}
+    : {
+        within: targetOf(one.within),
+      }),
   said: one.name === undefined ? `a ${one.role}` : `a ${one.role} named “${one.name}”`,
 });
 
@@ -20,17 +32,57 @@ export function inlineWalk(steps: string | null, scenario: string): Walk | undef
   try {
     const read = JSON.parse(steps) as WalkStep[];
     const made = read.map((one): Step => {
-      if ("press" in one) return { ...one, press: targetOf(one.press) };
-      if ("look" in one) return { ...one, look: targetOf(one.look) };
-      if ("hover" in one) return { ...one, hover: targetOf(one.hover) };
-      if ("later" in one) return { ...one, later: targetOf(one.later) };
-      if ("type" in one) return { ...one, into: targetOf(one.into) };
-      if ("key" in one) return { ...one, on: targetOf(one.on) };
-      if ("select" in one) return { ...one, in: targetOf(one.in) };
-      if ("paste" in one) return { ...one, paste: targetOf(one.paste) };
-      return { ...one, drag: targetOf(one.drag) };
+      if ("press" in one)
+        return {
+          ...one,
+          press: targetOf(one.press),
+        };
+      if ("look" in one)
+        return {
+          ...one,
+          look: targetOf(one.look),
+        };
+      if ("hover" in one)
+        return {
+          ...one,
+          hover: targetOf(one.hover),
+        };
+      if ("later" in one)
+        return {
+          ...one,
+          later: targetOf(one.later),
+        };
+      if ("type" in one)
+        return {
+          ...one,
+          into: targetOf(one.into),
+        };
+      if ("key" in one)
+        return {
+          ...one,
+          on: targetOf(one.on),
+        };
+      if ("select" in one)
+        return {
+          ...one,
+          in: targetOf(one.in),
+        };
+      if ("paste" in one)
+        return {
+          ...one,
+          paste: targetOf(one.paste),
+        };
+      return {
+        ...one,
+        drag: targetOf(one.drag),
+      };
     });
-    return made.length === 0 ? undefined : { scenario, steps: made };
+    return made.length === 0
+      ? undefined
+      : {
+          scenario,
+          steps: made,
+        };
   } catch {
     return undefined;
   }

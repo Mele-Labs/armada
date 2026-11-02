@@ -17,9 +17,16 @@ import type { LandsOn } from "./layout";
  * A note held on a Job: `send_session_notes`' entry for it, when it was taken, and where its box is on its picture, the whole
  * window. **The ring is not on the picture yet**: it is burned in at the send, tagged with the note's place in the turn.
  */
-export type HeldNote = { id: string; at: string; note: SessionNote; ring?: Ring };
+export type HeldNote = {
+  id: string;
+  at: string;
+  note: SessionNote;
+  ring?: Ring;
+};
 
-type Kept = { jobs: Record<string, HeldNote[]> };
+type Kept = {
+  jobs: Record<string, HeldNote[]>;
+};
 
 const isHeld = (value: unknown): value is HeldNote => {
   const one = value as Partial<HeldNote> | null;
@@ -67,8 +74,20 @@ export class HeldNotes {
   /** The note a save built, held on its Job instead of sent, with where its box is on its picture. */
   hold(send: SendSessionNote, ring: Ring | null = null): HeldNote {
     const { session_id: sessionId, ...note } = send;
-    const held: HeldNote = { id: this.mint(), at: this.now(), note, ...(ring === null || note.crop === undefined ? {} : { ring }) };
-    this.jobs.set(sessionId, [...this.of(sessionId), held]);
+    const held: HeldNote = {
+      id: this.mint(),
+      at: this.now(),
+      note,
+      ...(ring === null || note.crop === undefined
+        ? {}
+        : {
+            ring,
+          }),
+    };
+    this.jobs.set(sessionId, [
+      ...this.of(sessionId),
+      held,
+    ]);
     this.moved(sessionId);
     return held;
   }
@@ -78,7 +97,20 @@ export class HeldNotes {
     const words = said.trim();
     const notes = this.of(sessionId);
     if (words === "" || !notes.some((one) => one.id === id)) return false;
-    this.jobs.set(sessionId, notes.map((one) => (one.id === id ? { ...one, note: { ...one.note, said: words } } : one)));
+    this.jobs.set(
+      sessionId,
+      notes.map((one) =>
+        one.id === id
+          ? {
+              ...one,
+              note: {
+                ...one.note,
+                said: words,
+              },
+            }
+          : one,
+      ),
+    );
     this.moved(sessionId);
     return true;
   }
@@ -86,14 +118,20 @@ export class HeldNotes {
   remove(sessionId: string, id: string): boolean {
     const notes = this.of(sessionId);
     if (!notes.some((one) => one.id === id)) return false;
-    this.put(sessionId, notes.filter((one) => one.id !== id));
+    this.put(
+      sessionId,
+      notes.filter((one) => one.id !== id),
+    );
     this.moved(sessionId);
     return true;
   }
 
   /** The notes Fleet took. **Only those**: one held while the send was out stays for the next. */
   drop(sessionId: string, ids: readonly string[]): void {
-    this.put(sessionId, this.of(sessionId).filter((one) => !ids.includes(one.id)));
+    this.put(
+      sessionId,
+      this.of(sessionId).filter((one) => !ids.includes(one.id)),
+    );
     this.moved(sessionId);
   }
 
@@ -105,7 +143,12 @@ export class HeldNotes {
   private moved(sessionId: string): void {
     if (this.file !== null) {
       try {
-        writeFileSync(this.file, JSON.stringify({ jobs: Object.fromEntries(this.jobs) } satisfies Kept));
+        writeFileSync(
+          this.file,
+          JSON.stringify({
+            jobs: Object.fromEntries(this.jobs),
+          } satisfies Kept),
+        );
       } catch {
         // Held in memory still; a restart loses what could not be written.
       }
@@ -115,9 +158,23 @@ export class HeldNotes {
 }
 
 /** The Job a note saved on this window is held on, and the address it names. `null`: a Studio's capture, or a review's walk no Job holds. */
-export function heldOn(landsOn: LandsOn, url: string): { sessionId: string; address: string } | null {
-  if ("session" in landsOn) return { sessionId: landsOn.session.id, address: url };
+export function heldOn(
+  landsOn: LandsOn,
+  url: string,
+): {
+  sessionId: string;
+  address: string;
+} | null {
+  if ("session" in landsOn)
+    return {
+      sessionId: landsOn.session.id,
+      address: url,
+    };
   // A review's `address` is where the change runs, not Bridge's runner the page may be on, so Fleet finds its checkout.
-  if ("review" in landsOn && landsOn.review.holder !== undefined) return { sessionId: landsOn.review.holder.id, address: landsOn.review.address };
+  if ("review" in landsOn && landsOn.review.holder !== undefined)
+    return {
+      sessionId: landsOn.review.holder.id,
+      address: landsOn.review.address,
+    };
   return null;
 }

@@ -10,12 +10,30 @@ const main = inside(queue, role("img", "Main is green"));
 const quiet = inside(queue, role("img", /^.+ not answering since \d\d:\d\d$/));
 
 const steps: readonly Step[] = [
-  { look: main, say: "Main's chip, green" },
-  { hover: main, say: "The tooltip adds when Fleet last read the forge, and the figure moves while you look" },
-  { later: places, say: "The forge stops answering Fleet" },
-  { look: quiet, say: "An unplugged glyph beside main, and the dot is dimmed and hollow: this green is the last one Fleet read" },
-  { hover: quiet, say: "It says since when" },
-  { hover: main, say: "Main's tooltip still gives the age of the reading it holds" },
+  {
+    look: main,
+    say: "Main's chip, green",
+  },
+  {
+    hover: main,
+    say: "The tooltip adds when Fleet last read the forge, and the figure moves while you look",
+  },
+  {
+    later: places,
+    say: "The forge stops answering Fleet",
+  },
+  {
+    look: quiet,
+    say: "An unplugged glyph beside main, and the dot is dimmed and hollow: this green is the last one Fleet read",
+  },
+  {
+    hover: quiet,
+    say: "It says since when",
+  },
+  {
+    hover: main,
+    say: "Main's tooltip still gives the age of the reading it holds",
+  },
 ];
 
 export const mergeLineFreshness = walk("merge-line-freshness", steps);

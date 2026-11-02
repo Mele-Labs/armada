@@ -18,17 +18,27 @@ type Story = StoryObj<typeof Stamp>;
 
 /** A clock first, in the format set in Settings. The tooltip is the age a press gives. */
 export const Clock: Story = {
-  args: { at: FOUR_MINUTES_AGO, now: NOW },
+  args: {
+    at: FOUR_MINUTES_AGO,
+    now: NOW,
+  },
 };
 
 /** Where an age is what is read first, a press gives the clock. */
 export const AgeFirst: Story = {
-  args: { at: FOUR_MINUTES_AGO, now: NOW, first: "age" },
+  args: {
+    at: FOUR_MINUTES_AGO,
+    now: NOW,
+    first: "age",
+  },
 };
 
 /** An earlier day keeps its day with Date off. */
 export const EarlierDay: Story = {
-  args: { at: LAST_WEEK, now: NOW },
+  args: {
+    at: LAST_WEEK,
+    now: NOW,
+  },
 };
 
 /** A press on one stamp in a surface turns every stamp in it, and a second press turns them back. */
@@ -48,9 +58,14 @@ export const OneSurface: Story = {
   play: async ({ canvas, userEvent }) => {
     const [first] = canvas.getAllByRole("button");
     await userEvent.click(first!);
-    await expect(canvas.getAllByRole("button").map((one) => one.firstChild?.textContent)).toEqual(["4m ago", "2h ago"]);
+    await expect(canvas.getAllByRole("button").map((one) => one.firstChild?.textContent)).toEqual([
+      "4m ago",
+      "2h ago",
+    ]);
     first!.focus();
     await userEvent.keyboard("{Enter}");
-    await expect(canvas.getAllByRole("button").some((one) => one.firstChild?.textContent?.endsWith("ago"))).toBe(false);
+    await expect(
+      canvas.getAllByRole("button").some((one) => one.firstChild?.textContent?.endsWith("ago")),
+    ).toBe(false);
   },
 };

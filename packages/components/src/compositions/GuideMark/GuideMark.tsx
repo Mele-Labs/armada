@@ -33,7 +33,11 @@ export function GuideMark({ guide, onScreen = true }: GuideMarkProps) {
 
   useEffect(() => {
     if (onScreen) onMet(guide);
-  }, [onScreen, onMet, guide]);
+  }, [
+    onScreen,
+    onMet,
+    guide,
+  ]);
 
   return (
     <button

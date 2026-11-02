@@ -44,11 +44,16 @@ impl Loopback {
     }
 
     pub fn get(&self, path: &str) -> Result<Answer, Unreachable> {
-        self.sent("GET", path, None)
+        self.sent("GET", path, None, None)
+    }
+
+    /// [`Self::get`] that gives up after `within`, for a caller that must print something either way.
+    pub fn get_within(&self, path: &str, within: Duration) -> Result<Answer, Unreachable> {
+        self.sent("GET", path, None, Some(within))
     }
 
     pub fn post(&self, path: &str, body: &[u8]) -> Result<Answer, Unreachable> {
-        self.sent("POST", path, Some(body))
+        self.sent("POST", path, Some(body), None)
     }
 
     /// One request, one connection, closed by the server.
@@ -57,7 +62,7 @@ impl Loopback {
     /// end-of-stream, so there is no second framing rule to get wrong, and a
     /// connection per tool call on loopback costs microseconds against a call
     /// that is reading a database or running a Check.
-    fn sent(&self, method: &str, path: &str, body: Option<&[u8]>) -> Result<Answer, Unreachable> {
+    fn sent(&self, method: &str, path: &str, body: Option<&[u8]>, within: Option<Duration>) -> Result<Answer, Unreachable> {
         let mut socket =
             TcpStream::connect_timeout(&self.at, CONNECT_PATIENCE).map_err(|cause| {
                 Unreachable::NotListening {
@@ -65,9 +70,10 @@ impl Loopback {
                     cause: cause.to_string(),
                 }
             })?;
-        // **No read timeout, deliberately.** A tool call here can be a Check
+        // **No read timeout unless the caller names one.** A tool call here can be a Check
         // that runs for minutes, and a deadline would cut it off with no answer
         // — which reads as a broken server rather than as a long call.
+        let _ = socket.set_read_timeout(within);
         let head = self.head(method, path, body.map(<[u8]>::len));
 
         let mut raw = Vec::new();

@@ -18,12 +18,21 @@ export default meta;
 type Story = StoryObj<typeof Kbd>;
 
 export const Default: Story = {
-  args: { children: "Esc" },
+  args: {
+    children: "Esc",
+  },
 };
 
 /** A chord is one box, its keys spaced by a gap. `⌘` and `K` held together. */
 export const Chord: StoryObj = {
-  render: () => <KbdChord keys={["⌘", "K"]} />,
+  render: () => (
+    <KbdChord
+      keys={[
+        "⌘",
+        "K",
+      ]}
+    />
+  ),
 };
 
 /**
@@ -33,7 +42,13 @@ export const Chord: StoryObj = {
  */
 export const ContextualKeys: StoryObj = {
   render: () => (
-    <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+    <div
+      style={{
+        display: "flex",
+        gap: "var(--space-2)",
+        alignItems: "center",
+      }}
+    >
       <Kbd>j</Kbd>
       <Kbd>k</Kbd>
       <Kbd>Enter</Kbd>

@@ -5,12 +5,22 @@ import { useEffect, useSyncExternalStore } from "react";
 
 import { useModList } from "../mod-list";
 
-export type CustomTab = { stage: "compose" | "building" | "built"; /** The Mod Job that is building it, or built it last. A tab added by its mod's name has its mod's `made_by`. */ job?: string; /** The mod it draws, by its folder's name. */ mod?: string; /** The mod's glyph, by its name in the icon registry. */ glyph?: string; };
+export type CustomTab = {
+  stage:
+    | "compose"
+    | "building"
+    | "built" /** The Mod Job that is building it, or built it last. A tab added by its mod's name has its mod's `made_by`. */;
+  job?: string /** The mod it draws, by its folder's name. */;
+  mod?: string /** The mod's glyph, by its name in the icon registry. */;
+  glyph?: string;
+};
 
 const held = new Map<string, CustomTab>();
 const listeners = new Set<() => void>();
 let version = 0;
-const COMPOSE: CustomTab = { stage: "compose" };
+const COMPOSE: CustomTab = {
+  stage: "compose",
+};
 
 const put = (id: string, next: CustomTab) => {
   held.set(id, next);
@@ -37,12 +47,30 @@ export const customLabel = (id: string): string | undefined => {
 };
 
 /** The description went to a Mod Job: the tab is its building state. */
-export const startBuilding = (id: string, job: string) => put(id, { ...peekCustom(id), stage: "building", job });
+export const startBuilding = (id: string, job: string) =>
+  put(id, {
+    ...peekCustom(id),
+    stage: "building",
+    job,
+  });
 /** A tab added by the name of a mod that is built already. */
-export const seedBuilt = (id: string, mod: string) => put(id, { stage: "built", mod });
-const finished = (id: string, mod: string) => put(id, { ...peekCustom(id), stage: "built", mod });
+export const seedBuilt = (id: string, mod: string) =>
+  put(id, {
+    stage: "built",
+    mod,
+  });
+const finished = (id: string, mod: string) =>
+  put(id, {
+    ...peekCustom(id),
+    stage: "built",
+    mod,
+  });
 /** A built tab another Mod Job is now changing: its label and hover card follow that Job. */
-export const followJob = (id: string, job: string) => put(id, { ...peekCustom(id), job });
+export const followJob = (id: string, job: string) =>
+  put(id, {
+    ...peekCustom(id),
+    job,
+  });
 
 /** Re-renders on any change of a Custom tab, for what reads a label or a glyph. */
 export const useCustomTick = (): void => void useSyncExternalStore(subscribe, () => version);
@@ -52,11 +80,29 @@ export function useCustom(id: string, custom: boolean): CustomTab {
   useCustomTick();
   const now = peekCustom(id);
   const listed = useModList();
-  const made = custom && now.stage === "building" ? listed.find((one) => one.kind === "tab" && one.made_by === now.job)?.name : undefined;
+  const made =
+    custom && now.stage === "building"
+      ? listed.find((one) => one.kind === "tab" && one.made_by === now.job)?.name
+      : undefined;
   useEffect(() => {
     if (made !== undefined) finished(id, made);
-  }, [id, made]);
+  }, [
+    id,
+    made,
+  ]);
   const row = now.mod === undefined ? undefined : listed.find((one) => one.name === now.mod);
   const job = now.job ?? row?.made_by;
-  return { ...now, ...(job === undefined ? {} : { job }), ...(row?.glyph === undefined ? {} : { glyph: row.glyph }) };
+  return {
+    ...now,
+    ...(job === undefined
+      ? {}
+      : {
+          job,
+        }),
+    ...(row?.glyph === undefined
+      ? {}
+      : {
+          glyph: row.glyph,
+        }),
+  };
 }

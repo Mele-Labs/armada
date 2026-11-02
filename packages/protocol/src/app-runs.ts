@@ -14,7 +14,10 @@ export type AppRunState = "not_started" | "starting" | "ready" | "exited" | "fai
 
 /** A repository's main checkout, or the worktree a Job holds. No other checkout has a run. */
 export type AppRunCheckout =
-  | { kind: "main"; path: string }
+  | {
+      kind: "main";
+      path: string;
+    }
   | {
       kind: "job";
       path: string;
@@ -79,7 +82,9 @@ export type AppRun = {
 };
 
 /** `GET /app_runs`. */
-export type AppRunList = { runs: AppRun[] };
+export type AppRunList = {
+  runs: AppRun[];
+};
 
 /** The body of `start_app_run`, `stop_app_run` and `restart_app_run`: a name, never a command and never a path. */
 export type NamedAppRun = {

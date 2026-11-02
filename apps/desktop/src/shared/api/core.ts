@@ -143,17 +143,29 @@ export type CoreState = {
 };
 
 export const CORE_NOTHING_YET: CoreState = {
-  connection: { state: "reading" },
+  connection: {
+    state: "reading",
+  },
   // Main resolves the log path from the home it can see. Until it answers, the
   // renderer does not know it and does not name one.
-  bridge: { auditPath: null, fleetProtocol: null },
+  bridge: {
+    auditPath: null,
+    fleetProtocol: null,
+  },
   fleetBuild: null,
   missed: 0,
   drawnFromDisk: false,
   readAt: null,
-  holds: { workflows: [], manifests: [], models: null, repositories: [] },
+  holds: {
+    workflows: [],
+    manifests: [],
+    models: null,
+    repositories: [],
+  },
   repository: null,
-  servers: { servers: [] },
+  servers: {
+    servers: [],
+  },
 };
 
 export const CORE_CHANNELS = {
@@ -186,7 +198,15 @@ export const CORE_CHANNELS = {
  * Where a pressed notification, or a walk window's panel, lands: the Session it names, and for the panel
  * what it asked to open of that Session besides. It travels main → renderer only.
  */
-export type Summons = { sessionId: string; then?: Exclude<PanelGo, { kind: "session" }> };
+export type Summons = {
+  sessionId: string;
+  then?: Exclude<
+    PanelGo,
+    {
+      kind: "session";
+    }
+  >;
+};
 
 /** Which way a gesture the OS recognised asks to move through visited places. */
 export type HistoryStep = "back" | "forward";

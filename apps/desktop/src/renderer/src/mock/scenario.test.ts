@@ -6,7 +6,9 @@ import { expect, test } from "vitest";
 import { SCENARIOS, isRow, scenarioNamed } from "./scenario";
 import { WALKS } from "./walks";
 
-const ROW_FILES = import.meta.glob<Record<string, unknown>>("./scenarios/*.ts", { eager: true });
+const ROW_FILES = import.meta.glob<Record<string, unknown>>("./scenarios/*.ts", {
+  eager: true,
+});
 
 // A list a scenarios/ file exports beside its rows came in as a row with no name and no state, a blank line in the finder.
 test("every scenario the list holds has a name and a state", () => {
@@ -24,7 +26,8 @@ test("every scenario has its own name", () => {
 // A walk over a name no scenario has would be played against a default, so it is refused here.
 test("every walk plays on a scenario the list holds", () => {
   const names = new Set(SCENARIOS.map((one) => one.name));
-  for (const [walk, one] of WALKS) expect(names, `walk ${walk} plays on ${one.scenario}`).toContain(one.scenario);
+  for (const [walk, one] of WALKS)
+    expect(names, `walk ${walk} plays on ${one.scenario}`).toContain(one.scenario);
 });
 
 // A Studio on a Manifest the scenario does not serve is never read, so the surface would draw an
@@ -42,7 +45,12 @@ test("every Studio a scenario keeps belongs to a Manifest that scenario serves",
 
 // Studios' scenarios are built in `@armada/studios/fake` and listed through its slice.
 test("the Studios scenarios resolve by name", () => {
-  for (const name of ["studios", "studio-zone", "studio-zone-proposal", "studio-read-nothing"]) {
+  for (const name of [
+    "studios",
+    "studio-zone",
+    "studio-zone-proposal",
+    "studio-read-nothing",
+  ]) {
     expect(scenarioNamed(name)?.name, name).toBe(name);
   }
 });
@@ -54,13 +62,21 @@ test("the mock opens on a scenario that serves a Studio", () => {
 });
 
 test("the Lessons and Cleanup scenarios close the list", () => {
-  expect(SCENARIOS.slice(-3).map((one) => one.name)).toEqual(["retro/lessons", "cleanup/slots", "cleanup/grid"]);
+  expect(SCENARIOS.slice(-3).map((one) => one.name)).toEqual([
+    "retro/lessons",
+    "cleanup/slots",
+    "cleanup/grid",
+  ]);
 });
 
 test("no scenario names a shape", () => {
   for (const one of SCENARIOS) {
     const said = `${one.name} ${one.says}`.toLowerCase();
-    for (const word of ["convoy", "train", "atomic"]) {
+    for (const word of [
+      "convoy",
+      "train",
+      "atomic",
+    ]) {
       expect(new RegExp(`\\b${word}\\b`).test(said), `${one.name}: ${one.says}`).toBe(false);
     }
   }

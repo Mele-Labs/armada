@@ -25,7 +25,15 @@ import type {
 } from "@armada/protocol";
 
 /** What a read came to: what Fleet answered with, or the refusal to word. */
-export type LifecyclesActed<T> = { ok: true; value: T } | { ok: false; outcome: Outcome };
+export type LifecyclesActed<T> =
+  | {
+      ok: true;
+      value: T;
+    }
+  | {
+      ok: false;
+      outcome: Outcome;
+    };
 
 export type { KeepDraft, KeepDrafts };
 
@@ -43,7 +51,9 @@ export type LifecyclesApi = {
   /** `POST /lifecycles/pieces/save`: write one piece to Kit's folder, checked by Fleet's own parser first. */
   saveLifecyclePiece: (body: SaveLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceSaved>>;
   /** `POST /lifecycles/pieces/delete`: delete the Kit file that declares one piece. */
-  deleteLifecyclePiece: (body: DeleteLifecyclePiece) => Promise<LifecyclesActed<LifecyclePieceDeleted>>;
+  deleteLifecyclePiece: (
+    body: DeleteLifecyclePiece,
+  ) => Promise<LifecyclesActed<LifecyclePieceDeleted>>;
   /** The Keep for every Job drafts of one repository that wait on the owner's Approve, one per piece, oldest first. `GET /lifecycles/keep_drafts`. */
   listKeepDrafts: (manifestId: string) => Promise<LifecyclesActed<KeepDrafts>>;
   /** `keep_drafts.changed`: a draft of a rule or lifecycle was begun, approved or dismissed in one repository. It names the repository and no draft, so read `listKeepDrafts` again. */

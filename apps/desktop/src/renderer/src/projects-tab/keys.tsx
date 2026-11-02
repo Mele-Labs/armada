@@ -12,30 +12,46 @@ import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 import { allRows, useProjectsStore, type ProjectsStore } from "./store";
 import { SEARCH_KEEP, VIEW_IDS, type View } from "./views";
 
-const ZONES = [".projects-list", ".projects-pane"] as const;
-const zoneOf = (target: Element): (typeof ZONES)[number] | undefined => ZONES.find((one) => target.closest(one) !== null);
+const ZONES = [
+  ".projects-list",
+  ".projects-pane",
+] as const;
+const zoneOf = (target: Element): (typeof ZONES)[number] | undefined =>
+  ZONES.find((one) => target.closest(one) !== null);
 
 /** The column's stops, in the order drawn: the views, the projects, the repositories. */
 const STOPS = ".projects-list .projects-item";
 /** What j and k pass along the pane: its cards. */
 const PANE_STOPS = ".projects-pane .projects-row";
 
-const all = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].filter((one) => !one.hasAttribute("disabled"));
+const all = (selector: string) =>
+  [
+    ...document.querySelectorAll<HTMLElement>(selector),
+  ].filter((one) => !one.hasAttribute("disabled"));
 
 /** Moves focus along `items` from the one holding it, without wrapping. */
 function step(items: HTMLElement[], from: Element, by: 1 | -1): void {
   const at = items.findIndex((one) => one === from || one.contains(from));
-  items[at < 0 ? (by === 1 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, at + by))]?.focus();
+  items[
+    at < 0 ? (by === 1 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, at + by))
+  ]?.focus();
 }
 
 function focusList(): void {
   const items = all(STOPS);
-  (items.find((one) => one.hasAttribute("data-selected")) ?? items[0] ?? document.querySelector<HTMLElement>(".projects-list"))?.focus();
+  (
+    items.find((one) => one.hasAttribute("data-selected")) ??
+    items[0] ??
+    document.querySelector<HTMLElement>(".projects-list")
+  )?.focus();
 }
 /** The column's stop once the search is gone and the view that was open is marked again. */
 const clearedList = (): void => void window.requestAnimationFrame(focusList);
 function focusRows(): void {
-  (document.querySelector<HTMLElement>(".projects-pane .projects-row") ?? document.querySelector<HTMLElement>(".projects-pane"))?.focus();
+  (
+    document.querySelector<HTMLElement>(".projects-pane .projects-row") ??
+    document.querySelector<HTMLElement>(".projects-pane")
+  )?.focus();
 }
 /** The open project's add field, focused. Answers whether the page has one. The key and the palette's Add a task both come here. */
 export function focusAddTask(): boolean {
@@ -44,21 +60,49 @@ export function focusAddTask(): boolean {
   return field !== null;
 }
 /** The row a moved row is drawn at once the list has drawn again. */
-const refocus = (rowId: string): void => void window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`.projects-row[data-row="${CSS.escape(rowId)}"]`)?.focus());
+const refocus = (rowId: string): void =>
+  void window.requestAnimationFrame(() =>
+    document.querySelector<HTMLElement>(`.projects-row[data-row="${CSS.escape(rowId)}"]`)?.focus(),
+  );
 
-export function ProjectsKeys({ onDispatchRow, onView }: { onDispatchRow: (rowId: string) => void; onView: (view: View) => void }) {
+export function ProjectsKeys({
+  onDispatchRow,
+  onView,
+}: {
+  onDispatchRow: (rowId: string) => void;
+  onView: (view: View) => void;
+}) {
   const store = useProjectsStore()!;
-  const latest = useRef({ onDispatchRow, onView });
-  latest.current = { onDispatchRow, onView };
+  const latest = useRef({
+    onDispatchRow,
+    onView,
+  });
+  latest.current = {
+    onDispatchRow,
+    onView,
+  };
   useEffect(() => {
-    const listen = (event: KeyboardEvent) => press(event, store, (id) => latest.current.onDispatchRow(id), (view) => latest.current.onView(view));
+    const listen = (event: KeyboardEvent) =>
+      press(
+        event,
+        store,
+        (id) => latest.current.onDispatchRow(id),
+        (view) => latest.current.onView(view),
+      );
     window.addEventListener("keydown", listen, true);
     return () => window.removeEventListener("keydown", listen, true);
-  }, [store]);
+  }, [
+    store,
+  ]);
   return null;
 }
 
-function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: string) => void, goToView: (view: View) => void): void {
+function press(
+  event: KeyboardEvent,
+  store: ProjectsStore,
+  dispatchRow: (rowId: string) => void,
+  goToView: (view: View) => void,
+): void {
   if (document.querySelector(".projects-surface") === null) return;
   if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
   if (event.key === "Escape" && popupIsOpen()) return;
@@ -102,7 +146,13 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
       if (target.closest(".projects-rename") !== null) {
         const renamed = snap.renaming;
         store.renaming(undefined);
-        return void window.requestAnimationFrame(() => (renamed === undefined ? focusList() : document.querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(renamed)}"]`)?.focus()));
+        return void window.requestAnimationFrame(() =>
+          renamed === undefined
+            ? focusList()
+            : document
+                .querySelector<HTMLElement>(`.projects-item[data-project="${CSS.escape(renamed)}"]`)
+                ?.focus(),
+        );
       }
       if (card !== undefined) return refocus(card);
       focusRows();
@@ -114,7 +164,15 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   const row = target.closest<HTMLElement>(".projects-pane .projects-row");
   const rowId = row?.dataset.row;
   const paned = document.querySelector(".projects-pane") !== null;
-  const rowEntry = rowId === undefined ? undefined : allRows({ rows: [...snap.loose, ...snap.projects.flatMap((one) => one.rows)] }).find((one) => one.id === rowId);
+  const rowEntry =
+    rowId === undefined
+      ? undefined
+      : allRows({
+          rows: [
+            ...snap.loose,
+            ...snap.projects.flatMap((one) => one.rows),
+          ],
+        }).find((one) => one.id === rowId);
   /** Focus lands on the card after this one, else the one before, once it has left the list. */
   const neighbour = (card: HTMLElement) => {
     const cards = all(PANE_STOPS);
@@ -123,7 +181,8 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   };
 
   // ⌥↑ and ⌥↓ move the row under focus, as the deck moves its own.
-  const shove = event.altKey && !event.metaKey && !event.ctrlKey ? pressedSlot("projects_reorder", event) : -1;
+  const shove =
+    event.altKey && !event.metaKey && !event.ctrlKey ? pressedSlot("projects_reorder", event) : -1;
   if (shove !== -1) {
     // Only a project's own cards are in his order; a view's or a repository's are not moved.
     if (!paned || rowId === undefined || row?.hasAttribute("data-fixed") === true) return;
@@ -152,18 +211,18 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   }
 
   const part = pressedSlot("projects_panel", event);
-  if (part === 0) return take(), focusList();
-  if (part === 1) return take(), focusRows();
+  if (part === 0) return (take(), focusList());
+  if (part === 1) return (take(), focusRows());
   const view = pressedSlot("projects_view", event);
-  if (view !== -1 && VIEW_IDS[view] !== undefined) return take(), goToView(VIEW_IDS[view]!);
+  if (view !== -1 && VIEW_IDS[view] !== undefined) return (take(), goToView(VIEW_IDS[view]!));
   if (isPressed("projects_search", event)) {
     const field = document.querySelector<HTMLElement>(".projects-list [data-search-field]");
     if (field === null) return;
     take();
     return field.focus();
   }
-  if (isPressed("projects_new", event)) return take(), store.name(true);
-  if (paned && isPressed("projects_done", event)) return take(), store.showDone(!snap.showDone);
+  if (isPressed("projects_new", event)) return (take(), store.name(true));
+  if (paned && isPressed("projects_done", event)) return (take(), store.showDone(!snap.showDone));
   if (paned && isPressed("projects_add_task", event)) {
     // The pane's field, where it has one.
     if (!focusAddTask()) return;
@@ -173,14 +232,14 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   if (paned && isPressed("projects_dispatch", event)) {
     // Cards picked: the head's Dispatch, which is drawn only then. Otherwise the focused card.
     const button = document.querySelector<HTMLElement>(".projects-pane [data-dispatch]");
-    if (button !== null) return take(), button.click();
+    if (button !== null) return (take(), button.click());
     if (rowId === undefined) return;
     take();
     return dispatchRow(rowId);
   }
 
   if (row !== null && rowId !== undefined) {
-    if (isPressed("projects_select", event)) return take(), store.select(rowId);
+    if (isPressed("projects_select", event)) return (take(), store.select(rowId));
     if (isPressed("projects_add_subtask", event)) {
       if (row.querySelector("[data-add-subtask]") === null) return;
       take();
@@ -199,7 +258,11 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
       const leaves = rowEntry?.kind === "task" && !rowEntry.done && !snap.showDone;
       const next = leaves ? neighbour(row) : undefined;
       store.tick(rowId);
-      return next?.dataset.row === undefined ? (leaves ? focusRows() : undefined) : refocus(next.dataset.row);
+      return next?.dataset.row === undefined
+        ? leaves
+          ? focusRows()
+          : undefined
+        : refocus(next.dataset.row);
     }
     // Enter edits a task's title in place; an issue's is its tracker's.
     if (isPressed("projects_edit", event) && target === row) {
@@ -231,7 +294,11 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
       take();
       const next = snap.showDone ? undefined : neighbour(row);
       store.settle(rowId, true);
-      return next?.dataset.row === undefined ? (snap.showDone ? undefined : focusRows()) : refocus(next.dataset.row);
+      return next?.dataset.row === undefined
+        ? snap.showDone
+          ? undefined
+          : focusRows()
+        : refocus(next.dataset.row);
     }
     if (isPressed("projects_keep_open", event)) {
       if (row.querySelector("[data-keep-open]") === null) return;
@@ -247,7 +314,8 @@ function press(event: KeyboardEvent, store: ProjectsStore, dispatchRow: (rowId: 
   if (here === ".projects-list") {
     const item = target.closest<HTMLElement>(".projects-item");
     const project = item?.dataset.project;
-    if (project !== undefined && isPressed("projects_rename", event)) return take(), store.renaming(project);
+    if (project !== undefined && isPressed("projects_rename", event))
+      return (take(), store.renaming(project));
     if (project !== undefined && isPressed("projects_delete", event)) {
       take();
       const items = all(STOPS);

@@ -29,7 +29,8 @@ export function createMockDownshift(usage: PlanUsageSource, api: BridgeApi): Dow
     listeners.forEach((on) => on());
   };
 
-  const sessionSetting = async () => (await api.state()).settings?.settings.find((one) => one.key === KEY);
+  const sessionSetting = async () =>
+    (await api.state()).settings?.settings.find((one) => one.key === KEY);
 
   const read = (): void => {
     const weekly = usage.get()?.windows.find((one) => one.kind === "seven_day");
@@ -37,14 +38,29 @@ export function createMockDownshift(usage: PlanUsageSource, api: BridgeApi): Dow
     const reset = weekly.resets_at;
     const fresh = window !== undefined && reset !== window;
     window = reset;
-    if (fresh && state?.phase === "shifted") return set({ phase: "reset", was: state.was, to: state.to });
+    if (fresh && state?.phase === "shifted")
+      return set({
+        phase: "reset",
+        was: state.was,
+        to: state.to,
+      });
     if (fresh && state?.phase === "offered") set(undefined);
-    if (state?.phase === "offered") return set({ ...state, percent: weekly.percent_used });
+    if (state?.phase === "offered")
+      return set({
+        ...state,
+        percent: weekly.percent_used,
+      });
     if (state !== undefined || weekly.percent_used < LINE || offeredFor === reset) return;
     offeredFor = reset;
     void sessionSetting().then((one) => {
       const was = typeof one?.value === "string" ? one.value : "opus";
-      if (was !== LOWER) set({ phase: "offered", percent: weekly.percent_used, was, to: LOWER });
+      if (was !== LOWER)
+        set({
+          phase: "offered",
+          percent: weekly.percent_used,
+          was,
+          to: LOWER,
+        });
     });
   };
 
@@ -70,12 +86,23 @@ export function createMockDownshift(usage: PlanUsageSource, api: BridgeApi): Dow
       const until = window;
       void sessionSetting().then(async (one) => {
         saved = one?.saved ?? null;
-        await api.saveSettings({ [KEY]: offer.to });
-        set({ phase: "shifted", was: offer.was, to: offer.to, until });
+        await api.saveSettings({
+          [KEY]: offer.to,
+        });
+        set({
+          phase: "shifted",
+          was: offer.was,
+          to: offer.to,
+          until,
+        });
       });
     },
     restore: () => {
-      void api.saveSettings({ [KEY]: saved }).then(() => set(undefined));
+      void api
+        .saveSettings({
+          [KEY]: saved,
+        })
+        .then(() => set(undefined));
     },
     keep: () => set(undefined),
     settle: () => {

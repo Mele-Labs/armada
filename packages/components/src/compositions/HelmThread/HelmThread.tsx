@@ -6,7 +6,6 @@ import { placeTagsIn, SentWith } from "../SessionThread/SessionThread";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SentTo } from "./SentTo";
 
-
 /**
  * Helm's own conversation, under the dock's questions — #944.
  *
@@ -28,10 +27,20 @@ export type HelmThreadRow = {
   /** A trailing caption — the reply's own cost, `$0.02 · 3 turns`. */
   meta?: ReactNode;
   /** Where these words went instead of to Helm: the Session, pressed to open it. */
-  sent?: { target: ThoughtTarget; onOpen: () => void };
+  sent?: {
+    target: ThoughtTarget;
+    onOpen: () => void;
+  };
   /** What the person sent with the words: pictures and files, sketches, and the issues, pull requests and Sessions tagged in them. */
-  files?: readonly { id: string; name: string; src?: string }[];
-  sketches?: readonly { id: string; title: string }[];
+  files?: readonly {
+    id: string;
+    name: string;
+    src?: string;
+  }[];
+  sketches?: readonly {
+    id: string;
+    title: string;
+  }[];
   tags?: readonly ComposerTag[];
 };
 
@@ -45,17 +54,16 @@ export type HelmThreadProps = {
   notice?: ReactNode;
 };
 
-export function HelmThread({
-  rows,
-  replying = false,
-  emptyNote,
-  notice,
-}: HelmThreadProps) {
+export function HelmThread({ rows, replying = false, emptyNote, notice }: HelmThreadProps) {
   const refs = useContext(ProseRefs);
   // A chip in a row of the person's is a link where the host can open what it names.
   const openTag = (tag: ComposerTag): void => {
     if (tag.kind === "branch" || tag.kind === "report" || refs === null) return;
-    refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) });
+    refs.open({
+      kind: tag.kind,
+      id: tag.id,
+      title: titleWithoutReference(tag),
+    });
   };
   return (
     <div className="armada-helm-thread">
@@ -73,27 +81,38 @@ export function HelmThread({
       ) : (
         <ol className="armada-helm-thread__rows">
           {rows.map((row) => {
-            const placed = row.tags === undefined || row.tags.length === 0 || typeof row.message !== "string" ? undefined : placeTagsIn(row.message, row.tags, refs === null ? undefined : openTag);
+            const placed =
+              row.tags === undefined || row.tags.length === 0 || typeof row.message !== "string"
+                ? undefined
+                : placeTagsIn(row.message, row.tags, refs === null ? undefined : openTag);
             const loose = placed === undefined ? (row.tags ?? []) : placed.loose;
             return (
-            <li className="armada-helm-thread__row" key={row.id} data-actor={row.actor}>
-              <div className="armada-helm-thread__head">
-                <span className="armada-helm-thread__who">{row.actor === "you" ? "You" : "Helm"}</span>
-                <span className="armada-helm-thread__at">{row.at}</span>
-              </div>
-              <div className="armada-helm-thread__message" data-mono={row.mono || undefined}>
-                {placed?.parts != null ? (
-                  <p className="armada-session-said">{placed.parts}</p>
-                ) : typeof row.message === "string"
-                  ? row.mono
-                    ? row.message
-                    : <Prose text={row.message} />
-                  : row.message}
-              </div>
-              <SentWith row={row} tags={loose} />
-              {row.sent === undefined ? null : <SentTo {...row.sent} />}
-              {row.meta === undefined ? null : <p className="armada-helm-thread__meta">{row.meta}</p>}
-            </li>
+              <li className="armada-helm-thread__row" key={row.id} data-actor={row.actor}>
+                <div className="armada-helm-thread__head">
+                  <span className="armada-helm-thread__who">
+                    {row.actor === "you" ? "You" : "Helm"}
+                  </span>
+                  <span className="armada-helm-thread__at">{row.at}</span>
+                </div>
+                <div className="armada-helm-thread__message" data-mono={row.mono || undefined}>
+                  {placed?.parts != null ? (
+                    <p className="armada-session-said">{placed.parts}</p>
+                  ) : typeof row.message === "string" ? (
+                    row.mono ? (
+                      row.message
+                    ) : (
+                      <Prose text={row.message} />
+                    )
+                  ) : (
+                    row.message
+                  )}
+                </div>
+                <SentWith row={row} tags={loose} />
+                {row.sent === undefined ? null : <SentTo {...row.sent} />}
+                {row.meta === undefined ? null : (
+                  <p className="armada-helm-thread__meta">{row.meta}</p>
+                )}
+              </li>
             );
           })}
         </ol>

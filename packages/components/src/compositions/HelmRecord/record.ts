@@ -30,7 +30,9 @@ function clock(at: string): string {
 /** A cut piece of prose, with what it was cut from. A whole one says nothing. */
 function prose(text: HelmDebugText): string {
   if (text.of === undefined) return text.text;
-  const shown = [...text.text].length;
+  const shown = [
+    ...text.text,
+  ].length;
   return `${text.text}… (showing ${shown} of ${text.of} characters)`;
 }
 
@@ -40,19 +42,37 @@ function prose(text: HelmDebugText): string {
  * **Three columns and never a wrap**: a reply is prose and keeps its own
  * newlines, which `aligned` indents to the value column rather than folding.
  */
-function line(said: HelmDebugLine): [string, string] {
+function line(said: HelmDebugLine): [
+  string,
+  string,
+] {
   const at = clock(said.at);
   switch (said.line) {
     case "asked":
-      return [`${at}  you`, prose(said.text)];
+      return [
+        `${at}  you`,
+        prose(said.text),
+      ];
     case "said":
-      return [`${at}  helm`, prose(said.text)];
+      return [
+        `${at}  helm`,
+        prose(said.text),
+      ];
     case "called":
-      return [`${at}  helm`, said.detail === "" ? `called ${said.tool}` : `called ${said.tool} · ${said.detail}`];
+      return [
+        `${at}  helm`,
+        said.detail === "" ? `called ${said.tool}` : `called ${said.tool} · ${said.detail}`,
+      ];
     case "refused":
-      return [`${at}  helm`, `refused ${said.tool} · ${said.because}`];
+      return [
+        `${at}  helm`,
+        `refused ${said.tool} · ${said.because}`,
+      ];
     case "sent":
-      return [`${at}  you`, `to ${said.to} · ${prose(said.text)}`];
+      return [
+        `${at}  you`,
+        `to ${said.to} · ${prose(said.text)}`,
+      ];
   }
 }
 
@@ -89,17 +109,44 @@ function threadHeading(kept: number, cut: number): string {
  * are two artifacts nobody can diff.
  */
 export function helmRecord(record: HelmDebugInfo): string {
-  const head: [string, string][] = [
-    ["repository", record.manifest_id],
-    ["checkout", record.checkout],
-    ["authority", record.authority === "acting" ? "acting, on your ask" : "read-only"],
-    ["model", record.model],
+  const head: [
+    string,
+    string,
+  ][] = [
+    [
+      "repository",
+      record.manifest_id,
+    ],
+    [
+      "checkout",
+      record.checkout,
+    ],
+    [
+      "authority",
+      record.authority === "acting" ? "acting, on your ask" : "read-only",
+    ],
+    [
+      "model",
+      record.model,
+    ],
   ];
-  if (record.session !== undefined) head.push(["session", record.session]);
+  if (record.session !== undefined)
+    head.push([
+      "session",
+      record.session,
+    ]);
 
-  const blocks: string[][] = [["armada helm session"], aligned(head, "")];
+  const blocks: string[][] = [
+    [
+      "armada helm session",
+    ],
+    aligned(head, ""),
+  ];
 
-  blocks.push(["note", ...record.note.split("\n").map((said) => `${INDENT}${said}`)]);
+  blocks.push([
+    "note",
+    ...record.note.split("\n").map((said) => `${INDENT}${said}`),
+  ]);
 
   blocks.push([
     `tools — ${record.tools.length} on the ${record.door} door, each called as ${record.door}__<name>`,
@@ -116,9 +163,26 @@ export function helmRecord(record: HelmDebugInfo): string {
     const { from, upto, kinds, missed } = record.polled;
     const counted = kinds.reduce((total, one) => total + one.count, 0);
     const heading = `events — its last poll was told ${counted}, from cursor ${from} up to ${upto}`;
-    const rows: [string, string][] = kinds.map((one) => [one.kind, String(one.count)]);
-    if (missed !== undefined) rows.push(["dropped before they were counted", String(missed)]);
-    blocks.push([heading, ...(rows.length === 0 ? [`${INDENT}nothing had happened`] : aligned(rows, INDENT))]);
+    const rows: [
+      string,
+      string,
+    ][] = kinds.map((one) => [
+      one.kind,
+      String(one.count),
+    ]);
+    if (missed !== undefined)
+      rows.push([
+        "dropped before they were counted",
+        String(missed),
+      ]);
+    blocks.push([
+      heading,
+      ...(rows.length === 0
+        ? [
+            `${INDENT}nothing had happened`,
+          ]
+        : aligned(rows, INDENT)),
+    ]);
   }
 
   // The payload's own tail, two spaces apart: one reads as a sentence and

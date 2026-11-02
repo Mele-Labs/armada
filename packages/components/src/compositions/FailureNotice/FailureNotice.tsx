@@ -137,7 +137,8 @@ export function FailureNotice({
   // expand and collapse rather than rotating one.
   const [open, setOpen] = useState(false);
   const folded = details !== undefined && details.length > 0;
-  const referenced = (values !== undefined && values.length > 0) || note !== undefined || actions !== undefined;
+  const referenced =
+    (values !== undefined && values.length > 0) || note !== undefined || actions !== undefined;
 
   return (
     <section

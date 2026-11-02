@@ -19,7 +19,7 @@
   flex: none;
   inline-size: var(--w-menu);
   aspect-ratio: 1;
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: var(--radius-md);
   overflow: hidden;
 }

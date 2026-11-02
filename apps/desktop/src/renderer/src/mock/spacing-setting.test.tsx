@@ -12,19 +12,39 @@ unmountAfterEach();
 const KEY = "spacing.density";
 const root = () => document.documentElement;
 const step = () => getComputedStyle(root()).getPropertyValue("--space-1").trim();
-const key = () => document.querySelector<HTMLElement>(".deck-controls__block .deck-tile")!.getBoundingClientRect().height;
+const key = () =>
+  document.querySelector<HTMLElement>(".deck-controls__block .deck-tile")!.getBoundingClientRect()
+    .height;
 
 async function deck() {
   const app = mount("cockpit-ship-flightdeck");
   await onScreen();
-  await expect.element(page.getByRole("region", { name: "Flight controls" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Flight controls",
+      }),
+    )
+    .toBeVisible();
   return app;
 }
 
 test("Default ships, and the root carries no spacing", async () => {
   const app = await deck();
   const answer = await app.api.syncState!();
-  const row = "full" in answer ? (answer.full as { settings: { settings: { key: string; value: unknown }[] } | null }).settings?.settings.find((one) => one.key === KEY) : undefined;
+  const row =
+    "full" in answer
+      ? (
+          answer.full as {
+            settings: {
+              settings: {
+                key: string;
+                value: unknown;
+              }[];
+            } | null;
+          }
+        ).settings?.settings.find((one) => one.key === KEY)
+      : undefined;
   expect(row?.value).toBe("default");
   expect(root().dataset["spacing"]).toBeUndefined();
   expect(step()).toBe("4px");
@@ -32,15 +52,21 @@ test("Default ships, and the root carries no spacing", async () => {
 
 test("Compact and Roomy change the steps with no reload, and Default puts them back", async () => {
   const app = await deck();
-  await app.api.saveSettings({ [KEY]: "compact" });
+  await app.api.saveSettings({
+    [KEY]: "compact",
+  });
   await expect.poll(() => root().dataset["spacing"]).toBe("compact");
   expect(step()).toBe("3px");
 
-  await app.api.saveSettings({ [KEY]: "roomy" });
+  await app.api.saveSettings({
+    [KEY]: "roomy",
+  });
   await expect.poll(() => root().dataset["spacing"]).toBe("roomy");
   expect(step()).toBe("5px");
 
-  await app.api.saveSettings({ [KEY]: "default" });
+  await app.api.saveSettings({
+    [KEY]: "default",
+  });
   await expect.poll(() => root().dataset["spacing"]).toBeUndefined();
   expect(step()).toBe("4px");
 });
@@ -48,8 +74,12 @@ test("Compact and Roomy change the steps with no reload, and Default puts them b
 test("Flight control's keys are no shorter in Compact than in Default", async () => {
   const app = await deck();
   const shipped = key();
-  await app.api.saveSettings({ [KEY]: "compact" });
+  await app.api.saveSettings({
+    [KEY]: "compact",
+  });
   await expect.poll(() => root().dataset["spacing"]).toBe("compact");
   expect(key()).toBeGreaterThanOrEqual(shipped);
-  await app.api.saveSettings({ [KEY]: "default" });
+  await app.api.saveSettings({
+    [KEY]: "default",
+  });
 });

@@ -26,7 +26,9 @@ export type WriteClash = {
 };
 
 /** `list_write_clashes`: `GET /clashes?manifest_id=&holder=`. `holder` is a Session's id. */
-export type WriteClashes = { clashes: WriteClash[] };
+export type WriteClashes = {
+  clashes: WriteClash[];
+};
 
 /**
  * `read_clash_file`: `GET /clashes/file?session_id=&other_kind=&other_id=&path=`. Each side is what `git diff` prints for

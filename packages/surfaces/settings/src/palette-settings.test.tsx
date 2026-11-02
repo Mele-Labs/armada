@@ -34,7 +34,12 @@ function Host() {
         context="board"
         on={null}
         surfaces={[]}
-        settings={[{ id: "fleet_settings", label: "Fleet limits" }]}
+        settings={[
+          {
+            id: "fleet_settings",
+            label: "Fleet limits",
+          },
+        ]}
         onChoose={(choice) => {
           if (choice.of === "setting") openSettingsAt(choice.id, () => setShowing(true));
         }}
@@ -44,8 +49,16 @@ function Host() {
         <BridgeSettings
           settings={MOCK_SETTINGS}
           live
-          onSaveSettings={(): Promise<Outcome> => Promise.resolve({ ok: true })}
-          onOpenSettingsFile={() => Promise.resolve({ ok: true })}
+          onSaveSettings={(): Promise<Outcome> =>
+            Promise.resolve({
+              ok: true,
+            })
+          }
+          onOpenSettingsFile={() =>
+            Promise.resolve({
+              ok: true,
+            })
+          }
         />
       ) : null}
     </>
@@ -55,12 +68,35 @@ function Host() {
 test("choosing Fleet limits from the palette shows the Settings screen", async () => {
   mount(<Host />);
 
-  await expect.element(page.getByRole("heading", { name: "Limits" })).not.toBeInTheDocument();
+  await expect
+    .element(
+      page.getByRole("heading", {
+        name: "Limits",
+      }),
+    )
+    .not.toBeInTheDocument();
 
-  await userEvent.click(page.getByRole("option", { name: "Fleet limits" }));
+  await userEvent.click(
+    page.getByRole("option", {
+      name: "Fleet limits",
+    }),
+  );
 
   // The row names a section, and its group is what opens.
-  await expect.element(page.getByRole("heading", { name: "Limits" })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("heading", {
+        name: "Limits",
+      }),
+    )
+    .toBeVisible();
   // The Mods "Fleet" page is a tab of its own here, so the Fleet group is the one that is selected.
-  await expect.element(page.getByRole("tab", { name: "Fleet", selected: true })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: "Fleet",
+        selected: true,
+      }),
+    )
+    .toBeVisible();
 });

@@ -155,7 +155,8 @@
   gap: var(--space-3);
   margin: 0;
   padding: var(--space-3);
-  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--fg-subtle) 30%, var(--border-subtle));
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--fg-subtle) 30%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--bg-sunken) 55%, var(--bg-raised));
   min-width: 0;

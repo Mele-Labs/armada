@@ -5,7 +5,24 @@
 
 import { useState } from "react";
 import { BadgeCheck } from "lucide-react";
-import { Button, FindingNotes, JobCard, LandsInChip, PlanRevisionView, Sheet, SketchReading, Tooltip, anchorsOf, landingsOf, useFindingKeys, useUnchanged, type Finding, type JobCardIssue, type PlanRevision, type SessionState } from "@armada/components";
+import {
+  Button,
+  FindingNotes,
+  JobCard,
+  LandsInChip,
+  PlanRevisionView,
+  Sheet,
+  SketchReading,
+  Tooltip,
+  anchorsOf,
+  landingsOf,
+  useFindingKeys,
+  useUnchanged,
+  type Finding,
+  type JobCardIssue,
+  type PlanRevision,
+  type SessionState,
+} from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
@@ -13,7 +30,47 @@ import { AddGroup, GroupEditor, SendChanges, type FindingPins, type PlanEditing 
 import { OverTheApp } from "./OverTheApp";
 import { viewOf } from "./plan-marks";
 
-export function PlanReview({ open, plan, revision, ed, findings, pullRequests, jobOf, issueOf, onApprove, onClose }: { open: boolean; plan: WorkPlan; revision?: PlanRevision; ed: PlanEditing; /** The Job opens pull requests: the groups stand under the chip of the one each lands in, and a chip's press opens its pull request. */ pullRequests?: { onOpen: (number: number) => void }; /** The Job a group was handed to, which heads the group that goes to a Job of its own in place of the placeholder. */ jobOf?: (group: string) => { title: string; state: SessionState; said: string; at?: string | number; onOpen: () => void } | undefined; /** The issue a group works, the chip on its Job's card. */ issueOf?: (group: string) => JobCardIssue | undefined; /** A Judge's notes on the plan, pinned under the group or task each names, with the acts the card offers. */ findings?: { findings: readonly Finding[]; onSend: (id: string) => void; onDismiss: (id: string) => void }; onApprove: () => void; onClose: () => void }) {
+export function PlanReview({
+  open,
+  plan,
+  revision,
+  ed,
+  findings,
+  pullRequests,
+  jobOf,
+  issueOf,
+  onApprove,
+  onClose,
+}: {
+  open: boolean;
+  plan: WorkPlan;
+  revision?: PlanRevision;
+  ed: PlanEditing /** The Job opens pull requests: the groups stand under the chip of the one each lands in, and a chip's press opens its pull request. */;
+  pullRequests?: {
+    onOpen: (number: number) => void;
+  } /** The Job a group was handed to, which heads the group that goes to a Job of its own in place of the placeholder. */;
+  jobOf?: (group: string) =>
+    | {
+        title: string;
+        state: SessionState;
+        said: string;
+        at?: string | number;
+        onOpen: () => void;
+      }
+    | undefined /** The issue a group works, the chip on its Job's card. */;
+  issueOf?: (
+    group: string,
+  ) =>
+    | JobCardIssue
+    | undefined /** A Judge's notes on the plan, pinned under the group or task each names, with the acts the card offers. */;
+  findings?: {
+    findings: readonly Finding[];
+    onSend: (id: string) => void;
+    onDismiss: (id: string) => void;
+  };
+  onApprove: () => void;
+  onClose: () => void;
+}) {
   const floor = useAtFloor();
   const [editing, setEditing] = useState(false);
   const unchanged = useUnchanged(revision);
@@ -45,60 +102,135 @@ export function PlanReview({ open, plan, revision, ed, findings, pullRequests, j
     </div>
   );
   const groups = viewOf(plan, ed.marks);
-  const keys = useFindingKeys(findings?.findings, { onSend: (id) => findings?.onSend(id), onDismiss: (id) => findings?.onDismiss(id) });
-  const pins: FindingPins | undefined = findings === undefined ? undefined : { anchors: anchorsOf(findings.findings, groups.flatMap((group) => [group.id, ...group.tasks.map((task) => task.id)])), onSend: keys.send, onDismiss: keys.dismiss };
+  const keys = useFindingKeys(findings?.findings, {
+    onSend: (id) => findings?.onSend(id),
+    onDismiss: (id) => findings?.onDismiss(id),
+  });
+  const pins: FindingPins | undefined =
+    findings === undefined
+      ? undefined
+      : {
+          anchors: anchorsOf(
+            findings.findings,
+            groups.flatMap((group) => [
+              group.id,
+              ...group.tasks.map((task) => task.id),
+            ]),
+          ),
+          onSend: keys.send,
+          onDismiss: keys.dismiss,
+        };
   return (
     <OverTheApp open={open}>
-    <Sheet kind="plan-review" open={open} floating floor={floor} size="widest" title="Plan" controls={settled} footer={marked || !plan.approved ? foot : undefined} closeLabel="Close" closeBinding="Esc" onClose={onClose}>
-      <div className="sv-review">
-        <div className="sv-review__groups" {...(pins === undefined ? {} : keys.bind)}>
-          {diff ? (
-            <PlanRevisionView revision={revision} unchanged={unchanged} />
-          ) : (
-            <>
-              {pins === undefined ? null : <FindingNotes findings={pins.anchors.whole} label="Findings on the plan" onSend={pins.onSend} onDismiss={pins.onDismiss} />}
-              {landingsOf(groups, pullRequests !== undefined).map((run) => {
-                const editors = run.groups.map((group) => (
-                  <section key={group.id} className="sv-group sv-review__group" data-open aria-label={group.title}>
-                    <GroupEditor group={group} ed={ed} {...(pins === undefined ? {} : { pins })} />
-                  </section>
-                ));
-                // A group that goes to a Job of its own is that Job's card alone, its issue a chip in it: a placeholder until it is handed, then the Job. The Job plans its own
-                // tasks, so the group has no editor here.
-                if (run.own !== undefined) {
-                  const job = jobOf?.(run.own.id);
-                  const issue = issueOf?.(run.own.id);
-                  const chip = issue === undefined ? {} : { issue };
-                  return (
-                    <div key={run.key} className="sv-review__landing" role="group" aria-label={run.own.title}>
-                      {job === undefined ? (
-                        <JobCard placeholder={run.own.title} {...chip} />
-                      ) : (
-                        <JobCard title={job.title} state={job.state} said={job.said} handedFrom={run.own.title} {...chip} {...(job.at === undefined ? {} : { at: job.at })} onOpen={job.onOpen} />
-                      )}
+      <Sheet
+        kind="plan-review"
+        open={open}
+        floating
+        floor={floor}
+        size="widest"
+        title="Plan"
+        controls={settled}
+        footer={marked || !plan.approved ? foot : undefined}
+        closeLabel="Close"
+        closeBinding="Esc"
+        onClose={onClose}
+      >
+        <div className="sv-review">
+          <div className="sv-review__groups" {...(pins === undefined ? {} : keys.bind)}>
+            {diff ? (
+              <PlanRevisionView revision={revision} unchanged={unchanged} />
+            ) : (
+              <>
+                {pins === undefined ? null : (
+                  <FindingNotes
+                    findings={pins.anchors.whole}
+                    label="Findings on the plan"
+                    onSend={pins.onSend}
+                    onDismiss={pins.onDismiss}
+                  />
+                )}
+                {landingsOf(groups, pullRequests !== undefined).map((run) => {
+                  const editors = run.groups.map((group) => (
+                    <section
+                      key={group.id}
+                      className="sv-group sv-review__group"
+                      data-open
+                      aria-label={group.title}
+                    >
+                      <GroupEditor
+                        group={group}
+                        ed={ed}
+                        {...(pins === undefined
+                          ? {}
+                          : {
+                              pins,
+                            })}
+                      />
+                    </section>
+                  ));
+                  // A group that goes to a Job of its own is that Job's card alone, its issue a chip in it: a placeholder until it is handed, then the Job. The Job plans its own
+                  // tasks, so the group has no editor here.
+                  if (run.own !== undefined) {
+                    const job = jobOf?.(run.own.id);
+                    const issue = issueOf?.(run.own.id);
+                    const chip =
+                      issue === undefined
+                        ? {}
+                        : {
+                            issue,
+                          };
+                    return (
+                      <div
+                        key={run.key}
+                        className="sv-review__landing"
+                        role="group"
+                        aria-label={run.own.title}
+                      >
+                        {job === undefined ? (
+                          <JobCard placeholder={run.own.title} {...chip} />
+                        ) : (
+                          <JobCard
+                            title={job.title}
+                            state={job.state}
+                            said={job.said}
+                            handedFrom={run.own.title}
+                            {...chip}
+                            {...(job.at === undefined
+                              ? {}
+                              : {
+                                  at: job.at,
+                                })}
+                            onOpen={job.onOpen}
+                          />
+                        )}
+                      </div>
+                    );
+                  }
+                  return run.landsIn === undefined ? (
+                    editors
+                  ) : (
+                    <div
+                      key={run.key}
+                      className="sv-review__landing"
+                      role="group"
+                      aria-label={`Lands in ${run.landsIn.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}
+                    >
+                      <LandsInChip landsIn={run.landsIn} onOpen={pullRequests?.onOpen} />
+                      {editors}
                     </div>
                   );
-                }
-                return run.landsIn === undefined ? (
-                  editors
-                ) : (
-                  <div key={run.key} className="sv-review__landing" role="group" aria-label={`Lands in ${run.landsIn.pullRequest === undefined ? run.key : `#${run.landsIn.pullRequest.number}`}`}>
-                    <LandsInChip landsIn={run.landsIn} onOpen={pullRequests?.onOpen} />
-                    {editors}
-                  </div>
-                );
-              })}
-              <AddGroup ed={ed} />
-            </>
+                })}
+                <AddGroup ed={ed} />
+              </>
+            )}
+          </div>
+          {plan.sketch === undefined ? null : (
+            <div className="sv-review__sketch">
+              <SketchReading scene={plan.sketch.scene} title={plan.sketch.title} />
+            </div>
           )}
         </div>
-        {plan.sketch === undefined ? null : (
-          <div className="sv-review__sketch">
-            <SketchReading scene={plan.sketch.scene} title={plan.sketch.title} />
-          </div>
-        )}
-      </div>
-    </Sheet>
+      </Sheet>
     </OverTheApp>
   );
 }

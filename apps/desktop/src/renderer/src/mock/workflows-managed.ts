@@ -4,12 +4,28 @@
 // reads this; the page reads what that Fleet answers.
 
 /** A step as its definition file writes it. */
-type Written = { id: string; label: string; instructions: string };
+type Written = {
+  id: string;
+  label: string;
+  instructions: string;
+};
 
 /** What a definition file holds, as the loader reads it. */
-export type Definition = { version: 1; workflow_id: string; name: string; for_requests: string; steps: Written[] };
+export type Definition = {
+  version: 1;
+  workflow_id: string;
+  name: string;
+  for_requests: string;
+  steps: Written[];
+};
 
-const define = (id: string, forRequests: string, steps: Written[]): Definition => ({ version: 1, workflow_id: id, name: id, for_requests: forRequests, steps });
+const define = (id: string, forRequests: string, steps: Written[]): Definition => ({
+  version: 1,
+  workflow_id: id,
+  name: id,
+  for_requests: forRequests,
+  steps,
+});
 
 const propose: Written = {
   id: "propose",
@@ -26,17 +42,20 @@ const discuss: Written = {
 const approve: Written = {
   id: "approve_plan",
   label: "Approve plan",
-  instructions: "Record the plan: what the person gets, in his words, the groups in order, and a walk for each piece he would see. Wait for approval.",
+  instructions:
+    "Record the plan: what the person gets, in his words, the groups in order, and a walk for each piece he would see. Wait for approval.",
 };
 const walk: Written = {
   id: "walk",
   label: "Walk",
-  instructions: "Build the mock in the real Bridge on fixtures and show it as a walk. Write no tests until it is approved. Notes come back as another take.",
+  instructions:
+    "Build the mock in the real Bridge on fixtures and show it as a walk. Write no tests until it is approved. Notes come back as another take.",
 };
 const refine: Written = {
   id: "refine",
   label: "Refine",
-  instructions: "Wire it to the real thing and write the tests now. Show a new walk only if the look changed.",
+  instructions:
+    "Wire it to the real thing and write the tests now. Show a new walk only if the look changed.",
 };
 const deliver: Written = {
   id: "deliver",
@@ -44,27 +63,46 @@ const deliver: Written = {
   instructions: "Open the pull request and merge it on a green ci. Say what landed.",
 };
 
-const FEATURE = [propose, discuss, approve, walk, refine, deliver];
+const FEATURE = [
+  propose,
+  discuss,
+  approve,
+  walk,
+  refine,
+  deliver,
+];
 
 const FOR_FEATURE = "adding or changing something a person uses";
 
 /** Every definition the mock Fleet holds at the start, by the place that holds it. */
-export const MANAGED_DEFINITIONS: readonly { source: "armada" | "repository" | "kit"; definition: Definition }[] = [
-  { source: "armada", definition: define("feature", FOR_FEATURE, FEATURE) },
+export const MANAGED_DEFINITIONS: readonly {
+  source: "armada" | "repository" | "kit";
+  definition: Definition;
+}[] = [
+  {
+    source: "armada",
+    definition: define("feature", FOR_FEATURE, FEATURE),
+  },
   {
     source: "armada",
     definition: define("bug", "something that worked and no longer does", [
       {
         id: "find_the_cause",
         label: "Find the cause",
-        instructions: "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.",
+        instructions:
+          "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.",
       },
       {
         id: "fix",
         label: "Fix",
-        instructions: "Make the smallest change that addresses the cause. Write no tests yet. Then show the fix as a short walk straight to the place.",
+        instructions:
+          "Make the smallest change that addresses the cause. Write no tests yet. Then show the fix as a short walk straight to the place.",
       },
-      { id: "tests", label: "Tests", instructions: "Write a test that fails without the fix and passes with it." },
+      {
+        id: "tests",
+        label: "Tests",
+        instructions: "Write a test that fails without the fix and passes with it.",
+      },
       deliver,
     ]),
   },
@@ -72,16 +110,33 @@ export const MANAGED_DEFINITIONS: readonly { source: "armada" | "repository" | "
     source: "armada",
     definition: define("design_plan", "a design to settle before anything is built", [
       propose,
-      { id: "sketch", label: "Sketch", instructions: "Show the options as sketches, one idea each. Build nothing." },
-      { id: "record_plan", label: "Record plan", instructions: "Record what was chosen and what it leaves out. Wait for approval." },
+      {
+        id: "sketch",
+        label: "Sketch",
+        instructions: "Show the options as sketches, one idea each. Build nothing.",
+      },
+      {
+        id: "record_plan",
+        label: "Record plan",
+        instructions: "Record what was chosen and what it leaves out. Wait for approval.",
+      },
     ]),
   },
   {
     source: "armada",
     definition: define("prototype", "a throwaway build to try an idea", [
       propose,
-      { id: "build", label: "Build", instructions: "Build the idea in the real Bridge on fixtures. Wire nothing and write no tests." },
-      { id: "show", label: "Show", instructions: "Show it as a walk. Notes come back as another take." },
+      {
+        id: "build",
+        label: "Build",
+        instructions:
+          "Build the idea in the real Bridge on fixtures. Wire nothing and write no tests.",
+      },
+      {
+        id: "show",
+        label: "Show",
+        instructions: "Show it as a walk. Notes come back as another take.",
+      },
     ]),
   },
   {
@@ -91,7 +146,11 @@ export const MANAGED_DEFINITIONS: readonly { source: "armada" | "repository" | "
       FOR_FEATURE,
       FEATURE.map((one) =>
         one.id === "refine"
-          ? { ...one, instructions: "Wire it to the real thing and write the tests now. Run the repository's checks before pushing. Show a new walk only if the look changed." }
+          ? {
+              ...one,
+              instructions:
+                "Wire it to the real thing and write the tests now. Run the repository's checks before pushing. Show a new walk only if the look changed.",
+            }
           : one,
       ),
     ),
@@ -99,46 +158,130 @@ export const MANAGED_DEFINITIONS: readonly { source: "armada" | "repository" | "
   {
     source: "kit",
     definition: define("docs_only", "a change to words only", [
-      { id: "draft", label: "Draft", instructions: "Write the change in the page's own voice. Touch no code." },
+      {
+        id: "draft",
+        label: "Draft",
+        instructions: "Write the change in the page's own voice. Touch no code.",
+      },
       deliver,
     ]),
   },
 ];
 
 /** What ends each step and when it is passed over: what Fleet's rail reads off the rules. By step id, and `workflow/step` where two differ. */
-export const MANAGED_ENDS: Readonly<Record<string, { ends: string; endsAny?: readonly string[]; passedOver?: string }>> = {
-  propose: { ends: "you reply" },
+export const MANAGED_ENDS: Readonly<
+  Record<
+    string,
+    {
+      ends: string;
+      endsAny?: readonly string[];
+      passedOver?: string;
+    }
+  >
+> = {
+  propose: {
+    ends: "you reply",
+  },
   "feature/propose": {
     ends: "you approve what it shows",
-    endsAny: ["you approve a walk", "you approve a sketch", "you approve a draft", "you pick one of the ideas shown"],
+    endsAny: [
+      "you approve a walk",
+      "you approve a sketch",
+      "you approve a draft",
+      "you pick one of the ideas shown",
+    ],
   },
-  discuss: { ends: "a plan is recorded" },
-  approve_plan: { ends: "you approve the plan" },
-  walk: { ends: "you approve the walk", passedOver: "nothing would be seen" },
-  refine: { ends: "it is pushed" },
-  wire: { ends: "it is wired to the real thing" },
-  "feature/tests": { ends: "it is pushed" },
-  deliver: { ends: "it is merged" },
-  find_the_cause: { ends: "the cause is named" },
-  fix: { ends: "you approve the walk", passedOver: "nothing would be seen" },
-  tests: { ends: "the tests pass" },
-  sketch: { ends: "you pick a direction" },
-  record_plan: { ends: "a plan is recorded" },
-  build: { ends: "the mock runs" },
-  show: { ends: "you approve the walk" },
-  draft: { ends: "the page reads right" },
+  discuss: {
+    ends: "a plan is recorded",
+  },
+  approve_plan: {
+    ends: "you approve the plan",
+  },
+  walk: {
+    ends: "you approve the walk",
+    passedOver: "nothing would be seen",
+  },
+  refine: {
+    ends: "it is pushed",
+  },
+  wire: {
+    ends: "it is wired to the real thing",
+  },
+  "feature/tests": {
+    ends: "it is pushed",
+  },
+  deliver: {
+    ends: "it is merged",
+  },
+  find_the_cause: {
+    ends: "the cause is named",
+  },
+  fix: {
+    ends: "you approve the walk",
+    passedOver: "nothing would be seen",
+  },
+  tests: {
+    ends: "the tests pass",
+  },
+  sketch: {
+    ends: "you pick a direction",
+  },
+  record_plan: {
+    ends: "a plan is recorded",
+  },
+  build: {
+    ends: "the mock runs",
+  },
+  show: {
+    ends: "you approve the walk",
+  },
+  draft: {
+    ends: "the page reads right",
+  },
 };
 
 /** A Job Fleet nudged at a step of a place's definition, `ago` before the Fleet started. */
-export type MockNudge = { source: "armada" | "repository" | "kit"; workflow: string; step: string; job_id: string; job_title: string; fact: string; ago: number };
+export type MockNudge = {
+  source: "armada" | "repository" | "kit";
+  workflow: string;
+  step: string;
+  job_id: string;
+  job_title: string;
+  fact: string;
+  ago: number;
+};
 
 const HOUR = 3_600_000;
 
 /** The Jobs Fleet nudged. The first two drifted at Walk in the repository's `feature`, and the Suggest a change there is drawn from them. */
 export const MANAGED_NUDGES: readonly MockNudge[] = [
-  { source: "repository", workflow: "feature", step: "walk", job_id: "timeline-rail", job_title: "Cockpit timeline rail", fact: "a test before the walk was approved", ago: 2 * HOUR },
-  { source: "repository", workflow: "feature", step: "walk", job_id: "pause-mock", job_title: "Pause and resume", fact: "a test file written with the mock", ago: 72 * HOUR },
-  { source: "repository", workflow: "feature", step: "approve_plan", job_id: "pause-plan", job_title: "Pause and resume", fact: "edited before the plan was approved", ago: 24 * HOUR },
+  {
+    source: "repository",
+    workflow: "feature",
+    step: "walk",
+    job_id: "timeline-rail",
+    job_title: "Cockpit timeline rail",
+    fact: "a test before the walk was approved",
+    ago: 2 * HOUR,
+  },
+  {
+    source: "repository",
+    workflow: "feature",
+    step: "walk",
+    job_id: "pause-mock",
+    job_title: "Pause and resume",
+    fact: "a test file written with the mock",
+    ago: 72 * HOUR,
+  },
+  {
+    source: "repository",
+    workflow: "feature",
+    step: "approve_plan",
+    job_id: "pause-plan",
+    job_title: "Pause and resume",
+    fact: "edited before the plan was approved",
+    ago: 24 * HOUR,
+  },
 ];
 
 /** The sentence an agent adds to a step's words when asked for a suggestion there, by step id. */
@@ -159,6 +302,14 @@ export const SAY_WHY_SKIPPED = "Where nothing would be seen, say so and why befo
 
 /** The steps an agent comes back with for "split Refine into Wire and Tests". */
 export const WIRE_AND_TESTS: readonly Written[] = [
-  { id: "wire", label: "Wire", instructions: "Wire it to the real thing. Show a new walk only if the look changed." },
-  { id: "tests", label: "Tests", instructions: "Write the tests now, against what the walk showed." },
+  {
+    id: "wire",
+    label: "Wire",
+    instructions: "Wire it to the real thing. Show a new walk only if the look changed.",
+  },
+  {
+    id: "tests",
+    label: "Tests",
+    instructions: "Write the tests now, against what the walk showed.",
+  },
 ];

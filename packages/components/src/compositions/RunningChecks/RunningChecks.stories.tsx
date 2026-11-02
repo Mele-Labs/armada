@@ -5,15 +5,27 @@ import { expect, fn } from "storybook/test";
 import { RunningChecks, ranFor, type RunningCheck } from "./RunningChecks";
 
 const CHECKS: readonly RunningCheck[] = [
-  { run: 32, name: "test", target: "session_checking", at: "14:20:00" },
-  { run: 33, name: "app_smoke", at: "14:23:00" },
+  {
+    run: 32,
+    name: "test",
+    target: "session_checking",
+    at: "14:20:00",
+  },
+  {
+    run: 33,
+    name: "app_smoke",
+    at: "14:23:00",
+  },
 ];
 
 /** The Checks a Session has out, in its header: a mark with the count, and a press lists them. */
 const meta: Meta<typeof RunningChecks> = {
   title: "Compositions/Running checks",
   component: RunningChecks,
-  args: { checks: CHECKS, onOpenCheck: fn() },
+  args: {
+    checks: CHECKS,
+    onOpenCheck: fn(),
+  },
 };
 export default meta;
 
@@ -21,7 +33,9 @@ type Story = StoryObj<typeof RunningChecks>;
 
 /** Nothing is drawn at none. */
 export const None: Story = {
-  args: { checks: [] },
+  args: {
+    checks: [],
+  },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button")).not.toBeInTheDocument();
   },
@@ -29,7 +43,9 @@ export const None: Story = {
 
 /** The mark is named by its count, one and many. */
 export const Counted: Story = {
-  args: { checks: CHECKS.slice(0, 1) },
+  args: {
+    checks: CHECKS.slice(0, 1),
+  },
   render: (args) => (
     <>
       <RunningChecks {...args} />
@@ -37,26 +53,52 @@ export const Counted: Story = {
     </>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "1 check running" })).toHaveTextContent("1");
-    await expect(canvas.getByRole("button", { name: "2 checks running" })).toHaveTextContent("2");
+    await expect(
+      canvas.getByRole("button", {
+        name: "1 check running",
+      }),
+    ).toHaveTextContent("1");
+    await expect(
+      canvas.getByRole("button", {
+        name: "2 checks running",
+      }),
+    ).toHaveTextContent("2");
   },
 };
 
 /** A press lists each check by its key, target and state, and a press on one opens its run and closes the list. */
 export const ListedAndOpened: Story = {
   play: async ({ canvas, userEvent, args }) => {
-    const mark = canvas.getByRole("button", { name: "2 checks running" });
+    const mark = canvas.getByRole("button", {
+      name: "2 checks running",
+    });
     await expect(mark).toHaveAttribute("aria-expanded", "false");
     await expect(canvas.queryByRole("menu")).not.toBeInTheDocument();
 
     await userEvent.click(mark);
     await expect(mark).toHaveAttribute("aria-expanded", "true");
-    await expect(canvas.getByRole("menu", { name: "2 checks running" })).toBeVisible();
+    await expect(
+      canvas.getByRole("menu", {
+        name: "2 checks running",
+      }),
+    ).toBeVisible();
     await expect(canvas.getAllByRole("menuitem")).toHaveLength(2);
-    await expect(canvas.getByRole("menuitem", { name: "Check test session_checking, running" })).toBeVisible();
-    await expect(canvas.getByRole("menuitem", { name: "Check app_smoke, running" })).toBeVisible();
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: "Check test session_checking, running",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("menuitem", {
+        name: "Check app_smoke, running",
+      }),
+    ).toBeVisible();
 
-    await userEvent.click(canvas.getByRole("menuitem", { name: "Check app_smoke, running" }));
+    await userEvent.click(
+      canvas.getByRole("menuitem", {
+        name: "Check app_smoke, running",
+      }),
+    );
     await expect(args.onOpenCheck).toHaveBeenCalledOnce();
     await expect(args.onOpenCheck).toHaveBeenCalledWith(33);
     await expect(canvas.queryByRole("menu")).not.toBeInTheDocument();
@@ -66,9 +108,17 @@ export const ListedAndOpened: Story = {
 /** The first item takes focus; ↑ and ↓ walk the list and wrap at both ends. */
 export const Walked: Story = {
   play: async ({ canvas, userEvent, args }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "2 checks running" }));
-    const first = canvas.getByRole("menuitem", { name: "Check test session_checking, running" });
-    const second = canvas.getByRole("menuitem", { name: "Check app_smoke, running" });
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "2 checks running",
+      }),
+    );
+    const first = canvas.getByRole("menuitem", {
+      name: "Check test session_checking, running",
+    });
+    const second = canvas.getByRole("menuitem", {
+      name: "Check app_smoke, running",
+    });
     await expect(first).toHaveFocus();
 
     await userEvent.keyboard("{ArrowDown}");
@@ -89,7 +139,9 @@ export const Walked: Story = {
 /** Esc closes the list and puts focus back on the mark. */
 export const EscapeCloses: Story = {
   play: async ({ canvas, userEvent, args }) => {
-    const mark = canvas.getByRole("button", { name: "2 checks running" });
+    const mark = canvas.getByRole("button", {
+      name: "2 checks running",
+    });
     await userEvent.click(mark);
     await expect(canvas.getByRole("menu")).toBeVisible();
 
@@ -116,15 +168,27 @@ function Ending() {
 export const EndsWithTheLast: Story = {
   render: () => <Ending />,
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "1 check running" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "1 check running",
+      }),
+    );
     await expect(canvas.getByRole("menu")).toBeVisible();
 
     await userEvent.tab();
-    await expect(canvas.getByRole("button", { name: "Finish" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Finish",
+      }),
+    ).toHaveFocus();
     await expect(canvas.getByRole("menu")).toBeVisible();
     await userEvent.keyboard("{Enter}");
     await expect(canvas.queryByRole("menu")).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("button", { name: /check.* running/ })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /check.* running/,
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 

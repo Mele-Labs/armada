@@ -8,11 +8,25 @@ import { sessionsStore } from "../sessions/script";
 import { connected } from "../moment";
 import type { Scenario } from "../moment";
 
-const repository: RepositorySummary = { root: MY_APP, records_root: "/Users/user/Library/Application Support/Armada/records/my-app" };
+const repository: RepositorySummary = {
+  root: MY_APP,
+  records_root: "/Users/user/Library/Application Support/Armada/records/my-app",
+};
 
 export const s303RunsAtScale: Scenario = {
   name: "runs-at-scale",
   says: "A repository with workspaces, its Armada configuration kept on this Mac: its row in the picker opens it",
-  state: { ...connected([], [repository]), repository: MY_APP },
-  draft: { sessions: () => sessionsStore([], [], new Map(), []), runFacts: RUNS },
+  state: {
+    ...connected(
+      [],
+      [
+        repository,
+      ],
+    ),
+    repository: MY_APP,
+  },
+  draft: {
+    sessions: () => sessionsStore([], [], new Map(), []),
+    runFacts: RUNS,
+  },
 };

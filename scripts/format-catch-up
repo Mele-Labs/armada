@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#
+# Bring an open branch past a reformat of the tree with only its real
+# conflicts left. A plain merge of a reformat conflicts on every line the
+# branch changed, because the reformat changed those lines too.
+#
+# For each reformat `.git-blame-ignore-revs` lists on main that the branch has
+# not merged: merge main as it was just before the reformat, format the branch
+# the same way and commit that, then merge the reformat taking the branch's side
+# of every conflict. That side is safe because the reformat changed nothing but
+# layout, and the branch has just been laid out the same way. Then merge main,
+# and format once more. `docs/practices/ci.md`, *Catching a branch up*.
+#
+# A conflict in a merge stops the script with the merge left open. Resolve it,
+# commit, and run the script again: what is already merged is skipped.
+#
+#   scripts/format-catch-up [<main>]      <main> defaults to origin/main
+
+set -euo pipefail
+
+main="${1:-origin/main}"
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "format-catch-up: the tree has changes that are not committed; commit them first" >&2
+  exit 1
+fi
+
+merge() {
+  if ! git merge --no-edit "$@"; then
+    echo "format-catch-up: resolve the conflicts, commit, and run scripts/format-catch-up again" >&2
+    exit 1
+  fi
+}
+
+format() {
+  pnpm install --frozen-lockfile >/dev/null
+  pnpm format >/dev/null
+  if ! git diff --quiet; then
+    git commit -q -a -m "$1"
+  fi
+}
+
+for rev in $(git show "$main:.git-blame-ignore-revs" 2>/dev/null | grep -E '^[0-9a-f]{40}$' || true); do
+  if git merge-base --is-ancestor "$rev" HEAD; then
+    continue
+  fi
+  merge "$rev^"
+  format "Format the branch before merging the reformat $rev"
+  merge -X ours "$rev"
+done
+
+merge "$main"
+format "Format what merging $main brought in"

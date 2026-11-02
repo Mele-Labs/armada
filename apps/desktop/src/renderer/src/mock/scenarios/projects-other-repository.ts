@@ -20,9 +20,24 @@ export const projectsOtherRepository: Scenario = {
       return {
         ...store,
         start: (tag, root, request, tuning, after, held, projectRows, toasted) => {
-          if (projectRows?.some((one) => one.row === GONE) !== true) return store.start(tag, root, request, tuning, after, held, projectRows, toasted);
+          if (projectRows?.some((one) => one.row === GONE) !== true)
+            return store.start(tag, root, request, tuning, after, held, projectRows, toasted);
           if (toasted === true)
-            raiseOutcome({ ok: false, why: "refused", error: { code: "fleet.no_such_project_row", message: REFUSED, run_id: "mock", fields: { act: "start_session", root: root ?? "", project_rows: JSON.stringify(projectRows) }, chain: [] } });
+            raiseOutcome({
+              ok: false,
+              why: "refused",
+              error: {
+                code: "fleet.no_such_project_row",
+                message: REFUSED,
+                run_id: "mock",
+                fields: {
+                  act: "start_session",
+                  root: root ?? "",
+                  project_rows: JSON.stringify(projectRows),
+                },
+                chain: [],
+              },
+            });
           return Promise.resolve(undefined);
         },
       };

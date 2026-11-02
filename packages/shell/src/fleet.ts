@@ -93,8 +93,16 @@ export function statementOf(connection: Connection, now: number, readAt: number 
       // The IDs carry no order, so which side is stale is known only for a Fleet
       // whose runtime file has no ID: that one is from before them.
       return connection.speaks === ""
-        ? { headline: "Fleet is out of date", detail: sides, next: MATCH_THEM }
-        : { headline: "Fleet and Bridge do not match", detail: sides, next: MATCH_THEM };
+        ? {
+            headline: "Fleet is out of date",
+            detail: sides,
+            next: MATCH_THEM,
+          }
+        : {
+            headline: "Fleet and Bridge do not match",
+            detail: sides,
+            next: MATCH_THEM,
+          };
     }
 
     case "connected":
@@ -118,7 +126,12 @@ export function statementOf(connection: Connection, now: number, readAt: number 
  * failure notice say it in one spelling.
  */
 export function silenceOf(
-  connection: Extract<Connection, { state: "unreachable" }>,
+  connection: Extract<
+    Connection,
+    {
+      state: "unreachable";
+    }
+  >,
   now: number,
   readAt: number | null,
 ): string {
@@ -142,7 +155,12 @@ function absence(why: NotRunning): string {
   }
 }
 
-type NotRunning = Extract<Connection, { state: "not_running" }>["absence"];
+type NotRunning = Extract<
+  Connection,
+  {
+    state: "not_running";
+  }
+>["absence"];
 
 /**
  * Which of the Fleet panel's dot hues this reading takes.

@@ -55,6 +55,7 @@ A mod from before `0.3.20` reports neither `turn_started` nor `said`, so its Job
 
 **A terminal's permission prompt.** Claude Code in a terminal asks its own permission for a tool call, and nobody may be at the terminal.
 The mod forwards what the harness announced: its `PermissionRequest` hook reports `permission_asked` with the tool and its command or path, where no hook beneath decided it, and the tool call ending reports `permission_settled`.
+Where Claude Code passes that hook over, the engine's own verdict of `ask` on the call says it instead, and a prompt both say is told once (*Where Claude Code skips the mod's hooks*).
 The agent is never asked.
 The mod also puts the prompt to Fleet as it puts a question, and races the terminal against the answer: **the call is answered from Bridge**, Allow once or Refuse, as a hosted Job's permission is, or at the terminal, whichever comes first.
 An allow from Bridge runs the call again past its own check, and the terminal's dialog closes (`docs/spikes/031-can-bridge-answer-a-terminal-permission-prompt.md`).

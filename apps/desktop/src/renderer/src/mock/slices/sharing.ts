@@ -9,8 +9,21 @@ import type { SharingAnswer, SharingApi } from "../../../../shared/api/sharing";
 import type { Slice } from "../fake-context";
 
 const refusal = (code: string, message: string): SharingAnswer<never> => {
-  const error: WireError = { code, message, run_id: "run-mock", fields: {}, chain: [] };
-  return { ok: false, outcome: { ok: false, why: "refused", error } };
+  const error: WireError = {
+    code,
+    message,
+    run_id: "run-mock",
+    fields: {},
+    chain: [],
+  };
+  return {
+    ok: false,
+    outcome: {
+      ok: false,
+      why: "refused",
+      error,
+    },
+  };
 };
 
 const idOf = ({ piece }: PieceToShare): string =>
@@ -21,17 +34,38 @@ const idOf = ({ piece }: PieceToShare): string =>
       : piece.kind === "requests"
         ? "requests"
         : piece.kind === "flight_controls"
-          ? [...(piece.job ?? []), ...(piece.deck ?? [])].join("-")
+          ? [
+              ...(piece.job ?? []),
+              ...(piece.deck ?? []),
+            ].join("-")
           : piece.id;
 
 /** The kinds a package carries. A Workspace, lifecycle, rule or autonomy default is kept and committed, and Share refuses it. */
-const carried = ({ piece }: PieceToShare): boolean => ["flight_controls", "workflow", "review_tool", "manifest", "requests"].includes(piece.kind);
+const carried = ({ piece }: PieceToShare): boolean =>
+  [
+    "flight_controls",
+    "workflow",
+    "review_tool",
+    "manifest",
+    "requests",
+  ].includes(piece.kind);
 
-const kindOf = ({ piece }: PieceToShare): PackagePiece["kind"] => (piece.kind === "flight_controls" ? "tile" : (piece.kind as PackagePiece["kind"]));
+const kindOf = ({ piece }: PieceToShare): PackagePiece["kind"] =>
+  piece.kind === "flight_controls" ? "tile" : (piece.kind as PackagePiece["kind"]);
 
 /** The text a package of these pieces reads as here: one table each, naming what it holds. */
 function textOf(pieces: readonly PieceToShare[]): string {
-  return ["version = 1", ...pieces.flatMap((one) => ["", "[[piece]]", `kind = "${kindOf(one)}"`, `id = "${idOf(one)}"`])].join("\n") + "\n";
+  return (
+    [
+      "version = 1",
+      ...pieces.flatMap((one) => [
+        "",
+        "[[piece]]",
+        `kind = "${kindOf(one)}"`,
+        `id = "${idOf(one)}"`,
+      ]),
+    ].join("\n") + "\n"
+  );
 }
 
 export const sharing: Slice<SharingApi, Record<string, never>> = {
@@ -42,7 +76,10 @@ export const sharing: Slice<SharingApi, Record<string, never>> = {
     const unbound: UnboundPiece[] = [];
     return {
       commitToRepository: async (body) => {
-        const id = idOf({ repository: body.repository, piece: body.piece });
+        const id = idOf({
+          repository: body.repository,
+          piece: body.piece,
+        });
         const path =
           body.piece.kind === "workflow"
             ? `.armada/workflows/${id}.toml`
@@ -55,33 +92,109 @@ export const sharing: Slice<SharingApi, Record<string, never>> = {
                   : body.piece.kind === "flight_controls"
                     ? ".armada/flight-controls.toml"
                     : `.armada/${body.piece.kind === "lifecycle" ? "lifecycles" : body.piece.kind === "lifecycle_rule" ? "rules" : body.piece.kind === "workspace" ? "workspaces" : "autonomy"}/${id}.toml`;
-        return { ok: true, value: { repository: body.repository, session_id: `commit-${id}`, branch: `armada/commit-${id}`, paths: [path], commit: "4f2c9a1", pull_request: "https://git.example/acme/widgets/pull/42" } };
+        return {
+          ok: true,
+          value: {
+            repository: body.repository,
+            session_id: `commit-${id}`,
+            branch: `armada/commit-${id}`,
+            paths: [
+              path,
+            ],
+            commit: "4f2c9a1",
+            pull_request: "https://git.example/acme/widgets/pull/42",
+          },
+        };
       },
       sharePackage: async (body) => {
-        if (!body.pieces.every(carried)) return refusal("fleet.share_refused", "Share does not carry Workspaces, lifecycles, rules or autonomy defaults yet.");
+        if (!body.pieces.every(carried))
+          return refusal(
+            "fleet.share_refused",
+            "Share does not carry Workspaces, lifecycles, rules or autonomy defaults yet.",
+          );
         const text = textOf(body.pieces);
-        made.set(text, body.pieces.map((one) => ({ kind: kindOf(one), id: idOf(one), name: idOf(one), commands: [], repository: one.repository, exists: true })));
-        return { ok: true, value: { file_name: `${idOf(body.pieces[0]!)}.armada.toml`, text } };
+        made.set(
+          text,
+          body.pieces.map((one) => ({
+            kind: kindOf(one),
+            id: idOf(one),
+            name: idOf(one),
+            commands: [],
+            repository: one.repository,
+            exists: true,
+          })),
+        );
+        return {
+          ok: true,
+          value: {
+            file_name: `${idOf(body.pieces[0]!)}.armada.toml`,
+            text,
+          },
+        };
       },
       readPackage: async (text) => {
         const pieces = made.get(text);
-        return pieces === undefined ? refusal("fleet.share_malformed", "This is not an Armada package") : { ok: true, value: { pieces } };
+        return pieces === undefined
+          ? refusal("fleet.share_malformed", "This is not an Armada package")
+          : {
+              ok: true,
+              value: {
+                pieces,
+              },
+            };
       },
       addPackage: async (body) => {
         const pieces = made.get(body.text);
-        if (pieces === undefined) return refusal("fleet.share_malformed", "This is not an Armada package");
+        if (pieces === undefined)
+          return refusal("fleet.share_malformed", "This is not an Armada package");
         const held = pieces.find((one) => one.exists);
-        if (held !== undefined && body.replace !== true) return refusal("fleet.share_exists", `You already have ${held.name}`);
-        return { ok: true, value: { pieces: pieces.map(({ kind, id, name, repository, exists }) => ({ kind, id, name, ...(repository === undefined ? {} : { repository }), landed: exists ? ("replaced" as const) : ("added" as const) })) } };
+        if (held !== undefined && body.replace !== true)
+          return refusal("fleet.share_exists", `You already have ${held.name}`);
+        return {
+          ok: true,
+          value: {
+            pieces: pieces.map(({ kind, id, name, repository, exists }) => ({
+              kind,
+              id,
+              name,
+              ...(repository === undefined
+                ? {}
+                : {
+                    repository,
+                  }),
+              landed: exists ? ("replaced" as const) : ("added" as const),
+            })),
+          },
+        };
       },
-      listUnboundPieces: async () => ({ ok: true, value: { pieces: [...unbound] } }),
+      listUnboundPieces: async () => ({
+        ok: true,
+        value: {
+          pieces: [
+            ...unbound,
+          ],
+        },
+      }),
       bindUnboundPiece: async (body) => {
         const at = unbound.findIndex((one) => one.unbound_id === body.unbound_id);
-        if (at < 0) return refusal("fleet.share_no_unbound_piece", "That piece is no longer waiting");
+        if (at < 0)
+          return refusal("fleet.share_no_unbound_piece", "That piece is no longer waiting");
         const [one] = unbound.splice(at, 1);
-        return { ok: true, value: { kind: one!.kind, id: one!.id, name: one!.name, repository: body.repository, landed: "added" } };
+        return {
+          ok: true,
+          value: {
+            kind: one!.kind,
+            id: one!.id,
+            name: one!.name,
+            repository: body.repository,
+            landed: "added",
+          },
+        };
       },
-      savePackageFile: async (name) => ({ saved: true, name }),
+      savePackageFile: async (name) => ({
+        saved: true,
+        name,
+      }),
     };
   },
 };

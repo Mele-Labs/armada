@@ -2,7 +2,12 @@
 // `armada.yml` declares it, so two of one name stay apart from the press to Earlier runs.
 
 import type { RunPageEntry, RunPageGroup } from "@armada/components";
-import type { CheckoutRunFollowed, CheckoutRunRecord, RunEntry, StartCheckoutRun } from "@armada/protocol";
+import type {
+  CheckoutRunFollowed,
+  CheckoutRunRecord,
+  RunEntry,
+  StartCheckoutRun,
+} from "@armada/protocol";
 import { isServerEntry, nameOf } from "@armada/screens/src/rehearsal";
 
 export const WORKSPACE_PREFIX = "workspace:";
@@ -15,22 +20,42 @@ export function workspaceEntryOf(dir: string, entry: RunEntry): RunPageEntry {
     name: entry.name,
     run: entry.run,
     note: `In ${dir}.${first}`,
-    ...(entry.destructive ? { destructive: true } : {}),
+    ...(entry.destructive
+      ? {
+          destructive: true,
+        }
+      : {}),
   };
 }
 
 /** What a row id names: the entry, and the workspace whose own file declares it. */
-export function checkoutEntryOf(id: string): { name: string; workspace?: string } {
-  if (!id.startsWith(WORKSPACE_PREFIX)) return { name: nameOf(id) };
+export function checkoutEntryOf(id: string): {
+  name: string;
+  workspace?: string;
+} {
+  if (!id.startsWith(WORKSPACE_PREFIX))
+    return {
+      name: nameOf(id),
+    };
   const rest = id.slice(WORKSPACE_PREFIX.length);
   const at = rest.lastIndexOf("/");
-  return { name: rest.slice(at + 1), workspace: rest.slice(0, at) };
+  return {
+    name: rest.slice(at + 1),
+    workspace: rest.slice(0, at),
+  };
 }
 
 /** `start_checkout_run`'s body for a row: a workspace's names its directory. */
 export function checkoutStartOf(id: string): StartCheckoutRun {
   const { name, workspace } = checkoutEntryOf(id);
-  return workspace === undefined ? { name } : { name, workspace };
+  return workspace === undefined
+    ? {
+        name,
+      }
+    : {
+        name,
+        workspace,
+      };
 }
 
 /** A run as a person reads it: a workspace's says where. */
@@ -39,7 +64,13 @@ export function checkoutRunLabelOf(run: { name: string; workspace?: string }): s
 }
 
 /** Whether a row and a run are the same entry, workspace and all. */
-export function sameCheckoutEntry(id: string, run: { name: string; workspace?: string }): boolean {
+export function sameCheckoutEntry(
+  id: string,
+  run: {
+    name: string;
+    workspace?: string;
+  },
+): boolean {
   const at = checkoutEntryOf(id);
   return at.name === run.name && at.workspace === run.workspace;
 }
@@ -63,7 +94,15 @@ export function runningEntryOf(
   workspace?: string,
 ): string | undefined {
   if (runningName === undefined) return undefined;
-  const run = workspace === undefined ? { name: runningName } : { name: runningName, workspace };
+  const run =
+    workspace === undefined
+      ? {
+          name: runningName,
+        }
+      : {
+          name: runningName,
+          workspace,
+        };
   return groups
     .flatMap((group) => group.entries)
     .find((entry) => !isServerEntry(entry.id) && sameCheckoutEntry(entry.id, run))?.id;

@@ -22,7 +22,13 @@ export type PopoverProps = {
   label?: string;
 };
 
-export function Popover({ trigger, children, align = "start", defaultOpen = false, label }: PopoverProps) {
+export function Popover({
+  trigger,
+  children,
+  align = "start",
+  defaultOpen = false,
+  label,
+}: PopoverProps) {
   const [open, setOpen] = useState(defaultOpen);
   const root = useRef<HTMLDivElement>(null);
 
@@ -47,7 +53,9 @@ export function Popover({ trigger, children, align = "start", defaultOpen = fals
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("mousedown", onDown);
     };
-  }, [open]);
+  }, [
+    open,
+  ]);
 
   return (
     <div className="armada-popover" ref={root}>

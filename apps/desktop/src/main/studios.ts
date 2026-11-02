@@ -25,12 +25,20 @@ import type {
   StudioPromotion,
 } from "@armada/protocol";
 import { foldStudio } from "@armada/screens/src/studio-reads";
-import type { StudioAnswer, StudioRead, StudiosOfOne, StudiosRead } from "@armada/screens/src/studio-reads";
+import type {
+  StudioAnswer,
+  StudioRead,
+  StudiosOfOne,
+  StudiosRead,
+} from "@armada/screens/src/studio-reads";
 import { ask, studioFrameOf } from "./request";
 
 type Publish = (change: { studios?: StudiosRead; studio?: StudioRead }) => void;
 
-const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+const NOT_CONNECTED: Outcome = {
+  ok: false,
+  why: "not_connected",
+};
 
 const member = (studioId: string, act = "") => `/studios/${encodeURIComponent(studioId)}${act}`;
 
@@ -70,8 +78,20 @@ export class StudioReads {
   /** Hold one repository's list, every listed repository's, or `null` to drop them. */
   async watchList(manifestId: string | readonly string[] | null): Promise<void> {
     this.many = typeof manifestId === "object" && manifestId !== null;
-    this.listing = manifestId === null ? [] : typeof manifestId === "string" ? [manifestId] : [...new Set(manifestId)];
-    for (const held of [...this.reads.keys()]) if (!this.listing.includes(held)) this.reads.delete(held);
+    this.listing =
+      manifestId === null
+        ? []
+        : typeof manifestId === "string"
+          ? [
+              manifestId,
+            ]
+          : [
+              ...new Set(manifestId),
+            ];
+    for (const held of [
+      ...this.reads.keys(),
+    ])
+      if (!this.listing.includes(held)) this.reads.delete(held);
     if (this.listing.length === 0) return this.show();
     await this.readList();
   }
@@ -80,13 +100,21 @@ export class StudioReads {
   async watchStudio(studioId: string | null): Promise<void> {
     this.opened = studioId;
     this.graph = null;
-    if (studioId === null) return this.publish({ studio: { state: "none" } });
+    if (studioId === null)
+      return this.publish({
+        studio: {
+          state: "none",
+        },
+      });
     await this.readStudio();
   }
 
   /** Read both again, where held — a resync, a reconnection, or Refresh. */
   async again(): Promise<void> {
-    await Promise.all([this.readList(), this.readStudio()]);
+    await Promise.all([
+      this.readList(),
+      this.readStudio(),
+    ]);
   }
 
   /**
@@ -97,7 +125,10 @@ export class StudioReads {
    * review's rule is that the Studio is the Run's own, decided when the window
    * opens; a click handler naming one would be a second answer to that.
    */
-  servedBy(serverId: string): { id: string; name: string | null } | null {
+  servedBy(serverId: string): {
+    id: string;
+    name: string | null;
+  } | null {
     const studio = this.graph;
     if (studio === null) return null;
     const held = studio.nodes.some(
@@ -105,18 +136,33 @@ export class StudioReads {
     );
     // **The name as Fleet wrote it, `null` on an untitled Studio.** What an
     // untitled one is called is copy, and copy is the renderer's.
-    return held ? { id: studio.id, name: studio.name ?? null } : null;
+    return held
+      ? {
+          id: studio.id,
+          name: studio.name ?? null,
+        }
+      : null;
   }
 
   /** `studio.changed`, or an act's own answer: the Studio whole, as Fleet wrote it. */
   changed(studio: Studio): void {
     if (this.opened === studio.id) {
       this.graph = studio;
-      this.publish({ studio: { state: "read", studio } });
+      this.publish({
+        studio: {
+          state: "read",
+          studio,
+        },
+      });
     }
     const held = this.reads.get(studio.manifest_id);
     if (held?.state === "read") {
-      this.reads.set(studio.manifest_id, { ...held, list: { studios: foldStudio(held.list.studios, studio) } });
+      this.reads.set(studio.manifest_id, {
+        ...held,
+        list: {
+          studios: foldStudio(held.list.studios, studio),
+        },
+      });
       this.show();
     }
   }
@@ -125,19 +171,32 @@ export class StudioReads {
   deleted(gone: StudioDeleted): void {
     if (this.opened === gone.id) {
       this.graph = null;
-      this.publish({ studio: { state: "gone", studioId: gone.id } });
+      this.publish({
+        studio: {
+          state: "gone",
+          studioId: gone.id,
+        },
+      });
     }
     const held = this.reads.get(gone.manifest_id);
     if (held?.state === "read") {
       const studios = held.list.studios.filter((one) => one.id !== gone.id);
-      this.reads.set(gone.manifest_id, { ...held, list: { studios } });
+      this.reads.set(gone.manifest_id, {
+        ...held,
+        list: {
+          studios,
+        },
+      });
       this.show();
     }
   }
 
   /** Start an untitled Studio in one repository. */
   async create(manifestId: string): Promise<StudioAnswer> {
-    const answer = await this.act(`/studios/create?manifest_id=${encodeURIComponent(manifestId)}`, {});
+    const answer = await this.act(
+      `/studios/create?manifest_id=${encodeURIComponent(manifestId)}`,
+      {},
+    );
     if (answer.ok) this.changed(answer.studio);
     return answer;
   }
@@ -160,8 +219,15 @@ export class StudioReads {
     const body: CaptureStudioNote = {
       said,
       capture,
-      position: { x: 0, y: await this.under(studioId) },
-      ...(frame === null ? {} : { frame }),
+      position: {
+        x: 0,
+        y: await this.under(studioId),
+      },
+      ...(frame === null
+        ? {}
+        : {
+            frame,
+          }),
     };
     return this.acted(await this.act(member(studioId, "/capture_note"), body));
   }
@@ -178,7 +244,11 @@ export class StudioReads {
    */
   async frameOf(studioId: string, nodeId: string, picture?: string): Promise<FrameRead> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     return await studioFrameOf(port, studioId, nodeId, picture);
   }
 
@@ -194,7 +264,11 @@ export class StudioReads {
 
   /** Name a Studio, or name it again. A person's act as much as Helm's — #1364. */
   async rename(studioId: string, name: string): Promise<Outcome> {
-    return this.acted(await this.act(member(studioId, "/rename"), { name }));
+    return this.acted(
+      await this.act(member(studioId, "/rename"), {
+        name,
+      }),
+    );
   }
 
   /**
@@ -211,18 +285,48 @@ export class StudioReads {
     position: StudioPosition,
     within: string | null = null,
   ): Promise<Outcome> {
-    const body = within === null ? { ...node, position } : { ...node, within, position };
+    const body =
+      within === null
+        ? {
+            ...node,
+            position,
+          }
+        : {
+            ...node,
+            within,
+            position,
+          };
     return this.acted(await this.act(member(studioId, "/add_node"), body));
   }
 
   /** The whole drawing a person left on a Sketch's pad, its new pictures staged — 1 Oct 2026. */
   async editSketch(studioId: string, nodeId: string, drawing: SketchDrawn): Promise<Outcome> {
-    return this.acted(await this.act(member(studioId, "/edit_sketch"), { node_id: nodeId, drawing }));
+    return this.acted(
+      await this.act(member(studioId, "/edit_sketch"), {
+        node_id: nodeId,
+        drawing,
+      }),
+    );
   }
 
   /** `within` is the frame it was put down in, and `null` the board — #1620. */
-  async moveNode(studioId: string, nodeId: string, position: StudioPosition, within: string | null): Promise<Outcome> {
-    const body: MoveStudioNode = within === null ? { node_id: nodeId, position } : { node_id: nodeId, within, position };
+  async moveNode(
+    studioId: string,
+    nodeId: string,
+    position: StudioPosition,
+    within: string | null,
+  ): Promise<Outcome> {
+    const body: MoveStudioNode =
+      within === null
+        ? {
+            node_id: nodeId,
+            position,
+          }
+        : {
+            node_id: nodeId,
+            within,
+            position,
+          };
     return this.acted(await this.act(member(studioId, "/move_node"), body));
   }
 
@@ -232,11 +336,22 @@ export class StudioReads {
    * ninth, and what is left is a board a person has to reconcile by reading it.
    */
   async removeNodes(studioId: string, nodeIds: readonly string[]): Promise<Outcome> {
-    return this.acted(await this.act(member(studioId, "/remove_nodes"), { node_ids: [...nodeIds] }));
+    return this.acted(
+      await this.act(member(studioId, "/remove_nodes"), {
+        node_ids: [
+          ...nodeIds,
+        ],
+      }),
+    );
   }
 
   async decideEdge(studioId: string, edgeId: string, accepted: boolean): Promise<Outcome> {
-    return this.acted(await this.act(member(studioId, "/decide_edge"), { edge_id: edgeId, accepted }));
+    return this.acted(
+      await this.act(member(studioId, "/decide_edge"), {
+        edge_id: edgeId,
+        accepted,
+      }),
+    );
   }
 
   /**
@@ -244,7 +359,10 @@ export class StudioReads {
    * #1289. **The Studio names the repository**, so nothing here does.
    */
   async startRun(studioId: string, name: string, position: StudioPosition): Promise<Outcome> {
-    return this.started(member(studioId, "/start_run"), { name, position });
+    return this.started(member(studioId, "/start_run"), {
+      name,
+      position,
+    });
   }
 
   /**
@@ -253,7 +371,10 @@ export class StudioReads {
    * carrying `serve`, because a server is held rather than run.
    */
   async startServer(studioId: string, name: string, position: StudioPosition): Promise<Outcome> {
-    return this.started(member(studioId, "/start_server"), { name, position });
+    return this.started(member(studioId, "/start_server"), {
+      name,
+      position,
+    });
   }
 
   /**
@@ -267,8 +388,16 @@ export class StudioReads {
     if (port === null) return NOT_CONNECTED;
     const answer = await ask(port, "POST", path, body);
     if (!answer.ok) return answer.outcome;
-    this.changed((answer.body as { studio: Studio }).studio);
-    return { ok: true };
+    this.changed(
+      (
+        answer.body as {
+          studio: Studio;
+        }
+      ).studio,
+    );
+    return {
+      ok: true,
+    };
   }
 
   /**
@@ -292,14 +421,28 @@ export class StudioReads {
   private acted(answer: StudioAnswer): Outcome {
     if (!answer.ok) return answer.outcome;
     this.changed(answer.studio);
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   private async act(path: string, body: unknown): Promise<StudioAnswer> {
     const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
     const answer = await ask(port, "POST", path, body);
-    return answer.ok ? { ok: true, studio: answer.body as Studio } : { ok: false, outcome: answer.outcome };
+    return answer.ok
+      ? {
+          ok: true,
+          studio: answer.body as Studio,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 
   private async readList(): Promise<void> {
@@ -309,11 +452,18 @@ export class StudioReads {
   private async readOne(manifestId: string): Promise<void> {
     const port = this.port();
     if (port === null) {
-      this.reads.set(manifestId, { state: "failed", manifestId, outcome: NOT_CONNECTED });
+      this.reads.set(manifestId, {
+        state: "failed",
+        manifestId,
+        outcome: NOT_CONNECTED,
+      });
       return this.show();
     }
     if (this.reads.get(manifestId)?.state !== "read") {
-      this.reads.set(manifestId, { state: "reading", manifestId });
+      this.reads.set(manifestId, {
+        state: "reading",
+        manifestId,
+      });
       this.show();
     }
     const answer = await ask(port, "GET", `/studios?manifest_id=${encodeURIComponent(manifestId)}`);
@@ -322,8 +472,16 @@ export class StudioReads {
     this.reads.set(
       manifestId,
       answer.ok
-        ? { state: "read", manifestId, list: answer.body as StudioList }
-        : { state: "failed", manifestId, outcome: answer.outcome },
+        ? {
+            state: "read",
+            manifestId,
+            list: answer.body as StudioList,
+          }
+        : {
+            state: "failed",
+            manifestId,
+            outcome: answer.outcome,
+          },
     );
     this.show();
   }
@@ -332,23 +490,46 @@ export class StudioReads {
     const studioId = this.opened;
     if (studioId === null) return;
     const port = this.port();
-    if (port === null) return this.publish({ studio: { state: "failed", studioId, outcome: NOT_CONNECTED } });
+    if (port === null)
+      return this.publish({
+        studio: {
+          state: "failed",
+          studioId,
+          outcome: NOT_CONNECTED,
+        },
+      });
     const answer = await ask(port, "GET", member(studioId));
     if (this.opened !== studioId) return;
     this.graph = answer.ok ? (answer.body as Studio) : null;
     this.publish({
       studio: answer.ok
-        ? { state: "read", studio: answer.body as Studio }
-        : { state: "failed", studioId, outcome: answer.outcome },
+        ? {
+            state: "read",
+            studio: answer.body as Studio,
+          }
+        : {
+            state: "failed",
+            studioId,
+            outcome: answer.outcome,
+          },
     });
   }
 
   /** What the held reads say: one repository's own, or each of several's together. */
   private show(): void {
-    const reads = this.listing.map((id) => this.reads.get(id)).filter((one): one is StudiosOfOne => one !== undefined);
+    const reads = this.listing
+      .map((id) => this.reads.get(id))
+      .filter((one): one is StudiosOfOne => one !== undefined);
     const studios: StudiosRead = this.many
-      ? { state: "many", reads }
-      : (reads[0] ?? { state: "none" });
-    this.publish({ studios });
+      ? {
+          state: "many",
+          reads,
+        }
+      : (reads[0] ?? {
+          state: "none",
+        });
+    this.publish({
+      studios,
+    });
   }
 }

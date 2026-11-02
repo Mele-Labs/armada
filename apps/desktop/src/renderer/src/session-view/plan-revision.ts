@@ -7,16 +7,40 @@ import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 import { viewOf } from "./plan-marks";
 
 /** The card's revision for a plan that is a later version and says what it changed; nothing for a first plan. */
-export function planRevision(plan: WorkPlan): { revision?: PlanRevision } {
+export function planRevision(plan: WorkPlan): {
+  revision?: PlanRevision;
+} {
   const changes = plan.changes;
-  if ((plan.version ?? 1) < 2 || changes === undefined || changes.added.length + changes.renamed.length + changes.removed.length === 0) return {};
+  if (
+    (plan.version ?? 1) < 2 ||
+    changes === undefined ||
+    changes.added.length + changes.renamed.length + changes.removed.length === 0
+  )
+    return {};
   const groups = viewOf(plan, []).map((group) => ({
     id: group.id,
     agent: group.agent,
     title: group.title,
-    ...(group.since === undefined ? {} : { since: group.since }),
+    ...(group.since === undefined
+      ? {}
+      : {
+          since: group.since,
+        }),
     gone: group.gone,
-    tasks: group.tasks.map((task) => ({ id: task.id, text: task.text, state: task.state, ...(task.since === undefined ? {} : { since: task.since }) })),
+    tasks: group.tasks.map((task) => ({
+      id: task.id,
+      text: task.text,
+      state: task.state,
+      ...(task.since === undefined
+        ? {}
+        : {
+            since: task.since,
+          }),
+    })),
   }));
-  return { revision: { groups } };
+  return {
+    revision: {
+      groups,
+    },
+  };
 }

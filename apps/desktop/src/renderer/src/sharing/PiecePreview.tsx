@@ -4,7 +4,18 @@
 // Manifest's mark, and Requests the collections and environments it holds. The owner's note on the walk `sharing-in-bridge`, 21 Oct 2026.
 
 import type { ReactNode } from "react";
-import { ArrowRightLeft, Briefcase, CircleCheck, CircleDashed, ClipboardList, FileCog, FolderGit2, RefreshCw, Workflow, Zap } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Briefcase,
+  CircleCheck,
+  CircleDashed,
+  ClipboardList,
+  FileCog,
+  FolderGit2,
+  RefreshCw,
+  Workflow,
+  Zap,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tooltip } from "@armada/components";
 import type { FlightControlKind, PieceKind } from "@armada/protocol";
@@ -13,25 +24,70 @@ import { KIND_GLYPH } from "../cockpit/deck/flight-controls";
 import "../cockpit/deck/deck.css";
 import { glyphOf } from "../cockpit/deck/flight-glyphs";
 
-const KIND: Record<PieceKind, { said: string; Glyph: LucideIcon }> = {
-  tile: { said: "Tile", Glyph: Zap },
-  workflow: { said: "Workflow", Glyph: Workflow },
-  review_tool: { said: "Review tool", Glyph: ClipboardList },
-  manifest: { said: "armada.yml", Glyph: FileCog },
-  requests: { said: "Requests", Glyph: ArrowRightLeft },
+const KIND: Record<
+  PieceKind,
+  {
+    said: string;
+    Glyph: LucideIcon;
+  }
+> = {
+  tile: {
+    said: "Tile",
+    Glyph: Zap,
+  },
+  workflow: {
+    said: "Workflow",
+    Glyph: Workflow,
+  },
+  review_tool: {
+    said: "Review tool",
+    Glyph: ClipboardList,
+  },
+  manifest: {
+    said: "armada.yml",
+    Glyph: FileCog,
+  },
+  requests: {
+    said: "Requests",
+    Glyph: ArrowRightLeft,
+  },
 };
 
 /** Where a piece stands: about to be added, about to replace one of yours, added, or waiting for a repository. */
 export type PieceState = "new" | "replaces" | "added" | "replaced" | "waiting";
 
-const STATE: Record<Exclude<PieceState, "new">, { said: string; Glyph: LucideIcon }> = {
-  replaces: { said: "Replaces yours", Glyph: RefreshCw },
-  added: { said: "Added", Glyph: CircleCheck },
-  replaced: { said: "Replaced", Glyph: CircleCheck },
-  waiting: { said: "Waiting for a repository", Glyph: CircleDashed },
+const STATE: Record<
+  Exclude<PieceState, "new">,
+  {
+    said: string;
+    Glyph: LucideIcon;
+  }
+> = {
+  replaces: {
+    said: "Replaces yours",
+    Glyph: RefreshCw,
+  },
+  added: {
+    said: "Added",
+    Glyph: CircleCheck,
+  },
+  replaced: {
+    said: "Replaced",
+    Glyph: CircleCheck,
+  },
+  waiting: {
+    said: "Waiting for a repository",
+    Glyph: CircleDashed,
+  },
 };
 
-export type Previewed = { kind: PieceKind; id: string; name: string; action?: FlightControlKind | undefined; commands?: readonly string[] | undefined };
+export type Previewed = {
+  kind: PieceKind;
+  id: string;
+  name: string;
+  action?: FlightControlKind | undefined;
+  commands?: readonly string[] | undefined;
+};
 
 /** The piece as Bridge will draw it, never pressable here. */
 function Preview({ piece }: { piece: Previewed }) {
@@ -80,11 +136,26 @@ function Preview({ piece }: { piece: Previewed }) {
 }
 
 /** One piece, as a card. `children` is drawn under the preview: where to choose a repository, for one waiting. */
-export function PieceCard({ piece, where, state, children }: { piece: Previewed; where: string; state: PieceState; children?: ReactNode }) {
+export function PieceCard({
+  piece,
+  where,
+  state,
+  children,
+}: {
+  piece: Previewed;
+  where: string;
+  state: PieceState;
+  children?: ReactNode;
+}) {
   const kind = KIND[piece.kind];
   const stands = state === "new" ? undefined : STATE[state];
   return (
-    <li className="import-card" data-kind={piece.kind} data-state={state} aria-label={`${kind.said} ${piece.name}`}>
+    <li
+      className="import-card"
+      data-kind={piece.kind}
+      data-state={state}
+      aria-label={`${kind.said} ${piece.name}`}
+    >
       <span className="import-card__band">
         <span className="import-card__kind">
           <kind.Glyph size={12} strokeWidth={2} aria-hidden="true" />

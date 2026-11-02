@@ -12,9 +12,14 @@ import type { ThoughtCarry, ThoughtRouting } from "./thought-routing";
 
 afterEach(unmount);
 
-const CONTEXT: HelmContext = { screen: "overview" };
+const CONTEXT: HelmContext = {
+  screen: "overview",
+};
 
-const box = () => page.getByRole("textbox", { name: "Ask Helm" });
+const box = () =>
+  page.getByRole("textbox", {
+    name: "Ask Helm",
+  });
 
 function Dock({
   onAsk,
@@ -27,15 +32,34 @@ function Dock({
 }) {
   return (
     <HelmDock
-      helm={{ state: "pointed", manifestId: MANIFEST_ID }}
-      repositories={[repository()]}
+      helm={{
+        state: "pointed",
+        manifestId: MANIFEST_ID,
+      }}
+      repositories={[
+        repository(),
+      ]}
       live
       context={CONTEXT}
       onAsk={onAsk}
-      {...(routing === undefined ? {} : { routing })}
-      {...(parts === undefined ? {} : { box: parts })}
+      {...(routing === undefined
+        ? {}
+        : {
+            routing,
+          })}
+      {...(parts === undefined
+        ? {}
+        : {
+            box: parts,
+          })}
       onSwitch={() => {}}
-      onReadRecord={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
+      onReadRecord={async () => ({
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      })}
       onCopied={() => {}}
       onSaid={() => {}}
     />
@@ -44,16 +68,44 @@ function Dock({
 
 /** A thought router that reads every message as a question for Helm. */
 function reading() {
-  const read = vi.fn<ThoughtRouting["read"]>(async () => ({ kind: "question" }));
-  const routing: ThoughtRouting = { read, send: async () => true, open: () => {}, startNew: () => {} };
-  return { read, routing };
+  const read = vi.fn<ThoughtRouting["read"]>(async () => ({
+    kind: "question",
+  }));
+  const routing: ThoughtRouting = {
+    read,
+    send: async () => true,
+    open: () => {},
+    startNew: () => {},
+  };
+  return {
+    read,
+    routing,
+  };
 }
 
 async function pasteAPicture(): Promise<void> {
   await expect.element(box()).toBeVisible();
   const clipboard = new DataTransfer();
-  clipboard.items.add(new File(["png"], "Screenshot.png", { type: "image/png" }));
-  box().element().dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+  clipboard.items.add(
+    new File(
+      [
+        "png",
+      ],
+      "Screenshot.png",
+      {
+        type: "image/png",
+      },
+    ),
+  );
+  box()
+    .element()
+    .dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: clipboard,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   await expect.element(page.getByText("Screenshot.png")).toBeVisible();
 }
 
@@ -68,16 +120,50 @@ test("words alone are asked as they always were: no third argument", async () =>
 test("a message's files and sketches go to the window with its words, and the box is given nothing back", async () => {
   const onAsk = vi.fn<(text: string, context: HelmContext, carry?: ThoughtCarry) => void>();
   const removed = vi.fn();
-  mount(<Dock onAsk={onAsk} box={{ drawn: [{ id: "k1", title: "pin the clock" }], onRemoveDrawn: removed }} />);
+  mount(
+    <Dock
+      onAsk={onAsk}
+      box={{
+        drawn: [
+          {
+            id: "k1",
+            title: "pin the clock",
+          },
+        ],
+        onRemoveDrawn: removed,
+      }}
+    />,
+  );
 
   await pasteAPicture();
   await box().fill("do these explain it?");
   await userEvent.keyboard("{Enter}");
 
   const [text, context, carry] = onAsk.mock.calls[0]!;
-  expect([text, context]).toEqual(["do these explain it?", CONTEXT]);
-  expect(carry?.files.map((one) => [one.name, one.file?.type])).toEqual([["Screenshot.png", "image/png"]]);
-  expect(carry?.sketches).toEqual([{ id: "k1", title: "pin the clock" }]);
+  expect([
+    text,
+    context,
+  ]).toEqual([
+    "do these explain it?",
+    CONTEXT,
+  ]);
+  expect(
+    carry?.files.map((one) => [
+      one.name,
+      one.file?.type,
+    ]),
+  ).toEqual([
+    [
+      "Screenshot.png",
+      "image/png",
+    ],
+  ]);
+  expect(carry?.sketches).toEqual([
+    {
+      id: "k1",
+      title: "pin the clock",
+    },
+  ]);
   expect(carry?.tags).toEqual([]);
   // The sketch went with this message and does not wait for the next.
   expect(removed).toHaveBeenCalledWith("k1");
@@ -89,7 +175,11 @@ test("a message of only a picture goes straight to Helm, and its words are not r
   mount(<Dock onAsk={onAsk} routing={routing} />);
 
   await pasteAPicture();
-  await page.getByRole("button", { name: "Send" }).click();
+  await page
+    .getByRole("button", {
+      name: "Send",
+    })
+    .click();
 
   await vi.waitFor(() => expect(onAsk).toHaveBeenCalledTimes(1));
   expect(read).not.toHaveBeenCalled();
@@ -108,7 +198,9 @@ test("words with a picture are read first, and a question carries the picture to
 
   await vi.waitFor(() => expect(onAsk).toHaveBeenCalledTimes(1));
   expect(read).toHaveBeenCalledExactlyOnceWith("why is this red?");
-  expect(onAsk.mock.calls[0]![2]?.files.map((one) => one.name)).toEqual(["Screenshot.png"]);
+  expect(onAsk.mock.calls[0]![2]?.files.map((one) => one.name)).toEqual([
+    "Screenshot.png",
+  ]);
 });
 
 test("a blank message with nothing carried sends nothing", async () => {

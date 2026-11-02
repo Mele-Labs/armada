@@ -10,12 +10,19 @@ import { skipsMods } from "./theme-loader";
 import { foundSaid, useTeachingsSaved } from "./teach";
 
 /** One pattern to draw as a link, in the form `refScanner` takes. */
-export type TaughtLink = { pattern: string; address: string; from?: string };
+export type TaughtLink = {
+  pattern: string;
+  address: string;
+  from?: string;
+};
 
 /** Reads in flight, so the threads of one repository ask Fleet once between them. */
 const asking = new Map<string, Promise<readonly WordRule[] | undefined>>();
 
-function ask(root: string, sessionId: string | undefined): Promise<readonly WordRule[] | undefined> {
+function ask(
+  root: string,
+  sessionId: string | undefined,
+): Promise<readonly WordRule[] | undefined> {
   const key = `${root}\n${sessionId ?? ""}`;
   let reading = asking.get(key);
   if (reading === undefined) {
@@ -33,24 +40,51 @@ function ask(root: string, sessionId: string | undefined): Promise<readonly Word
  * The rules that draw words as links in `root`'s Sessions. `sessionId` is the Session the words are drawn in, which Fleet asks in
  * Needs you where it finds no address. Nothing is asked while no Words mod is on.
  */
-export function useWordRules(root: string | undefined, sessionId: string | undefined): readonly TaughtLink[] {
+export function useWordRules(
+  root: string | undefined,
+  sessionId: string | undefined,
+): readonly TaughtLink[] {
   const mods = useModList();
   const saved = useTeachingsSaved();
   // Safe mode reads no mod, so it links nothing a teaching made.
-  const words = skipsMods() ? "" : mods.filter((one) => one.kind === "words" && one.valid && one.enabled).map((one) => `${one.name}@${one.changed_at ?? ""}`).join();
-  const [read, setRead] = useState<{ root: string; rules: readonly WordRule[] } | undefined>(undefined);
+  const words = skipsMods()
+    ? ""
+    : mods
+        .filter((one) => one.kind === "words" && one.valid && one.enabled)
+        .map((one) => `${one.name}@${one.changed_at ?? ""}`)
+        .join();
+  const [read, setRead] = useState<
+    | {
+        root: string;
+        rules: readonly WordRule[];
+      }
+    | undefined
+  >(undefined);
   useEffect(() => {
     if (root === undefined || words === "") return;
     let live = true;
     void ask(root, sessionId).then((rules) => {
       // A read that failed leaves the rules as they were, so a link does not blink out on a dropped connection.
-      if (live && rules !== undefined) setRead({ root, rules });
+      if (live && rules !== undefined)
+        setRead({
+          root,
+          rules,
+        });
     });
     return () => {
       live = false;
     };
-  }, [root, sessionId, words, saved]);
+  }, [
+    root,
+    sessionId,
+    words,
+    saved,
+  ]);
   // Another repository's addresses are never this one's, and a Words mod that is gone leaves nothing to link.
   const rules = root !== undefined && words !== "" && read?.root === root ? read.rules : [];
-  return rules.map((one) => ({ pattern: one.pattern, address: one.address, from: foundSaid(one.found) }));
+  return rules.map((one) => ({
+    pattern: one.pattern,
+    address: one.address,
+    from: foundSaid(one.found),
+  }));
 }

@@ -8,7 +8,10 @@ import type { HelmCallInFlight } from "@armada/protocol";
  * cover, held open while they answer. **Wire shape whole**, so the answer comes from what was asked
  * rather than from what a card drew. #1389.
  */
-export type Outstanding = { kind: "helm"; call: HelmCallInFlight };
+export type Outstanding = {
+  kind: "helm";
+  call: HelmCallInFlight;
+};
 
 /** Unique across the list. */
 export function outstandingId(question: Outstanding): string {

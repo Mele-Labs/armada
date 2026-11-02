@@ -6,7 +6,14 @@ import { DRONES, sceneFor } from "./scene-fixture";
 
 test("a drone in three write clashes is drawn with one clash mark", () => {
   const key = DRONES[0]!.key;
-  const scene = sceneFor({ clashed: new Map([[key, 3]]) });
+  const scene = sceneFor({
+    clashed: new Map([
+      [
+        key,
+        3,
+      ],
+    ]),
+  });
   expect(scene.drones.find((one) => one.drone.key === key)?.clashes).toBe(1);
 });
 

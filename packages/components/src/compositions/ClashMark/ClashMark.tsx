@@ -19,10 +19,17 @@ import { PathChip } from "../PathChip/PathChip";
  * The rows ask for their own marks (`ClashMark kind id`), so a list does not
  * carry clashes through its props: the host provides what is known once.
  */
-export type ClashHolderRef = { kind: "session" | "main"; id: string; label: string };
+export type ClashHolderRef = {
+  kind: "session" | "main";
+  id: string;
+  label: string;
+};
 
 /** One clash as a holder sees it: who it is with, and where the changes collide. */
-export type ClashView = { with: ClashHolderRef; paths: readonly string[] };
+export type ClashView = {
+  with: ClashHolderRef;
+  paths: readonly string[];
+};
 
 export type Clashing = {
   of: (kind: "session", id: string) => readonly ClashView[];
@@ -51,14 +58,23 @@ export function useOpenClash(): (holder: ClashHolderRef) => void {
 }
 
 /** What the mark's tooltip says. */
-export const clashSaid = (clash: ClashView): string => `Conflicts with ${clash.with.label} · ${clash.paths.join(", ")}`;
+export const clashSaid = (clash: ClashView): string =>
+  `Conflicts with ${clash.with.label} · ${clash.paths.join(", ")}`;
 
 /**
  * The mark for a holder, one however many clashes it is in; nothing where it has none. In one clash a press opens
  * the other holder. In several the card names each with its paths, and a press is the row's own: the Session's
  * Bays panel links every holder.
  */
-export function ClashMark({ kind, id, size = 12 }: { kind: "session"; id: string | undefined; size?: 12 | 16 }) {
+export function ClashMark({
+  kind,
+  id,
+  size = 12,
+}: {
+  kind: "session";
+  id: string | undefined;
+  size?: 12 | 16;
+}) {
   const held = useContext(Held);
   const clashes = useClashesOf(kind, id);
   if (clashes.length === 0) return null;
@@ -68,7 +84,9 @@ export function ClashMark({ kind, id, size = 12 }: { kind: "session"; id: string
       <span className="armada-clash-mark__card">
         <span>Conflicts with</span>
         {clashes.map((clash) => (
-          <span key={`${clash.with.kind}:${clash.with.id}`}>{`${clash.with.label} · ${clash.paths.join(", ")}`}</span>
+          <span
+            key={`${clash.with.kind}:${clash.with.id}`}
+          >{`${clash.with.label} · ${clash.paths.join(", ")}`}</span>
         ))}
       </span>
     );
@@ -118,21 +136,37 @@ export function ClashMark({ kind, id, size = 12 }: { kind: "session"; id: string
 const SHOWN = 3;
 
 /** The paths a clash names, a long list folded to its first few and one chip to open the rest. With `onPath`, each path is a press. */
-export function ClashPaths({ clash, onPath }: { clash: ClashView; onPath?: (path: string) => void }) {
+export function ClashPaths({
+  clash,
+  onPath,
+}: {
+  clash: ClashView;
+  onPath?: (path: string) => void;
+}) {
   const [all, setAll] = useState(false);
   const folds = clash.paths.length > SHOWN + 1;
   const drawn = folds && !all ? clash.paths.slice(0, SHOWN) : clash.paths;
   return (
-    <ul className="armada-clash-notice__paths" aria-label={`Conflicting files with ${clash.with.label}`}>
+    <ul
+      className="armada-clash-notice__paths"
+      aria-label={`Conflicting files with ${clash.with.label}`}
+    >
       {drawn.map((path) => {
         const cut = path.lastIndexOf("/") + 1;
-        const chip = <PathChip directory={path.slice(0, cut)} basename={path.slice(cut)} title={path} />;
+        const chip = (
+          <PathChip directory={path.slice(0, cut)} basename={path.slice(cut)} title={path} />
+        );
         return (
           <li key={path}>
             {onPath === undefined ? (
               chip
             ) : (
-              <button type="button" className="armada-clash-notice__open" aria-label={`Open ${path}`} onClick={() => onPath(path)}>
+              <button
+                type="button"
+                className="armada-clash-notice__open"
+                aria-label={`Open ${path}`}
+                onClick={() => onPath(path)}
+              >
                 {chip}
               </button>
             )}
@@ -141,8 +175,15 @@ export function ClashPaths({ clash, onPath }: { clash: ClashView; onPath?: (path
       })}
       {folds ? (
         <li>
-          <button type="button" className="armada-path armada-clash-notice__fold" aria-expanded={all} onClick={() => setAll(!all)}>
-            <span className="armada-path__base">{all ? "Fewer" : `${clash.paths.length - SHOWN} more`}</span>
+          <button
+            type="button"
+            className="armada-path armada-clash-notice__fold"
+            aria-expanded={all}
+            onClick={() => setAll(!all)}
+          >
+            <span className="armada-path__base">
+              {all ? "Fewer" : `${clash.paths.length - SHOWN} more`}
+            </span>
           </button>
         </li>
       ) : null}

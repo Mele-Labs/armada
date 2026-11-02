@@ -32,31 +32,53 @@ afterEach(forget);
 
 /** The card for one guide, wherever the provider drew it. */
 const cardFor = (guide: { number: number; title: string }) =>
-  page.getByRole("dialog", { name: `Guide ${guide.number}, ${guide.title}` });
+  page.getByRole("dialog", {
+    name: `Guide ${guide.number}, ${guide.title}`,
+  });
 
 /**
  * The merge line's heading carries the first mark a person meets: the Cockpit draws no other piece
  * with a guide on it, so the page is reached by the palette's row, `⌘K`.
  */
 const mergeLineMark = () =>
-  page.getByRole("button", { name: `Open guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}` }).first();
+  page
+    .getByRole("button", {
+      name: `Open guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}`,
+    })
+    .first();
 
 const card = () => cardFor(GUIDE_MERGE_LINE);
-const closeCard = () => card().getByRole("button", { name: "Close" }).click();
+const closeCard = () =>
+  card()
+    .getByRole("button", {
+      name: "Close",
+    })
+    .click();
 
 /** The window on a Fleet with merge lines, open on the page that draws one. */
 async function onMergeLine(): Promise<void> {
   mount("merge-line");
   await onScreen();
   await userEvent.keyboard("{Meta>}k{/Meta}");
-  await page.getByRole("dialog", { name: "Command palette" }).getByRole("option", { name: /^Merge line/ }).click();
+  await page
+    .getByRole("dialog", {
+      name: "Command palette",
+    })
+    .getByRole("option", {
+      name: /^Merge line/,
+    })
+    .click();
 }
 
 test("the first piece a person meets opens its card by itself, and the card carries the switch", async () => {
   await onMergeLine();
   await expect.element(card()).toBeVisible();
   await expect
-    .element(card().getByRole("switch", { name: /Open a guide the first time/ }))
+    .element(
+      card().getByRole("switch", {
+        name: /Open a guide the first time/,
+      }),
+    )
     .toBeChecked();
 });
 
@@ -69,7 +91,14 @@ test("a piece opens itself once and never again, across the window reopening", a
   const first = mountApp("merge-line", host);
   await onScreen();
   await userEvent.keyboard("{Meta>}k{/Meta}");
-  await page.getByRole("dialog", { name: "Command palette" }).getByRole("option", { name: /^Merge line/ }).click();
+  await page
+    .getByRole("dialog", {
+      name: "Command palette",
+    })
+    .getByRole("option", {
+      name: /^Merge line/,
+    })
+    .click();
   await expect.element(card()).toBeVisible();
   await closeCard();
   first.unmount();
@@ -100,7 +129,9 @@ test("the switch on the first card turns all of them off, and Settings is where 
   await closeCard();
 
   await toSystemPage("Guides");
-  const setting = page.getByRole("switch", { name: /Open a guide the first time/ });
+  const setting = page.getByRole("switch", {
+    name: /Open a guide the first time/,
+  });
   await expect.element(setting).toBeVisible();
   await expect.element(setting).not.toBeChecked();
 });
@@ -114,19 +145,42 @@ test("the rail reaches the catalogue, every guide is in the list, and one is ope
   // The catalogue draws a row per guide and opens one beside them, so a guide
   // is reachable rather than already on screen — the list is the claim.
   for (const guide of GUIDES) {
-    await expect.element(page.getByRole("button", { name: guide.title })).toBeVisible();
+    await expect
+      .element(
+        page.getByRole("button", {
+          name: guide.title,
+        }),
+      )
+      .toBeVisible();
   }
 
   // Arriving on an empty panel is the thing the list-and-panel arrangement
   // must never do, so the first guide is open before anything is pressed.
   const [first] = GUIDES;
   if (first === undefined) throw new Error("no guides to draw");
-  await expect.element(page.getByRole("heading", { name: first.title })).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("heading", {
+        name: first.title,
+      }),
+    )
+    .toBeVisible();
 
   const last = GUIDES[GUIDES.length - 1];
   if (last === undefined) throw new Error("no guides to draw");
-  await page.getByRole("button", { name: last.title }).first().click();
-  await expect.element(page.getByRole("heading", { name: last.title })).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: last.title,
+    })
+    .first()
+    .click();
+  await expect
+    .element(
+      page.getByRole("heading", {
+        name: last.title,
+      }),
+    )
+    .toBeVisible();
 });
 
 /**
@@ -136,12 +190,17 @@ test("the rail reaches the catalogue, every guide is in the list, and one is ope
  * test restating the number would pass against its own copy of it.
  */
 function resting(): number {
-  const value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--w-guide-list"));
+  const value = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--w-guide-list"),
+  );
   if (!Number.isFinite(value)) throw new Error("--w-guide-list is not declared");
   return value;
 }
 
-const handle = () => page.getByRole("separator", { name: "Resize the list of guides" });
+const handle = () =>
+  page.getByRole("separator", {
+    name: "Resize the list of guides",
+  });
 
 /** The column a drag moves, which is what a reader watching this would see change. */
 const listWidth = () =>
@@ -153,9 +212,15 @@ const listWidth = () =>
  */
 const openCatalogue = async (met = true) => {
   if (!met) {
-    const open = page.getByRole("dialog", { name: /^Guide \d+, / });
+    const open = page.getByRole("dialog", {
+      name: /^Guide \d+, /,
+    });
     await expect.element(open).toBeVisible();
-    await open.getByRole("button", { name: "Close" }).click();
+    await open
+      .getByRole("button", {
+        name: "Close",
+      })
+      .click();
     await expect.poll(() => open.query()).toBeNull();
   }
   await toSystemPage("Guides");

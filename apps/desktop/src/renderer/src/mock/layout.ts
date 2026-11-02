@@ -23,6 +23,16 @@ export const TIDY_DASHBOARD = `{
 /** `text` checked and installed as the mod `tidy`, the way Fleet would read it from its folder. */
 export function writeTidy(text: string): void {
   const { file, problems } = parseLayout(text);
-  const mod: LayoutMod = { name: "tidy", title: "Tidy", enabled: true, file, ...(problems.length === 0 ? {} : { problem: problems[0]! }) };
+  const mod: LayoutMod = {
+    name: "tidy",
+    title: "Tidy",
+    enabled: true,
+    file,
+    ...(problems.length === 0
+      ? {}
+      : {
+          problem: problems[0]!,
+        }),
+  };
   mockLayout.install(mod);
 }

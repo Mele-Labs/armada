@@ -29,7 +29,9 @@ const squeezed = (words: string) => words.replace(/\s+/g, " ").trim();
 function matches(name: string, wanted: Name, exact: boolean): boolean {
   const said = squeezed(name);
   if (typeof wanted !== "string") return wanted.test(said);
-  return exact ? said === squeezed(wanted) : said.toLowerCase().includes(squeezed(wanted).toLowerCase());
+  return exact
+    ? said === squeezed(wanted)
+    : said.toLowerCase().includes(squeezed(wanted).toLowerCase());
 }
 
 /** The walk's own card and ring, which a target is never found in. */
@@ -38,31 +40,44 @@ export const WALK_UI = "data-walk-ui";
 function reachable(element: Element): boolean {
   // The rows of a terminal's screen are drawn as text but hidden from the accessibility tree, which a person
   // reads them from, so a walk finds the words there as they are drawn.
-  return element.closest(`[${WALK_UI}]`) === null && (!isInaccessible(element) || element.closest(".xterm-rows") !== null);
+  return (
+    element.closest(`[${WALK_UI}]`) === null &&
+    (!isInaccessible(element) || element.closest(".xterm-rows") !== null)
+  );
 }
 
 /** An element's role. A password field is a textbox, as Chromium and Playwright read it, where the library names none. */
-const roleOf = (one: Element): string | null => getRole(one) ?? (one instanceof HTMLInputElement && one.type === "password" ? "textbox" : null);
+const roleOf = (one: Element): string | null =>
+  getRole(one) ?? (one instanceof HTMLInputElement && one.type === "password" ? "textbox" : null);
 
 /**
  * Every element under `root` this target names, in document order. **Hidden
  * ones are not found**, as a test's `getByRole` does not find them.
  */
 function every(target: Seeking, root: ParentNode): Element[] {
-  const all = [...root.querySelectorAll("*")];
+  const all = [
+    ...root.querySelectorAll("*"),
+  ];
   if (target.role === "text") {
     const wanted = target.name!;
     const drawing = all.filter(
-      (one) => !["SCRIPT", "STYLE"].includes(one.tagName) && matches(one.textContent ?? "", wanted, false),
+      (one) =>
+        ![
+          "SCRIPT",
+          "STYLE",
+        ].includes(one.tagName) && matches(one.textContent ?? "", wanted, false),
     );
     // The smallest: one whose children do not draw the words on their own.
-    return drawing.filter((one) => !drawing.some((other) => other !== one && one.contains(other))).filter(reachable);
+    return drawing
+      .filter((one) => !drawing.some((other) => other !== one && one.contains(other)))
+      .filter(reachable);
   }
   return all.filter(
     (one) =>
       roleOf(one) === target.role &&
       reachable(one) &&
-      (target.name === undefined || matches(computeAccessibleName(one), target.name, target.exact ?? false)),
+      (target.name === undefined ||
+        matches(computeAccessibleName(one), target.name, target.exact ?? false)),
   );
 }
 
@@ -106,7 +121,10 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
  * it waits for the panel it sits in to finish entering, then for its box to
  * hold still across frames.
  */
-export async function arriveAt(target: Seeking, patience = PATIENCE_MS): Promise<HTMLElement | null> {
+export async function arriveAt(
+  target: Seeking,
+  patience = PATIENCE_MS,
+): Promise<HTMLElement | null> {
   const until = Date.now() + patience;
   let found = find(target);
   while (found === null && Date.now() < until) {
@@ -114,9 +132,13 @@ export async function arriveAt(target: Seeking, patience = PATIENCE_MS): Promise
     found = find(target);
   }
   if (found === null) return null;
-  found.scrollIntoView({ block: "nearest", inline: "nearest" });
+  found.scrollIntoView({
+    block: "nearest",
+    inline: "nearest",
+  });
   const layer = found.closest('[role="dialog"]');
-  if (layer !== null) await Promise.all(layer.getAnimations().map((one) => one.finished.catch(() => undefined)));
+  if (layer !== null)
+    await Promise.all(layer.getAnimations().map((one) => one.finished.catch(() => undefined)));
   let was = found.getBoundingClientRect();
   for (let held = 0, tries = 0; held < 3 && tries < 60; tries += 1) {
     await frame();
@@ -136,7 +158,11 @@ export async function arriveAt(target: Seeking, patience = PATIENCE_MS): Promise
   // once every animation that ends has ended, and one that loops is not waited for.
   const settling = found.closest("[data-settles]");
   if (settling !== null) {
-    const ending = settling.getAnimations({ subtree: true }).filter((one) => one.effect?.getComputedTiming().iterations !== Infinity);
+    const ending = settling
+      .getAnimations({
+        subtree: true,
+      })
+      .filter((one) => one.effect?.getComputedTiming().iterations !== Infinity);
     await Promise.all(ending.map((one) => one.finished.catch(() => undefined)));
   }
   return found;

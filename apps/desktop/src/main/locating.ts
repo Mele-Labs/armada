@@ -3,7 +3,12 @@
 
 import { realpath, stat } from "node:fs/promises";
 
-import type { AddRepository, CloneRepository, CreateProject, RepositorySummary } from "@armada/protocol";
+import type {
+  AddRepository,
+  CloneRepository,
+  CreateProject,
+  RepositorySummary,
+} from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 
 import { ask, COMMAND_MS, type Answer } from "./request";
@@ -35,24 +40,47 @@ export class Locating {
   }
 
   add(path: string): Promise<LocateAnswer> {
-    const body: AddRepository = { path };
+    const body: AddRepository = {
+      path,
+    };
     return this.send("/repositories/add", body, COMMAND_MS);
   }
 
   clone(url: string, parent: string): Promise<LocateAnswer> {
-    const body: CloneRepository = { url, parent };
+    const body: CloneRepository = {
+      url,
+      parent,
+    };
     return this.send("/repositories/clone", body, CLONE_MS, true);
   }
 
   create(parent: string, name: string): Promise<LocateAnswer> {
-    const body: CreateProject = { parent, name };
+    const body: CreateProject = {
+      parent,
+      name,
+    };
     return this.send("/repositories/create", body, COMMAND_MS);
   }
 
-  private async send(path: string, body: unknown, waitMs: number, cloning = false): Promise<LocateAnswer> {
+  private async send(
+    path: string,
+    body: unknown,
+    waitMs: number,
+    cloning = false,
+  ): Promise<LocateAnswer> {
     const port = this.wiring.port();
-    if (port === null) return { state: "failed", outcome: { ok: false, why: "not_connected" } };
-    if (this.out) return { state: "busy" };
+    if (port === null)
+      return {
+        state: "failed",
+        outcome: {
+          ok: false,
+          why: "not_connected",
+        },
+      };
+    if (this.out)
+      return {
+        state: "busy",
+      };
     this.out = true;
     try {
       const answer = locateAnswerOf(await this.asking(port, "POST", path, body, waitMs));
@@ -85,10 +113,21 @@ export async function resolvedFolder(path: string): Promise<string | null> {
 
 /** Fleet's answer, read: the repository it now serves, its refusal in its own words, or the failure. */
 export function locateAnswerOf(answer: Answer): LocateAnswer {
-  if (answer.ok) return { state: "located", repository: answer.body as RepositorySummary };
+  if (answer.ok)
+    return {
+      state: "located",
+      repository: answer.body as RepositorySummary,
+    };
   const { outcome } = answer;
   if (!outcome.ok && outcome.why === "refused") {
-    return { state: "refused", code: outcome.error.code, saying: outcome.error.message };
+    return {
+      state: "refused",
+      code: outcome.error.code,
+      saying: outcome.error.message,
+    };
   }
-  return { state: "failed", outcome };
+  return {
+    state: "failed",
+    outcome,
+  };
 }

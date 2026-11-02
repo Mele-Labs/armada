@@ -27,7 +27,11 @@ const ISSUE = "read-in-issue";
 const ZONE = "read-in-zone";
 
 /** The scout's Clusters, each with the Notes it named. */
-const CLUSTERS: readonly { id: string; title: string; notes: readonly string[] }[] = [
+const CLUSTERS: readonly {
+  id: string;
+  title: string;
+  notes: readonly string[];
+}[] = [
   {
     id: "read-in-problem",
     title: "The problem today",
@@ -35,7 +39,7 @@ const CLUSTERS: readonly { id: string; title: string; notes: readonly string[] }
       "A person cannot change a task's title, brief, files, done-when or model. The task panel's \"Edit this task\" form raises `Not implemented` and names this issue.",
       "This leaves the planning Drone as the only way to change a task, through a rewrite message sent with `redirect_drone`. That works only before the plan's gate, while the plan step waits on a person.",
       "Fleet serves `add_task` and `drop_task` to a person but nothing that edits an existing task. `update_task` is the Drone's MCP tool and writes only `task, state, reason, shown`.",
-      "The owner found this driving `arc/group-failed` on 29 Sep 2026. He wants to \"modify anything on the task to help make the task more clear when the drone retries it\".",
+      'The owner found this driving `arc/group-failed` on 29 Sep 2026. He wants to "modify anything on the task to help make the task more clear when the drone retries it".',
     ],
   },
   {
@@ -86,30 +90,67 @@ export function readInOf1657(): Studio {
       number: "1657",
       title: "Nobody can change a task's title, brief, files, done-when or model",
       state: "open",
-      position: { x: 0, y: 0 },
+      position: {
+        x: 0,
+        y: 0,
+      },
       created_at: AT,
     },
-    { id: ZONE, kind: "zone", position: { x: ACROSS, y: 0 }, created_at: AT },
+    {
+      id: ZONE,
+      kind: "zone",
+      position: {
+        x: ACROSS,
+        y: 0,
+      },
+      created_at: AT,
+    },
     {
       id: "read-in-finding",
       kind: "finding",
       asked: "Read in https://example.invalid/o/r/issues/1657",
-      sources: [{ address: "https://example.invalid/o/r/issues/1657", kind: "issue", cut: 0 }],
-      learned: "The source's claims largely hold in the checkout. The one gap is a stale line citation.",
-      ended: { outcome: "answered", cost_micros: 41_000 },
+      sources: [
+        {
+          address: "https://example.invalid/o/r/issues/1657",
+          kind: "issue",
+          cut: 0,
+        },
+      ],
+      learned:
+        "The source's claims largely hold in the checkout. The one gap is a stale line citation.",
+      ended: {
+        outcome: "answered",
+        cost_micros: 41_000,
+      },
       within: ZONE,
-      position: { x: INSET, y: HEAD },
+      position: {
+        x: INSET,
+        y: HEAD,
+      },
       created_at: AT,
     },
     ...CLUSTERS.flatMap(({ id, title, notes }, column): StudioNode[] => [
-      { id, kind: "cluster", title, within: ZONE, position: { x: INSET + (column + 1) * ACROSS, y: HEAD }, created_at: AT },
+      {
+        id,
+        kind: "cluster",
+        title,
+        within: ZONE,
+        position: {
+          x: INSET + (column + 1) * ACROSS,
+          y: HEAD,
+        },
+        created_at: AT,
+      },
       ...notes.map(
         (said, at): StudioNode => ({
           id: noteId(id, at),
           kind: "note",
           said,
           within: id,
-          position: { x: INSET, y: HEAD + at * DOWN },
+          position: {
+            x: INSET,
+            y: HEAD + at * DOWN,
+          },
           created_at: AT,
         }),
       ),
@@ -119,30 +160,43 @@ export function readInOf1657(): Studio {
       kind: "note",
       said: "Done when, on a failed task, a person edits its brief in the Plan tab, restarts it (#1656), and the new agent is told the edited brief.",
       within: ZONE,
-      position: { x: INSET + (CLUSTERS.length + 1) * ACROSS, y: HEAD },
+      position: {
+        x: INSET + (CLUSTERS.length + 1) * ACROSS,
+        y: HEAD,
+      },
       created_at: AT,
     },
     {
       id: "read-in-contradiction",
       kind: "contradiction",
-      first: "Fleet serves `add_task` and `drop_task` to a person (`crates/fleet/src/commanding.rs:987-994`)",
-      second: "`add_task` and `drop_task` are at lines 1020-1026. The claim holds but the citation is stale.",
+      first:
+        "Fleet serves `add_task` and `drop_task` to a person (`crates/fleet/src/commanding.rs:987-994`)",
+      second:
+        "`add_task` and `drop_task` are at lines 1020-1026. The claim holds but the citation is stale.",
       state: "reported",
       within: ZONE,
-      position: { x: INSET + (CLUSTERS.length + 1) * ACROSS, y: HEAD + DOWN },
+      position: {
+        x: INSET + (CLUSTERS.length + 1) * ACROSS,
+        y: HEAD + DOWN,
+      },
       created_at: AT,
     },
     {
       id: "read-in-loose",
       kind: "note",
       said: "Ask whether a Judge re-reads a plan edited after its gate",
-      position: { x: 0, y: 2 * ACROSS },
+      position: {
+        x: 0,
+        y: 2 * ACROSS,
+      },
       created_at: AT,
       added_by: "person",
     },
   ];
   const made = nodes.filter((node) => node.id !== ISSUE && node.id !== "read-in-loose");
-  const members = CLUSTERS.flatMap(({ id, notes }) => notes.map((_, at) => produced(noteId(id, at), id)));
+  const members = CLUSTERS.flatMap(({ id, notes }) =>
+    notes.map((_, at) => produced(noteId(id, at), id)),
+  );
   return {
     id: READ_IN_STUDIO,
     manifest_id: repository().manifest!.id,
@@ -169,8 +223,12 @@ export function readInOf1657(): Studio {
 }
 
 /** The `studio-zone` scenario: one Studio, the #1657 read-in landed in its Zone. */
-export function zoning<S extends StudyingState, A extends StudyingApi>(nothingYet: S): StudioFleet<S, A> {
-  const fleet = studying<S, A>(nothingYet, [readInOf1657()]);
+export function zoning<S extends StudyingState, A extends StudyingApi>(
+  nothingYet: S,
+): StudioFleet<S, A> {
+  const fleet = studying<S, A>(nothingYet, [
+    readInOf1657(),
+  ]);
   return {
     ...fleet,
     scenario: {

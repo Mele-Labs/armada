@@ -11,10 +11,22 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const list = () => page.getByRole("region", { name: "Jobs", exact: true });
+const list = () =>
+  page.getByRole("region", {
+    name: "Jobs",
+    exact: true,
+  });
 const panels = (name: string) => document.querySelectorAll(`section[aria-label="${name}"]`);
 
-const install = (text: string) => act(() => mockLayout.install({ name: "tidy", title: "Tidy", enabled: true, file: parseLayout(text).file }));
+const install = (text: string) =>
+  act(() =>
+    mockLayout.install({
+      name: "tidy",
+      title: "Tidy",
+      enabled: true,
+      file: parseLayout(text).file,
+    }),
+  );
 
 test("a hidden Activity, Bays or Flight control is not drawn, and the Jobs list is", async () => {
   mount("one-session-view");
@@ -37,7 +49,12 @@ test("a layout hides an open Job's Open, and cannot hide Now", async () => {
   await expect.element(list()).toBeVisible();
   install('{"version":1,"job.panels":{"hidden":["next","now"]}}');
   // A Job with no workflow, whose story is Done, Now and Open.
-  await list().getByRole("button", { name: "Name the store migrations", exact: true }).click();
+  await list()
+    .getByRole("button", {
+      name: "Name the store migrations",
+      exact: true,
+    })
+    .click();
   await expect.poll(() => panels("Now").length).toBe(1);
   expect(panels("Done")).toHaveLength(1);
   expect(panels("Open")).toHaveLength(0);
@@ -48,7 +65,12 @@ test("a layout that hides Open hides a workflow's steps to come, and cannot hide
   await onScreen();
   await expect.element(list()).toBeVisible();
   install('{"version":1,"job.panels":{"hidden":["next","now"]}}');
-  await list().getByRole("button", { name: "Queue session for later", exact: true }).click();
+  await list()
+    .getByRole("button", {
+      name: "Queue session for later",
+      exact: true,
+    })
+    .click();
   const zones = (area: string) => document.querySelectorAll(`section[data-area="${area}"]`);
   await expect.poll(() => zones("step-now").length).toBe(1);
   expect(zones("step-next")).toHaveLength(0);

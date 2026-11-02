@@ -10,7 +10,9 @@ declare global {
   }
 }
 
-const FILES = import.meta.glob<StoryModule>("../../../../../../packages/components/src/**/*.stories.tsx");
+const FILES = import.meta.glob<StoryModule>(
+  "../../../../../../packages/components/src/**/*.stories.tsx",
+);
 
 /** `file` is the index's path from the repository root. Null for a file the glob does not hold. */
 export async function storyFile(file: string): Promise<StoryModule | null> {

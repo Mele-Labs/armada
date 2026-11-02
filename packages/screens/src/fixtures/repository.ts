@@ -3,7 +3,12 @@
 // **A made-up home**, since a real one would name a person. Fleet keeps a repository's records in a
 // folder of its own, off the checkout.
 
-import type { DeclaredCheck, ManifestSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
+import type {
+  DeclaredCheck,
+  ManifestSummary,
+  RepositorySummary,
+  WorkflowSummary,
+} from "@armada/protocol";
 
 export const WORKFLOW_ID = "bug";
 export const MANIFEST_ID = "01M1CNPKTV0018H2M1CXDNBK06";
@@ -38,66 +43,80 @@ export function workflow(): WorkflowSummary {
     manifest_id: MANIFEST_ID,
     steps: [
       {
-          step_id: "repro",
-          label: "Reproduction",
-          checks: [],
-          judge_checks: [],
-          advance_gate: "auto",
-          delivers: false,
-          phase: "work",
-        },
+        step_id: "repro",
+        label: "Reproduction",
+        checks: [],
+        judge_checks: [],
+        advance_gate: "auto",
+        delivers: false,
+        phase: "work",
+      },
       {
-          step_id: "root_cause",
-          label: "Root cause",
-          checks: [],
-          judge_checks: [],
-          advance_gate: "auto",
-          delivers: false,
-          phase: "work",
-        },
+        step_id: "root_cause",
+        label: "Root cause",
+        checks: [],
+        judge_checks: [],
+        advance_gate: "auto",
+        delivers: false,
+        phase: "work",
+      },
       {
-          step_id: "fix",
-          label: "Fix",
-          checks: [BUILD_CHECK],
-          judge_checks: [],
-          advance_gate: "auto_if_judge_passes",
-          delivers: false,
-          phase: "work",
-        },
+        step_id: "fix",
+        label: "Fix",
+        checks: [
+          BUILD_CHECK,
+        ],
+        judge_checks: [],
+        advance_gate: "auto_if_judge_passes",
+        delivers: false,
+        phase: "work",
+      },
       {
-          step_id: "regression_verify",
-          label: "Regression check",
-          checks: [NEXTEST_CHECK],
-          judge_checks: [{ criteria: 2 }],
-          advance_gate: "human_always",
-          delivers: false,
-          phase: "work",
-        },
+        step_id: "regression_verify",
+        label: "Regression check",
+        checks: [
+          NEXTEST_CHECK,
+        ],
+        judge_checks: [
+          {
+            criteria: 2,
+          },
+        ],
+        advance_gate: "human_always",
+        delivers: false,
+        phase: "work",
+      },
       {
-          step_id: "consumers",
-          label: "Check the consumers still compile",
-          checks: [BUILD_CHECK],
-          judge_checks: [],
-          advance_gate: "auto",
-          delivers: false,
-          phase: "work",
-        },
+        step_id: "consumers",
+        label: "Check the consumers still compile",
+        checks: [
+          BUILD_CHECK,
+        ],
+        judge_checks: [],
+        advance_gate: "auto",
+        delivers: false,
+        phase: "work",
+      },
       {
-          step_id: "land",
-          label: "Land",
-          checks: [],
-          judge_checks: [],
-          advance_gate: "auto",
-          delivers: true,
-          phase: "delivery",
-        },
+        step_id: "land",
+        label: "Land",
+        checks: [],
+        judge_checks: [],
+        advance_gate: "auto",
+        delivers: true,
+        phase: "delivery",
+      },
     ],
   };
 }
 
 /** The repository `manifest()` was read from, as `GET /repositories` lists it. */
 export function repository(): RepositorySummary {
-  return { root: "/Users/user/armada", records_root: manifest().records_root, manifest: manifest() };
+  return {
+    root: "/Users/user/armada",
+    records_root: manifest().records_root,
+    manifest: manifest(),
+  };
 }
 
 export function manifest(): ManifestSummary {
@@ -109,7 +128,10 @@ export function manifest(): ManifestSummary {
     path: "armada/armada.yml",
     records_root: "/Users/user/Library/Application Support/Armada/records/armada",
     version: 3,
-    checks: ["cargo_build", "cargo_nextest"],
+    checks: [
+      "cargo_build",
+      "cargo_nextest",
+    ],
     // What this repository's own `armada.yml` declares, which is what the mock Fleet's Manifest
     // surface serves for it too — `DECLARED` in `apps/desktop/.../mock/manifest-fleet.ts`.
     auto_merge: "never",

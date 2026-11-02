@@ -19,19 +19,33 @@ afterEach(async () => {
   await new Promise<void>((done) => server.close(() => done()));
 });
 
-const list = (...jobs: string[]): WorktreesHeld => ({ worktrees: jobs.map((job_id) => ({ job_id })) }) as unknown as WorktreesHeld;
+const list = (...jobs: string[]): WorktreesHeld =>
+  ({
+    worktrees: jobs.map((job_id) => ({
+      job_id,
+    })),
+  }) as unknown as WorktreesHeld;
 
-type Answer = { status: number; body: unknown };
+type Answer = {
+  status: number;
+  body: unknown;
+};
 
 /** A Fleet whose `/worktrees` answers are released by the test, one per read, in the order asked. */
-async function fleet(): Promise<{ port: number; reads: () => number; answer: (answer: Answer) => void }> {
+async function fleet(): Promise<{
+  port: number;
+  reads: () => number;
+  answer: (answer: Answer) => void;
+}> {
   const waiting: ((answer: Answer) => void)[] = [];
   const early: Answer[] = [];
   let reads = 0;
   const server = createServer((request, response) => {
     reads += 1;
     const send = ({ status, body }: Answer) => {
-      response.writeHead(status, { "content-type": "application/json" });
+      response.writeHead(status, {
+        "content-type": "application/json",
+      });
       response.end(JSON.stringify(body));
     };
     const ready = early.shift();
@@ -52,15 +66,30 @@ async function fleet(): Promise<{ port: number; reads: () => number; answer: (an
   };
 }
 
-const ok = (...jobs: string[]): Answer => ({ status: 200, body: list(...jobs) });
-const broken: Answer = { status: 500, body: { code: "fleet.broken", message: "No." } };
+const ok = (...jobs: string[]): Answer => ({
+  status: 200,
+  body: list(...jobs),
+});
+const broken: Answer = {
+  status: 500,
+  body: {
+    code: "fleet.broken",
+    message: "No.",
+  },
+};
 
 function reader() {
   const published: HeldWorktrees[] = [];
-  return { held: new HeldReader((one) => published.push(one)), published };
+  return {
+    held: new HeldReader((one) => published.push(one)),
+    published,
+  };
 }
 
-const read = (...jobs: string[]): HeldWorktrees => ({ state: "read", held: list(...jobs) });
+const read = (...jobs: string[]): HeldWorktrees => ({
+  state: "read",
+  held: list(...jobs),
+});
 
 const settled = () => new Promise((done) => setTimeout(done, 40));
 
@@ -68,10 +97,19 @@ it("says reading only until there has been an answer, then draws the list", asyn
   const { port, answer } = await fleet();
   const { held, published } = reader();
   const opening = held.want(port, true);
-  expect(published).toEqual([{ state: "reading" }]);
+  expect(published).toEqual([
+    {
+      state: "reading",
+    },
+  ]);
   answer(ok("a"));
   await opening;
-  expect(published).toEqual([{ state: "reading" }, read("a")]);
+  expect(published).toEqual([
+    {
+      state: "reading",
+    },
+    read("a"),
+  ]);
 });
 
 it("draws the list read last the moment a surface reopens, before the fresh read answers", async () => {
@@ -83,10 +121,15 @@ it("draws the list read last the moment a surface reopens, before the fresh read
   published.length = 0;
   const reopening = held.want(port, true);
   // The read is out and unanswered, and the list is already up.
-  expect(published).toEqual([read("a")]);
+  expect(published).toEqual([
+    read("a"),
+  ]);
   answer(ok("a", "b"));
   await reopening;
-  expect(published).toEqual([read("a"), read("a", "b")]);
+  expect(published).toEqual([
+    read("a"),
+    read("a", "b"),
+  ]);
 });
 
 it("keeps the list when a refresh fails, and says failed only where there never was one", async () => {
@@ -100,12 +143,17 @@ it("keeps the list when a refresh fails, and says failed only where there never 
   published.length = 0;
   answer(broken);
   await held.again(port);
-  expect(published).toEqual([read("a")]);
+  expect(published).toEqual([
+    read("a"),
+  ]);
   await held.want(port, false);
   published.length = 0;
   answer(broken);
   await held.want(port, true);
-  expect(published).toEqual([read("a"), read("a")]);
+  expect(published).toEqual([
+    read("a"),
+    read("a"),
+  ]);
 });
 
 it("publishes nothing for an answer that lands after the surface closed, and draws it on the next open", async () => {
@@ -121,7 +169,9 @@ it("publishes nothing for an answer that lands after the surface closed, and dra
   expect(published).toEqual([]);
   answer(ok("a", "b"));
   const reopening = held.want(port, true);
-  expect(published).toEqual([read("a", "b")]);
+  expect(published).toEqual([
+    read("a", "b"),
+  ]);
   await reopening;
 });
 
@@ -135,7 +185,9 @@ it("reads once for nobody so the first open has a list, and reads nothing for it
   expect(reads()).toBe(1);
   answer(ok("a"));
   const opening = held.want(port, true);
-  expect(published).toEqual([read("a")]);
+  expect(published).toEqual([
+    read("a"),
+  ]);
   await opening;
   await settled();
 });
@@ -143,5 +195,13 @@ it("reads once for nobody so the first open has a list, and reads nothing for it
 it("draws a not-connected failure where nothing is connected and nothing was read", async () => {
   const { held, published } = reader();
   await held.want(null, true);
-  expect(published).toEqual([{ state: "failed", outcome: { ok: false, why: "not_connected" } }]);
+  expect(published).toEqual([
+    {
+      state: "failed",
+      outcome: {
+        ok: false,
+        why: "not_connected",
+      },
+    },
+  ]);
 });

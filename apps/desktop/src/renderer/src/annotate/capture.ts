@@ -1,6 +1,14 @@
 // What a note records about the element it was left on, read from the page.
 
-import { annotationId, definitionOf, SOURCE_ATTRIBUTE, type Annotation, type Box, type Source, type StoryIndex } from "../../../shared/annotations";
+import {
+  annotationId,
+  definitionOf,
+  SOURCE_ATTRIBUTE,
+  type Annotation,
+  type Box,
+  type Source,
+  type StoryIndex,
+} from "../../../shared/annotations";
 import { componentsOf, fiberOf } from "./fiber";
 import { selectorFor } from "./selector";
 
@@ -37,7 +45,11 @@ function layerOf(element: Element): string | null {
   if (dialog === null) return null;
   const labelledBy = dialog.getAttribute("aria-labelledby");
   const named = labelledBy === null ? null : element.ownerDocument.getElementById(labelledBy);
-  return dialog.getAttribute("aria-label") ?? (named === null ? null : shortText(named.textContent)) ?? "dialog";
+  return (
+    dialog.getAttribute("aria-label") ??
+    (named === null ? null : shortText(named.textContent)) ??
+    "dialog"
+  );
 }
 
 /**
@@ -52,19 +64,59 @@ export function sourceOf(element: Element): Source | undefined {
   const cut = value.lastIndexOf(":");
   const line = Number(value.slice(cut + 1));
   if (cut <= 0 || !Number.isInteger(line) || line < 1) return undefined;
-  return { file: value.slice(0, cut), line };
+  return {
+    file: value.slice(0, cut),
+    line,
+  };
 }
 
 // The capture window reads the same three in a foreign page, `main/capture/layer.ts`, and cannot import these.
 const IMPLICIT: Record<string, string> = {
-  a: "link", article: "article", aside: "complementary", button: "button", details: "group", dialog: "dialog",
-  footer: "contentinfo", form: "form", header: "banner", li: "listitem", main: "main", menu: "list", nav: "navigation",
-  ol: "list", option: "option", search: "search", section: "region", select: "combobox", summary: "button",
-  table: "table", td: "cell", th: "columnheader", tr: "row", ul: "list",
+  a: "link",
+  article: "article",
+  aside: "complementary",
+  button: "button",
+  details: "group",
+  dialog: "dialog",
+  footer: "contentinfo",
+  form: "form",
+  header: "banner",
+  li: "listitem",
+  main: "main",
+  menu: "list",
+  nav: "navigation",
+  ol: "list",
+  option: "option",
+  search: "search",
+  section: "region",
+  select: "combobox",
+  summary: "button",
+  table: "table",
+  td: "cell",
+  th: "columnheader",
+  tr: "row",
+  ul: "list",
 };
 const ENCLOSING = new Set([
-  "banner", "navigation", "main", "complementary", "contentinfo", "region", "form", "search", "article",
-  "list", "listbox", "menu", "menubar", "tablist", "tree", "grid", "table", "dialog", "alertdialog",
+  "banner",
+  "navigation",
+  "main",
+  "complementary",
+  "contentinfo",
+  "region",
+  "form",
+  "search",
+  "article",
+  "list",
+  "listbox",
+  "menu",
+  "menubar",
+  "tablist",
+  "tree",
+  "grid",
+  "table",
+  "dialog",
+  "alertdialog",
 ]);
 const HEADINGS = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
 const MARKED =
@@ -88,14 +140,24 @@ function labelOf(node: Element): string {
   if (label !== "") return label;
   const by = node.getAttribute("aria-labelledby");
   if (by === null) return "";
-  return shortText(by.split(/\s+/).map((id) => (id === "" ? "" : (node.ownerDocument.getElementById(id)?.textContent ?? ""))).join(" "));
+  return shortText(
+    by
+      .split(/\s+/)
+      .map((id) => (id === "" ? "" : (node.ownerDocument.getElementById(id)?.textContent ?? "")))
+      .join(" "),
+  );
 }
 
 /** A heading's or a marked control's name: its label, else a `details`' summary, else its text. */
 function nameOf(node: Element): string {
   const label = labelOf(node);
   if (label !== "") return label;
-  const summary = node.tagName.toLowerCase() === "details" ? [...node.children].find((one) => one.tagName.toLowerCase() === "summary") : undefined;
+  const summary =
+    node.tagName.toLowerCase() === "details"
+      ? [
+          ...node.children,
+        ].find((one) => one.tagName.toLowerCase() === "summary")
+      : undefined;
   return shortText((summary ?? node).textContent);
 }
 
@@ -108,8 +170,14 @@ export function nearbyOf(element: Element): string[] {
   let headed = false;
   let at = element;
   while (names.length < 8) {
-    for (let before = at.previousElementSibling; before !== null && !headed; before = before.previousElementSibling) {
-      const inside = [...before.querySelectorAll(HEADINGS)].filter((one) => roleOf(one) === "heading");
+    for (
+      let before = at.previousElementSibling;
+      before !== null && !headed;
+      before = before.previousElementSibling
+    ) {
+      const inside = [
+        ...before.querySelectorAll(HEADINGS),
+      ].filter((one) => roleOf(one) === "heading");
       const hit = roleOf(before) === "heading" ? before : inside[inside.length - 1];
       if (hit !== undefined) {
         headed = true;
@@ -134,7 +202,12 @@ export function selectedIn(doc: Document): string[] {
     const tag = one.tagName.toLowerCase();
     const marked =
       (current !== null && current !== "" && current !== "false") ||
-      ["aria-selected", "aria-pressed", "aria-checked", "aria-expanded"].some((name) => one.getAttribute(name) === "true") ||
+      [
+        "aria-selected",
+        "aria-pressed",
+        "aria-checked",
+        "aria-expanded",
+      ].some((name) => one.getAttribute(name) === "true") ||
       ((tag === "dialog" || tag === "details") && one.hasAttribute("open"));
     if (!marked) continue;
     const name = nameOf(one);
@@ -156,10 +229,23 @@ function findableSelector(element: Element): string {
 }
 
 /** A new, open note on `element`, with nothing said yet. */
-export function capture(element: Element, now: Date, win: Window = window, stories: StoryIndex = {}): Annotation {
+export function capture(
+  element: Element,
+  now: Date,
+  win: Window = window,
+  stories: StoryIndex = {},
+): Annotation {
   const rect = element.getBoundingClientRect();
   const { component, owners, from } = componentsOf(fiberOf(element));
-  const definition = definitionOf(component === null ? owners : [component, ...owners], stories);
+  const definition = definitionOf(
+    component === null
+      ? owners
+      : [
+          component,
+          ...owners,
+        ],
+    stories,
+  );
   const source = sourceOf(element);
   const at = now.toISOString();
   return {
@@ -167,8 +253,16 @@ export function capture(element: Element, now: Date, win: Window = window, stori
     status: "open",
     text: "",
     component,
-    ...(source === undefined ? {} : { source }),
-    ...(definition === undefined ? {} : { definition }),
+    ...(source === undefined
+      ? {}
+      : {
+          source,
+        }),
+    ...(definition === undefined
+      ? {}
+      : {
+          definition,
+        }),
     owners,
     ownersFrom: from,
     selector: findableSelector(element),
@@ -189,14 +283,22 @@ export function capture(element: Element, now: Date, win: Window = window, stori
       width: Math.round(rect.width),
       height: Math.round(rect.height),
     },
-    window: { width: win.innerWidth, height: win.innerHeight },
+    window: {
+      width: win.innerWidth,
+      height: win.innerHeight,
+    },
     createdAt: at,
     updatedAt: at,
   };
 }
 
 /** The window's own box, which a whole-window note is placed against and pictured by. */
-export const windowBox = (win: Window = window): Box => ({ x: 0, y: 0, width: win.innerWidth, height: win.innerHeight });
+export const windowBox = (win: Window = window): Box => ({
+  x: 0,
+  y: 0,
+  width: win.innerWidth,
+  height: win.innerHeight,
+});
 
 /**
  * A new, open note on the whole window: the page's body stands in for an element, so the note
@@ -205,14 +307,21 @@ export const windowBox = (win: Window = window): Box => ({ x: 0, y: 0, width: wi
 export function captureWindow(now: Date, win: Window = window): Annotation {
   const doc = win.document;
   // The layer's own card is a dialog too, and never the app's.
-  const top = [...doc.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open]')].find((one) => one.closest("[data-armada-annotate]") === null) ?? null;
+  const top =
+    [
+      ...doc.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open]'),
+    ].find((one) => one.closest("[data-armada-annotate]") === null) ?? null;
   return {
     ...capture(doc.body, now, win),
     scope: "window",
     component: null,
     owners: [],
     selector: "body",
-    element: { tag: "body", text: "", label: null },
+    element: {
+      tag: "body",
+      text: "",
+      label: null,
+    },
     layer: top === null ? null : layerOf(top),
     box: windowBox(win),
   };

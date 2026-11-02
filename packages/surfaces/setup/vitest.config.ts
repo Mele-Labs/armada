@@ -10,10 +10,14 @@ export default defineConfig({
         test: {
           name: "setup",
           environment: "node",
-          include: ["src/**/*.test.ts"],
+          include: [
+            "src/**/*.test.ts",
+          ],
         },
       },
-      browserProject("setup (browser)", ["src/**/*.test.tsx"]),
+      browserProject("setup (browser)", [
+        "src/**/*.test.tsx",
+      ]),
     ],
   },
 });

@@ -8,7 +8,13 @@ import { StrictMode, useEffect } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary, LayoutSourceProvider } from "@armada/shell";
-import { HapticsProvider, MockStylesContext, forgetAllKept, forgetKeptRuns, writeKept } from "@armada/components";
+import {
+  HapticsProvider,
+  MockStylesContext,
+  forgetAllKept,
+  forgetKeptRuns,
+  writeKept,
+} from "@armada/components";
 
 import "../styles/index.css";
 import "@armada/components/src/look";
@@ -21,6 +27,8 @@ import { forgetFirsts } from "../run-book";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
+import { forgetAnswers } from "../cockpit/deck/AutopilotAnswers";
+import { forgetArm } from "../cockpit/deck/AutopilotArm";
 import { forgetTimeline } from "../cockpit/deck/ConsoleTimeline";
 import { forgetDeck } from "../cockpit/deck/store";
 import { skipsMods } from "../theme-loader";
@@ -29,6 +37,7 @@ import { mountAnnotating } from "./annotating";
 import { eventsLater } from "./events-later";
 import { fakeBridge, heldSessions } from "./fake";
 import { alsoOnTimePassing } from "./time-passes";
+import { minutesPass } from "../autopilot-back";
 import { MockFleetBuild } from "./fleet-build";
 import type { FakeOptions } from "./fake";
 import { scenarioNamed } from "./scenario";
@@ -39,8 +48,8 @@ import { mockPhone, type PhoneMoment } from "./phone";
 import { TerminalWindows } from "./TerminalWindows";
 import { JobBrowserWindows } from "./JobBrowserWindows";
 import { WalkJobPanel } from "./WalkJobPanel";
-import { SleepSourceProvider } from "../sleep";
-import { mockSleep, overnight } from "./sleep";
+import { AutopilotDecisionsSourceProvider } from "../autopilot-decisions";
+import { createFleetAutopilotDecisions } from "../fleet-autopilot-decisions";
 import { PlanUsageSourceProvider } from "../plan-usage";
 import { AgentSignInSourceProvider } from "../agent-sign-in";
 import { DownshiftSourceProvider } from "../downshift";
@@ -76,6 +85,8 @@ import { ProjectsFrom, createProjectsStore } from "../projects-tab/store";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
 import { PaletteFixturesFrom } from "../palette-fixtures";
+import { DebugReportFrom } from "../debug-report/debug-report";
+import { readingsAsReader } from "./debug-report-reader";
 import { ThreadLookFrom } from "../thread-look-here";
 import { seedPaletteMemory } from "../palette-memory";
 
@@ -112,21 +123,48 @@ const PHONE_MOMENTS: Record<string, PhoneMoment> = {
 };
 
 function OnScreen({ say }: { say: () => void }) {
-  useEffect(() => say(), [say]);
+  useEffect(
+    () => say(),
+    [
+      say,
+    ],
+  );
   return null;
 }
 
 /** The timeline the window reads: the scenario's fixed entries, or those it adds to as time passes. */
-function EventsHere({ timeline, events, children }: { timeline: ReturnType<typeof eventsLater> | undefined; events: Parameters<typeof FleetEventsFrom>[0]["events"]; children: ReactNode }) {
-  return timeline === undefined ? <FleetEventsFrom events={events}>{children}</FleetEventsFrom> : <FleetEventsOver source={timeline.source}>{children}</FleetEventsOver>;
+function EventsHere({
+  timeline,
+  events,
+  children,
+}: {
+  timeline: ReturnType<typeof eventsLater> | undefined;
+  events: Parameters<typeof FleetEventsFrom>[0]["events"];
+  children: ReactNode;
+}) {
+  return timeline === undefined ? (
+    <FleetEventsFrom events={events}>{children}</FleetEventsFrom>
+  ) : (
+    <FleetEventsOver source={timeline.source}>{children}</FleetEventsOver>
+  );
 }
 
 /**
  * Sessions from the scenario's fixtures where it carries them, and otherwise **from the fake's own
  * capabilities**, the way a real window has them. A fake whose Fleet serves none leaves them off.
  */
-function SessionsHere({ held, children }: { held: ReturnType<typeof heldSessions>; children: ReactNode }) {
-  return held === undefined ? <WiredSessions>{children}</WiredSessions> : <SessionsFrom held={held}>{children}</SessionsFrom>;
+function SessionsHere({
+  held,
+  children,
+}: {
+  held: ReturnType<typeof heldSessions>;
+  children: ReactNode;
+}) {
+  return held === undefined ? (
+    <WiredSessions>{children}</WiredSessions>
+  ) : (
+    <SessionsFrom held={held}>{children}</SessionsFrom>
+  );
 }
 
 /**
@@ -148,7 +186,6 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
-  mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight() : undefined);
   if (shared === undefined) mockLayout.reset();
   if (shared === undefined && chosen.name === "system-sidebar") installSystemMods();
   if (shared === undefined && chosen.name === "mods-travel") installTravelMods();
@@ -156,15 +193,24 @@ export function mountApp(
   if (shared === undefined) provideKitModels(createMockKitModels());
   // Teach is read only in the scenario that plays it, which starts with nothing taught.
   if (shared === undefined) {
-    provideTeaching(chosen.name === "teach-anything" || chosen.name === "teach-mods" || chosen.name === "teach-rule" || chosen.name === "draft-card" || chosen.name === "question-ticket-links");
+    provideTeaching(
+      chosen.name === "teach-anything" ||
+        chosen.name === "teach-mods" ||
+        chosen.name === "teach-rule" ||
+        chosen.name === "draft-card" ||
+        chosen.name === "question-ticket-links",
+    );
   }
   // `teach-mods` starts with the Jira key and the notice already taught.
   if (shared === undefined && chosen.name === "teach-mods") seedTaught(repository().root);
-  if (shared === undefined && chosen.name === "question-ticket-links") seedJiraKey(repository().root, "ops", "acme.atlassian.net");
+  if (shared === undefined && chosen.name === "question-ticket-links")
+    seedJiraKey(repository().root, "ops", "acme.atlassian.net");
   // Every window starts with the deck as it begins.
   if (shared === undefined) {
     forgetDeck();
     forgetTimeline();
+    forgetAnswers();
+    forgetArm();
   }
   // A run kept past its card belongs to the Fleet that ran it.
   if (shared === undefined) forgetKeptRuns();
@@ -173,8 +219,13 @@ export function mountApp(
   mockPhone.reset(PHONE_MOMENTS[chosen.name] ?? "paired");
   window.armada = api;
   const planUsage = createFleetPlanUsage(withState(api));
+  const autopilotDecisions = createFleetAutopilotDecisions(withState(api));
   // The mods the lessons made, over the fake Fleet's mod list as a real window reads them; safe mode reads none.
-  const taught = skipsMods() ? NO_TAUGHT : chosen.name === "mods-trackers" ? triable(createFleetTaught(withState(api))) : createFleetTaught(withState(api));
+  const taught = skipsMods()
+    ? NO_TAUGHT
+    : chosen.name === "mods-trackers"
+      ? triable(createFleetTaught(withState(api)))
+      : createFleetTaught(withState(api));
   const tweaks = skipsMods() ? NO_TWEAKS : createFleetTweaks(withState(api));
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
@@ -196,16 +247,36 @@ export function mountApp(
   // The Issues tab starts as a window does, with no query chosen and no draft kept from an earlier pass.
   const tracked = chosen.draft?.issuesTab;
   if (tracked !== undefined && seed === undefined) forgetAllKept();
-  const issues = tracked === undefined ? undefined : createIssuesStore({ ...issuesTabSource(tracked), reports: reportsSourceOf(api) });
+  const issues =
+    tracked === undefined
+      ? undefined
+      : createIssuesStore({
+          ...issuesTabSource(tracked),
+          reports: reportsSourceOf(api),
+        });
   // The Projects tab starts with nothing open, over the mock Fleet's projects routes, whose done asks join the Jobs that carry the same ask (`slices/projects.ts`).
   const listed = chosen.draft?.projectsTab;
   if (listed !== undefined && seed === undefined && tracked === undefined) forgetAllKept();
-  const projects = listed === undefined ? undefined : createProjectsStore(api, chosen.draft?.projectsPulls);
+  const projects =
+    listed === undefined ? undefined : createProjectsStore(api, chosen.draft?.projectsPulls);
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
-  const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
+  const timeline =
+    chosen.draft?.eventsLater === undefined
+      ? undefined
+      : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
+  // Each opening of Copy debug report takes the next reading, so a window starts from the first.
+  const debugRead = readingsAsReader(chosen.draft?.debugReport);
+  // `autopilot-back` waits ten minutes with nobody at the window, which a walk cannot.
+  if (chosen.name === "autopilot-back" && shared === undefined)
+    alsoOnTimePassing(() => minutesPass(10 * 60_000));
   // The palette starts as a window does: what was pinned and opened before, and nothing from an earlier pass.
-  seedPaletteMemory({ pinned: chosen.draft?.palette?.pinned ?? [], recent: chosen.draft?.palette?.recent ?? [], aliases: chosen.draft?.palette?.aliases ?? {}, hotkeys: chosen.draft?.palette?.hotkeys ?? {} });
+  seedPaletteMemory({
+    pinned: chosen.draft?.palette?.pinned ?? [],
+    recent: chosen.draft?.palette?.recent ?? [],
+    aliases: chosen.draft?.palette?.aliases ?? {},
+    hotkeys: chosen.draft?.palette?.hotkeys ?? {},
+  });
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {
@@ -217,72 +288,79 @@ export function mountApp(
         {/* As `main.tsx` mounts it, so a test can read what a press asked the trackpad to play. */}
         <HapticsProvider perform={(pattern) => api.tap(pattern)}>
           <MockStylesContext.Provider value={hiFiStyles}>
-          <Themed source={mockThemes}>
-            <TaughtSourceProvider value={taught}>
-            <TweakSourceProvider source={tweaks}>
-            <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
-              <MockFleetBuild scenario={chosen.name}>
-                <PhoneSourceProvider value={mockPhone}>
-                  <SleepSourceProvider value={mockSleep}>
-                    <NumberedFrom held={mockNumbered}>
-                      <PlanUsageSourceProvider value={planUsage}>
-                        <AgentSignInSourceProvider value={agentSignIn}>
-                        <DownshiftSourceProvider value={downshift}>
-                          <EventsHere timeline={timeline} events={chosen.draft?.events}>
-                            <SessionsHere held={heldSessions(api)}>
-                              <WorkspaceFrom seed={chosen.draft?.workspace}>
-                              <ClashesFrom clashes={chosen.draft?.clashes}>
-                                  <AreasFrom source={chosen.draft?.areas}>
-                                  <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
-                                  <ThreadLookFrom seed={chosen.draft?.threadLook}>
-                                    <AccountFrom account={chosen.draft?.account}>
-                                      <SharedHomeFrom home={chosen.draft?.sharedHome}>
-                                        <PrOwnersFrom owners={chosen.draft?.prOwners}>
-                                          <ReviewsFrom store={reviews}>
-                                          <IssuesFrom store={issues}>
-                                          <ProjectsFrom store={projects}>
-                                            {panelReads === undefined ? (
-                                              <SharedPanelOver api={withState(api)} testsReaching={chosen.draft?.testsReaching}>
-                                                <App />
-                                                <WalkJobPanel />
-                                                <TerminalWindows api={api} />
-                                                <JobBrowserWindows />
-                                                <TweaksApplied />
-                                              </SharedPanelOver>
-                                            ) : (
-                                              <SharedPanelFrom reads={panelReads}>
-                                                <App />
-                                                <WalkJobPanel />
-                                                <TerminalWindows api={api} />
-                                                <JobBrowserWindows />
-                                                <TweaksApplied />
-                                                <SharedPanelHost />
-                                              </SharedPanelFrom>
-                                            )}
-                                          </ProjectsFrom>
-                                          </IssuesFrom>
-                                          </ReviewsFrom>
-                                        </PrOwnersFrom>
-                                      </SharedHomeFrom>
-                                    </AccountFrom>
-                                  </ThreadLookFrom>
-                                  </PaletteFixturesFrom>
-                                  </AreasFrom>
-                              </ClashesFrom>
-                              </WorkspaceFrom>
-                            </SessionsHere>
-                          </EventsHere>
-                        </DownshiftSourceProvider>
-                        </AgentSignInSourceProvider>
-                      </PlanUsageSourceProvider>
-                    </NumberedFrom>
-                  </SleepSourceProvider>
-                </PhoneSourceProvider>
-              </MockFleetBuild>
-            </LayoutSourceProvider>
-            </TweakSourceProvider>
-            </TaughtSourceProvider>
-          </Themed>
+            <Themed source={mockThemes}>
+              <TaughtSourceProvider value={taught}>
+                <TweakSourceProvider source={tweaks}>
+                  <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
+                    <MockFleetBuild scenario={chosen.name}>
+                      <PhoneSourceProvider value={mockPhone}>
+                        <AutopilotDecisionsSourceProvider value={autopilotDecisions}>
+                          <NumberedFrom held={mockNumbered}>
+                            <PlanUsageSourceProvider value={planUsage}>
+                              <AgentSignInSourceProvider value={agentSignIn}>
+                                <DownshiftSourceProvider value={downshift}>
+                                  <EventsHere timeline={timeline} events={chosen.draft?.events}>
+                                    <SessionsHere held={heldSessions(api)}>
+                                      <WorkspaceFrom seed={chosen.draft?.workspace}>
+                                        <ClashesFrom clashes={chosen.draft?.clashes}>
+                                          <AreasFrom source={chosen.draft?.areas}>
+                                            <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
+                                              <DebugReportFrom read={debugRead}>
+                                                <ThreadLookFrom seed={chosen.draft?.threadLook}>
+                                                  <AccountFrom account={chosen.draft?.account}>
+                                                    <SharedHomeFrom home={chosen.draft?.sharedHome}>
+                                                      <PrOwnersFrom owners={chosen.draft?.prOwners}>
+                                                        <ReviewsFrom store={reviews}>
+                                                          <IssuesFrom store={issues}>
+                                                            <ProjectsFrom store={projects}>
+                                                              {panelReads === undefined ? (
+                                                                <SharedPanelOver
+                                                                  api={withState(api)}
+                                                                  testsReaching={
+                                                                    chosen.draft?.testsReaching
+                                                                  }
+                                                                >
+                                                                  <App />
+                                                                  <WalkJobPanel />
+                                                                  <TerminalWindows api={api} />
+                                                                  <JobBrowserWindows />
+                                                                  <TweaksApplied />
+                                                                </SharedPanelOver>
+                                                              ) : (
+                                                                <SharedPanelFrom reads={panelReads}>
+                                                                  <App />
+                                                                  <WalkJobPanel />
+                                                                  <TerminalWindows api={api} />
+                                                                  <JobBrowserWindows />
+                                                                  <TweaksApplied />
+                                                                  <SharedPanelHost />
+                                                                </SharedPanelFrom>
+                                                              )}
+                                                            </ProjectsFrom>
+                                                          </IssuesFrom>
+                                                        </ReviewsFrom>
+                                                      </PrOwnersFrom>
+                                                    </SharedHomeFrom>
+                                                  </AccountFrom>
+                                                </ThreadLookFrom>
+                                              </DebugReportFrom>
+                                            </PaletteFixturesFrom>
+                                          </AreasFrom>
+                                        </ClashesFrom>
+                                      </WorkspaceFrom>
+                                    </SessionsHere>
+                                  </EventsHere>
+                                </DownshiftSourceProvider>
+                              </AgentSignInSourceProvider>
+                            </PlanUsageSourceProvider>
+                          </NumberedFrom>
+                        </AutopilotDecisionsSourceProvider>
+                      </PhoneSourceProvider>
+                    </MockFleetBuild>
+                  </LayoutSourceProvider>
+                </TweakSourceProvider>
+              </TaughtSourceProvider>
+            </Themed>
           </MockStylesContext.Provider>
           <OnScreen say={say} />
         </HapticsProvider>

@@ -16,11 +16,30 @@ test("Set up with a job starts one on the repository, with the reading, and open
   const started = vi.spyOn(api, "startSession");
   const sent = vi.spyOn(api, "sendSessionMessage");
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Open the Manifest", exact: true }));
-  await userEvent.click(page.getByRole("tab", { name: "Set up workspaces" }));
-  await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Open the Manifest",
+      exact: true,
+    }),
+  );
+  await userEvent.click(
+    page.getByRole("tab", {
+      name: "Set up workspaces",
+    }),
+  );
+  await expect
+    .element(
+      page.getByRole("region", {
+        name: "Workspaces",
+      }),
+    )
+    .toBeVisible();
 
-  await userEvent.click(page.getByRole("button", { name: "Set up with a job" }));
+  await userEvent.click(
+    page.getByRole("button", {
+      name: "Set up with a job",
+    }),
+  );
 
   await expect.poll(() => sent.mock.calls.length).toBe(1);
   expect(started).toHaveBeenCalledWith("Set up armada", repository().root);

@@ -26,22 +26,41 @@ export type TileGridOptions = {
 };
 
 type Arrow = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
-const ARROWS: readonly string[] = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]';
+const ARROWS: readonly string[] = [
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+];
+const FOCUSABLE =
+  'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]';
 /** What is a control by what it is, rather than by a `tabindex` given to it. A list that scrolls is one: it is how the keys reach what is past its edge. */
-const NATIVE = 'a[href], button, input, select, textarea, summary, [contenteditable="true"], [data-scrolls]';
+const NATIVE =
+  'a[href], button, input, select, textarea, summary, [contenteditable="true"], [data-scrolls]';
 /** Set on what this file took out of the Tab order, holding the `tabindex` it had, so it can be given back. */
 const ROVED = "data-roved";
 
 const fieldOf = (target: EventTarget | null): HTMLElement | null =>
-  target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) ? target : null;
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    [
+      "INPUT",
+      "TEXTAREA",
+      "SELECT",
+    ].includes(target.tagName))
+    ? target
+    : null;
 
 /**
  * The tile nearest `from` the way an arrow points, by the boxes as drawn: the gap along the arrow,
  * edge to edge, with the gap across it weighed double, so a tile straight ahead beats a nearer one
  * off to the side and Down stays in its column while the column has a tile below.
  */
-export function tileToward(from: HTMLElement, tiles: readonly HTMLElement[], arrow: Arrow): HTMLElement | undefined {
+export function tileToward(
+  from: HTMLElement,
+  tiles: readonly HTMLElement[],
+  arrow: Arrow,
+): HTMLElement | undefined {
   const a = from.getBoundingClientRect();
   const gap = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, b0 - a1, a0 - b1);
   let best: HTMLElement | undefined;
@@ -49,12 +68,26 @@ export function tileToward(from: HTMLElement, tiles: readonly HTMLElement[], arr
   for (const tile of tiles) {
     if (tile === from) continue;
     const b = tile.getBoundingClientRect();
-    const along = arrow === "ArrowDown" ? b.top - a.bottom : arrow === "ArrowUp" ? a.top - b.bottom : arrow === "ArrowRight" ? b.left - a.right : a.left - b.right;
+    const along =
+      arrow === "ArrowDown"
+        ? b.top - a.bottom
+        : arrow === "ArrowUp"
+          ? a.top - b.bottom
+          : arrow === "ArrowRight"
+            ? b.left - a.right
+            : a.left - b.right;
     // Overlapping by a border's width still counts as beyond it.
     if (along < -1) continue;
-    const across = arrow === "ArrowDown" || arrow === "ArrowUp" ? gap(a.left, a.right, b.left, b.right) : gap(a.top, a.bottom, b.top, b.bottom);
+    const across =
+      arrow === "ArrowDown" || arrow === "ArrowUp"
+        ? gap(a.left, a.right, b.left, b.right)
+        : gap(a.top, a.bottom, b.top, b.bottom);
     const at = Math.max(0, along) + across * 2;
-    if (at < score) [best, score] = [tile, at];
+    if (at < score)
+      [best, score] = [
+        tile,
+        at,
+      ];
   }
   return best;
 }
@@ -68,7 +101,10 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
 
   // The element the listeners are on. A root drawn after the first render (a surface that first says
   // nothing is served) is picked up on the render that draws it, so the check runs after every one.
-  const attached = useRef<{ element: HTMLElement; detach: () => void } | null>(null);
+  const attached = useRef<{
+    element: HTMLElement;
+    detach: () => void;
+  } | null>(null);
   // Forgotten as well as detached, so a remount (StrictMode runs every effect twice) attaches again.
   useEffect(
     () => () => {
@@ -81,7 +117,13 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
     const element = root.current;
     if (attached.current?.element === element) return;
     attached.current?.detach();
-    attached.current = element === null ? null : { element, detach: attach(element) };
+    attached.current =
+      element === null
+        ? null
+        : {
+            element,
+            detach: attach(element),
+          };
   });
 
   function attach(element: HTMLElement): () => void {
@@ -93,12 +135,20 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
     };
     const drawn = (one: Element) => one.getClientRects().length > 0;
     const peersOf = (level: Element | null): HTMLElement[] =>
-      [...element.querySelectorAll<HTMLElement>(TILE)].filter((one) => parentOf(one) === level && drawn(one));
+      [
+        ...element.querySelectorAll<HTMLElement>(TILE),
+      ].filter((one) => parentOf(one) === level && drawn(one));
     const currentOf = (level: Element | null): Element | undefined => {
       const peers = peersOf(level);
       const kept = current.current.get(level);
       if (kept !== undefined && peers.includes(kept as HTMLElement)) return kept;
-      return peers.find((one) => one.matches('[aria-current="true"], [aria-selected="true"]') || cursorOf(one)?.matches('[aria-current="true"], [aria-selected="true"]')) ?? peers[0];
+      return (
+        peers.find(
+          (one) =>
+            one.matches('[aria-current="true"], [aria-selected="true"]') ||
+            cursorOf(one)?.matches('[aria-current="true"], [aria-selected="true"]'),
+        ) ?? peers[0]
+      );
     };
 
     // Tabbable only where every tile it sits in is the current one at its level.
@@ -109,9 +159,11 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
         // Inside a tile, a stop that is only a tooltip's trigger is not a control: the tile's own name and
         // acts are its stops, and what a tooltip says is the trigger's label, read without a stop of its own.
         const own = one.closest(TILE);
-        const control = one.matches(NATIVE) || one.matches(TILE) || (own !== null && one === cursorOf(own));
+        const control =
+          one.matches(NATIVE) || one.matches(TILE) || (own !== null && one === cursorOf(own));
         let open = own === null || control;
-        for (let tile = own; tile !== null && open; tile = parentOf(tile)) open = currentOf(parentOf(tile)) === tile;
+        for (let tile = own; tile !== null && open; tile = parentOf(tile))
+          open = currentOf(parentOf(tile)) === tile;
         if (open && one.hasAttribute(ROVED)) {
           const was = one.getAttribute(ROVED)!;
           if (was === "") one.removeAttribute("tabindex");
@@ -127,7 +179,8 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
 
     const noted = (event: FocusEvent) => {
       const target = event.target as HTMLElement;
-      for (let tile = target.closest(TILE); tile !== null; tile = parentOf(tile)) current.current.set(parentOf(tile), tile);
+      for (let tile = target.closest(TILE); tile !== null; tile = parentOf(tile))
+        current.current.set(parentOf(tile), tile);
       rove();
     };
 
@@ -154,10 +207,14 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
       const field = fieldOf(target);
       if (field !== null) {
         // A select answers its own arrows; Escape takes it back to its tile.
-        if (field.tagName === "SELECT") return isPressed("close", event) ? claim(tile === null ? null : cursorOf(tile)) : undefined;
+        if (field.tagName === "SELECT")
+          return isPressed("close", event)
+            ? claim(tile === null ? null : cursorOf(tile))
+            : undefined;
         // Escape, whatever the field holds (a draft is kept), or Down from an empty one, hands the keys to the tiles.
         const empty = (field as HTMLInputElement).value === "";
-        if (isPressed("close", event) || (arrow === "ArrowDown" && empty)) claim(tile === null ? top() : cursorOf(tile));
+        if (isPressed("close", event) || (arrow === "ArrowDown" && empty))
+          claim(tile === null ? top() : cursorOf(tile));
         return;
       }
       if (tile === null) return;
@@ -168,15 +225,21 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
       // at its end they go on to the next tile. Page keys, Home and End are never taken here.
       const scroller = target.closest<HTMLElement>("[data-scrolls]");
       if (scroller !== null && (arrow === "ArrowDown" || arrow === "ArrowUp")) {
-        const more = arrow === "ArrowDown" ? scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1 : scroller.scrollTop > 0;
+        const more =
+          arrow === "ArrowDown"
+            ? scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1
+            : scroller.scrollTop > 0;
         if (more) return;
       }
-      if (arrow !== undefined) return claim(cursorOf(tileToward(tile, peersOf(level), arrow) ?? tile));
+      if (arrow !== undefined)
+        return claim(cursorOf(tileToward(tile, peersOf(level), arrow) ?? tile));
       const step = pressedSlot("move_focus", event);
       if (steps && (step === 0 || step === 1)) {
         const peers = peersOf(level);
         const at = peers.indexOf(tile);
-        return claim(cursorOf(peers[Math.min(peers.length - 1, Math.max(0, at + (step === 0 ? 1 : -1)))]!));
+        return claim(
+          cursorOf(peers[Math.min(peers.length - 1, Math.max(0, at + (step === 0 ? 1 : -1)))]!),
+        );
       }
       // Escape on a control in a tile comes out to the tile; on a tile inside another, out to that one.
       if (isPressed("close", event)) {
@@ -190,18 +253,27 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
           if (onOpen(tile) !== false) event.preventDefault();
           return;
         }
-        if (cursor instanceof HTMLButtonElement) return event.preventDefault(), cursor.click();
+        if (cursor instanceof HTMLButtonElement) return (event.preventDefault(), cursor.click());
         // Into the tile: its first tile a level down, or its first control.
         const inner = peersOf(tile)[0];
         rove();
-        const next = inner === undefined ? [...tile.querySelectorAll<HTMLElement>(FOCUSABLE)].find((one) => one !== cursor && drawn(one) && one.getAttribute("tabindex") !== "-1") : cursorOf(inner);
+        const next =
+          inner === undefined
+            ? [
+                ...tile.querySelectorAll<HTMLElement>(FOCUSABLE),
+              ].find((one) => one !== cursor && drawn(one) && one.getAttribute("tabindex") !== "-1")
+            : cursorOf(inner);
         return claim(next);
       }
     };
 
     // From nowhere, the arrows and `j`/`k` land on the grid's tile, as the cockpit's glass does.
     const idle = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || (event.target !== document.body && event.target !== document.documentElement)) return;
+      if (
+        event.defaultPrevented ||
+        (event.target !== document.body && event.target !== document.documentElement)
+      )
+        return;
       if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
       const bare = !(event.metaKey || event.ctrlKey || event.altKey || event.shiftKey);
       const step = latest.current.steps === false ? -1 : pressedSlot("move_focus", event);
@@ -216,7 +288,14 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
     rove();
     const watch = new MutationObserver(rove);
     // A `tabindex` set after the last pass is roved too, or a stop a component gives itself on render slips in.
-    watch.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ["tabindex"] });
+    watch.observe(element, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: [
+        "tabindex",
+      ],
+    });
     element.addEventListener("focusin", noted);
     element.addEventListener("keydown", press);
     window.addEventListener("keydown", idle);
