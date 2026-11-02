@@ -2,7 +2,7 @@
    of equal cells separated by hairline gaps (an SVG mask tile, rounded to fit
    whole cells; a tall block becomes a matrix of them), a wash of the
    foreground so it reads lighter than the surface it sits on, and a lit copy
-   of the row uncovered left to right in steps, like an LED level readout.
+   of the row slid in from the left in steps, like an LED level readout.
 
    Every bar keeps the height --space-2, so nothing shifts when data lands.
    Motion is steps() only and stops under prefers-reduced-motion. No gradients.
@@ -29,15 +29,15 @@
   position: absolute;
   inset: 0;
   background: var(--skeleton-lit);
-  clip-path: inset(0 100% 0 0);
+  transform: translateX(-100%);
   animation: armada-skeleton-level 4.8s steps(16, end) infinite;
   animation-delay: var(--skeleton-delay, 0s);
 }
 .armada-skeleton:nth-child(3n + 2) { --skeleton-delay: -1.2s; }
 .armada-skeleton:nth-child(3n) { --skeleton-delay: -2.7s; }
 @keyframes armada-skeleton-level {
-  0% { clip-path: inset(0 100% 0 0); }
-  65%, 100% { clip-path: inset(0 0 0 0); }
+  0% { transform: translateX(-100%); }
+  65%, 100% { transform: translateX(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

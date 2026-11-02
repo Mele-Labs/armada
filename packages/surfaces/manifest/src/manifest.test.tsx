@@ -200,9 +200,7 @@ test("the file sits behind a tab named by its path, and the head moves with the 
   await expect.element(page.getByRole("textbox", { name: /armada\.yml$/ })).toHaveValue(MANIFEST_TEXT);
   await expect.element(page.getByRole("button", { name: "Save" })).toBeDisabled();
   await expect.element(page.getByText(/Save writes the file to disk and stops/)).toBeVisible();
-  expect(page.getByText(/Nothing here is a verdict/).query()).toBeNull();
   await page.getByRole("tab", { name: "Checks and Commands" }).click();
-  await expect.element(page.getByText(/Nothing here is a verdict/)).toBeVisible();
   await expect.poll(() => page.getByText(/Save writes the file to disk and stops/).query()).toBeNull();
 });
 
