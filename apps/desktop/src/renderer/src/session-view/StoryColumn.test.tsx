@@ -11,7 +11,7 @@ import { labelOf } from "../job-panes/PaneView";
 import { forgetPanes, peek } from "../job-panes/store";
 import { panesOf } from "../job-panes/tree";
 import { drawLayersAsTabs } from "./layers";
-import { StoryColumn } from "./StoryColumn";
+import { StoryColumn, type StoryZone } from "./StoryColumn";
 import { resetFolds } from "./story";
 
 // The mod list is Fleet's, read through `window.armada`; no Job here made a mod.
@@ -128,6 +128,7 @@ function mount(
     work,
     ed,
   },
+  only?: StoryZone,
 ): HTMLElement {
   const host = document.createElement("div");
   document.body.append(host);
@@ -136,6 +137,7 @@ function mount(
     root.render(
       <StoryColumn
         session={one}
+        only={only}
         entries={[]}
         work={own.work}
         id={ID}
@@ -444,4 +446,39 @@ test("the Waiting on you line for a plain draft opens its card as a tab on the J
   expect(tabs.map(labelOf)).toEqual([
     title,
   ]);
+});
+
+const keeping = {
+  ...session("idle"),
+  later: [
+    {
+      id: "l1",
+      text: "Rotate the audit key",
+      at: "2026-10-27T10:03:00Z",
+    },
+  ],
+} as unknown as Session;
+
+test("a Deferred pane draws the follow-ups kept for later, and an Open pane does not", () => {
+  const deferred = mount(keeping, undefined, "deferred");
+  expect(deferred.querySelector('[data-area="deferred"] section.sv-later')).not.toBeNull();
+  const open = mount(keeping, undefined, "next");
+  expect(open.querySelector("section.sv-later")).toBeNull();
+  expect(open.querySelector('[data-area="deferred"]')).toBeNull();
+});
+
+test("a pane's one zone is marked single and draws no zone-name label, while the whole story keeps the spine and its labels", () => {
+  const alone = mount(keeping, undefined, "now");
+  expect(alone.querySelector(".sv-spine")?.hasAttribute("data-single")).toBe(true);
+  expect(alone.querySelector(".sv-panel__label")).toBeNull();
+  const all = mount(keeping);
+  expect(all.querySelector(".sv-spine")?.hasAttribute("data-single")).toBe(false);
+  for (const zone of [
+    "Now",
+    "Open",
+  ]) {
+    expect(
+      all.querySelector(`section[aria-label="${zone}"] .sv-panel__label`)?.textContent,
+    ).toContain(zone);
+  }
 });
