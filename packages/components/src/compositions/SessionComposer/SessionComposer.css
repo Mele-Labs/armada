@@ -189,7 +189,7 @@
 .armada-session-composer {
   container-type: inline-size;
 }
-@container (max-width: 560px) {
+@container (max-width: 400px) {
   .armada-session-composer__bar {
     gap: var(--space-1);
   }
