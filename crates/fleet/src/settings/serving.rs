@@ -8,6 +8,7 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Settings};
 use config::settings::{entry, Refused, Resolved, Saved};
+use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{Event, FleetLimits, Preferences, SaveLimits, SavePreference, SaveSettings, SettingsList, WireError};
 use store::settings_file;
 
@@ -108,7 +109,11 @@ where
     async fn settings_adopted(&self, saved: Saved) -> SettingsList {
         let settings = self.machine_settings();
         let was_on = self.models_on();
-        keep_last_good(settings.path(), &saved);
+        if let Err(why) = keep_last_good(settings.path(), &saved) {
+            let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "the last good copy of settings.json was not kept")
+                .with_field("why", FieldValue::Str(why.to_string()));
+            crate::transcript::note_aloud(&envelope);
+        }
         let resolved: Resolved = {
             let mut held = settings.held();
             held.now = held.now.with(saved);

@@ -45,7 +45,8 @@ impl MachineSettings {
         let base = Resolved::new(Saved::nothing(), supplied, env);
         let (saved, refused) = match read_checked(&path, &base) {
             Ok(saved) => {
-                keep_last_good(&path, &saved);
+                // There is no log yet this early, and the next save keeps it again.
+                let _ = keep_last_good(&path, &saved);
                 (saved, None)
             }
             Err(refused) => (read_checked(&last_good_of(&path), &base).unwrap_or_else(|_| Saved::nothing()), Some(refused)),
@@ -140,13 +141,11 @@ fn last_good_of(path: &Path) -> PathBuf {
 
 /// Keep `saved` as the last good copy. Nothing saved leaves the copy as it is: a file gone is
 /// not a file taken, and the copy is read only where one is refused.
-fn keep_last_good(path: &Path, saved: &Saved) {
+fn keep_last_good(path: &Path, saved: &Saved) -> std::io::Result<()> {
     if saved.document().is_empty() {
-        return;
+        return Ok(());
     }
-    if let Err(why) = settings_file::write(&last_good_of(path), saved.document()) {
-        eprintln!("the last good copy of {} was not kept: {why}", path.display());
-    }
+    settings_file::write(&last_good_of(path), saved.document())
 }
 
 /// The file read and checked whole, Bridge's own rules included.
