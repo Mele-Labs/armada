@@ -37,6 +37,9 @@ import type {
   AnswerBrowserRequest,
   BrowserRequest,
   OpenTerminal,
+  JobTerminals,
+  ListedTerminal,
+  RenameTerminal,
   StartTerminalRun,
   AnswerSketch,
   AnswerDocument,
@@ -195,6 +198,13 @@ export function withSession(
 /** What is kept of a run's output for a window that comes late: Fleet's 256 KiB, counted in characters. */
 const KEEP_PRINTED = 256 * 1024;
 
+/** A Job's shell under the key main keeps it by: the Job and its terminal's ID, the Job alone where Fleet named none. */
+const shellKey = (sessionId: string, terminal: string | undefined): string =>
+  terminal === undefined ? sessionId : `${sessionId}#${terminal}`;
+
+/** The number in a `shellKey`'s terminal ID: `t2` is 2. */
+const numberOf = (key: string): number => Number(key.slice(key.lastIndexOf("#") + 2));
+
 /** The last `KEEP_PRINTED` of it, cut at a line. */
 const lastOf = (out: string): string => {
   if (out.length <= KEEP_PRINTED) return out;
@@ -257,9 +267,9 @@ export class SessionsHost {
   private readonly runs = new Map<string, WebSocket>();
   /** What each run printed, by run id: a running one's, and each Job's last shell's after it ends. */
   private readonly printed = new Map<string, string>();
-  /** Each Job's last shell, whose output is kept until the next one replaces it. */
+  /** Each terminal's last shell, by `shellKey`, whose output is kept until the next one under the same ID replaces it. */
   private readonly shellOf = new Map<string, string>();
-  /** Each Job's last shell that has said it exited, before its socket closes. */
+  /** Each terminal's last shell that has said it exited, before its socket closes. */
   private readonly exited = new Set<string>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
   private reading = new Map<string, SessionRow[]>();
@@ -466,7 +476,7 @@ export class SessionsHost {
   terminal(change: "opened" | "exited", terminal: JobTerminal): void {
     const port = this.port();
     if (change === "opened" && port !== null)
-      this.observeRun(port, terminal.run_id, terminal.session_id);
+      this.observeRun(port, terminal.run_id, shellKey(terminal.session_id, terminal.terminal));
     this.terminalChanged(change, terminal);
   }
 
@@ -479,12 +489,27 @@ export class SessionsHost {
     return out === undefined ? null : lastOf(out);
   }
 
-  /** The Job's last shell main followed, and whether it has ended: what a shell moved back out of its window is shown as. */
-  shellNow(sessionId: string): {
+  /**
+   * The last shell main followed under `terminal`, and whether it has ended: what a shell moved back out of its window is shown as.
+   * Without a terminal, the Job's lowest-numbered one.
+   */
+  shellNow(
+    sessionId: string,
+    terminal?: string,
+  ): {
     runId: string;
     ended: boolean;
   } | null {
-    const runId = this.shellOf.get(sessionId);
+    const runId =
+      terminal === undefined
+        ? this.shellOf.get(
+            [
+              ...this.shellOf.keys(),
+            ]
+              .filter((key) => key.startsWith(`${sessionId}#`))
+              .sort((a, b) => numberOf(a) - numberOf(b))[0] ?? sessionId,
+          )
+        : this.shellOf.get(shellKey(sessionId, terminal));
     return runId === undefined
       ? null
       : {
@@ -511,11 +536,55 @@ export class SessionsHost {
         outcome: answer.outcome,
       };
     const underway = answer.body as SessionRunUnderway;
-    this.observeRun(port, underway.run_id, open.session_id);
+    this.observeRun(port, underway.run_id, shellKey(open.session_id, underway.terminal));
     return {
       ok: true,
       value: underway,
     };
+  }
+
+  /** `list_terminals`: the Job's open terminals, with whether a program holds the foreground in each. */
+  async listTerminals(sessionId: string): Promise<SessionActed<JobTerminals>> {
+    const port = this.port();
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
+    const answer = await ask(
+      port,
+      "GET",
+      `/sessions/terminal/list?session_id=${encodeURIComponent(sessionId)}`,
+    );
+    return answer.ok === true
+      ? {
+          ok: true,
+          value: answer.body as JobTerminals,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
+  }
+
+  /** `rename_terminal`: the person's name for one of the Job's terminals. */
+  async renameTerminal(rename: RenameTerminal): Promise<SessionActed<ListedTerminal>> {
+    const port = this.port();
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
+    const answer = await ask(port, "POST", "/sessions/terminal/rename", rename);
+    return answer.ok === true
+      ? {
+          ok: true,
+          value: answer.body as ListedTerminal,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 
   /**
@@ -685,7 +754,7 @@ export class SessionsHost {
         };
   }
 
-  /** `shellOf` names the Job where the run is its shell, whose output outlives its end. */
+  /** `shellOf` is the shell's `shellKey` where the run is a Job's shell, whose output outlives its end. */
   private observeRun(port: number, runId: string, shellOf?: string): void {
     if (shellOf !== undefined) {
       const before = this.shellOf.get(shellOf);

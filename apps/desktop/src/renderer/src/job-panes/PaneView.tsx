@@ -241,6 +241,11 @@ function TabButton({
   const rename = (value: string) => {
     setRenaming(false);
     look(jobId, (arrangement) => renameTab(arrangement, tab.id, value));
+    // Fleet keeps the name too, so the agent's list of the Job's terminals shows it. The tab reads as it was named whatever Fleet says.
+    if (tab.kind === "terminal" && value.trim() !== label) {
+      const shells = shellsOf(window.armada);
+      shells?.rename(shells.keyOf(jobId, tab.terminal), value.trim());
+    }
   };
   // A press that starts on the × is not the start of a drag of the tab.
   const grabbed = useRef(false);

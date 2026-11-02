@@ -62,6 +62,9 @@ import type {
   SessionRunMessage,
   SessionRunUnderway,
   JobTerminal,
+  JobTerminals,
+  ListedTerminal,
+  OpenTerminal,
   SessionSubagent,
   SessionLoadout,
   AttachmentHistory,
@@ -104,15 +107,16 @@ export type RingedNotes = {
 };
 
 /** What a person can do to a pull request a Session holds, without leaving Bridge. */
-/** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it. */
+/** A Job's shell opening or ending, as `terminal.opened` and `terminal.exited` carry it: `terminal` is which, by the ID Fleet minted. */
 export type JobTerminalChange = JobTerminal & {
   change: "opened" | "exited";
-  /** Which of the Job's shells, by the ID Fleet minted for it. Absent from a Fleet that serves one. */
-  terminal?: string;
 };
 
-/** What `openTerminal` asks for in place of an ID: a new shell, whatever the Job already holds. */
-export const NEW_TERMINAL = "new";
+/** One Job's terminal window: the terminal it holds, absent for the Job's first. */
+export type TerminalWindowId = {
+  sessionId: string;
+  terminal?: string;
+};
 
 /**
  * A shell moved from its own window back into Bridge, docked. `shell` is the Job's last shell main followed,
@@ -120,6 +124,8 @@ export const NEW_TERMINAL = "new";
  */
 export type TerminalMovedBack = {
   sessionId: string;
+  /** The terminal that came back; absent for the Job's first. */
+  terminal?: string;
   to: "docked";
   shell?: {
     runId: string;
@@ -391,17 +397,17 @@ export type SessionsApi = {
     sessionId: string,
     cols?: number,
     rows?: number,
-    /** The shell by its ID, or `NEW_TERMINAL` for a new one. Absent is the Job's first. Fleet mints the ID and answers with it. */
-    terminal?: string,
-  ) => Promise<
-    SessionActed<
-      SessionRunUnderway & {
-        terminal?: string;
-      }
-    >
-  >;
-  /** Whether a program is running in the Job's shell `terminal`, as against an idle prompt. Absent where Fleet does not say. */
-  terminalRunning?: (sessionId: string, terminal?: string) => Promise<boolean>;
+    /** `terminal` names a shell by its ID: its running one, or a new one under the same ID where it ended. `new` starts the next. Neither is the Job's first. Fleet answers with the ID. */
+    which?: Pick<OpenTerminal, "terminal" | "new">,
+  ) => Promise<SessionActed<SessionRunUnderway>>;
+  /** The Job's open terminals, and whether a program other than the shell has the foreground in each. */
+  listTerminals: (sessionId: string) => Promise<SessionActed<JobTerminals>>;
+  /** Names a Job's terminal, so the agent's list shows it. A blank name restores the default. Answers with the terminal as it now stands. */
+  renameTerminal: (
+    sessionId: string,
+    terminal: string,
+    name: string,
+  ) => Promise<SessionActed<ListedTerminal>>;
   /** Runs `command` in the directory `dir` with no Job behind it, on a terminal of `cols` by `rows` cells (both or neither; 80 by 24 without). Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`, and typing, resizing and stopping it are the run calls on that id. */
   startTerminalRun: (
     command: string,
@@ -442,16 +448,20 @@ export type SessionsApi = {
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
   /** A Job's shell opened (the agent's first `type_in_terminal` too) or ended, so a pane can follow it. Output follows on `onSessionRunMessage` by `run_id`. Returns its remover. */
   onSessionTerminal: (on: (terminal: JobTerminalChange) => void) => () => void;
-  /** Opens the Job's shell in a window of its own, or brings the one it has to the front. The window opens the shell as a pane does. */
-  openTerminalWindow: (sessionId: string) => Promise<void>;
-  /** The Jobs whose shell has a window open now, which main alone knows. */
-  getTerminalWindows: () => Promise<readonly string[]>;
-  /** The Jobs with a terminal window, whole, whenever one opens or closes. Returns its remover. */
-  onTerminalWindows: (onChanged: (sessionIds: readonly string[]) => void) => () => void;
+  /** Opens the Job's shell `terminal` (the first, without one) in a window of its own, or brings the one it has to the front. The window opens the shell as a pane does. */
+  openTerminalWindow: (sessionId: string, terminal?: string) => Promise<void>;
+  /** The terminals that have a window open now, which main alone knows. */
+  getTerminalWindows: () => Promise<readonly TerminalWindowId[]>;
+  /** The terminal windows, whole, whenever one opens or closes. Returns its remover. */
+  onTerminalWindows: (onChanged: (windows: readonly TerminalWindowId[]) => void) => () => void;
   /** What a shell main follows has printed so far, its last 256 KiB, for a window that comes to it late. Null where main holds none. */
   readTerminalSoFar: (runId: string) => Promise<string | null>;
   /** Moves a shell out of its window, which closes, and back into Bridge: every window hears it on `onTerminalMovedBack`. */
-  moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]) => Promise<void>;
+  moveTerminalBack: (
+    sessionId: string,
+    to: TerminalMovedBack["to"],
+    terminal?: string,
+  ) => Promise<void>;
   /** A shell moved back from its window, for the document that draws that Job's dock. Returns its remover. */
   onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => () => void;
 };
@@ -572,6 +582,8 @@ export const SESSIONS_CHANNELS = {
   writePullRequest: "bridge:write-pull-request",
   startSessionRun: "bridge:start-session-run",
   openTerminal: "bridge:open-terminal",
+  listTerminals: "bridge:list-terminals",
+  renameTerminal: "bridge:rename-terminal",
   startTerminalRun: "bridge:start-terminal-run",
   stopSessionRun: "bridge:stop-session-run",
   writeSessionRun: "bridge:write-session-run",

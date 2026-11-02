@@ -2109,6 +2109,11 @@ async function shellFleet(
       response.end(
         JSON.stringify({
           run_id: request.url === "/sessions/run/start" ? "b1" : opens.shift(),
+          ...(request.url === "/sessions/terminal/open"
+            ? {
+                terminal: "t1",
+              }
+            : {}),
         }),
       );
     });
@@ -2314,6 +2319,7 @@ it("lets an ended shell's output go when its Job's next shell opens, and a block
   ended = endOf(sessions, "r2");
   sessions.terminal("opened", {
     session_id: "a",
+    terminal: "t1",
     run_id: "r2",
   });
   await ended;
@@ -2323,6 +2329,60 @@ it("lets an ended shell's output go when its Job's next shell opens, and a block
     runId: "r2",
     ended: true,
   });
+});
+
+it("keeps each of a Job's terminals' output apart, and lets one go only when its own next shell opens", async () => {
+  const done = (text: string): SessionRunMessage[] => [
+    {
+      kind: "output",
+      text,
+    },
+    {
+      kind: "exited",
+      code: 0,
+      stopped: false,
+    },
+  ];
+  const port = await shellFleet(
+    [
+      "r1",
+    ],
+    {
+      r1: done("one\r\n"),
+      r2: done("two\r\n"),
+      r3: done("three\r\n"),
+    },
+  );
+  const { sessions } = host(port);
+  let ended = endOf(sessions, "r1");
+  await sessions.openTerminal({
+    session_id: "a",
+  });
+  await ended;
+  ended = endOf(sessions, "r2");
+  sessions.terminal("opened", {
+    session_id: "a",
+    terminal: "t2",
+    run_id: "r2",
+  });
+  await ended;
+  expect(sessions.soFar("r1")).toBe("one\r\n");
+  expect(sessions.soFar("r2")).toBe("two\r\n");
+  expect(sessions.shellNow("a", "t1")?.runId).toBe("r1");
+  expect(sessions.shellNow("a", "t2")?.runId).toBe("r2");
+  expect(sessions.shellNow("a")?.runId).toBe("r1");
+  // A round trip, so r2's socket has closed by the time its next shell opens.
+  await sessions.listTerminals("a");
+  ended = endOf(sessions, "r3");
+  sessions.terminal("opened", {
+    session_id: "a",
+    terminal: "t2",
+    run_id: "r3",
+  });
+  await ended;
+  expect(sessions.soFar("r2")).toBeNull();
+  expect(sessions.soFar("r1")).toBe("one\r\n");
+  expect(sessions.soFar("r3")).toBe("three\r\n");
 });
 
 it("holds the twenty threads opened last, and reads one let go again when it is reopened", async () => {

@@ -182,6 +182,9 @@ import type {
   SessionRow,
   SessionRunMessage,
   SessionRunUnderway,
+  JobTerminals,
+  ListedTerminal,
+  OpenTerminal,
   SessionLoadout,
   AttachmentHistory,
   KeptStyles,
@@ -210,6 +213,7 @@ import type {
   SessionActed,
   SessionsRead,
   TerminalMovedBack,
+  TerminalWindowId,
 } from "./api/sessions";
 import type { AutopilotDecisionsActed } from "./api/autopilot-decisions";
 import type { AccountsActed } from "./api/accounts";
@@ -707,7 +711,14 @@ type OldBridgeApi = {
     sessionId: string,
     cols?: number,
     rows?: number,
+    which?: Pick<OpenTerminal, "terminal" | "new">,
   ) => Promise<SessionActed<SessionRunUnderway>>;
+  listTerminals: (sessionId: string) => Promise<SessionActed<JobTerminals>>;
+  renameTerminal: (
+    sessionId: string,
+    terminal: string,
+    name: string,
+  ) => Promise<SessionActed<ListedTerminal>>;
   startTerminalRun: (
     command: string,
     dir: string,
@@ -728,11 +739,15 @@ type OldBridgeApi = {
   ) => Promise<SessionActed<SessionRunUnderway>>;
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
   onSessionTerminal: (on: (terminal: JobTerminalChange) => void) => () => void;
-  openTerminalWindow: (sessionId: string) => Promise<void>;
-  getTerminalWindows: () => Promise<readonly string[]>;
-  onTerminalWindows: (onChanged: (sessionIds: readonly string[]) => void) => () => void;
+  openTerminalWindow: (sessionId: string, terminal?: string) => Promise<void>;
+  getTerminalWindows: () => Promise<readonly TerminalWindowId[]>;
+  onTerminalWindows: (onChanged: (windows: readonly TerminalWindowId[]) => void) => () => void;
   readTerminalSoFar: (runId: string) => Promise<string | null>;
-  moveTerminalBack: (sessionId: string, to: TerminalMovedBack["to"]) => Promise<void>;
+  moveTerminalBack: (
+    sessionId: string,
+    to: TerminalMovedBack["to"],
+    terminal?: string,
+  ) => Promise<void>;
   onTerminalMovedBack: (on: (move: TerminalMovedBack) => void) => () => void;
 } & AutopilotApi &
   SketchShareApi &
@@ -1108,6 +1123,8 @@ const OLD_CHANNELS = {
   writePullRequest: "bridge:write-pull-request",
   startSessionRun: "bridge:start-session-run",
   openTerminal: "bridge:open-terminal",
+  listTerminals: "bridge:list-terminals",
+  renameTerminal: "bridge:rename-terminal",
   startTerminalRun: "bridge:start-terminal-run",
   catchUpCheckout: "bridge:catch-up-checkout",
   sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",

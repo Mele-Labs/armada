@@ -489,6 +489,7 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     });
     host.sessions.terminal(event.kind === "terminal.opened" ? "opened" : "exited", {
       session_id: event.session_id,
+      terminal: event.terminal,
       run_id: event.run_id,
     });
     return;

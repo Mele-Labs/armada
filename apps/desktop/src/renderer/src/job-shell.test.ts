@@ -141,6 +141,7 @@ describe("a window that comes to a running shell", () => {
     shells.sized("a", 80, 24);
     tell({
       session_id: "a",
+      terminal: "t1",
       run_id: "r1",
       change: "opened",
     });
@@ -190,7 +191,7 @@ describe("a shell moved back out of its window", () => {
       waiting: true,
     });
     shells.sized("a", 80, 24);
-    expect(api.openTerminal).toHaveBeenCalledWith("a", 80, 24);
+    expect(api.openTerminal).toHaveBeenCalledWith("a", 80, 24, undefined);
   });
 });
 

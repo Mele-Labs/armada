@@ -1,5 +1,5 @@
-// A Job's terminal window as its document mounts it: titled for the Job, the shell's screen focused with what it printed before
-// the window came to it, Esc left to the shell, and a head whose moves send the shell back into Bridge.
+// A terminal's window as its document mounts it: titled for the terminal and the Job, the shell's screen focused with what it printed
+// before the window came to it, Esc left to the shell, and a head whose moves send the shell back into Bridge.
 
 import "../styles/terminal-window.css";
 
@@ -47,10 +47,37 @@ function fakeApi() {
         full,
         seq: 1,
       }),
-      openTerminal: vi.fn(async () => ({
+      openTerminal: vi.fn(
+        async (
+          _session: string,
+          _cols?: number,
+          _rows?: number,
+          which?: {
+            terminal?: string;
+          },
+        ) => ({
+          ok: true as const,
+          value: {
+            run_id: "r1",
+            ...(which?.terminal === undefined
+              ? {}
+              : {
+                  terminal: which.terminal,
+                }),
+          },
+        }),
+      ),
+      listTerminals: vi.fn(async () => ({
         ok: true as const,
         value: {
-          run_id: "r1",
+          terminals: [
+            {
+              terminal: "t2",
+              name: "server",
+              run_id: "r1",
+              running: false,
+            },
+          ],
         },
       })),
       readTerminalSoFar: vi.fn(async () => PRINTED),
@@ -107,19 +134,20 @@ const pane = () =>
     exact: true,
   });
 
-async function opened() {
+async function opened(terminal?: string) {
   await act(async () =>
     root.render(
       <TerminalWindow
         api={fake.api as unknown as Parameters<typeof TerminalWindow>[0]["api"]}
         sessionId={SESSION}
+        terminal={terminal}
       />,
     ),
   );
   await expect.element(pane().getByText("CONTRIBUTING.md")).toBeVisible();
 }
 
-test("is titled Terminal with the Job's title, and draws what the shell printed before it came, focused to type into", async () => {
+test("is titled Terminal with the Job's title where no terminal is named, and draws what the shell printed before it came, focused to type into", async () => {
   await opened();
   await expect.poll(() => document.title).toBe("Terminal: Deploy the store");
   expect(fake.api.openTerminal).toHaveBeenCalledTimes(1);
@@ -129,6 +157,25 @@ test("is titled Terminal with the Job's title, and draws what the shell printed 
     .toBe("Terminal input");
   fake.print("pwd\r\n");
   await expect.element(pane().getByText("pwd")).toBeVisible();
+});
+
+test("opens the terminal it is for, is titled with that terminal's name, and moves that one back", async () => {
+  await opened("t2");
+  expect(fake.api.openTerminal).toHaveBeenCalledWith(
+    SESSION,
+    expect.any(Number),
+    expect.any(Number),
+    {
+      terminal: "t2",
+    },
+  );
+  await expect.poll(() => document.title).toBe("server: Deploy the store");
+  await pane()
+    .getByRole("button", {
+      name: "Dock",
+    })
+    .click();
+  expect(fake.api.moveTerminalBack).toHaveBeenLastCalledWith(SESSION, "docked", "t2");
 });
 
 test("leaves Esc to the shell: it is typed, and nothing in the window closes", async () => {
@@ -172,5 +219,5 @@ test("its head moves the shell back into Bridge, docked and only there; the wind
       name: "Dock",
     })
     .click();
-  expect(fake.api.moveTerminalBack).toHaveBeenLastCalledWith(SESSION, "docked");
+  expect(fake.api.moveTerminalBack).toHaveBeenLastCalledWith(SESSION, "docked", undefined);
 });

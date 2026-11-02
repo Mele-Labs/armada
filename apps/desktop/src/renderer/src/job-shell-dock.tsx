@@ -104,14 +104,8 @@ export function useShellArrivals(
     const offOpened = shells.onOpened((opened, key) => {
       // A shell the agent opens while the Job is not on screen waits behind its Terminal key, which pulses while it prints.
       if (opened !== sessionId || !viewingNow(sessionId)) return;
-      // The window holds the Job's first shell; another one opens in a tab.
-      if (
-        place === "page" &&
-        key === sessionId &&
-        shells.hasWindow(sessionId) &&
-        toWindow(shells, place, sessionId)
-      )
-        return;
+      // A shell that already has a window is drawn there; another one opens in a tab.
+      if (place === "page" && shells.hasWindow(key) && toWindow(shells, place, key)) return;
       shells.show(place, key, true);
       told.current?.();
     });
@@ -119,8 +113,9 @@ export function useShellArrivals(
     const offBack = shells.onMovedBack((move) => {
       if (move.sessionId !== sessionId) return;
       // This window may never have followed the shell, which the window opened: main says which it is and how it stands.
-      shells.movedIn(sessionId, move.shell);
-      shells.show(place, sessionId, true);
+      const key = shells.keyOf(sessionId, move.terminal);
+      shells.movedIn(key, move.shell);
+      shells.show(place, key, true);
       told.current?.();
     });
     return () => {

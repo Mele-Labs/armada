@@ -1,9 +1,10 @@
-// A Job's shell in a window of its own, one window per Job (`docs/concepts/session/shared-terminal.md`). The window is a
+// A Job's shell in a window of its own, one window per terminal (`docs/concepts/session/shared-terminal.md`). The window is a
 // Bridge document with Bridge's preload and posture; the shell stays the Job's, so closing the window only puts it away.
 
 import { BrowserWindow } from "electron";
 import { join } from "node:path";
 
+import type { TerminalWindowId } from "../shared/api/sessions";
 import type { Rect } from "./window-state";
 
 export type Size = {
@@ -17,15 +18,15 @@ export type TerminalWindowTold = {
   closed: () => void;
 };
 
-/** One Job's terminal window, as `TerminalWindows` drives it. */
+/** One terminal's window, as `TerminalWindows` drives it. */
 export type TerminalWindow = {
   focus: () => void;
   close: () => void;
 };
 
-/** Makes a Job's window at `bounds`: Electron's in the app, a fake in a test. */
+/** Makes a terminal's window at `bounds`: Electron's in the app, a fake in a test. */
 export type MakeTerminalWindow = (
-  sessionId: string,
+  id: TerminalWindowId,
   bounds: Partial<Rect> & Size,
   told: TerminalWindowTold,
 ) => TerminalWindow;
@@ -39,10 +40,20 @@ export const TERMINAL_WINDOW_SIZE: Size = {
 /** Each window open after the first sits this far down and right, so none hides another whole. */
 const CASCADE = 24;
 
+/** A terminal's window under one key: the Job's id, and the terminal's ID where one is named. The Job's first, named by none, is the Job's alone. */
+const keyOf = ({ sessionId, terminal }: TerminalWindowId): string =>
+  terminal === undefined ? sessionId : `${sessionId}#${terminal}`;
+
 export class TerminalWindows {
-  private readonly open = new Map<string, TerminalWindow>();
-  private readonly listeners = new Set<(sessionIds: readonly string[]) => void>();
-  /** Shared by every Job's window, and kept for the app's life only: a window is never restored. */
+  private readonly open = new Map<
+    string,
+    {
+      id: TerminalWindowId;
+      window: TerminalWindow;
+    }
+  >();
+  private readonly listeners = new Set<(windows: readonly TerminalWindowId[]) => void>();
+  /** Shared by every terminal's window, and kept for the app's life only: a window is never restored. */
   private size: Size = TERMINAL_WINDOW_SIZE;
 
   /** `over` is Bridge's window, which a terminal window opens over; null where none is up. */
@@ -51,45 +62,49 @@ export class TerminalWindows {
     private readonly over: () => Rect | null,
   ) {}
 
-  /** Opens the Job's window, or brings the one it has to the front. */
-  show(sessionId: string): void {
-    const standing = this.open.get(sessionId);
+  /** Opens the terminal's window, or brings the one it has to the front. */
+  show(id: TerminalWindowId): void {
+    const key = keyOf(id);
+    const standing = this.open.get(key);
     if (standing !== undefined) {
-      standing.focus();
+      standing.window.focus();
       return;
     }
-    const window = this.make(sessionId, this.boundsOf(), {
+    const window = this.make(id, this.boundsOf(), {
       resized: (size) => {
         this.size = size;
       },
       closed: () => {
-        if (this.open.get(sessionId) !== window) return;
-        this.open.delete(sessionId);
+        if (this.open.get(key)?.window !== window) return;
+        this.open.delete(key);
         this.changed();
       },
     });
-    this.open.set(sessionId, window);
+    this.open.set(key, {
+      id,
+      window,
+    });
     this.changed();
   }
 
-  /** Closes the Job's window, as a move back into Bridge does. Its close is told as the person's is. */
-  close(sessionId: string): void {
-    this.open.get(sessionId)?.close();
+  /** Closes the terminal's window, as a move back into Bridge does. Its close is told as the person's is. */
+  close(id: TerminalWindowId): void {
+    this.open.get(keyOf(id))?.window.close();
   }
 
-  has(sessionId: string): boolean {
-    return this.open.has(sessionId);
+  has(id: TerminalWindowId): boolean {
+    return this.open.has(keyOf(id));
   }
 
-  /** The Jobs with a window open now. */
-  sessionIds(): readonly string[] {
+  /** The terminals with a window open now. */
+  ids(): readonly TerminalWindowId[] {
     return [
-      ...this.open.keys(),
-    ];
+      ...this.open.values(),
+    ].map((one) => one.id);
   }
 
-  /** Hears the Jobs with a window, whole, each time one opens or closes. Returns its remover. */
-  onChanged(listener: (sessionIds: readonly string[]) => void): () => void {
+  /** Hears the terminals with a window, whole, each time one opens or closes. Returns its remover. */
+  onChanged(listener: (windows: readonly TerminalWindowId[]) => void): () => void {
     this.listeners.add(listener);
     return () => void this.listeners.delete(listener);
   }
@@ -109,13 +124,13 @@ export class TerminalWindows {
   }
 
   private changed(): void {
-    const ids = this.sessionIds();
+    const ids = this.ids();
     this.listeners.forEach((one) => one(ids));
   }
 }
 
-/** A Job's terminal window in Electron: a Bridge document that goes nowhere, as Bridge's own window does (`index.ts`). */
-export const makeTerminalWindow: MakeTerminalWindow = (sessionId, bounds, told) => {
+/** A terminal's window in Electron: a Bridge document that goes nowhere, as Bridge's own window does (`index.ts`). */
+export const makeTerminalWindow: MakeTerminalWindow = ({ sessionId, terminal }, bounds, told) => {
   const window = new BrowserWindow({
     ...bounds,
     show: false,
@@ -145,6 +160,11 @@ export const makeTerminalWindow: MakeTerminalWindow = (sessionId, bounds, told) 
   void window.loadFile(join(__dirname, "../renderer/terminal-window.html"), {
     query: {
       session: sessionId,
+      ...(terminal === undefined
+        ? {}
+        : {
+            terminal,
+          }),
     },
   });
   return {

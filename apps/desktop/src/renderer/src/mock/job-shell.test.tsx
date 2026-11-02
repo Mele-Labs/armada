@@ -1,5 +1,5 @@
-// The Job's shell as a Terminal tab: + opens it at the pane's size, keys reach it, End shell stops it and New shell opens another, and ⌥⇧0 brings the tab forward or opens one. A shell the agent opens
-// draws a Terminal tab, closing the last tab puts the shell away with it still running, and Move to window takes it to a window of its own. Through `App` on `session-shell`, whose Fleet holds a fake zsh.
+// The Job's shell as a Terminal tab: + opens a new one and the pane tells it its size, keys reach it, End shell stops it and New shell opens another, and ⌥⇧0 brings the tab forward or opens one. A shell the agent opens
+// draws a Terminal tab, closing a tab ends its shell, and Move to window takes it to a window of its own. Through `App` on `session-shell`, whose Fleet holds a fake zsh.
 // The whole story is the walk `job-shell`.
 
 import { beforeEach, expect, test } from "vitest";
@@ -31,12 +31,12 @@ const threadPane = () =>
   });
 const terminalPane = () =>
   page.getByRole("region", {
-    name: /^Pane: (Terminal|zsh)/,
+    name: /^Pane: Terminal/,
   });
-// The Job's terminal window, which the mock draws on the page as a dialog named as the real window's title.
+// The terminal's window, which the mock draws on the page as a dialog named as the real window's title.
 const popOut = () =>
   page.getByRole("dialog", {
-    name: "Terminal: Deploy the store",
+    name: "Terminal 1: Deploy the store",
     exact: true,
   });
 const PROMPT = "slot-1 %";
@@ -64,7 +64,7 @@ async function addTerminal() {
     .click();
 }
 
-test("a Terminal tab opens the Job's shell at the pane's size, and keys reach it", async () => {
+test("a Terminal tab opens a new shell and tells it the pane's size, and keys reach it", async () => {
   await open();
   expect(document.querySelector(".armada-terminal")).toBeNull();
   await addTerminal();
@@ -72,10 +72,13 @@ test("a Terminal tab opens the Job's shell at the pane's size, and keys reach it
   await expect.element(pane().getByText(PROMPT)).toBeVisible();
   const asked = shellCalls()!.opened;
   expect(asked).toHaveLength(1);
+  expect(asked[0]!.new).toBe(true);
   // The size the pane fitted, and not Fleet's 80 by 24.
+  await expect.poll(() => shellCalls()!.resized.length).toBeGreaterThan(0);
+  const { cols, rows } = shellCalls()!.resized.at(-1)!;
   expect([
-    asked[0]!.cols,
-    asked[0]!.rows,
+    cols,
+    rows,
   ]).not.toEqual([
     80,
     24,
@@ -145,7 +148,7 @@ test("⌥⇧0 opens a Terminal tab where the Job has none, and brings the pane f
   const tabs = () =>
     page
       .getByRole("tab", {
-        name: /^(Terminal|zsh)/,
+        name: /^Terminal/,
       })
       .elements().length;
   expect(tabs()).toBe(1);
@@ -189,7 +192,7 @@ test("the agent opening the Job's shell draws a Terminal tab, and the shell endi
   await expect.element(pane().getByText("Shell ended")).toBeVisible();
 });
 
-test("closing the Terminal tab puts the shell away with it still running, and a new tab shows it whole", async () => {
+test("closing the Terminal tab ends its shell, and a new tab is a new shell with a fresh screen", async () => {
   await open();
   await addTerminal();
   await expect.element(pane().getByText(PROMPT)).toBeVisible();
@@ -204,22 +207,20 @@ test("closing the Terminal tab puts the shell away with it still running, and a 
 
   await page
     .getByRole("button", {
-      name: /^Close (Terminal|zsh)/,
+      name: /^Close Terminal/,
     })
     .click();
   await expect.element(terminalPane()).not.toBeInTheDocument();
   expect(document.querySelector(".armada-terminal")).toBeNull();
-  expect(shellCalls()!.stopped).toEqual([]);
+  expect(shellCalls()!.stopped).toEqual([
+    "shell-1",
+  ]);
 
   await addTerminal();
-  await expect
-    .element(
-      pane().getByText(PRINTED, {
-        exact: true,
-      }),
-    )
-    .toBeVisible();
-  expect(shellCalls()!.opened).toHaveLength(1);
+  await expect.element(pane().getByText(PROMPT)).toBeVisible();
+  expect(pane().element().textContent).not.toContain(PRINTED);
+  expect(shellCalls()!.opened).toHaveLength(2);
+  expect(shellCalls()!.started).toHaveLength(2);
 });
 
 test("Move to window takes the shell to a window of its own, its tab says where it is, and Move to the pane or the window's Dock brings it back", async () => {
@@ -231,7 +232,7 @@ test("Move to window takes the shell to a window of its own, its tab says where 
 
   await page
     .getByRole("tab", {
-      name: /^(Terminal|zsh)/,
+      name: /^Terminal/,
     })
     .click({
       button: "right",
@@ -258,7 +259,10 @@ test("Move to window takes the shell to a window of its own, its tab says where 
     )
     .toBe("Terminal input");
   expect(shellCalls()!.windows).toEqual([
-    SHELL_JOB,
+    {
+      sessionId: SHELL_JOB,
+      terminal: "t1",
+    },
   ]);
 
   await terminalPane()
@@ -271,7 +275,7 @@ test("Move to window takes the shell to a window of its own, its tab says where 
 
   await page
     .getByRole("tab", {
-      name: /^(Terminal|zsh)/,
+      name: /^Terminal/,
     })
     .click({
       button: "right",
@@ -294,7 +298,7 @@ test("Move to window takes the shell to a window of its own, its tab says where 
   // The window's own close puts the shell away, and the tab shows it again.
   await page
     .getByRole("tab", {
-      name: /^(Terminal|zsh)/,
+      name: /^Terminal/,
     })
     .click({
       button: "right",
@@ -305,7 +309,10 @@ test("Move to window takes the shell to a window of its own, its tab says where 
     })
     .click();
   await expect.element(popOut()).toBeVisible();
-  closeTerminalWindow(SHELL_JOB);
+  closeTerminalWindow({
+    sessionId: SHELL_JOB,
+    terminal: "t1",
+  });
   await expect.element(pane().getByText(/CONTRIBUTING\.md/)).toBeVisible();
   expect(shellCalls()!.stopped).toEqual([]);
   expect(shellCalls()!.started).toHaveLength(1);
