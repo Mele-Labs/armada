@@ -87,6 +87,9 @@ edge and its ground lifts one step at `--duration-fast`.
 `prefers-reduced-motion` every transition duration is zero and each
 state still reads from colour and label.
 
+**Armada has its own switch.** `features.reduceMotion` makes each of Bridge's windows answer `prefers-reduced-motion` as if the Mac asked for it, so every rule above follows it with nothing else to write and no other app changes.
+`apps/desktop/src/main/reduce-motion.ts`.
+
 **A loop that never ends animates `transform` and `opacity` only.** A loop runs for as long
 as the window is open, so what it animates is what Bridge costs idle. The compositor draws
 those two with no repaint; `box-shadow`, `background-position`, `stroke-dashoffset` and the

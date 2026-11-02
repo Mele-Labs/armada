@@ -50,7 +50,8 @@ import { handleAgentSignIn } from "./agent-sign-in-channels";
 import { AgentSignInNotice } from "./agent-sign-in-notice";
 import { SessionAttention } from "./session-attention";
 import { soundOf } from "./telling";
-import { settingOf, switchDeepLinks } from "./settings";
+import { followReduceMotion } from "./reduce-motion";
+import { settingOf, switchDeepLinks, switchReduceMotion } from "./settings";
 import { DeepLinks } from "./deep-link";
 import { DEEP_LINK_SCHEME, type PullLink } from "../shared/pull-link";
 import { handleTimeline } from "./timeline-channels";
@@ -446,6 +447,7 @@ const deepLinks = new DeepLinks({
   },
 });
 switchDeepLinks(deepLinks);
+switchReduceMotion(followReduceMotion);
 app.on("open-url", (event, address) => {
   event.preventDefault();
   deepLinks.arrive(address);
