@@ -15,6 +15,8 @@ function autopilot(over: Partial<Autopilot> = {}): Autopilot {
     spend_cap_micros: 30_000_000,
     state: "running",
     started_at: "2026-10-12T03:00:00.000Z",
+    on_autopilot: { backlog: true, running: false },
+    decisions: [],
     spent_micros: 12_400_000,
     sessions_started: 3,
     at_work: 2,
@@ -114,6 +116,15 @@ describe("the start form", () => {
     // A blank quote is no quote: the form says the sentence did not say it.
     expect(reading.quoted).toEqual({ atOnce: "two at a time", spend: "$30 max" });
     expect(readingOf({ instruction: "x", at_once: 1 }).quoted).toEqual({});
+  });
+
+  it("sends the checked boxes, and never a word Fleet does not know", () => {
+    const fields = { atOnce: "1", until: "", spend: "", sessions: "" };
+    const boxes = { work: new Set(["running"]), decisions: new Set(["land", "plan", "destructive"]) };
+    const read = settingsFrom("x", fields, NOW, boxes);
+    expect(read.ok && read.settings).toMatchObject({ on_autopilot: { backlog: false, running: true }, decisions: ["plan", "land"] });
+    const bare = settingsFrom("x", fields, NOW);
+    expect(bare.ok && "on_autopilot" in bare.settings).toBe(false);
   });
 
   it("takes what the person confirmed, and refuses a field it cannot read", () => {

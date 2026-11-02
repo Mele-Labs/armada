@@ -1,4 +1,4 @@
-// Autopilot's setup and its guarded switch. MOCK: the boxes are held here, and only the repositories, the instruction and the limits reach Fleet.
+// Autopilot's setup and its guarded switch. MOCK: the boxes are held here, and the repositories, the instruction, the limits and the checked boxes reach Fleet at start. Fleet keeps the boxes and nothing acts on them yet.
 // The switch is two acts: the guard flips up, then the red switch flips. Closing the guard on a live switch pushes it off, as the hardware does.
 
 import { useEffect, useRef, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
@@ -78,7 +78,7 @@ const flipped = (set: ReadonlySet<string>, id: string) => {
 };
 
 function start() {
-  const read = settingsFrom(arm.instruction.trim() === "" ? "Work through the open issues" : arm.instruction, arm.fields, Date.now());
+  const read = settingsFrom(arm.instruction.trim() === "" ? "Work through the open issues" : arm.instruction, arm.fields, Date.now(), { work: arm.work, decisions: arm.decisions });
   if (!read.ok) return;
   for (const manifest of arm.repositories) void window.armada.startAutopilot?.(manifest, read.settings);
 }

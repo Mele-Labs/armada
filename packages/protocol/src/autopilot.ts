@@ -15,6 +15,15 @@ export type AutopilotCap = "until" | "spend" | "sessions";
 /** What became of one pick. `withdrawn`: its Session had not run when Autopilot was stopped. */
 export type AutopilotPickState = "started" | "set_aside" | "withdrawn" | "dismissed";
 
+/** What a person put on Autopilot. A body without it reads as the backlog alone. */
+export type AutopilotWork = { backlog: boolean; running: boolean };
+
+/**
+ * A kind of decision a helper may answer. The set is closed, and there is no destructive one: that
+ * always waits for a person, and Fleet refuses a body naming it.
+ */
+export type AutopilotDecision = "recommended" | "open" | "plan" | "draft" | "walk" | "land" | "unsure" | "red" | "reads" | "writes";
+
 /** One pick. `workflow_id` is absent where the picker was unsure of that too. */
 export type AutopilotPick = {
   pick_id: string;
@@ -48,6 +57,10 @@ export type Autopilot = {
   ended_at?: string;
   /** Where a cap rather than a person paused it. Cleared by Resume. */
   capped_by?: AutopilotCap;
+  /** What was put on Autopilot at start. Kept as checked: nothing acts on it yet. */
+  on_autopilot: AutopilotWork;
+  /** The kinds of decision a helper may answer, as checked at start. */
+  decisions: AutopilotDecision[];
   spent_micros: number;
   /** How many Sessions it has started, which `session_cap` is held to. */
   sessions_started: number;
@@ -74,6 +87,10 @@ export type AutopilotSettings = {
   until?: string;
   spend_cap_micros?: number;
   session_cap?: number;
+  /** Only a start keeps it; an update ignores it. Absent reads as `{ backlog: true, running: false }`. */
+  on_autopilot?: AutopilotWork;
+  /** Only a start keeps it; an update ignores it. Absent reads as none. */
+  decisions?: AutopilotDecision[];
 };
 
 /**

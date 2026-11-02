@@ -3,7 +3,7 @@
 // start form's fields both ways. Pure, so the words and the arithmetic are checked without a window.
 // #2092, #2105, `docs/concepts/autopilot.md`.
 
-import type { Autopilot, AutopilotPick, AutopilotQuoted, AutopilotSettings, IssueList } from "@armada/protocol";
+import type { Autopilot, AutopilotDecision, AutopilotPick, AutopilotQuoted, AutopilotSettings, IssueList } from "@armada/protocol";
 import type { AutopilotCap, AutopilotFields, AutopilotReading } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -162,8 +162,14 @@ function nextAt(text: string, now: number): string | undefined {
   return at.toISOString();
 }
 
-/** The fields the person confirmed, as the start Fleet takes, or what is wrong with one of them. */
-export function settingsFrom(instruction: string, fields: AutopilotFields, now: number): { ok: true; settings: AutopilotSettings } | { ok: false; why: string } {
+/** The kinds of decision Fleet knows. A box checked for any other word is not sent. */
+const DECISIONS: readonly AutopilotDecision[] = ["recommended", "open", "plan", "draft", "walk", "land", "unsure", "red", "reads", "writes"];
+
+/**
+ * The fields the person confirmed, as the start Fleet takes, or what is wrong with one of them.
+ * `boxes` are the checked work and decisions, sent as they were; without them Fleet reads the backlog alone.
+ */
+export function settingsFrom(instruction: string, fields: AutopilotFields, now: number, boxes?: { work: ReadonlySet<string>; decisions: ReadonlySet<string> }): { ok: true; settings: AutopilotSettings } | { ok: false; why: string } {
   const atOnce = whole(fields.atOnce);
   if (!(atOnce >= 1)) return { ok: false, why: "At once is a whole number of Jobs, 1 or more." };
   const settings: AutopilotSettings = { instruction: instruction.trim(), at_once: atOnce };
@@ -181,6 +187,10 @@ export function settingsFrom(instruction: string, fields: AutopilotFields, now: 
     const sessions = whole(fields.sessions);
     if (!(sessions >= 1)) return { ok: false, why: "Jobs is a whole number, 1 or more, or blank for no cap." };
     settings.session_cap = sessions;
+  }
+  if (boxes !== undefined) {
+    settings.on_autopilot = { backlog: boxes.work.has("backlog"), running: boxes.work.has("running") };
+    settings.decisions = DECISIONS.filter((kind) => boxes.decisions.has(kind));
   }
   return { ok: true, settings };
 }
