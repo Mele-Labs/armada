@@ -6,7 +6,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { SessionFrame } from "@armada/components";
+import { SessionFrame, SessionToolbelt } from "@armada/components";
 import type { FlightControls } from "@armada/protocol";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -56,7 +56,7 @@ const jobOf = (more: object = {}): Session => ({ id: "s1", title: TITLE, rows: [
 const draftOf = (more: object = {}) => ({ commands: [], get: () => [], send: vi.fn(async () => true), autoLand: vi.fn(async () => true), pause: vi.fn(async () => true), resume: vi.fn(async () => true), ...more }) as unknown as SessionsDraft & { autoLand: ReturnType<typeof vi.fn> };
 
 /** A Thread head as the Cockpit draws one: the frame, the slot the acts stand in, and the menu that takes the ones with no room. */
-function Head({ session, draft }: { session: Session; draft: SessionsDraft }) {
+function Head({ session, draft, under = false }: { session: Session; draft: SessionsDraft; under?: boolean }) {
   const acts = useActs();
   const { away } = useActsPlace();
   return (
@@ -67,11 +67,17 @@ function Head({ session, draft }: { session: Session; draft: SessionsDraft }) {
         id={session.id}
         {...(session.title === undefined ? {} : { title: session.title })}
         headTake={headTake()}
+        {...(under ? { toolsUnder: true } : {})}
         actions={<JobActsSlot />}
         menu={{ entries: actEntries(acts, away), onSelect: (id) => void runActEntry(acts, id) }}
         back={<button type="button" aria-label="Close" />}
       >
-        {null}
+        {under ? (
+          <>
+            <div data-composer="" />
+            <SessionToolbelt />
+          </>
+        ) : null}
       </SessionFrame>
       <SessionTiles head session={session} draft={draft} repository={REPOSITORY} />
     </>
@@ -79,12 +85,12 @@ function Head({ session, draft }: { session: Session; draft: SessionsDraft }) {
 }
 
 /** The head, `width` wide, laid out. */
-async function mount(width: number, session: Session = jobOf(), draft: SessionsDraft = draftOf()) {
+async function mount(width: number, session: Session = jobOf(), draft: SessionsDraft = draftOf(), under = false) {
   const host = document.createElement("div");
   host.style.cssText = `width: ${width}px; display: flex; flex-direction: column`;
   document.body.append(host);
   const root = createRoot(host);
-  act(() => root.render(<Head session={session} draft={draft} />));
+  act(() => root.render(<Head session={session} draft={draft} under={under} />));
   roots.push({ root, host });
   // Each measuring is a step, and the row settles in as many as it has acts.
   for (let i = 0; i < 12; i++) await flush();
@@ -195,4 +201,15 @@ test("an act in the menu carries its state on its row", async () => {
   // Judge has left too, with nothing on it.
   expect(row("Judge")).toBeDefined();
   expect(row("Judge")?.dataset.state).toBeUndefined();
+});
+
+test("under the composer, the toolbelt follows it and the head keeps the name, the menu and the way out", async () => {
+  const host = await mount(900, jobOf(), draftOf(), true);
+  const composer = host.querySelector<HTMLElement>("[data-composer]")!;
+  const belt = host.querySelector<HTMLElement>(".armada-session-frame__toolbelt")!;
+  expect(composer.compareDocumentPosition(belt) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(belt.querySelectorAll('.job-acts[role="toolbar"]').length).toBe(1);
+  expect(head(host).querySelector(".job-acts")).toBeNull();
+  expect(head(host).querySelector('[aria-label="Close"]')).not.toBeNull();
+  expect(head(host).querySelector(".armada-session-frame__title")).not.toBeNull();
 });
