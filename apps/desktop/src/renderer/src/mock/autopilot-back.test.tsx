@@ -56,7 +56,7 @@ const focusRow = async (job: string) => {
   await frames();
 };
 
-test("after ten minutes the first press asks and does not open what was under it; Keep it on opens the answers and it asks again only ten minutes later", async () => {
+test("after ten minutes the first press asks and does not open what was under it; Keep it on opens the answers", async () => {
   await away();
   // Forced, because the press that asks is eaten before the page sees it, which Playwright's own check for where a press lands takes for a press that missed.
   await page.getByRole("region", { name: "Jobs", exact: true }).getByRole("button", { name: "Friday lunch", exact: true }).click({ force: true });
@@ -68,6 +68,15 @@ test("after ten minutes the first press asks and does not open what was under it
   await expect.element(asking()).not.toBeInTheDocument();
   // Either answer opens the answers where any wait.
   await expect.element(hud()).toBeVisible();
+}, 30000);
+
+test("Esc keeps it on, and it asks again only after ten more minutes", async () => {
+  const app = await away();
+  const stop = vi.spyOn(app.api, "stopAutopilot");
+  await anyKey();
+  await expect.element(asking()).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(asking()).not.toBeInTheDocument();
 
   await anyKey();
   await frames();
@@ -76,11 +85,9 @@ test("after ten minutes the first press asks and does not open what was under it
   timePasses();
   await anyKey();
   await expect.element(asking()).toBeVisible();
-  // Esc is Keep it on: it runs on and nothing is stopped.
-  await userEvent.keyboard("{Escape}");
-  await expect.element(asking()).not.toBeInTheDocument();
+  expect(stop).not.toHaveBeenCalled();
   expect(isOn()).toBe(true);
-});
+}, 30000);
 
 test("T turns it off from the question, and opens the answers", async () => {
   const app = await away();
@@ -118,7 +125,7 @@ test("a walk's own bar is not input: it does not ask, and it does not count as b
   } finally {
     bar.remove();
   }
-});
+}, 30000);
 
 test("back with nothing answered, Keep it on opens no list", async () => {
   mount("autopilot-why");

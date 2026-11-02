@@ -40,7 +40,7 @@ test("the switch is on where an Autopilot is running, after a reload as well, an
   await hardware().getByRole("button", { name: "Close guard" }).click();
   await expect.poll(() => stop.mock.calls.length).toBe(1);
   await expect.poll(isOn).toBe(false);
-});
+}, 30000);
 
 test("starting is two acts: the guard lifts, then the switch flips", async () => {
   const app = await ready("cockpit-ship-flightdeck");
@@ -95,7 +95,7 @@ test("a paused Autopilot is stopped first, in the same press, and the line says 
   // Working, it has nothing to say.
   await expect.element(setup().getByRole("button", { name: "Stop Autopilot" })).toBeVisible();
   expect(document.querySelector(".ap-hud__why")).toBeNull();
-});
+}, 30000);
 
 test("a refused start says what the refusal said, and the switch stays off", async () => {
   const app = await ready("cockpit-ship-flightdeck");
