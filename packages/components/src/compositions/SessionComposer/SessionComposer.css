@@ -384,9 +384,39 @@ a.armada-inline-tag--link > svg {
   }
 }
 
-/* Why Talk could not hear: a standing strip over the bar, inside the box's border. */
+/* The Talk button's own box, so its guide can hang from it. */
+.armada-session-composer__talkwrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Why Talk could not hear: a card over the button, on the popover's ground. */
 .armada-session-composer__guide {
-  padding: var(--space-2) var(--space-2) 0;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-1));
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: max-content;
+  min-width: var(--sidebar-default);
+  max-width: var(--palette-width);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  border: var(--border-width) solid var(--border-default);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-wrap: pretty;
+}
+
+.armada-session-composer__guide-title {
+  margin: 0;
+  font-weight: var(--weight-medium);
 }
 
 .armada-session-composer__steps {

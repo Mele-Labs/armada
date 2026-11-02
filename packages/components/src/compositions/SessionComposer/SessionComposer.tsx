@@ -4,7 +4,6 @@ import { Cpu, File, Lightbulb, Mic, Paperclip, PencilRuler, Send, Shield, Zap } 
 import type { LucideIcon } from "lucide-react";
 
 import { readKept, useKept, writeKept } from "../../keep";
-import { Alert } from "../../primitives/Alert/Alert";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Kbd } from "../../primitives/Kbd/Kbd";
@@ -796,7 +795,6 @@ export function SessionComposer({
         />
       </div>
       {compact && held ? <div className="armada-session-composer__held">{chips}</div> : null}
-      {refused === undefined || talk === undefined ? null : <TalkGuide why={refused} onOpen={talk.openSettings} />}
       <div className="armada-session-composer__bar">
         {modeHidden || bare || onMode === undefined ? null : (
           <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
@@ -862,11 +860,14 @@ export function SessionComposer({
         )}
         {bare || (compact && held) ? null : chips}
         {talk === undefined ? null : (
-          <Tooltip label={<>Talk <Kbd>⌥Space</Kbd></>}>
-            <Button type="button" variant="ghost" size="sm" aria-label="Talk" aria-pressed={listening} aria-keyshortcuts="Alt+Space" className="armada-session-composer__talk" data-listening={listening || undefined} disabled={disabled} onClick={() => (listening ? endTalk() : startTalk(false))}>
-              <Mic size={16} strokeWidth={2} aria-hidden />
-            </Button>
-          </Tooltip>
+          <span className="armada-session-composer__talkwrap">
+            <Tooltip label={<>Talk <Kbd>⌥Space</Kbd></>}>
+              <Button type="button" variant="ghost" size="sm" aria-label="Talk" aria-pressed={listening} aria-keyshortcuts="Alt+Space" className="armada-session-composer__talk" data-listening={listening || undefined} disabled={disabled} onClick={() => (listening ? endTalk() : startTalk(false))}>
+                <Mic size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+            {refused === undefined ? null : <TalkGuide why={refused} onOpen={talk.openSettings} onClose={() => setRefused(undefined)} />}
+          </span>
         )}
         {beforeSend === undefined ? null : <span className="armada-session-composer__figure">{beforeSend}</span>}
         {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
@@ -876,23 +877,40 @@ export function SessionComposer({
   return box;
 }
 
-/** Why Talk could not hear, and what to do about it, with a button to the Settings pane that holds it where there is one. */
-function TalkGuide({ why, onOpen }: { why: TalkWhy; onOpen: ((pane: TalkPane) => void) | undefined }) {
+/** Why Talk could not hear, and what to do about it, in a card over the Talk button, with a button to the Settings pane that holds it where there is one. */
+function TalkGuide({ why, onOpen, onClose }: { why: TalkWhy; onOpen: ((pane: TalkPane) => void) | undefined; onClose: () => void }) {
   const { title, steps, pane, action } = talkGuide(why);
+  const card = useRef<HTMLDivElement>(null);
+  // Esc, a press elsewhere, or coming back from Settings puts it away.
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      onClose();
+    };
+    const onDown = (event: globalThis.MouseEvent) => {
+      if (!card.current?.contains(event.target as Node)) onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("mousedown", onDown);
+    };
+  }, [onClose]);
   return (
-    <div className="armada-session-composer__guide">
-      <Alert
-        tone="neutral"
-        title={title}
-        icon={<Mic size={16} strokeWidth={2} aria-hidden />}
-        {...(pane === undefined || action === undefined || onOpen === undefined ? {} : { action: <Button type="button" variant="ghost" size="sm" onClick={() => onOpen(pane)}>{action}</Button> })}
-      >
-        <ol className="armada-session-composer__steps">
-          {steps.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </Alert>
+    <div ref={card} className="armada-session-composer__guide" role="status" aria-label="Talk could not hear">
+      <p className="armada-session-composer__guide-title">{title}</p>
+      <ol className="armada-session-composer__steps">
+        {steps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+      {pane === undefined || action === undefined || onOpen === undefined ? null : (
+        <Button type="button" variant="ghost" size="sm" onClick={() => onOpen(pane)}>
+          {action}
+        </Button>
+      )}
     </div>
   );
 }
