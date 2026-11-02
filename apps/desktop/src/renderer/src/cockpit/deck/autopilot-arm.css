@@ -20,7 +20,7 @@
 
   &[data-seat="lip"] { --gs: 54px; height: calc(var(--u) * 106); }
   &[data-seat="bay"] { --gs: 82px; }
-  &[data-seat="setup"] { --gs: 176px; }
+  &[data-seat="setup"] { --gs: 136px; }
   &[data-seat="lip"] :is(.gs__stencil, .gs__mark, .gs__screw) { display: none; }
   &[data-seat="lip"] .gs__lamps { bottom: calc(var(--u) * 3); }
 }
@@ -79,16 +79,38 @@
 .gs-key:focus-visible { outline: var(--focus-ring); }
 .gs-key[data-on] { color: var(--status-completed-success); border-color: var(--status-completed-success); }
 
-/* The setup: Job UI on the stage's solid surface. */
-.ap-setup { display: grid; gap: var(--space-4); }
-.ap-setup__columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: var(--space-6); align-items: start; }
-.ap-setup[data-seat="setup"] .ap-setup__columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; }
-.ap-setup__column { display: grid; gap: var(--space-6); }
-.ap-setup__group { display: grid; gap: var(--space-2); }
-.ap-setup__name { margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-heading); color: var(--fg-muted); }
-.ap-setup__limits { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
-.ap-setup__row { display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 2); align-items: center; gap: var(--space-3); padding: var(--space-1) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
-.ap-setup__who { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--fg-subtle); }
-.ap-setup__who[data-on] { color: var(--fg-default); }
-.ap-setup__hardware { padding-block-start: calc(var(--space-12) + var(--space-6)); }
-.ap-setup__foot { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-xs); color: var(--fg-subtle); }
+/* The setup: a HUD over the field, hard-edged and lit as the console is. Its glass is thicker than Activity's, for the words to read over the Map. */
+:root:root {
+  & .console-hud[data-hud="autopilot"] .console-hud__glass { fill: var(--bg-sunken); fill-opacity: 0.92; }
+  & .console-hud[data-hud="autopilot"] .console-hud__strip { fill: var(--bg-base); fill-opacity: 0.7; }
+  & .console-hud[data-hud="autopilot"] .console-hud__name { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-heading); letter-spacing: 0.16em; text-transform: uppercase; color: var(--cb-cyan); }
+  & .console-hud[data-hud="autopilot"] .console-hud__tick { stroke-opacity: 0.35; }
+
+  & .ap-hud { position: absolute; inset-inline: 0; bottom: 0; display: grid; align-content: start; overflow-y: auto; color: var(--fg-default); font-size: var(--text-sm); }
+  & .ap-hud__column { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; min-height: 100%; padding: var(--space-3) var(--space-4) var(--space-6) calc(var(--space-4) + var(--space-2)); }
+  & .ap-hud__column:first-child { padding-inline-start: var(--space-4); }
+  & .ap-hud[data-parts="1"] .ap-hud__column:nth-child(2) { grid-column: 1; }
+  & .ap-hud[data-parts="1"] .ap-hud__decisions { grid-column: 2; grid-row: 1 / span 2; }
+  & .ap-hud__group { display: grid; gap: calc(var(--space-1) / 2); }
+  & .ap-hud__head { margin: 0 0 var(--space-1); padding-block-end: var(--space-1); border-block-end: var(--border-width) solid color-mix(in srgb, var(--cb-cyan) 40%, transparent); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--cb-cyan); }
+
+  /* The boxes: square, and lit once checked. */
+  & .ap-hud .armada-checkbox { color: var(--fg-default); }
+  & .ap-hud .armada-checkbox__box { border-radius: 0; border-color: color-mix(in srgb, var(--cb-cyan) 60%, transparent); background: transparent; }
+  & .ap-hud .armada-checkbox__input:checked + .armada-checkbox__box { border-color: var(--cb-cyan); background: var(--cb-cyan); color: var(--bg-base); box-shadow: 0 0 var(--space-2) color-mix(in srgb, var(--cb-cyan) 55%, transparent); }
+  & .ap-hud .armada-checkbox__input:disabled + .armada-checkbox__box { border-color: color-mix(in srgb, var(--cb-amber) 60%, transparent); background: transparent; }
+
+  /* What each decision does while the box stands as it does, in a column of its own. */
+  & .ap-hud__row { display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 2); align-items: center; gap: var(--space-3); }
+  & .ap-hud__who { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--space-1); width: 100%; white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); letter-spacing: 0.08em; text-transform: uppercase; color: var(--cb-amber); }
+  & .ap-hud__who[data-on] { color: var(--cb-cyan); text-shadow: 0 0 var(--space-2) color-mix(in srgb, var(--cb-cyan) 55%, transparent); }
+
+  /* The fields: square wells on the glass, typed in mono. */
+  & .ap-hud :is(.armada-input, .armada-textarea) { border-radius: 0; border-color: color-mix(in srgb, var(--cb-cyan) 35%, transparent); background: color-mix(in srgb, var(--bg-base) 60%, transparent); font-family: var(--font-mono); }
+  & .ap-hud :is(.armada-input:focus-visible, .armada-textarea:focus-visible) { border-color: var(--cb-cyan); }
+  & .ap-hud .armada-input-field__label { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: 0.04em; text-transform: uppercase; }
+  & .ap-hud__limits { display: grid; gap: var(--space-2); }
+  & .ap-hud__limits .armada-input-field { display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--space-12) + var(--space-8)); align-items: center; gap: var(--space-2); }
+  & .ap-hud__sidings { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+  & .ap-hud__hardware { display: grid; place-items: center; margin-block-start: auto; }
+}

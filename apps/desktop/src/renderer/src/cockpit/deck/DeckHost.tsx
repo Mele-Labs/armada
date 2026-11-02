@@ -25,7 +25,8 @@ import { neighbourOf } from "./reorder";
 import { opensFor, placesOff } from "./system-page";
 import { TabBar } from "./TabBar";
 import { toggleLayer } from "../../session-view/layers";
-import { callTrail, deckNow, goBack, incomingOf, enterAutopilot, leaveAutopilot, needingOf, moveCursor, moveRow, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
+import { openSetup } from "./AutopilotArm";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, moveCursor, moveRow, openCall, openSubject, release, select, selOfSubject, setFocus, setHere, setSearching, setView, showRows, useDeck } from "./store";
 import { useListed } from "./listed";
 import { useShip } from "./ship";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
@@ -272,8 +273,7 @@ export function DeckHost({ state, picked, here, hidden, onGoTo, onOpenSession }:
         return target.focus();
       }
       if (goes === "autopilot") {
-        enterAutopilot();
-        return void window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".ap-setup input")?.focus());
+        return openSetup();
       }
       return focusPanel(goes, state.cursor);
     }

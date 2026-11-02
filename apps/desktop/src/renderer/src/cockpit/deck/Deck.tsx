@@ -25,7 +25,7 @@ import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useSetting } from "../../use-setting";
 import { arrivedHere, noteArrivals } from "../../arrivals";
 import { useAutopilotLane } from "../AutopilotLane";
-import { ARM_SEAT, ArmKey, AutopilotSetup, GuardSwitch } from "./AutopilotArm";
+import { ARM_SEAT, ArmKey, ArmSetup, GuardSwitch, openSetup } from "./AutopilotArm";
 import { useColumns } from "./columns";
 import { useSplits } from "./splits";
 import { dotsOf, MERGE_BY_HAND } from "../horizon";
@@ -995,16 +995,10 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
   const panelled = useSetting("features.autopilotPanel") === true;
   useEffect(() => {
     if (panelled && props.picked !== null && control !== undefined && !control.open) control.openNext();
+    // MOCK: the setup is a HUD over the field, and asking for the lane brings it up there.
+    if (!panelled) (leaveAutopilot(), openSetup());
   }, [panelled, props.picked, control]);
-  if (!panelled) {
-    const repositories = (props.state.holds.repositories ?? []).flatMap((one) => (one.manifest === undefined ? [] : [{ id: one.manifest.id, name: one.manifest.repository }]));
-    return (
-      <section className="deck-pane" aria-label="Autopilot setup">
-        <PaneHead glyph={Plane} kind="Autopilot" title="Autopilot" />
-        <div className="deck-pane__body"><AutopilotSetup repositories={repositories} sidings={autopilot.sidings} /></div>
-      </section>
-    );
-  }
+  if (!panelled) return null;
   return (
     <section className="deck-pane" aria-label="Autopilot lane">
       <PaneHead glyph={Plane} kind="Autopilot" title="Autopilot" />
@@ -1138,6 +1132,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
     <ReplayHost props={props} ship={ship} />
     <CallsOverField props={props} ship={ship} listed={listed} calling={calling} />
+    <ArmSetup repositories={(props.state.holds.repositories ?? []).flatMap((one) => (one.manifest === undefined ? [] : [{ id: one.manifest.id, name: one.manifest.repository }]))} sidings={autopilot.sidings} />
     <AutopilotAsked control={autopilot.control} />
     {/* Powering on, each panel comes online in turn and fills as Fleet answers (`power.css`). */}
     <div ref={deckMarks} className="armada-cockpit deck" data-power={powering(power) ? power : undefined}>
