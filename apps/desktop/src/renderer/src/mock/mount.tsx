@@ -76,6 +76,7 @@ import { ProjectsFrom, createProjectsStore } from "../projects-tab/store";
 import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
 import { PaletteFixturesFrom } from "../palette-fixtures";
+import { DebugReportFrom } from "../debug-report/debug-report";
 import { ThreadLookFrom } from "../thread-look-here";
 import { seedPaletteMemory } from "../palette-memory";
 
@@ -234,6 +235,7 @@ export function mountApp(
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                   <AreasFrom source={chosen.draft?.areas}>
                                   <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
+                                  <DebugReportFrom readings={chosen.draft?.debugReport}>
                                   <ThreadLookFrom seed={chosen.draft?.threadLook}>
                                     <AccountFrom account={chosen.draft?.account}>
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
@@ -266,6 +268,7 @@ export function mountApp(
                                       </SharedHomeFrom>
                                     </AccountFrom>
                                   </ThreadLookFrom>
+                                  </DebugReportFrom>
                                   </PaletteFixturesFrom>
                                   </AreasFrom>
                               </ClashesFrom>
