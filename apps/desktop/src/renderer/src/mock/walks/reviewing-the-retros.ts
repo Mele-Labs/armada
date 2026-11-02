@@ -1,5 +1,5 @@
-// The guided review on the Logbook's Retros tab (`docs/concepts/retro.md`, *Reviewing*):
-// Review beside the tabs reads the open items together and draws them one at a
+// The guided review on the Logbook's Retros (`docs/concepts/retro.md`, *Reviewing*):
+// Review in the list's strip reads the open items together and draws them one at a
 // time, with the model's reason, a thread to ask about the card, and Skip and
 // Back. The mock Fleet orders the items as listed and folds two with the same
 // headline. The review is kept while the window is open: leaving the Logbook for Kit and
@@ -11,8 +11,8 @@ import { button, region, role, text, toSystemPage, walk } from "../walk";
 const ASK = role("textbox", "Ask about this item");
 
 export const reviewingTheRetros = walk("retro/lessons", [
-  ...toSystemPage("Retros", "The Logbook's Retros tab"),
-  { press: button("Review", { exact: true }), say: "Review, beside the tabs" },
+  ...toSystemPage("Retros", "The Logbook's Retros"),
+  { press: button("Review", { exact: true }), say: "Review, in the list's strip" },
   { look: text(/^1 of \d+$/), say: "One item at a time, and where it stands" },
   { look: text("Why this one"), say: "The model's line on why it is here" },
   { look: button("Skip", { exact: true }), say: "Skip keeps it open" },
@@ -25,7 +25,7 @@ export const reviewingTheRetros = walk("retro/lessons", [
   { look: text("Which Sessions did this cost?"), say: "Its thread is still there" },
   { look: region("Review"), say: "The review, whole" },
   { press: button("Skip", { exact: true }), say: "On to the second card again" },
-  ...toSystemPage("Kit", "Leave the Retros tab in the middle of the review"),
+  ...toSystemPage("Kit", "Leave Retros in the middle of the review"),
   ...toSystemPage("Retros", "And come back"),
   { look: text(/^2 of \d+$/), say: "The same card, with no Review pressed and no wait" },
   { look: text(/^Reviewed .* ago$|^Reviewed just now$/), say: "How old the review is" },

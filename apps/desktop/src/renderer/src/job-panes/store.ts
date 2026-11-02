@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
 
 import { forgetKept, readKept, writeKept } from "@armada/components";
 
-import { TAB_KINDS, arrive, build, copyOf, hasKind, moveTabToEdge, moveTabToEnd, moveTabToGap, moveTabToPane, panesOf, shortfall, type Arrangement, type Node, type Side, type TabKind } from "./tree";
+import { TAB_KINDS, arrive, build, copyOf, hasKind, holderOf, showPage, moveTabToEdge, moveTabToEnd, moveTabToGap, moveTabToPane, panesOf, shortfall, type Arrangement, type Node, type Side, type TabKind } from "./tree";
 
 export const DEFAULT_LAYOUT = "Default";
 
@@ -270,6 +270,29 @@ export function look(jobId: string, change: (arrangement: Arrangement) => Arrang
 export function jobOpens(jobId: string, kind: TabKind, label?: string, page?: string, mod?: string): void {
   if (hasKind(peek(jobId), kind)) look(jobId, (arrangement) => arrive(arrangement, kind, label, page, mod));
   else rearrange(jobId, (arrangement) => arrive(arrangement, kind, label, page, mod), undefined, true);
+}
+
+/** A saved request, as the page a Requests tab shows: its collection and its id. */
+export const savedPage = (collection: string, request: string): string => JSON.stringify([collection, request]);
+
+/** The collection and request a Requests tab's page names, or `undefined` for a tab with none. */
+export function savedOfPage(page: string | undefined): { collection: string; request: string } | undefined {
+  if (page === undefined) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(page);
+    return Array.isArray(parsed) && typeof parsed[0] === "string" && typeof parsed[1] === "string" ? { collection: parsed[0], request: parsed[1] } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A saved request opens in the Job's Requests tab: the one there is comes to the front on it, and with none a tab opens. */
+export function openSavedRequest(jobId: string, collection: string, request: string): void {
+  const page = savedPage(collection, request);
+  const holder = holderOf(peek(jobId), "request");
+  const open = holder?.tabs.find((one) => one.kind === "request");
+  if (open === undefined) return jobOpens(jobId, "request", undefined, page);
+  look(jobId, (arrangement) => showPage(arrangement, open.id, page));
 }
 
 export function takeLayout(jobId: string, name: string): void {

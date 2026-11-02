@@ -8,7 +8,7 @@
 
 import { useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ExternalLink, FileDiff, PanelRightClose, PanelRightOpen, X } from "lucide-react";
-import { ApprovalAnswers, Button, DropdownMenu, KbdBinding, NoteNumber, RevisionMenu, Sheet, SketchShareContext, Tooltip, aboutSaid, notedOf, savedSaid, setHeldOn, sketchFileName, useHeldOn, useViewerNotes, type DropdownMenuEntry, type NotedRef } from "@armada/components";
+import { ApprovalAnswers, Button, DropdownMenu, KbdBinding, NoteNumber, RevisionMenu, Sheet, SketchShareContext, Tooltip, aboutSaid, notedOf, savedSaid, setHeldOn, sketchFileName, useHeldOn, useThreadLook, useViewerNotes, type DropdownMenuEntry, type NotedRef } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -78,6 +78,8 @@ export function DocumentLayer({ session }: { session: Session }) {
   const focused = useRef(false);
   const exporters = useRef<{ current: (() => string | undefined) | null }[]>([]);
   const shared = useContext(SketchShareContext);
+  // The reactions the thread offers on an agent's line are the ones a table row offers.
+  const responses = useThreadLook()?.look.responses;
 
   const revision = Math.min(pinned ?? latest, latest);
   const page = pages[revision - 1];
@@ -323,6 +325,7 @@ export function DocumentLayer({ session }: { session: Session }) {
                   lit={lit}
                   onLit={setLit}
                   exporters={exporters}
+                  responses={responses}
                 />
                 {doc === undefined ? null : <JudgedPage page={pageRef} root={showing ? diff.root : page.root} job={session.id} artifact={{ kind: "doc", id: doc.id }} />}
               </div>

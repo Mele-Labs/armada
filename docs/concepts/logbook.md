@@ -144,11 +144,14 @@ Standing entries reach agents three ways.
 
 **The person sees one Logbook page in Bridge.** He can read an entry and its evidence, edit it, lock it or forget it.
 Nothing else is asked of him.
-**The page reads as a log.** On the left, one table of entries, a line each: its kind as a code, its title, its flags, how many Jobs confirmed it and when one last did.
-A row heads each repository's entries, then Habits' and This Mac's, and the column head and that row stay as the table scrolls.
-On the right, the open entry under its own head, which holds its kind, id, flags and the acts. Its title stays above, and its rule, its record and its evidence, a row a Job, scroll under it.
-Three tabs say which entries the log holds: In use, the entries handed to every new Job, which is where the page opens; New, the candidates; and Archived, the faded ones.
-A fourth, Retros, holds the [retro](retro.md) items in place of the entries: what got in a Job's way and where its fix lands, drawn as a log and the item open beside it.
+**The page reads as a log.** On the left, one list of entries under a strip of State, Topic and Organize, a card each: its title, its flags, how many Jobs confirmed it, its kind as a code and when one last confirmed it.
+A row heads each repository's entries, then Habits' and This Mac's, and that row stays as the list scrolls.
+On the right, the open entry under its own head, which holds its title and the acts, with the flags beside them.
+Its rule, its record and its evidence, a row a Job, scroll under it as flat rows with no column headings, and the record's first row is the id.
+State says which entries the list holds: In use, the entries handed to every new Job, which is where the page opens; New, the candidates; and Archived, the faded ones.
+A fourth choice, Retros, holds the [retro](retro.md) items in place of the entries: what got in a Job's way and where its fix lands, drawn as a list and the item open beside it.
+Its strip holds State, Show for Open and Accepted, and Review.
+Both panels run from the top of the page to 12px above the window's foot, and key caps are drawn only while ⌘ is held.
 **An entry's title is a few words naming it**, written by Distil with the entry.
 An entry written before titles were is given one on a later Distil run, and until then its line reads the first clause of its rule.
 

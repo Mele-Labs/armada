@@ -10,7 +10,7 @@ const GREP_LINE = inside(role("grid", "Retros"), row(/grep had to be allowed on 
 const ALLOWLIST = region("Allowlist");
 
 export const updatingKitFromARetro = walk("retro/kit-command", [
-  ...toSystemPage("Retros", "The Logbook's Retros tab"),
+  ...toSystemPage("Retros", "The Logbook's Retros"),
   { press: GREP_LINE, say: "The item whose fix is a command" },
   { look: inside(GREP, button("Update Kit", { exact: true })), say: "A Kit item with a command to allow" },
   { hover: inside(GREP, button("Update Kit", { exact: true })), say: "What Update Kit does" },

@@ -105,22 +105,6 @@ pub(super) fn apart_in_process(at: &Path, base: &str) -> Option<Option<(u32, u32
     Some(u32::try_from(ahead).ok().zip(u32::try_from(behind).ok()))
 }
 
-/// `git rev-list --count HEAD --not --branches --remotes`: commits no branch
-/// and no remote names. `None` where libgit2 could not say.
-pub(super) fn unnamed_commits_in_process(at: &Path) -> Option<usize> {
-    let repo = git2::Repository::open(at).ok()?;
-    let mut walk = repo.revwalk().ok()?;
-    walk.push_head().ok()?;
-    walk.hide_glob("refs/heads/*").ok()?;
-    walk.hide_glob("refs/remotes/*").ok()?;
-    let mut counted = 0;
-    for next in walk {
-        next.ok()?;
-        counted += 1;
-    }
-    Some(counted)
-}
-
 /// How many commits `rev-list` names for `revs`. A count git cannot give reads
 /// as one: unknown is not landed.
 pub(super) fn count(at: &Path, revs: &[&str]) -> usize {
@@ -163,15 +147,6 @@ mod tests {
         repo.commit_one("a.txt", "a", "on no branch");
         repo.commit_one("b.txt", "b", "also on no branch");
         let at = repo.root();
-
-        assert_eq!(
-            unnamed_commits_in_process(at),
-            Some(count(at, &["HEAD", "--not", "--branches", "--remotes"]))
-        );
-        assert_eq!(unnamed_commits_in_process(at), Some(2));
-
-        repo.git(&["branch", "feature/nested/two"]);
-        assert_eq!(unnamed_commits_in_process(at), Some(0), "a nested branch names them");
 
         let base = "refs/remotes/origin/main";
         let said = read(at, &["rev-list", "--left-right", "--count", &format!("HEAD...{base}")]).ok();
