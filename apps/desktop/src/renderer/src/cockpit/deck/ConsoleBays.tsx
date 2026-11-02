@@ -208,7 +208,7 @@ function useMods(seated: Bays): readonly InstrumentMod[] {
   }, [listed, sessions, seated]);
 }
 
-const MOVES_EVERY = 1000 / 30;
+const MOVES_EVERY = 1000;
 
 /** With no canvas for the console, the same face stands straight in the bay, on the stage's terms: a still one is drawn only when it changes. */
 function StraightFace({ name, face }: { name: string; face: Face }) {

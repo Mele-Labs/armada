@@ -444,8 +444,7 @@ export class ConsoleStage {
     let moved = false;
     this.facets.forEach((f, i) => {
       const state = this.bays[i] ?? EMPTY();
-      // The lamps' time stands still, a face's does not: `moves` is the mod's to ask for.
-      this.paintFace(f, state, performance.now() / 1000);
+      this.paintFace(f, state);
       const key = `${state.kind}|${state.pressed}|${state.lit}|${state.focused}|${state.calling}|${state.glyph ?? ""}`;
       if (f.drawn !== key) {
         drawPlate(f.plate, f.paint, state, tone, mat);
@@ -465,7 +464,7 @@ export class ConsoleStage {
    * A mod's face: its canvas, sized to the screen at the texture's texels, drawn in the screen's own units and put on the facet.
    * The owner's load rule: a read where nothing changed draws nothing and uploads nothing, unless the mod asked to move, which it does once a read.
    */
-  private paintFace(f: Facet, state: BayState, t: number): void {
+  private paintFace(f: Facet, state: BayState): void {
     const { paint } = state;
     if (paint === undefined) {
       if (f.face !== undefined) f.face.sprite.visible = f.face.glow.visible = false;
@@ -490,7 +489,9 @@ export class ConsoleStage {
     face.sprite.visible = face.glow.visible = true;
     const ink = this.ink!;
     const was = face.drawn;
-    if ((state.moves !== true || this.still) && was !== undefined && was.paint === paint && was.rev === state.rev && was.w === box.w && was.h === box.h && was.ink === ink) return;
+    // The lamps' time stands still, a face's does not, since `moves` is the mod's to ask for. Reduced motion holds it.
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if ((state.moves !== true || still) && was !== undefined && was.paint === paint && was.rev === state.rev && was.w === box.w && was.h === box.h && was.ink === ink) return;
     face.drawn = { paint, rev: state.rev, w: box.w, h: box.h, ink };
     for (const one of [face.sprite, face.glow]) {
       one.position.set(box.x, box.y);
@@ -500,7 +501,7 @@ export class ConsoleStage {
     face.draw.setTransform(cw / box.w, 0, 0, ch / box.h, 0, 0);
     face.draw.clearRect(0, 0, box.w, box.h);
     try {
-      paint(face.draw, { w: box.w, h: box.h, t, ink });
+      paint(face.draw, { w: box.w, h: box.h, t: still ? 0 : performance.now() / 1000, ink });
     } catch (why) {
       state.faulted?.(why instanceof Error ? why.message : String(why));
       face.draw.clearRect(0, 0, box.w, box.h);
