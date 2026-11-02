@@ -1,5 +1,5 @@
 // When the canvas draws. **A frame is drawn when something changed and not otherwise**: an unchanged scene draws nothing, a map nobody is
-// touching has its ticker stopped, a loop or a play starts it and it stops itself, and a window nobody is looking at (`data-still`,
+// touching has its ticker stopped, a play starts it and it stops itself, a drone's loop draws nothing, and a window nobody is looking at (`data-still`,
 // `data-idle`) holds with the pose as it is. Browser: the stage is the real one on a real WebGL canvas; the test reads its application's
 // ticker and counts the frames the application draws.
 
@@ -53,6 +53,9 @@ const working = () => {
   return { ...scene, drones: scene.drones.map((one) => (one.drone.key === "session:Writer" ? { ...one, loop: true, aim: { tile: tile.path, at: { x: tile.cx, y: tile.cy }, wide: 40, deep: 20 } } : one)) };
 };
 
+/** A scene with a play still waiting on its delay: the ticker runs for as long as a test needs it to. */
+const playing = () => sceneFor({ plays: [{ id: "held", kind: "launch", key: "session:Writer", at: 0, delay: 60_000 }] });
+
 test("a map nobody is touching has its ticker stopped, and an unchanged scene draws nothing", async () => {
   stage.setScene(sceneFor());
   await wait(300);
@@ -74,11 +77,22 @@ test("a map nobody is touching has its ticker stopped, and an unchanged scene dr
   expect(started()).toBe(false);
 });
 
-test("a drone that works starts the ticker, and it stops itself once nothing loops", async () => {
+test("a drone that works holds its pose: its loop draws no frames", async () => {
+  stage.setScene(sceneFor());
+  await wait(200);
   stage.setScene(working());
+  await wait(200);
+  const drawn = counting();
+  await wait(300);
+  expect(started()).toBe(false);
+  expect(drawn()).toBe(0);
+});
+
+test("a play starts the ticker, and it stops itself once nothing plays", async () => {
+  stage.setScene(playing());
   await expect.poll(started).toBe(true);
   const drawn = counting();
-  // Frames keep coming, not one: a loop is drawn on the ticker, at thirty a second at most.
+  // Frames keep coming, not one: a play is drawn on the ticker, at thirty a second at most.
   await expect.poll(drawn).toBeGreaterThan(2);
 
   stage.setScene(sceneFor());
@@ -89,14 +103,14 @@ test("a drone that works starts the ticker, and it stops itself once nothing loo
 });
 
 test("a window nobody is looking at holds: the ticker stops and a changed scene is not drawn until it is looked at again", async () => {
-  stage.setScene(working());
+  stage.setScene(playing());
   await expect.poll(started).toBe(true);
 
   document.documentElement.setAttribute("data-idle", "");
   await expect.poll(started).toBe(false);
   const drawn = counting();
   stage.setScene(sceneFor({ hotTile: sceneFor().layout.territories[0]!.tiles[0]!.path }));
-  stage.setScene(working());
+  stage.setScene(playing());
   await wait(300);
   expect(drawn()).toBe(0);
   expect(started()).toBe(false);
@@ -107,7 +121,7 @@ test("a window nobody is looking at holds: the ticker stops and a changed scene 
 });
 
 test("hidden (`data-still`) holds the same way", async () => {
-  stage.setScene(working());
+  stage.setScene(playing());
   await expect.poll(started).toBe(true);
   document.documentElement.setAttribute("data-still", "");
   await expect.poll(started).toBe(false);
@@ -126,14 +140,14 @@ test("a camera that moves by hand is drawn once for each move and then the ticke
 });
 
 test("a folded pane draws nothing and builds nothing, and draws what it was handed once it is shown", async () => {
-  stage.setScene(working());
+  stage.setScene(playing());
   await expect.poll(started).toBe(true);
   stage.setHidden(true);
   await expect.poll(started).toBe(false);
   const drawn = counting();
   const built = vi.spyOn(stage as unknown as { sync: (force: boolean) => void }, "sync");
   stage.setScene(sceneFor({ hotTile: sceneFor().layout.territories[0]!.tiles[0]!.path }));
-  stage.setScene(working());
+  stage.setScene(playing());
   await wait(300);
   expect(drawn()).toBe(0);
   expect(built).not.toHaveBeenCalled();
@@ -143,7 +157,7 @@ test("a folded pane draws nothing and builds nothing, and draws what it was hand
 });
 
 test("a theme put on, or fonts arriving, while the pane is folded builds nothing until it is shown, and then draws everything again", async () => {
-  stage.setScene(working());
+  stage.setScene(playing());
   await expect.poll(started).toBe(true);
   stage.setHidden(true);
   await expect.poll(started).toBe(false);
