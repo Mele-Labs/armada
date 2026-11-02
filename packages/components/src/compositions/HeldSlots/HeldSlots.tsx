@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { KeyRound } from "lucide-react";
 
@@ -27,6 +27,10 @@ export type HeldSlotsProps = {
   onFree: (slot: number) => void | Promise<unknown>;
   /** Makes one more slot for the Job the call is on, as the last row. Absent draws no such row. */
   onCreate?: () => void | Promise<unknown>;
+  /** The instant Fleet began making that slot, as RFC 3339, while it is making it. Comes from the call, so leaving and coming back keeps the wait. */
+  creatingSince?: string;
+  /** Why the last create failed, in Fleet's words. */
+  createRefused?: string;
   now?: number;
 };
 
@@ -40,20 +44,36 @@ function quietWords(since: string, now: number): string {
   return minutes < 60 ? plural(minutes, "minute") : plural(Math.floor(minutes / 60), "hour");
 }
 
+/** How long a create has run, ticking in the row's figure column: `42s`, then `3m 12s`. */
+function ranFor(since: string, now: number): string {
+  const seconds = Math.floor(Math.max(0, now - Date.parse(since)) / 1000);
+  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
 /**
  * The slots a full pool is held by, drawn inside the call that offers to wait: one row each, the longest quiet first, with the Job that
  * holds it and how long it has been quiet, and Free at the end, then a last row that creates a slot. Free hands the slot to the waiting Job; the holder stays in the
  * list and leases another when it next writes. Free is off, with its reason on hover, where the holder is running or has uncommitted work,
  * and the column stays drawn so the rows line up.
  *
+ * **Making a slot can take a while.** Its row says so and counts up in the figure column while Free stays on: a Free given meanwhile serves
+ * the Job, and the new slot stays free for the next one.
+ *
  * **The list is one Tab stop.** Up and Down move between rows, Return frees the row, `o` opens its Job. The keys stop here, so the
  * call's own Return and arrows do not also act.
  */
-export function HeldSlots({ rows, onOpen, onFree, onCreate, now = Date.now() }: HeldSlotsProps) {
+export function HeldSlots({ rows, onOpen, onFree, onCreate, creatingSince, createRefused, now = Date.now() }: HeldSlotsProps) {
   const label = useId();
   const [at, setAt] = useState(0);
   const [out, setOut] = useState<number>();
   const [creating, setCreating] = useState(false);
+  const making = creating || creatingSince !== undefined;
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (creatingSince === undefined) return;
+    const timer = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(timer);
+  }, [creatingSince]);
   const items = useRef<(HTMLLIElement | null)[]>([]);
   const ordered = [...rows].sort((a, b) => Date.parse(a.quietSince) - Date.parse(b.quietSince));
   const last = ordered.length - (onCreate === undefined ? 1 : 0);
@@ -71,7 +91,7 @@ export function HeldSlots({ rows, onOpen, onFree, onCreate, now = Date.now() }: 
     void sent.then(() => undefined, () => undefined).finally(() => setOut(undefined));
   };
   const create = () => {
-    if (creating || out !== undefined) return;
+    if (making || out !== undefined) return;
     const sent = onCreate?.();
     if (sent === undefined) return;
     setCreating(true);
@@ -130,7 +150,7 @@ export function HeldSlots({ rows, onOpen, onFree, onCreate, now = Date.now() }: 
                     variant="secondary"
                     tabIndex={-1}
                     aria-label={`Free slot ${row.slot}`}
-                    disabled={row.keeps !== undefined || creating || (out !== undefined && out !== row.slot)}
+                    disabled={row.keeps !== undefined || (out !== undefined && out !== row.slot)}
                     pending={out === row.slot}
                     onClick={() => free(row)}
                   >
@@ -146,22 +166,36 @@ export function HeldSlots({ rows, onOpen, onFree, onCreate, now = Date.now() }: 
             ref={(element) => void (items.current[ordered.length] = element)}
             className="armada-held-slots__row"
             tabIndex={here === ordered.length ? 0 : -1}
-            aria-label="New slot"
+            aria-label={making ? "Creating a slot" : "New slot"}
+            aria-busy={making || undefined}
             onFocus={(event) => event.target === event.currentTarget && setAt(ordered.length)}
             onKeyDown={(event) => key(event, ordered.length)}
           >
             <span className="armada-ref-chip" aria-hidden>
               <KeyRound size={12} strokeWidth={2} />+
             </span>
-            <span className="armada-held-slots__new">New slot</span>
-            <span />
-            <Tooltip label="Creates a slot for this Job" shortcut="↵">
+            <span className="armada-held-slots__new" role="status">
+              {making ? "Creating a slot" : "New slot"}
+            </span>
+            {creatingSince === undefined ? (
+              <span />
+            ) : (
+              <Tooltip label="Time so far">
+                <span className="armada-held-slots__quiet">{ranFor(creatingSince, now)}</span>
+              </Tooltip>
+            )}
+            <Tooltip label={making ? "This Job goes on once the slot is made" : "Creates a slot for this Job"} {...(making ? {} : { shortcut: "↵" })}>
               <span className="armada-held-slots__act">
-                <Button size="sm" variant="secondary" tabIndex={-1} aria-label="Create a slot" disabled={out !== undefined} pending={creating} onClick={create}>
-                  {creating ? "Creating" : "Create"}
+                <Button size="sm" variant="secondary" tabIndex={-1} aria-label="Create a slot" disabled={out !== undefined} pending={making} {...(createRefused === undefined || making ? {} : { answer: "refused" as const })} onClick={create}>
+                  {making ? "Creating" : "Create"}
                 </Button>
               </span>
             </Tooltip>
+            {createRefused === undefined || making ? null : (
+              <p className="armada-held-slots__refused" role="alert">
+                Slot not created: {createRefused}
+              </p>
+            )}
           </li>
         )}
       </ul>

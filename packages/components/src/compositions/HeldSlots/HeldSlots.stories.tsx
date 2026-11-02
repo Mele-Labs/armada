@@ -54,3 +54,13 @@ export const Freeing: Story = {
     canvas.getByRole("button", { name: "Free slot 2" }).click();
   },
 };
+
+/** Fleet is making a slot, which can take a while: the row counts up, and Free stays on. */
+export const Creating: Story = {
+  args: { creatingSince: new Date(NOW - 74_000).toISOString() },
+};
+
+/** Fleet could not make it: its words under the row, and Create is back. */
+export const CreateRefused: Story = {
+  args: { createRefused: "no space left on the disk" },
+};

@@ -72,6 +72,15 @@
   line-height: var(--leading-sm);
 }
 
+.armada-held-slots__refused {
+  grid-column: 2 / -1;
+  margin: 0;
+  padding-block-end: var(--space-1);
+  color: var(--status-completed-failed);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
 .armada-held-slots__job:hover {
   color: var(--accent);
 }
