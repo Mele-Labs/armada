@@ -64,13 +64,15 @@ function Viewer() {
 }
 
 function draw(send: SessionsDraft["send"]) {
+  // One list for every read: the draft is read as a store snapshot, and a new array each time never settles.
+  const sessions = [
+    {
+      id: "job-1",
+      title: "Pricing",
+    } as unknown as Session,
+  ];
   const draft = {
-    get: () => [
-      {
-        id: "job-1",
-        title: "Pricing",
-      } as unknown as Session,
-    ],
+    get: () => sessions,
     subscribe: () => () => undefined,
     send,
   } as unknown as SessionsDraft;
