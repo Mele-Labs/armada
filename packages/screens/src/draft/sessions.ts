@@ -1161,7 +1161,7 @@ export type Session = {
     since: string;
     summary?: string;
   };
-  /** What the Job has done, in a sentence or two. Fleet serves nothing like it, so the wire never sets it and a real Job has none; only the mock's `cockpit-ship` fills it. The Calls HUD draws it where it is present (`ConsoleCalls.tsx`). */
+  /** What the Job has done, in a sentence or two. `SessionRecord.so_far`. The Calls HUD draws it where it is present (`ConsoleCalls.tsx`). */
   soFar?: string;
   /**
    * What Fleet read the Session to be doing: working, stuck, replied, done or idle. **The one answer**

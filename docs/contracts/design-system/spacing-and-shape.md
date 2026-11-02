@@ -5,8 +5,9 @@
 4px base grid: `1`=4, `2`=8, `3`=12, `4`=16, `6`=24, `8`=32, `12`=48.
 Deliberately tight.
 Table rows and list rows 28px, header rows 28px.
-Card padding 20px, not 24.
-Section gaps 24px, not 48.
+Card padding `--pad-card` is 20px in `spacing.css` and 24px under the look in `takes.css`, which Bridge loads.
+`--gap-section` parts unrelated regions in a screen pane or a workflow list: 24px in `spacing.css`, 32px under the look.
+Panels on a page are parted by `--gap-panel`, below, and never by `--gap-section`.
 If it feels slightly cramped against normal web instincts, it is correct: this window holds a job list, a diff, and a graph view at once.
 
 **Three control heights, for every tab: 24, 28 and 32.**
@@ -61,7 +62,10 @@ The Cockpit's lists, bays and panes, Issues, Projects, Reviews, Studios, the Log
 Why: the owner asked for the stronger console on 26 Oct 2026, and a measured pass found the Cockpit an instrument panel and every other page a generic dark kit.
 
 **A panel opens on a legend strip.**
-It is 24px (`--legend-h`, a small control's height): the label in `--text-2xs` caps at 600 with tracked letters on the left, then an optional mono readout and the panel's 24px ghost icon buttons on the right, with one `--border-subtle` rule under it.
+It is 24px (`--legend-h`, a small control's height) in the Cockpit, in a group head and in a body's own eyebrow.
+A page panel's header strip is 36px (`--strip-h`), the height of a thread's head.
+Both tokens are in `takes.css`, not `spacing.css`.
+The label in `--text-2xs` caps at 600 with tracked letters on the left, then an optional mono readout and the panel's 24px ghost icon buttons on the right, with one `--border-subtle` rule under it.
 `CardHeader`, `CardTitle` and `CardReadout` are the strip, and the Cockpit's `deck-band`, the Logbook's band, the Worktrees band and a Job's panel band take it from the same rule in `depth.css`.
 A filled or dimmed band is a state in the wrong place, so a header is never filled with a state's hue.
 The Cockpit's own panels keep their earlier choice: the strip comes up as a chip on a hover or on focus, and stays drawn on a folded panel.

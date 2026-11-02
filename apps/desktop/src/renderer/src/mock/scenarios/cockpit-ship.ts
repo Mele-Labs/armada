@@ -278,7 +278,7 @@ const working: Session = {
 const stuck: Session = {
   id: "k1",
   title: "Service worker audit",
-  soFar: "Searched apps/pocket/src for caches.open. Reported nothing after that.",
+  soFar: "Searched the phone app for its caches. Reported nothing after that.",
   manifestId: POCKET,
   turn: {
     state: "working",
@@ -339,7 +339,7 @@ const red: Session = {
   id: "f1",
   title: "Fix the reconnect wait",
   soFar:
-    "Cut the first reconnect wait to five seconds and opened pull request 1896. desktop_test failed on it.",
+    "Cut the first reconnect wait to five seconds and opened a pull request. The desktop test failed on it.",
   manifestId: ARMADA,
   turn: {
     state: "idle",

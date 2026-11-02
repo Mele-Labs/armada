@@ -1726,6 +1726,11 @@ export function sessionOfRecord(
                 }),
           },
         }),
+    ...(ended || record.so_far === undefined
+      ? {}
+      : {
+          soFar: record.so_far,
+        }),
     ...(ended || record.standing === undefined
       ? {}
       : {
