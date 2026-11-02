@@ -7,8 +7,9 @@
 // itself that process (`voice_run_disclaimed`), so the prompt is the same in development, where Bridge is started by
 // `node`, and packaged.
 //
-// Off macOS, or with no Swift compiler, it says so and builds nothing: Talk's Apple and Whisper engines then report the
-// helper missing. It builds nothing when the app is newer than every source.
+// Off macOS, or with no Swift compiler, it says so and builds nothing: Talk then skips Apple and Whisper and uses macOS
+// Dictation. A dev Bridge runs this itself at start when the helper is absent. It builds nothing when the app is newer
+// than every source.
 
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";

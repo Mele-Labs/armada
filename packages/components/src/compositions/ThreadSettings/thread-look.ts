@@ -236,7 +236,7 @@ export type TalkWhy =
   | "unpack_failed";
 
 /** The System Settings panes Talk's guide can open. */
-export type TalkPane = "microphone" | "speech" | "sound";
+export type TalkPane = "microphone" | "speech";
 
 /** Whisper's model on this Mac: not here, coming down (`progress` 0 to 1), or here. */
 export type WhisperModel =
