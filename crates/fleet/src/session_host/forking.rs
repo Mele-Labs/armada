@@ -347,6 +347,7 @@ where
                     workflow_chosen: false,
                     from_job: None,
                     from_tab: None,
+                    mod_of_bay: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             let _ = store.mark_lifecycle_job(&id, &now);

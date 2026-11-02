@@ -250,6 +250,7 @@ async fn an_empty_mod_jobs_first_message_names_what_he_is_aiming_for_between_the
         (ModAim::Tracker, "He is aiming for: a tracker (an issue tracker Armada has no adapter for)."),
         (ModAim::Commands, "He is aiming for: commands (rows in the command palette that start a Job, open an address, run a line or chain other rows)."),
         (ModAim::Tab, TAB_AIM),
+        (ModAim::Instrument, "He is aiming for: an instrument (a mod of kind `instrument`"),
         (ModAim::Source, "He is aiming for: a change to Armada's source."),
     ];
     for (aim, line) in aims {
@@ -353,6 +354,83 @@ async fn a_mod_job_started_with_a_tab_aim_is_briefed_on_the_tab_between_the_brie
             "{served}: the thread keeps his words alone: {rows:#?}"
         );
     }
+}
+
+#[tokio::test]
+async fn a_mod_job_aimed_at_an_instrument_is_told_the_steps_and_the_face_contract_ahead_of_his_words() {
+    for served in ["armada", "elsewhere"] {
+        let rig = serving(served).await;
+        let start = StartModSession { aim: Some(ModAim::Instrument), ..spoken(None, Some("main's build time")) };
+
+        Arc::clone(&rig.fleet).start_mod_session(start).await.expect("started");
+
+        let turn = turn_of(&rig).await;
+        let told = [
+            "`scaffold_mod` with `kind` `instrument` and your own `session_id`",
+            "edit `instrument.js`",
+            "run `validate_mod` after each edit",
+            "the bay reloads when the file changes",
+            "Bridge keeps the component mounted while its panel is closed",
+            "`host.face(paint)` registers what is drawn on the bay, and what the component returns stands in the panel",
+            "`(draw, { w, h, t, ink }) => void` on a 2D canvas context",
+            "`host.face(paint, { moves: true })` asks for repaints over time; otherwise a face repaints only when the component calls `host.face` again",
+        ];
+        for wanted in told {
+            assert!(turn.contains(wanted), "{served}: the turn carries {wanted}: {turn}");
+        }
+        let line = &turn[turn.find("He is aiming for").expect("the aim")..turn.find("main's build time").expect("his words")];
+        assert!(!line.contains(['\u{2014}', '\u{2013}']), "no dashes: {line}");
+        assert!(turn.find("He is aiming for") < turn.find("main's build time"), "{served}: {turn}");
+    }
+}
+
+#[tokio::test]
+async fn a_mod_job_started_with_an_instrument_aim_keeps_it_on_its_record_past_a_restart_and_says_so_on_the_wire() {
+    for served in ["armada", "elsewhere"] {
+        let rig = serving(served).await;
+        let start = StartModSession { aim: Some(ModAim::Instrument), ..spoken(None, None) };
+
+        let id = Arc::clone(&rig.fleet).start_mod_session(start).await.expect("started").session_id;
+
+        let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("kept").session;
+        assert!(record.r#mod && record.mod_of_bay, "{served}: {record:#?}");
+        assert!(ipc::encode(&record).expect("plain data").contains(r#""mod_of_bay":true"#), "{served}: goes out on the wire");
+        assert_eq!((record.from_job, record.from_tab), (None, None), "{served}: it names no tab");
+
+        let rig = rig.restarted(|_| {});
+        let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).expect("read").expect("hosted");
+        assert!(hosting.mod_of_bay, "{served}: kept on the hosting record");
+        let again = Arc::clone(&rig.fleet).get_session(id).await.expect("kept").session;
+        assert!(again.mod_of_bay, "{served}: {again:#?}");
+    }
+}
+
+#[tokio::test]
+async fn a_mod_job_with_any_other_aim_is_not_of_a_bay_and_the_field_is_left_out() {
+    let rig = serving("armada").await;
+    for aim in [None, Some(ModAim::Tab), Some(ModAim::Source)] {
+        let id = Arc::clone(&rig.fleet).start_mod_session(StartModSession { aim, ..spoken(None, None) }).await.expect("started").session_id;
+
+        let record = Arc::clone(&rig.fleet).get_session(id).await.expect("kept").session;
+        assert!(!record.mod_of_bay, "{aim:?}: {record:#?}");
+        assert!(!ipc::encode(&record).expect("plain data").contains("mod_of_bay"), "{aim:?}");
+    }
+}
+
+/// How Bridge learns which mod a Mod Job made: the row names the Job from the moment `scaffold_mod` answers, and nothing filters the kind out.
+#[tokio::test]
+async fn an_instrument_a_job_scaffolds_is_listed_with_that_job_as_made_by_the_moment_it_is_made() {
+    let rig = serving("armada").await;
+    let id = Arc::clone(&rig.fleet).start_mod_session(StartModSession { aim: Some(ModAim::Instrument), ..spoken(None, None) }).await.expect("started").session_id;
+
+    rig.fleet
+        .scaffold_mod(ScaffoldMod { name: "main-build".into(), description: None, kind: Some(ModKind::Instrument), session_id: Some(id.clone()) })
+        .await
+        .expect("scaffolded");
+
+    let list = rig.fleet.list_mods().await.expect("listed").mods;
+    let row = list.iter().find(|one| one.name == "main-build").expect("listed");
+    assert_eq!((row.kind, row.valid, row.made_by.as_ref()), (Some(ModKind::Instrument), true, Some(&id)), "{row:#?}");
 }
 
 #[tokio::test]

@@ -3,7 +3,7 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 23 Oct 2026. `docs/concepts/mods.md`, *A Mod Job*.
-**Additive**: one operation, one route, the two types they carry, and six optional fields on existing types; no event kind.
+**Additive**: one operation, one route, the two types they carry, and seven optional fields on existing types; no event kind.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/mods.ts` and `sessions.ts`, written by hand, field for field.
 
@@ -13,6 +13,7 @@ Bridge's half is `packages/protocol/src/mods.ts` and `sessions.ts`, written by h
 | `SessionRecord.mod` | Fleet answers | `true` on a Mod Job, left out on every other |
 | `StartModSession.from_job`, `from_tab` | Bridge sends | The Job whose panes hold the Custom tab the Job builds, and the tab's id, sent by Custom |
 | `SessionRecord.from_job`, `from_tab` | Fleet answers | The same two, kept on the hosting record, left out on every other session. Bridge draws no row for a Job that has them, and marks the tab and the Job that holds it where it waits on him |
+| `SessionRecord.mod_of_bay` | Fleet answers | `true` on a Mod Job started with the aim `instrument`, kept on the hosting record, left out on every other session. Bridge reads it as `modOfBay` |
 | `ScaffoldMod.session_id` | an agent sends | The Job calling. Left out records nothing |
 | `ModSummary.made_by` | Fleet answers | The Job whose `scaffold_mod` made the mod, from its `mod.toml`. Left out where none was recorded |
 
@@ -31,10 +32,16 @@ It is what he picked in an empty Mod Job, and Fleet reads it with that Job's fir
 On any other message, and on a Job that is not a Mod Job, it is ignored and not an error.
 The thread keeps his words alone.
 
+**A Mod Job of a bay** (2 Nov 2026) adds `instrument` to `ModAim` and `SessionRecord.mod_of_bay`, Fleet-sent.
+`start_mod_session` with `aim` `instrument` keeps it on the hosting record, in the column `mod_of_bay`, so it survives a restart, and publishes the Job again as a Custom tab's start does.
+Only the start sets it: an `aim` on the first message of an empty Mod Job names the instrument in the brief and leaves the record as it was.
+The brief's line names the steps (`scaffold_mod` with `kind` `instrument` and the Job's own `session_id`, edit `instrument.js`, `validate_mod`, the bay reloads when the file changes) and the `host.face` contract.
+**`made_by` is how Bridge learns which instrument the Job made**, as for every kind, and only where the Job passed its `session_id`.
+
 **Refusals**: a 422 `fleet.unacceptable_mod_start` for both `note` and `said`, and for a `said` with nothing in it, and nothing is started; a 500 `fleet.mod_not_written` where the mods folder cannot be made, and nothing is started; a 422 `fleet.unacceptable_mod` for a `session_id` that names no Job Fleet knows, and nothing is made.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 Were a pair to meet anyway, a Fleet without the route answers 404, an older Bridge ignores `mod` and `made_by`, and an older Fleet ignores `session_id` and records nothing.
 
 **The event stream.** Untouched: the start publishes `session.changed` as any start and first message do, and a scaffold publishes `mods.changed` as before, now carrying `made_by`.
-The open risk below is neither better nor worse.
+The open risk below is neither better nor worse, and `mod_of_bay` rides those same messages.

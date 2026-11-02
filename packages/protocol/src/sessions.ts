@@ -105,6 +105,8 @@ export type SessionRecord = {
   /** The Job whose panes hold the Custom tab this Mod Job builds, and the tab's id there, as the start carried them. Absent on every other session. */
   from_job?: string;
   from_tab?: string;
+  /** A Mod Job started with the aim `instrument`, so it builds an instrument for a bay of the console. Absent on every other session. */
+  mod_of_bay?: true;
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */

@@ -104,15 +104,17 @@ where
             project_rows: Vec::new(),
         };
         let session_id = self.started_hosted(begun, marked).await?.id;
-        // The Custom tab it builds: kept on the hosting record, and published again so Bridge draws no row for it.
+        // The Custom tab it builds, or that it builds an instrument: kept on the hosting record, and published again so Bridge draws no row for it.
         let from_job = from_job.filter(|job| !job.is_empty());
         let from_tab = from_tab.filter(|tab| !tab.is_empty());
-        if from_job.is_some() || from_tab.is_some() {
+        let mod_of_bay = aim == Some(ModAim::Instrument);
+        if from_job.is_some() || from_tab.is_some() || mod_of_bay {
             {
                 let mut store = self.store().lock().await;
                 if let Some(mut hosting) = store.hosting(session_id.as_str()).map_err(|why| self.ledger_fault(why))? {
                     hosting.from_job = from_job;
                     hosting.from_tab = from_tab;
+                    hosting.mod_of_bay = mod_of_bay;
                     store.keep_hosting(&hosting).map_err(|why| self.ledger_fault(why))?;
                 }
             }
