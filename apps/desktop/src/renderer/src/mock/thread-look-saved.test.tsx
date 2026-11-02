@@ -234,3 +234,57 @@ test("Talk refused by macOS leaves the button and says what to turn on, with a w
   expect(openSettings).toHaveBeenCalledWith("microphone");
   void app;
 });
+
+test.each([
+  [
+    "microphone_unavailable",
+    "No microphone is available",
+  ],
+  [
+    "helper_missing",
+    "Talk stopped",
+  ],
+  [
+    "whisper_absent",
+    "Talk stopped",
+  ],
+] as const)("Talk ending on %s says %s and asks nothing of him", async (why, title) => {
+  const voice = {
+    listen: (
+      _engine: string,
+      _onWord: (word: string) => void,
+      onEnd?: (ended?: typeof why) => void,
+    ) => {
+      queueMicrotask(() => onEnd?.(why));
+      return () => undefined;
+    },
+    openSettings: () => undefined,
+    whisper: async () => ({
+      state: "absent" as const,
+    }),
+    onWhisper: () => () => undefined,
+    installWhisper: async () => ({
+      ok: true as const,
+    }),
+  };
+  mount({
+    ...s235SessionHead,
+    behaves: (handle) => ({
+      ...s235SessionHead.behaves!(handle),
+      voice,
+    }),
+  });
+  await onScreen();
+  const view = await toSession(/How does armada interface/);
+  await userEvent.click(
+    view.getByRole("button", {
+      name: "Talk",
+    }),
+  );
+  const card = view.getByRole("status", {
+    name: "Talk could not hear",
+  });
+  await expect.element(card.getByText(title)).toBeVisible();
+  expect(card.getByRole("listitem").elements()).toEqual([]);
+  expect(card.getByRole("button").elements()).toEqual([]);
+});

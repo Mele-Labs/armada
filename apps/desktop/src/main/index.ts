@@ -1080,7 +1080,12 @@ void app.whenReady().then(() => {
     connection: () => connection,
   });
   // Talk, heard on this Mac and never by Fleet: Armada Voice for Apple's recogniser and Whisper, macOS's own Dictation.
-  const voiceHelper = helperPath(!DEV_BUILD, app.getAppPath(), process.resourcesPath);
+  const voiceHelper = helperPath(
+    app.isPackaged,
+    process.defaultApp,
+    app.getAppPath(),
+    process.resourcesPath,
+  );
   const voiceHelperHere = (): string | null =>
     process.platform === "darwin" && existsSync(voiceHelper) ? voiceHelper : null;
   // A dev Bridge that starts without the helper builds it once in the background, so Talk finds it by the next press.

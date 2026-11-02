@@ -6,6 +6,7 @@
 import { join } from "node:path";
 
 import type { VoiceEngine, VoiceWhy } from "../shared/api/voice";
+import { isDevBuild } from "./dev-build";
 
 /** One line Armada Voice prints. */
 export type HelperLine =
@@ -299,12 +300,17 @@ function hearWith(
 }
 
 /**
- * Armada Voice's executable: built beside the sources in a dev build, in `Contents/Helpers` in a real one. Pass
- * `!DEV_BUILD`, never `app.isPackaged`, which reads true for the dev copy named Armada (`dev-build.ts`).
+ * Armada Voice's executable: built beside the sources in a dev build, in `Contents/Helpers` in a real one. A dev build
+ * is told by `isDevBuild`, because `packaged` alone reads true for the dev copy named Armada.
  */
-export function helperPath(packaged: boolean, appPath: string, resourcesPath: string): string {
-  const app = packaged
-    ? join(resourcesPath, "..", "Helpers", "Armada Voice.app")
-    : join(appPath, "native", "voice", "build", "Armada Voice.app");
+export function helperPath(
+  packaged: boolean,
+  defaultApp: boolean | undefined,
+  appPath: string,
+  resourcesPath: string,
+): string {
+  const app = isDevBuild(packaged, defaultApp)
+    ? join(appPath, "native", "voice", "build", "Armada Voice.app")
+    : join(resourcesPath, "..", "Helpers", "Armada Voice.app");
   return join(app, "Contents", "MacOS", "armada-voice");
 }
