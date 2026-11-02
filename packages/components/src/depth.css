@@ -61,7 +61,7 @@
 }
 
 /* A large figure is tight and tabular; the bay's number is the one in the Cockpit. */
-:root[data-look="new"] :is(.armada-overview-summary__count, .armada-pr-status__place, .deck-bay__name, .armada-autopilot__cap dd, .armada-title-bar__usage-meter) {
+:root[data-look="new"] :is(.armada-overview-summary__count, .armada-pr-status__place, .deck-bay__name, .armada-title-bar__usage-meter) {
   font-family: var(--font-figure);
   font-weight: var(--weight-light);
   letter-spacing: var(--tracking-figure);

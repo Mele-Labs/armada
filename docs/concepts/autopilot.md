@@ -96,13 +96,13 @@ A pass makes at most four calls per Autopilot, and asks again before keeping eac
 
 ## In Bridge
 
-The Cockpit draws it: the Autopilot panel along the deck's foot, whose switch is its title and takes the running or paused state of the picked repository's Autopilot, and the Autopilot lane on the stage.
-Switching it on, with a repository picked, gives the stage to the lane and its bar for that repository, and switching it off puts the lane away without stopping anything (the owner, 13 Oct 2026).
-The bar holds the switch, the caps used of their limit, Pause, Resume and Stop, Edit caps, and the start form, which quotes under each setting the words Fleet read it from and says *not said* where it quoted none.
-A cap that paused it is named in the bar's state and lit; Edit caps raises it in the start form's fields, and Resume stays pressable and says Fleet's refusal while the cap holds.
-On **All** the lane asks for a repository with a picker, and the bar opens once one is picked.
-Under the lane the sidings are Next up, as a numbered list, and Set aside; each set-aside pick is also a call.
+The switch is the only control, a guarded red switch on the Map's lip. It is on where any repository's Autopilot is running, whoever started it, so a cap that pauses one brings it down.
+Bridge has no Pause, Resume or Edit caps: the caps are set at start, in the setup that comes up over the field when the guard lifts, with the repositories, what goes on autopilot, the instruction, the limits and who takes each kind of decision.
+Where a repository's Autopilot stopped by itself, the setup says so beside Start: which cap paused it, or why its last pass picked nothing. A running one with nothing to say shows nothing.
+Fleet refuses a start over a paused Autopilot, so Start and the switch stop a paused one first and then start it, as one press.
 The dispatch panel offers Autopilot as a third kind: the repository is read from the words or asked, the panel's act reads the sentence into settings it draws for the person to edit, and Start starts it.
-Stop says before it is pressed which picks it withdraws and which Jobs go on, read from the Jobs the window holds by each pick's `session_id`.
+Under the setup, Next up lists what it is choosing from and Set aside what it was unsure of.
+While one runs, the first key or press after ten minutes with no input asks whether to keep it on. Either answer opens what Autopilot answered meanwhile.
+That list is a HUD over the map, opened from the lamp on the switch's plate, which is lit while an answer waits. A row is the Job, what was asked, what Autopilot chose, why, and when. Agree keeps it, Change sends the Job his own words, and an answer Fleet cannot correct, such as a landed pull request, offers Agree alone. Each leaves the list.
 `autopilot.changed` reaches every window through main, which keeps no copy.
-The code is `apps/desktop/src/renderer/src/cockpit/AutopilotLane.tsx` and the composition `AutopilotBar`.
+The code is `apps/desktop/src/renderer/src/cockpit/deck/AutopilotArm.tsx` and `AutopilotAnswers.tsx`.

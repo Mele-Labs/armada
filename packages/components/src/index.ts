@@ -453,7 +453,7 @@ export * from "./compositions/PhonePairing/PhonePairing";
 // One setting from settings.json, drawn from its kind.
 export * from "./compositions/SettingField/SettingField";
 // One repository's Autopilot on the Cockpit: its switch, caps, Pause and Stop, and the start form. #2092.
-export * from "./compositions/AutopilotBar/AutopilotBar";
+export * from "./compositions/AutopilotFields/AutopilotFields";
 // A thought typed into Helm, on its way to running work: the match, the choice to start new.
 export * from "./compositions/ThoughtCard/ThoughtCard";
 // A write clash on a row, and the line it becomes in an open Job or Session.

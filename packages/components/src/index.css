@@ -393,7 +393,7 @@
 @import "./compositions/SettingField/SettingField.css";
 @import "./compositions/WalkGuide/WalkGuide.css";
 @import "./compositions/WindowQuestion/WindowQuestion.css";
-@import "./compositions/AutopilotBar/AutopilotBar.css";
+@import "./compositions/AutopilotFields/AutopilotFields.css";
 @import "./compositions/ThoughtCard/ThoughtCard.css";
 @import "./compositions/ClashMark/ClashMark.css";
 @import "./compositions/PullRequestPanel/PullRequestPanel.css";
