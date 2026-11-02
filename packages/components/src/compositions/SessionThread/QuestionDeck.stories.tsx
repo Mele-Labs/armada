@@ -143,9 +143,9 @@ export const ADetailSitsBetweenTheQuestionAndItsChoices: Story = {
       name: "Sent",
     });
     await expect(detail).toBeVisible();
-    await expect(
-      detail.compareDocumentPosition(sent) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
+    await expect(detail.compareDocumentPosition(sent) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(
+      0,
+    );
     sent.focus();
     await userEvent.keyboard("2");
     await expect(

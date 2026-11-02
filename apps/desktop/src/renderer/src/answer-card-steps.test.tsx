@@ -113,7 +113,15 @@ function ledger(waiting: WaitingItem) {
     },
     undefined,
   ).find((one) => one.kind === "waiting")!;
-  mount(<LedgerRows kind="waiting" Glyph={waitingMark(row).Glyph} rows={[row]} />);
+  mount(
+    <LedgerRows
+      kind="waiting"
+      Glyph={waitingMark(row).Glyph}
+      rows={[
+        row,
+      ]}
+    />,
+  );
   return {
     row,
     answer,
@@ -142,9 +150,11 @@ test("a question with choices and steps draws the steps numbered above the choic
   const numbered = list()!;
   expect(numbered).not.toBeNull();
   expect(numbered.querySelectorAll(":scope > li")).toHaveLength(4);
-  expect([
-    ...numbered.querySelectorAll(".armada-step-list__ordinal"),
-  ].map((one) => one.textContent)).toEqual([
+  expect(
+    [
+      ...numbered.querySelectorAll(".armada-step-list__ordinal"),
+    ].map((one) => one.textContent),
+  ).toEqual([
     "1",
     "2",
     "3",
@@ -186,7 +196,6 @@ test("Sent still answers with choice 0", async () => {
   expect(answer).toHaveBeenLastCalledWith("w1", {
     choice: 0,
   });
-
 });
 
 test("a number key picks its choice's tile, and Answer sends that choice", async () => {
@@ -291,7 +300,15 @@ function call(waiting: WaitingItem) {
 test("the Cockpit's call card draws the steps, numbered, above the choices", async () => {
   call(both);
 
-  await expect.element(page.getByText("Sent", { exact: true }).first()).toBeVisible();
+  await expect
+    .element(
+      page
+        .getByText("Sent", {
+          exact: true,
+        })
+        .first(),
+    )
+    .toBeVisible();
   const numbered = list()!;
   expect(numbered).not.toBeNull();
   expect(numbered.querySelectorAll(":scope > li")).toHaveLength(4);
