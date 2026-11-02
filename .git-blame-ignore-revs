@@ -1,0 +1,5 @@
+# Commits git blame skips: `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
+# GitHub reads this file without the setting.
+
+# Format the whole tree with Biome
+cac6ef0e93e893c1430f07343e6d7a5373e01912
