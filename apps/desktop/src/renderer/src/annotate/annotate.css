@@ -355,6 +355,34 @@
   padding: var(--space-1);
 }
 
+/* While tiles are up they alone scroll, and the note over them and the changes and acts under them stay put.
+ * The tools and the picker step aside so all of it is one column the tiles give way in; the floor is where a
+ * window too short for that hands the scroll back to the card. The margin is the focus ring's room. */
+.armada-annotate__tools > *,
+.armada-annotate__picker > * {
+  flex: none;
+}
+
+.armada-annotate__tools:has([data-tiles]),
+.armada-annotate__picker:has(> [data-tiles]) {
+  display: contents;
+}
+
+.armada-annotate__body:has([data-tiles]) {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.armada-annotate__picker-steps[data-tiles] {
+  flex: 0 1 auto;
+  align-content: start;
+  min-height: calc(var(--space-8) * 4);
+  margin: calc(var(--space-1) * -1);
+  padding: var(--space-1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* The story is laid out at twice the tile's width and drawn at half. It is shown, not used. */
 .armada-annotate__preview {
   display: flex;
