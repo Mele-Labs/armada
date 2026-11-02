@@ -103,6 +103,8 @@ pub fn fitted_over<V>(
             // `~/.armada`.
             kit_home: home.path().join("kit").to_string_lossy().to_string(),
             mods_dir: home.path().join("mods").to_string_lossy().to_string(),
+            // None: the cases about an app's mod plant a bundle of their own.
+            mod_bundle: None,
             mod_switches: crate::mods::ModSwitches::default(),
             // None, so no case lists what `packages/mods/` holds; the cases about them plant their own.
             built_in_mods: crate::mods::BuiltIns::default(),

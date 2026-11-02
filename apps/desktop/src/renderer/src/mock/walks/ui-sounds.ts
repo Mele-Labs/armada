@@ -23,11 +23,7 @@ const uiSounds = walk("cockpit-sessions-list", [
     on: list,
     say: "k moves up and ticks",
   },
-  ...toSystemPage("Settings", "Pressing a tab or a button clicks, a touch lower than the tick"),
-  {
-    press: role("tab", "Features"),
-    say: "Features, a tab",
-  },
+  ...toSystemPage("Features", "Pressing a tab or a button clicks, a touch lower than the tick"),
   {
     press: role("switch", /^Interface sounds/),
     say: "Interface sounds off. This press is the last sound",

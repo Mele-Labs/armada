@@ -18,7 +18,10 @@ pub const AGENT_START_UNPLACED: &str = "fleet.agent_start_unplaced";
 /// held for the person. Answered with [`SessionHeld`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartAnotherSession {
-    pub manifest_id: ManifestId,
+    /// The repository the Session starts in. **Absent, the caller's own**, which is the ordinary
+    /// dispatch and the only one a Job in a repository with no `armada.yml` can name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<ManifestId>,
     /// What the Session is called. Blank is refused: the thread names it in a row that opens it.
     pub title: String,
     /// The first message. **Held on the new Job's start card**: nothing runs until the person presses Start.

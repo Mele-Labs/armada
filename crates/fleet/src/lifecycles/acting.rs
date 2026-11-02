@@ -158,7 +158,7 @@ where
                 let named = workflow.as_ref().map(|one| one.as_str().to_string());
                 let (workflow, _) = self.workflow_checked(&manifest, named).map_err(|why| why.error().message.clone())?;
                 let start = StartAnotherSession {
-                    manifest_id: ManifestId::carried(&manifest),
+                    manifest_id: Some(ManifestId::carried(&manifest)),
                     title: titled(prompt),
                     message: prompt.as_str().to_string(),
                     group: None,

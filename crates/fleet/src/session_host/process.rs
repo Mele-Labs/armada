@@ -130,9 +130,9 @@ pub struct ProcessHost {
     attachments: PathBuf,
 }
 
-/// The agent's door as a repository's `.mcp.json` names it, spelled as
-/// `crate::helm::ProcessHost` spells it for the same reason.
-const DOOR_PROGRAM: &str = "armada";
+/// The verb the agent's door runs. **The program is this binary's own path**, which only Fleet's
+/// file names: a repository's `.mcp.json` is committed and so names `armada` bare, and a bare name
+/// is not on a Job's path where Fleet is an app's.
 const DOOR_ARGS: &[&str] = &["mcp"];
 
 /// The door's configuration file, beside Helm's.
@@ -235,10 +235,16 @@ impl ProcessHost {
     }
 }
 
+impl ProcessHost {
+    /// The agent's door file, naming this binary by its path.
+    fn door_published(&self) -> Result<adapters::Published, std::io::Error> {
+        adapters::publish_the_agents_door(&self.door, &self.exe.to_string_lossy(), DOOR_ARGS)
+    }
+}
+
 impl Processes for ProcessHost {
     fn start(&self, start: &Start, sink: Sink) -> Result<Arc<dyn Process>, String> {
-        adapters::publish_the_agents_door(&self.door, DOOR_PROGRAM, DOOR_ARGS)
-            .map_err(|why| why.to_string())?;
+        self.door_published().map_err(|why| why.to_string())?;
         let door = McpConfig::only_these(&self.door.to_string_lossy()).map_err(|why| why.said())?;
         let scratch = crate::scratch::scratch_under(&self.attachments, &start.session);
         let _ = std::fs::create_dir_all(&scratch);
@@ -395,6 +401,31 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    /// The door a Job's agent reads names the binary Fleet is, by its path: a bare `armada` is on no
+    /// Job's path where Fleet is an app's.
+    #[test]
+    fn the_door_file_names_this_binary_by_its_path() {
+        let home = TempDir::new();
+        let exe = PathBuf::from("/Applications/Armada.app/Contents/Resources/bin/armada");
+        let host = ProcessHost {
+            agent: HeadlessAgent::at(String::from("the-agent")),
+            exe: exe.clone(),
+            keepers: home.path().join("sessions"),
+            door: home.path().join(DOOR_FILE),
+            path: String::new(),
+            home: home.path().to_string_lossy().to_string(),
+            user: String::from("someone"),
+            width: checks_runner::CheckWidth::read(1),
+            port: 1,
+            attachments: home.path().join("attachments"),
+        };
+
+        host.door_published().expect("written");
+
+        let written = std::fs::read_to_string(home.path().join(DOOR_FILE)).expect("the file");
+        assert!(written.contains(&exe.to_string_lossy().to_string()), "{written}");
     }
 
     fn mode_of(path: &Path) -> u32 {
