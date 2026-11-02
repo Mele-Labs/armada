@@ -75,6 +75,7 @@ import type {
 } from "@armada/components";
 import { sessionOf } from "@armada/screens/src/lessons/retro";
 import { askToOpenRetro } from "./open-retro";
+import { heldSlotsOf } from "./held-slots";
 import { useDispatchFailureHere } from "./failure-session";
 import { handoffOf } from "./session-handoff";
 import { chooseFolder, openLink, readRetro, readWorkflowChanges, searchFiles } from "./commands";
@@ -601,6 +602,7 @@ export function entriesOf(
   release?: LedgerRelease["rowOf"],
   scopes: ProposedScopes = new Map(),
   begin?: BeginChild,
+  freeSlot?: (itemId: string, slot: number) => void | Promise<unknown>,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan, and a sketch or a document put to him, are cards in the thread, so the ledger does not list them again. A watch that ended not ours is a card in Needs you.
@@ -619,6 +621,8 @@ export function entriesOf(
     const panel = card ? draftPanelOf(session, one.id) : undefined;
     // Fleet's offer of a restart reads its sentence, with the key beside it and Skip at its end.
     const offer = one.source === "preview_offer" && restart !== undefined;
+    // A full pool's call also lists the slots it is held by, each with a Free.
+    const held = heldSlotsOf(one, freeSlot === undefined ? undefined : (slot) => freeSlot(one.id, slot), open);
     return {
       key: `waiting${one.id}`,
       kind: "waiting",
@@ -646,6 +650,7 @@ export function entriesOf(
                 : [{ label: option.label, ...(option.description === undefined ? {} : { description: option.description }), onPick: () => answerWaiting(one.id, { choice: at }) }],
             ),
             onOther: (text: string) => answerWaiting(one.id, { text }),
+            ...(held === undefined ? {} : { held }),
           }),
       ...(act !== undefined || one.steps !== undefined || (one.source !== "agent" && one.source !== "replied") || answerWaiting === undefined
         ? {}
@@ -1066,6 +1071,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
     released.rowOf,
     scopes,
     beginChild,
+    draft.freeSlot === undefined ? undefined : (itemId, slot) => draft.freeSlot?.(id, itemId, slot),
     ),
     ...closedOf(session, draft.reopenWaiting === undefined ? undefined : (itemId) => void draft.reopenWaiting?.(id, itemId)),
   ];

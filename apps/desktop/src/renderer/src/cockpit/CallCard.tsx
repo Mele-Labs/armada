@@ -13,6 +13,7 @@ import type { BridgeState } from "../../../shared/bridge";
 import { type Hosts, type Item } from "../Dashboard";
 import { useSessions } from "../sessions-draft";
 import { SessionBox } from "../sessions";
+import { SlotCallRows } from "./SlotCallRows";
 import { threadRowsOf } from "../session-thread-rows";
 import { useAnswering, type Answer, type Answering } from "./answers";
 import { CoveredKeycap, Keycap, useCover } from "./consoles";
@@ -398,6 +399,7 @@ export function CallCard({
             )}
           </AskChoices>
         )}
+        {answer.attaching === undefined ? <SlotCallRows item={item} hosts={hosts} /> : null}
         {answer.remove === undefined ? null : (
           <div className="armada-callcard__remove">
             <RemoveAct name={item.fact} open={removing} onPress={() => setRemoving(!removing)} />
