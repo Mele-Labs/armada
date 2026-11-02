@@ -2,8 +2,10 @@
 //! `crate::reclaim`'s `porcelain` gives: a guard takes the answer a person
 //! would be shown.
 
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::{Arc, Mutex, PoisonError};
 
 fn run(at: &Path, args: &[&str]) -> std::io::Result<Output> {
     command(Command::new("git"), at, args).output()
@@ -87,11 +89,46 @@ pub(super) fn ref_exists(at: &Path, reference: &str) -> Option<bool> {
     }
 }
 
+/// A slot's repository, open between readings: a cold open (directory reads, packed refs) cost
+/// more than the question asked of it, 1.6 ms of 2.8 ms. libgit2 reads refs from disk each time
+/// and refreshes its pack list on an object miss, so a held one still sees a new commit, a moved
+/// ref and a `git gc`. One lock per slot, since `Repository` is `Send` and not `Sync`.
+static HELD: Mutex<BTreeMap<PathBuf, Arc<Mutex<git2::Repository>>>> = Mutex::new(BTreeMap::new());
+
+/// The repository held for `at`, opened when none is, and whether it was held already.
+fn held(at: &Path) -> Option<(Arc<Mutex<git2::Repository>>, bool)> {
+    let mut all = HELD.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(repo) = all.get(at) {
+        return Some((Arc::clone(repo), true));
+    }
+    let repo = Arc::new(Mutex::new(git2::Repository::open(at).ok()?));
+    all.insert(at.to_path_buf(), Arc::clone(&repo));
+    Some((repo, false))
+}
+
+/// Lets go of `at`'s held repository: its slot is gone, or the one held could not answer.
+pub(super) fn forget(at: &Path) {
+    HELD.lock().unwrap_or_else(PoisonError::into_inner).remove(at);
+}
+
 /// `git rev-list --left-right --count HEAD...<base>`: how far HEAD is ahead of
 /// the base and behind it. The outer `None` is libgit2 unable to say; the inner
 /// is git's own failure reading as unknown.
 pub(super) fn apart_in_process(at: &Path, base: &str) -> Option<Option<(u32, u32)>> {
-    let repo = git2::Repository::open(at).ok()?;
+    let (kept, reused) = held(at)?;
+    let answer = apart_of(&kept.lock().unwrap_or_else(PoisonError::into_inner), base);
+    if answer.is_some() {
+        return answer;
+    }
+    // A slot deleted and made again under the same path leaves the held one pointing at nothing.
+    forget(at);
+    if !reused {
+        return None;
+    }
+    apart_of(&git2::Repository::open(at).ok()?, base)
+}
+
+fn apart_of(repo: &git2::Repository, base: &str) -> Option<Option<(u32, u32)>> {
     let head = match repo.head().and_then(|head| head.peel_to_commit()) {
         Ok(head) => head.id(),
         Err(_) => return None,

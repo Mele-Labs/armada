@@ -83,6 +83,9 @@ impl Pool {
     ) -> SlotReading {
         let made = !matches!(slot.state, SlotState::Unmade | SlotState::NotACheckout);
         let apart = made.then(|| self.apart(&slot.path, base)).flatten();
+        if !made {
+            git::forget(&slot.path);
+        }
         let (held, branch, since) = match slot.state {
             SlotState::Unmade => (SlotHeld::Unmade, None, 0),
             SlotState::NotACheckout => (SlotHeld::NotACheckout, None, 0),
