@@ -39,6 +39,7 @@ Every merge to `main` that passes `ci` is a release, tagged `v0.<minor>.<commits
 | `armada run <name>` | Runs one Command it declares. The merge line runs Checks; it does not run Commands |
 | `armada covers` | Reads changed paths on stdin and prints each Check they make run, by the same `when:` reading the merge line uses. Needs nothing running |
 | `armada clean [--all] [--force]` | **Destructive.** Gives this repository's worktrees and branches back, keeping any branch whose work is not merged, and naming each worktree slot still held. `--force` deletes unmerged branches too, and gives back a slot where it is clean and landed. `docs/practices/running-locally.md`, *Clearing up* |
+| `armada job [<act>]` | What an agent runs from Bash to do anything with its own Job. With no act it lists the ones this Job may call; `<act> --help` says what one takes; `name=value` sets a field and one JSON argument, or `-` for stdin, is the body; the answer is the act's JSON on stdout and a refusal is Fleet's sentence on stderr with a non-zero exit. `status` says which Job this is, and `dispatch` starts a Job in another repository. Needs a running Fleet, and is placed by the agent it runs under. `docs/contracts/system-architecture.md`, *The operation inventory* |
 | `armada worktree lease <branch>` | Leases a warm worktree from the repository's pool, waiting while every slot is held; `release` gives it back once clean and landed, `--status` lists who holds each. `docs/practices/running-locally.md`, *Leasing a worktree* |
 
 What holds today, and how each is known:

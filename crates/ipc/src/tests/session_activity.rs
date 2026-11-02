@@ -25,6 +25,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
+        mod_version: None,
         tools_missing: None,
         waiting_for: Vec::new(),
         done_since: None,

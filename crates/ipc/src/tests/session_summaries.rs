@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use crate::{
     decode, encode, Attachment, AttachmentState, HostedFacts, Instant, ManifestId, SessionId,
     SessionList, SessionMode, SessionOrigin, SessionRecord, SessionState, SessionSummaries,
-    SessionTurn, SessionUsage, SessionView, TurnState,
+    SessionTurn, SessionUsage, SessionView, ToolMissing, ToolsMissing, TurnState,
 };
 
 fn at() -> Instant {
@@ -47,6 +47,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
+        mod_version: None,
         tools_missing: None,
         waiting_for: Vec::new(),
         done_since: None,
@@ -163,4 +164,23 @@ fn a_view_that_is_not_named_is_the_whole_record() {
     assert_eq!(SessionView::default(), SessionView::Full);
     let named: SessionView = decode("a view", br#""summary""#).expect("a view decodes");
     assert_eq!(named, SessionView::Summary);
+}
+
+#[test]
+fn a_line_says_which_mod_reported_and_what_the_agent_came_up_without() {
+    let mut record = session(Vec::new());
+    let bare = SessionSummaries::of(&SessionList { sessions: vec![record.clone()] });
+    assert_eq!(bare.sessions[0].mod_version, None, "no mod reported is not a version");
+    assert!(bare.sessions[0].tools_missing.is_empty());
+
+    record.mod_version = Some("1.4.0".to_string());
+    record.tools_missing = Some(ToolsMissing {
+        harness: "a-harness".to_string(),
+        update: "update it".to_string(),
+        harness_version: "1".to_string(),
+        missing: vec![ToolMissing::Mod, ToolMissing::Door],
+    });
+    let line = &SessionSummaries::of(&SessionList { sessions: vec![record] }).sessions[0];
+    assert_eq!(line.mod_version.as_deref(), Some("1.4.0"));
+    assert_eq!(line.tools_missing, vec![ToolMissing::Mod, ToolMissing::Door]);
 }

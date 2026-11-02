@@ -13,12 +13,14 @@
 //! command line is read the same way: an unknown flag beside a missing name is
 //! two lines, so one correction fixes both.
 
+mod job;
 mod test_map;
 mod worktree;
 
 use std::fmt;
 use std::path::PathBuf;
 
+pub use job::{Body, JobAct, DISPATCH};
 pub use test_map::TestMapAct;
 pub use worktree::WorktreeAct;
 
@@ -54,6 +56,8 @@ pub enum Verb {
     TestMap(TestMapAct),
     /// One reading of a watch recipe Armada ships, printed as the line Fleet reads. Fleet runs it.
     WatchLine { reader: String, values: Vec<String> },
+    /// One of this Job's acts, or the list of them: what an agent does with its own Job from Bash.
+    Job(JobAct),
     /// What the verbs are.
     Help,
 }
@@ -98,6 +102,10 @@ const VERBS: &[(&str, &str)] = &[
         "measure which tests reach which files, for CI to hand Fleet",
     ),
     (
+        JOB,
+        "call one of this Job's acts, or list them — what an agent does with its own Job from Bash",
+    ),
+    (
         WATCH_LINE,
         "print one reading of a watch recipe Armada ships, as the line Fleet reads; Fleet runs it",
     ),
@@ -122,6 +130,8 @@ pub const SESSION_KEEP: &str = "session-keep";
 pub const WORKTREE: &str = "worktree";
 /// The test map's recorder.
 pub const TEST_MAP: &str = "test-map";
+/// What an agent runs to do anything with its own Job.
+pub const JOB: &str = "job";
 /// The readers behind the watch recipes Armada ships, which name this verb.
 pub const WATCH_LINE: &str = "watch-line";
 
@@ -209,6 +219,7 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
                 everything: rest.iter().any(|arg| arg == "--all"),
             })
         }
+        JOB => job::read(rest, &mut faults),
         WORKTREE => worktree::read(rest, &mut faults),
         TEST_MAP => test_map::read(rest, &mut faults),
         // Every word after the reader is a value, passed whole: a value is never read as a flag.
@@ -312,6 +323,12 @@ pub enum Fault {
     TestMapFormUnknown { given: Option<String> },
     /// `test-map record` without `--check` or `--out`, or with one as the last word.
     TestMapNeeds { flag: String, valueless: bool },
+    /// `job status` with a word after it.
+    JobStatusTakesNothing { given: String },
+    /// `job` with two JSON bodies, or one on stdin and one inline.
+    JobTwoBodies { given: String },
+    /// A word after a `job` act that is not `name=value`, JSON or `-`.
+    JobWordUnreadable { given: String },
     /// `worktree lease` with no branch after it.
     NoBranch,
     /// `watch-line` with no reader after it.
@@ -400,6 +417,17 @@ impl fmt::Display for Fault {
                 "`armada {TEST_MAP} record` needs `{flag}` — the Check to measure is a key as \
                  `armada check` takes it, and the file is where the laps are written"
             ),
+            Fault::JobStatusTakesNothing { given } => {
+                write!(out, "`armada {JOB} status` takes nothing, and `{given}` came after it")
+            }
+            Fault::JobTwoBodies { given } => write!(
+                out,
+                "`armada {JOB}` takes one JSON body, as an argument or `-` for stdin, and `{given}` is a second"
+            ),
+            Fault::JobWordUnreadable { given } => write!(
+                out,
+                "`{given}` is not `name=value`, a JSON object or `-` — `armada {JOB} <act> --help` says what the act takes"
+            ),
             Fault::NoBranch => write!(
                 out,
                 "`armada {WORKTREE} lease` needs the branch to cut, and it is cut from the base"
@@ -438,6 +466,7 @@ impl fmt::Display for Usage {
                 MCP => MCP.to_string(),
                 COVERS => format!("{COVERS} < <paths>"),
                 WATCH_LINE => format!("{WATCH_LINE} <reader> <values>"),
+                JOB => format!("{JOB} [<act> ...]"),
                 named => format!("{named} <name>"),
             };
             writeln!(out, "  armada {shape:<16}  {what}")?;

@@ -27,6 +27,7 @@ mod drafts;
 /// The agent's door: a tool call becomes a request on the HTTP surface, and an
 /// answer too large to carry says so.
 mod door;
+mod job_cli;
 /// What the stream carries, under the names `operations/` declares.
 mod events;
 mod helm;
