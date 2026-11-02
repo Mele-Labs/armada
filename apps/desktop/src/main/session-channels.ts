@@ -36,7 +36,7 @@ const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
 const MODES = ["ask", "auto", "accept_edits", "plan"];
 const DELIVERIES = ["auto_land", "open_pr", "keep_local"];
 const JUDGE_KINDS: readonly JudgeKind[] = ["job", "plan", "pull_request", "commit", "file", "page", "doc", "sketch", "command", "subagent", "issue", "note"];
-const MOD_AIMS: readonly ModAim[] = ["theme", "layout", "words", "fleet", "tracker", "commands", "tab", "source"];
+const MOD_AIMS: readonly ModAim[] = ["theme", "layout", "words", "fleet", "tracker", "commands", "tab", "instrument", "source"];
 const MCP_ACTS: readonly McpServerAct[] = ["reconnect", "turn_on", "turn_off", "sign_in"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";

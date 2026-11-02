@@ -32,6 +32,8 @@ pub enum ModKind {
     Commands,
     /// A `tab.js`: a tab Bridge loads as part of itself, drawn with the whole Fleet API.
     Tab,
+    /// An `instrument.js`: an instrument Bridge seats in a bay of the Cockpit console, loaded as a tab is.
+    Instrument,
 }
 
 /// Where a mod comes from. Ordered so a local mod is listed ahead of the built-in one of its name.
@@ -68,7 +70,7 @@ pub struct ModSummary {
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// A tab mod's glyph, by its name in the icon registry. Absent where `mod.toml` names none.
+    /// A tab or instrument mod's glyph, by its name in the icon registry. Absent where `mod.toml` names none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub glyph: Option<String>,
     /// What Teach was pressed on, where a person taught this mod. Absent for a mod written by hand.
@@ -188,6 +190,7 @@ pub enum ModAim {
     Tracker,
     Commands,
     Tab,
+    Instrument,
     Source,
 }
 
@@ -236,6 +239,10 @@ pub struct ModChecked {
     /// loads this text and no other.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tab: Option<TabModule>,
+    /// An instrument mod's glyph and `instrument.js` as they were checked, present only where it passed. Bridge
+    /// loads this text and no other.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instrument: Option<InstrumentModule>,
 }
 
 /// A tab mod as it was checked: what Bridge draws on the tab and the module it runs in the tab's body.
@@ -245,6 +252,16 @@ pub struct TabModule {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub glyph: Option<String>,
     /// The text of `tab.js`, an ES module whose default export is a React component.
+    pub code: String,
+}
+
+/// An instrument mod as it was checked: what Bridge marks it with and the module it keeps mounted for a bay.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstrumentModule {
+    /// A name in the icon registry. Absent where `mod.toml` names none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glyph: Option<String>,
+    /// The text of `instrument.js`, an ES module whose default export is a React component.
     pub code: String,
 }
 

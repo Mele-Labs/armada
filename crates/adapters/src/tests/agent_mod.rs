@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::scratch::Scratch;
-use crate::agent_mod::{can_populate_from, install, is_populated, populate, populated, Asked, Installed, Step, PLUGIN};
+use crate::agent_mod::{bundle_beside, can_populate_from, filled_from_bundle, install, is_populated, populate, populated, Asked, Installed, Step, PLUGIN};
 
 const PLENTY: Duration = Duration::from_secs(30);
 const MOD_FOLDER: &str = "/support/mod";
@@ -150,7 +150,7 @@ fn a_copy_already_filled_is_left_alone_and_no_script_runs() {
     scratch.file("home/mod/.claude-plugin/marketplace.json", "{}");
     let tree = tree_with_script(&scratch, "tree", FILLS);
 
-    assert_eq!(populated(&home, &home.join("mod"), &[tree], PLENTY), Ok(()));
+    assert_eq!(populated(&home, &home.join("mod"), &[tree], None, PLENTY), Ok(()));
 
     assert!(!home.join("ran").exists(), "the script was not run");
 }
@@ -164,7 +164,7 @@ fn a_copy_not_filled_is_filled_from_the_first_tree_that_holds_the_mod() {
     let first = tree_with_script(&scratch, "first", FILLS);
     let second = tree_with_script(&scratch, "second", &format!("echo second >> \"$HOME/ran\"\n{FILLS}"));
 
-    assert_eq!(populated(&home, &home.join("mod"), &[bare, first, second], PLENTY), Ok(()));
+    assert_eq!(populated(&home, &home.join("mod"), &[bare, first, second], None, PLENTY), Ok(()));
 
     assert!(is_populated(&home.join("mod")));
     assert_eq!(std::fs::read_to_string(home.join("ran")).expect("ran"), "ran\n", "once, from the first tree that holds it");
@@ -176,13 +176,13 @@ fn no_tree_that_holds_the_mod_is_an_error_that_names_the_copy() {
     let home = scratch.folder("home");
     scratch.folder("bare");
 
-    let Err(said) = populated(&home, &home.join("mod"), &[scratch.path().join("bare")], PLENTY) else {
+    let Err(said) = populated(&home, &home.join("mod"), &[scratch.path().join("bare")], None, PLENTY) else {
         panic!("nothing to copy from is not a copy made");
     };
 
     assert!(said.contains(&home.join("mod").display().to_string()), "{said}");
     assert!(said.contains("holds no copy of the mod"), "{said}");
-    assert!(populated(&home, &home.join("mod"), &[], PLENTY).is_err(), "no trees at all");
+    assert!(populated(&home, &home.join("mod"), &[], None, PLENTY).is_err(), "no trees at all");
 }
 
 #[test]
@@ -191,9 +191,58 @@ fn a_script_that_leaves_the_copy_empty_is_an_error() {
     let home = scratch.folder("home");
     let tree = tree_with_script(&scratch, "tree", "true");
 
-    let Err(said) = populated(&home, &home.join("mod"), &[tree], PLENTY) else {
+    let Err(said) = populated(&home, &home.join("mod"), &[tree], None, PLENTY) else {
         panic!("a copy still empty is not filled");
     };
 
     assert!(said.contains("is still empty after copying"), "{said}");
+}
+
+fn app_with_mod(scratch: &Scratch, version: &str) -> PathBuf {
+    scratch.file("App/Contents/Resources/mod/.claude-plugin/marketplace.json", "{}");
+    scratch.file("App/Contents/Resources/mod/armada/.claude-plugin/plugin.json", version);
+    scratch.path().join("App/Contents/Resources/mod")
+}
+
+#[test]
+fn an_app_without_the_mod_and_a_binary_outside_an_app_have_no_bundle() {
+    let scratch = Scratch::new();
+    scratch.folder("App/Contents/Resources/bin");
+    scratch.folder("cargo/bin");
+    scratch.file("cargo/mod/.claude-plugin/marketplace.json", "{}");
+
+    assert_eq!(bundle_beside(&scratch.path().join("App/Contents/Resources/bin/armada")), None, "the app holds no mod");
+    assert_eq!(bundle_beside(&scratch.path().join("cargo/bin/armada")), None, "not Contents/Resources/bin");
+}
+
+#[test]
+fn a_bundle_replaces_a_copy_of_another_version_and_leaves_one_of_the_same() {
+    let scratch = Scratch::new();
+    let bundle = app_with_mod(&scratch, "1.1.0");
+    let home = scratch.folder("home");
+    let copy = home.join("mod");
+    scratch.file("home/mod/.claude-plugin/marketplace.json", "{}");
+    scratch.file("home/mod/armada/.claude-plugin/plugin.json", "1.0.0");
+    scratch.file("home/mod/stale", "left over");
+
+    assert_eq!(filled_from_bundle(&bundle, &copy), Ok(true));
+    assert!(!copy.join("stale").exists());
+    assert_eq!(std::fs::read_to_string(copy.join("armada/.claude-plugin/plugin.json")).expect("copied"), "1.1.0");
+    scratch.file("home/mod/marker", "");
+    assert_eq!(filled_from_bundle(&bundle, &copy), Ok(false), "the same version is not copied again");
+    assert!(copy.join("marker").exists());
+}
+
+#[test]
+fn a_bundle_that_holds_no_mod_leaves_the_copy_as_it_was_and_says_so() {
+    let scratch = Scratch::new();
+    let copy = scratch.folder("home/mod");
+    scratch.file("home/mod/kept", "");
+
+    let Err(said) = filled_from_bundle(&scratch.path().join("App/Contents/Resources/mod"), &copy) else {
+        panic!("nothing to copy from is not a copy made");
+    };
+
+    assert!(said.contains("holds no copy of the mod"), "{said}");
+    assert!(copy.join("kept").exists());
 }

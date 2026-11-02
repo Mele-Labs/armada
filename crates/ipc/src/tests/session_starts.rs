@@ -14,6 +14,8 @@ fn a_start_reads_its_repository_title_and_first_message() {
     .unwrap();
     assert_eq!(start.title, "Check the reader");
     assert!(crate::decode::<StartAnotherSession>("a session to start", br#"{"manifest_id":"armada","title":"x"}"#).is_err());
+    let own: StartAnotherSession = crate::decode("a session to start", br#"{"title":"x","message":"y"}"#).unwrap();
+    assert!(own.manifest_id.is_none(), "none named is the caller's own repository");
 }
 
 #[test]
@@ -50,7 +52,7 @@ fn the_answer_the_row_and_the_item_round_trip() {
 
 #[test]
 fn a_group_is_optional_on_a_start_and_written_only_when_set() {
-    let plain = StartAnotherSession { manifest_id: crate::ManifestId::carried("armada"), title: "t".into(), message: "m".into(), group: None, after: None };
+    let plain = StartAnotherSession { manifest_id: Some(crate::ManifestId::carried("armada")), title: "t".into(), message: "m".into(), group: None, after: None };
     assert_eq!(serde_json::to_value(&plain).unwrap(), json!({"manifest_id":"armada","title":"t","message":"m"}));
     let grouped: StartAnotherSession =
         crate::decode("a session to start", br#"{"manifest_id":"armada","title":"t","message":"m","group":"g2"}"#).unwrap();

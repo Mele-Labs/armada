@@ -143,6 +143,12 @@ pub fn door_without_a_manifest() -> String {
 
 const WITHOUT_A_MANIFEST: &str = "without_manifest";
 
+/// The operations a session at that door is offered, which a test holds against what the rules it
+/// is told to follow name.
+pub fn offered_without_a_manifest() -> &'static [&'static str] {
+    WITHOUT_A_MANIFEST_OFFERS
+}
+
 /// What a hosted session standing in no Manifest is offered: the permission
 /// tool its `--permission-prompt-tool` names, and its own acts, each placed by
 /// its connection and none read inside a Manifest.
@@ -161,6 +167,26 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "propose_draft",
     "withdraw_draft",
     "save_kit_manifest",
+    // What the rules tell every Job to call, which a Job in a repository with no
+    // `armada.yml` must be able to: its follow-ups, the end of its work, a wrong notice and a bug.
+    "defer_later",
+    "settle_later",
+    "finish_up",
+    "dispute_fleet",
+    "report_bug",
+    // The Job is placed by its connection, and the new one is held for its person to start.
+    "start_another_session",
+    // A watch is the Job's own, placed as `waiting_for` is.
+    "start_watch",
+    "try_watch",
+    "stop_watch",
+    "weigh_watch",
+    "delete_watch",
+    "list_watches",
+    "list_watch_recipes",
+    "save_watch_recipe",
+    // What a Job names as the repository of a start is read here.
+    "list_manifests",
     // A request is sent from the Job, not from a repository.
     "send_request",
     "get_requests",

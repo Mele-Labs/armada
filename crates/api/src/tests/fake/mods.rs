@@ -55,6 +55,7 @@ impl Mods for FakeDaemon {
             fleet: None,
             commands: None,
             tab: None,
+            instrument: None,
         })
     }
 

@@ -418,7 +418,24 @@ pub(super) fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::Ke
         workflow_chosen: false,
         from_job: None,
         from_tab: None,
+        mod_of_bay: false,
     }
+}
+
+/// A Mod Job of a bay is still one after the store is opened again; every other row reads as not.
+#[test]
+fn a_mod_of_a_bay_survives_a_reopen() {
+    let dir = TempDir::new();
+    {
+        let mut store = open(&dir);
+        store.keep_session(&session("bay")).expect("kept");
+        store.keep_session(&session("plain")).expect("kept");
+        store.keep_hosting(&crate::KeptHosting { mod_job: true, mod_of_bay: true, ..hosting("bay", "armada", false) }).expect("kept");
+        store.keep_hosting(&hosting("plain", "armada", false)).expect("kept");
+    }
+    let store = open(&dir);
+    assert!(store.hosting("bay").expect("read").expect("hosted").mod_of_bay);
+    assert!(!store.hosting("plain").expect("read").expect("hosted").mod_of_bay);
 }
 
 /// A repository's Helm Session is found by its repository, live; an ended one is not live, but is
