@@ -51,6 +51,7 @@ const defaultArrangement = (): Arrangement =>
         ],
         b: [
           "open",
+          "deferred",
         ],
       },
     },

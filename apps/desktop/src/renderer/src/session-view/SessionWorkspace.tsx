@@ -79,6 +79,7 @@ const BAND_TAB: Partial<Record<Area | "workflow", TabKind>> = {
   done: "done",
   now: "now",
   next: "open",
+  deferred: "deferred",
   workflow: "workflow",
 };
 
@@ -314,6 +315,8 @@ export function SessionWorkspace({
           return zone("now");
         case "open":
           return zone("next");
+        case "deferred":
+          return zone("deferred");
         case "spine":
           return zone();
         case "browser":

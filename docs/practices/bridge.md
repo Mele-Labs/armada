@@ -106,6 +106,9 @@ Talk hears through Armada Voice, a helper app main runs (`native/voice/`, `main/
 through `voice`'s four members, which name an engine and never a path or a command. Whisper's install is the one place
 Bridge downloads code: a whisper.cpp library and its model, into `userData`, each kept only with the SHA-256 it was
 pinned to (`main/whisper-install.ts`), and loaded by the helper, never by Bridge.
+Main finds the helper by dev build, never by `app.isPackaged`, which reads true for the dev copy named Armada
+(`main/dev-build.ts`); a dev Bridge builds a missing helper at start. Talk moves to the next voice by itself when one
+cannot hear, and asks the owner only for a permission macOS withholds.
 
 A theme's CSS, a mod's or the catalogue's, reaches the window as a constructable
 stylesheet (`adoptedStyleSheets`) and never as a `<style>` element, because the

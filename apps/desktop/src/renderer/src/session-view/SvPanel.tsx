@@ -91,6 +91,7 @@ export function SvPanel({
   marker,
   skipped,
   menu,
+  bare,
   children,
 }: {
   label: string;
@@ -104,12 +105,15 @@ export function SvPanel({
   keycap?: string | undefined /** A mark of its own on the spine line, in place of the dot. */;
   marker?: ReactNode /** A step the person skipped: drawn muted, with the word. */;
   skipped?: boolean;
-  menu?: BandMenu | undefined;
+  menu?:
+    | BandMenu
+    | undefined /** Alone in a pane whose tab names it: no label, never folded, and a band only where it holds a lamp or acts. */;
+  bare?: boolean;
   children?: ReactNode;
 }) {
   // Pressing the band folds the panel to it.
   const { collapsed: kept, band: own } = useCollapse(area);
-  const collapsed = fold !== undefined ? !fold.open : kept;
+  const collapsed = bare === true ? false : fold !== undefined ? !fold.open : kept;
   // A panel the layout lists can be hidden, and one it does not list is always drawn. A workflow's step zones answer to the zone they stand for. Teach is offered on the frame,
   // wherever the window offers it.
   const listed = STEP_ZONE[area] ?? area;
@@ -225,26 +229,33 @@ export function SvPanel({
       data-marked={marker !== undefined || undefined}
       data-band-only={children === undefined || undefined}
       data-skipped={skipped || undefined}
+      data-bare={bare || undefined}
       aria-label={label}
       {...teach.on}
     >
       {teach.menu}
       {bandMenu}
-      <header className="sv-panel__band" {...band}>
-        {marker}
-        {state === undefined ? null : (
-          <StateMark state={state} said={SAID[area]?.[state] ?? MARK[state].said} />
-        )}
-        {keycap === undefined ? (
-          <h3 className="sv-panel__label">{label}</h3>
-        ) : (
-          <Tooltip asChild label={collapsed ? `Open ${label}` : `Fold ${label}`} shortcut={keycap}>
+      {bare === true && state === undefined && acts === undefined ? null : (
+        <header className="sv-panel__band" {...(bare === true ? {} : band)}>
+          {marker}
+          {state === undefined ? null : (
+            <StateMark state={state} said={SAID[area]?.[state] ?? MARK[state].said} />
+          )}
+          {bare === true ? null : keycap === undefined ? (
             <h3 className="sv-panel__label">{label}</h3>
-          </Tooltip>
-        )}
-        {skipped === true ? <span className="sv-panel__skipped">Skipped</span> : null}
-        {acts === undefined ? null : <span className="sv-panel__acts">{acts}</span>}
-      </header>
+          ) : (
+            <Tooltip
+              asChild
+              label={collapsed ? `Open ${label}` : `Fold ${label}`}
+              shortcut={keycap}
+            >
+              <h3 className="sv-panel__label">{label}</h3>
+            </Tooltip>
+          )}
+          {skipped === true ? <span className="sv-panel__skipped">Skipped</span> : null}
+          {acts === undefined ? null : <span className="sv-panel__acts">{acts}</span>}
+        </header>
+      )}
       <div className="sv-panel__body">{children}</div>
     </section>
   );

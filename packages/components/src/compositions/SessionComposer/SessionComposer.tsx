@@ -1393,6 +1393,9 @@ export function SessionComposer({
           </>
         )}
         {bare || (compact && held) ? null : chips}
+        {beforeSend === undefined ? null : (
+          <span className="armada-session-composer__figure">{beforeSend}</span>
+        )}
         {talk === undefined ? null : (
           <span className="armada-session-composer__talkwrap">
             <Tooltip
@@ -1426,9 +1429,6 @@ export function SessionComposer({
             )}
           </span>
         )}
-        {beforeSend === undefined ? null : (
-          <span className="armada-session-composer__figure">{beforeSend}</span>
-        )}
         {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
       </div>
     </form>
@@ -1436,19 +1436,18 @@ export function SessionComposer({
   return box;
 }
 
-/** `**bold**` and `code` in a step, drawn as what they mark. */
+/** `**bold**` in a step, drawn as what it marks. */
 function marked(text: string): ReactNode[] {
   return text
-    .split(/(\*\*[^*]+\*\*|`[^`]+`)/)
+    .split(/(\*\*[^*]+\*\*)/)
     .filter((one) => one !== "")
     .map((part, at) => {
       if (part.startsWith("**")) return <strong key={at}>{part.slice(2, -2)}</strong>;
-      if (part.startsWith("`")) return <code key={at}>{part.slice(1, -1)}</code>;
       return part;
     });
 }
 
-/** Why Talk could not hear, and what to do about it, in a card over the Talk button, with a button to the Settings pane that holds it where there is one. */
+/** Why Talk stopped, in a card over the Talk button. Only a refused permission carries steps and a button to the Settings pane that holds it. */
 function TalkGuide({
   why,
   onOpen,
@@ -1492,13 +1491,15 @@ function TalkGuide({
         </span>
         <p className="armada-session-composer__guide-title">{title}</p>
       </div>
-      <ol className="armada-session-composer__steps">
-        {steps.map((step) => (
-          <li key={step}>
-            <span>{marked(step)}</span>
-          </li>
-        ))}
-      </ol>
+      {steps.length === 0 ? null : (
+        <ol className="armada-session-composer__steps">
+          {steps.map((step) => (
+            <li key={step}>
+              <span>{marked(step)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
       <div className="armada-session-composer__guide-foot">
         {pane === undefined || action === undefined || onOpen === undefined ? null : (
           <Button type="button" variant="primary" size="sm" onClick={() => onOpen(pane)}>

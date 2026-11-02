@@ -10,7 +10,7 @@ const ring = (percent: number) =>
 const contextRing = walk("compact-session-view", [
   {
     press: deckRow("Retry the slot lease"),
-    say: "The Job's context is a small ring in the composer, just left of Send, with its percent beside it",
+    say: "The Job's context is a small ring in the composer, just left of the microphone, with its percent beside it",
   },
   {
     hover: ring(32),

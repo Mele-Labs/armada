@@ -4,6 +4,7 @@ import {
   Activity,
   Circle,
   CircleCheck,
+  CircleDashed,
   Cpu,
   Diff,
   Files,
@@ -60,6 +61,10 @@ export const KINDS: Readonly<
   open: {
     label: "Open",
     Glyph: Circle,
+  },
+  deferred: {
+    label: "Deferred",
+    Glyph: CircleDashed,
   },
   changes: {
     label: "Changes",
