@@ -50,6 +50,8 @@ import { WiredSharedPanel } from "./shared-panel/wired";
 import { reviewSourceOf } from "./pr-review/source";
 import { createFleetTerritory } from "./fleet-territory";
 import { createFleetAccount } from "./fleet-account";
+import { DebugReportFrom } from "./debug-report/debug-report";
+import { createFleetDebugReport } from "./fleet-debug-report";
 import { createFleetSharedHome } from "./fleet-shared-home";
 import { AccountFromFleet } from "./account-fleet";
 import { ClashesFromFleet } from "./clashes";
@@ -121,6 +123,8 @@ const REVIEWS = createReviewStore(reviewSourceOf(window.armada));
 const ISSUES = createIssuesStore(issuesSourceOf(window.armada, window.armada));
 /** His projects, kept in Fleet and read when the window opens, then kept current by `projects.changed`. */
 const PROJECTS = createProjectsStore(window.armada);
+/** The text Copy debug report shows: Fleet's where it answers, and `armada report` run by main where it does not. */
+const DEBUG_REPORT = createFleetDebugReport(window.armada, withState(window.armada));
 /** The title menu's account entry: the profiles, the sign-in and What syncs, over Fleet. A kind switched reads the home again. */
 const ACCOUNT = createFleetAccount(withState(window.armada), undefined, { kindSwitched: (login) => HOME.readAgain(login) });
 /** Kit and the Theme rows against the chosen profile's shared home, over Fleet. */
@@ -165,10 +169,12 @@ function Root() {
                                     <ProjectsFrom store={PROJECTS}>
                                       <ThreadLookSaved>
                                         <MockStylesContext.Provider value={MOCK_STYLES}>
-                                          <WiredSharedPanel>
-                                            <App />
-                                            <TweaksApplied />
-                                          </WiredSharedPanel>
+                                          <DebugReportFrom read={DEBUG_REPORT}>
+                                            <WiredSharedPanel>
+                                              <App />
+                                              <TweaksApplied />
+                                            </WiredSharedPanel>
+                                          </DebugReportFrom>
                                         </MockStylesContext.Provider>
                                       </ThreadLookSaved>
                                     </ProjectsFrom>

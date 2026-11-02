@@ -18,6 +18,14 @@ Probes live beside their subjects, never in Doctor.
 
 - **Per-module status**, each module independently pass, warn or fail. No blended score, so a problem in one module is never obscured by a healthy one.
 - **Checked on demand.** Doctor itself never pushes.
+- **Copy debug report** sits in Doctor's header beside Check again, and is a row in the command palette that stays offered with Fleet down.
+  One sheet reads the text, shows it, and Copy puts exactly what it shows on the clipboard.
+  The text is names, versions and states, and is sent nowhere.
+  Bridge asks Fleet (`get_debug_report`) with the repository selected in the window, and with none for All repositories.
+  Where Fleet is not connected or does not answer, main runs `armada report` with no shell and 15 seconds.
+  It runs the program launchd starts Fleet with, or the one inside the app where launchd holds no job.
+  Where neither gives text the sheet says why and offers no Copy.
+  Bridge puts `bridge protocol <id>  ` ahead of the last line, so the text ends `bridge protocol <x>  fleet protocol <y>  taken <time>`, or `bridge protocol <x>  taken <time>` from the command.
 - **Doctor never enters Alerts.** A health check is a standing condition, not a queued decision: a failing module has no workspace, no spend and no Job id, so Alerts is not the place for it.
 - **A failure reaches you as a one-line neutral strip** above the Triage Queue tabs, naming which modules are failing and whether work is stopped, and disappearing when they all pass.
 - Doctor sits under the Bridge section label in the sidebar with the other six surfaces, reachable in sidebar order. Its nav icon is `stethoscope` at 16px.

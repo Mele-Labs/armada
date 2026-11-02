@@ -1375,6 +1375,8 @@ Bridge's half is `DebugReport` in `packages/protocol/src/debug-report.ts`, writt
 **The builder is `ipc::debug_report::render`**, one pure function over gathered facts, so Fleet and the CLI lay out the same text. A Job's `tools` and `skills` are the names its opening line gave, with another server's tools and another plugin's skills already dropped (*A Job that came up without its tools*).
 **`Recent trouble` reads Fleet's log file**, the newest of where launchd's plist says it writes, `~/Library/Logs/Armada/<label>.log` and `scripts/dev`'s file in the temp folder, from its last 200 lines and no further back than a day. A line is kept for its time, level and target, and its `fields.code` where that is a lowercase name. Its `msg` and every other field are free text and are never read, and a line that is not JSON has no level and is left out. A newest file last written more than a day ago is named as such and its lines are not printed.
 **`armada report`** prints the same text on standard output and exits 0. Where Fleet does not answer it prints `Install`, the line `Fleet   did not answer`, `Recent trouble` and `taken <time>`, with no fleet protocol.
+**Bridge adds its own protocol** by putting `bridge protocol <id>  ` ahead of the last line of either text, since only Bridge knows it.
+It reads Fleet's text over the connection and, where that fails or Fleet is not connected, has main run `armada report` (`apps/desktop/src/main/debug-report.ts`).
 
 ## Open questions
 

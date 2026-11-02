@@ -39,6 +39,7 @@ import type { ActFailedApi } from "./api/act-failed";
 import type { BayHistoryApi } from "./api/bay-history";
 import type { SessionSystemApi } from "./api/session-system";
 import type { UsageSummaryApi } from "./api/usage-summary";
+import type { DebugReportApi } from "./api/debug-report";
 import type { IssuesApi } from "./api/issues";
 import type { AutopilotApi } from "./api/autopilot";
 import type { SketchShareApi } from "./api/sketch-share";
@@ -85,6 +86,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   BayHistoryApi &
   SessionSystemApi &
   UsageSummaryApi &
+  DebugReportApi &
   IssuesApi &
   AutopilotApi &
   SketchShareApi &
