@@ -157,7 +157,7 @@ fn a_fork_that_has_run_resumes_itself_and_not_the_one_it_came_from() {
 fn every_process_of_a_fork_is_told_it_is_one() {
     for resuming in [false, true] {
         let args = rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
-        assert_eq!(appended(&args), format!("{}\n\n{NOTE}", rules()), "resuming: {resuming}");
+        assert_eq!(appended(&args), format!("{}\n\n{}\n\n{NOTE}", rules(), naming()), "resuming: {resuming}");
     }
 }
 
@@ -340,10 +340,10 @@ fn helms_note_is_appended_to_every_process_of_its_session() {
     let note = "You are Helm, docked in Armada over repository armada.";
     for resuming in [false, true] {
         let args = rendered(&launching(resuming, SessionMode::Auto).noting(note));
-        assert_eq!(appended(&args), format!("{}\n\n{note}", rules()), "resuming: {resuming}");
+        assert_eq!(appended(&args), format!("{}\n\n{}\n\n{note}", rules(), naming()), "resuming: {resuming}");
     }
     let blank = rendered(&launching(false, SessionMode::Auto).noting("  \n "));
-    assert_eq!(appended(&blank), rules());
+    assert_eq!(appended(&blank), format!("{}\n\n{}", rules(), naming()));
 }
 
 /// A fork of a Session that has a note is told both, in one argument and not two, which the CLI
@@ -355,7 +355,7 @@ fn a_note_and_a_forks_note_are_one_appended_prompt() {
         .expect("portable")
         .noting("You are Helm.");
     let args = rendered(&launch);
-    assert_eq!(appended(&args), format!("{}\n\nYou are Helm.\n\n{NOTE}", rules()));
+    assert_eq!(appended(&args), format!("{}\n\n{}\n\nYou are Helm.\n\n{NOTE}", rules(), naming()));
 }
 
 #[test]
