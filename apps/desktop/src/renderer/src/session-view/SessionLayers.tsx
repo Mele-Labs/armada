@@ -20,6 +20,7 @@ import { closeLayer, type LayerId } from "./layers";
 import { SystemSections } from "./SystemLayer";
 import { artifactOfRow } from "../judge/artifacts";
 import { JudgeAct } from "../judge/JudgeAct";
+import { JudgeLooseNotes } from "../judge/notes";
 import { useJudgeApi } from "../judge/store";
 import { Fact, Glyphed, LedgerRow, PullRow } from "./LedgerRow";
 import { openSlotKeyInPanel } from "../shared-panel/store";
@@ -268,6 +269,7 @@ export function ArtifactsLayer({ session, entries, onOpenSession, onOpenSketch }
         </>
       }
     >
+      <JudgeLooseNotes job={session.id} />
       {view === "list" ? <Groups groups={shown} session={session} /> : graph.nodes.length === 0 ? null : <ArtifactGraph nodes={graph.nodes} edges={graph.edges} label="Artifact graph" />}
     </Shell>
   );

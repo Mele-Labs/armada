@@ -58,11 +58,6 @@ export function JudgeNotes({ job, artifact, label, only, draws = true }: { job: 
   );
 }
 
-/** A note block at the top of a view that has no parts to pin to: the notes whose part is the whole of it. */
-export function JudgeNoteBlock({ job, artifact }: { job: string; artifact: Pick<JudgeArtifact, "kind" | "id"> }) {
-  return <JudgeNotes job={job} artifact={artifact} label="Notes from the judge" only={(note) => note.about === undefined} />;
-}
-
 /** The line a diff's line has in the new file: counted from the hunk headers, since the diff draws no numbers. Absent for a line that is only removed. */
 export function newLineAt(file: DiffFile, index: number): number | undefined {
   let at = 0;
@@ -101,7 +96,7 @@ export function useDiffUnder(job: string, artifact: Pick<JudgeArtifact, "kind" |
 /** Kinds that have a view of their own to hold their notes. */
 const OWN_VIEW: ReadonlySet<string> = new Set(["plan", "pull_request", "doc"]);
 
-/** The notes of the artifacts that have no view of their own, at the head of the Job's thread: each headed by what it is about. */
+/** The notes of the artifacts that have no view of their own, at the head of the Job's artifacts: each headed by what it is about. Nothing here pins a note to its part, so every note of the reading stands, saying where it is. */
 export function JudgeLooseNotes({ job }: { job: string }) {
   const records = useJudgeRecords(job).filter((one) => one.state === "done" && !OWN_VIEW.has(one.artifact.kind) && one.notes.length > 0);
   if (records.length === 0) return null;
@@ -110,7 +105,7 @@ export function JudgeLooseNotes({ job }: { job: string }) {
       {records.map((one) => (
         <section key={one.id} aria-label={`Notes on ${one.artifact.title}`}>
           <p className="judge-loose__title">{one.artifact.title}</p>
-          <JudgeNoteBlock job={job} artifact={one.artifact} />
+          <JudgeNotes job={job} artifact={one.artifact} label="Notes from the judge" />
         </section>
       ))}
     </div>

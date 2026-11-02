@@ -1,5 +1,5 @@
 // The Judge act: a balance on an artifact's row, in the Thread's head for the whole Job, and on the plan card. A press opens a small popover that asks what
-// to verify; nothing is read until Judge is pressed in it. The icon then reads the state of the last reading: a pulsing mark while it reads, a dot while its
+// to verify; nothing is read until Judge is pressed in it, and once a reading has notes the box leads to them. The icon then reads the state of the last reading: a pulsing mark while it reads, a dot while its
 // notes are unread, a check after a clean one. A reading that failed says why in the tooltip and leaves the balance as it was. No count is drawn.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -7,6 +7,8 @@ import { createPortal } from "react-dom";
 import { CircleCheck, CircleDot, Scale } from "lucide-react";
 import { Button, Textarea, Tooltip } from "@armada/components";
 
+import { useSessions } from "../sessions-draft";
+import { openAtNotes } from "./artifacts";
 import { keyOf, registerOpener, useJudgeApi, useJudgeRecord, type JudgeArtifact } from "./store";
 import "./judge.css";
 
@@ -14,8 +16,9 @@ const PLACEHOLDER = "existing sign-ins survive the switch";
 
 type Place = { top: number; left: number };
 
-/** The popover, drawn on the body so a glass pane cannot clip it, under the act and lined up with its right edge. */
-function JudgePopover({ job, artifact, anchor, onRun, onClose }: { job: string; artifact: JudgeArtifact; anchor: HTMLElement; onRun: (prompt: string) => void; onClose: () => void }) {
+/** The popover, drawn on the body so a glass pane cannot clip it (or in `into`, over a sheet that lies above the body), under the act and lined up with its right edge. */
+function JudgePopover({ job, artifact, anchor, into, noted, onRun, onClose }: { job: string; artifact: JudgeArtifact; anchor: HTMLElement; into?: HTMLElement | null; noted: boolean; onRun: (prompt: string) => void; onClose: () => void }) {
+  const session = useSessions().find((one) => one.id === job);
   const [text, setText] = useState("");
   const [place, setPlace] = useState<Place | undefined>();
   const panel = useRef<HTMLDivElement>(null);
@@ -67,20 +70,32 @@ function JudgePopover({ job, artifact, anchor, onRun, onClose }: { job: string; 
       />
       <p className="judge-pop__hint">Empty: what did we miss?</p>
       <div className="judge-pop__acts">
+        {noted && session !== undefined ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              onClose();
+              openAtNotes(session, artifact);
+            }}
+          >
+            Read the notes
+          </Button>
+        ) : null}
         <Button size="sm" variant="primary" onClick={run}>
           Judge
         </Button>
       </div>
     </div>,
-    document.body,
+    into ?? document.body,
   );
 }
 
 /**
- * `label` names the press for a reader of the screen (`Judge #2390`); `size` is the glyph's. `shortcut` is the key that opens the popover, shown in the tooltip.
+ * `label` names the press for a reader of the screen (`Judge #2390`); `size` is the glyph's. `shortcut` is the key that opens the popover, shown in the tooltip. `into` is where the popover is drawn when the body lies under the act.
  * A window with no judge to ask draws nothing.
  */
-export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut }: { job: string; artifact: JudgeArtifact; label?: string; size?: number; shortcut?: string }) {
+export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut, into }: { job: string; artifact: JudgeArtifact; label?: string; size?: number; shortcut?: string; into?: HTMLElement | null }) {
   const api = useJudgeApi();
   const record = useJudgeRecord(job, artifact);
   const [open, setOpen] = useState(false);
@@ -121,6 +136,8 @@ export function JudgeAct({ job, artifact, label = "Judge", size = 16, shortcut }
           job={job}
           artifact={artifact}
           anchor={anchor}
+          {...(into === undefined ? {} : { into })}
+          noted={record?.state === "done" && record.notes.length > 0}
           onClose={close}
           onRun={(prompt) => {
             api.ask({ job, artifact, prompt });

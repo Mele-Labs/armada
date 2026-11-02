@@ -81,8 +81,6 @@ import { escalation, failingLink, notOursEvidence, notOursParts, watchSaid } fro
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress, type PictureMarked } from "./session-artifact";
 import { linkEntry, useStartedBy } from "./session-started";
 import { readingOfSketch, sceneOfSketch, useSketchRevisions, withRevisionScenes, withSketchRevisions } from "./session-sketch";
-import { JudgeLooseNotes } from "./judge/notes";
-import { useJudgeApi } from "./judge/store";
 import { useJudgedRows, usePlanJudge } from "./judge/thread";
 import { documentAnswerOf, forkAtPick, sketchAnswerOf, threadRowsOf, upTo } from "./session-thread-rows";
 import { askToReportJob } from "./report";
@@ -945,7 +943,6 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
   // A judge on demand: a line in the thread for each reading that finished, and the plan's notes and press.
   const withJudged = useJudgedRows(session, withStarts);
   const planJudge = usePlanJudge(session);
-  const judging = useJudgeApi() !== undefined;
   const openRequest = useCallback((row: RequestedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, start: startOf(row), from: row.id }), [session.id]);
   const openSaved = useCallback((row: SavedThreadRow) => void openInPanel({ kind: "requests", sessionId: session.id, saved: { collection: row.collectionId, request: row.request }, from: row.id }), [session.id]);
   // A run drawn as a terminal: a block's run is drawn under the block, and one typed in the box is docked above it.
@@ -1312,7 +1309,7 @@ export function SessionView({ session, goes, onOpen, held, deck, repositories = 
           <SessionThread
             sessionId={session.id}
             rows={withJudged}
-            {...(!cardLead && !modEmpty && !judging ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty sessionId={session.id} /> : null}{judging ? <JudgeLooseNotes job={session.id} /> : null}</> })}
+            {...(!cardLead && !modEmpty ? {} : { lead: <>{cardLead ? <RunsPlaceCard {...where!} /> : null}{modEmpty ? <ModEmpty sessionId={session.id} /> : null}</> })}
             {...(session.transcript === undefined ? {} : { transcript: session.transcript })}
             {...(inlineCards.length === 0 ? {} : { inline: inlineCards })}
             onOpenRetro={openRetro}
