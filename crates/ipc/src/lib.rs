@@ -645,8 +645,8 @@ pub use job_browser::{
 };
 pub use act_failed::{ActFailed, BackgroundAct};
 pub use autopilot::{
-    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState,
-    AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
+    Autopilot, AutopilotCap, AutopilotDecision, AutopilotList, AutopilotPick, AutopilotPickState,
+    AutopilotProposal, AutopilotQuoted, AutopilotSettings, AutopilotState, AutopilotWork, ProposeAutopilot,
 };
 pub use context_breakdown::{
     ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile,

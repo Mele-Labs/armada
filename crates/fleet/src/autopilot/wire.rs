@@ -71,10 +71,54 @@ impl Gathered {
             spent_micros: self.spent.micros,
             sessions_started: self.spent.started,
             at_work: u32::try_from(at_work).unwrap_or(u32::MAX),
+            on_autopilot: ipc::AutopilotWork {
+                backlog: kept.on_backlog,
+                running: kept.on_running,
+            },
+            // A word this build does not know is left off, as a pick's state is.
+            decisions: kept
+                .decisions
+                .iter()
+                .filter_map(|word| decision_from_word(word))
+                .collect(),
             picks: self.picks.iter().filter_map(pick).collect(),
             fault: None,
         }
     }
+}
+
+const DECISIONS: [ipc::AutopilotDecision; 10] = [
+    ipc::AutopilotDecision::Recommended,
+    ipc::AutopilotDecision::Open,
+    ipc::AutopilotDecision::Plan,
+    ipc::AutopilotDecision::Draft,
+    ipc::AutopilotDecision::Walk,
+    ipc::AutopilotDecision::Land,
+    ipc::AutopilotDecision::Unsure,
+    ipc::AutopilotDecision::Red,
+    ipc::AutopilotDecision::Reads,
+    ipc::AutopilotDecision::Writes,
+];
+
+/// The word the store keeps for a kind of decision.
+pub(super) fn decision_word(decision: ipc::AutopilotDecision) -> &'static str {
+    use ipc::AutopilotDecision as D;
+    match decision {
+        D::Recommended => "recommended",
+        D::Open => "open",
+        D::Plan => "plan",
+        D::Draft => "draft",
+        D::Walk => "walk",
+        D::Land => "land",
+        D::Unsure => "unsure",
+        D::Red => "red",
+        D::Reads => "reads",
+        D::Writes => "writes",
+    }
+}
+
+fn decision_from_word(word: &str) -> Option<ipc::AutopilotDecision> {
+    DECISIONS.into_iter().find(|kind| decision_word(*kind) == word)
 }
 
 /// A pick on the wire. One whose state this build does not know is left off rather than guessed.

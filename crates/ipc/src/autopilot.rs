@@ -1,6 +1,8 @@
 //! Autopilot on the wire: a repository working its own backlog, what it picked, and the acts on
 //! it. #2092, `docs/concepts/autopilot.md`.
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Instant, ManifestId, SessionId, WorkflowId};
@@ -35,6 +37,42 @@ pub enum AutopilotPickState {
     Withdrawn,
     /// A person put it away from the pile.
     Dismissed,
+}
+
+/// What a person put on Autopilot. The default is what an Autopilot did before there were boxes:
+/// the backlog, and nothing running.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AutopilotWork {
+    pub backlog: bool,
+    pub running: bool,
+}
+
+impl Default for AutopilotWork {
+    fn default() -> Self {
+        Self { backlog: true, running: false }
+    }
+}
+
+/// A kind of decision a helper may answer while Autopilot runs. **There is no destructive one**:
+/// that always waits for a person, so there is no word a body could name it by.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AutopilotDecision {
+    /// A question that has a recommended answer.
+    Recommended,
+    /// A question with no recommended answer.
+    Open,
+    Plan,
+    Draft,
+    Walk,
+    /// A green pull request.
+    Land,
+    /// An issue Autopilot was unsure of.
+    Unsure,
+    /// A fix for a red main.
+    Red,
+    Reads,
+    Writes,
 }
 
 /// One pick. `workflow_id` is what the picker chose, absent where it was unsure of that too.
@@ -74,6 +112,10 @@ pub struct Autopilot {
     /// The cap that stopped it, where one did rather than a person.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capped_by: Option<AutopilotCap>,
+    /// What was put on Autopilot at start. Kept as checked: nothing acts on it yet.
+    pub on_autopilot: AutopilotWork,
+    /// The kinds of decision a helper may answer, as checked at start.
+    pub decisions: BTreeSet<AutopilotDecision>,
     /// What its Sessions have spent so far, summed from each Session's own cost.
     pub spent_micros: u64,
     /// How many Sessions it has started, the count `session_cap` is held to.
@@ -114,6 +156,13 @@ pub struct AutopilotSettings {
     pub spend_cap_micros: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_cap: Option<u32>,
+    /// What goes on Autopilot. **Only a start keeps it**: `update_autopilot` ignores it, since the
+    /// Cockpit's Edit caps sends none. A body without it reads as the backlog alone.
+    #[serde(default)]
+    pub on_autopilot: AutopilotWork,
+    /// The kinds of decision a helper may answer. A start keeps it and an update ignores it.
+    #[serde(default)]
+    pub decisions: BTreeSet<AutopilotDecision>,
 }
 
 /// `propose_autopilot`'s answer: the settings, and the words each was read from. #2105.

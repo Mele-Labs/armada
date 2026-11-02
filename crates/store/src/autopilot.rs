@@ -24,6 +24,11 @@ pub struct KeptAutopilot {
     pub ended_at: Option<String>,
     /// `until`, `spend` or `sessions`: the cap that stopped it. Absent where a person did, or nothing has.
     pub capped_by: Option<String>,
+    /// The boxes checked at start: whether the backlog is on Autopilot, and what is running.
+    pub on_backlog: bool,
+    pub on_running: bool,
+    /// The kinds of decision a helper may answer, as the words Fleet gave. Kept in order.
+    pub decisions: Vec<String>,
 }
 
 /// One pick. `started_session` is the Session it started, where it started one.
@@ -46,7 +51,7 @@ pub struct KeptPick {
 
 const AUTOPILOT: &str =
     "manifest_id, run_id, instruction, at_once, until, spend_cap_micros, job_cap, \
-                         state, started_at, ended_at, capped_by";
+                         state, started_at, ended_at, capped_by, on_backlog, on_running, decisions";
 const PICK: &str =
     "pick_id, run_id, manifest_id, issue_number, issue_title, issue_url, workflow_id, \
                     started_session, state, reason, at, issue_reference";
@@ -66,6 +71,14 @@ fn autopilot_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAutopilot> {
         started_at: row.get(8)?,
         ended_at: row.get(9)?,
         capped_by: row.get(10)?,
+        on_backlog: row.get(11)?,
+        on_running: row.get(12)?,
+        decisions: row
+            .get::<_, String>(13)?
+            .split(',')
+            .filter(|word| !word.is_empty())
+            .map(str::to_string)
+            .collect(),
     })
 }
 
@@ -127,7 +140,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO autopilots ({AUTOPILOT})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"
                 ),
                 params![
                     kept.manifest_id,
@@ -141,6 +154,9 @@ impl Store {
                     kept.started_at,
                     kept.ended_at,
                     kept.capped_by,
+                    kept.on_backlog,
+                    kept.on_running,
+                    kept.decisions.join(","),
                 ],
             )
             .map(|_| ())
@@ -165,8 +181,8 @@ impl Store {
             .map_err(failed("moving an Autopilot"))
     }
 
-    /// Change one run's instruction, at once and caps, and nothing else: its state, `capped_by`
-    /// and picks stay. **False where the repository holds no such run**, as
+    /// Change one run's instruction, at once and caps, and nothing else: its state, `capped_by`,
+    /// boxes and picks stay. **False where the repository holds no such run**, as
     /// [`move_autopilot`](Store::move_autopilot) answers.
     pub fn update_autopilot(&mut self, kept: &KeptAutopilot) -> Result<bool, WriteError> {
         self.conn

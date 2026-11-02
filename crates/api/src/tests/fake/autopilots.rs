@@ -31,6 +31,8 @@ impl Autopilots for FakeDaemon {
                 until: None,
                 spend_cap_micros: None,
                 session_cap: None,
+                on_autopilot: Default::default(),
+                decisions: Default::default(),
             },
             quoted: Default::default(),
         })

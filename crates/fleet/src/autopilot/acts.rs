@@ -16,6 +16,7 @@ use store::KeptAutopilot;
 
 use super::bounds::{NotNow, NotResumed, PickState, State};
 use super::sentence::settings_from;
+use super::wire::decision_word;
 use super::starting::Issue;
 use crate::daemon::Fleet;
 
@@ -197,6 +198,8 @@ where
                 until: read.until.as_ref().map(ipc::Instant::from),
                 spend_cap_micros: read.spend_cap_micros,
                 session_cap: read.session_cap,
+                on_autopilot: Default::default(),
+                decisions: Default::default(),
             },
             quoted: AutopilotQuoted {
                 instruction: read.quoted.instruction,
@@ -244,6 +247,13 @@ where
             started_at: now.as_str().to_string(),
             ended_at: None,
             capped_by: None,
+            on_backlog: settings.on_autopilot.backlog,
+            on_running: settings.on_autopilot.running,
+            decisions: settings
+                .decisions
+                .iter()
+                .map(|decision| decision_word(*decision).to_string())
+                .collect(),
         };
         self.store()
             .lock()

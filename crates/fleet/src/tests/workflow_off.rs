@@ -128,7 +128,7 @@ async fn autopilots_picker_is_shown_no_workflow_that_is_off_for_its_repository_a
             two_workflows(fittings);
         });
         saved(&rig, save).await;
-        let settings = AutopilotSettings { instruction: "Fix what is open".into(), at_once: 1, until: None, spend_cap_micros: None, session_cap: None };
+        let settings = AutopilotSettings { instruction: "Fix what is open".into(), at_once: 1, until: None, spend_cap_micros: None, session_cap: None, on_autopilot: Default::default(), decisions: Default::default() };
         rig.fleet.start_autopilot(rig.manifest.clone(), settings).await.expect("started");
         let _ = rig.fleet.autopilot_pass().await;
         judge.asked().into_iter().find(|one| one.contains("The workflows this repository holds")).expect("the picker was asked")
