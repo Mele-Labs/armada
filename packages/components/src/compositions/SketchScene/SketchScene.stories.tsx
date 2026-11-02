@@ -56,6 +56,36 @@ export const Architecture: Story = {
   },
 };
 
+const MOCK: Scene = {
+  nodes: [{ id: "row", kind: "mock", x: 0, y: 0, w: 320, title: "Job row", html: '<div class="lamp" data-part="lamp">Needs you</div>', css: ".lamp { font-weight: 700; }" }],
+  edges: [],
+};
+
+/** A part of an app in a sealed frame, drawn with the sheets the host read; the line under it names the files. */
+export const MockDrawnWithTheApp: Story = {
+  args: {
+    scene: MOCK,
+    mockStyles: async () => ({ css: [".lamp { text-transform: uppercase; }"], fonts: [], drawnWith: ["packages/tokens/tokens.css", "packages/components/src/compositions/JobCard/JobCard.css"] }),
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(await canvas.findByText("tokens.css, JobCard.css")).toBeInTheDocument();
+    const frame = await waitFor(() => {
+      const found = canvasElement.querySelector("iframe");
+      expect(found?.contentDocument?.querySelector(".lamp")).not.toBeNull();
+      return found!;
+    });
+    await expect(frame.contentWindow!.getComputedStyle(frame.contentDocument!.querySelector(".lamp")!).textTransform).toBe("uppercase");
+  },
+};
+
+/** Where no stylesheet of the app was used, or the read failed, the frame says so and draws the node's own rules. */
+export const MockWithNoStylesheet: Story = {
+  args: { scene: MOCK, mockStyles: async () => ({ css: [], fonts: [], drawnWith: [] }) },
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByText("No stylesheet of the app")).toBeInTheDocument();
+  },
+};
+
 /** Against the current state: added is green, removed red, changed amber, and what stays is dimmed. */
 export const BeforeAndAfter: Story = {
   args: { scene: AFTER, against: FLOW },

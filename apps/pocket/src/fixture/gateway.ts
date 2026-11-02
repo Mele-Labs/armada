@@ -40,6 +40,10 @@ export function answer(mac: FixtureMac, posted: Posted[], method: string, target
         const thread = mac.threads[id];
         return thread === undefined ? said(404, "No Job has that id on this Mac.") : json(thread);
       }
+      case "/api/sessions/kept_styles": {
+        const styles = mac.kept[url.searchParams.get("hash") ?? ""];
+        return styles === undefined ? said(404, "Fleet holds no kept styles under that hash.") : json(styles);
+      }
       case "/api/sessions/shown": {
         const text = mac.shown[id]?.[url.searchParams.get("path") ?? ""];
         return text === undefined ? said(404, "That Job did not show that file.") : json({ path: url.searchParams.get("path"), text });

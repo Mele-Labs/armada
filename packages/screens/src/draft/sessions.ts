@@ -121,6 +121,8 @@ export type SessionAttachment =
       settled?: SketchSettled;
       /** When the newest revision was kept, as near as the record tells: its thread card stands at this time. */
       kept?: string;
+      /** A document: the kept style set of each `mock` in its sketches, by content hash, keyed `<sketch title>#<node id>`: `detail.kept_styles` on the wire. */
+      keptStyles?: Readonly<Record<string, string>>;
     }
   /**
    * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.

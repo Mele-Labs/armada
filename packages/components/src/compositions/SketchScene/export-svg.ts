@@ -66,6 +66,12 @@ export type ScreenMarkup = { top: number; rest: string; steps: Readonly<Record<n
 /** The screens of a scene by node id, and the stylesheet they are drawn with. A node with no entry is drawn as its frame and name. */
 export type ExportScreens = { css: string; nodes: Readonly<Record<string, ScreenMarkup>> };
 
+/**
+ * One `mock` as a file carries it: its cleaned HTML, the sheets it applies and the attributes of its root, drawn in a frame `height` tall that starts
+ * `top` under the node's title. Fonts are not carried, so a file falls back to the system's.
+ */
+export type MockMarkup = { top: number; height: number; html: string; css: string; root: Readonly<Record<string, string>> };
+
 /** What the owner and a diff did to the scene, as the canvas draws it. */
 export type ExportState = {
   change?: ReadonlyMap<string, SceneChange>;
@@ -83,6 +89,8 @@ export type SketchSvgInput = {
   icons?: Readonly<Partial<Record<string, string>>>;
   /** What each `screen` node draws. Only the markup given is written, so a still picture is handed the rest alone. */
   screens?: ExportScreens;
+  /** What each `mock` node draws, by node id. A node with no entry is drawn as its frame and name, which a picture is handed alone. */
+  mocks?: Readonly<Record<string, MockMarkup>>;
   state?: ExportState;
   /** Each body as the canvas broke it into lines, by node id: the browser's own wrapping, which a count of characters only approximates. */
   bodyLines?: Readonly<Record<string, readonly string[]>>;
@@ -95,6 +103,8 @@ export type SketchSvgInput = {
 };
 
 const GROUND = new Set(["group", "lane"]);
+/** What a mock's frame in a file may do: draw its own inline rules and nothing else, so even a file with no policy of its own fetches nothing. */
+const MOCK_POLICY = "default-src 'none'; style-src 'unsafe-inline'";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
 
@@ -228,7 +238,7 @@ export const EXPORT_CSS = `
 .sk-border { fill: none; stroke: var(--hue); stroke-width: var(--edge-active); }
 .sk-frame { fill: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised)); stroke: var(--hue); stroke-width: var(--edge-active); }
 .sk-node[data-kind="group"] .sk-frame, .sk-node[data-kind="lane"] .sk-frame { fill: none; stroke-dasharray: var(--space-2) var(--space-2); }
-.sk-node[data-kind="wire"] .sk-frame, .sk-node[data-kind="screen"] .sk-frame { fill: var(--bg-sunken); stroke-dasharray: var(--space-2) var(--space-2); }
+.sk-node[data-kind="wire"] .sk-frame, .sk-node[data-kind="screen"] .sk-frame, .sk-node[data-kind="mock"] .sk-frame { fill: var(--bg-sunken); stroke-dasharray: var(--space-2) var(--space-2); }
 .sk-ring { display: none; fill: none; stroke: var(--edge-focus); stroke-width: var(--edge-active); }
 .sk-node[data-current] .sk-ring { display: inline; }
 .sk-head { fill: var(--hue); }
@@ -258,6 +268,7 @@ export const EXPORT_CSS = `
 .sk-edge[data-active] .sk-edge__head { fill: var(--edge-focus); }
 .sk-edge__backing { fill: var(--bg-sunken); rx: var(--radius-sm); }
 .sk-edge__label { fill: var(--fg-muted); font-size: var(--text-xs); text-anchor: middle; dominant-baseline: central; }
+.sk-mock { display: block; border: 0; }
 .sk-ink { fill: none; stroke: var(--fg-muted); stroke-width: var(--edge-active); stroke-linecap: round; stroke-linejoin: round; }
 `;
 
@@ -267,6 +278,15 @@ export function tokenDeclarations(tokens: Readonly<Record<string, string>>): str
     .filter(([, value]) => value.trim() !== "")
     .map(([name, value]) => `${name}: ${value.trim().replace(/[<>]/g, "")};`)
     .join(" ");
+}
+
+/** A mock's document: sealed by its policy as well as by its frame, with the sheets it applies inline. */
+export function mockDocument({ html, css, root }: Pick<MockMarkup, "html" | "css" | "root">): string {
+  const attributes = Object.entries(root)
+    .filter(([name]) => /^[a-z][a-z-]*$/.test(name))
+    .map(([name, value]) => ` ${name}="${xml(value)}"`)
+    .join("");
+  return `<!doctype html><html${attributes}><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${MOCK_POLICY}"><style>${css.replace(/<\/(style)/gi, "<\\/$1")}</style></head><body>${html}</body></html>`;
 }
 
 function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: ExportMetrics): string {
@@ -365,6 +385,16 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
       const body = `<div${input.standalone ? ` xmlns="${XHTML_NS}"` : ""}>${html(markup)}</div>`;
       parts.push(`<g class="sk-screen" data-at="${at}"${at === "rest" ? "" : ' data-off=""'}><foreignObject x="0" y="${num(sheet.top)}" width="${num(w)}" height="${num(Math.max(0, h - sheet.top))}" overflow="visible">${body}</foreignObject></g>`);
     }
+  } else if (node.kind === "mock" && input.mocks?.[node.id] !== undefined) {
+    // The part of the app in a frame of its own: sealed, with its sheets inline, and nothing in it to fetch. A viewer's browser draws it again.
+    const drawn = input.mocks[node.id]!;
+    if (node.title !== undefined) parts.push(`<text class="sk-caption" x="0" y="${num((drawn.top - m.space2) / 2)}">${xml(node.title)}</text>`);
+    const frame = `<iframe class="sk-mock" title="${xml(node.title ?? "Frame")}" sandbox="" width="${num(w)}" height="${num(drawn.height)}" srcdoc="${xml(mockDocument(drawn))}"></iframe>`;
+    parts.push(`<foreignObject x="0" y="${num(drawn.top)}" width="${num(w)}" height="${num(drawn.height)}" overflow="visible"><div${input.standalone ? ` xmlns="${XHTML_NS}"` : ""}>${frame}</div></foreignObject>`);
+  } else if (node.kind === "mock") {
+    // The frame and the name, for a picture: an image cannot hold a frame of another document.
+    parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);
+    if (node.title !== undefined) parts.push(`<text class="sk-wire-title" x="${num(e + m.space3)}" y="${mid(e, headHeight(m))}">${xml(node.title)}</text>`);
   } else if (node.kind === "screen") {
     // The screen's outer frame and its name, for a picture handed no markup to draw it with.
     parts.push(`<rect class="sk-frame" x="${num(e / 2)}" y="${num(e / 2)}" width="${num(w - e)}" height="${num(h - e)}" rx="${num(m.radiusMd)}"/>`);

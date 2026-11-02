@@ -44,7 +44,7 @@ export const waitsOnHim = (page: Extract<SessionAttachment, { kind: "artifact" }
  * A page a Job wrote as its document: the artifact that names its revisions. Where it holds more than one, `page` is the `id` of the one asked for; absent, the first.
  * `waits` is a newest revision put to him and not answered yet.
  */
-export function documentOf(session: Session, page?: string): { id: string; title: string; revisions: readonly string[]; waits: boolean } | undefined {
+export function documentOf(session: Session, page?: string): { id: string; title: string; revisions: readonly string[]; waits: boolean; keptStyles?: Readonly<Record<string, string>> } | undefined {
   const found = attachmentsOf(session, "artifact").find((one) => one.revisions !== undefined && one.revisions.length > 0 && (page === undefined || one.id === page));
-  return found?.revisions === undefined ? undefined : { id: found.id, title: found.title, revisions: found.revisions, waits: waitsOnHim(found) };
+  return found?.revisions === undefined ? undefined : { id: found.id, title: found.title, revisions: found.revisions, waits: waitsOnHim(found), ...(found.keptStyles === undefined ? {} : { keptStyles: found.keptStyles }) };
 }

@@ -3,12 +3,12 @@
 // of each note at the words or the row it is about. **The page is not React's**: React draws the element and the portals into it, and
 // the page's own nodes are put there by hand, so a note's mark is inserted and taken out without React knowing.
 
-import { useEffect, useLayoutEffect, useState, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { NoteNumber, SketchScene, type DocumentTarget, type NotedRef, type ViewerNotes, type ViewerNotesScope } from "@armada/components";
 
 import { placeOf, pointedAt, rangeOf, rowOf } from "./document-find";
-import { PAGE_ROOT, sectionOf, type PageSketch } from "./document-page";
+import { PAGE_ROOT, sceneWithKept, sectionOf, type PageSketch } from "./document-page";
 import { openLink } from "../commands";
 
 /** A note already sent, as the thread holds it. */
@@ -33,6 +33,8 @@ type Props = {
   root: HTMLElement;
   css: string;
   sketches: readonly PageSketch[];
+  /** The kept style set of each `mock` in the sketches, by content hash, keyed `<sketch title>#<node id>`: the document's `detail.kept_styles`. */
+  keptStyles?: Readonly<Record<string, string>> | undefined;
   /** The revision before, whose sketches the new ones are drawn against while Changes is on. */
   against?: readonly PageSketch[] | undefined;
   scope: ViewerNotesScope;
@@ -51,8 +53,11 @@ type Props = {
 
 const highlights = (): HighlightRegistry | undefined => (typeof CSS !== "undefined" && "highlights" in CSS && typeof Highlight !== "undefined" ? CSS.highlights : undefined);
 
-export function DocumentPage({ title, revision, root, css, sketches, against, scope, viewer, page, sent, focus, margin, notes, lit, onLit, exporters }: Props) {
+export function DocumentPage({ title, revision, root, css, sketches, keptStyles, against, scope, viewer, page, sent, focus, margin, notes, lit, onLit, exporters }: Props) {
   const [mounts, setMounts] = useState<readonly Mount[]>([]);
+  // Held between renders: a scene that is a new object each time is drawn from the start each time.
+  const scenes = useMemo(() => sketches.map((one) => sceneWithKept(one.title, one.scene, keptStyles)), [sketches, keptStyles]);
+  const againstScenes = useMemo(() => against?.map((one) => sceneWithKept(one.title, one.scene, keptStyles)), [against, keptStyles]);
   const [anchors, setAnchors] = useState<readonly Anchor[]>([]);
 
   // The page's CSS reaches only the page: every rule was put under the page's class when it was read.
@@ -258,8 +263,8 @@ export function DocumentPage({ title, revision, root, css, sketches, against, sc
       {mounts.map((one) =>
         createPortal(
           <SketchScene
-            scene={sketches[one.index]?.scene}
-            {...(against?.[one.index] === undefined ? {} : { against: against[one.index]!.scene })}
+            scene={scenes[one.index]}
+            {...(againstScenes?.[one.index] === undefined ? {} : { against: againstScenes[one.index] })}
             title={one.title}
             notes={scope}
             within={{ page: title, revision, section: one.section }}

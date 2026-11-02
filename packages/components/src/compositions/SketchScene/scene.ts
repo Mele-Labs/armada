@@ -10,7 +10,7 @@
 import type { SketchPoint, SketchStroke } from "../SketchPad/ink-types";
 import { readScreen, type ScreenElement } from "./screen";
 
-export const SCENE_KINDS = ["box", "group", "lane", "label", "code", "wire", "screen"] as const;
+export const SCENE_KINDS = ["box", "group", "lane", "label", "code", "wire", "screen", "mock"] as const;
 export type SceneKind = (typeof SCENE_KINDS)[number];
 
 /** What a wireframe node stands for, drawn as a block and never as a control. */
@@ -49,6 +49,14 @@ export type SceneNode = {
   wire?: WirePart;
   /** What a `screen` draws: a layout tree, sized by its contents. `w` is its width, and `h` is not read. */
   screen?: ScreenElement;
+  /** What a `mock` draws: the HTML of a part of an app, in a sealed frame `w` wide. The frame takes its content's height. */
+  html?: string;
+  /** A `mock`'s own rules, for what the repository's stylesheets lack. */
+  css?: string;
+  /** The repository paths of the stylesheets a `mock` is drawn with; the host reads them. */
+  styles?: readonly string[];
+  /** The kept style set Fleet drew this with, by content hash; written by Fleet, never by the agent. */
+  kept?: string;
   /** Where the node comes in the order the scene plays its steps. */
   step?: number;
   /** A `box`'s outline. */
@@ -76,12 +84,13 @@ const oneOf = <T extends string>(list: readonly T[]) => (value: unknown): value 
 
 function nodeOf(value: unknown): SceneNode | undefined {
   if (!isRecord(value)) return undefined;
-  const { id, kind, x, y, w, h, title, body, icon, lang, wire, step, screen, shape, color } = value;
+  const { id, kind, x, y, w, h, title, body, icon, lang, wire, step, screen, shape, color, html, css, styles, kept } = value;
   if (!isText(id) || id === "" || !oneOf(SCENE_KINDS)(kind) || !isNumber(x) || !isNumber(y)) return undefined;
   if (!optional(w, isNumber) || !optional(h, isNumber) || !optional(title, isText) || !optional(body, isText)) return undefined;
   if (!optional(icon, oneOf(SCENE_ICONS)) || !optional(lang, isText) || !optional(wire, oneOf(WIRE_PARTS)) || !optional(step, isNumber)) return undefined;
   if (!optional(shape, oneOf(SCENE_SHAPES)) || !optional(color, oneOf(SCENE_COLORS))) return undefined;
   if ((kind === "group" || kind === "lane") && (!isNumber(w) || !isNumber(h))) return undefined;
+  if (kind === "mock" && (!isText(html) || html.trim() === "" || !isNumber(w) || !optional(css, isText) || !(styles === undefined || (Array.isArray(styles) && styles.every(isText))) || !optional(kept, isText))) return undefined;
   const drawn = kind === "screen" ? readScreen(screen) : undefined;
   if (kind === "screen" && drawn === undefined) return undefined;
   return {
@@ -94,6 +103,7 @@ function nodeOf(value: unknown): SceneNode | undefined {
     ...(lang === undefined ? {} : { lang: lang as string }),
     ...(wire === undefined ? {} : { wire: wire as WirePart }),
     ...(drawn === undefined ? {} : { screen: drawn }),
+    ...(kind !== "mock" ? {} : { html: html as string, ...(css === undefined ? {} : { css: css as string }), ...(styles === undefined ? {} : { styles: styles as string[] }), ...(kept === undefined ? {} : { kept: kept as string }) }),
     ...(step === undefined ? {} : { step: step as number }),
     ...(shape === undefined ? {} : { shape: shape as SceneShape }),
     ...(color === undefined ? {} : { color: color as SceneColor }),
@@ -201,10 +211,15 @@ export function diffScenes(before: Scene, after: Scene): SceneDiff {
   };
 }
 
-/** What a part is called when somebody asks about it. */
+/** What a part is called when somebody asks about it. An element of a `mock` (`<node>#<key>`) is called by the name its author gave it, else by its mock. */
 export function partLabel(scene: Scene, id: string): string {
   const node = scene.nodes.find((one) => one.id === id);
   if (node !== undefined) return node.title ?? node.body?.split("\n")[0] ?? node.id;
+  const at = id.indexOf("#");
+  if (at > 0 && scene.nodes.some((one) => one.id === id.slice(0, at))) {
+    const key = id.slice(at + 1);
+    return key.startsWith("body") ? partLabel(scene, id.slice(0, at)) : key.replace(/\[\d+\]$/, "");
+  }
   const edge = scene.edges.find((one) => one.id === id);
   if (edge === undefined) return id;
   const name = (end: string) => partLabel(scene, end);
