@@ -77,6 +77,7 @@ import type { Scenario } from "./scenario";
 import { withState } from "../state-feed";
 import { PaletteFixturesFrom } from "../palette-fixtures";
 import { DebugReportFrom } from "../debug-report/debug-report";
+import { readingsAsReader } from "./debug-report-reader";
 import { ThreadLookFrom } from "../thread-look-here";
 import { seedPaletteMemory } from "../palette-memory";
 
@@ -205,6 +206,8 @@ export function mountApp(
   // A scenario that adds to its timeline as time passes holds it here, and moves it when the fake's moment does.
   const timeline = chosen.draft?.eventsLater === undefined ? undefined : eventsLater(chosen.draft.events ?? [], chosen.draft.eventsLater);
   if (timeline !== undefined && shared === undefined) alsoOnTimePassing(timeline.advance);
+  // Each opening of Copy debug report takes the next reading, so a window starts from the first.
+  const debugRead = readingsAsReader(chosen.draft?.debugReport);
   // The palette starts as a window does: what was pinned and opened before, and nothing from an earlier pass.
   seedPaletteMemory({ pinned: chosen.draft?.palette?.pinned ?? [], recent: chosen.draft?.palette?.recent ?? [], aliases: chosen.draft?.palette?.aliases ?? {}, hotkeys: chosen.draft?.palette?.hotkeys ?? {} });
   const root = createRoot(host);
@@ -235,7 +238,7 @@ export function mountApp(
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                   <AreasFrom source={chosen.draft?.areas}>
                                   <PaletteFixturesFrom fixtures={chosen.draft?.palette}>
-                                  <DebugReportFrom readings={chosen.draft?.debugReport}>
+                                  <DebugReportFrom read={debugRead}>
                                   <ThreadLookFrom seed={chosen.draft?.threadLook}>
                                     <AccountFrom account={chosen.draft?.account}>
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>

@@ -14,7 +14,8 @@ function block(heading: string, rows: [string, string][]): string {
   return [heading, ...lines].join("\n");
 }
 
-const TAIL = "bridge protocol 5.2  fleet protocol 5.2  taken 2026-11-02T09:31:12Z";
+const TAKEN = "taken 2026-11-02T09:31:12Z";
+const TAIL = `bridge protocol 5.2  fleet protocol 5.2  ${TAKEN}`;
 
 const INSTALL = block("Install", [
   ["armada", "0.14.2"],
@@ -63,5 +64,5 @@ const NO_MOD = block("Job  Fix the flaky checkout test", [
 /** Fleet answered: every part. */
 export const REPORT = ["Armada debug report", INSTALL, MOD, REPOSITORY, HEALTHY, NO_MOD, TROUBLE, TAIL].join("\n\n");
 
-/** Fleet did not answer: what Bridge reads itself, and the line saying so. */
-export const REPORT_FLEET_SILENT = ["Armada debug report", INSTALL, "Fleet   did not answer", TROUBLE, TAIL].join("\n\n");
+/** Fleet did not answer: what `armada report` reads itself and the line saying so, with a last line that has no fleet protocol. */
+export const REPORT_FLEET_SILENT = ["Armada debug report", INSTALL, "Fleet   did not answer", TROUBLE, `bridge protocol 5.2  ${TAKEN}`].join("\n\n");

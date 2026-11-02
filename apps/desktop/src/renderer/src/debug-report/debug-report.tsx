@@ -1,14 +1,14 @@
 // Copy debug report: Doctor's control and the palette's row both open one sheet, which reads the report and
-// shows exactly the text Copy puts on the clipboard. Nothing is sent anywhere. **Mock only for now**: a window with
-// no source draws neither the control nor the row, so the real app is unchanged until Fleet serves the text.
+// shows exactly the text Copy puts on the clipboard. Nothing is sent anywhere. A window with no reader draws neither
+// the control nor the row.
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
 import { CopyAct, Sheet, SkeletonText } from "@armada/components";
 
 import "./debug-report.css";
 
-/** One reading of the report: its text, and how long Fleet takes to answer. `Infinity` never answers. */
-export type DebugReading = { text: string; after?: number };
+/** Where the text comes from: one read for each opening. A rejection says why the report could not be read. */
+export type DebugRead = () => Promise<string>;
 
 /** What a window offers: open the sheet, and give back focus to `from` when it closes. */
 type Offer = { open: (from?: HTMLElement | null) => void };
@@ -18,37 +18,43 @@ const Offered = createContext<Offer | null>(null);
 /** The offer, or `null` where this window has no report to read. */
 export const useDebugReport = (): Offer | null => useContext(Offered);
 
-/** Each opening takes the next reading, and the last one repeats. Absent offers nothing. */
-export function DebugReportFrom({ readings, children }: { readings: readonly DebugReading[] | undefined; children: ReactNode }) {
-  return readings === undefined || readings.length === 0 ? <>{children}</> : <Held readings={readings}>{children}</Held>;
+/** Each opening reads once. Absent offers nothing. */
+export function DebugReportFrom({ read, children }: { read: DebugRead | undefined; children: ReactNode }) {
+  return read === undefined ? <>{children}</> : <Held read={read}>{children}</Held>;
 }
 
 // The widths of a report's lines, so the placeholder has the shape of what lands.
 const SHAPE = ["32%", "54%", "62%", "48%", "58%", "40%", "64%", "36%", "52%", "60%", "44%", "56%"];
 
-function Held({ readings, children }: { readings: readonly DebugReading[]; children: ReactNode }) {
+/** The sheet's reading: waiting, the text, or why there is none. */
+type Reading = { state: "reading" } | { state: "read"; text: string } | { state: "failed"; why: string };
+
+function Held({ read, children }: { read: DebugRead; children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [text, setText] = useState<string>();
-  const opened = useRef(0);
+  const [reading, setReading] = useState<Reading>({ state: "reading" });
   const from = useRef<HTMLElement | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // An answer that arrives after the sheet closed, or after another opening began, is not the one on screen.
+  const opening = useRef(0);
 
   const show = useCallback(
     (trigger?: HTMLElement | null) => {
-      const reading = readings[Math.min(opened.current, readings.length - 1)]!;
-      opened.current += 1;
+      const mine = ++opening.current;
       from.current = trigger ?? null;
-      setText(undefined);
+      setReading({ state: "reading" });
       setOpen(true);
-      clearTimeout(timer.current);
-      if (reading.after !== Infinity) timer.current = setTimeout(() => setText(reading.text), reading.after ?? 0);
+      const settle = (next: Reading) => {
+        if (opening.current === mine) setReading(next);
+      };
+      read().then(
+        (text) => settle({ state: "read", text }),
+        (error: unknown) => settle({ state: "failed", why: error instanceof Error ? error.message : String(error) }),
+      );
     },
-    [readings],
+    [read],
   );
 
   const close = useCallback(() => {
-    clearTimeout(timer.current);
+    opening.current += 1;
     setOpen(false);
     if (from.current?.isConnected === true) from.current.focus();
   }, []);
@@ -64,10 +70,18 @@ function Held({ readings, children }: { readings: readonly DebugReading[]; child
         closeLabel="Close"
         closeBinding="Esc"
         onClose={close}
-        controls={text === undefined ? undefined : <CopyAct text={text} />}
+        controls={reading.state === "read" ? <CopyAct text={reading.text} /> : undefined}
       >
         <div className="armada-debug-report">
-          {text === undefined ? <SkeletonText label="Reading the report" widths={SHAPE} /> : <pre className="armada-debug-report__text">{text}</pre>}
+          {reading.state === "reading" ? (
+            <SkeletonText label="Reading the report" widths={SHAPE} />
+          ) : reading.state === "read" ? (
+            <pre className="armada-debug-report__text">{reading.text}</pre>
+          ) : (
+            <p className="armada-debug-report__why" role="alert">
+              The report could not be read: {reading.why}
+            </p>
+          )}
         </div>
       </Sheet>
     </Offered.Provider>

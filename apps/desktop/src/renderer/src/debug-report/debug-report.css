@@ -14,3 +14,10 @@
   white-space: pre;
   overflow-x: auto;
 }
+
+.armada-debug-report__why {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
