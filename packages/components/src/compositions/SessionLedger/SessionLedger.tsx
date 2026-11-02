@@ -11,6 +11,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { RunnableBlock, useCodeRun, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
 import { endedSaid } from "../../primitives/TerminalPane/TerminalPane";
 import { QuestionDeck } from "../SessionThread/QuestionDeck";
+import { HeldSlots, type HeldSlotsProps } from "../HeldSlots/HeldSlots";
 import { LinkedSession, type LinkedSessionProps } from "../LinkedSession/LinkedSession";
 
 /**
@@ -99,6 +100,8 @@ export type LedgerEntry = {
   /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other. */
   options?: readonly { label: string; description?: string; onPick: () => void | Promise<unknown> }[];
   onOther?: (text: string) => void | Promise<unknown>;
+  /** A full pool's call: the slots it is held by, drawn under its choices with a Free on each. */
+  held?: HeldSlotsProps;
   /**
    * A `waiting` row with no `act`: what the person types under it, sent as his answer. With this and no
    * `act` the row's press opens a reply box in place of doing something, and its glyph is Reply.
@@ -534,6 +537,7 @@ export function LedgerRows({ kind, Glyph, rows, expanded }: { kind: LedgerKind; 
                 questions={[{ question: row.name, header: "", multi_select: false, options: options.map((one) => ({ label: one.label, description: one.description ?? "" })) }]}
                 canSkip={false}
                 flat
+                {...(row.held === undefined ? {} : { beneath: <HeldSlots {...row.held} /> })}
                 onAnswer={(_, answers) => {
                   const chosen = answers?.[0]?.chosen[0];
                   if (chosen === undefined) return;

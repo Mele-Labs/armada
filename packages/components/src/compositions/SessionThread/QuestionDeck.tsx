@@ -3,7 +3,7 @@
 // it is picked; the last one sends.
 
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent, SyntheticEvent } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode, SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 
@@ -57,6 +57,7 @@ export function QuestionDeck({
   canSkip,
   flat,
   keep,
+  beneath,
 }: {
   questions: readonly AskedQuestion[];
   /** A promise holds Answer disabled until it settles, so a second press cannot send it again. */
@@ -66,6 +67,8 @@ export function QuestionDeck({
   flat?: boolean;
   /** What these questions are about: the picks and the question in front are kept under it, as a message not yet sent is, and go when it is answered or skipped. */
   keep?: string;
+  /** Drawn under the options and above Answer, where a question has more to offer than choices: the slots a full pool is held by. */
+  beneath?: ReactNode;
 }) {
   const [held, setHeld, clearHeld] = useKept<Held>(keep === undefined ? undefined : `question:${keep}`, {
     front: 0,
@@ -270,6 +273,7 @@ export function QuestionDeck({
             {using[front] === true ? (
               <Input aria-label="Other" autoFocus value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
             ) : null}
+            {beneath}
             <div className="armada-session-thread__answers" role="group" aria-label="Answers">
               {last ? (
                 <Button

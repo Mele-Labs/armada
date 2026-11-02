@@ -431,6 +431,7 @@
 @import "./primitives/SelectMark/SelectMark.css";
 @import "./compositions/SessionThread/DraftRow.css";
 @import "./compositions/NotOursCard/NotOursCard.css";
+@import "./compositions/HeldSlots/HeldSlots.css";
 @import "./compositions/SessionThread/thread-keys.css";
 @import "./compositions/SessionThread/SubagentRow.css";
 @import "./compositions/TaskChip/TaskChip.css";
