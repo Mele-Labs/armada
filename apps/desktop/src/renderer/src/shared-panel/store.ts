@@ -50,6 +50,8 @@ export type PanelItem =
   | { kind: "lanes"; sessionId: string }
   /** What a rule on a Job's lanes is waiting on the person for, answered there. `row` is its card in the thread, which stays on show once it is sent. Without one, the panel says what the rule's acts are and where each stands. */
   | { kind: "rule"; sessionId: string; rule: string; row?: string }
+  /** A draft a Job put to the person, by its card in the thread, answered here as in the thread. */
+  | { kind: "draft"; sessionId: string; row: string }
   /** A command run in a repository's checkout with no Job behind it, started when the panel opens. `at` tells two runs of one line apart. */
   | { kind: "run"; command: string; dir: string; repository: string; at: number }
   /** Teach, for something in this Session (`source` is what, `text` its text as it stands, `at` when the row was written): the repository it is in, by id, root and name. */
