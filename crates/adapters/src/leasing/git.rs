@@ -66,8 +66,12 @@ pub(super) fn git_ok(at: &Path, args: &[&str]) -> bool {
 pub(super) fn is_checkout(path: &Path) -> bool {
     // In process first: this runs for every slot on every read of the pool, and a
     // process is what costs the machine, not the question.
-    if let Ok(repo) = git2::Repository::open(path) {
-        let top = repo.workdir().and_then(|top| top.canonicalize().ok());
+    // A held repository outlives the `.git` it was opened from, so that is looked at first.
+    if !path.join(".git").exists() {
+        forget(path);
+    }
+    if let Some((repo, _)) = held(path) {
+        let top = repo.lock().unwrap_or_else(PoisonError::into_inner).workdir().and_then(|top| top.canonicalize().ok());
         return top.is_some() && top == path.canonicalize().ok();
     }
     let Ok(top) = read(path, &["rev-parse", "--show-toplevel"]) else {
