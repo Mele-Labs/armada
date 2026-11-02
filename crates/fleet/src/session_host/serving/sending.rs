@@ -227,7 +227,7 @@ where
             return self.published_hosted(&id).await;
         }
         if matches!(written, Written::Message(SessionVoice::You)) {
-            self.hosts().of(&id).state().owes_reply = true;
+            super::super::unanswered::owed(&mut self.hosts().of(&id).state());
             self.noted_on_the_ledger(&session, &text).await?;
             self.issues_named(&id, &text, &sent.mentions).await;
             self.links_seen(&id, &text, LinkedBy::You).await;

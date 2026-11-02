@@ -1,6 +1,6 @@
 // What a note records about the element it was left on, read from the page.
 
-import { annotationId, SOURCE_ATTRIBUTE, type Annotation, type Box, type Source } from "../../../shared/annotations";
+import { annotationId, definitionOf, SOURCE_ATTRIBUTE, type Annotation, type Box, type Source, type StoryIndex } from "../../../shared/annotations";
 import { componentsOf, fiberOf } from "./fiber";
 import { selectorFor } from "./selector";
 
@@ -156,9 +156,10 @@ function findableSelector(element: Element): string {
 }
 
 /** A new, open note on `element`, with nothing said yet. */
-export function capture(element: Element, now: Date, win: Window = window): Annotation {
+export function capture(element: Element, now: Date, win: Window = window, stories: StoryIndex = {}): Annotation {
   const rect = element.getBoundingClientRect();
   const { component, owners, from } = componentsOf(fiberOf(element));
+  const definition = definitionOf(component === null ? owners : [component, ...owners], stories);
   const source = sourceOf(element);
   const at = now.toISOString();
   return {
@@ -167,6 +168,7 @@ export function capture(element: Element, now: Date, win: Window = window): Anno
     text: "",
     component,
     ...(source === undefined ? {} : { source }),
+    ...(definition === undefined ? {} : { definition }),
     owners,
     ownersFrom: from,
     selector: findableSelector(element),

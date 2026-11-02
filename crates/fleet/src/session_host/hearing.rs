@@ -353,7 +353,7 @@ where
                     {
                         let mut state = runtime.state();
                         state.said = Some(text.clone());
-                        state.owes_reply &= !super::unanswered::answers(&text);
+                        super::unanswered::heard(&mut state, &text);
                     }
                     self.said_seen(id, &text);
                     self.links_seen(id, &text, LinkedBy::Agent).await;
@@ -376,6 +376,8 @@ where
             DroneEvent::Called { tool, detail, call } => {
                 if tool == ipc::ASKS_A_QUESTION {
                     runtime.state().question_heard = Some(call.clone());
+                } else {
+                    super::unanswered::carried_past(&mut runtime.state());
                 }
                 let shown = detail.whole().unwrap_or(detail.shown()).to_string();
                 if let Some((to, message)) = adapters::sent_message(&tool, &shown) {

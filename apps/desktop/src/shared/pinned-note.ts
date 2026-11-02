@@ -4,7 +4,7 @@
 
 import type { NoteCrop, SessionNote } from "@armada/protocol";
 
-import { changeLines, type Annotation } from "./annotations";
+import { changeLines, definitionLine, type Annotation } from "./annotations";
 
 /** The spec's bounds, applied whoever read the page. */
 export const MOST_ELEMENT_TEXT = 200;
@@ -23,8 +23,8 @@ export const cropOf = (base64: string | null): NoteCrop | undefined =>
  */
 export function annotationNote(note: Annotation, address: string, crop: string | null, job: readonly string[] = []): SessionNote {
   const cropped = cropOf(crop);
-  // The changes ride in his words: the thread keeps only `said`, and a pinned note has no field of its own for them.
-  const changed = changeLines(note);
+  // The changes and the component's file ride in his words: the thread keeps only `said`, and `place` has no field for either.
+  const changed = [...changeLines(note), ...(note.definition === undefined ? [] : [definitionLine(note.definition)])];
   return {
     said: changed.length === 0 ? note.text.trim() : [note.text.trim(), "", ...changed].join("\n"),
     address,
