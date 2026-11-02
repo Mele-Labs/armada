@@ -1406,7 +1406,7 @@ export function SessionComposer({
             )}
           </span>
         )}
-        {slim ?<Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
+        {slim ? <Tooltip label={sendLabel}>{sendButton}</Tooltip> : sendButton}
       </div>
     </form>
   );
