@@ -21,7 +21,7 @@ A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is def
 | Part | Fields |
 |---|---|
 | Scene | `nodes`, `edges`, optional `strokes` |
-| Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `screen`, `step`, `shape`, `color` |
+| Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `screen`, `html`, `css`, `styles`, `kept`, `step`, `shape`, `color` |
 | Edge | `id`, `from`, `to`, optional `label`, `flow`, `step`, `color` |
 | Stroke | `id`, `points` of `x` and `y` |
 
@@ -34,6 +34,7 @@ A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is def
 | `code` | A snippet, with `lang` in the header |
 | `wire` | A wireframe block named by `wire`, never a control |
 | `screen` | A wireframe screen drawn from a layout tree in `screen`; needs `screen` |
+| `mock` | HTML drawn in a sealed frame with the repository's stylesheets; needs `w` and `html` |
 
 **Rule.** A scene arrives as `unknown`, and `parseScene` is the only way in.
 
@@ -67,6 +68,7 @@ Arrows into one side of a box arrive spread along it, and an arrow's words keep 
 ## Screens
 
 **Rule.** A `screen` node is a wireframe of any product's screen, in a neutral kit that takes none of Armada's hues.
+An agent draws it for a repository with no styles, and a `mock` for one that has them.
 An agent says what is on the screen and never where: `w` is its width and its height comes from its contents.
 
 **Rule.** The tree is `ScreenElement` in `packages/components/src/compositions/SketchScene/screen.ts`, and it arrives as `unknown`. Any element that is not one fails the whole scene.
@@ -135,6 +137,16 @@ Why: the browser that opens the file lays the screen out, so the file holds no m
 **Rule.** Save as image reads its picture from a data address, because Chromium taints a canvas for a `foreignObject` loaded from an object address.
 
 **Rule.** Copy as Mermaid names a screen as one node with its title, or its id where it has none, and nothing inside it.
+
+## Mocks
+
+**Rule.** A `mock` node is the HTML of a screen or component, drawn in a sealed iframe `w` wide with the stylesheets Fleet kept for it, so the repository's own classes and tokens apply.
+`MockView.tsx` builds the frame from the node's `html`, its `css` and the set `kept` names; scripts, handlers, inline `style` and addresses are dropped, and `<i data-icon>` becomes the glyph of `mock-icons.ts`.
+Why: a mock is only as true as the markup the agent typed, and it draws what Fleet kept at the time, not the repository as it is now.
+
+**Rule.** A mock's height follows its content, and a part is named for a note by its `data-part`, else its words.
+
+**Rule.** `kept` is Fleet's. The rules an agent draws a mock by, and the refusals, are in `docs/concepts/session/drawing-a-sketch.md`.
 
 ## Reading a sketch
 

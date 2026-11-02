@@ -8,11 +8,27 @@ Fleet places a hosted session by its connection, as for `show_window`; a termina
 
 **A scene that `parseScene` would draw as an empty frame is refused first.** `ipc` (`sketch.rs`) checks it against the same rules and answers 422 with up to twelve problems, each naming the part (`nodes[1] `b``), what it holds and what is allowed. It is stricter in one way: a field the format has no name for is refused, where `parseScene` drops it. A scene with no nodes is refused. The kinds, wire parts and icons are listed in the tool's description, and `crates/ipc/src/tests/sketch.rs` fails when they differ from `scene.ts`.
 
-**A `screen` node is a wireframe of an app's screen, for any product.** Its `screen` field is a layout tree of rows, columns and grids that size themselves, holding generic parts (window, nav, panel, tabs, list, table, button, field, text, chat, modal and the rest), so the agent says what is on the screen and never where.
+**A `screen` node is the grey wireframe of an app's screen, for a repository with no styles.** Its `screen` field is a layout tree of rows, columns and grids that size themselves, holding generic parts (window, nav, panel, tabs, list, table, button, field, text, chat, modal and the rest), so the agent says what is on the screen and never where.
 `crates/ipc/src/sketch/screen.rs` checks the tree against `readScreen` in `packages/components/src/compositions/SketchScene/screen.ts` and refuses each fault by its path, such as `nodes[2] `team` screen.children[1].rows[0].icon`, with what it holds and what is allowed.
 A tree nests at most 12 levels.
 The test reads the element types, their fields, the enums and the glyph list out of `screen.ts`.
 The tool's description teaches the types, and a refused glyph is answered with the whole list.
+
+**A screen or component of a repository with styles is a `mock` node.** `w` and `html` are required, and `title`, `css` and `styles` are optional.
+It sits on the canvas like any node, so one sketch can hold mocks, arrows and tables.
+The agent writes `html` with the app's real class names, read from the component's own markup and stylesheet, and Fleet draws it with the repository's stylesheets.
+A flow, sequence or architecture stays boxes and arrows, and something the person must press and move through is a walk, because a mock clicks nothing.
+A visual change still gets its walk after the sketch is approved.
+
+**Fleet finds the stylesheets, and `get_style_sources` only helps.** With `styles` left out Fleet walks from the Job's work to the closest ones, and `get_style_sources` (an optional `path`) lists them with token names and values, never file text.
+Where it lists several packages the agent names one by a `path` inside it.
+`css` holds the rules the stylesheets lack.
+Where a file is not usable (SCSS, Less, a theme module), or Tailwind has no build output, the agent writes them from the tokens listed, because no build runs for a sketch.
+Fleet keeps the set it drew with and writes its hash in `kept`, and a document's `armada-sketch` may hold mocks that are kept the same way.
+
+**A mock is refused with what to change** when it sends `kept`, when it has no usable stylesheet and no `css` (the answer says to draw a `screen`), when the repository holds several packages and nothing shows which is the Job's, or when a `styles` path is outside the checkout or not usable.
+A sketch holds at most 12 mocks, and `html` and `css` count toward the byte cap.
+The node and its routes are in [A sketch draws HTML in the repository's styles](../../practices/protocol/a-sketch-draws-html-the-mock-node.md), and the icons a mock may name in `<i data-icon>` are in `packages/components/src/compositions/SketchScene/mock-icons.ts`.
 
 | Cap | Holds |
 |---|---|

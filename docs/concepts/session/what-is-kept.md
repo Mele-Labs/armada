@@ -37,7 +37,7 @@ A holder is `{ kind: session, id }` and points at neither table, so another kind
 | `image` | A picture the job **looked at**: a `Read` of a `png`, `jpg`, `jpeg`, `gif` or `webp`, in any directory (a screenshot is usually in `/tmp`). The same path twice is one row, and a picture it wrote stays `file` | the file, on this machine |
 | `doc` | A Claude Docs document made or edited (`mcp__claude_ai_Claude_Docs__create`, `batch`, `update`), by the address its answer carries or the document's id | the address, in the browser |
 | `window` | A page the job showed with `show_window` | the address, in Bridge's own window |
-| `sketch` | A diagram the job drew with `show_sketch`; `target` is `sketch:<title>` and `detail.by` is `agent` | the sketch pad |
+| `sketch` | A diagram or screen the job drew with `show_sketch`; `target` is `sketch:<title>` and `detail.by` is `agent` | the sketch pad |
 
 A job can also put a file on the ledger itself with `show_file`: [Showing a file](showing-a-file.md).
 

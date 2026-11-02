@@ -13,11 +13,14 @@ Bridge's half of the node is `mock`, `html`, `css`, `styles` and `kept` on `Scen
 | Scene node `html`, `css`, `styles` on any other kind | Fleet refuses | 422 naming the node, as `screen` on a non-`screen` node is |
 | Scene node `kept` | Fleet writes | The hash of the style set Fleet drew the mock with. An agent that sends it is refused, so it is not in `NODE_FIELDS` and `tests/sketch.rs` names it as the one field `scene.ts` types and `ipc` does not take |
 | `get_style_sources` (`GET /sessions/style_sources?path=&session_id=`, `agent_access = "Yes"`) | Job reads | `StyleSources` `{ sources[], start?, packages[]? }`; each `StyleSource` is `{ path, bytes, kind, usable, tokens[] }` with `kind` one of `css`, `css_module`, `tailwind_output`, `tailwind_reset`, `theme_css`, `tailwind_config`, `scss`, `less`, `theme_module`, and `tokens` `{ name, value }` pairs read from the file, never its text |
-| `get_kept_styles` (`GET /sessions/kept_styles?hash=`, `agent_access = "No"`) | Bridge reads | `KeptStyles` `{ sheets[], fonts[] }`: `sheets` are `{ path, css, edited }` in the order they apply, `fonts` are `{ family, weight, style?, bytes }` with `bytes` base64. A hash Fleet does not hold is a 404 |
+| `get_kept_styles` (`GET /sessions/kept_styles?hash=`, `agent_access = "No"`) | Bridge reads | `KeptStyles` `{ sheets[], fonts[] }`: `sheets` are `{ path, css, edited }` in the order they apply, `fonts` are `{ family, weight, style?, bytes }` with `weight` a string as the `@font-face` wrote it (`"400"`, or `"100 900"` for a variable font) and `bytes` base64. A hash Fleet does not hold, or one that is not 32 lower-case hex characters, is a 404 |
+| Document attachment `detail.kept_styles` | Fleet writes | The text of `{"<sketch title>#<node id>": "<hash>"}` for each `mock` of each `armada-sketch` a page embeds. A page is not rewritten, because `keep` compares its bytes with the newest revision, so an older revision read later takes the newest map |
 
-**The scene's byte cap stays 32 KiB** and counts `html` and `css`, because the scene is written whole.
+**The scene's byte cap stays 32 KiB** and counts `html`, `css` and the 32 characters of each `kept`, because the scene is written whole.
 **The kept sheets and fonts never ride on a record.** The scene carries a hash, the answer to a hash never changes, and Bridge reads it once when it draws the node.
-**Not built yet.** The wire, the routes and the door tool are in; Fleet answers `get_style_sources` with 422 `fleet.style_sources_not_built` and every hash of `get_kept_styles` with 404 `fleet.no_such_kept_styles` until it finds and keeps styles.
+**Fleet keeps the sets.** `crates/fleet/src/session_host/styling.rs` finds the sheets, makes each usable, and writes the set once to `<attachments>/styles/<hash>.json`, the hash being the first 32 hex characters of the set's digest.
+`show_sketch`, `record_plan` and a document's page each write `kept` or `kept_styles` when they keep the sketch.
+`get_style_sources` with no `session_id` or placed caller is a 422 `fleet.style_sources_unnamed`, and a `path` outside the Job's checkout is a 422 `fleet.style_sources_outside`.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream is neither better nor worse.** A mock rides in the scene on the Job's record, whose weight the byte cap bounds, and the sheets are read on demand and not published.
