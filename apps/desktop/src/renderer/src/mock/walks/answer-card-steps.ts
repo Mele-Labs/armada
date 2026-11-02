@@ -11,6 +11,10 @@ const answerCardSteps = walk("answer-card-steps", [
     say: "A Job waits on a question that comes with steps",
   },
   {
+    press: inside(needs, button(/^Needs you/)),
+    say: "Its card is in Needs you",
+  },
+  {
     look: inside(needs, role("list")),
     say: "The steps are numbered under the question",
   },
