@@ -997,10 +997,10 @@ where
         self: Arc<Self>,
         open: ipc::OpenTerminal,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
-        // One shell a Job until the many-shells change: `terminal` and `new` are read by it, and
-        // every answer names `t1`.
-        let run_id = self.open_job_shell(open.session_id.as_str(), open.cols, open.rows).await?;
-        Ok(ipc::SessionRunUnderway { run_id, terminal: Some(String::from(crate::session_running::FIRST_TERMINAL)) })
+        let (terminal, run_id) = self
+            .open_job_terminal(open.session_id.as_str(), open.terminal.as_deref(), open.new, open.cols, open.rows)
+            .await?;
+        Ok(ipc::SessionRunUnderway { run_id, terminal: Some(terminal) })
     }
 
     async fn start_terminal_run(
@@ -1031,11 +1031,11 @@ where
         caller: Option<api::Caller>,
         asked: ipc::ListTerminals,
     ) -> Result<ipc::JobTerminals, Refusal> {
-        self.job_terminals_listed(caller, asked)
+        self.job_terminals_listed(caller, asked).await
     }
 
     async fn rename_terminal(&self, rename: ipc::RenameTerminal) -> Result<ipc::ListedTerminal, Refusal> {
-        self.job_terminal_renamed(rename)
+        self.job_terminal_renamed(rename).await
     }
 
     async fn drive_browser(

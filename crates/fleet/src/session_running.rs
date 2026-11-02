@@ -13,6 +13,7 @@
 
 mod ended;
 mod job_shell;
+mod job_terminals;
 pub(crate) mod plain;
 
 use std::collections::BTreeMap;
@@ -37,7 +38,7 @@ use crate::daemon::Fleet;
 use crate::mint::{Mint, UlidMint};
 
 pub(crate) use ended::{fenced, Ended};
-pub(crate) use job_shell::FIRST_TERMINAL;
+pub(crate) use job_terminals::{terminal_id, terminal_number};
 
 /// Bytes of output a run keeps.
 const RING: usize = 256 * 1024;
@@ -141,6 +142,16 @@ impl Run {
         let terminal = self.terminal.lock().expect("not poisoned");
         terminal.as_ref().is_some_and(|one| one.master.resize(size).is_ok())
     }
+
+    /// Whether a program other than the shell has the terminal's foreground: the group in front is
+    /// not the shell's own.
+    fn foreground_taken(&self) -> bool {
+        let terminal = self.terminal.lock().expect("not poisoned");
+        terminal
+            .as_ref()
+            .and_then(|one| one.master.process_group_leader())
+            .is_some_and(|leader| leader != self.pgid)
+    }
 }
 
 /// Every run Fleet holds, in flight or lately ended. Never written down.
@@ -148,8 +159,10 @@ impl Run {
 pub(crate) struct SessionRuns {
     held: Arc<Mutex<BTreeMap<String, Arc<Run>>>>,
     minted: UlidMint,
-    /// Each Job's shell, by the Job's id.
-    shells: Mutex<BTreeMap<String, String>>,
+    /// Each Job's shells, by the Job's id and then the terminal's number.
+    shells: Mutex<BTreeMap<String, BTreeMap<u32, String>>>,
+    /// Held while a Job's terminal is chosen and started, so two opens at once start one shell.
+    opening: tokio::sync::Mutex<()>,
 }
 
 /// What a run needs to start.

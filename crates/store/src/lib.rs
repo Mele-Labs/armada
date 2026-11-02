@@ -126,7 +126,7 @@ pub mod settings_file;
 mod linked_told;
 /// Each write-clash notice Fleet sent a Job, so a restart does not send it again.
 mod clash_told;
-/// The shell each Job's agent last typed into or read.
+/// A Job's terminals: their numbers, names, and the shell its agent last saw in each.
 mod job_shells;
 /// A Session dispatched to wait on another, until its condition is met.
 mod run_memory;
@@ -191,6 +191,7 @@ pub use workflow_changes::{
     FAILED as CHANGE_FAILED, READY as CHANGE_READY,
 };
 pub use session_later::KeptLater;
+pub use job_shells::KeptJobTerminal;
 pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside, KeptWatchTaken, KeptWatchVerdict, KeptWatchWhole, READINGS_KEPT};
 pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;

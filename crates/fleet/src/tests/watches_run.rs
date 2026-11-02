@@ -337,6 +337,7 @@ fn waiting_and_running_owe_nothing() {
                 unsaid: None,
                 in_terminal: None,
                 regex: false,
+                terminal: None,
             },
             readings: Vec::new(),
             set_aside: Vec::new(),

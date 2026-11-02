@@ -1,7 +1,8 @@
-//! A Job's shell: one interactive `$SHELL -l` a Job, in the directory its runs take, open until it
-//! exits, is stopped, or the Job ends.
+//! A Job's shells: each an interactive `$SHELL -l`, in the directory its runs take, open until it
+//! exits, is stopped, or the Job ends. A Job has several, `t1`, `t2` and so on
+//! (`super::job_terminals`).
 //!
-//! **It is a run like any other**, so typing, resizing, watching and stopping it are the run
+//! **A shell is a run like any other**, so typing, resizing, watching and stopping it are the run
 //! operations on its id. **Its end tells the Job nothing**: no command was run to be told about.
 
 use std::future::Future;
@@ -10,15 +11,13 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, SessionRunEvent};
-use ipc::{JobTerminal, JobTerminals, ListTerminals, ListedTerminal, ReadTerminal, RenameTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
+use ipc::{JobTerminal, ReadTerminal, TerminalScreen, TerminalTyped, TypeInTerminal};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::time::Instant;
 
+use super::job_terminals::{terminal_id, Opening};
 use super::{other, plain, refusal, size, Ended, Launch, SessionRuns, COLS, ROWS};
 use crate::daemon::Fleet;
-
-/// The one terminal a Job has until it can hold several: every answer names it.
-pub(crate) const FIRST_TERMINAL: &str = "t1";
 
 /// How long the shell prints nothing before an agent's typing is answered.
 const QUIET: Duration = Duration::from_millis(1500);
@@ -160,9 +159,10 @@ impl SessionRuns {
         Some(heard(&mut live, Instant::now() + wait).await)
     }
 
-    /// The Job's shell, started with `launch` where none is in flight, and whether it started now.
-    /// `on_end` is handed the new shell's id and answers what runs once it has ended.
-    fn open_shell<E, F, Fut>(&self, launch: Launch<'_>, on_end: E) -> std::io::Result<(String, bool)>
+    /// The Job's terminal `number`, started with `launch` where none is in flight under it, and
+    /// whether it started now. `on_end` is handed the new shell's id and answers what runs once it
+    /// has ended.
+    fn open_shell<E, F, Fut>(&self, launch: Launch<'_>, number: u32, on_end: E) -> std::io::Result<(String, bool)>
     where
         E: FnOnce(String) -> F,
         F: FnOnce(Ended) -> Fut + Send + 'static,
@@ -171,25 +171,46 @@ impl SessionRuns {
         let session = launch.session.ok_or_else(|| other("a Job's shell names its Job"))?.to_string();
         // Held across the start, so two opens at once start one shell.
         let mut shells = self.shells.lock().expect("not poisoned");
-        if let Some(open) = shells.get(&session).filter(|id| self.in_flight(id).is_some()) {
+        if let Some(open) = shells.get(&session).and_then(|own| own.get(&number)).filter(|id| self.in_flight(id).is_some()) {
             return Ok((open.clone(), false));
         }
         let id = self.mint();
         self.start_as(id.clone(), launch, on_end(id.clone()))?;
-        shells.insert(session, id.clone());
+        shells.entry(session).or_default().insert(number, id.clone());
         Ok((id, true))
     }
 
-    /// The Job's shell in flight and what it holds, once `until` was printed since the agent last
-    /// typed or `deadline` passed, and whether it was. Read as the screen resolved it, so an escape
-    /// between two letters does not hide a match.
+    /// The run id of `session`'s terminal `number`, where its shell is in flight.
+    pub(super) fn shell_open(&self, session: &str, number: u32) -> Option<String> {
+        let id = self.shells.lock().expect("not poisoned").get(session)?.get(&number).cloned()?;
+        self.in_flight(&id).map(|_| id)
+    }
+
+    /// `session`'s terminals whose shells are in flight, lowest number first, with their run ids.
+    pub(crate) fn shells_open(&self, session: &str) -> Vec<(u32, String)> {
+        let shells = self.shells.lock().expect("not poisoned");
+        let Some(own) = shells.get(session) else {
+            return Vec::new();
+        };
+        own.iter().filter(|(_, id)| self.in_flight(id).is_some()).map(|(number, id)| (*number, id.clone())).collect()
+    }
+
+    /// Whether a program other than the shell has the foreground of the shell `run_id`.
+    pub(super) fn shell_running(&self, run_id: &str) -> bool {
+        self.in_flight(run_id).is_some_and(|run| run.foreground_taken())
+    }
+
+    /// `session`'s terminal `number` in flight and what it holds, once `until` was printed since
+    /// the agent last typed or `deadline` passed, and whether it was. Read as the screen resolved
+    /// it, so an escape between two letters does not hide a match.
     async fn shell_awaited(
         &self,
         session: &str,
+        number: u32,
         until: Option<&Until>,
         deadline: Instant,
     ) -> Option<(String, String, Option<bool>)> {
-        let id = self.shells.lock().expect("not poisoned").get(session).cloned()?;
+        let id = self.shell_open(session, number)?;
         let run = self.in_flight(&id)?;
         let Some(until) = until else {
             let held = run.state.lock().expect("not poisoned").held.clone();
@@ -216,31 +237,28 @@ impl SessionRuns {
         Some((id, held, Some(matched)))
     }
 
-    /// The run id of `session`'s shell, where one is in flight.
-    fn shell_in_flight(&self, session: &str) -> Option<String> {
-        let id = self.shells.lock().expect("not poisoned").get(session).cloned()?;
-        self.in_flight(&id).map(|_| id)
-    }
-
-    /// What `session`'s shell prints from now on, where one is in flight: a terminal watch's.
-    pub(crate) fn shell_heard(&self, session: &str) -> Option<tokio::sync::broadcast::Receiver<SessionRunEvent>> {
-        let id = self.shells.lock().expect("not poisoned").get(session).cloned()?;
+    /// What `session`'s terminal `number` prints from now on, where its shell is in flight: a
+    /// terminal watch's.
+    pub(crate) fn shell_heard(&self, session: &str, number: u32) -> Option<tokio::sync::broadcast::Receiver<SessionRunEvent>> {
+        let id = self.shell_open(session, number)?;
         Some(self.in_flight(&id)?.feed.subscribe())
     }
 
-    /// Stop `session`'s shell, as a run is stopped, where it has one in flight.
-    fn stop_shell(&self, session: &str) {
-        let open = self.shells.lock().expect("not poisoned").get(session).cloned();
-        if let Some(run_id) = open {
+    /// Stop every shell `session` has in flight, as a run is stopped.
+    pub(super) fn stop_shells(&self, session: &str) {
+        let open: Vec<String> = self.shells.lock().expect("not poisoned").get(session).into_iter().flat_map(|own| own.values().cloned()).collect();
+        for run_id in open {
             self.stop(&run_id);
         }
     }
 
-    /// Forget `run_id` as `session`'s shell, unless a newer one has taken its place.
-    fn shell_ended(&self, session: &str, run_id: &str) {
+    /// Forget `run_id` as `session`'s terminal `number`, unless a newer shell has taken its place.
+    pub(super) fn shell_ended(&self, session: &str, number: u32, run_id: &str) {
         let mut shells = self.shells.lock().expect("not poisoned");
-        if shells.get(session).is_some_and(|id| id == run_id) {
-            shells.remove(session);
+        if let Some(own) = shells.get_mut(session) {
+            if own.get(&number).is_some_and(|id| id == run_id) {
+                own.remove(&number);
+            }
         }
     }
 }
@@ -255,24 +273,26 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The Job's shell, opened where it has none. A Job that has ended, or that Fleet has no row
-    /// for, is refused as a run is.
+    /// The person's plain open, as the tests make it: [`Opening::Any`], answered with the run id.
+    #[cfg(test)]
     pub(crate) async fn open_job_shell(
         self: Arc<Self>,
         session_id: &str,
         cols: Option<u16>,
         rows: Option<u16>,
     ) -> Result<String, Refusal> {
-        Ok(self.job_shell(session_id, cols, rows).await?.0)
+        Ok(self.job_shell(session_id, Opening::Any, cols, rows).await?.1)
     }
 
-    /// [`Self::open_job_shell`], and whether the shell started now.
-    async fn job_shell(
+    /// A terminal of the Job as `opening` says, its shell started where none is in flight under it:
+    /// its number, its run id, and whether the shell started now.
+    pub(super) async fn job_shell(
         self: Arc<Self>,
         session_id: &str,
+        opening: Opening,
         cols: Option<u16>,
         rows: Option<u16>,
-    ) -> Result<(String, bool), Refusal> {
+    ) -> Result<(u32, String, bool), Refusal> {
         let (cols, rows) = (cols.unwrap_or(COLS), rows.unwrap_or(ROWS));
         if cols == 0 || rows == 0 {
             return Err(self.no_cells());
@@ -281,24 +301,34 @@ where
         let launch = Launch { session: Some(session_id), command: None, dir: &dir, size: size(cols, rows) };
         let fleet = Arc::clone(&self);
         let session = session_id.to_string();
+        // Held from choosing the number to starting its shell, so two opens of a Job with none
+        // start one.
+        let _opening = self.session_runs().opening.lock().await;
+        let number = self.terminal_opened(session_id, opening).await?;
         let (run_id, opened) = self
             .session_runs()
-            .open_shell(launch, move |run_id| {
-                move |_: Ended| async move { fleet.job_shell_ended(&session, &run_id) }
+            .open_shell(launch, number, move |run_id| {
+                move |_: Ended| async move { fleet.job_shell_ended(&session, number, &run_id) }
             })
             .map_err(|why| refusal(format!("the shell could not start in {dir}: {why}"), self.run_id()))?;
         if opened {
             self.publish(ipc::Event::TerminalOpened(JobTerminal {
                 session_id: ipc::SessionId::carried(session_id),
-                terminal: FIRST_TERMINAL.to_string(),
+                terminal: terminal_id(number),
                 run_id: run_id.clone(),
             }));
         }
-        Ok((run_id, opened))
+        Ok((number, run_id, opened))
+    }
+
+    /// A new terminal for the agent: [`Self::job_shell`] under [`Opening::New`], with `ended` passed on.
+    async fn job_shell_new(self: Arc<Self>, session: &str, ended: Option<u32>) -> Result<(u32, String, bool, Option<u32>), Refusal> {
+        let (number, run_id, opened) = self.job_shell(session, Opening::New, None, None).await?;
+        Ok((number, run_id, opened, ended))
     }
 
     /// The Job a call is about: the hosted one holding the connection, else the one named.
-    fn shell_job(&self, caller: Option<api::Caller>, named: Option<&ipc::SessionId>) -> Result<String, Refusal> {
+    pub(super) fn shell_job(&self, caller: Option<api::Caller>, named: Option<&ipc::SessionId>) -> Result<String, Refusal> {
         caller
             .and_then(|caller| self.session_holding(&caller))
             .or_else(|| named.map(|named| named.as_str().trim().to_string()))
@@ -311,7 +341,9 @@ where
             })
     }
 
-    /// The agent's typing, into the Job's shell opened for it where it has none.
+    /// The agent's typing, into the terminal it named, its last used, or a new one opened for it.
+    /// **Never the person's terminal by default**: an agent that never used one, or whose last has
+    /// ended, is given a new one.
     pub(crate) async fn typed_in_job_shell(
         self: Arc<Self>,
         caller: Option<api::Caller>,
@@ -321,16 +353,44 @@ where
         if typed.text.is_empty() && !typed.enter {
             return Err(refusal("nothing to type: text is empty and enter is false", self.run_id()));
         }
-        let (run_id, opened) = Arc::clone(&self).job_shell(&session, None, None).await?;
+        // Which terminal, its run, whether its shell started now, and the last used one that ended.
+        let (number, run_id, opened, ended) = match (typed.terminal.as_deref(), typed.new) {
+            (Some(_), true) => return Err(self.terminal_and_new()),
+            (Some(named), false) => {
+                let (number, run_id) = self.terminal_named_open(&session, named)?;
+                (number, run_id, false, None)
+            }
+            (None, true) => Arc::clone(&self).job_shell_new(&session, None).await?,
+            (None, false) => match self.terminal_last_used(&session).await {
+                Some(last) => match self.session_runs().shell_open(&session, last) {
+                    Some(run_id) => (last, run_id, false, None),
+                    None => Arc::clone(&self).job_shell_new(&session, Some(last)).await?,
+                },
+                None => Arc::clone(&self).job_shell_new(&session, None).await?,
+            },
+        };
         // Settled before a refusal too, so the read it asks for shows the new shell's prompt.
         if opened {
             self.session_runs().settled(&run_id).await;
         }
-        if let Some(ended) = self.shell_seen(&session).await.filter(|seen| *seen != run_id) {
+        if let Some(ended) = ended {
             return Err(refusal(
                 format!(
-                    "nothing was typed: this job's shell {ended} ended, and {run_id} is a new one, \
-                     not where your last command ran. read_terminal it, then type again"
+                    "nothing was typed: this job's terminal {} ended, and {} is a new one, \
+                     not where your last command ran. read_terminal {} then type again",
+                    terminal_id(ended),
+                    terminal_id(number),
+                    terminal_id(number)
+                ),
+                self.run_id(),
+            ));
+        }
+        if let Some(replaced) = self.terminal_seen(&session, number).await.filter(|seen| *seen != run_id) {
+            return Err(refusal(
+                format!(
+                    "nothing was typed: this job's terminal {id} was a shell {replaced} that ended, and {run_id} is a new one \
+                     under that id, not where your last command ran. read_terminal {id}, then type again",
+                    id = terminal_id(number)
                 ),
                 self.run_id(),
             ));
@@ -342,9 +402,9 @@ where
             .typed_and_heard(&run_id, keys, wait)
             .await
             .ok_or_else(|| self.not_in_flight())?;
-        self.saw_shell(&session, &run_id).await;
+        self.terminal_saw(&session, number, &run_id).await;
         Ok(TerminalTyped {
-            terminal: FIRST_TERMINAL.to_string(),
+            terminal: terminal_id(number),
             run_id,
             echoed: echoed(&typed.text, &printed),
             printed: kept(plain::last_lines(&printed, TYPED_LINES)),
@@ -352,8 +412,8 @@ where
         })
     }
 
-    /// The last `lines` of the Job's shell, as the person's pane shows them, once `until` was
-    /// printed or its wait ran out.
+    /// The last `lines` of the terminal the agent named, its last used, or the Job's first open, as
+    /// the person's pane shows them, once `until` was printed or its wait ran out.
     pub(crate) async fn job_shell_read(
         &self,
         caller: Option<api::Caller>,
@@ -366,65 +426,19 @@ where
             Some(until) => Some(Until::of(until, asked.regex).map_err(|why| refusal(why, self.run_id()))?),
         };
         let wait = Duration::from_secs(asked.wait_seconds.unwrap_or(WAIT).clamp(1, MOST_WAIT));
+        let number = match asked.terminal.as_deref() {
+            Some(named) => self.terminal_named_open(&session, named)?.0,
+            None => self
+                .terminal_read_by_default(&session)
+                .await
+                .ok_or_else(|| refusal("this job has no terminal open. type_in_terminal opens one", self.run_id()))?,
+        };
         let (run_id, held, matched) = self
             .session_runs()
-            .shell_awaited(&session, until.as_ref(), Instant::now() + wait)
+            .shell_awaited(&session, number, until.as_ref(), Instant::now() + wait)
             .await
-            .ok_or_else(|| refusal("this job has no terminal open. type_in_terminal opens one", self.run_id()))?;
-        self.saw_shell(&session, &run_id).await;
-        Ok(TerminalScreen { terminal: FIRST_TERMINAL.to_string(), run_id, screen: kept(plain::last_lines(&held, lines)), matched })
+            .ok_or_else(|| self.terminal_not_open(&terminal_id(number)))?;
+        self.terminal_saw(&session, number, &run_id).await;
+        Ok(TerminalScreen { terminal: terminal_id(number), run_id, screen: kept(plain::last_lines(&held, lines)), matched })
     }
-
-    /// The Job's open terminals: its one shell, where one is in flight.
-    pub(crate) fn job_terminals_listed(
-        &self,
-        caller: Option<api::Caller>,
-        asked: ListTerminals,
-    ) -> Result<JobTerminals, Refusal> {
-        let session = self.shell_job(caller, asked.session_id.as_ref())?;
-        let terminals = self.session_runs().shell_in_flight(&session).into_iter().map(listed).collect();
-        Ok(JobTerminals { terminals })
-    }
-
-    /// The Job's open terminal as it stands. **The name is not kept yet**: it reads `Terminal 1`.
-    pub(crate) fn job_terminal_renamed(&self, rename: RenameTerminal) -> Result<ListedTerminal, Refusal> {
-        let session = rename.session_id.as_str().trim();
-        match self.session_runs().shell_in_flight(session) {
-            Some(run_id) if rename.terminal == FIRST_TERMINAL => Ok(listed(run_id)),
-            _ => Err(refusal(format!("this job has no open terminal {}", rename.terminal), self.run_id())),
-        }
-    }
-
-    /// The shell `session`'s agent last typed into or read. **Kept in the store**, since the restart
-    /// that ends a shell is the one that forgets it.
-    async fn shell_seen(&self, session: &str) -> Option<String> {
-        self.store().lock().await.job_shell_seen(session).ok().flatten()
-    }
-
-    async fn saw_shell(&self, session: &str, run_id: &str) {
-        if self.shell_seen(session).await.as_deref() == Some(run_id) {
-            return;
-        }
-        let now = self.now();
-        let _ = self.store().lock().await.keep_job_shell_seen(session, run_id, &now);
-    }
-
-    /// A Job that ended takes its shell with it.
-    pub(crate) fn job_shell_wound_up(&self, session: &str) {
-        self.session_runs().stop_shell(session);
-    }
-
-    fn job_shell_ended(&self, session: &str, run_id: &str) {
-        self.session_runs().shell_ended(session, run_id);
-        self.publish(ipc::Event::TerminalExited(JobTerminal {
-            session_id: ipc::SessionId::carried(session),
-            terminal: FIRST_TERMINAL.to_string(),
-            run_id: run_id.to_string(),
-        }));
-    }
-}
-
-/// The row for the Job's one shell, with the default name.
-fn listed(run_id: String) -> ListedTerminal {
-    ListedTerminal { terminal: FIRST_TERMINAL.to_string(), name: String::from("Terminal 1"), run_id, running: false }
 }

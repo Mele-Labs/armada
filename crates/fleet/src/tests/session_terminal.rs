@@ -1,5 +1,5 @@
-//! A Job's shell, through a real Fleet, a real shell and a real pseudo-terminal: one per Job, the
-//! person's and the agent's alike.
+//! A Job's shell, through a real Fleet, a real shell and a real pseudo-terminal: the person's and
+//! the agent's alike. `session_terminal_several` is a Job with more than one.
 
 use std::sync::Arc;
 
@@ -139,7 +139,7 @@ async fn the_agent_reads_what_the_person_typed_and_a_job_with_no_shell_is_refuse
 }
 
 /// The next `terminal.*` event, by its kind.
-async fn next_terminal(watching: &mut api::Subscription) -> ipc::Event {
+pub(super) async fn next_terminal(watching: &mut api::Subscription) -> ipc::Event {
     loop {
         match tokio::time::timeout(std::time::Duration::from_secs(20), watching.next()).await.expect("an event") {
             Some(api::Next::Send(delivered)) if delivered.event.kind().starts_with("terminal.") => {
