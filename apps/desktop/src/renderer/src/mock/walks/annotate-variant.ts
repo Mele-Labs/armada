@@ -30,7 +30,6 @@ const steps: Step[] = [
   { press: role("menuitem", "Fix the flaky store test"), say: "A pick sends the note to that Job" },
   { look: inside(thread, text(/variant: as drawn → Disabled \(story Disabled in packages\/components\/src\/primitives\/Input\/Input\.stories\.tsx\)/)), say: "The variant line goes with his words" },
   { look: inside(thread, text(/Component: Input in packages\/components\/src\/primitives\/Input\/Input\.tsx/)), say: "And the file the component is in" },
-  { key: "Escape", on: dialog("Note"), say: "Close the note" },
   ...viaPalette("Limits", "Back to Limits, for a Button"),
   { press: reset, say: "A note on Reset, a Button" },
   { look: inside(card, text("Button · Button.tsx")), say: "Its component and file" },
