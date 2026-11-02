@@ -55,6 +55,7 @@ const TWEAK: &str = "tweak.css";
 const TRACKER: &str = "tracker.toml";
 const COMMANDS: &str = "commands.toml";
 const TAB: &str = "tab.js";
+const INSTRUMENT: &str = "instrument.js";
 
 /// Why `name` cannot be a mod's name, or `None`. **The only gate on a path
 /// segment**: a name that passes holds no `/`, no `.` and no way to climb.
@@ -123,6 +124,7 @@ pub(crate) enum Payload {
     Tracker(String),
     Commands(String),
     Tab(String),
+    Instrument(String),
 }
 
 impl Payload {
@@ -137,6 +139,7 @@ impl Payload {
             Payload::Tracker(_) => TRACKER,
             Payload::Commands(_) => COMMANDS,
             Payload::Tab(_) => TAB,
+            Payload::Instrument(_) => INSTRUMENT,
         }
     }
 
@@ -148,6 +151,7 @@ impl Payload {
             | Payload::Words(text)
             | Payload::Commands(text)
             | Payload::Tab(text)
+            | Payload::Instrument(text)
             | Payload::Fleet(text)
             | Payload::Tweak(text) => text,
         }
@@ -267,8 +271,8 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
         tracker::examined(source, found, stamps, texts.0);
         return;
     }
-    if found.manifest.glyph.is_some() && found.manifest.kind.is_some_and(|kind| kind != ModKind::Tab) {
-        found.problems.push("mod.toml `glyph` is for a tab mod, which this is not".to_string());
+    if found.manifest.glyph.is_some() && found.manifest.kind.is_some_and(|kind| !matches!(kind, ModKind::Tab | ModKind::Instrument)) {
+        found.problems.push("mod.toml `glyph` is for a tab mod or an instrument mod, which this is not".to_string());
     }
     // A manifest that names no kind this build has is read as a theme, as it always was, so what
     // is said about a broken mod's stylesheet does not change.
@@ -279,6 +283,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
         Some(ModKind::Fleet) => (FLEET, fleet_rules::MOST_BYTES),
         Some(ModKind::Commands) => (COMMANDS, commands::MOST_BYTES),
         Some(ModKind::Tab) => (TAB, tab::MOST_BYTES),
+        Some(ModKind::Instrument) => (INSTRUMENT, tab::MOST_BYTES),
         Some(ModKind::Tweak) => (TWEAK, stylesheet::MOST_BYTES),
         Some(ModKind::Theme | ModKind::Tracker) | None => (THEME, stylesheet::MOST_BYTES),
     };
@@ -291,6 +296,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
                 Some(ModKind::Fleet) => fleet_rules::problems(&text),
                 Some(ModKind::Commands) => commands::problems(&text, name),
                 Some(ModKind::Tab) => tab::problems(&text),
+                Some(ModKind::Instrument) => tab::problems_in(&text, INSTRUMENT, "instrument"),
                 Some(ModKind::Tweak) => stylesheet::problems_in(&text, TWEAK),
                 Some(ModKind::Theme | ModKind::Tracker) | None => stylesheet::problems(&text),
             });
@@ -306,6 +312,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
             Some(ModKind::Fleet) => Payload::Fleet(text),
             Some(ModKind::Commands) => Payload::Commands(text),
             Some(ModKind::Tab) => Payload::Tab(text),
+            Some(ModKind::Instrument) => Payload::Instrument(text),
             Some(ModKind::Tweak) => Payload::Tweak(text),
             Some(ModKind::Theme | ModKind::Tracker) | None => Payload::Css(text),
         };

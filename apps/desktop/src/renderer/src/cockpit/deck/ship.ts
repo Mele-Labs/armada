@@ -92,6 +92,8 @@ export type Subject = {
   mod?: true;
   /** A Mod Job that builds a Custom tab: it has no row and no drone, and stays a subject only so the stage can open it from the tab's card. */
   tab?: true;
+  /** A Mod Job that builds an instrument and is asking him: it takes a row while no bay shows it (`listOf`). */
+  bayAsk?: true;
   mark: Mark;
   phase: Phase;
   /** He is owed something: a question, a reply, a done, a review, a failed Check. */
@@ -375,6 +377,11 @@ export function shipOf(input: Inputs): Ship {
         label: string;
       }
     | undefined => {
+    if (session.modOfBay === true)
+      return {
+        jobs: [],
+        label: session.title ?? "Instrument",
+      };
     const mod = madeTab.get(session.id);
     if (session.modFor !== undefined)
       return {
@@ -518,6 +525,11 @@ export function shipOf(input: Inputs): Ship {
         : {
             tab: true as const,
           }),
+      ...(session.modOfBay === true && stateOf(session).state === "waiting"
+        ? {
+            bayAsk: true as const,
+          }
+        : {}),
       mark,
       phase:
         needs || (alarm && !stuck)

@@ -2,8 +2,10 @@
 // (`pixi/console-stage.ts`); over each projected facet stands the instrument's own button, unseen, which keeps its press, label, tooltip and focus.
 
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -16,20 +18,43 @@ import {
   Activity as ActivityGlyph,
   ChartNoAxesGantt,
   Gauge,
+  Hammer,
   Megaphone,
   Plus,
   Radar,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Kbd, Tooltip } from "@armada/components";
+import {
+  Button,
+  Kbd,
+  SessionComposer,
+  Sheet,
+  Tooltip,
+  type SentFromComposer,
+} from "@armada/components";
 
-import { ActivityHud } from "./ConsoleHud";
+import { ActivityHud, ConsoleHud, panelOf } from "./ConsoleHud";
 import { toggleCalls, useCallsHud } from "./ConsoleCalls";
 import { useTimelineHud } from "./ConsoleTimeline";
 import { FlightActionSheet } from "./FlightActionSheet";
 import { entriesOf, isWebAddress, saveFlight, tilesOf, useFlightFile } from "./flight-controls";
 import { glyphOf } from "./flight-glyphs";
+import {
+  BUILDING,
+  bayShows,
+  faultInstrument,
+  startInstrument,
+  startedHereJob,
+  stencilOf,
+  useInstruments,
+  type Face,
+  type InstrumentMod,
+} from "./instrument-mods";
+import { useSessionsEverywhere } from "../../sessions-draft";
+import { stateOf } from "../../session-state";
+import { ModJobCard } from "../../job-panes/custom-card";
+import { faceInkOf, materialsOf, readTones } from "./pixi/console-art";
 import {
   ConsoleStage,
   type BayState,
@@ -42,7 +67,7 @@ import { tileCap } from "./session-tiles";
 
 export type InstrumentId = "matrix" | "beacon" | "radar" | "trace" | "scope" | "needles";
 /** What a bay holds: one of Armada's instruments, or a Page tile of the owner's, by its id in the file. */
-export type Seat = InstrumentId | `page:${string}`;
+export type Seat = InstrumentId | `page:${string}` | `mod:${string}` | `job:${string}`;
 type Tile = ReturnType<typeof tilesOf>[number];
 
 /** The code is a stencil on the console, decoration only. */
@@ -98,14 +123,19 @@ const TIP_OF: Partial<Record<string, string>> = {
 };
 
 const PAGE = "page:";
-/** A Page tile's stencil, as the instruments have one: the first letters of its label. Decoration only. */
-const stencilOf = (label: string): string =>
-  label
-    .replace(/[^a-z0-9]/gi, "")
-    .slice(0, 3)
-    .toUpperCase();
+const MOD = "mod:";
+/** A seat kept for a Mod Job whose mod Fleet has yet to list. */
+const JOB = "job:";
+/** The instrument a seat holds from a mod, or nothing where it is not one or the mod is gone. */
+const modOf = (
+  seat: Seat | "dispatch" | null,
+  mods: readonly InstrumentMod[],
+): InstrumentMod | undefined => (seat === null ? undefined : mods.find((one) => one.seat === seat));
 const isSeat = (one: unknown): one is Seat =>
-  typeof one === "string" && (one in INSTRUMENTS || one.startsWith(PAGE));
+  typeof one === "string" &&
+  (one in INSTRUMENTS || one.startsWith(PAGE) || one.startsWith(MOD) || one.startsWith(JOB));
+/** A seat that holds, or holds for, a mod. */
+const isModSeat = (seat: Seat): boolean => seat.startsWith(MOD) || seat.startsWith(JOB);
 /** The Page tiles the owner added to the deck, which the tray offers. */
 const pagesOf = (tiles: readonly Tile[]): Tile[] =>
   tiles.filter((one) => one.builtIn === undefined && one.kind === "page");
@@ -150,7 +180,7 @@ export const forgetBays = (): void => {
   held = undefined;
 };
 
-function keepBays(bays: Bays): void {
+export function keepBays(bays: Bays): void {
   held = bays;
   try {
     window.localStorage.setItem(KEPT, JSON.stringify(bays));
@@ -162,7 +192,7 @@ function keepBays(bays: Bays): void {
 /** Put an instrument in a bay, or empty it. */
 const seat = (bay: number, id: Seat | null): void =>
   keepBays(baysOf().map((one, at) => (at === bay ? id : one)));
-const useBays = (): Bays =>
+export const useBays = (): Bays =>
   useSyncExternalStore((hear) => (heard.add(hear), () => void heard.delete(hear)), baysOf);
 
 export type Wiring = {
@@ -295,7 +325,274 @@ function Scope({ graph }: { graph: NonNullable<Wiring["scope"]> }) {
   );
 }
 
-function Seated({ id, wiring }: { id: Seat; wiring: Wiring }) {
+const NONE: readonly never[] = [];
+const NOBODY = () => undefined;
+
+/** The mods Fleet lists, as Fleet's mods and the Jobs that build them leave them, and for a seat held on a Job, what it reads while no mod is listed. A seat on a Job that ended with nothing built holds nothing. */
+function useMods(seated: Bays): readonly InstrumentMod[] {
+  const listed = useInstruments();
+  const sessions = useSessionsEverywhere();
+  return useMemo(() => {
+    const live = new Map(
+      sessions
+        .filter((one) => one.dead === undefined)
+        .map((one) => [
+          one.id,
+          one,
+        ]),
+    );
+    const building = (job: string | undefined) => {
+      const one = job === undefined ? undefined : live.get(job);
+      return (
+        one !== undefined && (one.turn.state === "working" || stateOf(one).state === "waiting")
+      );
+    };
+    const held = seated.flatMap((seat): InstrumentMod[] => {
+      if (seat === null || !seat.startsWith(JOB)) return [];
+      const job = seat.slice(JOB.length);
+      if (!live.has(job) && (!startedHereJob(job) || sessions.some((one) => one.id === job)))
+        return [];
+      return [
+        {
+          name: seat,
+          seat: seat as `job:${string}`,
+          label: "New instrument",
+          code: stencilOf("New instrument"),
+          Icon: Gauge,
+          face: BUILDING,
+          job,
+        },
+      ];
+    });
+    return [
+      ...listed.map((one) =>
+        one.face === undefined && one.fault === undefined && building(one.job)
+          ? {
+              ...one,
+              face: BUILDING,
+            }
+          : one,
+      ),
+      ...held,
+    ];
+  }, [
+    listed,
+    sessions,
+    seated,
+  ]);
+}
+
+const MOVES_EVERY = 1000;
+
+/** With no canvas for the console, the same face stands straight in the bay, on the stage's terms: a still one is drawn only when it changes. */
+function StraightFace({ name, face }: { name: string; face: Face }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const { paint, moves, rev } = face;
+  useLayoutEffect(() => {
+    const el = canvas.current;
+    const draw = el?.getContext("2d");
+    if (el === null || el === undefined || draw === null || draw === undefined) return;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const root = document.documentElement;
+    const inkNow = () => {
+      const tone = readTones(el.parentElement ?? el);
+      return faceInkOf(tone, materialsOf(tone));
+    };
+    let ink = inkNow();
+    const redraw = () => {
+      const [w, h] = [
+        el.clientWidth,
+        el.clientHeight,
+      ];
+      const density = window.devicePixelRatio || 1;
+      const [cw, ch] = [
+        Math.ceil(w * density),
+        Math.ceil(h * density),
+      ];
+      if (el.width !== cw) el.width = cw;
+      if (el.height !== ch) el.height = ch;
+      draw.setTransform(density, 0, 0, density, 0, 0);
+      draw.clearRect(0, 0, w, h);
+      try {
+        paint(draw, {
+          w,
+          h,
+          t: motion.matches ? 0 : performance.now() / 1000,
+          ink,
+        });
+      } catch (why) {
+        draw.clearRect(0, 0, w, h);
+        faultInstrument(name, why instanceof Error ? why.message : String(why));
+      }
+    };
+    redraw();
+    let was = `${el.clientWidth}x${el.clientHeight}`;
+    const sized = new ResizeObserver(() => {
+      const now = `${el.clientWidth}x${el.clientHeight}`;
+      if (now === was) return;
+      was = now;
+      redraw();
+    });
+    sized.observe(el);
+    const themed = new MutationObserver(() => {
+      ink = inkNow();
+      redraw();
+    });
+    themed.observe(root, {
+      attributes: true,
+      attributeFilter: [
+        "data-theme",
+      ],
+    });
+    const going = moves
+      ? window.setInterval(
+          () =>
+            void (
+              document.hidden ||
+              motion.matches ||
+              root.hasAttribute("data-still") ||
+              root.hasAttribute("data-idle") ||
+              redraw()
+            ),
+          MOVES_EVERY,
+        )
+      : undefined;
+    return () => {
+      sized.disconnect();
+      themed.disconnect();
+      window.clearInterval(going);
+    };
+  }, [
+    name,
+    paint,
+    moves,
+    rev,
+  ]);
+  return <canvas ref={canvas} className="console-instrument__face" aria-hidden="true" />;
+}
+
+/** A mod's instrument: the canvas holds its face, and this is the press. Pressed, its panel opens over the field. The Job that builds it lives here: its card opens from the bay, which pulses while it asks. A fault is an empty socket that says why. */
+function ModFacet({
+  mod,
+  folded,
+  straight,
+}: {
+  mod: InstrumentMod;
+  folded: boolean /** There is no canvas, so the face stands in the bay itself. */;
+  straight: boolean;
+}) {
+  // A Job that ended has nothing more to be told, and a folded console has no bay to hang its card from.
+  const found = useSessionsEverywhere().find((one) => one.id === mod.job && one.dead === undefined);
+  const { slot, fault } = mod;
+  const job = folded || fault !== undefined ? undefined : found;
+  const [open, setOpen] = useState(false);
+  const facet = useRef<HTMLDivElement>(null);
+  const shows = job?.id;
+  useEffect(
+    () => (shows === undefined ? undefined : bayShows(shows)),
+    [
+      shows,
+    ],
+  );
+  useEffect(() => {
+    if (fault !== undefined) setOpen(false);
+  }, [
+    fault,
+  ]);
+  const close = () => {
+    setOpen(false);
+    facet.current?.querySelector<HTMLElement>(".console-scope__press")?.focus();
+  };
+  // The panel's node is the same one each time it opens, so the component in it stays mounted. A move only where it has not moved, or the focus and scroll in it would go.
+  const stand = useCallback(
+    (panel: HTMLDivElement | null) => {
+      if (panel !== null && slot !== undefined && slot.parentElement !== panel) panel.append(slot);
+    },
+    [
+      slot,
+    ],
+  );
+  if (fault !== undefined) {
+    const said =
+      mod.off === true ? `${mod.label} is switched off` : `${mod.label} did not draw: ${fault}`;
+    return (
+      <div className="console-scope console-instrument" data-tile={mod.seat}>
+        <Tooltip label={said} asChild>
+          <button
+            type="button"
+            className="console-scope__press"
+            aria-label={mod.label}
+            aria-description={said}
+          />
+        </Tooltip>
+      </div>
+    );
+  }
+  const press = (
+    <button
+      type="button"
+      className="console-scope__press"
+      aria-label={mod.label}
+      data-calling={job !== undefined && stateOf(job).state === "waiting" ? "" : undefined}
+      {...(slot === undefined
+        ? {}
+        : {
+            "aria-pressed": open,
+            "aria-haspopup": "dialog" as const,
+            onClick: () => (open ? close() : setOpen(true)),
+          })}
+    />
+  );
+  return (
+    <div ref={facet} className="console-scope console-instrument" data-tile={mod.seat}>
+      {straight && mod.face !== undefined ? <StraightFace name={mod.name} face={mod.face} /> : null}
+      {job === undefined ? (
+        <Tooltip label={mod.label} asChild>
+          {press}
+        </Tooltip>
+      ) : (
+        <ModJobCard
+          tabId={`bay:${job.id}`}
+          job={job}
+          building={false}
+          summon={false}
+          onSummoned={NOBODY}
+          side="above"
+          around=".console-bay"
+        >
+          {press}
+        </ModJobCard>
+      )}
+      {open && slot !== undefined ? (
+        <ConsoleHud
+          label={mod.label}
+          name={mod.label}
+          facet={facet}
+          onClose={close}
+          place={panelOf}
+          head={40}
+          kind="instrument"
+        >
+          {() => <div className="console-instrument__panel" ref={stand} />}
+        </ConsoleHud>
+      ) : null}
+    </div>
+  );
+}
+
+function Seated({
+  id,
+  wiring,
+  mods,
+  straight,
+}: {
+  id: Seat;
+  wiring: Wiring;
+  mods: readonly InstrumentMod[];
+  straight: boolean;
+}) {
+  const mod = modOf(id, mods);
+  if (mod !== undefined) return <ModFacet mod={mod} folded={wiring.folded} straight={straight} />;
   const page = pageOf(id, wiring.tiles);
   if (page !== undefined) return <PageKey tile={page} wiring={wiring} />;
   if (!(id in INSTRUMENTS)) return null;
@@ -335,10 +632,12 @@ const PLAN: Plan = {
 /** The console's row of bays. A bay with nothing in it is a dark, recessed socket. */
 export function ConsoleBays({ wiring }: { wiring: Wiring }) {
   const seated = useBays();
+  const mods = useMods(seated);
   const host = useRef<HTMLDivElement>(null);
   const stage = useRef<ConsoleStage | undefined>(undefined);
   const els = useRef<(HTMLDivElement | null)[]>([]);
   const [layout, setLayout] = useState<Layout | undefined>();
+  const [noCanvas, setNoCanvas] = useState(false);
   const dispatch = wiring.dispatch === undefined ? null : "dispatch";
   // A bay holding a Page tile since deleted is an empty socket.
   const shown = (id: Seat | null) =>
@@ -346,7 +645,9 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
       ? null
       : id !== null && id.startsWith(PAGE) && pageOf(id, wiring.tiles) === undefined
         ? null
-        : id;
+        : id !== null && isModSeat(id) && modOf(id, mods) === undefined
+          ? null
+          : id;
   const items: (Seat | "dispatch" | null)[] = [
     shown(seated[0]!),
     shown(seated[1]!),
@@ -366,7 +667,10 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
     const canvas = host.current!;
     const block = canvas.parentElement!;
     // The buttons are placed from the layout whether or not a canvas ever comes; without one they have to be seen.
-    const made = ConsoleStage.start(canvas, PLAN, () => block.setAttribute("data-no-canvas", ""));
+    const made = ConsoleStage.start(canvas, PLAN, () => {
+      block.setAttribute("data-no-canvas", "");
+      setNoCanvas(true);
+    });
     stage.current = made;
     const measure = () => {
       const next = made.resize(block.clientWidth);
@@ -418,7 +722,8 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
     stage.current?.setSource((): BayState[] =>
       items.map((id, at) => {
         const el = els.current[at];
-        if (id === null || el === null || el === undefined)
+        const mod = modOf(id, mods);
+        if (id === null || el === null || el === undefined || mod?.fault !== undefined)
           return {
             kind: null,
             pressed: false,
@@ -428,7 +733,13 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
           };
         const page = pageOf(id, wiring.tiles);
         const kind: Kind =
-          id === "dispatch" ? "dispatch" : page === undefined ? (id as InstrumentId) : "key";
+          id === "dispatch"
+            ? "dispatch"
+            : mod !== undefined
+              ? "mod"
+              : page === undefined
+                ? (id as InstrumentId)
+                : "key";
         let list: Dot[] | undefined;
         if (id === "scope") {
           const now = performance.now();
@@ -473,6 +784,14 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
             : {
                 glyph: page.glyph,
               }),
+          ...(mod?.face === undefined
+            ? {}
+            : {
+                paint: mod.face.paint,
+                moves: mod.face.moves,
+                rev: mod.face.rev,
+                faulted: (why: string) => faultInstrument(mod.name, why),
+              }),
         };
       }),
     );
@@ -507,23 +826,37 @@ export function ConsoleBays({ wiring }: { wiring: Wiring }) {
             {id === null ? null : id === "dispatch" ? (
               wiring.dispatch
             ) : (
-              <Seated id={id} wiring={wiring} />
+              <Seated id={id} wiring={wiring} mods={mods} straight={noCanvas} />
             )}
-            {id === null || room === undefined || label === undefined ? null : (
+            {id === null ||
+            modOf(id, mods)?.fault !== undefined ||
+            room === undefined ||
+            label === undefined ? null : (
               // The word is a straight piece of the page, standing on the lip; the bay's button runs under it and takes the press.
               <span
                 className="console-bay__label"
                 aria-hidden="true"
-                style={{
-                  left: label.x - room.x,
-                  top: label.y - room.y,
-                  fontSize: label.size,
-                  transform: `translate(-50%, -50%) rotate(${label.angle}rad)`,
-                }}
+                style={
+                  noCanvas && id !== "dispatch" && isModSeat(id)
+                    ? {
+                        left: "50%",
+                        bottom: "var(--space-1)",
+                        fontSize: label.size,
+                        transform: "translateX(-50%)",
+                      }
+                    : {
+                        left: label.x - room.x,
+                        top: label.y - room.y,
+                        fontSize: label.size,
+                        transform: `translate(-50%, -50%) rotate(${label.angle}rad)`,
+                      }
+                }
               >
                 {id === "dispatch"
                   ? "Dispatch"
-                  : (pageOf(id, wiring.tiles)?.label ?? INSTRUMENTS[id as InstrumentId].label)}
+                  : (modOf(id, mods)?.label ??
+                    pageOf(id, wiring.tiles)?.label ??
+                    INSTRUMENTS[id as InstrumentId].label)}
               </span>
             )}
           </div>
@@ -547,6 +880,41 @@ function along(event: KeyboardEvent<HTMLElement>, selector: string) {
   row[Math.min(row.length - 1, Math.max(0, at + (event.key === "ArrowLeft" ? -1 : 1)))]?.focus();
 }
 
+/** Make one: what he writes starts a Mod Job aimed at an instrument, as Custom does for a tab. */
+function MakeInstrument({
+  onClose,
+  onSend,
+}: {
+  onClose: () => void /** False keeps what he wrote: the Job did not start. */;
+  onSend: (said: string) => Promise<boolean>;
+}) {
+  return (
+    <Sheet open kind="console-make" title="New instrument" onClose={onClose}>
+      <SessionComposer
+        textOnly
+        bare
+        working={false}
+        label="New instrument"
+        model={null}
+        effort={null}
+        models={NONE}
+        efforts={NONE}
+        onTune={NOBODY}
+        commands={NONE}
+        taggable={NONE}
+        tags={NONE}
+        onTags={NOBODY}
+        drawn={NONE}
+        onDraw={NOBODY}
+        onRemoveDrawn={NOBODY}
+        draftKey="console:new-instrument"
+        focusFor="console:new-instrument"
+        onSend={(sent: SentFromComposer) => onSend(sent.text)}
+      />
+    </Sheet>
+  );
+}
+
 /** The rack. Focus a bay and press Enter to pick it, then choose from the tray with the arrows and Enter; or drag an instrument onto a bay. Delete empties the bay. */
 export function ConsoleRack({
   host,
@@ -560,6 +928,8 @@ export function ConsoleRack({
   const seated = useBays();
   const file = useFlightFile();
   const [adding, setAdding] = useState(false);
+  const [making, setMaking] = useState(false);
+  const mods = useMods(seated);
   const pages = pagesOf(tiles);
   const [armed, setArmed] = useState<number | undefined>();
   const [over, setOver] = useState<number | undefined>();
@@ -583,7 +953,12 @@ export function ConsoleRack({
     event.preventDefault();
     setOver(undefined);
     const id = event.dataTransfer.getData("text/plain");
-    if (id in INSTRUMENTS || pageOf(id as Seat, tiles) !== undefined) put(bay, id as Seat);
+    if (
+      id in INSTRUMENTS ||
+      pageOf(id as Seat, tiles) !== undefined ||
+      modOf(id as Seat, mods) !== undefined
+    )
+      put(bay, id as Seat);
   };
   useEffect(() => {
     if (armed !== undefined) tray.current?.querySelector<HTMLElement>("button")?.focus();
@@ -649,17 +1024,22 @@ export function ConsoleRack({
         <div className="console-rack__bays" onKeyDown={(event) => along(event, ".console-socket")}>
           {seated.map((id, at) => {
             const page = pageOf(id, tiles);
-            // A Page tile since deleted is an empty socket here as it is on the console.
+            const mod = modOf(id, mods);
+            // A Page tile or a mod since gone is an empty socket here as it is on the console.
             const meta =
-              id === null || (id.startsWith(PAGE) && page === undefined)
+              id === null ||
+              (id.startsWith(PAGE) && page === undefined) ||
+              (isModSeat(id) && mod === undefined)
                 ? undefined
-                : page !== undefined
-                  ? {
-                      label: page.label,
-                      Icon: glyphOf(page.glyph, "zap"),
-                      code: stencilOf(page.label),
-                    }
-                  : INSTRUMENTS[id as InstrumentId];
+                : mod !== undefined
+                  ? mod
+                  : page !== undefined
+                    ? {
+                        label: page.label,
+                        Icon: glyphOf(page.glyph, "zap"),
+                        code: stencilOf(page.label),
+                      }
+                    : INSTRUMENTS[id as InstrumentId];
             const Icon = meta?.Icon;
             return (
               <Tooltip key={at} label={meta?.label ?? `Bay ${at + 1}`} asChild>
@@ -708,6 +1088,9 @@ export function ConsoleRack({
           {pages.map((one) =>
             item(`${PAGE}${one.id}`, one.label, glyphOf(one.glyph, "zap"), stencilOf(one.label)),
           )}
+          {mods
+            .filter((one) => one.seat.startsWith(MOD))
+            .map((one) => item(one.seat, one.label, one.Icon, one.code))}
           <Tooltip label="Add an action" asChild>
             <button
               type="button"
@@ -720,8 +1103,36 @@ export function ConsoleRack({
               <Plus size={16} aria-hidden="true" />
             </button>
           </Tooltip>
+          <Tooltip label="Make an instrument" asChild>
+            <button
+              type="button"
+              role="option"
+              aria-selected={false}
+              aria-label="Make one"
+              className="console-tray__item"
+              onClick={() => setMaking(true)}
+            >
+              <Hammer size={16} aria-hidden="true" />
+            </button>
+          </Tooltip>
         </div>
       </div>
+      {making
+        ? createPortal(
+            <MakeInstrument
+              onClose={() => setMaking(false)}
+              onSend={async (said) => {
+                const bay = armed ?? last.current;
+                const job = await startInstrument(said);
+                if (job === undefined) return false;
+                setMaking(false);
+                put(bay, `${JOB}${job}`);
+                return true;
+              }}
+            />,
+            document.body,
+          )
+        : null}
       {/* Over the whole window and outside the rack, whose keys the sheet's Esc is not. */}
       {adding
         ? createPortal(

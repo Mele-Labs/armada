@@ -16,6 +16,7 @@ import {
   Command,
   Eclipse,
   FlaskConical,
+  Gauge,
   GitPullRequestArrow,
   Link,
   Package,
@@ -122,7 +123,8 @@ export type ModKind =
   | "fleet"
   | "tracker"
   | "commands"
-  | "tab";
+  | "tab"
+  | "instrument";
 
 export const MOD_KIND_SAID = {
   theme: "Theme",
@@ -133,6 +135,7 @@ export const MOD_KIND_SAID = {
   tracker: "Tracker",
   commands: "Commands",
   tab: "Tab",
+  instrument: "Instrument",
 } as const;
 const GLYPH = {
   theme: Palette,
@@ -143,6 +146,7 @@ const GLYPH = {
   tracker: Ticket,
   commands: Command,
   tab: PanelTop,
+  instrument: Gauge,
 } as const;
 
 /** The kind's glyph, with its name on hover. Kit's Mods list draws the same one. */

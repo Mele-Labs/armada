@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Graphics } from "pixi.js";
 
 import { glyphOf } from "../flight-glyphs";
+import type { FaceInk, FacePaint } from "../instrument-mods";
 import { hex, readPalette, type Rgba } from "./palette";
 
 export type Kind =
@@ -18,6 +19,7 @@ export type Kind =
   | "scope"
   | "needles"
   | "key"
+  | "mod"
   | "dispatch";
 /** A dot of the Activity graph, 0 to 1 across the scope's box. */
 export type Dot = {
@@ -35,7 +37,11 @@ export type BayState = {
   lit: boolean;
   focused: boolean;
   dots?: readonly Dot[] /** The registry glyph a `key` facet wears. */;
-  glyph?: string;
+  glyph?: string /** What a mod draws on a `mod` facet's screen, in its own take. */;
+  paint?: FacePaint /** It asks to be drawn again as time passes, where a face is otherwise drawn once. */;
+  moves?: boolean /** Moves each time the mod asks for `paint` to be drawn again. */;
+  rev?: number /** Told why a `paint` threw. */;
+  faulted?: (why: string) => void;
 };
 
 // ---- Materials ------------------------------------------------------------------------------------------------
@@ -96,6 +102,21 @@ export function materialsOf(t: Tones) {
     askDark: mix(t.ask, t.sunken, 0.72),
     askLine: mix(t.ask, t.sunken, 0.45),
     askTop: mix(t.ask, t.fg, 0.55),
+  };
+}
+
+/** What a mod's face draws in: the tokens the console's own instruments are lit with, as a canvas takes them. */
+export function faceInkOf(tone: Tones, mat: Materials): FaceInk {
+  const css = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
+  return {
+    run: css(tone.run),
+    ask: css(tone.ask),
+    bad: css(tone.bad),
+    good: css(tone.good),
+    fg: css(tone.fg),
+    muted: css(tone.muted),
+    subtle: css(tone.subtle),
+    off: css(mat.off),
   };
 }
 
@@ -462,6 +483,18 @@ function glyphOn(
 }
 
 const INSTRUMENTS: Record<Exclude<Kind, "dispatch">, Instrument> = {
+  // A mod's screen is its own: the stage puts what it draws over this.
+  mod: {
+    fixed() {},
+    live(g, b, s, t) {
+      if (s.calling)
+        g.rect(b.x, b.y, b.w, b.h).stroke({
+          width: Math.max(2, 2.5 * b.u),
+          color: b.tone.ask,
+          alpha: 0.7 + 0.3 * Math.abs(Math.sin(t * 3.4)),
+        });
+    },
+  },
   matrix: {
     fixed(g, b) {
       const { cw, ch, cols, rows, at } = matrixCells(b);
@@ -899,6 +932,25 @@ export type Paint = {
   named: boolean;
 };
 
+/** The screen's floor in a facet's own units, where a mod's instrument draws. */
+export function screenOf(p: Pick<Paint, "W" | "H" | "f" | "named">): Rect {
+  const look = {
+    W: p.W,
+    H: p.H,
+    f: p.f,
+    v: 1 / p.f,
+    u: clamp(p.W / 180, 0.5, 1.4),
+    hy: 1.5 / p.f,
+  } as Look;
+  const { x, y, w, h } = floorOf(look, p.named);
+  return {
+    x,
+    y,
+    w,
+    h,
+  };
+}
+
 /** The fixed part of a facet. */
 export function drawPlate(g: Graphics, p: Paint, s: BayState, tone: Tones, mat: Materials): void {
   const l = lookOf(tone, mat, p.W, p.H, p.f);
@@ -1040,4 +1092,8 @@ export function drawLights(
 const GLASS = 0.25;
 /** The colour a facet's screen throws, or undefined where it has no screen. */
 export const glassOf = (s: BayState, tone: Tones): number =>
-  s.kind === "beacon" && s.calling ? tone.ask : s.pressed ? tone.accent : tone.run;
+  (s.kind === "beacon" || s.kind === "mod") && s.calling
+    ? tone.ask
+    : s.pressed
+      ? tone.accent
+      : tone.run;

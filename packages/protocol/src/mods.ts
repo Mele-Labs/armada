@@ -11,7 +11,8 @@ import type { FleetRule } from "./teaching";
 /**
  * What a mod changes. A `mod.toml` naming another kind makes the mod invalid, so a valid row's is one of these.
  * `words` is a pattern Bridge links, `fleet` what Fleet does with a notice, `tweak` token values layered over the theme,
- * `commands` rows added to the command palette, `tab` a tab Bridge loads as part of itself, drawn with the whole Fleet API.
+ * `commands` rows added to the command palette, `tab` a tab Bridge loads as part of itself, drawn with the whole Fleet API,
+ * `instrument` an instrument Bridge seats in a bay of the Cockpit console, loaded as a tab is.
  */
 export type ModKind =
   | "theme"
@@ -21,7 +22,8 @@ export type ModKind =
   | "tweak"
   | "tracker"
   | "commands"
-  | "tab";
+  | "tab"
+  | "instrument";
 
 /** Where a mod comes from: this machine's mods folder, or `packages/mods/` in the build Fleet runs. */
 export type ModOrigin = "local" | "built_in";
@@ -36,7 +38,7 @@ export type ModSummary = {
   kind?: ModKind;
   version?: string;
   description?: string;
-  /** A tab mod's glyph, by its name in the icon registry. Absent where `mod.toml` names none. */
+  /** A tab or instrument mod's glyph, by its name in the icon registry. Absent where `mod.toml` names none. */
   glyph?: string;
   /** What Teach was pressed on, where a person taught this mod. Absent for a mod written by hand. */
   taught_on?: string;
@@ -116,6 +118,7 @@ export type ModAim =
   | "tracker"
   | "commands"
   | "tab"
+  | "instrument"
   | "source";
 
 /** A Mod Job started. `send_failed` is why its first message was not sent, where it was refused; open the Job and send by hand. */
@@ -154,6 +157,8 @@ export type ModChecked = {
   commands?: CommandsFile;
   /** A tab mod's glyph and `tab.js` as they were checked, present only where it passed. Bridge loads this text and no other. */
   tab?: TabModule;
+  /** An instrument mod's glyph and `instrument.js` as they were checked, present only where it passed. Bridge loads this text and no other. */
+  instrument?: InstrumentModule;
 };
 
 /** A tab mod as it was checked: what Bridge draws on the tab, and the module it runs in the tab's body. */
@@ -161,6 +166,14 @@ export type TabModule = {
   /** A name in the icon registry. Absent where `mod.toml` names none, and Bridge draws the Custom glyph. */
   glyph?: string;
   /** The text of `tab.js`, an ES module whose default export is a React component. */
+  code: string;
+};
+
+/** An instrument mod as it was checked: what Bridge marks it with, and the module it keeps mounted for a bay. */
+export type InstrumentModule = {
+  /** A name in the icon registry. Absent where `mod.toml` names none. */
+  glyph?: string;
+  /** The text of `instrument.js`, an ES module whose default export is a React component. */
   code: string;
 };
 

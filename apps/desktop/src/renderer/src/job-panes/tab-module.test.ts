@@ -51,6 +51,15 @@ describe("loadTabModule", () => {
     );
   });
 
+  it("names the file it was given, for an instrument's module", async () => {
+    await expect(
+      loadTabModule("export const Face = () => null;", fromData, "instrument.js"),
+    ).rejects.toThrow("instrument.js has no component as its default export");
+    await expect(
+      loadTabModule("export default function (", fromData, "instrument.js"),
+    ).rejects.toThrow(/^instrument\.js did not load: /);
+  });
+
   it("says a module that did not load did not, and why", async () => {
     await expect(loadTabModule("export default function (", fromData)).rejects.toThrow(
       /^tab\.js did not load: /,

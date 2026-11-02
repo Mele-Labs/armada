@@ -14,18 +14,27 @@ import { loadTabModule, type TabComponent, type TabHost } from "./tab-module";
 import { TAB_GLYPHS } from "./tab-glyph";
 import { TAB_UI } from "./tab-ui";
 
-type Loaded = {
-  Component: TabComponent | undefined /** Which load it came from. */;
+type Loaded<Host = TabHost> = {
+  Component: TabComponent<Host> | undefined /** Which load it came from. */;
   load: number;
   problems: readonly string[] /** Switched off, which is his choice and nothing to fix. */;
   off: boolean;
 };
 
+/** Where each kind of module is in `validate_mod`'s answer, and the file its faults name. */
+const MODULE_FILE = {
+  tab: "tab.js",
+  instrument: "instrument.js",
+} as const;
+
 /** The module of the mod called `name`, reloaded when its row's `changed_at` moves. Not loaded while the mod is off or not valid. */
-export function useTabModule(name: string): Loaded {
+export function useTabModule<Host = TabHost>(
+  name: string,
+  kind: keyof typeof MODULE_FILE = "tab",
+): Loaded<Host> {
   const row = useModList().find((one) => one.name === name);
   const stamp = `${row?.changed_at ?? ""}:${row?.valid === true && row.enabled}`;
-  const [loaded, setLoaded] = React.useState<Loaded>({
+  const [loaded, setLoaded] = React.useState<Loaded<Host>>({
     Component: undefined,
     load: 0,
     problems: [],
@@ -67,7 +76,8 @@ export function useTabModule(name: string): Loaded {
         return fail([
           "Fleet did not answer",
         ]);
-      if (!checked.valid || checked.tab === undefined)
+      const module = checked[kind];
+      if (!checked.valid || module === undefined)
         return refuse(
           checked.problems.length === 0
             ? [
@@ -76,7 +86,7 @@ export function useTabModule(name: string): Loaded {
             : checked.problems,
         );
       try {
-        const Component = await loadTabModule(checked.tab.code);
+        const Component = await loadTabModule<Host>(module.code, undefined, MODULE_FILE[kind]);
         if (live)
           setLoaded((was) => ({
             Component,
@@ -97,6 +107,7 @@ export function useTabModule(name: string): Loaded {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     name,
+    kind,
     stamp,
   ]);
   return loaded;
@@ -152,7 +163,7 @@ function Faults({
   );
 }
 
-class Contained extends React.Component<
+export class Contained extends React.Component<
   {
     children: React.ReactNode;
     fault: (why: string) => React.ReactNode;

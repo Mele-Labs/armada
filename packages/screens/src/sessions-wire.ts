@@ -1534,6 +1534,11 @@ export function sessionOfRecord(
             tab: record.from_tab,
           },
         }),
+    ...(record.mod_of_bay === true
+      ? {
+          modOfBay: true as const,
+        }
+      : {}),
     ...(dead === undefined
       ? {}
       : {

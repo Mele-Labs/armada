@@ -651,13 +651,18 @@ export function listOf(
     scope?: Scope;
     found?: ReadonlyMap<string, unknown>;
     open?: string;
+    bays?: ReadonlySet<string>;
   },
   banding?: readonly Banding[],
 ): Subject[] {
-  // A Mod Job that builds a Custom tab is never a row, not even while it is open on the stage.
+  // A Mod Job that builds a Custom tab is never a row, not even while it is open on the stage. One that builds an instrument is a row only while it asks and no bay shows it.
+  const asksWithNoBay = (one: Subject) =>
+    one.bayAsk === true && one.id !== undefined && deck.bays?.has(one.id) !== true;
   const ship: Ship = {
     ...whole,
-    subjects: whole.subjects.filter((one) => one.tab !== true),
+    subjects: whole.subjects
+      .filter((one) => one.tab !== true || asksWithNoBay(one))
+      .map((one) => (one.tab === true ? (({ tab: _tab, ...row }) => row)(one) : one)),
   };
   const scope = deck.scope ?? "active";
   const past = ship.subjects

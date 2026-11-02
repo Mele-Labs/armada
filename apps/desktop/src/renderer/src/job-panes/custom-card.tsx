@@ -113,13 +113,17 @@ export function ModJobCard({
   building,
   summon,
   onSummoned,
+  side = "beside",
+  around = ".job-pane",
   children,
 }: {
   tabId: string;
   job: Session | undefined;
   building: boolean;
   summon: boolean;
-  onSummoned: () => void;
+  onSummoned: () => void /** Where the card stands, and what against: a pane's tab beside its pane unless said. */;
+  side?: "beside" | "above";
+  around?: string;
   children: ReactElement;
 }) {
   if (job === undefined || building) return children;
@@ -131,8 +135,8 @@ export function ModJobCard({
   return (
     <Inspect
       name={title}
-      side="beside"
-      around=".job-pane"
+      side={side}
+      around={around}
       pin={false}
       held={working || asking}
       summoned={summon}

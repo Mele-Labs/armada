@@ -644,3 +644,61 @@ test("a Mod Job that made a tab, started before the start named its Job, has no 
     "other",
   ]);
 });
+
+test("an instrument's Mod Job takes a row only while it asks and no bay shows it, and wears no needs-you on any other Job", () => {
+  const job = (asked: boolean) =>
+    shipOf({
+      sessions: [
+        holder,
+        modJob("built", {
+          modOfBay: true,
+          turn: {
+            state: "working",
+          },
+          standing: "working",
+          ...(asked
+            ? {
+                asked: {
+                  command: "Write instrument.js",
+                },
+              }
+            : {}),
+        }),
+      ],
+      lines: [],
+      slots: [],
+      repositories: [],
+      calls: [],
+      now: NOW,
+    });
+  const rows = (ship: ReturnType<typeof shipOf>, bays: readonly string[]) =>
+    listOf(ship, {
+      checks: false,
+      held: new Map(),
+      bays: new Set(bays),
+    })
+      .map((one) => one.id)
+      .sort();
+  expect(rows(job(false), [])).toEqual([
+    "holder",
+  ]);
+  expect(
+    rows(job(false), [
+      "built",
+    ]),
+  ).toEqual([
+    "holder",
+  ]);
+  expect(
+    rows(job(true), [
+      "built",
+    ]),
+  ).toEqual([
+    "holder",
+  ]);
+  expect(rows(job(true), [])).toEqual([
+    "built",
+    "holder",
+  ]);
+  expect(job(true).subjects.find((one) => one.id === "holder")!.needs).toBe(false);
+});

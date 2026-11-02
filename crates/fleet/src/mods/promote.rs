@@ -164,6 +164,7 @@ fn written(name: &str, files: &Files) -> (Vec<(String, String)>, String) {
         Payload::Tracker(_) => "tracker",
         Payload::Commands(_) => "commands",
         Payload::Tab(_) => "tab",
+        Payload::Instrument(_) => "instrument",
     };
     let written = vec![
         (format!("{PLACE}/{name}/{MANIFEST}"), files.manifest.clone()),

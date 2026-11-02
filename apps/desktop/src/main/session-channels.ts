@@ -121,6 +121,7 @@ const MOD_AIMS: readonly ModAim[] = [
   "tracker",
   "commands",
   "tab",
+  "instrument",
   "source",
 ];
 const MCP_ACTS: readonly McpServerAct[] = [

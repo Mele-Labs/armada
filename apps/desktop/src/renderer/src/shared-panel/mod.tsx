@@ -37,6 +37,7 @@ const AIM = {
   tracker: "tracker",
   commands: "commands",
   tab: "source",
+  instrument: "instrument",
 } as const;
 
 /** The kind as it reads in the words the box opens on. */
@@ -49,6 +50,7 @@ const WORD = {
   tracker: "tracker",
   commands: "Commands",
   tab: "tab",
+  instrument: "instrument",
 } as const satisfies Record<ModKind, string>;
 
 /** The words an empty Mod Job's box opens on to change this mod, the caret after the colon. */

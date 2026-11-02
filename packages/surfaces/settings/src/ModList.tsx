@@ -66,6 +66,7 @@ const ROW_KIND: Record<TaughtKind, ModKind> = {
   tweak: "tweak",
   tracker: "tracker",
   tab: "tab",
+  instrument: "instrument",
 };
 const KIND_ORDER: readonly ModKind[] = [
   "theme",
@@ -75,6 +76,7 @@ const KIND_ORDER: readonly ModKind[] = [
   "fleet",
   "tracker",
   "tab",
+  "instrument",
 ];
 
 /** The frame a row in a list that holds a tracker is drawn in, so every row there takes the same padding: refused, off or in use. */

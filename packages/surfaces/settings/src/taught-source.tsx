@@ -22,7 +22,7 @@ export type TaughtPart = {
 };
 
 /** What a mod changes besides the theme and the layout: how Bridge shows words, what Fleet does with a notice, a shared colour over the theme, an issue tracker Fleet was not built for. */
-export type TaughtKind = "words" | "fleet" | "tweak" | "tracker" | "tab";
+export type TaughtKind = "words" | "fleet" | "tweak" | "tracker" | "tab" | "instrument";
 
 /** A mod of one of those kinds on this machine. */
 export type TaughtMod = {

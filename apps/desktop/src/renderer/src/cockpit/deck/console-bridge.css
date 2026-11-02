@@ -858,6 +858,11 @@
     letter-spacing: 0.14em;
   }
 
+  /* ---- A mod's instrument. ---- */
+  & .console-bay > .console-scope.console-instrument {
+    overflow: visible;
+  }
+
   /* ---- The berth rack: the worktree bays as a docking rack, a berth to a row. ---- */
   & .deck-right > .deck-bays {
     flex: 1 1 0;
@@ -1210,6 +1215,14 @@
       border: var(--border-width) solid var(--border-default);
       background: var(--bg-sunken);
     }
+    /* A mod's face stands straight over the bay's label, which keeps the foot. */
+    & .console-instrument__face {
+      position: absolute;
+      inset: 0 0 var(--space-5);
+      width: 100%;
+      height: calc(100% - var(--space-5));
+      pointer-events: none;
+    }
   }
 }
 
@@ -1246,4 +1259,15 @@
     ) {
     animation: none !important;
   }
+}
+
+/* The panel a mod's instrument opens stands in the HUD, outside the console's block. */
+.console-instrument__panel {
+  position: absolute;
+  inset: calc(var(--space-8) + var(--space-2)) var(--space-2) var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  overflow: auto;
+  background: var(--bg-base);
+  font-size: var(--text-sm);
+  color: var(--fg-default);
 }

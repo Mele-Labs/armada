@@ -1181,6 +1181,9 @@ pub struct SessionRecord {
     pub from_job: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_tab: Option<String>,
+    /// A Mod Job started with the aim `instrument`, so it builds an instrument for a bay of the console. Absent on every other session.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub mod_of_bay: bool,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

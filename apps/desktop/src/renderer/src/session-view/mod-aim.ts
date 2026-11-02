@@ -11,6 +11,7 @@ const AIMS: readonly ModAim[] = [
   "tracker",
   "commands",
   "tab",
+  "instrument",
   "source",
 ];
 export const aimKey = (sessionId: string) => `mod-aim:${sessionId}`;

@@ -623,6 +623,30 @@ describe("the ledger", () => {
   });
 });
 
+describe("a Mod Job's mark", () => {
+  it("reads `mod_of_bay` as a Job of a bay, and leaves it off every other", () => {
+    expect(
+      sessionOfRecord(
+        record("a", {
+          mod: true,
+          mod_of_bay: true,
+        }),
+        undefined,
+        beside(),
+      ).modOfBay,
+    ).toBe(true);
+    expect(
+      sessionOfRecord(
+        record("a", {
+          mod: true,
+        }),
+        undefined,
+        beside(),
+      ).modOfBay,
+    ).toBeUndefined();
+  });
+});
+
 describe("the thread", () => {
   const rows: SessionRow[] = [
     {

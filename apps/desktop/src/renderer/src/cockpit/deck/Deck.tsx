@@ -170,6 +170,7 @@ import "./deck.css";
 import "./power.css";
 import "./console-bridge.css";
 import { ConsoleBays, ConsoleRack } from "./ConsoleBays";
+import { InstrumentMounts } from "./instrument-mount";
 import { TimelineHud, toggleTimeline, useTimelineLamp } from "./ConsoleTimeline";
 import { Standby } from "./Standby";
 import { powering, usePowerOn } from "../boot";
@@ -1620,7 +1621,9 @@ function FlightControl({
   ).filter((one) => !one.hidden);
   const clashes = useWriteClashes();
   // The Calls key's lamp pulses while a Job is asking him.
-  const asking = ship.subjects.some((one) => one.kind === "session" && toneOf(one) === "ask");
+  const asking = ship.subjects.some(
+    (one) => one.kind === "session" && one.bayAsk !== true && toneOf(one) === "ask",
+  );
   const views = useMemo(
     () => viewsOf(props.state),
     [
@@ -2103,6 +2106,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <ClashesOpenHere ship={ship}>
       {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
       <ReplayHost props={props} ship={ship} />
+      {panels.has("controls") ? <InstrumentMounts /> : null}
       <CallsOverField props={props} ship={ship} listed={listed} calling={calling} />
       <TimelineOverField props={props} ship={ship} />
       <AutopilotAsked control={autopilot.control} />

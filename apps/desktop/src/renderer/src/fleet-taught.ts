@@ -40,6 +40,7 @@ const KINDS: readonly TaughtKind[] = [
   "tweak",
   "tracker",
   "tab",
+  "instrument",
 ];
 const isTaught = (kind: ModSummary["kind"]): kind is TaughtKind =>
   (KINDS as readonly (string | undefined)[]).includes(kind);

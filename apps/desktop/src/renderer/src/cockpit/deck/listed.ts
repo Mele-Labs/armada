@@ -1,5 +1,6 @@
 // The rows of the list, as the filters, the scope and the search leave them: one reading for the list that draws them and the keys that walk them.
 
+import { useBaysShowing } from "./instrument-mods";
 import { useEffect, useMemo } from "react";
 
 import type { Banding } from "./bands";
@@ -28,6 +29,7 @@ export function useListed(
       ship,
     ],
   );
+  const bays = useBaysShowing();
   const listed = useMemo(
     () =>
       listOf(
@@ -37,6 +39,7 @@ export function useListed(
           held,
           scope,
           order,
+          bays,
           ...(found === undefined
             ? {}
             : {
@@ -59,6 +62,7 @@ export function useListed(
       found,
       open,
       banding,
+      bays,
     ],
   );
   return {
