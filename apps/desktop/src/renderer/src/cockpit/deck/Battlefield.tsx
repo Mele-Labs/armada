@@ -38,6 +38,7 @@ import type { Light, LinkIn } from "./off-floor";
 import { MOST_LOOPS } from "./doing";
 import type { Slab } from "./lens";
 import { LensWires } from "./LensWires";
+import { hudIsOpen } from "./keys-model";
 import { useCamera } from "./useCamera";
 import { clipLayout, useFill, useGlide } from "./glide";
 import { usePowerOn } from "../boot";
@@ -332,7 +333,7 @@ export function Battlefield({ repos, drones: given, pads, goals, prs: givenPrs, 
   // Esc puts the callout away; it comes back when the pointer or focus comes to something again.
   useEffect(() => {
     const away = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || hudIsOpen()) return;
       tips.clear();
     };
     window.addEventListener("keydown", away, true);
